@@ -27,7 +27,7 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-use super::sso_session::{self, SessionPayload, set_cookie_header};
+use super::sso_session::{self, set_cookie_header, SessionPayload};
 
 #[path = "sso_saml_replay_store.rs"]
 mod sso_saml_replay_store;

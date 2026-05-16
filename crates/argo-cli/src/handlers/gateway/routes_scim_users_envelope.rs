@@ -85,10 +85,7 @@ fn parse_user_name_filter(value: &str) -> Result<String, String> {
             "only `userName eq` filters are supported, got: '{trimmed}'"
         ));
     }
-    let after_attr = trimmed
-        .get("username ".len()..)
-        .unwrap_or("")
-        .trim_start();
+    let after_attr = trimmed.get("username ".len()..).unwrap_or("").trim_start();
     let lower_after = after_attr.to_ascii_lowercase();
     let rest = lower_after
         .strip_prefix("eq ")
@@ -150,10 +147,7 @@ pub(super) fn build_patch(body: &Value) -> Result<ScimUserPatch, String> {
 /// True when at least one mutable field would change. The dispatcher
 /// short-circuits no-op PATCHes by re-reading the existing row.
 pub(super) fn patch_changes_anything(p: &ScimUserPatch) -> bool {
-    p.active.is_some()
-        || p.display_name.is_some()
-        || p.emails.is_some()
-        || p.external_id.is_some()
+    p.active.is_some() || p.display_name.is_some() || p.emails.is_some() || p.external_id.is_some()
 }
 
 fn apply_operation(op: &Value, patch: &mut ScimUserPatch) -> Result<(), String> {

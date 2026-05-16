@@ -4,9 +4,7 @@
 //! helpers (open_roster_store / parse_tenant / parse_roster_ref).
 
 use crate::cli::cli_roster_cmds::RosterCmd;
-use crate::handlers::{
-    roster_add_member, roster_create, roster_remove_member, roster_show,
-};
+use crate::handlers::{roster_add_member, roster_create, roster_remove_member, roster_show};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::{Roster, RosterId, RosterStore};
 use argo_store::SessionStore;
@@ -37,9 +35,11 @@ pub async fn run(cmd: RosterCmd) -> ArgoResult<()> {
             json,
         } => roster_create::run(&tenant, &name, policy, channels, budget_cap_usd, json).await,
         RosterCmd::List { tenant, json } => list(&tenant, json).await,
-        RosterCmd::Show { tenant, roster, json } => {
-            roster_show::run(&tenant, &roster, json).await
-        }
+        RosterCmd::Show {
+            tenant,
+            roster,
+            json,
+        } => roster_show::run(&tenant, &roster, json).await,
         RosterCmd::AddMember {
             tenant,
             roster,

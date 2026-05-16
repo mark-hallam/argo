@@ -39,10 +39,7 @@ pub struct MacosActionResult {
 /// Validate `action` against the config and post it via System
 /// Events. `dwell` is honored AFTER the post (so the next step
 /// always sees the latest state).
-pub async fn post(
-    action: &CuAction,
-    config: &MacosCuConfig,
-) -> MacosCuResult<MacosActionResult> {
+pub async fn post(action: &CuAction, config: &MacosCuConfig) -> MacosCuResult<MacosActionResult> {
     let kind = action_kind(action);
     if !config.allows_action(kind) {
         return Err(MacosCuError::ActionNotAllowed { kind });
@@ -75,10 +72,7 @@ pub fn action_kind(action: &CuAction) -> &'static str {
 }
 
 #[cfg(target_os = "macos")]
-async fn post_impl(
-    action: &CuAction,
-    config: &MacosCuConfig,
-) -> MacosCuResult<MacosActionResult> {
+async fn post_impl(action: &CuAction, config: &MacosCuConfig) -> MacosCuResult<MacosActionResult> {
     let script = build_script(action, config)?;
     let output = tokio::process::Command::new("osascript")
         .args(["-e", &script])
@@ -110,10 +104,7 @@ async fn post_impl(
 /// Build the AppleScript snippet for one CU action. Pure
 /// (testable on every platform) — the subprocess invocation is
 /// in `post_impl`.
-pub(crate) fn build_script(
-    action: &CuAction,
-    config: &MacosCuConfig,
-) -> MacosCuResult<String> {
+pub(crate) fn build_script(action: &CuAction, config: &MacosCuConfig) -> MacosCuResult<String> {
     let app_target = format!("application id \"{}\"", config.target_app);
     let script = match action {
         CuAction::Click { x, y } => format!(
@@ -270,10 +261,7 @@ mod tests {
 
     #[test]
     fn action_kind_matches_enum_variants() {
-        assert_eq!(
-            action_kind(&CuAction::Click { x: 1, y: 2 }),
-            "click"
-        );
+        assert_eq!(action_kind(&CuAction::Click { x: 1, y: 2 }), "click");
         assert_eq!(action_kind(&CuAction::Type { text: "x".into() }), "type");
         assert_eq!(
             action_kind(&CuAction::Key {

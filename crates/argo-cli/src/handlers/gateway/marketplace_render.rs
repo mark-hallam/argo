@@ -230,10 +230,7 @@ pub(super) async fn render_detail(
         ""
     };
     let installed_set = installed_for_tenant(store, tenant).await;
-    let install_path = format!(
-        "/marketplace/{}/install",
-        urlencode_segment(&skill.name)
-    );
+    let install_path = format!("/marketplace/{}/install", urlencode_segment(&skill.name));
     let install_form = if installed_set.contains(&skill.name) {
         "<button class=\"btn\" disabled>Installed</button>".to_string()
     } else {
@@ -267,10 +264,7 @@ pub(super) fn render_404(id: &str) -> String {
 }
 
 pub(super) fn render_install_ok(skill_name: &str) -> String {
-    let detail = format!(
-        "/marketplace/{}?installed=1",
-        urlencode_segment(skill_name)
-    );
+    let detail = format!("/marketplace/{}?installed=1", urlencode_segment(skill_name));
     format!(
         "<!doctype html><html><head>\
          <meta http-equiv=\"refresh\" content=\"0; url={d}\">\

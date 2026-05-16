@@ -232,11 +232,7 @@ impl CuScreenshotStore {
     /// returning the deleted count. The trait exposes no
     /// blob-byte delete API, so this is index-row only — production
     /// blob backends own bytes-level lifecycle.
-    pub async fn sweep_expired(
-        &self,
-        now: SystemTime,
-        retention: Duration,
-    ) -> ArgoResult<usize> {
+    pub async fn sweep_expired(&self, now: SystemTime, retention: Duration) -> ArgoResult<usize> {
         self.ensure_schema().await?;
         let now_secs = i64::try_from(
             now.duration_since(UNIX_EPOCH)

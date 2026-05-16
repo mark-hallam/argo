@@ -125,8 +125,7 @@ fn draw_audit_pane(
 ) {
     let title = format!(" audit tail (j/k arrows scroll) — {} rows ", entries.len());
     if loading && entries.is_empty() {
-        let p =
-            Paragraph::new(Line::from("  loading audit tail…")).block(panel_block(&title));
+        let p = Paragraph::new(Line::from("  loading audit tail…")).block(panel_block(&title));
         frame.render_widget(p, area);
         return;
     }

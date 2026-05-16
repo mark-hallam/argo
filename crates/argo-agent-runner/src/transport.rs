@@ -20,7 +20,9 @@ use std::path::{Path, PathBuf};
 pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
     if matches!(manifest.provider.family, ProviderFamily::Bedrock) {
         let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-        return Ok(maybe_wrap_dedup(Box::new(BedrockTransport::from_manifest(manifest, &cfg)?)));
+        return Ok(maybe_wrap_dedup(Box::new(BedrockTransport::from_manifest(
+            manifest, &cfg,
+        )?)));
     }
     let api_key_env = manifest.auth.api_key_env.clone();
     let api_key = argo_config::cred::get(&api_key_env)

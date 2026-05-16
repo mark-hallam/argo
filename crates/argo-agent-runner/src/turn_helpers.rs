@@ -172,8 +172,8 @@ pub(super) async fn run_turn_with_tools(
     // bound namespace to `SharedTeam` internally. Sessions without a
     // `worker_id` (legacy / ad-hoc chat) fall back to the workspace-
     // global path for legacy `list`/`read`/`write`.
-    let memory_namespace = worker_id
-        .map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
+    let memory_namespace =
+        worker_id.map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
     // mission-delegate-task-make-real: hand the in-core `delegate_task`
     // tool a live OrchestratorStore so it can insert a Pending handoff
     // when invoked. The store is reused across every dispatched tool

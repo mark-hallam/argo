@@ -167,9 +167,7 @@ fn build_bundle(
         body.push_str("\n```\n\n");
     }
     body.push_str("## Payload\n\n```json\n");
-    body.push_str(
-        &serde_json::to_string_pretty(&action.payload).unwrap_or_else(|_| "{}".into()),
-    );
+    body.push_str(&serde_json::to_string_pretty(&action.payload).unwrap_or_else(|_| "{}".into()));
     body.push_str("\n```\n");
     std::fs::write(dir.join("instructions.md"), &body).map_err(|e| {
         ArgoError::Provider(format!(

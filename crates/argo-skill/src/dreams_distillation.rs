@@ -138,8 +138,7 @@ pub fn group_into_cohorts(input: Vec<TrajectoryInput>) -> Vec<Cohort> {
         let cluster: Vec<TrajectoryInput> = members
             .into_iter()
             .filter(|m| {
-                trajectory_similarity(&anchor, &m.trajectory)
-                    >= COHORT_SIMILARITY_THRESHOLD
+                trajectory_similarity(&anchor, &m.trajectory) >= COHORT_SIMILARITY_THRESHOLD
             })
             .collect();
         if cluster.len() >= MIN_COHORT_SIZE {
@@ -211,11 +210,7 @@ pub async fn distill_cohort(
     let result = caller.distill(cohort).await?;
     let anchor = &cohort.members[0];
     let session_short: String = anchor.session_id.chars().take(8).collect();
-    let avg_metric: f64 = cohort
-        .members
-        .iter()
-        .map(|m| m.success_metric)
-        .sum::<f64>()
+    let avg_metric: f64 = cohort.members.iter().map(|m| m.success_metric).sum::<f64>()
         / (cohort.members.len() as f64);
     let mut candidate = SkillCandidate::from_cu_trajectory(
         format!("{}_{}_dreams", cohort.action_type, session_short),

@@ -55,7 +55,11 @@ fn doctor_markdown_renders_five_sections() {
         .status
         .success());
 
-    let out = run(workspace.path(), home.path(), &["doctor", "--format", "markdown"]);
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["doctor", "--format", "markdown"],
+    );
     assert!(out.status.success());
     let body = String::from_utf8_lossy(&out.stdout);
 
@@ -78,7 +82,11 @@ fn health_markdown_renders_status_and_three_sections() {
         .status
         .success());
 
-    let out = run(workspace.path(), home.path(), &["health", "--format", "markdown"]);
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["health", "--format", "markdown"],
+    );
     assert!(out.status.success());
     let body = String::from_utf8_lossy(&out.stdout);
 

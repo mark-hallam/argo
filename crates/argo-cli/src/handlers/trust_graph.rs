@@ -17,10 +17,18 @@ use uuid::Uuid;
 
 pub async fn run(cmd: TrustCmd) -> ArgoResult<()> {
     match cmd {
-        TrustCmd::Graph { from, days_back, json } => run_graph(&from, days_back, json).await,
-        TrustCmd::Composed { from, to, max_hops, days_back, json } => {
-            run_composed(&from, &to, max_hops, days_back, json).await
-        }
+        TrustCmd::Graph {
+            from,
+            days_back,
+            json,
+        } => run_graph(&from, days_back, json).await,
+        TrustCmd::Composed {
+            from,
+            to,
+            max_hops,
+            days_back,
+            json,
+        } => run_composed(&from, &to, max_hops, days_back, json).await,
     }
 }
 
@@ -41,7 +49,10 @@ async fn run_graph(from: &str, days_back: u32, json: bool) -> ArgoResult<()> {
         println!("(no outgoing trust edges for {from_tenant})");
         return Ok(());
     }
-    println!("{:<36}  {:>6}  {:>6}  last_updated_at", "to_tenant", "weight", "obs");
+    println!(
+        "{:<36}  {:>6}  {:>6}  last_updated_at",
+        "to_tenant", "weight", "obs"
+    );
     for e in neighbors {
         println!(
             "{:<36}  {:>6.3}  {:>6}  {}",

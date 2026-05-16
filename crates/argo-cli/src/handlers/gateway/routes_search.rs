@@ -45,16 +45,18 @@ pub(super) async fn search_response(
         if !matches!(want, "user" | "assistant" | "tool" | "system") {
             return (
                 "400 Bad Request",
-                format!(
-                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
-                ),
+                format!("{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"),
             );
         }
     }
     let result = match session {
         None => store.search_messages(q, limit).await,
         Some(s) => match uuid::Uuid::parse_str(s) {
-            Ok(u) => store.search_messages_in_session(SessionId(u), q, limit).await,
+            Ok(u) => {
+                store
+                    .search_messages_in_session(SessionId(u), q, limit)
+                    .await
+            }
             Err(e) => {
                 return (
                     "400 Bad Request",
@@ -147,9 +149,7 @@ pub(super) async fn search_count_response(
         if !matches!(want, "user" | "assistant" | "tool" | "system") {
             return (
                 "400 Bad Request",
-                format!(
-                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
-                ),
+                format!("{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"),
             );
         }
     }
@@ -157,7 +157,11 @@ pub(super) async fn search_count_response(
     let result = match session {
         None => store.search_messages(q, HARD_CAP).await,
         Some(s) => match uuid::Uuid::parse_str(s) {
-            Ok(u) => store.search_messages_in_session(SessionId(u), q, HARD_CAP).await,
+            Ok(u) => {
+                store
+                    .search_messages_in_session(SessionId(u), q, HARD_CAP)
+                    .await
+            }
             Err(e) => {
                 return (
                     "400 Bad Request",

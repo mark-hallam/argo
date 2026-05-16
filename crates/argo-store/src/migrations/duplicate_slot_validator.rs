@@ -51,8 +51,7 @@ mod tests {
 
     #[test]
     fn embedded_migrations_have_unique_slots() {
-        validate_no_duplicate_slots()
-            .expect("post-renumber migrations/ must be slot-monotonic");
+        validate_no_duplicate_slots().expect("post-renumber migrations/ must be slot-monotonic");
     }
 
     #[test]

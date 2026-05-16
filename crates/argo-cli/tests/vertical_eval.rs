@@ -148,10 +148,7 @@ fn cli_eval_worker_v3_verticals_real_assets_pass() {
         .unwrap()
         .join("verticals");
     // (vertical id, minimum total fixtures across all declared suites)
-    let cohort = [
-        ("gtm-engineer", 15_u64),
-        ("sales-follow-up", 5_u64),
-    ];
+    let cohort = [("gtm-engineer", 15_u64), ("sales-follow-up", 5_u64)];
     for (id, min_fixtures) in cohort {
         let home = tempfile::tempdir().unwrap();
         let out = Command::new(argo_bin())

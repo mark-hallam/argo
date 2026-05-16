@@ -148,10 +148,17 @@ print("rows:2")
         "stdout missing marker: {text}"
     );
     let created = parsed["created_files"].as_array().unwrap();
-    assert_eq!(created.len(), 1, "expected exactly one created file: {text}");
+    assert_eq!(
+        created.len(),
+        1,
+        "expected exactly one created file: {text}"
+    );
     assert_eq!(created[0]["path"], "report.csv");
     let bytes = created[0]["bytes"].as_u64().unwrap();
-    assert!(bytes >= 18, "created file should have non-trivial size: {bytes}");
+    assert!(
+        bytes >= 18,
+        "created file should have non-trivial size: {bytes}"
+    );
     // No __pycache__ leakage from python3 -B.
     assert!(
         !created.iter().any(|c| c["path"]
@@ -194,10 +201,7 @@ async fn side_car_files_are_visible_to_the_script_and_not_in_created_set() {
     let text = body(&r.content[0]);
     let parsed: serde_json::Value = serde_json::from_str(text).expect("body must be JSON");
     assert!(
-        parsed["stdout"]
-            .as_str()
-            .unwrap()
-            .contains("from-side-car"),
+        parsed["stdout"].as_str().unwrap().contains("from-side-car"),
         "{text}"
     );
     let created = parsed["created_files"].as_array().unwrap();

@@ -123,10 +123,7 @@ async fn create_bench_session(
         .await
 }
 
-async fn append_one_at_a_time(
-    bench: &BenchStore,
-    count: usize,
-) -> argo_types::ArgoResult<()> {
+async fn append_one_at_a_time(bench: &BenchStore, count: usize) -> argo_types::ArgoResult<()> {
     for _ in 0..count {
         bench
             .store

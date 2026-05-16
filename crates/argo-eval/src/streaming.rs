@@ -113,9 +113,7 @@ pub fn format_summary_line(
         StreamMode::Off => String::new(),
         StreamMode::Simple => {
             let total = passed + failed;
-            let suffix = total_ms
-                .map(|ms| format!(" in {ms}ms"))
-                .unwrap_or_default();
+            let suffix = total_ms.map(|ms| format!(" in {ms}ms")).unwrap_or_default();
             format!("summary: {passed}/{total} passed{suffix}")
         }
         StreamMode::Verbose => serde_json::json!({

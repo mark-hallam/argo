@@ -69,11 +69,7 @@ async fn transition_pending_review_to_active_makes_skill_visible() {
     let store = fresh_store().await;
     let sid = argo_types::SessionId::new();
     let proposal = store
-        .propose_for_review(
-            &skill_doc("approve-me", "0.1", "none", "x"),
-            sid,
-            "alpha",
-        )
+        .propose_for_review(&skill_doc("approve-me", "0.1", "none", "x"), sid, "alpha")
         .await
         .unwrap();
 
@@ -115,11 +111,7 @@ async fn illegal_transitions_are_rejected() {
     let store = fresh_store().await;
     let sid = argo_types::SessionId::new();
     let proposal = store
-        .propose_for_review(
-            &skill_doc("illegal-test", "0.1", "none", "x"),
-            sid,
-            "alpha",
-        )
+        .propose_for_review(&skill_doc("illegal-test", "0.1", "none", "x"), sid, "alpha")
         .await
         .unwrap();
     // PendingReview → Archived is not a legal transition.
@@ -128,18 +120,11 @@ async fn illegal_transitions_are_rejected() {
         .await
         .unwrap_err();
     let msg = format!("{err}");
-    assert!(
-        msg.contains("illegal lifecycle transition"),
-        "got: {msg}"
-    );
+    assert!(msg.contains("illegal lifecycle transition"), "got: {msg}");
     // Active → PendingReview is also illegal — first promote
     // legitimately, then try to roll back to PendingReview.
     let pending2 = store
-        .propose_for_review(
-            &skill_doc("active-skill", "0.1", "none", "x"),
-            sid,
-            "alpha",
-        )
+        .propose_for_review(&skill_doc("active-skill", "0.1", "none", "x"), sid, "alpha")
         .await
         .unwrap();
     store
@@ -158,11 +143,7 @@ async fn active_to_archived_is_legal_and_archived_is_invisible() {
     let store = fresh_store().await;
     let sid = argo_types::SessionId::new();
     let proposal = store
-        .propose_for_review(
-            &skill_doc("rollback-me", "0.1", "none", "x"),
-            sid,
-            "alpha",
-        )
+        .propose_for_review(&skill_doc("rollback-me", "0.1", "none", "x"), sid, "alpha")
         .await
         .unwrap();
     store

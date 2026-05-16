@@ -82,12 +82,10 @@ async fn too_many_channels_fail_before_db_write() {
     let (store, tenant) = store().await;
     let mut spec = base_spec();
     spec.channels = (0..9)
-        .map(|i| {
-            ChannelSpec {
-                channel: Some("email".into()),
-                target: format!("ops{i}@example.test"),
-                risk_level: None,
-            }
+        .map(|i| ChannelSpec {
+            channel: Some("email".into()),
+            target: format!("ops{i}@example.test"),
+            risk_level: None,
         })
         .collect();
     let err = create_from_spec(&store, tenant, spec, None, None)

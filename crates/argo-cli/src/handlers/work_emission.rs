@@ -60,22 +60,17 @@ pub(crate) async fn emit_and_persist_actions(
     // same memory rows; one snapshot for the duration of the
     // pass is correct because mark_item_sold rows can only land
     // via operator action, which doesn't race with the worker.
-    let sold_items: HashSet<String> = match worker_actions_items::compute_sold_items(
-        memory,
-        workspace,
-        vertical_id,
-    )
-    .await
-    {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!(
-                "argo work: warning — sold-items snapshot failed for `{vertical_id}`: {e}; \
+    let sold_items: HashSet<String> =
+        match worker_actions_items::compute_sold_items(memory, workspace, vertical_id).await {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!(
+                    "argo work: warning — sold-items snapshot failed for `{vertical_id}`: {e}; \
                  emission gate inactive for this pass"
-            );
-            HashSet::new()
-        }
-    };
+                );
+                HashSet::new()
+            }
+        };
     let mut all_records = Vec::new();
     for text in &artifact.assistant_texts {
         // The work runtime is the platform-default worker context;

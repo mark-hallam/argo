@@ -49,8 +49,7 @@ pub async fn run(
             )))
         }
     };
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(db_path(&home)).await?);
@@ -66,12 +65,13 @@ pub async fn run(
     let skills = SkillStore::new(store.clone());
     let skill = match version {
         Some(v) => find_version(&skills, name, v).await?,
-        None => skills.find_active_by_name(name).await?.ok_or_else(|| {
-            ArgoError::Provider(format!("no active skill named '{name}'"))
-        })?,
+        None => skills
+            .find_active_by_name(name)
+            .await?
+            .ok_or_else(|| ArgoError::Provider(format!("no active skill named '{name}'")))?,
     };
-    let publisher = publisher_from_source(&skill.frontmatter.provenance.source)
-        .ok_or_else(|| {
+    let publisher =
+        publisher_from_source(&skill.frontmatter.provenance.source).ok_or_else(|| {
             ArgoError::Provider(
                 "only published skills can be rated (source must be \
                  `published:<grade>:<publisher>`)"

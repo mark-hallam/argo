@@ -8,15 +8,10 @@ use std::str::FromStr;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 
-pub async fn run(
-    target: &str,
-    class: &str,
-    tagged_by: Option<&str>,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn run(target: &str, class: &str, tagged_by: Option<&str>, json: bool) -> ArgoResult<()> {
     let (kind, id) = parse_target(target)?;
-    let parsed_class = DataClass::from_str(class)
-        .map_err(|e| ArgoError::Provider(format!("class: {e}")))?;
+    let parsed_class =
+        DataClass::from_str(class).map_err(|e| ArgoError::Provider(format!("class: {e}")))?;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;

@@ -50,7 +50,11 @@ fn renders_empty_fleet() {
 fn renders_workers_with_status() {
     let workers = vec![
         snapshot("worker-running-01", WorkerStatus::Running, "ToolCall"),
-        snapshot("worker-blocked-02", WorkerStatus::Blocked, "ApprovalPending"),
+        snapshot(
+            "worker-blocked-02",
+            WorkerStatus::Blocked,
+            "ApprovalPending",
+        ),
         snapshot("worker-error-03", WorkerStatus::Error, "ProviderError"),
         snapshot("worker-idle-04", WorkerStatus::Idle, ""),
     ];

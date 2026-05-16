@@ -74,8 +74,7 @@ fn dashboard_tabs_render_html_with_expected_sections() {
     // Tab anchors marked active only on the matching tab — sanity
     // check the layout's per-tab class swap.
     assert!(
-        workers_body
-            .contains("href=\"/dashboard/workers\" class=\"active\""),
+        workers_body.contains("href=\"/dashboard/workers\" class=\"active\""),
         "workers tab marked active: {workers_body}"
     );
     assert!(

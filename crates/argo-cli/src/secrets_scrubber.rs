@@ -73,10 +73,7 @@ pub fn scrub_field<'a>(name: &str, value: &'a str) -> Cow<'a, str> {
     if matches!(lower.as_str(), "password" | "passwd" | "pwd") {
         return Cow::Borrowed("<scrubbed:password>");
     }
-    if lower.contains("apikey")
-        || lower.contains("api_key")
-        || lower.contains("api-key")
-    {
+    if lower.contains("apikey") || lower.contains("api_key") || lower.contains("api-key") {
         return Cow::Borrowed("<scrubbed:apikey>");
     }
     if lower == "bearer"
@@ -159,10 +156,7 @@ impl SecretsScrubberLayer {
     /// Test-only constructor letting the test pin the enabled state
     /// without racing other tests on `env::set_var`.
     #[cfg(test)]
-    pub(crate) fn with_writer_and_enabled(
-        writer: Box<dyn IoWrite + Send>,
-        enabled: bool,
-    ) -> Self {
+    pub(crate) fn with_writer_and_enabled(writer: Box<dyn IoWrite + Send>, enabled: bool) -> Self {
         Self {
             enabled,
             writer: Mutex::new(writer),

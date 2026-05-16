@@ -30,7 +30,10 @@ async fn goal_with_and_then_decomposes() {
         )
         .await
         .unwrap();
-    assert!(decide, "explicit ' and then ' marker should trigger decomposition");
+    assert!(
+        decide,
+        "explicit ' and then ' marker should trigger decomposition"
+    );
 }
 
 #[tokio::test]
@@ -38,7 +41,10 @@ async fn goal_with_bullets_decomposes() {
     let gate = HeuristicGate::new();
     let goal = "Promote the launch:\n- write tweet\n- write blog\n- schedule both";
     let decide = gate.should_decompose(goal, &ctx()).await.unwrap();
-    assert!(decide, "newline-bullet markers should trigger decomposition");
+    assert!(
+        decide,
+        "newline-bullet markers should trigger decomposition"
+    );
 }
 
 #[tokio::test]
@@ -60,10 +66,7 @@ async fn long_prose_decomposes() {
 async fn empty_goal_does_not_decompose() {
     let gate = HeuristicGate::new();
     let empty = gate.should_decompose("", &ctx()).await.unwrap();
-    let whitespace = gate
-        .should_decompose("   \n\t  ", &ctx())
-        .await
-        .unwrap();
+    let whitespace = gate.should_decompose("   \n\t  ", &ctx()).await.unwrap();
     assert!(!empty, "empty goal must short-circuit to no-decompose");
     assert!(
         !whitespace,
@@ -78,5 +81,8 @@ async fn semicolon_list_decomposes() {
         .should_decompose("research; draft; review; ship", &ctx())
         .await
         .unwrap();
-    assert!(decide, "semicolon-separated list should trigger decomposition");
+    assert!(
+        decide,
+        "semicolon-separated list should trigger decomposition"
+    );
 }

@@ -8,10 +8,7 @@ use std::time::Duration;
 
 /// Concurrent submits across `count` items. Returns the joined
 /// per-submit results in submit order.
-async fn submit_concurrent<T>(
-    writer: Arc<BatchedWriter<T>>,
-    items: Vec<T>,
-) -> Vec<ArgoResult<()>>
+async fn submit_concurrent<T>(writer: Arc<BatchedWriter<T>>, items: Vec<T>) -> Vec<ArgoResult<()>>
 where
     T: Send + 'static,
 {
@@ -157,9 +154,7 @@ async fn env_knob_respected() {
 #[tokio::test]
 async fn error_from_flush_fn_propagated() {
     let writer = Arc::new(BatchedWriter::new(
-        |_batch: Vec<u32>| async {
-            Err::<(), _>(ArgoError::Provider("flush exploded".into()))
-        },
+        |_batch: Vec<u32>| async { Err::<(), _>(ArgoError::Provider("flush exploded".into())) },
         2,
         Duration::from_secs(60),
     ));

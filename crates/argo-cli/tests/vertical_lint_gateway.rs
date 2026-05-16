@@ -51,8 +51,7 @@ fn repo_verticals_dir() -> std::path::PathBuf {
 #[test]
 fn gateway_get_lint_pr_checker_returns_200_ok_no_errors() {
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
 
     let resp = http_get(port, "/verticals/pr-checker/lint");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
@@ -71,8 +70,7 @@ fn gateway_get_lint_pr_checker_returns_200_ok_no_errors() {
 #[test]
 fn gateway_get_lint_receptionist_returns_200_ok_no_errors() {
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
 
     let resp = http_get(port, "/verticals/receptionist/lint");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
@@ -86,8 +84,7 @@ fn gateway_get_lint_receptionist_returns_200_ok_no_errors() {
 fn gateway_get_lint_unknown_vertical_returns_404() {
     let verticals = tempfile::tempdir().unwrap();
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(verticals.path(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(verticals.path(), wd.path(), 1);
 
     let resp = http_get(port, "/verticals/ghost/lint");
     assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp: {resp}");
@@ -110,8 +107,7 @@ fn gateway_get_lint_synthetic_typo_emits_warn_finding() {
          [tools]\nallowed = [\"file_read\", \"file_reed_typo\"]\ndenied = []\n",
     )
     .unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(verticals.path(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(verticals.path(), wd.path(), 1);
 
     let resp = http_get(port, "/verticals/typo/lint");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
@@ -124,10 +120,7 @@ fn gateway_get_lint_synthetic_typo_emits_warn_finding() {
         .find(|f| f["code"] == "tools.allowed.unknown_name")
         .expect("expected warn finding");
     assert_eq!(warn["severity"], "warn");
-    assert!(warn["message"]
-        .as_str()
-        .unwrap()
-        .contains("file_reed_typo"));
+    assert!(warn["message"].as_str().unwrap().contains("file_reed_typo"));
 
     let _ = child.kill();
 }
@@ -135,8 +128,7 @@ fn gateway_get_lint_synthetic_typo_emits_warn_finding() {
 #[test]
 fn gateway_routes_catalog_lists_lint_endpoint() {
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 1);
 
     let resp = http_get(port, "/routes");
     assert!(resp.contains("HTTP/1.1 200 OK"));

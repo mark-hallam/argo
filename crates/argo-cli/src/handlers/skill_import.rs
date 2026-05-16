@@ -174,8 +174,8 @@ fn skill_json(id: Option<&str>, frontmatter: &SkillFrontmatter) -> serde_json::V
 }
 
 pub async fn run(skills: &SkillStore, path: &str, lock: Option<&str>) -> ArgoResult<()> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Io(format!("read {path}: {e}")))?;
+    let raw =
+        std::fs::read_to_string(path).map_err(|e| ArgoError::Io(format!("read {path}: {e}")))?;
     let imported_source = format!("imported:{}", sha256_hex(raw.as_bytes()));
     reject_import_collision(skills, &imported_source).await?;
 

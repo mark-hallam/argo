@@ -17,9 +17,7 @@ use std::collections::{BTreeSet, HashSet, VecDeque};
 pub const DEFAULT_MAX_DEPTH: u32 = 5;
 
 /// Kind of dependency between two skills.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RefKind {
     /// Explicit invocation (`argo skill run X`).
@@ -133,12 +131,12 @@ pub fn extract_refs(body: &str, _frontmatter: &SkillFrontmatter) -> Vec<SkillRef
 /// Walks BFS up to `max_depth`. Names that resolve to a missing
 /// skill are still emitted as edges (with a synthetic empty
 /// target body — the operator wants to see the broken edge).
-pub async fn build_graph(
-    store: &SkillStore,
-    root: &str,
-    max_depth: u32,
-) -> ArgoResult<DepGraph> {
-    let depth_cap = if max_depth == 0 { DEFAULT_MAX_DEPTH } else { max_depth };
+pub async fn build_graph(store: &SkillStore, root: &str, max_depth: u32) -> ArgoResult<DepGraph> {
+    let depth_cap = if max_depth == 0 {
+        DEFAULT_MAX_DEPTH
+    } else {
+        max_depth
+    };
     let _ = store
         .find_active_by_name(root)
         .await?
@@ -187,7 +185,11 @@ pub async fn build_reverse_graph(
     target: &str,
     max_depth: u32,
 ) -> ArgoResult<DepGraph> {
-    let depth_cap = if max_depth == 0 { DEFAULT_MAX_DEPTH } else { max_depth };
+    let depth_cap = if max_depth == 0 {
+        DEFAULT_MAX_DEPTH
+    } else {
+        max_depth
+    };
     let _ = store
         .find_active_by_name(target)
         .await?
@@ -283,8 +285,7 @@ mod tests {
 
     #[test]
     fn extract_refs_dedupes_same_kind() {
-        let body =
-            "argo skill run mailer\nlater: argo skill run mailer\nand also `skill:mailer`";
+        let body = "argo skill run mailer\nlater: argo skill run mailer\nand also `skill:mailer`";
         let refs = extract_refs(body, &fm("root"));
         // Calls and References to "mailer" both surface (different
         // kinds), but the duplicate Calls is dropped.

@@ -78,12 +78,10 @@ async fn acquire_with_timeout_returns_rate_limit_error_after_timeout() {
 #[tokio::test]
 async fn per_server_isolation_keeps_one_throttle_from_blocking_another() {
     let limiter = RateLimiter::from_config(&config_for("blocked", 0.0, 0.0));
-    assert!(
-        limiter
-            .acquire_with_timeout("blocked", 1.0, Duration::from_millis(5))
-            .await
-            .is_err()
-    );
+    assert!(limiter
+        .acquire_with_timeout("blocked", 1.0, Duration::from_millis(5))
+        .await
+        .is_err());
     limiter
         .acquire_with_timeout("other", 1.0, Duration::from_millis(5))
         .await

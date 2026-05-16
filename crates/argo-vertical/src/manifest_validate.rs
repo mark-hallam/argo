@@ -141,11 +141,7 @@ fn check_actions(manifest: &VerticalManifest, errors: &mut Vec<ValidationError>)
     }
 }
 
-fn check_executor_kind(
-    action: &str,
-    decl: &ActionDeclaration,
-    errors: &mut Vec<ValidationError>,
-) {
+fn check_executor_kind(action: &str, decl: &ActionDeclaration, errors: &mut Vec<ValidationError>) {
     let kind = decl.executor.kind_str();
     let path = format!("actions.{action}.executor.kind");
     if kind.is_empty() {

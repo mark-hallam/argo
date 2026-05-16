@@ -25,14 +25,8 @@ use serde_json::json;
 use std::sync::Arc;
 
 /// Run `argo skill upgrade`.
-pub async fn run(
-    name: &str,
-    dry_run: bool,
-    yes: bool,
-    json_out: bool,
-) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+pub async fn run(name: &str, dry_run: bool, yes: bool, json_out: bool) -> ArgoResult<()> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -40,9 +34,10 @@ pub async fn run(
     store.migrate().await?;
     let skills = SkillStore::new(Arc::clone(&store));
 
-    let active = skills.find_active_by_name(name).await?.ok_or_else(|| {
-        ArgoError::Schema(format!("no active skill named '{name}'"))
-    })?;
+    let active = skills
+        .find_active_by_name(name)
+        .await?
+        .ok_or_else(|| ArgoError::Schema(format!("no active skill named '{name}'")))?;
     let installed_version = active.frontmatter.version.clone();
 
     let migration = lookup_migration(&store, active.id, &installed_version).await?;
@@ -183,7 +178,10 @@ mod tests {
     async fn dry_run_does_not_supersede() {
         let store = Arc::new(open_store().await);
         let skills = SkillStore::new(Arc::clone(&store));
-        let installed = skills.install(&skill_md("greet", "1.0"), None).await.unwrap();
+        let installed = skills
+            .install(&skill_md("greet", "1.0"), None)
+            .await
+            .unwrap();
         record_migration(
             &store,
             installed.id,
@@ -208,7 +206,10 @@ mod tests {
     async fn no_migration_returns_none() {
         let store = Arc::new(open_store().await);
         let skills = SkillStore::new(Arc::clone(&store));
-        let installed = skills.install(&skill_md("ghost", "1.0"), None).await.unwrap();
+        let installed = skills
+            .install(&skill_md("ghost", "1.0"), None)
+            .await
+            .unwrap();
         let m = lookup_migration(&store, installed.id, "1.0").await.unwrap();
         assert!(m.is_none());
     }
@@ -223,7 +224,10 @@ mod tests {
         record_migration(&store, installed.id, "1", "2", TenantId::new(), None, true)
             .await
             .unwrap();
-        let m = lookup_migration(&store, installed.id, "1").await.unwrap().unwrap();
+        let m = lookup_migration(&store, installed.id, "1")
+            .await
+            .unwrap()
+            .unwrap();
         assert!(m.auto_upgrade, "auto_upgrade flag must round-trip true");
     }
 }

@@ -195,10 +195,7 @@ pub(super) async fn memory_edit_response(
                 entry.id
             ),
         ),
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"edit: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"edit: {e}\"}}")),
     }
 }
 
@@ -224,7 +221,10 @@ pub(super) async fn memory_forget_response(
         }
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
-    match memory.revert(id, argo_memory::PrincipalOverride::Force).await {
+    match memory
+        .revert(id, argo_memory::PrincipalOverride::Force)
+        .await
+    {
         Ok(entry) => (
             "200 OK",
             format!(
@@ -232,10 +232,7 @@ pub(super) async fn memory_forget_response(
                 entry.id
             ),
         ),
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"forget: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"forget: {e}\"}}")),
     }
 }
 
@@ -267,10 +264,7 @@ pub(super) async fn memory_unlock_response(
             "200 OK",
             format!("{{\"unlocked\":true,\"id\":\"{raw_id}\"}}"),
         ),
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"unlock: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"unlock: {e}\"}}")),
     }
 }
 
@@ -363,10 +357,7 @@ pub(super) async fn skill_unlock_response(
                 skill.id.0
             ),
         ),
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"unlock: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"unlock: {e}\"}}")),
     }
 }
 
@@ -385,8 +376,12 @@ fn parse_lock_from_body(req: &str, default: Lock) -> Result<Lock, (&'static str,
     if body.trim().is_empty() {
         return Ok(default);
     }
-    let v: serde_json::Value = serde_json::from_str(body)
-        .map_err(|e| ("400 Bad Request", format!("{{\"error\":\"parse JSON body: {e}\"}}")))?;
+    let v: serde_json::Value = serde_json::from_str(body).map_err(|e| {
+        (
+            "400 Bad Request",
+            format!("{{\"error\":\"parse JSON body: {e}\"}}"),
+        )
+    })?;
     match v.get("lock").and_then(|x| x.as_str()) {
         None => Ok(default),
         Some("none") => Ok(Lock::None),

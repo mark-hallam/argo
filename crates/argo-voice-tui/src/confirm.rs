@@ -22,14 +22,17 @@
 ///
 /// `spend` is optional because not every action has a cost (e.g.
 /// approving a non-spending email-send still wants a confirmation).
-pub fn format_confirmation(verb: &str, worker: &str, action_summary: &str, spend: Option<f64>) -> String {
+pub fn format_confirmation(
+    verb: &str,
+    worker: &str,
+    action_summary: &str,
+    spend: Option<f64>,
+) -> String {
     let spend_chunk = match spend {
         Some(amount) if amount > 0.0 => format!(" for ${amount:.2}"),
         _ => String::new(),
     };
-    format!(
-        "{verb} {worker}{spend_chunk} {action_summary} — say YES to confirm."
-    )
+    format!("{verb} {worker}{spend_chunk} {action_summary} — say YES to confirm.")
 }
 
 /// Operator response to a confirmation prompt.
@@ -84,19 +87,31 @@ mod tests {
 
     #[test]
     fn parse_yes_variants() {
-        assert_eq!(parse_confirmation_response("yes"), ConfirmationResponse::Yes);
-        assert_eq!(parse_confirmation_response("Yeah!"), ConfirmationResponse::Yes);
+        assert_eq!(
+            parse_confirmation_response("yes"),
+            ConfirmationResponse::Yes
+        );
+        assert_eq!(
+            parse_confirmation_response("Yeah!"),
+            ConfirmationResponse::Yes
+        );
         assert_eq!(
             parse_confirmation_response("Yes please"),
             ConfirmationResponse::Yes
         );
-        assert_eq!(parse_confirmation_response("CONFIRM"), ConfirmationResponse::Yes);
+        assert_eq!(
+            parse_confirmation_response("CONFIRM"),
+            ConfirmationResponse::Yes
+        );
     }
 
     #[test]
     fn parse_no_variants() {
         assert_eq!(parse_confirmation_response("no"), ConfirmationResponse::No);
-        assert_eq!(parse_confirmation_response("Cancel"), ConfirmationResponse::No);
+        assert_eq!(
+            parse_confirmation_response("Cancel"),
+            ConfirmationResponse::No
+        );
         assert_eq!(
             parse_confirmation_response("Nope, hold up"),
             ConfirmationResponse::No

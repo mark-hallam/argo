@@ -40,9 +40,7 @@ pub fn validate(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
 
 fn validate_id(id: &str) -> ArgoResult<()> {
     if id.is_empty() {
-        return Err(ArgoError::Schema(
-            "vertical.id must not be empty".into(),
-        ));
+        return Err(ArgoError::Schema("vertical.id must not be empty".into()));
     }
     let ok = id
         .chars()
@@ -116,9 +114,8 @@ fn validate_memory(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
             let path = root.join(schema);
             let src = std::fs::read_to_string(&path)
                 .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
-            crate::memory_schema::parse_memory_schema(&src).map_err(|e| {
-                ArgoError::Schema(format!("[memory].schema: {schema}: {e}"))
-            })?;
+            crate::memory_schema::parse_memory_schema(&src)
+                .map_err(|e| ArgoError::Schema(format!("[memory].schema: {schema}: {e}")))?;
         }
         if let Some(seed) = &mem.seed {
             check_dir(root, seed, "[memory].seed")?;
@@ -136,8 +133,7 @@ fn validate_skills(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
 
 fn validate_workflows(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
     if let Some(wf) = &manifest.workflows {
-        let mut seen_names: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+        let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
         for f in &wf.files {
             check_file(root, f, "[workflows].files")?;
             // Parse + validate the workflow file (#658). Catches
@@ -147,9 +143,8 @@ fn validate_workflows(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()
             let path = root.join(f);
             let src = std::fs::read_to_string(&path)
                 .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
-            let workflow = crate::workflow::parse_workflow(&src).map_err(|e| {
-                ArgoError::Schema(format!("[workflows].files: {f}: {e}"))
-            })?;
+            let workflow = crate::workflow::parse_workflow(&src)
+                .map_err(|e| ArgoError::Schema(format!("[workflows].files: {f}: {e}")))?;
             if !seen_names.insert(workflow.workflow.name.clone()) {
                 return Err(ArgoError::Schema(format!(
                     "[workflows]: workflow name '{}' is declared by more than one file",

@@ -9,9 +9,7 @@
 use super::*;
 use argo_identity::WorkerId;
 use argo_runtime::oom_restart::OomRestartConfig;
-use argo_runtime::worker_resource_cage::{
-    CageStatus, WorkerResourceCage, WorkerResourceConfig,
-};
+use argo_runtime::worker_resource_cage::{CageStatus, WorkerResourceCage, WorkerResourceConfig};
 use argo_types::TenantId;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -111,7 +109,9 @@ async fn cage_disabled_yields_not_supported_status() {
     match snapshot.cage {
         CageStatus::NotSupported { reason } => {
             assert!(
-                reason.contains("disabled") || reason.contains("cgroup") || reason.contains("Linux"),
+                reason.contains("disabled")
+                    || reason.contains("cgroup")
+                    || reason.contains("Linux"),
                 "expected platform/disabled reason, got: {reason}"
             );
         }
@@ -124,9 +124,18 @@ async fn workers_for_tenant_filters_by_tenant_id() {
     let supervisor = unconfined_supervisor();
     let tenant_a = TenantId::new();
     let tenant_b = TenantId::new();
-    let _ = supervisor.spawn_worker(sleep_spec(tenant_a)).await.expect("a1");
-    let _ = supervisor.spawn_worker(sleep_spec(tenant_a)).await.expect("a2");
-    let _ = supervisor.spawn_worker(sleep_spec(tenant_b)).await.expect("b1");
+    let _ = supervisor
+        .spawn_worker(sleep_spec(tenant_a))
+        .await
+        .expect("a1");
+    let _ = supervisor
+        .spawn_worker(sleep_spec(tenant_a))
+        .await
+        .expect("a2");
+    let _ = supervisor
+        .spawn_worker(sleep_spec(tenant_b))
+        .await
+        .expect("b1");
     assert_eq!(supervisor.workers_for_tenant(tenant_a).await, 2);
     assert_eq!(supervisor.workers_for_tenant(tenant_b).await, 1);
     assert_eq!(supervisor.worker_count().await, 3);
@@ -144,7 +153,10 @@ async fn clean_exit_deregisters_worker() {
     let supervisor = unconfined_supervisor();
     let spec = true_spec(TenantId::new());
     let worker_id = spec.worker_id;
-    let _ = supervisor.spawn_worker(spec).await.expect("spawn /bin/true");
+    let _ = supervisor
+        .spawn_worker(spec)
+        .await
+        .expect("spawn /bin/true");
     // /bin/true exits immediately with code 0; classify_exit returns
     // Clean, decide_restart returns IgnoreCleanExit, the watcher
     // breaks the loop and deregisters.

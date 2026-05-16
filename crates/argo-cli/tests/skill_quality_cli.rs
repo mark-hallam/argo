@@ -77,7 +77,10 @@ async fn skill_list_quality_min_filters_low_scoring_skills() {
     assert_success(&above_threshold);
     let lines: Vec<&[u8]> = above_threshold.stdout.split(|b| *b == b'\n').collect();
     let non_empty: Vec<&[u8]> = lines.into_iter().filter(|l| !l.is_empty()).collect();
-    assert!(non_empty.is_empty(), "expected no rows but got {non_empty:?}");
+    assert!(
+        non_empty.is_empty(),
+        "expected no rows but got {non_empty:?}"
+    );
 
     let below_threshold = run(&world, &["skill", "list", "--quality-min", "20", "--json"]);
     assert_success(&below_threshold);
@@ -167,7 +170,14 @@ async fn seed_with_audit(
     skills.install(skill_md, None).await.unwrap();
     let base = chrono::Utc::now().timestamp_micros();
     for i in 0..successes {
-        write_tool_result(&store, tool_name, false, 100, base + i64::try_from(i).unwrap()).await;
+        write_tool_result(
+            &store,
+            tool_name,
+            false,
+            100,
+            base + i64::try_from(i).unwrap(),
+        )
+        .await;
     }
     for i in 0..failures {
         write_tool_result(

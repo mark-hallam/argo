@@ -33,9 +33,7 @@ pub fn edit_distance(a: &str, b: &str) -> usize {
         curr[0] = i;
         for j in 1..=m {
             let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            curr[j] = (curr[j - 1] + 1)
-                .min(prev[j] + 1)
-                .min(prev[j - 1] + cost);
+            curr[j] = (curr[j - 1] + 1).min(prev[j] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }
@@ -88,9 +86,7 @@ where
             best_dist = Some(match best_dist {
                 None => (min_d, cand_full),
                 Some((prev_d, _)) if min_d < prev_d => (min_d, cand_full),
-                Some((prev_d, prev)) if min_d == prev_d && cand_full < prev => {
-                    (min_d, cand_full)
-                }
+                Some((prev_d, prev)) if min_d == prev_d && cand_full < prev => (min_d, cand_full),
                 Some(prev) => prev,
             });
         }

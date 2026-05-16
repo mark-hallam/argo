@@ -100,8 +100,7 @@ pub(super) fn verify_with_secret(
         return Err(SessionError::Signature);
     }
     let bytes = b64url_decode(b64).map_err(|_| SessionError::Encoding)?;
-    let payload: SessionPayload =
-        serde_json::from_slice(&bytes).map_err(|_| SessionError::Json)?;
+    let payload: SessionPayload = serde_json::from_slice(&bytes).map_err(|_| SessionError::Json)?;
     if payload.exp <= now_unix {
         return Err(SessionError::Expired);
     }
@@ -130,13 +129,10 @@ pub(super) fn read_cookie(req: &str, name: &str) -> Option<String> {
     let headers = req
         .split_once("\r\n\r\n")
         .map_or(req, |(headers, _body)| headers);
-    let line = headers
-        .lines()
-        .skip(1)
-        .find_map(|l| {
-            let (k, v) = l.split_once(':')?;
-            k.eq_ignore_ascii_case("Cookie").then(|| v.trim())
-        })?;
+    let line = headers.lines().skip(1).find_map(|l| {
+        let (k, v) = l.split_once(':')?;
+        k.eq_ignore_ascii_case("Cookie").then(|| v.trim())
+    })?;
     for kv in line.split(';') {
         let kv = kv.trim();
         if let Some(rest) = kv.strip_prefix(&format!("{name}=")) {

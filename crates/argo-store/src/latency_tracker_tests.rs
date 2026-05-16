@@ -49,7 +49,10 @@ fn uniform_samples_place_p50_in_expected_range() {
         "p50={p50:?}",
     );
     let p99 = percentile(&buckets, 0.99).expect("p99");
-    assert!(p99 >= p50, "p99 must be >= p50, got p99={p99:?} p50={p50:?}");
+    assert!(
+        p99 >= p50,
+        "p99 must be >= p50, got p99={p99:?} p50={p50:?}"
+    );
 }
 
 #[test]
@@ -65,7 +68,10 @@ fn bucket_boundaries_map_correctly() {
     // Overflow bucket: anything >= 2^(N_BUCKETS - 1) ms.
     let overflow = Duration::from_millis(1u64 << (N_BUCKETS - 1));
     assert_eq!(bucket_index(overflow), N_BUCKETS - 1);
-    assert_eq!(bucket_index(overflow + Duration::from_secs(60)), N_BUCKETS - 1);
+    assert_eq!(
+        bucket_index(overflow + Duration::from_secs(60)),
+        N_BUCKETS - 1
+    );
     // Lower/upper bounds.
     assert_eq!(bucket_lower_ms(0), 1);
     assert_eq!(bucket_upper_ms(0), 2);

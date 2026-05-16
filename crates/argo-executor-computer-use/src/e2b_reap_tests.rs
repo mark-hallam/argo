@@ -94,10 +94,8 @@ async fn reap_idle_with_one_close_error_continues_and_reports() {
 #[tokio::test]
 async fn reap_idle_honors_max_idle_threshold_boundary() {
     // Exactly-at-threshold is NOT reaped (strict >).
-    let mock = MockE2bClient::scripted(Vec::new(), Vec::new()).with_sandboxes(vec![
-        fixture("at-thresh", 600),
-        fixture("over-thresh", 601),
-    ]);
+    let mock = MockE2bClient::scripted(Vec::new(), Vec::new())
+        .with_sandboxes(vec![fixture("at-thresh", 600), fixture("over-thresh", 601)]);
     let report = mock.reap_idle(600).await.expect("reap ok");
     assert_eq!(report.reaped.len(), 1);
     assert_eq!(report.reaped[0], "over-thresh");
@@ -107,20 +105,24 @@ async fn reap_idle_honors_max_idle_threshold_boundary() {
 async fn list_sandboxes_handles_pagination_over_100_rows() {
     let server = MockServer::start().await;
     let page_one: Vec<serde_json::Value> = (0..100)
-        .map(|i| serde_json::json!({
-            "sandboxId": format!("p1-{i}"), "templateId": "browser",
-            "startedAt": "2026-05-12T00:00:00Z",
-            "lastActivityAt": "2026-05-12T00:01:00Z",
-            "status": "running"
-        }))
+        .map(|i| {
+            serde_json::json!({
+                "sandboxId": format!("p1-{i}"), "templateId": "browser",
+                "startedAt": "2026-05-12T00:00:00Z",
+                "lastActivityAt": "2026-05-12T00:01:00Z",
+                "status": "running"
+            })
+        })
         .collect();
     let page_two: Vec<serde_json::Value> = (0..50)
-        .map(|i| serde_json::json!({
-            "sandboxId": format!("p2-{i}"), "templateId": "browser",
-            "startedAt": "2026-05-12T00:00:00Z",
-            "lastActivityAt": "2026-05-12T00:01:00Z",
-            "status": "running"
-        }))
+        .map(|i| {
+            serde_json::json!({
+                "sandboxId": format!("p2-{i}"), "templateId": "browser",
+                "startedAt": "2026-05-12T00:00:00Z",
+                "lastActivityAt": "2026-05-12T00:01:00Z",
+                "status": "running"
+            })
+        })
         .collect();
     Mock::given(method("GET"))
         .and(path("/sandboxes"))

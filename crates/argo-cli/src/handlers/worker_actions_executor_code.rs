@@ -375,7 +375,9 @@ pub(crate) fn collect_artifacts(bundle: &Path) -> Vec<serde_json::Value> {
         }
     }
     out.sort_by(|a, b| {
-        a["name"].as_str().unwrap_or("")
+        a["name"]
+            .as_str()
+            .unwrap_or("")
             .cmp(b["name"].as_str().unwrap_or(""))
     });
     out

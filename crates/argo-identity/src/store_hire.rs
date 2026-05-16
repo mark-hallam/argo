@@ -172,7 +172,13 @@ pub(crate) fn assemble_worker_from_draft(
         .duties
         .iter()
         .filter(|d| d.default_enabled)
-        .map(|d| Duty::new(d.cron.clone(), d.entry_action.clone(), d.description.clone()))
+        .map(|d| {
+            Duty::new(
+                d.cron.clone(),
+                d.entry_action.clone(),
+                d.description.clone(),
+            )
+        })
         .collect();
     let role = Role {
         charter: draft.charter.clone(),

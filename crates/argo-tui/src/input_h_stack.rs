@@ -52,10 +52,7 @@ pub(crate) fn try_close_h_stack_overlay(state: &mut ViewerState, key_code: KeyCo
 /// `true` if the key was one of the H-stack opens (and the
 /// corresponding panel state was populated), `false` if not so the
 /// caller can continue its match.
-pub(crate) async fn try_open_h_stack_overlay(
-    state: &mut ViewerState,
-    key_code: KeyCode,
-) -> bool {
+pub(crate) async fn try_open_h_stack_overlay(state: &mut ViewerState, key_code: KeyCode) -> bool {
     let base = gateway_url();
     match key_code {
         KeyCode::Char('O') => {
@@ -64,9 +61,8 @@ pub(crate) async fn try_open_h_stack_overlay(
             true
         }
         KeyCode::Char('H') => {
-            state.h_handoffs_overlay = Some(
-                fetch_panel(&base, "/orchestrator/handoffs?status=pending", true).await,
-            );
+            state.h_handoffs_overlay =
+                Some(fetch_panel(&base, "/orchestrator/handoffs?status=pending", true).await);
             true
         }
         KeyCode::Char('B') => {

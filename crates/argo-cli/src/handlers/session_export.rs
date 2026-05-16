@@ -18,8 +18,7 @@ pub async fn export_session(
     include_audit: bool,
     format: &str,
 ) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -143,10 +142,9 @@ impl MarkdownHeader {
         messages: &[argo_store::MessageRow],
     ) -> Self {
         let row = store.get_session(sid).await.ok().flatten();
-        let spend_micros =
-            super::session_aggregates::session_spend_micros(store, sid)
-                .await
-                .unwrap_or(0);
+        let spend_micros = super::session_aggregates::session_spend_micros(store, sid)
+            .await
+            .unwrap_or(0);
         Self {
             title: row.as_ref().and_then(|r| r.title.clone()),
             model: row.as_ref().map(|r| r.model.clone()),
@@ -283,10 +281,7 @@ pub(super) fn extract_markdown_body(content_json: &str) -> String {
                     out.push('\n');
                     continue;
                 }
-                let kind = it
-                    .get("type")
-                    .and_then(|t| t.as_str())
-                    .unwrap_or("block");
+                let kind = it.get("type").and_then(|t| t.as_str()).unwrap_or("block");
                 match kind {
                     "text" => {
                         if let Some(t) = it.get("text").and_then(|t| t.as_str()) {
@@ -295,10 +290,7 @@ pub(super) fn extract_markdown_body(content_json: &str) -> String {
                         }
                     }
                     "tool_use" => {
-                        let name = it
-                            .get("name")
-                            .and_then(|n| n.as_str())
-                            .unwrap_or("?");
+                        let name = it.get("name").and_then(|n| n.as_str()).unwrap_or("?");
                         out.push_str(&format!("_(tool_use → {name})_\n"));
                     }
                     "tool_result" => {

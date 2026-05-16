@@ -15,7 +15,9 @@
 //! `dry_run` the function never writes; the per-skill classification is
 //! still produced so the operator sees what *would* be backfilled.
 use crate::ir::store::{SkillIrStore as _, SqliteSkillIrStore};
-use crate::ir::{Node, NodeAnnotations, NodeId, NodeKind, NodePolicy, SkillGraph, SkillGraphMetadata};
+use crate::ir::{
+    Node, NodeAnnotations, NodeId, NodeKind, NodePolicy, SkillGraph, SkillGraphMetadata,
+};
 use crate::skill::Skill;
 use argo_types::{ArgoResult, SkillId, TenantId};
 

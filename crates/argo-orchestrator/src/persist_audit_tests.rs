@@ -31,11 +31,7 @@ async fn seeded_handoff(repo: &OrchestratorStore) -> Handoff {
     h
 }
 
-async fn audit_rows_of_kind(
-    pool: &sqlx::Pool<sqlx::Sqlite>,
-    sid: &uuid::Uuid,
-    kind: &str,
-) -> i64 {
+async fn audit_rows_of_kind(pool: &sqlx::Pool<sqlx::Sqlite>, sid: &uuid::Uuid, kind: &str) -> i64 {
     sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM audit_record WHERE session_id = ? AND kind = ?",
     )

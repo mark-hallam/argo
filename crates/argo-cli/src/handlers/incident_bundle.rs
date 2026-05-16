@@ -47,16 +47,27 @@ struct Sec {
 
 impl Sec {
     fn ok(path: &'static str, body: Vec<u8>) -> Self {
-        Self { path, body, status: "ok".into() }
+        Self {
+            path,
+            body,
+            status: "ok".into(),
+        }
     }
     fn failed(path: &'static str, reason: String) -> Self {
         let body = format!("section capture failed: {reason}\n").into_bytes();
-        Self { path, body, status: format!("failed: {reason}") }
+        Self {
+            path,
+            body,
+            status: format!("failed: {reason}"),
+        }
     }
 }
 
 fn default_output() -> PathBuf {
-    PathBuf::from(format!("incident-{}.tar.gz", Utc::now().format("%Y%m%dT%H%M%SZ")))
+    PathBuf::from(format!(
+        "incident-{}.tar.gz",
+        Utc::now().format("%Y%m%dT%H%M%SZ")
+    ))
 }
 
 fn capture_subcommand(path: &'static str, args: &[&str]) -> Sec {
@@ -107,7 +118,10 @@ fn capture_argo_toml() -> Sec {
     let path = locate_argo_toml();
     match fs::read_to_string(&path) {
         Ok(raw) => Sec::ok("argo-toml.redacted.toml", redact_toml(&raw).into_bytes()),
-        Err(e) => Sec::failed("argo-toml.redacted.toml", format!("read {}: {e}", path.display())),
+        Err(e) => Sec::failed(
+            "argo-toml.redacted.toml",
+            format!("read {}: {e}", path.display()),
+        ),
     }
 }
 
@@ -140,7 +154,10 @@ pub fn redact_toml(raw: &str) -> String {
 
 fn capture_log_tail(log_tail: Option<&Path>) -> Sec {
     let Some(path) = log_tail else {
-        return Sec::ok("log-tail.txt", b"no log path provided (pass --log-tail <path>)\n".to_vec());
+        return Sec::ok(
+            "log-tail.txt",
+            b"no log path provided (pass --log-tail <path>)\n".to_vec(),
+        );
     };
     match fs::read_to_string(path) {
         Ok(raw) => {
@@ -152,7 +169,11 @@ fn capture_log_tail(log_tail: Option<&Path>) -> Sec {
     }
 }
 
-fn append_bytes<W: std::io::Write>(builder: &mut tar::Builder<W>, path: &str, bytes: &[u8]) -> ArgoResult<()> {
+fn append_bytes<W: std::io::Write>(
+    builder: &mut tar::Builder<W>,
+    path: &str,
+    bytes: &[u8],
+) -> ArgoResult<()> {
     let mut header = tar::Header::new_gnu();
     header.set_size(bytes.len() as u64);
     header.set_mode(0o600);
@@ -175,12 +196,19 @@ pub fn run(args: BundleArgs) -> ArgoResult<PathBuf> {
     };
     let output = args.output.unwrap_or_else(default_output);
     if let Some(parent) = output.parent().filter(|p| !p.as_os_str().is_empty()) {
-        fs::create_dir_all(parent).map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", parent.display())))?;
+        fs::create_dir_all(parent)
+            .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", parent.display())))?;
     }
     let sections = vec![
         capture_subcommand("doctor.json", &["doctor", "--json"]),
-        capture_subcommand("audit-tail.json", &["audit", "query", "--since-minutes", "60", "--json"]),
-        capture_subcommand("worker-restarts.json", &["worker", "restarts", "--since", &since, "--json"]),
+        capture_subcommand(
+            "audit-tail.json",
+            &["audit", "query", "--since-minutes", "60", "--json"],
+        ),
+        capture_subcommand(
+            "worker-restarts.json",
+            &["worker", "restarts", "--since", &since, "--json"],
+        ),
         capture_subcommand("gateway-metrics.json", &["gateway", "metrics-json"]),
         capture_subcommand("audit-archives.json", &["audit", "list-archives", "--json"]),
         capture_build_identity(),
@@ -194,7 +222,11 @@ pub fn run(args: BundleArgs) -> ArgoResult<PathBuf> {
         since,
         sections: sections
             .iter()
-            .map(|s| SectionMeta { path: s.path.to_string(), status: s.status.clone(), bytes: s.body.len() as u64 })
+            .map(|s| SectionMeta {
+                path: s.path.to_string(),
+                status: s.status.clone(),
+                bytes: s.body.len() as u64,
+            })
             .collect(),
     };
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)
@@ -207,7 +239,11 @@ pub fn run(args: BundleArgs) -> ArgoResult<PathBuf> {
     for s in &sections {
         append_bytes(&mut builder, s.path, &s.body)?;
     }
-    let encoder = builder.into_inner().map_err(|e| ArgoError::Io(format!("tar finalize: {e}")))?;
-    encoder.finish().map_err(|e| ArgoError::Io(format!("gzip finalize: {e}")))?;
+    let encoder = builder
+        .into_inner()
+        .map_err(|e| ArgoError::Io(format!("tar finalize: {e}")))?;
+    encoder
+        .finish()
+        .map_err(|e| ArgoError::Io(format!("gzip finalize: {e}")))?;
     Ok(output)
 }

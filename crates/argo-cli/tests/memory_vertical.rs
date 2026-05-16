@@ -30,12 +30,7 @@ fn append(
     body: &str,
     vertical: Option<&str>,
 ) {
-    let mut args: Vec<String> = vec![
-        "memory".into(),
-        "append".into(),
-        file.into(),
-        body.into(),
-    ];
+    let mut args: Vec<String> = vec!["memory".into(), "append".into(), file.into(), body.into()];
     if let Some(v) = vertical {
         args.push("--vertical".into());
         args.push(v.into());
@@ -96,7 +91,13 @@ fn cli_memory_list_with_vertical_excludes_other_verticals_rows() {
     let root = tempfile::tempdir().unwrap();
     workspace_init(home.path(), root.path());
 
-    append(home.path(), root.path(), "memory", "alpha-row", Some("alpha"));
+    append(
+        home.path(),
+        root.path(),
+        "memory",
+        "alpha-row",
+        Some("alpha"),
+    );
     append(home.path(), root.path(), "memory", "beta-row", Some("beta"));
 
     // alpha view sees only alpha's row.
@@ -163,7 +164,13 @@ fn cli_memory_list_unknown_vertical_returns_empty() {
     let root = tempfile::tempdir().unwrap();
     workspace_init(home.path(), root.path());
 
-    append(home.path(), root.path(), "memory", "alpha-row", Some("alpha"));
+    append(
+        home.path(),
+        root.path(),
+        "memory",
+        "alpha-row",
+        Some("alpha"),
+    );
 
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
@@ -173,5 +180,8 @@ fn cli_memory_list_unknown_vertical_returns_empty() {
         .expect("spawn");
     assert!(out.status.success());
     let rows = parse_list(&String::from_utf8(out.stdout).unwrap());
-    assert!(rows.is_empty(), "ghost-vertical view must be empty; got {rows:?}");
+    assert!(
+        rows.is_empty(),
+        "ghost-vertical view must be empty; got {rows:?}"
+    );
 }

@@ -17,8 +17,7 @@ fn repo_verticals_dir() -> &'static Path {
 }
 
 fn registry() -> argo_vertical::Registry {
-    let (registry, errors) =
-        argo_vertical::load_dir(repo_verticals_dir()).expect("load_dir");
+    let (registry, errors) = argo_vertical::load_dir(repo_verticals_dir()).expect("load_dir");
     let lp_errors: Vec<_> = errors
         .iter()
         .filter(|e| e.dir.ends_with("legal-paralegal"))
@@ -38,8 +37,7 @@ fn legal_paralegal_loads_and_validates() {
         .expect("legal-paralegal not in registry");
     assert_eq!(v.manifest.vertical.name, "Legal — Paralegal");
     assert_eq!(v.manifest.vertical.version, "0.1.0");
-    argo_vertical::validate(&v.manifest, &v.root)
-        .expect("legal-paralegal manifest must validate");
+    argo_vertical::validate(&v.manifest, &v.root).expect("legal-paralegal manifest must validate");
 }
 
 #[test]
@@ -77,8 +75,7 @@ fn legal_paralegal_eval_suite_has_ten_fixtures() {
     let v = reg.get("legal-paralegal").unwrap();
     let eval = v.manifest.evaluation.as_ref().expect("[evaluation]");
     let rel = eval.suites.first().expect("at least one eval suite");
-    let body =
-        std::fs::read_to_string(v.root.join(rel)).expect("eval suite readable");
+    let body = std::fs::read_to_string(v.root.join(rel)).expect("eval suite readable");
     let lines: Vec<&str> = body.lines().filter(|l| !l.trim().is_empty()).collect();
     assert!(
         lines.len() >= 10,
@@ -141,15 +138,14 @@ fn legal_paralegal_persona_refuses_legal_advice() {
     let reg = registry();
     let v = reg.get("legal-paralegal").unwrap();
     let role = v.manifest.role.as_ref().expect("[role] section");
-    let sys = std::fs::read_to_string(v.root.join(&role.system_prompt))
-        .expect("system prompt readable");
+    let sys =
+        std::fs::read_to_string(v.root.join(&role.system_prompt)).expect("system prompt readable");
     assert!(
         sys.contains("not advise") && sys.contains("attorney"),
         "system prompt must carry the 'not advise — attorney' disclaimer"
     );
     let persona_rel = role.persona.as_ref().expect("persona path required");
-    let persona = std::fs::read_to_string(v.root.join(persona_rel))
-        .expect("persona readable");
+    let persona = std::fs::read_to_string(v.root.join(persona_rel)).expect("persona readable");
     assert!(
         persona.contains("not advise") && persona.contains("attorney"),
         "persona must reinforce the 'not advise' boundary"

@@ -45,12 +45,11 @@ async fn persona_history_and_revert_round_trip() {
         Role::new("Handle billing tickets."),
     );
     identities.create_worker(&worker).await.unwrap();
-    let worker_id_str: String =
-        sqlx::query_scalar("SELECT worker_id FROM persona WHERE name = ?")
-            .bind("Riley")
-            .fetch_one(store.pool())
-            .await
-            .unwrap();
+    let worker_id_str: String = sqlx::query_scalar("SELECT worker_id FROM persona WHERE name = ?")
+        .bind("Riley")
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
     let worker_uuid = uuid::Uuid::parse_str(&worker_id_str).unwrap();
 
     // Capture the seeded persona's voice, then record two revisions
@@ -97,7 +96,11 @@ async fn persona_history_and_revert_round_trip() {
         .unwrap();
 
     // history --json should show 2 revisions, newest first.
-    let out = run(&home, work.path(), &["persona", "history", &worker_id_str, "--json"]);
+    let out = run(
+        &home,
+        work.path(),
+        &["persona", "history", &worker_id_str, "--json"],
+    );
     assert_success(&out);
     let history: Value = serde_json::from_slice(&out.stdout).unwrap();
     let arr = history.as_array().expect("json array");

@@ -7,8 +7,7 @@ use argo_types::{ArgoError, ArgoResult};
 pub fn run(cmd: SkillKeygenCmd) -> ArgoResult<()> {
     let out_dir = match cmd.out {
         Some(p) => p,
-        None => std::env::current_dir()
-            .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?,
+        None => std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?,
     };
     let keypair = generate_keypair();
     let files = write_keypair_to_dir(&out_dir, &keypair)?;

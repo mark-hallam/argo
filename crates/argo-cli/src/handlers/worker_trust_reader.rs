@@ -30,11 +30,7 @@ impl<'a, 's> IdentityWorkerTrustReader<'a, 's> {
 
 #[async_trait]
 impl WorkerTrustReader for IdentityWorkerTrustReader<'_, '_> {
-    async fn trust_grade(
-        &self,
-        tenant_id: TenantId,
-        worker_id: Uuid,
-    ) -> ArgoResult<Option<u8>> {
+    async fn trust_grade(&self, tenant_id: TenantId, worker_id: Uuid) -> ArgoResult<Option<u8>> {
         let worker = self
             .identity
             .get_worker(tenant_id, WorkerId(worker_id))

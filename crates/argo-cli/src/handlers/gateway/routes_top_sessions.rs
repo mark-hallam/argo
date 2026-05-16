@@ -18,8 +18,7 @@ pub(super) async fn dispatch_sessions(
 ) -> (&'static str, String) {
     let since = parse_since_minutes_from_get(req, "/sessions");
     let tail = req.strip_prefix("GET ").unwrap_or(req);
-    let older_than =
-        parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
+    let older_than = parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
     let status = parse_query_kv(tail, "status");
     let provider = parse_query_kv(tail, "provider");
     let model = parse_query_kv(tail, "model");
@@ -230,9 +229,7 @@ pub(super) async fn sessions_count_response(
                 Some(other) => {
                     return (
                         "400 Bad Request",
-                        format!(
-                            "{{\"error\":\"unknown status '{other}' — use open|ended|all\"}}"
-                        ),
+                        format!("{{\"error\":\"unknown status '{other}' — use open|ended|all\"}}"),
                     );
                 }
             };
@@ -266,13 +263,11 @@ pub(super) async fn stream_sessions(
 ) -> tokio::io::Result<()> {
     let tail = req.strip_prefix("GET ").unwrap_or(req);
     let since = parse_since_minutes_from_get(req, "/sessions");
-    let older_than =
-        parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
+    let older_than = parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
     let status = parse_query_kv(tail, "status");
     let provider = parse_query_kv(tail, "provider");
     let model = parse_query_kv(tail, "model");
-    let title_contains =
-        parse_query_kv(tail, "title-contains").map(|s| s.replace('+', " "));
+    let title_contains = parse_query_kv(tail, "title-contains").map(|s| s.replace('+', " "));
     let spent_min = parse_query_kv(tail, "spent-min").and_then(|v| v.parse::<i64>().ok());
     let spent_max = parse_query_kv(tail, "spent-max").and_then(|v| v.parse::<i64>().ok());
     let limit: u32 = parse_query_kv(tail, "limit")
@@ -286,8 +281,12 @@ pub(super) async fn stream_sessions(
     let rows = match store.list_all_sessions(limit).await {
         Ok(r) => r,
         Err(e) => {
-            return write_stream_error(out, "500 Internal Server Error", &format!("list sessions: {e}"))
-                .await;
+            return write_stream_error(
+                out,
+                "500 Internal Server Error",
+                &format!("list sessions: {e}"),
+            )
+            .await;
         }
     };
     let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
@@ -370,11 +369,7 @@ pub(super) async fn stream_sessions(
     }
 }
 
-async fn write_stream_error(
-    out: &mut TcpStream,
-    status: &str,
-    msg: &str,
-) -> tokio::io::Result<()> {
+async fn write_stream_error(out: &mut TcpStream, status: &str, msg: &str) -> tokio::io::Result<()> {
     use tokio::io::AsyncWriteExt;
     let body = format!("{{\"error\":\"{msg}\"}}");
     let resp = format!(

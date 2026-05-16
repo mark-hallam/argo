@@ -192,8 +192,5 @@ fn cli_workflow_with_invalid_session_uuid_fails_loudly() {
         .expect("spawn");
     assert!(!out.status.success());
     let stderr = String::from_utf8(out.stderr).unwrap();
-    assert!(
-        stderr.contains("invalid session id"),
-        "stderr: {stderr}"
-    );
+    assert!(stderr.contains("invalid session id"), "stderr: {stderr}");
 }

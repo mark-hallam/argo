@@ -60,7 +60,8 @@ pub(crate) async fn run(
             // (e.g. via `argo cron add`) appear without the
             // user having to close + re-open with `K`.
             if state.cron_overlay.is_some() {
-                state.cron_overlay = Some(scan_dir_basenames(&cwd.join("cron").join("jobs"), "json"));
+                state.cron_overlay =
+                    Some(scan_dir_basenames(&cwd.join("cron").join("jobs"), "json"));
             }
             // Same for the providers overlay — when a manifest
             // appears in manifests/providers/*.toml externally
@@ -145,7 +146,9 @@ pub(crate) async fn run(
             if try_close_overlay(state, key.code) {
                 continue;
             }
-            if crate::try_close_aux_overlay(state, key.code) { continue; }
+            if crate::try_close_aux_overlay(state, key.code) {
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -211,7 +214,8 @@ pub(crate) async fn run(
             // E, M, O, H, B, V, D) live in input_globals so
             // downstream global-key briefs have a narrow extension
             // point instead of editing this event loop.
-            if crate::input_globals::dispatch_global_key(terminal, state, &store, &cwd, key).await? {
+            if crate::input_globals::dispatch_global_key(terminal, state, &store, &cwd, key).await?
+            {
                 continue;
             }
             match key.code {
@@ -247,11 +251,8 @@ pub(crate) async fn run(
                     // overlay. The "highlight" is the topmost
                     // visible row — i.e. `messages_scroll` — so
                     // page up/down + j/k work as the cursor.
-                    state.message_overlay = Some(
-                        state
-                            .messages_scroll
-                            .min(state.selected_messages.len() - 1),
-                    );
+                    state.message_overlay =
+                        Some(state.messages_scroll.min(state.selected_messages.len() - 1));
                 }
                 KeyCode::Char('/') => state.enter_filter_mode(),
                 KeyCode::Char('i') => state.composer_mode = true,

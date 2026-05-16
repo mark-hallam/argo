@@ -12,10 +12,10 @@
 //! line rather than fail.
 
 use super::*;
+use crate::handlers::worker_actions::ActionRecord;
 use crate::handlers::worker_actions_executor_browser_binding::{
     parse_binding, render_string, BrowserMode, SessionScope,
 };
-use crate::handlers::worker_actions::ActionRecord;
 use argo_identity::WorkerId;
 use argo_mcp::{McpClientPool, PoolConfig};
 use argo_vertical::{ActionDeclaration, ExecutorDeclaration, ExecutorTagged};
@@ -40,7 +40,10 @@ fn fixture_path() -> PathBuf {
 }
 
 fn python3() -> Option<String> {
-    let output = std::process::Command::new("which").arg("python3").output().ok()?;
+    let output = std::process::Command::new("which")
+        .arg("python3")
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }
@@ -125,7 +128,10 @@ fn parse_binding_rejects_empty_binding() {
         ..Default::default()
     };
     let err = parse_binding(&decl).expect_err("empty binding");
-    assert!(err.to_string().contains("missing `executor.binding`"), "got {err}");
+    assert!(
+        err.to_string().contains("missing `executor.binding`"),
+        "got {err}"
+    );
 }
 
 #[test]
@@ -229,7 +235,11 @@ async fn dispatch_action_success_returns_completed_with_screenshot() {
     )
     .await
     .expect("success");
-    let ActionOutcome::Completed { result_json, bundle_path } = outcome else {
+    let ActionOutcome::Completed {
+        result_json,
+        bundle_path,
+    } = outcome
+    else {
         panic!("expected Completed");
     };
     assert_eq!(result_json["mode"].as_str(), Some("script"));

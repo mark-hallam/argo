@@ -28,13 +28,9 @@ pub(super) async fn dispatch_duties(
         if verb == "POST" && parts.len() == 3 && parts[1] == "duties" {
             let worker_id = parts[0];
             return Some(match parts[2].split('?').next().unwrap_or(parts[2]) {
-                "classify" => {
-                    super::routes_duties::classify_response(worker_id, req, store).await
-                }
+                "classify" => super::routes_duties::classify_response(worker_id, req, store).await,
                 "commit" => super::routes_duties::commit_response(worker_id, req, store).await,
-                "preview" => {
-                    super::routes_duties::preview_response(worker_id, req, store).await
-                }
+                "preview" => super::routes_duties::preview_response(worker_id, req, store).await,
                 _ => return None,
             });
         }

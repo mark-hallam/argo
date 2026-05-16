@@ -15,9 +15,7 @@ use std::path::PathBuf;
 /// (name / schedule / platform / chat / enabled /
 /// last_fired_at) when `format=markdown`. Returns 200 + an
 /// empty body when the directory doesn't exist.
-pub(super) async fn cron_list_response(
-    format: Option<&str>,
-) -> (&'static str, String) {
+pub(super) async fn cron_list_response(format: Option<&str>) -> (&'static str, String) {
     let dir = match cron_dir() {
         Ok(d) => d,
         Err((status, body)) => return (status, body),
@@ -60,14 +58,9 @@ pub(super) async fn cron_list_response(
     }
     if want_md {
         let n = jobs.len();
-        let mut md = format!(
-            "# Cron jobs ({n} job{})\n\n",
-            if n == 1 { "" } else { "s" }
-        );
+        let mut md = format!("# Cron jobs ({n} job{})\n\n", if n == 1 { "" } else { "s" });
         if !jobs.is_empty() {
-            md.push_str(
-                "| name | schedule | platform | chat | enabled | last_fired_at |\n",
-            );
+            md.push_str("| name | schedule | platform | chat | enabled | last_fired_at |\n");
             md.push_str("| --- | --- | --- | --- | :---: | --- |\n");
             for job in &jobs {
                 let last = job
@@ -146,8 +139,7 @@ pub(super) async fn cron_show_response(
             }
             (
                 "200 OK",
-                serde_json::to_string(&serialize_job(&job))
-                    .unwrap_or_else(|_| "{}".to_string()),
+                serde_json::to_string(&serialize_job(&job)).unwrap_or_else(|_| "{}".to_string()),
             )
         }
         Err(line) => (
@@ -309,17 +301,18 @@ pub(super) async fn cron_delete_response(raw_name: &str) -> (&'static str, Strin
         ),
         Err(e) => (
             "500 Internal Server Error",
-            format!(
-                "{{\"error\":\"remove {}: {e}\"}}",
-                path.display()
-            ),
+            format!("{{\"error\":\"remove {}: {e}\"}}", path.display()),
         ),
     }
 }
 
 fn cron_dir() -> Result<PathBuf, (&'static str, String)> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ("500 Internal Server Error", format!("{{\"error\":\"cwd: {e}\"}}")))?;
+    let cwd = std::env::current_dir().map_err(|e| {
+        (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"cwd: {e}\"}}"),
+        )
+    })?;
     Ok(cwd.join("cron").join("jobs"))
 }
 

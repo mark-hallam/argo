@@ -43,13 +43,23 @@ pub(super) async fn classify_response(
     };
     let input = match parsed.get("input").and_then(Value::as_str) {
         Some(s) if !s.trim().is_empty() => s.trim().to_string(),
-        _ => return err("400 Bad Request", "bad_request", "`input` (non-empty string) is required"),
+        _ => {
+            return err(
+                "400 Bad Request",
+                "bad_request",
+                "`input` (non-empty string) is required",
+            )
+        }
     };
     let archetype = classify_charter(&input).unwrap_or(Archetype::OpsOnCall);
     let defaults = defaults_for(archetype);
     let proposed_5 = parsed
-        .get("cron_hint").and_then(Value::as_str).map(str::trim)
-        .filter(|s| !s.is_empty()).map_or(defaults.cron, |s| s).to_string();
+        .get("cron_hint")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map_or(defaults.cron, |s| s)
+        .to_string();
     let stored_cron = match validate_5_field_cron(&proposed_5) {
         Ok(s) => s,
         Err(msg) => return err("400 Bad Request", "bad_request", &msg),
@@ -57,7 +67,13 @@ pub(super) async fn classify_response(
     let duty_store = DutyStore::new(Arc::clone(store));
     let conflicts = match collect_conflicts(&duty_store, &worker_id, &stored_cron).await {
         Ok(v) => v,
-        Err(e) => return err("500 Internal Server Error", "internal_error", &format!("conflicts probe: {e}")),
+        Err(e) => {
+            return err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("conflicts probe: {e}"),
+            )
+        }
     };
     let samples = sample_outputs_for(archetype);
     let body = json!({
@@ -87,25 +103,46 @@ pub(super) async fn commit_response(
     };
     let proposal = match parsed.get("duty_proposal") {
         Some(v) if v.is_object() => v,
-        _ => return err("400 Bad Request", "bad_request", "`duty_proposal` (object) is required"),
+        _ => {
+            return err(
+                "400 Bad Request",
+                "bad_request",
+                "`duty_proposal` (object) is required",
+            )
+        }
     };
     let label = match validate_label(proposal.get("label").and_then(Value::as_str).unwrap_or("")) {
         Ok(s) => s,
         Err(msg) => return err("400 Bad Request", "bad_request", &msg),
     };
-    let schedule_raw = proposal.get("schedule").and_then(Value::as_str).unwrap_or("");
+    let schedule_raw = proposal
+        .get("schedule")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let stored_cron = match validate_5_field_cron(schedule_raw) {
         Ok(s) => s,
         Err(msg) => return err("400 Bad Request", "bad_request", &msg),
     };
     let entry_action = proposal
-        .get("entry_action").and_then(Value::as_str).map(str::trim)
-        .filter(|s| !s.is_empty()).map_or_else(|| "ping".to_string(), str::to_string);
+        .get("entry_action")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map_or_else(|| "ping".to_string(), str::to_string);
     let duty_store = DutyStore::new(Arc::clone(store));
-    let resolution = parsed.get("accepted_conflict_resolution").and_then(Value::as_str).unwrap_or("");
+    let resolution = parsed
+        .get("accepted_conflict_resolution")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let existing_conflicts = match collect_conflicts(&duty_store, &worker_id, &stored_cron).await {
         Ok(v) => v,
-        Err(e) => return err("500 Internal Server Error", "internal_error", &format!("conflicts probe: {e}")),
+        Err(e) => {
+            return err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("conflicts probe: {e}"),
+            )
+        }
     };
     if !existing_conflicts.is_empty() {
         match resolution {
@@ -119,14 +156,24 @@ pub(super) async fn commit_response(
     }
     let duty = DutyRecord::new(tenant, worker_id, stored_cron.clone(), entry_action, label);
     if let Err(e) = duty_store.insert(&duty).await {
-        return err("500 Internal Server Error", "internal_error", &format!("insert duty: {e}"));
+        return err(
+            "500 Internal Server Error",
+            "internal_error",
+            &format!("insert duty: {e}"),
+        );
     }
-    let first_fire = Schedule::from_str(&stored_cron).ok().and_then(|s| s.after(&Utc::now()).next());
+    let first_fire = Schedule::from_str(&stored_cron)
+        .ok()
+        .and_then(|s| s.after(&Utc::now()).next());
     emit_audit(store, req, "duty.commit", &worker_id, 1).await;
-    ("201 Created", json!({
-        "duty_id": duty.id,
-        "scheduled_first_fire": first_fire.map(|t| t.to_rfc3339()),
-    }).to_string())
+    (
+        "201 Created",
+        json!({
+            "duty_id": duty.id,
+            "scheduled_first_fire": first_fire.map(|t| t.to_rfc3339()),
+        })
+        .to_string(),
+    )
 }
 
 pub(super) async fn preview_response(
@@ -144,24 +191,49 @@ pub(super) async fn preview_response(
     };
     let duty_id = match parsed.get("duty_id").and_then(Value::as_str) {
         Some(s) if !s.trim().is_empty() => s.trim().to_string(),
-        _ => return err("400 Bad Request", "bad_request", "`duty_id` (string) is required"),
+        _ => {
+            return err(
+                "400 Bad Request",
+                "bad_request",
+                "`duty_id` (string) is required",
+            )
+        }
     };
-    let sample_size = parsed.get("sample_size").and_then(Value::as_u64)
+    let sample_size = parsed
+        .get("sample_size")
+        .and_then(Value::as_u64)
         .map_or(PREVIEW_DEFAULT_SAMPLES, |n| n as usize)
         .clamp(1, PREVIEW_MAX_SAMPLES);
     let duty_store = DutyStore::new(Arc::clone(store));
     let duty = match duty_store.get(&duty_id).await {
         Ok(Some(d)) => d,
-        Ok(None) => return err("404 Not Found", "not_found", &format!("duty '{duty_id}' not found")),
-        Err(e) => return err("500 Internal Server Error", "internal_error", &format!("get duty: {e}")),
+        Ok(None) => {
+            return err(
+                "404 Not Found",
+                "not_found",
+                &format!("duty '{duty_id}' not found"),
+            )
+        }
+        Err(e) => {
+            return err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("get duty: {e}"),
+            )
+        }
     };
     let arch = classify_charter(&duty.description).unwrap_or(Archetype::OpsOnCall);
     let outputs = sample_outputs_for(arch);
-    let samples: Vec<Value> = outputs.iter().take(sample_size).enumerate()
-        .map(|(idx, out)| json!({
-            "inbound_context": format!("synthesized fixture #{}", idx + 1),
-            "would_send": out,
-        }))
+    let samples: Vec<Value> = outputs
+        .iter()
+        .take(sample_size)
+        .enumerate()
+        .map(|(idx, out)| {
+            json!({
+                "inbound_context": format!("synthesized fixture #{}", idx + 1),
+                "would_send": out,
+            })
+        })
         .collect();
     emit_audit(store, req, "duty.preview", &duty.worker_id, samples.len()).await;
     ("200 OK", json!({ "samples": samples }).to_string())
@@ -188,8 +260,20 @@ pub(super) async fn patch_response(
     let duty_store = DutyStore::new(Arc::clone(store));
     let existing = match duty_store.get(duty_id).await {
         Ok(Some(d)) if d.worker_id == worker_id => d,
-        Ok(_) => return err("404 Not Found", "not_found", &format!("duty '{duty_id}' not found")),
-        Err(e) => return err("500 Internal Server Error", "internal_error", &format!("get duty: {e}")),
+        Ok(_) => {
+            return err(
+                "404 Not Found",
+                "not_found",
+                &format!("duty '{duty_id}' not found"),
+            )
+        }
+        Err(e) => {
+            return err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("get duty: {e}"),
+            )
+        }
     };
     let new_cron = match parsed.get("schedule").and_then(Value::as_str) {
         Some(s) => match validate_5_field_cron(s) {
@@ -207,14 +291,38 @@ pub(super) async fn patch_response(
     };
     let new_enabled = parsed.get("enabled").and_then(Value::as_bool);
     if new_cron.is_none() && new_label.is_none() && new_enabled.is_none() {
-        return err("400 Bad Request", "bad_request", "at least one of `enabled`, `schedule`, `label` is required");
+        return err(
+            "400 Bad Request",
+            "bad_request",
+            "at least one of `enabled`, `schedule`, `label` is required",
+        );
     }
-    if let Err(e) = apply_patch(store, duty_id, new_cron.as_deref(), new_label.as_deref(), new_enabled).await {
-        return err("500 Internal Server Error", "internal_error", &format!("update duty: {e}"));
+    if let Err(e) = apply_patch(
+        store,
+        duty_id,
+        new_cron.as_deref(),
+        new_label.as_deref(),
+        new_enabled,
+    )
+    .await
+    {
+        return err(
+            "500 Internal Server Error",
+            "internal_error",
+            &format!("update duty: {e}"),
+        );
     }
     emit_audit(store, req, "duty.patch", &worker_id, 1).await;
-    let refreshed = duty_store.get(duty_id).await.ok().flatten().unwrap_or(existing);
-    ("200 OK", json!({ "duty": duty_to_json(&refreshed) }).to_string())
+    let refreshed = duty_store
+        .get(duty_id)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(existing);
+    (
+        "200 OK",
+        json!({ "duty": duty_to_json(&refreshed) }).to_string(),
+    )
 }
 
 pub(super) async fn delete_response(
@@ -234,13 +342,31 @@ pub(super) async fn delete_response(
     let duty_store = DutyStore::new(Arc::clone(store));
     match duty_store.get(duty_id).await {
         Ok(Some(d)) if d.worker_id == worker_id => {}
-        Ok(_) => return err("404 Not Found", "not_found", &format!("duty '{duty_id}' not found")),
-        Err(e) => return err("500 Internal Server Error", "internal_error", &format!("get duty: {e}")),
+        Ok(_) => {
+            return err(
+                "404 Not Found",
+                "not_found",
+                &format!("duty '{duty_id}' not found"),
+            )
+        }
+        Err(e) => {
+            return err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("get duty: {e}"),
+            )
+        }
     }
     if let Err(e) = sqlx::query("DELETE FROM role_duty WHERE id = ?")
-        .bind(duty_id).execute(store.pool()).await
+        .bind(duty_id)
+        .execute(store.pool())
+        .await
     {
-        return err("500 Internal Server Error", "internal_error", &format!("delete duty: {e}"));
+        return err(
+            "500 Internal Server Error",
+            "internal_error",
+            &format!("delete duty: {e}"),
+        );
     }
     emit_audit(store, req, "duty.delete", &worker_id, 1).await;
     ("204 No Content", String::new())

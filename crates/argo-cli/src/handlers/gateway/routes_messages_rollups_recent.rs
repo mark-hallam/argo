@@ -31,49 +31,60 @@ pub(super) async fn messages_recent_response(
     // The 6-tuple mirrors the SELECT shape; aliasing it would
     // hide rather than clarify the column order.
     #[allow(clippy::type_complexity)]
-    let rows: Result<Vec<(i64, Vec<u8>, Vec<u8>, String, String, i64)>, _> = match (role, since_micros) {
-        (Some(r), Some(s)) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+    let rows: Result<Vec<(i64, Vec<u8>, Vec<u8>, String, String, i64)>, _> =
+        match (role, since_micros) {
+            (Some(r), Some(s)) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message WHERE role = ? AND created_at >= ? \
              ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(r)
-        .bind(s)
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-        (Some(r), None) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+                )
+                .bind(r)
+                .bind(s)
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+            (Some(r), None) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message WHERE role = ? \
              ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(r)
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-        (None, Some(s)) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+                )
+                .bind(r)
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+            (None, Some(s)) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message WHERE created_at >= ? \
              ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(s)
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-        (None, None) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+                )
+                .bind(s)
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+            (None, None) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-    };
+                )
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+        };
     match rows {
         Ok(rows) => {
             if matches!(format, Some("markdown")) {
                 let n = rows.len();
-                let mut out =
-                    format!("# Messages recent ({n} row{})\n\n", if n == 1 { "" } else { "s" });
+                let mut out = format!(
+                    "# Messages recent ({n} row{})\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
                 if !rows.is_empty() {
                     out.push_str("| seq | role | session_id | content (truncated) |\n");
                     out.push_str("| ---: | --- | --- | --- |\n");
@@ -82,12 +93,8 @@ pub(super) async fn messages_recent_response(
                             .map(|u| u.to_string())
                             .unwrap_or_else(|_| hex::encode(sid_bytes));
                         let preview: String = content.chars().take(80).collect();
-                        let preview = preview
-                            .replace('|', "\\|")
-                            .replace('\n', " ");
-                        out.push_str(&format!(
-                            "| {seq} | `{role}` | `{sid}` | {preview} |\n"
-                        ));
+                        let preview = preview.replace('|', "\\|").replace('\n', " ");
+                        out.push_str(&format!("| {seq} | `{role}` | `{sid}` | {preview} |\n"));
                     }
                 }
                 return ("200 OK", out);

@@ -106,15 +106,8 @@ async fn apply_decisions_reports_missing_ids_without_aborting() {
     let (memory, ws) = open_test_memory().await;
     seed(&memory, ws, &pending_record("real")).await;
     let ids: Vec<String> = vec!["ghost-1".into(), "real".into(), "ghost-2".into()];
-    let (ok, failed) = apply_decisions(
-        &memory,
-        ws,
-        &ids,
-        "ops",
-        None,
-        BatchDecision::Approve,
-    )
-    .await;
+    let (ok, failed) =
+        apply_decisions(&memory, ws, &ids, "ops", None, BatchDecision::Approve).await;
     assert_eq!(ok.len(), 1, "only the seeded id approves");
     assert_eq!(ok[0].action_id, "real");
     assert_eq!(failed.len(), 2, "the two ghost ids fail");
@@ -176,8 +169,7 @@ async fn dry_run_does_not_advance_action_state() {
         .await
         .unwrap();
     for e in entries {
-        let rec: ActionRecord =
-            serde_json::from_str(&e.body).expect("seeded record deserialises");
+        let rec: ActionRecord = serde_json::from_str(&e.body).expect("seeded record deserialises");
         assert_eq!(
             rec.state, "pending",
             "dry-run must not append any non-pending state row"

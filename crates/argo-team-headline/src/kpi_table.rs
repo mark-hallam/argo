@@ -70,97 +70,277 @@ impl BulletKind {
 }
 
 const fn b(source: BulletSource, singular: &'static str, plural: &'static str) -> BulletKind {
-    BulletKind { source, singular, plural }
+    BulletKind {
+        source,
+        singular,
+        plural,
+    }
 }
 
 const GTM_ENGINEER: &[BulletKind] = &[
     b(BulletSource::Messages, "1 reply sent", "{n} replies sent"),
-    b(BulletSource::Pending, "1 pending counter-offer", "{n} pending counter-offers"),
-    b(BulletSource::NotComputableV1, "revenue this week", "revenue this week"),
+    b(
+        BulletSource::Pending,
+        "1 pending counter-offer",
+        "{n} pending counter-offers",
+    ),
+    b(
+        BulletSource::NotComputableV1,
+        "revenue this week",
+        "revenue this week",
+    ),
 ];
 
 const RECRUITER: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 interview booked this week", "{n} interviews booked this week"),
-    b(BulletSource::Messages, "1 candidate screened today", "{n} candidates screened today"),
-    b(BulletSource::Pending, "1 pending rejection draft", "{n} pending rejection drafts"),
+    b(
+        BulletSource::ToolCalls,
+        "1 interview booked this week",
+        "{n} interviews booked this week",
+    ),
+    b(
+        BulletSource::Messages,
+        "1 candidate screened today",
+        "{n} candidates screened today",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending rejection draft",
+        "{n} pending rejection drafts",
+    ),
 ];
 
 const CUSTOMER_SUPPORT: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 ticket resolved today", "{n} tickets resolved today"),
-    b(BulletSource::NotComputableV1, "avg response time", "avg response time"),
-    b(BulletSource::Pending, "1 pending escalation", "{n} pending escalations"),
+    b(
+        BulletSource::ToolCalls,
+        "1 ticket resolved today",
+        "{n} tickets resolved today",
+    ),
+    b(
+        BulletSource::NotComputableV1,
+        "avg response time",
+        "avg response time",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending escalation",
+        "{n} pending escalations",
+    ),
 ];
 
 const SALES_SDR: &[BulletKind] = &[
-    b(BulletSource::Messages, "1 outreach email sent today", "{n} outreach emails sent today"),
-    b(BulletSource::ToolCalls, "1 meeting booked", "{n} meetings booked"),
-    b(BulletSource::Pending, "1 pending follow-up", "{n} pending follow-ups"),
+    b(
+        BulletSource::Messages,
+        "1 outreach email sent today",
+        "{n} outreach emails sent today",
+    ),
+    b(
+        BulletSource::ToolCalls,
+        "1 meeting booked",
+        "{n} meetings booked",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending follow-up",
+        "{n} pending follow-ups",
+    ),
 ];
 
 const SALES_FOLLOW_UP: &[BulletKind] = &[
-    b(BulletSource::Messages, "1 follow-up sent today", "{n} follow-ups sent today"),
-    b(BulletSource::ToolCalls, "1 deal advanced", "{n} deals advanced"),
-    b(BulletSource::Pending, "1 pending approval", "{n} pending approvals"),
+    b(
+        BulletSource::Messages,
+        "1 follow-up sent today",
+        "{n} follow-ups sent today",
+    ),
+    b(
+        BulletSource::ToolCalls,
+        "1 deal advanced",
+        "{n} deals advanced",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending approval",
+        "{n} pending approvals",
+    ),
 ];
 
 const PRODUCT_MANAGER: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 feedback item triaged", "{n} feedback items triaged"),
-    b(BulletSource::Messages, "1 spec drafted", "{n} specs drafted"),
-    b(BulletSource::Pending, "1 pending stakeholder update", "{n} pending stakeholder updates"),
+    b(
+        BulletSource::ToolCalls,
+        "1 feedback item triaged",
+        "{n} feedback items triaged",
+    ),
+    b(
+        BulletSource::Messages,
+        "1 spec drafted",
+        "{n} specs drafted",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending stakeholder update",
+        "{n} pending stakeholder updates",
+    ),
 ];
 
 const TAX_PREP: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 document extracted", "{n} documents extracted"),
-    b(BulletSource::Messages, "1 return drafted", "{n} returns drafted"),
-    b(BulletSource::Pending, "1 pending operator review", "{n} pending operator reviews"),
+    b(
+        BulletSource::ToolCalls,
+        "1 document extracted",
+        "{n} documents extracted",
+    ),
+    b(
+        BulletSource::Messages,
+        "1 return drafted",
+        "{n} returns drafted",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending operator review",
+        "{n} pending operator reviews",
+    ),
 ];
 
 const FINANCE_AR: &[BulletKind] = &[
-    b(BulletSource::Messages, "1 invoice sent", "{n} invoices sent"),
-    b(BulletSource::ToolCalls, "1 payment received", "{n} payments received"),
-    b(BulletSource::Pending, "1 pending collection", "{n} pending collections"),
+    b(
+        BulletSource::Messages,
+        "1 invoice sent",
+        "{n} invoices sent",
+    ),
+    b(
+        BulletSource::ToolCalls,
+        "1 payment received",
+        "{n} payments received",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending collection",
+        "{n} pending collections",
+    ),
 ];
 
 const HEALTHCARE_INTAKE: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 patient scheduled", "{n} patients scheduled"),
-    b(BulletSource::Messages, "1 form triaged", "{n} forms triaged"),
-    b(BulletSource::Pending, "1 pending operator approval", "{n} pending operator approvals"),
+    b(
+        BulletSource::ToolCalls,
+        "1 patient scheduled",
+        "{n} patients scheduled",
+    ),
+    b(
+        BulletSource::Messages,
+        "1 form triaged",
+        "{n} forms triaged",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending operator approval",
+        "{n} pending operator approvals",
+    ),
 ];
 
 const LEGAL_PARALEGAL: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 document reviewed", "{n} documents reviewed"),
-    b(BulletSource::Messages, "1 contract drafted", "{n} contracts drafted"),
-    b(BulletSource::Pending, "1 pending operator review", "{n} pending operator reviews"),
+    b(
+        BulletSource::ToolCalls,
+        "1 document reviewed",
+        "{n} documents reviewed",
+    ),
+    b(
+        BulletSource::Messages,
+        "1 contract drafted",
+        "{n} contracts drafted",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending operator review",
+        "{n} pending operator reviews",
+    ),
 ];
 
 const EVENT_COORDINATOR: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 event booked", "{n} events booked"),
-    b(BulletSource::Messages, "1 RSVP handled", "{n} RSVPs handled"),
-    b(BulletSource::Pending, "1 pending coordination item", "{n} pending coordination items"),
+    b(
+        BulletSource::ToolCalls,
+        "1 event booked",
+        "{n} events booked",
+    ),
+    b(
+        BulletSource::Messages,
+        "1 RSVP handled",
+        "{n} RSVPs handled",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending coordination item",
+        "{n} pending coordination items",
+    ),
 ];
 
 const REAL_ESTATE_AGENT: &[BulletKind] = &[
-    b(BulletSource::Messages, "1 listing replied", "{n} listings replied"),
-    b(BulletSource::ToolCalls, "1 viewing scheduled", "{n} viewings scheduled"),
-    b(BulletSource::Pending, "1 pending offer", "{n} pending offers"),
+    b(
+        BulletSource::Messages,
+        "1 listing replied",
+        "{n} listings replied",
+    ),
+    b(
+        BulletSource::ToolCalls,
+        "1 viewing scheduled",
+        "{n} viewings scheduled",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending offer",
+        "{n} pending offers",
+    ),
 ];
 
 const PR_CHECKER: &[BulletKind] = &[
-    b(BulletSource::ToolCalls, "1 PR reviewed today", "{n} PRs reviewed today"),
-    b(BulletSource::Messages, "1 issue flagged", "{n} issues flagged"),
-    b(BulletSource::Pending, "1 pending re-review", "{n} pending re-reviews"),
+    b(
+        BulletSource::ToolCalls,
+        "1 PR reviewed today",
+        "{n} PRs reviewed today",
+    ),
+    b(
+        BulletSource::Messages,
+        "1 issue flagged",
+        "{n} issues flagged",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending re-review",
+        "{n} pending re-reviews",
+    ),
 ];
 
 const RECEPTIONIST: &[BulletKind] = &[
-    b(BulletSource::Messages, "1 inquiry handled", "{n} inquiries handled"),
-    b(BulletSource::ToolCalls, "1 appointment booked", "{n} appointments booked"),
-    b(BulletSource::Pending, "1 pending handoff", "{n} pending handoffs"),
+    b(
+        BulletSource::Messages,
+        "1 inquiry handled",
+        "{n} inquiries handled",
+    ),
+    b(
+        BulletSource::ToolCalls,
+        "1 appointment booked",
+        "{n} appointments booked",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending handoff",
+        "{n} pending handoffs",
+    ),
 ];
 
 const FALLBACK: &[BulletKind] = &[
-    b(BulletSource::AnyAction, "1 action taken today", "{n} actions taken today"),
-    b(BulletSource::Pending, "1 pending approval", "{n} pending approvals"),
-    b(BulletSource::AnyAction, "last activity recorded", "last activity recorded"),
+    b(
+        BulletSource::AnyAction,
+        "1 action taken today",
+        "{n} actions taken today",
+    ),
+    b(
+        BulletSource::Pending,
+        "1 pending approval",
+        "{n} pending approvals",
+    ),
+    b(
+        BulletSource::AnyAction,
+        "last activity recorded",
+        "last activity recorded",
+    ),
 ];
 
 /// v1 lookup: vertical id → ordered KPI bullet templates. Unknown

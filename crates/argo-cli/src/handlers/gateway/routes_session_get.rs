@@ -14,8 +14,8 @@ use super::routes_audit::{
     audit_count_response, audit_session_response, audit_session_verify_response,
 };
 use super::routes_msgs::{
-    count_messages_response, first_message_response, last_message_response,
-    list_messages_response, message_at_seq_response,
+    count_messages_response, first_message_response, last_message_response, list_messages_response,
+    message_at_seq_response,
 };
 use super::routes_post::session_judge_response;
 use super::routes_query::{parse_limit, parse_query_kv, parse_role};
@@ -37,9 +37,7 @@ pub(super) async fn dispatch_session_get(
     if let Some((sid, tail)) = rest.split_once('/') {
         if tail.starts_with("spend/total ") || tail.starts_with("spend/total?") {
             let format = parse_query_kv(tail, "format");
-            return Some(
-                session_spend_total_response(sid, store, format.as_deref()).await,
-            );
+            return Some(session_spend_total_response(sid, store, format.as_deref()).await);
         }
         if tail.starts_with("spend ") || tail.starts_with("spend?") {
             let format = parse_query_kv(tail, "format");
@@ -54,8 +52,7 @@ pub(super) async fn dispatch_session_get(
             return Some(first_message_response(sid, store, format.as_deref()).await);
         }
         if tail.starts_with("messages/by-role ") || tail.starts_with("messages/by-role?") {
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
             let format = parse_query_kv(tail, "format");
             return Some(
                 super::routes_messages_rollups::session_messages_by_role_response(
@@ -69,12 +66,9 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("messages/count ") || tail.starts_with("messages/count?") {
             let role = parse_role(tail);
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
-            let seq_min = parse_query_kv(tail, "seq-min")
-                .and_then(|v| v.parse::<i64>().ok());
-            let seq_max = parse_query_kv(tail, "seq-max")
-                .and_then(|v| v.parse::<i64>().ok());
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
+            let seq_min = parse_query_kv(tail, "seq-min").and_then(|v| v.parse::<i64>().ok());
+            let seq_max = parse_query_kv(tail, "seq-max").and_then(|v| v.parse::<i64>().ok());
             let content_contains =
                 parse_query_kv(tail, "content-contains").map(|s| s.replace('+', " "));
             let format = parse_query_kv(tail, "format");
@@ -97,17 +91,11 @@ pub(super) async fn dispatch_session_get(
         // count) and before the bare /messages list so the
         // numeric path segment is correctly disambiguated.
         if let Some(after) = tail.strip_prefix("messages/") {
-            let seg = after
-                .split([' ', '?'])
-                .next()
-                .unwrap_or("");
+            let seg = after.split([' ', '?']).next().unwrap_or("");
             if !seg.is_empty() && seg.chars().all(|c| c.is_ascii_digit()) {
                 if let Ok(seq) = seg.parse::<i64>() {
                     let format = parse_query_kv(tail, "format");
-                    return Some(
-                        message_at_seq_response(sid, seq, store, format.as_deref())
-                            .await,
-                    );
+                    return Some(message_at_seq_response(sid, seq, store, format.as_deref()).await);
                 }
             }
         }
@@ -115,12 +103,9 @@ pub(super) async fn dispatch_session_get(
             let limit = parse_limit(tail);
             let tail_n = parse_query_kv(tail, "tail").and_then(|v| v.parse::<usize>().ok());
             let role = parse_role(tail);
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
-            let seq_min = parse_query_kv(tail, "seq-min")
-                .and_then(|v| v.parse::<i64>().ok());
-            let seq_max = parse_query_kv(tail, "seq-max")
-                .and_then(|v| v.parse::<i64>().ok());
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
+            let seq_min = parse_query_kv(tail, "seq-min").and_then(|v| v.parse::<i64>().ok());
+            let seq_max = parse_query_kv(tail, "seq-max").and_then(|v| v.parse::<i64>().ok());
             let content_contains =
                 parse_query_kv(tail, "content-contains").map(|s| s.replace('+', " "));
             let format = parse_query_kv(tail, "format");
@@ -142,9 +127,7 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("skills ") || tail.starts_with("skills?") {
             let format = parse_query_kv(tail, "format");
-            return Some(
-                session_skills_list_response(sid, store, format.as_deref()).await,
-            );
+            return Some(session_skills_list_response(sid, store, format.as_deref()).await);
         }
         // #666 — list active human-approval grants for this
         // session. Operator visibility into "what's currently
@@ -179,26 +162,16 @@ pub(super) async fn dispatch_session_get(
                 .unwrap_or(false);
             let format = parse_query_kv(tail, "format");
             return Some(
-                audit_session_verify_response(
-                    sid,
-                    include_breaks,
-                    store,
-                    format.as_deref(),
-                )
-                .await,
+                audit_session_verify_response(sid, include_breaks, store, format.as_deref()).await,
             );
         }
         if tail.starts_with("audit/count ") || tail.starts_with("audit/count?") {
             let kind = parse_query_kv(tail, "kind");
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
-            return Some(
-                audit_count_response(kind.as_deref(), since, Some(sid), store).await,
-            );
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
+            return Some(audit_count_response(kind.as_deref(), since, Some(sid), store).await);
         }
         if tail.starts_with("audit/by-kind ") || tail.starts_with("audit/by-kind?") {
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
             let format = parse_query_kv(tail, "format");
             return Some(
                 super::routes_session_audit_rollups::session_audit_by_kind_response(
@@ -211,8 +184,7 @@ pub(super) async fn dispatch_session_get(
             );
         }
         if tail.starts_with("audit/by-tool ") || tail.starts_with("audit/by-tool?") {
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
             let format = parse_query_kv(tail, "format");
             return Some(
                 super::routes_session_audit_rollups::session_audit_by_tool_response(
@@ -224,11 +196,8 @@ pub(super) async fn dispatch_session_get(
                 .await,
             );
         }
-        if tail.starts_with("audit/tool-errors ")
-            || tail.starts_with("audit/tool-errors?")
-        {
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
+        if tail.starts_with("audit/tool-errors ") || tail.starts_with("audit/tool-errors?") {
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
             let format = parse_query_kv(tail, "format");
             return Some(
                 super::routes_session_audit_rollups::session_audit_tool_errors_response(
@@ -242,18 +211,10 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("audit ") || tail.starts_with("audit?") {
             let kind = parse_query_kv(tail, "kind");
-            let since = parse_query_kv(tail, "since-minutes")
-                .and_then(|v| v.parse::<i64>().ok());
+            let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
             let format = parse_query_kv(tail, "format");
             return Some(
-                audit_session_response(
-                    sid,
-                    store,
-                    kind.as_deref(),
-                    since,
-                    format.as_deref(),
-                )
-                .await,
+                audit_session_response(sid, store, kind.as_deref(), since, format.as_deref()).await,
             );
         }
     }
@@ -268,12 +229,8 @@ pub(super) async fn dispatch_session_get(
             .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
             .map(str::to_string);
         return Some(
-            super::routes_session::session_show_response_with_format(
-                sid,
-                store,
-                format.as_deref(),
-            )
-            .await,
+            super::routes_session::session_show_response_with_format(sid, store, format.as_deref())
+                .await,
         );
     }
     None

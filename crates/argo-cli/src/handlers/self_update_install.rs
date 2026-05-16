@@ -14,8 +14,7 @@ use std::path::{Path, PathBuf};
 const PUBKEY_HEADER: &str = "-----BEGIN ARGO RELEASE PUBKEY-----";
 const PUBKEY_FOOTER: &str = "-----END ARGO RELEASE PUBKEY-----";
 
-pub(crate) const RELEASE_PUBKEY_PEM: &[u8] =
-    include_bytes!("../../assets/release-pubkey.pem");
+pub(crate) const RELEASE_PUBKEY_PEM: &[u8] = include_bytes!("../../assets/release-pubkey.pem");
 
 pub(crate) async fn download_to(url: &str, dest: &Path) -> ArgoResult<()> {
     let client = reqwest::Client::builder()
@@ -75,11 +74,7 @@ pub fn parse_pubkey_pem(pem: &[u8]) -> ArgoResult<VerifyingKey> {
         .map_err(|e| ArgoError::Provider(format!("self-update: pubkey curve: {e}")))
 }
 
-pub fn verify_signature(
-    pubkey: &VerifyingKey,
-    message: &[u8],
-    signature: &[u8],
-) -> ArgoResult<()> {
+pub fn verify_signature(pubkey: &VerifyingKey, message: &[u8], signature: &[u8]) -> ArgoResult<()> {
     let arr: [u8; 64] = signature.try_into().map_err(|_| {
         ArgoError::Provider(format!(
             "self-update: signature not 64 bytes (got {})",
@@ -102,7 +97,10 @@ pub(crate) fn replace_binary(new_archive: &Path, current_exe: &Path) -> ArgoResu
     let staged = extract_binary(new_archive, dir)?;
     let backup = dir.join(format!(
         "{}.bak",
-        current_exe.file_name().and_then(|s| s.to_str()).unwrap_or("argo")
+        current_exe
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("argo")
     ));
     if backup.exists() {
         let _ = std::fs::remove_file(&backup);
@@ -132,8 +130,8 @@ fn extract_binary(archive: &Path, into_dir: &Path) -> ArgoResult<PathBuf> {
         .entries()
         .map_err(|e| ArgoError::Provider(format!("self-update: read tar: {e}")))?;
     for entry in entries {
-        let mut entry = entry
-            .map_err(|e| ArgoError::Provider(format!("self-update: tar entry: {e}")))?;
+        let mut entry =
+            entry.map_err(|e| ArgoError::Provider(format!("self-update: tar entry: {e}")))?;
         let path = entry
             .path()
             .map_err(|e| ArgoError::Provider(format!("self-update: tar path: {e}")))?
@@ -146,9 +144,8 @@ fn extract_binary(archive: &Path, into_dir: &Path) -> ArgoResult<PathBuf> {
             {
                 use std::os::unix::fs::PermissionsExt;
                 let perms = std::fs::Permissions::from_mode(0o755);
-                std::fs::set_permissions(&staged, perms).map_err(|e| {
-                    ArgoError::Provider(format!("self-update: chmod staged: {e}"))
-                })?;
+                std::fs::set_permissions(&staged, perms)
+                    .map_err(|e| ArgoError::Provider(format!("self-update: chmod staged: {e}")))?;
             }
             return Ok(staged);
         }
@@ -159,9 +156,10 @@ fn extract_binary(archive: &Path, into_dir: &Path) -> ArgoResult<PathBuf> {
 }
 
 pub(crate) fn restart_daemon_best_effort(exe: &Path) -> bool {
-    let Ok(home) = std::env::var("ARGO_HOME").map(PathBuf::from).or_else(|_| {
-        std::env::var("HOME").map(|h| PathBuf::from(h).join(".argo"))
-    }) else {
+    let Ok(home) = std::env::var("ARGO_HOME")
+        .map(PathBuf::from)
+        .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".argo")))
+    else {
         return false;
     };
     let pid_file = home.join("gateway.pid");

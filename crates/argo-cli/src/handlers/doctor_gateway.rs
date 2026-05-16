@@ -56,10 +56,9 @@ pub(super) async fn gateway_health_probe(gateway: &serde_json::Value) -> serde_j
     match client.get(&url).send().await {
         Ok(r) => {
             let code = r.status().as_u16();
-            let body = serde_json::from_str::<serde_json::Value>(
-                &r.text().await.unwrap_or_default(),
-            )
-            .unwrap_or(serde_json::Value::Null);
+            let body =
+                serde_json::from_str::<serde_json::Value>(&r.text().await.unwrap_or_default())
+                    .unwrap_or(serde_json::Value::Null);
             serde_json::json!({"reachable": true, "status_code": code, "body": body})
         }
         Err(e) => serde_json::json!({"reachable": false, "reason": format!("{e}")}),

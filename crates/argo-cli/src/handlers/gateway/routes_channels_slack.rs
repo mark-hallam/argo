@@ -76,11 +76,7 @@ fn slack_actor(v: &Value) -> String {
     v.get("user")
         .and_then(|u| u.get("id"))
         .and_then(Value::as_str)
-        .or_else(|| {
-            v.get("user")?
-                .get("username")
-                .and_then(Value::as_str)
-        })
+        .or_else(|| v.get("user")?.get("username").and_then(Value::as_str))
         .unwrap_or("slack-operator")
         .to_string()
 }

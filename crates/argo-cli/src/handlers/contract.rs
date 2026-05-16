@@ -25,7 +25,7 @@ use crate::handlers::contract_schema::{
     build_kpis_blob, kr_entry_to_spec, read_and_validate, render_contract, ApplyPlan,
 };
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_identity::{IdentityStore, MAX_CHARTER_BYTES, MAX_KPIS_BYTES, WorkerId};
+use argo_identity::{IdentityStore, WorkerId, MAX_CHARTER_BYTES, MAX_KPIS_BYTES};
 use argo_store::worker_okr::{self, KeyResultRow, ObjectiveRow};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -91,7 +91,14 @@ pub async fn apply(
         .await?;
         objective_ids.push(id);
     }
-    print_apply_outcome(worker_raw, tenant_raw, &charter_md, &contract, &objective_ids, json_out);
+    print_apply_outcome(
+        worker_raw,
+        tenant_raw,
+        &charter_md,
+        &contract,
+        &objective_ids,
+        json_out,
+    );
     Ok(())
 }
 
@@ -138,9 +145,7 @@ pub async fn show(worker_id: &str, tenant: &str, json_out: bool) -> ArgoResult<(
         .get_worker(tenant_id, worker)
         .await?
         .ok_or_else(|| {
-            ArgoError::Provider(format!(
-                "worker {worker_id} not found in tenant {tenant}"
-            ))
+            ArgoError::Provider(format!("worker {worker_id} not found in tenant {tenant}"))
         })?;
     let pool = store.pool().clone();
     let objectives = worker_okr::list_objectives(&pool, worker_id, tenant, None).await?;

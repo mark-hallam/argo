@@ -72,12 +72,18 @@ fn gateway_request_span_carries_route_principal_request_id() {
         tracing::info!("dispatched");
     });
     assert!(log.contains("request"), "no span name in: {log}");
-    assert!(log.contains("route=\"POST /sessions\""), "route field missing: {log}");
+    assert!(
+        log.contains("route=\"POST /sessions\""),
+        "route field missing: {log}"
+    );
     assert!(
         log.contains("principal_id=\"human:operator@example.com\""),
         "principal_id field missing: {log}"
     );
-    assert!(log.contains("request_id=\"req-abc-123\""), "request_id field missing: {log}");
+    assert!(
+        log.contains("request_id=\"req-abc-123\""),
+        "request_id field missing: {log}"
+    );
     assert!(log.contains("dispatched"), "event message missing: {log}");
 }
 

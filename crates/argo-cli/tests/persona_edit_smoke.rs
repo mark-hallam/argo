@@ -45,7 +45,10 @@ async fn persona_edit_in_place_updates_row() {
         .unwrap();
     let original_id: String = row.get("id");
     let original_voice: String = row.get("voice_preamble");
-    assert!(original_voice.contains("Pippa"), "seed voice: {original_voice}");
+    assert!(
+        original_voice.contains("Pippa"),
+        "seed voice: {original_voice}"
+    );
 
     // Write the new TOML.
     let fixture = work.path().join("persona.toml");
@@ -110,13 +113,12 @@ async fn persona_edit_in_place_oversize_voice_errors_no_write() {
         Role::new("Field tickets."),
     );
     identities.create_worker(&worker).await.unwrap();
-    let original_voice: String = sqlx::query_scalar(
-        "SELECT voice_preamble FROM persona WHERE name = ?",
-    )
-    .bind("Quinn")
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
+    let original_voice: String =
+        sqlx::query_scalar("SELECT voice_preamble FROM persona WHERE name = ?")
+            .bind("Quinn")
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
 
     // 4 KiB + 1 byte voice — must be rejected.
     let huge = "x".repeat(4 * 1024 + 1);
@@ -145,14 +147,16 @@ async fn persona_edit_in_place_oversize_voice_errors_no_write() {
     assert!(stderr.contains("voice exceeds"), "stderr: {stderr}");
 
     // Voice column must be unchanged.
-    let voice_after: String = sqlx::query_scalar(
-        "SELECT voice_preamble FROM persona WHERE name = ?",
-    )
-    .bind("Quinn")
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
-    assert_eq!(voice_after, original_voice, "row must NOT have been updated");
+    let voice_after: String =
+        sqlx::query_scalar("SELECT voice_preamble FROM persona WHERE name = ?")
+            .bind("Quinn")
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        voice_after, original_voice,
+        "row must NOT have been updated"
+    );
 }
 
 #[tokio::test]
@@ -170,11 +174,7 @@ async fn persona_edit_unknown_name_errors() {
     IdentityStore::new(&store).ensure_schema().await.unwrap();
 
     let fixture = work.path().join("persona.toml");
-    std::fs::write(
-        &fixture,
-        "[persona]\nname = \"Ghost\"\nvoice = \"Boo.\"\n",
-    )
-    .unwrap();
+    std::fs::write(&fixture, "[persona]\nname = \"Ghost\"\nvoice = \"Boo.\"\n").unwrap();
 
     let out = run(
         &home,

@@ -60,8 +60,14 @@ fn render_list_markdown_handles_empty_set() {
 #[test]
 fn render_impact_markdown_renders_depths() {
     let entries = vec![
-        ImpactedWorker { depth: 1, worker_id: "B".into() },
-        ImpactedWorker { depth: 2, worker_id: "C".into() },
+        ImpactedWorker {
+            depth: 1,
+            worker_id: "B".into(),
+        },
+        ImpactedWorker {
+            depth: 2,
+            worker_id: "C".into(),
+        },
     ];
     let md = render_impact_markdown("A", &entries);
     assert!(md.contains("Workers impacted by A outage"));

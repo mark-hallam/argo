@@ -116,10 +116,7 @@ mod tests {
     fn extract_token_finds_token_in_email_payload() {
         let payload = json!({"TextBody":"ok\napproval_token=act.approve.999.sig\nthanks"});
         assert_eq!(
-            extract_token(
-                "POST /channels/email/webhook HTTP/1.1\r\n\r\n{}",
-                &payload
-            ),
+            extract_token("POST /channels/email/webhook HTTP/1.1\r\n\r\n{}", &payload),
             Some("act.approve.999.sig".into())
         );
     }

@@ -16,14 +16,18 @@ async fn set_then_get_returns_value() {
     set_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK, 1)
         .await
         .unwrap();
-    let v = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK).await.unwrap();
+    let v = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK)
+        .await
+        .unwrap();
     assert_eq!(v, Some(1));
 }
 
 #[tokio::test]
 async fn get_unknown_flag_returns_none() {
     let pool = fresh_pool().await;
-    let v = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK).await.unwrap();
+    let v = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK)
+        .await
+        .unwrap();
     assert!(v.is_none());
 }
 
@@ -36,7 +40,9 @@ async fn set_flag_upserts_value_on_conflict() {
     set_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK, 0)
         .await
         .unwrap();
-    let v = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK).await.unwrap();
+    let v = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK)
+        .await
+        .unwrap();
     assert_eq!(v, Some(0), "second set_flag should overwrite, not append");
 }
 
@@ -56,9 +62,13 @@ async fn flags_are_isolated_per_skill() {
         .await
         .unwrap();
     // beta has no row.
-    let v_beta = get_flag(&pool, "beta", FLAG_NO_FORGE_FEEDBACK).await.unwrap();
+    let v_beta = get_flag(&pool, "beta", FLAG_NO_FORGE_FEEDBACK)
+        .await
+        .unwrap();
     assert!(v_beta.is_none());
     // alpha's row is still 1.
-    let v_alpha = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK).await.unwrap();
+    let v_alpha = get_flag(&pool, "alpha", FLAG_NO_FORGE_FEEDBACK)
+        .await
+        .unwrap();
     assert_eq!(v_alpha, Some(1));
 }

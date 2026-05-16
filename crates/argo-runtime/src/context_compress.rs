@@ -215,9 +215,7 @@ pub fn should_compress(
 #[must_use]
 pub fn partition(messages: &[Message], keep_last_turns: usize) -> Partitioned<'_> {
     let mut system_end = 0;
-    while system_end < messages.len()
-        && matches!(messages[system_end].role, MessageRole::System)
-    {
+    while system_end < messages.len() && matches!(messages[system_end].role, MessageRole::System) {
         system_end += 1;
     }
     let body = &messages[system_end..];
@@ -330,9 +328,7 @@ pub fn build_audit_payload(result: &CompressionResult) -> serde_json::Value {
 }
 
 fn build_summary_message(summary: &Summary, older: &[Message]) -> Message {
-    let session_id = older
-        .first()
-        .map_or_else(SessionId::new, |m| m.session_id);
+    let session_id = older.first().map_or_else(SessionId::new, |m| m.session_id);
     Message {
         id: MessageId::new(),
         session_id,

@@ -5,9 +5,7 @@
 
 #![allow(clippy::too_many_lines)]
 
-use super::{
-    classify_response, commit_response, dispatch, reverse_test_response, undo_response,
-};
+use super::{classify_response, commit_response, dispatch, reverse_test_response, undo_response};
 use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::SessionStore;
 use argo_types::TenantId;
@@ -47,7 +45,10 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _) = store
         .ensure_workspace(name, &root)
@@ -78,7 +79,10 @@ fn req_with(verb: &str, path: &str, body: &str) -> String {
 }
 
 async fn json_of(status: &str, body: &str) -> Value {
-    assert!(status.starts_with('2'), "expected 2xx, got {status}: {body}");
+    assert!(
+        status.starts_with('2'),
+        "expected 2xx, got {status}: {body}"
+    );
     serde_json::from_str(body).expect("json body")
 }
 
@@ -281,11 +285,7 @@ async fn dispatch_routes_each_subpath_to_the_right_handler() {
     };
     assert_eq!(status, "200 OK");
     // Unknown subpath falls through to None.
-    let bad = req_with(
-        "POST",
-        &format!("/api/v1/workers/{wid}/retrain/bogus"),
-        "",
-    );
+    let bad = req_with("POST", &format!("/api/v1/workers/{wid}/retrain/bogus"), "");
     assert!(dispatch(&bad, Some(&store)).await.is_none());
     // Non-retrain path is None.
     let off = req_with("POST", &format!("/api/v1/workers/{wid}/other/thing"), "");
@@ -296,7 +296,11 @@ async fn dispatch_routes_each_subpath_to_the_right_handler() {
 async fn handlers_return_503_when_store_missing() {
     let _g = env_lock().await;
     let id = Uuid::now_v7().to_string();
-    let req = req_with("POST", &format!("/api/v1/workers/{id}/retrain/classify"), r#"{"input":"x"}"#);
+    let req = req_with(
+        "POST",
+        &format!("/api/v1/workers/{id}/retrain/classify"),
+        r#"{"input":"x"}"#,
+    );
     let (s1, _) = classify_response(&id, &req, None).await;
     assert_eq!(s1, "503 Service Unavailable");
     let req = req_with(
@@ -336,6 +340,8 @@ async fn audit_row_emitted_for_commit() {
         "SELECT COUNT(*) FROM audit_record WHERE kind = 'http.request' \
            AND json_extract(payload_json, '$.endpoint') = 'worker.retrain.committed'",
     )
-    .fetch_one(store.pool()).await.unwrap();
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
     assert!(count >= 1, "commit must emit a retrain audit row");
 }

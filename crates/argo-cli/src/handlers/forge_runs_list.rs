@@ -125,9 +125,7 @@ pub(super) async fn list_runs(
             if rows.is_empty() {
                 return Ok(());
             }
-            println!(
-                "| status | id | skill | base | candidate | iters | spend (USD) | score |"
-            );
+            println!("| status | id | skill | base | candidate | iters | spend (USD) | score |");
             println!("| :---: | --- | --- | --- | --- | ---: | ---: | ---: |");
             for r in &rows {
                 let id_short: String = hex::encode(&r.id).chars().take(8).collect();

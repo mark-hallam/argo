@@ -135,13 +135,8 @@ fn short_history_skips_compression_and_preserves_messages() {
         body: "should not be called".into(),
         tokens: 1,
     };
-    let result = futures_block(compress(
-        &messages,
-        &config,
-        &WordCounter,
-        &summarizer,
-    ))
-    .expect("compress");
+    let result =
+        futures_block(compress(&messages, &config, &WordCounter, &summarizer)).expect("compress");
     assert!(!result.compressed());
     assert_eq!(result.turns_compressed, 0);
     assert_eq!(result.summary_length_tokens, 0);
@@ -158,7 +153,10 @@ fn partition_keeps_last_n_user_turns_after_system_prefix() {
     assert!(matches!(part.system[0].role, MessageRole::System));
     // Recent slice begins with a User message (boundary lands on
     // the Nth-from-end user).
-    assert!(matches!(part.recent.first().map(|m| m.role), Some(MessageRole::User)));
+    assert!(matches!(
+        part.recent.first().map(|m| m.role),
+        Some(MessageRole::User)
+    ));
     // Recent slice carries exactly 2 user messages + their
     // assistant replies = 4 messages.
     let user_in_recent = part
@@ -185,13 +183,8 @@ fn compress_collapses_older_into_one_assistant_summary() {
         body: "earlier discussion of design tradeoffs".into(),
         tokens: 6,
     };
-    let result = futures_block(compress(
-        &messages,
-        &config,
-        &WordCounter,
-        &summarizer,
-    ))
-    .expect("compress");
+    let result =
+        futures_block(compress(&messages, &config, &WordCounter, &summarizer)).expect("compress");
     assert!(result.compressed());
     // view = system(1) + summary(1) + recent(2 user + 2 assistant) = 6
     assert_eq!(result.view.len(), 6);

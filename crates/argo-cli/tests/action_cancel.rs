@@ -16,11 +16,7 @@ use std::sync::Arc;
 async fn fixture() -> (Arc<SessionStore>, MemoryStore, WorkspaceId) {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
-    let workspace = store
-        .ensure_workspace("cancel-test", ".")
-        .await
-        .unwrap()
-        .1;
+    let workspace = store.ensure_workspace("cancel-test", ".").await.unwrap().1;
     let memory = MemoryStore::new(Arc::clone(&store));
     (store, memory, workspace)
 }

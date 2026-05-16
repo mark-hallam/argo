@@ -27,8 +27,7 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 const RECENT_COMMENT_LIMIT: u32 = 10;
 
 pub async fn run(name: &str, version: Option<&str>, json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(db_path(&home)).await?);
@@ -36,14 +35,13 @@ pub async fn run(name: &str, version: Option<&str>, json: bool) -> ArgoResult<()
     let skills = SkillStore::new(store.clone());
     let skill = match version {
         Some(v) => find_version(&skills, name, v).await?,
-        None => skills.find_active_by_name(name).await?.ok_or_else(|| {
-            ArgoError::Provider(format!("no active skill named '{name}'"))
-        })?,
+        None => skills
+            .find_active_by_name(name)
+            .await?
+            .ok_or_else(|| ArgoError::Provider(format!("no active skill named '{name}'")))?,
     };
-    let publisher = super::skill_rate::publisher_from_source(
-        &skill.frontmatter.provenance.source,
-    )
-    .unwrap_or_default();
+    let publisher = super::skill_rate::publisher_from_source(&skill.frontmatter.provenance.source)
+        .unwrap_or_default();
     let (up, down, score) =
         aggregate_ratings(store.pool(), skill.id, &skill.frontmatter.version).await?;
     let rows = recent_ratings(
@@ -87,8 +85,7 @@ pub async fn run(name: &str, version: Option<&str>, json: bool) -> ArgoResult<()
             "{} v{} (publisher {publisher_label}): up={up} down={down} score={score:.3}",
             skill.frontmatter.name, skill.frontmatter.version
         );
-        let with_comments: Vec<_> =
-            rows.iter().filter(|r| r.comment.is_some()).collect();
+        let with_comments: Vec<_> = rows.iter().filter(|r| r.comment.is_some()).collect();
         if !with_comments.is_empty() {
             println!("recent comments:");
             for r in with_comments {

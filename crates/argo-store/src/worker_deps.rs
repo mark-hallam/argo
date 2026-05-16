@@ -179,9 +179,7 @@ pub async fn add_dependency(
     if graph::would_create_cycle(pool, a, b, kind).await? {
         let path = graph::cycle_path(pool, a, b, kind).await?;
         let rendered = path.join("→");
-        return Err(ArgoError::Provider(format!(
-            "cycle detected: {rendered}"
-        )));
+        return Err(ArgoError::Provider(format!("cycle detected: {rendered}")));
     }
     let now = Utc::now().timestamp_micros();
     let res = sqlx::query(

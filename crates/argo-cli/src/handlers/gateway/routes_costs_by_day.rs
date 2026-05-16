@@ -27,11 +27,11 @@ pub(super) async fn costs_recent_response(
     // The 6-tuple mirrors the SELECT shape; aliasing it would
     // hide rather than clarify the column order.
     #[allow(clippy::type_complexity)]
-    let rows: Result<Vec<(i64, Vec<u8>, i64, i64, String, String)>, _> = match since_minutes {
-        Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
-            sqlx::query_as(
+    let rows: Result<Vec<(i64, Vec<u8>, i64, i64, String, String)>, _> =
+        match since_minutes {
+            Some(m) => {
+                let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+                sqlx::query_as(
                 "SELECT seq, session_id, charged_at_micros, amount_usd_micros, provider, model \
                  FROM spend_ledger WHERE charged_at_micros >= ? \
                  ORDER BY charged_at_micros DESC LIMIT ?",
@@ -40,17 +40,15 @@ pub(super) async fn costs_recent_response(
             .bind(i64::from(limit))
             .fetch_all(pool)
             .await
-        }
-        None => {
-            sqlx::query_as(
+            }
+            None => sqlx::query_as(
                 "SELECT seq, session_id, charged_at_micros, amount_usd_micros, provider, model \
                  FROM spend_ledger ORDER BY charged_at_micros DESC LIMIT ?",
             )
             .bind(i64::from(limit))
             .fetch_all(pool)
-            .await
-        }
-    };
+            .await,
+        };
     match rows {
         Ok(rows) => {
             if matches!(format, Some("markdown")) {
@@ -141,10 +139,7 @@ pub(super) async fn costs_by_day_response(
                     out.push_str("| day | total (USD) |\n");
                     out.push_str("| --- | ---: |\n");
                     for (b, t) in &rows {
-                        out.push_str(&format!(
-                            "| `{b}` | ${:.4} |\n",
-                            *t as f64 / 1_000_000.0
-                        ));
+                        out.push_str(&format!("| `{b}` | ${:.4} |\n", *t as f64 / 1_000_000.0));
                     }
                 }
                 return ("200 OK", out);

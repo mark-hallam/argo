@@ -42,9 +42,7 @@
 //! [`crate::dreams_plan_templates`]).
 
 use crate::dreams_plan_templates::goal_tokens;
-use crate::planner::{
-    apply_context, DecomposeResult, Planner, PlannerContext, PlannerError,
-};
+use crate::planner::{apply_context, DecomposeResult, Planner, PlannerContext, PlannerError};
 use argo_types::PlanProvenance;
 use async_trait::async_trait;
 use std::collections::HashSet;
@@ -357,9 +355,7 @@ fn parse_template_body(
     template_name: &str,
 ) -> Result<DecomposeResult, PlannerError> {
     let workflow = argo_workflow::parse_yaml_str(yaml).map_err(|e| match e {
-        argo_workflow::YamlError::Invalid(v) => {
-            PlannerError::YamlParse(format!("validate: {v}"))
-        }
+        argo_workflow::YamlError::Invalid(v) => PlannerError::YamlParse(format!("validate: {v}")),
         other => PlannerError::YamlParse(format!("{other}")),
     })?;
     let workflow = apply_context(workflow, ctx);

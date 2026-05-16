@@ -49,9 +49,5 @@ pub trait WorkerTrustReader: Send + Sync {
     /// default (`worker.trust_grade INTEGER NOT NULL DEFAULT 0`,
     /// migration `50__worker_trust_grade.sql`) and the
     /// most-restrictive end of the ladder.
-    async fn trust_grade(
-        &self,
-        tenant_id: TenantId,
-        worker_id: Uuid,
-    ) -> ArgoResult<Option<u8>>;
+    async fn trust_grade(&self, tenant_id: TenantId, worker_id: Uuid) -> ArgoResult<Option<u8>>;
 }

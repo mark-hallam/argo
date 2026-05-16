@@ -83,9 +83,7 @@ fn cli_run_composite_creates_session_runs_workflow_returns_combined_json() {
     );
     let v: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
-    let sid = v["session_id"]
-        .as_str()
-        .expect("session_id in run output");
+    let sid = v["session_id"].as_str().expect("session_id in run output");
     assert_eq!(v["vertical_id"], "demo");
     // Sub-document under "workflow" carries the original
     // WorkflowReport JSON.
@@ -136,9 +134,7 @@ fn cli_run_attaches_skill_bundle_when_present() {
         .env("ARGO_HOME", home.path())
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .current_dir(wd.path())
-        .args([
-            "vertical", "run", "demo", "--workflow", "go", "--json",
-        ])
+        .args(["vertical", "run", "demo", "--workflow", "go", "--json"])
         .output()
         .expect("spawn run");
     assert!(

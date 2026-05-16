@@ -141,20 +141,13 @@ async fn get_http_request_row(
     raw.map(row_from_audit).transpose()
 }
 
-fn row_from_audit(
-    t: (Vec<u8>, i64, Option<String>, String),
-) -> ArgoResult<GatewayRequestAuditRow> {
+fn row_from_audit(t: (Vec<u8>, i64, Option<String>, String)) -> ArgoResult<GatewayRequestAuditRow> {
     let request_id = Uuid::from_slice(&t.0)
         .map_err(|e| ArgoError::Provider(format!("audit_record row id: {e}")))?
         .to_string();
     let payload: serde_json::Value = serde_json::from_str(&t.3)
         .map_err(|e| ArgoError::Provider(format!("audit_record payload: {e}")))?;
-    let s = |k: &str| {
-        payload
-            .get(k)
-            .and_then(|v| v.as_str())
-            .map(String::from)
-    };
+    let s = |k: &str| payload.get(k).and_then(|v| v.as_str()).map(String::from);
     let u = |k: &str| payload.get(k).and_then(|v| v.as_u64());
     Ok(GatewayRequestAuditRow {
         request_id,
@@ -275,12 +268,11 @@ mod tests {
         )
         .await
         .unwrap();
-        let id: Vec<u8> = sqlx::query_scalar(
-            "SELECT id FROM audit_record WHERE kind = 'http.request' LIMIT 1",
-        )
-        .fetch_one(store.pool())
-        .await
-        .unwrap();
+        let id: Vec<u8> =
+            sqlx::query_scalar("SELECT id FROM audit_record WHERE kind = 'http.request' LIMIT 1")
+                .fetch_one(store.pool())
+                .await
+                .unwrap();
         let uuid = Uuid::from_slice(&id).unwrap().to_string();
         let got = get_http_request_row(store.pool(), &uuid).await.unwrap();
         assert!(got.is_some());

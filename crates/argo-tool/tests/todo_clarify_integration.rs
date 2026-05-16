@@ -59,14 +59,15 @@ async fn todo_state_persists_across_separate_tool_contexts() {
 
     // The state file must exist on disk.
     let state_path = root.join(".argo").join("todo.json");
-    assert!(state_path.exists(), "expected {} to exist", state_path.display());
+    assert!(
+        state_path.exists(),
+        "expected {} to exist",
+        state_path.display()
+    );
 
     // Context B: list reflects both writes from A.
     let r = Todo
-        .dispatch(
-            serde_json::json!({"action": "list"}),
-            &ctx(root.clone()),
-        )
+        .dispatch(serde_json::json!({"action": "list"}), &ctx(root.clone()))
         .await
         .unwrap();
     let items: Vec<TodoItem> = serde_json::from_str(&first_text(&r)).unwrap();
@@ -84,10 +85,7 @@ async fn todo_state_persists_across_separate_tool_contexts() {
         .unwrap();
     assert!(!r.is_error);
     let r = Todo
-        .dispatch(
-            serde_json::json!({"action": "list"}),
-            &ctx(root.clone()),
-        )
+        .dispatch(serde_json::json!({"action": "list"}), &ctx(root.clone()))
         .await
         .unwrap();
     let items: Vec<TodoItem> = serde_json::from_str(&first_text(&r)).unwrap();

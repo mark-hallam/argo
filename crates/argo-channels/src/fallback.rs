@@ -72,7 +72,6 @@ impl FallbackChain {
             per_step_timeout_secs: DEFAULT_PER_STEP_TIMEOUT_SECS,
         }
     }
-
 }
 
 /// Outcome of a single channel attempt.

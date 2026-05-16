@@ -60,19 +60,13 @@ impl MockAnthropic {
     /// Number of `step` calls observed so far.
     #[must_use]
     pub fn calls_observed(&self) -> u32 {
-        self.received
-            .lock()
-            .map(|c| *c)
-            .unwrap_or(0)
+        self.received.lock().map(|c| *c).unwrap_or(0)
     }
 }
 
 #[async_trait]
 impl AnthropicCall for MockAnthropic {
-    async fn step<'a>(
-        &self,
-        _req: CuStepRequest<'a>,
-    ) -> Result<Vec<CuStepResponse>, CuError> {
+    async fn step<'a>(&self, _req: CuStepRequest<'a>) -> Result<Vec<CuStepResponse>, CuError> {
         if let Ok(mut c) = self.received.lock() {
             *c += 1;
         }
@@ -135,14 +129,18 @@ impl MockE2bClient {
     /// Script the rows [`E2bCall::list_sandboxes`] returns.
     #[must_use]
     pub fn with_sandboxes(self, sandboxes: Vec<E2bSandboxInfo>) -> Self {
-        if let Ok(mut g) = self.sandboxes.lock() { *g = sandboxes; }
+        if let Ok(mut g) = self.sandboxes.lock() {
+            *g = sandboxes;
+        }
         self
     }
 
     /// Configure [`E2bCall::close_sandbox`] to fail for `id` with `message`.
     #[must_use]
     pub fn with_close_error(self, id: impl Into<String>, message: impl Into<String>) -> Self {
-        if let Ok(mut g) = self.close_errors.lock() { g.insert(id.into(), message.into()); }
+        if let Ok(mut g) = self.close_errors.lock() {
+            g.insert(id.into(), message.into());
+        }
         self
     }
 
@@ -162,10 +160,7 @@ impl MockE2bClient {
     /// inline `screenshot_b64` instead of paying a second round-trip.
     #[must_use]
     pub fn screenshot_calls(&self) -> u32 {
-        self.screenshot_calls
-            .lock()
-            .map(|g| *g)
-            .unwrap_or(0)
+        self.screenshot_calls.lock().map(|g| *g).unwrap_or(0)
     }
 }
 

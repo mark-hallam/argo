@@ -101,13 +101,15 @@ fn pr_checker_eval_suite_is_non_empty() {
     let (registry, _) = argo_vertical::load_dir(dir).expect("load_dir");
     let pr = registry.get("pr-checker").unwrap();
     let eval = pr.manifest.evaluation.as_ref().expect("[evaluation]");
-    assert!(!eval.suites.is_empty(), "pr-checker needs at least one eval suite");
+    assert!(
+        !eval.suites.is_empty(),
+        "pr-checker needs at least one eval suite"
+    );
 
     for rel in &eval.suites {
         let p = pr.root.join(rel);
-        let body = std::fs::read_to_string(&p).unwrap_or_else(|e| {
-            panic!("eval suite {rel} unreadable at {}: {e}", p.display())
-        });
+        let body = std::fs::read_to_string(&p)
+            .unwrap_or_else(|e| panic!("eval suite {rel} unreadable at {}: {e}", p.display()));
         let lines: Vec<&str> = body.lines().filter(|l| !l.trim().is_empty()).collect();
         assert!(
             lines.len() >= 5,

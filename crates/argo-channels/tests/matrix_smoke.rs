@@ -33,8 +33,7 @@ fn notification() -> Notification {
         approval_id: "argo-matrix-smoke-action".into(),
         risk_level: RiskLevel::High,
         prompt_body: "Argo Matrix smoke test — please ignore.".into(),
-        approve_url: "https://gw.example.com/decision?token=argo-matrix-smoke.approve.0.sig"
-            .into(),
+        approve_url: "https://gw.example.com/decision?token=argo-matrix-smoke.approve.0.sig".into(),
         reject_url: "https://gw.example.com/decision?token=argo-matrix-smoke.reject.0.sig".into(),
         expiry: Utc::now() + Duration::minutes(5),
     }

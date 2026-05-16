@@ -3,9 +3,7 @@
 //! env vars (cargo runs tests on multiple threads — env mutation
 //! races with sibling tests in the same process).
 
-use super::pii_detect::{
-    apply_policy, scan, PiiFindings, PiiFinding, PiiKind, PolicyConfig,
-};
+use super::pii_detect::{apply_policy, scan, PiiFinding, PiiFindings, PiiKind, PolicyConfig};
 
 fn kinds(f: &PiiFindings) -> Vec<PiiKind> {
     f.0.iter().map(|x| x.kind).collect()
@@ -47,8 +45,7 @@ fn email_detected() {
     let findings = scan("ping alice.smith+work@example.co.uk for the answer");
     assert_eq!(kinds(&findings), vec![PiiKind::Email]);
     assert_eq!(
-        &"ping alice.smith+work@example.co.uk for the answer"
-            [findings.0[0].span.clone()],
+        &"ping alice.smith+work@example.co.uk for the answer"[findings.0[0].span.clone()],
         "alice.smith+work@example.co.uk"
     );
 }
@@ -93,16 +90,16 @@ fn clean_string_yields_no_findings() {
 fn redact_produces_masked_output() {
     // Single-finding redaction.
     let one = scan("ssn 123-45-6789 here");
-    assert_eq!(one.redact("ssn 123-45-6789 here"), "ssn <redacted:ssn> here");
+    assert_eq!(
+        one.redact("ssn 123-45-6789 here"),
+        "ssn <redacted:ssn> here"
+    );
 
     // Multi-finding ordered redaction.
     let s = "ssn 123-45-6789 mail bob@example.com";
     let multi = scan(s);
     assert_eq!(kinds(&multi), vec![PiiKind::Ssn, PiiKind::Email]);
-    assert_eq!(
-        multi.redact(s),
-        "ssn <redacted:ssn> mail <redacted:email>"
-    );
+    assert_eq!(multi.redact(s), "ssn <redacted:ssn> mail <redacted:email>");
 
     // Empty findings → identity.
     let empty = PiiFindings::default();

@@ -80,9 +80,7 @@ impl SystemJobHandler for AuditArchivalHandler {
                 jobs_processed: rows as usize,
                 skipped: 0,
                 errors: Vec::new(),
-                summary: format!(
-                    "audit.evidence_archival: archived {rows} row(s) → {name}"
-                ),
+                summary: format!("audit.evidence_archival: archived {rows} row(s) → {name}"),
             }),
             Err(ArgoError::Provider(msg)) => Ok(SystemJobOutcome {
                 jobs_processed: 0,

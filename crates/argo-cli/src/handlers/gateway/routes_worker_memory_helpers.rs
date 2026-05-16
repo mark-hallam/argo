@@ -47,7 +47,9 @@ pub(super) fn parse_text_body(req: &str) -> Result<String, (&'static str, String
         return Err(bad_request("empty text"));
     }
     if raw.len() > FACT_MAX_BYTES {
-        return Err(bad_request(&format!("text exceeds {FACT_MAX_BYTES}-byte limit")));
+        return Err(bad_request(&format!(
+            "text exceeds {FACT_MAX_BYTES}-byte limit"
+        )));
     }
     if raw.contains(FACT_TOMBSTONE_MARKER) {
         return Err(bad_request("text contains reserved tombstone marker"));
@@ -62,7 +64,10 @@ pub(super) async fn resolve_worker_ctx(
     let tenant = resolve_workspace_tenant(store)
         .await
         .map_err(|e| server_error(&format!("resolve tenant: {e}")))?;
-    match IdentityStore::new(store).get_worker(tenant, worker_id).await {
+    match IdentityStore::new(store)
+        .get_worker(tenant, worker_id)
+        .await
+    {
         Ok(Some(worker)) => Ok(WorkerCtx { tenant, worker }),
         // Cross-tenant / cross-worker / unknown all surface as 404 —
         // per acceptance criteria, don't leak existence.
@@ -72,9 +77,11 @@ pub(super) async fn resolve_worker_ctx(
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
@@ -84,12 +91,16 @@ pub(super) fn parse_role_header(req: &str) -> Option<String> {
     let headers = req.split_once("\r\n\r\n").map_or(req, |(h, _)| h);
     headers.lines().skip(1).find_map(|line| {
         let (n, v) = line.split_once(':')?;
-        n.eq_ignore_ascii_case(ROLE_HEADER).then(|| v.trim().to_ascii_lowercase())
+        n.eq_ignore_ascii_case(ROLE_HEADER)
+            .then(|| v.trim().to_ascii_lowercase())
     })
 }
 
 pub(super) fn role_shows_ns(role: &str) -> bool {
-    matches!(role, "operator" | "auditor" | "compliance-officer" | "compliance_officer")
+    matches!(
+        role,
+        "operator" | "auditor" | "compliance-officer" | "compliance_officer"
+    )
 }
 
 pub(super) fn format_namespace_id(worker: &Worker) -> String {
@@ -139,7 +150,11 @@ pub(super) async fn fetch_active_facts(
             let learned_at = Utc.timestamp_micros(learned_at).single().ok_or_else(|| {
                 ArgoError::Provider(format!("memory_entry.learned_at oob: {learned_at}"))
             })?;
-            Ok(FactRow { id, body, learned_at })
+            Ok(FactRow {
+                id,
+                body,
+                learned_at,
+            })
         })
         .collect()
 }
@@ -163,13 +178,12 @@ pub(super) async fn fetch_owned_active_fact(
     {
         return Ok(None);
     }
-    let owner: Option<(Vec<u8>, Vec<u8>, String)> = sqlx::query_as(
-        "SELECT tenant_id, worker_id, memory_scope FROM memory_entry WHERE id = ?",
-    )
-    .bind(fact_id.as_bytes().as_slice())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("fact owner probe: {e}")))?;
+    let owner: Option<(Vec<u8>, Vec<u8>, String)> =
+        sqlx::query_as("SELECT tenant_id, worker_id, memory_scope FROM memory_entry WHERE id = ?")
+            .bind(fact_id.as_bytes().as_slice())
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("fact owner probe: {e}")))?;
     let Some((tenant_bytes, worker_bytes, scope)) = owner else {
         return Ok(None);
     };
@@ -222,7 +236,12 @@ pub(super) async fn emit_audit(
         }
     }
     if let Err(e) = AuditSink::new_with_tenant(Arc::clone(store), ctx.tenant.to_string())
-        .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            principal_id_for_audit(req),
+        )
         .await
     {
         tracing::warn!(target: "gateway::worker_memory", error = %e, "audit write failed");

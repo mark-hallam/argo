@@ -69,10 +69,17 @@ async fn gdpr_delete_dry_run_confirm_bundle_and_redacts_all_surfaces() {
         ],
         "alice@example.com\n",
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let done: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(done["gdpr_delete"]["dry_run"], false);
-    assert_eq!(done["gdpr_delete"]["audit_event_kind"], "gdpr_subject_erasure");
+    assert_eq!(
+        done["gdpr_delete"]["audit_event_kind"],
+        "gdpr_subject_erasure"
+    );
     assert_tar(&bundle);
 
     let leaked: i64 = sqlx::query_scalar(
@@ -183,7 +190,11 @@ fn run_json(cwd: &Path, home: &Path, args: &[&str]) -> Value {
         .args(args)
         .output()
         .unwrap();
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     serde_json::from_slice(&out.stdout).unwrap()
 }
 
@@ -197,7 +208,12 @@ fn run_with_stdin(cwd: &Path, home: &Path, args: &[&str], stdin: &str) -> Output
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child.stdin.as_mut().unwrap().write_all(stdin.as_bytes()).unwrap();
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(stdin.as_bytes())
+        .unwrap();
     child.wait_with_output().unwrap()
 }
 

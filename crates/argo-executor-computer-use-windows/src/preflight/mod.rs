@@ -161,12 +161,14 @@ impl WindowsPreflightReport {
         }
         let mut out = String::new();
         if !self.probed {
-            out.push_str(
-                "preflight not attempted (non-Windows host or runtime guard fired)\n",
-            );
+            out.push_str("preflight not attempted (non-Windows host or runtime guard fired)\n");
         }
         for check in self.failing() {
-            out.push_str(&format!("- {}: {}\n", check.label(), check.actionable_hint()));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                check.label(),
+                check.actionable_hint()
+            ));
         }
         out
     }
@@ -240,7 +242,10 @@ mod tests {
         let r = WindowsPreflightReport::not_probed();
         assert!(!r.probed);
         assert_eq!(r.entries.len(), 6);
-        assert!(r.entries.iter().all(|(_, s)| *s == PreflightStatus::Unknown));
+        assert!(r
+            .entries
+            .iter()
+            .all(|(_, s)| *s == PreflightStatus::Unknown));
         assert!(!r.all_passed());
         assert_eq!(r.monitor_count, 0);
         assert!(r.primary_resolution.is_none());

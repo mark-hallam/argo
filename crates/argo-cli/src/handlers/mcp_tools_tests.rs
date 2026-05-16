@@ -102,7 +102,10 @@ fn ndjson_line_schema_only_drops_description() {
     let line = ndjson_line(&tool, true).expect("ndjson serialises");
     let v: serde_json::Value = serde_json::from_str(&line).expect("valid json");
     assert_eq!(v["name"], "echo");
-    assert!(v.get("description").is_none(), "schema_only must drop description");
+    assert!(
+        v.get("description").is_none(),
+        "schema_only must drop description"
+    );
     assert!(v.get("input_schema").is_some());
 }
 

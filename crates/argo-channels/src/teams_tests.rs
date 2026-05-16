@@ -211,7 +211,10 @@ async fn token_refresh_on_401_then_retries_once() {
     let ch = channel(&addr);
     let receipt = ch.send(notification()).await.unwrap();
     assert_eq!(receipt.status, DeliveryStatus::Sent);
-    assert_eq!(receipt.provider_message_id.as_deref(), Some("msg-after-401"));
+    assert_eq!(
+        receipt.provider_message_id.as_deref(),
+        Some("msg-after-401")
+    );
     let token_hits = count_containing(&hits, "/oauth2/v2.0/token");
     let send_hits = count_containing(&hits, "POST /teams/");
     assert!(

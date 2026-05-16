@@ -35,12 +35,9 @@ pub async fn run(
     json_out: bool,
 ) -> ArgoResult<()> {
     if from_version == to_version {
-        return Err(ArgoError::Schema(
-            "--from and --to must differ".to_string(),
-        ));
+        return Err(ArgoError::Schema("--from and --to must differ".to_string()));
     }
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -50,9 +47,8 @@ pub async fn run(
     let skill_id = parse_skill_id_hex(skill_id_str)?;
     let publisher_tenant_id = match publisher_tenant_id_str {
         Some(s) => {
-            let parsed = Uuid::parse_str(s).map_err(|e| {
-                ArgoError::Schema(format!("publisher tenant id parse: {e}"))
-            })?;
+            let parsed = Uuid::parse_str(s)
+                .map_err(|e| ArgoError::Schema(format!("publisher tenant id parse: {e}")))?;
             TenantId(parsed)
         }
         None => TenantId::new(),
@@ -100,9 +96,7 @@ fn print_result(
         println!("{}", serde_json::to_string(&payload).unwrap_or_default());
     } else {
         let auto = if auto_upgrade { " (auto)" } else { "" };
-        println!(
-            "recorded migration {skill_id}: {from_version} -> {to_version}{auto}"
-        );
+        println!("recorded migration {skill_id}: {from_version} -> {to_version}{auto}");
         if let Some(r) = reason {
             println!("  reason: {r}");
         }

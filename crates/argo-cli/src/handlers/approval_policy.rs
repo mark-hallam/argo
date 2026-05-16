@@ -106,10 +106,7 @@ fn list(json: bool) -> ArgoResult<()> {
         println!("  {name}");
     }
     println!();
-    println!(
-        "local templates in {LOCAL_TEMPLATE_DIR} ({}):",
-        local.len()
-    );
+    println!("local templates in {LOCAL_TEMPLATE_DIR} ({}):", local.len());
     for path in &local {
         println!("  {}", path.display());
     }
@@ -143,9 +140,8 @@ fn init(name: &str, force: bool, json: bool) -> ArgoResult<()> {
     })?;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let dir = cwd.join(LOCAL_TEMPLATE_DIR);
-    std::fs::create_dir_all(&dir).map_err(|e| {
-        ArgoError::Io(format!("create {}: {e}", dir.display()))
-    })?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| ArgoError::Io(format!("create {}: {e}", dir.display())))?;
     let dest = dir.join(format!("{name}.toml"));
     if dest.exists() && !force {
         return Err(ArgoError::Provider(format!(
@@ -153,9 +149,8 @@ fn init(name: &str, force: bool, json: bool) -> ArgoResult<()> {
             dest.display()
         )));
     }
-    std::fs::write(&dest, body).map_err(|e| {
-        ArgoError::Io(format!("write {}: {e}", dest.display()))
-    })?;
+    std::fs::write(&dest, body)
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", dest.display())))?;
     if json {
         let payload = serde_json::json!({
             "name": name,
@@ -199,21 +194,16 @@ fn resolve_to_table(name: &str, cwd: &Path, depth: usize) -> ArgoResult<Table> {
 // bundled template with the same name, so operators can override
 // a starter without renaming it.
 fn template_body(name: &str, cwd: &Path) -> ArgoResult<String> {
-    let local = cwd
-        .join(LOCAL_TEMPLATE_DIR)
-        .join(format!("{name}.toml"));
+    let local = cwd.join(LOCAL_TEMPLATE_DIR).join(format!("{name}.toml"));
     if local.exists() {
-        return std::fs::read_to_string(&local).map_err(|e| {
-            ArgoError::Io(format!("read {}: {e}", local.display()))
-        });
+        return std::fs::read_to_string(&local)
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", local.display())));
     }
-    bundled_body(name)
-        .map(|s| s.to_string())
-        .ok_or_else(|| {
-            ArgoError::Provider(format!(
-                "no approval policy template named '{name}' (bundled or local)"
-            ))
-        })
+    bundled_body(name).map(|s| s.to_string()).ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "no approval policy template named '{name}' (bundled or local)"
+        ))
+    })
 }
 
 fn bundled_body(name: &str) -> Option<&'static str> {
@@ -273,13 +263,11 @@ fn list_local() -> ArgoResult<Vec<PathBuf>> {
         return Ok(Vec::new());
     }
     let mut paths = Vec::new();
-    let entries = std::fs::read_dir(&dir).map_err(|e| {
-        ArgoError::Io(format!("read_dir {}: {e}", dir.display()))
-    })?;
+    let entries = std::fs::read_dir(&dir)
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?;
     for entry in entries {
-        let entry = entry.map_err(|e| {
-            ArgoError::Io(format!("read entry under {}: {e}", dir.display()))
-        })?;
+        let entry =
+            entry.map_err(|e| ArgoError::Io(format!("read entry under {}: {e}", dir.display())))?;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("toml") {
             paths.push(path);

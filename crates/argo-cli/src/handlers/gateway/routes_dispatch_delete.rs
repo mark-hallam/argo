@@ -19,7 +19,5 @@ pub(super) async fn dispatch_delete(
     if head_no_query.contains('/') || head_no_query.is_empty() {
         return None;
     }
-    Some(
-        super::routes_worker_settings::delete_worker_endpoint(head_no_query, req, store).await,
-    )
+    Some(super::routes_worker_settings::delete_worker_endpoint(head_no_query, req, store).await)
 }

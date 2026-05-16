@@ -40,7 +40,10 @@ async fn main() -> Result<(), String> {
     let audit_path = std::env::var("ARGO_HOME")
         .map(|h| PathBuf::from(h).join("audit/image_gen.ndjson"))
         .unwrap_or_else(|_| {
-            dirs_home().join(".argo").join("audit").join("image_gen.ndjson")
+            dirs_home()
+                .join(".argo")
+                .join("audit")
+                .join("image_gen.ndjson")
         });
     let server = ImageGenMcpServer::new(
         backend,

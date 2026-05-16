@@ -35,9 +35,17 @@ async fn record_roundtrip() {
     let store = open_store().await;
     let skill_id = SkillId::new();
     let publisher = TenantId::new();
-    record_migration(&store, skill_id, "v1", "v2", publisher, Some("bug fix"), false)
-        .await
-        .unwrap();
+    record_migration(
+        &store,
+        skill_id,
+        "v1",
+        "v2",
+        publisher,
+        Some("bug fix"),
+        false,
+    )
+    .await
+    .unwrap();
     let found = lookup_migration(&store, skill_id, "v1").await.unwrap();
     let row = found.expect("expected v1->v2 row");
     assert_eq!(row.from_version, "v1");
@@ -54,9 +62,17 @@ async fn idempotent_on_pk() {
     record_migration(&store, skill_id, "v1", "v2", publisher, None, false)
         .await
         .unwrap();
-    record_migration(&store, skill_id, "v1", "v2", publisher, Some("new note"), true)
-        .await
-        .unwrap();
+    record_migration(
+        &store,
+        skill_id,
+        "v1",
+        "v2",
+        publisher,
+        Some("new note"),
+        true,
+    )
+    .await
+    .unwrap();
     let rows = list_for_skill(&store, skill_id).await.unwrap();
     assert_eq!(rows.len(), 1, "PK collision must NOT insert a duplicate");
     // First-write-wins: original empty reason + auto_upgrade=false stay.
@@ -149,7 +165,11 @@ async fn same_tenant_subsequent_calls_succeed() {
         .await
         .unwrap();
     let rows = list_for_skill(&store, skill_id).await.unwrap();
-    assert_eq!(rows.len(), 3, "all three rows persisted for canonical publisher");
+    assert_eq!(
+        rows.len(),
+        3,
+        "all three rows persisted for canonical publisher"
+    );
 }
 
 #[tokio::test]

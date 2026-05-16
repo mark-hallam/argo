@@ -132,13 +132,11 @@ pub async fn rollback_to(
     if exists.is_none() {
         return Ok(false);
     }
-    sqlx::query(
-        "DELETE FROM workflow_checkpoint WHERE workflow_run_id = ? AND seq > ?",
-    )
-    .bind(workflow_run_id)
-    .bind(target_seq)
-    .execute(pool)
-    .await?;
+    sqlx::query("DELETE FROM workflow_checkpoint WHERE workflow_run_id = ? AND seq > ?")
+        .bind(workflow_run_id)
+        .bind(target_seq)
+        .execute(pool)
+        .await?;
     Ok(true)
 }
 

@@ -14,14 +14,18 @@
 //! `ARGO_NATIVE_MACOS_INTEGRATION=1`, then `cargo test -p
 //! argo-executor-computer-use-macos --test notes_smoke`.
 
+use argo_executor_computer_use::e2b::CuAction;
 use argo_executor_computer_use_macos::{
     a11y, events, notes, screenshot, MacosCuConfig, MacosCuExecutor,
 };
-use argo_executor_computer_use::e2b::CuAction;
 
 #[tokio::test]
 async fn notes_create_type_readback() {
-    if std::env::var("ARGO_NATIVE_MACOS_INTEGRATION").ok().as_deref() != Some("1") {
+    if std::env::var("ARGO_NATIVE_MACOS_INTEGRATION")
+        .ok()
+        .as_deref()
+        != Some("1")
+    {
         println!("ARGO_NATIVE_MACOS_INTEGRATION not set — skipping native macOS smoke test");
         return;
     }
@@ -30,8 +34,8 @@ async fn notes_create_type_readback() {
         return;
     }
 
-    let exec = MacosCuExecutor::new(MacosCuConfig::for_notes_app())
-        .expect("default config should build");
+    let exec =
+        MacosCuExecutor::new(MacosCuConfig::for_notes_app()).expect("default config should build");
     let report = exec.preflight().await;
     if !report.all_granted() {
         println!(
@@ -42,9 +46,7 @@ async fn notes_create_type_readback() {
     }
 
     // Step 1: open Notes + capture a baseline screenshot.
-    notes::ensure_notes_open()
-        .await
-        .expect("ensure Notes open");
+    notes::ensure_notes_open().await.expect("ensure Notes open");
     a11y::activate_app(notes::NOTES_BUNDLE_ID, exec.config())
         .await
         .expect("activate Notes");
@@ -64,9 +66,7 @@ async fn notes_create_type_readback() {
             .unwrap_or_default()
             .as_millis()
     );
-    let note_id = notes::create_note(&probe_body)
-        .await
-        .expect("create note");
+    let note_id = notes::create_note(&probe_body).await.expect("create note");
     assert!(!note_id.is_empty(), "Notes returned empty id");
 
     // Step 3: post a benign Type action through the executor's
@@ -77,10 +77,7 @@ async fn notes_create_type_readback() {
     // by an upcoming brief that wires this executor into the
     // worker_actions dispatcher with a fixture Anthropic client.
     let click = CuAction::Click { x: 100, y: 100 };
-    let result = exec
-        .execute_step(&click)
-        .await
-        .expect("execute one step");
+    let result = exec.execute_step(&click).await.expect("execute one step");
     assert!(result.ok, "step result should be ok");
 
     // Step 4: readback the body via osascript to prove the note

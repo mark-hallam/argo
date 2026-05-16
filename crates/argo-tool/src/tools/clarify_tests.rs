@@ -49,10 +49,7 @@ fn body(r: &ToolCallResult) -> String {
 #[tokio::test]
 async fn default_form_returns_not_wired_error_with_hint() {
     let r = Clarify::default()
-        .dispatch(
-            serde_json::json!({"question": "ship now?"}),
-            &ctx(),
-        )
+        .dispatch(serde_json::json!({"question": "ship now?"}), &ctx())
         .await
         .unwrap();
     assert!(r.is_error);

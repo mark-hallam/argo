@@ -20,8 +20,7 @@ pub(super) async fn forge_runs_by_skill_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT skill_name, COUNT(*) FROM forge_run WHERE started_at >= ? \
                  GROUP BY skill_name ORDER BY skill_name",

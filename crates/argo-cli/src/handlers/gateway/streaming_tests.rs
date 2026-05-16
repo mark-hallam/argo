@@ -120,11 +120,12 @@ async fn json_array_empty_stream_emits_brackets() {
 
 #[tokio::test]
 async fn json_array_multi_row_stream_is_valid_json() {
-    let rows: Vec<ArgoResult<serde_json::Value>> = (0..3)
-        .map(|i| Ok(serde_json::json!({"i": i})))
-        .collect();
+    let rows: Vec<ArgoResult<serde_json::Value>> =
+        (0..3).map(|i| Ok(serde_json::json!({"i": i}))).collect();
     let mut buf: Vec<u8> = Vec::new();
-    stream_json_array(&mut buf, stream::iter(rows)).await.unwrap();
+    stream_json_array(&mut buf, stream::iter(rows))
+        .await
+        .unwrap();
     let body = decode_chunked_body(&String::from_utf8(buf).unwrap());
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("valid json");
     let arr = parsed.as_array().unwrap();
@@ -135,9 +136,8 @@ async fn json_array_multi_row_stream_is_valid_json() {
 
 #[tokio::test]
 async fn ndjson_one_value_per_line() {
-    let rows: Vec<ArgoResult<serde_json::Value>> = (0..3)
-        .map(|i| Ok(serde_json::json!({"i": i})))
-        .collect();
+    let rows: Vec<ArgoResult<serde_json::Value>> =
+        (0..3).map(|i| Ok(serde_json::json!({"i": i}))).collect();
     let mut buf: Vec<u8> = Vec::new();
     stream_ndjson(&mut buf, stream::iter(rows)).await.unwrap();
     let text = String::from_utf8(buf).unwrap();
@@ -168,7 +168,10 @@ async fn json_array_propagates_stream_error() {
     ];
     let mut buf: Vec<u8> = Vec::new();
     let r = stream_json_array(&mut buf, stream::iter(rows)).await;
-    assert!(r.is_err(), "expected mid-stream error to surface as io::Error");
+    assert!(
+        r.is_err(),
+        "expected mid-stream error to surface as io::Error"
+    );
 }
 
 /// Decode the body of an HTTP/1.1 `Transfer-Encoding: chunked`

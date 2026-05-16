@@ -132,8 +132,7 @@ pub fn workspace_stage(cwd: &Path) -> OnboardStage {
 fn bootstrap_workspace(cwd: &Path) -> ArgoResult<()> {
     let toml_path = cwd.join("argo.toml");
     let body = "[core]\nprofile = \"default\"\n\n[tenant]\ndefault_id = \"default\"\nmode = \"single\"\n\n[forge]\nenabled = false\n";
-    std::fs::write(&toml_path, body)
-        .map_err(|e| ArgoError::Io(format!("write argo.toml: {e}")))?;
+    std::fs::write(&toml_path, body).map_err(|e| ArgoError::Io(format!("write argo.toml: {e}")))?;
     for dir in ["skills", "personas", "cron", "rubrics", ".argo/manifests"] {
         let p = cwd.join(dir);
         std::fs::create_dir_all(&p)
@@ -164,7 +163,10 @@ pub fn credentials_stage(
     }
     OnboardStage::ok(
         "Credentials",
-        format!("stored {} credential(s) at .argo/credentials.toml", written.len()),
+        format!(
+            "stored {} credential(s) at .argo/credentials.toml",
+            written.len()
+        ),
     )
 }
 

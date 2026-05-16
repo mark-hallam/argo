@@ -45,16 +45,26 @@ fn policy_file(cwd: &Path) -> Value {
         Ok(policy) => policy,
         Err(e) => return check("ERROR", format!("invalid policy TOML: {e}")),
     };
-    let has_caps = policy.max_usd_micros_per_action.is_some()
-        || policy.daily_budget_usd_micros.is_some();
+    let has_caps =
+        policy.max_usd_micros_per_action.is_some() || policy.daily_budget_usd_micros.is_some();
     if policy.enabled && !has_caps {
-        return check("WARN", "enabled=true without per-action or daily spend caps")
-            .with("path", path.display().to_string())
-            .with("enabled", true);
-    }
-    check("OK", if policy.enabled { "policy parsed and capped" } else { "policy parsed; disabled" })
+        return check(
+            "WARN",
+            "enabled=true without per-action or daily spend caps",
+        )
         .with("path", path.display().to_string())
-        .with("enabled", policy.enabled)
+        .with("enabled", true);
+    }
+    check(
+        "OK",
+        if policy.enabled {
+            "policy parsed and capped"
+        } else {
+            "policy parsed; disabled"
+        },
+    )
+    .with("path", path.display().to_string())
+    .with("enabled", policy.enabled)
 }
 
 async fn table_count(home: &Path, table: &str) -> Value {
@@ -63,7 +73,10 @@ async fn table_count(home: &Path, table: &str) -> Value {
         Err(e) => return check("ERROR", format!("store unavailable: {e}")),
     };
     let sql = format!("SELECT COUNT(*) FROM {table}");
-    match sqlx::query_scalar::<_, i64>(&sql).fetch_one(store.pool()).await {
+    match sqlx::query_scalar::<_, i64>(&sql)
+        .fetch_one(store.pool())
+        .await
+    {
         Ok(rows) => check("OK", format!("{table} reachable ({rows} row(s))")).with("rows", rows),
         Err(e) if missing_table(&e) => check("MISSING", format!("{table} table is missing")),
         Err(e) => check("ERROR", format!("{table} query failed: {e}")),
@@ -85,9 +98,12 @@ async fn orchestrator_tables(home: &Path) -> Value {
         Err(e) if missing_table(&e) => return check("MISSING", "handoff table is missing"),
         Err(e) => return check("ERROR", format!("handoff query failed: {e}")),
     };
-    check("OK", format!("session ({sessions}) and handoff ({handoffs}) reachable"))
-        .with("sessions", sessions)
-        .with("handoffs", handoffs)
+    check(
+        "OK",
+        format!("session ({sessions}) and handoff ({handoffs}) reachable"),
+    )
+    .with("sessions", sessions)
+    .with("handoffs", handoffs)
 }
 
 fn notify_manifests(cwd: &Path) -> Value {
@@ -104,7 +120,10 @@ fn notify_manifests(cwd: &Path) -> Value {
             continue;
         }
         let Some(id) = channel_id(&path) else {
-            return check("ERROR", format!("could not parse channel id from {}", path.display()));
+            return check(
+                "ERROR",
+                format!("could not parse channel id from {}", path.display()),
+            );
         };
         ids.push(id);
         files.push(path.display().to_string());
@@ -121,7 +140,11 @@ fn notify_manifests(cwd: &Path) -> Value {
 fn channel_id(path: &Path) -> Option<String> {
     let body = std::fs::read_to_string(path).ok()?;
     let parsed: toml::Value = toml::from_str(&body).ok()?;
-    parsed.get("channel")?.get("id")?.as_str().map(str::to_string)
+    parsed
+        .get("channel")?
+        .get("id")?
+        .as_str()
+        .map(str::to_string)
 }
 
 async fn open_store(home: &Path) -> Result<SessionStore, String> {
@@ -165,9 +188,20 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    fn s(v: &Value) -> &str { v["status"].as_str().unwrap() }
-    fn write(path: PathBuf, body: &str) { std::fs::create_dir_all(path.parent().unwrap()).unwrap(); std::fs::write(path, body).unwrap(); }
-    async fn migrated(home: &Path) -> SessionStore { let store = SessionStore::open(crate::home::db_path(home)).await.unwrap(); store.migrate().await.unwrap(); store }
+    fn s(v: &Value) -> &str {
+        v["status"].as_str().unwrap()
+    }
+    fn write(path: PathBuf, body: &str) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, body).unwrap();
+    }
+    async fn migrated(home: &Path) -> SessionStore {
+        let store = SessionStore::open(crate::home::db_path(home))
+            .await
+            .unwrap();
+        store.migrate().await.unwrap();
+        store
+    }
 
     #[test]
     fn policy_missing_reports_missing() {
@@ -185,7 +219,10 @@ mod tests {
     #[test]
     fn capped_policy_is_ok() {
         let tmp = TempDir::new().unwrap();
-        write(tmp.path().join(POLICY_RELPATH), "enabled = true\nmax_usd_micros_per_action = 100\n");
+        write(
+            tmp.path().join(POLICY_RELPATH),
+            "enabled = true\nmax_usd_micros_per_action = 100\n",
+        );
         assert_eq!(s(&policy_file(tmp.path())), "OK");
     }
 
@@ -197,7 +234,10 @@ mod tests {
         // the no-such-table error path.
         let home = TempDir::new().unwrap();
         migrated(home.path()).await;
-        assert_eq!(s(&table_count(home.path(), "definitely_not_a_table").await), "MISSING");
+        assert_eq!(
+            s(&table_count(home.path(), "definitely_not_a_table").await),
+            "MISSING"
+        );
     }
 
     #[tokio::test]
@@ -210,7 +250,10 @@ mod tests {
         let v = table_count(home.path(), "worker_budget").await;
         assert_eq!(s(&v), "OK");
         assert_eq!(v["rows"].as_i64(), Some(0));
-        sqlx::query("INSERT INTO worker_budget VALUES (X'00', 'w', 'a', 1, 1)").execute(store.pool()).await.unwrap();
+        sqlx::query("INSERT INTO worker_budget VALUES (X'00', 'w', 'a', 1, 1)")
+            .execute(store.pool())
+            .await
+            .unwrap();
         let v = table_count(home.path(), "worker_budget").await;
         assert_eq!(s(&v), "OK");
         assert_eq!(v["rows"].as_i64(), Some(1));
@@ -234,7 +277,10 @@ mod tests {
     #[test]
     fn notify_manifests_ok_lists_ids() {
         let tmp = TempDir::new().unwrap();
-        write(tmp.path().join("manifests/channels/email.toml"), "[channel]\nid = \"email\"\n");
+        write(
+            tmp.path().join("manifests/channels/email.toml"),
+            "[channel]\nid = \"email\"\n",
+        );
         let v = notify_manifests(tmp.path());
         assert_eq!(s(&v), "OK");
         assert_eq!(v["channel_ids"][0].as_str(), Some("email"));

@@ -65,24 +65,32 @@ pub fn gdpr_redact_payload(input: &str, subject: &str, replacement: &str) -> Str
     match serde_json::from_str::<Value>(input) {
         Ok(mut value) => {
             redact_value(&mut value, subject, replacement);
-            serde_json::to_string(&value).unwrap_or_else(|_| redact_text(input, subject, replacement))
+            serde_json::to_string(&value)
+                .unwrap_or_else(|_| redact_text(input, subject, replacement))
         }
         Err(_) => redact_text(input, subject, replacement),
     }
 }
 
-fn normalize_subject(subject: &str) -> String { subject.trim().to_ascii_lowercase() }
+fn normalize_subject(subject: &str) -> String {
+    subject.trim().to_ascii_lowercase()
+}
 
 pub(crate) async fn has_table(store: &SessionStore, table: &str) -> StoreResult<bool> {
-    let found: Option<i64> = sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
-        .bind(table)
-        .fetch_optional(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("gdpr schema probe: {e}")))?;
+    let found: Option<i64> =
+        sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+            .bind(table)
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("gdpr schema probe: {e}")))?;
     Ok(found.is_some())
 }
 
-async fn collect_memory(store: &SessionStore, subject: &str, plan: &mut GdprPlan) -> StoreResult<()> {
+async fn collect_memory(
+    store: &SessionStore,
+    subject: &str,
+    plan: &mut GdprPlan,
+) -> StoreResult<()> {
     let rows = sqlx::query(
         "SELECT id, file, body, learned_at FROM memory_entry
          WHERE json_valid(body)
@@ -103,7 +111,11 @@ async fn collect_memory(store: &SessionStore, subject: &str, plan: &mut GdprPlan
     Ok(())
 }
 
-async fn collect_audit(store: &SessionStore, subject: &str, plan: &mut GdprPlan) -> StoreResult<()> {
+async fn collect_audit(
+    store: &SessionStore,
+    subject: &str,
+    plan: &mut GdprPlan,
+) -> StoreResult<()> {
     let rows = sqlx::query(
         "SELECT seq, kind, payload_json, created_at FROM audit_record
          WHERE instr(lower(payload_json), ?) > 0 ORDER BY seq ASC",
@@ -159,7 +171,9 @@ async fn collect_notify_channels(
     subject: &str,
     plan: &mut GdprPlan,
 ) -> StoreResult<()> {
-    if !has_table(store, "worker").await? { return Ok(()); }
+    if !has_table(store, "worker").await? {
+        return Ok(());
+    }
     let rows = sqlx::query(
         "SELECT id, channels_json FROM worker WHERE instr(lower(channels_json), ?) > 0",
     )
@@ -187,11 +201,13 @@ async fn collect_worker_refs(
     subject: &str,
     plan: &mut GdprPlan,
 ) -> StoreResult<()> {
-    if !has_table(store, "worker").await? { return Ok(()); }
+    if !has_table(store, "worker").await? {
+        return Ok(());
+    }
     let rows = sqlx::query("SELECT id, auto_approval_json FROM worker")
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("gdpr worker plan: {e}")))?;
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("gdpr worker plan: {e}")))?;
     for r in rows {
         let auto: String = r.get("auto_approval_json");
         if contains_subject(&auto, subject) {
@@ -211,10 +227,38 @@ async fn collect_session_payloads(
     subject: &str,
     plan: &mut GdprPlan,
 ) -> StoreResult<()> {
-    collect_text_rows(store, subject, plan, "session", &["title", "system_prompt", "summary"]).await?;
-    collect_text_rows(store, subject, plan, "message", &["content_json", "tool_calls_json", "provider_meta"]).await?;
-    collect_text_rows(store, subject, plan, "tool_call", &["arguments_json", "result_json"]).await?;
-    collect_text_rows(store, subject, plan, "handoff", &["to", "expected_outcome", "payload"]).await?;
+    collect_text_rows(
+        store,
+        subject,
+        plan,
+        "session",
+        &["title", "system_prompt", "summary"],
+    )
+    .await?;
+    collect_text_rows(
+        store,
+        subject,
+        plan,
+        "message",
+        &["content_json", "tool_calls_json", "provider_meta"],
+    )
+    .await?;
+    collect_text_rows(
+        store,
+        subject,
+        plan,
+        "tool_call",
+        &["arguments_json", "result_json"],
+    )
+    .await?;
+    collect_text_rows(
+        store,
+        subject,
+        plan,
+        "handoff",
+        &["to", "expected_outcome", "payload"],
+    )
+    .await?;
     Ok(())
 }
 
@@ -225,7 +269,9 @@ async fn collect_text_rows(
     table: &'static str,
     columns: &[&'static str],
 ) -> StoreResult<()> {
-    if !has_table(store, table).await? { return Ok(()); }
+    if !has_table(store, table).await? {
+        return Ok(());
+    }
     let expr = columns
         .iter()
         .map(|c| format!("instr(lower(COALESCE(\"{c}\", '')), ?) > 0"))
@@ -272,9 +318,13 @@ fn count_subject_channels(input: &str, subject: &str) -> u64 {
         .unwrap_or(0)
 }
 
-pub(crate) fn parse_array(input: &str) -> Option<Vec<Value>> { serde_json::from_str::<Vec<Value>>(input).ok() }
+pub(crate) fn parse_array(input: &str) -> Option<Vec<Value>> {
+    serde_json::from_str::<Vec<Value>>(input).ok()
+}
 
-pub(crate) fn contains_subject(value: &str, subject: &str) -> bool { value.to_ascii_lowercase().contains(subject) }
+pub(crate) fn contains_subject(value: &str, subject: &str) -> bool {
+    value.to_ascii_lowercase().contains(subject)
+}
 
 fn redact_value(value: &mut Value, subject: &str, replacement: &str) {
     match value {
@@ -307,7 +357,9 @@ fn redact_text(input: &str, subject: &str, replacement: &str) -> String {
     out
 }
 
-fn blob_id(id: &[u8]) -> String { hexish(id) }
+fn blob_id(id: &[u8]) -> String {
+    hexish(id)
+}
 
 pub(crate) fn hexish(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
@@ -319,4 +371,10 @@ pub(crate) fn hexish(bytes: &[u8]) -> String {
     out
 }
 
-fn record(table: &str, id: String, payload: Value) -> GdprRecord { GdprRecord { table: table.into(), id, payload } }
+fn record(table: &str, id: String, payload: Value) -> GdprRecord {
+    GdprRecord {
+        table: table.into(),
+        id,
+        payload,
+    }
+}

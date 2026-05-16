@@ -53,7 +53,11 @@ async fn compliance_export_isolates_tenants_and_logs_audit() {
 
     let workspace = envelope["tables"]["workspace"].as_object().unwrap();
     let rows = workspace["rows"].as_array().unwrap();
-    assert_eq!(rows.len(), 1, "alice's export should contain exactly 1 workspace row");
+    assert_eq!(
+        rows.len(),
+        1,
+        "alice's export should contain exactly 1 workspace row"
+    );
     assert_eq!(rows[0]["name"], "alice-ws");
     assert!(
         !body.contains("bob-ws"),
@@ -90,11 +94,7 @@ async fn compliance_export_rejects_bad_tenant_id() {
     );
 }
 
-async fn seed_workspace(
-    store: &SessionStore,
-    tenant: TenantId,
-    name: &str,
-) -> WorkspaceId {
+async fn seed_workspace(store: &SessionStore, tenant: TenantId, name: &str) -> WorkspaceId {
     let workspace = WorkspaceId::new();
     sqlx::query(
         "INSERT INTO workspace (id, tenant_id, name, root_path, created_at) \

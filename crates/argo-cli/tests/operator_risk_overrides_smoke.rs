@@ -78,13 +78,7 @@ fn operator_risk_overrides_cli_roundtrip() {
     let get = run(
         home.path(),
         work.path(),
-        &[
-            "operator",
-            "risk-overrides",
-            "get",
-            "OP123",
-            "--json",
-        ],
+        &["operator", "risk-overrides", "get", "OP123", "--json"],
     );
     assert_success(&get);
     let body: Value = serde_json::from_slice(&get.stdout).expect("get json");
@@ -165,13 +159,7 @@ fn operator_risk_overrides_cli_roundtrip() {
     let after_delete = run(
         home.path(),
         work.path(),
-        &[
-            "operator",
-            "risk-overrides",
-            "get",
-            "OP123",
-            "--json",
-        ],
+        &["operator", "risk-overrides", "get", "OP123", "--json"],
     );
     assert_success(&after_delete);
     let body: Value = serde_json::from_slice(&after_delete.stdout).expect("get after delete");

@@ -23,8 +23,7 @@ pub fn run(cmd: ModelCmd) -> ArgoResult<()> {
 }
 
 fn list(json: bool, format: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let mut paths: Vec<PathBuf> = Vec::new();
     for dir in [cwd.join("manifests").join("providers")] {
         if !dir.exists() {

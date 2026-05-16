@@ -30,7 +30,10 @@ async fn e2b_runner_matches_direct_client_step_sequence() {
         .execute_step_recorded(&sandbox, &action)
         .await
         .expect("trait action");
-    let direct_png = client.screenshot(&sandbox).await.expect("direct screenshot");
+    let direct_png = client
+        .screenshot(&sandbox)
+        .await
+        .expect("direct screenshot");
     let direct_result = client
         .execute_action(&sandbox, &action)
         .await
@@ -78,7 +81,11 @@ async fn e2b_runner_recovery_uses_existing_restart_path() {
     let mut session = E2bSandbox { id: "old".into() };
     let mut screenshot = b"OLD".to_vec();
     let mut prompt = "current".to_string();
-    let err = CuError::HttpStatus { stage: "e2b/action", status: 502, body: "bad gateway".into() };
+    let err = CuError::HttpStatus {
+        stage: "e2b/action",
+        status: 502,
+        body: "bad gateway".into(),
+    };
 
     let handoff = client
         .recover_after_error(

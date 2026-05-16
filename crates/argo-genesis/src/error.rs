@@ -63,10 +63,7 @@ pub enum GenesisError {
     /// the strict JSON schema, or a config knob was missing).
     /// Stream `claude-genesis-llm-refinement`.
     #[error("refinement validation failed at {stage}: {detail}")]
-    Validation {
-        stage: &'static str,
-        detail: String,
-    },
+    Validation { stage: &'static str, detail: String },
 }
 
 impl From<GenesisError> for argo_types::ArgoError {

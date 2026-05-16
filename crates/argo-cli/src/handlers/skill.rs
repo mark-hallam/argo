@@ -16,8 +16,7 @@ use argo_types::{ArgoError, ArgoResult, Lock};
 use std::sync::Arc;
 
 pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -110,7 +109,9 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             dry_run,
             reason,
             json,
-        } => super::skill_rollback::run(&skills, &name, &to, dry_run, reason.as_deref(), json).await,
+        } => {
+            super::skill_rollback::run(&skills, &name, &to, dry_run, reason.as_deref(), json).await
+        }
         SkillCmd::Review { cmd } => super::skill_review::run(&skills, cmd).await,
         SkillCmd::Catalog {
             vertical,
@@ -132,16 +133,18 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SkillCmd::Search(args) => super::skill_search::run(
-            &args.query,
-            args.trust_min.as_deref(),
-            args.tenant.as_deref(),
-            args.limit,
-            args.json,
-            args.vertical.as_deref(),
-            args.include_used_by_sessions,
-        )
-        .await,
+        SkillCmd::Search(args) => {
+            super::skill_search::run(
+                &args.query,
+                args.trust_min.as_deref(),
+                args.tenant.as_deref(),
+                args.limit,
+                args.json,
+                args.vertical.as_deref(),
+                args.include_used_by_sessions,
+            )
+            .await
+        }
         SkillCmd::Publish(args) => super::skill_publish::run(&skills, args).await,
         SkillCmd::Unpublish(args) => super::skill_unpublish::run(args),
         SkillCmd::Tags(args) => super::skill_tags::run(args),
@@ -216,9 +219,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             name,
             min_trust_grade,
             json,
-        } => {
-            super::skill_update::run(&skills, &name, min_trust_grade.as_deref(), json).await
-        }
+        } => super::skill_update::run(&skills, &name, min_trust_grade.as_deref(), json).await,
         SkillCmd::Rate {
             name,
             version,
@@ -226,14 +227,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             comment,
             json,
         } => {
-            super::skill_rate::run(
-                &name,
-                version.as_deref(),
-                &vote,
-                comment.as_deref(),
-                json,
-            )
-            .await
+            super::skill_rate::run(&name, version.as_deref(), &vote, comment.as_deref(), json).await
         }
         SkillCmd::Ratings {
             name,

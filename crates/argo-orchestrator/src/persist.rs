@@ -30,7 +30,9 @@ impl OrchestratorStore {
 
     /// Borrow the underlying SQLite pool. `pub(crate)` so sibling persist modules
     /// (e.g. [`crate::persist_handoffs`]) can share the connection without exposing the field.
-    pub(crate) fn pool(&self) -> &sqlx::Pool<sqlx::Sqlite> { self.store.pool() }
+    pub(crate) fn pool(&self) -> &sqlx::Pool<sqlx::Sqlite> {
+        self.store.pool()
+    }
 
     /// Create the additive orchestrator schema if it is missing.
     pub async fn ensure_schema(&self) -> ArgoResult<()> {
@@ -167,7 +169,9 @@ impl OrchestratorStore {
             .ok_or_else(|| ArgoError::Schema("orchestrator session not found".into()))?
             .status;
         if !session_transition_allowed(current, status) {
-            return Err(ArgoError::Invariant("invalid session status transition".into()));
+            return Err(ArgoError::Invariant(
+                "invalid session status transition".into(),
+            ));
         }
         sqlx::query(
             "UPDATE session SET status = ? WHERE id = ? AND tenant_id = ? AND provider = ?",
@@ -212,53 +216,143 @@ const SESSION_SELECT: &str = "SELECT id, tenant_id, title, status, participants,
 deadline FROM session WHERE id = ? AND tenant_id = ? AND provider = ?";
 
 #[derive(sqlx::FromRow)]
-struct RawSession { id: Vec<u8>, tenant_id: Vec<u8>, title: Option<String>, status: String, participants: String, created_at: i64, deadline: Option<i64> }
+struct RawSession {
+    id: Vec<u8>,
+    tenant_id: Vec<u8>,
+    title: Option<String>,
+    status: String,
+    participants: String,
+    created_at: i64,
+    deadline: Option<i64>,
+}
 
 impl TryFrom<RawSession> for Session {
     type Error = ArgoError;
     fn try_from(r: RawSession) -> ArgoResult<Self> {
-        Ok(Self { id: session_id_from_blob(&r.id)?, tenant_id: tenant_from_blob(&r.tenant_id)?,
-            title: r.title.unwrap_or_default(), status: parse_session_status(&r.status)?,
+        Ok(Self {
+            id: session_id_from_blob(&r.id)?,
+            tenant_id: tenant_from_blob(&r.tenant_id)?,
+            title: r.title.unwrap_or_default(),
+            status: parse_session_status(&r.status)?,
             participants: parse_participants(&r.participants)?,
             created_at: micros_to_utc(r.created_at, "session.created_at")?,
-            deadline: opt_micros(r.deadline, "session.deadline")? })
+            deadline: opt_micros(r.deadline, "session.deadline")?,
+        })
     }
 }
 
-async fn add_column_if_missing(pool: &sqlx::Pool<sqlx::Sqlite>, table: &str, column: &str, definition: &str) -> ArgoResult<()> {
-    if column_exists(pool, table, column).await? { return Ok(()); }
-    sqlx::query(&format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"))
-        .execute(pool).await.map_err(|e| ArgoError::Provider(format!("orchestrator schema column {column}: {e}")))?;
+async fn add_column_if_missing(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> ArgoResult<()> {
+    if column_exists(pool, table, column).await? {
+        return Ok(());
+    }
+    sqlx::query(&format!(
+        "ALTER TABLE {table} ADD COLUMN {column} {definition}"
+    ))
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("orchestrator schema column {column}: {e}")))?;
     Ok(())
 }
 
-async fn column_exists(pool: &sqlx::Pool<sqlx::Sqlite>, table: &str, column: &str) -> ArgoResult<bool> {
-    let rows = sqlx::query(&format!("PRAGMA table_info({table})")).fetch_all(pool).await
+async fn column_exists(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    table: &str,
+    column: &str,
+) -> ArgoResult<bool> {
+    let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
+        .fetch_all(pool)
+        .await
         .map_err(|e| ArgoError::Provider(format!("orchestrator schema inspect: {e}")))?;
     for row in rows {
-        let name: String = row.try_get("name").map_err(|e| ArgoError::Provider(format!("orchestrator schema column name: {e}")))?;
-        if name == column { return Ok(true); }
+        let name: String = row
+            .try_get("name")
+            .map_err(|e| ArgoError::Provider(format!("orchestrator schema column name: {e}")))?;
+        if name == column {
+            return Ok(true);
+        }
     }
     Ok(false)
 }
 
-fn session_status_label(s: SessionStatus) -> &'static str { match s { SessionStatus::Active => "active", SessionStatus::Resolved => "resolved", SessionStatus::Cancelled => "cancelled", SessionStatus::Expired => "expired" } }
-fn parse_session_status(s: &str) -> ArgoResult<SessionStatus> { match s { "active" => Ok(SessionStatus::Active), "resolved" => Ok(SessionStatus::Resolved), "cancelled" => Ok(SessionStatus::Cancelled), "expired" => Ok(SessionStatus::Expired), other => Err(ArgoError::Schema(format!("session.status: {other}"))) } }
-fn session_transition_allowed(current: SessionStatus, next: SessionStatus) -> bool { matches!(current, SessionStatus::Active) || current == next }
-
-fn participants_json(ps: &[WorkerId]) -> ArgoResult<String> { to_json(&ps.iter().map(ToString::to_string).collect::<Vec<_>>(), "session.participants") }
-fn parse_participants(json: &str) -> ArgoResult<Vec<WorkerId>> {
-    from_json::<Vec<String>>(json, "session.participants")?.into_iter()
-        .map(|id| WorkerId::from_str(&id).map_err(|e| ArgoError::Schema(format!("session.participant: {e}")))).collect()
+fn session_status_label(s: SessionStatus) -> &'static str {
+    match s {
+        SessionStatus::Active => "active",
+        SessionStatus::Resolved => "resolved",
+        SessionStatus::Cancelled => "cancelled",
+        SessionStatus::Expired => "expired",
+    }
 }
-pub(crate) fn tenant_blob(id: TenantId) -> [u8; 16] { *id.0.as_bytes() }
-fn tenant_from_blob(b: &[u8]) -> ArgoResult<TenantId> { Uuid::from_slice(b).map(TenantId).map_err(|e| ArgoError::Schema(format!("session.tenant_id: {e}"))) }
-pub(crate) fn session_id_blob(id: &SessionId) -> ArgoResult<[u8; 16]> { Uuid::parse_str(id.as_str()).map(|u| *u.as_bytes()).map_err(|e| ArgoError::Schema(format!("session.id: {e}"))) }
-pub(crate) fn session_id_from_blob(b: &[u8]) -> ArgoResult<SessionId> { Uuid::from_slice(b).map(|id| SessionId::from_string(id.to_string())).map_err(|e| ArgoError::Schema(format!("session.id: {e}"))) }
-pub(crate) fn micros_to_utc(v: i64, field: &'static str) -> ArgoResult<chrono::DateTime<Utc>> { Utc.timestamp_micros(v).single().ok_or_else(|| ArgoError::Schema(format!("{field} out of range"))) }
-pub(crate) fn opt_micros(v: Option<i64>, field: &'static str) -> ArgoResult<Option<chrono::DateTime<Utc>>> { v.map(|m| micros_to_utc(m, field)).transpose() }
-pub(crate) fn to_json<T: serde::Serialize>(v: &T, label: &'static str) -> ArgoResult<String> { serde_json::to_string(v).map_err(|e| ArgoError::Schema(format!("{label}: {e}"))) }
-pub(crate) fn from_json<T: serde::de::DeserializeOwned>(json: &str, label: &'static str) -> ArgoResult<T> { serde_json::from_str(json).map_err(|e| ArgoError::Schema(format!("{label}: {e}"))) }
+fn parse_session_status(s: &str) -> ArgoResult<SessionStatus> {
+    match s {
+        "active" => Ok(SessionStatus::Active),
+        "resolved" => Ok(SessionStatus::Resolved),
+        "cancelled" => Ok(SessionStatus::Cancelled),
+        "expired" => Ok(SessionStatus::Expired),
+        other => Err(ArgoError::Schema(format!("session.status: {other}"))),
+    }
+}
+fn session_transition_allowed(current: SessionStatus, next: SessionStatus) -> bool {
+    matches!(current, SessionStatus::Active) || current == next
+}
+
+fn participants_json(ps: &[WorkerId]) -> ArgoResult<String> {
+    to_json(
+        &ps.iter().map(ToString::to_string).collect::<Vec<_>>(),
+        "session.participants",
+    )
+}
+fn parse_participants(json: &str) -> ArgoResult<Vec<WorkerId>> {
+    from_json::<Vec<String>>(json, "session.participants")?
+        .into_iter()
+        .map(|id| {
+            WorkerId::from_str(&id)
+                .map_err(|e| ArgoError::Schema(format!("session.participant: {e}")))
+        })
+        .collect()
+}
+pub(crate) fn tenant_blob(id: TenantId) -> [u8; 16] {
+    *id.0.as_bytes()
+}
+fn tenant_from_blob(b: &[u8]) -> ArgoResult<TenantId> {
+    Uuid::from_slice(b)
+        .map(TenantId)
+        .map_err(|e| ArgoError::Schema(format!("session.tenant_id: {e}")))
+}
+pub(crate) fn session_id_blob(id: &SessionId) -> ArgoResult<[u8; 16]> {
+    Uuid::parse_str(id.as_str())
+        .map(|u| *u.as_bytes())
+        .map_err(|e| ArgoError::Schema(format!("session.id: {e}")))
+}
+pub(crate) fn session_id_from_blob(b: &[u8]) -> ArgoResult<SessionId> {
+    Uuid::from_slice(b)
+        .map(|id| SessionId::from_string(id.to_string()))
+        .map_err(|e| ArgoError::Schema(format!("session.id: {e}")))
+}
+pub(crate) fn micros_to_utc(v: i64, field: &'static str) -> ArgoResult<chrono::DateTime<Utc>> {
+    Utc.timestamp_micros(v)
+        .single()
+        .ok_or_else(|| ArgoError::Schema(format!("{field} out of range")))
+}
+pub(crate) fn opt_micros(
+    v: Option<i64>,
+    field: &'static str,
+) -> ArgoResult<Option<chrono::DateTime<Utc>>> {
+    v.map(|m| micros_to_utc(m, field)).transpose()
+}
+pub(crate) fn to_json<T: serde::Serialize>(v: &T, label: &'static str) -> ArgoResult<String> {
+    serde_json::to_string(v).map_err(|e| ArgoError::Schema(format!("{label}: {e}")))
+}
+pub(crate) fn from_json<T: serde::de::DeserializeOwned>(
+    json: &str,
+    label: &'static str,
+) -> ArgoResult<T> {
+    serde_json::from_str(json).map_err(|e| ArgoError::Schema(format!("{label}: {e}")))
+}
 
 #[cfg(test)]
 mod tests {
@@ -266,18 +360,47 @@ mod tests {
     use crate::{EscalationStep, Handoff, HandoffStatus};
     use std::sync::Arc;
 
-    async fn repo() -> OrchestratorStore { let store = Arc::new(SessionStore::open(":memory:").await.unwrap()); store.migrate().await.unwrap(); let repo = OrchestratorStore::new(store); repo.ensure_schema().await.unwrap(); repo.ensure_schema().await.unwrap(); repo }
-    async fn inserted(repo: &OrchestratorStore, tenant: TenantId, title: &str) -> Session { let s = Session::new(tenant, title); repo.insert_session(&s).await.unwrap(); s }
-    fn handoff(session: &Session, from: WorkerId, to: WorkerId) -> Handoff { Handoff::new(session.id.clone(), from, EscalationStep::Worker(to), "finish the customer handoff", serde_json::json!({"case": "aeon"})) }
+    async fn repo() -> OrchestratorStore {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let repo = OrchestratorStore::new(store);
+        repo.ensure_schema().await.unwrap();
+        repo.ensure_schema().await.unwrap();
+        repo
+    }
+    async fn inserted(repo: &OrchestratorStore, tenant: TenantId, title: &str) -> Session {
+        let s = Session::new(tenant, title);
+        repo.insert_session(&s).await.unwrap();
+        s
+    }
+    fn handoff(session: &Session, from: WorkerId, to: WorkerId) -> Handoff {
+        Handoff::new(
+            session.id.clone(),
+            from,
+            EscalationStep::Worker(to),
+            "finish the customer handoff",
+            serde_json::json!({"case": "aeon"}),
+        )
+    }
 
     #[tokio::test]
     async fn round_trip_session_and_two_handoffs() {
-        let repo = repo().await; let tenant = TenantId::new();
+        let repo = repo().await;
+        let tenant = TenantId::new();
         let session = inserted(&repo, tenant, "renewal").await;
-        let from = WorkerId::new(); let to = WorkerId::new();
-        repo.insert_handoff(tenant, &handoff(&session, from, to)).await.unwrap();
-        repo.insert_handoff(tenant, &handoff(&session, from, to)).await.unwrap();
-        let loaded = repo.find_session(tenant, &session.id).await.unwrap().unwrap();
+        let from = WorkerId::new();
+        let to = WorkerId::new();
+        repo.insert_handoff(tenant, &handoff(&session, from, to))
+            .await
+            .unwrap();
+        repo.insert_handoff(tenant, &handoff(&session, from, to))
+            .await
+            .unwrap();
+        let loaded = repo
+            .find_session(tenant, &session.id)
+            .await
+            .unwrap()
+            .unwrap();
         let handoffs = repo
             .list_handoffs_for_session(tenant, &session.id)
             .await
@@ -289,25 +412,37 @@ mod tests {
 
     #[tokio::test]
     async fn cross_tenant_isolation_for_active_sessions() {
-        let repo = repo().await; let tenant_a = TenantId::new(); let tenant_b = TenantId::new();
+        let repo = repo().await;
+        let tenant_a = TenantId::new();
+        let tenant_b = TenantId::new();
         inserted(&repo, tenant_a, "a").await;
         assert_eq!(repo.list_active_sessions(tenant_b).await.unwrap().len(), 0);
     }
 
     #[tokio::test]
     async fn add_participant_is_idempotent_and_persists() {
-        let repo = repo().await; let tenant = TenantId::new();
+        let repo = repo().await;
+        let tenant = TenantId::new();
         let session = inserted(&repo, tenant, "participants").await;
         let worker = WorkerId::new();
-        repo.add_participant(tenant, &session.id, worker).await.unwrap();
-        repo.add_participant(tenant, &session.id, worker).await.unwrap();
-        let loaded = repo.find_session(tenant, &session.id).await.unwrap().unwrap();
+        repo.add_participant(tenant, &session.id, worker)
+            .await
+            .unwrap();
+        repo.add_participant(tenant, &session.id, worker)
+            .await
+            .unwrap();
+        let loaded = repo
+            .find_session(tenant, &session.id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(loaded.participants, vec![worker]);
     }
 
     #[tokio::test]
     async fn session_status_rejects_terminal_backslide() {
-        let repo = repo().await; let tenant = TenantId::new();
+        let repo = repo().await;
+        let tenant = TenantId::new();
         let session = inserted(&repo, tenant, "status").await;
         repo.update_session_status(tenant, &session.id, SessionStatus::Resolved)
             .await
@@ -320,7 +455,8 @@ mod tests {
 
     #[tokio::test]
     async fn handoff_status_rejects_settled_to_pending() {
-        let repo = repo().await; let tenant = TenantId::new();
+        let repo = repo().await;
+        let tenant = TenantId::new();
         let session = inserted(&repo, tenant, "handoff-status").await;
         let h = handoff(&session, WorkerId::new(), WorkerId::new());
         repo.insert_handoff(tenant, &h).await.unwrap();
@@ -335,11 +471,17 @@ mod tests {
 
     #[tokio::test]
     async fn pending_handoffs_filter_by_worker() {
-        let repo = repo().await; let tenant = TenantId::new();
+        let repo = repo().await;
+        let tenant = TenantId::new();
         let session = inserted(&repo, tenant, "pending").await;
-        let target = WorkerId::new(); let other = WorkerId::new();
-        repo.insert_handoff(tenant, &handoff(&session, WorkerId::new(), target)).await.unwrap();
-        repo.insert_handoff(tenant, &handoff(&session, WorkerId::new(), other)).await.unwrap();
+        let target = WorkerId::new();
+        let other = WorkerId::new();
+        repo.insert_handoff(tenant, &handoff(&session, WorkerId::new(), target))
+            .await
+            .unwrap();
+        repo.insert_handoff(tenant, &handoff(&session, WorkerId::new(), other))
+            .await
+            .unwrap();
         let pending = repo
             .list_pending_handoffs_for_worker(tenant, target)
             .await

@@ -53,11 +53,12 @@ async fn record_appends_row() {
     assert_eq!(rev.actor, "cli:bob@example.test");
     assert_eq!(rev.audit_chain_hash.len(), 64);
 
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM persona_revision WHERE worker_id = ?")
-        .bind(worker_id.to_string())
-        .fetch_one(store.pool())
-        .await
-        .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM persona_revision WHERE worker_id = ?")
+            .bind(worker_id.to_string())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
     assert_eq!(count, 1);
 }
 
@@ -81,7 +82,11 @@ async fn list_returns_newest_first() {
         .await
         .unwrap();
 
-    for (rev_id, ts) in [(first.rev_id, 50_i64), (mid.rev_id, 100), (last.rev_id, 200)] {
+    for (rev_id, ts) in [
+        (first.rev_id, 50_i64),
+        (mid.rev_id, 100),
+        (last.rev_id, 200),
+    ] {
         sqlx::query("UPDATE persona_revision SET revised_at = ? WHERE rev_id = ?")
             .bind(ts)
             .bind(rev_id.to_string())
@@ -157,11 +162,12 @@ async fn revert_records_itself() {
     assert_eq!(revert_rev.new_value, "v1");
     assert_eq!(revert_rev.actor, "cli:carol");
 
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM persona_revision WHERE worker_id = ?")
-        .bind(worker_id.to_string())
-        .fetch_one(store.pool())
-        .await
-        .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM persona_revision WHERE worker_id = ?")
+            .bind(worker_id.to_string())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
     assert_eq!(count, 2);
 }
 
@@ -277,5 +283,8 @@ async fn concurrent_writes_no_collision() {
     .fetch_one(store.pool())
     .await
     .unwrap();
-    assert_eq!(distinct_hashes, 8, "every concurrent write gets a unique hash");
+    assert_eq!(
+        distinct_hashes, 8,
+        "every concurrent write gets a unique hash"
+    );
 }

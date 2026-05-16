@@ -81,8 +81,7 @@ async fn instrument_spans_reach_mock_collector_via_bridge() {
     // `.await` points so the multi-threaded runtime can move tasks
     // between worker threads without losing the subscriber.
     let subscriber = Registry::default().with(otlp_bridge::otlp_layer());
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("set global subscriber");
+    tracing::subscriber::set_global_default(subscriber).expect("set global subscriber");
 
     let result = instrumented_action("sess-bridge-smoke").await;
     assert_eq!(result, 42);

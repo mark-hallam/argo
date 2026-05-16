@@ -38,7 +38,9 @@ fn render_recent_text(rows: &[ActionView]) {
         println!("(no actions)");
         return;
     }
-    println!("created_at                 tenant       worker        action_id       state       type");
+    println!(
+        "created_at                 tenant       worker        action_id       state       type"
+    );
     for row in rows {
         println!(
             "{:<26} {:<12} {:<13} {:<15} {:<11} {}",

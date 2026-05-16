@@ -14,7 +14,9 @@ async fn open_and_migrate() {
 #[tokio::test]
 async fn migrate_round_trip() {
     let store = SessionStore::open(":memory:").await.unwrap();
-    crate::migrations::run_up_to(store.pool(), 11).await.unwrap();
+    crate::migrations::run_up_to(store.pool(), 11)
+        .await
+        .unwrap();
     store.migrate_down_to(0).await.unwrap();
     assert_eq!(store.schema_version().await.unwrap(), 0);
 
@@ -216,7 +218,14 @@ async fn list_sessions_recency_order() {
     .unwrap();
     for i in 0..3 {
         store
-            .create_session(tenant, ws, "model", "provider", Some(&format!("s{i}")), None)
+            .create_session(
+                tenant,
+                ws,
+                "model",
+                "provider",
+                Some(&format!("s{i}")),
+                None,
+            )
             .await
             .unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(2)).await;
@@ -280,12 +289,11 @@ async fn override_judge_verdict_updates_in_place() {
         .unwrap();
     assert_eq!(outcome, Some((sid, "partial".to_string())));
 
-    let verdict: String =
-        sqlx::query_scalar("SELECT verdict FROM judge_record WHERE id = ?")
-            .bind(record_id.0.as_bytes().as_slice())
-            .fetch_one(store.pool())
-            .await
-            .unwrap();
+    let verdict: String = sqlx::query_scalar("SELECT verdict FROM judge_record WHERE id = ?")
+        .bind(record_id.0.as_bytes().as_slice())
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
     assert_eq!(verdict, "success");
 }
 
@@ -294,10 +302,7 @@ async fn start_then_finish_forge_run_round_trips() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
 
-    let id = store
-        .start_forge_run("my-skill", "0.1", 5)
-        .await
-        .unwrap();
+    let id = store.start_forge_run("my-skill", "0.1", 5).await.unwrap();
     let row = store.get_forge_run(id).await.unwrap().unwrap();
     assert_eq!(row.status, "running");
     assert!(row.ended_at.is_none());
@@ -323,27 +328,20 @@ async fn record_marketplace_artifact_appends_and_lists_newest_first() {
     let (_tenant, workspace) = store.ensure_workspace("ws", "/tmp/m").await.unwrap();
 
     store
-        .record_marketplace_artifact(
-            workspace,
-            "ghcr.io/argo/x:0.1",
-            "sha256:aaa",
-            "cli:test",
-        )
+        .record_marketplace_artifact(workspace, "ghcr.io/argo/x:0.1", "sha256:aaa", "cli:test")
         .await
         .unwrap();
     // Bump the clock so the second row sorts strictly after.
     tokio::time::sleep(std::time::Duration::from_millis(2)).await;
     store
-        .record_marketplace_artifact(
-            workspace,
-            "ghcr.io/argo/x:0.2",
-            "sha256:bbb",
-            "cli:test",
-        )
+        .record_marketplace_artifact(workspace, "ghcr.io/argo/x:0.2", "sha256:bbb", "cli:test")
         .await
         .unwrap();
 
-    let rows = store.list_marketplace_artifacts(workspace, 10).await.unwrap();
+    let rows = store
+        .list_marketplace_artifacts(workspace, 10)
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].oci_ref, "ghcr.io/argo/x:0.2");
     assert_eq!(rows[1].oci_ref, "ghcr.io/argo/x:0.1");
@@ -382,10 +380,7 @@ async fn abort_forge_run_marks_status_and_ended_at() {
     assert!(row.ended_at.is_some());
 
     // Re-aborting an unknown id is a no-op.
-    let none = store
-        .abort_forge_run(uuid::Uuid::now_v7())
-        .await
-        .unwrap();
+    let none = store.abort_forge_run(uuid::Uuid::now_v7()).await.unwrap();
     assert_eq!(none, 0);
 }
 
@@ -447,11 +442,7 @@ async fn override_judge_verdict_returns_none_for_unknown_id() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
     let result = store
-        .override_judge_verdict(
-            argo_types::JudgeRecordId::new(),
-            "success",
-            None,
-        )
+        .override_judge_verdict(argo_types::JudgeRecordId::new(), "success", None)
         .await
         .unwrap();
     assert!(result.is_none());

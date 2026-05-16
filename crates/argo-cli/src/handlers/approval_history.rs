@@ -66,11 +66,15 @@ pub(crate) fn build_query_at(
     let mut params = vec![Param::Blob(workspace.0.as_bytes().to_vec())];
     if let Some(since) = args.since.as_deref() {
         sql.push_str(" AND requested_at >= ?");
-        params.push(Param::Text(super::approval_export::parse_relative_or_rfc3339(since, now)?));
+        params.push(Param::Text(
+            super::approval_export::parse_relative_or_rfc3339(since, now)?,
+        ));
     }
     if let Some(until) = args.until.as_deref() {
         sql.push_str(" AND requested_at <= ?");
-        params.push(Param::Text(super::approval_export::parse_relative_or_rfc3339(until, now)?));
+        params.push(Param::Text(
+            super::approval_export::parse_relative_or_rfc3339(until, now)?,
+        ));
     }
     if !args.decision.is_empty() {
         sql.push_str(" AND decision IN (");

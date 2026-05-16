@@ -30,7 +30,15 @@ pub(super) async fn run(
     budget_usd: f64,
     stream: bool,
 ) -> ArgoResult<()> {
-    run_with_events(skill_name, examples_path, iterations, budget_usd, stream, None).await
+    run_with_events(
+        skill_name,
+        examples_path,
+        iterations,
+        budget_usd,
+        stream,
+        None,
+    )
+    .await
 }
 
 /// Like [`run`] but every progress event is forwarded to the
@@ -95,8 +103,7 @@ async fn run_with_events_and_run_id(
     existing_run_id: Option<uuid::Uuid>,
     judge: Option<&dyn Judge>,
 ) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let _home = resolve_home(&cwd)?;
     let store = Arc::new(open_store().await?);
     let skills = SkillStore::new(Arc::clone(&store));

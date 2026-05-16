@@ -121,7 +121,11 @@ fn render_vertical_table(rows: &[SkillVerticalRow], indirect: bool) {
         println!("(no skills found in vertical)");
         return;
     }
-    let activity_label = if indirect { "last_attached" } else { "created_at" };
+    let activity_label = if indirect {
+        "last_attached"
+    } else {
+        "created_at"
+    };
     println!(
         "{:<36} {:<24} {:<10} {:<24} {}",
         "skill_id", "name", "version", "vertical_id", activity_label

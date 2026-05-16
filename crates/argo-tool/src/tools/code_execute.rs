@@ -192,11 +192,13 @@ impl Tool for CodeExecute {
         };
         let created = match snapshot_created_files(staged.dir.path(), &staged.staged_rel) {
             Ok(c) => c,
-            Err(e) => return Ok(err(
-                ctx,
-                started,
-                format!("failed to snapshot created files: {e}"),
-            )),
+            Err(e) => {
+                return Ok(err(
+                    ctx,
+                    started,
+                    format!("failed to snapshot created files: {e}"),
+                ))
+            }
         };
         Ok(success_text(
             ctx.call_id,

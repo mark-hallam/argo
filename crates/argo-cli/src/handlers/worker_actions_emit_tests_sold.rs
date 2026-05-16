@@ -22,7 +22,14 @@ fn emit_orchestrator_blocks_approval_action_for_sold_item() {
     let text = "```action\n\
         {\"action_type\": \"post_listing\", \"payload\": {\"title\":\"x\"}, \"item_id\": \"skates-A\"}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &sold(&["skates-A"]));
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &sold(&["skates-A"]),
+    );
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].state, "blocked");
     let reason = records[0].blocked_reason.as_deref().unwrap_or("");
@@ -43,7 +50,14 @@ fn emit_orchestrator_blocks_autonomous_action_for_sold_item() {
     let text = "```action\n\
         {\"action_type\": \"verify_price\", \"payload\": {\"target\": 250}, \"item_id\": \"skates-A\"}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &sold(&["skates-A"]));
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &sold(&["skates-A"]),
+    );
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].state, "blocked");
     assert!(records[0]
@@ -76,7 +90,14 @@ executor = "human"
     let text = "```action\n\
         {\"action_type\": \"mark_item_sold\", \"payload\": {}, \"item_id\": \"skates-A\"}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &sold(&["skates-A"]));
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &sold(&["skates-A"]),
+    );
     assert_eq!(records.len(), 1);
     assert_eq!(
         records[0].state, "pending",
@@ -94,7 +115,14 @@ fn emit_orchestrator_does_not_block_item_less_action_for_sold_set() {
         ```";
     // Same sold set, but THIS action has no item_id — must not
     // be gated.
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &sold(&["skates-A"]));
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &sold(&["skates-A"]),
+    );
     assert_eq!(records[0].state, "pending");
     assert!(records[0].blocked_reason.is_none());
 }
@@ -114,7 +142,14 @@ fn emit_orchestrator_per_action_sold_gate_decision() {
 {\"action_type\": \"verify_price\", \"payload\": {\"target\": 175}, \"item_id\": \"skates-B\"}
 ```
 ";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &sold(&["skates-A"]));
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &sold(&["skates-A"]),
+    );
     assert_eq!(records.len(), 2);
     let by_item: std::collections::HashMap<String, &ActionRecord> = records
         .iter()

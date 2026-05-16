@@ -1,6 +1,8 @@
 //! `argo action timeline`.
 
-use super::action_history::{action_micros, collect_action_views, parse_duration, print_json, ActionView};
+use super::action_history::{
+    action_micros, collect_action_views, parse_duration, print_json, ActionView,
+};
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
@@ -22,7 +24,14 @@ pub(crate) async fn run(
 ) -> ArgoResult<()> {
     let since_duration = parse_duration(since)?;
     let rows = collect_action_views(false).await?;
-    let out = build_timeline(worker_id, &rows, since, since_duration, bucket_mins, Utc::now())?;
+    let out = build_timeline(
+        worker_id,
+        &rows,
+        since,
+        since_duration,
+        bucket_mins,
+        Utc::now(),
+    )?;
     if json {
         print_json("action_timeline", out)
     } else {
@@ -50,7 +59,10 @@ pub(crate) fn build_timeline(
     }
     let bucket = Duration::minutes(i64::from(bucket_mins));
     let bucket_micros = bucket.num_microseconds().unwrap_or(1).max(1);
-    let span_micros = since.num_microseconds().unwrap_or(bucket_micros).max(bucket_micros);
+    let span_micros = since
+        .num_microseconds()
+        .unwrap_or(bucket_micros)
+        .max(bucket_micros);
     let bucket_count = usize::try_from((span_micros + bucket_micros - 1) / bucket_micros)
         .unwrap_or(usize::MAX)
         .min(10_000);

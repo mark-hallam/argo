@@ -78,7 +78,11 @@ pub(super) async fn session_rows(store: &SessionStore) -> String {
     rows.into_iter()
         .map(|s| {
             let started = s.started_at.format("%Y-%m-%d %H:%M:%SZ").to_string();
-            let status = if s.ended_at.is_some() { "ended" } else { "open" };
+            let status = if s.ended_at.is_some() {
+                "ended"
+            } else {
+                "open"
+            };
             let worker = s
                 .worker_id
                 .map(|w| w.0.to_string())
@@ -228,8 +232,7 @@ pub(super) async fn spend_chart(store: &SessionStore) -> (String, String) {
             );
         }
     };
-    let mut buckets: std::collections::BTreeMap<String, u64> =
-        std::collections::BTreeMap::new();
+    let mut buckets: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
     let mut grand_total: u64 = 0;
     for (charged_at, amount) in rows {
         let day = DateTime::<Utc>::from_timestamp_micros(charged_at)

@@ -32,7 +32,11 @@ async fn install_two_versions(skills: &SkillStore) {
         .await
         .unwrap();
     skills
-        .supersede(&skill_doc("demo", "v2", "CANARY-BODY"), None, PrincipalOverride::Force)
+        .supersede(
+            &skill_doc("demo", "v2", "CANARY-BODY"),
+            None,
+            PrincipalOverride::Force,
+        )
         .await
         .unwrap();
 }
@@ -49,7 +53,9 @@ async fn drive_one(
     now: i64,
 ) -> Option<String> {
     let seed = seed_for_session_skill(sid, name);
-    let d = pick_canary_for_skill(canary, name, seed, now).await.unwrap()?;
+    let d = pick_canary_for_skill(canary, name, seed, now)
+        .await
+        .unwrap()?;
     audit
         .write(
             Some(sid),
@@ -68,7 +74,12 @@ async fn drive_one(
         .await
         .unwrap();
     if d.chose_canary {
-        Some(load_canary_body(skills, name, &d.chosen_version).await.unwrap().unwrap())
+        Some(
+            load_canary_body(skills, name, &d.chosen_version)
+                .await
+                .unwrap()
+                .unwrap(),
+        )
     } else {
         None
     }
@@ -90,7 +101,10 @@ async fn store_set_get_clear_round_trip() {
     let mut bumped = cfg.clone();
     bumped.traffic_percent = 75;
     canary.set(&bumped).await.unwrap();
-    assert_eq!(canary.get("demo").await.unwrap().unwrap().traffic_percent, 75);
+    assert_eq!(
+        canary.get("demo").await.unwrap().unwrap().traffic_percent,
+        75
+    );
 
     assert_eq!(canary.clear("demo").await.unwrap(), 1);
     assert!(canary.get("demo").await.unwrap().is_none());

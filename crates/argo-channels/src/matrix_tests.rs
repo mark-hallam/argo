@@ -182,14 +182,9 @@ async fn retry_with_same_txn_id_is_idempotent_server_side() {
 async fn thread_reply_includes_m_relates_to() {
     let (addr, hits) = start_server(|_, _| ok_event("$evt-thread")).await;
     let ch = channel(&addr);
-    ch.send_to_room(
-        &notification(),
-        None,
-        Some("$root-event-id"),
-        &[],
-    )
-    .await
-    .unwrap();
+    ch.send_to_room(&notification(), None, Some("$root-event-id"), &[])
+        .await
+        .unwrap();
     let raw = hits.lock().first().cloned().expect("request observed");
     let body_start = raw.find("\r\n\r\n").map(|i| i + 4).unwrap_or(raw.len());
     let body_json: Value = serde_json::from_str(&raw[body_start..]).expect("body parses as JSON");
@@ -205,7 +200,10 @@ async fn mention_includes_m_mentions_array() {
         &notification(),
         None,
         None,
-        &["alice@matrix.org".to_string(), "@bob:matrix.org".to_string()],
+        &[
+            "alice@matrix.org".to_string(),
+            "@bob:matrix.org".to_string(),
+        ],
     )
     .await
     .unwrap();
@@ -237,4 +235,3 @@ fn html_formatted_body_renders_markdown() {
     assert!(html.contains("<em>italic</em>"), "html: {html}");
     assert!(html.contains("<code>code</code>"), "html: {html}");
 }
-

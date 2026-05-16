@@ -55,9 +55,7 @@ pub(super) async fn dispatch_audit_stream(
     }
     if let Some(w) = worker.as_deref() {
         if !valid_worker_filter(w) {
-            return bad_request(&format!(
-                "invalid worker filter '{w}': expected uuid"
-            ));
+            return bad_request(&format!("invalid worker filter '{w}': expected uuid"));
         }
     }
     snapshot_response(store, kind.as_deref(), worker.as_deref(), limit).await
@@ -188,7 +186,11 @@ fn percent_decode(s: &str) -> String {
 fn header_value<'a>(req: &'a str, name: &str) -> Option<&'a str> {
     req.lines()
         .skip(1)
-        .find(|l| l.split_once(':').map(|(k, _)| k.eq_ignore_ascii_case(name)).unwrap_or(false))
+        .find(|l| {
+            l.split_once(':')
+                .map(|(k, _)| k.eq_ignore_ascii_case(name))
+                .unwrap_or(false)
+        })
         .and_then(|l| l.split_once(':').map(|(_, v)| v.trim()))
 }
 
@@ -209,9 +211,11 @@ fn bad_request(msg: &str) -> (&'static str, String) {
 
 fn valid_kind_filter(s: &str) -> bool {
     !s.is_empty()
-        && s.split(',')
-            .map(str::trim)
-            .all(|p| !p.is_empty() && p.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '.'))
+        && s.split(',').map(str::trim).all(|p| {
+            !p.is_empty()
+                && p.chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+        })
 }
 
 fn valid_worker_filter(s: &str) -> bool {
@@ -291,9 +295,8 @@ mod tests {
         let bad = check_auth("GET /audit/stream HTTP/1.1\r\nAuthorization: Bearer wrong\r\n\r\n");
         assert!(bad.is_err(), "env-locked token should reject mismatch");
 
-        let good = check_auth(
-            "GET /audit/stream HTTP/1.1\r\nAuthorization: Bearer expected\r\n\r\n",
-        );
+        let good =
+            check_auth("GET /audit/stream HTTP/1.1\r\nAuthorization: Bearer expected\r\n\r\n");
         assert!(good.is_ok(), "env-locked token should accept match");
         std::env::remove_var("ARGO_AUDIT_STREAM_BEARER_TOKEN");
     }

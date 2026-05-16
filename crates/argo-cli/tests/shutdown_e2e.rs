@@ -85,8 +85,7 @@ fn send_signal(pid: u32, signal: i32) {
 }
 
 fn http_get_blocking(port: u16, path: &str, timeout: Duration) -> String {
-    let stream =
-        TcpStream::connect(("127.0.0.1", port)).expect("connect to gateway");
+    let stream = TcpStream::connect(("127.0.0.1", port)).expect("connect to gateway");
     stream
         .set_read_timeout(Some(timeout))
         .expect("set read timeout");
@@ -114,7 +113,10 @@ fn sigterm_drains_inflight_request_then_exits_zero() {
     //    routes::dispatch_route guard path. This proves the per-
     //    request drop-guard increments + decrements cleanly.
     let resp = http_get_blocking(port, "/health", Duration::from_secs(5));
-    assert!(resp.contains("HTTP/1.1 200 OK"), "expected /health 200: {resp}");
+    assert!(
+        resp.contains("HTTP/1.1 200 OK"),
+        "expected /health 200: {resp}"
+    );
 
     // 2) SIGTERM and confirm clean exit.
     let stderr_drain = drain_stderr_in_background(stderr);
@@ -148,11 +150,7 @@ fn post_sigterm_dispatch_returns_503_shutting_down_body() {
     // Generous deadline so the gateway stays alive long enough for
     // the slow-write client to reach dispatch_route AFTER the flag
     // has flipped.
-    let mut child = spawn_gateway(
-        port,
-        home.path(),
-        &[("ARGO_SHUTDOWN_DEADLINE_SECS", "30")],
-    );
+    let mut child = spawn_gateway(port, home.path(), &[("ARGO_SHUTDOWN_DEADLINE_SECS", "30")]);
     let mut stderr = BufReader::new(child.stderr.take().expect("stderr"));
     await_listening(&mut stderr);
 
@@ -161,8 +159,10 @@ fn post_sigterm_dispatch_returns_503_shutting_down_body() {
     // accept-arm body, and park in `stream.read()` — that's the
     // window we need to land SIGTERM in.
     let mut conn = TcpStream::connect(("127.0.0.1", port)).expect("connect");
-    conn.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
-    conn.set_write_timeout(Some(Duration::from_secs(10))).unwrap();
+    conn.set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
+    conn.set_write_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
     std::thread::sleep(Duration::from_millis(200));
 
     // Fire SIGTERM. The signal task triggers the controller and
@@ -180,10 +180,7 @@ fn post_sigterm_dispatch_returns_503_shutting_down_body() {
     let mut resp = String::new();
     conn.read_to_string(&mut resp).expect("read");
 
-    assert!(
-        resp.contains("HTTP/1.1 503"),
-        "expected 503, got: {resp}"
-    );
+    assert!(resp.contains("HTTP/1.1 503"), "expected 503, got: {resp}");
     assert!(
         resp.contains("shutting_down"),
         "expected `shutting_down` body, got: {resp}"
@@ -207,11 +204,7 @@ fn force_exit_fires_when_drain_hangs_past_deadline() {
     // Tight deadline so the test runs in <10s: drain bound = 1s,
     // grace = 5s (hard-coded in shutdown.rs::FORCE_EXIT_GRACE_SECS),
     // total budget = ~6s before force-exit fires.
-    let mut child = spawn_gateway(
-        port,
-        home.path(),
-        &[("ARGO_SHUTDOWN_DEADLINE_SECS", "1")],
-    );
+    let mut child = spawn_gateway(port, home.path(), &[("ARGO_SHUTDOWN_DEADLINE_SECS", "1")]);
     let mut stderr = BufReader::new(child.stderr.take().expect("stderr"));
     await_listening(&mut stderr);
 

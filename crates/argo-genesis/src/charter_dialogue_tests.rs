@@ -1,9 +1,7 @@
 //! Unit tests for the charter-dialogue renderer + question table
 //! (Stream `claude-genesis-charter-conversation`). Sibling test
 //! file so `charter_dialogue.rs` stays small.
-use super::{
-    dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, QUESTIONS,
-};
+use super::{dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, QUESTIONS};
 
 fn maya_dialogue() -> CharterDialogue {
     CharterDialogue {
@@ -59,11 +57,17 @@ fn dialogue_to_charter_drops_blank_duty_lines() {
 fn validate_rejects_missing_required_fields() {
     let mut d = maya_dialogue();
     d.role = "".into();
-    assert_eq!(d.validate().unwrap_err(), DialogueError::MissingField("role"));
+    assert_eq!(
+        d.validate().unwrap_err(),
+        DialogueError::MissingField("role")
+    );
 
     let mut d = maya_dialogue();
     d.name = "  ".into();
-    assert_eq!(d.validate().unwrap_err(), DialogueError::MissingField("name"));
+    assert_eq!(
+        d.validate().unwrap_err(),
+        DialogueError::MissingField("name")
+    );
 
     let mut d = maya_dialogue();
     d.duties = vec!["".into(), "  ".into()];
@@ -127,7 +131,14 @@ fn questions_table_covers_every_dialogue_field() {
     let keys: Vec<&str> = QUESTIONS.iter().map(|q| q.key).collect();
     assert_eq!(
         keys,
-        vec!["role", "name", "industry", "duties", "channels", "spend_cap"]
+        vec![
+            "role",
+            "name",
+            "industry",
+            "duties",
+            "channels",
+            "spend_cap"
+        ]
     );
     // The brief calls for "5+" prompts; we ship 6.
     assert_eq!(QUESTIONS.len(), 6);

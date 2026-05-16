@@ -231,20 +231,17 @@ fn criterion(name: &str, current: &str, target: &str, met: bool) -> Value {
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
 }
 
-async fn emit_audit(
-    store: &Arc<SessionStore>,
-    req: &str,
-    tenant: TenantId,
-    worker_id: WorkerId,
-) {
+async fn emit_audit(store: &Arc<SessionStore>, req: &str, tenant: TenantId, worker_id: WorkerId) {
     let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
     let payload = json!({
         "endpoint": "worker.trust_grade.queried",

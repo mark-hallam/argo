@@ -99,7 +99,10 @@ pub(super) async fn list_response(
         .take(params.limit)
         .collect();
     let next_cursor = (page.len() == params.limit)
-        .then(|| page.last().map(|r| encode_cursor(r.created_at_micros, &r.id)))
+        .then(|| {
+            page.last()
+                .map(|r| encode_cursor(r.created_at_micros, &r.id))
+        })
         .flatten();
     let worker_name = worker.persona.name.clone();
     let items: Vec<Value> = page
@@ -255,11 +258,9 @@ fn decode_cursor(c: &str) -> Option<(i64, String)> {
 /// flattens to `Some(micros)` on the happy path.
 fn range_to_since_micros(range: &str) -> Option<Option<i64>> {
     let now = Utc::now();
-    let day_start =
-        |d: chrono::NaiveDate| d.and_hms_opt(0, 0, 0).map(|nd| nd.and_utc());
-    let q_start = |y: i32, qi: u32| {
-        chrono::NaiveDate::from_ymd_opt(y, qi * 3 + 1, 1).and_then(day_start)
-    };
+    let day_start = |d: chrono::NaiveDate| d.and_hms_opt(0, 0, 0).map(|nd| nd.and_utc());
+    let q_start =
+        |y: i32, qi: u32| chrono::NaiveDate::from_ymd_opt(y, qi * 3 + 1, 1).and_then(day_start);
     let cutoff = match range {
         "1h" => Some(now - chrono::Duration::hours(1)),
         "today" => day_start(now.date_naive()),
@@ -315,9 +316,11 @@ fn url_decode(s: &str) -> String {
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
@@ -328,14 +331,13 @@ async fn exists_in_other_tenant(
     tenant: TenantId,
     worker_id: WorkerId,
 ) -> ArgoResult<bool> {
-    let row: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1",
-    )
-    .bind(worker_id.to_string())
-    .bind(tenant.to_string())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
+    let row: Option<String> =
+        sqlx::query_scalar("SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1")
+            .bind(worker_id.to_string())
+            .bind(tenant.to_string())
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
     Ok(row.is_some())
 }
 
@@ -386,7 +388,12 @@ async fn emit_view_audit(
     });
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            principal_id_for_audit(req),
+        )
         .await
     {
         tracing::warn!(

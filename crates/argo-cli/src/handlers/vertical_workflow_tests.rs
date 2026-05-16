@@ -34,7 +34,14 @@ async fn step_outcome_for_unknown_kind_fails() {
     let engine = CapabilityEngine::with_defaults();
     let principal = local_test_principal();
     let outcome = run_one_step(
-        &step, &registry, &engine, &principal, &dir, &empty_set(), &empty_set(), None,
+        &step,
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &empty_set(),
+        None,
     )
     .await;
     assert_eq!(outcome.status, "failed");
@@ -57,7 +64,14 @@ async fn skill_invoke_step_is_deferred() {
     let engine = CapabilityEngine::with_defaults();
     let principal = local_test_principal();
     let outcome = run_one_step(
-        &step, &registry, &engine, &principal, &dir, &empty_set(), &empty_set(), None,
+        &step,
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &empty_set(),
+        None,
     )
     .await;
     assert_eq!(outcome.status, "deferred_no_llm");
@@ -80,7 +94,14 @@ async fn prompt_step_is_deferred() {
     let engine = CapabilityEngine::with_defaults();
     let principal = local_test_principal();
     let outcome = run_one_step(
-        &step, &registry, &engine, &principal, &dir, &empty_set(), &empty_set(), None,
+        &step,
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &empty_set(),
+        None,
     )
     .await;
     assert_eq!(outcome.status, "deferred_no_llm");
@@ -107,7 +128,14 @@ async fn tool_call_step_in_deny_list_is_blocked_before_dispatch() {
     let mut denied = empty_set();
     denied.insert("file_write".into());
     let outcome = run_one_step(
-        &step, &registry, &engine, &principal, &dir, &denied, &empty_set(), None,
+        &step,
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &denied,
+        &empty_set(),
+        None,
     )
     .await;
     assert_eq!(outcome.status, "denied_by_vertical");
@@ -134,7 +162,14 @@ async fn tool_call_step_in_approval_list_pauses_with_escalation_status() {
     let mut needs_approval = empty_set();
     needs_approval.insert("delegate_task".into());
     let outcome = run_one_step(
-        &step, &registry, &engine, &principal, &dir, &empty_set(), &needs_approval, None,
+        &step,
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &needs_approval,
+        None,
     )
     .await;
     assert_eq!(outcome.status, "escalation_required");
@@ -175,7 +210,14 @@ async fn tool_call_step_denied_wins_over_approval_when_both_listed() {
     let mut needs_approval = empty_set();
     needs_approval.insert("file_write".into());
     let outcome = run_one_step(
-        &step, &registry, &engine, &principal, &dir, &denied, &needs_approval, None,
+        &step,
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &denied,
+        &needs_approval,
+        None,
     )
     .await;
     assert_eq!(outcome.status, "denied_by_vertical");
@@ -197,7 +239,14 @@ async fn tool_call_step_missing_tool_field_fails() {
     let engine = CapabilityEngine::with_defaults();
     let principal = local_test_principal();
     let outcome = run_one_step(
-        &step, &registry, &engine, &principal, &dir, &empty_set(), &empty_set(), None,
+        &step,
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &empty_set(),
+        None,
     )
     .await;
     assert_eq!(outcome.status, "failed");

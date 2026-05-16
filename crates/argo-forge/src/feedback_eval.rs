@@ -157,8 +157,15 @@ pub async fn ingest_operator_feedback(
     }
 
     let since_micros = since_micros_from_window(window);
-    let runs =
-        runs_for_skill(store, skill_name, None, Some(since_micros), MAX_SKILL_RUNS, true).await?;
+    let runs = runs_for_skill(
+        store,
+        skill_name,
+        None,
+        Some(since_micros),
+        MAX_SKILL_RUNS,
+        true,
+    )
+    .await?;
     if runs.is_empty() {
         tracing::info!(
             target: "argo_forge::feedback_eval",
@@ -167,8 +174,7 @@ pub async fn ingest_operator_feedback(
         );
         return Ok(Vec::new());
     }
-    let allowed_actions: HashSet<&str> =
-        runs.iter().map(|row| row.action_id.as_str()).collect();
+    let allowed_actions: HashSet<&str> = runs.iter().map(|row| row.action_id.as_str()).collect();
 
     let feedback_rows = list_feedback(pool, None, None, MAX_FEEDBACK_ROWS)
         .await

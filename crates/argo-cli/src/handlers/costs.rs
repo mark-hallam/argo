@@ -8,8 +8,7 @@ use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
 
 pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml"))?;
     match cmd {
         None => super::costs_show::show(&cwd, &cfg, "text").await,
@@ -36,9 +35,7 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             json,
         }) => alert_over_threshold(&cwd, threshold_usd, json).await,
         Some(CostsCmd::Total { json }) => total(&cwd, json).await,
-        Some(CostsCmd::ByDay { days, json }) => {
-            super::costs_by_day::run(days, json).await
-        }
+        Some(CostsCmd::ByDay { days, json }) => super::costs_by_day::run(days, json).await,
         Some(CostsCmd::ByModel { json }) => super::costs_by_model::run(json).await,
         Some(CostsCmd::ByProvider { json }) => super::costs_by_provider::run(json).await,
         Some(CostsCmd::BySession { json }) => super::costs_by_session::run(json).await,
@@ -52,9 +49,7 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             limit,
             format,
             tenant,
-        }) => {
-            super::costs_anomalies::run(since.as_deref(), limit, format, tenant.as_deref()).await
-        }
+        }) => super::costs_anomalies::run(since.as_deref(), limit, format, tenant.as_deref()).await,
         Some(CostsCmd::Forecast { .. }) => unreachable!("Forecast dispatched in main.rs"),
         Some(CostsCmd::Cap {
             session,
@@ -215,9 +210,8 @@ async fn export_ledger(
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     type SpendRow = (Vec<u8>, Vec<u8>, i64, i64, String, String);
-    let cutoff = since_minutes.map(|m| {
-        (Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
-    });
+    let cutoff =
+        since_minutes.map(|m| (Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
     let rows: Vec<SpendRow> = match cutoff {
         Some(c) => sqlx::query_as(
             "SELECT tenant_id, session_id, charged_at_micros, amount_usd_micros, provider, model \
@@ -237,8 +231,8 @@ async fn export_ledger(
 
     let mut writer: Box<dyn Write> = match out {
         Some(p) => {
-            let f = std::fs::File::create(p)
-                .map_err(|e| ArgoError::Io(format!("create {p}: {e}")))?;
+            let f =
+                std::fs::File::create(p).map_err(|e| ArgoError::Io(format!("create {p}: {e}")))?;
             Box::new(std::io::BufWriter::new(f))
         }
         None => Box::new(std::io::BufWriter::new(std::io::stdout())),
@@ -254,8 +248,7 @@ async fn export_ledger(
         });
         let serialized = serde_json::to_string(&line)
             .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?;
-        writeln!(writer, "{serialized}")
-            .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+        writeln!(writer, "{serialized}").map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
     }
     writer
         .flush()

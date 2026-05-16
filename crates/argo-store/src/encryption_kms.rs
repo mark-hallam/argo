@@ -81,10 +81,7 @@ pub(crate) fn parse_kms_spec(body: &str, kind: &str) -> Result<KmsKeyRef> {
 /// # Errors
 /// Per-provider HTTP / IAM / parse errors as [`ArgoError::Provider`].
 #[cfg(feature = "kms")]
-pub(crate) async fn resolve_kms(
-    source: &KeySource,
-    keyref: &KmsKeyRef,
-) -> Result<Option<String>> {
+pub(crate) async fn resolve_kms(source: &KeySource, keyref: &KmsKeyRef) -> Result<Option<String>> {
     let plaintext = unwrap_dek_for(source, keyref).await?;
     let mut hex = String::with_capacity(64);
     for byte in &plaintext {

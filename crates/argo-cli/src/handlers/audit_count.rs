@@ -13,15 +13,13 @@ pub(super) async fn print_count(
     session: Option<String>,
     json: bool,
 ) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = std::sync::Arc::new(argo_store::SessionStore::open(&db_path(&home)).await?);
     store.migrate().await?;
-    let since_micros = since_minutes.map(|m| {
-        (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
-    });
+    let since_micros = since_minutes
+        .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
     let session_bytes = match session.as_deref() {
         Some(s) => Some(
             uuid::Uuid::parse_str(s)
@@ -55,8 +53,7 @@ pub(super) async fn print_count(
 /// rows. Mirrors `GET /audit/breaks` (#406). Empty output (or
 /// `[]` with `--json`) when the chain is clean.
 pub(super) async fn print_breaks(json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = std::sync::Arc::new(argo_store::SessionStore::open(&db_path(&home)).await?);

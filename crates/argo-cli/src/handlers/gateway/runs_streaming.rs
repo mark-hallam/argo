@@ -75,12 +75,8 @@ pub(super) async fn serve_streamed_run(
         match serde_json::from_str(body) {
             Ok(v) => v,
             Err(e) => {
-                return write_one_shot_error(
-                    out,
-                    "400 Bad Request",
-                    &format!("parse body: {e}"),
-                )
-                .await;
+                return write_one_shot_error(out, "400 Bad Request", &format!("parse body: {e}"))
+                    .await;
             }
         }
     };
@@ -234,8 +230,7 @@ async fn serve_streamed_forge_optimize(req: &str, out: &mut TcpStream) -> tokio:
     let parsed: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
         Err(e) => {
-            return write_one_shot_error(out, "400 Bad Request", &format!("parse body: {e}"))
-                .await;
+            return write_one_shot_error(out, "400 Bad Request", &format!("parse body: {e}")).await;
         }
     };
     let skill = match parsed.get("skill").and_then(|v| v.as_str()) {

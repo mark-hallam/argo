@@ -7,19 +7,18 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(limit: u32, since_minutes: Option<i64>, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let pool = store.pool();
     let limit = limit.clamp(1, 500);
-    let rows: Vec<(i64, Vec<u8>, i64, i64, String, String)> = match since_minutes {
-        Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
-            sqlx::query_as(
+    let rows: Vec<(i64, Vec<u8>, i64, i64, String, String)> =
+        match since_minutes {
+            Some(m) => {
+                let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+                sqlx::query_as(
                 "SELECT seq, session_id, charged_at_micros, amount_usd_micros, provider, model \
                  FROM spend_ledger WHERE charged_at_micros >= ? \
                  ORDER BY charged_at_micros DESC LIMIT ?",
@@ -28,18 +27,16 @@ pub async fn run(limit: u32, since_minutes: Option<i64>, json: bool) -> ArgoResu
             .bind(i64::from(limit))
             .fetch_all(pool)
             .await
-        }
-        None => {
-            sqlx::query_as(
+            }
+            None => sqlx::query_as(
                 "SELECT seq, session_id, charged_at_micros, amount_usd_micros, provider, model \
                  FROM spend_ledger ORDER BY charged_at_micros DESC LIMIT ?",
             )
             .bind(i64::from(limit))
             .fetch_all(pool)
-            .await
+            .await,
         }
-    }
-    .map_err(|e| ArgoError::Provider(format!("costs_recent: {e}")))?;
+        .map_err(|e| ArgoError::Provider(format!("costs_recent: {e}")))?;
     if json {
         let arr: Vec<serde_json::Value> = rows
             .iter()

@@ -79,7 +79,9 @@ tasks:
     depends_on: [b, c]
 "#;
     let workflow = parse_yaml_str(yaml).expect("parses");
-    let plan = Executor::new(MockRunner::echo()).dry_run(&workflow).unwrap();
+    let plan = Executor::new(MockRunner::echo())
+        .dry_run(&workflow)
+        .unwrap();
     // a must come first; d must come last; b and c are in
     // between, in some order.
     assert_eq!(plan.task_order.first().map(String::as_str), Some("a"));

@@ -44,10 +44,7 @@ fn install_skill(home: &Path, name: &str) {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join(format!("{name}.md"));
     std::fs::write(&path, body).expect("write skill md");
-    let out = run_argo(
-        home,
-        &["skill", "install", path.to_str().unwrap()],
-    );
+    let out = run_argo(home, &["skill", "install", path.to_str().unwrap()]);
     assert_ok("install skill", &out);
     // Keep tempdir alive until install reads the file.
     drop(dir);
@@ -75,8 +72,14 @@ fn argo_skill_quality_text_default_renders_inputs() {
     let out = run_argo(home.path(), &["skill", "quality", "alpha"]);
     assert_ok("text default", &out);
     let stdout = String::from_utf8(out.stdout).expect("utf-8");
-    assert!(stdout.contains("score:"), "text mode missing score: {stdout}");
-    assert!(stdout.contains("inputs.success_rate:"), "text mode missing inputs: {stdout}");
+    assert!(
+        stdout.contains("score:"),
+        "text mode missing score: {stdout}"
+    );
+    assert!(
+        stdout.contains("inputs.success_rate:"),
+        "text mode missing inputs: {stdout}"
+    );
 }
 
 #[test]
@@ -90,7 +93,10 @@ fn argo_skill_quality_markdown_renders_section_headings() {
     );
     assert_ok("markdown", &out);
     let stdout = String::from_utf8(out.stdout).expect("utf-8");
-    assert!(stdout.contains("# Skill quality — `beta`"), "markdown header: {stdout}");
+    assert!(
+        stdout.contains("# Skill quality — `beta`"),
+        "markdown header: {stdout}"
+    );
     assert!(stdout.contains("## Latest"), "Latest section: {stdout}");
     assert!(stdout.contains("### Inputs"), "Inputs section: {stdout}");
 }
@@ -117,7 +123,10 @@ fn argo_skill_quality_json_with_limit_includes_history_block() {
     assert!(v["latest"].is_object(), "latest must be object: {stdout}");
     assert!(v["history"].is_array(), "history must be array: {stdout}");
     let history_len = v["history_len"].as_u64().expect("history_len number");
-    assert!(history_len >= 1, "expected ≥1 history row given 3 recomputes; got {history_len}");
+    assert!(
+        history_len >= 1,
+        "expected ≥1 history row given 3 recomputes; got {history_len}"
+    );
 }
 
 #[test]

@@ -8,7 +8,10 @@ use super::*;
 fn default_registry_returns_singleton_across_calls() {
     let a = default_registry();
     let b = default_registry();
-    assert!(Arc::ptr_eq(&a, &b), "default_registry must hand back the same Arc");
+    assert!(
+        Arc::ptr_eq(&a, &b),
+        "default_registry must hand back the same Arc"
+    );
 }
 
 #[test]
@@ -95,10 +98,7 @@ fn encode_text_produces_prometheus_exposition() {
 
 #[test]
 fn register_scalar_gauge_set_visible_in_encoded_output() {
-    let gauge = register_scalar_gauge(
-        "test_scalar_gauge_set",
-        "Test scalar gauge",
-    );
+    let gauge = register_scalar_gauge("test_scalar_gauge_set", "Test scalar gauge");
     gauge.set(42);
     let text = encode_text();
     assert!(

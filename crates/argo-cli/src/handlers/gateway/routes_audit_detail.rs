@@ -7,9 +7,9 @@
 //! path. J2 redaction is applied to summary, inputs, decision-chain
 //! bodies, and the output body before serialisation.
 
+use super::rate_limit;
 use super::routes_audit_screenshot::{sign_screenshot_url, SCREENSHOT_URL_TTL_SECS};
 use super::routes_auth_principal::principal_id_for_audit;
-use super::rate_limit;
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_redact::{redact_text, RedactionPolicy};
@@ -45,7 +45,8 @@ pub(super) async fn detail_response(
     let body = json!({
         "detail": build_detail(action_id, &row, &payload, &policy),
     });
-    let tenant_id = payload_str(&payload, "tenant_id").unwrap_or_else(|| rate_limit::extract_tenant(req));
+    let tenant_id =
+        payload_str(&payload, "tenant_id").unwrap_or_else(|| rate_limit::extract_tenant(req));
     emit_view_audit(store, req, &tenant_id, action_id).await;
     ("200 OK", body.to_string())
 }
@@ -91,8 +92,13 @@ fn build_detail(
 
 fn build_summary(row: &DetailRow, payload: &Value, policy: &RedactionPolicy) -> Value {
     let worker_id = payload_str(payload, "worker_id").unwrap_or_default();
-    let worker_name = payload_str(payload, "worker_name")
-        .unwrap_or_else(|| if worker_id.is_empty() { "unknown".into() } else { worker_id.clone() });
+    let worker_name = payload_str(payload, "worker_name").unwrap_or_else(|| {
+        if worker_id.is_empty() {
+            "unknown".into()
+        } else {
+            worker_id.clone()
+        }
+    });
     let (verb, _) = redact_text(
         &payload_str(payload, "verb").unwrap_or_else(|| row.kind.clone()),
         policy,
@@ -155,26 +161,60 @@ fn infer_trigger_kind(kind: &str) -> &'static str {
 fn build_decision_chain(payload: &Value, policy: &RedactionPolicy) -> Value {
     let g = |k: &str| payload.get(k).cloned().unwrap_or(Value::Null);
     let steps = [
-        (1, "Memory loaded", "memory_loaded_summary",
-            json!({ "snapshot_id": g("memory_loaded_snapshot_id") })),
-        (2, "Skill chosen", "skill_summary",
-            json!({ "skill_id": g("skill_id"), "skill_version": g("skill_version"), "skill_trust": g("skill_trust") })),
-        (3, "Plan candidates", "plan_candidates_summary",
-            json!({ "candidates": g("plan_candidates_json") })),
-        (4, "Plan selected", "plan_selected_summary",
-            json!({ "selected_idx": g("plan_selected_idx") })),
-        (5, "Policy evaluated", "policy_summary",
-            json!({ "policy_id": g("policy_id"), "outcome": g("policy_outcome") })),
-        (6, "Approval", "approval_summary",
-            json!({ "approver_id": g("approver_id"), "channel": g("approval_channel") })),
-        (7, "Execution", "executor_summary",
-            json!({ "kind": g("executor_kind"), "meta": g("executor_meta") })),
-        (8, "Outcome", "outcome_summary",
-            json!({ "status": g("outcome_status"), "downstream": g("downstream_meta") })),
+        (
+            1,
+            "Memory loaded",
+            "memory_loaded_summary",
+            json!({ "snapshot_id": g("memory_loaded_snapshot_id") }),
+        ),
+        (
+            2,
+            "Skill chosen",
+            "skill_summary",
+            json!({ "skill_id": g("skill_id"), "skill_version": g("skill_version"), "skill_trust": g("skill_trust") }),
+        ),
+        (
+            3,
+            "Plan candidates",
+            "plan_candidates_summary",
+            json!({ "candidates": g("plan_candidates_json") }),
+        ),
+        (
+            4,
+            "Plan selected",
+            "plan_selected_summary",
+            json!({ "selected_idx": g("plan_selected_idx") }),
+        ),
+        (
+            5,
+            "Policy evaluated",
+            "policy_summary",
+            json!({ "policy_id": g("policy_id"), "outcome": g("policy_outcome") }),
+        ),
+        (
+            6,
+            "Approval",
+            "approval_summary",
+            json!({ "approver_id": g("approver_id"), "channel": g("approval_channel") }),
+        ),
+        (
+            7,
+            "Execution",
+            "executor_summary",
+            json!({ "kind": g("executor_kind"), "meta": g("executor_meta") }),
+        ),
+        (
+            8,
+            "Outcome",
+            "outcome_summary",
+            json!({ "status": g("outcome_status"), "downstream": g("downstream_meta") }),
+        ),
     ];
     let out: Vec<Value> = steps
         .into_iter()
-        .map(|(n, title, body_key, details)| decision_step(n, title, body_key, policy, payload, details))
+        .map(|(n, title, body_key, details)| {
+            decision_step(n, title, body_key, policy, payload, details)
+        })
         .collect();
     Value::Array(out)
 }
@@ -216,15 +256,18 @@ fn build_output(action_id: &str, payload: &Value, policy: &RedactionPolicy) -> V
         Some(other) => other.clone(),
         None => Value::Null,
     };
-    let screenshots = payload.get("screenshots").and_then(Value::as_array).map(|arr| {
-        let exp = chrono::Utc::now().timestamp() + SCREENSHOT_URL_TTL_SECS;
-        let entries: Vec<Value> = arr
-            .iter()
-            .enumerate()
-            .map(|(idx, shot)| build_screenshot_entry(action_id, idx, exp, shot, policy))
-            .collect();
-        Value::Array(entries)
-    });
+    let screenshots = payload
+        .get("screenshots")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            let exp = chrono::Utc::now().timestamp() + SCREENSHOT_URL_TTL_SECS;
+            let entries: Vec<Value> = arr
+                .iter()
+                .enumerate()
+                .map(|(idx, shot)| build_screenshot_entry(action_id, idx, exp, shot, policy))
+                .collect();
+            Value::Array(entries)
+        });
     json!({
         "kind": payload_str(payload, "output_kind").unwrap_or_else(|| "text".into()),
         "body": body,
@@ -245,7 +288,10 @@ fn build_screenshot_entry(
         .get("timestamp")
         .and_then(Value::as_str)
         .map_or(Value::Null, |s| Value::String(s.into()));
-    let raw = shot.get("description").and_then(Value::as_str).unwrap_or("");
+    let raw = shot
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let (description, _) = redact_text(raw, policy);
     json!({
         "url": sign_screenshot_url(action_id, idx, exp),
@@ -266,7 +312,11 @@ fn build_external_refs(payload: &Value) -> Value {
     scan_slack(&urls, &mut hits);
     scan_github(&urls, &mut hits);
     for token in iter_uppercase_dashed_ids(&body_text) {
-        hits.push(ref_entry("linear", &token, &format!("https://linear.app/issue/{token}")));
+        hits.push(ref_entry(
+            "linear",
+            &token,
+            &format!("https://linear.app/issue/{token}"),
+        ));
     }
     for (system, marker) in URL_SCANNERS {
         scan_url_substring(&urls, system, marker, &mut hits);
@@ -317,7 +367,9 @@ fn scan_slack(urls: &[String], out: &mut Vec<Value>) {
 
 fn scan_github(urls: &[String], out: &mut Vec<Value>) {
     for url in urls {
-        let Some(rest) = url.strip_prefix("https://github.com/") else { continue };
+        let Some(rest) = url.strip_prefix("https://github.com/") else {
+            continue;
+        };
         let parts: Vec<&str> = rest.split('/').collect();
         if parts.len() >= 4 && (parts[2] == "issues" || parts[2] == "pull") {
             let id = format!("{}/{}#{}", parts[0], parts[1], parts[3]);
@@ -390,14 +442,22 @@ fn iter_uppercase_dashed_ids(text: &str) -> Vec<String> {
             continue;
         }
         let start = i;
-        while i < bytes.len() && bytes[i].is_ascii_uppercase() { i += 1; }
+        while i < bytes.len() && bytes[i].is_ascii_uppercase() {
+            i += 1;
+        }
         if i < bytes.len() && bytes[i] == b'-' && start + 2 <= i {
             let dash = i;
             i += 1;
             let num_start = i;
-            while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+            while i < bytes.len() && bytes[i].is_ascii_digit() {
+                i += 1;
+            }
             if i > num_start {
-                out.push(std::str::from_utf8(&bytes[start..i]).unwrap_or("").to_string());
+                out.push(
+                    std::str::from_utf8(&bytes[start..i])
+                        .unwrap_or("")
+                        .to_string(),
+                );
             } else {
                 i = dash;
             }
@@ -417,7 +477,12 @@ async fn emit_view_audit(store: &Arc<SessionStore>, req: &str, tenant_id: &str, 
     });
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
     if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            principal_id_for_audit(req),
+        )
         .await
     {
         tracing::warn!(

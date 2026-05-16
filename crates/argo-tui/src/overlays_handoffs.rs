@@ -15,12 +15,7 @@ use serde_json::Value;
 
 /// Pending orchestrator handoffs. Triggered by `H`. Esc/H/q close.
 /// Each row renders `<id> <from> <to> <status> <deadline>`.
-pub(crate) fn draw_handoffs(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    state: &PanelState,
-    scroll: usize,
-) {
+pub(crate) fn draw_handoffs(frame: &mut Frame<'_>, area: Rect, state: &PanelState, scroll: usize) {
     let w = area.width.saturating_mul(9) / 10;
     let h = area.height.saturating_mul(8) / 10;
     let x = area.x + (area.width.saturating_sub(w)) / 2;
@@ -42,9 +37,7 @@ pub(crate) fn draw_handoffs(
             " orchestrator handoffs (unreachable) — Esc/H/q closes ".to_string()
         }
         PanelState::OkOne(_) => {
-            lines.push(Line::from(
-                "  (unexpected single object — expected array)",
-            ));
+            lines.push(Line::from("  (unexpected single object — expected array)"));
             " orchestrator handoffs — Esc/H/q closes ".to_string()
         }
         PanelState::Ok(rows) if rows.is_empty() => {
@@ -68,10 +61,7 @@ fn format_handoff_row(row: &Value) -> String {
     let id = trim(row.get("id").and_then(Value::as_str).unwrap_or("?"), 12);
     let from = trim(row.get("from").and_then(Value::as_str).unwrap_or("?"), 16);
     let to = trim(format_to(row.get("to")).as_str(), 16);
-    let status = row
-        .get("status")
-        .and_then(Value::as_str)
-        .unwrap_or("?");
+    let status = row.get("status").and_then(Value::as_str).unwrap_or("?");
     let deadline = row
         .get("deadline")
         .and_then(Value::as_str)

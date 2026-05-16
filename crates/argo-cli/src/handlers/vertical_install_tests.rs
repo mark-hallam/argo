@@ -168,14 +168,9 @@ async fn uninstall_refuses_without_yes_flag() {
     .await
     .unwrap();
 
-    let err = uninstall(
-        "demo",
-        Some(target.path().to_str().unwrap()),
-        false,
-        false,
-    )
-    .await
-    .unwrap_err();
+    let err = uninstall("demo", Some(target.path().to_str().unwrap()), false, false)
+        .await
+        .unwrap_err();
     assert!(format!("{err}").contains("--yes"), "got: {err}");
     // The vertical must still be on disk.
     assert!(target.path().join("demo/vertical.toml").exists());
@@ -195,14 +190,9 @@ async fn uninstall_with_yes_removes_directory() {
     .await
     .unwrap();
 
-    uninstall(
-        "demo",
-        Some(target.path().to_str().unwrap()),
-        true,
-        false,
-    )
-    .await
-    .expect("uninstall");
+    uninstall("demo", Some(target.path().to_str().unwrap()), true, false)
+        .await
+        .expect("uninstall");
     assert!(!target.path().join("demo").exists());
 }
 
@@ -305,5 +295,8 @@ async fn pack_refuses_to_pack_a_broken_vertical() {
     .await
     .unwrap_err();
     let msg = format!("{err}");
-    assert!(msg.contains("does not exist") || msg.contains("system_prompt"), "got: {msg}");
+    assert!(
+        msg.contains("does not exist") || msg.contains("system_prompt"),
+        "got: {msg}"
+    );
 }

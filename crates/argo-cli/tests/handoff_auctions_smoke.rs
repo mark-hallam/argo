@@ -61,9 +61,15 @@ async fn three_workers_bid_highest_score_wins() {
         description: "draft launch announcement".into(),
         required_skills: vec!["copywriting".into(), "marketing".into()],
     });
-    auction.submit_bid(make_bid("worker-alice", 80.0, 60)).unwrap();
-    auction.submit_bid(make_bid("worker-bob", 95.0, 30)).unwrap();
-    auction.submit_bid(make_bid("worker-carol", 70.0, 45)).unwrap();
+    auction
+        .submit_bid(make_bid("worker-alice", 80.0, 60))
+        .unwrap();
+    auction
+        .submit_bid(make_bid("worker-bob", 95.0, 30))
+        .unwrap();
+    auction
+        .submit_bid(make_bid("worker-carol", 70.0, 45))
+        .unwrap();
     let winner = auction.close().expect("3 bids ⇒ winner");
     assert_eq!(winner.worker_id, "worker-bob");
 
@@ -173,5 +179,8 @@ fn show_returns_error_on_unknown_id() {
     );
     assert!(!bad.status.success(), "expected non-zero on missing id");
     let stderr = String::from_utf8_lossy(&bad.stderr);
-    assert!(stderr.contains("not found"), "expected helpful error: {stderr}");
+    assert!(
+        stderr.contains("not found"),
+        "expected helpful error: {stderr}"
+    );
 }

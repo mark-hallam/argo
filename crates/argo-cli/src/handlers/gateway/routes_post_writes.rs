@@ -43,9 +43,7 @@ pub(super) async fn append_memory_response(
         other => {
             return (
                 "400 Bad Request",
-                format!(
-                    "{{\"error\":\"unknown file '{other}' — use memory|user|soul|agents\"}}"
-                ),
+                format!("{{\"error\":\"unknown file '{other}' — use memory|user|soul|agents\"}}"),
             );
         }
     };
@@ -61,10 +59,7 @@ pub(super) async fn append_memory_response(
         .unwrap_or("")
         .to_string();
     if body_text.trim().is_empty() {
-        return (
-            "400 Bad Request",
-            "{\"error\":\"empty body\"}".to_string(),
-        );
+        return ("400 Bad Request", "{\"error\":\"empty body\"}".to_string());
     }
     // #718: cwd-bound workspace (matches every reader's path).
     let workspace = match cwd_workspace(store).await {
@@ -106,18 +101,13 @@ pub(super) async fn append_memory_response(
                 serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
             )
         }
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"append: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"append: {e}\"}}")),
     }
 }
 
 // Skill-write handlers (`install_skill_response`,
 // `skill_promote_response`) live in `routes_post_writes_skills`.
-pub(super) use super::routes_post_writes_skills::{
-    install_skill_response, skill_promote_response,
-};
+pub(super) use super::routes_post_writes_skills::{install_skill_response, skill_promote_response};
 
 // `forge_optimize_response` lives in the sibling
 // `routes_post_forge` module since v1.1 (#581) — the
@@ -226,8 +216,12 @@ pub(super) struct ForgeBody {
 
 pub(super) fn parse_forge_body(req: &str) -> Result<ForgeBody, (&'static str, String)> {
     let body = body_from_request(req);
-    let parsed: serde_json::Value = serde_json::from_str(body)
-        .map_err(|e| ("400 Bad Request", format!("{{\"error\":\"parse JSON body: {e}\"}}")))?;
+    let parsed: serde_json::Value = serde_json::from_str(body).map_err(|e| {
+        (
+            "400 Bad Request",
+            format!("{{\"error\":\"parse JSON body: {e}\"}}"),
+        )
+    })?;
     let skill = parsed
         .get("skill")
         .and_then(|v| v.as_str())

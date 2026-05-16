@@ -4,10 +4,10 @@ use argo_identity::NotifyChannelRef;
 use chrono::Utc;
 use std::sync::Mutex;
 
-#[path = "worker_actions_notify_tests_env_mocks.rs"]
-mod env_mocks;
 #[path = "worker_actions_notify_tests_env_channels.rs"]
 mod env_channels;
+#[path = "worker_actions_notify_tests_env_mocks.rs"]
+mod env_mocks;
 
 #[derive(Default)]
 struct StubSender {

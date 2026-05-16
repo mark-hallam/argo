@@ -15,7 +15,12 @@ use tracing_subscriber::Registry;
 use wiremock::matchers::{body_partial_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn target_for(server: &MockServer, batch: usize, interval: Duration, queue_max: usize) -> Arc<HttpLogTarget> {
+fn target_for(
+    server: &MockServer,
+    batch: usize,
+    interval: Duration,
+    queue_max: usize,
+) -> Arc<HttpLogTarget> {
     Arc::new(
         HttpLogTarget::new(
             reqwest::Url::parse(&format!("{}/ingest", server.uri())).unwrap(),
@@ -94,7 +99,10 @@ async fn http_500_doesnt_crash_layer_logs_warn() {
     target.push(r#"{"x":1}"#.into());
     // Should complete without panicking even though the endpoint 500s.
     let sent = target.flush_once().await;
-    assert_eq!(sent, 1, "events were drained even though endpoint returned 500");
+    assert_eq!(
+        sent, 1,
+        "events were drained even though endpoint returned 500"
+    );
 }
 
 #[tokio::test]
@@ -119,7 +127,10 @@ async fn http_timeout_doesnt_block_tracing_call() {
     // The `push` call must return immediately — flusher does the network call.
     let start = std::time::Instant::now();
     target.push(r#"{"x":1}"#.into());
-    assert!(start.elapsed() < Duration::from_millis(10), "push must not block on the network");
+    assert!(
+        start.elapsed() < Duration::from_millis(10),
+        "push must not block on the network"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -151,7 +162,9 @@ async fn drop_flushes_best_effort_with_short_timeout() {
 async fn tenant_id_field_passes_through_unchanged() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(body_partial_json(serde_json::json!([{"tenant_id": "acme-co"}])))
+        .and(body_partial_json(
+            serde_json::json!([{"tenant_id": "acme-co"}]),
+        ))
         .respond_with(ResponseTemplate::new(200))
         .expect(1..)
         .mount(&server)

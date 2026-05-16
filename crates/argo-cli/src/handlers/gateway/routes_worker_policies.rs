@@ -27,12 +27,8 @@ use std::sync::Arc;
 use toml::value::{Table, Value as TomlValue};
 
 /// Canonical policy vocabulary. Order is the canonical render order.
-pub(super) const POLICY_VALUES: &[&str] = &[
-    "auto-approve",
-    "always-ask",
-    "always-refuse",
-    "risk-gated",
-];
+pub(super) const POLICY_VALUES: &[&str] =
+    &["auto-approve", "always-ask", "always-refuse", "risk-gated"];
 
 /// Default when an action_type has no explicit override.
 const DEFAULT_POLICY: &str = "risk-gated";
@@ -148,8 +144,7 @@ pub(super) async fn update_response(
     if let Err(e) = write_policies(&cwd, worker_id, &overrides) {
         return server_error(&e);
     }
-    let principal_id =
-        principal_id_for_audit(req).unwrap_or_else(|| "system:policies".to_string());
+    let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:policies".to_string());
     emit_policy_audit(
         store,
         &principal_id,
@@ -225,10 +220,10 @@ pub(super) fn read_policies(
     if !path.exists() {
         return Ok(BTreeMap::new());
     }
-    let body = std::fs::read_to_string(&path)
-        .map_err(|e| format!("read {}: {e}", path.display()))?;
-    let table: Table = toml::from_str(&body)
-        .map_err(|e| format!("parse {}: {e}", path.display()))?;
+    let body =
+        std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    let table: Table =
+        toml::from_str(&body).map_err(|e| format!("parse {}: {e}", path.display()))?;
     let mut out = BTreeMap::new();
     if let Some(TomlValue::Table(policies)) = table.get("policies") {
         for (k, v) in policies {
@@ -330,7 +325,9 @@ async fn resolve_paused(
         None => match exists_in_other_tenant(store, tenant, worker_id).await {
             Ok(true) => Err(WorkerLookupError::CrossTenant),
             Ok(false) => Err(WorkerLookupError::NotFound),
-            Err(e) => Err(WorkerLookupError::Backend(format!("cross-tenant probe: {e}"))),
+            Err(e) => Err(WorkerLookupError::Backend(format!(
+                "cross-tenant probe: {e}"
+            ))),
         },
     }
 }
@@ -340,20 +337,18 @@ async fn exists_in_other_tenant(
     tenant: TenantId,
     worker_id: WorkerId,
 ) -> ArgoResult<bool> {
-    let row: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1",
-    )
-    .bind(worker_id.to_string())
-    .bind(tenant.to_string())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
+    let row: Option<String> =
+        sqlx::query_scalar("SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1")
+            .bind(worker_id.to_string())
+            .bind(tenant.to_string())
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
     Ok(row.is_some())
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())
@@ -395,7 +390,12 @@ async fn emit_policy_audit(
     });
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, Some(principal_id.to_string()))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            Some(principal_id.to_string()),
+        )
         .await
     {
         tracing::warn!(
@@ -412,7 +412,11 @@ fn bad_request(msg: &str) -> (&'static str, String) {
     err("400 Bad Request", "bad_request", msg)
 }
 fn not_found(id: &str) -> (&'static str, String) {
-    err("404 Not Found", "worker_not_found", &format!("no worker with id '{id}'"))
+    err(
+        "404 Not Found",
+        "worker_not_found",
+        &format!("no worker with id '{id}'"),
+    )
 }
 fn forbidden(msg: &str) -> (&'static str, String) {
     err("403 Forbidden", "forbidden", msg)
@@ -424,7 +428,10 @@ fn server_error(msg: &str) -> (&'static str, String) {
     err("500 Internal Server Error", "internal_error", msg)
 }
 fn err(status: &'static str, code: &str, msg: &str) -> (&'static str, String) {
-    (status, json!({ "error": { "code": code, "message": msg } }).to_string())
+    (
+        status,
+        json!({ "error": { "code": code, "message": msg } }).to_string(),
+    )
 }
 
 #[cfg(test)]

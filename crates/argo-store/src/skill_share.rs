@@ -150,10 +150,7 @@ pub async fn list_shared_for_tenant(
     Ok(out)
 }
 
-async fn cluster_for_tenant(
-    store: &SessionStore,
-    tenant_id: &str,
-) -> ArgoResult<Option<String>> {
+async fn cluster_for_tenant(store: &SessionStore, tenant_id: &str) -> ArgoResult<Option<String>> {
     let row: Option<(String,)> = sqlx::query_as(
         "SELECT name FROM org_unit \
          WHERE tenant_id = ? AND parent_id IS NULL \

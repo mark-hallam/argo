@@ -79,9 +79,8 @@ pub(crate) fn screenshot_link(src: &ScreenshotSource, inline: bool) -> ArgoResul
     match src {
         ScreenshotSource::Disk(path) => {
             if inline {
-                let bytes = std::fs::read(path).map_err(|e| {
-                    ArgoError::Io(format!("read {}: {e}", path.display()))
-                })?;
+                let bytes = std::fs::read(path)
+                    .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
                 Ok(format!("data:image/png;base64,{}", STANDARD.encode(bytes)))
             } else {
                 Ok(format!("file://{}", path.display()))
@@ -134,8 +133,8 @@ pub(crate) fn write_gif(trajectory: &Trajectory, out: &Path, fps: u32) -> ArgoRe
     use std::time::Duration;
 
     let frame_delay = Duration::from_millis(1000 / u64::from(fps));
-    let file = File::create(out)
-        .map_err(|e| ArgoError::Io(format!("create {}: {e}", out.display())))?;
+    let file =
+        File::create(out).map_err(|e| ArgoError::Io(format!("create {}: {e}", out.display())))?;
     let mut enc = GifEncoder::new(BufWriter::new(file));
     enc.set_repeat(Repeat::Infinite)
         .map_err(|e| ArgoError::Provider(format!("gif repeat: {e}")))?;
@@ -144,8 +143,7 @@ pub(crate) fn write_gif(trajectory: &Trajectory, out: &Path, fps: u32) -> ArgoRe
         let img = image::load_from_memory(&bytes)
             .map_err(|e| ArgoError::Invariant(format!("decode step {}: {e}", step.row.step)))?
             .to_rgba8();
-        let frame =
-            Frame::from_parts(img, 0, 0, Delay::from_saturating_duration(frame_delay));
+        let frame = Frame::from_parts(img, 0, 0, Delay::from_saturating_duration(frame_delay));
         enc.encode_frame(frame)
             .map_err(|e| ArgoError::Provider(format!("encode step {}: {e}", step.row.step)))?;
     }
@@ -154,9 +152,9 @@ pub(crate) fn write_gif(trajectory: &Trajectory, out: &Path, fps: u32) -> ArgoRe
 
 fn read_screenshot_bytes(src: &ScreenshotSource) -> ArgoResult<Vec<u8>> {
     match src {
-        ScreenshotSource::Disk(path) => std::fs::read(path).map_err(|e| {
-            ArgoError::Io(format!("read {}: {e}", path.display()))
-        }),
+        ScreenshotSource::Disk(path) => {
+            std::fs::read(path).map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))
+        }
         ScreenshotSource::Blob(_) => Err(ArgoError::Provider(
             "BlobStore screenshot source not yet wired (depends on \
              claude-cu-screenshot-storage)"

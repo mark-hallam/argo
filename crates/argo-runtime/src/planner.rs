@@ -59,7 +59,12 @@ pub trait SubtaskSink: Send + Sync {
         plan_node_path: &str,
         budget_usd_cents: i64,
     ) -> Result<(), PlannerError> {
-        let _ = (parent_session_id, worker_id, plan_node_path, budget_usd_cents);
+        let _ = (
+            parent_session_id,
+            worker_id,
+            plan_node_path,
+            budget_usd_cents,
+        );
         Ok(())
     }
 }
@@ -288,9 +293,8 @@ impl Planner for LlmPlanner {
         let raw = self.caller.call(prompt).await?;
         let response: LlmResponse = serde_json::from_str(&raw)
             .map_err(|e| PlannerError::InvalidResponse(format!("json: {e}")))?;
-        let workflow = argo_workflow::parse_yaml_str(&response.workflow_yaml).map_err(|e| {
-            PlannerError::InvalidResponse(format!("workflow yaml: {e}"))
-        })?;
+        let workflow = argo_workflow::parse_yaml_str(&response.workflow_yaml)
+            .map_err(|e| PlannerError::InvalidResponse(format!("workflow yaml: {e}")))?;
         let workflow = apply_context(workflow, ctx);
         Ok(DecomposeResult {
             workflow,

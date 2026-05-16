@@ -115,11 +115,21 @@ async fn compliance_delete_isolates_and_tombstones() {
     .fetch_all(store.pool())
     .await
     .unwrap();
-    assert_eq!(alice_audit.len(), 3, "alice audit rows tombstoned, not deleted");
+    assert_eq!(
+        alice_audit.len(),
+        3,
+        "alice audit rows tombstoned, not deleted"
+    );
     let mut prev: Option<[u8; 32]> = None;
     for (kind, parent_hash, self_hash, payload) in &alice_audit {
-        assert!(payload.contains("\"tombstone\":true"), "payload not tombstoned");
-        assert!(!payload.contains("alice@example.com"), "PII leaked: {payload}");
+        assert!(
+            payload.contains("\"tombstone\":true"),
+            "payload not tombstoned"
+        );
+        assert!(
+            !payload.contains("alice@example.com"),
+            "PII leaked: {payload}"
+        );
         let parent: [u8; 32] = parent_hash.as_slice().try_into().unwrap();
         let self_h: [u8; 32] = self_hash.as_slice().try_into().unwrap();
         if let Some(p) = prev {
@@ -139,11 +149,7 @@ async fn compliance_delete_isolates_and_tombstones() {
     assert_eq!(last_global_kind, "compliance.delete");
 }
 
-async fn seed_workspace(
-    store: &SessionStore,
-    tenant: TenantId,
-    name: &str,
-) -> WorkspaceId {
+async fn seed_workspace(store: &SessionStore, tenant: TenantId, name: &str) -> WorkspaceId {
     let workspace = WorkspaceId::new();
     sqlx::query(
         "INSERT INTO workspace (id, tenant_id, name, root_path, created_at) \
@@ -160,11 +166,7 @@ async fn seed_workspace(
     workspace
 }
 
-async fn seed_session(
-    store: &SessionStore,
-    tenant: TenantId,
-    workspace: WorkspaceId,
-) -> SessionId {
+async fn seed_session(store: &SessionStore, tenant: TenantId, workspace: WorkspaceId) -> SessionId {
     let session = SessionId::new();
     sqlx::query(
         "INSERT INTO session (id, tenant_id, workspace_id, started_at, model, provider) \

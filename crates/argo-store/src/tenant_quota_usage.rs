@@ -193,10 +193,7 @@ async fn worker_count(pool: &SqlitePool, tenant_id: &str) -> ArgoResult<u64> {
     Ok(u64_from_i64(count))
 }
 
-pub(crate) fn remaining(
-    quota: Option<&TenantQuota>,
-    usage: &TenantUsage,
-) -> TenantQuotaRemaining {
+pub(crate) fn remaining(quota: Option<&TenantQuota>, usage: &TenantUsage) -> TenantQuotaRemaining {
     TenantQuotaRemaining {
         usd_micros: quota
             .and_then(|q| q.max_usd_micros)

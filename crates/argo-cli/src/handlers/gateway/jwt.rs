@@ -128,7 +128,10 @@ fn load_pubkey() -> Result<VerifyingKey, JwtError> {
             let bytes = base64::engine::general_purpose::STANDARD
                 .decode(raw.as_bytes())
                 .map_err(|_| JwtError::NoPubkey)?;
-            let arr: [u8; 32] = bytes.as_slice().try_into().map_err(|_| JwtError::NoPubkey)?;
+            let arr: [u8; 32] = bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| JwtError::NoPubkey)?;
             return VerifyingKey::from_bytes(&arr).map_err(|_| JwtError::NoPubkey);
         }
     }

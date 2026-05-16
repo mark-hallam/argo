@@ -54,7 +54,9 @@ fn from_vertical_seeds_actions_from_sales_follow_up() {
     let home = tempfile::tempdir().unwrap();
     let verticals_dir = workspace_verticals_dir();
     assert!(
-        verticals_dir.join("sales-follow-up/vertical.toml").is_file(),
+        verticals_dir
+            .join("sales-follow-up/vertical.toml")
+            .is_file(),
         "expected sales-follow-up seed at {}",
         verticals_dir.display()
     );
@@ -107,9 +109,8 @@ fn from_vertical_seeds_actions_from_sales_follow_up() {
     // sales-follow-up action and doesn't appear in any
     // non-sales-follow-up archetype's seed vocab.
     let manifest_path = output_dir.join("vertical.toml");
-    let body = std::fs::read_to_string(&manifest_path).unwrap_or_else(|e| {
-        panic!("expected manifest at {}: {e}", manifest_path.display())
-    });
+    let body = std::fs::read_to_string(&manifest_path)
+        .unwrap_or_else(|e| panic!("expected manifest at {}: {e}", manifest_path.display()));
     assert!(
         body.contains("[actions.send_followup_email]"),
         "manifest missing seed's send_followup_email action:\n{body}"

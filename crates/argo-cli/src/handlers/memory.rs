@@ -9,8 +9,7 @@ use std::sync::Arc;
 pub(crate) use super::memory_query::{count, list};
 
 pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -82,7 +81,11 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         MemoryCmd::Forget { entry } => revert(&memory, &entry).await,
         MemoryCmd::Lock { entry } => set_lock(&memory, &entry, Lock::UserProtected).await,
         MemoryCmd::Unlock { entry } => set_lock(&memory, &entry, Lock::None).await,
-        MemoryCmd::DreamNow { worker, scope, json } => super::memory_dream_now::run(&worker, &scope, json).await,
+        MemoryCmd::DreamNow {
+            worker,
+            scope,
+            json,
+        } => super::memory_dream_now::run(&worker, &scope, json).await,
     }
 }
 
@@ -102,11 +105,7 @@ async fn append(
     let learned_in = match session {
         None => None,
         Some(s) => Some(argo_types::SessionId(uuid::Uuid::parse_str(s).map_err(
-            |e| {
-                argo_types::ArgoError::Provider(format!(
-                    "invalid --session uuid '{s}': {e}"
-                ))
-            },
+            |e| argo_types::ArgoError::Provider(format!("invalid --session uuid '{s}': {e}")),
         )?)),
     };
     let entry = match vertical {
@@ -118,7 +117,11 @@ async fn append(
                 .append_for_vertical(workspace, mf, body.to_string(), learned_in, vid)
                 .await?
         }
-        None => memory.append(workspace, mf, body.to_string(), learned_in).await?,
+        None => {
+            memory
+                .append(workspace, mf, body.to_string(), learned_in)
+                .await?
+        }
     };
     let scope = entry
         .vertical_id
@@ -297,8 +300,7 @@ async fn set_lock(memory: &MemoryStore, raw: &str, lock: Lock) -> ArgoResult<()>
 }
 
 fn parse_uuid(raw: &str) -> ArgoResult<uuid::Uuid> {
-    uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Schema(format!("invalid uuid '{raw}': {e}")))
+    uuid::Uuid::parse_str(raw).map_err(|e| ArgoError::Schema(format!("invalid uuid '{raw}': {e}")))
 }
 
 pub(super) fn parse_memory_file(raw: &str) -> ArgoResult<MemoryFile> {

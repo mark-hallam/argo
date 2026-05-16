@@ -55,8 +55,14 @@ fn mixed_plaintext_and_encrypted_supported() {
         ],
     );
     let loaded = read_encrypted(&path, &key).unwrap();
-    assert_eq!(loaded.get("LEGACY_TOKEN").map(String::as_str), Some("plain-value"));
-    assert_eq!(loaded.get("OTHER_TOKEN").map(String::as_str), Some("another-plain"));
+    assert_eq!(
+        loaded.get("LEGACY_TOKEN").map(String::as_str),
+        Some("plain-value")
+    );
+    assert_eq!(
+        loaded.get("OTHER_TOKEN").map(String::as_str),
+        Some("another-plain")
+    );
 }
 
 #[test]
@@ -103,7 +109,10 @@ fn migrate_plaintext_in_place_wraps_legacy_entries() {
 
     // And it must decrypt back to the original value.
     let loaded = read_encrypted(&path, &key).unwrap();
-    assert_eq!(loaded.get("LEGACY_TOKEN").map(String::as_str), Some("plain-value"));
+    assert_eq!(
+        loaded.get("LEGACY_TOKEN").map(String::as_str),
+        Some("plain-value")
+    );
 }
 
 #[test]
@@ -124,8 +133,14 @@ fn migrate_skips_already_encrypted_entries() {
 fn master_key_debug_is_redacted() {
     let key = MasterKey::from_age_secret(&MasterKey::generate().as_age_secret()).unwrap();
     let rendered = format!("{key:?}");
-    assert!(rendered.contains("redacted"), "Debug must redact: {rendered}");
-    assert!(!rendered.contains("AGE-SECRET-KEY"), "Debug leaked secret: {rendered}");
+    assert!(
+        rendered.contains("redacted"),
+        "Debug must redact: {rendered}"
+    );
+    assert!(
+        !rendered.contains("AGE-SECRET-KEY"),
+        "Debug leaked secret: {rendered}"
+    );
 }
 
 #[test]

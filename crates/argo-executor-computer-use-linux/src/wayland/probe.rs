@@ -31,10 +31,7 @@ pub fn caps_are_sufficient(caps: &WaylandCapabilities) -> bool {
 /// Used for diagnostic messages, not the support decision.
 #[must_use]
 pub fn compositor_is_known(compositor: &str) -> bool {
-    matches!(
-        compositor,
-        "gnome" | "kde" | "sway" | "hyprland"
-    )
+    matches!(compositor, "gnome" | "kde" | "sway" | "hyprland")
 }
 
 /// Operator-facing explanation of why a Wayland session was not

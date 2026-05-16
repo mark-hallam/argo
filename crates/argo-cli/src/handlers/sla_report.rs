@@ -98,7 +98,11 @@ fn parse_window_secs(raw: &str) -> ArgoResult<u64> {
     }
 }
 
-fn envelope(avail: &AvailabilitySnapshot, pcts: &LatencyPercentiles, tenant: Option<&str>) -> String {
+fn envelope(
+    avail: &AvailabilitySnapshot,
+    pcts: &LatencyPercentiles,
+    tenant: Option<&str>,
+) -> String {
     json!({
         "availability": avail,
         "success_pct": avail.success_pct(),

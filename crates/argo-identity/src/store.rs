@@ -1,10 +1,10 @@
+use crate::store_hire::{assemble_worker_from_draft, validate_hire_draft, HireDraft};
 use crate::store_sql::{
     ensure_role_columns, ensure_worker_charter_columns, ensure_worker_level_columns,
-    ensure_worker_role_name_columns, ensure_worker_skill_table,
-    ensure_worker_trust_grade_columns, insert_duty, kpis_to_json, parse_worker_id, to_json,
-    worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
+    ensure_worker_role_name_columns, ensure_worker_skill_table, ensure_worker_trust_grade_columns,
+    insert_duty, kpis_to_json, parse_worker_id, to_json, worker_from_row, IDENTITY_SCHEMA,
+    WORKER_SELECT,
 };
-use crate::store_hire::{assemble_worker_from_draft, validate_hire_draft, HireDraft};
 use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel, WorkerUpdate};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -119,7 +119,10 @@ impl<'a> IdentityStore<'a> {
         .bind(&worker.persona.avatar)
         .bind(&worker.persona.bio)
         .bind(&worker.persona.builder_attribution)
-        .bind(to_json(&worker.persona.provenance_chain, "persona provenance")?)
+        .bind(to_json(
+            &worker.persona.provenance_chain,
+            "persona provenance",
+        )?)
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("insert persona: {e}")))?;
@@ -209,11 +212,8 @@ impl<'a> IdentityStore<'a> {
             Some(row) => {
                 let duties = self.load_duties(worker_id).await?;
                 let mut worker = worker_from_row(row, duties)?;
-                worker.circuit_state = circuit::state_for(
-                    self.store.pool(),
-                    &worker.id.to_string(),
-                )
-                .await?;
+                worker.circuit_state =
+                    circuit::state_for(self.store.pool(), &worker.id.to_string()).await?;
                 Ok(Some(worker))
             }
             None => Ok(None),
@@ -303,15 +303,13 @@ impl<'a> IdentityStore<'a> {
         level: WorkerLevel,
     ) -> ArgoResult<()> {
         self.ensure_schema().await?;
-        let result = sqlx::query(
-            "UPDATE worker SET level = ? WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(level.as_str())
-        .bind(worker_id.to_string())
-        .bind(tenant_id.to_string())
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("update level: {e}")))?;
+        let result = sqlx::query("UPDATE worker SET level = ? WHERE id = ? AND tenant_id = ?")
+            .bind(level.as_str())
+            .bind(worker_id.to_string())
+            .bind(tenant_id.to_string())
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("update level: {e}")))?;
         if result.rows_affected() == 0 {
             return Err(ArgoError::Provider(format!(
                 "worker {worker_id} not found in tenant {tenant_id}"
@@ -406,9 +404,9 @@ impl<'a> IdentityStore<'a> {
                 )));
             }
         }
-        self.get_worker(tenant_id, worker_id).await?.ok_or_else(|| {
-            ArgoError::NotFound(format!("worker {worker_id} in tenant {tenant_id}"))
-        })
+        self.get_worker(tenant_id, worker_id)
+            .await?
+            .ok_or_else(|| ArgoError::NotFound(format!("worker {worker_id} in tenant {tenant_id}")))
     }
 
     /// Commit a worker from a hire draft (Stream J5).

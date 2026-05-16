@@ -44,8 +44,7 @@ fn resolve_target(target: &str) -> ArgoResult<PathBuf> {
     if direct.exists() {
         return Ok(direct);
     }
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let candidate = cwd
         .join(".argo")
         .join("plan_runs")

@@ -172,10 +172,7 @@ pub fn migrate_plaintext_in_place(path: &Path, key: &MasterKey) -> ArgoResult<Mi
     Ok(report)
 }
 
-fn write_document(
-    path: &Path,
-    wrapped: &BTreeMap<String, EncryptedEntry>,
-) -> ArgoResult<()> {
+fn write_document(path: &Path, wrapped: &BTreeMap<String, EncryptedEntry>) -> ArgoResult<()> {
     let parent = path
         .parent()
         .ok_or_else(|| ArgoError::Io(format!("invalid credentials path {}", path.display())))?;

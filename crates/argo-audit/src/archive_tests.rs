@@ -17,9 +17,14 @@ async fn fresh_store() -> Arc<SessionStore> {
 async fn write_rows(store: &Arc<SessionStore>, n: usize) {
     let sink = AuditSink::new(Arc::clone(store));
     for i in 0..n {
-        sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
-            .await
-            .unwrap();
+        sink.write(
+            None,
+            AuditKind::TurnStart,
+            serde_json::json!({"i": i}),
+            None,
+        )
+        .await
+        .unwrap();
     }
 }
 
@@ -60,7 +65,7 @@ async fn archive_empty_window_emits_zero_row_bundle() {
 #[tokio::test]
 async fn archive_100_rows_tar_gz_bounded_in_size() {
     let store = fresh_store().await;
-    write_rows(&store,100).await;
+    write_rows(&store, 100).await;
     backdate_all(&store, 200).await;
     let dir = tempfile::tempdir().unwrap();
     let bundle = archive_window(&store, &cfg(dir.path())).await.unwrap();
@@ -76,7 +81,7 @@ async fn archive_100_rows_tar_gz_bounded_in_size() {
 #[tokio::test]
 async fn archive_then_verify_roundtrip() {
     let store = fresh_store().await;
-    write_rows(&store,5).await;
+    write_rows(&store, 5).await;
     backdate_all(&store, 100).await;
     let dir = tempfile::tempdir().unwrap();
     let bundle = archive_window(&store, &cfg(dir.path())).await.unwrap();
@@ -132,7 +137,7 @@ async fn prune_respects_hard_keep_days() {
 #[tokio::test]
 async fn archive_skips_rows_newer_than_retention() {
     let store = fresh_store().await;
-    write_rows(&store,4).await;
+    write_rows(&store, 4).await;
     let now_us = Utc::now().timestamp_micros();
     let day = Duration::days(1).num_microseconds().unwrap();
     // 2 rows old, 2 rows fresh.
@@ -159,7 +164,7 @@ async fn manifest_append_only_under_concurrent_archives() {
     // same UTC day with the same cutoff returns the existing
     // bundle (idempotent) instead of truncating the manifest.
     let store = fresh_store().await;
-    write_rows(&store,2).await;
+    write_rows(&store, 2).await;
     backdate_all(&store, 100).await;
     let dir = tempfile::tempdir().unwrap();
     let first = archive_window(&store, &cfg(dir.path())).await.unwrap();
@@ -182,7 +187,7 @@ async fn manifest_append_only_under_concurrent_archives() {
 #[tokio::test]
 async fn sha256_mismatch_detected_by_verify() {
     let store = fresh_store().await;
-    write_rows(&store,3).await;
+    write_rows(&store, 3).await;
     backdate_all(&store, 100).await;
     let dir = tempfile::tempdir().unwrap();
     let bundle = archive_window(&store, &cfg(dir.path())).await.unwrap();
@@ -192,8 +197,7 @@ async fn sha256_mismatch_detected_by_verify() {
     let mid = bytes.len() / 2;
     bytes[mid] ^= 0xff;
     std::fs::write(&path, &bytes).unwrap();
-    let err = verify_archive(&bundle, dir.path())
-        .expect_err("tampered bundle must fail verify");
+    let err = verify_archive(&bundle, dir.path()).expect_err("tampered bundle must fail verify");
     let msg = err.to_string();
     // Either sha256 or hmac mismatch (gz CRC change flips both).
     assert!(

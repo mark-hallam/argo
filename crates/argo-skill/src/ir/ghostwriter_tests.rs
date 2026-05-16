@@ -14,7 +14,9 @@ use super::{
     generate_from_prompt, offline_template, validate_graph, GhostwriterClient, GhostwriterError,
     OfflineGhostwriterClient, GHOSTWRITER_SOURCE,
 };
-use crate::ir::types::{Edge, EdgeCond, EdgeId, Node, NodeAnnotations, NodeId, NodeKind, SkillGraph};
+use crate::ir::types::{
+    Edge, EdgeCond, EdgeId, Node, NodeAnnotations, NodeId, NodeKind, SkillGraph,
+};
 use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
 use std::sync::Mutex;
@@ -34,13 +36,12 @@ impl ScriptedClient {
 #[async_trait]
 impl GhostwriterClient for ScriptedClient {
     async fn generate(&self, _prompt: &str) -> ArgoResult<String> {
-        let mut guard = self.responses.lock().map_err(|e| {
-            ArgoError::Provider(format!("scripted client mutex: {e}"))
-        })?;
+        let mut guard = self
+            .responses
+            .lock()
+            .map_err(|e| ArgoError::Provider(format!("scripted client mutex: {e}")))?;
         if guard.is_empty() {
-            return Err(ArgoError::Provider(
-                "scripted client exhausted".to_string(),
-            ));
+            return Err(ArgoError::Provider("scripted client exhausted".to_string()));
         }
         Ok(guard.remove(0))
     }
@@ -148,10 +149,15 @@ async fn malformed_json_retries_with_self_correction() {
 #[tokio::test]
 async fn validation_failure_on_both_attempts_surfaces_typed_error() {
     let llm = ScriptedClient::new(vec![BROKEN_ENTRY_JSON, BROKEN_ENTRY_JSON]);
-    let err = generate_from_prompt("Build a thing", &llm).await.unwrap_err();
+    let err = generate_from_prompt("Build a thing", &llm)
+        .await
+        .unwrap_err();
     match err {
         GhostwriterError::Validation(msg) => {
-            assert!(msg.contains("entry"), "expected entry-mismatch msg, got: {msg}");
+            assert!(
+                msg.contains("entry"),
+                "expected entry-mismatch msg, got: {msg}"
+            );
         }
         other => panic!("expected Validation, got {other:?}"),
     }
@@ -160,7 +166,9 @@ async fn validation_failure_on_both_attempts_surfaces_typed_error() {
 #[tokio::test]
 async fn decode_failure_on_both_attempts_surfaces_typed_error() {
     let llm = ScriptedClient::new(vec!["not json", "still not json"]);
-    let err = generate_from_prompt("Build a thing", &llm).await.unwrap_err();
+    let err = generate_from_prompt("Build a thing", &llm)
+        .await
+        .unwrap_err();
     assert!(matches!(err, GhostwriterError::Decode(_)), "{err:?}");
 }
 

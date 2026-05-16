@@ -120,10 +120,7 @@ fn emit_histogram(
 
 fn render_markdown(r: &StatsReport) -> String {
     let mut out = String::new();
-    out.push_str(&format!(
-        "# Handoff stats — {} to {}\n\n",
-        r.since, r.until
-    ));
+    out.push_str(&format!("# Handoff stats — {} to {}\n\n", r.since, r.until));
     out.push_str("## Overview\n\n");
     out.push_str("| metric | value |\n");
     out.push_str("|--------|-------|\n");
@@ -314,7 +311,9 @@ async fn open_store() -> ArgoResult<SessionStore> {
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
     store.migrate().await?;
-    OrchestratorStore::new(Arc::clone(&store)).ensure_schema().await?;
+    OrchestratorStore::new(Arc::clone(&store))
+        .ensure_schema()
+        .await?;
     Arc::try_unwrap(store)
         .map_err(|_| ArgoError::Provider("handoff-stats open_store: store still shared".into()))
 }

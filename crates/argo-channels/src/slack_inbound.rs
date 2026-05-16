@@ -243,8 +243,8 @@ fn hex_val(b: u8) -> Option<u8> {
 /// assert!(sig.starts_with("v0="));
 /// ```
 pub fn sign_slack_v0(body: &[u8], timestamp: &str, signing_secret: &str) -> ChannelResult<String> {
-    let body_str = std::str::from_utf8(body)
-        .map_err(|e| ChannelError::Parse(format!("body utf8: {e}")))?;
+    let body_str =
+        std::str::from_utf8(body).map_err(|e| ChannelError::Parse(format!("body utf8: {e}")))?;
     let basestring = format!("v0:{timestamp}:{body_str}");
     let mac = hmac_hex(basestring.as_bytes(), signing_secret.as_bytes())?;
     Ok(format!("v0={mac}"))

@@ -116,12 +116,11 @@ impl<R: TaskRunner> Executor<R> {
                     continue;
                 }
             }
-            let resolved = resolve_inputs(&task.inputs, &outputs).map_err(|e| {
-                ExecutionError::Resolve {
+            let resolved =
+                resolve_inputs(&task.inputs, &outputs).map_err(|e| ExecutionError::Resolve {
                     task: task.id.clone(),
                     error: e,
-                }
-            })?;
+                })?;
             match self.runner.run(task, &resolved).await {
                 TaskOutcome::Success { outputs: outs } => {
                     outputs.insert(task.id.clone(), outs.clone());
@@ -147,7 +146,9 @@ impl<R: TaskRunner> Executor<R> {
         let ok = verdicts
             .values()
             .all(|v| matches!(v, TaskVerdict::Success { .. } | TaskVerdict::Skipped { .. }))
-            && verdicts.values().any(|v| matches!(v, TaskVerdict::Success { .. }));
+            && verdicts
+                .values()
+                .any(|v| matches!(v, TaskVerdict::Success { .. }));
         let no_failures = !verdicts
             .values()
             .any(|v| matches!(v, TaskVerdict::Failed { .. }));
@@ -242,10 +243,7 @@ mod tests {
             .unwrap();
         let exec = Executor::new(MockRunner::echo().fail("b"));
         let report = exec
-            .execute_with_checkpoints(
-                ExecutionRequest::new(linear(Some("k-b"))),
-                &store,
-            )
+            .execute_with_checkpoints(ExecutionRequest::new(linear(Some("k-b"))), &store)
             .await
             .unwrap();
         assert!(report.ok, "cache hit should bypass the failing runner");

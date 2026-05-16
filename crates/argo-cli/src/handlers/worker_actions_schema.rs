@@ -139,4 +139,6 @@ impl ActionRecord {
     pub(crate) const SCHEMA_KEY: &'static str = "worker_action";
 }
 
-fn default_risk() -> String { "low".to_string() }
+fn default_risk() -> String {
+    "low".to_string()
+}

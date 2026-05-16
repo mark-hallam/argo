@@ -155,9 +155,8 @@ pub(super) async fn session_skills_list_response(
         Ok(rows) => {
             if matches!(format, Some("markdown")) {
                 let n = rows.len();
-                let mut out = format!(
-                    "# Skills attached to session `{raw_sid}` ({n} attached)\n\n",
-                );
+                let mut out =
+                    format!("# Skills attached to session `{raw_sid}` ({n} attached)\n\n",);
                 if rows.is_empty() {
                     out.push_str(
                         "_No skills attached — runner falls back to every active skill in the workspace._\n",
@@ -241,15 +240,17 @@ pub(super) async fn session_clear_skills_response(
     }
     (
         "200 OK",
-        format!(
-            "{{\"cleared\":true,\"session\":\"{raw_sid}\",\"detached\":{detached}}}"
-        ),
+        format!("{{\"cleared\":true,\"session\":\"{raw_sid}\",\"detached\":{detached}}}"),
     )
 }
 
 fn parse_skill_field(req: &str) -> Result<String, (&'static str, String)> {
-    let parsed: serde_json::Value = serde_json::from_str(body_from_request(req))
-        .map_err(|e| ("400 Bad Request", format!("{{\"error\":\"parse body: {e}\"}}")))?;
+    let parsed: serde_json::Value = serde_json::from_str(body_from_request(req)).map_err(|e| {
+        (
+            "400 Bad Request",
+            format!("{{\"error\":\"parse body: {e}\"}}"),
+        )
+    })?;
     parsed
         .get("skill")
         .and_then(|v| v.as_str())

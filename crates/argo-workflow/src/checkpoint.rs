@@ -112,9 +112,7 @@ impl InMemoryCheckpointStore {
         Self::default()
     }
 
-    fn locked_rows(
-        &self,
-    ) -> Result<std::sync::MutexGuard<'_, Vec<Checkpoint>>, CheckpointError> {
+    fn locked_rows(&self) -> Result<std::sync::MutexGuard<'_, Vec<Checkpoint>>, CheckpointError> {
         self.rows
             .lock()
             .map_err(|_| CheckpointError::Backend("in-memory mutex poisoned".into()))

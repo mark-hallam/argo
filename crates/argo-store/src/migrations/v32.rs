@@ -43,8 +43,7 @@ async fn exec<'a, 'b>(
     Ok(())
 }
 
-const V32_UP: &[&str] = &[
-    "CREATE TABLE IF NOT EXISTS worker_spend_baseline (
+const V32_UP: &[&str] = &["CREATE TABLE IF NOT EXISTS worker_spend_baseline (
         worker_id TEXT NOT NULL,
         hour_of_day INTEGER NOT NULL,
         mean_usd_per_hour REAL NOT NULL,
@@ -52,7 +51,6 @@ const V32_UP: &[&str] = &[
         sample_count INTEGER NOT NULL,
         updated_at_micros INTEGER NOT NULL,
         PRIMARY KEY (worker_id, hour_of_day)
-    )",
-];
+    )"];
 
 const V32_DOWN: &[&str] = &["DROP TABLE IF EXISTS worker_spend_baseline"];

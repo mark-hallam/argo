@@ -159,8 +159,14 @@ pub(super) async fn render_json(store: Option<&Arc<SessionStore>>) -> String {
             t.recommendation.target_or(t.snapshot.active_workers),
         )
     });
-    payload.insert("argo_worker_pool_active_total".into(), serde_json::json!(active));
-    payload.insert("argo_worker_pool_queue_depth".into(), serde_json::json!(depth));
+    payload.insert(
+        "argo_worker_pool_active_total".into(),
+        serde_json::json!(active),
+    );
+    payload.insert(
+        "argo_worker_pool_queue_depth".into(),
+        serde_json::json!(depth),
+    );
     payload.insert("argo_worker_pool_target".into(), serde_json::json!(target));
     payload.insert(
         "argo_worker_pool_scale_events_total".into(),

@@ -85,8 +85,16 @@ pub fn normalise_mouse_coords(
     let (vw, vh) = virtual_size;
     let rel_x = pixel_x.saturating_sub(vx).max(0) as u64;
     let rel_y = pixel_y.saturating_sub(vy).max(0) as u64;
-    let nx = if vw <= 1 { 0 } else { ((rel_x * 65_535) / (vw as u64 - 1)).min(65_535) as u32 };
-    let ny = if vh <= 1 { 0 } else { ((rel_y * 65_535) / (vh as u64 - 1)).min(65_535) as u32 };
+    let nx = if vw <= 1 {
+        0
+    } else {
+        ((rel_x * 65_535) / (vw as u64 - 1)).min(65_535) as u32
+    };
+    let ny = if vh <= 1 {
+        0
+    } else {
+        ((rel_y * 65_535) / (vh as u64 - 1)).min(65_535) as u32
+    };
     (nx, ny)
 }
 
@@ -122,7 +130,11 @@ pub fn vk_for_key(name: &str) -> Option<u16> {
         }),
         single if single.len() == 1 => single.chars().next().and_then(|c| {
             let upper = c.to_ascii_uppercase();
-            if upper.is_ascii_alphanumeric() { Some(upper as u16) } else { None }
+            if upper.is_ascii_alphanumeric() {
+                Some(upper as u16)
+            } else {
+                None
+            }
         }),
         _ => None,
     }
@@ -131,7 +143,9 @@ pub fn vk_for_key(name: &str) -> Option<u16> {
 /// Split a combo into modifier VKs + tail VK.
 pub fn classify_combo(keys: &[String]) -> WindowsCuResult<(Vec<u16>, u16)> {
     if keys.is_empty() {
-        return Err(WindowsCuError::Protocol("key action with empty key list".into()));
+        return Err(WindowsCuError::Protocol(
+            "key action with empty key list".into(),
+        ));
     }
     let mut modifiers = Vec::new();
     let mut tail: Option<u16> = None;
@@ -144,9 +158,8 @@ pub fn classify_combo(keys: &[String]) -> WindowsCuResult<(Vec<u16>, u16)> {
             tail = Some(vk);
         }
     }
-    let tail = tail.ok_or_else(|| {
-        WindowsCuError::Protocol("key action without a non-modifier key".into())
-    })?;
+    let tail = tail
+        .ok_or_else(|| WindowsCuError::Protocol("key action without a non-modifier key".into()))?;
     Ok((modifiers, tail))
 }
 
@@ -203,7 +216,11 @@ mod win {
     fn send(input: INPUT) -> WindowsCuResult<()> {
         unsafe {
             let n = SendInput(&[input], std::mem::size_of::<INPUT>() as i32);
-            if n != 1 { Err(WindowsCuError::InputBlocked) } else { Ok(()) }
+            if n != 1 {
+                Err(WindowsCuError::InputBlocked)
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -233,7 +250,11 @@ mod win {
     }
 
     fn mouse_button(down: bool) -> WindowsCuResult<()> {
-        let flags = if down { MOUSEEVENTF_LEFTDOWN } else { MOUSEEVENTF_LEFTUP };
+        let flags = if down {
+            MOUSEEVENTF_LEFTDOWN
+        } else {
+            MOUSEEVENTF_LEFTUP
+        };
         send(INPUT {
             r#type: INPUT_MOUSE,
             Anonymous: INPUT_0 {
@@ -355,11 +376,23 @@ mod tests {
     #[test]
     fn action_kind_matches_enum_variants() {
         assert_eq!(action_kind(&CuAction::Click { x: 1, y: 2 }), "click");
-        assert_eq!(action_kind(&CuAction::DoubleClick { x: 1, y: 2 }), "double_click");
+        assert_eq!(
+            action_kind(&CuAction::DoubleClick { x: 1, y: 2 }),
+            "double_click"
+        );
         assert_eq!(action_kind(&CuAction::Type { text: "x".into() }), "type");
-        assert_eq!(action_kind(&CuAction::MouseMove { x: 1, y: 2 }), "mouse_move");
-        assert_eq!(action_kind(&CuAction::Scroll { x: 0, y: 0, dy: 1 }), "scroll");
-        assert_eq!(action_kind(&CuAction::Navigate { url: "x".into() }), "navigate");
+        assert_eq!(
+            action_kind(&CuAction::MouseMove { x: 1, y: 2 }),
+            "mouse_move"
+        );
+        assert_eq!(
+            action_kind(&CuAction::Scroll { x: 0, y: 0, dy: 1 }),
+            "scroll"
+        );
+        assert_eq!(
+            action_kind(&CuAction::Navigate { url: "x".into() }),
+            "navigate"
+        );
     }
 
     #[test]
@@ -397,15 +430,30 @@ mod tests {
     #[tokio::test]
     async fn post_rejects_action_not_in_allowlist() {
         let c = cfg(&["click"]);
-        let err = post(&CuAction::Type { text: "x".into() }, &c).await.unwrap_err();
-        assert!(matches!(err, WindowsCuError::ActionNotAllowed { kind: "type" }));
+        let err = post(&CuAction::Type { text: "x".into() }, &c)
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            WindowsCuError::ActionNotAllowed { kind: "type" }
+        ));
     }
 
     #[tokio::test]
     async fn post_rejects_key_when_send_keys_disabled() {
         let mut c = cfg(&["key"]);
         c.allow_send_keys = false;
-        let err = post(&CuAction::Key { keys: vec!["return".into()] }, &c).await.unwrap_err();
-        assert!(matches!(err, WindowsCuError::ActionNotAllowed { kind: "key" }));
+        let err = post(
+            &CuAction::Key {
+                keys: vec!["return".into()],
+            },
+            &c,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            WindowsCuError::ActionNotAllowed { kind: "key" }
+        ));
     }
 }

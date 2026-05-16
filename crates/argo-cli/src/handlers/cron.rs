@@ -54,8 +54,7 @@ pub fn default_system_registry() -> SystemJobRegistry {
 }
 
 pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let dir = cwd.join("cron").join("jobs");
     std::fs::create_dir_all(&dir)
         .map_err(|e| ArgoError::Provider(format!("create_dir_all {}: {e}", dir.display())))?;
@@ -117,7 +116,10 @@ fn init_system(
             continue;
         }
         if dst.exists() && !force {
-            println!("  skip   {} (already installed; pass --force to overwrite)", dst.display());
+            println!(
+                "  skip   {} (already installed; pass --force to overwrite)",
+                dst.display()
+            );
             skipped += 1;
             continue;
         }
@@ -132,7 +134,10 @@ fn init_system(
         // commit it to cron/jobs/ — catches drift between the
         // shipped templates and the on-disk schema.
         let _: CronJob = serde_json::from_str(&body).map_err(|e| {
-            ArgoError::Provider(format!("template {} is not a valid CronJob: {e}", src.display()))
+            ArgoError::Provider(format!(
+                "template {} is not a valid CronJob: {e}",
+                src.display()
+            ))
         })?;
         std::fs::write(&dst, body)
             .map_err(|e| ArgoError::Io(format!("write {}: {e}", dst.display())))?;
@@ -152,10 +157,7 @@ fn init_system(
 
 /// Build a [`JobRunner`] that dispatches `system:*` targets via the
 /// registry and falls back to [`LoggingRunner`] for everything else.
-fn system_aware_runner(
-    registry: SystemJobRegistry,
-    workspace_root: PathBuf,
-) -> SystemAwareRunner {
+fn system_aware_runner(registry: SystemJobRegistry, workspace_root: PathBuf) -> SystemAwareRunner {
     SystemAwareRunner {
         registry,
         workspace_root,
@@ -362,4 +364,3 @@ impl JobRunner for LoggingRunner {
         Ok(())
     }
 }
-

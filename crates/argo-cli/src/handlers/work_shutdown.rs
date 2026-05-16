@@ -43,9 +43,7 @@ pub(crate) fn install_shutdown_watcher() -> Arc<AtomicBool> {
     let flag_for_task = Arc::clone(&flag);
     tokio::spawn(async move {
         wait_for_any_shutdown_signal().await;
-        eprintln!(
-            "argo work: shutdown signal received; will exit after the current step"
-        );
+        eprintln!("argo work: shutdown signal received; will exit after the current step");
         flag_for_task.store(true, Ordering::SeqCst);
     });
     flag

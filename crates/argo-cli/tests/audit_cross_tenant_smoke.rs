@@ -57,14 +57,8 @@ async fn fresh_store_session() -> (Arc<SessionStore>, SessionId) {
 async fn two_workspaces_resolve_to_distinct_tenant_ids() {
     let ws_a = tempfile::tempdir().expect("tempdir A");
     let ws_b = tempfile::tempdir().expect("tempdir B");
-    write_argo_toml(
-        ws_a.path(),
-        "[tenant]\ndefault_id = \"acme-prod\"\n",
-    );
-    write_argo_toml(
-        ws_b.path(),
-        "[tenant]\ndefault_id = \"globex-prod\"\n",
-    );
+    write_argo_toml(ws_a.path(), "[tenant]\ndefault_id = \"acme-prod\"\n");
+    write_argo_toml(ws_b.path(), "[tenant]\ndefault_id = \"globex-prod\"\n");
     let id_a = workspace_tenant_id(ws_a.path());
     let id_b = workspace_tenant_id(ws_b.path());
     assert_eq!(id_a, "acme-prod");
@@ -92,20 +86,28 @@ async fn untenanted_workspace_falls_back_to_path_hash() {
 async fn audit_rows_are_isolated_per_tenant() {
     let (store, session) = fresh_store_session().await;
 
-    let sink_a =
-        AuditSink::new_with_tenant(Arc::clone(&store), "acme-prod".to_string());
-    let sink_b =
-        AuditSink::new_with_tenant(Arc::clone(&store), "globex-prod".to_string());
+    let sink_a = AuditSink::new_with_tenant(Arc::clone(&store), "acme-prod".to_string());
+    let sink_b = AuditSink::new_with_tenant(Arc::clone(&store), "globex-prod".to_string());
 
     for i in 0..3 {
         sink_a
-            .write(Some(session), AuditKind::TurnStart, serde_json::json!({"i": i}), None)
+            .write(
+                Some(session),
+                AuditKind::TurnStart,
+                serde_json::json!({"i": i}),
+                None,
+            )
             .await
             .expect("acme write");
     }
     for i in 0..5 {
         sink_b
-            .write(Some(session), AuditKind::ToolCall, serde_json::json!({"i": i}), None)
+            .write(
+                Some(session),
+                AuditKind::ToolCall,
+                serde_json::json!({"i": i}),
+                None,
+            )
             .await
             .expect("globex write");
     }
@@ -115,18 +117,16 @@ async fn audit_rows_are_isolated_per_tenant() {
     sink_a.flush_pending().await.expect("flush acme");
     sink_b.flush_pending().await.expect("flush globex");
 
-    let acme_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_record WHERE tenant_id = 'acme-prod'",
-    )
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
-    let globex_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_record WHERE tenant_id = 'globex-prod'",
-    )
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
+    let acme_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM audit_record WHERE tenant_id = 'acme-prod'")
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
+    let globex_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM audit_record WHERE tenant_id = 'globex-prod'")
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
     assert_eq!(acme_count, 3);
     assert_eq!(globex_count, 5);
 

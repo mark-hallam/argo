@@ -19,7 +19,8 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
             json,
             format,
         } => {
-            let summary = super::budget_show::budget_summary(&store, &worker_id, Utc::now()).await?;
+            let summary =
+                super::budget_show::budget_summary(&store, &worker_id, Utc::now()).await?;
             match format.resolve(json) {
                 BudgetOutputFormat::Json => {
                     println!("{}", serde_json::to_string(&summary).unwrap_or_default());
@@ -131,8 +132,7 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

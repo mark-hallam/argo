@@ -42,10 +42,7 @@ async fn roster_create_then_show_round_trip() {
     assert_eq!(payload["name"], "alpha-team");
     assert_eq!(payload["tenant_id"], tenant);
 
-    let listed = run(
-        &world,
-        &["roster", "list", "--tenant", &tenant, "--json"],
-    );
+    let listed = run(&world, &["roster", "list", "--tenant", &tenant, "--json"]);
     assert_success(&listed);
     let rows: Value = serde_json::from_slice(&listed.stdout).unwrap();
     let names: Vec<&str> = rows
@@ -83,12 +80,7 @@ async fn worker_show_includes_roster_lineage() {
     let created = run(
         &world,
         &[
-            "roster",
-            "create",
-            "--tenant",
-            &tenant,
-            "--json",
-            "ops-team",
+            "roster", "create", "--tenant", &tenant, "--json", "ops-team",
         ],
     );
     assert_success(&created);

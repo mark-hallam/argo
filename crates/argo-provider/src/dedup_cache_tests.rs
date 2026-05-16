@@ -66,8 +66,8 @@ impl Transport for RecordingTransport {
 /// fingerprint, so tests that need a byte-identical second request
 /// share both with the first.
 fn mk_req(session: SessionId, msg_id: MessageId, text: &str) -> ProviderRequest {
-    let created_at = chrono::DateTime::<Utc>::from_timestamp(1_700_000_000, 0)
-        .unwrap_or_else(Utc::now);
+    let created_at =
+        chrono::DateTime::<Utc>::from_timestamp(1_700_000_000, 0).unwrap_or_else(Utc::now);
     ProviderRequest {
         model: "test-model".into(),
         messages: vec![Message {
@@ -117,7 +117,11 @@ async fn miss_outside_ttl_falls_through_to_inner() {
     tokio::time::sleep(Duration::from_millis(80)).await;
     cache.complete(&req).await.expect("second call (stale)");
 
-    assert_eq!(count.load(Ordering::SeqCst), 2, "TTL expiry → 2nd wire call");
+    assert_eq!(
+        count.load(Ordering::SeqCst),
+        2,
+        "TTL expiry → 2nd wire call"
+    );
     assert_eq!(cache.misses(), 2);
     assert_eq!(cache.hits(), 0);
 }
@@ -145,7 +149,11 @@ async fn streaming_calls_bypass_cache_entirely() {
     let _ = cache.complete_stream(&req).await.expect("stream 1");
     let _ = cache.complete_stream(&req).await.expect("stream 2");
 
-    assert_eq!(stream_count.load(Ordering::SeqCst), 2, "no caching on streams");
+    assert_eq!(
+        stream_count.load(Ordering::SeqCst),
+        2,
+        "no caching on streams"
+    );
     assert_eq!(complete_count.load(Ordering::SeqCst), 0);
     assert_eq!(cache.hits(), 0, "streams don't touch the hit counter");
     assert_eq!(cache.misses(), 0);
@@ -163,7 +171,11 @@ async fn per_tenant_isolation_via_session_id_in_messages() {
     cache.complete(&req_tenant_a).await.expect("tenant A");
     cache.complete(&req_tenant_b).await.expect("tenant B");
 
-    assert_eq!(count.load(Ordering::SeqCst), 2, "different sessions → no shared cache");
+    assert_eq!(
+        count.load(Ordering::SeqCst),
+        2,
+        "different sessions → no shared cache"
+    );
     assert_eq!(cache.hits(), 0);
     assert_eq!(cache.misses(), 2);
 }

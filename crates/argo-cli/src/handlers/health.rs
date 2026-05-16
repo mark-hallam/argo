@@ -97,7 +97,11 @@ fn print_markdown(payload: &serde_json::Value) {
     println!();
     println!(
         "**Status**: {}",
-        if ok { "all checks ok ✓" } else { "**FAILED**" }
+        if ok {
+            "all checks ok ✓"
+        } else {
+            "**FAILED**"
+        }
     );
     println!();
     println!("## Audit chain");
@@ -107,38 +111,23 @@ fn print_markdown(payload: &serde_json::Value) {
     } else if let Some(b) = audit["breaks"].as_u64() {
         println!("- **FAIL** ({b} break(s))");
     } else {
-        println!(
-            "- **FAIL** ({})",
-            audit["error"].as_str().unwrap_or("?")
-        );
+        println!("- **FAIL** ({})", audit["error"].as_str().unwrap_or("?"));
     }
     println!();
     println!("## Skill provenance");
     println!();
     if skill["ok"].as_bool().unwrap_or(false) {
-        println!(
-            "- ✓ ok ({} skill(s))",
-            skill["count"].as_u64().unwrap_or(0)
-        );
+        println!("- ✓ ok ({} skill(s))", skill["count"].as_u64().unwrap_or(0));
     } else {
-        println!(
-            "- **FAIL** ({})",
-            skill["error"].as_str().unwrap_or("?")
-        );
+        println!("- **FAIL** ({})", skill["error"].as_str().unwrap_or("?"));
     }
     println!();
     println!("## Memory provenance");
     println!();
     if memory["ok"].as_bool().unwrap_or(false) {
-        println!(
-            "- ✓ ok ({} entries)",
-            memory["count"].as_u64().unwrap_or(0)
-        );
+        println!("- ✓ ok ({} entries)", memory["count"].as_u64().unwrap_or(0));
     } else {
-        println!(
-            "- **FAIL** ({})",
-            memory["error"].as_str().unwrap_or("?")
-        );
+        println!("- **FAIL** ({})", memory["error"].as_str().unwrap_or("?"));
     }
 }
 
@@ -146,8 +135,7 @@ fn print_markdown(payload: &serde_json::Value) {
 /// Shared between the CLI handler (which prints a human report)
 /// and the gateway's `GET /health/full` endpoint.
 pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);

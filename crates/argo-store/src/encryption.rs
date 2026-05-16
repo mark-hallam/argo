@@ -165,17 +165,13 @@ impl WrappedDekSource {
     pub fn resolve_bytes(&self) -> Result<Vec<u8>> {
         match self {
             Self::Env(var) => {
-                let raw = env::var(var).map_err(|e| {
-                    ArgoError::Provider(format!("wrapped-dek env '{var}': {e}"))
-                })?;
+                let raw = env::var(var)
+                    .map_err(|e| ArgoError::Provider(format!("wrapped-dek env '{var}': {e}")))?;
                 Ok(raw.trim().as_bytes().to_vec())
             }
             Self::File(path) => fs::read(path)
                 .map_err(|e| {
-                    ArgoError::Provider(format!(
-                        "wrapped-dek file '{}': {e}",
-                        path.display()
-                    ))
+                    ArgoError::Provider(format!("wrapped-dek file '{}': {e}", path.display()))
                 })
                 .map(trim_trailing_newlines),
         }
@@ -280,17 +276,13 @@ impl KeySource {
         match self {
             Self::None => Ok(None),
             Self::Env(var) => {
-                let raw = env::var(var).map_err(|e| {
-                    ArgoError::Provider(format!("encryption key env '{var}': {e}"))
-                })?;
+                let raw = env::var(var)
+                    .map_err(|e| ArgoError::Provider(format!("encryption key env '{var}': {e}")))?;
                 Ok(Some(validate_hex_key(raw.trim())?))
             }
             Self::File(path) => {
                 let raw = fs::read_to_string(path).map_err(|e| {
-                    ArgoError::Provider(format!(
-                        "encryption key file '{}': {e}",
-                        path.display()
-                    ))
+                    ArgoError::Provider(format!("encryption key file '{}': {e}", path.display()))
                 })?;
                 Ok(Some(validate_hex_key(raw.trim())?))
             }

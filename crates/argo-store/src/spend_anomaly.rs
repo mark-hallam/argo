@@ -307,16 +307,18 @@ pub async fn list_anomalies(
         .map_err(|e| ArgoError::Provider(format!("spend anomaly list: {e}")))?;
     Ok(rows
         .into_iter()
-        .map(|(id, worker_id, observed, mean, stddev, z, hour, obs_at)| SpendAnomaly {
-            id,
-            worker_id,
-            observed_usd_per_hour: observed,
-            baseline_mean_usd: mean,
-            baseline_stddev_usd: stddev,
-            z_score: z,
-            hour_of_day: u8::try_from(hour).unwrap_or(0),
-            observed_at_micros: obs_at,
-        })
+        .map(
+            |(id, worker_id, observed, mean, stddev, z, hour, obs_at)| SpendAnomaly {
+                id,
+                worker_id,
+                observed_usd_per_hour: observed,
+                baseline_mean_usd: mean,
+                baseline_stddev_usd: stddev,
+                z_score: z,
+                hour_of_day: u8::try_from(hour).unwrap_or(0),
+                observed_at_micros: obs_at,
+            },
+        )
         .collect())
 }
 

@@ -38,9 +38,7 @@ pub(super) fn summarize_session_rows(rows: &[argo_audit::ExportedRow]) -> Sessio
         match r.kind.as_str() {
             "TurnStart" => s.turns += 1,
             "ToolCall" => s.tool_calls += 1,
-            "ToolResult"
-                if r.payload.get("is_error").and_then(|v| v.as_bool()) == Some(true) =>
-            {
+            "ToolResult" if r.payload.get("is_error").and_then(|v| v.as_bool()) == Some(true) => {
                 s.tool_errors += 1;
             }
             "AssistantMessage" => {

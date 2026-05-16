@@ -23,7 +23,12 @@ fn mk(name: &str, tenant: &str, description: &str, version: &str) -> Marketplace
 
 fn sample_market() -> Vec<MarketplaceSkill> {
     vec![
-        mk("alpha", "acme", "Drafts buyer-safe alpha listings.", "1.0.0"),
+        mk(
+            "alpha",
+            "acme",
+            "Drafts buyer-safe alpha listings.",
+            "1.0.0",
+        ),
         mk(
             "beta",
             "globex",

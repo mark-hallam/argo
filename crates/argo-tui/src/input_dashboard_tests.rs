@@ -80,32 +80,17 @@ fn arrow_keys_scroll_audit_tail() {
             },
         ]);
     }
-    assert_eq!(
-        state.dashboard_overlay.as_ref().unwrap().audit_scroll,
-        0
-    );
+    assert_eq!(state.dashboard_overlay.as_ref().unwrap().audit_scroll, 0);
     let consumed = try_handle_dashboard_overlay(&mut state, KeyCode::Down);
     assert!(consumed);
-    assert_eq!(
-        state.dashboard_overlay.as_ref().unwrap().audit_scroll,
-        1
-    );
+    assert_eq!(state.dashboard_overlay.as_ref().unwrap().audit_scroll, 1);
     try_handle_dashboard_overlay(&mut state, KeyCode::Char('j'));
-    assert_eq!(
-        state.dashboard_overlay.as_ref().unwrap().audit_scroll,
-        2
-    );
+    assert_eq!(state.dashboard_overlay.as_ref().unwrap().audit_scroll, 2);
     // Clamp at last row.
     try_handle_dashboard_overlay(&mut state, KeyCode::Char('j'));
-    assert_eq!(
-        state.dashboard_overlay.as_ref().unwrap().audit_scroll,
-        2
-    );
+    assert_eq!(state.dashboard_overlay.as_ref().unwrap().audit_scroll, 2);
     try_handle_dashboard_overlay(&mut state, KeyCode::Up);
-    assert_eq!(
-        state.dashboard_overlay.as_ref().unwrap().audit_scroll,
-        1
-    );
+    assert_eq!(state.dashboard_overlay.as_ref().unwrap().audit_scroll, 1);
 }
 
 #[test]
@@ -126,24 +111,15 @@ fn home_and_end_jump_to_first_and_last_audit_row() {
         );
     }
     try_handle_dashboard_overlay(&mut state, KeyCode::Char('G'));
-    assert_eq!(
-        state.dashboard_overlay.as_ref().unwrap().audit_scroll,
-        4
-    );
+    assert_eq!(state.dashboard_overlay.as_ref().unwrap().audit_scroll, 4);
     try_handle_dashboard_overlay(&mut state, KeyCode::Char('g'));
-    assert_eq!(
-        state.dashboard_overlay.as_ref().unwrap().audit_scroll,
-        0
-    );
+    assert_eq!(state.dashboard_overlay.as_ref().unwrap().audit_scroll, 0);
 }
 
 #[test]
 fn returns_false_when_no_overlay_open() {
     let mut state = ViewerState::new(vec![header("t")]);
-    assert!(!try_handle_dashboard_overlay(
-        &mut state,
-        KeyCode::Esc
-    ));
+    assert!(!try_handle_dashboard_overlay(&mut state, KeyCode::Esc));
 }
 
 #[test]
@@ -152,8 +128,7 @@ fn unknown_keys_are_consumed_to_block_global_dispatch() {
     // keystrokes shouldn't open another overlay on top.
     let mut state = ViewerState::new(vec![header("t")]);
     open_dashboard_overlay(&mut state);
-    let consumed =
-        try_handle_dashboard_overlay(&mut state, KeyCode::Char('M'));
+    let consumed = try_handle_dashboard_overlay(&mut state, KeyCode::Char('M'));
     assert!(consumed);
     // M didn't close the dashboard.
     assert!(state.dashboard_overlay.is_some());

@@ -288,7 +288,12 @@ async fn throttle_gate(store: &Arc<SessionStore>, rec: &ActionRecord) {
 fn load_throttle_config() -> Option<ActionThrottleConfig> {
     let cwd = std::env::current_dir().ok()?;
     let toml_path = cwd.join("argo.toml");
-    Some(ArgoConfig::load(&toml_path).unwrap_or_default().runtime.action_throttle)
+    Some(
+        ArgoConfig::load(&toml_path)
+            .unwrap_or_default()
+            .runtime
+            .action_throttle,
+    )
 }
 
 fn build_runtime_config(cfg: &ActionThrottleConfig) -> ThrottleConfig {

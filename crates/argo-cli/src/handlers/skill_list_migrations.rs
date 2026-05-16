@@ -15,8 +15,7 @@ use std::sync::Arc;
 
 /// Run `argo skill list-migrations`.
 pub async fn run(json_out: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -44,10 +43,7 @@ pub async fn run(json_out: bool) -> ArgoResult<()> {
     } else {
         for (name, m) in &pending {
             let auto = if m.auto_upgrade { " (auto)" } else { "" };
-            println!(
-                "{name}: v{} -> v{}{auto}",
-                m.from_version, m.to_version
-            );
+            println!("{name}: v{} -> v{}{auto}", m.from_version, m.to_version);
         }
     }
     Ok(())
@@ -112,7 +108,10 @@ mod tests {
     async fn integration_migrate_then_dry_run_lookup() {
         let store = Arc::new(open_store().await);
         let skills = SkillStore::new(Arc::clone(&store));
-        let installed = skills.install(&skill_md("greet", "1.0"), None).await.unwrap();
+        let installed = skills
+            .install(&skill_md("greet", "1.0"), None)
+            .await
+            .unwrap();
         record_migration(
             &store,
             installed.id,
@@ -133,7 +132,10 @@ mod tests {
             .unwrap()
             .expect("expected a pending migration row after migrate");
         assert_eq!(migration.to_version, "2.0");
-        assert!(!migration.auto_upgrade, "auto_upgrade=false must round-trip");
+        assert!(
+            !migration.auto_upgrade,
+            "auto_upgrade=false must round-trip"
+        );
 
         // Mirrors `argo skill list-migrations`: collect across all
         // active skills.

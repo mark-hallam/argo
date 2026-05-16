@@ -71,10 +71,12 @@ pub(super) async fn list_response(
     let truncated: Vec<Worker> = workers.into_iter().take(MAX_WORKERS).collect();
 
     let pending_by_worker = pending_approvals_by_worker().await;
-    let org_index = build_org_index(store, workspace_tenant).await.unwrap_or_else(|e| {
-        tracing::warn!(target: "gateway::team_list", error = %e, "org index unavailable");
-        HashMap::new()
-    });
+    let org_index = build_org_index(store, workspace_tenant)
+        .await
+        .unwrap_or_else(|e| {
+            tracing::warn!(target: "gateway::team_list", error = %e, "org index unavailable");
+            HashMap::new()
+        });
     let now = Utc::now();
 
     let mut rows: Vec<(u8, Option<DateTime<Utc>>, Value)> = Vec::with_capacity(truncated.len());
@@ -90,7 +92,10 @@ pub(super) async fn list_response(
                     error = %e,
                     "headline generation failed; falling back to empty"
                 );
-                TeamHeadline { bullets: vec!["No activity yet.".to_string()], tomorrow: None }
+                TeamHeadline {
+                    bullets: vec!["No activity yet.".to_string()],
+                    tomorrow: None,
+                }
             });
         let summary = build_summary(w, status_label, pending, &headline, &org_index);
         rows.push((priority, w.last_used_at, summary));
@@ -136,11 +141,7 @@ fn build_summary(
 
 /// Returns `(sort_priority, wire_label)`. Lower priority sorts first:
 /// waiting=0, working=1, idle=2, paused=3, blocked=4.
-pub(super) fn derive_status(
-    w: &Worker,
-    pending: u32,
-    now: DateTime<Utc>,
-) -> (u8, &'static str) {
+pub(super) fn derive_status(w: &Worker, pending: u32, now: DateTime<Utc>) -> (u8, &'static str) {
     match &w.circuit_state {
         CircuitState::Open { .. } => (4, "blocked"),
         CircuitState::HalfOpen => (3, "paused"),
@@ -189,9 +190,16 @@ async fn build_org_index(
         units.iter().map(|u| (u.id.as_str(), u)).collect();
     let mut idx: HashMap<WorkerId, OrgRefs> = HashMap::new();
     for m in &members {
-        let Some(worker_id_str) = m.worker_id.as_deref() else { continue };
-        let Ok(wid) = worker_id_str.parse::<WorkerId>() else { continue };
-        let unit = m.unit_id.as_deref().and_then(|id| by_unit_id.get(id).copied());
+        let Some(worker_id_str) = m.worker_id.as_deref() else {
+            continue;
+        };
+        let Ok(wid) = worker_id_str.parse::<WorkerId>() else {
+            continue;
+        };
+        let unit = m
+            .unit_id
+            .as_deref()
+            .and_then(|id| by_unit_id.get(id).copied());
         let team = unit.map(|u| json!({ "id": u.id, "name": u.name }));
         let department = unit
             .and_then(|u| u.parent_id.as_deref())
@@ -203,9 +211,11 @@ async fn build_org_index(
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
@@ -214,7 +224,9 @@ async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> 
 fn parse_tenant_query(req: &str) -> Result<Option<TenantId>, String> {
     let tail = req.strip_prefix("GET ").unwrap_or(req);
     let head = tail.split_once(' ').map_or(tail, |(p, _)| p);
-    let Some(qs) = head.split_once('?').map(|(_, q)| q) else { return Ok(None) };
+    let Some(qs) = head.split_once('?').map(|(_, q)| q) else {
+        return Ok(None);
+    };
     let raw = qs.split('&').find_map(|kv| {
         let (k, v) = kv.split_once('=')?;
         (k == "tenant_id").then(|| v.to_string())

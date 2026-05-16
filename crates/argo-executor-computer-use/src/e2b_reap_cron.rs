@@ -60,9 +60,7 @@ const DEFAULT_TIMEOUT_SECS: u32 = 30;
 /// successful reap; `Err(...)` when client construction or the
 /// list/close round-trip itself fails (caller's cron framework
 /// decides retry policy).
-pub async fn run_e2b_reap_cycle(
-    max_idle_secs: u64,
-) -> Result<Option<E2bReapReport>, CuError> {
+pub async fn run_e2b_reap_cycle(max_idle_secs: u64) -> Result<Option<E2bReapReport>, CuError> {
     let api_key = match std::env::var(ARGO_E2B_API_KEY_ENV) {
         Ok(k) if !k.is_empty() => k,
         _ => {
@@ -73,8 +71,8 @@ pub async fn run_e2b_reap_cycle(
             return Ok(None);
         }
     };
-    let base_url = std::env::var(ARGO_E2B_BASE_URL_ENV)
-        .unwrap_or_else(|_| DEFAULT_BASE_URL.to_owned());
+    let base_url =
+        std::env::var(ARGO_E2B_BASE_URL_ENV).unwrap_or_else(|_| DEFAULT_BASE_URL.to_owned());
     let client = E2bClient::new(base_url, api_key, DEFAULT_TIMEOUT_SECS)?;
     let report = client.reap_idle(max_idle_secs).await?;
     tracing::info!(

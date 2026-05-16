@@ -150,11 +150,7 @@ async fn seed_world() -> World {
         .ensure_workspace("handoff-rules-cli", &work.path().to_string_lossy())
         .await
         .unwrap();
-    World {
-        home,
-        work,
-        tenant,
-    }
+    World { home, work, tenant }
 }
 
 fn run(world: &World, args: &[&str]) -> Output {

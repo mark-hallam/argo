@@ -89,8 +89,14 @@ async fn dry_run_does_not_persist() {
     // Seed 5 successful tool_result rows so the inputs produce
     // a recognisable score (success_rate=1.0 → 100).
     for i in 0..5 {
-        write_tool_result(&store, "alpha", false, 100, at(1_700_000_000 + i).timestamp_micros())
-            .await;
+        write_tool_result(
+            &store,
+            "alpha",
+            false,
+            100,
+            at(1_700_000_000 + i).timestamp_micros(),
+        )
+        .await;
     }
     recompute_one(&store, &qstore, &installed, None, at(1_800_000_000), true)
         .await
@@ -105,17 +111,33 @@ async fn persist_flow_updates_score() {
     let installed = skills.install(SKILL_ALPHA, None).await.unwrap();
     // 6 succeeded, 4 failed → success_rate = 0.6, retry_count = 4.
     for i in 0..6 {
-        write_tool_result(&store, "alpha", false, 100, at(1_700_000_000 + i).timestamp_micros())
-            .await;
+        write_tool_result(
+            &store,
+            "alpha",
+            false,
+            100,
+            at(1_700_000_000 + i).timestamp_micros(),
+        )
+        .await;
     }
     for i in 6..10 {
-        write_tool_result(&store, "alpha", true, 100, at(1_700_000_000 + i).timestamp_micros())
-            .await;
+        write_tool_result(
+            &store,
+            "alpha",
+            true,
+            100,
+            at(1_700_000_000 + i).timestamp_micros(),
+        )
+        .await;
     }
     recompute_one(&store, &qstore, &installed, None, at(1_800_000_000), false)
         .await
         .unwrap();
-    let persisted = qstore.latest(installed.id).await.unwrap().expect("score row");
+    let persisted = qstore
+        .latest(installed.id)
+        .await
+        .unwrap()
+        .expect("score row");
     // base = 60, retry penalty = 8 (4 × 2), avg+p99 penalties 0 → 52.
     assert_eq!(persisted.score, 52);
 }
@@ -128,7 +150,14 @@ async fn run_with_all_walks_marketplace() {
     // Seed one tool_result row per skill so each has a derivable
     // QualityInputs (otherwise both score 100 via the default).
     let now = at(1_800_000_000);
-    write_tool_result(&store, "alpha", false, 50, now.timestamp_micros() - 1_000_000).await;
+    write_tool_result(
+        &store,
+        "alpha",
+        false,
+        50,
+        now.timestamp_micros() - 1_000_000,
+    )
+    .await;
     write_tool_result(&store, "beta", true, 50, now.timestamp_micros() - 1_000_000).await;
     let targets = resolve_targets(&skills, None, true).await.unwrap();
     assert_eq!(targets.len(), 2);
@@ -150,7 +179,9 @@ async fn skill_flag_targets_single() {
     let (_, skills, _) = open().await;
     skills.install(SKILL_ALPHA, None).await.unwrap();
     skills.install(SKILL_BETA, None).await.unwrap();
-    let targets = resolve_targets(&skills, Some("alpha"), false).await.unwrap();
+    let targets = resolve_targets(&skills, Some("alpha"), false)
+        .await
+        .unwrap();
     assert_eq!(targets.len(), 1);
     assert_eq!(targets[0].frontmatter.name, "alpha");
     let missing = resolve_targets(&skills, Some("gamma"), false).await;
@@ -162,14 +193,32 @@ async fn since_filter_passes_through() {
     let (store, skills, qstore) = open().await;
     let installed = skills.install(SKILL_ALPHA, None).await.unwrap();
     // Old failure (would drag the score down) is filtered by --since.
-    write_tool_result(&store, "alpha", true, 100, at(1_600_000_000).timestamp_micros()).await;
+    write_tool_result(
+        &store,
+        "alpha",
+        true,
+        100,
+        at(1_600_000_000).timestamp_micros(),
+    )
+    .await;
     // Recent success only.
-    write_tool_result(&store, "alpha", false, 100, at(1_700_500_000).timestamp_micros()).await;
+    write_tool_result(
+        &store,
+        "alpha",
+        false,
+        100,
+        at(1_700_500_000).timestamp_micros(),
+    )
+    .await;
     let since = Some(at(1_700_000_000));
     recompute_one(&store, &qstore, &installed, since, at(1_800_000_000), false)
         .await
         .unwrap();
-    let persisted = qstore.latest(installed.id).await.unwrap().expect("score row");
+    let persisted = qstore
+        .latest(installed.id)
+        .await
+        .unwrap()
+        .expect("score row");
     // Only the recent success contributes → score 100.
     assert_eq!(persisted.score, 100);
 }

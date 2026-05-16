@@ -16,7 +16,10 @@ async fn seed_charge(home: &Path, tenant: Uuid, worker: &str, action: &str, micr
     for stmt in WORKER_BUDGET_SCHEMA.split_terminator(';') {
         let sql = stmt.trim();
         if !sql.is_empty() {
-            sqlx::query(sql).execute(&pool).await.expect("worker_budget schema");
+            sqlx::query(sql)
+                .execute(&pool)
+                .await
+                .expect("worker_budget schema");
         }
     }
     sqlx::query(

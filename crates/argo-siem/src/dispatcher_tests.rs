@@ -114,7 +114,11 @@ async fn sweep_ships_pending_rows_and_advances_cursor() {
     d.ensure_schema().await.unwrap();
     let high = d.sweep_once().await.unwrap();
     assert_eq!(high, Some(3));
-    assert_eq!(sink.calls(), 1, "single ship call for 3 rows under batch cap");
+    assert_eq!(
+        sink.calls(),
+        1,
+        "single ship call for 3 rows under batch cap"
+    );
     let batches = sink.shipped();
     assert_eq!(batches[0].len(), 3);
     // Second sweep should be a no-op now that the cursor caught up.
@@ -128,11 +132,7 @@ async fn cursor_persists_across_dispatcher_instances() {
     insert_audit(&store, "a", 2).await;
     {
         let sink = MockSink::new("mock");
-        let d = SiemDispatcher::new(
-            Arc::clone(&store),
-            sink,
-            SiemDispatcherConfig::default(),
-        );
+        let d = SiemDispatcher::new(Arc::clone(&store), sink, SiemDispatcherConfig::default());
         d.ensure_schema().await.unwrap();
         d.sweep_once().await.unwrap();
     }
@@ -149,7 +149,11 @@ async fn cursor_persists_across_dispatcher_instances() {
     assert_eq!(high, Some(3));
     // Only one new row was shipped post-restart, not all three.
     let batches = sink2.shipped();
-    assert_eq!(batches[0].len(), 1, "resumes after persisted cursor — no replay");
+    assert_eq!(
+        batches[0].len(),
+        1,
+        "resumes after persisted cursor — no replay"
+    );
     assert_eq!(batches[0][0].seq, 3);
 }
 
@@ -174,8 +178,8 @@ async fn permanent_failure_advances_cursor_past_poison_batch() {
     let store = open_store().await;
     insert_audit(&store, "k", 1).await;
     insert_audit(&store, "k", 2).await;
-    let sink = MockSink::new("mock")
-        .with_script(vec![Err(SinkError::Permanent("bad shape".into()))]);
+    let sink =
+        MockSink::new("mock").with_script(vec![Err(SinkError::Permanent("bad shape".into()))]);
     let d = SiemDispatcher::new(store, sink.clone(), SiemDispatcherConfig::default());
     d.ensure_schema().await.unwrap();
     let high = d.sweep_once().await.unwrap();
@@ -214,10 +218,13 @@ async fn batch_cap_caps_load_size() {
     let d = SiemDispatcher::new(store, sink.clone(), SiemDispatcherConfig::default());
     d.ensure_schema().await.unwrap();
     let first = d.sweep_once().await.unwrap();
-    assert_eq!(first, Some(10), "first sweep ships exactly max_batch (10) rows");
+    assert_eq!(
+        first,
+        Some(10),
+        "first sweep ships exactly max_batch (10) rows"
+    );
     let second = d.sweep_once().await.unwrap();
     assert_eq!(second, Some(20));
     let third = d.sweep_once().await.unwrap();
     assert_eq!(third, Some(25));
 }
-

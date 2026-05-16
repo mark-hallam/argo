@@ -193,7 +193,10 @@ pub(crate) fn routes_markdown(method_filter: Option<&str>) -> (&'static str, Str
     for row in &arr {
         let m = row["method"].as_str().unwrap_or("?");
         let p = row["path"].as_str().unwrap_or("?");
-        let d = row["description"].as_str().unwrap_or("").replace('|', "\\|");
+        let d = row["description"]
+            .as_str()
+            .unwrap_or("")
+            .replace('|', "\\|");
         out.push_str(&format!("| `{m}` | `{p}` | {d} |\n"));
     }
     ("200 OK", out)

@@ -138,10 +138,9 @@ async fn canonical_publisher(
     .await
     .map_err(|e| ArgoError::Provider(format!("canonical_publisher: {e}")))?;
     let Some((blob,)) = row else { return Ok(None) };
-    let arr: [u8; 16] = blob
-        .as_slice()
-        .try_into()
-        .map_err(|_| ArgoError::Provider("canonical_publisher: malformed tenant blob".to_string()))?;
+    let arr: [u8; 16] = blob.as_slice().try_into().map_err(|_| {
+        ArgoError::Provider("canonical_publisher: malformed tenant blob".to_string())
+    })?;
     Ok(Some(TenantId(Uuid::from_bytes(arr))))
 }
 
@@ -236,8 +235,8 @@ pub fn parse_skill_id_hex(hex: &str) -> ArgoResult<SkillId> {
         }
         return Ok(SkillId(Uuid::from_bytes(bytes)));
     }
-    let parsed = Uuid::parse_str(hex)
-        .map_err(|e| ArgoError::Schema(format!("skill id parse: {e}")))?;
+    let parsed =
+        Uuid::parse_str(hex).map_err(|e| ArgoError::Schema(format!("skill id parse: {e}")))?;
     Ok(SkillId(parsed))
 }
 

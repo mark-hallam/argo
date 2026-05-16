@@ -84,12 +84,14 @@ impl AuctionStore {
         .map_err(|e| ArgoError::Provider(format!("list bids: {e}")))?;
         Ok(rows
             .into_iter()
-            .map(|(worker_id, score, eta_secs, submitted_at_micros)| AuctionBid {
-                worker_id,
-                score,
-                eta_secs: u32::try_from(eta_secs).unwrap_or(u32::MAX),
-                submitted_at_micros,
-            })
+            .map(
+                |(worker_id, score, eta_secs, submitted_at_micros)| AuctionBid {
+                    worker_id,
+                    score,
+                    eta_secs: u32::try_from(eta_secs).unwrap_or(u32::MAX),
+                    submitted_at_micros,
+                },
+            )
             .collect())
     }
 
@@ -161,10 +163,7 @@ mod tests {
     }
 
     async fn fresh_pool() -> SqlitePool {
-        SqlitePoolOptions::new()
-            .connect(":memory:")
-            .await
-            .unwrap()
+        SqlitePoolOptions::new().connect(":memory:").await.unwrap()
     }
 
     #[tokio::test]
@@ -179,10 +178,7 @@ mod tests {
         let mut cancelled = Auction::open(task("a-cancelled"));
         cancelled.cancel();
         store.insert_auction(&cancelled).await.unwrap();
-        let only_closed = store
-            .list(Some(AuctionStatus::Closed), 100)
-            .await
-            .unwrap();
+        let only_closed = store.list(Some(AuctionStatus::Closed), 100).await.unwrap();
         assert_eq!(only_closed.len(), 1);
         assert_eq!(only_closed[0].task.id, "a-closed");
         let only_cancelled = store

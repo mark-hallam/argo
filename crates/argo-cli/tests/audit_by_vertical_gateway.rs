@@ -6,7 +6,7 @@
 
 mod common;
 
-use common::{boot, body_of, http_get, pick_free_port};
+use common::{body_of, boot, http_get, pick_free_port};
 
 #[test]
 fn audit_by_vertical_returns_empty_object_on_clean_db() {

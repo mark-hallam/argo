@@ -67,10 +67,7 @@ pub async fn run(args: ToolsArgs) -> ArgoResult<()> {
 /// Walk the workspace's `verticals/` directory, find the requested
 /// vertical, and return its declaration for `server_id` from the
 /// `[mcp_servers]` table.
-fn resolve_server_declaration(
-    vertical: &str,
-    server_id: &str,
-) -> ArgoResult<McpServerDeclaration> {
+fn resolve_server_declaration(vertical: &str, server_id: &str) -> ArgoResult<McpServerDeclaration> {
     let dir = argo_vertical::default_dir();
     let (registry, errs) = load_dir(&dir)?;
     if !errs.is_empty() {
@@ -152,11 +149,10 @@ async fn list_tools(
             arc
         }
     };
-    client.list_tools().await.map_err(|e| {
-        ArgoError::Provider(format!(
-            "list_tools on MCP server '{server_id}': {e}"
-        ))
-    })
+    client
+        .list_tools()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_tools on MCP server '{server_id}': {e}")))
 }
 
 async fn current_workspace_tenant() -> ArgoResult<TenantId> {
@@ -179,19 +175,16 @@ async fn current_workspace_tenant() -> ArgoResult<TenantId> {
 /// we spawn a subprocess.
 pub(super) fn compile_filter(pat: Option<&str>) -> ArgoResult<Option<Regex>> {
     match pat {
-        Some(p) => Regex::new(p).map(Some).map_err(|e| {
-            ArgoError::Schema(format!("invalid --filter regex '{p}': {e}"))
-        }),
+        Some(p) => Regex::new(p)
+            .map(Some)
+            .map_err(|e| ArgoError::Schema(format!("invalid --filter regex '{p}': {e}"))),
         None => Ok(None),
     }
 }
 
 /// Narrow tools by `--filter` regex over the tool name. `None`
 /// returns `tools` untouched.
-pub(super) fn apply_filter(
-    tools: Vec<McpToolSchema>,
-    regex: Option<&Regex>,
-) -> Vec<McpToolSchema> {
+pub(super) fn apply_filter(tools: Vec<McpToolSchema>, regex: Option<&Regex>) -> Vec<McpToolSchema> {
     match regex {
         Some(re) => tools.into_iter().filter(|t| re.is_match(&t.name)).collect(),
         None => tools,
@@ -200,10 +193,7 @@ pub(super) fn apply_filter(
 
 /// One JSON object per line, written to stdout. `schema_only` drops
 /// the description to keep the line terse for piping.
-pub(super) fn render_ndjson(
-    tools: &[McpToolSchema],
-    schema_only: bool,
-) -> ArgoResult<()> {
+pub(super) fn render_ndjson(tools: &[McpToolSchema], schema_only: bool) -> ArgoResult<()> {
     for t in tools {
         let line = ndjson_line(t, schema_only)?;
         println!("{line}");

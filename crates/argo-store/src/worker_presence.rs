@@ -84,7 +84,14 @@ pub async fn fleet(
     limit: u32,
     since_epoch_secs: Option<i64>,
 ) -> ArgoResult<Vec<FleetRow>> {
-    fleet_at(pool, tenant_id, limit, since_epoch_secs, Utc::now().timestamp()).await
+    fleet_at(
+        pool,
+        tenant_id,
+        limit,
+        since_epoch_secs,
+        Utc::now().timestamp(),
+    )
+    .await
 }
 
 async fn fleet_at(

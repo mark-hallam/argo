@@ -99,27 +99,26 @@ impl Cidr {
     /// Parse `<ip>/<prefix>` into a typed CIDR. Rejects malformed
     /// addresses and prefixes that exceed the address family's width.
     pub(super) fn parse(raw: &str) -> Result<Self, IpAllowlistError> {
-        let (addr, prefix) = raw.split_once('/').ok_or_else(|| {
-            IpAllowlistError::InvalidCidr {
+        let (addr, prefix) = raw
+            .split_once('/')
+            .ok_or_else(|| IpAllowlistError::InvalidCidr {
                 entry: raw.to_string(),
                 reason: "missing '/' between addr and prefix",
-            }
-        })?;
-        let prefix: u8 =
-            prefix
-                .trim()
-                .parse()
-                .map_err(|_| IpAllowlistError::InvalidCidr {
-                    entry: raw.to_string(),
-                    reason: "prefix must be an unsigned integer",
-                })?;
-        let ip: IpAddr =
-            addr.trim()
-                .parse()
-                .map_err(|_| IpAllowlistError::InvalidCidr {
-                    entry: raw.to_string(),
-                    reason: "addr is not a valid IPv4 or IPv6 literal",
-                })?;
+            })?;
+        let prefix: u8 = prefix
+            .trim()
+            .parse()
+            .map_err(|_| IpAllowlistError::InvalidCidr {
+                entry: raw.to_string(),
+                reason: "prefix must be an unsigned integer",
+            })?;
+        let ip: IpAddr = addr
+            .trim()
+            .parse()
+            .map_err(|_| IpAllowlistError::InvalidCidr {
+                entry: raw.to_string(),
+                reason: "addr is not a valid IPv4 or IPv6 literal",
+            })?;
         match ip {
             IpAddr::V4(v4) => {
                 if prefix > 32 {

@@ -51,13 +51,25 @@ fn dry_run_lists_entries_without_modifying_state() {
     .unwrap();
 
     let before = fs::read_to_string(&creds_path).unwrap();
-    let out = run(workspace.path(), &["cred", "migrate-to-keyring", "--dry-run"]);
+    let out = run(
+        workspace.path(),
+        &["cred", "migrate-to-keyring", "--dry-run"],
+    );
     assert_success(&out);
 
     let stdout = String::from_utf8(out.stdout).unwrap();
-    assert!(stdout.contains("dry-run"), "stdout missing dry-run banner: {stdout}");
-    assert!(stdout.contains("OPENAI_API_KEY"), "stdout missing key: {stdout}");
-    assert!(stdout.contains("ANTHROPIC_API_KEY"), "stdout missing key: {stdout}");
+    assert!(
+        stdout.contains("dry-run"),
+        "stdout missing dry-run banner: {stdout}"
+    );
+    assert!(
+        stdout.contains("OPENAI_API_KEY"),
+        "stdout missing key: {stdout}"
+    );
+    assert!(
+        stdout.contains("ANTHROPIC_API_KEY"),
+        "stdout missing key: {stdout}"
+    );
     // File untouched.
     let after = fs::read_to_string(&creds_path).unwrap();
     assert_eq!(before, after, "credentials.toml mutated by --dry-run");
@@ -70,7 +82,10 @@ fn backend_command_writes_argo_toml_credentials_section() {
     let out = run(workspace.path(), &["cred", "backend", "keyring"]);
     assert_success(&out);
     let stdout = String::from_utf8(out.stdout).unwrap();
-    assert!(stdout.contains("backend set to keyring"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("backend set to keyring"),
+        "stdout: {stdout}"
+    );
 
     let argo_toml = workspace.path().join("argo.toml");
     let body = fs::read_to_string(&argo_toml).unwrap();
@@ -81,15 +96,14 @@ fn backend_command_writes_argo_toml_credentials_section() {
 
     // Flipping back to `auto` must preserve any unrelated TOML
     // contents that operators may have added by hand.
-    fs::write(
-        &argo_toml,
-        format!("[core]\nprofile = \"smoke\"\n\n{body}"),
-    )
-    .unwrap();
+    fs::write(&argo_toml, format!("[core]\nprofile = \"smoke\"\n\n{body}")).unwrap();
     let out = run(workspace.path(), &["cred", "backend", "auto"]);
     assert_success(&out);
     let updated = fs::read_to_string(&argo_toml).unwrap();
-    assert!(updated.contains("backend = \"auto\""), "auto not written: {updated}");
+    assert!(
+        updated.contains("backend = \"auto\""),
+        "auto not written: {updated}"
+    );
     assert!(
         updated.contains("profile = \"smoke\""),
         "unrelated [core] section dropped: {updated}"

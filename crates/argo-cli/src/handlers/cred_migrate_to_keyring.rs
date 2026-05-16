@@ -27,9 +27,9 @@ pub fn run_backend(backend: &str) -> ArgoResult<()> {
         toml::from_str(&body)
             .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", toml_path.display())))?
     };
-    let root = doc
-        .as_table_mut()
-        .ok_or_else(|| ArgoError::Provider(format!("{} is not a TOML table", toml_path.display())))?;
+    let root = doc.as_table_mut().ok_or_else(|| {
+        ArgoError::Provider(format!("{} is not a TOML table", toml_path.display()))
+    })?;
     let section = root
         .entry("credentials")
         .or_insert(toml::Value::Table(toml::map::Map::new()));
@@ -58,7 +58,11 @@ pub fn run_migrate(dry_run: bool, from_file: Option<PathBuf>) -> ArgoResult<()> 
         return Ok(());
     }
     if dry_run {
-        println!("dry-run: would migrate {} key(s) from {}", credentials.len(), source.display());
+        println!(
+            "dry-run: would migrate {} key(s) from {}",
+            credentials.len(),
+            source.display()
+        );
         for key in credentials.keys() {
             println!("  {key}");
         }

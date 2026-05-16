@@ -92,13 +92,15 @@ pub async fn list_tags(
     .map_err(|e| ArgoError::Provider(format!("classification list: {e}")))?;
     Ok(rows
         .into_iter()
-        .map(|(record_kind, record_id, class, tagged_at_micros, tagged_by)| ClassificationTag {
-            record_kind,
-            record_id,
-            class,
-            tagged_at_micros,
-            tagged_by,
-        })
+        .map(
+            |(record_kind, record_id, class, tagged_at_micros, tagged_by)| ClassificationTag {
+                record_kind,
+                record_id,
+                class,
+                tagged_at_micros,
+                tagged_by,
+            },
+        )
         .collect())
 }
 
@@ -203,14 +205,18 @@ mod tests {
         insert_tag(&pool, "memory_entry", "m-2", "secret", None)
             .await
             .unwrap();
-        let pii_only = list_tags(&pool, Some("pii"), None, None, 100).await.unwrap();
+        let pii_only = list_tags(&pool, Some("pii"), None, None, 100)
+            .await
+            .unwrap();
         assert_eq!(pii_only.len(), 2);
         let memory_pii = list_tags(&pool, Some("pii"), Some("memory_entry"), None, 100)
             .await
             .unwrap();
         assert_eq!(memory_pii.len(), 1);
         assert_eq!(memory_pii[0].record_id, "m-1");
-        let by_op2 = list_tags(&pool, None, None, Some("op-2"), 100).await.unwrap();
+        let by_op2 = list_tags(&pool, None, None, Some("op-2"), 100)
+            .await
+            .unwrap();
         assert_eq!(by_op2.len(), 1);
         assert_eq!(by_op2[0].class, "pii");
     }
@@ -232,11 +238,15 @@ mod tests {
     #[tokio::test]
     async fn classes_for_record_returns_all() {
         let pool = fresh_pool().await;
-        insert_tag(&pool, "memory_entry", "m-1", "pii", None).await.unwrap();
+        insert_tag(&pool, "memory_entry", "m-1", "pii", None)
+            .await
+            .unwrap();
         insert_tag(&pool, "memory_entry", "m-1", "secret", None)
             .await
             .unwrap();
-        insert_tag(&pool, "memory_entry", "m-2", "phi", None).await.unwrap();
+        insert_tag(&pool, "memory_entry", "m-2", "phi", None)
+            .await
+            .unwrap();
         let classes = classes_for_record(&pool, "memory_entry", "m-1")
             .await
             .unwrap();
@@ -250,7 +260,9 @@ mod tests {
     #[tokio::test]
     async fn record_has_any_class_matches() {
         let pool = fresh_pool().await;
-        insert_tag(&pool, "memory_entry", "m-1", "pii", None).await.unwrap();
+        insert_tag(&pool, "memory_entry", "m-1", "pii", None)
+            .await
+            .unwrap();
         assert!(
             record_has_any_class(&pool, "memory_entry", "m-1", &["pii", "phi"])
                 .await
@@ -261,11 +273,9 @@ mod tests {
                 .await
                 .unwrap()
         );
-        assert!(
-            !record_has_any_class(&pool, "memory_entry", "m-1", &[])
-                .await
-                .unwrap()
-        );
+        assert!(!record_has_any_class(&pool, "memory_entry", "m-1", &[])
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
@@ -298,7 +308,9 @@ mod tests {
         .execute(&pool)
         .await
         .unwrap();
-        let removed = prune_tags_older_than(&pool, "pii", 1_000_000).await.unwrap();
+        let removed = prune_tags_older_than(&pool, "pii", 1_000_000)
+            .await
+            .unwrap();
         assert_eq!(removed, 1);
         let remaining = list_tags(&pool, None, None, None, 100).await.unwrap();
         assert_eq!(remaining.len(), 1);

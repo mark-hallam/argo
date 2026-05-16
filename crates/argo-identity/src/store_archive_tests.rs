@@ -32,14 +32,13 @@ async fn archive_worker_sets_timestamp() {
 
     identities.archive_worker(tenant, worker.id).await.unwrap();
 
-    let archived_at: Option<String> = sqlx::query_scalar(
-        "SELECT archived_at FROM worker WHERE id = ? AND tenant_id = ?",
-    )
-    .bind(worker.id.to_string())
-    .bind(tenant.to_string())
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
+    let archived_at: Option<String> =
+        sqlx::query_scalar("SELECT archived_at FROM worker WHERE id = ? AND tenant_id = ?")
+            .bind(worker.id.to_string())
+            .bind(tenant.to_string())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
     assert!(
         archived_at.is_some(),
         "expected archived_at to be set after archive_worker"
@@ -54,29 +53,30 @@ async fn archive_worker_is_idempotent() {
     identities.create_worker(&worker).await.unwrap();
 
     identities.archive_worker(tenant, worker.id).await.unwrap();
-    let first: String = sqlx::query_scalar(
-        "SELECT archived_at FROM worker WHERE id = ? AND tenant_id = ?",
-    )
-    .bind(worker.id.to_string())
-    .bind(tenant.to_string())
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
+    let first: String =
+        sqlx::query_scalar("SELECT archived_at FROM worker WHERE id = ? AND tenant_id = ?")
+            .bind(worker.id.to_string())
+            .bind(tenant.to_string())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
 
     // Second call returns Ok without rewriting the timestamp.
     identities
         .archive_worker(tenant, worker.id)
         .await
         .expect("second archive must be a no-op Ok");
-    let second: String = sqlx::query_scalar(
-        "SELECT archived_at FROM worker WHERE id = ? AND tenant_id = ?",
-    )
-    .bind(worker.id.to_string())
-    .bind(tenant.to_string())
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
-    assert_eq!(first, second, "idempotent archive must not rewrite the timestamp");
+    let second: String =
+        sqlx::query_scalar("SELECT archived_at FROM worker WHERE id = ? AND tenant_id = ?")
+            .bind(worker.id.to_string())
+            .bind(tenant.to_string())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        first, second,
+        "idempotent archive must not rewrite the timestamp"
+    );
 }
 
 #[tokio::test]
@@ -122,7 +122,11 @@ async fn list_workers_include_archived_returns_all() {
     identities.archive_worker(tenant, retired.id).await.unwrap();
 
     let listed = identities.list_workers(tenant, true).await.unwrap();
-    assert_eq!(listed.len(), 2, "include_archived=true must return all rows");
+    assert_eq!(
+        listed.len(),
+        2,
+        "include_archived=true must return all rows"
+    );
     let ids: Vec<WorkerId> = listed.iter().map(|w| w.id).collect();
     assert!(ids.contains(&live.id));
     assert!(ids.contains(&retired.id));

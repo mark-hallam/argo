@@ -28,8 +28,7 @@ pub(super) async fn audit_by_tool_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT json_extract(payload_json, '$.tool') AS tool, COUNT(*) \
                  FROM audit_record \
@@ -107,8 +106,7 @@ pub(super) async fn audit_tool_errors_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT json_extract(payload_json, '$.tool') AS tool, COUNT(*) \
                  FROM audit_record \

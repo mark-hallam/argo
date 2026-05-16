@@ -42,8 +42,7 @@ enabled = false
 "#;
 
 pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     match cmd {
         WorkspaceCmd::Init => init(&cwd).await,
         WorkspaceCmd::Status { json, format } => status(&cwd, json, &format).await,
@@ -108,9 +107,15 @@ async fn status(cwd: &std::path::Path, json: bool, format: &str) -> ArgoResult<(
             println!();
             println!("## Caps (USD)");
             println!();
-            println!("- **per-session**: {}", format_cap(ceilings.per_session_usd_micros));
+            println!(
+                "- **per-session**: {}",
+                format_cap(ceilings.per_session_usd_micros)
+            );
             println!("- **per-day**: {}", format_cap(ceilings.per_day_usd_micros));
-            println!("- **per-month**: {}", format_cap(ceilings.per_month_usd_micros));
+            println!(
+                "- **per-month**: {}",
+                format_cap(ceilings.per_month_usd_micros)
+            );
             println!();
             println!("## Rows");
             println!();
@@ -290,4 +295,3 @@ async fn init(cwd: &std::path::Path) -> ArgoResult<()> {
     println!("  + db row: workspace {workspace}");
     Ok(())
 }
-

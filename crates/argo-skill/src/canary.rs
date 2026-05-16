@@ -346,4 +346,3 @@ pub fn new_config(
         expires_at: None,
     })
 }
-

@@ -41,7 +41,10 @@ async fn query_scored_default_namespace_returns_hits_ranked_by_score() {
     assert_eq!(hits[0]["snippet"].as_str().unwrap(), "alpha alpha alpha");
     let score0 = hits[0]["score"].as_f64().unwrap();
     let score1 = hits[1]["score"].as_f64().unwrap();
-    assert!(score0 >= score1, "scores must be descending: {score0} {score1}");
+    assert!(
+        score0 >= score1,
+        "scores must be descending: {score0} {score1}"
+    );
 }
 
 #[tokio::test]
@@ -60,7 +63,10 @@ async fn query_scored_explicit_namespace_defers_to_followup_brief() {
         .await
         .expect_err("explicit namespace not yet supported in v1");
     let msg = err.to_string();
-    assert!(msg.contains("mission-memory-namespace-addressing"), "got: {msg}");
+    assert!(
+        msg.contains("mission-memory-namespace-addressing"),
+        "got: {msg}"
+    );
     assert!(msg.contains("#43"), "got: {msg}");
 }
 
@@ -72,7 +78,13 @@ async fn query_scored_respects_limit() {
         &store,
         &ns,
         ws,
-        &["alpha one", "alpha two", "alpha three", "alpha four", "alpha five"],
+        &[
+            "alpha one",
+            "alpha two",
+            "alpha three",
+            "alpha four",
+            "alpha five",
+        ],
     )
     .await;
     let tool = Memory::with_namespace(store, ws, None, ns);
@@ -150,7 +162,10 @@ async fn query_scored_wired_without_namespace_explains_binding() {
         .await
         .expect_err("must reject when no namespace bound");
     let msg = err.to_string();
-    assert!(msg.contains("not bound to a worker namespace"), "got: {msg}");
+    assert!(
+        msg.contains("not bound to a worker namespace"),
+        "got: {msg}"
+    );
     assert!(msg.contains("Memory::with_namespace"), "got: {msg}");
 }
 
@@ -219,7 +234,10 @@ async fn list_team_returns_team_entries_in_chronological_order() {
     let pos0 = body.find(&written_ids[0]).unwrap();
     let pos1 = body.find(&written_ids[1]).unwrap();
     let pos2 = body.find(&written_ids[2]).unwrap();
-    assert!(pos0 < pos1 && pos1 < pos2, "insertion order preserved:\n{body}");
+    assert!(
+        pos0 < pos1 && pos1 < pos2,
+        "insertion order preserved:\n{body}"
+    );
 }
 
 #[tokio::test]
@@ -266,7 +284,11 @@ async fn list_team_defaults_to_worker_bound_tenant() {
         .dispatch(serde_json::json!({"action": "list_team"}), &ctx())
         .await
         .unwrap();
-    assert!(first_text(&r).contains("bytes=1"), "got: {}", first_text(&r));
+    assert!(
+        first_text(&r).contains("bytes=1"),
+        "got: {}",
+        first_text(&r)
+    );
     // Explicit matching team_id → same result.
     let r = tool
         .dispatch(
@@ -304,13 +326,13 @@ async fn team_actions_without_namespace_binding_explain_requirement() {
     let (store, ws) = fresh_store().await;
     let tool = Memory::new(store, ws, None);
     let err = tool
-        .dispatch(
-            serde_json::json!({"action": "list_team"}),
-            &ctx(),
-        )
+        .dispatch(serde_json::json!({"action": "list_team"}), &ctx())
         .await
         .expect_err("must require a bound namespace");
     let msg = err.to_string();
-    assert!(msg.contains("not bound to a worker namespace"), "got: {msg}");
+    assert!(
+        msg.contains("not bound to a worker namespace"),
+        "got: {msg}"
+    );
     assert!(msg.contains("team actions"), "got: {msg}");
 }

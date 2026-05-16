@@ -44,16 +44,26 @@ pub(super) async fn show_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Resp {
-    let Some(store) = store else { return super::store_unavailable() };
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
     match build_overview(store, worker_id_raw, req).await {
         Ok(ok) | Err(ok) => ok,
     }
 }
 
-async fn build_overview(store: &Arc<SessionStore>, worker_id_raw: &str, req: &str) -> Result<Resp, Resp> {
+async fn build_overview(
+    store: &Arc<SessionStore>,
+    worker_id_raw: &str,
+    req: &str,
+) -> Result<Resp, Resp> {
     let raw_id = worker_id_raw.split('?').next().unwrap_or(worker_id_raw);
     let worker_id = raw_id.parse::<WorkerId>().map_err(|e| {
-        err("400 Bad Request", "bad_request", &format!("invalid worker_id '{raw_id}': {e}"))
+        err(
+            "400 Bad Request",
+            "bad_request",
+            &format!("invalid worker_id '{raw_id}': {e}"),
+        )
     })?;
     let tenant = resolve_workspace_tenant(store)
         .await
@@ -69,9 +79,17 @@ async fn build_overview(store: &Arc<SessionStore>, worker_id_raw: &str, req: &st
                 .await
                 .map_err(|e| ise(&format!("cross-tenant probe: {e}")))?;
             return Err(if other {
-                err("403 Forbidden", "forbidden", &format!("worker {worker_id} not in this tenant"))
+                err(
+                    "403 Forbidden",
+                    "forbidden",
+                    &format!("worker {worker_id} not in this tenant"),
+                )
             } else {
-                err("404 Not Found", "not_found", &format!("worker {worker_id} not found"))
+                err(
+                    "404 Not Found",
+                    "not_found",
+                    &format!("worker {worker_id} not found"),
+                )
             });
         }
     };
@@ -106,7 +124,10 @@ async fn build_overview(store: &Arc<SessionStore>, worker_id_raw: &str, req: &st
 }
 
 fn charter_json(worker: &Worker, created_at: DateTime<Utc>) -> Value {
-    let text = worker.charter.clone().filter(|s| !s.is_empty())
+    let text = worker
+        .charter
+        .clone()
+        .filter(|s| !s.is_empty())
         .unwrap_or_else(|| worker.role.charter.clone());
     json!({
         "text": text, "version": 1,
@@ -149,50 +170,64 @@ async fn worker_metadata(
     tenant: TenantId,
     worker_id: WorkerId,
 ) -> ArgoResult<Option<(DateTime<Utc>, Option<DateTime<Utc>>)>> {
-    let row = sqlx::query(
-        "SELECT created_at, archived_at FROM worker WHERE id = ? AND tenant_id = ?",
-    )
-    .bind(worker_id.to_string())
-    .bind(tenant.to_string())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("worker meta: {e}")))?;
+    let row =
+        sqlx::query("SELECT created_at, archived_at FROM worker WHERE id = ? AND tenant_id = ?")
+            .bind(worker_id.to_string())
+            .bind(tenant.to_string())
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("worker meta: {e}")))?;
     let Some(row) = row else { return Ok(None) };
     let created_micros: i64 = row.try_get("created_at").unwrap_or(0);
     let archived_raw: Option<String> = row.try_get("archived_at").ok();
     let created = micros_to_utc(created_micros);
     let archived = archived_raw.and_then(|s| {
-        DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))
+        DateTime::parse_from_rfc3339(&s)
+            .ok()
+            .map(|dt| dt.with_timezone(&Utc))
     });
     Ok(Some((created, archived)))
 }
 
-async fn exists_in_other_tenant(store: &SessionStore, tenant: TenantId, worker_id: WorkerId) -> ArgoResult<bool> {
-    let row: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1",
-    )
-    .bind(worker_id.to_string())
-    .bind(tenant.to_string())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
+async fn exists_in_other_tenant(
+    store: &SessionStore,
+    tenant: TenantId,
+    worker_id: WorkerId,
+) -> ArgoResult<bool> {
+    let row: Option<String> =
+        sqlx::query_scalar("SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1")
+            .bind(worker_id.to_string())
+            .bind(tenant.to_string())
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
     Ok(row.is_some())
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
 }
 
 pub(super) fn micros_to_utc(micros: i64) -> DateTime<Utc> {
-    Utc.timestamp_micros(micros).single().unwrap_or_else(Utc::now)
+    Utc.timestamp_micros(micros)
+        .single()
+        .unwrap_or_else(Utc::now)
 }
 
-async fn emit_audit(store: &Arc<SessionStore>, tenant: TenantId, worker: &Worker, actor: &str, role: PrincipalRole) {
+async fn emit_audit(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    worker: &Worker,
+    actor: &str,
+    role: PrincipalRole,
+) {
     let viewer = match role {
         PrincipalRole::Delegator => "delegator",
         PrincipalRole::Operator => "operator",
@@ -205,7 +240,15 @@ async fn emit_audit(store: &Arc<SessionStore>, tenant: TenantId, worker: &Worker
         "viewer_role": viewer,
     });
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
-    if let Err(e) = sink.write(None, AuditKind::HttpRequest, payload, Some(actor.to_string())).await {
+    if let Err(e) = sink
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            Some(actor.to_string()),
+        )
+        .await
+    {
         tracing::warn!(target: "gateway::worker_overview", error = %e, actor = %actor,
             "worker.overview.viewed audit write failed");
     }
@@ -227,7 +270,10 @@ fn ise(message: &str) -> Resp {
 }
 
 fn err(status: &'static str, code: &str, message: &str) -> Resp {
-    (status, json!({ "error": { "code": code, "message": message } }).to_string())
+    (
+        status,
+        json!({ "error": { "code": code, "message": message } }).to_string(),
+    )
 }
 
 #[cfg(test)]

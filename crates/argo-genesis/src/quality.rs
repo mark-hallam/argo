@@ -104,12 +104,7 @@ pub fn check_plan(plan: &GenesisPlan) -> QualityReport {
         .split_whitespace()
         .count();
     let checks = vec![
-        threshold_check(
-            "action_vocabulary_min",
-            action_count,
-            ACTION_MIN,
-            "actions",
-        ),
+        threshold_check("action_vocabulary_min", action_count, ACTION_MIN, "actions"),
         threshold_check("eval_seed_min", eval_seed_count, EVAL_SEED_MIN, "seeds"),
         threshold_check(
             "memory_layers_min",

@@ -6,13 +6,19 @@ use super::*;
 
 #[test]
 fn predicate_recognises_twilio_payload() {
-    assert!(is_voice_webhook("POST /twilio/voice/decision HTTP/1.1\r\n\r\nDigits=1"));
-    assert!(is_voice_webhook("POST /twilio/voice/decision?vt=abc HTTP/1.1\r\n\r\nDigits=1"));
+    assert!(is_voice_webhook(
+        "POST /twilio/voice/decision HTTP/1.1\r\n\r\nDigits=1"
+    ));
+    assert!(is_voice_webhook(
+        "POST /twilio/voice/decision?vt=abc HTTP/1.1\r\n\r\nDigits=1"
+    ));
 }
 
 #[test]
 fn predicate_rejects_slack_payload() {
-    assert!(!is_voice_webhook("POST /slack/actions HTTP/1.1\r\n\r\npayload={}"));
+    assert!(!is_voice_webhook(
+        "POST /slack/actions HTTP/1.1\r\n\r\npayload={}"
+    ));
 }
 
 #[test]
@@ -20,7 +26,9 @@ fn signature_valid_passes() {
     let url = "https://gw.example.com/twilio/voice/decision?vt=abc";
     let params = vec![("Digits".to_string(), "1".to_string())];
     let sig = twilio_signature(url, &params, "auth");
-    assert!(super::super::routes_voice_auth::verify_twilio_signature(url, &params, &sig, "auth"));
+    assert!(super::super::routes_voice_auth::verify_twilio_signature(
+        url, &params, &sig, "auth"
+    ));
 }
 
 #[test]
@@ -29,7 +37,9 @@ fn signature_invalid_rejects() {
     let params = vec![("Digits".to_string(), "1".to_string())];
     let forged = vec![("Digits".to_string(), "2".to_string())];
     let sig = twilio_signature(url, &params, "auth");
-    assert!(!super::super::routes_voice_auth::verify_twilio_signature(url, &forged, &sig, "auth"));
+    assert!(!super::super::routes_voice_auth::verify_twilio_signature(
+        url, &forged, &sig, "auth"
+    ));
 }
 
 #[tokio::test]

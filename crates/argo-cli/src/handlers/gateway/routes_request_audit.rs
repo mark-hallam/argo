@@ -265,12 +265,11 @@ mod tests {
         let result = ("201 Created", "{}".to_string());
         record(req, Some(&store), &result, Duration::from_millis(3)).await;
 
-        let payload: String = sqlx::query_scalar(
-            "SELECT payload_json FROM audit_record WHERE kind = 'http.request'",
-        )
-        .fetch_one(store.pool())
-        .await
-        .unwrap();
+        let payload: String =
+            sqlx::query_scalar("SELECT payload_json FROM audit_record WHERE kind = 'http.request'")
+                .fetch_one(store.pool())
+                .await
+                .unwrap();
         let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(payload["source_ip"], "203.0.113.5");
         assert_eq!(payload["user_agent_truncated"], "argo-cli/0.1");
@@ -285,10 +284,7 @@ mod tests {
     #[test]
     fn source_ip_from_req_strips_proxy_chain_and_handles_missing() {
         let req = "GET / HTTP/1.1\r\nX-Forwarded-For: 198.51.100.7 , 10.0.0.1\r\n\r\n";
-        assert_eq!(
-            source_ip_from_req(req),
-            Some("198.51.100.7".to_string())
-        );
+        assert_eq!(source_ip_from_req(req), Some("198.51.100.7".to_string()));
         let no_header = "GET / HTTP/1.1\r\nHost: x\r\n\r\n";
         assert_eq!(source_ip_from_req(no_header), None);
         let empty = "GET / HTTP/1.1\r\nX-Forwarded-For: \r\n\r\n";

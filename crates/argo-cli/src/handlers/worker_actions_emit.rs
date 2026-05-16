@@ -172,12 +172,7 @@ pub(crate) fn build_emission(inputs: &ActionEmissionInputs<'_>) -> ActionRecord 
                 }
                 .to_string()
             };
-            (
-                risk,
-                decl.requires_approval,
-                "pending".to_string(),
-                None,
-            )
+            (risk, decl.requires_approval, "pending".to_string(), None)
         }
         ApprovalCategory::Forbidden => (
             "low".to_string(),

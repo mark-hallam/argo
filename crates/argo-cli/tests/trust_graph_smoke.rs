@@ -28,8 +28,14 @@ fn three_tenant_chain_composes_strictly_below_direct() {
 
     let direct_score = direct["score"].as_f64().expect("direct score");
     let composed_score = composed["score"].as_f64().expect("composed score");
-    assert!(direct_score > 0.0, "direct A→B should be positive, got {direct_score}");
-    assert!(composed_score > 0.0, "composed A→C should be positive, got {composed_score}");
+    assert!(
+        direct_score > 0.0,
+        "direct A→B should be positive, got {direct_score}"
+    );
+    assert!(
+        composed_score > 0.0,
+        "composed A→C should be positive, got {composed_score}"
+    );
     assert!(
         composed_score < direct_score,
         "A→C composed ({composed_score}) must be < A→B direct ({direct_score})"

@@ -46,7 +46,11 @@ const TAG_PHRASES: &[&str] = &[
     "lost package replacement policy",
     "premium tier upgrade triage",
 ];
-const LAYERS: &[MemoryLayer] = &[MemoryLayer::Recent, MemoryLayer::Indexed, MemoryLayer::Summary];
+const LAYERS: &[MemoryLayer] = &[
+    MemoryLayer::Recent,
+    MemoryLayer::Indexed,
+    MemoryLayer::Summary,
+];
 
 fn compose_context_latency(c: &mut Criterion) {
     let runtime = must(Runtime::new(), "tokio runtime");
@@ -92,7 +96,10 @@ struct BenchStore {
 }
 
 fn build_seeded_store(runtime: &Runtime, n_entries: usize) -> BenchStore {
-    let store = must(runtime.block_on(SessionStore::open(":memory:")), "open store");
+    let store = must(
+        runtime.block_on(SessionStore::open(":memory:")),
+        "open store",
+    );
     must(runtime.block_on(store.migrate()), "migrate store");
     let tenant = TenantId::new();
     let workspace_id = WorkspaceId::new();
@@ -139,14 +146,7 @@ async fn seed_entries(
         // surface non-trivial without relying on randomness.
         let body = format!("{phrase} note #{idx}");
         memory
-            .append_in_namespace_with_layer(
-                ns,
-                workspace_id,
-                MemoryFile::Memory,
-                body,
-                None,
-                layer,
-            )
+            .append_in_namespace_with_layer(ns, workspace_id, MemoryFile::Memory, body, None, layer)
             .await?;
     }
     Ok(())

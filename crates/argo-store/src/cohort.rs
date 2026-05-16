@@ -146,15 +146,17 @@ pub async fn list_cohorts(
     }
     let mut out: Vec<CohortSummary> = buckets
         .into_iter()
-        .map(|((vertical, lo, hi, label), (member_count, skills))| CohortSummary {
-            cohort_id: cohort_id(&vertical, label),
-            vertical,
-            trust_grade_band: label.to_string(),
-            trust_grade_min: lo,
-            trust_grade_max: hi,
-            member_count,
-            skill_count: u32::try_from(skills.len()).unwrap_or(u32::MAX),
-        })
+        .map(
+            |((vertical, lo, hi, label), (member_count, skills))| CohortSummary {
+                cohort_id: cohort_id(&vertical, label),
+                vertical,
+                trust_grade_band: label.to_string(),
+                trust_grade_min: lo,
+                trust_grade_max: hi,
+                member_count,
+                skill_count: u32::try_from(skills.len()).unwrap_or(u32::MAX),
+            },
+        )
         .collect();
     out.sort_by(|a, b| {
         b.member_count
@@ -191,9 +193,7 @@ pub async fn cohort_detail(
     let workers = fetch_workers(store, tenant_id).await?;
     let matched: Vec<(String, u8)> = workers
         .into_iter()
-        .filter(|(_, w_vertical, grade)| {
-            w_vertical == &vertical && *grade >= lo && *grade <= hi
-        })
+        .filter(|(_, w_vertical, grade)| w_vertical == &vertical && *grade >= lo && *grade <= hi)
         .map(|(id, _, grade)| (id, grade))
         .collect();
     if matched.is_empty() {
@@ -291,13 +291,11 @@ async fn fetch_workers(
     store: &SessionStore,
     tenant_id: TenantId,
 ) -> ArgoResult<Vec<(String, String, u8)>> {
-    let rows = sqlx::query(
-        "SELECT id, vertical_id, trust_grade FROM worker WHERE tenant_id = ?",
-    )
-    .bind(tenant_id.to_string())
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("cohort: list workers: {e}")))?;
+    let rows = sqlx::query("SELECT id, vertical_id, trust_grade FROM worker WHERE tenant_id = ?")
+        .bind(tenant_id.to_string())
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("cohort: list workers: {e}")))?;
     let mut out = Vec::with_capacity(rows.len());
     for row in rows {
         let id: String = row.get("id");

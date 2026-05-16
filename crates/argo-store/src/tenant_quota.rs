@@ -9,10 +9,8 @@
 //! `argo_store::tenant_quota::*`.
 
 pub use crate::tenant_quota_kinds::{QuotaActionKind, QuotaError, TenantQuotaKind};
+use crate::tenant_quota_usage::{self, micros_to_usd, remaining, table_exists, u64_from_i64};
 pub use crate::tenant_quota_usage::{TenantHeadroom, TenantQuotaRemaining, TenantUsage};
-use crate::tenant_quota_usage::{
-    self, micros_to_usd, remaining, table_exists, u64_from_i64,
-};
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
 use serde::Serialize;

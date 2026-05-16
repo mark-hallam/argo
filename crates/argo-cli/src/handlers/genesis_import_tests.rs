@@ -125,13 +125,7 @@ fn import_existing_vertical_name_refuses_overwrite() {
     std::fs::write(&src, "first prompt body").unwrap();
     let out = dir.path().join("verticals");
 
-    handle_import(args(
-        src.clone(),
-        "shared",
-        out.clone(),
-        ImportFormat::Auto,
-    ))
-    .unwrap();
+    handle_import(args(src.clone(), "shared", out.clone(), ImportFormat::Auto)).unwrap();
 
     let err = handle_import(args(src, "shared", out, ImportFormat::Auto))
         .expect_err("second import with same name");
@@ -146,8 +140,8 @@ fn invalid_name_rejected() {
     std::fs::write(&src, "body").unwrap();
     let out = dir.path().join("verticals");
 
-    let err = handle_import(args(src, "Bad_Name", out, ImportFormat::Auto))
-        .expect_err("invalid name");
+    let err =
+        handle_import(args(src, "Bad_Name", out, ImportFormat::Auto)).expect_err("invalid name");
     assert!(err.to_string().contains("must be lowercase ASCII"));
 }
 

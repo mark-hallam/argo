@@ -107,11 +107,7 @@ async fn update_unknown_worker_errors_not_found() {
     let ghost = WorkerId::new();
 
     let err = identities
-        .update_worker(
-            tenant,
-            ghost,
-            WorkerUpdate::default().with_trust_grade(3),
-        )
+        .update_worker(tenant, ghost, WorkerUpdate::default().with_trust_grade(3))
         .await
         .expect_err("update on unknown worker must fail");
     assert!(

@@ -141,10 +141,22 @@ fn revise_preserves_locked_keep_sections_in_prompt() {
 
 #[test]
 fn revise_target_string_parses_known_values_and_rejects_garbage() {
-    assert!(matches!("prompt".parse::<ReviseTarget>(), Ok(ReviseTarget::Prompt)));
-    assert!(matches!("ACTIONS".parse::<ReviseTarget>(), Ok(ReviseTarget::Actions)));
-    assert!(matches!("eval".parse::<ReviseTarget>(), Ok(ReviseTarget::Eval)));
-    assert!(matches!("all".parse::<ReviseTarget>(), Ok(ReviseTarget::All)));
+    assert!(matches!(
+        "prompt".parse::<ReviseTarget>(),
+        Ok(ReviseTarget::Prompt)
+    ));
+    assert!(matches!(
+        "ACTIONS".parse::<ReviseTarget>(),
+        Ok(ReviseTarget::Actions)
+    ));
+    assert!(matches!(
+        "eval".parse::<ReviseTarget>(),
+        Ok(ReviseTarget::Eval)
+    ));
+    assert!(matches!(
+        "all".parse::<ReviseTarget>(),
+        Ok(ReviseTarget::All)
+    ));
     assert!("nonsense".parse::<ReviseTarget>().is_err());
 }
 

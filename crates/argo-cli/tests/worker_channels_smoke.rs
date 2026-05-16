@@ -43,8 +43,13 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "list", &worker_id,
-            "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "list",
+            &worker_id,
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&list_initial.stdout).unwrap();
@@ -56,8 +61,14 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "add", &worker_id,
-            "email:ops@example.com", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "add",
+            &worker_id,
+            "email:ops@example.com",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&add_email.stdout).unwrap();
@@ -70,8 +81,14 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "add", &worker_id,
-            "slack:C0123", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "add",
+            &worker_id,
+            "slack:C0123",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&add_slack.stdout).unwrap();
@@ -83,8 +100,14 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "add", &worker_id,
-            "email:ops@example.com", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "add",
+            &worker_id,
+            "email:ops@example.com",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&add_dup.stdout).unwrap();
@@ -97,8 +120,13 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "list", &worker_id,
-            "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "list",
+            &worker_id,
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&list_after_adds.stdout).unwrap();
@@ -114,7 +142,12 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "list", &worker_id, "--tenant", &tenant_str,
+            "worker",
+            "channels",
+            "list",
+            &worker_id,
+            "--tenant",
+            &tenant_str,
         ],
     );
     let stdout = String::from_utf8_lossy(&list_md.stdout);
@@ -126,8 +159,14 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "remove", &worker_id,
-            "email:ops@example.com", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "remove",
+            &worker_id,
+            "email:ops@example.com",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&remove_email.stdout).unwrap();
@@ -139,8 +178,14 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "remove", &worker_id,
-            "email:ops@example.com", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "remove",
+            &worker_id,
+            "email:ops@example.com",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     assert!(!remove_missing.status.success(), "expected exit 1");
@@ -150,30 +195,54 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "add", &worker_id,
-            "foo", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "add",
+            &worker_id,
+            "foo",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
-    assert!(!bad_add.status.success(), "expected exit 1 for malformed spec");
+    assert!(
+        !bad_add.status.success(),
+        "expected exit 1 for malformed spec"
+    );
 
     // unknown kind → exit 1
     let bad_kind = run(
         &home,
         work.path(),
         &[
-            "worker", "channels", "add", &worker_id,
-            "telex:hello", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "add",
+            &worker_id,
+            "telex:hello",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
-    assert!(!bad_kind.status.success(), "expected exit 1 for unknown kind");
+    assert!(
+        !bad_kind.status.success(),
+        "expected exit 1 for unknown kind"
+    );
 
     // bad email → exit 1
     let bad_email = run(
         &home,
         work.path(),
         &[
-            "worker", "channels", "add", &worker_id,
-            "email:not-an-email", "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "add",
+            &worker_id,
+            "email:not-an-email",
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     assert!(!bad_email.status.success(), "expected exit 1 for bad email");
@@ -183,8 +252,13 @@ async fn channels_add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "channels", "list", &worker_id,
-            "--tenant", &tenant_str, "--json",
+            "worker",
+            "channels",
+            "list",
+            &worker_id,
+            "--tenant",
+            &tenant_str,
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&list_final.stdout).unwrap();

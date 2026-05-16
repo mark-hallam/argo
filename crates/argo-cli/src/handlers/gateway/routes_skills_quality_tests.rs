@@ -28,7 +28,10 @@ fn skill_md(name: &str, source: &str) -> String {
 }
 
 async fn install_skill(skills: &SkillStore, name: &str) -> argo_types::SkillId {
-    let row = skills.install(&skill_md(name, "learned"), None).await.expect("install");
+    let row = skills
+        .install(&skill_md(name, "learned"), None)
+        .await
+        .expect("install");
     row.id
 }
 
@@ -71,13 +74,22 @@ async fn latest_score_is_returned_for_skill_with_history() {
         retry_count: 0,
         p99_latency_ms: 30.0,
     };
-    qstore.record(id, &inputs, chrono::Utc::now()).await.expect("record");
+    qstore
+        .record(id, &inputs, chrono::Utc::now())
+        .await
+        .expect("record");
     let (status, body) = skill_quality_response("beta", Some(&store), None).await;
     assert_eq!(status, "200 OK");
     let v: serde_json::Value = serde_json::from_str(&body).expect("json");
     assert_eq!(v["skill_name"], "beta");
-    assert!(v["latest"].is_object(), "latest must be present, got: {body}");
-    assert!(v["latest"]["score"].is_number(), "latest.score must be number");
+    assert!(
+        v["latest"].is_object(),
+        "latest must be present, got: {body}"
+    );
+    assert!(
+        v["latest"]["score"].is_number(),
+        "latest.score must be number"
+    );
     assert_eq!(v["history_len"], 0);
 }
 
@@ -95,7 +107,10 @@ async fn history_limit_returns_prior_scores_newest_first() {
             retry_count: 0,
             p99_latency_ms: 20.0,
         };
-        qstore.record(id, &inputs, chrono::Utc::now()).await.expect("record");
+        qstore
+            .record(id, &inputs, chrono::Utc::now())
+            .await
+            .expect("record");
         // tiny gap so timestamps are distinct
         tokio::time::sleep(std::time::Duration::from_millis(2)).await;
     }
@@ -104,7 +119,11 @@ async fn history_limit_returns_prior_scores_newest_first() {
     let v: serde_json::Value = serde_json::from_str(&body).expect("json");
     assert!(v["latest"].is_object(), "latest must be present");
     let history = v["history"].as_array().expect("history array");
-    assert_eq!(history.len(), 2, "limit=3 yields latest + 2 history rows; got {body}");
+    assert_eq!(
+        history.len(),
+        2,
+        "limit=3 yields latest + 2 history rows; got {body}"
+    );
     // Newest-first ordering: latest = success_rate 0.95;
     // history[0] = 0.90, history[1] = 0.85; the oldest (0.80) is
     // out of the window.

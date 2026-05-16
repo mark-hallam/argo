@@ -225,16 +225,14 @@ fn rejects_future_not_before() {
 #[test]
 fn accepts_not_before_within_clock_skew() {
     let xml = signed_response("a", "2026-05-12T15:00:45Z", "2026-05-12T16:00:00Z");
-    assert!(
-        verify_saml_response(
-            &xml,
-            &tenant(),
-            now(),
-            Duration::seconds(60),
-            Some("_request")
-        )
-        .is_ok()
-    );
+    assert!(verify_saml_response(
+        &xml,
+        &tenant(),
+        now(),
+        Duration::seconds(60),
+        Some("_request")
+    )
+    .is_ok());
 }
 
 #[test]

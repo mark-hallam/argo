@@ -153,7 +153,9 @@ pub fn build_prompt(brief: Option<&str>, manifest: Option<&str>, rows: &[AuditRo
         prompt.push_str(&snippet);
         prompt.push('\n');
     }
-    prompt.push_str("\nGiven the chain above, identify the failing step + return the JSON shape described.\n");
+    prompt.push_str(
+        "\nGiven the chain above, identify the failing step + return the JSON shape described.\n",
+    );
     prompt
 }
 

@@ -53,9 +53,13 @@ fn happy_path_captures_every_field() {
 #[test]
 fn industry_can_be_skipped_with_blank_line() {
     let mut reader = MockReader::new(&[
-        "support agent", "Sam", "", // industry skipped
-        "answer tickets", "",
-        "email", "10",
+        "support agent",
+        "Sam",
+        "", // industry skipped
+        "answer tickets",
+        "",
+        "email",
+        "10",
     ]);
     let mut writer: Vec<u8> = Vec::new();
     let dialogue = prompt_dialogue(&mut reader, &mut writer).expect("loop");
@@ -67,10 +71,13 @@ fn industry_can_be_skipped_with_blank_line() {
 fn empty_required_answer_reprompts_until_filled() {
     // role is required — supply blank then a real answer.
     let mut reader = MockReader::new(&[
-        "", "  ", "marketing intern",
+        "",
+        "  ",
+        "marketing intern",
         "Maya",
         "",
-        "ship copy", "",
+        "ship copy",
+        "",
         "slack",
         "5",
     ]);
@@ -87,7 +94,8 @@ fn dollar_sign_prefix_on_spend_cap_is_tolerated() {
         "marketing intern",
         "Maya",
         "",
-        "ship copy", "",
+        "ship copy",
+        "",
         "slack",
         "$25.50",
     ]);
@@ -102,7 +110,8 @@ fn non_numeric_spend_cap_returns_error() {
         "marketing intern",
         "Maya",
         "",
-        "ship copy", "",
+        "ship copy",
+        "",
         "slack",
         "fifty",
     ]);
@@ -144,12 +153,7 @@ fn duties_filter_blank_lines() {
     apply_answer(
         "duties",
         "first\n\nsecond\n",
-        &[
-            "first".into(),
-            "  ".into(),
-            "second".into(),
-            "".into(),
-        ],
+        &["first".into(), "  ".into(), "second".into(), "".into()],
         &mut d,
     )
     .expect("apply");
@@ -172,9 +176,7 @@ fn unknown_question_key_returns_error() {
 
 #[test]
 fn writer_records_introductory_banner() {
-    let mut reader = MockReader::new(&[
-        "x", "y", "", "z", "", "slack", "1",
-    ]);
+    let mut reader = MockReader::new(&["x", "y", "", "z", "", "slack", "1"]);
     let mut writer: Vec<u8> = Vec::new();
     let _ = prompt_dialogue(&mut reader, &mut writer).expect("loop");
     let echoed = String::from_utf8(writer).expect("utf-8");

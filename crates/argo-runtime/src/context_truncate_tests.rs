@@ -5,9 +5,7 @@
 
 use super::*;
 use crate::context_compress::TokenCounter;
-use argo_types::{
-    ArgoError, ContentBlock, Message, MessageId, MessageRole, SessionId, ToolCallId,
-};
+use argo_types::{ArgoError, ContentBlock, Message, MessageId, MessageRole, SessionId, ToolCallId};
 
 /// Word-count tokenizer kept deterministic without dragging in a
 /// real tokenizer crate. Matches the helper used in
@@ -105,7 +103,10 @@ fn drops_one_older_turn_fifo() {
         .map(text_of);
     assert_eq!(last_user_text.as_deref(), Some("new question"));
     // System must survive.
-    assert!(result.view.iter().any(|m| matches!(m.role, MessageRole::System)));
+    assert!(result
+        .view
+        .iter()
+        .any(|m| matches!(m.role, MessageRole::System)));
 }
 
 #[test]

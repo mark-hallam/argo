@@ -15,8 +15,7 @@ use crate::kpi_table::{bullets_for_vertical, BulletKind, BulletSource};
 use crate::tomorrow::next_duty_for_worker;
 use crate::{generate_team_headline, render_bullets, MAX_BULLETS, MAX_BULLET_CHARS};
 
-const ROLE_DUTY_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/93__role_duties.sql");
+const ROLE_DUTY_SCHEMA: &str = include_str!("../../argo-store/migrations/93__role_duties.sql");
 
 // Pure shaping tests (no DB)
 
@@ -34,13 +33,21 @@ fn render_bullets_zero_activity_returns_no_activity_yet() {
 
 #[test]
 fn render_bullets_caps_at_max_bullets() {
-    let counts = ActivityCounts { assistant_messages: 4, tool_calls: 5, pending_escalations: 6 };
+    let counts = ActivityCounts {
+        assistant_messages: 4,
+        tool_calls: 5,
+        pending_escalations: 6,
+    };
     assert_eq!(render_bullets("recruiter", &counts).len(), MAX_BULLETS);
 }
 
 #[test]
 fn render_bullets_drops_zero_counts() {
-    let counts = ActivityCounts { assistant_messages: 0, tool_calls: 2, pending_escalations: 0 };
+    let counts = ActivityCounts {
+        assistant_messages: 0,
+        tool_calls: 2,
+        pending_escalations: 0,
+    };
     assert_eq!(
         render_bullets("recruiter", &counts),
         vec!["2 interviews booked this week".to_string()]
@@ -49,7 +56,11 @@ fn render_bullets_drops_zero_counts() {
 
 #[test]
 fn render_bullets_customer_support_drops_avg_response_time() {
-    let counts = ActivityCounts { assistant_messages: 0, tool_calls: 5, pending_escalations: 2 };
+    let counts = ActivityCounts {
+        assistant_messages: 0,
+        tool_calls: 5,
+        pending_escalations: 2,
+    };
     assert_eq!(
         render_bullets("customer-support", &counts),
         vec![
@@ -61,7 +72,11 @@ fn render_bullets_customer_support_drops_avg_response_time() {
 
 #[test]
 fn render_bullets_fallback_renders_actions_taken_plus_pending() {
-    let counts = ActivityCounts { assistant_messages: 1, tool_calls: 2, pending_escalations: 4 };
+    let counts = ActivityCounts {
+        assistant_messages: 1,
+        tool_calls: 2,
+        pending_escalations: 4,
+    };
     let bullets = render_bullets("unknown-vertical", &counts);
     assert!(bullets.iter().any(|s| s == "3 actions taken today"));
     assert!(bullets.iter().any(|s| s == "4 pending approvals"));
@@ -74,8 +89,14 @@ fn bullet_kind_format_picks_singular_plural_and_drops_zero() {
         singular: "1 reply sent",
         plural: "{n} replies sent",
     };
-    let one = ActivityCounts { assistant_messages: 1, ..Default::default() };
-    let many = ActivityCounts { assistant_messages: 7, ..Default::default() };
+    let one = ActivityCounts {
+        assistant_messages: 1,
+        ..Default::default()
+    };
+    let many = ActivityCounts {
+        assistant_messages: 7,
+        ..Default::default()
+    };
     assert_eq!(kind.format(&one), Some("1 reply sent".to_string()));
     assert_eq!(kind.format(&many), Some("7 replies sent".to_string()));
     assert!(kind.format(&ActivityCounts::default()).is_none());
@@ -104,7 +125,9 @@ fn rendered_bullets_fit_max_char_budget() {
         pending_escalations: 9_999_999_999,
     };
     let bullets = render_bullets("event-coordinator", &counts);
-    assert!(bullets.iter().all(|b| b.chars().count() <= MAX_BULLET_CHARS));
+    assert!(bullets
+        .iter()
+        .all(|b| b.chars().count() <= MAX_BULLET_CHARS));
 }
 
 #[test]
@@ -154,10 +177,7 @@ async fn ensure_role_duty_schema(store: &Arc<SessionStore>) {
         .map(str::trim)
         .filter(|s| !s.is_empty())
     {
-        sqlx::query(stmt)
-            .execute(store.pool())
-            .await
-            .unwrap();
+        sqlx::query(stmt).execute(store.pool()).await.unwrap();
     }
 }
 
@@ -213,7 +233,11 @@ async fn seed_worker(store: &Arc<SessionStore>) -> SeededWorker {
         })
         .await
         .unwrap();
-    SeededWorker { store: store.clone(), worker, session }
+    SeededWorker {
+        store: store.clone(),
+        worker,
+        session,
+    }
 }
 
 #[tokio::test]
@@ -232,14 +256,24 @@ async fn activity_counts_aggregates_seeded_audit_events() {
     let seed = seed_worker(&store).await;
     let sink = AuditSink::new(seed.store.clone());
     for _ in 0..2 {
-        sink.write(Some(seed.session), AuditKind::AssistantMessage, serde_json::json!({}), None)
-            .await
-            .unwrap();
+        sink.write(
+            Some(seed.session),
+            AuditKind::AssistantMessage,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
     }
     for _ in 0..3 {
-        sink.write(Some(seed.session), AuditKind::ToolCall, serde_json::json!({}), None)
-            .await
-            .unwrap();
+        sink.write(
+            Some(seed.session),
+            AuditKind::ToolCall,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
     }
     for _ in 0..4 {
         sink.write(
@@ -251,9 +285,14 @@ async fn activity_counts_aggregates_seeded_audit_events() {
         .await
         .unwrap();
     }
-    sink.write(Some(seed.session), AuditKind::ApprovalGranted, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(seed.session),
+        AuditKind::ApprovalGranted,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     let counts = activity_counts_for_worker(&seed.store, seed.worker, Utc::now())
         .await
         .unwrap();
@@ -269,9 +308,14 @@ async fn activity_counts_ignores_other_workers() {
     let mine = seed_worker(&store).await;
     let other = seed_worker(&store).await;
     let sink = AuditSink::new(store.clone());
-    sink.write(Some(other.session), AuditKind::AssistantMessage, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(other.session),
+        AuditKind::AssistantMessage,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     let counts = activity_counts_for_worker(&store, mine.worker, Utc::now())
         .await
         .unwrap();
@@ -283,9 +327,14 @@ async fn activity_counts_drops_events_outside_24h_window() {
     let store = fresh_store().await;
     let seed = seed_worker(&store).await;
     let sink = AuditSink::new(seed.store.clone());
-    sink.write(Some(seed.session), AuditKind::ToolCall, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(seed.session),
+        AuditKind::ToolCall,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     // Query as if 48 hours have passed — the seeded row is now
     // outside the 24-hour lookback.
     let future = Utc::now() + chrono::Duration::hours(48);
@@ -312,14 +361,24 @@ async fn generate_team_headline_renders_pr_checker_bullets() {
     let seed = seed_worker(&store).await;
     let sink = AuditSink::new(seed.store.clone());
     for _ in 0..6 {
-        sink.write(Some(seed.session), AuditKind::ToolCall, serde_json::json!({}), None)
-            .await
-            .unwrap();
+        sink.write(
+            Some(seed.session),
+            AuditKind::ToolCall,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
     }
     for _ in 0..2 {
-        sink.write(Some(seed.session), AuditKind::AssistantMessage, serde_json::json!({}), None)
-            .await
-            .unwrap();
+        sink.write(
+            Some(seed.session),
+            AuditKind::AssistantMessage,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
     }
     let headline = generate_team_headline(seed.worker, "pr-checker", &seed.store)
         .await
@@ -344,7 +403,15 @@ async fn next_duty_returns_next_fire_within_24h() {
     let store = fresh_store().await;
     let seed = seed_worker(&store).await;
     ensure_role_duty_schema(&seed.store).await;
-    insert_duty(&seed, "d-1", "0 30 6 * * * *", "morning routine", true, None).await;
+    insert_duty(
+        &seed,
+        "d-1",
+        "0 30 6 * * * *",
+        "morning routine",
+        true,
+        None,
+    )
+    .await;
     let line = next_duty_for_worker(&seed.store, seed.worker, Utc::now())
         .await
         .unwrap()
@@ -358,7 +425,15 @@ async fn next_duty_skips_disabled_and_paused_rows() {
     let seed = seed_worker(&store).await;
     ensure_role_duty_schema(&seed.store).await;
     let now = Utc::now();
-    insert_duty(&seed, "d-off", "0 0 6 * * * *", "disabled duty", false, None).await;
+    insert_duty(
+        &seed,
+        "d-off",
+        "0 0 6 * * * *",
+        "disabled duty",
+        false,
+        None,
+    )
+    .await;
     insert_duty(
         &seed,
         "d-pause",

@@ -186,10 +186,7 @@ pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
 
 /// Insert one row. Returns the assigned id so the caller can
 /// promote it later.
-pub async fn insert(
-    pool: &SqlitePool,
-    new: &NewLearnedPlanTemplate<'_>,
-) -> ArgoResult<String> {
+pub async fn insert(pool: &SqlitePool, new: &NewLearnedPlanTemplate<'_>) -> ArgoResult<String> {
     ensure_schema(pool).await?;
     let id = Uuid::now_v7().to_string();
     let created_at = Utc::now().timestamp_micros();
@@ -216,11 +213,7 @@ pub async fn insert(
 /// then asks `sink` to mirror the row into the skill catalog so it
 /// participates in the `argo-skill::trust::TrustGrade` ladder.
 /// Errors on unknown id; sink errors propagate.
-pub async fn promote(
-    pool: &SqlitePool,
-    id: &str,
-    sink: &dyn SkillIngestSink,
-) -> ArgoResult<()> {
+pub async fn promote(pool: &SqlitePool, id: &str, sink: &dyn SkillIngestSink) -> ArgoResult<()> {
     set_grade(pool, id, TrustGrade::Promoted).await?;
     let row = get(pool, id).await?.ok_or_else(|| {
         ArgoError::Provider(format!(
@@ -234,11 +227,7 @@ pub async fn promote(
 /// picks it up, then asks `sink` to demote the corresponding skill
 /// row (if one was previously ingested). Errors on unknown id;
 /// sink errors propagate.
-pub async fn reject(
-    pool: &SqlitePool,
-    id: &str,
-    sink: &dyn SkillIngestSink,
-) -> ArgoResult<()> {
+pub async fn reject(pool: &SqlitePool, id: &str, sink: &dyn SkillIngestSink) -> ArgoResult<()> {
     set_grade(pool, id, TrustGrade::Rejected).await?;
     let row = get(pool, id).await?.ok_or_else(|| {
         ArgoError::Provider(format!(
@@ -251,8 +240,7 @@ pub async fn reject(
 async fn set_grade(pool: &SqlitePool, id: &str, grade: TrustGrade) -> ArgoResult<()> {
     ensure_schema(pool).await?;
     let now = Utc::now().timestamp_micros();
-    let promoted_stamp =
-        matches!(grade, TrustGrade::Promoted).then_some(now);
+    let promoted_stamp = matches!(grade, TrustGrade::Promoted).then_some(now);
     let rows = sqlx::query(
         "UPDATE learned_plan_template \
          SET trust_grade = ?, \

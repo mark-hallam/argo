@@ -21,10 +21,7 @@ fn cu_action_summary_redacts_long_type_text() {
 
 #[test]
 fn cu_action_summary_formats_each_kind() {
-    assert_eq!(
-        CuAction::Click { x: 10, y: 20 }.summary(),
-        "click (10,20)"
-    );
+    assert_eq!(CuAction::Click { x: 10, y: 20 }.summary(), "click (10,20)");
     assert_eq!(
         CuAction::DoubleClick { x: 1, y: 2 }.summary(),
         "double_click (1,2)"

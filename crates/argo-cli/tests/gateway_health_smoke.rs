@@ -51,8 +51,7 @@ fn gateway_health_endpoints_match_brief_contract() {
     let resp = http_get(port, "/health");
     assert!(resp.contains("HTTP/1.1 200 OK"), "health resp={resp}");
     let body = body_of(&resp);
-    let parsed: serde_json::Value =
-        serde_json::from_str(body).expect("/health body should parse");
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("/health body should parse");
     assert_eq!(parsed["status"], "ok", "/health status: {body}");
     assert!(
         parsed["schema_version"].as_u64().is_some(),
@@ -66,12 +65,10 @@ fn gateway_health_endpoints_match_brief_contract() {
     let resp = http_get(port, "/readyz");
     assert!(resp.contains("HTTP/1.1 200 OK"), "readyz resp={resp}");
     let body = body_of(&resp);
-    let parsed: serde_json::Value =
-        serde_json::from_str(body).expect("/readyz body should parse");
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("/readyz body should parse");
     assert_eq!(parsed["status"], "ok", "/readyz status: {body}");
     assert!(
-        parsed["schema_version"].as_u64().is_some()
-            && parsed["uptime_seconds"].as_u64().is_some(),
+        parsed["schema_version"].as_u64().is_some() && parsed["uptime_seconds"].as_u64().is_some(),
         "/readyz must mirror /health shape: {body}"
     );
 
@@ -79,16 +76,14 @@ fn gateway_health_endpoints_match_brief_contract() {
     let resp = http_get(port, "/livez");
     assert!(resp.contains("HTTP/1.1 200 OK"), "livez resp={resp}");
     let body = body_of(&resp);
-    let parsed: serde_json::Value =
-        serde_json::from_str(body).expect("/livez body should parse");
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("/livez body should parse");
     assert_eq!(parsed["status"], "alive", "/livez status: {body}");
 
     // uptime monotonicity: two /health probes a second apart should
     // show u2 >= u1.
     std::thread::sleep(std::time::Duration::from_millis(1100));
     let resp = http_get(port, "/health");
-    let parsed: serde_json::Value =
-        serde_json::from_str(body_of(&resp)).expect("/health 2 parse");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&resp)).expect("/health 2 parse");
     let u2 = parsed["uptime_seconds"]
         .as_u64()
         .expect("/health 2 missing uptime_seconds");

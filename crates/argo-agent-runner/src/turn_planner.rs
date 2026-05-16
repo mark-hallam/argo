@@ -15,9 +15,7 @@
 //! returns `Err`; a flaky planner / sink / gate must not crash a
 //! turn.
 
-use argo_runtime::{
-    record_decomposition, DecomposeGate, Planner, PlannerContext, SubtaskSink,
-};
+use argo_runtime::{record_decomposition, DecomposeGate, Planner, PlannerContext, SubtaskSink};
 
 /// Bundle of dependencies the planner hook needs. Held by the
 /// new [`crate::run_turn_with_planner_hook`] entry point and

@@ -135,7 +135,11 @@ pub enum SessionCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    Transcript { id: String, #[arg(long)] json: bool },
+    Transcript {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
     Export {
         id: String,
         #[arg(long)]
@@ -202,8 +206,12 @@ pub enum SessionCmd {
         #[arg(long, conflicts_with = "new")]
         clear: bool,
     },
-    End { id: String },
-    Reopen { id: String },
+    End {
+        id: String,
+    },
+    Reopen {
+        id: String,
+    },
     EndAll {
         #[arg(long)]
         older_than_minutes: Option<i64>,
@@ -393,7 +401,15 @@ pub enum HandoffCmd {
         #[arg(long)]
         json: bool,
     },
-    Cancel { id: String, #[arg(long)] tenant: Option<String>, #[arg(long)] note: Option<String>, #[arg(long)] json: bool },
+    Cancel {
+        id: String,
+        #[arg(long)]
+        tenant: Option<String>,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `MessagesCmd` was extracted to cli_messages_cmds.rs (#624)

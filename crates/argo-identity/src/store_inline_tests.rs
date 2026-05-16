@@ -42,8 +42,11 @@ async fn create_get_list_roundtrip() {
     store.migrate().await.unwrap();
     let tenant = TenantId::new();
     let mut role = Role::new("Own outbound follow-up.");
-    role.duties
-        .push(Duty::new("0 9 * * 1-5", "follow_up", "Send approved follow-up."));
+    role.duties.push(Duty::new(
+        "0 9 * * 1-5",
+        "follow_up",
+        "Send approved follow-up.",
+    ));
     let worker = Worker::draft(tenant, "gtm-engineer", Persona::named("Maya", "op"), role);
     let identities = IdentityStore::new(&store);
 
@@ -55,7 +58,10 @@ async fn create_get_list_roundtrip() {
         .unwrap();
     assert_eq!(loaded.persona.name, "Maya");
     assert_eq!(loaded.role.duties[0].entry_action, "follow_up");
-    assert_eq!(identities.list_workers(tenant, false).await.unwrap().len(), 1);
+    assert_eq!(
+        identities.list_workers(tenant, false).await.unwrap().len(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -68,7 +74,11 @@ async fn create_worker_from_draft_persists_persona_role_duties() {
         .create_worker_from_draft(&sample_draft(), tenant, "human:mark@example.com")
         .await
         .unwrap();
-    let loaded = identities.get_worker(tenant, worker_id).await.unwrap().unwrap();
+    let loaded = identities
+        .get_worker(tenant, worker_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(loaded.persona.name, "Maya");
     assert_eq!(loaded.persona.builder_attribution, "human:mark@example.com");
     assert_eq!(loaded.vertical_id, "marketplace-seller");
@@ -95,7 +105,11 @@ async fn create_worker_from_draft_aggressive_enables_auto_approval() {
         .create_worker_from_draft(&draft, tenant, "human:op")
         .await
         .unwrap();
-    let loaded = identities.get_worker(tenant, worker_id).await.unwrap().unwrap();
+    let loaded = identities
+        .get_worker(tenant, worker_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(loaded.auto_approval.enabled);
 }
 

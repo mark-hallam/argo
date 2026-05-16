@@ -2,10 +2,10 @@
 //! under the 500-LOC ceiling. Pure draw functions (no I/O) plus the
 //! best-effort content-block summarisers used to render each row.
 use crate::app::{PaneFocus, ViewerState};
+use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem};
-use ratatui::layout::Rect;
 use ratatui::Frame;
 
 pub(crate) fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
@@ -97,7 +97,10 @@ fn content_block_summary(b: &serde_json::Value) -> Option<String> {
             let body = b
                 .get("content")
                 .and_then(|c| c.as_array())
-                .and_then(|a| a.iter().find_map(|cb| cb.get("text").and_then(|t| t.as_str())))
+                .and_then(|a| {
+                    a.iter()
+                        .find_map(|cb| cb.get("text").and_then(|t| t.as_str()))
+                })
                 .unwrap_or("");
             let tag = if is_error { " [error]" } else { "" };
             Some(format!("← {id}{tag}: {body}"))

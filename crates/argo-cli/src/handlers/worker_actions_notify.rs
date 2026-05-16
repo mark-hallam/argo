@@ -393,9 +393,7 @@ pub(super) async fn send_with_rate_limit_retry<C: NotifyChannel + Sync>(
     for attempt in 0..=RATE_LIMIT_MAX_RETRIES {
         match channel.send(n.clone()).await {
             Ok(_) => return Ok(()),
-            Err(ChannelError::RateLimited { retry_after })
-                if attempt < RATE_LIMIT_MAX_RETRIES =>
-            {
+            Err(ChannelError::RateLimited { retry_after }) if attempt < RATE_LIMIT_MAX_RETRIES => {
                 let backoff = retry_after.min(RATE_LIMIT_MAX_BACKOFF);
                 tracing::warn!(
                     channel = channel_label,

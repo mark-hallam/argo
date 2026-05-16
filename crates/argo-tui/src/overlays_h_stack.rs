@@ -102,10 +102,9 @@ pub async fn fetch_panel(base: &str, path: &str, expect_array: bool) -> PanelSta
     if expect_array {
         match v {
             Value::Array(arr) => PanelState::Ok(arr),
-            other => PanelState::Unreachable(format!(
-                "expected JSON array, got {}",
-                short_kind(&other)
-            )),
+            other => {
+                PanelState::Unreachable(format!("expected JSON array, got {}", short_kind(&other)))
+            }
         }
     } else {
         PanelState::OkOne(v)

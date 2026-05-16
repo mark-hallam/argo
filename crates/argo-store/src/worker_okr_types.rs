@@ -114,23 +114,30 @@ impl KeyResultSpec {
             )));
         }
         let comparison = Comparison::parse(parts[1].trim())?;
-        let target_value: f64 = parts[2].trim().parse().map_err(|e| {
-            ArgoError::Schema(format!("invalid --kr '{token}': target parse: {e}"))
-        })?;
+        let target_value: f64 = parts[2]
+            .trim()
+            .parse()
+            .map_err(|e| ArgoError::Schema(format!("invalid --kr '{token}': target parse: {e}")))?;
         if !target_value.is_finite() {
             return Err(ArgoError::Provider(format!(
                 "invalid --kr '{token}': target must be finite"
             )));
         }
-        let weight: f64 = parts[3].trim().parse().map_err(|e| {
-            ArgoError::Schema(format!("invalid --kr '{token}': weight parse: {e}"))
-        })?;
+        let weight: f64 = parts[3]
+            .trim()
+            .parse()
+            .map_err(|e| ArgoError::Schema(format!("invalid --kr '{token}': weight parse: {e}")))?;
         if !weight.is_finite() || weight <= 0.0 {
             return Err(ArgoError::Provider(format!(
                 "invalid --kr '{token}': weight must be > 0"
             )));
         }
-        Ok(Self { kpi_name, comparison, target_value, weight })
+        Ok(Self {
+            kpi_name,
+            comparison,
+            target_value,
+            weight,
+        })
     }
 }
 

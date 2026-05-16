@@ -51,11 +51,9 @@ pub async fn run(cmd: PersonaCmd) -> ArgoResult<()> {
             limit,
             json,
         } => crate::handlers::persona_history::run(&worker_id, limit, json).await,
-        PersonaCmd::Revert {
-            rev_id,
-            yes,
-            json,
-        } => crate::handlers::persona_revert::run(&rev_id, yes, json).await,
+        PersonaCmd::Revert { rev_id, yes, json } => {
+            crate::handlers::persona_revert::run(&rev_id, yes, json).await
+        }
     }
 }
 
@@ -110,8 +108,8 @@ pub fn dump_toml(persona: &Persona) -> String {
 
 /// Parse a TOML snippet into the editable persona view.
 pub fn parse_toml(s: &str) -> ArgoResult<PersonaTomlBody> {
-    let parsed: PersonaToml = toml::from_str(s)
-        .map_err(|e| ArgoError::Schema(format!("invalid persona TOML: {e}")))?;
+    let parsed: PersonaToml =
+        toml::from_str(s).map_err(|e| ArgoError::Schema(format!("invalid persona TOML: {e}")))?;
     validate(&parsed.persona)?;
     Ok(parsed.persona)
 }
@@ -269,17 +267,21 @@ async fn lookup_persona(
                 .fetch_all(pool)
                 .await
         }
-        None => sqlx::query(PERSONA_SELECT_BY_NAME)
-            .bind(name)
-            .fetch_all(pool)
-            .await,
+        None => {
+            sqlx::query(PERSONA_SELECT_BY_NAME)
+                .bind(name)
+                .fetch_all(pool)
+                .await
+        }
     }
     .map_err(|e| ArgoError::Provider(format!("lookup persona '{name}': {e}")))?;
 
     match rows.len() {
         0 => Err(ArgoError::Provider(format!(
             "persona '{name}' not found{}",
-            tenant.map(|t| format!(" in tenant {t}")).unwrap_or_default()
+            tenant
+                .map(|t| format!(" in tenant {t}"))
+                .unwrap_or_default()
         ))),
         1 => row_to_persona(&rows[0]),
         n => {

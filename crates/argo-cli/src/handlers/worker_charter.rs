@@ -6,9 +6,7 @@
 //! set/get/clear` over those columns.
 
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_identity::{
-    IdentityStore, MAX_CHARTER_BYTES, MAX_KPIS_BYTES, WorkerId,
-};
+use argo_identity::{IdentityStore, WorkerId, MAX_CHARTER_BYTES, MAX_KPIS_BYTES};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::Value;
@@ -48,9 +46,7 @@ pub async fn get(tenant: &str, worker_id: &str, md: bool, json: bool) -> ArgoRes
         .get_worker(tenant_id, worker)
         .await?
         .ok_or_else(|| {
-            ArgoError::Provider(format!(
-                "worker {worker_id} not found in tenant {tenant}"
-            ))
+            ArgoError::Provider(format!("worker {worker_id} not found in tenant {tenant}"))
         })?;
     if json {
         let payload = serde_json::json!({
@@ -88,7 +84,9 @@ pub async fn clear(tenant: &str, worker_id: &str, json: bool) -> ArgoResult<()> 
     let tenant_id = parse_tenant(tenant)?;
     let worker = parse_worker(worker_id)?;
     let identities = open_identity_store().await?;
-    identities.update_charter(tenant_id, worker, None, None).await?;
+    identities
+        .update_charter(tenant_id, worker, None, None)
+        .await?;
     if json {
         let payload = serde_json::json!({
             "ok": true,
@@ -107,10 +105,7 @@ pub async fn clear(tenant: &str, worker_id: &str, json: bool) -> ArgoResult<()> 
 
 pub(crate) fn read_charter_file(path: &Path) -> ArgoResult<String> {
     let body = std::fs::read_to_string(path).map_err(|e| {
-        ArgoError::Provider(format!(
-            "could not read charter at {}: {e}",
-            path.display()
-        ))
+        ArgoError::Provider(format!("could not read charter at {}: {e}", path.display()))
     })?;
     enforce_charter_size(&body)?;
     Ok(body)
@@ -197,7 +192,9 @@ impl OwnedIdentityStore {
         tenant_id: TenantId,
         worker_id: WorkerId,
     ) -> ArgoResult<Option<argo_identity::Worker>> {
-        IdentityStore::new(&self.store).get_worker(tenant_id, worker_id).await
+        IdentityStore::new(&self.store)
+            .get_worker(tenant_id, worker_id)
+            .await
     }
 }
 
@@ -216,7 +213,10 @@ fn print_set_outcome(worker_id: &str, charter: &str, kpis: Option<&Value>, json:
             serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
         );
     } else {
-        println!("worker {worker_id}: charter updated ({} bytes)", charter.len());
+        println!(
+            "worker {worker_id}: charter updated ({} bytes)",
+            charter.len()
+        );
         if let Some(value) = kpis {
             let bytes = serde_json::to_string(value).map(|s| s.len()).unwrap_or(0);
             println!("  kpis: {bytes} bytes");

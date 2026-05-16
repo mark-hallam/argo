@@ -63,7 +63,9 @@ impl ProbeConfig {
 }
 
 fn env_nonempty(name: &str) -> Option<String> {
-    argo_config::cred::get(name).ok().filter(|v| !v.trim().is_empty())
+    argo_config::cred::get(name)
+        .ok()
+        .filter(|v| !v.trim().is_empty())
 }
 
 pub(super) fn check(status: impl Into<String>, detail: impl Into<String>) -> Value {

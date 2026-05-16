@@ -23,22 +23,20 @@ pub async fn run(cmd: JudgeCmd) -> ArgoResult<()> {
             model,
             json,
             bail_below,
-        } => {
-            crate::handlers::judge_eval::run(fixtures, &provider, &model, json, bail_below).await
-        }
+        } => crate::handlers::judge_eval::run(fixtures, &provider, &model, json, bail_below).await,
     }
 }
 
 async fn override_verdict(raw: &str, new_verdict: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
     store.migrate().await?;
-    let record_id = JudgeRecordId(uuid::Uuid::parse_str(raw).map_err(|e| {
-        ArgoError::Schema(format!("invalid judge record id '{raw}': {e}"))
-    })?);
+    let record_id = JudgeRecordId(
+        uuid::Uuid::parse_str(raw)
+            .map_err(|e| ArgoError::Schema(format!("invalid judge record id '{raw}': {e}")))?,
+    );
     let trimmed = new_verdict.trim();
     if trimmed.is_empty() {
         return Err(ArgoError::Provider("empty --to verdict".into()));
@@ -74,8 +72,7 @@ async fn override_verdict(raw: &str, new_verdict: &str) -> ArgoResult<()> {
 }
 
 async fn verdict(raw: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);

@@ -190,9 +190,12 @@ fn decode_row(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<TrustObservationRow> 
         Uuid::from_slice(&skill_bytes)
             .map_err(|e| ArgoError::Provider(format!("skill_id from db: {e}")))?,
     );
-    let observed_at = DateTime::<Utc>::from_timestamp_micros(observed_at_micros).ok_or_else(
-        || ArgoError::Provider(format!("trust_observation observed_at out of range: {observed_at_micros}")),
-    )?;
+    let observed_at =
+        DateTime::<Utc>::from_timestamp_micros(observed_at_micros).ok_or_else(|| {
+            ArgoError::Provider(format!(
+                "trust_observation observed_at out of range: {observed_at_micros}"
+            ))
+        })?;
     Ok(TrustObservationRow {
         id,
         source_tenant,

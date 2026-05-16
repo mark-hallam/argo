@@ -29,9 +29,7 @@
 use super::routes_auth_principal::principal_id_for_audit;
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_query::collect_latest_actions;
-use crate::handlers::worker_actions_transitions::{
-    self, find_action, open_workspace_memory,
-};
+use crate::handlers::worker_actions_transitions::{self, find_action, open_workspace_memory};
 use argo_memory::MemoryFile;
 use argo_redact::{
     active_grants_for_principal, audit_payload, redact_approval_row, resolve_policy,
@@ -82,7 +80,8 @@ pub(super) async fn list_response(req: &str) -> (&'static str, String) {
     let take = pending.len().min(limit);
     let page: Vec<ActionRecord> = pending.into_iter().take(take).collect();
     let next_cursor = if page.len() == limit {
-        page.last().map(|a| encode_cursor(&a.created_at, &a.action_id))
+        page.last()
+            .map(|a| encode_cursor(&a.created_at, &a.action_id))
     } else {
         None
     };
@@ -99,7 +98,8 @@ pub(super) async fn list_response(req: &str) -> (&'static str, String) {
         .iter()
         .map(|rec| {
             let row = approval_row_json(rec);
-            let redaction = redact_approval_row(row, &policy, grants.first_id().map(str::to_string));
+            let redaction =
+                redact_approval_row(row, &policy, grants.first_id().map(str::to_string));
             if redaction.was_masked() {
                 let payload = audit_payload(&actor_id, &rec.action_id, &redaction);
                 tracing::info!(
@@ -161,7 +161,10 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         if current_decision.as_deref() == Some(decision) {
             return ok_decide(approval_id, decision);
         }
-        return conflict(approval_id, current_decision.as_deref().unwrap_or(current_state));
+        return conflict(
+            approval_id,
+            current_decision.as_deref().unwrap_or(current_state),
+        );
     }
     let result = if decision == "approve" {
         worker_actions_transitions::approve(&memory, ws, approval_id, &actor, None).await
@@ -369,11 +372,7 @@ fn server_error(message: &str) -> (&'static str, String) {
     error_envelope("500 Internal Server Error", "internal_error", message)
 }
 
-fn error_envelope(
-    status: &'static str,
-    code: &str,
-    message: &str,
-) -> (&'static str, String) {
+fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
     (
         status,
         json!({

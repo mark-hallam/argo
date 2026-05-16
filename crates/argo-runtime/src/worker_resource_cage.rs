@@ -300,4 +300,3 @@ fn cage_write_failure(field: &str, err: &io::Error, slice: &Path) -> CageStatus 
         reason: format!("write {} in {}: {err}", field, slice.display()),
     }
 }
-

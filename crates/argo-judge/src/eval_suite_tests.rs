@@ -88,16 +88,26 @@ fn case(id: &str, tag: DisagreementTag, human: &str) -> JudgeDisagreementCase {
 }
 
 fn fail(reason: &str) -> JudgeVerdict {
-    JudgeVerdict::Failure { reason: reason.into() }
+    JudgeVerdict::Failure {
+        reason: reason.into(),
+    }
 }
 
 fn partial(reason: &str) -> JudgeVerdict {
-    JudgeVerdict::Partial { reason: reason.into() }
+    JudgeVerdict::Partial {
+        reason: reason.into(),
+    }
 }
 
 fn mk_judge(scripts: &[(&str, JudgeVerdict)]) -> MockJudge {
-    let by_id = scripts.iter().map(|(k, v)| ((*k).into(), v.clone())).collect();
-    MockJudge { by_id, fallback: JudgeVerdict::Success }
+    let by_id = scripts
+        .iter()
+        .map(|(k, v)| ((*k).into(), v.clone()))
+        .collect();
+    MockJudge {
+        by_id,
+        fallback: JudgeVerdict::Success,
+    }
 }
 
 #[test]

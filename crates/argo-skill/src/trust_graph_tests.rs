@@ -38,10 +38,7 @@ fn composed_2hop_multiplies_edge_weights() {
     let b = TenantId::new();
     let c = TenantId::new();
     let now = Utc::now();
-    let graph = TrustGraph::from_observations_at(
-        &[obs(b, a, 0.8, now), obs(c, b, 0.5, now)],
-        now,
-    );
+    let graph = TrustGraph::from_observations_at(&[obs(b, a, 0.8, now), obs(c, b, 0.5, now)], now);
     let composed = graph.composed_trust(&a, &c, 3).expect("path exists");
     assert!(
         (composed - 0.4).abs() < 1e-3,
@@ -67,7 +64,10 @@ fn composed_caps_at_max_hops_3() {
         ],
         now,
     );
-    assert!(graph.composed_trust(&a, &e, 3).is_none(), "4-hop path should not compose");
+    assert!(
+        graph.composed_trust(&a, &e, 3).is_none(),
+        "4-hop path should not compose"
+    );
     // With max_hops=4 it should resolve.
     let four_hop = graph.composed_trust(&a, &e, 4).expect("4-hop allowed");
     let expected = 0.9_f32.powi(4);
@@ -118,10 +118,7 @@ fn observation_aggregation_averages_quality_scores() {
     let a = TenantId::new();
     let b = TenantId::new();
     let now = Utc::now();
-    let graph = TrustGraph::from_observations_at(
-        &[obs(b, a, 0.6, now), obs(b, a, 1.0, now)],
-        now,
-    );
+    let graph = TrustGraph::from_observations_at(&[obs(b, a, 0.6, now), obs(b, a, 1.0, now)], now);
     let w = graph.direct_trust(&a, &b).expect("edge exists");
     assert!(
         (w - 0.8).abs() < 1e-3,
@@ -143,7 +140,11 @@ fn cycle_does_not_deadlock_bfs() {
     let c = TenantId::new();
     let now = Utc::now();
     let graph = TrustGraph::from_observations_at(
-        &[obs(b, a, 0.5, now), obs(c, b, 0.5, now), obs(a, c, 0.5, now)],
+        &[
+            obs(b, a, 0.5, now),
+            obs(c, b, 0.5, now),
+            obs(a, c, 0.5, now),
+        ],
         now,
     );
     // a→b (direct, 0.5) is the only 1-hop trust into b.
@@ -163,7 +164,11 @@ fn neighbors_returns_all_outgoing_edges() {
     let d = TenantId::new();
     let now = Utc::now();
     let graph = TrustGraph::from_observations_at(
-        &[obs(b, a, 0.8, now), obs(c, a, 0.5, now), obs(d, b, 0.4, now)],
+        &[
+            obs(b, a, 0.8, now),
+            obs(c, a, 0.5, now),
+            obs(d, b, 0.4, now),
+        ],
         now,
     );
     let mut targets: Vec<TenantId> = graph
@@ -209,10 +214,7 @@ fn linear_time_decay_drops_observations_outside_window() {
     let b = TenantId::new();
     let now = Utc::now();
     let old = now - Duration::days(120);
-    let graph = TrustGraph::from_observations_at(
-        &[obs(b, a, 0.1, old), obs(b, a, 0.9, now)],
-        now,
-    );
+    let graph = TrustGraph::from_observations_at(&[obs(b, a, 0.1, old), obs(b, a, 0.9, now)], now);
     let w = graph.direct_trust(&a, &b).expect("edge exists");
     assert!(
         (w - 0.9).abs() < 1e-3,

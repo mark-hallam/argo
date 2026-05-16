@@ -83,9 +83,8 @@ impl SmsApprovalChannel {
     /// Create an SMS approval channel.
     #[must_use]
     pub fn new(config: SmsApprovalChannelConfig) -> Self {
-        let rate_limit = RateLimit::from_config(
-            RateLimitConfig::sms_default().with_override(config.rate_limit),
-        );
+        let rate_limit =
+            RateLimit::from_config(RateLimitConfig::sms_default().with_override(config.rate_limit));
         Self {
             config,
             client: reqwest::Client::new(),

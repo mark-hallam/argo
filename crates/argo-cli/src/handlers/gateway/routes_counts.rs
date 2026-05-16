@@ -20,8 +20,7 @@ pub(super) async fn dispatch_sessions_count(
     let tail = req.strip_prefix("GET ").unwrap_or(req);
     let status = parse_query_kv(tail, "status");
     let since = parse_since_minutes_from_get(req, "/sessions/count");
-    let older_than =
-        parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
+    let older_than = parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
     let provider = parse_query_kv(tail, "provider");
     let model = parse_query_kv(tail, "model");
     sessions_count_response(

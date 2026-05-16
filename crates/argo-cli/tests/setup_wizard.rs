@@ -8,7 +8,11 @@ use std::process::{Command, Output};
 fn setup_wizard_non_interactive_json_has_seven_steps() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
-    let out = run(home.path(), work.path(), &["setup", "--non-interactive", "--json"]);
+    let out = run(
+        home.path(),
+        work.path(),
+        &["setup", "--non-interactive", "--json"],
+    );
     assert_success(&out);
     let value: Value = serde_json::from_slice(&out.stdout).unwrap();
     let steps = value["steps"].as_array().unwrap();

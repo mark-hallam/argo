@@ -29,9 +29,7 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
-use argo_executor_document_gsuite::{
-    DocumentGsuite, GsuiteAuthConfig, GsuiteWriteRequest,
-};
+use argo_executor_document_gsuite::{DocumentGsuite, GsuiteAuthConfig, GsuiteWriteRequest};
 use argo_types::{ArgoError, ArgoResult};
 use std::path::{Path, PathBuf};
 

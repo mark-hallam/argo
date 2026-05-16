@@ -44,7 +44,9 @@ pub(super) async fn list_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return super::store_unavailable() };
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
     let worker_id = match parse_worker_id(worker_id_raw) {
         Ok(id) => id,
         Err(r) => return r,
@@ -55,7 +57,10 @@ pub(super) async fn list_response(
     };
     let policy = RedactionPolicy::default();
     let facts = match fetch_active_facts(store, &ctx).await {
-        Ok(rs) => rs.into_iter().map(|r| fact_json(&r, &policy)).collect::<Vec<_>>(),
+        Ok(rs) => rs
+            .into_iter()
+            .map(|r| fact_json(&r, &policy))
+            .collect::<Vec<_>>(),
         Err(e) => return server_error(&format!("fact list: {e}")),
     };
     let visible = parse_role_header(req).as_deref().is_some_and(role_shows_ns);
@@ -72,8 +77,14 @@ pub(super) async fn list_response(
             Value::Null
         },
     });
-    emit_audit(store, req, &ctx, "worker.memory.viewed", json!({ "facts_returned": facts.len() }))
-        .await;
+    emit_audit(
+        store,
+        req,
+        &ctx,
+        "worker.memory.viewed",
+        json!({ "facts_returned": facts.len() }),
+    )
+    .await;
     ("200 OK", body.to_string())
 }
 
@@ -178,7 +189,9 @@ pub(super) async fn fact_delete_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return super::store_unavailable() };
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
     let worker_id = match parse_worker_id(worker_id_raw) {
         Ok(id) => id,
         Err(r) => return r,
@@ -198,7 +211,12 @@ pub(super) async fn fact_delete_response(
     };
     let old_text = existing.body.clone();
     if let Err(e) = MemoryStore::new(Arc::clone(store))
-        .supersede(fact_id, FACT_TOMBSTONE_MARKER.into(), None, PrincipalOverride::Agent)
+        .supersede(
+            fact_id,
+            FACT_TOMBSTONE_MARKER.into(),
+            None,
+            PrincipalOverride::Agent,
+        )
         .await
     {
         return server_error(&format!("fact delete: {e}"));
@@ -234,10 +252,7 @@ async fn prepare_with_existing_fact<'s>(
     worker_id_raw: &str,
     fact_id_raw: &str,
     req: &str,
-) -> Result<
-    (&'s Arc<SessionStore>, WorkerCtx, String, Uuid, MemoryEntry),
-    (&'static str, String),
-> {
+) -> Result<(&'s Arc<SessionStore>, WorkerCtx, String, Uuid, MemoryEntry), (&'static str, String)> {
     let store = store.ok_or_else(super::store_unavailable)?;
     let worker_id = parse_worker_id(worker_id_raw)?;
     let fact_id = parse_fact_id(fact_id_raw)?;

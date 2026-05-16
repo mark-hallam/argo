@@ -72,7 +72,9 @@ impl SpanGuard {
     /// Used by `TracingTelemetry` when the `otlp` feature is off.
     #[cfg(not(feature = "otlp"))]
     pub(crate) fn from_tracing(entered: tracing::span::EnteredSpan) -> Self {
-        Self { _tracing: Some(entered) }
+        Self {
+            _tracing: Some(entered),
+        }
     }
 
     /// Build a guard that owns both an entered `tracing` span and a

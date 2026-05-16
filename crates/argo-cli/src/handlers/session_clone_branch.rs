@@ -47,13 +47,8 @@ pub async fn stats_session(raw: &str, json: bool) -> ArgoResult<()> {
         .list_messages(id)
         .await
         .map_err(|e| ArgoError::Provider(format!("list_messages: {e}")))?;
-    let (mut user, mut assistant, mut tool, mut system, mut other): (
-        u64,
-        u64,
-        u64,
-        u64,
-        u64,
-    ) = (0, 0, 0, 0, 0);
+    let (mut user, mut assistant, mut tool, mut system, mut other): (u64, u64, u64, u64, u64) =
+        (0, 0, 0, 0, 0);
     for r in &rows {
         match r.role.as_str() {
             "user" => user += 1,
@@ -127,8 +122,7 @@ pub async fn stats_session(raw: &str, json: bool) -> ArgoResult<()> {
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -153,8 +147,7 @@ async fn clone_or_branch(
         .await
         .map_err(|e| ArgoError::Provider(format!("get_session: {e}")))?
         .ok_or_else(|| ArgoError::Provider(format!("no session {}", src.0)))?;
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())

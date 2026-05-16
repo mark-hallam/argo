@@ -24,14 +24,22 @@ async fn set_then_show_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "okr", "set",
+            "worker",
+            "okr",
+            "set",
             worker_id,
-            "--tenant", tenant_id,
-            "--period", "2026Q2",
-            "--title", "Lift CSAT",
-            "--description", "Drive csat above 4.5 across the quarter",
-            "--kr", "csat:gte:4.5:2.0",
-            "--kr", "reply_sla_hours:lte:12.0:1.0",
+            "--tenant",
+            tenant_id,
+            "--period",
+            "2026Q2",
+            "--title",
+            "Lift CSAT",
+            "--description",
+            "Drive csat above 4.5 across the quarter",
+            "--kr",
+            "csat:gte:4.5:2.0",
+            "--kr",
+            "reply_sla_hours:lte:12.0:1.0",
             "--json",
         ],
     );
@@ -44,18 +52,21 @@ async fn set_then_show_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "okr", "show",
-            worker_id,
-            "--tenant", tenant_id,
-            "--period", "2026Q2",
+            "worker", "okr", "show", worker_id, "--tenant", tenant_id, "--period", "2026Q2",
             "--format", "markdown",
         ],
     );
     assert_success(&md);
     let stdout = String::from_utf8_lossy(&md.stdout);
     assert!(stdout.contains("# Worker"), "header present:\n{stdout}");
-    assert!(stdout.contains("## 2026Q2 — Lift CSAT"), "objective heading:\n{stdout}");
-    assert!(stdout.contains("| csat | gte | 4.5000 | 2.0000 |"), "csat KR:\n{stdout}");
+    assert!(
+        stdout.contains("## 2026Q2 — Lift CSAT"),
+        "objective heading:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("| csat | gte | 4.5000 | 2.0000 |"),
+        "csat KR:\n{stdout}"
+    );
     assert!(
         stdout.contains("| reply_sla_hours | lte | 12.0000 | 1.0000 |"),
         "sla KR:\n{stdout}"
@@ -66,10 +77,7 @@ async fn set_then_show_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "okr", "show",
-            worker_id,
-            "--tenant", tenant_id,
-            "--period", "2027Q1",
+            "worker", "okr", "show", worker_id, "--tenant", tenant_id, "--period", "2027Q1",
             "--format", "json",
         ],
     );
@@ -89,13 +97,20 @@ async fn progress_joins_latest_kpi_observation() {
         &home,
         work.path(),
         &[
-            "worker", "okr", "set",
+            "worker",
+            "okr",
+            "set",
             worker_id,
-            "--tenant", tenant_id,
-            "--period", "2026Q2",
-            "--title", "Lift CSAT",
-            "--kr", "csat:gte:4.5:2.0",
-            "--kr", "reply_sla_hours:lte:12.0:1.0",
+            "--tenant",
+            tenant_id,
+            "--period",
+            "2026Q2",
+            "--title",
+            "Lift CSAT",
+            "--kr",
+            "csat:gte:4.5:2.0",
+            "--kr",
+            "reply_sla_hours:lte:12.0:1.0",
             "--json",
         ],
     );
@@ -106,19 +121,21 @@ async fn progress_joins_latest_kpi_observation() {
         &home,
         work.path(),
         &[
-            "worker", "kpi", "record",
-            worker_id, "csat", "4.7",
-            "--tenant", tenant_id,
-            "--json",
+            "worker", "kpi", "record", worker_id, "csat", "4.7", "--tenant", tenant_id, "--json",
         ],
     ));
     assert_success(&run(
         &home,
         work.path(),
         &[
-            "worker", "kpi", "record",
-            worker_id, "reply_sla_hours", "24.0",
-            "--tenant", tenant_id,
+            "worker",
+            "kpi",
+            "record",
+            worker_id,
+            "reply_sla_hours",
+            "24.0",
+            "--tenant",
+            tenant_id,
             "--json",
         ],
     ));
@@ -128,10 +145,7 @@ async fn progress_joins_latest_kpi_observation() {
         &home,
         work.path(),
         &[
-            "worker", "okr", "progress",
-            worker_id,
-            "--tenant", tenant_id,
-            "--period", "2026Q2",
+            "worker", "okr", "progress", worker_id, "--tenant", tenant_id, "--period", "2026Q2",
             "--json",
         ],
     );
@@ -148,10 +162,7 @@ async fn progress_joins_latest_kpi_observation() {
     let krs = report["key_results"].as_array().unwrap();
     let csat = krs.iter().find(|k| k["kpi"] == "csat").unwrap();
     assert_eq!(csat["achieved"], true);
-    let sla = krs
-        .iter()
-        .find(|k| k["kpi"] == "reply_sla_hours")
-        .unwrap();
+    let sla = krs.iter().find(|k| k["kpi"] == "reply_sla_hours").unwrap();
     assert_eq!(sla["achieved"], false);
 }
 
@@ -166,14 +177,14 @@ async fn rejects_invalid_period_and_zero_weight() {
         .env("ARGO_HOME", home.path())
         .current_dir(work.path())
         .args([
-            "worker", "okr", "show",
-            worker_id,
-            "--tenant", tenant_id,
-            "--period", "2026q2",
+            "worker", "okr", "show", worker_id, "--tenant", tenant_id, "--period", "2026q2",
         ])
         .output()
         .unwrap();
-    assert!(!bad_period.status.success(), "expected failure for bad period");
+    assert!(
+        !bad_period.status.success(),
+        "expected failure for bad period"
+    );
     let stderr = String::from_utf8_lossy(&bad_period.stderr);
     assert!(stderr.contains("YYYYQ"), "stderr:\n{stderr}");
 
@@ -181,16 +192,25 @@ async fn rejects_invalid_period_and_zero_weight() {
         .env("ARGO_HOME", home.path())
         .current_dir(work.path())
         .args([
-            "worker", "okr", "set",
+            "worker",
+            "okr",
+            "set",
             worker_id,
-            "--tenant", tenant_id,
-            "--period", "2026Q3",
-            "--title", "x",
-            "--kr", "csat:gte:4.5:0",
+            "--tenant",
+            tenant_id,
+            "--period",
+            "2026Q3",
+            "--title",
+            "x",
+            "--kr",
+            "csat:gte:4.5:0",
         ])
         .output()
         .unwrap();
-    assert!(!zero_weight.status.success(), "expected failure for zero weight");
+    assert!(
+        !zero_weight.status.success(),
+        "expected failure for zero weight"
+    );
     let stderr = String::from_utf8_lossy(&zero_weight.stderr);
     assert!(stderr.contains("weight"), "stderr:\n{stderr}");
 }

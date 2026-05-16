@@ -42,9 +42,9 @@ fn build_query_uses_or_decisions_and_params() {
     assert!(sql.contains("worker = ?"));
     assert!(sql.contains("ORDER BY requested_at ASC, id ASC"));
     assert!(!sql.contains("DROP TABLE"));
-    assert!(params.iter().any(|p| {
-        matches!(p, Param::Text(v) if v == "'; DROP TABLE memory_entry; --")
-    }));
+    assert!(params
+        .iter()
+        .any(|p| { matches!(p, Param::Text(v) if v == "'; DROP TABLE memory_entry; --") }));
 }
 
 #[test]
@@ -85,7 +85,10 @@ fn render_json_and_jsonl_shapes() {
 #[test]
 fn payload_excerpt_truncates_and_escapes_newlines() {
     let raw = format!("{}{}", "a".repeat(80), "\nzzz");
-    assert_eq!(payload_excerpt(Some(&raw)), format!("{}...", "a".repeat(80)));
+    assert_eq!(
+        payload_excerpt(Some(&raw)),
+        format!("{}...", "a".repeat(80))
+    );
     assert_eq!(payload_excerpt(Some("a\nb")), "a\\nb");
 }
 

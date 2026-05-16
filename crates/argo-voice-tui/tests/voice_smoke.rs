@@ -16,9 +16,7 @@
 //!    without error — full-fidelity transcription verification is
 //!    a manual operator check (no model is bundled in the repo).
 
-use argo_voice_tui::{
-    run_one_tick, MockRecognizer, PendingApproval, RunnerConfig, TickOutcome,
-};
+use argo_voice_tui::{run_one_tick, MockRecognizer, PendingApproval, RunnerConfig, TickOutcome};
 
 fn fixture() -> Vec<PendingApproval> {
     vec![
@@ -40,11 +38,7 @@ fn fixture() -> Vec<PendingApproval> {
 #[test]
 fn smoke_approve_then_quit() {
     // Operator approves Maria, then quits.
-    let mut r = MockRecognizer::new([
-        "Argo approve Maria",
-        "yes",
-        "Argo quit",
-    ]);
+    let mut r = MockRecognizer::new(["Argo approve Maria", "yes", "Argo quit"]);
     let cfg = RunnerConfig::default();
     let pending = fixture();
 
@@ -59,11 +53,7 @@ fn smoke_approve_then_quit() {
 fn smoke_reprompt_then_approve_current() {
     // Operator says nonsense, then says "approve" without naming
     // a worker — should target the focused entry (Maya at index 0).
-    let mut r = MockRecognizer::new([
-        "Argo schedule a meeting",
-        "Argo approve",
-        "yes",
-    ]);
+    let mut r = MockRecognizer::new(["Argo schedule a meeting", "Argo approve", "yes"]);
     let cfg = RunnerConfig::default();
     let pending = fixture();
 
@@ -106,7 +96,7 @@ fn whisper_recognizer_loads_model_when_env_set() {
         emitted = true;
         Ok(silence.clone())
     });
-    let mut rec = WhisperRecognizer::new(&model, next, Some("en".into()))
-        .expect("WhisperRecognizer::new");
+    let mut rec =
+        WhisperRecognizer::new(&model, next, Some("en".into())).expect("WhisperRecognizer::new");
     let _ = rec.transcribe_next().expect("transcribe_next");
 }

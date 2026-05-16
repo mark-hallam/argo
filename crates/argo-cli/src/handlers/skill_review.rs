@@ -97,10 +97,7 @@ async fn promote(
                 "vote": feedback.vote.as_str(),
             });
         }
-        println!(
-            "{}",
-            serde_json::to_string(&body).unwrap_or_default()
-        );
+        println!("{}", serde_json::to_string(&body).unwrap_or_default());
     } else {
         println!(
             "promoted memory candidate `{memory_id}` -> skill `{}` (id={}) in pending_review",
@@ -338,7 +335,9 @@ async fn transition(
         LifecycleState::Rejected => AuditKind::SkillRejected,
         _ => AuditKind::SkillApproved,
     };
-    audit.write(pre.learned_in, kind, payload.clone(), None).await?;
+    audit
+        .write(pre.learned_in, kind, payload.clone(), None)
+        .await?;
 
     if json {
         println!(

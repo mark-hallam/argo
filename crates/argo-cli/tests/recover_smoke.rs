@@ -40,9 +40,7 @@ fn assert_ok(out: &Output, label: &str) {
     );
 }
 
-async fn seed_session_with_failing_chain(
-    home: &Path,
-) -> ArgoResult<(SessionId, String)> {
+async fn seed_session_with_failing_chain(home: &Path) -> ArgoResult<(SessionId, String)> {
     let store = SessionStore::open(home.join("sessions.db")).await?;
     store.migrate().await?;
     let root = home.to_string_lossy().to_string();
@@ -136,14 +134,9 @@ async fn cache_hit_returns_seeded_suggestions_without_llm_call() {
             {"rank": 2, "title": "raise timeout", "command": "argo worker update", "rationale": "slow"}
         ]
     });
-    write_recovery_cache(
-        home.path(),
-        session,
-        &chain_hash,
-        &suggestions.to_string(),
-    )
-    .await
-    .unwrap();
+    write_recovery_cache(home.path(), session, &chain_hash, &suggestions.to_string())
+        .await
+        .unwrap();
 
     // Run with NO ANTHROPIC_API_KEY — must hit cache.
     let out = Command::new(argo_bin())
@@ -157,7 +150,10 @@ async fn cache_hit_returns_seeded_suggestions_without_llm_call() {
     let envelope: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(envelope["from_cache"], true);
     assert_eq!(envelope["chain_hash"], chain_hash);
-    assert_eq!(envelope["suggestions"]["likely_cause"], "Tool exited with non-zero status");
+    assert_eq!(
+        envelope["suggestions"]["likely_cause"],
+        "Tool exited with non-zero status"
+    );
     let fixes = envelope["suggestions"]["fixes"].as_array().unwrap();
     assert_eq!(fixes.len(), 2);
 }
@@ -178,7 +174,10 @@ fn missing_session_audit_chain_errors_cleanly() {
         .args(["recover", &unknown_session])
         .output()
         .unwrap();
-    assert!(!bad.status.success(), "expected non-zero on unknown session");
+    assert!(
+        !bad.status.success(),
+        "expected non-zero on unknown session"
+    );
     let stderr = String::from_utf8_lossy(&bad.stderr);
     assert!(
         stderr.contains("no audit rows") || stderr.contains("invalid"),

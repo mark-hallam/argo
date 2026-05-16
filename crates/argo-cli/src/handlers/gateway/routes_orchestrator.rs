@@ -4,9 +4,7 @@
 //! [`super::routes_orchestrator_handoffs`] to keep this file under the
 //! 500-LOC budget. They are re-exported below so the dispatcher (and
 //! external callers, if any) resolve the same paths as before the split.
-use argo_orchestrator::{
-    HandoffStatus, OrchestratorStore, Session, SessionStatus,
-};
+use argo_orchestrator::{HandoffStatus, OrchestratorStore, Session, SessionStatus};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{TimeZone, Utc};
@@ -57,7 +55,14 @@ async fn route(
             patch_session(&repo, tenant, p, body_json.as_ref()).await
         }
         _ if super::routes_orchestrator_slas::is_sla_path(method, path) => {
-            super::routes_orchestrator_slas::dispatch(method, path, store, tenant, body_json.as_ref()).await
+            super::routes_orchestrator_slas::dispatch(
+                method,
+                path,
+                store,
+                tenant,
+                body_json.as_ref(),
+            )
+            .await
         }
         ("GET", "/handoffs") => list_handoffs(store, target, tenant).await,
         ("GET", p) if p.starts_with("/handoffs/") => show_handoff(&repo, tenant, p).await,
@@ -102,7 +107,12 @@ async fn show_session(
         .filter(|h| h.status == HandoffStatus::Pending)
         .map(|h| handoff_json(&h))
         .collect();
-    Ok(("200 OK", to_body(&json!({"session":session,"participants":session.participants,"pending_handoffs":pending}))))
+    Ok((
+        "200 OK",
+        to_body(
+            &json!({"session":session,"participants":session.participants,"pending_handoffs":pending}),
+        ),
+    ))
 }
 
 async fn patch_session(
@@ -132,7 +142,11 @@ async fn list_sessions(
 ) -> Result<(&'static str, String), (&'static str, String)> {
     let q = query(target, &["tenant", "status", "limit"])?;
     let status = q.get("status").map(String::as_str);
-    let limit = q.get("limit").and_then(|v| v.parse::<i64>().ok()).unwrap_or(50).clamp(1, 500);
+    let limit = q
+        .get("limit")
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(50)
+        .clamp(1, 500);
     let mut sql = "SELECT id,title,status,participants,created_at,deadline FROM session WHERE tenant_id=? AND provider='orchestrator'".to_string();
     if status.is_some() {
         sql.push_str(" AND status=?");
@@ -145,8 +159,16 @@ async fn list_sessions(
         }
         stmt = stmt.bind(s);
     }
-    let rows = stmt.bind(limit).fetch_all(store.pool()).await.map_err(server)?;
-    let out: Vec<_> = rows.iter().map(session_row_json).collect::<ArgoResult<_>>().map_err(server)?;
+    let rows = stmt
+        .bind(limit)
+        .fetch_all(store.pool())
+        .await
+        .map_err(server)?;
+    let out: Vec<_> = rows
+        .iter()
+        .map(session_row_json)
+        .collect::<ArgoResult<_>>()
+        .map_err(server)?;
     Ok(("200 OK", to_body(&json!({"sessions":out}))))
 }
 
@@ -156,7 +178,8 @@ fn is_orchestrator_path(method: &str, path: &str, req: &str) -> bool {
         || super::routes_orchestrator_slas::is_sla_path(method, path)
         || method == "PATCH" && path.starts_with("/sessions/")
         || path.starts_with("/sessions/") && (target_has_tenant(req) || default_tenant().is_some())
-        || path == "/sessions" && (target_has_tenant(req) || body_has_tenant(req) || default_tenant().is_some())
+        || path == "/sessions"
+            && (target_has_tenant(req) || body_has_tenant(req) || default_tenant().is_some())
 }
 
 fn auth(req: &str, tenant: TenantId) -> Result<(), (&'static str, String)> {
@@ -181,10 +204,16 @@ fn tenant_from_req(target: &str, body: Option<&Value>) -> Result<TenantId, (&'st
     let raw = query(target, &["tenant", "status", "limit", "session", "worker"])?
         .get("tenant")
         .cloned()
-        .or_else(|| body.and_then(|v| v.get("tenant_id")).and_then(Value::as_str).map(str::to_string))
+        .or_else(|| {
+            body.and_then(|v| v.get("tenant_id"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .or_else(default_tenant)
         .ok_or_else(|| bad("missing tenant"))?;
-    uuid::Uuid::parse_str(&raw).map(TenantId).map_err(|e| bad_owned(format!("invalid tenant '{raw}': {e}")))
+    uuid::Uuid::parse_str(&raw)
+        .map(TenantId)
+        .map_err(|e| bad_owned(format!("invalid tenant '{raw}': {e}")))
 }
 
 fn request_line(req: &str) -> Option<(&str, &str)> {
@@ -192,8 +221,13 @@ fn request_line(req: &str) -> Option<(&str, &str)> {
     Some((parts.next()?, parts.next()?))
 }
 
-pub(super) fn query(target: &str, allowed: &[&str]) -> Result<std::collections::HashMap<String, String>, (&'static str, String)> {
-    let Some((_, raw)) = target.split_once('?') else { return Ok(Default::default()); };
+pub(super) fn query(
+    target: &str,
+    allowed: &[&str],
+) -> Result<std::collections::HashMap<String, String>, (&'static str, String)> {
+    let Some((_, raw)) = target.split_once('?') else {
+        return Ok(Default::default());
+    };
     let mut out = std::collections::HashMap::new();
     for kv in raw.split('&').filter(|s| !s.is_empty()) {
         let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
@@ -209,7 +243,9 @@ fn parse_body(raw: &str) -> Result<Option<Value>, (&'static str, String)> {
     if raw.trim().is_empty() {
         return Ok(None);
     }
-    serde_json::from_str(raw).map(Some).map_err(|e| bad_owned(format!("parse JSON body: {e}")))
+    serde_json::from_str(raw)
+        .map(Some)
+        .map_err(|e| bad_owned(format!("parse JSON body: {e}")))
 }
 
 pub(super) fn path_id<'a>(path: &'a str, prefix: &str) -> Result<&'a str, (&'static str, String)> {
@@ -221,15 +257,22 @@ pub(super) fn path_id<'a>(path: &'a str, prefix: &str) -> Result<&'a str, (&'sta
 fn session_row_json(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<Value> {
     let id: Vec<u8> = row.try_get("id").map_err(db)?;
     let participants: String = row.try_get("participants").map_err(db)?;
-    Ok(json!({"id":uuid_blob(&id)?,"title":row.try_get::<Option<String>,_>("title").map_err(db)?,"status":row.try_get::<String,_>("status").map_err(db)?,"participants":serde_json::from_str::<Value>(&participants).unwrap_or_else(|_| json!([])),"created_at":micros(row.try_get("created_at").map_err(db)?)?,"deadline":opt_micros(row.try_get("deadline").map_err(db)?)?}))
+    Ok(
+        json!({"id":uuid_blob(&id)?,"title":row.try_get::<Option<String>,_>("title").map_err(db)?,"status":row.try_get::<String,_>("status").map_err(db)?,"participants":serde_json::from_str::<Value>(&participants).unwrap_or_else(|_| json!([])),"created_at":micros(row.try_get("created_at").map_err(db)?)?,"deadline":opt_micros(row.try_get("deadline").map_err(db)?)?}),
+    )
 }
 
 pub(super) fn uuid_blob(bytes: &[u8]) -> ArgoResult<String> {
-    uuid::Uuid::from_slice(bytes).map(|u| u.to_string()).map_err(|e| ArgoError::Invariant(format!("uuid blob: {e}")))
+    uuid::Uuid::from_slice(bytes)
+        .map(|u| u.to_string())
+        .map_err(|e| ArgoError::Invariant(format!("uuid blob: {e}")))
 }
 
 pub(super) fn micros(v: i64) -> ArgoResult<String> {
-    Utc.timestamp_micros(v).single().map(|d| d.to_rfc3339()).ok_or_else(|| ArgoError::Provider("timestamp out of range".into()))
+    Utc.timestamp_micros(v)
+        .single()
+        .map(|d| d.to_rfc3339())
+        .ok_or_else(|| ArgoError::Provider("timestamp out of range".into()))
 }
 
 pub(super) fn opt_micros(v: Option<i64>) -> ArgoResult<Option<String>> {
@@ -237,7 +280,10 @@ pub(super) fn opt_micros(v: Option<i64>) -> ArgoResult<Option<String>> {
 }
 
 fn header<'a>(req: &'a str, key: &str) -> Option<&'a str> {
-    req.lines().find_map(|l| l.split_once(':').and_then(|(k, v)| k.eq_ignore_ascii_case(key).then(|| v.trim())))
+    req.lines().find_map(|l| {
+        l.split_once(':')
+            .and_then(|(k, v)| k.eq_ignore_ascii_case(key).then(|| v.trim()))
+    })
 }
 
 fn cookie(req: &str, key: &str) -> Option<String> {
@@ -249,17 +295,31 @@ fn cookie(req: &str, key: &str) -> Option<String> {
 
 fn default_tenant() -> Option<String> {
     let cfg = argo_config::load().unwrap_or_default();
-    cfg.channels.webinbox.tenant_id.filter(|s| !s.is_empty()).or_else(|| (!cfg.tenant.default_id.is_empty() && cfg.tenant.default_id != argo_config::defaults::DEFAULT_TENANT_ID).then_some(cfg.tenant.default_id))
+    cfg.channels
+        .webinbox
+        .tenant_id
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            (!cfg.tenant.default_id.is_empty()
+                && cfg.tenant.default_id != argo_config::defaults::DEFAULT_TENANT_ID)
+                .then_some(cfg.tenant.default_id)
+        })
 }
 
 fn target_has_tenant(req: &str) -> bool {
     request_line(req)
         .and_then(|(_, target)| target.split_once('?').map(|(_, raw)| raw))
-        .is_some_and(|raw| raw.split('&').any(|kv| kv.split_once('=').unwrap_or((kv, "")).0 == "tenant"))
+        .is_some_and(|raw| {
+            raw.split('&')
+                .any(|kv| kv.split_once('=').unwrap_or((kv, "")).0 == "tenant")
+        })
 }
 
 fn body_has_tenant(req: &str) -> bool {
-    serde_json::from_str::<Value>(super::body_from_request(req)).ok().and_then(|v| v.get("tenant_id").cloned()).is_some()
+    serde_json::from_str::<Value>(super::body_from_request(req))
+        .ok()
+        .and_then(|v| v.get("tenant_id").cloned())
+        .is_some()
 }
 
 pub(super) fn to_body(v: &impl serde::Serialize) -> String {
@@ -269,12 +329,27 @@ pub(super) fn to_body(v: &impl serde::Serialize) -> String {
 pub(super) fn bad(msg: &str) -> (&'static str, String) {
     ("400 Bad Request", json!({"error":msg}).to_string())
 }
-pub(super) fn bad_owned(msg: String) -> (&'static str, String) { ("400 Bad Request", json!({"error":msg}).to_string()) }
-fn unauthorized(msg: &str) -> (&'static str, String) { ("401 Unauthorized", json!({"error":msg}).to_string()) }
-fn forbidden(msg: &str) -> (&'static str, String) { ("403 Forbidden", json!({"error":msg}).to_string()) }
-pub(super) fn not_found() -> (&'static str, String) { ("404 Not Found", json!({"error":"not found"}).to_string()) }
-pub(super) fn server(e: impl std::fmt::Display) -> (&'static str, String) { ("500 Internal Server Error", json!({"error":e.to_string()}).to_string()) }
-pub(super) fn db(e: impl std::fmt::Display) -> ArgoError { ArgoError::Provider(e.to_string()) }
+pub(super) fn bad_owned(msg: String) -> (&'static str, String) {
+    ("400 Bad Request", json!({"error":msg}).to_string())
+}
+fn unauthorized(msg: &str) -> (&'static str, String) {
+    ("401 Unauthorized", json!({"error":msg}).to_string())
+}
+fn forbidden(msg: &str) -> (&'static str, String) {
+    ("403 Forbidden", json!({"error":msg}).to_string())
+}
+pub(super) fn not_found() -> (&'static str, String) {
+    ("404 Not Found", json!({"error":"not found"}).to_string())
+}
+pub(super) fn server(e: impl std::fmt::Display) -> (&'static str, String) {
+    (
+        "500 Internal Server Error",
+        json!({"error":e.to_string()}).to_string(),
+    )
+}
+pub(super) fn db(e: impl std::fmt::Display) -> ArgoError {
+    ArgoError::Provider(e.to_string())
+}
 pub(super) fn conflict_or_server(e: ArgoError) -> (&'static str, String) {
     if matches!(e, ArgoError::Invariant(_)) {
         ("409 Conflict", json!({"error":e.to_string()}).to_string())
@@ -291,7 +366,9 @@ mod tests {
     static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
     fn req(method: &str, target: &str, token: Option<&str>, body: &str) -> String {
-        let auth = token.map(|t| format!("Authorization: Bearer {t}\r\n")).unwrap_or_default();
+        let auth = token
+            .map(|t| format!("Authorization: Bearer {t}\r\n"))
+            .unwrap_or_default();
         format!("{method} {target} HTTP/1.1\r\n{auth}\r\n{body}")
     }
 
@@ -305,28 +382,151 @@ mod tests {
     async fn orchestrator_routes_auth_and_lifecycle() {
         let _guard = ENV_LOCK.lock().await;
         std::env::set_var("ARGO_WEBINBOX_BEARER_TOKEN", "tok");
-        std::env::set_var("ARGO_WEBINBOX_TENANT_ID", "019aff00-0000-7000-8000-000000000101");
+        std::env::set_var(
+            "ARGO_WEBINBOX_TENANT_ID",
+            "019aff00-0000-7000-8000-000000000101",
+        );
         let store = store().await;
         let tenant = "019aff00-0000-7000-8000-000000000101";
         let other = "019aff00-0000-7000-8000-000000000102";
-        assert_eq!(dispatch_route(&req("GET", &format!("/sessions?tenant={tenant}"), None, ""), Some(&store)).await.unwrap().0, "401 Unauthorized");
-        assert_eq!(dispatch_route(&req("GET", &format!("/sessions?tenant={tenant}"), Some("bad"), ""), Some(&store)).await.unwrap().0, "401 Unauthorized");
-        assert_eq!(dispatch_route(&req("GET", &format!("/sessions?tenant={other}"), Some("tok"), ""), Some(&store)).await.unwrap().0, "403 Forbidden");
-        assert_eq!(dispatch_route(&req("GET", &format!("/sessions?tenant={tenant}&oops=1"), Some("tok"), ""), Some(&store)).await.unwrap().0, "400 Bad Request");
-        let (status, body) = dispatch_route(&req("POST", "/sessions", Some("tok"), &json!({"tenant_id":tenant,"title":"demo"}).to_string()), Some(&store)).await.unwrap();
+        assert_eq!(
+            dispatch_route(
+                &req("GET", &format!("/sessions?tenant={tenant}"), None, ""),
+                Some(&store)
+            )
+            .await
+            .unwrap()
+            .0,
+            "401 Unauthorized"
+        );
+        assert_eq!(
+            dispatch_route(
+                &req(
+                    "GET",
+                    &format!("/sessions?tenant={tenant}"),
+                    Some("bad"),
+                    ""
+                ),
+                Some(&store)
+            )
+            .await
+            .unwrap()
+            .0,
+            "401 Unauthorized"
+        );
+        assert_eq!(
+            dispatch_route(
+                &req("GET", &format!("/sessions?tenant={other}"), Some("tok"), ""),
+                Some(&store)
+            )
+            .await
+            .unwrap()
+            .0,
+            "403 Forbidden"
+        );
+        assert_eq!(
+            dispatch_route(
+                &req(
+                    "GET",
+                    &format!("/sessions?tenant={tenant}&oops=1"),
+                    Some("tok"),
+                    ""
+                ),
+                Some(&store)
+            )
+            .await
+            .unwrap()
+            .0,
+            "400 Bad Request"
+        );
+        let (status, body) = dispatch_route(
+            &req(
+                "POST",
+                "/sessions",
+                Some("tok"),
+                &json!({"tenant_id":tenant,"title":"demo"}).to_string(),
+            ),
+            Some(&store),
+        )
+        .await
+        .unwrap();
         assert_eq!(status, "201 Created");
-        let sid = serde_json::from_str::<Value>(&body).unwrap()["id"].as_str().unwrap().to_string();
+        let sid = serde_json::from_str::<Value>(&body).unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
         let repo = OrchestratorStore::new(Arc::clone(&store));
         let from = WorkerId::new();
         let to = WorkerId::new();
-        let h = Handoff::new(argo_orchestrator::SessionId::from_string(sid.clone()), from, EscalationStep::Worker(to), "finish", json!({"k":1}));
-        repo.insert_handoff(TenantId(uuid::Uuid::parse_str(tenant).unwrap()), &h).await.unwrap();
-        for target in [format!("/sessions?tenant={tenant}&status=active"), format!("/sessions/{sid}?tenant={tenant}"), format!("/handoffs?tenant={tenant}&session={sid}"), format!("/handoffs/{}?tenant={tenant}", h.id)] {
-            assert_eq!(dispatch_route(&req("GET", &target, Some("tok"), ""), Some(&store)).await.unwrap().0, "200 OK");
+        let h = Handoff::new(
+            argo_orchestrator::SessionId::from_string(sid.clone()),
+            from,
+            EscalationStep::Worker(to),
+            "finish",
+            json!({"k":1}),
+        );
+        repo.insert_handoff(TenantId(uuid::Uuid::parse_str(tenant).unwrap()), &h)
+            .await
+            .unwrap();
+        for target in [
+            format!("/sessions?tenant={tenant}&status=active"),
+            format!("/sessions/{sid}?tenant={tenant}"),
+            format!("/handoffs?tenant={tenant}&session={sid}"),
+            format!("/handoffs/{}?tenant={tenant}", h.id),
+        ] {
+            assert_eq!(
+                dispatch_route(&req("GET", &target, Some("tok"), ""), Some(&store))
+                    .await
+                    .unwrap()
+                    .0,
+                "200 OK"
+            );
         }
-        assert_eq!(dispatch_route(&req("PATCH", &format!("/handoffs/{}/status?tenant={tenant}", h.id), Some("tok"), r#"{"status":"acknowledged"}"#), Some(&store)).await.unwrap().0, "200 OK");
-        assert_eq!(dispatch_route(&req("PATCH", &format!("/sessions/{sid}/status?tenant={tenant}"), Some("tok"), r#"{"status":"resolved"}"#), Some(&store)).await.unwrap().0, "200 OK");
-        assert_eq!(dispatch_route(&req("PATCH", &format!("/sessions/{sid}/status?tenant={tenant}"), Some("tok"), r#"{"status":"cancelled"}"#), Some(&store)).await.unwrap().0, "409 Conflict");
+        assert_eq!(
+            dispatch_route(
+                &req(
+                    "PATCH",
+                    &format!("/handoffs/{}/status?tenant={tenant}", h.id),
+                    Some("tok"),
+                    r#"{"status":"acknowledged"}"#
+                ),
+                Some(&store)
+            )
+            .await
+            .unwrap()
+            .0,
+            "200 OK"
+        );
+        assert_eq!(
+            dispatch_route(
+                &req(
+                    "PATCH",
+                    &format!("/sessions/{sid}/status?tenant={tenant}"),
+                    Some("tok"),
+                    r#"{"status":"resolved"}"#
+                ),
+                Some(&store)
+            )
+            .await
+            .unwrap()
+            .0,
+            "200 OK"
+        );
+        assert_eq!(
+            dispatch_route(
+                &req(
+                    "PATCH",
+                    &format!("/sessions/{sid}/status?tenant={tenant}"),
+                    Some("tok"),
+                    r#"{"status":"cancelled"}"#
+                ),
+                Some(&store)
+            )
+            .await
+            .unwrap()
+            .0,
+            "409 Conflict"
+        );
         std::env::remove_var("ARGO_WEBINBOX_BEARER_TOKEN");
         std::env::remove_var("ARGO_WEBINBOX_TENANT_ID");
     }

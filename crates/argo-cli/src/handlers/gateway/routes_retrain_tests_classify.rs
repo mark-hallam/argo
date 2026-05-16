@@ -28,8 +28,14 @@ async fn classify_memory_fact_is_default() {
     let (status, body) = classify_response(&wid, &req, Some(&store)).await;
     let v = json_of(status, &body).await;
     assert_eq!(v["classification"], "memory_fact");
-    assert!(v["plain_english"].as_str().unwrap().starts_with("Remember:"));
-    assert_eq!(v["structural_change"]["text"], "Customer Acme prefers email contact");
+    assert!(v["plain_english"]
+        .as_str()
+        .unwrap()
+        .starts_with("Remember:"));
+    assert_eq!(
+        v["structural_change"]["text"],
+        "Customer Acme prefers email contact"
+    );
     assert!(v["regression_preview"].is_array());
     assert!(v["regression_preview"].as_array().unwrap().is_empty());
 }

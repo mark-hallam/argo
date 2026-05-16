@@ -148,11 +148,10 @@ async fn action_list(
 ) -> ArgoResult<ToolCallResult> {
     registry.reap_finished().await;
     let live = registry.list().await;
-    let body =
-        serde_json::to_string_pretty(&live).map_err(|e| argo_types::ArgoError::Tool {
-            tool: "process".into(),
-            msg: format!("serialize list failed: {e}"),
-        })?;
+    let body = serde_json::to_string_pretty(&live).map_err(|e| argo_types::ArgoError::Tool {
+        tool: "process".into(),
+        msg: format!("serialize list failed: {e}"),
+    })?;
     Ok(success_text(ctx.call_id, body, elapsed_ms))
 }
 
@@ -164,12 +163,11 @@ async fn action_status(
 ) -> ArgoResult<ToolCallResult> {
     match registry.status(id).await {
         Some(info) => {
-            let body = serde_json::to_string_pretty(&info).map_err(|e| {
-                argo_types::ArgoError::Tool {
+            let body =
+                serde_json::to_string_pretty(&info).map_err(|e| argo_types::ArgoError::Tool {
                     tool: "process".into(),
                     msg: format!("serialize status failed: {e}"),
-                }
-            })?;
+                })?;
             Ok(success_text(ctx.call_id, body, elapsed_ms))
         }
         None => Ok(error_text(
@@ -294,10 +292,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(400)).await;
         let ctx = ctx_with_registry(reg.clone());
         let r = Process
-            .dispatch(
-                serde_json::json!({"action": "tail", "pid": id.0}),
-                &ctx,
-            )
+            .dispatch(serde_json::json!({"action": "tail", "pid": id.0}), &ctx)
             .await
             .unwrap();
         assert!(!r.is_error);
@@ -322,10 +317,7 @@ mod tests {
             .unwrap();
         let ctx = ctx_with_registry(reg.clone());
         let r = Process
-            .dispatch(
-                serde_json::json!({"action": "kill", "pid": id.0}),
-                &ctx,
-            )
+            .dispatch(serde_json::json!({"action": "kill", "pid": id.0}), &ctx)
             .await
             .unwrap();
         assert!(!r.is_error);

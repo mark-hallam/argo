@@ -56,11 +56,9 @@ pub(crate) async fn plan(cmd: cli::PlanCmd) -> ArgoResult<()> {
             json,
         } => handlers::plan_execute::run(&yaml_path, dry_run, json).await,
         cli::PlanCmd::Template { cmd } => match cmd {
-            cli::cli_plan_cmds::PlanTemplateCmd::List {
-                grade,
-                limit,
-                json,
-            } => handlers::plan_template_list::run(grade.as_deref(), limit, json).await,
+            cli::cli_plan_cmds::PlanTemplateCmd::List { grade, limit, json } => {
+                handlers::plan_template_list::run(grade.as_deref(), limit, json).await
+            }
             cli::cli_plan_cmds::PlanTemplateCmd::Show { id, json } => {
                 handlers::plan_template_show::run(&id, json).await
             }

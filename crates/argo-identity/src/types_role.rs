@@ -269,8 +269,12 @@ impl Duty {
         }
     }
 
-    fn default_id() -> String { Uuid::now_v7().to_string() }
-    fn default_enabled() -> bool { true }
+    fn default_id() -> String {
+        Uuid::now_v7().to_string()
+    }
+    fn default_enabled() -> bool {
+        true
+    }
 }
 
 /// Delegated role: charter, duties, KPIs, and escalation path.

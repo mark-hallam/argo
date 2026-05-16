@@ -219,7 +219,9 @@ fn product_e2e_full_flow_passes_offline() {
         serde_json::to_string_pretty(&show_envelope).unwrap_or_default()
     );
     assert!(
-        show_envelope["executed_at"].as_str().is_some_and(|s| !s.is_empty()),
+        show_envelope["executed_at"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty()),
         "step 8: `executed_at` must be populated; envelope: {}",
         serde_json::to_string_pretty(&show_envelope).unwrap_or_default()
     );

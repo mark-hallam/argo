@@ -69,13 +69,34 @@ fn print_text(detail: &Value) {
     let summary = &detail["summary"];
     println!("tenant {}", summary["id"].as_str().unwrap_or("-"));
     println!("  name:       {}", detail["name"].as_str().unwrap_or("-"));
-    println!("  owner:      {}", detail["owner_email"].as_str().unwrap_or("-"));
-    println!("  root:       {}", detail["root_path"].as_str().unwrap_or("-"));
-    println!("  workers:    {}", summary["worker_count"].as_i64().unwrap_or_default());
-    println!("  sessions:   {}", detail["session_count"].as_i64().unwrap_or_default());
-    println!("  archived:   {}", summary["archived_at_rfc3339"].as_str().unwrap_or("-"));
-    println!("  spend day:  {}", summary["spend_today"].as_str().unwrap_or("$0.0000"));
-    println!("  spend mo.:  {}", summary["spend_this_month"].as_str().unwrap_or("$0.0000"));
+    println!(
+        "  owner:      {}",
+        detail["owner_email"].as_str().unwrap_or("-")
+    );
+    println!(
+        "  root:       {}",
+        detail["root_path"].as_str().unwrap_or("-")
+    );
+    println!(
+        "  workers:    {}",
+        summary["worker_count"].as_i64().unwrap_or_default()
+    );
+    println!(
+        "  sessions:   {}",
+        detail["session_count"].as_i64().unwrap_or_default()
+    );
+    println!(
+        "  archived:   {}",
+        summary["archived_at_rfc3339"].as_str().unwrap_or("-")
+    );
+    println!(
+        "  spend day:  {}",
+        summary["spend_today"].as_str().unwrap_or("$0.0000")
+    );
+    println!(
+        "  spend mo.:  {}",
+        summary["spend_this_month"].as_str().unwrap_or("$0.0000")
+    );
     print_channels(detail);
     print_activity(detail);
 }
@@ -142,6 +163,9 @@ mod tests {
         enrich_channel_manifests(&mut detail, dir.path());
 
         assert_eq!(detail["channels"][0]["manifest_present"], true);
-        assert!(detail["channels"][0]["manifest_path"].as_str().unwrap().ends_with("email.toml"));
+        assert!(detail["channels"][0]["manifest_path"]
+            .as_str()
+            .unwrap()
+            .ends_with("email.toml"));
     }
 }

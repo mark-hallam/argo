@@ -18,8 +18,10 @@ pub enum CuError {
     /// The profile the manifest declared isn't registered. The
     /// loaded profile registry lists what's available; the caller
     /// gets the registered set in the message.
-    #[error("unknown computer-use profile '{requested}'; \
-             registered profiles: [{registered}]")]
+    #[error(
+        "unknown computer-use profile '{requested}'; \
+             registered profiles: [{registered}]"
+    )]
     UnknownProfile {
         /// The profile the manifest asked for.
         requested: String,

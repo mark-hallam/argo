@@ -19,9 +19,7 @@ use chrono::TimeZone;
 use std::time::Duration;
 
 fn t(offset_ms: i64) -> chrono::DateTime<chrono::Utc> {
-    chrono::Utc
-        .with_ymd_and_hms(2026, 5, 13, 0, 0, 0)
-        .unwrap()
+    chrono::Utc.with_ymd_and_hms(2026, 5, 13, 0, 0, 0).unwrap()
         + chrono::Duration::milliseconds(offset_ms)
 }
 
@@ -165,7 +163,10 @@ fn disabled_registry_always_proceeds() {
         );
     }
     let snap = registry.snapshot(t(0));
-    assert!(snap.is_empty(), "disabled registry must not allocate buckets");
+    assert!(
+        snap.is_empty(),
+        "disabled registry must not allocate buckets"
+    );
 }
 
 #[test]

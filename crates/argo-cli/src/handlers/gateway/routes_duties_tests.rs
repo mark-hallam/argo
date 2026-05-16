@@ -46,7 +46,10 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let (tenant, _) = store
         .ensure_workspace(name, &cwd.to_string_lossy())
         .await
@@ -61,7 +64,10 @@ async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, name: &str) -> 
         Persona::named(name, "human:mark"),
         Role::new("Resolve customer questions."),
     );
-    IdentityStore::new(store).create_worker(&worker).await.expect("create worker");
+    IdentityStore::new(store)
+        .create_worker(&worker)
+        .await
+        .expect("create worker");
     worker
 }
 
@@ -109,7 +115,10 @@ async fn classify_returns_proposal_with_samples_and_no_conflicts_on_fresh_worker
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya").await;
     let body = json!({ "input": "send outbound sales emails every morning" }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/classify", worker.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/classify", worker.id),
+        &body,
+    );
     let (status, resp) = classify_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "200 OK", "body: {resp}");
     let v: Value = serde_json::from_str(&resp).unwrap();
@@ -130,7 +139,10 @@ async fn classify_rejects_malformed_cron_hint_400() {
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Devon").await;
     let body = json!({ "input": "ops check daily", "cron_hint": "not a cron" }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/classify", worker.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/classify", worker.id),
+        &body,
+    );
     let (status, resp) = classify_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "400 Bad Request", "body: {resp}");
     let v: Value = serde_json::from_str(&resp).unwrap();
@@ -161,7 +173,10 @@ async fn classify_cross_tenant_worker_returns_403() {
     let other = TenantId::new();
     let alien = add_worker(&store, other, "Alien").await;
     let body = json!({ "input": "alien duty" }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/classify", alien.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/classify", alien.id),
+        &body,
+    );
     let (status, _) = classify_response(&alien.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "403 Forbidden");
 }
@@ -179,7 +194,10 @@ async fn classify_archived_worker_returns_410() {
         .await
         .expect("archive worker");
     let body = json!({ "input": "x" }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/classify", worker.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/classify", worker.id),
+        &body,
+    );
     let (status, resp) = classify_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "410 Gone", "body: {resp}");
 }
@@ -193,12 +211,11 @@ async fn commit_inserts_duty_and_returns_first_fire() {
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya").await;
     let id = commit_simple(&store, &worker.id, "0 6 * * *", "Daily summary").await;
-    let row: Option<String> =
-        sqlx::query_scalar("SELECT description FROM role_duty WHERE id = ?")
-            .bind(&id)
-            .fetch_optional(store.pool())
-            .await
-            .unwrap();
+    let row: Option<String> = sqlx::query_scalar("SELECT description FROM role_duty WHERE id = ?")
+        .bind(&id)
+        .fetch_optional(store.pool())
+        .await
+        .unwrap();
     assert_eq!(row.as_deref(), Some("Daily summary"));
 }
 
@@ -212,8 +229,12 @@ async fn commit_rejects_short_label_400() {
     let worker = add_worker(&store, tenant, "Maya").await;
     let body = json!({
         "duty_proposal": { "label": "abc", "schedule": "0 6 * * *", "entry_action": "ping" }
-    }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/commit", worker.id), &body);
+    })
+    .to_string();
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/commit", worker.id),
+        &body,
+    );
     let (status, resp) = commit_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "400 Bad Request");
     let v: Value = serde_json::from_str(&resp).unwrap();
@@ -231,7 +252,10 @@ async fn commit_rejects_non_5_field_cron_400() {
     let body = json!({
         "duty_proposal": { "label": "Daily ping", "schedule": "0 0 6 * * *", "entry_action": "ping" }
     }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/commit", worker.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/commit", worker.id),
+        &body,
+    );
     let (status, _) = commit_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "400 Bad Request");
 }
@@ -247,8 +271,12 @@ async fn commit_detects_cron_conflict_and_requires_resolution() {
     let _first = commit_simple(&store, &worker.id, "0 6 * * *", "First duty").await;
     let body = json!({
         "duty_proposal": { "label": "Second duty", "schedule": "0 6 * * *", "entry_action": "ping" }
-    }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/commit", worker.id), &body);
+    })
+    .to_string();
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/commit", worker.id),
+        &body,
+    );
     let (status, resp) = commit_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "409 Conflict", "body: {resp}");
     let v: Value = serde_json::from_str(&resp).unwrap();
@@ -268,7 +296,10 @@ async fn commit_with_replace_resolution_deletes_overlap() {
         "duty_proposal": { "label": "Replacement", "schedule": "0 6 * * *", "entry_action": "ping" },
         "accepted_conflict_resolution": "replace",
     }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/commit", worker.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/commit", worker.id),
+        &body,
+    );
     let (status, _) = commit_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "201 Created");
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM role_duty WHERE id = ?")
@@ -289,7 +320,10 @@ async fn preview_returns_requested_samples() {
     let worker = add_worker(&store, tenant, "Maya").await;
     let duty_id = commit_simple(&store, &worker.id, "0 6 * * *", "Daily summary").await;
     let body = json!({ "duty_id": duty_id, "sample_size": 2 }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/preview", worker.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/preview", worker.id),
+        &body,
+    );
     let (status, resp) = preview_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "200 OK", "body: {resp}");
     let v: Value = serde_json::from_str(&resp).unwrap();
@@ -306,7 +340,10 @@ async fn preview_unknown_duty_returns_404() {
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya").await;
     let body = json!({ "duty_id": "does-not-exist", "sample_size": 3 }).to_string();
-    let req = post_req(&format!("/api/v1/workers/{}/duties/preview", worker.id), &body);
+    let req = post_req(
+        &format!("/api/v1/workers/{}/duties/preview", worker.id),
+        &body,
+    );
     let (status, _) = preview_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "404 Not Found");
 }
@@ -320,7 +357,8 @@ async fn patch_updates_label_and_schedule_and_enabled() {
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya").await;
     let duty_id = commit_simple(&store, &worker.id, "0 6 * * *", "Daily summary").await;
-    let body = json!({ "label": "Updated summary", "schedule": "0 7 * * *", "enabled": false }).to_string();
+    let body = json!({ "label": "Updated summary", "schedule": "0 7 * * *", "enabled": false })
+        .to_string();
     let path = format!("/api/v1/workers/{}/duties/{duty_id}", worker.id);
     let req = patch_request(&path, &body);
     let (status, resp) = patch_response(&worker.id.to_string(), &duty_id, &req, Some(&store)).await;
@@ -358,8 +396,13 @@ async fn delete_removes_row_and_returns_204() {
     let worker = add_worker(&store, tenant, "Maya").await;
     let duty_id = commit_simple(&store, &worker.id, "0 6 * * *", "Daily summary").await;
     let path = format!("/api/v1/workers/{}/duties/{duty_id}", worker.id);
-    let (status, body) =
-        delete_response(&worker.id.to_string(), &duty_id, &delete_req(&path), Some(&store)).await;
+    let (status, body) = delete_response(
+        &worker.id.to_string(),
+        &duty_id,
+        &delete_req(&path),
+        Some(&store),
+    )
+    .await;
     assert_eq!(status, "204 No Content");
     assert!(body.is_empty(), "204 should have empty body, got: {body}");
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM role_duty WHERE id = ?")
@@ -379,8 +422,13 @@ async fn delete_unknown_duty_returns_404() {
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya").await;
     let path = format!("/api/v1/workers/{}/duties/missing", worker.id);
-    let (status, _) =
-        delete_response(&worker.id.to_string(), "missing", &delete_req(&path), Some(&store)).await;
+    let (status, _) = delete_response(
+        &worker.id.to_string(),
+        "missing",
+        &delete_req(&path),
+        Some(&store),
+    )
+    .await;
     assert_eq!(status, "404 Not Found");
 }
 

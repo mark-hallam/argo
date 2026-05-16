@@ -38,12 +38,7 @@ impl SessionGrantState {
     /// persistent or unconsumed one-shot.
     pub(crate) fn allows(&self, tool: &str) -> bool {
         self.persistent.contains(tool)
-            || self
-                .one_shot_remaining
-                .get(tool)
-                .copied()
-                .unwrap_or(0)
-                > 0
+            || self.one_shot_remaining.get(tool).copied().unwrap_or(0) > 0
     }
 
     /// Called after a successful gate-passing dispatch. If the

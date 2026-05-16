@@ -32,9 +32,7 @@
 //! This matches the brief's acceptance contract under
 //! `mission-llm-budget-hard-ceiling`.
 use crate::SessionStore;
-use argo_types::{
-    ArgoError, ArgoResult, BudgetWindow, SessionId, SpendCounters, TenantId,
-};
+use argo_types::{ArgoError, ArgoResult, BudgetWindow, SessionId, SpendCounters, TenantId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -246,23 +244,14 @@ impl SessionStore {
 /// Pure function; exposed for tests that want to skip the store
 /// round-trip.
 #[must_use]
-pub fn check_from_counters(
-    counters: SpendCounters,
-    config: &CeilingConfig,
-) -> CeilingCheck {
+pub fn check_from_counters(counters: SpendCounters, config: &CeilingConfig) -> CeilingCheck {
     CeilingCheck {
         session_used_micros: counters.session_used,
         day_used_micros: counters.day_used,
         month_used_micros: counters.month_used,
-        session_remaining: remaining_micros(
-            counters.session_used,
-            config.per_session_usd_micros,
-        ),
+        session_remaining: remaining_micros(counters.session_used, config.per_session_usd_micros),
         day_remaining: remaining_micros(counters.day_used, config.per_day_usd_micros),
-        month_remaining: remaining_micros(
-            counters.month_used,
-            config.per_month_usd_micros,
-        ),
+        month_remaining: remaining_micros(counters.month_used, config.per_month_usd_micros),
     }
 }
 

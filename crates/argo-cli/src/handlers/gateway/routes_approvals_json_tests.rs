@@ -187,7 +187,10 @@ async fn decide_approve_transitions_state() {
     seed_action("act-approve").await;
     let (status, body) = decide_response(
         "act-approve",
-        &auth_post("/api/v1/approvals/act-approve/decide", r#"{"decision":"approve"}"#),
+        &auth_post(
+            "/api/v1/approvals/act-approve/decide",
+            r#"{"decision":"approve"}"#,
+        ),
     )
     .await;
     assert_eq!(status, "200 OK");
@@ -207,7 +210,10 @@ async fn decide_refuse_transitions_state() {
     seed_action("act-refuse").await;
     let (status, body) = decide_response(
         "act-refuse",
-        &auth_post("/api/v1/approvals/act-refuse/decide", r#"{"decision":"refuse"}"#),
+        &auth_post(
+            "/api/v1/approvals/act-refuse/decide",
+            r#"{"decision":"refuse"}"#,
+        ),
     )
     .await;
     assert_eq!(status, "200 OK");
@@ -311,11 +317,8 @@ async fn undo_outside_window_returns_410() {
         )
         .await
         .unwrap();
-    let (status, body) = undo_response(
-        "act-old",
-        &auth_post("/api/v1/approvals/act-old/undo", ""),
-    )
-    .await;
+    let (status, body) =
+        undo_response("act-old", &auth_post("/api/v1/approvals/act-old/undo", "")).await;
     assert_eq!(status, "410 Gone");
     assert_eq!(parse(&body)["error"]["code"], "undo_window_expired");
 }

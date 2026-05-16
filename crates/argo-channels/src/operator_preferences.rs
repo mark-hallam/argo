@@ -231,8 +231,7 @@ impl OperatorPreferencesResolver {
         now: DateTime<Utc>,
     ) -> ChannelResult<Option<ChannelId>> {
         let prefs = self.source.for_operator(op).await?;
-        let elapsed_secs =
-            u32::try_from(elapsed_since_send.as_secs()).unwrap_or(u32::MAX);
+        let elapsed_secs = u32::try_from(elapsed_since_send.as_secs()).unwrap_or(u32::MAX);
         for step in &prefs.fallback_chain {
             if step.channel == current {
                 continue;
@@ -249,11 +248,7 @@ impl OperatorPreferencesResolver {
     }
 }
 
-fn is_quiet(
-    quiet: &Option<OperatorQuietHours>,
-    channel: &ChannelId,
-    now: DateTime<Utc>,
-) -> bool {
+fn is_quiet(quiet: &Option<OperatorQuietHours>, channel: &ChannelId, now: DateTime<Utc>) -> bool {
     match quiet {
         Some(q) => q.honors(channel) && q.contains(now),
         None => false,

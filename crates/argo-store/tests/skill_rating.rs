@@ -49,7 +49,9 @@ async fn rate_and_read_back_round_trip() {
     assert_eq!(down, 1);
     assert!((score - 0.5).abs() < 1e-5);
 
-    let rows = recent_ratings(store.pool(), skill, "1.0.0", 10).await.unwrap();
+    let rows = recent_ratings(store.pool(), skill, "1.0.0", 10)
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 2);
 
     let pub_rows = list_for_publisher(store.pool(), "acme").await.unwrap();

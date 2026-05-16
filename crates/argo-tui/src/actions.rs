@@ -118,11 +118,7 @@ pub(crate) async fn apply_delete(
 /// selected session, mirroring `argo steer <id> <text>`. The
 /// next agent turn will see it as a system-prefix steer. No-op
 /// on empty input or when nothing is selected.
-pub(crate) async fn apply_steer(
-    store: &Arc<SessionStore>,
-    state: &mut ViewerState,
-    text: &str,
-) {
+pub(crate) async fn apply_steer(store: &Arc<SessionStore>, state: &mut ViewerState, text: &str) {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return;

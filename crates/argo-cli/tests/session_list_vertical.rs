@@ -50,10 +50,7 @@ fn workspace_init(home: &Path, root: &Path) {
 /// Boot two sessions: one bound to `demo`, one unbound. Returns
 /// the home + verticals tempdirs (kept alive by caller) plus the
 /// two session ids.
-fn boot_two_sessions(
-    home: &Path,
-    verticals: &Path,
-) -> (String, String) {
+fn boot_two_sessions(home: &Path, verticals: &Path) -> (String, String) {
     let bound = run_new(home, verticals, "bound", Some("demo"));
     let unbound = run_new(home, verticals, "unbound", None);
     (bound, unbound)
@@ -145,7 +142,10 @@ fn cli_session_list_text_includes_vertical_column() {
     );
     // Bound vertical name appears in some row; unbound row uses
     // the `-` placeholder.
-    assert!(body.contains("demo"), "missing demo vertical cell; got:\n{body}");
+    assert!(
+        body.contains("demo"),
+        "missing demo vertical cell; got:\n{body}"
+    );
 }
 
 #[test]
@@ -224,8 +224,7 @@ fn gateway_sessions_list_json_carries_vertical_id_for_each_row() {
     let root = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
     write_demo_vertical(verticals.path());
-    let (mut child, _stderr, port) =
-        boot_gateway(home.path(), root.path(), verticals.path(), 6);
+    let (mut child, _stderr, port) = boot_gateway(home.path(), root.path(), verticals.path(), 6);
 
     // One bound + one unbound session.
     http_post(
@@ -248,7 +247,10 @@ fn gateway_sessions_list_json_carries_vertical_id_for_each_row() {
     let mut unbound_ok = false;
     for row in arr {
         // Every row carries the field even when unbound.
-        assert!(row.get("vertical_id").is_some(), "missing vertical_id key: {row}");
+        assert!(
+            row.get("vertical_id").is_some(),
+            "missing vertical_id key: {row}"
+        );
         if row["title"] == "gw-bound" {
             assert_eq!(row["vertical_id"], "demo");
             bound_ok = true;
@@ -268,8 +270,7 @@ fn gateway_sessions_list_markdown_includes_vertical_column() {
     let root = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
     write_demo_vertical(verticals.path());
-    let (mut child, _stderr, port) =
-        boot_gateway(home.path(), root.path(), verticals.path(), 5);
+    let (mut child, _stderr, port) = boot_gateway(home.path(), root.path(), verticals.path(), 5);
 
     http_post(
         port,

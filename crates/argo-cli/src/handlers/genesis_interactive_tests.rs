@@ -54,8 +54,8 @@ spend_cap_per_day_usd: 5
 
 #[test]
 fn load_dialogue_yaml_returns_clear_error_on_missing_file() {
-    let err = load_dialogue_yaml(std::path::Path::new("/nope/missing.yaml"))
-        .expect_err("missing file");
+    let err =
+        load_dialogue_yaml(std::path::Path::new("/nope/missing.yaml")).expect_err("missing file");
     let s = err.to_string();
     assert!(s.contains("genesis interactive"));
     assert!(s.contains("missing.yaml"));

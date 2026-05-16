@@ -34,8 +34,7 @@ pub(super) async fn dispatch_rollups(
         || req.starts_with("GET /sessions/by-provider?")
     {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_sessions_rollups::sessions_by_provider_response(
@@ -46,12 +45,9 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
-    if req.starts_with("GET /sessions/by-model ")
-        || req.starts_with("GET /sessions/by-model?")
-    {
+    if req.starts_with("GET /sessions/by-model ") || req.starts_with("GET /sessions/by-model?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_sessions_rollups::sessions_by_model_response(
@@ -69,16 +65,12 @@ pub(super) async fn dispatch_rollups(
             .unwrap_or(30);
         let format = parse_query_kv(tail, "format");
         return Some(
-            super::routes_msgs::messages_by_day_response(days, store, format.as_deref())
-                .await,
+            super::routes_msgs::messages_by_day_response(days, store, format.as_deref()).await,
         );
     }
-    if req.starts_with("GET /messages/by-role ")
-        || req.starts_with("GET /messages/by-role?")
-    {
+    if req.starts_with("GET /messages/by-role ") || req.starts_with("GET /messages/by-role?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_messages_rollups::messages_by_role_response(
@@ -89,15 +81,13 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
-    if req.starts_with("GET /messages/by-session ")
-        || req.starts_with("GET /messages/by-session?")
+    if req.starts_with("GET /messages/by-session ") || req.starts_with("GET /messages/by-session?")
     {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_messages_rollups::messages_by_session_response(
@@ -132,8 +122,7 @@ pub(super) async fn dispatch_rollups(
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
         let role = parse_query_kv(tail, "role");
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_messages_rollups::messages_recent_response(
@@ -153,26 +142,20 @@ pub(super) async fn dispatch_rollups(
             .unwrap_or(30);
         let format = parse_query_kv(tail, "format");
         return Some(
-            super::routes_audit::audit_by_day_response(days, store, format.as_deref())
-                .await,
+            super::routes_audit::audit_by_day_response(days, store, format.as_deref()).await,
         );
     }
     if req.starts_with("GET /audit/by-kind ") || req.starts_with("GET /audit/by-kind?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
-            super::routes_audit::audit_by_kind_response(since, store, format.as_deref())
-                .await,
+            super::routes_audit::audit_by_kind_response(since, store, format.as_deref()).await,
         );
     }
-    if req.starts_with("GET /audit/by-vertical ")
-        || req.starts_with("GET /audit/by-vertical?")
-    {
+    if req.starts_with("GET /audit/by-vertical ") || req.starts_with("GET /audit/by-vertical?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_audit_rollups::audit_by_vertical_response(
@@ -183,15 +166,12 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
-    if req.starts_with("GET /audit/by-session ")
-        || req.starts_with("GET /audit/by-session?")
-    {
+    if req.starts_with("GET /audit/by-session ") || req.starts_with("GET /audit/by-session?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_audit_rollups::audit_by_session_response(
@@ -205,24 +185,16 @@ pub(super) async fn dispatch_rollups(
     }
     if req.starts_with("GET /audit/by-tool ") || req.starts_with("GET /audit/by-tool?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
-            super::routes_audit_rollups::audit_by_tool_response(
-                since,
-                store,
-                format.as_deref(),
-            )
-            .await,
+            super::routes_audit_rollups::audit_by_tool_response(since, store, format.as_deref())
+                .await,
         );
     }
-    if req.starts_with("GET /audit/tool-errors ")
-        || req.starts_with("GET /audit/tool-errors?")
-    {
+    if req.starts_with("GET /audit/tool-errors ") || req.starts_with("GET /audit/tool-errors?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_audit_rollups::audit_tool_errors_response(
@@ -250,45 +222,31 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
-    if req.starts_with("GET /forge/runs/by-day ")
-        || req.starts_with("GET /forge/runs/by-day?")
-    {
+    if req.starts_with("GET /forge/runs/by-day ") || req.starts_with("GET /forge/runs/by-day?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let days = parse_query_kv(tail, "days")
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(30);
         let format = parse_query_kv(tail, "format");
         return Some(
-            super::routes_forge::forge_runs_by_day_response(
-                days,
-                store,
-                format.as_deref(),
-            )
-            .await,
+            super::routes_forge::forge_runs_by_day_response(days, store, format.as_deref()).await,
         );
     }
     if req.starts_with("GET /forge/runs/by-status ")
         || req.starts_with("GET /forge/runs/by-status?")
     {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
-            super::routes_forge::forge_runs_by_status_response(
-                since,
-                store,
-                format.as_deref(),
-            )
-            .await,
+            super::routes_forge::forge_runs_by_status_response(since, store, format.as_deref())
+                .await,
         );
     }
-    if req.starts_with("GET /forge/runs/by-skill ")
-        || req.starts_with("GET /forge/runs/by-skill?")
+    if req.starts_with("GET /forge/runs/by-skill ") || req.starts_with("GET /forge/runs/by-skill?")
     {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
+        let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
         let format = parse_query_kv(tail, "format");
         return Some(
             super::routes_forge_rollups::forge_runs_by_skill_response(

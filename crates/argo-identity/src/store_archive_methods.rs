@@ -23,11 +23,7 @@ impl IdentityStore<'_> {
     /// which is the heavier freeze/wake snapshot mechanism (deletes
     /// the live row after copying it into a sibling `worker_archive`
     /// table). This method only flips the soft-delete flag.
-    pub async fn archive_worker(
-        &self,
-        tenant_id: TenantId,
-        worker_id: WorkerId,
-    ) -> ArgoResult<()> {
+    pub async fn archive_worker(&self, tenant_id: TenantId, worker_id: WorkerId) -> ArgoResult<()> {
         self.ensure_schema().await?;
         let updated = sqlx::query(
             "UPDATE worker SET archived_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
@@ -43,14 +39,13 @@ impl IdentityStore<'_> {
         }
         // 0 rows touched: either the worker doesn't exist (NotFound),
         // or it was already archived (idempotent no-op).
-        let existing: Option<String> = sqlx::query_scalar(
-            "SELECT id FROM worker WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(worker_id.to_string())
-        .bind(tenant_id.to_string())
-        .fetch_optional(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("archive worker lookup: {e}")))?;
+        let existing: Option<String> =
+            sqlx::query_scalar("SELECT id FROM worker WHERE id = ? AND tenant_id = ?")
+                .bind(worker_id.to_string())
+                .bind(tenant_id.to_string())
+                .fetch_optional(self.store.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("archive worker lookup: {e}")))?;
         if existing.is_none() {
             return Err(ArgoError::Provider(format!(
                 "worker {worker_id} not found in tenant {tenant_id}"

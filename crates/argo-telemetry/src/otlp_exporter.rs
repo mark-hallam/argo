@@ -62,8 +62,8 @@ const DEFAULT_SERVICE_NAME: &str = "argo";
 /// Safe to call once per process; calling more than once will
 /// install fresh providers, replacing whatever was registered.
 pub fn init() -> Result<ShutdownGuard, OtlpInitError> {
-    let endpoint = env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
-        .unwrap_or_else(|_| DEFAULT_ENDPOINT.to_string());
+    let endpoint =
+        env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.to_string());
     let service_name =
         env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| DEFAULT_SERVICE_NAME.to_string());
 

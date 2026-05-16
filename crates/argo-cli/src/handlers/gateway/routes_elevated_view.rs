@@ -99,7 +99,10 @@ pub(super) async fn request_response(
         granted_at: now,
         expires_at,
     };
-    let grant_id = match ElevatedViewGrantStore::new(store.pool()).insert(new_grant).await {
+    let grant_id = match ElevatedViewGrantStore::new(store.pool())
+        .insert(new_grant)
+        .await
+    {
         Ok(id) => id,
         Err(e) => return server_error(&format!("insert grant: {e}")),
     };
@@ -252,9 +255,8 @@ fn parse_duration_hours(value: Option<&Value>) -> Result<u32, String> {
             "`duration_hours` (integer in [1, {DURATION_HOURS_MAX}]) is required"
         ));
     };
-    let cast = u32::try_from(n).map_err(|_| {
-        format!("`duration_hours` must be in [1, {DURATION_HOURS_MAX}]")
-    })?;
+    let cast = u32::try_from(n)
+        .map_err(|_| format!("`duration_hours` must be in [1, {DURATION_HOURS_MAX}]"))?;
     if !(1..=DURATION_HOURS_MAX).contains(&cast) {
         return Err(format!(
             "`duration_hours` must be in [1, {DURATION_HOURS_MAX}]"
@@ -267,8 +269,7 @@ async fn resolve_tenant_principal(
     store: &SessionStore,
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())

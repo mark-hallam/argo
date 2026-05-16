@@ -68,11 +68,13 @@ async fn insert_skill_row(store: &SessionStore, name: &str, version: &str) {
 async fn single_variant_skips_select_variant_and_emits_no_pending() {
     let store = open_store().await;
     let active = vec![skill("alpha", "v1", "body-a")];
-    let (out, pending) =
-        resolve_variants_for_turn(&store, "inv-1", active).await;
+    let (out, pending) = resolve_variants_for_turn(&store, "inv-1", active).await;
     assert_eq!(out.len(), 1);
     assert_eq!(out[0].frontmatter.name, "alpha");
-    assert!(pending.is_empty(), "single-variant case must skip select_variant");
+    assert!(
+        pending.is_empty(),
+        "single-variant case must skip select_variant"
+    );
 }
 
 #[tokio::test]
@@ -88,8 +90,7 @@ async fn two_variants_deterministic_selection_via_ab_run() {
         skill("alpha", "v2", "body-v2"),
     ];
     let invocation_id = "inv-fixed-1";
-    let (out, pending) =
-        resolve_variants_for_turn(&store, invocation_id, active.clone()).await;
+    let (out, pending) = resolve_variants_for_turn(&store, invocation_id, active.clone()).await;
 
     assert_eq!(out.len(), 1, "ab run should collapse two variants to one");
     assert_eq!(pending.len(), 1);
@@ -97,8 +98,7 @@ async fn two_variants_deterministic_selection_via_ab_run() {
     assert_eq!(pending[0].invocation_id, invocation_id);
 
     // Determinism: same (run_id, invocation_id) ⇒ same variant.
-    let (out2, pending2) =
-        resolve_variants_for_turn(&store, invocation_id, active).await;
+    let (out2, pending2) = resolve_variants_for_turn(&store, invocation_id, active).await;
     assert_eq!(out[0].frontmatter.version, out2[0].frontmatter.version);
     assert_eq!(pending[0].variant, pending2[0].variant);
 }
@@ -110,10 +110,13 @@ async fn two_variants_without_ab_run_emits_no_pending() {
         skill("alpha", "v1", "body-v1"),
         skill("alpha", "v2", "body-v2"),
     ];
-    let (out, pending) =
-        resolve_variants_for_turn(&store, "inv-1", active).await;
+    let (out, pending) = resolve_variants_for_turn(&store, "inv-1", active).await;
     // No active run found, schema absent → fall through, keep both.
-    assert_eq!(out.len(), 2, "without an active ab run, all variants pass through");
+    assert_eq!(
+        out.len(),
+        2,
+        "without an active ab run, all variants pass through"
+    );
     assert!(pending.is_empty());
 }
 
@@ -168,8 +171,7 @@ async fn select_error_falls_back_to_first_variant_when_target_version_missing() 
         skill("alpha", "v3", "body-v3"),
         skill("alpha", "v4", "body-v4"),
     ];
-    let (out, pending) =
-        resolve_variants_for_turn(&store, "inv-mismatch", active).await;
+    let (out, pending) = resolve_variants_for_turn(&store, "inv-mismatch", active).await;
     assert_eq!(out.len(), 1, "fall back to a single variant");
     // Fallback picks the first by version (lexicographic).
     assert_eq!(out[0].frontmatter.version, "v3");

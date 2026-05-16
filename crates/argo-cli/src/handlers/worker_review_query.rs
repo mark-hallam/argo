@@ -189,13 +189,12 @@ pub async fn load_anomaly_count(
 }
 
 async fn table_exists(pool: &SqlitePool, name: &str) -> ArgoResult<bool> {
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-    )
-    .bind(name)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("worker review table-exists: {e}")))?;
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+            .bind(name)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("worker review table-exists: {e}")))?;
     Ok(row.is_some())
 }
 

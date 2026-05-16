@@ -114,9 +114,15 @@ async fn hire_persists_worker_with_persona_and_duties() {
     let worker_id: argo_identity::WorkerId = id_str.parse().expect("worker_id parses");
 
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await.expect("workspace");
+    let (tenant, _) = store
+        .ensure_workspace(name, &root)
+        .await
+        .expect("workspace");
     let identities = argo_identity::IdentityStore::new(&store);
     let worker = identities
         .get_worker(tenant, worker_id)
@@ -290,8 +296,8 @@ async fn hire_idempotency_same_key_different_body_returns_409() {
     // Change one field to make the body different.
     let mut alt: Value = serde_json::from_str(&body1).unwrap();
     alt["worker_draft"]["suggestedName"] = json!("Other");
-    let (status2, body2) = hire_response(&hire_req_with_idem(&alt.to_string(), key), Some(&store))
-        .await;
+    let (status2, body2) =
+        hire_response(&hire_req_with_idem(&alt.to_string(), key), Some(&store)).await;
     assert_eq!(status2, "409 Conflict");
     let v: Value = serde_json::from_str(&body2).unwrap();
     assert_eq!(v["error"]["code"], "idempotency_conflict");
@@ -380,9 +386,15 @@ async fn hire_aggressive_policy_enables_auto_approval_on_row() {
     let worker_id: argo_identity::WorkerId = id_str.parse().expect("worker_id parses");
 
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await.expect("workspace");
+    let (tenant, _) = store
+        .ensure_workspace(name, &root)
+        .await
+        .expect("workspace");
     let identities = argo_identity::IdentityStore::new(&store);
     let worker = identities
         .get_worker(tenant, worker_id)

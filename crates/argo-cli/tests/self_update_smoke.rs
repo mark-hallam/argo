@@ -33,7 +33,11 @@ fn self_update_help_lists_flags() {
 
 #[test]
 fn self_update_check_against_live_github() {
-    if std::env::var("ARGO_SELF_UPDATE_INTEGRATION").ok().as_deref() != Some("1") {
+    if std::env::var("ARGO_SELF_UPDATE_INTEGRATION")
+        .ok()
+        .as_deref()
+        != Some("1")
+    {
         eprintln!("skipping: ARGO_SELF_UPDATE_INTEGRATION!=1");
         return;
     }
@@ -47,8 +51,7 @@ fn self_update_check_against_live_github() {
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    let v: serde_json::Value =
-        serde_json::from_str(stdout.trim()).expect("--json envelope parses");
+    let v: serde_json::Value = serde_json::from_str(stdout.trim()).expect("--json envelope parses");
     for key in ["current", "latest", "channel", "update_available"] {
         assert!(v.get(key).is_some(), "envelope missing key {key}: {v}");
     }

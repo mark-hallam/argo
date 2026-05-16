@@ -204,7 +204,9 @@ pub fn truncate_to_fit_with_config(
                 let replaced = intra_truncate_message(msg, count);
                 let new_count = tokenizer.count_message(&replaced);
                 *slot = Some(replaced);
-                current_total = current_total.saturating_sub(count).saturating_add(new_count);
+                current_total = current_total
+                    .saturating_sub(count)
+                    .saturating_add(new_count);
                 intra_turn_truncations = intra_turn_truncations.saturating_add(1);
             }
         }

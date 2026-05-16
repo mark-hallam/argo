@@ -56,8 +56,7 @@ fn distill_now_help_is_exposed() {
 
 #[test]
 fn distill_now_empty_stdin_emits_zero_cohorts_json() {
-    let (ok, stdout, stderr) =
-        run_with_stdin(&["skill", "distill-now", "--json"], "");
+    let (ok, stdout, stderr) = run_with_stdin(&["skill", "distill-now", "--json"], "");
     assert!(ok, "exit non-zero: stderr={stderr}");
     assert!(
         stdout.contains("\"cohorts_total\":0"),
@@ -84,8 +83,7 @@ fn distill_now_undersized_input_yields_zero_cohorts() {
             "vertical_id":"marketplace"
         }
     ]"#;
-    let (ok, stdout, stderr) =
-        run_with_stdin(&["skill", "distill-now", "--json"], stdin);
+    let (ok, stdout, stderr) = run_with_stdin(&["skill", "distill-now", "--json"], stdin);
     assert!(ok, "exit non-zero: stderr={stderr}");
     assert!(
         stdout.contains("\"cohorts_total\":0"),

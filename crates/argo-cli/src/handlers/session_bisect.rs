@@ -19,8 +19,7 @@ pub(crate) async fn run(raw_id: &str, hypothesis: &str) -> ArgoResult<()> {
             "argo session bisect: hypothesis cannot be empty".into(),
         ));
     }
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

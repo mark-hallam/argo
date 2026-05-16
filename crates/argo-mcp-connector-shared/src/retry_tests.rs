@@ -117,7 +117,10 @@ fn jitter_applied_within_bounds() {
     };
     for jitter in [0u64, 17, 49, 50, 99, 1000] {
         let d = backoff_delay_ms(&policy, 1, jitter);
-        assert!((100..150).contains(&d), "delay {d} out of bounds for jitter {jitter}");
+        assert!(
+            (100..150).contains(&d),
+            "delay {d} out of bounds for jitter {jitter}"
+        );
     }
     assert_ne!(
         backoff_delay_ms(&policy, 1, 0),

@@ -157,8 +157,16 @@ fn cross_tenant_collision_isolated_at_identical_wallclock() {
             (tenant, affinity.acquire_or_mint(tenant, "shared-worker"))
         })
         .collect();
-    let session_a = pairs.iter().find(|(t, _)| *t == t_a).map(|(_, s)| *s).unwrap();
-    let session_b = pairs.iter().find(|(t, _)| *t == t_b).map(|(_, s)| *s).unwrap();
+    let session_a = pairs
+        .iter()
+        .find(|(t, _)| *t == t_a)
+        .map(|(_, s)| *s)
+        .unwrap();
+    let session_b = pairs
+        .iter()
+        .find(|(t, _)| *t == t_b)
+        .map(|(_, s)| *s)
+        .unwrap();
     assert_ne!(session_a, session_b);
     for (t, s) in &pairs {
         if *t == t_a {

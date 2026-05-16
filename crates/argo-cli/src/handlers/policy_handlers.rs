@@ -47,11 +47,7 @@ fn list_dir(dir: &Path, json: bool) -> ArgoResult<()> {
         );
         return Ok(());
     }
-    println!(
-        "policy files in {} ({} total)",
-        dir.display(),
-        files.len()
-    );
+    println!("policy files in {} ({} total)", dir.display(), files.len());
     for file in &files {
         println!("  {} — {} rules", file.name, file.rules.len());
     }
@@ -118,7 +114,10 @@ fn show(path: &Path, json: bool) -> ArgoResult<()> {
             println!("       require_signatures: {req}");
         }
         if let Some(qh) = &rule.quiet_hours {
-            println!("       quiet_hours: {} → {} ({:?})", qh.start, qh.end, qh.behavior);
+            println!(
+                "       quiet_hours: {} → {} ({:?})",
+                qh.start, qh.end, qh.behavior
+            );
         }
         if let Some(cap) = rule.spend_cap_per_action_usd {
             println!("       spend_cap_per_action_usd: ${cap:.2}");
@@ -165,10 +164,7 @@ fn validate(path: &Path, json: bool) -> ArgoResult<()> {
 async fn apply(path: &Path, json: bool) -> ArgoResult<()> {
     let file = parse_path(path)?;
     let body = std::fs::read_to_string(path).map_err(|e| {
-        ArgoError::Provider(format!(
-            "policy apply: read source {}: {e}",
-            path.display()
-        ))
+        ArgoError::Provider(format!("policy apply: read source {}: {e}", path.display()))
     })?;
     let body_sha256 = sha256_hex(&body);
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;

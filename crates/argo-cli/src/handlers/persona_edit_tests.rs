@@ -39,7 +39,10 @@ fn dumped_toml_starts_with_persona_block() {
         dumped.contains("[persona]"),
         "expected `[persona]` block; got {dumped:?}"
     );
-    assert!(dumped.contains("name = \"Maya\""), "name line missing: {dumped}");
+    assert!(
+        dumped.contains("name = \"Maya\""),
+        "name line missing: {dumped}"
+    );
 }
 
 #[test]
@@ -169,18 +172,17 @@ fn read_in_place_missing_file_errors_with_path() {
     let path = std::path::Path::new("/tmp/argo-persona-edit-does-not-exist-xyzzy.toml");
     let err = read_in_place(path).expect_err("missing file must fail");
     let msg = format!("{err}");
-    assert!(msg.contains("argo-persona-edit-does-not-exist-xyzzy.toml"), "{msg}");
+    assert!(
+        msg.contains("argo-persona-edit-does-not-exist-xyzzy.toml"),
+        "{msg}"
+    );
 }
 
 #[test]
 fn read_in_place_happy_path_returns_body() {
     let dir = tempfile::tempdir().expect("temp dir");
     let path = dir.path().join("persona.toml");
-    std::fs::write(
-        &path,
-        "[persona]\nname = \"Sage\"\nvoice = \"Be kind.\"\n",
-    )
-    .expect("write");
+    std::fs::write(&path, "[persona]\nname = \"Sage\"\nvoice = \"Be kind.\"\n").expect("write");
     let body = read_in_place(&path).expect("parse");
     assert_eq!(body.name, "Sage");
     assert_eq!(body.voice, "Be kind.");

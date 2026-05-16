@@ -73,10 +73,12 @@ impl Expr {
         let upstream = outputs
             .get(&self.task_id)
             .ok_or_else(|| ExprError::NoSuchUpstream(self.task_id.clone()))?;
-        upstream.get(&self.output_key).ok_or_else(|| ExprError::Missing {
-            task: self.task_id.clone(),
-            key: self.output_key.clone(),
-        })
+        upstream
+            .get(&self.output_key)
+            .ok_or_else(|| ExprError::Missing {
+                task: self.task_id.clone(),
+                key: self.output_key.clone(),
+            })
     }
 }
 
@@ -155,7 +157,10 @@ mod tests {
             task_id: "ghost".into(),
             output_key: "any".into(),
         };
-        assert!(matches!(e.resolve(&outs), Err(ExprError::NoSuchUpstream(_))));
+        assert!(matches!(
+            e.resolve(&outs),
+            Err(ExprError::NoSuchUpstream(_))
+        ));
     }
 
     #[test]
@@ -166,10 +171,7 @@ mod tests {
             task_id: "foo".into(),
             output_key: "missing".into(),
         };
-        assert!(matches!(
-            e.resolve(&outs),
-            Err(ExprError::Missing { .. })
-        ));
+        assert!(matches!(e.resolve(&outs), Err(ExprError::Missing { .. })));
     }
 
     #[test]

@@ -84,8 +84,7 @@ fn flags_missing_both_actual_and_response() {
 
 #[test]
 fn flags_duplicate_id_with_line_number() {
-    let body =
-        "{\"id\":\"a\",\"actual\":\"first\"}\n{\"id\":\"a\",\"actual\":\"dup\"}\n";
+    let body = "{\"id\":\"a\",\"actual\":\"first\"}\n{\"id\":\"a\",\"actual\":\"dup\"}\n";
     let errs = parse_actuals_jsonl(body).expect_err("must error");
     assert_eq!(errs.len(), 1);
     assert_eq!(errs[0].line, 2);
@@ -95,8 +94,7 @@ fn flags_duplicate_id_with_line_number() {
 
 #[test]
 fn collects_multiple_errors_in_one_pass() {
-    let body =
-        "NOT JSON\n{\"id\":\"a\",\"actual\":\"ok\"}\n{\"id\":\"a\",\"actual\":\"dup\"}\n";
+    let body = "NOT JSON\n{\"id\":\"a\",\"actual\":\"ok\"}\n{\"id\":\"a\",\"actual\":\"dup\"}\n";
     let errs = parse_actuals_jsonl(body).expect_err("must error");
     assert_eq!(errs.len(), 2);
     assert_eq!(errs[0].line, 1);
@@ -110,8 +108,7 @@ fn external_actual_overlays_onto_fixture_for_scoring() {
     // The fixture row carries no `actual`. The actuals map
     // provides one. Result: the fixture is scored as Scored,
     // not NoActual.
-    let suite =
-        "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"hello\"]}}\n";
+    let suite = "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"hello\"]}}\n";
     let mut actuals = ActualsMap::new();
     actuals.insert("a".into(), "hello world".into());
     let (score, unknown) = score_suite_jsonl_with_actuals(suite, &actuals);

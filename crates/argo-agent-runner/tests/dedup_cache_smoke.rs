@@ -68,15 +68,17 @@ impl Transport for CountingTransport {
 }
 
 fn request(session: SessionId, msg_id: MessageId) -> ProviderRequest {
-    let created_at = chrono::DateTime::<Utc>::from_timestamp(1_700_000_000, 0)
-        .unwrap_or_else(Utc::now);
+    let created_at =
+        chrono::DateTime::<Utc>::from_timestamp(1_700_000_000, 0).unwrap_or_else(Utc::now);
     ProviderRequest {
         model: "smoke-model".into(),
         messages: vec![Message {
             id: msg_id,
             session_id: session,
             role: MessageRole::User,
-            content: vec![ContentBlock::Text { text: "approve this".into() }],
+            content: vec![ContentBlock::Text {
+                text: "approve this".into(),
+            }],
             tool_calls: Vec::new(),
             tool_call_id: None,
             reasoning: None,
@@ -99,7 +101,11 @@ async fn same_request_twice_collapses_to_one_inner_call() {
     let r1 = cache.complete(&request(session, msg_id)).await.unwrap();
     let r2 = cache.complete(&request(session, msg_id)).await.unwrap();
 
-    assert_eq!(count.load(Ordering::SeqCst), 1, "second call must be cached");
+    assert_eq!(
+        count.load(Ordering::SeqCst),
+        1,
+        "second call must be cached"
+    );
     assert_eq!(r1.text, r2.text, "cached response is byte-identical");
     assert_eq!(cache.hits(), 1);
     assert_eq!(cache.misses(), 1);

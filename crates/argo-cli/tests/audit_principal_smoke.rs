@@ -78,7 +78,11 @@ fn extract_session_id(create_body: &str) -> String {
         .to_string()
 }
 
-fn spawn_gateway(home: &Path, port: u16, max_requests: u32) -> (Child, BufReader<std::process::ChildStderr>) {
+fn spawn_gateway(
+    home: &Path,
+    port: u16,
+    max_requests: u32,
+) -> (Child, BufReader<std::process::ChildStderr>) {
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
         .env("ARGO_GATEWAY_BEARER_TOKEN", BEARER_TOKEN)
@@ -151,7 +155,10 @@ fn approve_with_principal_header_stamps_audit_row() {
         r#"{"tool":"shell","note":"anon"}"#,
         &[auth_header],
     );
-    assert!(approve_anon.contains("HTTP/1.1 200 OK"), "anon={approve_anon}");
+    assert!(
+        approve_anon.contains("HTTP/1.1 200 OK"),
+        "anon={approve_anon}"
+    );
 
     let status = child.wait().expect("wait");
     assert!(status.success());

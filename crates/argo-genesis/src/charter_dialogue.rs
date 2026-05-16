@@ -61,9 +61,7 @@ impl CharterDialogue {
             return Err(DialogueError::MissingField("channels"));
         }
         if !self.spend_cap_per_day_usd.is_finite() || self.spend_cap_per_day_usd <= 0.0 {
-            return Err(DialogueError::InvalidSpendCap(
-                self.spend_cap_per_day_usd,
-            ));
+            return Err(DialogueError::InvalidSpendCap(self.spend_cap_per_day_usd));
         }
         Ok(())
     }
@@ -155,12 +153,7 @@ pub fn dialogue_to_charter(d: &CharterDialogue) -> String {
         s.push_str(d.industry.trim());
     }
     s.push_str(".\n\nMain duties:\n");
-    for (i, duty) in d
-        .duties
-        .iter()
-        .filter(|x| !x.trim().is_empty())
-        .enumerate()
-    {
+    for (i, duty) in d.duties.iter().filter(|x| !x.trim().is_empty()).enumerate() {
         s.push_str(&format!("{n}. {duty}\n", n = i + 1, duty = duty.trim()));
     }
     let active_channels: Vec<&str> = d

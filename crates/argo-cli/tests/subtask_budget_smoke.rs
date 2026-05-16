@@ -5,9 +5,7 @@
 //! the CLI under `--json` to verify the envelope roll-up matches.
 
 use argo_store::subtask::{insert, NewSubtask};
-use argo_store::subtask_budget::{
-    record_subtask_spend, set_subtask_budget, set_subtask_parent,
-};
+use argo_store::subtask_budget::{record_subtask_spend, set_subtask_budget, set_subtask_parent};
 use argo_store::SessionStore;
 use std::path::Path;
 use std::process::{Command, Output};
@@ -35,9 +33,7 @@ fn assert_ok(out: &Output, label: &str) {
 }
 
 async fn seed_tree(home: &Path) -> (String, String, String) {
-    let store = SessionStore::open(home.join("sessions.db"))
-        .await
-        .unwrap();
+    let store = SessionStore::open(home.join("sessions.db")).await.unwrap();
     store.migrate().await.unwrap();
     let pool = store.pool().clone();
     let root = insert(

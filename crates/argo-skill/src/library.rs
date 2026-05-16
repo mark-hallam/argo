@@ -180,9 +180,7 @@ mod tests {
     }
 
     async fn store() -> SkillStore {
-        let session = SessionStore::open(":memory:")
-            .await
-            .expect("session store");
+        let session = SessionStore::open(":memory:").await.expect("session store");
         session.migrate().await.expect("migrate");
         SkillStore::new(Arc::new(session))
     }

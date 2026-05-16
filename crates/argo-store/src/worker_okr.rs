@@ -288,8 +288,7 @@ pub async fn progress(
         let krs = key_results(pool, objective.id).await?;
         let mut kr_progress = Vec::with_capacity(krs.len());
         for kr in krs {
-            let actual =
-                latest_kpi_value(pool, worker_id, tenant_id, &kr.kpi_name).await?;
+            let actual = latest_kpi_value(pool, worker_id, tenant_id, &kr.kpi_name).await?;
             let (ratio, achieved) = achievement(actual, kr.target_value, kr.comparison);
             kr_progress.push(KeyResultProgress {
                 key_result: kr,

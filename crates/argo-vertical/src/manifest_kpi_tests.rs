@@ -77,12 +77,12 @@ required_audit_chain_intact = true
     let materialized = m.all_kpis();
     assert_eq!(materialized.len(), 4, "all 4 legacy fields materialize");
 
-    let by_name: std::collections::BTreeMap<&str, &KpiDefinition> = materialized
-        .iter()
-        .map(|k| (k.name.as_str(), k))
-        .collect();
+    let by_name: std::collections::BTreeMap<&str, &KpiDefinition> =
+        materialized.iter().map(|k| (k.name.as_str(), k)).collect();
 
-    let defl = by_name.get("deflection_target_pct").expect("deflection materialized");
+    let defl = by_name
+        .get("deflection_target_pct")
+        .expect("deflection materialized");
     assert_eq!(defl.kind, KpiKind::Percentage);
     assert_eq!(defl.comparator, KpiComparator::Gte);
     assert_eq!(defl.gate, KpiGate::Release);

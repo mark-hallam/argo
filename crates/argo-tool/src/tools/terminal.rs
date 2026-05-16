@@ -282,16 +282,24 @@ impl Tool for Terminal {
         // backends is a follow-up. The non-streaming path stays
         // byte-for-byte identical to the previous implementation.
         if let (Some(tx), Backend::Local) = (ctx.progress_tx.as_ref(), backend) {
-            return Ok(match run_streaming(&parsed.command, &cwd, timeout, tx.clone()).await {
-                Ok(result) => into_call_result(ctx, started, &parsed.command, timeout, &result),
-                Err(e) => err(ctx, started, format!("terminal exec failed: {e}")),
-            });
+            return Ok(
+                match run_streaming(&parsed.command, &cwd, timeout, tx.clone()).await {
+                    Ok(result) => into_call_result(ctx, started, &parsed.command, timeout, &result),
+                    Err(e) => err(ctx, started, format!("terminal exec failed: {e}")),
+                },
+            );
         }
 
         let mut req = RunRequest::new(parsed.command.clone(), cwd);
         req.timeout = Some(timeout);
         match self.pick(backend).run(&req).await {
-            Ok(result) => Ok(into_call_result(ctx, started, &parsed.command, timeout, &result)),
+            Ok(result) => Ok(into_call_result(
+                ctx,
+                started,
+                &parsed.command,
+                timeout,
+                &result,
+            )),
             Err(e) => Ok(err(ctx, started, format!("terminal exec failed: {e}"))),
         }
     }

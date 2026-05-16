@@ -34,9 +34,7 @@ pub(crate) async fn daemon(cmd: cli::DaemonCmd) -> ArgoResult<()> {
             json,
             dry_run,
             launch_agents_dir,
-        } => {
-            handlers::daemon_uninstall::run(json, dry_run, launch_agents_dir.as_deref()).await
-        }
+        } => handlers::daemon_uninstall::run(json, dry_run, launch_agents_dir.as_deref()).await,
     }
 }
 
@@ -52,9 +50,7 @@ pub(crate) async fn security(cmd: cli::SecurityCmd) -> ArgoResult<()> {
     match cmd {
         audit @ cli::SecurityCmd::Audit { .. } => handlers::security_audit::run(audit).await,
         cli::SecurityCmd::ScanSecrets(args) => handlers::security_scan_secrets::run(args),
-        cli::SecurityCmd::RotateKeys { cmd } => {
-            handlers::security_rotate_keys::dispatch(cmd).await
-        }
+        cli::SecurityCmd::RotateKeys { cmd } => handlers::security_rotate_keys::dispatch(cmd).await,
     }
 }
 

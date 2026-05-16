@@ -36,13 +36,8 @@ pub(super) async fn session_stats_response(
             );
         }
     };
-    let (mut user, mut assistant, mut tool, mut system, mut other): (
-        u64,
-        u64,
-        u64,
-        u64,
-        u64,
-    ) = (0, 0, 0, 0, 0);
+    let (mut user, mut assistant, mut tool, mut system, mut other): (u64, u64, u64, u64, u64) =
+        (0, 0, 0, 0, 0);
     for r in &rows {
         match r.role.as_str() {
             "user" => user += 1,
@@ -208,7 +203,9 @@ pub(super) async fn session_turns_response(
                 out.push_str(&format!(
                     "| {} | {} | {} | {} | {dur} |\n",
                     t.index,
-                    t.user_seq.map(|s| s.to_string()).unwrap_or_else(|| "-".into()),
+                    t.user_seq
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "-".into()),
                     t.assistant_seq
                         .map(|s| s.to_string())
                         .unwrap_or_else(|| "-".into()),

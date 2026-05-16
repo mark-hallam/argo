@@ -334,11 +334,7 @@ pub fn scan_and_maybe_redact<'a>(input: &'a str, site: &'static str) -> Cow<'a, 
 /// Pure (no env reads) so unit tests can validate every branch
 /// without mutating process-global state.
 #[must_use]
-pub fn apply_policy<'a>(
-    input: &'a str,
-    cfg: PolicyConfig,
-    site: &'static str,
-) -> Cow<'a, str> {
+pub fn apply_policy<'a>(input: &'a str, cfg: PolicyConfig, site: &'static str) -> Cow<'a, str> {
     if !cfg.detect {
         return Cow::Borrowed(input);
     }

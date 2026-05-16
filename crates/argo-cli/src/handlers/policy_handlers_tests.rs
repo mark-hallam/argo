@@ -12,7 +12,10 @@ fn sha256_hex_returns_64_char_hex_and_differs_per_input() {
     let b = sha256_hex("not policy");
     let empty = sha256_hex("");
     // empty-string sha256 is well-known: e3b0c44298fc1c14...
-    assert_eq!(empty, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    assert_eq!(
+        empty,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
     assert_eq!(a.len(), 64);
     assert_eq!(b.len(), 64);
     assert_ne!(a, b);
@@ -22,8 +25,8 @@ fn sha256_hex_returns_64_char_hex_and_differs_per_input() {
 
 #[test]
 fn parse_path_returns_clear_error_when_file_missing() {
-    let err = parse_path(std::path::Path::new("/tmp/nope-policy-test.yaml"))
-        .expect_err("missing file");
+    let err =
+        parse_path(std::path::Path::new("/tmp/nope-policy-test.yaml")).expect_err("missing file");
     assert!(err.to_string().contains("policy: read"));
 }
 

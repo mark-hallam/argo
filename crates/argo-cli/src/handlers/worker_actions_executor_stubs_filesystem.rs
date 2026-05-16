@@ -205,13 +205,12 @@ fn resolve_fs_root(cwd: &Path, worker_id: &str) -> ArgoResult<PathBuf> {
     let lookup = tokio::task::block_in_place(|| {
         handle.block_on(async {
             let store = SessionStore::open(&db).await?;
-            let row: Option<Option<String>> = sqlx::query_scalar(
-                "SELECT fs_root FROM worker WHERE id = ?",
-            )
-            .bind(worker_id)
-            .fetch_optional(store.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("lookup worker.fs_root: {e}")))?;
+            let row: Option<Option<String>> =
+                sqlx::query_scalar("SELECT fs_root FROM worker WHERE id = ?")
+                    .bind(worker_id)
+                    .fetch_optional(store.pool())
+                    .await
+                    .map_err(|e| ArgoError::Provider(format!("lookup worker.fs_root: {e}")))?;
             Ok::<Option<String>, ArgoError>(row.flatten())
         })
     });

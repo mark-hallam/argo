@@ -161,24 +161,34 @@ pub enum PluginCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    Install { source: String },
-    Enable { name: String },
-    Disable { name: String },
-    Remove { name: String },
-    Run { name: String },
+    Install {
+        source: String,
+    },
+    Enable {
+        name: String,
+    },
+    Disable {
+        name: String,
+    },
+    Remove {
+        name: String,
+    },
+    Run {
+        name: String,
+    },
 }
 
+pub use super::cli_backup_cmds::{BackupCmd, RestoreCmd};
+pub use super::cli_cred_cmds::CredCmd;
+pub use super::cli_memory_cmd::MemoryCmd;
 pub use super::cli_subcommands_provider::{ModelCmd, ProviderCmd};
 pub use super::cli_subcommands_skill::{
     SkillCmd, SkillIrCmd, SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd,
 };
-pub use super::cli_memory_cmd::MemoryCmd;
-pub use super::cli_cred_cmds::CredCmd;
-pub use super::cli_backup_cmds::{BackupCmd, RestoreCmd};
 #[path = "cli_connector_cmds.rs"]
 mod cli_connector_cmds;
-pub use cli_connector_cmds::ConnectorCmd;
 pub use super::cli_subcommands_cron::CronCmd;
+pub use cli_connector_cmds::ConnectorCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum ErrorsCmd {

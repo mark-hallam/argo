@@ -122,7 +122,10 @@ async fn availability_tenant_filter_scopes_window() {
     let store = store_with_rows(&[
         (10, serde_json::json!({"status": 200, "tenant_id": "acme"})),
         (20, serde_json::json!({"status": 500, "tenant_id": "acme"})),
-        (30, serde_json::json!({"status": 500, "tenant_id": "globex"})),
+        (
+            30,
+            serde_json::json!({"status": 500, "tenant_id": "globex"}),
+        ),
     ])
     .await;
     let filter = ErrorRateFilter {
@@ -160,7 +163,10 @@ async fn latency_percentiles_handle_empty_and_single_sample() {
     let empty = SessionStore::open(":memory:").await.unwrap();
     empty.migrate().await.unwrap();
     let pcts = latency_percentiles_in_window(&empty, 0, 100).await.unwrap();
-    assert_eq!((pcts.total, pcts.p50_us, pcts.p95_us, pcts.p99_us), (0, 0, 0, 0));
+    assert_eq!(
+        (pcts.total, pcts.p50_us, pcts.p95_us, pcts.p99_us),
+        (0, 0, 0, 0)
+    );
 
     let one = store_with_rows(&[(10, serde_json::json!({"status": 200, "duration_ms": 42}))]).await;
     let pcts = latency_percentiles_in_window(&one, 0, 100).await.unwrap();

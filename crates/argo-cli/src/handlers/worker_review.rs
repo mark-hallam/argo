@@ -253,7 +253,12 @@ pub fn micros_to_rfc3339(micros: i64) -> Option<String> {
 
 /// Quarter starts: Jan/Apr/Jul/Oct first-of-month, 00:00:00 UTC.
 pub fn first_of_quarter(now: DateTime<Utc>) -> DateTime<Utc> {
-    let m = match now.month() { 1..=3 => 1, 4..=6 => 4, 7..=9 => 7, _ => 10 };
+    let m = match now.month() {
+        1..=3 => 1,
+        4..=6 => 4,
+        7..=9 => 7,
+        _ => 10,
+    };
     midnight_utc(now.year(), m, 1)
 }
 

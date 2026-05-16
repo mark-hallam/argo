@@ -103,10 +103,7 @@ pub(crate) fn payload_hash(payload: &serde_json::Value) -> String {
 /// Returns the zero hash when no rows exist yet (start of chain).
 /// Duplicates `last_session_hash` in `persist.rs` to keep this
 /// module self-contained per the brief's may-touch boundary.
-async fn last_session_hash(
-    pool: &sqlx::Pool<sqlx::Sqlite>,
-    sid: &Uuid,
-) -> ArgoResult<[u8; 32]> {
+async fn last_session_hash(pool: &sqlx::Pool<sqlx::Sqlite>, sid: &Uuid) -> ArgoResult<[u8; 32]> {
     let row: Option<Vec<u8>> = sqlx::query_scalar(
         "SELECT self_hash FROM audit_record WHERE session_id = ? \
          ORDER BY seq DESC LIMIT 1",

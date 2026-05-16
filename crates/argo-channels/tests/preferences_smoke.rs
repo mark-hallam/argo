@@ -3,8 +3,7 @@
 //! up the rewrite.
 
 use argo_channels::operator_preferences::{
-    OperatorId, OperatorPreferencesResolver, OperatorPreferencesSource,
-    TomlPreferencesSource,
+    OperatorId, OperatorPreferencesResolver, OperatorPreferencesSource, TomlPreferencesSource,
 };
 use argo_channels::{ChannelId, RiskLevel};
 use chrono::{TimeZone, Utc};
@@ -59,8 +58,7 @@ async fn resolves_initial_and_fallback_then_reloads_on_mtime() {
     let path = tmp.path().join("argo.toml");
     write_initial(&path);
 
-    let source: Arc<dyn OperatorPreferencesSource> =
-        Arc::new(TomlPreferencesSource::new(&path));
+    let source: Arc<dyn OperatorPreferencesSource> = Arc::new(TomlPreferencesSource::new(&path));
     let resolver = OperatorPreferencesResolver::new(source);
     let now = Utc.with_ymd_and_hms(2026, 5, 11, 14, 0, 0).unwrap();
 

@@ -34,9 +34,7 @@ async fn mem_store() -> Arc<SessionStore> {
 }
 
 fn show_req(worker_id: &str) -> String {
-    format!(
-        "GET /api/v1/workers/{worker_id}/trust-grade HTTP/1.1\r\nHost: x\r\n\r\n"
-    )
+    format!("GET /api/v1/workers/{worker_id}/trust-grade HTTP/1.1\r\nHost: x\r\n\r\n")
 }
 
 fn fresh_worker(tenant: TenantId) -> Worker {
@@ -139,10 +137,19 @@ fn build_response_marks_recent_activity_criterion_met() {
 #[test]
 fn label_strings_are_human_friendly_for_every_grade() {
     assert_eq!(grade_label(TrustGrade::Builtin), "Builtin");
-    assert_eq!(grade_label(TrustGrade::PublishedVerified), "Published verified");
+    assert_eq!(
+        grade_label(TrustGrade::PublishedVerified),
+        "Published verified"
+    );
     assert_eq!(grade_label(TrustGrade::Tenant), "Tenant");
-    assert_eq!(grade_label(TrustGrade::PublishedCommunity), "Published community");
-    assert_eq!(grade_label(TrustGrade::LearnedUnreviewed), "Learned, unreviewed");
+    assert_eq!(
+        grade_label(TrustGrade::PublishedCommunity),
+        "Published community"
+    );
+    assert_eq!(
+        grade_label(TrustGrade::LearnedUnreviewed),
+        "Learned, unreviewed"
+    );
 }
 
 #[tokio::test]
@@ -155,7 +162,10 @@ async fn show_response_returns_200_for_existing_worker() {
     // Ensure the workspace tenant exists, then drop a worker on it.
     // We bind to the same cwd-derived tenant the handler will use.
     let cwd = std::env::current_dir().unwrap();
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await.unwrap();
 
@@ -167,9 +177,12 @@ async fn show_response_returns_200_for_existing_worker() {
         .await
         .unwrap();
 
-    let (status, body) =
-        show_response(&worker.id.to_string(), &show_req(&worker.id.to_string()), Some(&store))
-            .await;
+    let (status, body) = show_response(
+        &worker.id.to_string(),
+        &show_req(&worker.id.to_string()),
+        Some(&store),
+    )
+    .await;
     assert_eq!(status, "200 OK", "body: {body}");
     let v: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["worker_id"], worker.id.to_string());

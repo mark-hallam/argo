@@ -62,7 +62,9 @@ fn declared_action_type_passes() {
 fn action_chain_entries_are_validated() {
     let dir = write_case(
         MIN_MANIFEST,
-        &[r#"{"id":"f1","input":"x","expected":{"action_chain":["draft_thing","mystery_action"]}}"#],
+        &[
+            r#"{"id":"f1","input":"x","expected":{"action_chain":["draft_thing","mystery_action"]}}"#,
+        ],
     );
     let violations = check(&discover(dir.path())[0]);
     assert_eq!(violations.len(), 1, "exactly the unknown chain entry trips");
@@ -78,13 +80,19 @@ fn approval_required_must_match_escalation_block() {
     // a fixture claiming `requires_approval: true` is a mismatch.
     let dir = write_case(
         MIN_MANIFEST,
-        &[r#"{"id":"f1","input":"x","expected":{"action_type":"draft_thing","requires_approval":true}}"#],
+        &[
+            r#"{"id":"f1","input":"x","expected":{"action_type":"draft_thing","requires_approval":true}}"#,
+        ],
     );
     let violations = check(&discover(dir.path())[0]);
     assert!(
         violations.iter().any(|v| matches!(
             v,
-            Violation::ApprovalMismatch { expected_approval: true, declared_required: false, .. }
+            Violation::ApprovalMismatch {
+                expected_approval: true,
+                declared_required: false,
+                ..
+            }
         )),
         "expected approval-mismatch, got {violations:#?}"
     );
@@ -97,13 +105,19 @@ fn approval_auto_must_match_escalation_block() {
     // of the same mismatch.
     let dir = write_case(
         MIN_MANIFEST,
-        &[r#"{"id":"f1","input":"x","expected":{"action_type":"send_thing","requires_approval":false}}"#],
+        &[
+            r#"{"id":"f1","input":"x","expected":{"action_type":"send_thing","requires_approval":false}}"#,
+        ],
     );
     let violations = check(&discover(dir.path())[0]);
     assert!(
         violations.iter().any(|v| matches!(
             v,
-            Violation::ApprovalMismatch { expected_approval: false, declared_required: true, .. }
+            Violation::ApprovalMismatch {
+                expected_approval: false,
+                declared_required: true,
+                ..
+            }
         )),
         "expected approval-mismatch, got {violations:#?}"
     );
@@ -116,7 +130,9 @@ fn must_include_schema_is_out_of_scope() {
     // and must be skipped — not coerced into a violation.
     let dir = write_case(
         MIN_MANIFEST,
-        &[r#"{"id":"f1","input":"x","expected":{"must_include":["foo"],"must_not_include":["bar"]}}"#],
+        &[
+            r#"{"id":"f1","input":"x","expected":{"must_include":["foo"],"must_not_include":["bar"]}}"#,
+        ],
     );
     let violations = check(&discover(dir.path())[0]);
     assert!(violations.is_empty(), "must_include fixtures stay silent");
@@ -156,7 +172,10 @@ system_prompt = "prompts/system.md"
     );
     let cases = discover(dir.path());
     assert_eq!(cases.len(), 1);
-    assert!(check(&cases[0]).is_empty(), "no [actions] = nothing to check");
+    assert!(
+        check(&cases[0]).is_empty(),
+        "no [actions] = nothing to check"
+    );
 }
 
 #[test]

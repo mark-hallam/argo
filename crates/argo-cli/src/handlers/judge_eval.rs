@@ -10,7 +10,8 @@
 //! transport. Ongoing fixture-set maintenance is the operator's job;
 //! see `crates/argo-judge/fixtures/disagreement/README` (TBD).
 use argo_judge::{
-    load_fixtures, run_disagreement_eval, DisagreementReport, LlmJudge, Rubric, DEFAULT_FIXTURES_DIR,
+    load_fixtures, run_disagreement_eval, DisagreementReport, LlmJudge, Rubric,
+    DEFAULT_FIXTURES_DIR,
 };
 use argo_provider::{
     AnthropicTransport, BedrockTransport, OpenAiCompatTransport, OpenAiResponsesTransport,

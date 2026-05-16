@@ -27,9 +27,7 @@
 
 #![cfg(target_os = "linux")]
 
-use argo_runtime::worker_resource_cage::{
-    CageStatus, WorkerResourceCage, WorkerResourceConfig,
-};
+use argo_runtime::worker_resource_cage::{CageStatus, WorkerResourceCage, WorkerResourceConfig};
 use std::process::Command;
 
 #[test]

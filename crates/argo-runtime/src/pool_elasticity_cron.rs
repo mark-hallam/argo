@@ -43,7 +43,6 @@ pub async fn tick(
 /// to schedule the next firing relative to `now`.
 #[must_use]
 pub fn next_tick_at(now: DateTime<Utc>, cfg: &ElasticityConfig) -> DateTime<Utc> {
-    now + chrono::Duration::from_std(cfg.scale_check_interval).unwrap_or(chrono::Duration::seconds(
-        DEFAULT_INTERVAL_SECS as i64,
-    ))
+    now + chrono::Duration::from_std(cfg.scale_check_interval)
+        .unwrap_or(chrono::Duration::seconds(DEFAULT_INTERVAL_SECS as i64))
 }

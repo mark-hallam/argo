@@ -98,8 +98,7 @@ pub(crate) async fn refresh_dashboard(state: &mut ViewerState, store: &SessionSt
     }
     let base = gateway_url();
     let workers = fetch_panel(&base, "/orchestrator/workers", true).await;
-    let pending =
-        fetch_panel(&base, "/orchestrator/approvals/pending", true).await;
+    let pending = fetch_panel(&base, "/orchestrator/approvals/pending", true).await;
     let audit = fetch_audit_tail(store).await;
     if let Some(dash) = state.dashboard_overlay.as_mut() {
         dash.workers = workers;
@@ -115,12 +114,11 @@ pub(crate) async fn refresh_dashboard(state: &mut ViewerState, store: &SessionSt
 pub(crate) async fn fetch_audit_tail(store: &SessionStore) -> Vec<AuditTailEntry> {
     let now_micros = chrono::Utc::now().timestamp_micros();
     let filters = argo_audit::TailFilters::default();
-    let rows = match argo_audit::tail_rows_filtered(store, AUDIT_TAIL_CAPACITY as u32, &filters)
-        .await
-    {
-        Ok(rows) => rows,
-        Err(_) => return Vec::new(),
-    };
+    let rows =
+        match argo_audit::tail_rows_filtered(store, AUDIT_TAIL_CAPACITY as u32, &filters).await {
+            Ok(rows) => rows,
+            Err(_) => return Vec::new(),
+        };
     rows.into_iter()
         .map(|r| AuditTailEntry {
             kind: r.kind.clone(),

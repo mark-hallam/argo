@@ -61,10 +61,7 @@ async fn trait_impl_static_roundtrip() {
 #[tokio::test]
 async fn client_merges_two_sources_dedupes_by_id() {
     let source_a = StubSource(vec![sample("alpha", "acme"), sample("beta", "acme")]);
-    let source_b = StubSource(vec![
-        sample("beta", "globex"),
-        sample("gamma", "globex"),
-    ]);
+    let source_b = StubSource(vec![sample("beta", "globex"), sample("gamma", "globex")]);
     let client = MarketplaceClient::new(vec![Box::new(source_a), Box::new(source_b)]);
     let rows = client.list_all().await;
     let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
@@ -83,9 +80,7 @@ async fn client_falls_back_when_source_errors() {
     let rows = client.list_all().await;
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "delta");
-    let searched = client
-        .search("delta", &SearchOptions::default())
-        .await;
+    let searched = client.search("delta", &SearchOptions::default()).await;
     assert_eq!(searched.len(), 1);
     assert_eq!(searched[0].name, "delta");
 }

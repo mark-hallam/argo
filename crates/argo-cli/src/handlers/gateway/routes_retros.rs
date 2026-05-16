@@ -139,7 +139,10 @@ pub(super) async fn update_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
-    match RetroStore::new(store.pool()).update_sections(id, &sections).await {
+    match RetroStore::new(store.pool())
+        .update_sections(id, &sections)
+        .await
+    {
         Ok(()) => {}
         Err(RetroError::NotFound) => return not_found(retro_id_raw),
         Err(RetroError::Finalized) => return conflict("retro is finalized"),
@@ -321,16 +324,14 @@ async fn resolve_tenant_principal(
     store: &SessionStore,
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    let principal_id =
-        principal_id_for_audit(req).unwrap_or_else(|| "system:retro".to_string());
+    let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:retro".to_string());
     Ok((tenant, principal_id))
 }
 

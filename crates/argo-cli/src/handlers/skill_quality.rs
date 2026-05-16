@@ -23,8 +23,7 @@ pub async fn run(name: &str, json: bool, format: &str, limit: u32) -> ArgoResult
             "unknown --format '{format}' — use 'text', 'markdown', or 'json'"
         )));
     }
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(db_path(&home)).await?);
@@ -112,7 +111,11 @@ fn print_text_block(name: &str, scores: &[QualityScore], limit: u32) {
     print_text_one(latest);
     if limit > 1 && scores.len() > 1 {
         println!();
-        println!("history ({} prior score{}):", scores.len() - 1, if scores.len() == 2 { "" } else { "s" });
+        println!(
+            "history ({} prior score{}):",
+            scores.len() - 1,
+            if scores.len() == 2 { "" } else { "s" }
+        );
         for score in scores.iter().skip(1) {
             println!(
                 "  {} → score={} success_rate={:.3} avg_latency_ms={:.1}",
@@ -159,10 +162,7 @@ pub(super) fn render_markdown(name: &str, scores: &[QualityScore], limit: u32) -
         "- avg_latency_ms: `{:.1}`\n",
         latest.inputs.avg_latency_ms
     ));
-    out.push_str(&format!(
-        "- retry_count: `{}`\n",
-        latest.inputs.retry_count
-    ));
+    out.push_str(&format!("- retry_count: `{}`\n", latest.inputs.retry_count));
     out.push_str(&format!(
         "- p99_latency_ms: `{:.1}`\n",
         latest.inputs.p99_latency_ms

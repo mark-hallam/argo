@@ -18,8 +18,8 @@
 //!   - removed rows are preserved with `removed_at = <unix_ts>` so
 //!     KPI / audit queries can still see historical membership.
 
-use crate::StoreResult;
 use crate::team_roster::ensure_team_roster_columns;
+use crate::StoreResult;
 use argo_types::{ArgoError, TenantId};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -54,14 +54,13 @@ pub async fn create_team(
     }
     let tenant_str = tenant.to_string();
     if let Some(pid) = parent_id {
-        let exists: Option<String> = sqlx::query_scalar(
-            "SELECT id FROM org_unit WHERE tenant_id = ? AND id = ?",
-        )
-        .bind(&tenant_str)
-        .bind(pid)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("validate parent: {e}")))?;
+        let exists: Option<String> =
+            sqlx::query_scalar("SELECT id FROM org_unit WHERE tenant_id = ? AND id = ?")
+                .bind(&tenant_str)
+                .bind(pid)
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("validate parent: {e}")))?;
         if exists.is_none() {
             return Err(ArgoError::Provider(format!(
                 "parent team '{pid}' not found in tenant '{tenant}'"
@@ -118,25 +117,21 @@ pub async fn rename_team(
     new_name: &str,
 ) -> StoreResult<bool> {
     if new_name.trim().is_empty() {
-        return Err(ArgoError::Provider(
-            "team name must not be empty".into(),
-        ));
+        return Err(ArgoError::Provider("team name must not be empty".into()));
     }
     let tenant_str = tenant.to_string();
     let mut tx = pool
         .begin()
         .await
         .map_err(|e| ArgoError::Provider(format!("rename_team tx: {e}")))?;
-    let unit_rows = sqlx::query(
-        "UPDATE org_unit SET name = ? WHERE tenant_id = ? AND id = ?",
-    )
-    .bind(new_name)
-    .bind(&tenant_str)
-    .bind(team_id)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("rename_team org_unit: {e}")))?
-    .rows_affected();
+    let unit_rows = sqlx::query("UPDATE org_unit SET name = ? WHERE tenant_id = ? AND id = ?")
+        .bind(new_name)
+        .bind(&tenant_str)
+        .bind(team_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("rename_team org_unit: {e}")))?
+        .rows_affected();
     if unit_rows == 0 {
         tx.rollback()
             .await

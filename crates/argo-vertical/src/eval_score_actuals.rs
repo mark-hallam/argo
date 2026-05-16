@@ -19,9 +19,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::eval_score::{
-    score_fixture, FixtureScore, FixtureStatus, SuiteScore,
-};
+use crate::eval_score::{score_fixture, FixtureScore, FixtureStatus, SuiteScore};
 
 /// Parsed actuals map: fixture id → actual text. Built by
 /// [`parse_actuals_jsonl`]; consumed by
@@ -154,10 +152,7 @@ pub fn score_suite_jsonl_with_actuals(
             // fixture without needing two code paths.
             if let Some(actual) = actuals.get(id) {
                 if let Some(obj) = parsed.as_object_mut() {
-                    obj.insert(
-                        "actual".to_string(),
-                        Value::String(actual.clone()),
-                    );
+                    obj.insert("actual".to_string(), Value::String(actual.clone()));
                 }
             }
         }

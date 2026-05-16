@@ -97,8 +97,7 @@ requires_approval = false
 description = "x"
 executor = { kind = "computer_use_windows_garbage" }
 "#;
-    let err = argo_vertical::parse(toml)
-        .expect_err("unknown kind must not pass strict validation");
+    let err = argo_vertical::parse(toml).expect_err("unknown kind must not pass strict validation");
     let msg = err.to_string();
     assert!(
         msg.contains("unknown executor kind"),

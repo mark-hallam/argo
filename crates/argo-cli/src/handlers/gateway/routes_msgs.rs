@@ -54,9 +54,7 @@ pub(super) async fn list_messages_response(
         if !matches!(want, "user" | "assistant" | "tool" | "system") {
             return (
                 "400 Bad Request",
-                format!(
-                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
-                ),
+                format!("{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"),
             );
         }
     }
@@ -66,8 +64,8 @@ pub(super) async fn list_messages_response(
                 rows.retain(|m| m.role == want);
             }
             if let Some(m) = since_minutes {
-                let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(m))
-                    .timestamp_micros();
+                let cutoff_micros =
+                    (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
                 rows.retain(|row| row.created_at >= cutoff_micros);
             }
             if let Some(min) = seq_min {
@@ -168,9 +166,7 @@ pub(super) async fn count_messages_response(
         if !matches!(want, "user" | "assistant" | "tool" | "system") {
             return (
                 "400 Bad Request",
-                format!(
-                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
-                ),
+                format!("{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"),
             );
         }
     }
@@ -317,7 +313,8 @@ pub(super) async fn stream_session_messages(
     {
         Some(s) => s,
         None => {
-            return write_buffered(out, "400 Bad Request", "{\"error\":\"missing session id\"}").await;
+            return write_buffered(out, "400 Bad Request", "{\"error\":\"missing session id\"}")
+                .await;
         }
     };
     let id = match uuid::Uuid::parse_str(sid) {
@@ -412,11 +409,7 @@ fn take_or_all<S: futures::Stream>(stream: S, limit: Option<usize>) -> futures::
     stream.take(n)
 }
 
-async fn write_buffered(
-    out: &mut TcpStream,
-    status: &str,
-    body: &str,
-) -> tokio::io::Result<()> {
+async fn write_buffered(out: &mut TcpStream, status: &str, body: &str) -> tokio::io::Result<()> {
     use tokio::io::AsyncWriteExt;
     let resp = format!(
         "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",

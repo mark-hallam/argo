@@ -248,10 +248,7 @@ pub fn lift_tool_blocks(
 /// Build the `content_json` payload for an assistant message
 /// that may also carry tool calls. Tool calls are serialized as
 /// `ContentBlock::ToolUse` blocks alongside any leading text.
-pub fn build_assistant_content(
-    text: &str,
-    tool_calls: &[ToolCallRequest],
-) -> serde_json::Value {
+pub fn build_assistant_content(text: &str, tool_calls: &[ToolCallRequest]) -> serde_json::Value {
     let mut blocks: Vec<ContentBlock> = Vec::new();
     if !text.is_empty() {
         blocks.push(ContentBlock::Text {
@@ -273,9 +270,7 @@ mod tests {
     fn lift_extracts_tool_uses_and_first_tool_result_id() {
         let cid = ToolCallId::new();
         let blocks = vec![
-            ContentBlock::Text {
-                text: "ok".into(),
-            },
+            ContentBlock::Text { text: "ok".into() },
             ContentBlock::ToolUse(ToolCallRequest {
                 id: ToolCallId::new(),
                 provider_call_id: None,

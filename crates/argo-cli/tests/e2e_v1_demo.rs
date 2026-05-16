@@ -70,10 +70,7 @@ async fn full_v1_demo_flow_passes_offline() {
     let (registry, errors) = step(&mut steps, "2. Manifest round-trip via load_dir", || {
         argo_vertical::load_dir(work_root.path()).expect("load_dir")
     });
-    assert!(
-        errors.is_empty(),
-        "manifest load errors: {errors:?}"
-    );
+    assert!(errors.is_empty(), "manifest load errors: {errors:?}");
     let loaded = registry.get(&plan.vertical_id).expect("vertical loaded");
     assert_eq!(loaded.manifest.vertical.id, plan.vertical_id);
 
@@ -96,7 +93,10 @@ async fn full_v1_demo_flow_passes_offline() {
         "3. Worker creation via IdentityStore::create_worker",
         || (), // step() doesn't take async; do the call out-of-band
     );
-    identities.create_worker(&worker).await.expect("create_worker");
+    identities
+        .create_worker(&worker)
+        .await
+        .expect("create_worker");
     let listed = identities
         .list_workers(tenant, false)
         .await
@@ -153,13 +153,21 @@ async fn full_v1_demo_flow_passes_offline() {
         rows.iter().any(|r| {
             serde_json::from_str::<serde_json::Value>(&r.body)
                 .ok()
-                .and_then(|v| v.get("action_id").and_then(|a| a.as_str()).map(String::from))
+                .and_then(|v| {
+                    v.get("action_id")
+                        .and_then(|a| a.as_str())
+                        .map(String::from)
+                })
                 .as_deref()
                 == Some(action_id.as_str())
         }),
         "emitted action must round-trip through the worker_action memory row"
     );
-    step(&mut steps, "4. Action emission via worker_action memory row", || ());
+    step(
+        &mut steps,
+        "4. Action emission via worker_action memory row",
+        || (),
+    );
 
     // Step 5 — Auto-approval gate semantics.
     // The H-1 evaluator + H-2 hookup are exercised by their own
@@ -197,9 +205,7 @@ async fn full_v1_demo_flow_passes_offline() {
     let target_email = "operator@example.com";
     notifier.notify(
         target_email,
-        &format!(
-            "approval needed: action {action_id} is pending; risk=high"
-        ),
+        &format!("approval needed: action {action_id} is pending; risk=high"),
     );
     let calls = notifier.calls();
     assert_eq!(calls.len(), 1, "stub notifier captures one call");

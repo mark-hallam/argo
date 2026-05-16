@@ -145,10 +145,7 @@ impl TomlFileShape {
                     after_seconds: s.after_seconds,
                 })
                 .collect();
-            let quiet_hours = prefs
-                .quiet_hours
-                .map(parse_quiet_hours)
-                .transpose()?;
+            let quiet_hours = prefs.quiet_hours.map(parse_quiet_hours).transpose()?;
             let channel_overrides = prefs
                 .channel_overrides
                 .into_iter()

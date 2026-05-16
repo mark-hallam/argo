@@ -58,24 +58,18 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::Sweep { older_than_minutes } => {
                 super::forge_admin::sweep_stalled(older_than_minutes).await
             }
-            ForgeRunsCmd::ByDay { days, json } => {
-                super::forge_by_day::run(days, json).await
-            }
-            ForgeRunsCmd::ByStatus { since_minutes, json } => {
-                super::forge_by_status::run(since_minutes, json).await
-            }
-            ForgeRunsCmd::BySkill { since_minutes, json } => {
-                super::forge_by_skill::run(since_minutes, json).await
-            }
-            ForgeRunsCmd::Requeue { id, json } => {
-                super::forge_admin::requeue_run(&id, json).await
-            }
-            ForgeRunsCmd::Payload { id, json } => {
-                super::forge_admin::show_payload(&id, json).await
-            }
-            ForgeRunsCmd::Audit { id, json } => {
-                super::forge_admin::show_audit(&id, json).await
-            }
+            ForgeRunsCmd::ByDay { days, json } => super::forge_by_day::run(days, json).await,
+            ForgeRunsCmd::ByStatus {
+                since_minutes,
+                json,
+            } => super::forge_by_status::run(since_minutes, json).await,
+            ForgeRunsCmd::BySkill {
+                since_minutes,
+                json,
+            } => super::forge_by_skill::run(since_minutes, json).await,
+            ForgeRunsCmd::Requeue { id, json } => super::forge_admin::requeue_run(&id, json).await,
+            ForgeRunsCmd::Payload { id, json } => super::forge_admin::show_payload(&id, json).await,
+            ForgeRunsCmd::Audit { id, json } => super::forge_admin::show_audit(&id, json).await,
         },
         ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
         ForgeCmd::Bench {
@@ -102,14 +96,10 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             iterations,
             budget,
             json,
-        } => {
-            super::forge_enqueue::run(&skill, &examples, iterations, budget, json).await
+        } => super::forge_enqueue::run(&skill, &examples, iterations, budget, json).await,
+        ForgeCmd::CostReport { skill, since, json } => {
+            super::forge_cost_report::run(skill, since, json).await
         }
-        ForgeCmd::CostReport {
-            skill,
-            since,
-            json,
-        } => super::forge_cost_report::run(skill, since, json).await,
     }
 }
 
@@ -119,8 +109,7 @@ async fn bench(
     provider: &str,
     model: &str,
 ) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let store = Arc::new(open_store().await?);
     let skills = SkillStore::new(Arc::clone(&store));
 
@@ -154,11 +143,7 @@ async fn bench(
     let (tenant, workspace) = store.ensure_workspace(ws_name, &ws_root).await?;
 
     let run_id = store
-        .start_forge_run(
-            skill_name,
-            &active.frontmatter.version,
-            tasks.len() as u32,
-        )
+        .start_forge_run(skill_name, &active.frontmatter.version, tasks.len() as u32)
         .await?;
     let _ = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string())
         .write(
@@ -227,7 +212,6 @@ async fn bench(
     );
     Ok(())
 }
-
 
 /// Async kick-off used by the gateway's `POST /forge/bench`.
 /// Spawns a Tokio task that runs the bench; the resulting

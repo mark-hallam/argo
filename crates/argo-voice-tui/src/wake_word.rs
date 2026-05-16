@@ -25,10 +25,7 @@ pub fn strip_wake_word(text: &str) -> Option<String> {
     let mut tokens = trimmed.split_whitespace();
     let head = tokens.next()?.to_lowercase();
     // Strip trailing punctuation so "Argo," still matches.
-    let head_clean: String = head
-        .chars()
-        .filter(|c| c.is_alphanumeric())
-        .collect();
+    let head_clean: String = head.chars().filter(|c| c.is_alphanumeric()).collect();
     if head_clean != "argo" {
         return None;
     }
@@ -55,10 +52,7 @@ mod tests {
 
     #[test]
     fn wake_word_case_insensitive() {
-        assert_eq!(
-            strip_wake_word("ARGO next"),
-            Some("next".into())
-        );
+        assert_eq!(strip_wake_word("ARGO next"), Some("next".into()));
     }
 
     #[test]

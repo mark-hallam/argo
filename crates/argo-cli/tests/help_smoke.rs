@@ -174,7 +174,10 @@ fn mcp_tools_renders_help() {
     // discovering tools an MCP server exposes.
     let h = help(&["mcp", "tools"]);
     assert!(h.contains("Usage:"), "mcp tools --help: {h}");
-    assert!(h.contains("--vertical"), "mcp tools missing --vertical: {h}");
+    assert!(
+        h.contains("--vertical"),
+        "mcp tools missing --vertical: {h}"
+    );
     assert!(h.contains("--filter"), "mcp tools missing --filter: {h}");
     assert!(
         h.contains("--schema-only"),
@@ -271,8 +274,19 @@ fn cu_replay_renders_help_with_session_id_and_flags() {
     let h = help(&["cu", "replay"]);
     assert!(h.contains("Usage:"), "argo cu replay --help: {h}");
     assert!(h.contains("<SESSION_ID>"), "missing positional: {h}");
-    for flag in ["--out", "--gif", "--gif-fps", "--from", "--to", "--inline", "--format"] {
-        assert!(h.contains(flag), "argo cu replay --help missing {flag}: {h}");
+    for flag in [
+        "--out",
+        "--gif",
+        "--gif-fps",
+        "--from",
+        "--to",
+        "--inline",
+        "--format",
+    ] {
+        assert!(
+            h.contains(flag),
+            "argo cu replay --help missing {flag}: {h}"
+        );
     }
 }
 

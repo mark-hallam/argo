@@ -57,9 +57,8 @@ pub(super) async fn audit_count_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let since_micros = since_minutes.map(|m| {
-        (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
-    });
+    let since_micros = since_minutes
+        .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
     let session_bytes = match session {
         Some(s) => match uuid::Uuid::parse_str(s) {
             Ok(u) => Some(u.as_bytes().to_vec()),
@@ -117,9 +116,8 @@ pub(super) async fn audit_recent_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let since_micros = since_minutes.map(|m| {
-        (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
-    });
+    let since_micros = since_minutes
+        .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
     let session_bytes = match session {
         Some(s) => match uuid::Uuid::parse_str(s) {
             Ok(u) => Some(u.as_bytes().to_vec()),
@@ -151,10 +149,7 @@ pub(super) async fn audit_recent_response(
                     out.push_str("| seq | kind | session_id | vertical |\n");
                     out.push_str("| ---: | --- | --- | --- |\n");
                     for r in &rows {
-                        let sid = r
-                            .session_id
-                            .as_deref()
-                            .unwrap_or("-");
+                        let sid = r.session_id.as_deref().unwrap_or("-");
                         let vert = r.vertical_id.as_deref().unwrap_or("-");
                         out.push_str(&format!(
                             "| {} | `{}` | `{sid}` | `{vert}` |\n",
@@ -193,8 +188,7 @@ pub(super) async fn audit_by_kind_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT kind, COUNT(*) FROM audit_record WHERE created_at >= ? \
                  GROUP BY kind ORDER BY kind",
@@ -204,11 +198,9 @@ pub(super) async fn audit_by_kind_response(
             .await
         }
         None => {
-            sqlx::query_as(
-                "SELECT kind, COUNT(*) FROM audit_record GROUP BY kind ORDER BY kind",
-            )
-            .fetch_all(pool)
-            .await
+            sqlx::query_as("SELECT kind, COUNT(*) FROM audit_record GROUP BY kind ORDER BY kind")
+                .fetch_all(pool)
+                .await
         }
     };
     match rows {
@@ -269,8 +261,8 @@ pub(super) async fn stream_audit_recent(
     let kind = parse_query_kv(tail, "kind");
     let since = parse_since_minutes_from_get(req, "/audit/recent");
     let session = parse_query_kv(tail, "session");
-    let since_micros = since
-        .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
+    let since_micros =
+        since.map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
     let session_bytes = match session.as_deref() {
         Some(s) => match uuid::Uuid::parse_str(s) {
             Ok(u) => Some(u.as_bytes().to_vec()),
@@ -308,11 +300,7 @@ pub(super) async fn stream_audit_recent(
     }
 }
 
-async fn write_buffered(
-    out: &mut TcpStream,
-    status: &str,
-    body: &str,
-) -> tokio::io::Result<()> {
+async fn write_buffered(out: &mut TcpStream, status: &str, body: &str) -> tokio::io::Result<()> {
     use tokio::io::AsyncWriteExt;
     let resp = format!(
         "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",

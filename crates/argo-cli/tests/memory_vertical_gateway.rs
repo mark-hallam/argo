@@ -127,11 +127,7 @@ fn gateway_get_memory_vertical_excludes_legacy_null_rows() {
     let (mut child, _stderr, port) = boot_with_workspace(home.path(), root.path(), 4);
 
     // Legacy untagged write.
-    http_post(
-        port,
-        "/memory",
-        r#"{"file":"memory","body":"legacy-row"}"#,
-    );
+    http_post(port, "/memory", r#"{"file":"memory","body":"legacy-row"}"#);
 
     // ?vertical=alpha → empty (default-deny).
     let resp = http_get(port, "/memory?vertical=alpha");
@@ -167,7 +163,10 @@ fn gateway_get_memory_vertical_unknown_id_returns_empty() {
     let resp = http_get(port, "/memory?vertical=ghost");
     let arr: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
     let arr = arr.as_array().unwrap();
-    assert!(arr.is_empty(), "ghost vertical must return empty; got {arr:?}");
+    assert!(
+        arr.is_empty(),
+        "ghost vertical must return empty; got {arr:?}"
+    );
 
     let _ = child.kill();
 }

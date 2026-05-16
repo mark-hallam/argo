@@ -39,7 +39,9 @@ impl AnthropicCaller for StubCaller {
     }
 }
 
-fn arc_caller(rs: Vec<Result<String, PlannerError>>) -> (Arc<StubCaller>, Box<dyn AnthropicCaller>) {
+fn arc_caller(
+    rs: Vec<Result<String, PlannerError>>,
+) -> (Arc<StubCaller>, Box<dyn AnthropicCaller>) {
     let stub = StubCaller::with_responses(rs);
     let stub_clone = stub.clone();
     let boxed: Box<dyn AnthropicCaller> = Box::new(SharedCaller(stub_clone));
@@ -64,7 +66,10 @@ async fn template_planner_matches_research_keyword() {
         .await
         .unwrap();
     assert_eq!(result.planner_kind, "template");
-    assert_eq!(result.template_name.as_deref(), Some("research-then-summarise"));
+    assert_eq!(
+        result.template_name.as_deref(),
+        Some("research-then-summarise")
+    );
     assert_eq!(result.workflow.tasks.len(), 2);
     // worker context applied
     assert_eq!(result.workflow.tasks[0].worker, "wkr-1");
@@ -146,16 +151,16 @@ async fn llm_planner_parses_well_formed_response() {
     let (stub, boxed) = arc_caller(vec![Ok(body)]);
     let planner = LlmPlanner::new(boxed);
     let ctx = PlannerContext::for_worker("wkr-7");
-    let result = planner
-        .decompose("any goal", &ctx)
-        .await
-        .unwrap();
+    let result = planner.decompose("any goal", &ctx).await.unwrap();
     assert_eq!(result.planner_kind, "llm");
     assert_eq!(result.reasoning, "Two-stage plan");
     assert_eq!(result.workflow.tasks.len(), 2);
     assert_eq!(stub.call_count(), 1);
     let prompt = stub.last_prompt().unwrap();
-    assert!(prompt.contains("any goal"), "prompt should embed goal: {prompt}");
+    assert!(
+        prompt.contains("any goal"),
+        "prompt should embed goal: {prompt}"
+    );
     assert!(prompt.contains("wkr-7"));
 }
 
@@ -198,7 +203,10 @@ async fn build_prompt_includes_vertical_and_hints() {
     let mut ctx = PlannerContext::for_worker("wkr-11").with_vertical("marketplace-seller");
     ctx.add_hint("skill", "outreach");
     let prompt = planner.build_prompt("a goal", &ctx);
-    assert!(prompt.contains("marketplace-seller"), "vertical missing: {prompt}");
+    assert!(
+        prompt.contains("marketplace-seller"),
+        "vertical missing: {prompt}"
+    );
     assert!(prompt.contains("skill: outreach"), "hint missing: {prompt}");
     assert!(prompt.contains("a goal"));
 }

@@ -66,8 +66,7 @@ fn bundled_templates_validate_cleanly() {
             ],
         );
         assert_ok(&out, &format!("validate {name}"));
-        let v: serde_json::Value =
-            serde_json::from_slice(&out.stdout).expect("validate JSON");
+        let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("validate JSON");
         assert_eq!(v["ok"], true, "{name}: {v}");
         assert!(
             v["charter_bytes"].as_u64().unwrap_or(0) > 0,
@@ -103,8 +102,7 @@ fn dry_run_apply_describes_mutations_without_persisting() {
         ],
     );
     assert_ok(&out, "apply --dry-run");
-    let v: serde_json::Value =
-        serde_json::from_slice(&out.stdout).expect("dry-run JSON");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("dry-run JSON");
     assert_eq!(v["dry_run"], true);
     assert_eq!(v["worker_id"], placeholder);
     assert_eq!(v["would"]["update_charter"], true);
@@ -175,8 +173,7 @@ fn apply_then_show_round_trips_against_existing_worker() {
         ],
     );
     assert_ok(&apply, "contract apply");
-    let apply_json: serde_json::Value =
-        serde_json::from_slice(&apply.stdout).expect("apply JSON");
+    let apply_json: serde_json::Value = serde_json::from_slice(&apply.stdout).expect("apply JSON");
     assert_eq!(apply_json["ok"], true);
     assert_eq!(apply_json["worker_id"], worker_id);
     let applied_objectives = apply_json["applied"]["objectives"]
@@ -191,13 +188,7 @@ fn apply_then_show_round_trips_against_existing_worker() {
     let show1 = run(
         home.path(),
         work.path(),
-        &[
-            "contract",
-            "show",
-            &worker_id,
-            "--tenant",
-            &tenant_id,
-        ],
+        &["contract", "show", &worker_id, "--tenant", &tenant_id],
     );
     assert_ok(&show1, "contract show #1");
     let toml1 = String::from_utf8(show1.stdout).expect("utf8 toml1");
@@ -231,13 +222,7 @@ fn apply_then_show_round_trips_against_existing_worker() {
     let show2 = run(
         home.path(),
         work.path(),
-        &[
-            "contract",
-            "show",
-            &worker_id,
-            "--tenant",
-            &tenant_id,
-        ],
+        &["contract", "show", &worker_id, "--tenant", &tenant_id],
     );
     assert_ok(&show2, "contract show #2");
     let toml2 = String::from_utf8(show2.stdout).expect("utf8 toml2");

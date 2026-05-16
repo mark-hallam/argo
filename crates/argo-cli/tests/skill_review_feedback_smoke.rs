@@ -65,7 +65,11 @@ fn boot_gtm_session(home: &Path, verticals: &Path) -> String {
         .unwrap()
         .lines()
         .find(|l| l.starts_with("created session"))
-        .and_then(|l| l.trim_start_matches("created session").split_whitespace().next())
+        .and_then(|l| {
+            l.trim_start_matches("created session")
+                .split_whitespace()
+                .next()
+        })
         .map(str::to_string)
         .expect("session id")
 }
@@ -135,7 +139,8 @@ fn pending_count(f: &Fixture) -> usize {
         .output()
         .expect("spawn list");
     assert!(out.status.success());
-    let v: serde_json::Value = serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     v["pending"].as_array().unwrap().len()
 }
 
@@ -159,7 +164,8 @@ fn promote_without_feedback_flag_keeps_default_behavior() {
         "promote failed: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let v: serde_json::Value = serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(v["ok"], true);
     assert!(v.get("feedback").is_none(), "default JSON changed: {v}");
 }
@@ -196,7 +202,8 @@ fn promote_with_up_feedback_succeeds_and_reports_feedback() {
         "promote failed: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let v: serde_json::Value = serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(v["ok"], true);
     assert_eq!(v["feedback"]["action_id"], "action-up");
     assert_eq!(v["feedback"]["vote"], "up");

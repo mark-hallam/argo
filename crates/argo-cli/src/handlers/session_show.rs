@@ -11,8 +11,7 @@ use argo_types::{ArgoError, ArgoResult, SessionId};
 use super::session_aggregates::{count_tool_use_blocks, session_spend_micros};
 
 pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -33,7 +32,9 @@ pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoRes
         None
     };
     let tool_calls = count_tool_use_blocks(&messages);
-    let spend_micros = session_spend_micros(&store, SessionId(id)).await.unwrap_or(0);
+    let spend_micros = session_spend_micros(&store, SessionId(id))
+        .await
+        .unwrap_or(0);
     let pick = if json { "json" } else { format };
     match pick {
         "json" => {
@@ -87,10 +88,7 @@ pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoRes
             }
             println!("- **Messages**: {count}");
             println!("- **Tool calls**: {tool_calls}");
-            println!(
-                "- **Spend**: ${:.4}",
-                spend_micros as f64 / 1_000_000.0
-            );
+            println!("- **Spend**: ${:.4}", spend_micros as f64 / 1_000_000.0);
             if let Some((role, snippet)) = &first {
                 println!();
                 println!("**First** ({role}): {snippet}");
@@ -134,10 +132,7 @@ pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoRes
     );
     println!("  messages:     {count}");
     println!("  tool calls:   {tool_calls}");
-    println!(
-        "  spend:        ${:.4}",
-        spend_micros as f64 / 1_000_000.0
-    );
+    println!("  spend:        ${:.4}", spend_micros as f64 / 1_000_000.0);
     if let Some((role, snippet)) = &first {
         println!("  first ({role}): {snippet}");
     }

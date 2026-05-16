@@ -31,8 +31,7 @@ use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 
-const ENSURE_ORG_SCHEMA_SQL: &str =
-    include_str!("../../argo-store/migrations/21__org_chart.sql");
+const ENSURE_ORG_SCHEMA_SQL: &str = include_str!("../../argo-store/migrations/21__org_chart.sql");
 
 /// What kind of teammate this row represents. The audit ledger
 /// uses the variant to decide whether to render the row as a
@@ -169,13 +168,12 @@ impl OrgStore {
 
     /// Collect every alias for one member.
     pub async fn aliases_for(&self, member_id: &str) -> ArgoResult<Vec<String>> {
-        let rows: Vec<(String,)> = sqlx::query_as(
-            "SELECT alias FROM org_member_alias WHERE member_id = ? ORDER BY alias",
-        )
-        .bind(member_id)
-        .fetch_all(self.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("aliases_for: {e}")))?;
+        let rows: Vec<(String,)> =
+            sqlx::query_as("SELECT alias FROM org_member_alias WHERE member_id = ? ORDER BY alias")
+                .bind(member_id)
+                .fetch_all(self.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("aliases_for: {e}")))?;
         Ok(rows.into_iter().map(|(a,)| a).collect())
     }
 
@@ -233,14 +231,13 @@ impl OrgStore {
                     "reports-to chain exceeds 64 hops; org has a cycle".into(),
                 ));
             }
-            let row: Option<(Option<String>,)> = sqlx::query_as(
-                "SELECT manager_id FROM org_member WHERE id = ? AND tenant_id = ?",
-            )
-            .bind(&cur)
-            .bind(tenant.to_string())
-            .fetch_optional(self.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("reports_to: {e}")))?;
+            let row: Option<(Option<String>,)> =
+                sqlx::query_as("SELECT manager_id FROM org_member WHERE id = ? AND tenant_id = ?")
+                    .bind(&cur)
+                    .bind(tenant.to_string())
+                    .fetch_optional(self.pool())
+                    .await
+                    .map_err(|e| ArgoError::Provider(format!("reports_to: {e}")))?;
             let manager_id = match row {
                 Some((Some(m),)) => m,
                 _ => break,

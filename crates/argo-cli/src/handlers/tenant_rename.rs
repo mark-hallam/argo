@@ -30,13 +30,9 @@ pub async fn run_id(id: &str, new_id: &str, json_out: bool) -> ArgoResult<()> {
     let old = parse_tenant(id)?;
     let new = parse_tenant(new_id)?;
     let (store, _) = open_store().await?;
-    let out = argo_store::tenant_query::rename_tenant(
-        &store,
-        old,
-        new,
-        Utc::now().timestamp_micros(),
-    )
-    .await?;
+    let out =
+        argo_store::tenant_query::rename_tenant(&store, old, new, Utc::now().timestamp_micros())
+            .await?;
     if json_out {
         print_json(&json!({"ok": true, "tenant_rename": out}))
     } else {

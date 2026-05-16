@@ -9,12 +9,9 @@ impl SessionStore {
     /// Update `session.title`. Whitespace is trimmed; an empty
     /// result clears the title (writes SQL NULL). Returns the
     /// number of rows affected.
-    pub async fn set_session_title(
-        &self,
-        sid: SessionId,
-        title: &str,
-    ) -> StoreResult<u64> {
-        set_session_title(self.pool(), sid, title).await
+    pub async fn set_session_title(&self, sid: SessionId, title: &str) -> StoreResult<u64> {
+        set_session_title(self.pool(), sid, title)
+            .await
             .map_err(|e| ArgoError::Provider(format!("set_session_title: {e}")))
     }
 
@@ -95,10 +92,7 @@ pub(super) async fn set_session_title(
 /// (the timestamp is overwritten, but the row is otherwise
 /// unchanged). Returns rows affected (0 when the session id
 /// has no row).
-pub(super) async fn end_session(
-    pool: &Pool<Sqlite>,
-    sid: SessionId,
-) -> Result<u64, sqlx::Error> {
+pub(super) async fn end_session(pool: &Pool<Sqlite>, sid: SessionId) -> Result<u64, sqlx::Error> {
     let res = sqlx::query("UPDATE session SET ended_at = ? WHERE id = ?")
         .bind(chrono::Utc::now().timestamp_micros())
         .bind(sid.0.as_bytes().as_slice())
@@ -159,12 +153,11 @@ async fn override_judge_verdict(
     reason: Option<&str>,
 ) -> Result<Option<(SessionId, String)>, sqlx::Error> {
     let id_bytes = record_id.0.as_bytes().as_slice();
-    let prior: Option<(Vec<u8>, String)> = sqlx::query_as(
-        "SELECT session_id, verdict FROM judge_record WHERE id = ?",
-    )
-    .bind(id_bytes)
-    .fetch_optional(pool)
-    .await?;
+    let prior: Option<(Vec<u8>, String)> =
+        sqlx::query_as("SELECT session_id, verdict FROM judge_record WHERE id = ?")
+            .bind(id_bytes)
+            .fetch_optional(pool)
+            .await?;
     let Some((sid_blob, old_verdict)) = prior else {
         return Ok(None);
     };
@@ -178,5 +171,8 @@ async fn override_judge_verdict(
         .as_slice()
         .try_into()
         .map_err(|_| sqlx::Error::Protocol("session_id is not 16 bytes".into()))?;
-    Ok(Some((SessionId(uuid::Uuid::from_bytes(sid_bytes)), old_verdict)))
+    Ok(Some((
+        SessionId(uuid::Uuid::from_bytes(sid_bytes)),
+        old_verdict,
+    )))
 }

@@ -35,7 +35,10 @@ pub async fn run(run_id: &str, json: bool) -> ArgoResult<()> {
     } else if rows.is_empty() {
         println!("(no checkpoints for run '{run_id}')");
     } else {
-        println!("{:<6} {:<24} {:<28} cache_key", "seq", "task_id", "completed_at");
+        println!(
+            "{:<6} {:<24} {:<28} cache_key",
+            "seq", "task_id", "completed_at"
+        );
         for r in &rows {
             let key = r.cache_key.as_deref().unwrap_or("-");
             println!(

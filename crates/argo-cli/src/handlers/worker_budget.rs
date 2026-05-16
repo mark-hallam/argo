@@ -22,7 +22,16 @@ pub async fn run(cmd: WorkerBudgetCmd) -> ArgoResult<()> {
             monthly,
             clear,
             json,
-        } => set(&worker_id, daily.as_deref(), monthly.as_deref(), clear, json).await,
+        } => {
+            set(
+                &worker_id,
+                daily.as_deref(),
+                monthly.as_deref(),
+                clear,
+                json,
+            )
+            .await
+        }
         WorkerBudgetCmd::Show { worker_id, json } => show(&worker_id, json).await,
     }
 }
@@ -65,8 +74,7 @@ async fn show(worker_id: &str, json: bool) -> ArgoResult<()> {
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;
@@ -93,10 +101,7 @@ fn print_summary(summary: &WorkerBudgetSummary, just_set: bool, json: bool) {
     println!("worker {} budget ({header}):", summary.worker_id);
     println!("  daily   cap: {}", render_cap(summary.caps.daily_micros));
     println!("  monthly cap: {}", render_cap(summary.caps.monthly_micros));
-    println!(
-        "  today  spent: {}",
-        render_micros(summary.today_micros)
-    );
+    println!("  today  spent: {}", render_micros(summary.today_micros));
     println!(
         "  month  spent: {}",
         render_micros(summary.this_month_micros)

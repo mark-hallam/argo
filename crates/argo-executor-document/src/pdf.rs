@@ -22,8 +22,7 @@ use std::process::Command;
 pub const ENV_CHROME_PATH: &str = "ARGO_DOC_CHROME";
 
 /// Default macOS path. Linux operators must set the env override.
-const DEFAULT_CHROME_PATH: &str =
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const DEFAULT_CHROME_PATH: &str = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 /// Convert markdown to standalone HTML the headless renderer can
 /// print. Bundles a print stylesheet so PDF output looks polished
@@ -82,19 +81,15 @@ pub fn render_pdf(target: &Path, markdown: &str, title: &str) -> DocResult<u64> 
         Some(p) => p.join(".staging"),
         None => PathBuf::from(".staging"),
     };
-    std::fs::create_dir_all(&staging).map_err(|e| {
-        DocExecutorError::io(format!("pdf: stage dir {}", staging.display()), e)
-    })?;
+    std::fs::create_dir_all(&staging)
+        .map_err(|e| DocExecutorError::io(format!("pdf: stage dir {}", staging.display()), e))?;
     let html_path = staging.join("render.html");
-    std::fs::write(&html_path, html.as_bytes()).map_err(|e| {
-        DocExecutorError::io(format!("pdf: write {}", html_path.display()), e)
-    })?;
+    std::fs::write(&html_path, html.as_bytes())
+        .map_err(|e| DocExecutorError::io(format!("pdf: write {}", html_path.display()), e))?;
     invoke_chrome(&html_path, target)?;
     let bytes = std::fs::metadata(target)
         .map(|m| m.len())
-        .map_err(|e| {
-            DocExecutorError::io(format!("pdf: stat output {}", target.display()), e)
-        })?;
+        .map_err(|e| DocExecutorError::io(format!("pdf: stat output {}", target.display()), e))?;
     Ok(bytes)
 }
 

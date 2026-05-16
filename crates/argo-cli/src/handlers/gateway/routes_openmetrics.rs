@@ -161,8 +161,8 @@ pub(super) fn brief_provider_cost_micros_total() -> argo_telemetry::prometheus::
 /// `audit_chain_tail_seq` — gauge holding the latest `seq` written to
 /// the audit chain. Updated by the audit sink after a successful
 /// append (best-effort).
-pub(super) fn brief_audit_chain_tail_seq() -> argo_telemetry::prometheus::core::GenericGauge<argo_telemetry::prometheus::core::AtomicI64>
-{
+pub(super) fn brief_audit_chain_tail_seq(
+) -> argo_telemetry::prometheus::core::GenericGauge<argo_telemetry::prometheus::core::AtomicI64> {
     prometheus_registry::register_scalar_gauge(
         "audit_chain_tail_seq",
         "Latest sequence number observed by the audit sink after a successful append",
@@ -171,8 +171,8 @@ pub(super) fn brief_audit_chain_tail_seq() -> argo_telemetry::prometheus::core::
 
 /// `store_migration_chain_version` — gauge set at boot from
 /// `argo_store::EXPECTED_SCHEMA_VERSION`.
-pub(super) fn brief_store_migration_chain_version()
--> argo_telemetry::prometheus::core::GenericGauge<argo_telemetry::prometheus::core::AtomicI64> {
+pub(super) fn brief_store_migration_chain_version(
+) -> argo_telemetry::prometheus::core::GenericGauge<argo_telemetry::prometheus::core::AtomicI64> {
     prometheus_registry::register_scalar_gauge(
         "store_migration_chain_version",
         "Expected store schema migration chain version (set once at boot)",
@@ -186,7 +186,9 @@ mod tests {
     #[test]
     fn is_openmetrics_request_detects_path_prefix() {
         assert!(is_openmetrics_request("GET /openmetrics HTTP/1.1\r\n"));
-        assert!(is_openmetrics_request("GET /openmetrics?foo=bar HTTP/1.1\r\n"));
+        assert!(is_openmetrics_request(
+            "GET /openmetrics?foo=bar HTTP/1.1\r\n"
+        ));
         assert!(!is_openmetrics_request("GET /openmetricsfoo HTTP/1.1\r\n"));
         assert!(!is_openmetrics_request("GET /metrics HTTP/1.1\r\n"));
         assert!(!is_openmetrics_request("POST /openmetrics HTTP/1.1\r\n"));

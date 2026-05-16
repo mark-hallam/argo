@@ -340,7 +340,9 @@ fn print_plan(plan: &GenesisPlan, output: &Path, json: bool) {
 pub(crate) fn from_job_description(input: &str, json: bool) -> ArgoResult<()> {
     let parsed = parse_job_description_input(input);
     let handle = tokio::runtime::Handle::try_current().map_err(|e| {
-        ArgoError::Provider(format!("genesis from-job-description needs a tokio runtime: {e}"))
+        ArgoError::Provider(format!(
+            "genesis from-job-description needs a tokio runtime: {e}"
+        ))
     })?;
     let draft =
         tokio::task::block_in_place(|| handle.block_on(genesis_from_job_description(parsed)))?;

@@ -39,11 +39,7 @@ impl IdentityStore<'_> {
 
     /// Remove the `(worker_id, skill_id)` association if present
     /// (Stream `mvp-worker-skills-table`). No-op when the row is absent.
-    pub async fn remove_worker_skill(
-        &self,
-        worker_id: WorkerId,
-        skill_id: &str,
-    ) -> ArgoResult<()> {
+    pub async fn remove_worker_skill(&self, worker_id: WorkerId, skill_id: &str) -> ArgoResult<()> {
         self.ensure_schema().await?;
         sqlx::query("DELETE FROM worker_skill WHERE worker_id = ? AND skill_id = ?")
             .bind(worker_id.to_string())
@@ -88,10 +84,7 @@ impl IdentityStore<'_> {
 
     /// All `(skill_id, proficiency)` rows for `worker_id`, ordered by
     /// `skill_id` for determinism (Stream `mvp-worker-skills-table`).
-    pub async fn skills_for_worker(
-        &self,
-        worker_id: WorkerId,
-    ) -> ArgoResult<Vec<(String, i64)>> {
+    pub async fn skills_for_worker(&self, worker_id: WorkerId) -> ArgoResult<Vec<(String, i64)>> {
         self.ensure_schema().await?;
         let rows = sqlx::query(
             "SELECT skill_id, proficiency FROM worker_skill

@@ -78,8 +78,7 @@ fn nested_ancestor_context_inherits_into_child() {
         });
         // Inner span carries only session_id; tenant + worker should
         // inherit from the outer span via the layer's parent-walk.
-        let _inner =
-            tracing::info_span!("inner", session_id = "sess-x").entered();
+        let _inner = tracing::info_span!("inner", session_id = "sess-x").entered();
         tracing::warn!("nested");
     });
     let out = captured(&buf);
@@ -125,7 +124,11 @@ fn disabled_layer_is_not_installed_zero_overhead_path() {
         tracing::info!("nothing-should-write");
     });
     // Buffer is owned outside the (uninstalled) layer; it remains empty.
-    assert!(captured(&buf).is_empty(), "unexpected output: {}", captured(&buf));
+    assert!(
+        captured(&buf).is_empty(),
+        "unexpected output: {}",
+        captured(&buf)
+    );
 }
 
 #[test]

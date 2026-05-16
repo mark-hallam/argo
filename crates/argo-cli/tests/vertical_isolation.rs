@@ -178,7 +178,10 @@ fn vertical_with_skill_bundle_outside_root_fails_validate() {
         .args(["vertical", "validate", "alpha", "--json"])
         .output()
         .expect("spawn");
-    assert!(!out.status.success(), "cross-vertical skill bundle must be rejected");
+    assert!(
+        !out.status.success(),
+        "cross-vertical skill bundle must be rejected"
+    );
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(stderr.contains("[skills].bundle"), "got: {stderr}");
 }
@@ -257,7 +260,10 @@ fn doctor_surfaces_isolation_violations_through_validate_check() {
         .args(["vertical", "doctor", "alpha"])
         .output()
         .expect("spawn doctor");
-    assert!(!out.status.success(), "doctor must surface isolation failures");
+    assert!(
+        !out.status.success(),
+        "doctor must surface isolation failures"
+    );
 }
 
 #[test]
@@ -287,7 +293,10 @@ fn install_refuses_a_vertical_with_path_traversal_in_manifest() {
         ])
         .output()
         .expect("spawn");
-    assert!(!out.status.success(), "install must reject traversal manifest");
+    assert!(
+        !out.status.success(),
+        "install must reject traversal manifest"
+    );
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(
         stderr.contains("`..`") || stderr.contains("escape"),

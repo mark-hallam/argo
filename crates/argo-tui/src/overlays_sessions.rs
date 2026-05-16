@@ -13,12 +13,7 @@ use serde_json::Value;
 
 /// Active orchestrator sessions. Triggered by `O`. Esc/O/q close.
 /// Each row renders `<id> <title> <status> <participants>`.
-pub(crate) fn draw_sessions(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    state: &PanelState,
-    scroll: usize,
-) {
+pub(crate) fn draw_sessions(frame: &mut Frame<'_>, area: Rect, state: &PanelState, scroll: usize) {
     let w = area.width.saturating_mul(8) / 10;
     let h = area.height.saturating_mul(8) / 10;
     let x = area.x + (area.width.saturating_sub(w)) / 2;
@@ -40,9 +35,7 @@ pub(crate) fn draw_sessions(
             " orchestrator sessions (unreachable) — Esc/O/q closes ".to_string()
         }
         PanelState::OkOne(_) => {
-            lines.push(Line::from(
-                "  (unexpected single object — expected array)",
-            ));
+            lines.push(Line::from("  (unexpected single object — expected array)"));
             " orchestrator sessions — Esc/O/q closes ".to_string()
         }
         PanelState::Ok(rows) if rows.is_empty() => {
@@ -68,10 +61,7 @@ fn format_session_row(row: &Value) -> String {
         .get("title")
         .and_then(Value::as_str)
         .unwrap_or("(untitled)");
-    let status = row
-        .get("status")
-        .and_then(Value::as_str)
-        .unwrap_or("?");
+    let status = row.get("status").and_then(Value::as_str).unwrap_or("?");
     let participants = row
         .get("participants")
         .and_then(Value::as_array)
@@ -82,9 +72,7 @@ fn format_session_row(row: &Value) -> String {
     } else {
         title.to_string()
     };
-    format!(
-        "{id:<12} {title_trim:<24} {status:<10} {participants}"
-    )
+    format!("{id:<12} {title_trim:<24} {status:<10} {participants}")
 }
 
 fn short_id(v: Option<&Value>) -> String {

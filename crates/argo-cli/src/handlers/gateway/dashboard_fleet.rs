@@ -125,9 +125,7 @@ pub(super) async fn query_fleet(store: &SessionStore) -> Vec<WorkerSnapshot> {
     group_rows_into_snapshots(rows)
 }
 
-fn group_rows_into_snapshots(
-    rows: Vec<(String, String, Vec<u8>, i64)>,
-) -> Vec<WorkerSnapshot> {
+fn group_rows_into_snapshots(rows: Vec<(String, String, Vec<u8>, i64)>) -> Vec<WorkerSnapshot> {
     let mut by_worker: std::collections::BTreeMap<String, Vec<RecentAction>> =
         std::collections::BTreeMap::new();
     for (worker_id, kind, id_bytes, created_at) in rows {
@@ -135,10 +133,11 @@ fn group_rows_into_snapshots(
             continue;
         }
         let action_id = id_bytes.iter().map(|b| format!("{b:02x}")).collect();
-        by_worker
-            .entry(worker_id)
-            .or_default()
-            .push(RecentAction { action_id, kind, at_micros: created_at });
+        by_worker.entry(worker_id).or_default().push(RecentAction {
+            action_id,
+            kind,
+            at_micros: created_at,
+        });
     }
     let mut out: Vec<WorkerSnapshot> = by_worker
         .into_iter()
@@ -167,8 +166,7 @@ fn classify_status(last_kind: &str) -> WorkerStatus {
     let lower = last_kind.to_lowercase();
     if lower.contains("error") || lower.contains("fail") {
         WorkerStatus::Error
-    } else if lower.contains("approval") || lower.contains("blocked") || lower.contains("pending")
-    {
+    } else if lower.contains("approval") || lower.contains("blocked") || lower.contains("pending") {
         WorkerStatus::Blocked
     } else if lower.is_empty() {
         WorkerStatus::Idle

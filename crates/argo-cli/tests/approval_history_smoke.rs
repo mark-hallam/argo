@@ -136,17 +136,15 @@ fn approval_history_markdown_emits_table() {
         home.path(),
         work.path(),
         &[
-            "approval",
-            "history",
-            "--since",
-            "7d",
-            "--format",
-            "markdown",
+            "approval", "history", "--since", "7d", "--format", "markdown",
         ],
     );
     assert_success(&out);
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.starts_with("| id |"), "expected markdown header: {stdout}");
+    assert!(
+        stdout.starts_with("| id |"),
+        "expected markdown header: {stdout}"
+    );
     assert!(stdout.contains("| --- |"));
     assert!(stdout.contains("act-md"));
 }

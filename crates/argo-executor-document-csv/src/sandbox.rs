@@ -63,18 +63,17 @@ impl From<CsvSandboxError> for ArgoError {
 /// the root via `..`, an absolute path whose canonical form is
 /// outside the root, or an existing symlink whose target points
 /// outside.
-pub fn resolve_sandboxed_path(
-    output_root: &Path,
-    path: &Path,
-) -> Result<PathBuf, CsvSandboxError> {
+pub fn resolve_sandboxed_path(output_root: &Path, path: &Path) -> Result<PathBuf, CsvSandboxError> {
     let root = expand_tilde(output_root);
     let sb = Sandbox::open(&root).map_err(fs_err_to_sandbox_io)?;
     let relative = strip_root_prefix(sb.root(), path)?;
     let resolved = sb.resolve(&relative).map_err(fs_err_to_sandbox)?;
     if let Some(parent) = resolved.parent() {
-        sb.assert_no_symlink_escape(parent).map_err(fs_err_to_sandbox)?;
+        sb.assert_no_symlink_escape(parent)
+            .map_err(fs_err_to_sandbox)?;
     }
-    sb.assert_no_symlink_escape(&resolved).map_err(fs_err_to_sandbox)?;
+    sb.assert_no_symlink_escape(&resolved)
+        .map_err(fs_err_to_sandbox)?;
     Ok(resolved)
 }
 
@@ -115,7 +114,9 @@ fn strip_root_prefix(root: &Path, path: &Path) -> Result<PathBuf, CsvSandboxErro
         if let Ok(rel) = candidate_canon.strip_prefix(root) {
             return Ok(rel.to_path_buf());
         }
-        return Err(CsvSandboxError::SandboxViolation(path.display().to_string()));
+        return Err(CsvSandboxError::SandboxViolation(
+            path.display().to_string(),
+        ));
     }
     Ok(path.to_path_buf())
 }

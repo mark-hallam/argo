@@ -44,7 +44,9 @@ fn candidate(id: &str, anchor: &str, yaml: &str, recency: i64) -> LearnedTemplat
     }
 }
 
-fn arc_source(rows: Vec<LearnedTemplateCandidate>) -> std::sync::Arc<dyn LearnedPlanTemplateSource> {
+fn arc_source(
+    rows: Vec<LearnedTemplateCandidate>,
+) -> std::sync::Arc<dyn LearnedPlanTemplateSource> {
     std::sync::Arc::new(InMemoryTemplateSource::new(rows))
 }
 

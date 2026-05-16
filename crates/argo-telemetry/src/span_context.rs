@@ -291,10 +291,7 @@ where
             ),
         );
         if !visitor.message.is_empty() {
-            let _ = std::fmt::Write::write_fmt(
-                &mut line,
-                format_args!(" {}", visitor.message),
-            );
+            let _ = std::fmt::Write::write_fmt(&mut line, format_args!(" {}", visitor.message));
         }
         for (k, v) in &visitor.other_fields {
             let _ = std::fmt::Write::write_fmt(&mut line, format_args!(" {k}={v}"));

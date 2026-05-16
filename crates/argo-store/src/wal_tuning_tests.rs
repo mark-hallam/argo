@@ -57,7 +57,10 @@ fn missing_config_defaults_to_default_profile() {
 fn bad_profile_string_errors() {
     let err = WalTuningProfile::from_str("bogus").unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("bogus"), "error should name the bad input: {msg}");
+    assert!(
+        msg.contains("bogus"),
+        "error should name the bad input: {msg}"
+    );
     assert!(
         msg.contains("conservative") && msg.contains("default") && msg.contains("aggressive"),
         "error should list the accepted values: {msg}"
@@ -67,7 +70,9 @@ fn bad_profile_string_errors() {
 #[tokio::test]
 async fn default_profile_applies_all_pragmas() {
     let pool = memory_pool().await;
-    apply_pragmas(&pool, WalTuningProfile::Default).await.unwrap();
+    apply_pragmas(&pool, WalTuningProfile::Default)
+        .await
+        .unwrap();
 
     // Cross-check every pragma. `journal_mode` on memory DBs
     // reports `memory`, and `mmap_size` on memory DBs is reported
@@ -126,7 +131,10 @@ async fn aggressive_profile_sets_synchronous_off_and_higher_checkpoint() {
 
     // synchronous = OFF → 0
     let sync = read_pragma(&pool, "synchronous").await.unwrap();
-    assert_eq!(sync, "0", "Aggressive synchronous=OFF maps to 0, got {sync}");
+    assert_eq!(
+        sync, "0",
+        "Aggressive synchronous=OFF maps to 0, got {sync}"
+    );
 
     let autocheckpoint = read_pragma(&pool, "wal_autocheckpoint").await.unwrap();
     assert_eq!(
@@ -146,7 +154,9 @@ async fn pragma_roundtrip_via_memory_db() {
     // sticks. Guards against accidental "apply once then drop"
     // patterns.
     let pool = memory_pool().await;
-    apply_pragmas(&pool, WalTuningProfile::Default).await.unwrap();
+    apply_pragmas(&pool, WalTuningProfile::Default)
+        .await
+        .unwrap();
     let busy_first = read_pragma(&pool, "busy_timeout").await.unwrap();
     assert_eq!(busy_first, "5000");
 

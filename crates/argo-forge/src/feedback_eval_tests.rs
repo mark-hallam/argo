@@ -80,8 +80,10 @@ async fn mixed_votes_roundtrip_to_pass_and_fail_cases() {
         .await
         .unwrap();
     assert_eq!(cases.len(), 2);
-    let by_id: std::collections::HashMap<&str, &FeedbackEvalCase> =
-        cases.iter().map(|c| (c.invocation_id.as_str(), c)).collect();
+    let by_id: std::collections::HashMap<&str, &FeedbackEvalCase> = cases
+        .iter()
+        .map(|c| (c.invocation_id.as_str(), c))
+        .collect();
     let up = by_id["act-1"];
     let down = by_id["act-2"];
     assert_eq!(up.expected, ExpectedOutcome::Pass);

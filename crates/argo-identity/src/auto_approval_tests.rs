@@ -114,7 +114,13 @@ fn time_window_outside_business_hours_routes_to_human() {
     let policy = AutoApprovalPolicy {
         enabled: true,
         time_windows: vec![TimeWindow {
-            days: vec![Weekday::Mon, Weekday::Tue, Weekday::Wed, Weekday::Thu, Weekday::Fri],
+            days: vec![
+                Weekday::Mon,
+                Weekday::Tue,
+                Weekday::Wed,
+                Weekday::Thu,
+                Weekday::Fri,
+            ],
             start: NaiveTime::from_hms_opt(9, 0, 0).unwrap(),
             end: NaiveTime::from_hms_opt(17, 0, 0).unwrap(),
         }],

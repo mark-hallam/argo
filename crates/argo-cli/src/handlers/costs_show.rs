@@ -9,11 +9,7 @@ use argo_types::{ArgoError, ArgoResult};
 
 use super::costs::{load_global_spend, micros_to_usd};
 
-pub(super) async fn show(
-    cwd: &std::path::Path,
-    cfg: &ArgoConfig,
-    format: &str,
-) -> ArgoResult<()> {
+pub(super) async fn show(cwd: &std::path::Path, cfg: &ArgoConfig, format: &str) -> ArgoResult<()> {
     let ceilings = cfg.budget.to_cost_ceilings();
     let spent = load_global_spend(cwd).await.unwrap_or_default();
     match format {

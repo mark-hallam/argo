@@ -3,9 +3,7 @@
 //! `worker_handoff` audit row in the session chain.
 
 use argo_identity::WorkerId;
-use argo_orchestrator::{
-    EscalationStep, Handoff, HandoffStatus, OrchestratorStore, Session,
-};
+use argo_orchestrator::{EscalationStep, Handoff, HandoffStatus, OrchestratorStore, Session};
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use std::sync::Arc;
@@ -16,11 +14,7 @@ async fn fresh_store() -> Arc<SessionStore> {
     s
 }
 
-async fn count_audit_kind(
-    pool: &sqlx::Pool<sqlx::Sqlite>,
-    sid: &uuid::Uuid,
-    kind: &str,
-) -> i64 {
+async fn count_audit_kind(pool: &sqlx::Pool<sqlx::Sqlite>, sid: &uuid::Uuid, kind: &str) -> i64 {
     sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM audit_record WHERE session_id = ? AND kind = ?",
     )

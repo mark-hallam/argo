@@ -28,31 +28,78 @@ pub(super) fn parse_body(req: &str) -> Result<Value, (&'static str, String)> {
     if body.trim().is_empty() {
         return Ok(Value::Object(serde_json::Map::new()));
     }
-    serde_json::from_str(body).map_err(|e| err("400 Bad Request", "bad_request", &format!("parse body: {e}")))
+    serde_json::from_str(body).map_err(|e| {
+        err(
+            "400 Bad Request",
+            "bad_request",
+            &format!("parse body: {e}"),
+        )
+    })
 }
 
 pub(super) async fn resolve_worker<'a>(
     worker_id_raw: &str,
     store: Option<&'a Arc<SessionStore>>,
 ) -> Result<(&'a Arc<SessionStore>, WorkerId, TenantId), (&'static str, String)> {
-    let Some(store) = store else { return Err(super::super::store_unavailable()) };
+    let Some(store) = store else {
+        return Err(super::super::store_unavailable());
+    };
     let raw = worker_id_raw.split('?').next().unwrap_or(worker_id_raw);
-    let worker_id = raw.parse::<WorkerId>()
-        .map_err(|e| err("400 Bad Request", "bad_request", &format!("invalid worker_id '{raw}': {e}")))?;
-    let tenant = resolve_workspace_tenant(store).await
-        .map_err(|e| err("500 Internal Server Error", "internal_error", &format!("resolve tenant: {e}")))?;
+    let worker_id = raw.parse::<WorkerId>().map_err(|e| {
+        err(
+            "400 Bad Request",
+            "bad_request",
+            &format!("invalid worker_id '{raw}': {e}"),
+        )
+    })?;
+    let tenant = resolve_workspace_tenant(store).await.map_err(|e| {
+        err(
+            "500 Internal Server Error",
+            "internal_error",
+            &format!("resolve tenant: {e}"),
+        )
+    })?;
     let identities = IdentityStore::new(store);
     match identities.get_worker(tenant, worker_id).await {
         Ok(Some(_)) => {}
-        Ok(None) => return Err(match exists_in_other_tenant(store, tenant, worker_id).await {
-            Ok(true) => err("403 Forbidden", "forbidden", &format!("worker {worker_id} not in this tenant")),
-            Ok(false) => err("404 Not Found", "not_found", &format!("worker {worker_id} not found")),
-            Err(e) => err("500 Internal Server Error", "internal_error", &format!("cross-tenant probe: {e}")),
-        }),
-        Err(e) => return Err(err("500 Internal Server Error", "internal_error", &format!("get worker: {e}"))),
+        Ok(None) => {
+            return Err(
+                match exists_in_other_tenant(store, tenant, worker_id).await {
+                    Ok(true) => err(
+                        "403 Forbidden",
+                        "forbidden",
+                        &format!("worker {worker_id} not in this tenant"),
+                    ),
+                    Ok(false) => err(
+                        "404 Not Found",
+                        "not_found",
+                        &format!("worker {worker_id} not found"),
+                    ),
+                    Err(e) => err(
+                        "500 Internal Server Error",
+                        "internal_error",
+                        &format!("cross-tenant probe: {e}"),
+                    ),
+                },
+            )
+        }
+        Err(e) => {
+            return Err(err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("get worker: {e}"),
+            ))
+        }
     }
-    if let Some(ts) = fetch_archived_at(store, tenant, worker_id).await
-        .map_err(|e| err("500 Internal Server Error", "internal_error", &format!("archived lookup: {e}")))?
+    if let Some(ts) = fetch_archived_at(store, tenant, worker_id)
+        .await
+        .map_err(|e| {
+            err(
+                "500 Internal Server Error",
+                "internal_error",
+                &format!("archived lookup: {e}"),
+            )
+        })?
     {
         return Err(gone_response(worker_id, &ts));
     }
@@ -61,30 +108,47 @@ pub(super) async fn resolve_worker<'a>(
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let (tenant, _ws) = store.ensure_workspace(name, &cwd.to_string_lossy()).await?;
     Ok(tenant)
 }
 
-async fn exists_in_other_tenant(store: &SessionStore, tenant: TenantId, worker_id: WorkerId) -> ArgoResult<bool> {
+async fn exists_in_other_tenant(
+    store: &SessionStore,
+    tenant: TenantId,
+    worker_id: WorkerId,
+) -> ArgoResult<bool> {
     let row: Option<String> =
         sqlx::query_scalar("SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1")
-            .bind(worker_id.to_string()).bind(tenant.to_string())
-            .fetch_optional(store.pool()).await
+            .bind(worker_id.to_string())
+            .bind(tenant.to_string())
+            .fetch_optional(store.pool())
+            .await
             .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
     Ok(row.is_some())
 }
 
 async fn fetch_archived_at(
-    store: &SessionStore, tenant: TenantId, worker_id: WorkerId,
+    store: &SessionStore,
+    tenant: TenantId,
+    worker_id: WorkerId,
 ) -> ArgoResult<Option<DateTime<Utc>>> {
     let raw: Option<String> = sqlx::query_scalar(
         "SELECT archived_at FROM worker WHERE id = ? AND tenant_id = ? AND archived_at IS NOT NULL",
     )
-    .bind(worker_id.to_string()).bind(tenant.to_string())
-    .fetch_optional(store.pool()).await
+    .bind(worker_id.to_string())
+    .bind(tenant.to_string())
+    .fetch_optional(store.pool())
+    .await
     .map_err(|e| ArgoError::Provider(format!("archived_at lookup: {e}")))?;
-    Ok(raw.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))))
+    Ok(raw.and_then(|s| {
+        DateTime::parse_from_rfc3339(&s)
+            .ok()
+            .map(|dt| dt.with_timezone(&Utc))
+    }))
 }
 
 pub(super) fn validate_5_field_cron(input: &str) -> Result<String, String> {
@@ -100,17 +164,24 @@ pub(super) fn validate_5_field_cron(input: &str) -> Result<String, String> {
 pub(super) fn validate_label(input: &str) -> Result<String, String> {
     let trimmed = input.trim();
     if !(MIN_LABEL_LEN..=MAX_LABEL_LEN).contains(&trimmed.len()) {
-        return Err(format!("`label` must be {MIN_LABEL_LEN}..={MAX_LABEL_LEN} chars"));
+        return Err(format!(
+            "`label` must be {MIN_LABEL_LEN}..={MAX_LABEL_LEN} chars"
+        ));
     }
     Ok(trimmed.to_string())
 }
 
 fn next_fires(stored_cron: &str, now: DateTime<Utc>, n: usize) -> Vec<DateTime<Utc>> {
-    Schedule::from_str(stored_cron).ok().map(|s| s.after(&now).take(n).collect()).unwrap_or_default()
+    Schedule::from_str(stored_cron)
+        .ok()
+        .map(|s| s.after(&now).take(n).collect())
+        .unwrap_or_default()
 }
 
 pub(super) async fn collect_conflicts(
-    duty_store: &DutyStore, worker_id: &WorkerId, proposed_stored_cron: &str,
+    duty_store: &DutyStore,
+    worker_id: &WorkerId,
+    proposed_stored_cron: &str,
 ) -> ArgoResult<Vec<Value>> {
     let now = Utc::now();
     let proposed = next_fires(proposed_stored_cron, now, NEXT_FIRES_LOOKAHEAD);
@@ -130,40 +201,59 @@ pub(super) async fn collect_conflicts(
 }
 
 fn find_overlap(
-    proposed: &[DateTime<Utc>], existing: &[DateTime<Utc>],
+    proposed: &[DateTime<Utc>],
+    existing: &[DateTime<Utc>],
 ) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
     proposed.iter().find_map(|p| {
-        existing.iter()
+        existing
+            .iter()
             .find(|e| (p.timestamp() - e.timestamp()).abs() <= CONFLICT_WINDOW_SECS)
             .map(|e| (*p, *e))
     })
 }
 
-pub(super) async fn delete_conflicting(store: &SessionStore, conflicts: &[Value]) -> Result<(), sqlx::Error> {
+pub(super) async fn delete_conflicting(
+    store: &SessionStore,
+    conflicts: &[Value],
+) -> Result<(), sqlx::Error> {
     for c in conflicts {
         if let Some(id) = c.get("duty_id").and_then(Value::as_str) {
             sqlx::query("DELETE FROM role_duty WHERE id = ?")
-                .bind(id).execute(store.pool()).await?;
+                .bind(id)
+                .execute(store.pool())
+                .await?;
         }
     }
     Ok(())
 }
 
 pub(super) async fn apply_patch(
-    store: &SessionStore, duty_id: &str,
-    new_cron: Option<&str>, new_label: Option<&str>, new_enabled: Option<bool>,
+    store: &SessionStore,
+    duty_id: &str,
+    new_cron: Option<&str>,
+    new_label: Option<&str>,
+    new_enabled: Option<bool>,
 ) -> Result<(), sqlx::Error> {
     if let Some(c) = new_cron {
         sqlx::query("UPDATE role_duty SET cron = ? WHERE id = ?")
-            .bind(c).bind(duty_id).execute(store.pool()).await?;
+            .bind(c)
+            .bind(duty_id)
+            .execute(store.pool())
+            .await?;
     }
     if let Some(l) = new_label {
         sqlx::query("UPDATE role_duty SET description = ? WHERE id = ?")
-            .bind(l).bind(duty_id).execute(store.pool()).await?;
+            .bind(l)
+            .bind(duty_id)
+            .execute(store.pool())
+            .await?;
     }
     if let Some(e) = new_enabled {
         sqlx::query("UPDATE role_duty SET enabled = ? WHERE id = ?")
-            .bind(i64::from(e)).bind(duty_id).execute(store.pool()).await?;
+            .bind(i64::from(e))
+            .bind(duty_id)
+            .execute(store.pool())
+            .await?;
     }
     Ok(())
 }
@@ -199,7 +289,11 @@ pub(super) fn defaults_for(a: Archetype) -> DutyDefaults {
         A::ProjectPm => ("Send status summary", "0 17 * * 5", "send_status_summary"),
         A::GtmEngineer => ("Run GTM check", "0 9 * * *", "run_gtm_check"),
     };
-    DutyDefaults { label, cron, entry_action }
+    DutyDefaults {
+        label,
+        cron,
+        entry_action,
+    }
 }
 
 pub(super) fn sample_outputs_for(a: Archetype) -> Vec<String> {
@@ -235,8 +329,11 @@ pub(super) fn sample_outputs_for(a: Archetype) -> Vec<String> {
 }
 
 pub(super) async fn emit_audit(
-    store: &Arc<SessionStore>, req: &str, endpoint: &'static str,
-    worker_id: &WorkerId, item_count: usize,
+    store: &Arc<SessionStore>,
+    req: &str,
+    endpoint: &'static str,
+    worker_id: &WorkerId,
+    item_count: usize,
 ) {
     let tenant = match resolve_workspace_tenant(store).await {
         Ok(t) => t,
@@ -249,19 +346,34 @@ pub(super) async fn emit_audit(
         "endpoint": endpoint, "worker_id": worker_id.to_string(), "items": item_count,
     });
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
-    if let Err(e) = sink.write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req)).await {
+    if let Err(e) = sink
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            principal_id_for_audit(req),
+        )
+        .await
+    {
         tracing::warn!(target: "gateway::duties", endpoint = %endpoint, error = %e, "duty audit write failed");
     }
 }
 
 fn gone_response(worker_id: WorkerId, archived_at: &DateTime<Utc>) -> (&'static str, String) {
-    ("410 Gone", json!({
-        "error": { "code": "gone", "message": format!("worker {worker_id} is archived") },
-        "archived_at": archived_at.to_rfc3339(),
-        "recoverable_until_at": (*archived_at + chrono::Duration::days(30)).to_rfc3339(),
-    }).to_string())
+    (
+        "410 Gone",
+        json!({
+            "error": { "code": "gone", "message": format!("worker {worker_id} is archived") },
+            "archived_at": archived_at.to_rfc3339(),
+            "recoverable_until_at": (*archived_at + chrono::Duration::days(30)).to_rfc3339(),
+        })
+        .to_string(),
+    )
 }
 
 pub(super) fn err(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
-    (status, json!({ "error": { "code": code, "message": message } }).to_string())
+    (
+        status,
+        json!({ "error": { "code": code, "message": message } }).to_string(),
+    )
 }

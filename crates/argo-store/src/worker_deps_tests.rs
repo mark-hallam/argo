@@ -10,7 +10,9 @@ use sqlx::SqlitePool;
 async fn pool() -> SqlitePool {
     let store = SessionStore::open(":memory:").await.expect("open store");
     store.migrate().await.expect("migrate");
-    ensure_schema(store.pool()).await.expect("apply deps schema");
+    ensure_schema(store.pool())
+        .await
+        .expect("apply deps schema");
     store.pool().clone()
 }
 
@@ -155,11 +157,19 @@ async fn impact_empty_graph() {
 async fn impact_returns_transitive_dependents_sorted_by_depth() {
     let pool = pool().await;
     // Chain: D → C → B → A. So if A breaks, B/C/D are impacted.
-    add_dependency(&pool, "B", "A", DepKind::Data, None).await.unwrap();
-    add_dependency(&pool, "C", "B", DepKind::Data, None).await.unwrap();
-    add_dependency(&pool, "D", "C", DepKind::Data, None).await.unwrap();
+    add_dependency(&pool, "B", "A", DepKind::Data, None)
+        .await
+        .unwrap();
+    add_dependency(&pool, "C", "B", DepKind::Data, None)
+        .await
+        .unwrap();
+    add_dependency(&pool, "D", "C", DepKind::Data, None)
+        .await
+        .unwrap();
     // E has no relation, must NOT appear in the impact set.
-    add_dependency(&pool, "E", "F", DepKind::Data, None).await.unwrap();
+    add_dependency(&pool, "E", "F", DepKind::Data, None)
+        .await
+        .unwrap();
     let imp = impact(&pool, "A").await.unwrap();
     let pairs: Vec<(u32, &str)> = imp
         .iter()
@@ -172,8 +182,12 @@ async fn impact_returns_transitive_dependents_sorted_by_depth() {
 async fn impact_walks_across_kinds() {
     let pool = pool().await;
     // Mixed-kind chain: B depends on A (data), C depends on B (approval).
-    add_dependency(&pool, "B", "A", DepKind::Data, None).await.unwrap();
-    add_dependency(&pool, "C", "B", DepKind::Approval, None).await.unwrap();
+    add_dependency(&pool, "B", "A", DepKind::Data, None)
+        .await
+        .unwrap();
+    add_dependency(&pool, "C", "B", DepKind::Approval, None)
+        .await
+        .unwrap();
     let imp = impact(&pool, "A").await.unwrap();
     let ids: Vec<&str> = imp.iter().map(|i| i.worker_id.as_str()).collect();
     assert_eq!(ids, vec!["B", "C"]);
@@ -204,9 +218,15 @@ async fn impact_depth_is_capped() {
 #[tokio::test]
 async fn list_all_dumps_workspace_graph_sorted() {
     let pool = pool().await;
-    add_dependency(&pool, "B", "A", DepKind::Data, None).await.unwrap();
-    add_dependency(&pool, "A", "C", DepKind::Approval, None).await.unwrap();
-    add_dependency(&pool, "C", "B", DepKind::Skill, None).await.unwrap();
+    add_dependency(&pool, "B", "A", DepKind::Data, None)
+        .await
+        .unwrap();
+    add_dependency(&pool, "A", "C", DepKind::Approval, None)
+        .await
+        .unwrap();
+    add_dependency(&pool, "C", "B", DepKind::Skill, None)
+        .await
+        .unwrap();
     let all = list_all(&pool).await.unwrap();
     assert_eq!(all.len(), 3);
     // Sort ordering: kind ASC then a_worker_id ASC then b_worker_id ASC.

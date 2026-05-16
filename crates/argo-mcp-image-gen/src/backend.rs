@@ -31,7 +31,11 @@ impl ImageResult {
     pub fn hash_prompt(prompt: &str) -> String {
         let mut h = Sha256::new();
         h.update(prompt.as_bytes());
-        h.finalize().iter().take(8).map(|b| format!("{b:02x}")).collect()
+        h.finalize()
+            .iter()
+            .take(8)
+            .map(|b| format!("{b:02x}"))
+            .collect()
     }
 }
 
@@ -54,12 +58,15 @@ pub trait ImageBackend: Send + Sync {
     /// Human-readable backend id (for `ServerInfo` + audit rows).
     fn name(&self) -> &str;
     /// Generate one image from `prompt` at `size` using `model`.
-    async fn generate(&self, prompt: &str, size: &str, model: &str)
-        -> Result<ImageResult, String>;
+    async fn generate(&self, prompt: &str, size: &str, model: &str) -> Result<ImageResult, String>;
     /// Edit `image_bytes` using `prompt`. Single-image edit; multi-
     /// frame composition is out of scope for v1.
-    async fn edit(&self, image_bytes: &[u8], prompt: &str, model: &str)
-        -> Result<ImageResult, String>;
+    async fn edit(
+        &self,
+        image_bytes: &[u8],
+        prompt: &str,
+        model: &str,
+    ) -> Result<ImageResult, String>;
 }
 
 /// Deterministic test backend.
@@ -68,15 +75,18 @@ pub struct StubBackend;
 
 #[async_trait]
 impl ImageBackend for StubBackend {
-    fn name(&self) -> &str { "stub" }
-    async fn generate(&self, prompt: &str, _size: &str, model: &str)
-        -> Result<ImageResult, String>
-    {
+    fn name(&self) -> &str {
+        "stub"
+    }
+    async fn generate(
+        &self,
+        prompt: &str,
+        _size: &str,
+        model: &str,
+    ) -> Result<ImageResult, String> {
         Ok(stub_result("c3R1Yg==", prompt, model))
     }
-    async fn edit(&self, _bytes: &[u8], prompt: &str, model: &str)
-        -> Result<ImageResult, String>
-    {
+    async fn edit(&self, _bytes: &[u8], prompt: &str, model: &str) -> Result<ImageResult, String> {
         Ok(stub_result("c3R1Yi1lZGl0", prompt, model))
     }
 }
@@ -110,7 +120,11 @@ impl OpenAiCompatibleBackend {
             .user_agent(concat!("argo-mcp-image-gen/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|e| format!("http client: {e}"))?;
-        Ok(Self { api_base, api_key, http })
+        Ok(Self {
+            api_base,
+            api_key,
+            http,
+        })
     }
 
     fn endpoint(&self, path: &str) -> String {
@@ -124,7 +138,10 @@ impl OpenAiCompatibleBackend {
         model: &str,
         builder: reqwest::RequestBuilder,
     ) -> Result<ImageResult, String> {
-        let resp = builder.send().await.map_err(|e| format!("POST {url}: {e}"))?;
+        let resp = builder
+            .send()
+            .await
+            .map_err(|e| format!("POST {url}: {e}"))?;
         let status = resp.status();
         let value: serde_json::Value = resp
             .json()
@@ -133,7 +150,10 @@ impl OpenAiCompatibleBackend {
         if !status.is_success() {
             return Err(format!("POST {url}: HTTP {status}: {value}"));
         }
-        let b64 = value.pointer("/data/0/b64_json").and_then(|v| v.as_str()).map(str::to_string);
+        let b64 = value
+            .pointer("/data/0/b64_json")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
         let url_out = value
             .pointer("/data/0/url")
             .and_then(|v| v.as_str())
@@ -150,10 +170,10 @@ impl OpenAiCompatibleBackend {
 
 #[async_trait]
 impl ImageBackend for OpenAiCompatibleBackend {
-    fn name(&self) -> &str { "openai-compatible" }
-    async fn generate(&self, prompt: &str, size: &str, model: &str)
-        -> Result<ImageResult, String>
-    {
+    fn name(&self) -> &str {
+        "openai-compatible"
+    }
+    async fn generate(&self, prompt: &str, size: &str, model: &str) -> Result<ImageResult, String> {
         let url = self.endpoint("images/generations");
         let body = serde_json::json!({
             "model": model, "prompt": prompt, "n": 1,
@@ -162,9 +182,12 @@ impl ImageBackend for OpenAiCompatibleBackend {
         let req = self.http.post(&url).bearer_auth(&self.api_key).json(&body);
         self.finish(&url, prompt, model, req).await
     }
-    async fn edit(&self, image_bytes: &[u8], prompt: &str, model: &str)
-        -> Result<ImageResult, String>
-    {
+    async fn edit(
+        &self,
+        image_bytes: &[u8],
+        prompt: &str,
+        model: &str,
+    ) -> Result<ImageResult, String> {
         let url = self.endpoint("images/edits");
         let part = reqwest::multipart::Part::bytes(image_bytes.to_vec())
             .file_name("input.png")
@@ -175,7 +198,11 @@ impl ImageBackend for OpenAiCompatibleBackend {
             .text("prompt", prompt.to_string())
             .text("response_format", "b64_json")
             .part("image", part);
-        let req = self.http.post(&url).bearer_auth(&self.api_key).multipart(form);
+        let req = self
+            .http
+            .post(&url)
+            .bearer_auth(&self.api_key)
+            .multipart(form);
         self.finish(&url, prompt, model, req).await
     }
 }

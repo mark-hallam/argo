@@ -21,7 +21,11 @@ fn welford_fold_matches_naive_mean_and_variance() {
     assert_eq!(b.sample_count, 5);
     let mean = samples.iter().sum::<i64>() as f64 / 5.0;
     assert!((b.latency_mean - mean).abs() < 1e-9);
-    let variance: f64 = samples.iter().map(|v| (*v as f64 - mean).powi(2)).sum::<f64>() / 5.0;
+    let variance: f64 = samples
+        .iter()
+        .map(|v| (*v as f64 - mean).powi(2))
+        .sum::<f64>()
+        / 5.0;
     let got_var = b.latency_variance().unwrap();
     assert!((got_var - variance).abs() < 1e-9);
     assert!((b.latency_stddev().unwrap() - variance.sqrt()).abs() < 1e-9);
@@ -99,17 +103,9 @@ async fn save_and_load_round_trips_baseline() {
 async fn record_no_events_below_min_samples() {
     let p = pool().await;
     for _ in 0..4 {
-        let evts = record_sample(
-            &p,
-            "w-1",
-            "x",
-            "post_listing",
-            s(100, 0),
-            3.0,
-            Utc::now(),
-        )
-        .await
-        .unwrap();
+        let evts = record_sample(&p, "w-1", "x", "post_listing", s(100, 0), 3.0, Utc::now())
+            .await
+            .unwrap();
         assert!(evts.is_empty());
     }
 }
@@ -118,17 +114,9 @@ async fn record_no_events_below_min_samples() {
 async fn record_emits_event_on_extreme_z() {
     let p = pool().await;
     for v in [100, 102, 98, 101, 99, 100] {
-        record_sample(
-            &p,
-            "w-2",
-            "seed",
-            "post_listing",
-            s(v, 0),
-            3.0,
-            Utc::now(),
-        )
-        .await
-        .unwrap();
+        record_sample(&p, "w-2", "seed", "post_listing", s(v, 0), 3.0, Utc::now())
+            .await
+            .unwrap();
     }
     let evts = record_sample(
         &p,

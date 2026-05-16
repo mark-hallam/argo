@@ -46,8 +46,14 @@ pub(super) async fn vertical_run_response(
         return bad_request("missing `workflow`");
     };
     let title = parsed.get("title").and_then(|v| v.as_str());
-    let provider = parsed.get("provider").and_then(|v| v.as_str()).unwrap_or("mock");
-    let model = parsed.get("model").and_then(|v| v.as_str()).unwrap_or("mock");
+    let provider = parsed
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .unwrap_or("mock");
+    let model = parsed
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("mock");
 
     // Look up the vertical (404 on unknown id, same as the rest
     // of the gateway's vertical routes).

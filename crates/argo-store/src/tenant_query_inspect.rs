@@ -14,8 +14,7 @@ use crate::SessionStore;
 
 use super::tenant_query::{
     collect_tenants, count_blob, count_text, format_epoch_auto, has_column,
-    list_tenants_with_stats, table_exists, workspace_text, BLOB_TENANT_TABLES,
-    TEXT_TENANT_TABLES,
+    list_tenants_with_stats, table_exists, workspace_text, BLOB_TENANT_TABLES, TEXT_TENANT_TABLES,
 };
 
 /// Load one tenant detail object.
@@ -53,7 +52,9 @@ pub async fn rename_tenant(
     renamed_at: i64,
 ) -> ArgoResult<Value> {
     if old == new {
-        return Err(ArgoError::Provider("tenant rename: ids are identical".into()));
+        return Err(ArgoError::Provider(
+            "tenant rename: ids are identical".into(),
+        ));
     }
     if !tenant_exists(store, old).await? {
         return Err(ArgoError::Provider(format!("no tenant '{old}'")));
@@ -113,20 +114,19 @@ async fn tenant_exists(store: &SessionStore, tenant: TenantId) -> ArgoResult<boo
 
 async fn roster_summary(store: &SessionStore, tenant: TenantId) -> ArgoResult<Value> {
     let roster_count = count_text(store, "roster", tenant).await?;
-    let roster_member_count = if table_exists(store, "roster_member").await?
-        && table_exists(store, "roster").await?
-    {
-        sqlx::query_scalar(
-            "SELECT COUNT(*) FROM roster_member rm \
+    let roster_member_count =
+        if table_exists(store, "roster_member").await? && table_exists(store, "roster").await? {
+            sqlx::query_scalar(
+                "SELECT COUNT(*) FROM roster_member rm \
              JOIN roster r ON r.id = rm.roster_id WHERE r.tenant_id = ?",
-        )
-        .bind(tenant.to_string())
-        .fetch_one(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant roster members: {e}")))?
-    } else {
-        0
-    };
+            )
+            .bind(tenant.to_string())
+            .fetch_one(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("tenant roster members: {e}")))?
+        } else {
+            0
+        };
     Ok(json!({"roster_count": roster_count, "roster_member_count": roster_member_count}))
 }
 

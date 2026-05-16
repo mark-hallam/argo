@@ -29,9 +29,8 @@ pub async fn set(
         .map(|t| KeyResultSpec::parse(t))
         .collect::<ArgoResult<Vec<_>>>()?;
     let pool = open_pool().await?;
-    let id =
-        worker_okr::set_objective(&pool, worker_id, tenant, period, title, description, &krs)
-            .await?;
+    let id = worker_okr::set_objective(&pool, worker_id, tenant, period, title, description, &krs)
+        .await?;
     if json_out {
         let payload = json!({
             "ok": true,
@@ -186,12 +185,9 @@ fn print_progress_block(report: &ProgressReport) {
         pct,
         report.objective.status.as_str(),
     );
-    println!("  {:<24}  {:<3}  {:>10}  {:>10}  {:>8}  status",
-        "kpi",
-        "op",
-        "target",
-        "actual",
-        "score",
+    println!(
+        "  {:<24}  {:<3}  {:>10}  {:>10}  {:>8}  status",
+        "kpi", "op", "target", "actual", "score",
     );
     for kr in &report.key_results {
         let actual = kr

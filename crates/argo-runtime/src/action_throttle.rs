@@ -164,7 +164,9 @@ struct TokenBucket {
 impl TokenBucket {
     fn new(policy: ThrottlePolicy, now: DateTime<Utc>) -> Self {
         Self {
-            tokens: f32::from(u16::try_from(policy.burst.min(u32::from(u16::MAX))).unwrap_or(u16::MAX)),
+            tokens: f32::from(
+                u16::try_from(policy.burst.min(u32::from(u16::MAX))).unwrap_or(u16::MAX),
+            ),
             last_refill: now,
             policy,
         }
@@ -190,7 +192,8 @@ impl TokenBucket {
         } else {
             let deficit = 1.0 - self.tokens;
             let secs_needed = (deficit / self.policy.tokens_per_sec).max(0.0);
-            let delay = Duration::from_millis((secs_needed * 1000.0).ceil() as u64).max(MIN_WAIT_DELAY);
+            let delay =
+                Duration::from_millis((secs_needed * 1000.0).ceil() as u64).max(MIN_WAIT_DELAY);
             ThrottleDecision::Wait { delay }
         }
     }

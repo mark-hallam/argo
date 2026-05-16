@@ -42,10 +42,14 @@ pub async fn run(args: ApprovalExportArgs) -> ArgoResult<()> {
     let format = ExportFormat::parse(&args.format)?;
     let limit = clamped_limit(args.limit);
     if args.limit > MAX_LIMIT {
-        eprintln!("warning: --limit {} exceeds {}; clamped", args.limit, MAX_LIMIT);
+        eprintln!(
+            "warning: --limit {} exceeds {}; clamped",
+            args.limit, MAX_LIMIT
+        );
     }
     ensure_writable(&args.out, args.force)?;
-    let (_memory, workspace, store) = super::worker_actions_transitions::open_workspace_memory_with_store().await?;
+    let (_memory, workspace, store) =
+        super::worker_actions_transitions::open_workspace_memory_with_store().await?;
     let mut query_args = args.clone();
     query_args.limit = limit;
     let (sql, params) = build_query_at(&query_args, workspace, Utc::now())?;
@@ -100,7 +104,8 @@ pub(crate) fn build_query_at(
 pub(crate) fn render(rows: &[ApprovalExportRow], format: ExportFormat) -> ArgoResult<Vec<u8>> {
     match format {
         ExportFormat::Csv => render_csv(rows),
-        ExportFormat::Json => serde_json::to_vec(rows).map_err(|e| ArgoError::Provider(format!("approval export JSON: {e}"))),
+        ExportFormat::Json => serde_json::to_vec(rows)
+            .map_err(|e| ArgoError::Provider(format!("approval export JSON: {e}"))),
         ExportFormat::Jsonl => render_jsonl(rows),
     }
 }
@@ -204,7 +209,9 @@ fn render_csv(rows: &[ApprovalExportRow]) -> ArgoResult<Vec<u8>> {
             ]
         })
         .collect();
-    Ok(argo_executor_document_csv::render_rfc4180(&header, &body_rows))
+    Ok(argo_executor_document_csv::render_rfc4180(
+        &header, &body_rows,
+    ))
 }
 
 fn render_jsonl(rows: &[ApprovalExportRow]) -> ArgoResult<Vec<u8>> {

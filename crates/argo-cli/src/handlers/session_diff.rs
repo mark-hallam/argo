@@ -12,8 +12,7 @@ pub(super) async fn diff_sessions(
     json: bool,
     format: &str,
 ) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -61,10 +60,40 @@ pub(super) async fn diff_sessions(
     // `--json` wins over `--format` for backwards compat.
     let pick = if json { "json" } else { format };
     match pick {
-        "json" => render_json(&s1, &s2, &m1, &m2, &header_diffs, pairs, diverged, trailing, first_div),
-        "markdown" => render_markdown(&s1, &s2, &m1, &m2, &header_diffs, pairs, diverged, trailing, first_div),
+        "json" => render_json(
+            &s1,
+            &s2,
+            &m1,
+            &m2,
+            &header_diffs,
+            pairs,
+            diverged,
+            trailing,
+            first_div,
+        ),
+        "markdown" => render_markdown(
+            &s1,
+            &s2,
+            &m1,
+            &m2,
+            &header_diffs,
+            pairs,
+            diverged,
+            trailing,
+            first_div,
+        ),
         "text" => {
-            render_text(&s1, &s2, &m1, &m2, &header_diffs, pairs, diverged, trailing, first_div);
+            render_text(
+                &s1,
+                &s2,
+                &m1,
+                &m2,
+                &header_diffs,
+                pairs,
+                diverged,
+                trailing,
+                first_div,
+            );
             Ok(())
         }
         other => Err(ArgoError::Provider(format!(
@@ -156,11 +185,7 @@ fn render_markdown(
 ) -> ArgoResult<()> {
     let mut out = String::new();
     out.push_str("# Session diff\n\n");
-    out.push_str(&format!(
-        "- **a**: `{}` ({} messages)\n",
-        s1.id.0,
-        m1.len()
-    ));
+    out.push_str(&format!("- **a**: `{}` ({} messages)\n", s1.id.0, m1.len()));
     out.push_str(&format!(
         "- **b**: `{}` ({} messages)\n\n",
         s2.id.0,

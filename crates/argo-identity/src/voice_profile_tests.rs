@@ -23,10 +23,7 @@ fn tone_warm_prepends_instruction() {
         ..Default::default()
     };
     let composed = voice.compose_preamble();
-    assert_eq!(
-        composed,
-        "Speak with a warm, empathetic tone.\n\nBe Maya."
-    );
+    assert_eq!(composed, "Speak with a warm, empathetic tone.\n\nBe Maya.");
 }
 
 #[test]
@@ -120,8 +117,7 @@ fn legacy_serialised_persona_round_trips() {
     // Existing personas serialised before the structured fields existed
     // (just `{ "preamble": "..." }`) must deserialise unchanged.
     let json = r#"{"preamble":"You are Maya."}"#;
-    let voice: VoiceProfile =
-        serde_json::from_str(json).expect("legacy preamble JSON must parse");
+    let voice: VoiceProfile = serde_json::from_str(json).expect("legacy preamble JSON must parse");
     assert_eq!(voice.preamble, "You are Maya.");
     assert_eq!(voice.tone, Tone::Neutral);
     assert_eq!(voice.formality, Formality::Conversational);

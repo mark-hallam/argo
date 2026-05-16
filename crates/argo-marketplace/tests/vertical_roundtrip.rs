@@ -32,10 +32,18 @@ fn write_vertical_fixture(root: &Path) {
     .unwrap();
     fs::write(root.join("worker.toml"), "[worker]\nname=\"seller\"\n").unwrap();
     fs::create_dir_all(root.join("prompts")).unwrap();
-    fs::write(root.join("prompts/system.md"), "you are a selling-skates worker").unwrap();
+    fs::write(
+        root.join("prompts/system.md"),
+        "you are a selling-skates worker",
+    )
+    .unwrap();
     fs::write(root.join("prompts/safety.md"), "do not share PII").unwrap();
     fs::create_dir_all(root.join("memory")).unwrap();
-    fs::write(root.join("memory/seed.md"), "initial price points: $50-$200").unwrap();
+    fs::write(
+        root.join("memory/seed.md"),
+        "initial price points: $50-$200",
+    )
+    .unwrap();
     fs::create_dir_all(root.join("skills")).unwrap();
     fs::write(root.join("skills/post.md"), "post a listing").unwrap();
     fs::create_dir_all(root.join("eval")).unwrap();

@@ -84,7 +84,10 @@ pub(crate) struct SuccessCriteria {
 /// `apply` / `validate` paths share this entry point.
 pub(crate) fn read_and_validate(file: &Path) -> ArgoResult<ContractFile> {
     let body = std::fs::read_to_string(file).map_err(|e| {
-        ArgoError::Provider(format!("could not read contract at {}: {e}", file.display()))
+        ArgoError::Provider(format!(
+            "could not read contract at {}: {e}",
+            file.display()
+        ))
     })?;
     parse_contract(&body, file)
 }
@@ -113,7 +116,9 @@ pub(crate) fn parse_contract(body: &str, file: &Path) -> ArgoResult<ContractFile
 
 fn semantic_check(c: &ContractFile) -> ArgoResult<()> {
     if c.contract.role.trim().is_empty() {
-        return Err(ArgoError::Schema("[contract].role must not be empty".into()));
+        return Err(ArgoError::Schema(
+            "[contract].role must not be empty".into(),
+        ));
     }
     if c.contract.charter.trim().is_empty() {
         return Err(ArgoError::Schema(

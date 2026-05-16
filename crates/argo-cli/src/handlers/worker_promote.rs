@@ -167,9 +167,7 @@ pub async fn promote(
         .get_worker(tenant_id, parsed_worker)
         .await?
         .ok_or_else(|| {
-            ArgoError::Provider(format!(
-                "worker {worker_id} not found in tenant {tenant}"
-            ))
+            ArgoError::Provider(format!("worker {worker_id} not found in tenant {tenant}"))
         })?;
     let target = match to {
         Some(label) => WorkerLevel::from_str(label).map_err(ArgoError::Provider)?,
@@ -192,9 +190,8 @@ pub async fn promote(
             worker.level, target
         )));
     }
-    let criteria = criteria_for(target).ok_or_else(|| {
-        ArgoError::Provider(format!("no criteria gate defined for {target}"))
-    })?;
+    let criteria = criteria_for(target)
+        .ok_or_else(|| ArgoError::Provider(format!("no criteria gate defined for {target}")))?;
     if criteria.requires_force && !force {
         return Err(ArgoError::Provider(format!(
             "promotion to {target} requires --force (operator confirmation)"
@@ -239,9 +236,7 @@ pub async fn level(worker_id: &str, tenant: &str, json: bool) -> ArgoResult<()> 
         .get_worker(tenant_id, parsed_worker)
         .await?
         .ok_or_else(|| {
-            ArgoError::Provider(format!(
-                "worker {worker_id} not found in tenant {tenant}"
-            ))
+            ArgoError::Provider(format!("worker {worker_id} not found in tenant {tenant}"))
         })?;
     let next = worker.level.next();
     let created_at = worker_created_at_micros(owned.pool(), parsed_worker).await?;
@@ -315,17 +310,12 @@ impl OwnedIdentityStore {
     }
 }
 
-async fn worker_created_at_micros(
-    pool: &Pool<Sqlite>,
-    worker_id: WorkerId,
-) -> ArgoResult<i64> {
-    let raw: Option<i64> = sqlx::query_scalar(
-        "SELECT created_at FROM worker WHERE id = ?",
-    )
-    .bind(worker_id.to_string())
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("worker created_at: {e}")))?;
+async fn worker_created_at_micros(pool: &Pool<Sqlite>, worker_id: WorkerId) -> ArgoResult<i64> {
+    let raw: Option<i64> = sqlx::query_scalar("SELECT created_at FROM worker WHERE id = ?")
+        .bind(worker_id.to_string())
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker created_at: {e}")))?;
     raw.ok_or_else(|| ArgoError::Provider(format!("worker {worker_id} missing created_at")))
 }
 
@@ -335,13 +325,11 @@ pub(crate) async fn load_metrics(
     created_at_micros: i64,
 ) -> ArgoResult<PromotionMetrics> {
     let worker_blob = worker_id.0.as_bytes().to_vec();
-    let sessions: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM session WHERE worker_id = ?",
-    )
-    .bind(worker_blob.as_slice())
-    .fetch_one(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("session count: {e}")))?;
+    let sessions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM session WHERE worker_id = ?")
+        .bind(worker_blob.as_slice())
+        .fetch_one(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("session count: {e}")))?;
     let granted: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM audit_record a JOIN session s ON s.id = a.session_id \
          WHERE s.worker_id = ? AND a.kind = 'approval.granted'",
@@ -400,8 +388,7 @@ async fn write_audit_row(
     let canonical = serde_json::to_string(&payload)
         .map_err(|e| ArgoError::Schema(format!("worker_promotion payload: {e}")))?;
     let parent_hash = [0u8; 32];
-    let self_hash =
-        argo_audit::compute_chain_hash(&parent_hash, WORKER_PROMOTION_KIND, &canonical);
+    let self_hash = argo_audit::compute_chain_hash(&parent_hash, WORKER_PROMOTION_KIND, &canonical);
     let id = Uuid::now_v7();
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, \

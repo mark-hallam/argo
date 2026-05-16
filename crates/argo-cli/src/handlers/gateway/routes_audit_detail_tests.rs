@@ -13,8 +13,8 @@
 #![allow(clippy::too_many_lines)]
 #![allow(deprecated)]
 
-use super::detail_response;
 use super::super::routes_audit_screenshot::{screenshot_response, sign_screenshot_url};
+use super::detail_response;
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
@@ -98,11 +98,23 @@ fn rich_payload() -> Value {
         p.insert((*k).to_string(), Value::String((*v).to_string()));
     }
     p.insert("cost_usd".to_string(), json!(0.12));
-    p.insert("predecessor".to_string(), json!({ "id": "prev-1", "verb": "asked for refund" }));
-    p.insert("plan_candidates_json".to_string(), json!(["refund", "credit"]));
+    p.insert(
+        "predecessor".to_string(),
+        json!({ "id": "prev-1", "verb": "asked for refund" }),
+    );
+    p.insert(
+        "plan_candidates_json".to_string(),
+        json!(["refund", "credit"]),
+    );
     p.insert("plan_selected_idx".to_string(), json!(0));
-    p.insert("executor_meta".to_string(), json!({ "endpoint": "POST /refunds" }));
-    p.insert("downstream_meta".to_string(), json!({ "refund_id": "re_3O123" }));
+    p.insert(
+        "executor_meta".to_string(),
+        json!({ "endpoint": "POST /refunds" }),
+    );
+    p.insert(
+        "downstream_meta".to_string(),
+        json!({ "refund_id": "re_3O123" }),
+    );
     Value::Object(p)
 }
 
@@ -186,20 +198,21 @@ async fn detail_chain_has_eight_ordered_steps() {
 async fn detail_provenance_emits_self_hash_anchor() {
     let store = mem_store().await;
     let id = seed_and_id(&store, rich_payload()).await;
-    let row_hash: Vec<u8> = sqlx::query_scalar(
-        "SELECT self_hash FROM audit_record WHERE id = ?",
-    )
-    .bind(hex::decode(&id).unwrap())
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
+    let row_hash: Vec<u8> = sqlx::query_scalar("SELECT self_hash FROM audit_record WHERE id = ?")
+        .bind(hex::decode(&id).unwrap())
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
     let resp = detail_response(&get(&format!("/api/v1/audit/{id}")), &id, Some(&store)).await;
     let body = parse_body(&resp);
     assert_eq!(
         body["detail"]["provenance"]["hash_chain_anchor"],
         hex::encode(&row_hash)
     );
-    assert_eq!(body["detail"]["provenance"]["model"]["id"], "claude-opus-4-7");
+    assert_eq!(
+        body["detail"]["provenance"]["model"]["id"],
+        "claude-opus-4-7"
+    );
     assert_eq!(body["detail"]["provenance"]["skill"]["version"], "v3");
 }
 
@@ -222,11 +235,18 @@ async fn detail_output_carries_text_body_and_external_refs() {
     let resp = detail_response(&get(&format!("/api/v1/audit/{id}")), &id, Some(&store)).await;
     let body = parse_body(&resp);
     assert_eq!(body["detail"]["output"]["kind"], "text");
-    assert!(body["detail"]["output"]["body"].as_str().unwrap().contains("refund issued"));
+    assert!(body["detail"]["output"]["body"]
+        .as_str()
+        .unwrap()
+        .contains("refund issued"));
     let refs = body["detail"]["external_refs"].as_array().expect("array");
-    assert!(refs.iter().any(|r| r["system"] == "stripe" && r["id"] == "re_3O987654321"));
+    assert!(refs
+        .iter()
+        .any(|r| r["system"] == "stripe" && r["id"] == "re_3O987654321"));
     assert!(refs.iter().any(|r| r["system"] == "github"));
-    assert!(refs.iter().any(|r| r["system"] == "linear" && r["id"] == "ENG-12"));
+    assert!(refs
+        .iter()
+        .any(|r| r["system"] == "linear" && r["id"] == "ENG-12"));
 }
 
 #[tokio::test]
@@ -274,7 +294,9 @@ async fn detail_screenshots_emit_signed_urls() {
     let id = seed_and_id(&store, payload).await;
     let resp = detail_response(&get(&format!("/api/v1/audit/{id}")), &id, Some(&store)).await;
     let body = parse_body(&resp);
-    let shots = body["detail"]["output"]["screenshots"].as_array().expect("array");
+    let shots = body["detail"]["output"]["screenshots"]
+        .as_array()
+        .expect("array");
     assert_eq!(shots.len(), 2);
     for (i, shot) in shots.iter().enumerate() {
         let url = shot["url"].as_str().expect("url string");

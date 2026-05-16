@@ -64,15 +64,9 @@ pub async fn run(kind: String, host: String, port: u16, json: bool) -> ArgoResul
 fn probe_one(host: &str, port: u16, path: &str) -> ArgoResult<(String, String)> {
     let mut stream = TcpStream::connect((host, port))
         .map_err(|e| ArgoError::Provider(format!("connect {host}:{port}: {e}")))?;
-    stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .ok();
-    stream
-        .set_write_timeout(Some(Duration::from_secs(2)))
-        .ok();
-    let req = format!(
-        "GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
-    );
+    stream.set_read_timeout(Some(Duration::from_secs(2))).ok();
+    stream.set_write_timeout(Some(Duration::from_secs(2))).ok();
+    let req = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
     stream
         .write_all(req.as_bytes())
         .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;

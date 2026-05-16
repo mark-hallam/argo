@@ -143,12 +143,14 @@ impl PermissionReport {
         }
         let mut out = String::new();
         if !self.probed {
-            out.push_str(
-                "preflight not attempted (non-macOS host or runtime guard fired)\n",
-            );
+            out.push_str("preflight not attempted (non-macOS host or runtime guard fired)\n");
         }
         for kind in self.missing() {
-            out.push_str(&format!("- {}: {}\n", kind.display_name(), kind.actionable_hint()));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                kind.display_name(),
+                kind.actionable_hint()
+            ));
         }
         out
     }
@@ -211,7 +213,10 @@ fn probe_accessibility() -> PermissionStatus {
     // authorised to send Apple events to System Events`.
     use std::process::Command;
     match Command::new("osascript")
-        .args(["-e", "tell application \"System Events\" to count processes"])
+        .args([
+            "-e",
+            "tell application \"System Events\" to count processes",
+        ])
         .output()
     {
         Ok(out) if out.status.success() => PermissionStatus::Granted,
@@ -235,7 +240,10 @@ fn probe_automation() -> PermissionStatus {
     // for Notes is denied, osascript exits 1.
     use std::process::Command;
     match Command::new("osascript")
-        .args(["-e", "tell application id \"com.apple.Notes\" to get its name"])
+        .args([
+            "-e",
+            "tell application id \"com.apple.Notes\" to get its name",
+        ])
         .output()
     {
         Ok(out) if out.status.success() => PermissionStatus::Granted,
@@ -271,7 +279,10 @@ mod tests {
         let r = PermissionReport::not_probed();
         assert!(!r.probed);
         assert_eq!(r.entries.len(), 4);
-        assert!(r.entries.iter().all(|(_, s)| *s == PermissionStatus::Unknown));
+        assert!(r
+            .entries
+            .iter()
+            .all(|(_, s)| *s == PermissionStatus::Unknown));
         assert!(!r.all_granted());
     }
 
@@ -287,7 +298,13 @@ mod tests {
             probed: true,
         };
         let m = r.missing();
-        assert_eq!(m, vec![PermissionKind::Accessibility, PermissionKind::InputMonitoring]);
+        assert_eq!(
+            m,
+            vec![
+                PermissionKind::Accessibility,
+                PermissionKind::InputMonitoring
+            ]
+        );
         assert!(!r.all_granted());
     }
 
@@ -336,7 +353,9 @@ mod tests {
     #[test]
     fn settings_deep_links_use_apple_url_scheme() {
         for kind in PermissionKind::all() {
-            assert!(kind.settings_deep_link().starts_with("x-apple.systempreferences:"));
+            assert!(kind
+                .settings_deep_link()
+                .starts_with("x-apple.systempreferences:"));
         }
     }
 }

@@ -110,8 +110,7 @@ pub async fn run_collect(
 
     let workflow = find_workflow(loaded, workflow_name)?;
 
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
 
     let (registry_t, engine, principal) = build_local_dispatch_ctx(&cwd)?;
 
@@ -214,9 +213,7 @@ fn find_workflow(
 /// uses. Duplicated rather than re-exported to keep this PR
 /// independently revertable (no public API change to
 /// argo-agent-runner).
-fn build_local_dispatch_ctx(
-    cwd: &Path,
-) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
+fn build_local_dispatch_ctx(cwd: &Path) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
     for t in builtin_tools(cwd.to_path_buf()) {
         reg.register(t);

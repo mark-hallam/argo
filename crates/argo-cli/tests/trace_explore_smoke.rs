@@ -21,8 +21,7 @@ const FIXTURE_NDJSON: &str = concat!(
 #[test]
 fn explore_renders_markdown_tree_from_fixture() {
     let dir = tempfile::tempdir().expect("tempdir");
-    std::fs::write(dir.path().join("smoke-session.ndjson"), FIXTURE_NDJSON)
-        .expect("write fixture");
+    std::fs::write(dir.path().join("smoke-session.ndjson"), FIXTURE_NDJSON).expect("write fixture");
     let out = Command::new(argo_bin())
         .args([
             "trace",
@@ -51,8 +50,7 @@ fn explore_renders_markdown_tree_from_fixture() {
 #[test]
 fn explore_renders_json_when_format_json() {
     let dir = tempfile::tempdir().expect("tempdir");
-    std::fs::write(dir.path().join("smoke-session.ndjson"), FIXTURE_NDJSON)
-        .expect("write fixture");
+    std::fs::write(dir.path().join("smoke-session.ndjson"), FIXTURE_NDJSON).expect("write fixture");
     let out = Command::new(argo_bin())
         .args([
             "trace",
@@ -71,8 +69,7 @@ fn explore_renders_json_when_format_json() {
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8(out.stdout).expect("utf8");
-    let parsed: serde_json::Value =
-        serde_json::from_str(stdout.trim()).expect("valid json output");
+    let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).expect("valid json output");
     let arr = parsed.as_array().expect("top-level array");
     assert_eq!(arr.len(), 1, "one root: {stdout}");
     assert_eq!(arr[0]["span"]["name"], "agent_loop");

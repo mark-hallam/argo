@@ -50,8 +50,7 @@ async fn refresh_workspace_ledger(
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let records = collect_latest_actions(memory, workspace, vertical).await?;
     let dir = cwd.join(".skycot");
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| ArgoError::Io(format!("create .skycot dir: {e}")))?;
+    std::fs::create_dir_all(&dir).map_err(|e| ArgoError::Io(format!("create .skycot dir: {e}")))?;
     let queue = worker_actions_render::render_approval_queue(&records);
     let completed = worker_actions_render::render_completed_actions(&records);
     let blocked = worker_actions_render::render_blocked_actions(&records);
@@ -80,8 +79,7 @@ pub(super) async fn auto_refresh_ledger(memory: &MemoryStore, workspace: Workspa
 }
 
 fn write(path: &std::path::Path, body: &str) -> ArgoResult<()> {
-    std::fs::write(path, body)
-        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
+    std::fs::write(path, body).map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
 }
 
 /// Latest-wins reduction across a vertical (or all loaded

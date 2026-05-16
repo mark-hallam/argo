@@ -84,9 +84,7 @@ fn token_decode_round_trips() {
         &inbound.config().hmac_secret,
     )
     .unwrap();
-    let payload = format!(
-        r#"{{"actions":[{{"action_id":"approve","value":"{token}"}}]}}"#
-    );
+    let payload = format!(r#"{{"actions":[{{"action_id":"approve","value":"{token}"}}]}}"#);
     let body = signed_body(&payload);
     let claims = inbound
         .decode_approval_token(body.as_bytes())

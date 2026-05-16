@@ -94,8 +94,13 @@ fn cli_new_with_vertical_attaches_bundle_skills() {
         .env("ARGO_HOME", home.path())
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args([
-            "new", "--provider", "anthropic", "--model", "claude-haiku",
-            "--vertical", "demo",
+            "new",
+            "--provider",
+            "anthropic",
+            "--model",
+            "claude-haiku",
+            "--vertical",
+            "demo",
         ])
         .output()
         .expect("spawn");
@@ -121,8 +126,13 @@ fn cli_new_with_vertical_no_skills_block_attaches_zero() {
         .env("ARGO_HOME", home.path())
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args([
-            "new", "--provider", "p", "--model", "m",
-            "--vertical", "nobundle",
+            "new",
+            "--provider",
+            "p",
+            "--model",
+            "m",
+            "--vertical",
+            "nobundle",
         ])
         .output()
         .expect("spawn");
@@ -148,8 +158,13 @@ fn cli_new_with_vertical_partial_bundle_still_creates_session() {
         .env("ARGO_HOME", home.path())
         .env("ARGO_VERTICALS_DIR", verticals.path())
         .args([
-            "new", "--provider", "p", "--model", "m",
-            "--vertical", "partial",
+            "new",
+            "--provider",
+            "p",
+            "--model",
+            "m",
+            "--vertical",
+            "partial",
         ])
         .output()
         .expect("spawn");
@@ -200,8 +215,12 @@ fn spawn_gateway(
         .env("ARGO_HOME", home)
         .env("ARGO_VERTICALS_DIR", verticals_dir)
         .args([
-            "gateway", "start", "--port", &port.to_string(),
-            "--max-requests", &max_requests.to_string(),
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            &max_requests.to_string(),
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -239,11 +258,7 @@ fn gateway_post_no_vertical_response_has_skills_attached_zero() {
     let verticals = tempfile::tempdir().unwrap();
     let (mut child, _stderr) = spawn_gateway(port, home.path(), verticals.path(), 1);
 
-    let resp = http_post(
-        port,
-        "/sessions",
-        r#"{"model":"m","provider":"p"}"#,
-    );
+    let resp = http_post(port, "/sessions", r#"{"model":"m","provider":"p"}"#);
     assert!(resp.contains("HTTP/1.1 201 Created"), "resp={resp}");
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
     assert_eq!(v["skills_attached"], 0);

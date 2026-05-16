@@ -162,8 +162,7 @@ fn end_to_end_worker_lifecycle_completes_through_real_binary() {
         ],
     );
     assert_success("worker create", &create);
-    let create_json: Value =
-        serde_json::from_slice(&create.stdout).expect("worker create JSON");
+    let create_json: Value = serde_json::from_slice(&create.stdout).expect("worker create JSON");
     let worker_id = create_json["id"]
         .as_str()
         .expect("worker create id")
@@ -322,11 +321,7 @@ fn end_to_end_worker_lifecycle_completes_through_real_binary() {
         .lines()
         .filter(|l| !l.trim().is_empty())
         .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .filter_map(|v| {
-            v.get("state")
-                .and_then(Value::as_str)
-                .map(String::from)
-        })
+        .filter_map(|v| v.get("state").and_then(Value::as_str).map(String::from))
         .collect();
     assert_eq!(
         states,

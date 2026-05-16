@@ -3,7 +3,7 @@
 //! shapes — per-session (full chain) and global (histogram +
 //! optional tail) — both as shareable markdown docs.
 
-use argo_audit::{VerifyReport, ExportedRow};
+use argo_audit::{ExportedRow, VerifyReport};
 
 use super::audit::{payload_detail, SessionSummary};
 

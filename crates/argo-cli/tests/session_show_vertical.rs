@@ -48,12 +48,7 @@ fn workspace_init(home: &Path, root: &Path) {
 
 /// Boot a session via `argo new`, optionally bound to `vertical`.
 /// Returns the session UUID parsed from stdout.
-fn new_session(
-    home: &Path,
-    verticals: &Path,
-    title: &str,
-    vertical: Option<&str>,
-) -> String {
+fn new_session(home: &Path, verticals: &Path, title: &str, vertical: Option<&str>) -> String {
     let mut args: Vec<String> = vec![
         "new".into(),
         "--provider".into(),

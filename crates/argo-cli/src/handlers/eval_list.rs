@@ -196,8 +196,7 @@ fn runs_dir() -> ArgoResult<PathBuf> {
     if let Some(path) = std::env::var_os("ARGO_HOME") {
         return Ok(PathBuf::from(path).join("eval-runs"));
     }
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     Ok(cwd.join(".argo").join("eval-runs"))
 }
 

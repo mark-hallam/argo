@@ -69,8 +69,8 @@ impl AuditSink {
                     .append(true)
                     .open(&p)
                     .map_err(|e| format!("audit open {}: {e}", p.display()))?;
-                let line = serde_json::to_string(row)
-                    .map_err(|e| format!("audit serialize: {e}"))?;
+                let line =
+                    serde_json::to_string(row).map_err(|e| format!("audit serialize: {e}"))?;
                 f.write_all(line.as_bytes())
                     .and_then(|()| f.write_all(b"\n"))
                     .map_err(|e| format!("audit write: {e}"))?;
@@ -137,7 +137,8 @@ impl ImageGenMcpServer {
 
     async fn run_tool(&self, params: CallToolParams) -> Result<ImageResult, String> {
         let prompt = required_str(&params.arguments, "prompt")?;
-        let model = optional_str(&params.arguments, "model").unwrap_or_else(|| self.model_default.clone());
+        let model =
+            optional_str(&params.arguments, "model").unwrap_or_else(|| self.model_default.clone());
         let cents = estimate_cost_cents(&model);
         let row = serde_json::json!({
             "kind": "image_gen.cost_estimate",
@@ -188,7 +189,9 @@ impl McpServerService for ImageGenMcpServer {
             Ok(result) => {
                 let value = serde_json::to_value(&result).unwrap_or(serde_json::Value::Null);
                 CallToolResult {
-                    content: vec![McpContent::Text { text: value.to_string() }],
+                    content: vec![McpContent::Text {
+                        text: value.to_string(),
+                    }],
                     is_error: false,
                 }
             }
@@ -221,7 +224,9 @@ fn decode_b64(s: &str) -> Result<Vec<u8>, String> {
     if cleaned.is_empty() {
         return Err("image_b64 empty".into());
     }
-    STANDARD.decode(cleaned).map_err(|e| format!("image_b64 decode: {e}"))
+    STANDARD
+        .decode(cleaned)
+        .map_err(|e| format!("image_b64 decode: {e}"))
 }
 
 #[cfg(test)]

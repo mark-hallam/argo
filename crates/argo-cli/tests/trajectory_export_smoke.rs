@@ -74,7 +74,11 @@ fn trajectory_export_json_envelope_lists_collected_rows() {
     );
     let envelope: serde_json::Value =
         serde_json::from_slice(&out.stdout).expect("valid json envelope");
-    assert_eq!(envelope["rows"].as_u64().unwrap(), 1, "filter=passed should drop the failed action");
+    assert_eq!(
+        envelope["rows"].as_u64().unwrap(),
+        1,
+        "filter=passed should drop the failed action"
+    );
     assert_eq!(envelope["format"].as_str().unwrap(), "anthropic");
     let export = std::fs::read_to_string(&output_path).expect("export written");
     let arr: serde_json::Value = serde_json::from_str(&export).expect("valid array");

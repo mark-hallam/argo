@@ -52,9 +52,7 @@ pub(crate) async fn emit_on_complete_followups(
     let (registry, _errors) = match argo_vertical::load_dir(&dir) {
         Ok(t) => t,
         Err(e) => {
-            eprintln!(
-                "argo worker: warning — vertical reload for follow-up emission failed: {e}"
-            );
+            eprintln!("argo worker: warning — vertical reload for follow-up emission failed: {e}");
             return;
         }
     };
@@ -83,19 +81,13 @@ pub(crate) async fn emit_on_complete_followups(
     {
         Ok(s) => s,
         Err(e) => {
-            eprintln!(
-                "argo worker: warning — sold-items snapshot failed during follow-up: {e}"
-            );
+            eprintln!("argo worker: warning — sold-items snapshot failed during follow-up: {e}");
             HashSet::new()
         }
     };
 
     for follow_up_type in &decl.on_complete_emit {
-        let mut rec = build_followup_record(
-            &loaded.manifest,
-            source,
-            follow_up_type,
-        );
+        let mut rec = build_followup_record(&loaded.manifest, source, follow_up_type);
         apply_sold_gate(&mut rec, &sold_items);
         if let Err(e) = persist(memory, workspace, &source.vertical_id, &rec).await {
             eprintln!(

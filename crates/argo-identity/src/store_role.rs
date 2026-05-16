@@ -33,15 +33,13 @@ impl IdentityStore<'_> {
         role_name: Option<&str>,
     ) -> ArgoResult<()> {
         self.ensure_schema().await?;
-        let result = sqlx::query(
-            "UPDATE worker SET role_name = ? WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(role_name)
-        .bind(worker_id.to_string())
-        .bind(tenant_id.to_string())
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("update worker.role_name: {e}")))?;
+        let result = sqlx::query("UPDATE worker SET role_name = ? WHERE id = ? AND tenant_id = ?")
+            .bind(role_name)
+            .bind(worker_id.to_string())
+            .bind(tenant_id.to_string())
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("update worker.role_name: {e}")))?;
         if result.rows_affected() == 0 {
             return Err(ArgoError::NotFound(format!(
                 "worker {worker_id} in tenant {tenant_id}"

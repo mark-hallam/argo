@@ -10,7 +10,9 @@ use argo_genesis::action_suggest::suggest as suggest_actions;
 use argo_genesis::eval_seed::{
     generate as generate_eval_seeds, suggested_actions_from_manifest, to_toml as eval_seeds_to_toml,
 };
-use argo_genesis::prompt_engineer::{revise as revise_prompt, PromptEngineerSession, PromptRevision};
+use argo_genesis::prompt_engineer::{
+    revise as revise_prompt, PromptEngineerSession, PromptRevision,
+};
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{
     ActionDeclaration, ActionRiskLevel, ActionsSection, ExecutorDeclaration, VerticalManifest,
@@ -98,16 +100,31 @@ pub fn handle_revise(args: GenesisReviseArgs) -> ArgoResult<()> {
 
     let mut writes: Vec<PendingWrite> = Vec::new();
     if matches!(target, ReviseTarget::Prompt | ReviseTarget::All) {
-        writes.push(plan_prompt_revision(&vertical_dir, &manifest, &charter, feedback)?);
+        writes.push(plan_prompt_revision(
+            &vertical_dir,
+            &manifest,
+            &charter,
+            feedback,
+        )?);
     }
     if matches!(target, ReviseTarget::Actions | ReviseTarget::All) {
-        let (write, updated) =
-            plan_action_revision(&manifest_path, &manifest_text, &manifest, &charter, feedback)?;
+        let (write, updated) = plan_action_revision(
+            &manifest_path,
+            &manifest_text,
+            &manifest,
+            &charter,
+            feedback,
+        )?;
         manifest = updated;
         writes.push(write);
     }
     if matches!(target, ReviseTarget::Eval | ReviseTarget::All) {
-        writes.push(plan_eval_revision(&vertical_dir, &manifest, &charter, feedback)?);
+        writes.push(plan_eval_revision(
+            &vertical_dir,
+            &manifest,
+            &charter,
+            feedback,
+        )?);
     }
 
     if !args.dry_run {
@@ -122,7 +139,9 @@ pub fn handle_revise(args: GenesisReviseArgs) -> ArgoResult<()> {
 }
 
 fn resolve_vertical_dir(override_dir: &Option<PathBuf>, name: &str) -> ArgoResult<PathBuf> {
-    let root = override_dir.clone().unwrap_or_else(argo_vertical::default_dir);
+    let root = override_dir
+        .clone()
+        .unwrap_or_else(argo_vertical::default_dir);
     let dir = root.join(name);
     if !dir.is_dir() {
         return Err(ArgoError::Provider(format!(
@@ -177,7 +196,11 @@ fn plan_prompt_revision(
         }],
     };
     let next = revise_prompt(&mut session, feedback).map_err(ArgoError::from)?;
-    Ok(PendingWrite { path: prompt_path, before: original, after: next.prompt.clone() })
+    Ok(PendingWrite {
+        path: prompt_path,
+        before: original,
+        after: next.prompt.clone(),
+    })
 }
 
 fn extract_locked_sections(prompt: &str) -> Vec<String> {
@@ -204,12 +227,12 @@ fn plan_action_revision(
     charter: &str,
     feedback: &str,
 ) -> ArgoResult<(PendingWrite, VerticalManifest)> {
-    let suggestions = suggest_actions(&format!("{charter} {feedback}"), 5).map_err(ArgoError::from)?;
+    let suggestions =
+        suggest_actions(&format!("{charter} {feedback}"), 5).map_err(ArgoError::from)?;
     let mut updated = manifest.clone();
-    let mut actions = updated
-        .actions
-        .clone()
-        .unwrap_or(ActionsSection { actions: Default::default() });
+    let mut actions = updated.actions.clone().unwrap_or(ActionsSection {
+        actions: Default::default(),
+    });
     for s in suggestions {
         let action_type = s.id.to_ascii_lowercase().replace(['.', '-'], "_");
         if actions.actions.contains_key(&action_type) {
@@ -219,7 +242,11 @@ fn plan_action_revision(
         actions.actions.insert(
             action_type,
             ActionDeclaration {
-                risk: if requires_approval { ActionRiskLevel::High } else { ActionRiskLevel::Low },
+                risk: if requires_approval {
+                    ActionRiskLevel::High
+                } else {
+                    ActionRiskLevel::Low
+                },
                 requires_approval,
                 description: format!("Genesis revise: {} (feedback: {feedback})", s.reason),
                 executor: ExecutorDeclaration::default(),
@@ -255,7 +282,11 @@ fn plan_eval_revision(
         .unwrap_or_default();
     let seeds = generate_eval_seeds(&format!("{charter} {feedback}"), &actions)?;
     let after = eval_seeds_to_toml(&seeds);
-    Ok(PendingWrite { path: eval_path, before, after })
+    Ok(PendingWrite {
+        path: eval_path,
+        before,
+        after,
+    })
 }
 
 fn emit_report(

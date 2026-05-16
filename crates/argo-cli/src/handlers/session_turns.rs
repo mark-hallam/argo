@@ -16,8 +16,7 @@ struct Turn {
 }
 
 pub async fn run(raw: &str, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -92,7 +91,9 @@ pub async fn run(raw: &str, json: bool) -> ArgoResult<()> {
         println!(
             "  {:>4}  {:>8}  {:>8}  {:>5}  {:>11}",
             t.index,
-            t.user_seq.map(|s| s.to_string()).unwrap_or_else(|| "-".into()),
+            t.user_seq
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "-".into()),
             t.assistant_seq
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "-".into()),

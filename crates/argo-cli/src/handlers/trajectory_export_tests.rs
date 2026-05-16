@@ -11,8 +11,8 @@
 //! The `tests/trajectory_export_smoke.rs` integration test exercises
 //! the full CLI through `argo trajectory export --json`.
 
-use super::*;
 use super::super::trajectory_export_render::{redact_emails_in_str, redact_value};
+use super::*;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -36,10 +36,7 @@ fn write_bundle(
     state: &str,
     created_at: &str,
 ) -> PathBuf {
-    let bundle = root
-        .join(job_id)
-        .join("actions")
-        .join(action_id);
+    let bundle = root.join(job_id).join("actions").join(action_id);
     std::fs::create_dir_all(&bundle).unwrap();
     let action = json!({
         "schema_key": "worker_action",
@@ -150,7 +147,13 @@ fn passes_filters_drops_outside_date_window() {
 #[test]
 fn load_trajectory_synthesizes_request_step_for_non_cu_action() {
     let root = tempfile::tempdir().unwrap();
-    let bundle = write_bundle(root.path(), "j-1", "a-1", "completed", "2025-06-01T00:00:00Z");
+    let bundle = write_bundle(
+        root.path(),
+        "j-1",
+        "a-1",
+        "completed",
+        "2025-06-01T00:00:00Z",
+    );
     let t = load_trajectory(&bundle, false).expect("load");
     assert_eq!(t.action_id, "a-1");
     assert_eq!(t.state, "completed");

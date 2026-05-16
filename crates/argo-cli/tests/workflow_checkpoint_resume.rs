@@ -54,7 +54,11 @@ fn run_then_checkpoints_lists_one_row_per_task() {
         home.path(),
         &["workflow", "run", flow.to_str().unwrap(), "--json"],
     );
-    assert!(r.status.success(), "run: {}", String::from_utf8_lossy(&r.stderr));
+    assert!(
+        r.status.success(),
+        "run: {}",
+        String::from_utf8_lossy(&r.stderr)
+    );
     let run_id = extract_run_id(&String::from_utf8_lossy(&r.stdout));
 
     let cp = run(
@@ -88,7 +92,11 @@ fn rollback_then_resume_replays_dropped_tasks() {
         home.path(),
         &["workflow", "run", flow.to_str().unwrap(), "--json"],
     );
-    assert!(r.status.success(), "run: {}", String::from_utf8_lossy(&r.stderr));
+    assert!(
+        r.status.success(),
+        "run: {}",
+        String::from_utf8_lossy(&r.stderr)
+    );
     let run_id = extract_run_id(&String::from_utf8_lossy(&r.stdout));
 
     // Roll back to seq=1 → only 'a' remains.

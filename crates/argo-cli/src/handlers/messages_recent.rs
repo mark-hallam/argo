@@ -12,8 +12,7 @@ pub async fn run(
     since_minutes: Option<i64>,
     json: bool,
 ) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -26,44 +25,53 @@ pub async fn run(
     // type alias for what's local to one query would obscure
     // the column order rather than clarify it.
     #[allow(clippy::type_complexity)]
-    let rows: Vec<(i64, Vec<u8>, Vec<u8>, String, String, i64)> = match (role.as_deref(), since_micros) {
-        (Some(r), Some(s)) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+    let rows: Vec<(i64, Vec<u8>, Vec<u8>, String, String, i64)> =
+        match (role.as_deref(), since_micros) {
+            (Some(r), Some(s)) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message WHERE role = ? AND created_at >= ? \
              ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(r)
-        .bind(s)
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-        (Some(r), None) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+                )
+                .bind(r)
+                .bind(s)
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+            (Some(r), None) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message WHERE role = ? \
              ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(r)
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-        (None, Some(s)) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+                )
+                .bind(r)
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+            (None, Some(s)) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message WHERE created_at >= ? \
              ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(s)
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-        (None, None) => sqlx::query_as(
-            "SELECT seq, id, session_id, role, content_json, created_at \
+                )
+                .bind(s)
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+            (None, None) => {
+                sqlx::query_as(
+                    "SELECT seq, id, session_id, role, content_json, created_at \
              FROM message ORDER BY created_at DESC LIMIT ?",
-        )
-        .bind(i64::from(limit))
-        .fetch_all(pool)
-        .await,
-    }
-    .map_err(|e| ArgoError::Provider(format!("messages_recent: {e}")))?;
+                )
+                .bind(i64::from(limit))
+                .fetch_all(pool)
+                .await
+            }
+        }
+        .map_err(|e| ArgoError::Provider(format!("messages_recent: {e}")))?;
     if json {
         let arr: Vec<serde_json::Value> = rows
             .iter()

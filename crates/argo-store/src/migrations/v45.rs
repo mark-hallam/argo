@@ -30,7 +30,12 @@ use sqlx::{Row, Sqlite};
 
 pub(super) async fn up<'a, 'b>(tx: &'a mut sqlx::Transaction<'b, Sqlite>) -> Result<(), ArgoError> {
     if !column_exists(tx, "worker", "archived_at").await? {
-        exec(tx, "v45 up", "ALTER TABLE worker ADD COLUMN archived_at TEXT").await?;
+        exec(
+            tx,
+            "v45 up",
+            "ALTER TABLE worker ADD COLUMN archived_at TEXT",
+        )
+        .await?;
     }
     exec(
         tx,
@@ -45,7 +50,12 @@ pub(super) async fn up<'a, 'b>(tx: &'a mut sqlx::Transaction<'b, Sqlite>) -> Res
 pub(super) async fn down<'a, 'b>(
     tx: &'a mut sqlx::Transaction<'b, Sqlite>,
 ) -> Result<(), ArgoError> {
-    exec(tx, "v45 down", "DROP INDEX IF EXISTS idx_worker_archived_at").await?;
+    exec(
+        tx,
+        "v45 down",
+        "DROP INDEX IF EXISTS idx_worker_archived_at",
+    )
+    .await?;
     if column_exists(tx, "worker", "archived_at").await? {
         exec(tx, "v45 down", "ALTER TABLE worker DROP COLUMN archived_at").await?;
     }

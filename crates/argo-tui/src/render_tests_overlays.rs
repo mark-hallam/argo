@@ -10,7 +10,9 @@ use chrono::Utc;
 fn forge_runs_overlay_renders_rows_and_header() {
     let mut state = ViewerState::new(vec![header("forge-runs")]);
     state.forge_runs = Some(vec![argo_store::ForgeRunRow {
-        id: vec![0xab, 0xcd, 0xef, 0x12, 0x34, 0x56, 0x78, 0x9a, 0, 0, 0, 0, 0, 0, 0, 0],
+        id: vec![
+            0xab, 0xcd, 0xef, 0x12, 0x34, 0x56, 0x78, 0x9a, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
         skill_name: "alpha".into(),
         started_at: 0,
         ended_at: Some(0),
@@ -48,7 +50,10 @@ fn forge_runs_overlay_marks_running_row_with_dot_prefix() {
     assert!(frame.contains("●"), "missing running marker: {frame}");
     assert!(frame.contains("beta"));
     assert!(frame.contains("running"));
-    assert!(frame.contains("1 ●"), "title missing running count: {frame}");
+    assert!(
+        frame.contains("1 ●"),
+        "title missing running count: {frame}"
+    );
 }
 
 #[test]

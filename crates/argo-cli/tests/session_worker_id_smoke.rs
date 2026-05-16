@@ -77,33 +77,73 @@ fn session_start_worker_flag_persists_worker_id_for_show() {
         workspace.path(),
         home.path(),
         &[
-            "session", "start", "--tenant", &tenant, "--title", "worker-smoke",
-            "--worker", &worker, "--json",
+            "session",
+            "start",
+            "--tenant",
+            &tenant,
+            "--title",
+            "worker-smoke",
+            "--worker",
+            &worker,
+            "--json",
         ],
     );
-    assert!(out.status.success(), "stderr={}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let created: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let session_id = created["id"].as_str().unwrap();
     assert_eq!(created["participants"][0].as_str(), Some(worker.as_str()));
 
-    let shown = run(workspace.path(), home.path(), &["session", "show", session_id, "--json"]);
-    assert!(shown.status.success(), "stderr={}", String::from_utf8_lossy(&shown.stderr));
+    let shown = run(
+        workspace.path(),
+        home.path(),
+        &["session", "show", session_id, "--json"],
+    );
+    assert!(
+        shown.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&shown.stderr)
+    );
     let shown: serde_json::Value = serde_json::from_slice(&shown.stdout).unwrap();
     assert_eq!(shown["worker_id"].as_str(), Some(worker.as_str()));
 
     let no_worker = run(
         workspace.path(),
         home.path(),
-        &["session", "start", "--tenant", &tenant, "--title", "no-worker", "--json"],
+        &[
+            "session",
+            "start",
+            "--tenant",
+            &tenant,
+            "--title",
+            "no-worker",
+            "--json",
+        ],
     );
-    assert!(no_worker.status.success(), "stderr={}", String::from_utf8_lossy(&no_worker.stderr));
+    assert!(
+        no_worker.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&no_worker.stderr)
+    );
     let no_worker: serde_json::Value = serde_json::from_slice(&no_worker.stdout).unwrap();
     let shown = run(
         workspace.path(),
         home.path(),
-        &["session", "show", no_worker["id"].as_str().unwrap(), "--json"],
+        &[
+            "session",
+            "show",
+            no_worker["id"].as_str().unwrap(),
+            "--json",
+        ],
     );
-    assert!(shown.status.success(), "stderr={}", String::from_utf8_lossy(&shown.stderr));
+    assert!(
+        shown.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&shown.stderr)
+    );
     let shown: serde_json::Value = serde_json::from_slice(&shown.stdout).unwrap();
     assert!(shown["worker_id"].is_null());
 }
@@ -118,7 +158,14 @@ fn gateway_post_and_get_return_worker_id() {
     let mut child = Command::new(argo_bin())
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
-        .args(["gateway", "start", "--port", &port.to_string(), "--max-requests", "2"])
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "2",
+        ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -134,7 +181,10 @@ fn gateway_post_and_get_return_worker_id() {
     })
     .to_string();
     let created = http_post(port, "/sessions", &create_body);
-    assert!(created.contains("HTTP/1.1 201 Created"), "created={created}");
+    assert!(
+        created.contains("HTTP/1.1 201 Created"),
+        "created={created}"
+    );
     let created: serde_json::Value = serde_json::from_str(body_of(&created)).unwrap();
     let session_id = created["id"].as_str().unwrap();
     assert_eq!(created["worker_id"].as_str(), Some(worker.as_str()));

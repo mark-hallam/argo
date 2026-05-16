@@ -43,7 +43,10 @@ fn read_action_does_not_require_memory_write_cap() {
 
 #[test]
 fn resolve_entry_accepts_canonical_filename() {
-    assert_eq!(resolve_entry(Some("MEMORY.md")).unwrap(), MemoryFile::Memory);
+    assert_eq!(
+        resolve_entry(Some("MEMORY.md")).unwrap(),
+        MemoryFile::Memory
+    );
     assert_eq!(resolve_entry(Some("USER.md")).unwrap(), MemoryFile::User);
 }
 

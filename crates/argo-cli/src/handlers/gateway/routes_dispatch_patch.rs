@@ -23,18 +23,18 @@ pub(super) async fn dispatch_patch(
     let parts: Vec<&str> = head_no_query.split('/').collect();
     let worker_id = parts[0];
     match parts.as_slice() {
-        [_, "channels"] => Some(
-            super::routes_worker_settings::patch_channels(worker_id, req, store).await,
-        ),
-        [_, "quiet-hours"] => Some(
-            super::routes_worker_settings::patch_quiet_hours(worker_id, req, store).await,
-        ),
-        [_, "budget"] => Some(
-            super::routes_worker_settings::patch_budget(worker_id, req, store).await,
-        ),
-        [_, "autonomy"] => Some(
-            super::routes_worker_settings::patch_autonomy(worker_id, req, store).await,
-        ),
+        [_, "channels"] => {
+            Some(super::routes_worker_settings::patch_channels(worker_id, req, store).await)
+        }
+        [_, "quiet-hours"] => {
+            Some(super::routes_worker_settings::patch_quiet_hours(worker_id, req, store).await)
+        }
+        [_, "budget"] => {
+            Some(super::routes_worker_settings::patch_budget(worker_id, req, store).await)
+        }
+        [_, "autonomy"] => {
+            Some(super::routes_worker_settings::patch_autonomy(worker_id, req, store).await)
+        }
         [_, "policies", action_type] => Some(
             super::routes_worker_policies::update_response(worker_id, action_type, req, store)
                 .await,

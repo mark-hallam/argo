@@ -17,7 +17,10 @@ fn create_session_via_gateway(port: u16) -> String {
         "/sessions",
         r#"{"provider":"mock","model":"mock","title":"approval-gw-test"}"#,
     );
-    assert!(resp.contains("HTTP/1.1 201 Created") || resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
+    assert!(
+        resp.contains("HTTP/1.1 201 Created") || resp.contains("HTTP/1.1 200 OK"),
+        "resp: {resp}"
+    );
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
     v["session_id"]
         .as_str()

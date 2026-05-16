@@ -153,12 +153,14 @@ pub fn decode_public_pem(pem: &str) -> ArgoResult<VerifyingKey> {
 
 /// Write a fresh keypair to `dir`, returning the absolute paths.
 pub fn write_keypair_to_dir(dir: &Path, keypair: &SigningKey) -> ArgoResult<KeypairFiles> {
-    fs::create_dir_all(dir)
-        .map_err(|e| ArgoError::Io(format!("create {}: {e}", dir.display())))?;
+    fs::create_dir_all(dir).map_err(|e| ArgoError::Io(format!("create {}: {e}", dir.display())))?;
     let private = dir.join(COSIGN_PRIVATE_FILE);
     let public = dir.join(COSIGN_PUBLIC_FILE);
     write_secret_file(&private, encode_private_pem(keypair).as_bytes())?;
-    write_file(&public, encode_public_pem(&keypair.verifying_key()).as_bytes())?;
+    write_file(
+        &public,
+        encode_public_pem(&keypair.verifying_key()).as_bytes(),
+    )?;
     Ok(KeypairFiles { private, public })
 }
 
@@ -226,7 +228,10 @@ pub fn build_signature_artifact(
 /// Path the detached signature artifact is written to, relative to the
 /// registry root, for `name:tag`.
 pub fn signature_artifact_path(root: &Path, name: &str, tag: &str) -> PathBuf {
-    root.join("oci").join(name).join(tag).join(SKILL_SIGNATURE_FILE)
+    root.join("oci")
+        .join(name)
+        .join(tag)
+        .join(SKILL_SIGNATURE_FILE)
 }
 
 /// Write a signature artifact to the mock registry sibling location.
@@ -315,8 +320,7 @@ fn decode_pem(pem: &str, label: &str) -> ArgoResult<Vec<u8>> {
     let end_pos = pem[after_header..]
         .find(&end)
         .ok_or_else(|| ArgoError::Schema(format!("missing PEM footer '{end}'")))?;
-    let body = pem[after_header..after_header + end_pos]
-        .replace(['\n', '\r', ' '], "");
+    let body = pem[after_header..after_header + end_pos].replace(['\n', '\r', ' '], "");
     STANDARD
         .decode(body.as_bytes())
         .map_err(|e| ArgoError::Schema(format!("decode PEM body: {e}")))

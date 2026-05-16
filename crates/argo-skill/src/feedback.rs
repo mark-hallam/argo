@@ -74,7 +74,10 @@ mod tests {
     #[test]
     fn vote_down_overrides_passing_metric() {
         // Good metric would normally pass...
-        assert!(should_propose_metric(&good(), &ProposalThreshold::defaults()));
+        assert!(should_propose_metric(
+            &good(),
+            &ProposalThreshold::defaults()
+        ));
         // ...but an operator down-vote forces a blacklist.
         assert!(!should_propose_with_feedback(
             &good(),

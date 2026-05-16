@@ -15,15 +15,16 @@ pub async fn run(cmd: ProviderCmd) -> ArgoResult<()> {
         ProviderCmd::Validate { manifest } => validate(&PathBuf::from(manifest)),
         ProviderCmd::ValidateAll => validate_all(),
         ProviderCmd::Test { provider } => test(&provider).await,
-        ProviderCmd::CacheStats { provider, model, json } => {
-            super::provider_cache_stats::run(provider.as_deref(), model.as_deref(), json)
-        }
+        ProviderCmd::CacheStats {
+            provider,
+            model,
+            json,
+        } => super::provider_cache_stats::run(provider.as_deref(), model.as_deref(), json),
     }
 }
 
 async fn test(provider_id: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let path = cwd
         .join("manifests")
         .join("providers")
@@ -107,8 +108,7 @@ async fn test(provider_id: &str) -> ArgoResult<()> {
 }
 
 fn validate_all() -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let dir = cwd.join("manifests").join("providers");
     if !dir.exists() {
         return Err(ArgoError::Provider(format!(
@@ -164,8 +164,7 @@ fn validate_all() -> ArgoResult<()> {
 }
 
 fn show(provider_id: &str, json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifests_dir = cwd.join("manifests").join("providers");
     if !manifests_dir.exists() {
         return Err(ArgoError::Provider(format!(
@@ -245,8 +244,7 @@ fn render(m: &ProviderManifest) -> ArgoResult<()> {
 }
 
 fn list_manifests(json: bool, format: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     // Spec layout: workspace `manifests/providers/*.toml` for tenant
     // overrides; the bundled v1 set lives in the source repo at
     // `manifests/providers/`. Look in both, the workspace dir taking

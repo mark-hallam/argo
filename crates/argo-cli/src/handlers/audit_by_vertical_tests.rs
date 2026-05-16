@@ -60,18 +60,33 @@ async fn join_query_groups_audit_rows_by_session_vertical_id() {
     let sink = AuditSink::new(Arc::clone(&store));
     // 3 rows for alpha, 2 for beta, 1 for unbound.
     for _ in 0..3 {
-        sink.write(Some(alpha_sid), AuditKind::ToolCall, serde_json::json!({}), None)
-            .await
-            .unwrap();
-    }
-    for _ in 0..2 {
-        sink.write(Some(beta_sid), AuditKind::ToolCall, serde_json::json!({}), None)
-            .await
-            .unwrap();
-    }
-    sink.write(Some(unbound_sid), AuditKind::ToolCall, serde_json::json!({}), None)
+        sink.write(
+            Some(alpha_sid),
+            AuditKind::ToolCall,
+            serde_json::json!({}),
+            None,
+        )
         .await
         .unwrap();
+    }
+    for _ in 0..2 {
+        sink.write(
+            Some(beta_sid),
+            AuditKind::ToolCall,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
+    }
+    sink.write(
+        Some(unbound_sid),
+        AuditKind::ToolCall,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
 
     let rows: Vec<(Option<String>, i64)> = sqlx::query_as(
         "SELECT s.vertical_id, COUNT(*) \

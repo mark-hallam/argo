@@ -43,28 +43,79 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         ..LogContext::default()
     });
     match cmd {
-        WorkerCmd::Create { vertical, persona, charter, builder, voice_preamble, duties, fs_root, json } => super::worker_create::run(&vertical, &persona, &charter, builder.as_deref(), voice_preamble.as_deref(), &duties, fs_root.as_deref(), json).await,
-        WorkerCmd::Onboard { persona_spec, id, role_name, json } => {
-            super::worker_onboard::run(&persona_spec, id.as_deref(), role_name.as_deref(), json).await
+        WorkerCmd::Create {
+            vertical,
+            persona,
+            charter,
+            builder,
+            voice_preamble,
+            duties,
+            fs_root,
+            json,
+        } => {
+            super::worker_create::run(
+                &vertical,
+                &persona,
+                &charter,
+                builder.as_deref(),
+                voice_preamble.as_deref(),
+                &duties,
+                fs_root.as_deref(),
+                json,
+            )
+            .await
         }
-        WorkerCmd::Show { worker_id, tenant, json } => super::worker_show::run(&tenant, &worker_id, json).await,
-        WorkerCmd::List { tenant, persona, json } => super::worker_list::list(&tenant, persona.as_deref(), json).await,
+        WorkerCmd::Onboard {
+            persona_spec,
+            id,
+            role_name,
+            json,
+        } => {
+            super::worker_onboard::run(&persona_spec, id.as_deref(), role_name.as_deref(), json)
+                .await
+        }
+        WorkerCmd::Show {
+            worker_id,
+            tenant,
+            json,
+        } => super::worker_show::run(&tenant, &worker_id, json).await,
+        WorkerCmd::List {
+            tenant,
+            persona,
+            json,
+        } => super::worker_list::list(&tenant, persona.as_deref(), json).await,
         WorkerCmd::Costs(costs_cmd) => super::worker_costs::run(costs_cmd).await,
-        WorkerCmd::Fleet { tenant, limit, since, json } => {
-            super::worker_fleet::run(tenant.as_deref(), limit, since.as_deref(), json).await
-        }
-        WorkerCmd::Portrait { worker_id, tenant, json } => {
-            super::worker_portrait::run(&worker_id, &tenant, json).await
-        }
+        WorkerCmd::Fleet {
+            tenant,
+            limit,
+            since,
+            json,
+        } => super::worker_fleet::run(tenant.as_deref(), limit, since.as_deref(), json).await,
+        WorkerCmd::Portrait {
+            worker_id,
+            tenant,
+            json,
+        } => super::worker_portrait::run(&worker_id, &tenant, json).await,
         WorkerCmd::Policy(policy_cmd) => match policy_cmd {
-            WorkerPolicyCmd::Show { worker_id, tenant, json } => super::worker_list::policy_show(&tenant, &worker_id, json).await,
+            WorkerPolicyCmd::Show {
+                worker_id,
+                tenant,
+                json,
+            } => super::worker_list::policy_show(&tenant, &worker_id, json).await,
         },
-        WorkerCmd::Update { worker_id, auto_approval_json, json } => {
+        WorkerCmd::Update {
+            worker_id,
+            auto_approval_json,
+            json,
+        } => {
             super::worker_update::update_auto_approval(&worker_id, &auto_approval_json, json).await
         }
-        WorkerCmd::Resume { worker_id, tenant, reason, json } => {
-            super::worker_resume::run(&worker_id, &tenant, reason.as_deref(), json).await
-        }
+        WorkerCmd::Resume {
+            worker_id,
+            tenant,
+            reason,
+            json,
+        } => super::worker_resume::run(&worker_id, &tenant, reason.as_deref(), json).await,
         WorkerCmd::Doctor { vertical, json } => {
             super::worker_doctor::run(vertical.as_deref(), json).await
         }
@@ -73,22 +124,37 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             since_minutes,
             limit,
             json,
-        } => {
-            super::worker_anomalies::run(&worker_id, since_minutes, limit, json).await
-        }
+        } => super::worker_anomalies::run(&worker_id, since_minutes, limit, json).await,
         WorkerCmd::Charter(charter_cmd) => match charter_cmd {
-            WorkerCharterCmd::Set { worker_id, tenant, file, kpis, json } => {
+            WorkerCharterCmd::Set {
+                worker_id,
+                tenant,
+                file,
+                kpis,
+                json,
+            } => {
                 super::worker_charter::set(&tenant, &worker_id, &file, kpis.as_deref(), json).await
             }
-            WorkerCharterCmd::Get { worker_id, tenant, md, json } => {
-                super::worker_charter::get(&tenant, &worker_id, md, json).await
-            }
-            WorkerCharterCmd::Clear { worker_id, tenant, json } => {
-                super::worker_charter::clear(&tenant, &worker_id, json).await
-            }
+            WorkerCharterCmd::Get {
+                worker_id,
+                tenant,
+                md,
+                json,
+            } => super::worker_charter::get(&tenant, &worker_id, md, json).await,
+            WorkerCharterCmd::Clear {
+                worker_id,
+                tenant,
+                json,
+            } => super::worker_charter::clear(&tenant, &worker_id, json).await,
         },
         WorkerCmd::Archive(archive_cmd) => match archive_cmd {
-            WorkerArchiveCmd::Add { worker_id, tenant, reason, principal, json } => {
+            WorkerArchiveCmd::Add {
+                worker_id,
+                tenant,
+                reason,
+                principal,
+                json,
+            } => {
                 super::worker_archive::archive(
                     &tenant,
                     &worker_id,
@@ -102,22 +168,35 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 super::worker_archive::list(&tenant, json).await
             }
         },
-        WorkerCmd::Rehydrate { worker_id, tenant, json } => {
-            super::worker_archive::rehydrate(&tenant, &worker_id, json).await
-        }
-        WorkerCmd::Delete { worker_id, tenant, force, json } => {
-            super::worker_archive::delete(&tenant, &worker_id, force, json).await
-        }
+        WorkerCmd::Rehydrate {
+            worker_id,
+            tenant,
+            json,
+        } => super::worker_archive::rehydrate(&tenant, &worker_id, json).await,
+        WorkerCmd::Delete {
+            worker_id,
+            tenant,
+            force,
+            json,
+        } => super::worker_archive::delete(&tenant, &worker_id, force, json).await,
         WorkerCmd::Channels(channels_cmd) => match channels_cmd {
-            WorkerChannelsCmd::Add { worker_id, spec, tenant, json } => {
-                super::worker_channels::add(&tenant, &worker_id, &spec, json).await
-            }
-            WorkerChannelsCmd::Remove { worker_id, channel_id, tenant, json } => {
-                super::worker_channels::remove(&tenant, &worker_id, &channel_id, json).await
-            }
-            WorkerChannelsCmd::List { worker_id, tenant, json } => {
-                super::worker_channels::list(&tenant, &worker_id, json).await
-            }
+            WorkerChannelsCmd::Add {
+                worker_id,
+                spec,
+                tenant,
+                json,
+            } => super::worker_channels::add(&tenant, &worker_id, &spec, json).await,
+            WorkerChannelsCmd::Remove {
+                worker_id,
+                channel_id,
+                tenant,
+                json,
+            } => super::worker_channels::remove(&tenant, &worker_id, &channel_id, json).await,
+            WorkerChannelsCmd::List {
+                worker_id,
+                tenant,
+                json,
+            } => super::worker_channels::list(&tenant, &worker_id, json).await,
         },
         WorkerCmd::Budget(budget_cmd) => super::worker_budget::run(budget_cmd).await,
         WorkerCmd::Success {
@@ -125,18 +204,21 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             since,
             bucket,
             format,
-        } => {
-            super::worker_metrics::run(&worker_id, since.as_deref(), &bucket, &format).await
-        }
+        } => super::worker_metrics::run(&worker_id, since.as_deref(), &bucket, &format).await,
         WorkerCmd::Review {
             worker_id,
             period,
             since,
             format,
+        } => super::worker_review::run(&worker_id, &period, since.as_deref(), &format).await,
+        WorkerCmd::Promote {
+            worker_id,
+            tenant,
+            to,
+            force,
+            reason,
+            json,
         } => {
-            super::worker_review::run(&worker_id, &period, since.as_deref(), &format).await
-        }
-        WorkerCmd::Promote { worker_id, tenant, to, force, reason, json } => {
             super::worker_promote::promote(
                 &worker_id,
                 &tenant,
@@ -147,65 +229,121 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             )
             .await
         }
-        WorkerCmd::Level { worker_id, tenant, json } => {
-            super::worker_promote::level(&worker_id, &tenant, json).await
-        }
+        WorkerCmd::Level {
+            worker_id,
+            tenant,
+            json,
+        } => super::worker_promote::level(&worker_id, &tenant, json).await,
         WorkerCmd::Restarts { worker, since } => {
             super::worker_restarts::run(worker.as_deref(), since.as_deref()).await
         }
-        WorkerCmd::Skills { worker_id, tenant, available_only, json } => {
-            super::worker_skills::run(&worker_id, &tenant, available_only, json).await
-        }
+        WorkerCmd::Skills {
+            worker_id,
+            tenant,
+            available_only,
+            json,
+        } => super::worker_skills::run(&worker_id, &tenant, available_only, json).await,
         WorkerCmd::Elasticity(cmd) => match cmd {
             WorkerElasticityCmd::Status { text } => super::worker_elasticity::status(!text),
             WorkerElasticityCmd::Config { text } => super::worker_elasticity::config(!text),
         },
         WorkerCmd::Kpi(kpi_cmd) => match kpi_cmd {
-            WorkerKpiCmd::Record { worker_id, kpi, value, tenant, note, json } => {
-                super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await
+            WorkerKpiCmd::Record {
+                worker_id,
+                kpi,
+                value,
+                tenant,
+                note,
+                json,
+            } => {
+                super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json)
+                    .await
             }
-            WorkerKpiCmd::List { worker_id, tenant, kpi, since, json } => {
-                super::worker_kpi::list(&worker_id, &tenant, kpi.as_deref(), since.as_deref(), json).await
+            WorkerKpiCmd::List {
+                worker_id,
+                tenant,
+                kpi,
+                since,
+                json,
+            } => {
+                super::worker_kpi::list(&worker_id, &tenant, kpi.as_deref(), since.as_deref(), json)
+                    .await
             }
-            WorkerKpiCmd::Series { worker_id, kpi, tenant, bucket, json } => {
-                super::worker_kpi::series(&worker_id, &kpi, &tenant, &bucket, json).await
-            }
+            WorkerKpiCmd::Series {
+                worker_id,
+                kpi,
+                tenant,
+                bucket,
+                json,
+            } => super::worker_kpi::series(&worker_id, &kpi, &tenant, &bucket, json).await,
         },
         WorkerCmd::Deps(deps_cmd) => match deps_cmd {
-            WorkerDepsCmd::Add { a, b, kind, note, json } => {
-                super::worker_deps::add(&a, &b, &kind, note.as_deref(), json).await
-            }
+            WorkerDepsCmd::Add {
+                a,
+                b,
+                kind,
+                note,
+                json,
+            } => super::worker_deps::add(&a, &b, &kind, note.as_deref(), json).await,
             WorkerDepsCmd::Remove { a, b, kind, json } => {
                 super::worker_deps::remove(&a, &b, &kind, json).await
             }
-            WorkerDepsCmd::List { worker_id, direction, format } => {
-                super::worker_deps::list(&worker_id, &direction, &format).await
-            }
-            WorkerDepsCmd::Graph { format } => {
-                super::worker_deps::graph(&format).await
-            }
+            WorkerDepsCmd::List {
+                worker_id,
+                direction,
+                format,
+            } => super::worker_deps::list(&worker_id, &direction, &format).await,
+            WorkerDepsCmd::Graph { format } => super::worker_deps::graph(&format).await,
             WorkerDepsCmd::Impact { worker_id, json } => {
                 super::worker_deps::impact(&worker_id, json).await
             }
         },
         WorkerCmd::Okr(okr_cmd) => match okr_cmd {
-            WorkerOkrCmd::Set { worker_id, tenant, period, title, description, kr, json } => {
-                super::worker_okr::set(&worker_id, &tenant, &period, &title, description.as_deref(), &kr, json).await
+            WorkerOkrCmd::Set {
+                worker_id,
+                tenant,
+                period,
+                title,
+                description,
+                kr,
+                json,
+            } => {
+                super::worker_okr::set(
+                    &worker_id,
+                    &tenant,
+                    &period,
+                    &title,
+                    description.as_deref(),
+                    &kr,
+                    json,
+                )
+                .await
             }
-            WorkerOkrCmd::Show { worker_id, tenant, period, format } => {
-                super::worker_okr::show(&worker_id, &tenant, period.as_deref(), &format).await
-            }
-            WorkerOkrCmd::Progress { worker_id, tenant, period, json } => {
-                super::worker_okr::progress(&worker_id, &tenant, period.as_deref(), json).await
-            }
+            WorkerOkrCmd::Show {
+                worker_id,
+                tenant,
+                period,
+                format,
+            } => super::worker_okr::show(&worker_id, &tenant, period.as_deref(), &format).await,
+            WorkerOkrCmd::Progress {
+                worker_id,
+                tenant,
+                period,
+                json,
+            } => super::worker_okr::progress(&worker_id, &tenant, period.as_deref(), json).await,
         },
         WorkerCmd::Items(items_cmd) => match items_cmd {
-            WorkerItemsCmd::List { vertical, state, limit, json } => {
-                super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await
-            }
-            WorkerItemsCmd::Show { item_id, vertical, json } => {
-                super::worker_actions_items::show(&item_id, vertical.as_deref(), json).await
-            }
+            WorkerItemsCmd::List {
+                vertical,
+                state,
+                limit,
+                json,
+            } => super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await,
+            WorkerItemsCmd::Show {
+                item_id,
+                vertical,
+                json,
+            } => super::worker_actions_items::show(&item_id, vertical.as_deref(), json).await,
         },
         WorkerCmd::Actions(actions_cmd) => match actions_cmd {
             WorkerActionsCmd::List {
@@ -271,9 +409,7 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 action_id,
                 dry_run,
                 json,
-            } => {
-                super::worker_actions_dispatch::execute(&action_id, dry_run, json).await
-            }
+            } => super::worker_actions_dispatch::execute(&action_id, dry_run, json).await,
             WorkerActionsCmd::Complete {
                 action_id,
                 note,

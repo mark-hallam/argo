@@ -94,8 +94,7 @@ mod tests {
     #[test]
     fn absolute_path_inside_workspace_passes() {
         // /tmp/argo-ws/foo.txt is inside the workspace.
-        let resolved =
-            confine_path(&ws(), Path::new("/tmp/argo-ws/foo.txt")).unwrap();
+        let resolved = confine_path(&ws(), Path::new("/tmp/argo-ws/foo.txt")).unwrap();
         assert_eq!(resolved, PathBuf::from("/tmp/argo-ws/foo.txt"));
     }
 

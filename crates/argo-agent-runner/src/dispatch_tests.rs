@@ -62,10 +62,24 @@ done
         arguments: serde_json::json!({"name": "Ada"}),
     };
     let session_id = argo_orchestrator::SessionId::new();
-    let first =
-        dispatch_one(&registry, &engine, &principal, tmp.path(), &session_id, &call).await;
-    let second =
-        dispatch_one(&registry, &engine, &principal, tmp.path(), &session_id, &call).await;
+    let first = dispatch_one(
+        &registry,
+        &engine,
+        &principal,
+        tmp.path(),
+        &session_id,
+        &call,
+    )
+    .await;
+    let second = dispatch_one(
+        &registry,
+        &engine,
+        &principal,
+        tmp.path(),
+        &session_id,
+        &call,
+    )
+    .await;
 
     assert!(!first.is_error, "first result: {first:?}");
     assert!(!second.is_error, "second result: {second:?}");

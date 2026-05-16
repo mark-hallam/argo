@@ -10,7 +10,9 @@ use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 pub use super::wizard_onboard_steps::existing_operator_block;
-use super::wizard_onboard_steps::{step_detect, step_operator, step_provider_key, step_vertical, step_worker};
+use super::wizard_onboard_steps::{
+    step_detect, step_operator, step_provider_key, step_vertical, step_worker,
+};
 
 pub const DEFAULT_VERTICAL: &str = "marketplace-seller-browser";
 
@@ -188,12 +190,16 @@ pub fn run_steps<P: PromptIo, V: KeyVerifier>(
     io.write_line("")?;
     io.write_line("✓ all five steps complete.")?;
     io.write_line(&format!("  • argo.toml: {}", config_path.display()))?;
-    io.write_line(&format!("  • operator:  {operator_name} <{operator_email}>"))?;
+    io.write_line(&format!(
+        "  • operator:  {operator_name} <{operator_email}>"
+    ))?;
     io.write_line(&format!("  • vertical:  {vertical}"))?;
     io.write_line(&format!("  • worker:    {worker_name} — {persona}"))?;
     io.write_line("")?;
     io.write_line("next steps:")?;
-    io.write_line(&format!("  argo chat {worker_name}        — open a chat session"))?;
+    io.write_line(&format!(
+        "  argo chat {worker_name}        — open a chat session"
+    ))?;
     io.write_line("  argo handoff list             — see active handoffs")?;
     io.write_line("  argo doctor                   — workspace health check")?;
     Ok(Some(StepOutcome {
@@ -280,10 +286,21 @@ pub async fn run(
     let stdin = std::io::stdin();
     let mut io = StdinPrompt::new(stdin.lock(), std::io::stdout());
     let verifier = HttpKeyVerifier;
-    if let Some(outcome) = run_steps(&mut io, &verifier, &cwd, &config_path, &answers, interactive)?
-    {
+    if let Some(outcome) = run_steps(
+        &mut io,
+        &verifier,
+        &cwd,
+        &config_path,
+        &answers,
+        interactive,
+    )? {
         argo_config::cred::set(&cwd, "ANTHROPIC_API_KEY", &outcome.api_key)?;
-        scaffold_first_worker(&cwd, &outcome.worker_name, &outcome.persona, &outcome.vertical)?;
+        scaffold_first_worker(
+            &cwd,
+            &outcome.worker_name,
+            &outcome.persona,
+            &outcome.vertical,
+        )?;
     }
     Ok(())
 }

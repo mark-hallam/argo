@@ -47,11 +47,15 @@ async fn list_isolates_by_tenant() {
         .await
         .unwrap();
 
-    let only_a = list_values(&pool, worker, tenant_a, None, None).await.unwrap();
+    let only_a = list_values(&pool, worker, tenant_a, None, None)
+        .await
+        .unwrap();
     assert_eq!(only_a.len(), 1);
     assert!((only_a[0].value - 1.0).abs() < f64::EPSILON);
 
-    let only_b = list_values(&pool, worker, tenant_b, None, None).await.unwrap();
+    let only_b = list_values(&pool, worker, tenant_b, None, None)
+        .await
+        .unwrap();
     assert_eq!(only_b.len(), 1);
     assert!((only_b[0].value - 2.0).abs() < f64::EPSILON);
 }
@@ -62,11 +66,15 @@ async fn list_filters_by_kpi_name() {
     let worker = "44444444-4444-4444-4444-444444444444";
     let tenant = "55555555-5555-5555-5555-555555555555";
 
-    record_value(&pool, worker, tenant, "csat", 4.0, None).await.unwrap();
+    record_value(&pool, worker, tenant, "csat", 4.0, None)
+        .await
+        .unwrap();
     record_value(&pool, worker, tenant, "reply_sla_hours", 12.0, None)
         .await
         .unwrap();
-    record_value(&pool, worker, tenant, "csat", 4.5, None).await.unwrap();
+    record_value(&pool, worker, tenant, "csat", 4.5, None)
+        .await
+        .unwrap();
 
     let csat = list_values(&pool, worker, tenant, Some("csat"), None)
         .await
@@ -87,9 +95,15 @@ async fn list_filters_by_since_micros() {
     let worker = "66666666-6666-6666-6666-666666666666";
     let tenant = "77777777-7777-7777-7777-777777777777";
 
-    record_value(&pool, worker, tenant, "csat", 1.0, None).await.unwrap();
-    record_value(&pool, worker, tenant, "csat", 2.0, None).await.unwrap();
-    record_value(&pool, worker, tenant, "csat", 3.0, None).await.unwrap();
+    record_value(&pool, worker, tenant, "csat", 1.0, None)
+        .await
+        .unwrap();
+    record_value(&pool, worker, tenant, "csat", 2.0, None)
+        .await
+        .unwrap();
+    record_value(&pool, worker, tenant, "csat", 3.0, None)
+        .await
+        .unwrap();
 
     // Bump observed_at deterministically so the filter is meaningful
     // without depending on test wall-clock spacing.
@@ -146,17 +160,19 @@ async fn record_rejects_empty_kpi_name() {
 #[test]
 fn bucket_rows_groups_by_day_and_aggregates() {
     use chrono::TimeZone;
-    let day_a = Utc.with_ymd_and_hms(2026, 5, 1, 9, 0, 0).unwrap().timestamp_micros();
+    let day_a = Utc
+        .with_ymd_and_hms(2026, 5, 1, 9, 0, 0)
+        .unwrap()
+        .timestamp_micros();
     let day_a_late = Utc
         .with_ymd_and_hms(2026, 5, 1, 21, 0, 0)
         .unwrap()
         .timestamp_micros();
-    let day_b = Utc.with_ymd_and_hms(2026, 5, 2, 9, 0, 0).unwrap().timestamp_micros();
-    let rows = vec![
-        row(day_a, 4.0),
-        row(day_a_late, 6.0),
-        row(day_b, 2.0),
-    ];
+    let day_b = Utc
+        .with_ymd_and_hms(2026, 5, 2, 9, 0, 0)
+        .unwrap()
+        .timestamp_micros();
+    let rows = vec![row(day_a, 4.0), row(day_a_late, 6.0), row(day_b, 2.0)];
     let buckets = bucket_rows(&rows, Bucket::Day);
     assert_eq!(buckets.len(), 2);
 
@@ -176,8 +192,14 @@ fn bucket_rows_handles_week_and_month() {
     use chrono::TimeZone;
     // Friday + Monday of the same ISO week → both land in the
     // Monday-stamped bucket.
-    let fri = Utc.with_ymd_and_hms(2026, 5, 1, 12, 0, 0).unwrap().timestamp_micros();
-    let mon = Utc.with_ymd_and_hms(2026, 4, 27, 9, 0, 0).unwrap().timestamp_micros();
+    let fri = Utc
+        .with_ymd_and_hms(2026, 5, 1, 12, 0, 0)
+        .unwrap()
+        .timestamp_micros();
+    let mon = Utc
+        .with_ymd_and_hms(2026, 4, 27, 9, 0, 0)
+        .unwrap()
+        .timestamp_micros();
     // Different month / week.
     let next_month = Utc
         .with_ymd_and_hms(2026, 6, 3, 12, 0, 0)
@@ -207,8 +229,12 @@ async fn series_round_trips_through_pool() {
     let pool = pool().await;
     let worker = "abababab-abab-abab-abab-abababababab";
     let tenant = "cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd";
-    record_value(&pool, worker, tenant, "csat", 4.0, None).await.unwrap();
-    record_value(&pool, worker, tenant, "csat", 5.0, None).await.unwrap();
+    record_value(&pool, worker, tenant, "csat", 4.0, None)
+        .await
+        .unwrap();
+    record_value(&pool, worker, tenant, "csat", 5.0, None)
+        .await
+        .unwrap();
     // Different KPI — must not bleed into the series.
     record_value(&pool, worker, tenant, "reply_sla_hours", 99.0, None)
         .await

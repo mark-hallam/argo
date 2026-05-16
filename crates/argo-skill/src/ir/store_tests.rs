@@ -3,8 +3,8 @@
 //! Each test spins up an in-memory [`SessionStore`], runs the
 //! workspace migration registry, then applies [`ensure_schema`] for
 //! the `skill_ir` table. Tests are independent and never share state.
-use super::{ChainRow, SkillIrStore, SqliteSkillIrStore, ensure_schema, verify_chain};
-use crate::ir::{Node, NodeAnnotations, NodeId, NodeKind, SkillGraph, canonical_hash};
+use super::{ensure_schema, verify_chain, ChainRow, SkillIrStore, SqliteSkillIrStore};
+use crate::ir::{canonical_hash, Node, NodeAnnotations, NodeId, NodeKind, SkillGraph};
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};
 

@@ -14,7 +14,11 @@ fn recover_cache_list_empty_then_clear_all_requires_confirm() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
 
-    let list = run(home.path(), work.path(), &["recover-cache", "list", "--json"]);
+    let list = run(
+        home.path(),
+        work.path(),
+        &["recover-cache", "list", "--json"],
+    );
     assert_success(&list);
     let body: Value = serde_json::from_slice(&list.stdout).unwrap();
     assert_eq!(body["ok"], true);
@@ -22,7 +26,11 @@ fn recover_cache_list_empty_then_clear_all_requires_confirm() {
     assert_eq!(body["count"], 0);
     assert!(body["entries"].as_array().unwrap().is_empty());
 
-    let bad = run(home.path(), work.path(), &["recover-cache", "clear", "--all"]);
+    let bad = run(
+        home.path(),
+        work.path(),
+        &["recover-cache", "clear", "--all"],
+    );
     assert!(
         !bad.status.success(),
         "clear --all without --confirm should fail; stderr={}",

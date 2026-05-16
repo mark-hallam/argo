@@ -74,7 +74,11 @@ output = "verticals/maya"
         .iter()
         .find(|s| s["name"].as_str() == Some("First worker"))
         .unwrap();
-    assert_eq!(worker["status"].as_str().unwrap(), "ok", "stage: {worker:?}");
+    assert_eq!(
+        worker["status"].as_str().unwrap(),
+        "ok",
+        "stage: {worker:?}"
+    );
     assert!(work.path().join(".argo/credentials.toml").exists());
     assert!(work.path().join("verticals/maya/vertical.toml").exists());
 }

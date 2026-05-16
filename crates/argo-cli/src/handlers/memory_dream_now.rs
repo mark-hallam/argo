@@ -20,8 +20,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 pub async fn run(worker: &str, scope: &str, json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -36,15 +35,8 @@ pub async fn run(worker: &str, scope: &str, json: bool) -> ArgoResult<()> {
     let ns = MemoryNs::new(tenant_id, worker_id, parsed_scope);
 
     let caller = EnvDreamsCaller::from_env()?;
-    let entry = run_dream_for_worker(
-        &memory,
-        workspace_id,
-        &home,
-        &ns,
-        Utc::now(),
-        &caller,
-    )
-    .await?;
+    let entry =
+        run_dream_for_worker(&memory, workspace_id, &home, &ns, Utc::now(), &caller).await?;
 
     if json {
         let payload = serde_json::json!({
@@ -59,7 +51,10 @@ pub async fn run(worker: &str, scope: &str, json: bool) -> ArgoResult<()> {
                 .map_err(|e| ArgoError::Provider(format!("dream-now json: {e}")))?
         );
     } else {
-        println!("dreamt {entry_id} for worker {worker_id} (scope={scope})", entry_id = entry.id);
+        println!(
+            "dreamt {entry_id} for worker {worker_id} (scope={scope})",
+            entry_id = entry.id
+        );
         println!("---");
         println!("{}", entry.body);
     }
@@ -77,10 +72,7 @@ fn parse_scope(s: &str) -> ArgoResult<MemoryScope> {
     }
 }
 
-async fn resolve_worker(
-    store: &SessionStore,
-    worker: &str,
-) -> ArgoResult<(WorkerId, TenantId)> {
+async fn resolve_worker(store: &SessionStore, worker: &str) -> ArgoResult<(WorkerId, TenantId)> {
     let row = sqlx::query("SELECT id, tenant_id FROM worker WHERE id = ? LIMIT 1")
         .bind(worker)
         .fetch_optional(store.pool())

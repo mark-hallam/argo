@@ -53,10 +53,10 @@ async fn v22_populated_db_upgrades_to_tip_preserving_data() {
 
     // Phase 5 — tables added after v22 exist and are queryable.
     for table in [
-        "roster",            // v23
-        "approval_request",  // v44
-        "worker_skill",      // v47
-        "persona_revision",  // v48
+        "roster",           // v23
+        "approval_request", // v44
+        "worker_skill",     // v47
+        "persona_revision", // v48
     ] {
         assert!(
             table_exists(&store, table).await,

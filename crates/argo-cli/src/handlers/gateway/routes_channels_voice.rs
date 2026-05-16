@@ -15,7 +15,11 @@ use super::routes_voice_auth::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum VoiceDecision { Approve, Deny, RequestDetails }
+enum VoiceDecision {
+    Approve,
+    Deny,
+    RequestDetails,
+}
 
 pub(super) fn is_voice_webhook(req: &str) -> bool {
     req.starts_with("POST /twilio/voice/decision ")
@@ -64,11 +68,20 @@ pub(super) async fn voice_webhook_response(req: &str) -> (&'static str, String) 
 
 impl VoiceDecision {
     fn from_digits(digits: &str) -> Option<Self> {
-        match digits.trim() { "1" => Some(Self::Approve), "2" => Some(Self::Deny), "9" => Some(Self::RequestDetails), _ => None }
+        match digits.trim() {
+            "1" => Some(Self::Approve),
+            "2" => Some(Self::Deny),
+            "9" => Some(Self::RequestDetails),
+            _ => None,
+        }
     }
 
     fn as_str(self) -> &'static str {
-        match self { Self::Approve => "approve", Self::Deny => "deny", Self::RequestDetails => "request-details" }
+        match self {
+            Self::Approve => "approve",
+            Self::Deny => "deny",
+            Self::RequestDetails => "request-details",
+        }
     }
 }
 
@@ -91,9 +104,20 @@ async fn settle_voice(
         return Ok(json!({"ok":true,"already_resolved":true,"approval_id":claims.approval_id,"state":located.record.state,"resolved_by":"autonomous-safe"}).to_string());
     }
     let rec = match decision {
-        VoiceDecision::Approve => worker_actions_transitions::approve(&memory, ws, &claims.approval_id, actor, Some("voice approval")).await?,
+        VoiceDecision::Approve => {
+            worker_actions_transitions::approve(
+                &memory,
+                ws,
+                &claims.approval_id,
+                actor,
+                Some("voice approval"),
+            )
+            .await?
+        }
         VoiceDecision::Deny => deny_action(&memory, ws, &located, actor).await?,
-        VoiceDecision::RequestDetails => request_details_action(&memory, ws, &located, actor).await?,
+        VoiceDecision::RequestDetails => {
+            request_details_action(&memory, ws, &located, actor).await?
+        }
     };
     Ok(json!({"ok":true,"approval_id":rec.action_id,"decision":decision.as_str(),"state":rec.state,"resolved_by":actor}).to_string())
 }
@@ -105,10 +129,17 @@ async fn deny_action(
     actor: &str,
 ) -> ArgoResult<ActionRecord> {
     let current = ActionState::parse(&located.record.state).ok_or_else(|| {
-        ArgoError::Provider(format!("action {}: unknown current state '{}'", located.record.action_id, located.record.state))
+        ArgoError::Provider(format!(
+            "action {}: unknown current state '{}'",
+            located.record.action_id, located.record.state
+        ))
     })?;
     if !current.can_transition_to(ActionState::Blocked) {
-        return Err(ArgoError::Provider(format!("action {}: illegal transition {} -> blocked", located.record.action_id, current.as_str())));
+        return Err(ArgoError::Provider(format!(
+            "action {}: illegal transition {} -> blocked",
+            located.record.action_id,
+            current.as_str()
+        )));
     }
     let now = chrono::Utc::now().to_rfc3339();
     let mut next = located.record.clone();
@@ -148,16 +179,24 @@ async fn append_action(
 }
 
 fn resolved_by(record: &ActionRecord) -> String {
-    record.approved_by.clone().or_else(|| record.blocked_reason.clone()).unwrap_or_else(|| format!("state {}", record.state))
+    record
+        .approved_by
+        .clone()
+        .or_else(|| record.blocked_reason.clone())
+        .unwrap_or_else(|| format!("state {}", record.state))
 }
 
-pub(super) fn request_target(req: &str) -> Option<&str> { req.lines().next()?.split_whitespace().nth(1) }
+pub(super) fn request_target(req: &str) -> Option<&str> {
+    req.lines().next()?.split_whitespace().nth(1)
+}
 
 pub(super) fn query_value(target: &str, key: &str) -> Option<String> {
     let query = target.split_once('?')?.1;
     query.split('&').find_map(|kv| {
         let (k, v) = kv.split_once('=')?;
-        (percent_decode(k).as_deref() == Some(key)).then(|| percent_decode(v)).flatten()
+        (percent_decode(k).as_deref() == Some(key))
+            .then(|| percent_decode(v))
+            .flatten()
     })
 }
 
@@ -171,7 +210,11 @@ fn form_params(body: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-pub(super) fn form_param(params: &[(String, String)], key: &str) -> Option<String> { params.iter().find_map(|(k, v)| (k == key).then(|| v.clone())) }
+pub(super) fn form_param(params: &[(String, String)], key: &str) -> Option<String> {
+    params
+        .iter()
+        .find_map(|(k, v)| (k == key).then(|| v.clone()))
+}
 
 fn twilio_auth_token() -> Result<String, String> {
     argo_config::cred::get("TWILIO_AUTH_TOKEN")

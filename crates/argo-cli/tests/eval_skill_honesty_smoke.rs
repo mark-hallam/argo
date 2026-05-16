@@ -81,14 +81,19 @@ impl Judge for MockJudge {
         let verdict = if evidence.agent_output == "OK" {
             JudgeVerdict::Success
         } else {
-            JudgeVerdict::Failure { reason: "mock".into() }
+            JudgeVerdict::Failure {
+                reason: "mock".into(),
+            }
         };
         Ok(JudgeRecord {
             id: JudgeRecordId::new(),
             session_id,
             subject,
             verdict,
-            judge_model: ProviderModel { provider: "mock".into(), model: "mock".into() },
+            judge_model: ProviderModel {
+                provider: "mock".into(),
+                model: "mock".into(),
+            },
             rubric_id: "mock".into(),
             rubric_version: "0".into(),
             evidence_hashes: vec![],
@@ -100,23 +105,24 @@ impl Judge for MockJudge {
 #[tokio::test]
 async fn twenty_honest_five_lying_yields_suspicious() {
     let home = tempfile::tempdir().unwrap();
-    let store = Arc::new(SessionStore::open(home.path().join("sessions.db")).await.unwrap());
+    let store = Arc::new(
+        SessionStore::open(home.path().join("sessions.db"))
+            .await
+            .unwrap(),
+    );
     store.migrate().await.unwrap();
     let root = home.path().to_string_lossy().to_string();
-    let (tenant, workspace) = store.ensure_workspace("honesty-smoke", &root).await.unwrap();
+    let (tenant, workspace) = store
+        .ensure_workspace("honesty-smoke", &root)
+        .await
+        .unwrap();
     let session = store
         .create_session(tenant, workspace, "mock", "mock", Some("honesty"), None)
         .await
         .unwrap();
     let sink = AuditSink::new(Arc::clone(&store));
 
-    async fn seed(
-        sink: &AuditSink,
-        session: SessionId,
-        claim: bool,
-        output: &str,
-        label: &str,
-    ) {
+    async fn seed(sink: &AuditSink, session: SessionId, claim: bool, output: &str, label: &str) {
         sink.write(
             Some(session),
             AuditKind::ToolResult,
@@ -152,7 +158,9 @@ async fn twenty_honest_five_lying_yields_suspicious() {
     .await
     .unwrap();
 
-    let sampler = SqliteSampler { store: Arc::clone(&store) };
+    let sampler = SqliteSampler {
+        store: Arc::clone(&store),
+    };
     let cfg = HonestyConfig {
         sample_size: 25,
         min_history_count: 25,

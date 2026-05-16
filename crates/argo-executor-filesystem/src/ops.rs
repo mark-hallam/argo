@@ -67,8 +67,7 @@ impl FsOpKind {
 pub fn read_file(sb: &Sandbox, rel: impl AsRef<std::path::Path>) -> FsResult<Vec<u8>> {
     let abs = sb.resolve(rel.as_ref())?;
     sb.assert_no_symlink_escape(&abs)?;
-    let meta = std::fs::metadata(&abs)
-        .map_err(|e| FsExecutorError::io("metadata", &abs, e))?;
+    let meta = std::fs::metadata(&abs).map_err(|e| FsExecutorError::io("metadata", &abs, e))?;
     sb.preflight_op_size(meta.len())?;
     std::fs::read(&abs).map_err(|e| FsExecutorError::io("read", &abs, e))
 }
@@ -101,8 +100,7 @@ pub fn list_dir(sb: &Sandbox, rel: impl AsRef<std::path::Path>) -> FsResult<Vec<
     let abs = sb.resolve(rel.as_ref())?;
     sb.assert_no_symlink_escape(&abs)?;
     let mut out: Vec<DirEntry> = Vec::new();
-    let read = std::fs::read_dir(&abs)
-        .map_err(|e| FsExecutorError::io("read_dir", &abs, e))?;
+    let read = std::fs::read_dir(&abs).map_err(|e| FsExecutorError::io("read_dir", &abs, e))?;
     for entry in read {
         let entry = entry.map_err(|e| FsExecutorError::io("read_dir_entry", &abs, e))?;
         let meta = entry
@@ -137,8 +135,8 @@ pub fn remove(sb: &Sandbox, rel: impl AsRef<std::path::Path>) -> FsResult<()> {
     let meta = std::fs::symlink_metadata(&abs)
         .map_err(|e| FsExecutorError::io("symlink_metadata", &abs, e))?;
     if meta.is_dir() {
-        let mut iter = std::fs::read_dir(&abs)
-            .map_err(|e| FsExecutorError::io("read_dir", &abs, e))?;
+        let mut iter =
+            std::fs::read_dir(&abs).map_err(|e| FsExecutorError::io("read_dir", &abs, e))?;
         if iter.next().is_some() {
             return Err(FsExecutorError::NonEmptyDir(abs));
         }
@@ -161,8 +159,7 @@ pub fn stat(sb: &Sandbox, rel: impl AsRef<std::path::Path>) -> FsResult<FileMeta
             size: 0,
         });
     }
-    let meta = std::fs::metadata(&abs)
-        .map_err(|e| FsExecutorError::io("metadata", &abs, e))?;
+    let meta = std::fs::metadata(&abs).map_err(|e| FsExecutorError::io("metadata", &abs, e))?;
     Ok(FileMeta {
         exists: true,
         is_dir: meta.is_dir(),

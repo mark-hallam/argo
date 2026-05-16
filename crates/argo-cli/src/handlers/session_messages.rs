@@ -21,8 +21,7 @@ pub(super) async fn run(
     seq_max: Option<i64>,
     content_contains: Option<&str>,
 ) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -33,9 +32,8 @@ pub(super) async fn run(
 
     // Apply filters in a single pass — same semantics as the
     // gateway helper.
-    let cutoff_micros = since_minutes.map(|m| {
-        (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
-    });
+    let cutoff_micros = since_minutes
+        .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
     let needle = content_contains.map(str::to_lowercase);
     messages.retain(|m| {
         if let Some(want) = role {
@@ -122,8 +120,9 @@ pub(super) async fn run(
             .and_then(|v| {
                 v.as_array()
                     .and_then(|arr| {
-                        arr.iter()
-                            .find_map(|b| b.get("text").and_then(|t| t.as_str()).map(str::to_string))
+                        arr.iter().find_map(|b| {
+                            b.get("text").and_then(|t| t.as_str()).map(str::to_string)
+                        })
                     })
                     .or_else(|| v.as_str().map(str::to_string))
             })

@@ -207,10 +207,7 @@ pub fn format_worker_line(v: &Value) -> String {
         .and_then(Value::as_str)
         .map(short_id)
         .unwrap_or_else(|| "(unknown)".to_string());
-    let role = v
-        .get("role")
-        .and_then(Value::as_str)
-        .unwrap_or("(no-role)");
+    let role = v.get("role").and_then(Value::as_str).unwrap_or("(no-role)");
     let last = v
         .get("last_action")
         .and_then(Value::as_str)

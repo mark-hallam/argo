@@ -188,8 +188,7 @@ pub(super) async fn show_response(
         Err(e) => return server_error(&format!("archived lookup: {e}")),
     }
 
-    let actor =
-        principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
+    let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
     let role = parse_role_header(req).unwrap_or(PrincipalRole::Delegator);
     let is_hire_author = !worker.persona.builder_attribution.is_empty()
         && worker.persona.builder_attribution == actor;
@@ -321,8 +320,13 @@ async fn build_org_refs(
     let me = members
         .iter()
         .find(|m| m.worker_id.as_deref() == Some(wid_str.as_str()));
-    let Some(member) = me else { return (None, None) };
-    let unit = member.unit_id.as_deref().and_then(|id| by_id.get(id).copied());
+    let Some(member) = me else {
+        return (None, None);
+    };
+    let unit = member
+        .unit_id
+        .as_deref()
+        .and_then(|id| by_id.get(id).copied());
     let team = unit.map(|u| json!({ "id": u.id, "name": u.name }));
     let department = unit
         .and_then(|u| u.parent_id.as_deref())
@@ -372,21 +376,22 @@ async fn exists_in_other_tenant(
     tenant: TenantId,
     worker_id: WorkerId,
 ) -> ArgoResult<bool> {
-    let row: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1",
-    )
-    .bind(worker_id.to_string())
-    .bind(tenant.to_string())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
+    let row: Option<String> =
+        sqlx::query_scalar("SELECT id FROM worker WHERE id = ? AND tenant_id != ? LIMIT 1")
+            .bind(worker_id.to_string())
+            .bind(tenant.to_string())
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("cross-tenant probe: {e}")))?;
     Ok(row.is_some())
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
@@ -408,7 +413,12 @@ async fn emit_audit(
     });
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, Some(actor.to_string()))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            Some(actor.to_string()),
+        )
         .await
     {
         tracing::warn!(

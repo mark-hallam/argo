@@ -107,14 +107,19 @@ fn broad_prompt_asks_3_8_actions() {
         prompt.contains("3 to 8"),
         "prompt must ask for 3-8 actions; got: {prompt}",
     );
-    assert!(prompt.contains("action_vocabulary"), "prompt must mention action_vocabulary");
+    assert!(
+        prompt.contains("action_vocabulary"),
+        "prompt must mention action_vocabulary"
+    );
     assert!(prompt.contains("Charter: be my chief vibes officer"));
 }
 
 #[tokio::test]
 async fn broad_empty_charter_errors() {
     let client = MockBroadClient::new(CANNED_BROAD_RESPONSE);
-    let err = genesis_broad_role("   ", "vibe", &client).await.expect_err("empty charter");
+    let err = genesis_broad_role("   ", "vibe", &client)
+        .await
+        .expect_err("empty charter");
     assert!(
         err.to_string().contains("charter is empty"),
         "expected empty-charter error, got: {err}",
@@ -163,13 +168,16 @@ fn prepend_persona_disclaimer_mutates_description() {
         onboarding_script: String::new(),
     };
     draft.prepend_persona_disclaimer("not a real doctor");
-    assert!(draft.persona_description.starts_with("[DISCLAIMER: not a real doctor]"));
+    assert!(draft
+        .persona_description
+        .starts_with("[DISCLAIMER: not a real doctor]"));
     assert!(draft.persona_description.contains("Original persona text."));
 }
 
 #[test]
 fn parse_broad_role_response_tolerates_prose_around_json() {
-    let raw = format!("Sure! Here you go:\n{CANNED_BROAD_RESPONSE}\nLet me know if anything is off.");
+    let raw =
+        format!("Sure! Here you go:\n{CANNED_BROAD_RESPONSE}\nLet me know if anything is off.");
     let parsed = parse_broad_role_response(&raw).expect("prose-wrapped JSON parses");
     assert_eq!(parsed.action_vocabulary.len(), 4);
 }
@@ -221,7 +229,9 @@ async fn smoke_low_confidence_routes_to_broad_via_mock_providers() {
     let llm = LowConfidenceLlm;
     let broad = MockBroadClient::new(CANNED_BROAD_RESPONSE);
     let judge = AllowJudge;
-    let config = GenesisConfig { use_llm_classifier: true };
+    let config = GenesisConfig {
+        use_llm_classifier: true,
+    };
     let outcome = plan_or_broad(
         "be my chief vibes officer, keep the team energy positive",
         "vibe",
@@ -247,7 +257,9 @@ async fn smoke_low_confidence_without_flag_errors_with_flag_mention() {
     let llm = LowConfidenceLlm;
     let broad = MockBroadClient::new(CANNED_BROAD_RESPONSE);
     let judge = AllowJudge;
-    let config = GenesisConfig { use_llm_classifier: true };
+    let config = GenesisConfig {
+        use_llm_classifier: true,
+    };
     let err = plan_or_broad(
         "be my chief vibes officer, keep the team energy positive",
         "vibe",
@@ -270,7 +282,9 @@ async fn smoke_high_confidence_stays_archetype_path() {
     let llm = HighConfidenceLlm;
     let broad = MockBroadClient::new(CANNED_BROAD_RESPONSE);
     let judge = AllowJudge;
-    let config = GenesisConfig { use_llm_classifier: true };
+    let config = GenesisConfig {
+        use_llm_classifier: true,
+    };
     let outcome = plan_or_broad(
         "be my marketing intern, run weekly campaigns to cold leads",
         "maya",
@@ -302,7 +316,9 @@ async fn smoke_judge_block_errors_with_reason() {
     let llm = HighConfidenceLlm;
     let broad = MockBroadClient::new(CANNED_BROAD_RESPONSE);
     let judge = BlockingJudge;
-    let config = GenesisConfig { use_llm_classifier: true };
+    let config = GenesisConfig {
+        use_llm_classifier: true,
+    };
     let err = plan_or_broad(
         "be my marketing intern, run weekly campaigns to cold leads",
         "maya",
@@ -323,17 +339,25 @@ async fn smoke_judge_allow_with_disclaimer_mutates_broad_draft() {
     #[async_trait::async_trait]
     impl GenesisJudgeClient for DisclaimerJudge {
         async fn judge(&self, _prompt: &str) -> ArgoResult<String> {
-            Ok(r#"{"verdict": "allow_with_disclaimer", "reason": "not a licensed therapist"}"#
-                .into())
+            Ok(
+                r#"{"verdict": "allow_with_disclaimer", "reason": "not a licensed therapist"}"#
+                    .into(),
+            )
         }
     }
     let llm = LowConfidenceLlm;
     let broad = MockBroadClient::new(CANNED_BROAD_RESPONSE);
     let judge = DisclaimerJudge;
-    let config = GenesisConfig { use_llm_classifier: true };
+    let config = GenesisConfig {
+        use_llm_classifier: true,
+    };
     let outcome = plan_or_broad(
-        "be my chief vibes officer", "vibe", &config,
-        Some(&llm), Some(&broad), Some(&judge),
+        "be my chief vibes officer",
+        "vibe",
+        &config,
+        Some(&llm),
+        Some(&broad),
+        Some(&judge),
         true,
     )
     .await
@@ -341,7 +365,9 @@ async fn smoke_judge_allow_with_disclaimer_mutates_broad_draft() {
     match outcome {
         crate::broad_role::GenesisOutcome::Broad(draft) => {
             assert!(
-                draft.persona_description.starts_with("[DISCLAIMER: not a licensed therapist]"),
+                draft
+                    .persona_description
+                    .starts_with("[DISCLAIMER: not a licensed therapist]"),
                 "disclaimer must prepend; got: {}",
                 draft.persona_description,
             );

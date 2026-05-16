@@ -45,8 +45,8 @@ pub async fn transcribe(audio_path: &str, language: Option<&str>) -> CallToolRes
     let audio = audio_path.to_string();
     let lang = language.map(|s| s.to_string());
     let join = tokio::task::spawn_blocking(move || -> Result<String, String> {
-        let mut reader = hound::WavReader::open(&audio)
-            .map_err(|e| format!("open {audio}: {e}"))?;
+        let mut reader =
+            hound::WavReader::open(&audio).map_err(|e| format!("open {audio}: {e}"))?;
         let spec = reader.spec();
         if spec.sample_rate != 16_000 {
             return Err(format!(

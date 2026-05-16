@@ -115,10 +115,7 @@ fn cli_lint_synthetic_vertical_with_typo_in_allowed_emits_warn() {
         .find(|f| f["code"] == "tools.allowed.unknown_name")
         .expect("expected unknown_name warn");
     assert_eq!(warn["severity"], "warn");
-    assert!(warn["message"]
-        .as_str()
-        .unwrap()
-        .contains("file_reed_typo"));
+    assert!(warn["message"].as_str().unwrap().contains("file_reed_typo"));
 }
 
 #[test]
@@ -144,7 +141,10 @@ fn cli_lint_text_mode_prints_finding_lines() {
     assert!(out.status.success());
     let body = String::from_utf8(out.stdout).unwrap();
     assert!(body.contains("orphan"), "body: {body}");
-    assert!(body.contains("[warn]"), "body should mark warn severity: {body}");
+    assert!(
+        body.contains("[warn]"),
+        "body should mark warn severity: {body}"
+    );
     assert!(
         body.contains("escalation.orphan_tool"),
         "body should name the code: {body}"

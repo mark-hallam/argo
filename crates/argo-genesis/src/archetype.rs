@@ -105,17 +105,37 @@ impl Archetype {
     pub fn charter_keywords(self) -> &'static [&'static str] {
         match self {
             Self::SalesSdr => &[
-                "sales", "sdr", "outbound", "prospect", "qualify", "cold call",
+                "sales",
+                "sdr",
+                "outbound",
+                "prospect",
+                "qualify",
+                "cold call",
             ],
             Self::CustomerSupportAgent => &[
-                "support", "ticket", "customer", "triage", "help desk", "respond",
+                "support",
+                "ticket",
+                "customer",
+                "triage",
+                "help desk",
+                "respond",
             ],
             Self::MarketingIntern => &[
-                "marketing", "campaign", "content", "social", "newsletter", "intern",
+                "marketing",
+                "campaign",
+                "content",
+                "social",
+                "newsletter",
+                "intern",
                 "leads",
             ],
             Self::RecruiterScreener => &[
-                "recruit", "screen", "candidate", "interview", "hiring", "talent",
+                "recruit",
+                "screen",
+                "candidate",
+                "interview",
+                "hiring",
+                "talent",
             ],
             Self::OpsOnCall => &[
                 "oncall", "on-call", "incident", "ops", "alert", "page", "runbook",
@@ -124,22 +144,38 @@ impl Archetype {
                 "research", "analyst", "report", "market", "compet", "analysis",
             ],
             Self::CalendarCoordinator => &[
-                "calendar", "schedule", "meeting", "book", "coordinate", "availability",
+                "calendar",
+                "schedule",
+                "meeting",
+                "book",
+                "coordinate",
+                "availability",
             ],
             Self::SocialMediaDrafter => &[
-                "social media", "twitter", "linkedin", "post", "draft", "thread",
+                "social media",
+                "twitter",
+                "linkedin",
+                "post",
+                "draft",
+                "thread",
             ],
-            Self::LeadResearcher => &[
-                "lead", "list", "icp", "prospect research", "enrich",
-            ],
+            Self::LeadResearcher => &["lead", "list", "icp", "prospect research", "enrich"],
             Self::BookkeepingAssistant => &[
-                "bookkeeping", "accounting", "invoice", "expense", "ledger", "reconcile",
+                "bookkeeping",
+                "accounting",
+                "invoice",
+                "expense",
+                "ledger",
+                "reconcile",
             ],
-            Self::ProjectPm => &[
-                "project", "pm", "milestone", "sprint", "kanban", "manage",
-            ],
+            Self::ProjectPm => &["project", "pm", "milestone", "sprint", "kanban", "manage"],
             Self::GtmEngineer => &[
-                "gtm", "go-to-market", "growth", "automation", "marketplace", "listing",
+                "gtm",
+                "go-to-market",
+                "growth",
+                "automation",
+                "marketplace",
+                "listing",
             ],
         }
     }
@@ -175,13 +211,14 @@ pub fn classify_charter(charter: &str) -> Result<Archetype, GenesisError> {
             }
         }
     }
-    best.map(|(a, _)| a).ok_or_else(|| GenesisError::UnknownArchetype {
-        available: Archetype::ALL
-            .iter()
-            .map(|a| a.label())
-            .collect::<Vec<_>>()
-            .join(", "),
-    })
+    best.map(|(a, _)| a)
+        .ok_or_else(|| GenesisError::UnknownArchetype {
+            available: Archetype::ALL
+                .iter()
+                .map(|a| a.label())
+                .collect::<Vec<_>>()
+                .join(", "),
+        })
 }
 
 fn count_occurrences(haystack: &str, needle: &str) -> usize {
@@ -231,10 +268,7 @@ fn build_classifier_prompt(charter: &str) -> String {
 /// Returns `Err` only if the keyword fallback itself errors (e.g.
 /// the charter is empty), so callers may treat this as a strict
 /// upgrade over `classify_charter`.
-pub async fn classify_llm(
-    charter: &str,
-    llm: &dyn ProviderClient,
-) -> ArgoResult<Archetype> {
+pub async fn classify_llm(charter: &str, llm: &dyn ProviderClient) -> ArgoResult<Archetype> {
     if charter.trim().is_empty() {
         return Err(GenesisError::EmptyCharter.into());
     }
@@ -277,8 +311,14 @@ impl ClassificationResult {
     #[must_use]
     pub fn keyword_fallback(charter: &str) -> Self {
         match classify_charter(charter) {
-            Ok(a) => Self { archetype: Some(a), confidence: 1.0 },
-            Err(_) => Self { archetype: None, confidence: 0.0 },
+            Ok(a) => Self {
+                archetype: Some(a),
+                confidence: 1.0,
+            },
+            Err(_) => Self {
+                archetype: None,
+                confidence: 0.0,
+            },
         }
     }
 }
@@ -289,19 +329,15 @@ mod tests {
 
     #[test]
     fn marketing_intern_charter_classifies_correctly() {
-        let a = classify_charter(
-            "be my marketing intern, run weekly campaigns to cold leads",
-        )
-        .unwrap();
+        let a =
+            classify_charter("be my marketing intern, run weekly campaigns to cold leads").unwrap();
         assert_eq!(a, Archetype::MarketingIntern);
     }
 
     #[test]
     fn ops_oncall_charter_classifies_correctly() {
-        let a = classify_charter(
-            "you're my oncall ops engineer, page me when an incident fires",
-        )
-        .unwrap();
+        let a = classify_charter("you're my oncall ops engineer, page me when an incident fires")
+            .unwrap();
         assert_eq!(a, Archetype::OpsOnCall);
     }
 
@@ -313,8 +349,7 @@ mod tests {
 
     #[test]
     fn unrelated_charter_errors_with_archetype_list() {
-        let err = classify_charter("xyzzy frobnicate the bazquux")
-            .expect_err("nonsense charter");
+        let err = classify_charter("xyzzy frobnicate the bazquux").expect_err("nonsense charter");
         let msg = err.to_string();
         assert!(msg.contains("Marketing Intern"), "got: {msg}");
     }

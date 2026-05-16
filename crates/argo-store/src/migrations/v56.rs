@@ -42,12 +42,10 @@ pub(super) async fn down<'a, 'b>(
     Ok(())
 }
 
-const V56_UP: &[&str] = &[
-    "CREATE TABLE IF NOT EXISTS tenant_rate_limit (
+const V56_UP: &[&str] = &["CREATE TABLE IF NOT EXISTS tenant_rate_limit (
         tenant_id            BLOB    PRIMARY KEY,
         requests_per_minute  INTEGER NOT NULL,
         updated_at           INTEGER NOT NULL
-    )",
-];
+    )"];
 
 const V56_DOWN: &[&str] = &["DROP TABLE IF EXISTS tenant_rate_limit"];

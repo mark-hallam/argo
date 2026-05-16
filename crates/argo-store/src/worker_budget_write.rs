@@ -123,11 +123,7 @@ async fn load_policy_value(pool: &Pool<Sqlite>, worker_id: &str) -> ArgoResult<V
         .map_err(|e| ArgoError::Provider(format!("worker {worker_id} policy is not JSON: {e}")))
 }
 
-async fn write_policy_value(
-    pool: &Pool<Sqlite>,
-    worker_id: &str,
-    value: &Value,
-) -> ArgoResult<()> {
+async fn write_policy_value(pool: &Pool<Sqlite>, worker_id: &str, value: &Value) -> ArgoResult<()> {
     let serialised = serde_json::to_string(value)
         .map_err(|e| ArgoError::Provider(format!("serialise worker policy: {e}")))?;
     let result = sqlx::query("UPDATE worker SET auto_approval_json = ? WHERE id = ?")

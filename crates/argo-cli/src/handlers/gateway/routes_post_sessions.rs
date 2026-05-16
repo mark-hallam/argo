@@ -144,8 +144,7 @@ pub(super) async fn create_session_inner(
     // do not roll back the session.
     let mut skills_attached: usize = 0;
     if let Some(v) = loaded_vertical.as_ref() {
-        match crate::handlers::vertical_attach::install_and_attach_bundle(store, v, id).await
-        {
+        match crate::handlers::vertical_attach::install_and_attach_bundle(store, v, id).await {
             Ok(n) => skills_attached = n,
             Err(_) => {
                 // The helper already logs per-skill failures via

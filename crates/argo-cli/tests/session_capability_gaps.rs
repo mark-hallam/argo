@@ -14,11 +14,7 @@ use std::sync::Arc;
 /// Create the session db at <home>/sessions.db, insert a
 /// workspace + session, write `n` rbac.deny audit rows for the
 /// given tool. Returns the session id (string).
-async fn seed_session_with_denials(
-    home: &std::path::Path,
-    tool: &str,
-    n: usize,
-) -> String {
+async fn seed_session_with_denials(home: &std::path::Path, tool: &str, n: usize) -> String {
     let db = home.join("sessions.db");
     let store = SessionStore::open(&db).await.unwrap();
     store.migrate().await.unwrap();

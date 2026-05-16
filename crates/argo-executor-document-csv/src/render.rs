@@ -86,7 +86,10 @@ mod tests {
     #[test]
     fn quotes_field_with_newline() {
         let body = render_rfc4180(&["body"], &[vec!["line1\nline2".to_string()]]);
-        assert_eq!(String::from_utf8(body).unwrap(), "body\r\n\"line1\nline2\"\r\n");
+        assert_eq!(
+            String::from_utf8(body).unwrap(),
+            "body\r\n\"line1\nline2\"\r\n"
+        );
     }
 
     #[test]

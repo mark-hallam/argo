@@ -39,7 +39,10 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _) = store
         .ensure_workspace(name, &root)
@@ -66,7 +69,10 @@ async fn seed(store: &Arc<SessionStore>, tenant: TenantId, name: &str, vertical:
         Role::new("test"),
     );
     let identities = IdentityStore::new(store);
-    identities.create_worker(&worker).await.expect("create worker");
+    identities
+        .create_worker(&worker)
+        .await
+        .expect("create worker");
     worker
 }
 
@@ -163,8 +169,7 @@ async fn list_invalid_tenant_returns_400() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     let _ = workspace_tenant(&store).await;
-    let (status, body) =
-        list_response(&req_list(Some("tenant_id=not-a-uuid")), Some(&store)).await;
+    let (status, body) = list_response(&req_list(Some("tenant_id=not-a-uuid")), Some(&store)).await;
     assert_eq!(status, "400 Bad Request");
     assert!(body.contains("invalid tenant_id"));
 }
@@ -197,7 +202,10 @@ async fn detail_returns_members_and_skills() {
     let members = v["members"].as_array().expect("members");
     assert_eq!(members.len(), 2);
     let skills = v["skills"].as_array().expect("skills");
-    let names: Vec<&str> = skills.iter().filter_map(|s| s["skill_name"].as_str()).collect();
+    let names: Vec<&str> = skills
+        .iter()
+        .filter_map(|s| s["skill_name"].as_str())
+        .collect();
     assert!(names.contains(&"follow_up"));
     assert!(names.contains(&"qualify"));
     // follow_up is 100% (2/2); qualify is 50% (1/2). DESC sort → follow_up first.
@@ -235,7 +243,6 @@ async fn detail_decodes_percent_encoded_separator() {
     // Some clients percent-encode `:` as `%3A`; verify the handler
     // decodes the segment before passing it to the store layer.
     let encoded = "support%3A%3Adeveloping";
-    let (status, _body) =
-        detail_response(&req_detail(encoded, None), encoded, Some(&store)).await;
+    let (status, _body) = detail_response(&req_detail(encoded, None), encoded, Some(&store)).await;
     assert_eq!(status, "200 OK");
 }

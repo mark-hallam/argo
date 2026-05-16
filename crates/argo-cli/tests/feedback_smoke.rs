@@ -59,14 +59,7 @@ fn up_then_down_then_list_filters_correctly() {
     let down = run(
         workspace.path(),
         home.path(),
-        &[
-            "feedback",
-            "down",
-            "act-002",
-            "--worker",
-            "wkr-1",
-            "--json",
-        ],
+        &["feedback", "down", "act-002", "--worker", "wkr-1", "--json"],
     );
     assert_ok(&down, "feedback down");
 
@@ -130,13 +123,7 @@ fn up_then_down_then_list_filters_correctly() {
         workspace.path(),
         home.path(),
         &[
-            "feedback",
-            "list",
-            "--worker",
-            "wkr-1",
-            "--vote",
-            "up",
-            "--json",
+            "feedback", "list", "--worker", "wkr-1", "--vote", "up", "--json",
         ],
     );
     assert_ok(&list_w1_up, "feedback list wkr-1 up");

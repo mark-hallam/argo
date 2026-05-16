@@ -28,10 +28,16 @@ async fn record_list_series_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "kpi", "record",
-            worker_id, "csat", "4.5",
-            "--tenant", tenant_id,
-            "--note", "post-launch survey",
+            "worker",
+            "kpi",
+            "record",
+            worker_id,
+            "csat",
+            "4.5",
+            "--tenant",
+            tenant_id,
+            "--note",
+            "post-launch survey",
             "--json",
         ],
     );
@@ -46,10 +52,7 @@ async fn record_list_series_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "kpi", "record",
-            worker_id, "csat", "4.7",
-            "--tenant", tenant_id,
-            "--json",
+            "worker", "kpi", "record", worker_id, "csat", "4.7", "--tenant", tenant_id, "--json",
         ],
     );
     assert_success(&rec2);
@@ -59,9 +62,14 @@ async fn record_list_series_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "kpi", "record",
-            worker_id, "reply_sla_hours", "12",
-            "--tenant", tenant_id,
+            "worker",
+            "kpi",
+            "record",
+            worker_id,
+            "reply_sla_hours",
+            "12",
+            "--tenant",
+            tenant_id,
             "--json",
         ],
     );
@@ -72,10 +80,7 @@ async fn record_list_series_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "kpi", "list",
-            worker_id,
-            "--tenant", tenant_id,
-            "--json",
+            "worker", "kpi", "list", worker_id, "--tenant", tenant_id, "--json",
         ],
     );
     assert_success(&list_all);
@@ -87,11 +92,7 @@ async fn record_list_series_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "kpi", "list",
-            worker_id,
-            "--tenant", tenant_id,
-            "--kpi", "csat",
-            "--json",
+            "worker", "kpi", "list", worker_id, "--tenant", tenant_id, "--kpi", "csat", "--json",
         ],
     );
     assert_success(&list_csat);
@@ -103,10 +104,7 @@ async fn record_list_series_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "kpi", "series",
-            worker_id, "csat",
-            "--tenant", tenant_id,
-            "--bucket", "day",
+            "worker", "kpi", "series", worker_id, "csat", "--tenant", tenant_id, "--bucket", "day",
             "--json",
         ],
     );
@@ -117,7 +115,10 @@ async fn record_list_series_round_trip() {
     let bucket_row = &body["rows"][0];
     assert_eq!(bucket_row["count"], 2);
     let avg = bucket_row["avg"].as_f64().unwrap();
-    assert!((avg - 4.6).abs() < 1e-9, "avg of 4.5 + 4.7 == 4.6, got {avg}");
+    assert!(
+        (avg - 4.6).abs() < 1e-9,
+        "avg of 4.5 + 4.7 == 4.6, got {avg}"
+    );
 
     // text-mode list also exits cleanly and has the operator-readable
     // header so we don't accidentally regress to JSON-only output.
@@ -128,7 +129,10 @@ async fn record_list_series_round_trip() {
     );
     assert_success(&text);
     let stdout = String::from_utf8_lossy(&text.stdout);
-    assert!(stdout.contains("observed_at"), "text header present:\n{stdout}");
+    assert!(
+        stdout.contains("observed_at"),
+        "text header present:\n{stdout}"
+    );
     assert!(stdout.contains("csat"), "values rendered:\n{stdout}");
 
     // series rejects a bad bucket label cleanly.
@@ -136,10 +140,8 @@ async fn record_list_series_round_trip() {
         .env("ARGO_HOME", home.path())
         .current_dir(work.path())
         .args([
-            "worker", "kpi", "series",
-            worker_id, "csat",
-            "--tenant", tenant_id,
-            "--bucket", "decade",
+            "worker", "kpi", "series", worker_id, "csat", "--tenant", tenant_id, "--bucket",
+            "decade",
         ])
         .output()
         .unwrap();

@@ -57,10 +57,7 @@ pub async fn run(
     Ok(())
 }
 
-fn load_json<T: serde::de::DeserializeOwned>(
-    path: &std::path::Path,
-    label: &str,
-) -> ArgoResult<T> {
+fn load_json<T: serde::de::DeserializeOwned>(path: &std::path::Path, label: &str) -> ArgoResult<T> {
     let body = std::fs::read_to_string(path)
         .map_err(|e| ArgoError::Io(format!("read {label} '{}': {e}", path.display())))?;
     serde_json::from_str(&body)

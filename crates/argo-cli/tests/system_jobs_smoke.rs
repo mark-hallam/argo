@@ -26,9 +26,9 @@ use argo_cron::{
 };
 use argo_types::{ArgoResult, TenantId};
 use async_trait::async_trait;
-use std::sync::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 /// Counting handler: records every invocation and returns the given
 /// outcome. Used to assert dispatch reaches the registered handler.

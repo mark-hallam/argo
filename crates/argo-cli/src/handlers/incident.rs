@@ -17,9 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// Bundled template body, embedded at compile time so tests don't
 /// need to walk back to `docs/`.
-pub const TEMPLATE_BODY: &str = include_str!(
-    "../../../../docs/skycot/incidents/_template.md"
-);
+pub const TEMPLATE_BODY: &str = include_str!("../../../../docs/skycot/incidents/_template.md");
 
 /// Maximum slug length, in characters. Matches the brief.
 pub const MAX_SLUG_LEN: usize = 60;
@@ -137,11 +135,7 @@ pub fn output_path(out_dir: &Path, date: &str, summary: &str) -> PathBuf {
 /// overwrite an existing file unless `force` is set; on refusal it
 /// returns a `Schema` error mentioning `--force` so the CLI surface
 /// can guide the operator without re-implementing the message.
-pub fn run_new(
-    input: IncidentInput,
-    out_dir: &Path,
-    force: bool,
-) -> ArgoResult<PathBuf> {
+pub fn run_new(input: IncidentInput, out_dir: &Path, force: bool) -> ArgoResult<PathBuf> {
     validate(&input)?;
     let date = today_utc();
     let path = output_path(out_dir, &date, &input.summary);
@@ -161,9 +155,8 @@ pub fn run_new(
 /// `--from <path>`.
 pub fn load_fixture(path: &Path) -> ArgoResult<IncidentInput> {
     let raw = fs::read_to_string(path).map_err(ArgoError::from)?;
-    serde_yaml::from_str(&raw).map_err(|e| {
-        ArgoError::Schema(format!("invalid incident YAML at {}: {e}", path.display()))
-    })
+    serde_yaml::from_str(&raw)
+        .map_err(|e| ArgoError::Schema(format!("invalid incident YAML at {}: {e}", path.display())))
 }
 
 /// Section prompt definitions for the interactive walker. The order
@@ -177,14 +170,22 @@ const PROMPTS: &[(&str, &str, bool)] = &[
         "Timeline — one bullet per event, end with a single '.' line",
         true,
     ),
-    ("root_cause", "Root cause — end with a single '.' line", true),
+    (
+        "root_cause",
+        "Root cause — end with a single '.' line",
+        true,
+    ),
     (
         "contributing_factors",
         "Contributing factors — end with a single '.' line",
         true,
     ),
     ("detection", "Detection — end with a single '.' line", true),
-    ("resolution", "Resolution — end with a single '.' line", true),
+    (
+        "resolution",
+        "Resolution — end with a single '.' line",
+        true,
+    ),
     (
         "action_items",
         "Action items — end with a single '.' line",

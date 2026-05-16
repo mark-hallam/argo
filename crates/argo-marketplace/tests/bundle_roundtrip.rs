@@ -12,9 +12,7 @@
 //!      name, entries).
 //!   5. Build a second bundle from the same workspace and verify
 //!      `manifests_match` is true (deterministic across runs).
-use argo_marketplace::{
-    build_bundle, manifests_match, MemoryRegistry, OciReference, OciRegistry,
-};
+use argo_marketplace::{build_bundle, manifests_match, MemoryRegistry, OciReference, OciRegistry};
 use std::fs;
 use std::path::Path;
 
@@ -25,12 +23,7 @@ fn write_fixture(root: &Path) {
         "# argo.toml\n[core]\nname = \"fixture\"\n",
     )
     .unwrap();
-    for f in [
-        "MEMORY.md",
-        "USER.md",
-        "SOUL.md",
-        "AGENTS.md",
-    ] {
+    for f in ["MEMORY.md", "USER.md", "SOUL.md", "AGENTS.md"] {
         fs::write(root.join(f), format!("# {f}\nbody for fixture\n")).unwrap();
     }
     for d in ["skills", "personas", "cron", "rubrics"] {

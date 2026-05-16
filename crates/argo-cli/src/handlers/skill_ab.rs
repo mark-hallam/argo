@@ -181,7 +181,10 @@ pub async fn ab_promote(cmd: SkillAbPromoteCmd) -> ArgoResult<()> {
             })
         );
     } else {
-        println!("ab-promote {}: winner = '{winner}' ({reason_str})", cmd.run_id);
+        println!(
+            "ab-promote {}: winner = '{winner}' ({reason_str})",
+            cmd.run_id
+        );
     }
     Ok(())
 }
@@ -205,7 +208,9 @@ fn parse_variants(s: &str) -> ArgoResult<(String, String)> {
         ));
     }
     if parts[0].is_empty() || parts[1].is_empty() {
-        return Err(ArgoError::Provider("--variants: each variant must be non-empty".into()));
+        return Err(ArgoError::Provider(
+            "--variants: each variant must be non-empty".into(),
+        ));
     }
     Ok((parts[0].to_string(), parts[1].to_string()))
 }
@@ -250,8 +255,7 @@ fn json_array(rows: &[SkillVersion]) -> String {
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

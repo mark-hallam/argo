@@ -14,7 +14,7 @@
 //! idempotent against a populated database.
 //!
 //! Track L brief: `streams/L2-skill-ir-storage.md`.
-use crate::ir::{SkillGraph, canonical_hash, canonical_json};
+use crate::ir::{canonical_hash, canonical_json, SkillGraph};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SkillId, TenantId};
 use async_trait::async_trait;

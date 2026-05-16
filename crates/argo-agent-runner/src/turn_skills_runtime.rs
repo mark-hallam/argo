@@ -64,7 +64,10 @@ pub(crate) async fn resolve_variants_for_turn(
 ) -> (Vec<Skill>, Vec<PendingAbOutcome>) {
     let mut groups: BTreeMap<String, Vec<Skill>> = BTreeMap::new();
     for s in active {
-        groups.entry(s.frontmatter.name.clone()).or_default().push(s);
+        groups
+            .entry(s.frontmatter.name.clone())
+            .or_default()
+            .push(s);
     }
     let mut out = Vec::new();
     let mut pending = Vec::new();

@@ -90,8 +90,7 @@ fn import_langchain_fixture_extracts_template_string() {
     let envelope: Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(envelope["format"], "langchain");
 
-    let prompt =
-        std::fs::read_to_string(out.join("rex-recep/system-prompt.md")).unwrap();
+    let prompt = std::fs::read_to_string(out.join("rex-recep/system-prompt.md")).unwrap();
     assert!(prompt.contains("REX"), "prompt: {prompt}");
     assert!(prompt.contains("Question: {question}"), "prompt: {prompt}");
 }

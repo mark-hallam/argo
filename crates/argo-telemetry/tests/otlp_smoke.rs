@@ -60,16 +60,8 @@ async fn otlp_exporter_reaches_mock_collector() {
     {
         let _outer = sink.span(spans::AGENT_TURN, &[("test", "smoke")]);
         let _inner = sink.span(spans::AGENT_PROVIDER_REQUEST, &[("nested", "true")]);
-        sink.counter(
-            metrics::ROUTING_DECISIONS_TOTAL,
-            1,
-            &[("tier", "smoke")],
-        );
-        sink.observe(
-            metrics::JUDGE_DURATION_MS,
-            12.5,
-            &[("verdict", "smoke")],
-        );
+        sink.counter(metrics::ROUTING_DECISIONS_TOTAL, 1, &[("tier", "smoke")]);
+        sink.observe(metrics::JUDGE_DURATION_MS, 12.5, &[("verdict", "smoke")]);
     }
 
     // Dropping the ShutdownGuard runs `shutdown()` on both the

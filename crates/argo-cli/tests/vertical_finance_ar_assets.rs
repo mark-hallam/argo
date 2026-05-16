@@ -38,7 +38,9 @@ fn finance_ar_loads_via_argo_vertical() {
         finance_ar_errors.is_empty(),
         "finance-ar loader errors: {finance_ar_errors:?}"
     );
-    let v = registry.get("finance-ar").expect("finance-ar not in registry");
+    let v = registry
+        .get("finance-ar")
+        .expect("finance-ar not in registry");
     assert_eq!(v.manifest.vertical.name, "Finance — Accounts Receivable");
     assert_eq!(v.manifest.vertical.version, "0.1.0");
 }
@@ -48,8 +50,7 @@ fn finance_ar_validates_clean() {
     let dir = repo_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(dir).expect("load_dir");
     let v = registry.get("finance-ar").unwrap();
-    argo_vertical::validate(&v.manifest, &v.root)
-        .expect("finance-ar manifest must validate");
+    argo_vertical::validate(&v.manifest, &v.root).expect("finance-ar manifest must validate");
 }
 
 #[test]
@@ -77,7 +78,11 @@ fn finance_ar_escalation_lists_delegate_task_for_human_approval() {
     let dir = repo_verticals_dir();
     let (registry, _) = argo_vertical::load_dir(dir).unwrap();
     let v = registry.get("finance-ar").unwrap();
-    let esc = v.manifest.escalation.as_ref().expect("[escalation] section");
+    let esc = v
+        .manifest
+        .escalation
+        .as_ref()
+        .expect("[escalation] section");
     assert!(
         esc.human_approval_required.iter().any(|t| t == "delegate_task"),
         "finance-ar manifest must list delegate_task under [escalation].human_approval_required; got: {:?}",
@@ -91,7 +96,10 @@ fn finance_ar_eval_suite_has_five_fixtures() {
     let (registry, _) = argo_vertical::load_dir(dir).expect("load_dir");
     let v = registry.get("finance-ar").unwrap();
     let eval = v.manifest.evaluation.as_ref().expect("[evaluation]");
-    assert!(!eval.suites.is_empty(), "finance-ar needs at least one eval suite");
+    assert!(
+        !eval.suites.is_empty(),
+        "finance-ar needs at least one eval suite"
+    );
     for rel in &eval.suites {
         let p = v.root.join(rel);
         let body = std::fs::read_to_string(&p)
@@ -144,9 +152,19 @@ fn finance_ar_send_reminder_is_gmail_mcp_and_approval_gated() {
     let (registry, _) = argo_vertical::load_dir(dir).expect("load_dir");
     let v = registry.get("finance-ar").unwrap();
     let actions = v.manifest.actions.as_ref().expect("[actions] section");
-    let send = actions.actions.get("send_reminder").expect("send_reminder declared");
-    assert!(send.requires_approval, "send_reminder must require approval");
-    assert_eq!(send.executor.kind_str(), "mcp", "send_reminder executor must be mcp");
+    let send = actions
+        .actions
+        .get("send_reminder")
+        .expect("send_reminder declared");
+    assert!(
+        send.requires_approval,
+        "send_reminder must require approval"
+    );
+    assert_eq!(
+        send.executor.kind_str(),
+        "mcp",
+        "send_reminder executor must be mcp"
+    );
     assert_eq!(send.executor.mcp_server(), Some("gmail"));
     assert_eq!(send.executor.mcp_tool(), Some("gmail.send"));
 }

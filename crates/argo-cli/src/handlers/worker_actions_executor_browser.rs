@@ -109,11 +109,8 @@ pub(crate) async fn dispatch_action(
     let tenant = action_tenant(action, cwd).await?;
     let key = session_key(action, binding.session_scope, tenant);
     let client = acquire_client(pool, client_pool, tenant, &key).await?;
-    let outcome = tokio::time::timeout(
-        timeout,
-        run_action(&client, &binding, &bundle_path, action),
-    )
-    .await;
+    let outcome =
+        tokio::time::timeout(timeout, run_action(&client, &binding, &bundle_path, action)).await;
     if matches!(binding.session_scope, SessionScope::PerAction) {
         pool.lock().await.remove(&key);
     }
@@ -191,10 +188,7 @@ fn session_key(action: &ActionRecord, scope: SessionScope, tenant: TenantId) -> 
     let tenant = tenant.to_string();
     match scope {
         SessionScope::PerWorker => (tenant, worker),
-        SessionScope::PerAction => (
-            tenant,
-            format!("{worker}::{}", action.action_id),
-        ),
+        SessionScope::PerAction => (tenant, format!("{worker}::{}", action.action_id)),
     }
 }
 
@@ -360,17 +354,17 @@ fn build_step_args(step: &BrowserStep, action: &ActionRecord) -> Value {
     }
     if let Some(val) = step.value.as_deref() {
         let rendered = render_string(val, action);
-        let key = if step.action == "navigate" { "url" } else { "value" };
+        let key = if step.action == "navigate" {
+            "url"
+        } else {
+            "value"
+        };
         map.insert(key.into(), Value::String(rendered));
     }
     Value::Object(map)
 }
 
-async fn capture_screenshot(
-    client: &McpClient,
-    dir: &Path,
-    label: &str,
-) -> ArgoResult<String> {
+async fn capture_screenshot(client: &McpClient, dir: &Path, label: &str) -> ArgoResult<String> {
     let result = call_tool_or_provider(client, "screenshot", json!({"full_page": false})).await?;
     let body = result
         .content
@@ -382,9 +376,8 @@ async fn capture_screenshot(
         })
         .unwrap_or_default();
     let path = dir.join(format!("{label}.b64"));
-    std::fs::write(&path, body.as_bytes()).map_err(|e| {
-        ArgoError::Io(format!("write screenshot {}: {e}", path.display()))
-    })?;
+    std::fs::write(&path, body.as_bytes())
+        .map_err(|e| ArgoError::Io(format!("write screenshot {}: {e}", path.display())))?;
     Ok(path.to_string_lossy().into_owned())
 }
 

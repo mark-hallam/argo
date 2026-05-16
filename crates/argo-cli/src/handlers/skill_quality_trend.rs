@@ -79,10 +79,7 @@ fn bucket_history(
     let span = today.signed_duration_since(cutoff).num_days() as usize + 1;
     let mut buckets = vec![None; span];
     for record in history {
-        let day = record
-            .computed_at
-            .with_timezone(&Utc)
-            .date_naive();
+        let day = record.computed_at.with_timezone(&Utc).date_naive();
         if day < cutoff || day > today {
             continue;
         }

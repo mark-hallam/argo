@@ -91,7 +91,9 @@ fn action_history_timeline_recent_smoke() {
     let recent = json_cmd(
         home.path(),
         work.path(),
-        &["action", "recent", "--tenant", "tenant-a", "--limit", "50", "--json"],
+        &[
+            "action", "recent", "--tenant", "tenant-a", "--limit", "50", "--json",
+        ],
     );
     let recent_rows = recent["action_recent"]["rows"].as_array().unwrap();
     assert_eq!(recent_rows.len(), 14);
@@ -100,7 +102,9 @@ fn action_history_timeline_recent_smoke() {
     let since = json_cmd(
         home.path(),
         work.path(),
-        &["action", "history", "w-1", "--since", "1h", "--limit", "20", "--json"],
+        &[
+            "action", "history", "w-1", "--since", "1h", "--limit", "20", "--json",
+        ],
     );
     let since_rows = since["action_history"]["rows"].as_array().unwrap();
     assert_eq!(since_rows.len(), 12);

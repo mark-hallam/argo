@@ -49,8 +49,8 @@ struct BackupEntry {
 }
 
 pub async fn run(output: Option<&Path>, include_credentials: bool, json: bool) -> ArgoResult<()> {
-    let workspace = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let workspace =
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let out = create_backup(&workspace, output, include_credentials, Utc::now())?;
     if json {
         println!(
@@ -136,7 +136,13 @@ fn collect_entries(
     include_credentials: bool,
 ) -> ArgoResult<Vec<BackupEntry>> {
     let mut entries = Vec::new();
-    collect_dir(argo_dir, argo_dir, output_path, include_credentials, &mut entries)?;
+    collect_dir(
+        argo_dir,
+        argo_dir,
+        output_path,
+        include_credentials,
+        &mut entries,
+    )?;
     entries.sort_by(|a, b| a.meta.path.cmp(&b.meta.path));
     Ok(entries)
 }
@@ -253,7 +259,10 @@ mod tests {
         fs::write(argo.join("backups").join("old.tar.gz"), "old").unwrap();
 
         let entries = collect_entries(&argo, &argo.join("backups/new.tar.gz"), false).unwrap();
-        let paths: Vec<_> = entries.iter().map(|entry| entry.meta.path.as_str()).collect();
+        let paths: Vec<_> = entries
+            .iter()
+            .map(|entry| entry.meta.path.as_str())
+            .collect();
 
         assert_eq!(paths, vec![".argo/state.db"]);
     }

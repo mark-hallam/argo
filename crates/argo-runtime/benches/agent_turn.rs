@@ -50,8 +50,7 @@ fn p99_latency(c: &mut Criterion) {
     let mut group = c.benchmark_group("agent_turn");
     group.sample_size(20);
 
-    let ctx = PlannerContext::for_worker("bench-worker")
-        .with_vertical("bench-vertical");
+    let ctx = PlannerContext::for_worker("bench-worker").with_vertical("bench-vertical");
     let goal = "Decompose a launch announcement into draft, review, publish subtasks.";
     let planner = LlmPlanner::new(Box::new(MockCaller));
 

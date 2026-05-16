@@ -72,13 +72,7 @@ async fn synthetic_run_emits_node_lifecycle_through_to_subscriber() {
     // route through the hook into the subscriber receiver.
     let mut rx = subscribe_topic("tenant-syn", "skill-syn", "run-syn");
     emit_node_entered("tenant-syn", "skill-syn", "run-syn", "n1");
-    emit_node_completed(
-        "tenant-syn",
-        "skill-syn",
-        "run-syn",
-        "n1",
-        Some(42),
-    );
+    emit_node_completed("tenant-syn", "skill-syn", "run-syn", "n1", Some(42));
 
     let entered = tokio::time::timeout(std::time::Duration::from_millis(200), rx.recv())
         .await
@@ -90,8 +84,7 @@ async fn synthetic_run_emits_node_lifecycle_through_to_subscriber() {
         .expect("frame");
 
     let entered_json: Value = serde_json::from_str(&entered).expect("entered is JSON");
-    let completed_json: Value =
-        serde_json::from_str(&completed).expect("completed is JSON");
+    let completed_json: Value = serde_json::from_str(&completed).expect("completed is JSON");
 
     assert_eq!(entered_json["type"], "node.entered");
     assert_eq!(entered_json["node_id"], "n1");
@@ -181,10 +174,8 @@ async fn per_run_topic_isolation_no_cross_leak() {
     // Concurrent runs of the same skill must not leak across each
     // other — even within the same tenant, a separate run_id is a
     // distinct topic.
-    let mut rx_run_a =
-        subscribe_topic("tenant-multi", "skill-multi", "run-A");
-    let mut rx_run_b =
-        subscribe_topic("tenant-multi", "skill-multi", "run-B");
+    let mut rx_run_a = subscribe_topic("tenant-multi", "skill-multi", "run-A");
+    let mut rx_run_b = subscribe_topic("tenant-multi", "skill-multi", "run-B");
 
     emit_node_entered("tenant-multi", "skill-multi", "run-A", "node-only-A");
     emit_node_entered("tenant-multi", "skill-multi", "run-B", "node-only-B");

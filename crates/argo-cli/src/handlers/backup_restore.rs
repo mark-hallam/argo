@@ -14,12 +14,7 @@ struct RestoreOut {
     files: Vec<String>,
 }
 
-pub async fn run(
-    path: &Path,
-    into: Option<&Path>,
-    dry_run: bool,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn run(path: &Path, into: Option<&Path>, dry_run: bool, json: bool) -> ArgoResult<()> {
     let target = restore_target(into)?;
     let inspection = verify_backup(path)?;
     let file_names: Vec<String> = inspection
@@ -60,12 +55,11 @@ fn restore_target(into: Option<&Path>) -> ArgoResult<PathBuf> {
     match into {
         Some(path) if path.is_absolute() => Ok(path.to_path_buf()),
         Some(path) => {
-            let cwd = std::env::current_dir()
-                .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+            let cwd =
+                std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
             Ok(cwd.join(path))
         }
-        None => std::env::current_dir()
-            .map_err(|e| ArgoError::Io(format!("current_dir: {e}"))),
+        None => std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}"))),
     }
 }
 

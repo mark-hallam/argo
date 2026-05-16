@@ -162,10 +162,7 @@ impl SkillCandidate {
         for (i, step) in self.trajectory.iter().enumerate() {
             body.push_str(&format!("{}. {step}\n", i + 1));
         }
-        body.push_str(&format!(
-            "\n**Tokens used**: {}\n",
-            self.tokens_used
-        ));
+        body.push_str(&format!("\n**Tokens used**: {}\n", self.tokens_used));
         if let Some(ft) = self.final_text.as_deref() {
             body.push_str(&format!("\n**Final text**: {}\n", json_string(ft)));
         }

@@ -47,7 +47,10 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _) = store.ensure_workspace(name, &root).await.expect("ws");
     tenant
@@ -60,7 +63,10 @@ async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, name: &str) -> 
         Persona::named(name, "human:mark"),
         Role::new("Resolve customer questions."),
     );
-    IdentityStore::new(store).create_worker(&worker).await.expect("create");
+    IdentityStore::new(store)
+        .create_worker(&worker)
+        .await
+        .expect("create");
     worker
 }
 
@@ -77,7 +83,12 @@ async fn setup() -> Env {
     set_test_env(tmp.path());
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
-    Env { _guard: guard, _tmp: tmp, store, tenant }
+    Env {
+        _guard: guard,
+        _tmp: tmp,
+        store,
+        tenant,
+    }
 }
 
 async fn setup_with_worker(name: &str) -> (Env, Worker) {
@@ -243,8 +254,12 @@ async fn patch_quiet_hours_updates_and_audits() {
     let req = patch_req(&worker.id, "quiet-hours", &body);
     let (status, _) = patch_quiet_hours(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "200 OK");
-    let (_, b) =
-        get_settings(&worker.id.to_string(), &get_req(&worker.id, None), Some(&env.store)).await;
+    let (_, b) = get_settings(
+        &worker.id.to_string(),
+        &get_req(&worker.id, None),
+        Some(&env.store),
+    )
+    .await;
     let g = parse(&b);
     assert_eq!(g["quiet_hours"]["start"], "21:00");
     assert_eq!(g["quiet_hours"]["tz"], "Pacific/Auckland");
@@ -374,8 +389,7 @@ async fn delete_without_matching_confirm_header_returns_400() {
     assert_eq!(status, "400 Bad Request");
     assert_eq!(parse(&body)["error"]["code"], "confirmation_mismatch");
     let req = delete_req(&worker.id, Some("operator"), Some("maya"));
-    let (status, _) =
-        delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
+    let (status, _) = delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "400 Bad Request");
 }
 
@@ -383,8 +397,7 @@ async fn delete_without_matching_confirm_header_returns_400() {
 async fn delete_with_operator_and_confirm_succeeds_and_cascades() {
     let (env, worker) = setup_with_worker("Maya").await;
     let req = delete_req(&worker.id, Some("operator"), Some("Maya"));
-    let (status, _) =
-        delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
+    let (status, _) = delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "204 No Content");
     let remaining: Option<String> = sqlx::query_scalar("SELECT id FROM worker WHERE id = ?")
         .bind(worker.id.to_string())

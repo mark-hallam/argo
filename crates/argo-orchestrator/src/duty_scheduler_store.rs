@@ -15,8 +15,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
 
-const ROLE_DUTY_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/93__role_duties.sql");
+const ROLE_DUTY_SCHEMA: &str = include_str!("../../argo-store/migrations/93__role_duties.sql");
 
 /// SQLite-backed CRUD over the `role_duty` and `duty_fired_session`
 /// tables.

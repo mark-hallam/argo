@@ -35,10 +35,7 @@ pub(super) async fn forge_abort_all_response(
             aborted += n;
         }
     }
-    (
-        "200 OK",
-        format!("{{\"aborted\":{aborted}}}"),
-    )
+    ("200 OK", format!("{{\"aborted\":{aborted}}}"))
 }
 
 /// `POST /forge/runs/sweep[?older-than-minutes=N]` — flip
@@ -52,8 +49,8 @@ pub(super) async fn forge_sweep_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes))
-        .timestamp_micros();
+    let cutoff_micros =
+        (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes)).timestamp_micros();
     match store.sweep_stalled_forge_runs(cutoff_micros).await {
         Ok(n) => (
             "200 OK",
@@ -127,10 +124,7 @@ pub(super) async fn forge_promote_response(
                 serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
             )
         }
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"promote: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"promote: {e}\"}}")),
     }
 }
 

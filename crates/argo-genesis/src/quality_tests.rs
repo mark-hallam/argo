@@ -7,8 +7,8 @@
 use super::*;
 use crate::archetype::Archetype;
 use argo_vertical::{
-    ActionDeclaration, ActionRiskLevel, ActionsSection, ExecutorDeclaration,
-    VerticalIdentity, VerticalManifest, SCHEMA_VERSION,
+    ActionDeclaration, ActionRiskLevel, ActionsSection, ExecutorDeclaration, VerticalIdentity,
+    VerticalManifest, SCHEMA_VERSION,
 };
 use std::collections::BTreeMap;
 
@@ -122,7 +122,10 @@ fn nine_eval_seeds_fails_seed_check() {
         .iter()
         .find(|c| c.name == "eval_seed_min")
         .unwrap();
-    assert!(!seed_check.passed, "seed check should fail today: {seed_check:?}");
+    assert!(
+        !seed_check.passed,
+        "seed check should fail today: {seed_check:?}"
+    );
     assert!(
         seed_check.observed.ends_with("seeds"),
         "observed: {}",

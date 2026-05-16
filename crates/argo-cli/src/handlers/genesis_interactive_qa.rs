@@ -167,13 +167,11 @@ pub(crate) fn apply_answer(
                 .collect();
         }
         "spend_cap" => {
-            let parsed: f64 = raw
-                .trim()
-                .trim_start_matches('$')
-                .parse()
-                .map_err(|e| ArgoError::Provider(format!(
+            let parsed: f64 = raw.trim().trim_start_matches('$').parse().map_err(|e| {
+                ArgoError::Provider(format!(
                     "genesis interactive: spend cap '{raw}' is not a number: {e}"
-                )))?;
+                ))
+            })?;
             dialogue.spend_cap_per_day_usd = parsed;
         }
         other => {

@@ -143,10 +143,7 @@ fn cli_approve_with_invalid_session_id_fails_loudly() {
         .expect("spawn");
     assert!(!out.status.success());
     let stderr = String::from_utf8(out.stderr).unwrap();
-    assert!(
-        stderr.contains("invalid session id"),
-        "stderr: {stderr}"
-    );
+    assert!(stderr.contains("invalid session id"), "stderr: {stderr}");
 }
 
 #[test]
@@ -236,10 +233,7 @@ fn cli_list_grants_after_two_approves_shows_both() {
     assert_eq!(v["session_id"], sid);
     assert_eq!(v["count"].as_u64().unwrap(), 2);
     let grants = v["grants"].as_array().unwrap();
-    let tools: Vec<&str> = grants
-        .iter()
-        .map(|g| g["tool"].as_str().unwrap())
-        .collect();
+    let tools: Vec<&str> = grants.iter().map(|g| g["tool"].as_str().unwrap()).collect();
     assert!(tools.contains(&"delegate_task"), "got: {tools:?}");
     assert!(tools.contains(&"terminal"), "got: {tools:?}");
     // One of them carries the note we passed.

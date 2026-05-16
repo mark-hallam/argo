@@ -160,12 +160,12 @@ impl<R: TaskRunner> Executor<R> {
     /// task: resolve inputs (against prior outputs), call the
     /// runner, record verdict. A failed task marks every
     /// downstream task on a `Success` edge as `Skipped`.
-    pub async fn execute(
-        &self,
-        req: ExecutionRequest,
-    ) -> Result<ExecutionReport, ExecutionError> {
+    pub async fn execute(&self, req: ExecutionRequest) -> Result<ExecutionReport, ExecutionError> {
         let edges = req.workflow.validate().map_err(ExecutionError::Validate)?;
-        let order = req.workflow.topo_order().map_err(ExecutionError::Validate)?;
+        let order = req
+            .workflow
+            .topo_order()
+            .map_err(ExecutionError::Validate)?;
         // task_id → set of upstream task_ids (for Success edges)
         let mut upstream: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for e in &edges {
@@ -176,8 +176,7 @@ impl<R: TaskRunner> Executor<R> {
                     .push(e.from_task.clone());
             }
         }
-        let mut outputs: BTreeMap<String, BTreeMap<String, serde_json::Value>> =
-            BTreeMap::new();
+        let mut outputs: BTreeMap<String, BTreeMap<String, serde_json::Value>> = BTreeMap::new();
         let mut verdicts: BTreeMap<String, TaskVerdict> = BTreeMap::new();
         let mut failed_or_skipped: BTreeSet<String> = BTreeSet::new();
 
@@ -195,12 +194,11 @@ impl<R: TaskRunner> Executor<R> {
                     continue;
                 }
             }
-            let resolved = resolve_inputs(&task.inputs, &outputs).map_err(|e| {
-                ExecutionError::Resolve {
+            let resolved =
+                resolve_inputs(&task.inputs, &outputs).map_err(|e| ExecutionError::Resolve {
                     task: task.id.clone(),
                     error: e,
-                }
-            })?;
+                })?;
             match self.runner.run(task, &resolved).await {
                 TaskOutcome::Success { outputs: outs } => {
                     outputs.insert(task.id.clone(), outs.clone());
@@ -216,7 +214,9 @@ impl<R: TaskRunner> Executor<R> {
         let ok = verdicts
             .values()
             .all(|v| matches!(v, TaskVerdict::Success { .. } | TaskVerdict::Skipped { .. }))
-            && verdicts.values().any(|v| matches!(v, TaskVerdict::Success { .. }));
+            && verdicts
+                .values()
+                .any(|v| matches!(v, TaskVerdict::Success { .. }));
         // Report `ok` only when no task `Failed`. Skipped tasks
         // alone don't make the run fail (they reflect an upstream
         // failure that's already accounted for).
@@ -229,7 +229,6 @@ impl<R: TaskRunner> Executor<R> {
             ok: ok && no_failures,
         })
     }
-
 }
 
 /// Test-only runner that echoes inputs back as outputs. The

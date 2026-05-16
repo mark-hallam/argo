@@ -75,7 +75,10 @@ async fn shared_team_write_visible_to_sibling_worker() {
         .await
         .expect("list_team");
     let listed = text_block(&l);
-    assert!(listed.contains(&entry_id), "B's list_team must see A's row:\n{listed}");
+    assert!(
+        listed.contains(&entry_id),
+        "B's list_team must see A's row:\n{listed}"
+    );
     assert!(
         listed.contains(&worker_a.0.to_string()),
         "author worker_id stamp must appear:\n{listed}",

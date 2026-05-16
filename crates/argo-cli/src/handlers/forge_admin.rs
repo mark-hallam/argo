@@ -86,8 +86,8 @@ pub(super) async fn abort_all_runs() -> ArgoResult<()> {
 /// audit row per swept run with `kind=sweep`.
 pub(super) async fn sweep_stalled(older_than_minutes: i64) -> ArgoResult<()> {
     let store = Arc::new(open_store().await?);
-    let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes))
-        .timestamp_micros();
+    let cutoff_micros =
+        (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes)).timestamp_micros();
     // Find the rows we're about to sweep so we can write
     // per-row audit rows. The store call below does the actual
     // UPDATE — we just observe first for the audit trail.
@@ -150,14 +150,11 @@ pub(super) async fn abort_run(raw: &str) -> ArgoResult<()> {
 pub(super) async fn show_payload(raw: &str, json: bool) -> ArgoResult<()> {
     let store = open_store().await?;
     let id = parse_run_id(raw)?;
-    let payload_str = store
-        .get_forge_queue_payload(id)
-        .await?
-        .ok_or_else(|| {
-            ArgoError::Provider(format!(
-                "no forge_queue payload for run {raw} (was it created with ?in_process=true?)"
-            ))
-        })?;
+    let payload_str = store.get_forge_queue_payload(id).await?.ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "no forge_queue payload for run {raw} (was it created with ?in_process=true?)"
+        ))
+    })?;
     let parsed: serde_json::Value =
         serde_json::from_str(&payload_str).unwrap_or(serde_json::Value::Null);
     if json {

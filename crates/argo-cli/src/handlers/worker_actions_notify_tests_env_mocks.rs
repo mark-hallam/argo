@@ -1,8 +1,8 @@
 //! Network-mock helpers (HTTP + SMTP) and env-var test fixtures shared
 //! by the per-channel `EnvChannelSender` tests in `env_channels.rs`.
 
-use super::action;
 use super::super::*;
+use super::action;
 use argo_identity::NotifyChannelRef;
 use std::sync::OnceLock;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};

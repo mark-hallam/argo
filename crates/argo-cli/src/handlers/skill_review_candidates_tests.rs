@@ -40,7 +40,14 @@ async fn fresh_setup() -> (SkillStore, MemoryStore, argo_types::SessionId, Works
     .await
     .unwrap();
     let sid = store
-        .create_session(tenant, ws, "mock", "mock", Some("promote-test"), Some("gtm-engineer"))
+        .create_session(
+            tenant,
+            ws,
+            "mock",
+            "mock",
+            Some("promote-test"),
+            Some("gtm-engineer"),
+        )
         .await
         .unwrap();
     let skills = SkillStore::new(Arc::clone(&store));

@@ -61,7 +61,10 @@ async fn set_min_trust_grade_none_clears_to_null() {
         .set_min_trust_grade("trust-test", None)
         .await
         .unwrap();
-    assert_eq!(skills.get_min_trust_grade("trust-test").await.unwrap(), None);
+    assert_eq!(
+        skills.get_min_trust_grade("trust-test").await.unwrap(),
+        None
+    );
 }
 
 #[tokio::test]

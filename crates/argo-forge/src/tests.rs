@@ -74,10 +74,7 @@ async fn forge_run_feedback_cases_count_persists_round_trip() {
 
     // Insert a synthetic worker_action so `runs_for_skill` resolves
     // an action_id for the skill.
-    let (_tenant, workspace) = store
-        .ensure_workspace("smoke", "/tmp/smoke")
-        .await
-        .unwrap();
+    let (_tenant, workspace) = store.ensure_workspace("smoke", "/tmp/smoke").await.unwrap();
     let body = json!({
         "schema_key": "worker_action",
         "action_id": "act-smoke",

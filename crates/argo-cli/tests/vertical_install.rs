@@ -84,7 +84,12 @@ fn cli_install_uses_argo_verticals_dir_when_target_omitted() {
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
         .env("ARGO_VERTICALS_DIR", discovery.path())
-        .args(["vertical", "install", src.path().to_str().unwrap(), "--json"])
+        .args([
+            "vertical",
+            "install",
+            src.path().to_str().unwrap(),
+            "--json",
+        ])
         .output()
         .expect("spawn");
     assert!(

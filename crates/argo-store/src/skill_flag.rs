@@ -59,19 +59,14 @@ pub async fn set_flag(
 /// assert!(v.is_none() || matches!(v, Some(0) | Some(1)));
 /// # Ok(()) }
 /// ```
-pub async fn get_flag(
-    pool: &Pool<Sqlite>,
-    skill_id: &str,
-    flag: &str,
-) -> StoreResult<Option<i64>> {
-    let row: Option<(i64,)> = sqlx::query_as(
-        "SELECT value FROM skill_flag WHERE skill_id = ? AND flag = ?",
-    )
-    .bind(skill_id)
-    .bind(flag)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("skill_flag get_flag: {e}")))?;
+pub async fn get_flag(pool: &Pool<Sqlite>, skill_id: &str, flag: &str) -> StoreResult<Option<i64>> {
+    let row: Option<(i64,)> =
+        sqlx::query_as("SELECT value FROM skill_flag WHERE skill_id = ? AND flag = ?")
+            .bind(skill_id)
+            .bind(flag)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("skill_flag get_flag: {e}")))?;
     Ok(row.map(|(v,)| v))
 }
 

@@ -49,7 +49,10 @@ policy = "yeet_to_orbit"
 "#;
     let err = HandoffPolicy::from_toml(body).expect_err("unknown policy must error");
     let msg = err.to_string();
-    assert!(msg.contains("handoff-policy parse"), "expected parse-error prefix, got: {msg}");
+    assert!(
+        msg.contains("handoff-policy parse"),
+        "expected parse-error prefix, got: {msg}"
+    );
 }
 
 #[test]

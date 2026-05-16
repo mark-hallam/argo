@@ -226,7 +226,14 @@ async fn commit(args: RotateKeysCommitArgs) -> ArgoResult<()> {
             .map_err(|e| ArgoError::Provider(format!("rotate-keys commit json: {e}")))?;
         println!("{body}");
     } else {
-        print_commit_human(entry, source, status, audit_uuid, &rotation_id, subprocess_result.as_ref());
+        print_commit_human(
+            entry,
+            source,
+            status,
+            audit_uuid,
+            &rotation_id,
+            subprocess_result.as_ref(),
+        );
     }
     if status == "failed" {
         return Err(ArgoError::Provider(format!(
@@ -267,7 +274,10 @@ async fn audit_key_age(args: RotateKeysAuditAgeArgs) -> ArgoResult<i32> {
     } else {
         println!("Threshold: {} days", args.threshold);
         if stale.is_empty() {
-            println!("All {} registered keys are within the rotation window.", rows.len());
+            println!(
+                "All {} registered keys are within the rotation window.",
+                rows.len()
+            );
         } else {
             println!("Stale keys ({}):", stale.len());
             for r in &stale {

@@ -37,18 +37,12 @@ use base64::Engine as _;
 #[async_trait]
 pub trait AnthropicCall: Send + Sync {
     /// Send one CU loop step and parse the reply.
-    async fn step<'a>(
-        &self,
-        req: CuStepRequest<'a>,
-    ) -> Result<Vec<CuStepResponse>, CuError>;
+    async fn step<'a>(&self, req: CuStepRequest<'a>) -> Result<Vec<CuStepResponse>, CuError>;
 }
 
 #[async_trait]
 impl AnthropicCall for AnthropicClient {
-    async fn step<'a>(
-        &self,
-        req: CuStepRequest<'a>,
-    ) -> Result<Vec<CuStepResponse>, CuError> {
+    async fn step<'a>(&self, req: CuStepRequest<'a>) -> Result<Vec<CuStepResponse>, CuError> {
         AnthropicClient::step(self, req).await
     }
 }
@@ -92,10 +86,7 @@ impl AnthropicClient {
     /// Send one CU loop step. Returns the ordered sequence of
     /// parsed responses for the turn — one entry per `tool_use`
     /// block plus an optional terminal stop signal.
-    pub async fn step(
-        &self,
-        req: CuStepRequest<'_>,
-    ) -> Result<Vec<CuStepResponse>, CuError> {
+    pub async fn step(&self, req: CuStepRequest<'_>) -> Result<Vec<CuStepResponse>, CuError> {
         let url = format!("{}/v1/messages", self.base_url);
         let body = build_messages_body(req, &self.model, &self.tool_variant);
         let resp = self

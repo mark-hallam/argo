@@ -274,4 +274,3 @@ pub(crate) fn pdf_schema() -> McpToolSchema {
         }),
     }
 }
-

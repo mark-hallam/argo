@@ -149,11 +149,7 @@ mod tests {
 
     #[async_trait]
     impl EvalExecutor for MockEvalExecutor {
-        async fn run_one(
-            &self,
-            _skill: &Skill,
-            _case: &EvalCase,
-        ) -> ArgoResult<ActualOutcome> {
+        async fn run_one(&self, _skill: &Skill, _case: &EvalCase) -> ArgoResult<ActualOutcome> {
             let mut q = self.outputs.lock().unwrap_or_else(|p| p.into_inner());
             assert!(!q.is_empty(), "MockEvalExecutor exhausted");
             match q.remove(0) {
@@ -240,15 +236,11 @@ mod tests {
         let cases = [
             case(
                 Value::Null,
-                ExpectedOutcome::Contains {
-                    text: "yes".into(),
-                },
+                ExpectedOutcome::Contains { text: "yes".into() },
             ),
             case(
                 Value::Null,
-                ExpectedOutcome::Contains {
-                    text: "yes".into(),
-                },
+                ExpectedOutcome::Contains { text: "yes".into() },
             ),
         ];
         let r = run_evals(&skill, &exec, &cases).await.unwrap();
@@ -271,9 +263,7 @@ mod tests {
             .map(|_| {
                 case(
                     Value::Null,
-                    ExpectedOutcome::Contains {
-                        text: "yes".into(),
-                    },
+                    ExpectedOutcome::Contains { text: "yes".into() },
                 )
             })
             .collect();
@@ -295,12 +285,7 @@ mod tests {
             Ok(Value::String("nope".into())),
         ]);
         let cases: Vec<EvalCase> = (0..5)
-            .map(|_| {
-                case(
-                    Value::Null,
-                    ExpectedOutcome::Contains { text: "ok".into() },
-                )
-            })
+            .map(|_| case(Value::Null, ExpectedOutcome::Contains { text: "ok".into() }))
             .collect();
         let r = run_evals(&skill, &exec, &cases).await.unwrap();
         assert_eq!(r.pass, 4);
@@ -318,12 +303,7 @@ mod tests {
             Ok(Value::String("ok".into())),
         ]);
         let cases: Vec<EvalCase> = (0..3)
-            .map(|_| {
-                case(
-                    Value::Null,
-                    ExpectedOutcome::Contains { text: "ok".into() },
-                )
-            })
+            .map(|_| case(Value::Null, ExpectedOutcome::Contains { text: "ok".into() }))
             .collect();
         let r = run_evals(&skill, &exec, &cases).await.unwrap();
         assert_eq!(r.pass, 2);

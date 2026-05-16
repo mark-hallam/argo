@@ -127,7 +127,14 @@ async fn invalid_risk_level_is_rejected() {
     let store = fresh_store().await;
     let s = OperatorRiskOverridesStore::new(store.pool());
     let err = s
-        .set("alice", "send_email", None, "critical", false, 1_700_000_000)
+        .set(
+            "alice",
+            "send_email",
+            None,
+            "critical",
+            false,
+            1_700_000_000,
+        )
         .await
         .expect_err("should reject critical");
     let msg = err.to_string();

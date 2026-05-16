@@ -3,9 +3,7 @@
 //! module so `workspace.rs` stays under the 500-LOC ceiling
 //! as the surface grows.
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_marketplace::{
-    build_bundle, OciDistributionRegistry, OciReference, OciRegistry,
-};
+use argo_marketplace::{build_bundle, OciDistributionRegistry, OciReference, OciRegistry};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
@@ -180,11 +178,7 @@ pub(crate) async fn diff(cwd: &std::path::Path, other_raw: &str) -> ArgoResult<(
     Ok(())
 }
 
-pub(crate) async fn artifacts(
-    cwd: &std::path::Path,
-    limit: u32,
-    json: bool,
-) -> ArgoResult<()> {
+pub(crate) async fn artifacts(cwd: &std::path::Path, limit: u32, json: bool) -> ArgoResult<()> {
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -291,8 +285,14 @@ mod tests {
     #[test]
     fn host_base_url_chooses_https_for_remote_hosts() {
         assert_eq!(host_base_url("ghcr.io"), "https://ghcr.io");
-        assert_eq!(host_base_url("registry-1.docker.io"), "https://registry-1.docker.io");
-        assert_eq!(host_base_url("registry.gitlab.com"), "https://registry.gitlab.com");
+        assert_eq!(
+            host_base_url("registry-1.docker.io"),
+            "https://registry-1.docker.io"
+        );
+        assert_eq!(
+            host_base_url("registry.gitlab.com"),
+            "https://registry.gitlab.com"
+        );
     }
 
     #[test]

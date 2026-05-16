@@ -21,9 +21,7 @@ use crate::CuError;
 /// `tool_use` block nor a recognised stop-signal text block, the
 /// canonical `"anthropic response carried no tool_use or
 /// recognised stop signal"` error surfaces verbatim.
-pub(crate) fn parse_response(
-    raw: serde_json::Value,
-) -> Result<Vec<CuStepResponse>, CuError> {
+pub(crate) fn parse_response(raw: serde_json::Value) -> Result<Vec<CuStepResponse>, CuError> {
     let usage = raw.get("usage").and_then(|u| u.as_object());
     let tokens_used = usage
         .and_then(|u| {
@@ -36,9 +34,7 @@ pub(crate) fn parse_response(
     let content = raw
         .get("content")
         .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            CuError::Protocol("anthropic response missing `content` array".into())
-        })?;
+        .ok_or_else(|| CuError::Protocol("anthropic response missing `content` array".into()))?;
 
     let mut out: Vec<CuStepResponse> = Vec::new();
     for block in content {
@@ -48,10 +44,7 @@ pub(crate) fn parse_response(
                 .get("name")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("");
-            let input = block
-                .get("input")
-                .cloned()
-                .unwrap_or(serde_json::json!({}));
+            let input = block.get("input").cloned().unwrap_or(serde_json::json!({}));
             // Token charge is per-turn, not per-action; only the
             // first parsed entry carries the model's token usage
             // so the budget tracker doesn't double-charge a
@@ -102,9 +95,8 @@ fn parse_tool_use(
     });
     match action_name {
         "left_click" | "click" => {
-            let (x, y) = xy.ok_or_else(|| {
-                CuError::Protocol("tool_use click missing coordinate".into())
-            })?;
+            let (x, y) =
+                xy.ok_or_else(|| CuError::Protocol("tool_use click missing coordinate".into()))?;
             Ok(CuStepResponse::ToolCall {
                 action: CuAction::Click { x, y },
                 tokens_used,

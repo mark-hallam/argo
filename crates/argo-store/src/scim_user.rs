@@ -268,15 +268,13 @@ impl<'a> ScimUserStore<'a> {
         if existing.9.is_some() {
             return Ok(false);
         }
-        sqlx::query(
-            "UPDATE scim_user SET deleted_at = ?, active = 0, updated_at = ? WHERE id = ?",
-        )
-        .bind(now.timestamp())
-        .bind(now.timestamp())
-        .bind(id.as_bytes().as_slice())
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("scim_user soft-delete: {e}")))?;
+        sqlx::query("UPDATE scim_user SET deleted_at = ?, active = 0, updated_at = ? WHERE id = ?")
+            .bind(now.timestamp())
+            .bind(now.timestamp())
+            .bind(id.as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("scim_user soft-delete: {e}")))?;
         sqlx::query(
             "INSERT INTO scim_provisioned_tombstones
                 (id, tenant_id, user_name, deleted_at, reason)
@@ -347,31 +345,37 @@ type RawRow = (
 
 type RawTombstoneRow = (Vec<u8>, Vec<u8>, String, i64, String);
 
-const SELECT_BY_ID: &str =
-    "SELECT id, tenant_id, external_id, user_name, display_name, \
+const SELECT_BY_ID: &str = "SELECT id, tenant_id, external_id, user_name, display_name, \
             emails_json, active, created_at, updated_at, deleted_at \
      FROM scim_user WHERE id = ?";
 
-const SELECT_BY_USER_NAME: &str =
-    "SELECT id, tenant_id, external_id, user_name, display_name, \
+const SELECT_BY_USER_NAME: &str = "SELECT id, tenant_id, external_id, user_name, display_name, \
             emails_json, active, created_at, updated_at, deleted_at \
      FROM scim_user \
      WHERE tenant_id = ? AND user_name = ? AND deleted_at IS NULL";
 
-const LIST_SQL: &str =
-    "SELECT id, tenant_id, external_id, user_name, display_name, \
+const LIST_SQL: &str = "SELECT id, tenant_id, external_id, user_name, display_name, \
             emails_json, active, created_at, updated_at, deleted_at \
      FROM scim_user \
      WHERE tenant_id = ? AND deleted_at IS NULL \
      ORDER BY created_at ASC, id ASC \
      LIMIT ? OFFSET ?";
 
-const COUNT_SQL: &str =
-    "SELECT COUNT(*) FROM scim_user WHERE tenant_id = ? AND deleted_at IS NULL";
+const COUNT_SQL: &str = "SELECT COUNT(*) FROM scim_user WHERE tenant_id = ? AND deleted_at IS NULL";
 
 fn decode_row(row: RawRow) -> StoreResult<ScimUserRow> {
-    let (id_b, tid_b, external_id, user_name, display_name, emails_json, active, created, updated, deleted) =
-        row;
+    let (
+        id_b,
+        tid_b,
+        external_id,
+        user_name,
+        display_name,
+        emails_json,
+        active,
+        created,
+        updated,
+        deleted,
+    ) = row;
     let id = Uuid::from_slice(&id_b)
         .map_err(|e| ArgoError::Invariant(format!("decode scim_user id: {e}")))?;
     let tenant_id = Uuid::from_slice(&tid_b)

@@ -108,7 +108,9 @@ impl MasterKey {
 
 impl std::fmt::Debug for MasterKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MasterKey").field("identity", &"<redacted>").finish()
+        f.debug_struct("MasterKey")
+            .field("identity", &"<redacted>")
+            .finish()
     }
 }
 

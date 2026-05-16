@@ -98,8 +98,8 @@ fn bucket_key_month_is_yyyy_mm() {
 #[test]
 fn bucketize_produces_one_row_per_iso_week() {
     let rows = [
-        row(AuditKind::ApprovalGranted, ts(2026, 5, 4)),  // W19
-        row(AuditKind::ApprovalRevoked, ts(2026, 5, 7)),  // W19
+        row(AuditKind::ApprovalGranted, ts(2026, 5, 4)), // W19
+        row(AuditKind::ApprovalRevoked, ts(2026, 5, 7)), // W19
         row(AuditKind::ApprovalGranted, ts(2026, 5, 12)), // W20
     ];
     let buckets = bucketize(&rows, Bucket::Week);
@@ -181,7 +181,10 @@ fn format_rate_renders_percentage_or_na() {
 
 #[test]
 fn format_parse_accepts_md_alias() {
-    assert!(matches!(Format::parse("markdown").unwrap(), Format::Markdown));
+    assert!(matches!(
+        Format::parse("markdown").unwrap(),
+        Format::Markdown
+    ));
     assert!(matches!(Format::parse("md").unwrap(), Format::Markdown));
     assert!(matches!(Format::parse("json").unwrap(), Format::Json));
     assert!(Format::parse("yaml").is_err());
@@ -195,11 +198,7 @@ async fn fresh_store() -> SessionStore {
     store
 }
 
-async fn insert_session(
-    pool: &Pool<Sqlite>,
-    session_id: Uuid,
-    worker_id: Option<Uuid>,
-) {
+async fn insert_session(pool: &Pool<Sqlite>, session_id: Uuid, worker_id: Option<Uuid>) {
     // workspace + tenant prerequisites for the FK on session.
     let workspace_id: [u8; 16] = *Uuid::nil().as_bytes();
     let tenant_id: [u8; 16] = *Uuid::nil().as_bytes();
@@ -230,12 +229,7 @@ async fn insert_session(
     .unwrap();
 }
 
-async fn insert_audit(
-    pool: &Pool<Sqlite>,
-    session_id: Uuid,
-    kind: AuditKind,
-    micros: i64,
-) {
+async fn insert_audit(pool: &Pool<Sqlite>, session_id: Uuid, kind: AuditKind, micros: i64) {
     let id = Uuid::now_v7();
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, parent_hash, self_hash, created_at) \

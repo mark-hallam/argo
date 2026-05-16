@@ -43,10 +43,7 @@ pub struct AlertRule {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AlertKind {
     /// Total spend over the window crossed `threshold_usd`.
-    SpendTotal {
-        threshold_usd: f64,
-        window: String,
-    },
+    SpendTotal { threshold_usd: f64, window: String },
     /// Error rate on `route` over the window crossed `threshold_pct`.
     ErrorRate {
         route: String,

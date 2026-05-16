@@ -116,11 +116,14 @@ async fn list_observations_filters_by_window() {
     .await
     .unwrap();
 
-    let in_window =
-        list_observations_in_window(&store, consumer, now - Duration::days(90))
-            .await
-            .unwrap();
-    assert_eq!(in_window.len(), 1, "row outside 90d window should not return");
+    let in_window = list_observations_in_window(&store, consumer, now - Duration::days(90))
+        .await
+        .unwrap();
+    assert_eq!(
+        in_window.len(),
+        1,
+        "row outside 90d window should not return"
+    );
 }
 
 #[tokio::test]

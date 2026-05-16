@@ -133,9 +133,9 @@ async fn seed_worker_budget(pool: &SqlitePool) {
              auto_approval_json, channels_json, created_at)
          VALUES ('w-1', 't-1', 'support', 'p-1', 'r-1', 'worker_self', '{}', '[]', 0)",
     )
-        .execute(pool)
-        .await
-        .unwrap();
+    .execute(pool)
+    .await
+    .unwrap();
     for (action, amount) in [("a-1", 300_000), ("a-2", 400_000)] {
         sqlx::query("INSERT INTO worker_budget (tenant_id, worker_id, action_id, usd_micros, charged_at) VALUES (x'00', 'w-1', ?, ?, ?)")
             .bind(action)

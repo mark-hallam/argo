@@ -135,9 +135,7 @@ impl ProposalThreshold {
         if metric.duration_seconds > self.max_duration_seconds {
             out.push("duration_seconds");
         }
-        if let (Some(floor), Some(score)) =
-            (self.min_final_state_score, metric.final_state_score)
-        {
+        if let (Some(floor), Some(score)) = (self.min_final_state_score, metric.final_state_score) {
             if score < floor {
                 out.push("final_state_score");
             }
@@ -186,7 +184,10 @@ mod tests {
 
     #[test]
     fn good_metric_clears_default_threshold() {
-        assert!(should_propose_metric(&good(), &ProposalThreshold::defaults()));
+        assert!(should_propose_metric(
+            &good(),
+            &ProposalThreshold::defaults()
+        ));
     }
 
     #[test]

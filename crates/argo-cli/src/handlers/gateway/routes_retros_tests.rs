@@ -36,9 +36,7 @@ fn patch_req(path: &str, body: &str) -> String {
 }
 
 fn get_req(path: &str) -> String {
-    format!(
-        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\n\r\n"
-    )
+    format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\n\r\n")
 }
 
 fn fresh_worker() -> String {
@@ -67,8 +65,7 @@ async fn create_returns_201_with_retro_id_and_empty_sections() {
 async fn create_with_invalid_worker_id_returns_400() {
     let store = mem_store().await;
     let path = "/api/v1/workers/not-a-uuid/retros";
-    let (status, body) =
-        create_response("not-a-uuid", &post_req(path, "{}"), Some(&store)).await;
+    let (status, body) = create_response("not-a-uuid", &post_req(path, "{}"), Some(&store)).await;
     assert_eq!(status, "400 Bad Request");
     let v: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["error"]["code"], "bad_request");
@@ -160,8 +157,13 @@ async fn finalize_locks_and_blocks_subsequent_edits() {
         .to_string();
 
     let finalize_path = format!("/api/v1/workers/{worker}/retros/{retro_id}/finalize");
-    let (status, body) =
-        finalize_response(&worker, &retro_id, &post_req(&finalize_path, ""), Some(&store)).await;
+    let (status, body) = finalize_response(
+        &worker,
+        &retro_id,
+        &post_req(&finalize_path, ""),
+        Some(&store),
+    )
+    .await;
     assert_eq!(status, "200 OK", "body: {body}");
     let v: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["finalized"], true);
@@ -178,8 +180,13 @@ async fn finalize_locks_and_blocks_subsequent_edits() {
     .await;
     assert_eq!(status, "409 Conflict", "body: {body}");
     // Re-finalize → 409.
-    let (status, _b) =
-        finalize_response(&worker, &retro_id, &post_req(&finalize_path, ""), Some(&store)).await;
+    let (status, _b) = finalize_response(
+        &worker,
+        &retro_id,
+        &post_req(&finalize_path, ""),
+        Some(&store),
+    )
+    .await;
     assert_eq!(status, "409 Conflict");
 }
 
@@ -215,13 +222,15 @@ async fn list_for_worker_orders_newest_first() {
         .unwrap()
         .to_string();
 
-    let (status, body) =
-        list_for_worker_response(&worker, &get_req(&path), Some(&store)).await;
+    let (status, body) = list_for_worker_response(&worker, &get_req(&path), Some(&store)).await;
     assert_eq!(status, "200 OK");
     let v: Value = serde_json::from_str(&body).unwrap();
     let retros = v["retros"].as_array().unwrap();
     assert_eq!(retros.len(), 2);
-    let ids: Vec<&str> = retros.iter().map(|r| r["retro_id"].as_str().unwrap()).collect();
+    let ids: Vec<&str> = retros
+        .iter()
+        .map(|r| r["retro_id"].as_str().unwrap())
+        .collect();
     assert!(ids.contains(&id1.as_str()));
     assert!(ids.contains(&id2.as_str()));
 }
@@ -291,7 +300,13 @@ async fn finalize_emits_retro_finalized_audit_row() {
         .unwrap()
         .to_string();
     let finalize_path = format!("/api/v1/workers/{worker}/retros/{retro_id}/finalize");
-    finalize_response(&worker, &retro_id, &post_req(&finalize_path, ""), Some(&store)).await;
+    finalize_response(
+        &worker,
+        &retro_id,
+        &post_req(&finalize_path, ""),
+        Some(&store),
+    )
+    .await;
     let rows: Vec<(String,)> = sqlx::query_as(
         "SELECT payload_json FROM audit_record WHERE kind = 'retro.finalized' ORDER BY seq DESC LIMIT 5",
     )

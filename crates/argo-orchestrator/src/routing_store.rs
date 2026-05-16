@@ -51,11 +51,7 @@ impl RoutingRuleStore {
     /// Insert a new rule row. Caller assigns the [`RuleId`] (via
     /// `HandoffRoutingRule::new`); duplicate names per tenant are
     /// rejected by the UNIQUE constraint.
-    pub async fn create(
-        &self,
-        tenant: TenantId,
-        rule: &HandoffRoutingRule,
-    ) -> ArgoResult<()> {
+    pub async fn create(&self, tenant: TenantId, rule: &HandoffRoutingRule) -> ArgoResult<()> {
         let condition = serde_json::to_string(&rule.when)
             .map_err(|e| ArgoError::Provider(format!("serialize rule condition: {e}")))?;
         let target = serde_json::to_string(&rule.target)
@@ -132,14 +128,12 @@ impl RoutingRuleStore {
 
     /// Hard-delete a rule. Caller is responsible for confirming.
     pub async fn delete(&self, tenant: TenantId, id: RuleId) -> ArgoResult<()> {
-        sqlx::query(
-            "DELETE FROM handoff_routing_rule WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(id.to_string())
-        .bind(tenant.to_string())
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("delete routing rule: {e}")))?;
+        sqlx::query("DELETE FROM handoff_routing_rule WHERE id = ? AND tenant_id = ?")
+            .bind(id.to_string())
+            .bind(tenant.to_string())
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("delete routing rule: {e}")))?;
         Ok(())
     }
 

@@ -203,24 +203,18 @@ mod tests {
 
     #[tokio::test]
     async fn dispatch_returns_assets_for_known_paths() {
-        let (status, body) = dispatch(
-            "GET /dashboard/assets/style.css HTTP/1.1\r\n\r\n",
-            None,
-        )
-        .await
-        .expect("css route");
+        let (status, body) = dispatch("GET /dashboard/assets/style.css HTTP/1.1\r\n\r\n", None)
+            .await
+            .expect("css route");
         assert!(status.contains("text/css"));
         assert!(body.contains("--accent"));
     }
 
     #[tokio::test]
     async fn dispatch_workers_tab_renders_without_store() {
-        let (status, body) = dispatch(
-            "GET /dashboard/workers HTTP/1.1\r\n\r\n",
-            None,
-        )
-        .await
-        .expect("workers tab");
+        let (status, body) = dispatch("GET /dashboard/workers HTTP/1.1\r\n\r\n", None)
+            .await
+            .expect("workers tab");
         assert!(status.contains("text/html"));
         assert!(body.contains("<h1>Workers</h1>"));
         assert!(body.contains("session store unavailable"));
@@ -228,11 +222,7 @@ mod tests {
 
     #[tokio::test]
     async fn dispatch_unknown_dashboard_path_returns_none() {
-        let res = dispatch(
-            "GET /dashboard/nope HTTP/1.1\r\n\r\n",
-            None,
-        )
-        .await;
+        let res = dispatch("GET /dashboard/nope HTTP/1.1\r\n\r\n", None).await;
         assert!(res.is_none());
     }
 }

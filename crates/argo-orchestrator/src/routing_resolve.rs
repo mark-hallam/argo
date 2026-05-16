@@ -74,9 +74,7 @@ pub trait TargetResolver: Send + Sync {
 /// assert_eq!(rank_workers(&[]), None);
 /// ```
 #[must_use]
-pub fn rank_workers(
-    candidates: &[(WorkerId, u8, Option<DateTime<Utc>>)],
-) -> Option<WorkerId> {
+pub fn rank_workers(candidates: &[(WorkerId, u8, Option<DateTime<Utc>>)]) -> Option<WorkerId> {
     candidates
         .iter()
         .max_by(|a, b| compare_candidates(a, b))

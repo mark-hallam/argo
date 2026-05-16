@@ -52,9 +52,7 @@ pub(crate) async fn clear(raw_session: &str) -> ArgoResult<()> {
     for s in attached {
         detached += skills.detach_from_session(sid, s.id).await?;
     }
-    println!(
-        "argo session clear-skills: {raw_session} → detached {detached}"
-    );
+    println!("argo session clear-skills: {raw_session} → detached {detached}");
     Ok(())
 }
 
@@ -62,9 +60,7 @@ pub(crate) async fn list(raw_session: &str) -> ArgoResult<()> {
     let (_, sid, skills) = open_handles(raw_session).await?;
     let attached = skills.skills_for_session(sid).await?;
     if attached.is_empty() {
-        println!(
-            "(no skills attached to {raw_session} — agent loop sees every active skill)"
-        );
+        println!("(no skills attached to {raw_session} — agent loop sees every active skill)");
         return Ok(());
     }
     println!("attached skills ({}):", attached.len());
@@ -77,11 +73,8 @@ pub(crate) async fn list(raw_session: &str) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn open_handles(
-    raw_session: &str,
-) -> ArgoResult<(Arc<SessionStore>, SessionId, SkillStore)> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+async fn open_handles(raw_session: &str) -> ArgoResult<(Arc<SessionStore>, SessionId, SkillStore)> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);

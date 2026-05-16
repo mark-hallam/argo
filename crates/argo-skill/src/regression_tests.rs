@@ -176,7 +176,11 @@ async fn baseline_uses_trailing_window_max() {
 #[tokio::test]
 async fn respects_min_history_count() {
     let skill = SkillId::new();
-    let scores = vec![score(skill, 100, 1), score(skill, 100, 2), score(skill, 50, 3)];
+    let scores = vec![
+        score(skill, 100, 1),
+        score(skill, 100, 2),
+        score(skill, 50, 3),
+    ];
     let reader = FakeReader(scores);
 
     // Tighter min_history_count (4) suppresses the decision.

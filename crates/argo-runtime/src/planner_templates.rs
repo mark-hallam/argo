@@ -65,7 +65,12 @@ impl TemplatePlanner {
             PlanTemplate {
                 name: "research-then-summarise".into(),
                 description: "Two-step research + summary template.".into(),
-                keywords: vec!["research".into(), "investigate".into(), "summary".into(), "summarize".into()],
+                keywords: vec![
+                    "research".into(),
+                    "investigate".into(),
+                    "summary".into(),
+                    "summarize".into(),
+                ],
                 yaml: SHIPPED_RESEARCH_YAML.into(),
             },
             PlanTemplate {
@@ -109,17 +114,18 @@ impl Planner for TemplatePlanner {
         goal: &str,
         ctx: &PlannerContext,
     ) -> Result<DecomposeResult, PlannerError> {
-        let template = self.find_match(goal).ok_or_else(|| PlannerError::NoTemplateMatch {
-            goal: goal.to_string(),
-            available: self.template_names(),
-        })?;
-        let workflow =
-            argo_workflow::parse_yaml_str(&template.yaml).map_err(|e| match e {
-                argo_workflow::YamlError::Invalid(v) => {
-                    PlannerError::YamlParse(format!("validate: {v}"))
-                }
-                other => PlannerError::YamlParse(format!("{other}")),
+        let template = self
+            .find_match(goal)
+            .ok_or_else(|| PlannerError::NoTemplateMatch {
+                goal: goal.to_string(),
+                available: self.template_names(),
             })?;
+        let workflow = argo_workflow::parse_yaml_str(&template.yaml).map_err(|e| match e {
+            argo_workflow::YamlError::Invalid(v) => {
+                PlannerError::YamlParse(format!("validate: {v}"))
+            }
+            other => PlannerError::YamlParse(format!("{other}")),
+        })?;
         let workflow = apply_context(workflow, ctx);
         Ok(DecomposeResult {
             workflow,

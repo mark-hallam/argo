@@ -40,9 +40,7 @@ fn make_audit(seq: i64, kind: &str, payload: &str) -> AuditRow {
 fn render_pane(pane: &SessionDetailPane) -> String {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
-    terminal
-        .draw(|f| pane.render(f, f.area()))
-        .unwrap();
+    terminal.draw(|f| pane.render(f, f.area())).unwrap();
     let buffer = terminal.backend().buffer().clone();
     let mut out = String::new();
     for y in 0..24 {
@@ -69,7 +67,10 @@ fn renders_messages_tab_with_five_messages() {
     assert!(frame.contains("Messages"), "tab bar missing:\n{frame}");
     assert!(frame.contains("Messages (5)"), "title missing:\n{frame}");
     assert!(frame.contains("hello world"), "row 1 missing:\n{frame}");
-    assert!(frame.contains("argo is an agent"), "row 4 missing:\n{frame}");
+    assert!(
+        frame.contains("argo is an agent"),
+        "row 4 missing:\n{frame}"
+    );
 }
 
 #[test]
@@ -168,8 +169,14 @@ fn tab_and_shift_tab_cycle_correctly() {
 #[test]
 fn q_returns_detail_outcome_close() {
     let mut pane = SessionDetailPane::new(SessionId::new());
-    assert_eq!(pane.handle_key(key(KeyCode::Char('q'))), DetailOutcome::Close);
+    assert_eq!(
+        pane.handle_key(key(KeyCode::Char('q'))),
+        DetailOutcome::Close
+    );
     assert_eq!(pane.handle_key(key(KeyCode::Esc)), DetailOutcome::Close);
     // Other keys keep the pane open.
-    assert_eq!(pane.handle_key(key(KeyCode::Char('j'))), DetailOutcome::Stay);
+    assert_eq!(
+        pane.handle_key(key(KeyCode::Char('j'))),
+        DetailOutcome::Stay
+    );
 }

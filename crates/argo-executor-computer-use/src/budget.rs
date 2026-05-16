@@ -97,9 +97,7 @@ impl BudgetTracker {
     /// returns the verdict.
     pub fn charge_step(&mut self, tokens_used_this_step: u32) -> BudgetVerdict {
         self.used_steps = self.used_steps.saturating_add(1);
-        self.used_tokens = self
-            .used_tokens
-            .saturating_add(tokens_used_this_step);
+        self.used_tokens = self.used_tokens.saturating_add(tokens_used_this_step);
         if self.used_steps > self.max_steps {
             return BudgetVerdict::Exhausted {
                 reason: format!(

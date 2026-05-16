@@ -78,10 +78,7 @@ fn session_judge_returns_empty_array_for_clean_session() {
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
     // Valid uuid with no rows → empty array.
-    let resp = http_get(
-        port,
-        "/sessions/00000000-0000-0000-0000-000000000000/judge",
-    );
+    let resp = http_get(port, "/sessions/00000000-0000-0000-0000-000000000000/judge");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
     assert_eq!(body_of(&resp), "[]");
 

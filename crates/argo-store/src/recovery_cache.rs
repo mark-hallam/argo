@@ -100,12 +100,14 @@ pub async fn list(
     .map_err(|e| ArgoError::Provider(format!("list recovery_cache: {e}")))?;
     Ok(rows
         .into_iter()
-        .map(|(session_id, chain_hash, failure_kind, cached_at_micros)| RecoveryCacheEntry {
-            session_id,
-            chain_hash,
-            failure_kind,
-            cached_at_micros,
-        })
+        .map(
+            |(session_id, chain_hash, failure_kind, cached_at_micros)| RecoveryCacheEntry {
+                session_id,
+                chain_hash,
+                failure_kind,
+                cached_at_micros,
+            },
+        )
         .collect())
 }
 
@@ -124,10 +126,7 @@ pub async fn list(
 /// }
 /// # Ok(()) }
 /// ```
-pub async fn show(
-    pool: &Pool<Sqlite>,
-    session_id: &str,
-) -> ArgoResult<Option<(String, String)>> {
+pub async fn show(pool: &Pool<Sqlite>, session_id: &str) -> ArgoResult<Option<(String, String)>> {
     let row: Option<(String, String)> = sqlx::query_as(
         "SELECT suggestions_json, chain_hash FROM recovery_cache \
          WHERE session_id = ? \
@@ -259,7 +258,9 @@ mod tests {
         let now = Utc::now().timestamp_micros();
         seed(&store, "old", "h-old", now - 10_000_000).await;
         seed(&store, "new", "h-new", now - 1_000_000).await;
-        let entries = list(store.pool(), Some(now - 5_000_000), None).await.unwrap();
+        let entries = list(store.pool(), Some(now - 5_000_000), None)
+            .await
+            .unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].session_id, "new");
     }

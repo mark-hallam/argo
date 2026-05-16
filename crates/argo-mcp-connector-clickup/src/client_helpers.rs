@@ -182,7 +182,12 @@ pub(crate) fn push_str(args: &Value, query: &mut Vec<(String, String)>, field: &
     }
 }
 
-pub(crate) fn push_array(args: &Value, query: &mut Vec<(String, String)>, source: &str, target: &str) {
+pub(crate) fn push_array(
+    args: &Value,
+    query: &mut Vec<(String, String)>,
+    source: &str,
+    target: &str,
+) {
     if let Some(values) = args.get(source).and_then(Value::as_array) {
         for value in values {
             if let Some(value) = value.as_str() {

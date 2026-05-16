@@ -98,10 +98,7 @@ impl SessionStore {
     /// Consumed one-shot grants stay in the table for audit
     /// trail purposes — to see them, use
     /// [`Self::list_session_grants_with_consumed`].
-    pub async fn list_session_grants(
-        &self,
-        sid: SessionId,
-    ) -> StoreResult<Vec<SessionGrant>> {
+    pub async fn list_session_grants(&self, sid: SessionId) -> StoreResult<Vec<SessionGrant>> {
         list_session_grants_inner(self.pool(), sid, false).await
     }
 
@@ -150,14 +147,12 @@ impl SessionStore {
             return Ok(None);
         };
         let now = chrono::Utc::now().timestamp();
-        sqlx::query(
-            "UPDATE session_grant SET consumed_at = ? WHERE id = ?",
-        )
-        .bind(now)
-        .bind(&id_bytes)
-        .execute(self.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("consume_one_shot_grant update: {e}")))?;
+        sqlx::query("UPDATE session_grant SET consumed_at = ? WHERE id = ?")
+            .bind(now)
+            .bind(&id_bytes)
+            .execute(self.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("consume_one_shot_grant update: {e}")))?;
         let id = Uuid::from_slice(&id_bytes)
             .map_err(|e| ArgoError::Provider(format!("parse consumed grant id: {e}")))?;
         Ok(Some(id))
@@ -171,14 +166,12 @@ impl SessionStore {
         sid: SessionId,
         tool_name: &str,
     ) -> StoreResult<u64> {
-        let res = sqlx::query(
-            "DELETE FROM session_grant WHERE session_id = ? AND tool_name = ?",
-        )
-        .bind(sid.0.as_bytes().as_slice())
-        .bind(tool_name)
-        .execute(self.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("revoke_session_grants_for_tool: {e}")))?;
+        let res = sqlx::query("DELETE FROM session_grant WHERE session_id = ? AND tool_name = ?")
+            .bind(sid.0.as_bytes().as_slice())
+            .bind(tool_name)
+            .execute(self.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("revoke_session_grants_for_tool: {e}")))?;
         Ok(res.rows_affected())
     }
 }

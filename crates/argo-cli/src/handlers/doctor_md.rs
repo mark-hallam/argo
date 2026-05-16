@@ -75,7 +75,10 @@ fn print_db_section(payload: &serde_json::Value) {
         println!("- _(no sessions.db yet — run `argo workspace init`)_");
         return;
     }
-    let version = db.get("schema_version").and_then(|n| n.as_u64()).unwrap_or(0);
+    let version = db
+        .get("schema_version")
+        .and_then(|n| n.as_u64())
+        .unwrap_or(0);
     let ws = db
         .get("workspace_registered")
         .and_then(|b| b.as_bool())
@@ -109,10 +112,7 @@ fn print_audit_section(payload: &serde_json::Value) {
     let ok = audit["ok"].as_bool().unwrap_or(false);
     let rows = audit["rows"].as_u64().unwrap_or(0);
     let breaks = audit["breaks"].as_u64().unwrap_or(0);
-    println!(
-        "- **status**: {}",
-        if ok { "OK ✓" } else { "**BROKEN**" }
-    );
+    println!("- **status**: {}", if ok { "OK ✓" } else { "**BROKEN**" });
     println!("- **rows**: {rows}");
     println!("- **breaks**: {breaks}");
 }

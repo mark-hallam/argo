@@ -50,7 +50,11 @@ pub fn run(cmd: SkillVerifySigCmd) -> ArgoResult<()> {
     } else {
         match &outcome {
             SkillVerifyOutcome::Ok => {
-                println!("OK    {}:{tag} verified against {}", name, key_path.display());
+                println!(
+                    "OK    {}:{tag} verified against {}",
+                    name,
+                    key_path.display()
+                );
             }
             SkillVerifyOutcome::Fail(reason) => {
                 println!("FAIL  {}:{tag} — {reason}", name);
@@ -81,8 +85,8 @@ fn read_published_skill_md(registry: &str, name: &str, tag: &str) -> ArgoResult<
     if !bundle.exists() {
         return Ok(None);
     }
-    let bytes = fs::read(&bundle)
-        .map_err(|e| ArgoError::Io(format!("read {}: {e}", bundle.display())))?;
+    let bytes =
+        fs::read(&bundle).map_err(|e| ArgoError::Io(format!("read {}: {e}", bundle.display())))?;
     Ok(extract_skill_md(&bytes))
 }
 

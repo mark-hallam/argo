@@ -293,7 +293,9 @@ impl argo_runtime::SubtaskSink for SqliteSubtaskSink {
                 if msg.contains("unique") {
                     Ok(())
                 } else {
-                    Err(argo_runtime::PlannerError::Llm(format!("subtask sink: {e}")))
+                    Err(argo_runtime::PlannerError::Llm(format!(
+                        "subtask sink: {e}"
+                    )))
                 }
             }
         }

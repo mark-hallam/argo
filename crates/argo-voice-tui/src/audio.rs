@@ -32,9 +32,7 @@ pub fn enumerate_input_devices() -> Vec<String> {
     let Ok(devices) = host.input_devices() else {
         return Vec::new();
     };
-    devices
-        .filter_map(|d| d.name().ok())
-        .collect()
+    devices.filter_map(|d| d.name().ok()).collect()
 }
 
 /// Capture `record_seconds` of audio from the default input device,
@@ -102,10 +100,7 @@ pub fn record_one_phrase(record_seconds: f32) -> Result<Vec<f32>, String> {
                         Ok(b) => b,
                         Err(_) => return,
                     };
-                    buf.extend(
-                        data.iter()
-                            .map(|s| (f32::from(*s) - 32768.0) / 32768.0),
-                    );
+                    buf.extend(data.iter().map(|s| (f32::from(*s) - 32768.0) / 32768.0));
                 },
                 err_fn,
                 None,

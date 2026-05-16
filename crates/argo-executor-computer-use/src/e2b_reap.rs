@@ -126,11 +126,10 @@ impl E2bClient {
                     body,
                 });
             }
-            let parsed: ListSandboxesResponse =
-                resp.json().await.map_err(|e| CuError::Http {
-                    stage: "e2b/sandbox.list.parse",
-                    source: e,
-                })?;
+            let parsed: ListSandboxesResponse = resp.json().await.map_err(|e| CuError::Http {
+                stage: "e2b/sandbox.list.parse",
+                source: e,
+            })?;
             out.extend(parsed.sandboxes);
             match parsed.next_cursor {
                 Some(c) if !c.is_empty() => cursor = Some(c),

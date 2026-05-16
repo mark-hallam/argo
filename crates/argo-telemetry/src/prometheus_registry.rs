@@ -44,9 +44,8 @@ use std::sync::{Arc, OnceLock};
 /// Histogram buckets for `gateway_request_duration_seconds`. 10
 /// boundary values → 11 buckets per the prometheus convention
 /// (`+Inf` is implicit). Matches the brief's exponential ladder.
-pub const GATEWAY_REQUEST_DURATION_BUCKETS: &[f64] = &[
-    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
-];
+pub const GATEWAY_REQUEST_DURATION_BUCKETS: &[f64] =
+    &[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0];
 
 static REGISTRY: OnceLock<Arc<Registry>> = OnceLock::new();
 
@@ -175,9 +174,7 @@ pub fn register_gauge_f64(name: &str, help: &str, label_names: &[&str]) -> prome
     let gauge = prometheus::GaugeVec::new(opts, label_names)
         .unwrap_or_else(|e| panic!("float gauge {name} construction failed: {e}"));
     register_or_existing(&default_registry(), &gauge, name);
-    cache
-        .float_gauges
-        .insert(name.to_string(), gauge.clone());
+    cache.float_gauges.insert(name.to_string(), gauge.clone());
     gauge
 }
 
@@ -194,9 +191,8 @@ pub fn encode_text() -> String {
     let mut buf = Vec::with_capacity(4096);
     let encoder = prometheus::TextEncoder::new();
     match encoder.encode(&metric_families, &mut buf) {
-        Ok(()) => String::from_utf8(buf).unwrap_or_else(|e| {
-            format!("# error: prometheus text not utf-8: {e}\n")
-        }),
+        Ok(()) => String::from_utf8(buf)
+            .unwrap_or_else(|e| format!("# error: prometheus text not utf-8: {e}\n")),
         Err(e) => format!("# error: prometheus encode failed: {e}\n"),
     }
 }

@@ -44,9 +44,15 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await.expect("ensure workspace");
+    let (tenant, _) = store
+        .ensure_workspace(name, &root)
+        .await
+        .expect("ensure workspace");
     tenant
 }
 
@@ -62,7 +68,12 @@ fn req_for(id: &str, role: Option<&str>, principal: Option<&str>) -> String {
     req
 }
 
-async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, name: &str, builder: &str) -> Worker {
+async fn add_worker(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    name: &str,
+    builder: &str,
+) -> Worker {
     let worker = Worker::draft(
         tenant,
         "support",
@@ -210,7 +221,11 @@ async fn operator_role_grants_all_permissions() {
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:other").await;
-    let req = req_for(&worker.id.to_string(), Some("operator"), Some("human:elise"));
+    let req = req_for(
+        &worker.id.to_string(),
+        Some("operator"),
+        Some("human:elise"),
+    );
     let v = parse_ok(&req, &store).await;
     let p = &v["permissions"];
     for k in [
@@ -234,7 +249,11 @@ async fn auditor_role_grants_only_view_audit() {
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:mark").await;
-    let req = req_for(&worker.id.to_string(), Some("auditor"), Some("human:auditbot"));
+    let req = req_for(
+        &worker.id.to_string(),
+        Some("auditor"),
+        Some("human:auditbot"),
+    );
     let v = parse_ok(&req, &store).await;
     let p = &v["permissions"];
     assert_eq!(p["can_view_audit"], Value::Bool(true));
@@ -258,7 +277,11 @@ async fn delegator_hire_author_can_edit_but_not_delete() {
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:mark").await;
-    let req = req_for(&worker.id.to_string(), Some("delegator"), Some("human:mark"));
+    let req = req_for(
+        &worker.id.to_string(),
+        Some("delegator"),
+        Some("human:mark"),
+    );
     let v = parse_ok(&req, &store).await;
     let p = &v["permissions"];
     assert_eq!(p["can_edit_charter"], Value::Bool(true));
@@ -276,7 +299,11 @@ async fn delegator_non_hire_author_cannot_edit() {
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:author").await;
-    let req = req_for(&worker.id.to_string(), Some("delegator"), Some("human:bystander"));
+    let req = req_for(
+        &worker.id.to_string(),
+        Some("delegator"),
+        Some("human:bystander"),
+    );
     let v = parse_ok(&req, &store).await;
     let p = &v["permissions"];
     assert_eq!(p["can_edit_charter"], Value::Bool(false));
@@ -293,7 +320,11 @@ async fn audit_row_written_per_view() {
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:mark").await;
-    let req = req_for(&worker.id.to_string(), Some("operator"), Some("human:elise"));
+    let req = req_for(
+        &worker.id.to_string(),
+        Some("operator"),
+        Some("human:elise"),
+    );
     let _ = parse_ok(&req, &store).await;
     let payload: String = sqlx::query_scalar(
         "SELECT payload_json FROM audit_record \

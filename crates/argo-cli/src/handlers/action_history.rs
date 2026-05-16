@@ -156,7 +156,12 @@ fn view_for_action(
     let spend_usd_micros = spend
         .get(&action.action_id)
         .copied()
-        .or_else(|| action.payload.get("spend_usd_micros").and_then(|v| v.as_u64()))
+        .or_else(|| {
+            action
+                .payload
+                .get("spend_usd_micros")
+                .and_then(|v| v.as_u64())
+        })
         .unwrap_or(0);
     let decision = action
         .payload
@@ -207,7 +212,9 @@ fn skill_for_action(action: &ActionRecord) -> Option<String> {
 
 fn passes_since(row: &ActionView, cutoff: Option<DateTime<Utc>>) -> bool {
     cutoff
-        .and_then(|cutoff| parse_rfc3339_micros(&row.created_at).map(|ts| ts >= cutoff.timestamp_micros()))
+        .and_then(|cutoff| {
+            parse_rfc3339_micros(&row.created_at).map(|ts| ts >= cutoff.timestamp_micros())
+        })
         .unwrap_or(true)
 }
 
@@ -319,13 +326,12 @@ async fn tenant_by_worker(store: &SessionStore) -> ArgoResult<HashMap<String, St
 }
 
 async fn table_exists(store: &SessionStore, table: &str) -> ArgoResult<bool> {
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?",
-    )
-    .bind(table)
-    .fetch_one(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("table lookup {table}: {e}")))?;
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?")
+            .bind(table)
+            .fetch_one(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("table lookup {table}: {e}")))?;
     Ok(count > 0)
 }
 
@@ -375,7 +381,10 @@ mod tests {
     #[test]
     fn since_filter_drops_rows_before_cutoff() {
         let now = Utc.with_ymd_and_hms(2026, 5, 7, 12, 0, 0).unwrap();
-        let rows = vec![row("fresh", "w-1", "tenant-a", 10), row("old", "w-1", "tenant-a", 70)];
+        let rows = vec![
+            row("fresh", "w-1", "tenant-a", 10),
+            row("old", "w-1", "tenant-a", 70),
+        ];
 
         let out = filter_history(rows, "w-1", Some(Duration::hours(1)), 10, now);
 

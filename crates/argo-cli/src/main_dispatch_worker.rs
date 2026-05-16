@@ -27,14 +27,8 @@ pub(crate) async fn contract(cmd: cli::cli_contract_cmds::ContractCmd) -> ArgoRe
             dry_run,
             json,
         } => {
-            handlers::contract::apply(
-                &file,
-                tenant.as_deref(),
-                worker.as_deref(),
-                dry_run,
-                json,
-            )
-            .await
+            handlers::contract::apply(&file, tenant.as_deref(), worker.as_deref(), dry_run, json)
+                .await
         }
         cli::cli_contract_cmds::ContractCmd::Validate { file, json } => {
             handlers::contract::validate(&file, json).await
@@ -97,15 +91,11 @@ pub(crate) async fn handoff_auctions(
     }
 }
 
-pub(crate) async fn handoff_policy(
-    cmd: cli::cli_handoff_cmds::HandoffPolicyCmd,
-) -> ArgoResult<()> {
+pub(crate) async fn handoff_policy(cmd: cli::cli_handoff_cmds::HandoffPolicyCmd) -> ArgoResult<()> {
     handlers::handoff_policy::run(cmd).await
 }
 
-pub(crate) async fn handoff_stats(
-    args: cli::cli_handoff_cmds::HandoffStatsArgs,
-) -> ArgoResult<()> {
+pub(crate) async fn handoff_stats(args: cli::cli_handoff_cmds::HandoffStatsArgs) -> ArgoResult<()> {
     handlers::handoff_stats::run(args).await
 }
 

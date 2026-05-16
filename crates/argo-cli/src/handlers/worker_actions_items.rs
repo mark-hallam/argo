@@ -136,11 +136,7 @@ fn trunc(s: &str, n: usize) -> String {
 /// latest-per-action-id — the operator wants the complete
 /// transition timeline (who approved when, executed when,
 /// completed/failed when).
-pub(crate) async fn show(
-    item_id: &str,
-    vertical: Option<&str>,
-    json_out: bool,
-) -> ArgoResult<()> {
+pub(crate) async fn show(item_id: &str, vertical: Option<&str>, json_out: bool) -> ArgoResult<()> {
     let rows = collect_all_rows_for_item(item_id, vertical).await?;
     if rows.is_empty() {
         if json_out {
@@ -173,8 +169,7 @@ async fn collect_all_rows_for_item(
     item_id: &str,
     vertical: Option<&str>,
 ) -> ArgoResult<Vec<(String, ActionRecord)>> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -234,7 +229,10 @@ fn print_show_timeline(item_id: &str, rows: &[(String, ActionRecord)]) {
         rows.len(),
         unique_actions.len()
     );
-    println!("{:<27} {:<20} {:<10} {:<14} action_id", "created_at", "action_type", "state", "platform");
+    println!(
+        "{:<27} {:<20} {:<10} {:<14} action_id",
+        "created_at", "action_type", "state", "platform"
+    );
     for (_v, r) in rows {
         let platform = r.platform.as_deref().unwrap_or("-");
         println!(
@@ -254,8 +252,7 @@ fn print_show_timeline(item_id: &str, rows: &[(String, ActionRecord)]) {
 /// (vertical, ActionRecord) tuples plus the pure aggregation
 /// step is enough to lock the rollup contract.
 pub(crate) async fn aggregate(vertical: Option<&str>) -> ArgoResult<Vec<ItemSummary>> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

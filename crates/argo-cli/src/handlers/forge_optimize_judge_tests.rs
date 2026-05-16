@@ -70,12 +70,7 @@ fn classify_verdict_lenient_floor_accepts_partial() {
     // Lenient floor (< 0.5) maps Partial → Allow. Failure still
     // rejects regardless of floor.
     assert_eq!(
-        classify_verdict(
-            &JudgeVerdict::Partial {
-                reason: "x".into()
-            },
-            0.4
-        ),
+        classify_verdict(&JudgeVerdict::Partial { reason: "x".into() }, 0.4),
         JudgeOutcome::Allow,
     );
     assert!(matches!(
@@ -118,17 +113,11 @@ fn promote_decision_run_status_labels() {
         Some("below_threshold"),
     );
     assert_eq!(
-        PromoteDecision::JudgeBlocked {
-            reason: "x".into()
-        }
-        .run_status(),
+        PromoteDecision::JudgeBlocked { reason: "x".into() }.run_status(),
         Some("judge_blocked"),
     );
     assert_eq!(
-        PromoteDecision::JudgeUnavailable {
-            reason: "x".into()
-        }
-        .run_status(),
+        PromoteDecision::JudgeUnavailable { reason: "x".into() }.run_status(),
         Some("judge_unavailable"),
     );
 }
@@ -223,16 +212,8 @@ async fn evaluate_promote_gates_no_judge_legacy_back_compat() {
     // judge = None is the legacy path used by every existing
     // caller until they thread a judge through. Threshold gate
     // still applies; judge gate is no-op.
-    let decision = evaluate_promote_gates(
-        0.95,
-        0.85,
-        None,
-        SessionId::new(),
-        "alpha",
-        "0.1",
-        "body",
-    )
-    .await;
+    let decision =
+        evaluate_promote_gates(0.95, 0.85, None, SessionId::new(), "alpha", "0.1", "body").await;
     assert_eq!(decision, PromoteDecision::Allow);
 }
 

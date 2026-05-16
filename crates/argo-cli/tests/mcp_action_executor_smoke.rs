@@ -67,8 +67,7 @@ executor = {{ kind = "mcp", server = "echo", tool = "echo" }}
         python = python_path,
         script = script_path.display(),
     );
-    std::fs::write(dir.join("vertical.toml"), manifest)
-        .expect("write vertical.toml");
+    std::fs::write(dir.join("vertical.toml"), manifest).expect("write vertical.toml");
 }
 
 #[test]

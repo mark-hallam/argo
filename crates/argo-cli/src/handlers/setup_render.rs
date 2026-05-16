@@ -56,7 +56,10 @@ fn print_table(steps: &[SetupStep]) {
 
 fn print_genesis_suggestion_table() {
     println!("      archetype                 command");
-    for archetype in argo_genesis::archetype::list_archetypes().into_iter().take(3) {
+    for archetype in argo_genesis::archetype::list_archetypes()
+        .into_iter()
+        .take(3)
+    {
         println!(
             "      {:<25} argo genesis suggest --charter \"{}\"",
             archetype.name, archetype.description

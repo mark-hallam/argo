@@ -128,7 +128,14 @@ async fn org_chart_fallback_emits_to_direct_manager() {
     // Single-step chain → chain.advance(0) returns None → fallback fires.
     let chain = vec![format!("worker:{worker_a}")];
     let now = Utc::now();
-    let h = make_handoff(&session, worker_a, chain, 0, None, now - Duration::seconds(60));
+    let h = make_handoff(
+        &session,
+        worker_a,
+        chain,
+        0,
+        None,
+        now - Duration::seconds(60),
+    );
     repo.insert_handoff(tenant, &h).await.unwrap();
 
     let walker = HandoffWalker::new(Arc::clone(&repo), pool.clone(), Arc::new(NoopNotifier));
@@ -180,7 +187,14 @@ async fn org_chart_fallback_walks_to_grand_manager() {
     // org-chart pointer already past the direct manager.
     let chain = vec![format!("worker:{worker_a}")];
     let now = Utc::now();
-    let h = make_handoff(&session, worker_a, chain, 1, Some(1), now - Duration::seconds(60));
+    let h = make_handoff(
+        &session,
+        worker_a,
+        chain,
+        1,
+        Some(1),
+        now - Duration::seconds(60),
+    );
     repo.insert_handoff(tenant, &h).await.unwrap();
 
     let walker = HandoffWalker::new(Arc::clone(&repo), pool.clone(), Arc::new(NoopNotifier));
@@ -214,7 +228,14 @@ async fn org_chart_topmost_manager_writes_exhausted() {
     // exists at slot 0; asking for slot 1 falls off the chain).
     let chain = vec![format!("worker:{worker_a}")];
     let now = Utc::now();
-    let h = make_handoff(&session, worker_a, chain, 2, Some(1), now - Duration::seconds(60));
+    let h = make_handoff(
+        &session,
+        worker_a,
+        chain,
+        2,
+        Some(1),
+        now - Duration::seconds(60),
+    );
     repo.insert_handoff(tenant, &h).await.unwrap();
 
     let walker = HandoffWalker::new(Arc::clone(&repo), pool.clone(), Arc::new(NoopNotifier));
@@ -222,7 +243,11 @@ async fn org_chart_topmost_manager_writes_exhausted() {
     assert_eq!(report.chain_exhausted, 1);
     assert_eq!(report.re_handed_off, 0);
 
-    let s = repo.find_session(tenant, &session.id).await.unwrap().unwrap();
+    let s = repo
+        .find_session(tenant, &session.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(s.status, crate::SessionStatus::Expired);
     assert_eq!(exhausted_audit_count(&pool, &session).await, 1);
 }

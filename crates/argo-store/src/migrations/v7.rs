@@ -26,9 +26,7 @@
 use argo_types::ArgoError;
 use sqlx::Sqlite;
 
-pub(super) async fn up<'a, 'b>(
-    tx: &'a mut sqlx::Transaction<'b, Sqlite>,
-) -> Result<(), ArgoError> {
+pub(super) async fn up<'a, 'b>(tx: &'a mut sqlx::Transaction<'b, Sqlite>) -> Result<(), ArgoError> {
     for sql in V7_UP {
         sqlx::query(sql)
             .execute(&mut **tx)

@@ -87,9 +87,7 @@ pub(crate) struct LatencyRow {
 /// Compute per-kind percentile rows from a kind→buckets map.
 /// Sorted alphabetically by kind so the readout is deterministic
 /// across runs.
-pub(crate) fn compute_rows(
-    snapshot: &HashMap<String, [u64; N_BUCKETS]>,
-) -> Vec<LatencyRow> {
+pub(crate) fn compute_rows(snapshot: &HashMap<String, [u64; N_BUCKETS]>) -> Vec<LatencyRow> {
     let mut rows: Vec<LatencyRow> = snapshot
         .iter()
         .map(|(kind, buckets)| LatencyRow {
@@ -161,8 +159,7 @@ fn print_json(rows: &[LatencyRow]) {
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

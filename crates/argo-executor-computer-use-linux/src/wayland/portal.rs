@@ -118,9 +118,7 @@ pub fn click_via_portal(_x: i32, _y: i32, _compositor: &str) -> LinuxCuResult<()
 
 #[cfg(target_os = "linux")]
 mod linux_impl {
-    use super::{
-        PORTAL_BUS_NAME, PORTAL_OBJECT_PATH, SCREENSHOT_INTERFACE,
-    };
+    use super::{PORTAL_BUS_NAME, PORTAL_OBJECT_PATH, SCREENSHOT_INTERFACE};
     use crate::wayland::portal::uri_to_path;
     use crate::{LinuxCuError, LinuxCuResult};
     use std::collections::HashMap;
@@ -147,7 +145,8 @@ mod linux_impl {
         ) else {
             return false;
         };
-        dbus.call::<_, _, bool>("NameHasOwner", &(bus_name)).unwrap_or(false)
+        dbus.call::<_, _, bool>("NameHasOwner", &(bus_name))
+            .unwrap_or(false)
     }
 
     /// Capture a screenshot via portal Screenshot and copy the bytes
@@ -184,10 +183,7 @@ mod linux_impl {
     /// Wait for a portal `Response` signal carrying a `uri` key.
     /// Best-effort: subscribes to the Request interface signals and
     /// returns the first Response with a successful code (0).
-    fn await_screenshot_response(
-        conn: &Connection,
-        timeout: Duration,
-    ) -> LinuxCuResult<String> {
+    fn await_screenshot_response(conn: &Connection, timeout: Duration) -> LinuxCuResult<String> {
         let proxy = Proxy::new(
             conn,
             PORTAL_BUS_NAME,
@@ -203,18 +199,18 @@ mod linux_impl {
             if start.elapsed() > timeout {
                 break;
             }
-            if let Ok((code, results)) =
-                msg.body().deserialize::<(u32, HashMap<String, Value>)>()
-            {
+            if let Ok((code, results)) = msg.body().deserialize::<(u32, HashMap<String, Value>)>() {
                 if code != 0 {
                     return Err(LinuxCuError::Protocol(format!(
                         "portal Screenshot response code {code} (1=cancelled, 2=error)"
                     )));
                 }
                 if let Some(uri_val) = results.get("uri") {
-                    if let Ok(uri) = String::try_from(uri_val.try_clone().map_err(|e| {
-                        LinuxCuError::Protocol(format!("uri clone: {e}"))
-                    })?) {
+                    if let Ok(uri) = String::try_from(
+                        uri_val
+                            .try_clone()
+                            .map_err(|e| LinuxCuError::Protocol(format!("uri clone: {e}")))?,
+                    ) {
                         return Ok(uri);
                     }
                 }

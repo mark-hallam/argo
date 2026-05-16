@@ -94,10 +94,7 @@ mod tests {
         record("other-handler-pf", "model-i", 200, 0, 0);
         let s = snapshot();
         let provider = "test-handler-pf";
-        let filtered: Vec<_> = s
-            .into_iter()
-            .filter(|r| r.provider == provider)
-            .collect();
+        let filtered: Vec<_> = s.into_iter().filter(|r| r.provider == provider).collect();
         assert!(!filtered.is_empty());
         assert!(filtered.iter().all(|r| r.provider == provider));
     }

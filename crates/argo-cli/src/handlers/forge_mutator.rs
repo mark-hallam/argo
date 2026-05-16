@@ -90,7 +90,9 @@ pub(super) async fn mutate_via_llm(
 /// fence-free inputs.
 pub(super) fn strip_code_fence(s: &str) -> String {
     let t = s.trim();
-    let stripped = t.strip_prefix("```markdown").or_else(|| t.strip_prefix("```"));
+    let stripped = t
+        .strip_prefix("```markdown")
+        .or_else(|| t.strip_prefix("```"));
     if let Some(after_open) = stripped {
         let body = after_open.trim_start_matches('\n');
         if let Some(idx) = body.rfind("```") {

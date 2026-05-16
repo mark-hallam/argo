@@ -85,10 +85,7 @@ async fn list_for_worker_orders_newest_first() {
         .await
         .expect("other");
 
-    let rows = s
-        .list_for_worker(&worker_blob(1), 10)
-        .await
-        .expect("list");
+    let rows = s.list_for_worker(&worker_blob(1), 10).await.expect("list");
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].id, newer, "newest first");
     assert_eq!(rows[1].id, older);
@@ -113,7 +110,10 @@ async fn update_sections_persists_then_blocks_on_finalize() {
     s.update_sections(id, &draft).await.expect("update draft");
 
     let row = s.get(id).await.expect("get after update");
-    assert_eq!(row.sections_json["what_went_well"], "Cold-start latency stayed under target.");
+    assert_eq!(
+        row.sections_json["what_went_well"],
+        "Cold-start latency stayed under target."
+    );
 
     s.finalize(id, 1_700_000_500).await.expect("finalize");
     let locked = s.get(id).await.expect("get finalized");
@@ -155,7 +155,9 @@ async fn list_all_theme_search_matches_sections() {
         "what_to_change": "",
         "action_items": "",
     });
-    s.update_sections(m, &draft_match).await.expect("update match");
+    s.update_sections(m, &draft_match)
+        .await
+        .expect("update match");
     s.update_sections(_other, &draft_other)
         .await
         .expect("update other");

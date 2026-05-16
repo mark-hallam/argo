@@ -12,16 +12,14 @@
 
 use crate::imessage::{IMessageChannel, IMessageChannelConfig};
 use crate::push::{PushApprovalChannel, PushApprovalChannelConfig};
-use crate::slack::{
-    SlackApprovalChannel, SlackApprovalChannelConfig, SlackOperatorRoute,
-};
+use crate::slack::{SlackApprovalChannel, SlackApprovalChannelConfig, SlackOperatorRoute};
 use crate::sms::{SmsApprovalChannel, SmsApprovalChannelConfig};
 use crate::voice::{VoiceApprovalChannel, VoiceApprovalChannelConfig};
 use crate::webinbox::{WebInboxChannel, WebInboxChannelConfig};
 use crate::whatsapp::{WhatsAppApprovalChannel, WhatsAppApprovalChannelConfig};
 use crate::{
-    ChannelId, DeliveryStatus, Notification, NotifyChannel, OperatorTarget, QuietHours, RateLimitConfig,
-    RiskLevel,
+    ChannelId, DeliveryStatus, Notification, NotifyChannel, OperatorTarget, QuietHours,
+    RateLimitConfig, RiskLevel,
 };
 use chrono::{Duration, TimeZone, Utc};
 use std::collections::BTreeMap;
@@ -54,10 +52,7 @@ fn notification(operator_id: &str, risk: RiskLevel) -> Notification {
     }
 }
 
-fn assert_quiet_hours_deferred(
-    receipt: &crate::DeliveryReceipt,
-    expected_channel: &str,
-) {
+fn assert_quiet_hours_deferred(receipt: &crate::DeliveryReceipt, expected_channel: &str) {
     assert_eq!(
         receipt.status,
         DeliveryStatus::Deferred,

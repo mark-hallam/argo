@@ -88,7 +88,10 @@ impl EscalationChain {
     #[must_use]
     pub fn from_strs(items: &[&str]) -> Self {
         Self {
-            steps: items.iter().filter_map(|s| EscalationStep::parse(s)).collect(),
+            steps: items
+                .iter()
+                .filter_map(|s| EscalationStep::parse(s))
+                .collect(),
         }
     }
 
@@ -164,11 +167,7 @@ mod tests {
 
     #[test]
     fn from_strs_drops_invalid() {
-        let c = EscalationChain::from_strs(&[
-            "worker:a",
-            "garbage",
-            "human:b",
-        ]);
+        let c = EscalationChain::from_strs(&["worker:a", "garbage", "human:b"]);
         assert_eq!(c.len(), 2);
     }
 

@@ -7,8 +7,8 @@ use super::{
     success_from_kinds, Format, Period,
 };
 use crate::handlers::worker_review_md::{format_rate, render_markdown};
-use argo_store::SessionStore;
 use argo_store::worker_kpi;
+use argo_store::SessionStore;
 use chrono::{TimeZone, Utc};
 use uuid::Uuid;
 
@@ -206,9 +206,7 @@ fn render_markdown_includes_all_six_sections() {
 
 #[test]
 fn render_markdown_uses_placeholders_when_sections_empty() {
-    use super::{
-        ReviewReport, SuccessSection, SummarySection,
-    };
+    use super::{ReviewReport, SuccessSection, SummarySection};
     let report = ReviewReport {
         worker_id: "ZERO".into(),
         worker_name: None,
@@ -248,9 +246,15 @@ async fn build_report_on_empty_db_returns_zero_counts() {
     let now = Utc::now();
     let period_start = Period::Quarterly.start_for(now);
     let worker_id = Uuid::now_v7().to_string();
-    let report = build_report(store.pool(), &worker_id, Period::Quarterly, period_start, now)
-        .await
-        .expect("build_report runs against an empty migrated db");
+    let report = build_report(
+        store.pool(),
+        &worker_id,
+        Period::Quarterly,
+        period_start,
+        now,
+    )
+    .await
+    .expect("build_report runs against an empty migrated db");
     assert_eq!(report.summary.session_count, 0);
     assert!(report.kpis.is_empty());
     assert_eq!(report.success.total, 0);
@@ -280,15 +284,9 @@ async fn build_report_picks_up_kpi_observations_with_baseline() {
     worker_kpi::record_value(store.pool(), &worker_id, "tnt", "csat", 4.8, None)
         .await
         .unwrap();
-    let report = build_report(
-        store.pool(),
-        &worker_id,
-        Period::Weekly,
-        mid,
-        Utc::now(),
-    )
-    .await
-    .expect("build_report runs");
+    let report = build_report(store.pool(), &worker_id, Period::Weekly, mid, Utc::now())
+        .await
+        .expect("build_report runs");
     assert_eq!(report.kpis.len(), 1);
     let kpi = &report.kpis[0];
     assert_eq!(kpi.kpi, "csat");

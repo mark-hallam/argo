@@ -206,6 +206,9 @@ fn authoring_md_exists_at_canonical_path() {
         "argo vertical install",
         "argo vertical uninstall",
     ] {
-        assert!(body.contains(cmd), "AUTHORING.md missing mention of `{cmd}`");
+        assert!(
+            body.contains(cmd),
+            "AUTHORING.md missing mention of `{cmd}`"
+        );
     }
 }

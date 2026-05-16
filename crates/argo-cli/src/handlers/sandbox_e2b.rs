@@ -23,9 +23,7 @@
 use crate::cli::{E2bSandboxCmd, SandboxCmd};
 use argo_executor_computer_use::e2b::{E2bCall, E2bClient};
 use argo_executor_computer_use::e2b_reap::filter_idle;
-use argo_executor_computer_use::e2b_reap_cron::{
-    ARGO_E2B_API_KEY_ENV, ARGO_E2B_BASE_URL_ENV,
-};
+use argo_executor_computer_use::e2b_reap_cron::{ARGO_E2B_API_KEY_ENV, ARGO_E2B_BASE_URL_ENV};
 use argo_types::{ArgoError, ArgoResult};
 
 const DEFAULT_BASE_URL: &str = "https://api.e2b.dev";
@@ -58,7 +56,9 @@ fn build_client() -> ArgoResult<E2bClient> {
         ))
     })?;
     if key.is_empty() {
-        return Err(ArgoError::Provider(format!("{ARGO_E2B_API_KEY_ENV} is empty")));
+        return Err(ArgoError::Provider(format!(
+            "{ARGO_E2B_API_KEY_ENV} is empty"
+        )));
     }
     let base_url =
         std::env::var(ARGO_E2B_BASE_URL_ENV).unwrap_or_else(|_| DEFAULT_BASE_URL.to_owned());
@@ -112,7 +112,9 @@ mod tests {
         }
         let result = build_client();
         if let Some(v) = prior {
-            unsafe { std::env::set_var(ARGO_E2B_API_KEY_ENV, v); }
+            unsafe {
+                std::env::set_var(ARGO_E2B_API_KEY_ENV, v);
+            }
         }
         assert!(matches!(result, Err(ArgoError::Provider(_))));
     }

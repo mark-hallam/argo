@@ -44,7 +44,10 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _) = store
         .ensure_workspace(name, &root)
@@ -114,8 +117,8 @@ async fn call(
 ) -> (&'static str, Value) {
     let req = get_req(worker_id, query);
     let (status, body) = list_response(&worker_id.to_string(), &req, Some(store)).await;
-    let v: Value = serde_json::from_str(&body)
-        .unwrap_or_else(|_| panic!("invalid JSON body: {body}"));
+    let v: Value =
+        serde_json::from_str(&body).unwrap_or_else(|_| panic!("invalid JSON body: {body}"));
     (status, v)
 }
 
@@ -129,7 +132,13 @@ async fn returns_200_with_items_and_required_shape() {
     let worker = add_worker(&store, tenant, "Maya").await;
     seed_row(
         &store,
-        row_payload(&worker.id, "message.sent", "succeeded", "wrote update", Some("p1")),
+        row_payload(
+            &worker.id,
+            "message.sent",
+            "succeeded",
+            "wrote update",
+            Some("p1"),
+        ),
     )
     .await;
     let (status, body) = call(&worker.id, "", &store).await;
@@ -204,15 +213,22 @@ async fn filters_by_action_type_and_status() {
     .await;
     seed_row(
         &store,
-        row_payload(&worker.id, "approval.decided", "succeeded", "approved", None),
+        row_payload(
+            &worker.id,
+            "approval.decided",
+            "succeeded",
+            "approved",
+            None,
+        ),
     )
     .await;
     let (_, by_type) = call(&worker.id, "type=approval.decided", &store).await;
     let items = by_type["items"].as_array().unwrap();
-    assert!(items.iter().all(|it| it["action_type"] == "approval.decided"));
+    assert!(items
+        .iter()
+        .all(|it| it["action_type"] == "approval.decided"));
     assert!(items.iter().any(|it| it["verb"] == "approved"));
-    let (_, by_status) =
-        call(&worker.id, "type=message.sent&status=failed", &store).await;
+    let (_, by_status) = call(&worker.id, "type=message.sent&status=failed", &store).await;
     let items = by_status["items"].as_array().unwrap();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["status"], "failed");
@@ -306,7 +322,10 @@ async fn rejects_invalid_limit_and_range_400() {
     assert!(body["error"]["message"].as_str().unwrap().contains("range"));
     let (status, body) = call(&worker.id, "cursor=not_b64!!!", &store).await;
     assert_eq!(status, "400 Bad Request");
-    assert!(body["error"]["message"].as_str().unwrap().contains("cursor"));
+    assert!(body["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("cursor"));
 }
 
 #[tokio::test]
@@ -399,7 +418,11 @@ async fn emits_audit_row_per_view() {
     .fetch_one(store.pool())
     .await
     .unwrap();
-    assert_eq!(after, before + 1, "expected exactly one worker.activity.viewed row");
+    assert_eq!(
+        after,
+        before + 1,
+        "expected exactly one worker.activity.viewed row"
+    );
 }
 
 #[tokio::test]
@@ -427,5 +450,8 @@ async fn cursor_is_opaque_base64_round_trip() {
     let cursor = body["next_cursor"].as_str().expect("cursor present");
     // Client passes back unchanged → no extra processing required.
     assert!(!cursor.is_empty());
-    assert!(!cursor.contains('|'), "cursor should not leak the encoded tuple");
+    assert!(
+        !cursor.contains('|'),
+        "cursor should not leak the encoded tuple"
+    );
 }

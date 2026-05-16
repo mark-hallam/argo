@@ -97,10 +97,7 @@ pub(super) async fn list_response(format: Option<&str>) -> (&'static str, String
 /// for one vertical. 404 + `{"error":"…"}` if not found. Reuses
 /// the CLI's `summarize_loaded` + `render_markdown` so the wire
 /// shape matches `argo vertical show --json` byte-for-byte.
-pub(super) async fn show_response(
-    id: &str,
-    format: Option<&str>,
-) -> (&'static str, String) {
+pub(super) async fn show_response(id: &str, format: Option<&str>) -> (&'static str, String) {
     let dir = crate::handlers::vertical::resolve_verticals_dir();
     let (registry, _errors) = match load_dir(&dir) {
         Ok(r) => r,

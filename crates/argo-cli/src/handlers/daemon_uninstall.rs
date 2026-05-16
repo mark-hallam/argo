@@ -21,8 +21,8 @@ pub async fn run(
             "argo daemon uninstall is macOS-only (launchd is a macOS feature)".into(),
         ));
     }
-    let current_exe = std::env::current_exe()
-        .map_err(|e| ArgoError::Provider(format!("current_exe: {e}")))?;
+    let current_exe =
+        std::env::current_exe().map_err(|e| ArgoError::Provider(format!("current_exe: {e}")))?;
     let home_env = std::env::var("HOME").ok();
     let paths = resolve_paths(
         None,
@@ -31,7 +31,11 @@ pub async fn run(
         &current_exe,
     )?;
     let outcome = if dry_run {
-        Outcome { plist_existed: paths.plist_path.exists(), unloaded: false, removed: false }
+        Outcome {
+            plist_existed: paths.plist_path.exists(),
+            unloaded: false,
+            removed: false,
+        }
     } else {
         execute(&paths.plist_path)?
     };
@@ -71,7 +75,11 @@ fn execute(plist_path: &Path) -> ArgoResult<Outcome> {
     } else {
         false
     };
-    Ok(Outcome { plist_existed, unloaded, removed })
+    Ok(Outcome {
+        plist_existed,
+        unloaded,
+        removed,
+    })
 }
 
 fn emit(paths: &ResolvedPaths, outcome: &Outcome, json: bool, dry_run: bool) -> ArgoResult<()> {

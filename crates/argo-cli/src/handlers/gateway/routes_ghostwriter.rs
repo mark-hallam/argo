@@ -58,11 +58,8 @@ pub(super) async fn draft_from_prompt_response(
         Err(resp) => return resp,
     };
     let llm: OfflineGhostwriterClient = OfflineGhostwriterClient;
-    let graph_result = tokio::time::timeout(
-        GHOSTWRITER_CALL_TIMEOUT,
-        run_pipeline(&prompt, &llm),
-    )
-    .await;
+    let graph_result =
+        tokio::time::timeout(GHOSTWRITER_CALL_TIMEOUT, run_pipeline(&prompt, &llm)).await;
     let graph = match graph_result {
         Ok(Ok(g)) => g,
         Ok(Err(err)) => return ghostwriter_error_response(&err),
@@ -81,10 +78,7 @@ pub(super) async fn draft_from_prompt_response(
     }
     let skill_id = SkillId::new();
     let ir_store = SqliteSkillIrStore::new(store);
-    if let Err(e) = ir_store
-        .put(tenant, skill_id, DRAFT_VERSION, &graph)
-        .await
-    {
+    if let Err(e) = ir_store.put(tenant, skill_id, DRAFT_VERSION, &graph).await {
         return server_error(&format!("skill_ir put: {e}"));
     }
     emit_audit(store, req, tenant, skill_id, &hash, prompt.len()).await;
@@ -206,11 +200,7 @@ fn timeout_response() -> (&'static str, String) {
     )
 }
 
-fn error_envelope(
-    status: &'static str,
-    code: &str,
-    message: &str,
-) -> (&'static str, String) {
+fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
     (
         status,
         json!({"error": {"code": code, "message": message}}).to_string(),

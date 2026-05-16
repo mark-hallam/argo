@@ -266,9 +266,7 @@ pub(crate) fn resolve_executor(
                 .unwrap_or_default();
             Box::new(McpExecutor::with_manifest(decl.clone(), servers))
         }
-        ExecutorKind::ComputerUse => {
-            Box::new(ComputerUseExecutor::with_declaration(decl.clone()))
-        }
+        ExecutorKind::ComputerUse => Box::new(ComputerUseExecutor::with_declaration(decl.clone())),
         ExecutorKind::ComputerUseMacOS => {
             Box::new(ComputerUseMacOSExecutor::with_declaration(decl.clone()))
         }
@@ -379,8 +377,7 @@ impl Executor for HumanExecutor {
 }
 
 fn write(path: &Path, body: &str) -> ArgoResult<()> {
-    std::fs::write(path, body)
-        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
+    std::fs::write(path, body).map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
 }
 
 #[cfg(test)]

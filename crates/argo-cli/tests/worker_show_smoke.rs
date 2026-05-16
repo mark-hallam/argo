@@ -48,7 +48,11 @@ async fn worker_show_renders_every_brief_section() {
     identities.create_worker(&worker).await.unwrap();
     let worker_id = worker.id.to_string();
     let tenant_str = tenant.to_string();
-    let store_arc = Arc::new(SessionStore::open(home.path().join("sessions.db")).await.unwrap());
+    let store_arc = Arc::new(
+        SessionStore::open(home.path().join("sessions.db"))
+            .await
+            .unwrap(),
+    );
     store_arc.migrate().await.unwrap();
     OrchestratorStore::new(Arc::clone(&store_arc))
         .ensure_schema()
@@ -105,8 +109,7 @@ async fn worker_show_renders_every_brief_section() {
     duty_store.insert(&duty).await.unwrap();
 
     // Seed 1 budget charge for spend YTD.
-    let budget_schema =
-        include_str!("../../argo-store/migrations/14__worker_budget.sql");
+    let budget_schema = include_str!("../../argo-store/migrations/14__worker_budget.sql");
     for stmt in budget_schema.split_terminator(';') {
         let sql = stmt.trim();
         if !sql.is_empty() {
@@ -132,13 +135,7 @@ async fn worker_show_renders_every_brief_section() {
     let md = run(
         &home,
         work.path(),
-        &[
-            "worker",
-            "show",
-            &worker_id,
-            "--tenant",
-            &tenant_str,
-        ],
+        &["worker", "show", &worker_id, "--tenant", &tenant_str],
     );
     assert_success(&md);
     let body = String::from_utf8_lossy(&md.stdout);
@@ -181,7 +178,10 @@ async fn worker_show_renders_every_brief_section() {
     assert_eq!(envelope["ok"], true);
     let report = &envelope["worker_show"];
     assert_eq!(report["worker"]["persona"]["name"], "Maya");
-    assert!(report["worker"]["charter"].as_str().unwrap_or("").contains("Reply within 24h"));
+    assert!(report["worker"]["charter"]
+        .as_str()
+        .unwrap_or("")
+        .contains("Reply within 24h"));
     assert_eq!(report["spend_ytd_usd_micros"], 7_500_000);
     assert!(!report["recent_sessions"].as_array().unwrap().is_empty());
     assert!(!report["recent_audit"].as_array().unwrap().is_empty());
@@ -192,13 +192,7 @@ async fn worker_show_renders_every_brief_section() {
     let bad = run(
         &home,
         work.path(),
-        &[
-            "worker",
-            "show",
-            &bogus,
-            "--tenant",
-            &tenant_str,
-        ],
+        &["worker", "show", &bogus, "--tenant", &tenant_str],
     );
     assert!(
         !bad.status.success(),

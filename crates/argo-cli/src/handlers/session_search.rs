@@ -16,8 +16,7 @@ pub(super) async fn run(
     format: &str,
     count_only: bool,
 ) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -36,9 +35,8 @@ pub(super) async fn run(
         const HARD_CAP: u32 = 10_000;
         let raw = match session {
             Some(raw) => {
-                let id = uuid::Uuid::parse_str(raw).map_err(|e| {
-                    ArgoError::Schema(format!("invalid session id '{raw}': {e}"))
-                })?;
+                let id = uuid::Uuid::parse_str(raw)
+                    .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
                 store
                     .search_messages_in_session(SessionId(id), query, HARD_CAP)
                     .await?

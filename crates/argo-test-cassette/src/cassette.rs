@@ -11,9 +11,16 @@ pub const REDACTED_PLACEHOLDER: &str = "<REDACTED>";
 /// Headers retained in cassettes. Sensitive entries in this list are
 /// recorded with `<REDACTED>` values (kept for shape, not content).
 pub const DEFAULT_HEADER_ALLOWLIST: &[&str] = &[
-    "content-type", "accept", "content-length", "user-agent",
-    "authorization", "x-api-key", "x-auth-token", "api-key",
-    "x-api-token", "proxy-authorization",
+    "content-type",
+    "accept",
+    "content-length",
+    "user-agent",
+    "authorization",
+    "x-api-key",
+    "x-auth-token",
+    "api-key",
+    "x-api-token",
+    "proxy-authorization",
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -94,8 +101,8 @@ impl Cassette {
                 std::fs::create_dir_all(parent).map_err(|e| CassetteError::Io(e.to_string()))?;
             }
         }
-        let s = serde_json::to_string_pretty(self)
-            .map_err(|e| CassetteError::Json(e.to_string()))?;
+        let s =
+            serde_json::to_string_pretty(self).map_err(|e| CassetteError::Json(e.to_string()))?;
         std::fs::write(&self.path, s).map_err(|e| CassetteError::Io(e.to_string()))?;
         Ok(())
     }
@@ -107,8 +114,14 @@ impl Cassette {
     /// Pop the next exchange, requiring method+URL to match the expected request.
     pub fn pop_next(&mut self, expected: &CassetteRequest) -> Result<CassetteResponse> {
         let idx = self.cursor;
-        let recorded = self.exchanges.get(idx).ok_or(CassetteError::Exhausted(idx))?;
-        if !recorded.request.method.eq_ignore_ascii_case(&expected.method)
+        let recorded = self
+            .exchanges
+            .get(idx)
+            .ok_or(CassetteError::Exhausted(idx))?;
+        if !recorded
+            .request
+            .method
+            .eq_ignore_ascii_case(&expected.method)
             || recorded.request.url != expected.url
         {
             return Err(CassetteError::Mismatch {

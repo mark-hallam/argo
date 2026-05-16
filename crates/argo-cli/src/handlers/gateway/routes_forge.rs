@@ -7,9 +7,7 @@
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-pub(super) use super::routes_forge_runs_list::{
-    forge_runs_count_response, forge_runs_response,
-};
+pub(super) use super::routes_forge_runs_list::{forge_runs_count_response, forge_runs_response};
 
 /// `GET /forge/runs/<id>` — fetch one forge_run row by id (mirrors
 /// `argo forge runs show <id>`). Returns 404 when no row matches,
@@ -45,7 +43,10 @@ pub(super) async fn forge_run_show_response_with_format(
             let end_micros = r.ended_at.unwrap_or(now_micros);
             let elapsed_seconds = ((end_micros - r.started_at) / 1_000_000).max(0);
             if matches!(format, Some("markdown")) {
-                let cand = r.candidate_version.clone().unwrap_or_else(|| "(none)".into());
+                let cand = r
+                    .candidate_version
+                    .clone()
+                    .unwrap_or_else(|| "(none)".into());
                 let score = r
                     .final_score
                     .map(|s| format!("{s:.3}"))
@@ -177,8 +178,7 @@ pub(super) async fn forge_runs_by_status_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT status, COUNT(*) FROM forge_run WHERE started_at >= ? \
                  GROUP BY status ORDER BY status",
@@ -188,11 +188,9 @@ pub(super) async fn forge_runs_by_status_response(
             .await
         }
         None => {
-            sqlx::query_as(
-                "SELECT status, COUNT(*) FROM forge_run GROUP BY status ORDER BY status",
-            )
-            .fetch_all(pool)
-            .await
+            sqlx::query_as("SELECT status, COUNT(*) FROM forge_run GROUP BY status ORDER BY status")
+                .fetch_all(pool)
+                .await
         }
     };
     match rows {

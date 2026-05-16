@@ -154,9 +154,9 @@ pub async fn detect_regression(
         .enumerate()
         .max_by_key(|(_, s)| s.computed_at)
         .map(|(i, _)| i)
-        .ok_or_else(|| ArgoError::Invariant(
-            "regression: empty scores after length guard".into(),
-        ))?;
+        .ok_or_else(|| {
+            ArgoError::Invariant("regression: empty scores after length guard".into())
+        })?;
     let current = scores[latest_idx].score;
     let baseline = scores
         .iter()
@@ -164,15 +164,14 @@ pub async fn detect_regression(
         .filter(|(i, _)| *i != latest_idx)
         .map(|(_, s)| s.score)
         .max()
-        .ok_or_else(|| ArgoError::Invariant(
-            "regression: no prior scores after length guard".into(),
-        ))?;
+        .ok_or_else(|| {
+            ArgoError::Invariant("regression: no prior scores after length guard".into())
+        })?;
     if baseline <= current {
         return Ok(RegressionDecision::Stable { current, baseline });
     }
     let drop_abs: i16 = i16::from(current) - i16::from(baseline);
-    let drop_pct_raw =
-        f64::from(baseline - current) * 100.0 / f64::from(baseline);
+    let drop_pct_raw = f64::from(baseline - current) * 100.0 / f64::from(baseline);
     let drop_pct = drop_pct_raw.round().clamp(0.0, 100.0) as u8;
     let abs_hit = drop_abs.unsigned_abs() >= u16::from(cfg.min_score_drop);
     let pct_hit = drop_pct >= cfg.min_pct_drop;

@@ -245,9 +245,6 @@ mod tests {
             argo_types::ContentBlock::Text { text } => text,
             _ => panic!("expected text"),
         };
-        assert!(
-            body.contains("outside the workspace root"),
-            "got: {body}"
-        );
+        assert!(body.contains("outside the workspace root"), "got: {body}");
     }
 }

@@ -90,7 +90,9 @@ fn non_interactive_happy_path_writes_argo_toml() {
     fake_vertical(tmp.path(), "marketplace-seller-browser");
     let answers = good_answers(tmp.path());
     let mut io = MockPrompt::new(vec![]);
-    let verifier = MockKeyVerifier { good: "sk-ant-good" };
+    let verifier = MockKeyVerifier {
+        good: "sk-ant-good",
+    };
     let outcome = run_steps(
         &mut io,
         &verifier,
@@ -115,7 +117,9 @@ fn non_interactive_bad_input_fails_clearly() {
     let mut answers = good_answers(tmp.path());
     answers.worker_name = Some("Ada".into()); // capital — invalid
     let mut io = MockPrompt::new(vec![]);
-    let verifier = MockKeyVerifier { good: "sk-ant-good" };
+    let verifier = MockKeyVerifier {
+        good: "sk-ant-good",
+    };
     let err = run_steps(
         &mut io,
         &verifier,
@@ -142,7 +146,9 @@ fn existing_operator_block_prompts_and_defaults_no() {
     .unwrap();
     let answers = good_answers(tmp.path());
     let mut io = MockPrompt::new(vec![]);
-    let verifier = MockKeyVerifier { good: "sk-ant-good" };
+    let verifier = MockKeyVerifier {
+        good: "sk-ant-good",
+    };
     let out = run_steps(&mut io, &verifier, tmp.path(), &cfg, &answers, false).unwrap();
     assert!(out.is_none(), "default is No; should abort");
     let body = std::fs::read_to_string(&cfg).unwrap();
@@ -162,7 +168,9 @@ fn existing_operator_block_overwritten_when_answers_opt_in() {
     let mut answers = good_answers(tmp.path());
     answers.overwrite_existing = true;
     let mut io = MockPrompt::new(vec![]);
-    let verifier = MockKeyVerifier { good: "sk-ant-good" };
+    let verifier = MockKeyVerifier {
+        good: "sk-ant-good",
+    };
     let outcome = run_steps(&mut io, &verifier, tmp.path(), &cfg, &answers, false)
         .unwrap()
         .expect("overwrite opt-in proceeds");
@@ -176,7 +184,9 @@ fn key_verifier_passes_known_good_key() {
     let tmp = tempfile::tempdir().unwrap();
     fake_vertical(tmp.path(), "marketplace-seller-browser");
     let answers = good_answers(tmp.path());
-    let verifier = MockKeyVerifier { good: "sk-ant-good" };
+    let verifier = MockKeyVerifier {
+        good: "sk-ant-good",
+    };
     let mut io = MockPrompt::new(vec![]);
     let outcome = run_steps(
         &mut io,
@@ -197,7 +207,9 @@ fn key_verifier_rejects_bad_key() {
     fake_vertical(tmp.path(), "marketplace-seller-browser");
     let mut answers = good_answers(tmp.path());
     answers.provider_api_key = Some("sk-ant-WRONG".into());
-    let verifier = MockKeyVerifier { good: "sk-ant-good" };
+    let verifier = MockKeyVerifier {
+        good: "sk-ant-good",
+    };
     let mut io = MockPrompt::new(vec![]);
     let err = run_steps(
         &mut io,

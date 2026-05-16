@@ -216,12 +216,7 @@ fn pick_winner(bids: &[AuctionBid]) -> Option<AuctionWinner> {
 /// a number — e.g. Verified=1.0, Reviewed=0.7, Unverified=0.3).
 /// `quality` is the 0..=100 score from skill-quality-judge.
 #[must_use]
-pub fn fit_score(
-    matched_skills: u32,
-    total_required: u32,
-    trust_factor: f64,
-    quality: u8,
-) -> f64 {
+pub fn fit_score(matched_skills: u32, total_required: u32, trust_factor: f64, quality: u8) -> f64 {
     if total_required == 0 {
         return 0.0;
     }
@@ -253,7 +248,11 @@ mod tests {
 
     #[test]
     fn pick_winner_returns_highest_score() {
-        let bids = vec![bid("w1", 50.0, 60), bid("w2", 90.0, 30), bid("w3", 70.0, 60)];
+        let bids = vec![
+            bid("w1", 50.0, 60),
+            bid("w2", 90.0, 30),
+            bid("w3", 70.0, 60),
+        ];
         let winner = pick_winner(&bids).unwrap();
         assert_eq!(winner.worker_id, "w2");
         assert_eq!(winner.score, 90.0);

@@ -10,10 +10,7 @@ use crate::MacosCuResult;
 
 /// Activate `bundle_id`, bringing it to front. Validates against
 /// the config's app allowlist before issuing any subprocess call.
-pub async fn activate_app(
-    bundle_id: &str,
-    config: &MacosCuConfig,
-) -> MacosCuResult<()> {
+pub async fn activate_app(bundle_id: &str, config: &MacosCuConfig) -> MacosCuResult<()> {
     if !config.allows_app(bundle_id) {
         return Err(MacosCuError::AppNotAllowed {
             bundle_id: bundle_id.to_string(),

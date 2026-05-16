@@ -42,8 +42,7 @@ impl Executor for TimedExecutor {
     fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
         let start = Instant::now();
         let result = self.inner.dispatch(action, cwd);
-        argo_store::latency_tracker::global()
-            .record(self.inner.kind().as_str(), start.elapsed());
+        argo_store::latency_tracker::global().record(self.inner.kind().as_str(), start.elapsed());
         result
     }
 }

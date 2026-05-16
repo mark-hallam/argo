@@ -37,9 +37,8 @@ pub async fn install(
     // extracted dir as the source. This keeps the dir-source
     // path the canonical implementation.
     if src.extension().and_then(|e| e.to_str()) == Some("tar") && src.is_file() {
-        let tmp = tempfile::tempdir().map_err(|e| {
-            ArgoError::Io(format!("create tempdir for tarball extract: {e}"))
-        })?;
+        let tmp = tempfile::tempdir()
+            .map_err(|e| ArgoError::Io(format!("create tempdir for tarball extract: {e}")))?;
         extract_tar_into(&src, tmp.path())?;
         let extracted = pick_single_subdir(tmp.path())?;
         let extracted_str = extracted.to_string_lossy().into_owned();
@@ -74,9 +73,8 @@ pub async fn install(
                 dest.display()
             )));
         }
-        std::fs::remove_dir_all(&dest).map_err(|e| {
-            ArgoError::Io(format!("remove {}: {e}", dest.display()))
-        })?;
+        std::fs::remove_dir_all(&dest)
+            .map_err(|e| ArgoError::Io(format!("remove {}: {e}", dest.display())))?;
     }
     std::fs::create_dir_all(&target_root)
         .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", target_root.display())))?;
@@ -109,18 +107,16 @@ pub async fn install(
             manifest.vertical.version,
             dest.display()
         );
-        println!("  → run `argo vertical show {}` to inspect", manifest.vertical.id);
+        println!(
+            "  → run `argo vertical show {}` to inspect",
+            manifest.vertical.id
+        );
     }
     Ok(())
 }
 
 /// Top-level entry for `argo vertical uninstall`.
-pub async fn uninstall(
-    id: &str,
-    target: Option<&str>,
-    yes: bool,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn uninstall(id: &str, target: Option<&str>, yes: bool, json: bool) -> ArgoResult<()> {
     let target_root = match target {
         Some(t) => PathBuf::from(t),
         None => argo_vertical::default_dir(),
@@ -180,21 +176,22 @@ pub async fn uninstall(
 fn copy_dir_recursive(src: &Path, dst: &Path) -> ArgoResult<()> {
     std::fs::create_dir_all(dst)
         .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", dst.display())))?;
-    for entry in
-        std::fs::read_dir(src).map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", src.display())))?
+    for entry in std::fs::read_dir(src)
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", src.display())))?
     {
-        let entry =
-            entry.map_err(|e| ArgoError::Io(format!("read_dir entry under {}: {e}", src.display())))?;
-        let ft = entry.file_type().map_err(|e| {
-            ArgoError::Io(format!("file_type {}: {e}", entry.path().display()))
-        })?;
+        let entry = entry
+            .map_err(|e| ArgoError::Io(format!("read_dir entry under {}: {e}", src.display())))?;
+        let ft = entry
+            .file_type()
+            .map_err(|e| ArgoError::Io(format!("file_type {}: {e}", entry.path().display())))?;
         let from = entry.path();
         let to = dst.join(entry.file_name());
         if ft.is_dir() {
             copy_dir_recursive(&from, &to)?;
         } else if ft.is_file() {
-            std::fs::copy(&from, &to)
-                .map_err(|e| ArgoError::Io(format!("copy {} → {}: {e}", from.display(), to.display())))?;
+            std::fs::copy(&from, &to).map_err(|e| {
+                ArgoError::Io(format!("copy {} → {}: {e}", from.display(), to.display()))
+            })?;
         }
         // Symlinks + special files: skipped for now. Verticals
         // are pure source bundles; if we ever need symlinks the
@@ -207,12 +204,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> ArgoResult<()> {
 /// Inverse of the tarball-source install path; ships with the
 /// vertical's id stamped as the top-level directory inside the
 /// archive so an `install` round-trip recovers the source name.
-pub async fn pack(
-    id: &str,
-    out: Option<&str>,
-    target: Option<&str>,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn pack(id: &str, out: Option<&str>, target: Option<&str>, json: bool) -> ArgoResult<()> {
     let target_root = match target {
         Some(t) => PathBuf::from(t),
         None => argo_vertical::default_dir(),
@@ -237,9 +229,7 @@ pub async fn pack(
         None => PathBuf::from(format!("{id}.tar")),
     };
     write_tar_from_dir(&src_dir, id, &out_path)?;
-    let bytes = std::fs::metadata(&out_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let bytes = std::fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0);
 
     if json {
         println!(
@@ -257,15 +247,17 @@ pub async fn pack(
             "packed vertical '{id}' → {} ({bytes} bytes)",
             out_path.display()
         );
-        println!("  → ship + restore with `argo vertical install {}`", out_path.display());
+        println!(
+            "  → ship + restore with `argo vertical install {}`",
+            out_path.display()
+        );
     }
     Ok(())
 }
 
 fn write_tar_from_dir(src_dir: &Path, id: &str, out_path: &Path) -> ArgoResult<()> {
-    let file = std::fs::File::create(out_path).map_err(|e| {
-        ArgoError::Io(format!("create {}: {e}", out_path.display()))
-    })?;
+    let file = std::fs::File::create(out_path)
+        .map_err(|e| ArgoError::Io(format!("create {}: {e}", out_path.display())))?;
     let mut builder = tar::Builder::new(file);
     builder
         .append_dir_all(id, src_dir)
@@ -294,13 +286,9 @@ fn pick_single_subdir(into: &Path) -> ArgoResult<PathBuf> {
     for entry in std::fs::read_dir(into)
         .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", into.display())))?
     {
-        let entry =
-            entry.map_err(|e| ArgoError::Io(format!("read_dir entry under {}: {e}", into.display())))?;
-        if entry
-            .file_type()
-            .map(|t| t.is_dir())
-            .unwrap_or(false)
-        {
+        let entry = entry
+            .map_err(|e| ArgoError::Io(format!("read_dir entry under {}: {e}", into.display())))?;
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             entries.push(entry.path());
         }
     }

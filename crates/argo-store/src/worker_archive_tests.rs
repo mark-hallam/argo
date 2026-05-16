@@ -13,8 +13,7 @@ use sqlx::SqlitePool;
 /// `role` without the worker_id / charter / kpis_json / escalation
 /// columns, so we mirror `ensure_role_columns` from argo-identity to
 /// add them after the IF NOT EXISTS create-table is a no-op.
-const IDENTITY_SCHEMA_SQL: &str =
-    include_str!("../migrations/12__worker_identity.sql");
+const IDENTITY_SCHEMA_SQL: &str = include_str!("../migrations/12__worker_identity.sql");
 
 async fn pool() -> SqlitePool {
     let store = SessionStore::open(":memory:").await.expect("open store");
@@ -39,7 +38,9 @@ async fn pool() -> SqlitePool {
             .execute(store.pool())
             .await;
     }
-    ensure_schema(store.pool()).await.expect("apply archive schema");
+    ensure_schema(store.pool())
+        .await
+        .expect("apply archive schema");
     store.pool().clone()
 }
 
@@ -120,9 +121,16 @@ async fn round_trip_archive_then_rehydrate_succeeds() {
 
     let frozen = "{\"id\":\"11111111-1111-1111-1111-111111111111\",\"name\":\"Maya\"}";
 
-    archive_worker(&pool, worker_id, tenant_id, Some("alice@team"), Some("done"), frozen)
-        .await
-        .expect("archive ok");
+    archive_worker(
+        &pool,
+        worker_id,
+        tenant_id,
+        Some("alice@team"),
+        Some("done"),
+        frozen,
+    )
+    .await
+    .expect("archive ok");
 
     let workers: Vec<String> = sqlx::query_scalar("SELECT id FROM worker WHERE id = ?")
         .bind(worker_id)
@@ -131,12 +139,11 @@ async fn round_trip_archive_then_rehydrate_succeeds() {
         .unwrap();
     assert!(workers.is_empty(), "live worker row deleted");
 
-    let duties: Vec<String> =
-        sqlx::query_scalar("SELECT id FROM duty WHERE worker_id = ?")
-            .bind(worker_id)
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+    let duties: Vec<String> = sqlx::query_scalar("SELECT id FROM duty WHERE worker_id = ?")
+        .bind(worker_id)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
     assert!(duties.is_empty(), "duty rows deleted");
 
     let restored = rehydrate_worker(&pool, worker_id, tenant_id)
@@ -150,10 +157,7 @@ async fn round_trip_archive_then_rehydrate_succeeds() {
             .fetch_all(&pool)
             .await
             .unwrap();
-    assert!(
-        archive_after.is_empty(),
-        "archive row removed on rehydrate"
-    );
+    assert!(archive_after.is_empty(), "archive row removed on rehydrate");
 }
 
 #[tokio::test]
@@ -290,12 +294,11 @@ async fn archive_is_atomic_no_partial_writes_on_constraint_violation() {
     assert!(err.to_string().contains("already archived"));
 
     // Live row still there.
-    let live: Option<String> =
-        sqlx::query_scalar("SELECT id FROM worker WHERE id = ?")
-            .bind(worker_id)
-            .fetch_optional(&pool)
-            .await
-            .unwrap();
+    let live: Option<String> = sqlx::query_scalar("SELECT id FROM worker WHERE id = ?")
+        .bind(worker_id)
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
     assert!(live.is_some(), "tx aborted; live row preserved");
 }
 

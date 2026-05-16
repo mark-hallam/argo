@@ -65,7 +65,10 @@ impl HttpLogTarget {
             HeaderValue::from_static("application/json"),
         );
         if let Some(a) = auth {
-            headers.insert(HeaderName::from_static("authorization"), HeaderValue::from_str(&a)?);
+            headers.insert(
+                HeaderName::from_static("authorization"),
+                HeaderValue::from_str(&a)?,
+            );
         }
         let client = reqwest::Client::builder()
             .timeout(timeout)
@@ -118,10 +121,21 @@ impl HttpLogTarget {
         }
         let sent = batch.len();
         let body = format!("[{}]", batch.join(","));
-        match self.client.post(self.endpoint.clone()).headers(self.headers.clone()).body(body).send().await {
+        match self
+            .client
+            .post(self.endpoint.clone())
+            .headers(self.headers.clone())
+            .body(body)
+            .send()
+            .await
+        {
             Ok(r) if r.status().is_success() => {}
-            Ok(r) => tracing::warn!(target: INTERNAL_TARGET, status = r.status().as_u16(), "log-shipping non-2xx; events discarded"),
-            Err(e) => tracing::warn!(target: INTERNAL_TARGET, error = %e, "log-shipping POST failed; events discarded"),
+            Ok(r) => {
+                tracing::warn!(target: INTERNAL_TARGET, status = r.status().as_u16(), "log-shipping non-2xx; events discarded")
+            }
+            Err(e) => {
+                tracing::warn!(target: INTERNAL_TARGET, error = %e, "log-shipping POST failed; events discarded")
+            }
         }
         sent
     }
@@ -163,13 +177,18 @@ impl Drop for HttpLogTarget {
             return;
         }
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            let (endpoint, headers, client) = (self.endpoint.clone(), self.headers.clone(), self.client.clone());
+            let (endpoint, headers, client) = (
+                self.endpoint.clone(),
+                self.headers.clone(),
+                self.client.clone(),
+            );
             handle.spawn(async move {
                 let body = format!("[{}]", queue.into_iter().collect::<Vec<_>>().join(","));
                 let _ = tokio::time::timeout(
                     DROP_FLUSH_TIMEOUT,
                     client.post(endpoint).headers(headers).body(body).send(),
-                ).await;
+                )
+                .await;
             });
         }
     }
@@ -219,16 +238,25 @@ struct JsonFieldVisitor<'a> {
 }
 
 impl Visit for JsonFieldVisitor<'_> {
-    fn record_str(&mut self, f: &Field, v: &str) { self.out.insert(f.name().into(), Value::String(v.into())); }
-    fn record_bool(&mut self, f: &Field, v: bool) { self.out.insert(f.name().into(), Value::Bool(v)); }
-    fn record_i64(&mut self, f: &Field, v: i64) { self.out.insert(f.name().into(), Value::Number(v.into())); }
-    fn record_u64(&mut self, f: &Field, v: u64) { self.out.insert(f.name().into(), Value::Number(v.into())); }
+    fn record_str(&mut self, f: &Field, v: &str) {
+        self.out.insert(f.name().into(), Value::String(v.into()));
+    }
+    fn record_bool(&mut self, f: &Field, v: bool) {
+        self.out.insert(f.name().into(), Value::Bool(v));
+    }
+    fn record_i64(&mut self, f: &Field, v: i64) {
+        self.out.insert(f.name().into(), Value::Number(v.into()));
+    }
+    fn record_u64(&mut self, f: &Field, v: u64) {
+        self.out.insert(f.name().into(), Value::Number(v.into()));
+    }
     fn record_f64(&mut self, f: &Field, v: f64) {
         let n = serde_json::Number::from_f64(v).unwrap_or_else(|| 0.into());
         self.out.insert(f.name().into(), Value::Number(n));
     }
     fn record_debug(&mut self, f: &Field, v: &dyn std::fmt::Debug) {
-        self.out.insert(f.name().into(), Value::String(format!("{v:?}")));
+        self.out
+            .insert(f.name().into(), Value::String(format!("{v:?}")));
     }
 }
 

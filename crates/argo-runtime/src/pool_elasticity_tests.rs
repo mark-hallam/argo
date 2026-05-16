@@ -48,7 +48,10 @@ fn recommend_scale_up_on_150pct_over_target() {
         panic!("expected ScaleUp, got {r:?}");
     };
     assert_eq!(target, 3, "scale up by exactly one");
-    assert!(reason.contains("1.5×"), "rationale must cite threshold: {reason}");
+    assert!(
+        reason.contains("1.5×"),
+        "rationale must cite threshold: {reason}"
+    );
 }
 
 #[test]
@@ -60,7 +63,10 @@ fn recommend_scale_down_on_30pct_under_and_low_util() {
         panic!("expected ScaleDown, got {r:?}");
     };
     assert_eq!(target, 2, "scale down by exactly one");
-    assert!(reason.contains("0.3×"), "rationale must cite threshold: {reason}");
+    assert!(
+        reason.contains("0.3×"),
+        "rationale must cite threshold: {reason}"
+    );
 }
 
 #[test]

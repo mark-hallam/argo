@@ -43,7 +43,10 @@ fn eval_validate_finance_ar_emits_brief_envelope() {
     assert!(v["failed"].as_u64().is_some(), "missing failed: {v}");
     assert!(v["pass_rate"].as_f64().is_some(), "missing pass_rate: {v}");
     let seeds = v["seeds"].as_array().expect("seeds array");
-    assert!(!seeds.is_empty(), "expected at least one seed in finance-ar");
+    assert!(
+        !seeds.is_empty(),
+        "expected at least one seed in finance-ar"
+    );
     for seed in seeds {
         assert!(seed["id"].is_string(), "seed missing id: {seed}");
         assert!(seed["passed"].is_boolean(), "seed missing passed: {seed}");

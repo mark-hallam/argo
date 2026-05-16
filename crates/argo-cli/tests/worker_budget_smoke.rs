@@ -53,7 +53,15 @@ async fn budget_set_show_clear_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "budget", "set", &worker_id, "--daily", "5", "--monthly", "100", "--json",
+            "worker",
+            "budget",
+            "set",
+            &worker_id,
+            "--daily",
+            "5",
+            "--monthly",
+            "100",
+            "--json",
         ],
     );
     let body: Value = serde_json::from_slice(&set_both.stdout).unwrap();
@@ -116,18 +124,13 @@ async fn budget_set_show_clear_round_trip() {
         stdout.contains("daily   cap: $0.00 (deny all)"),
         "got:\n{stdout}"
     );
-    assert!(
-        stdout.contains("monthly cap: $100.00"),
-        "got:\n{stdout}"
-    );
+    assert!(stdout.contains("monthly cap: $100.00"), "got:\n{stdout}");
 
     // clear drops both caps
     let cleared = run_ok(
         &home,
         work.path(),
-        &[
-            "worker", "budget", "set", &worker_id, "--clear", "--json",
-        ],
+        &["worker", "budget", "set", &worker_id, "--clear", "--json"],
     );
     let body: Value = serde_json::from_slice(&cleared.stdout).unwrap();
     assert_eq!(body["caps"]["daily_micros"], Value::Null);
@@ -144,11 +147,7 @@ async fn budget_set_show_clear_round_trip() {
     assert!(!bad_combo.status.success());
 
     // bare set with no dimensions is rejected
-    let bare = run(
-        &home,
-        work.path(),
-        &["worker", "budget", "set", &worker_id],
-    );
+    let bare = run(&home, work.path(), &["worker", "budget", "set", &worker_id]);
     assert!(!bare.status.success());
 
     // unknown worker id surfaces an error
@@ -156,7 +155,11 @@ async fn budget_set_show_clear_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "budget", "show", "00000000-0000-0000-0000-000000000000", "--json",
+            "worker",
+            "budget",
+            "show",
+            "00000000-0000-0000-0000-000000000000",
+            "--json",
         ],
     );
     assert!(!ghost.status.success());

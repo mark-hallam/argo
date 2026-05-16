@@ -77,10 +77,7 @@ impl OrgStore {
         for unit in &chart.units {
             if let Some(parent_name) = &unit.parent {
                 let child_id = unit_ids.get(&unit.name).cloned().ok_or_else(|| {
-                    ArgoError::Provider(format!(
-                        "ingest: unit '{}' missing from id map",
-                        unit.name
-                    ))
+                    ArgoError::Provider(format!("ingest: unit '{}' missing from id map", unit.name))
                 })?;
                 let parent_id = unit_ids.get(parent_name).cloned().ok_or_else(|| {
                     ArgoError::Provider(format!(
@@ -146,20 +143,14 @@ impl OrgStore {
         Ok(summary)
     }
 
-    async fn upsert_unit(
-        &self,
-        tenant: TenantId,
-        name: &str,
-        now: i64,
-    ) -> ArgoResult<String> {
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT id FROM org_unit WHERE tenant_id = ? AND name = ?",
-        )
-        .bind(tenant.to_string())
-        .bind(name)
-        .fetch_optional(self.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("upsert_unit lookup: {e}")))?;
+    async fn upsert_unit(&self, tenant: TenantId, name: &str, now: i64) -> ArgoResult<String> {
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT id FROM org_unit WHERE tenant_id = ? AND name = ?")
+                .bind(tenant.to_string())
+                .bind(name)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("upsert_unit lookup: {e}")))?;
         if let Some((id,)) = row {
             return Ok(id);
         }
@@ -185,14 +176,13 @@ impl OrgStore {
         unit_id: Option<&str>,
         now: i64,
     ) -> ArgoResult<String> {
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT id FROM org_member WHERE tenant_id = ? AND canonical = ?",
-        )
-        .bind(tenant.to_string())
-        .bind(&m.canonical)
-        .fetch_optional(self.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("upsert_member lookup: {e}")))?;
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT id FROM org_member WHERE tenant_id = ? AND canonical = ?")
+                .bind(tenant.to_string())
+                .bind(&m.canonical)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("upsert_member lookup: {e}")))?;
         if let Some((id,)) = row {
             return Ok(id);
         }
@@ -216,14 +206,12 @@ impl OrgStore {
     }
 
     async fn upsert_alias(&self, member_id: &str, alias: &str) -> ArgoResult<()> {
-        sqlx::query(
-            "INSERT OR IGNORE INTO org_member_alias (member_id, alias) VALUES (?, ?)",
-        )
-        .bind(member_id)
-        .bind(alias)
-        .execute(self.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("insert org_member_alias: {e}")))?;
+        sqlx::query("INSERT OR IGNORE INTO org_member_alias (member_id, alias) VALUES (?, ?)")
+            .bind(member_id)
+            .bind(alias)
+            .execute(self.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("insert org_member_alias: {e}")))?;
         Ok(())
     }
 }

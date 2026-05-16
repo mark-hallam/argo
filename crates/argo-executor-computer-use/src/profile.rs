@@ -174,12 +174,7 @@ impl ProfileRegistry {
     /// the message) when missing.
     pub fn get(&self, name: &str) -> Result<&Profile, CuError> {
         self.profiles.get(name).ok_or_else(|| {
-            let registered = self
-                .profiles
-                .keys()
-                .cloned()
-                .collect::<Vec<_>>()
-                .join(", ");
+            let registered = self.profiles.keys().cloned().collect::<Vec<_>>().join(", ");
             CuError::UnknownProfile {
                 requested: name.to_string(),
                 registered,
@@ -285,8 +280,8 @@ mistyped_field = "should-fail"
 "#,
         )
         .expect("write profile toml");
-        let err = ProfileRegistry::load_from_path(&path)
-            .expect_err("deny_unknown_fields rejects typo");
+        let err =
+            ProfileRegistry::load_from_path(&path).expect_err("deny_unknown_fields rejects typo");
         assert!(err.to_string().contains("toml parse failure"));
     }
 }

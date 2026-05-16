@@ -177,20 +177,17 @@ type RawRow = (
     Option<i64>,
 );
 
-const SELECT_COLS: &str =
-    "SELECT id, tenant_id, principal_id, categories_json, reason, \
+const SELECT_COLS: &str = "SELECT id, tenant_id, principal_id, categories_json, reason, \
             granted_at, expires_at, revoked_at \
      FROM elevated_view_grant WHERE id = ?";
 
-const LIST_ACTIVE_SQL: &str =
-    "SELECT id, tenant_id, principal_id, categories_json, reason, \
+const LIST_ACTIVE_SQL: &str = "SELECT id, tenant_id, principal_id, categories_json, reason, \
             granted_at, expires_at, revoked_at \
      FROM elevated_view_grant \
      WHERE principal_id = ? AND revoked_at IS NULL AND expires_at > ? \
      ORDER BY granted_at DESC, id DESC";
 
-const LIST_ALL_SQL: &str =
-    "SELECT id, tenant_id, principal_id, categories_json, reason, \
+const LIST_ALL_SQL: &str = "SELECT id, tenant_id, principal_id, categories_json, reason, \
             granted_at, expires_at, revoked_at \
      FROM elevated_view_grant \
      WHERE principal_id = ? \

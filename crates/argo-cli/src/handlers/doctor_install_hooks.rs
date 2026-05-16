@@ -59,8 +59,7 @@ fn copy_hook(source: &Path, target: &Path) -> ArgoResult<()> {
         std::fs::create_dir_all(parent)
             .map_err(|e| ArgoError::Io(format!("create hooks dir: {e}")))?;
     }
-    std::fs::copy(source, target)
-        .map_err(|e| ArgoError::Io(format!("copy hook: {e}")))?;
+    std::fs::copy(source, target).map_err(|e| ArgoError::Io(format!("copy hook: {e}")))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

@@ -1,6 +1,8 @@
 //! `argo handoff-rules show` handler.
 
-use super::handoff_rules_list::{open_routing_store, parse_tenant, resolve_rule, target_kind_label};
+use super::handoff_rules_list::{
+    open_routing_store, parse_tenant, resolve_rule, target_kind_label,
+};
 use argo_orchestrator::HandoffRoutingRule;
 use argo_types::{ArgoError, ArgoResult};
 
@@ -31,7 +33,10 @@ fn print_text(rule: &HandoffRoutingRule) {
         println!("when.expected_outcome_contains: {needle}");
     }
     if !rule.when.hour_of_day_utc_in.is_empty() {
-        println!("when.hour_of_day_utc_in: {:?}", rule.when.hour_of_day_utc_in);
+        println!(
+            "when.hour_of_day_utc_in: {:?}",
+            rule.when.hour_of_day_utc_in
+        );
     }
     if !rule.when.weekday_utc_in.is_empty() {
         println!("when.weekday_utc_in: {:?}", rule.when.weekday_utc_in);

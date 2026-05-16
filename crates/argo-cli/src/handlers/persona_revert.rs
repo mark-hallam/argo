@@ -117,9 +117,15 @@ fn print_diff(target: &PersonaRevision, current: &str) {
     println!("  recorded at: {}", target.revised_at.to_rfc3339());
     println!("  recorded actor: {}", target.actor);
     println!("  diff (target -> revert):");
-    println!("    target.old_value (will be applied) : {}", target.old_value);
+    println!(
+        "    target.old_value (will be applied) : {}",
+        target.old_value
+    );
     println!("    current live value (will be lost)  : {current}");
-    println!("    target.new_value (for reference)   : {}", target.new_value);
+    println!(
+        "    target.new_value (for reference)   : {}",
+        target.new_value
+    );
 }
 
 fn confirm() -> ArgoResult<bool> {

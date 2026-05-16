@@ -9,8 +9,7 @@ use std::sync::Arc;
 
 use super::skill_rate::publisher_from_source;
 
-const SCHEMA_SQL: &str =
-    include_str!("../../../argo-store/migrations/84__operator_feedback.sql");
+const SCHEMA_SQL: &str = include_str!("../../../argo-store/migrations/84__operator_feedback.sql");
 
 pub(super) async fn open_store() -> ArgoResult<Arc<SessionStore>> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;

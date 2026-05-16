@@ -37,7 +37,10 @@ async fn delegate_task_dispatch_emits_pending_handoff_in_orchestrator_store() {
     let session_id = SessionId::new();
     let mut session = Session::new(tenant, "delegate-smoke");
     session.id = session_id.clone();
-    store.insert_session(&session).await.expect("insert_session");
+    store
+        .insert_session(&session)
+        .await
+        .expect("insert_session");
 
     let target = WorkerId::new();
     let tool = DelegateTask::new(Arc::clone(&store));

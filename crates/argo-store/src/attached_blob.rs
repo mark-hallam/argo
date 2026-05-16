@@ -185,10 +185,7 @@ impl MemoryAttachedBlob {
     /// Number of blobs currently held. Test helper.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.inner
-            .lock()
-            .map(|m| m.len())
-            .unwrap_or(0)
+        self.inner.lock().map(|m| m.len()).unwrap_or(0)
     }
 
     /// Whether the store is empty. Test helper.

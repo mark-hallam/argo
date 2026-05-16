@@ -32,8 +32,7 @@ pub(super) async fn audit_by_session_response(
     let pool = store.pool();
     let rows: Result<Vec<(Vec<u8>, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT session_id, COUNT(*) FROM audit_record \
                  WHERE session_id IS NOT NULL AND created_at >= ? \
@@ -116,8 +115,7 @@ pub(super) async fn audit_by_vertical_response(
     let pool = store.pool();
     let rows: Result<Vec<(Option<String>, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT s.vertical_id, COUNT(*) \
                  FROM audit_record a \

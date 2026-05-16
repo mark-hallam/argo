@@ -13,8 +13,7 @@ pub async fn run_by_role(
 ) -> ArgoResult<()> {
     let id = uuid::Uuid::parse_str(&session)
         .map_err(|e| ArgoError::Schema(format!("invalid session id '{session}': {e}")))?;
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -22,8 +21,7 @@ pub async fn run_by_role(
     let pool = store.pool();
     let rows: Vec<(String, i64)> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT role, COUNT(*) FROM message \
                  WHERE session_id = ? AND created_at >= ? \

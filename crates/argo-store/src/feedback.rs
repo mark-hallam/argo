@@ -28,7 +28,6 @@ impl Vote {
             Self::Down => "down",
         }
     }
-
 }
 
 impl FromStr for Vote {
@@ -112,42 +111,50 @@ pub async fn list_feedback(
 ) -> Result<Vec<FeedbackRow>, FeedbackSqlError> {
     let lim = limit.clamp(1, 1000) as i64;
     let rows: Vec<(i64, String, String, String, i64, Option<String>)> = match (worker_id, vote) {
-        (Some(w), Some(v)) => sqlx::query_as(
-            "SELECT id, action_id, vote, comment, given_at, worker_id \
+        (Some(w), Some(v)) => {
+            sqlx::query_as(
+                "SELECT id, action_id, vote, comment, given_at, worker_id \
              FROM operator_feedback WHERE worker_id = ? AND vote = ? \
              ORDER BY given_at DESC LIMIT ?",
-        )
-        .bind(w)
-        .bind(v.as_str())
-        .bind(lim)
-        .fetch_all(pool)
-        .await?,
-        (Some(w), None) => sqlx::query_as(
-            "SELECT id, action_id, vote, comment, given_at, worker_id \
+            )
+            .bind(w)
+            .bind(v.as_str())
+            .bind(lim)
+            .fetch_all(pool)
+            .await?
+        }
+        (Some(w), None) => {
+            sqlx::query_as(
+                "SELECT id, action_id, vote, comment, given_at, worker_id \
              FROM operator_feedback WHERE worker_id = ? \
              ORDER BY given_at DESC LIMIT ?",
-        )
-        .bind(w)
-        .bind(lim)
-        .fetch_all(pool)
-        .await?,
-        (None, Some(v)) => sqlx::query_as(
-            "SELECT id, action_id, vote, comment, given_at, worker_id \
+            )
+            .bind(w)
+            .bind(lim)
+            .fetch_all(pool)
+            .await?
+        }
+        (None, Some(v)) => {
+            sqlx::query_as(
+                "SELECT id, action_id, vote, comment, given_at, worker_id \
              FROM operator_feedback WHERE vote = ? \
              ORDER BY given_at DESC LIMIT ?",
-        )
-        .bind(v.as_str())
-        .bind(lim)
-        .fetch_all(pool)
-        .await?,
-        (None, None) => sqlx::query_as(
-            "SELECT id, action_id, vote, comment, given_at, worker_id \
+            )
+            .bind(v.as_str())
+            .bind(lim)
+            .fetch_all(pool)
+            .await?
+        }
+        (None, None) => {
+            sqlx::query_as(
+                "SELECT id, action_id, vote, comment, given_at, worker_id \
              FROM operator_feedback \
              ORDER BY given_at DESC LIMIT ?",
-        )
-        .bind(lim)
-        .fetch_all(pool)
-        .await?,
+            )
+            .bind(lim)
+            .fetch_all(pool)
+            .await?
+        }
     };
     rows.into_iter()
         .map(|(id, act, v, c, ts, w)| {
@@ -227,9 +234,15 @@ mod tests {
     #[tokio::test]
     async fn list_filter_by_worker_and_vote_combine() {
         let pool = fresh_pool().await;
-        insert_feedback(&pool, "a1", Vote::Up, "", Some("w1")).await.unwrap();
-        insert_feedback(&pool, "a2", Vote::Down, "", Some("w1")).await.unwrap();
-        insert_feedback(&pool, "a3", Vote::Up, "", Some("w2")).await.unwrap();
+        insert_feedback(&pool, "a1", Vote::Up, "", Some("w1"))
+            .await
+            .unwrap();
+        insert_feedback(&pool, "a2", Vote::Down, "", Some("w1"))
+            .await
+            .unwrap();
+        insert_feedback(&pool, "a3", Vote::Up, "", Some("w2"))
+            .await
+            .unwrap();
         let rows = list_feedback(&pool, Some("w1"), Some(Vote::Down), 100)
             .await
             .unwrap();
@@ -240,7 +253,9 @@ mod tests {
     #[tokio::test]
     async fn latest_vote_for_action_returns_most_recent() {
         let pool = fresh_pool().await;
-        insert_feedback(&pool, "act-1", Vote::Up, "", None).await.unwrap();
+        insert_feedback(&pool, "act-1", Vote::Up, "", None)
+            .await
+            .unwrap();
         // Sleep is unreliable in tests; use a wide-enough margin
         // by inserting a second row — its given_at is naturally later.
         insert_feedback(&pool, "act-1", Vote::Down, "changed mind", None)

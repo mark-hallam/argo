@@ -112,7 +112,11 @@ impl SiemDispatcher {
         .map(|_| ())
     }
 
-    async fn load_batch(&self, after_seq: i64, limit: usize) -> Result<Vec<AuditEvent>, sqlx::Error> {
+    async fn load_batch(
+        &self,
+        after_seq: i64,
+        limit: usize,
+    ) -> Result<Vec<AuditEvent>, sqlx::Error> {
         let rows = sqlx::query(
             "SELECT seq, id, session_id, kind, payload_json, created_at \
              FROM audit_record \

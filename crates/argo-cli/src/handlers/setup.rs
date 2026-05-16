@@ -61,7 +61,9 @@ fn run_check(require: &[String]) -> ArgoResult<()> {
     eprintln!("[FAIL] no provider API keys detected in the process environment.");
     eprintln!();
     eprintln!("Resolution order (per docs/skycot/provider_keys.md):");
-    eprintln!("  1. Process environment: ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY / ...");
+    eprintln!(
+        "  1. Process environment: ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY / ..."
+    );
     eprintln!("  2. Future secrets.toml support is tracked separately.");
     eprintln!();
     eprintln!("Set at least one in your shell rc:");

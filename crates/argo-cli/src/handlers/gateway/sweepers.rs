@@ -42,7 +42,9 @@ pub fn spawn_handoff_sweeper(store: Arc<SessionStore>) -> Option<JoinHandle<()>>
         // tables are missing we log + bail; the gateway keeps
         // running for callers that don't need orchestrator state.
         if let Err(e) = orch_store.ensure_schema().await {
-            eprintln!("argo gateway: orchestrator schema unavailable ({e}); handoff sweeper disabled");
+            eprintln!(
+                "argo gateway: orchestrator schema unavailable ({e}); handoff sweeper disabled"
+            );
             return;
         }
         let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));

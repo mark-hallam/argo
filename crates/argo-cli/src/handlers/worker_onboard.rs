@@ -3,8 +3,8 @@
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_cron::CronExpr;
 use argo_identity::{
-    Duty, IdentityStore, MAX_CHARTER_BYTES, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role,
-    Worker, WorkerId,
+    Duty, IdentityStore, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role, Worker, WorkerId,
+    MAX_CHARTER_BYTES,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -69,7 +69,15 @@ struct DutyTable {
     description: String,
 }
 #[derive(Debug, Clone, Serialize)]
-pub struct OnboardOutput { worker_id: String, tenant_id: String, vertical_id: String, persona: String, memory_namespace: String, channels: usize, duties: usize }
+pub struct OnboardOutput {
+    worker_id: String,
+    tenant_id: String,
+    vertical_id: String,
+    persona: String,
+    memory_namespace: String,
+    channels: usize,
+    duties: usize,
+}
 pub async fn run(
     persona_spec: &Path,
     id: Option<&str>,
@@ -221,7 +229,11 @@ fn parse_duties(specs: &[DutySpec]) -> ArgoResult<Vec<Duty>> {
         .iter()
         .map(|raw| {
             let (cron, entry, desc) = match raw {
-                DutySpec::Table(t) => (t.cron.as_str(), t.entry_action.as_str(), t.description.as_str()),
+                DutySpec::Table(t) => (
+                    t.cron.as_str(),
+                    t.entry_action.as_str(),
+                    t.description.as_str(),
+                ),
                 DutySpec::Shorthand(s) => {
                     let parts: Vec<&str> = s.splitn(3, "::").collect();
                     if parts.len() != 3 {
@@ -253,7 +265,11 @@ async fn open_workspace_store() -> ArgoResult<(SessionStore, TenantId)> {
     Ok((store, tenant_id))
 }
 fn voice_preamble(persona: &PersonaSpec) -> String {
-    format!("{}\n\nSignature: {}", persona.voice.as_deref().unwrap_or_default(), persona.signature.as_deref().unwrap_or_default())
+    format!(
+        "{}\n\nSignature: {}",
+        persona.voice.as_deref().unwrap_or_default(),
+        persona.signature.as_deref().unwrap_or_default()
+    )
 }
 fn namespace_label(worker: &Worker, seed: Option<&str>) -> String {
     match seed.map(str::trim).filter(|s| !s.is_empty()) {
@@ -262,8 +278,11 @@ fn namespace_label(worker: &Worker, seed: Option<&str>) -> String {
     }
 }
 fn valid_vertical_id(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 64
-        && value.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    !value.is_empty()
+        && value.len() <= 64
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 fn required<'a>(value: Option<&'a str>, label: &str) -> ArgoResult<&'a str> {
     value
@@ -272,7 +291,8 @@ fn required<'a>(value: Option<&'a str>, label: &str) -> ArgoResult<&'a str> {
         .ok_or_else(|| ArgoError::Schema(format!("missing required {label}")))
 }
 fn parse_worker_id(value: &str) -> ArgoResult<WorkerId> {
-    value.parse()
+    value
+        .parse()
         .map_err(|e| ArgoError::Provider(format!("worker id '{value}': {e}")))
 }
 fn label(raw: &ChannelSpec) -> String {

@@ -391,4 +391,3 @@ fn runs_stream_emits_chunked_ndjson_with_terminator() {
     let status = child.wait().expect("wait");
     assert!(status.success());
 }
-

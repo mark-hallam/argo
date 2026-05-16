@@ -12,8 +12,8 @@ struct BackupListItem {
 }
 
 pub async fn run(json: bool) -> ArgoResult<()> {
-    let workspace = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let workspace =
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let backups = list_backups(&workspace)?;
     if json {
         println!(
@@ -74,7 +74,13 @@ mod tests {
         let listed = list_backups(temp.path()).unwrap();
         let paths: Vec<_> = listed
             .iter()
-            .map(|backup| Path::new(&backup.path).file_name().unwrap().to_str().unwrap())
+            .map(|backup| {
+                Path::new(&backup.path)
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+            })
             .collect();
 
         assert_eq!(paths, vec!["a.tar.gz", "b.tar.gz"]);

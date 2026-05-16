@@ -45,11 +45,7 @@ async fn charter_set_get_clear_round_trip() {
     )
     .unwrap();
     let kpis_path = work.path().join("kpis.json");
-    std::fs::write(
-        &kpis_path,
-        r#"{"reply_sla_hours": 24, "csat_target": 4.5}"#,
-    )
-    .unwrap();
+    std::fs::write(&kpis_path, r#"{"reply_sla_hours": 24, "csat_target": 4.5}"#).unwrap();
 
     // set
     let set_out = run(
@@ -172,4 +168,3 @@ fn assert_success(output: &Output) {
         String::from_utf8_lossy(&output.stderr)
     );
 }
-

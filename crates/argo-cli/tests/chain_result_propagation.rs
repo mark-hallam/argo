@@ -104,8 +104,7 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
     assert!(list.status.success());
     let stdout = String::from_utf8(list.stdout).expect("utf8");
     let row: Value =
-        serde_json::from_str(stdout.lines().next().expect("verify_price row"))
-            .expect("json row");
+        serde_json::from_str(stdout.lines().next().expect("verify_price row")).expect("json row");
     let verify_id = row["action_id"].as_str().expect("action_id").to_string();
 
     // execute → complete with marker keys in result-json
@@ -161,8 +160,7 @@ fn complete_result_keys_propagate_into_next_chain_link_payload() {
     assert!(draft_list.status.success());
     let draft_stdout = String::from_utf8(draft_list.stdout).expect("utf8");
     let draft_row: Value =
-        serde_json::from_str(draft_stdout.lines().next().expect("draft row"))
-            .expect("json row");
+        serde_json::from_str(draft_stdout.lines().next().expect("draft row")).expect("json row");
 
     let payload = &draft_row["payload"];
     assert_eq!(

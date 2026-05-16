@@ -182,10 +182,7 @@ mod tests {
         }
         .is_recoverable_to_handoff());
         assert!(!WindowsCuError::NotWindows.is_recoverable_to_handoff());
-        assert!(!WindowsCuError::AppNotAllowed {
-            app: "x".into()
-        }
-        .is_recoverable_to_handoff());
+        assert!(!WindowsCuError::AppNotAllowed { app: "x".into() }.is_recoverable_to_handoff());
     }
 
     #[test]

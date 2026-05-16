@@ -98,8 +98,7 @@ impl Default for SearchOptions {
 /// ```
 #[must_use]
 pub fn search(query: &str, options: &SearchOptions) -> Vec<MarketplaceSkill> {
-    let rows: Vec<MarketplaceSkill> =
-        STATIC_INDEX_DATA.iter().map(|e| e.to_public()).collect();
+    let rows: Vec<MarketplaceSkill> = STATIC_INDEX_DATA.iter().map(|e| e.to_public()).collect();
     rank_marketplace_skills(rows, query, options)
 }
 
@@ -341,11 +340,7 @@ impl MarketplaceClient {
     }
 
     /// Search merged sources with the legacy ranking + filters.
-    pub async fn search(
-        &self,
-        query: &str,
-        options: &SearchOptions,
-    ) -> Vec<MarketplaceSkill> {
+    pub async fn search(&self, query: &str, options: &SearchOptions) -> Vec<MarketplaceSkill> {
         rank_marketplace_skills(self.list_all().await, query, options)
     }
 }

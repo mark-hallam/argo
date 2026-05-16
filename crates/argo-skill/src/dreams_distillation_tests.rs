@@ -100,7 +100,10 @@ fn similarity_partial_overlap_is_above_threshold_when_close() {
         "different".to_string(),
     ];
     let sim = trajectory_similarity(&anchor, &near);
-    assert!(sim >= COHORT_SIMILARITY_THRESHOLD, "expected >=0.7, got {sim}");
+    assert!(
+        sim >= COHORT_SIMILARITY_THRESHOLD,
+        "expected >=0.7, got {sim}"
+    );
 }
 
 #[test]
@@ -136,15 +139,37 @@ fn group_into_cohorts_clusters_by_vertical_action_pair() {
 fn group_into_cohorts_filters_dissimilar_members() {
     // 3 similar + 1 totally dissimilar → cohort is the 3, not 4.
     let trajectories = vec![
-        input("s1", "post_listing", "marketplace", &["a", "b", "c", "d"], 0.9),
-        input("s2", "post_listing", "marketplace", &["a", "b", "c", "d"], 0.85),
-        input("s3", "post_listing", "marketplace", &["a", "b", "c", "d"], 0.95),
+        input(
+            "s1",
+            "post_listing",
+            "marketplace",
+            &["a", "b", "c", "d"],
+            0.9,
+        ),
+        input(
+            "s2",
+            "post_listing",
+            "marketplace",
+            &["a", "b", "c", "d"],
+            0.85,
+        ),
+        input(
+            "s3",
+            "post_listing",
+            "marketplace",
+            &["a", "b", "c", "d"],
+            0.95,
+        ),
         input("s4", "post_listing", "marketplace", &["x", "y", "z"], 0.8),
     ];
     let cohorts = group_into_cohorts(trajectories);
     assert_eq!(cohorts.len(), 1);
     assert_eq!(cohorts[0].members.len(), 3);
-    let ids: Vec<&str> = cohorts[0].members.iter().map(|m| m.session_id.as_str()).collect();
+    let ids: Vec<&str> = cohorts[0]
+        .members
+        .iter()
+        .map(|m| m.session_id.as_str())
+        .collect();
     assert!(!ids.contains(&"s4"));
 }
 
@@ -161,7 +186,11 @@ async fn distill_cohort_errors_on_undersized_cohort() {
         .expect_err("expected too-small error");
     let msg = format!("{err:?}");
     assert!(msg.contains("too small"), "unexpected err: {msg}");
-    assert_eq!(*caller.calls.lock().unwrap(), 0, "no call should be made for tiny cohort");
+    assert_eq!(
+        *caller.calls.lock().unwrap(),
+        0,
+        "no call should be made for tiny cohort"
+    );
 }
 
 #[tokio::test]
@@ -171,9 +200,27 @@ async fn distill_cohort_marks_body_source_dreams_distilled() {
         action_type: "post_listing".into(),
         vertical_id: "marketplace".into(),
         members: vec![
-            input("session1", "post_listing", "marketplace", &["nav", "fill", "submit"], 0.9),
-            input("session2", "post_listing", "marketplace", &["nav", "fill", "submit"], 0.85),
-            input("session3", "post_listing", "marketplace", &["nav", "fill", "submit"], 0.95),
+            input(
+                "session1",
+                "post_listing",
+                "marketplace",
+                &["nav", "fill", "submit"],
+                0.9,
+            ),
+            input(
+                "session2",
+                "post_listing",
+                "marketplace",
+                &["nav", "fill", "submit"],
+                0.85,
+            ),
+            input(
+                "session3",
+                "post_listing",
+                "marketplace",
+                &["nav", "fill", "submit"],
+                0.95,
+            ),
         ],
     };
     let (candidate, result) = distill_cohort(&cohort, &caller).await.unwrap();
@@ -249,9 +296,27 @@ fn three_member_cohort(action: &str, vertical: &str) -> Cohort {
         action_type: action.into(),
         vertical_id: vertical.into(),
         members: vec![
-            input("session1", action, vertical, &["nav", "fill", "submit"], 0.9),
-            input("session2", action, vertical, &["nav", "fill", "submit"], 0.85),
-            input("session3", action, vertical, &["nav", "fill", "submit"], 0.95),
+            input(
+                "session1",
+                action,
+                vertical,
+                &["nav", "fill", "submit"],
+                0.9,
+            ),
+            input(
+                "session2",
+                action,
+                vertical,
+                &["nav", "fill", "submit"],
+                0.85,
+            ),
+            input(
+                "session3",
+                action,
+                vertical,
+                &["nav", "fill", "submit"],
+                0.95,
+            ),
         ],
     }
 }
@@ -264,10 +329,9 @@ async fn distill_and_propose_allow_lands_pending_review() {
         verdict: JudgeVerdict::Success,
     };
     let cohort = three_member_cohort("post_listing_allow", "marketplace");
-    let (skill, result) =
-        distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
-            .await
-            .expect("allow path");
+    let (skill, result) = distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
+        .await
+        .expect("allow path");
     assert_eq!(skill.lifecycle_state, LifecycleState::PendingReview);
     assert_eq!(skill.vertical_id.as_deref(), Some("marketplace"));
     assert_eq!(result.cost_micros, 750_000);
@@ -283,10 +347,9 @@ async fn distill_and_propose_reject_lands_rejected() {
         },
     };
     let cohort = three_member_cohort("post_listing_reject", "marketplace");
-    let (skill, _result) =
-        distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
-            .await
-            .expect("reject still returns Ok with Rejected state");
+    let (skill, _result) = distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
+        .await
+        .expect("reject still returns Ok with Rejected state");
     assert_eq!(skill.lifecycle_state, LifecycleState::Rejected);
 }
 
@@ -296,9 +359,8 @@ async fn distill_and_propose_unavailable_fails_open_to_pending() {
     let (store, sid) = fresh_store().await;
     let judge = BrokenJudge;
     let cohort = three_member_cohort("post_listing_unavailable", "marketplace");
-    let (skill, _result) =
-        distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
-            .await
-            .expect("transport error fails OPEN");
+    let (skill, _result) = distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
+        .await
+        .expect("transport error fails OPEN");
     assert_eq!(skill.lifecycle_state, LifecycleState::PendingReview);
 }

@@ -159,10 +159,10 @@ impl OciRegistry for MemoryRegistry {
         tar_bytes: &[u8],
         manifest: &BundleManifest,
     ) -> ArgoResult<()> {
-        self.inner
-            .lock()
-            .await
-            .insert(reference.to_canonical(), (tar_bytes.to_vec(), manifest.clone()));
+        self.inner.lock().await.insert(
+            reference.to_canonical(),
+            (tar_bytes.to_vec(), manifest.clone()),
+        );
         Ok(())
     }
 

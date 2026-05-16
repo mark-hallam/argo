@@ -25,11 +25,7 @@ impl VisionDispatcher for CaptureDispatcher {
     fn provider_id(&self) -> &str {
         &self.provider
     }
-    async fn analyze(
-        &self,
-        image: ResolvedImage,
-        question: &str,
-    ) -> Result<VisionAnswer, String> {
+    async fn analyze(&self, image: ResolvedImage, question: &str) -> Result<VisionAnswer, String> {
         *self.captured.lock().unwrap() = Some((image, question.to_string()));
         Ok(VisionAnswer {
             answer: "the picture shows a cat".into(),

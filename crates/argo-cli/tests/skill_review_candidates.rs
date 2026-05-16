@@ -260,9 +260,7 @@ fn gtm_candidate_does_not_leak_into_pr_checker_only_view() {
     // the registry — the aggregator never queries for its rows.
     std::fs::create_dir_all(verticals_pr_only.path().join("pr-checker")).unwrap();
     std::fs::write(
-        verticals_pr_only
-            .path()
-            .join("pr-checker/vertical.toml"),
+        verticals_pr_only.path().join("pr-checker/vertical.toml"),
         PR_VERTICAL_TOML,
     )
     .unwrap();

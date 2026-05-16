@@ -21,9 +21,8 @@ fn short_truncates_long_strings_to_12_chars() {
 // ensure_schema themselves on first use. Tests follow the same
 // pattern: spin up an in-memory store, install the schemas this
 // flow touches, then exercise the handler.
-const WORKER_BUDGET_SCHEMA: &str = include_str!(
-    "../../../argo-store/migrations/14__worker_budget.sql"
-);
+const WORKER_BUDGET_SCHEMA: &str =
+    include_str!("../../../argo-store/migrations/14__worker_budget.sql");
 
 async fn fresh_store_with_budget_schema() -> argo_store::SessionStore {
     let dir = tempfile::tempdir().expect("tempdir");
@@ -48,9 +47,7 @@ async fn fresh_store_with_budget_schema() -> argo_store::SessionStore {
 
 #[tokio::test]
 async fn tick_records_anomaly_when_observed_far_above_baseline() {
-    use argo_store::spend_anomaly::{
-        list_anomalies, save_baseline, AnomalyFilters, SpendBaseline,
-    };
+    use argo_store::spend_anomaly::{list_anomalies, save_baseline, AnomalyFilters, SpendBaseline};
     let store = fresh_store_with_budget_schema().await;
     // Seed a baseline with stddev > 0 for hour 13.
     let mut baseline = SpendBaseline::empty("w-1", 13);

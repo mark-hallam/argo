@@ -217,29 +217,16 @@ impl Tool for Memory {
             "list" => list_action(wired).await,
             "read" => read_action(wired, parsed.entry.as_deref()).await,
             "write" => {
-                write_action(
-                    wired,
-                    parsed.entry.as_deref(),
-                    parsed.content.as_deref(),
-                )
-                .await
+                write_action(wired, parsed.entry.as_deref(), parsed.content.as_deref()).await
             }
             "list_team" => team::list_team_action(wired, parsed.team_id.as_deref()).await,
             "read_team" => {
-                team::read_team_action(
-                    wired,
-                    parsed.entry.as_deref(),
-                    parsed.team_id.as_deref(),
-                )
-                .await
+                team::read_team_action(wired, parsed.entry.as_deref(), parsed.team_id.as_deref())
+                    .await
             }
             "write_team" => {
-                team::write_team_action(
-                    wired,
-                    parsed.content.as_deref(),
-                    parsed.team_id.as_deref(),
-                )
-                .await
+                team::write_team_action(wired, parsed.content.as_deref(), parsed.team_id.as_deref())
+                    .await
             }
             "query_scored" => query::query_scored_action(wired, &args).await,
             other => Err(ArgoError::Tool {

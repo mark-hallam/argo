@@ -99,8 +99,7 @@ fn dispatch_without_env_surfaces_clean_provider_error() {
     }
     let msg = format!("{err}");
     assert!(
-        msg.contains("ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL")
-            || msg.contains("not configured"),
+        msg.contains("ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL") || msg.contains("not configured"),
         "msg: {msg}"
     );
 }

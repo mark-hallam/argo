@@ -47,7 +47,9 @@ fn hello_frame_carries_protocol_and_capabilities() {
     assert_eq!(parsed["type"], "hello");
     assert_eq!(parsed["protocol_version"], PROTOCOL_VERSION);
     assert_eq!(parsed["seq"], 0);
-    let caps = parsed["capabilities"].as_array().expect("capabilities array");
+    let caps = parsed["capabilities"]
+        .as_array()
+        .expect("capabilities array");
     let names: Vec<&str> = caps.iter().filter_map(Value::as_str).collect();
     assert!(names.contains(&"approval.created"));
     assert!(names.contains(&"approval.decided"));
@@ -77,9 +79,7 @@ async fn per_tenant_seq_monotonically_increases() {
     for _ in 0..3 {
         publish_event(
             "tenant-seq-mono",
-            WebInboxEvent::ApprovalCreated {
-                payload: json!({}),
-            },
+            WebInboxEvent::ApprovalCreated { payload: json!({}) },
         );
     }
     let f1: Value = serde_json::from_str(&rx.recv().await.unwrap()).unwrap();
@@ -224,9 +224,7 @@ fn authorize_uses_jwt_tenant_when_pubkey_present() {
             exp: now + 60,
         },
     );
-    let req = format!(
-        "GET /inbox/ws?token={token} HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"
-    );
+    let req = format!("GET /inbox/ws?token={token} HTTP/1.1\r\nUpgrade: websocket\r\n\r\n");
     let auth = authorize(&req, now).expect("jwt verifies");
     assert_eq!(auth.tenant_key(), "tenant-jwt");
     std::env::remove_var(PUBKEY_ENV);
@@ -261,9 +259,7 @@ async fn jwt_auth_subscribes_only_to_claim_tenant() {
                 exp: now + 60,
             },
         );
-        let req = format!(
-            "GET /inbox/ws?token={token} HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"
-        );
+        let req = format!("GET /inbox/ws?token={token} HTTP/1.1\r\nUpgrade: websocket\r\n\r\n");
         let auth = authorize(&req, now).expect("jwt verifies");
         let tenant = auth.tenant_key().to_string();
         std::env::remove_var(PUBKEY_ENV);
@@ -467,12 +463,10 @@ fn channel_event_variants_route_through_publish() {
                     .and_then(|f| serde_json::to_value(f).ok())
                     .unwrap_or_else(|| serde_json::to_value(&row).unwrap_or(json!({}))),
             },
-            ChannelEvent::ApprovalDecided { row, decision, .. } => {
-                WebInboxEvent::ApprovalDecided {
-                    payload: serde_json::to_value(&row).unwrap_or(json!({})),
-                    decision,
-                }
-            }
+            ChannelEvent::ApprovalDecided { row, decision, .. } => WebInboxEvent::ApprovalDecided {
+                payload: serde_json::to_value(&row).unwrap_or(json!({})),
+                decision,
+            },
             ChannelEvent::ApprovalUndone { row, .. } => WebInboxEvent::ApprovalUndone {
                 payload: serde_json::to_value(&row).unwrap_or(json!({})),
             },

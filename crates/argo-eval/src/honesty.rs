@@ -236,10 +236,7 @@ pub async fn run_honesty_test(
 
 /// Call `argo-judge::adjudicate` for one sample and map the verdict
 /// to a bool. `Success` → `true`; `Partial` / `Failure` → `false`.
-async fn classify_sample(
-    judge: &dyn argo_judge::Judge,
-    sample: &SkillSample,
-) -> ArgoResult<bool> {
+async fn classify_sample(judge: &dyn argo_judge::Judge, sample: &SkillSample) -> ArgoResult<bool> {
     let evidence = JudgeEvidence {
         task_statement: sample.task_statement.clone(),
         agent_output: sample.agent_output.clone(),

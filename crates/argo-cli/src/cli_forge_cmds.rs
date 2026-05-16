@@ -179,8 +179,12 @@ pub enum ForgeRunsCmd {
         #[arg(long, default_value = "started-at")]
         sort_by: String,
     },
-    Show { id: String },
-    Abort { id: String },
+    Show {
+        id: String,
+    },
+    Abort {
+        id: String,
+    },
     /// Requeue a terminal forge run (failed / aborted /
     /// succeeded) by copying its queued payload into a fresh
     /// row with status='queued'. The daemon picks it up on

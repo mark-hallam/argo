@@ -375,9 +375,7 @@ mod tests {
         ));
         assert!(!is_marketplace("GET /marketplaces HTTP/1.1\r\n\r\n"));
         assert!(!is_marketplace("PUT /marketplace HTTP/1.1\r\n\r\n"));
-        assert!(is_marketplace(
-            "GET /marketplace?q=foo HTTP/1.1\r\n\r\n"
-        ));
+        assert!(is_marketplace("GET /marketplace?q=foo HTTP/1.1\r\n\r\n"));
     }
 
     #[test]
@@ -394,10 +392,7 @@ mod tests {
             split_query("/marketplace?q=foo HTTP/1.1"),
             ("/marketplace", "q=foo")
         );
-        assert_eq!(
-            split_query("/marketplace HTTP/1.1"),
-            ("/marketplace", "")
-        );
+        assert_eq!(split_query("/marketplace HTTP/1.1"), ("/marketplace", ""));
     }
 
     #[test]
@@ -421,12 +416,9 @@ mod tests {
 
     #[tokio::test]
     async fn dispatch_list_filters_by_query() {
-        let (_, body) = dispatch(
-            "GET /marketplace?q=recruiter HTTP/1.1\r\n\r\n",
-            None,
-        )
-        .await
-        .expect("list route");
+        let (_, body) = dispatch("GET /marketplace?q=recruiter HTTP/1.1\r\n\r\n", None)
+            .await
+            .expect("list route");
         assert!(body.contains("recruiter-reply-draft"));
         assert!(!body.contains("support-ticket-summarizer"));
     }
@@ -447,12 +439,9 @@ mod tests {
 
     #[tokio::test]
     async fn dispatch_detail_404_for_unknown_skill() {
-        let (status, body) = dispatch(
-            "GET /marketplace/does-not-exist HTTP/1.1\r\n\r\n",
-            None,
-        )
-        .await
-        .expect("detail route");
+        let (status, body) = dispatch("GET /marketplace/does-not-exist HTTP/1.1\r\n\r\n", None)
+            .await
+            .expect("detail route");
         assert!(status.starts_with("404"));
         assert!(body.contains("No skill named"));
     }

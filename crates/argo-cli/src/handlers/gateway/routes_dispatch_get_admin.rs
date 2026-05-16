@@ -12,12 +12,13 @@
 use super::routes_audit::dispatch_audit_recent;
 use super::routes_audit_stream::dispatch_audit_stream;
 use super::routes_meta::{
-    db_integrity_response, db_stats_response, db_version_response, routes_response,
-    search_response,
+    db_integrity_response, db_stats_response, db_version_response, routes_response, search_response,
 };
 use super::routes_query::{parse_query_kv, parse_search_args, parse_since_minutes_from_get};
 use super::routes_search::search_count_response;
-use super::routes_top::{audit_breaks_response, audit_response, doctor_response, health_full_response};
+use super::routes_top::{
+    audit_breaks_response, audit_response, doctor_response, health_full_response,
+};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use argo_store::SessionStore;
 use std::sync::Arc;
@@ -33,7 +34,11 @@ pub(super) async fn dispatch_get_admin(
         // no hint of what to try next. Sends users straight to /routes
         // for the full catalog and names a few high-frequency
         // entry-points so a curl at `/` is immediately useful.
-        let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+        let profile = if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        };
         return Some((
             "200 OK",
             format!(
@@ -53,7 +58,11 @@ pub(super) async fn dispatch_get_admin(
         ));
     }
     if req.starts_with("GET /version ") {
-        let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+        let profile = if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        };
         return Some((
             "200 OK",
             format!(
@@ -134,8 +143,7 @@ pub(super) async fn dispatch_get_admin(
         let format = parse_query_kv(tail, "format");
         return Some(workspace_info_response(store, format.as_deref()).await);
     }
-    if req.starts_with("GET /workspace/artifacts ")
-        || req.starts_with("GET /workspace/artifacts?")
+    if req.starts_with("GET /workspace/artifacts ") || req.starts_with("GET /workspace/artifacts?")
     {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let limit: u32 = parse_query_kv(tail, "limit")

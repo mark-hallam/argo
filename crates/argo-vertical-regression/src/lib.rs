@@ -240,7 +240,12 @@ pub fn check(case: &VerticalCase) -> Vec<Violation> {
         .manifest
         .escalation
         .as_ref()
-        .map(|e| e.human_approval_required.iter().map(String::as_str).collect())
+        .map(|e| {
+            e.human_approval_required
+                .iter()
+                .map(String::as_str)
+                .collect()
+        })
         .unwrap_or_default();
 
     for fx in &case.fixtures {

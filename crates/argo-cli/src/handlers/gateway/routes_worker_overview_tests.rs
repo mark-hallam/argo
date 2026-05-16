@@ -5,8 +5,8 @@
 
 use super::super::routes_worker_detail::PrincipalRole;
 use super::{
-    classify_source, label_from_template, next_fire_for, parse_role_header, show_response,
-    slugify, trend_for, SourceKind,
+    classify_source, label_from_template, next_fire_for, parse_role_header, show_response, slugify,
+    trend_for, SourceKind,
 };
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, Persona, Role, Worker, WorkerId};
@@ -30,7 +30,10 @@ async fn env_lock() -> MutexGuard<'static, ()> {
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent().and_then(|p| p.parent()).expect("workspace root").to_path_buf()
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("workspace root")
+        .to_path_buf()
 }
 
 fn set_test_env(tmp: &std::path::Path) {
@@ -54,37 +57,60 @@ async fn prep() -> Env {
     let store = Arc::new(SessionStore::open(":memory:").await.expect("open"));
     store.migrate().await.expect("migrate");
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
-    let (tenant, ws) = store.ensure_workspace(name, &root).await.expect("ensure workspace");
-    Env { _guard: guard, _tmp: tmp, store, tenant, ws }
+    let (tenant, ws) = store
+        .ensure_workspace(name, &root)
+        .await
+        .expect("ensure workspace");
+    Env {
+        _guard: guard,
+        _tmp: tmp,
+        store,
+        tenant,
+        ws,
+    }
 }
 
 fn req_for(id: &str, role: Option<&str>, principal: Option<&str>) -> String {
     let mut req = format!("GET /api/v1/workers/{id}/overview HTTP/1.1\r\nHost: x\r\n");
-    if let Some(r) = role { req.push_str(&format!("X-Argo-Role: {r}\r\n")); }
-    if let Some(p) = principal { req.push_str(&format!("X-Argo-Principal: {p}\r\n")); }
+    if let Some(r) = role {
+        req.push_str(&format!("X-Argo-Role: {r}\r\n"));
+    }
+    if let Some(p) = principal {
+        req.push_str(&format!("X-Argo-Principal: {p}\r\n"));
+    }
     req.push_str("\r\n");
     req
 }
 
 async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, builder: &str) -> Worker {
     let mut worker = Worker::draft(
-        tenant, VERT,
+        tenant,
+        VERT,
         Persona::named("Maya", builder),
         Role::new("Resolve customer questions."),
     );
     worker.charter = Some("Be the most helpful triage agent on the floor.".into());
-    IdentityStore::new(store).create_worker(&worker).await.expect("create worker");
+    IdentityStore::new(store)
+        .create_worker(&worker)
+        .await
+        .expect("create worker");
     worker
 }
 
 async fn seed_session(env: &Env, worker: WorkerId) -> SessionId {
     env.store
         .create_session_with_worker(SessionCreate {
-            tenant_id: env.tenant, workspace_id: env.ws,
-            model: "test-model", provider: "test-provider",
-            title: Some("seed"), vertical_id: Some(VERT),
+            tenant_id: env.tenant,
+            workspace_id: env.ws,
+            model: "test-model",
+            provider: "test-provider",
+            title: Some("seed"),
+            vertical_id: Some(VERT),
             worker_id: Some(argo_store::WorkerId(worker.0)),
         })
         .await
@@ -92,7 +118,9 @@ async fn seed_session(env: &Env, worker: WorkerId) -> SessionId {
 }
 
 async fn write_audit(sink: &AuditSink, session: SessionId, kind: AuditKind, payload: Value) {
-    sink.write(Some(session), kind, payload, None).await.expect("audit write");
+    sink.write(Some(session), kind, payload, None)
+        .await
+        .expect("audit write");
     sink.flush_pending().await.expect("flush audit");
 }
 
@@ -108,11 +136,20 @@ async fn happy_path_returns_all_top_level_fields() {
     let worker = add_worker(&env.store, env.tenant, "human:mark").await;
     let req = req_for(&worker.id.to_string(), Some("operator"), Some("human:mark"));
     let v = parse_ok(&req, &worker.id.to_string(), &env.store).await;
-    for key in ["charter", "duties", "kpis", "recent_activity", "permissions"] {
+    for key in [
+        "charter",
+        "duties",
+        "kpis",
+        "recent_activity",
+        "permissions",
+    ] {
         assert!(v.get(key).is_some(), "missing key {key} in {v}");
     }
     assert_eq!(v["charter"]["version"], 1);
-    assert_eq!(v["charter"]["text"], "Be the most helpful triage agent on the floor.");
+    assert_eq!(
+        v["charter"]["text"],
+        "Be the most helpful triage agent on the floor."
+    );
     assert_eq!(v["charter"]["last_edited_by"], "human:mark");
     assert!(v["charter"]["last_edited_at"].is_string());
 }
@@ -154,7 +191,10 @@ async fn cross_tenant_worker_returns_403() {
 async fn archived_worker_returns_410_with_recoverable_until() {
     let env = prep().await;
     let worker = add_worker(&env.store, env.tenant, "human:mark").await;
-    IdentityStore::new(&env.store).archive_worker(env.tenant, worker.id).await.expect("archive");
+    IdentityStore::new(&env.store)
+        .archive_worker(env.tenant, worker.id)
+        .await
+        .expect("archive");
     let req = req_for(&worker.id.to_string(), None, None);
     let (status, body) = show_response(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "410 Gone", "body: {body}");
@@ -199,7 +239,13 @@ async fn kpis_reflect_seeded_audit_rows_and_drop_not_computable() {
         write_audit(&sink, session, AuditKind::ToolCall, serde_json::json!({})).await;
     }
     for _ in 0..2 {
-        write_audit(&sink, session, AuditKind::EscalationRequired, serde_json::json!({})).await;
+        write_audit(
+            &sink,
+            session,
+            AuditKind::EscalationRequired,
+            serde_json::json!({}),
+        )
+        .await;
     }
     let req = req_for(&worker.id.to_string(), Some("operator"), Some("human:mark"));
     let v = parse_ok(&req, &worker.id.to_string(), &env.store).await;
@@ -208,11 +254,20 @@ async fn kpis_reflect_seeded_audit_rows_and_drop_not_computable() {
     // The NotComputable row must drop.
     let keys: Vec<&str> = kpis.iter().filter_map(|k| k["key"].as_str()).collect();
     assert_eq!(kpis.len(), 2, "expected ToolCalls + Pending; got {keys:?}");
-    let tickets = kpis.iter().find(|k| k["label"] == "Tickets resolved today").expect("tickets");
+    let tickets = kpis
+        .iter()
+        .find(|k| k["label"] == "Tickets resolved today")
+        .expect("tickets");
     assert_eq!(tickets["value"], "4");
     assert_eq!(tickets["direction_means_good"], Value::Bool(true));
-    assert_eq!(tickets["sparkline_7d"].as_array().expect("sparkline").len(), 7);
-    let pend = kpis.iter().find(|k| k["label"] == "Pending escalations").expect("pending");
+    assert_eq!(
+        tickets["sparkline_7d"].as_array().expect("sparkline").len(),
+        7
+    );
+    let pend = kpis
+        .iter()
+        .find(|k| k["label"] == "Pending escalations")
+        .expect("pending");
     assert_eq!(pend["value"], "2");
     assert_eq!(pend["direction_means_good"], Value::Bool(false));
 }
@@ -225,13 +280,18 @@ async fn recent_activity_capped_at_five_newest_first() {
     let sink = AuditSink::new(env.store.clone());
     for i in 0..8 {
         write_audit(
-            &sink, session, AuditKind::ToolCall,
+            &sink,
+            session,
+            AuditKind::ToolCall,
             serde_json::json!({ "verb": format!("call_{i}"), "status": "succeeded" }),
-        ).await;
+        )
+        .await;
     }
     let req = req_for(&worker.id.to_string(), Some("operator"), Some("human:mark"));
     let v = parse_ok(&req, &worker.id.to_string(), &env.store).await;
-    let rows = v["recent_activity"].as_array().expect("recent_activity array");
+    let rows = v["recent_activity"]
+        .as_array()
+        .expect("recent_activity array");
     assert_eq!(rows.len(), 5);
     let verbs: Vec<&str> = rows.iter().filter_map(|r| r["verb"].as_str()).collect();
     assert!(verbs.iter().all(|v| v.starts_with("call_")));
@@ -247,8 +307,15 @@ async fn duties_include_role_duty_rows() {
     let env = prep().await;
     let worker = add_worker(&env.store, env.tenant, "human:mark").await;
     let schema = include_str!("../../../../argo-store/migrations/93__role_duties.sql");
-    for stmt in schema.split_terminator(';').map(str::trim).filter(|s| !s.is_empty()) {
-        sqlx::query(stmt).execute(env.store.pool()).await.expect("role_duty schema");
+    for stmt in schema
+        .split_terminator(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        sqlx::query(stmt)
+            .execute(env.store.pool())
+            .await
+            .expect("role_duty schema");
     }
     sqlx::query(
         "INSERT INTO role_duty (id, tenant_id, worker_id, cron, entry_action, description, \
@@ -271,14 +338,21 @@ async fn duties_include_role_duty_rows() {
     assert_eq!(d["schedule"]["kind"], "cron");
     assert_eq!(d["schedule"]["spec"], "0 0 6 * * *");
     assert_eq!(d["enabled"], Value::Bool(true));
-    assert!(d["next_fire_at"].is_string(), "expected next_fire_at, got {d}");
+    assert!(
+        d["next_fire_at"].is_string(),
+        "expected next_fire_at, got {d}"
+    );
 }
 
 #[tokio::test]
 async fn audit_row_written_per_view() {
     let env = prep().await;
     let worker = add_worker(&env.store, env.tenant, "human:mark").await;
-    let req = req_for(&worker.id.to_string(), Some("operator"), Some("human:auditor"));
+    let req = req_for(
+        &worker.id.to_string(),
+        Some("operator"),
+        Some("human:auditor"),
+    );
     let _ = parse_ok(&req, &worker.id.to_string(), &env.store).await;
     let sink = AuditSink::new(env.store.clone());
     sink.flush_pending().await.unwrap();
@@ -306,8 +380,13 @@ async fn permissions_resolve_per_role_table() {
     .await;
     let p = &v_op["permissions"];
     for key in [
-        "can_edit_charter", "can_edit_duties", "can_pause_resume",
-        "can_archive", "can_delete", "can_view_audit", "can_view_settings",
+        "can_edit_charter",
+        "can_edit_duties",
+        "can_pause_resume",
+        "can_archive",
+        "can_delete",
+        "can_view_audit",
+        "can_view_settings",
     ] {
         assert_eq!(p[key], Value::Bool(true), "operator must have {key}");
     }
@@ -315,14 +394,23 @@ async fn permissions_resolve_per_role_table() {
         &req_for(&mine.id.to_string(), Some("delegator"), Some("human:mark")),
         &mine.id.to_string(),
         &env.store,
-    ).await;
+    )
+    .await;
     let v_theirs = parse_ok(
-        &req_for(&theirs.id.to_string(), Some("delegator"), Some("human:mark")),
+        &req_for(
+            &theirs.id.to_string(),
+            Some("delegator"),
+            Some("human:mark"),
+        ),
         &theirs.id.to_string(),
         &env.store,
-    ).await;
+    )
+    .await;
     assert_eq!(v_mine["permissions"]["can_edit_charter"], Value::Bool(true));
-    assert_eq!(v_theirs["permissions"]["can_edit_charter"], Value::Bool(false));
+    assert_eq!(
+        v_theirs["permissions"]["can_edit_charter"],
+        Value::Bool(false)
+    );
     assert_eq!(v_mine["permissions"]["can_delete"], Value::Bool(false));
 }
 
@@ -336,14 +424,23 @@ fn classify_source_recovers_bullet_source_via_format_probe() {
     assert_eq!(kinds[1], SourceKind::NotComputable);
     assert_eq!(kinds[2], SourceKind::Pending);
     let fallback = bullets_for_vertical("totally-unknown-vertical");
-    assert!(fallback.iter().map(classify_source).any(|k| k == SourceKind::AnyAction));
+    assert!(fallback
+        .iter()
+        .map(classify_source)
+        .any(|k| k == SourceKind::AnyAction));
 }
 
 #[test]
 fn label_from_template_strips_count_prefix_and_capitalises() {
     assert_eq!(label_from_template("{n} replies sent"), "Replies sent");
-    assert_eq!(label_from_template("{n} pending escalations"), "Pending escalations");
-    assert_eq!(label_from_template("revenue this week"), "Revenue this week");
+    assert_eq!(
+        label_from_template("{n} pending escalations"),
+        "Pending escalations"
+    );
+    assert_eq!(
+        label_from_template("revenue this week"),
+        "Revenue this week"
+    );
 }
 
 #[test]
@@ -385,9 +482,18 @@ fn parse_role_header_recognises_canonical_roles_and_aliases() {
     fn req(value: &str) -> String {
         format!("GET / HTTP/1.1\r\nHost: x\r\nX-Argo-Role: {value}\r\n\r\n")
     }
-    assert_eq!(parse_role_header(&req("operator")), Some(PrincipalRole::Operator));
-    assert_eq!(parse_role_header(&req("delegator")), Some(PrincipalRole::Delegator));
-    assert_eq!(parse_role_header(&req("auditor")), Some(PrincipalRole::Auditor));
+    assert_eq!(
+        parse_role_header(&req("operator")),
+        Some(PrincipalRole::Operator)
+    );
+    assert_eq!(
+        parse_role_header(&req("delegator")),
+        Some(PrincipalRole::Delegator)
+    );
+    assert_eq!(
+        parse_role_header(&req("auditor")),
+        Some(PrincipalRole::Auditor)
+    );
     assert_eq!(
         parse_role_header(&req("compliance-officer")),
         Some(PrincipalRole::ComplianceOfficer)

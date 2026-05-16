@@ -175,7 +175,11 @@ mod tests {
             .map(|i| i + "tool_call".len())
             .unwrap();
         let payload = line[payload_start..].trim();
-        assert!(payload.chars().count() <= 80, "got {} chars", payload.chars().count());
+        assert!(
+            payload.chars().count() <= 80,
+            "got {} chars",
+            payload.chars().count()
+        );
         assert!(payload.ends_with('…'));
     }
 
@@ -189,12 +193,20 @@ mod tests {
 
     #[test]
     fn raw_emits_valid_ndjson() {
-        let r = row(1, "tool_result", json!({"ok": true}), "2026-01-01T00:00:00Z");
+        let r = row(
+            1,
+            "tool_result",
+            json!({"ok": true}),
+            "2026-01-01T00:00:00Z",
+        );
         let out = render(&[r], ReplayFormat::Raw);
         let line = out.trim();
         let parsed: serde_json::Value = serde_json::from_str(line).expect("valid JSON");
         assert_eq!(parsed.get("seq").and_then(|v| v.as_i64()), Some(1));
-        assert_eq!(parsed.get("kind").and_then(|v| v.as_str()), Some("tool_result"));
+        assert_eq!(
+            parsed.get("kind").and_then(|v| v.as_str()),
+            Some("tool_result")
+        );
     }
 
     #[test]

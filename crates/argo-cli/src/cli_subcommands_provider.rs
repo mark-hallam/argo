@@ -60,6 +60,10 @@ pub enum ModelCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    Set { model: String },
-    Test { model: String },
+    Set {
+        model: String,
+    },
+    Test {
+        model: String,
+    },
 }

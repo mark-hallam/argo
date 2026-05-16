@@ -25,7 +25,11 @@ pub(crate) enum BatchDecision {
 
 impl BatchDecision {
     pub(crate) fn from_flag(deny: bool) -> Self {
-        if deny { Self::Deny } else { Self::Approve }
+        if deny {
+            Self::Deny
+        } else {
+            Self::Approve
+        }
     }
 
     pub(crate) fn label(self) -> &'static str {
@@ -95,7 +99,10 @@ pub(crate) fn prompt_confirms(count: usize, decision: BatchDecision) -> ArgoResu
         .lock()
         .read_line(&mut buf)
         .map_err(|e| ArgoError::Io(format!("read stdin: {e}")))?;
-    Ok(matches!(buf.trim().to_ascii_lowercase().as_str(), "y" | "yes"))
+    Ok(matches!(
+        buf.trim().to_ascii_lowercase().as_str(),
+        "y" | "yes"
+    ))
 }
 
 /// Stable summary table written after `approve_batch` runs.
@@ -125,12 +132,7 @@ pub(crate) fn print_summary(
     }
     println!("id\tdecision\tstatus\tnote");
     for r in ok {
-        println!(
-            "{}\t{}\t{}\t",
-            r.action_id,
-            decision.label(),
-            r.state,
-        );
+        println!("{}\t{}\t{}\t", r.action_id, decision.label(), r.state,);
     }
     for (id, err) in failed {
         println!("{}\t{}\tfailed\t{}", id, decision.label(), err);

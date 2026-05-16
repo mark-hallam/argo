@@ -2,10 +2,10 @@
 //! Covers file IO, size enforcement, and IdentityStore round-trip
 //! through `update_charter`.
 
-use super::worker_charter::{enforce_charter_size, enforce_kpis_size, read_charter_file, read_kpis_file};
-use argo_identity::{
-    IdentityStore, Persona, Role, Worker, MAX_CHARTER_BYTES, MAX_KPIS_BYTES,
+use super::worker_charter::{
+    enforce_charter_size, enforce_kpis_size, read_charter_file, read_kpis_file,
 };
+use argo_identity::{IdentityStore, Persona, Role, Worker, MAX_CHARTER_BYTES, MAX_KPIS_BYTES};
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use serde_json::json;

@@ -28,8 +28,7 @@ fn repo_verticals_dir() -> &'static Path {
 }
 
 fn registry() -> argo_vertical::Registry {
-    let (registry, errors) =
-        argo_vertical::load_dir(repo_verticals_dir()).expect("load_dir");
+    let (registry, errors) = argo_vertical::load_dir(repo_verticals_dir()).expect("load_dir");
     let our_errors: Vec<_> = errors
         .iter()
         .filter(|e| e.dir.ends_with("recruiter"))
@@ -50,8 +49,7 @@ fn recruiter_loads_and_validates() {
         "Recruiter — Technical Sourcing & Screening"
     );
     assert_eq!(v.manifest.vertical.version, "0.1.0");
-    argo_vertical::validate(&v.manifest, &v.root)
-        .expect("recruiter manifest must validate");
+    argo_vertical::validate(&v.manifest, &v.root).expect("recruiter manifest must validate");
 }
 
 #[test]
@@ -200,8 +198,8 @@ fn recruiter_system_prompt_forbids_each_eeoc_signal() {
     let reg = registry();
     let v = reg.get("recruiter").unwrap();
     let role = v.manifest.role.as_ref().expect("[role] section");
-    let sys = std::fs::read_to_string(v.root.join(&role.system_prompt))
-        .expect("system prompt readable");
+    let sys =
+        std::fs::read_to_string(v.root.join(&role.system_prompt)).expect("system prompt readable");
     let lower = sys.to_lowercase();
 
     // Anchor phrase — the prompt must reference EEOC compliance or
@@ -281,8 +279,7 @@ fn recruiter_persona_avoids_culture_fit_phrasing() {
     let v = reg.get("recruiter").unwrap();
     let role = v.manifest.role.as_ref().expect("[role] section");
     let persona_rel = role.persona.as_ref().expect("persona path");
-    let persona = std::fs::read_to_string(v.root.join(persona_rel))
-        .expect("persona readable");
+    let persona = std::fs::read_to_string(v.root.join(persona_rel)).expect("persona readable");
     let lower = persona.to_lowercase();
     assert!(
         lower.contains("culture fit"),

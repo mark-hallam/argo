@@ -40,7 +40,9 @@ async fn ensure_schema_is_idempotent() {
 #[tokio::test]
 async fn create_team_inserts_org_unit_and_roster() {
     let (store, tenant) = fresh().await;
-    let outcome = create_team(store.pool(), tenant, "finance", None).await.unwrap();
+    let outcome = create_team(store.pool(), tenant, "finance", None)
+        .await
+        .unwrap();
     assert!(!outcome.id.is_empty());
     assert_eq!(outcome.name, "finance");
     let rows = list_teams(store.pool(), tenant).await.unwrap();
@@ -67,7 +69,10 @@ async fn create_team_with_valid_parent() {
     let child = create_team(store.pool(), tenant, "platform", Some(&parent.id))
         .await
         .unwrap();
-    let detail = get_team(store.pool(), tenant, &child.id).await.unwrap().unwrap();
+    let detail = get_team(store.pool(), tenant, &child.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(detail.level, 1);
     assert_eq!(detail.parent_id.as_deref(), Some(parent.id.as_str()));
 }
@@ -75,7 +80,9 @@ async fn create_team_with_valid_parent() {
 #[tokio::test]
 async fn rename_team_updates_org_unit_and_roster() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "ops", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "ops", None)
+        .await
+        .unwrap();
     let renamed = rename_team(store.pool(), tenant, &team.id, "operations")
         .await
         .unwrap();
@@ -102,7 +109,9 @@ async fn rename_missing_team_returns_false() {
 #[tokio::test]
 async fn rename_rejects_empty_name() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "ops", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "ops", None)
+        .await
+        .unwrap();
     let err = rename_team(store.pool(), tenant, &team.id, "   ")
         .await
         .unwrap_err();
@@ -112,12 +121,17 @@ async fn rename_rejects_empty_name() {
 #[tokio::test]
 async fn add_member_appears_in_show_and_count() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "support", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "support", None)
+        .await
+        .unwrap();
     let worker = uuid::Uuid::now_v7().to_string();
     add_team_member(store.pool(), &team.id, &worker, Some("clerk"))
         .await
         .unwrap();
-    let detail = get_team(store.pool(), tenant, &team.id).await.unwrap().unwrap();
+    let detail = get_team(store.pool(), tenant, &team.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(detail.members.len(), 1);
     assert_eq!(detail.members[0].worker_id, worker);
     assert_eq!(detail.members[0].role.as_deref(), Some("clerk"));
@@ -128,7 +142,9 @@ async fn add_member_appears_in_show_and_count() {
 #[tokio::test]
 async fn add_member_is_idempotent_and_updates_role() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "support", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "support", None)
+        .await
+        .unwrap();
     let worker = uuid::Uuid::now_v7().to_string();
     add_team_member(store.pool(), &team.id, &worker, Some("clerk"))
         .await
@@ -136,7 +152,10 @@ async fn add_member_is_idempotent_and_updates_role() {
     add_team_member(store.pool(), &team.id, &worker, Some("lead"))
         .await
         .unwrap();
-    let detail = get_team(store.pool(), tenant, &team.id).await.unwrap().unwrap();
+    let detail = get_team(store.pool(), tenant, &team.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(detail.members.len(), 1);
     assert_eq!(detail.members[0].role.as_deref(), Some("lead"));
 }
@@ -144,14 +163,21 @@ async fn add_member_is_idempotent_and_updates_role() {
 #[tokio::test]
 async fn remove_member_is_soft_delete() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "support", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "support", None)
+        .await
+        .unwrap();
     let worker = uuid::Uuid::now_v7().to_string();
-    add_team_member(store.pool(), &team.id, &worker, None).await.unwrap();
+    add_team_member(store.pool(), &team.id, &worker, None)
+        .await
+        .unwrap();
     let removed = remove_team_member(store.pool(), &team.id, &worker)
         .await
         .unwrap();
     assert!(removed);
-    let detail = get_team(store.pool(), tenant, &team.id).await.unwrap().unwrap();
+    let detail = get_team(store.pool(), tenant, &team.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(detail.members.is_empty());
     let row: Option<i64> = sqlx::query_scalar(
         "SELECT removed_at FROM roster_member WHERE roster_id = ? AND worker_id = ?",
@@ -168,7 +194,9 @@ async fn remove_member_is_soft_delete() {
 #[tokio::test]
 async fn re_add_after_remove_clears_removed_at() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "support", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "support", None)
+        .await
+        .unwrap();
     let worker = uuid::Uuid::now_v7().to_string();
     add_team_member(store.pool(), &team.id, &worker, Some("clerk"))
         .await
@@ -179,7 +207,10 @@ async fn re_add_after_remove_clears_removed_at() {
     add_team_member(store.pool(), &team.id, &worker, Some("clerk"))
         .await
         .unwrap();
-    let detail = get_team(store.pool(), tenant, &team.id).await.unwrap().unwrap();
+    let detail = get_team(store.pool(), tenant, &team.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(detail.members.len(), 1);
     assert_eq!(detail.members[0].role.as_deref(), Some("clerk"));
 }
@@ -187,7 +218,9 @@ async fn re_add_after_remove_clears_removed_at() {
 #[tokio::test]
 async fn remove_missing_returns_false() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "support", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "support", None)
+        .await
+        .unwrap();
     let worker = uuid::Uuid::now_v7().to_string();
     let removed = remove_team_member(store.pool(), &team.id, &worker)
         .await
@@ -199,9 +232,15 @@ async fn remove_missing_returns_false() {
 async fn list_teams_orders_by_name_and_isolates_by_tenant() {
     let (store, tenant_a) = fresh().await;
     let tenant_b = TenantId::new();
-    create_team(store.pool(), tenant_a, "zeta", None).await.unwrap();
-    create_team(store.pool(), tenant_a, "alpha", None).await.unwrap();
-    create_team(store.pool(), tenant_b, "outsider", None).await.unwrap();
+    create_team(store.pool(), tenant_a, "zeta", None)
+        .await
+        .unwrap();
+    create_team(store.pool(), tenant_a, "alpha", None)
+        .await
+        .unwrap();
+    create_team(store.pool(), tenant_b, "outsider", None)
+        .await
+        .unwrap();
     let rows_a = list_teams(store.pool(), tenant_a).await.unwrap();
     assert_eq!(rows_a.len(), 2);
     assert_eq!(rows_a[0].name, "alpha");

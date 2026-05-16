@@ -51,7 +51,9 @@ pub async fn next_duty_for_worker(
         // Table may not exist yet in stores that haven't called
         // `DutyStore::ensure_schema()` — treat that as "no
         // Tomorrow line" rather than a hard error.
-        Err(sqlx::Error::Database(db)) if db.message().contains("no such table") => return Ok(None),
+        Err(sqlx::Error::Database(db)) if db.message().contains("no such table") => {
+            return Ok(None)
+        }
         Err(e) => return Err(ArgoError::Provider(format!("team-headline duties: {e}"))),
     };
 

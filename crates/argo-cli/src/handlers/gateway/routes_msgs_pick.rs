@@ -47,23 +47,16 @@ pub(super) async fn message_at_seq_response(
         Ok(rows) => match rows.iter().find(|m| m.seq == seq) {
             Some(m) => {
                 if matches!(format, Some("markdown")) {
-                    let mut out = format!(
-                        "# Message seq {seq} on session `{sid}`\n\n"
-                    );
+                    let mut out = format!("# Message seq {seq} on session `{sid}`\n\n");
                     out.push_str(&format!("- **role**: `{}`\n", m.role));
-                    out.push_str(&format!(
-                        "- **created_at_micros**: {}\n",
-                        m.created_at
-                    ));
+                    out.push_str(&format!("- **created_at_micros**: {}\n", m.created_at));
                     out.push_str(&format!("- **id**: `{}`\n\n", hex::encode(&m.id)));
                     out.push_str("## content\n\n");
                     out.push_str("```json\n");
-                    let pretty = serde_json::from_str::<serde_json::Value>(
-                        &m.content_json,
-                    )
-                    .ok()
-                    .and_then(|v| serde_json::to_string_pretty(&v).ok())
-                    .unwrap_or_else(|| m.content_json.clone());
+                    let pretty = serde_json::from_str::<serde_json::Value>(&m.content_json)
+                        .ok()
+                        .and_then(|v| serde_json::to_string_pretty(&v).ok())
+                        .unwrap_or_else(|| m.content_json.clone());
                     out.push_str(&pretty);
                     out.push_str("\n```\n");
                     return ("200 OK", out);
@@ -146,19 +139,14 @@ async fn pick_message_response(
                         let mut out = format!("# {label} message on session `{sid}`\n\n");
                         out.push_str(&format!("- **seq**: {}\n", m.seq));
                         out.push_str(&format!("- **role**: `{}`\n", m.role));
-                        out.push_str(&format!(
-                            "- **created_at_micros**: {}\n",
-                            m.created_at
-                        ));
+                        out.push_str(&format!("- **created_at_micros**: {}\n", m.created_at));
                         out.push_str(&format!("- **id**: `{}`\n\n", hex::encode(&m.id)));
                         out.push_str("## content\n\n");
                         out.push_str("```json\n");
-                        let pretty = serde_json::from_str::<serde_json::Value>(
-                            &m.content_json,
-                        )
-                        .ok()
-                        .and_then(|v| serde_json::to_string_pretty(&v).ok())
-                        .unwrap_or_else(|| m.content_json.clone());
+                        let pretty = serde_json::from_str::<serde_json::Value>(&m.content_json)
+                            .ok()
+                            .and_then(|v| serde_json::to_string_pretty(&v).ok())
+                            .unwrap_or_else(|| m.content_json.clone());
                         out.push_str(&pretty);
                         out.push_str("\n```\n");
                         return ("200 OK", out);

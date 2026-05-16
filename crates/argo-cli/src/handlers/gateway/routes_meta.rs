@@ -57,10 +57,7 @@ pub(super) async fn memory_show_response_with_format(
                 let mut out = format!("# Memory entry `{}`\n\n", e.id);
                 out.push_str(&format!("- **File**: `{:?}`\n", e.file));
                 out.push_str(&format!("- **Lock**: `{:?}`\n", e.lock));
-                out.push_str(&format!(
-                    "- **Hash**: `sha256-{}`\n",
-                    hex::encode(e.hash)
-                ));
+                out.push_str(&format!("- **Hash**: `sha256-{}`\n", hex::encode(e.hash)));
                 out.push_str(&format!(
                     "- **Learned at**: {}\n",
                     e.learned_at.to_rfc3339()
@@ -138,7 +135,9 @@ pub(super) fn costs_response(format: Option<&str>) -> (&'static str, String) {
             ("per-month", ceilings.per_month_usd_micros),
         ] {
             match val {
-                Some(v) => out.push_str(&format!("- **{label}**: ${:.2}\n", v as f64 / 1_000_000.0)),
+                Some(v) => {
+                    out.push_str(&format!("- **{label}**: ${:.2}\n", v as f64 / 1_000_000.0))
+                }
                 None => out.push_str(&format!("- **{label}**: _(unlimited)_\n")),
             }
         }
@@ -274,10 +273,7 @@ pub(super) async fn db_version_response(
     match store.schema_version().await {
         Ok(v) => {
             if matches!(format, Some("markdown")) {
-                return (
-                    "200 OK",
-                    format!("# DB schema version `{v}`\n"),
-                );
+                return ("200 OK", format!("# DB schema version `{v}`\n"));
             }
             (
                 "200 OK",
@@ -314,10 +310,7 @@ pub(super) async fn db_integrity_response(
             let lines: Vec<String> = rows.into_iter().map(|(s,)| s).collect();
             let ok = lines.len() == 1 && lines.first().is_some_and(|s| s == "ok");
             if matches!(format, Some("markdown")) {
-                let mut out = format!(
-                    "# DB integrity ({})\n\n",
-                    if ok { "ok" } else { "FAIL" }
-                );
+                let mut out = format!("# DB integrity ({})\n\n", if ok { "ok" } else { "FAIL" });
                 if !ok {
                     out.push_str("## diagnostics\n\n");
                     for l in &lines {

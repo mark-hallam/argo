@@ -27,15 +27,14 @@ impl IdentityStore<'_> {
         grade: u8,
     ) -> ArgoResult<()> {
         self.ensure_schema().await?;
-        let result = sqlx::query(
-            "UPDATE worker SET trust_grade = ? WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(i64::from(grade))
-        .bind(worker_id.to_string())
-        .bind(tenant_id.to_string())
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("set worker trust grade: {e}")))?;
+        let result =
+            sqlx::query("UPDATE worker SET trust_grade = ? WHERE id = ? AND tenant_id = ?")
+                .bind(i64::from(grade))
+                .bind(worker_id.to_string())
+                .bind(tenant_id.to_string())
+                .execute(self.store.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("set worker trust grade: {e}")))?;
         if result.rows_affected() == 0 {
             return Err(ArgoError::Provider(format!(
                 "worker {worker_id} not found in tenant {tenant_id}"
@@ -56,15 +55,14 @@ impl IdentityStore<'_> {
     ) -> ArgoResult<()> {
         self.ensure_schema().await?;
         let now = Utc::now().to_rfc3339();
-        let result = sqlx::query(
-            "UPDATE worker SET last_used_at = ? WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(now)
-        .bind(worker_id.to_string())
-        .bind(tenant_id.to_string())
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("touch worker last used: {e}")))?;
+        let result =
+            sqlx::query("UPDATE worker SET last_used_at = ? WHERE id = ? AND tenant_id = ?")
+                .bind(now)
+                .bind(worker_id.to_string())
+                .bind(tenant_id.to_string())
+                .execute(self.store.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("touch worker last used: {e}")))?;
         if result.rows_affected() == 0 {
             return Err(ArgoError::Provider(format!(
                 "worker {worker_id} not found in tenant {tenant_id}"

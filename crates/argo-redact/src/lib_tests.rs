@@ -97,10 +97,7 @@ fn viewer_with_unredacted_email_sees_email_raw() {
         ..ViewerPermissions::default()
     };
     let policy = resolve_policy(&viewer, &GrantSet::empty());
-    let (out, _) = redact_text(
-        "email sam@acmeco.com phone 027 555 1234",
-        &policy,
-    );
+    let (out, _) = redact_text("email sam@acmeco.com phone 027 555 1234", &policy);
     assert!(out.contains("sam@acmeco.com"));
     assert!(out.contains("[PHONE]"));
 }

@@ -58,9 +58,9 @@ impl Executor for DocumentExecutor {
         let request = parse_request(&action.payload)?;
         let bundle = ensure_bundle_dir(cwd, &action.job_id, &action.action_id)?;
         let exec = DocExecutor::new();
-        let outcome = exec.run(&request, &bundle).map_err(|e| {
-            ArgoError::Provider(format!("document-creation executor: {e}"))
-        })?;
+        let outcome = exec
+            .run(&request, &bundle)
+            .map_err(|e| ArgoError::Provider(format!("document-creation executor: {e}")))?;
         Ok(ActionOutcome::Completed {
             bundle_path: bundle,
             result_json: serde_json::json!({
@@ -203,9 +203,11 @@ mod tests {
                 bundle_path,
                 result_json,
             } => {
-                assert!(bundle_path
-                    .ends_with(".skycot/outputs/job-1/actions/act-1"));
-                assert_eq!(result_json["executor"].as_str().unwrap(), "document_creation");
+                assert!(bundle_path.ends_with(".skycot/outputs/job-1/actions/act-1"));
+                assert_eq!(
+                    result_json["executor"].as_str().unwrap(),
+                    "document_creation"
+                );
                 assert_eq!(result_json["kind"].as_str().unwrap(), "markdown");
                 assert_eq!(result_json["bytes_written"].as_u64().unwrap(), 4);
             }

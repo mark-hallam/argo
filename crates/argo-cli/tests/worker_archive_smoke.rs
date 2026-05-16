@@ -93,7 +93,10 @@ async fn archive_list_rehydrate_round_trip() {
     assert_eq!(row["worker_id"], worker_id);
     assert_eq!(row["reason"], "campaign over");
     assert_eq!(row["archived_by_principal"], "alice@team");
-    assert!(row["archived_at_rfc3339"].as_str().unwrap_or("").contains('T'));
+    assert!(row["archived_at_rfc3339"]
+        .as_str()
+        .unwrap_or("")
+        .contains('T'));
 
     // rehydrate
     let rehydrate_out = run(

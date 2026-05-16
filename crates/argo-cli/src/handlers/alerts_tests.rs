@@ -114,8 +114,7 @@ fn spend_rule_fires_at_threshold() {
         rules: vec![spend_rule("spend-day", 50.0)],
     };
     let mut snap = make_snapshot();
-    snap.spend_usd_by_rule
-        .insert("spend-day".to_string(), 50.5);
+    snap.spend_usd_by_rule.insert("spend-day".to_string(), 50.5);
     let mut fired: HashSet<String> = HashSet::new();
     let firings = evaluate_once(&cfg, &snap, &mut fired);
     assert_eq!(firings.len(), 1);
@@ -135,27 +134,23 @@ fn spend_rule_does_not_re_fire_until_metric_falls_below_threshold() {
 
     // Tick 1: above threshold → fires.
     let mut snap = make_snapshot();
-    snap.spend_usd_by_rule
-        .insert("spend-day".to_string(), 60.0);
+    snap.spend_usd_by_rule.insert("spend-day".to_string(), 60.0);
     let firings = evaluate_once(&cfg, &snap, &mut fired);
     assert_eq!(firings.len(), 1, "first crossing should fire");
 
     // Tick 2: still above → suppressed by hysteresis.
-    snap.spend_usd_by_rule
-        .insert("spend-day".to_string(), 70.0);
+    snap.spend_usd_by_rule.insert("spend-day".to_string(), 70.0);
     let firings = evaluate_once(&cfg, &snap, &mut fired);
     assert!(firings.is_empty(), "still-above tick must not re-fire");
 
     // Tick 3: drops below → re-arms.
-    snap.spend_usd_by_rule
-        .insert("spend-day".to_string(), 10.0);
+    snap.spend_usd_by_rule.insert("spend-day".to_string(), 10.0);
     let firings = evaluate_once(&cfg, &snap, &mut fired);
     assert!(firings.is_empty(), "below-threshold tick is silent");
     assert!(!fired.contains("spend-day"), "rule should have re-armed");
 
     // Tick 4: above again → fires once more.
-    snap.spend_usd_by_rule
-        .insert("spend-day".to_string(), 80.0);
+    snap.spend_usd_by_rule.insert("spend-day".to_string(), 80.0);
     let firings = evaluate_once(&cfg, &snap, &mut fired);
     assert_eq!(firings.len(), 1, "re-armed rule fires on next crossing");
 }

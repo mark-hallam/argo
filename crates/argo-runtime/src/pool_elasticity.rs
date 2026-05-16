@@ -317,7 +317,11 @@ pub struct TickState {
 
 /// Stamp the latest tick into module-local state so metrics + the
 /// `argo worker elasticity-status` CLI can read it.
-pub fn record_tick(snapshot: &PoolMetricsSnapshot, rec: &ScaleRecommendation, mode: ElasticityMode) {
+pub fn record_tick(
+    snapshot: &PoolMetricsSnapshot,
+    rec: &ScaleRecommendation,
+    mode: ElasticityMode,
+) {
     match rec {
         ScaleRecommendation::ScaleUp { .. } => {
             SCALE_UP_TOTAL.fetch_add(1, Ordering::Relaxed);

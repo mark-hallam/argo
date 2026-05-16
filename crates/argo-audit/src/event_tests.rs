@@ -144,7 +144,10 @@ fn skill_review_kinds_round_trip() {
     for (label, kind) in [
         ("skill.approved", AuditKind::SkillApproved),
         ("skill.rejected", AuditKind::SkillRejected),
-        ("skill.candidate.promoted", AuditKind::SkillCandidatePromoted),
+        (
+            "skill.candidate.promoted",
+            AuditKind::SkillCandidatePromoted,
+        ),
         ("skill.rollback", AuditKind::SkillRolledBack),
     ] {
         assert_eq!(AuditKind::from_label(label), Some(kind));

@@ -110,16 +110,12 @@ impl ScoredOutcome {
             ScoredStatus::Passed => {
                 let (passed, scored, rate) = self.totals();
                 let pct = (rate * 100.0).round() as i64;
-                println!(
-                    "  [ok] scored eval — {passed}/{scored} pass, pass_rate {pct}%"
-                );
+                println!("  [ok] scored eval — {passed}/{scored} pass, pass_rate {pct}%");
             }
             ScoredStatus::Failed => {
                 let (passed, scored, rate) = self.totals();
                 let pct = (rate * 100.0).round() as i64;
-                println!(
-                    "  [FAIL] scored eval — {passed}/{scored} pass, pass_rate {pct}%"
-                );
+                println!("  [FAIL] scored eval — {passed}/{scored} pass, pass_rate {pct}%");
             }
         }
         for s in &self.suites {
@@ -244,8 +240,7 @@ pub(crate) fn collect_scored_outcomes(loaded: &LoadedVertical) -> ScoredOutcome 
                 continue;
             }
         };
-        let (score, _unknown_ids) =
-            score_suite_jsonl_with_actuals(&suite_body, &actuals_map);
+        let (score, _unknown_ids) = score_suite_jsonl_with_actuals(&suite_body, &actuals_map);
         let suite_failed = score.failed > 0 || score.malformed > 0;
         if suite_failed {
             any_failed = true;

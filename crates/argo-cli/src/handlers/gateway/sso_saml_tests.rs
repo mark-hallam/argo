@@ -51,10 +51,9 @@ fn parse_saml_path_matches_login_and_acs() {
 fn build_authn_request_emits_valid_redirect_url() {
     let cfg = cfg_with_tenant("default");
     let r = build_authn_request("default", &cfg, [9_u8; 16], fixed_instant()).unwrap();
-    assert!(
-        r.url
-            .starts_with("https://idp.example.com/sso?SAMLRequest=")
-    );
+    assert!(r
+        .url
+        .starts_with("https://idp.example.com/sso?SAMLRequest="));
     // Decode the SAMLRequest base64 and confirm key fields appear
     // verbatim in the XML body.
     let qs = r.url.split_once("?SAMLRequest=").unwrap().1;

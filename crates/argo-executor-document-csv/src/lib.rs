@@ -67,7 +67,7 @@ pub mod render;
 pub mod sandbox;
 pub mod types;
 
-pub use document_csv::{CsvWriteRequest, CsvWriteReport, DocumentCsv};
+pub use document_csv::{CsvWriteReport, CsvWriteRequest, DocumentCsv};
 pub use render::render_rfc4180;
 pub use sandbox::{resolve_sandboxed_path, CsvSandboxError, DEFAULT_OUTPUT_ROOT};
 pub use types::{CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason, RowRejection};

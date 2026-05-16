@@ -7,7 +7,20 @@ pub use super::session_orchestrator::run_handoff;
 
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
-        SessionCmd::Start { tenant, title, worker, json } => super::session_orchestrator::start_orchestrator_session(tenant.as_deref(), &title, worker.as_deref(), json).await,
+        SessionCmd::Start {
+            tenant,
+            title,
+            worker,
+            json,
+        } => {
+            super::session_orchestrator::start_orchestrator_session(
+                tenant.as_deref(),
+                &title,
+                worker.as_deref(),
+                json,
+            )
+            .await
+        }
         SessionCmd::List {
             tenant,
             limit,
@@ -25,7 +38,13 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             vertical,
         } => {
             if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
-                return super::session_orchestrator::list_orchestrator_sessions(tenant.as_deref(), &status, limit, json).await;
+                return super::session_orchestrator::list_orchestrator_sessions(
+                    tenant.as_deref(),
+                    &status,
+                    limit,
+                    json,
+                )
+                .await;
             }
             list_sessions(
                 limit,
@@ -51,13 +70,16 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             format,
         } => {
             if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
-                return super::session_orchestrator::show_orchestrator_session(tenant.as_deref(), &id, json).await;
+                return super::session_orchestrator::show_orchestrator_session(
+                    tenant.as_deref(),
+                    &id,
+                    json,
+                )
+                .await;
             }
             super::session_show::show_session(&id, json, &format).await
         }
-        SessionCmd::Transcript { id, json } => {
-            super::session_transcript::run(&id, json).await
-        }
+        SessionCmd::Transcript { id, json } => super::session_transcript::run(&id, json).await,
         SessionCmd::Count {
             status,
             since_minutes,
@@ -109,12 +131,8 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SessionCmd::AttachSkill { id, skill } => {
-            super::session_skills::attach(&id, &skill).await
-        }
-        SessionCmd::DetachSkill { id, skill } => {
-            super::session_skills::detach(&id, &skill).await
-        }
+        SessionCmd::AttachSkill { id, skill } => super::session_skills::attach(&id, &skill).await,
+        SessionCmd::DetachSkill { id, skill } => super::session_skills::detach(&id, &skill).await,
         SessionCmd::Skills { id } => super::session_skills::list(&id).await,
         SessionCmd::ClearSkills { id } => super::session_skills::clear(&id).await,
         SessionCmd::Export {
@@ -122,13 +140,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             out,
             include_audit,
             format,
-        } => super::session_export::export_session(
-            &id,
-            out.as_deref(),
-            include_audit,
-            &format,
-        )
-        .await,
+        } => {
+            super::session_export::export_session(&id, out.as_deref(), include_audit, &format).await
+        }
         SessionCmd::Search {
             query,
             limit,
@@ -156,12 +170,8 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             json,
             format,
         } => diff_sessions(&id1, &id2, json, &format).await,
-        SessionCmd::Bisect { id, hypothesis } => {
-            super::session_bisect::run(&id, &hypothesis).await
-        }
-        SessionCmd::Title { id, new, clear } => {
-            set_title(&id, new.as_deref(), clear).await
-        }
+        SessionCmd::Bisect { id, hypothesis } => super::session_bisect::run(&id, &hypothesis).await,
+        SessionCmd::Title { id, new, clear } => set_title(&id, new.as_deref(), clear).await,
         SessionCmd::End { id } => end_session(&id).await,
         SessionCmd::EndAll { older_than_minutes } => end_all(older_than_minutes).await,
         SessionCmd::Reopen { id } => reopen_session(&id).await,
@@ -172,31 +182,24 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             tools: _,
             workspace: _,
             stream,
-        } => {
-            super::session_replay::run(&id, model.as_deref(), provider.as_deref(), stream)
-                .await
-        }
-        SessionCmd::Clone { id } => {
-            super::session_clone_branch::clone_session(&id).await
-        }
+        } => super::session_replay::run(&id, model.as_deref(), provider.as_deref(), stream).await,
+        SessionCmd::Clone { id } => super::session_clone_branch::clone_session(&id).await,
         SessionCmd::Branch { id, through_seq } => {
             super::session_clone_branch::branch_session(&id, through_seq).await
         }
         SessionCmd::Stats { id, json } => {
             super::session_clone_branch::stats_session(&id, json).await
         }
-        SessionCmd::Turns { id, json } => {
-            super::session_turns::run(&id, json).await
-        }
-        SessionCmd::ByDay { days, json } => {
-            super::session_by_day::run(days, json).await
-        }
-        SessionCmd::ByProvider { since_minutes, json } => {
-            super::session_by_provider::run(since_minutes, json).await
-        }
-        SessionCmd::ByModel { since_minutes, json } => {
-            super::session_by_model::run(since_minutes, json).await
-        }
+        SessionCmd::Turns { id, json } => super::session_turns::run(&id, json).await,
+        SessionCmd::ByDay { days, json } => super::session_by_day::run(days, json).await,
+        SessionCmd::ByProvider {
+            since_minutes,
+            json,
+        } => super::session_by_provider::run(since_minutes, json).await,
+        SessionCmd::ByModel {
+            since_minutes,
+            json,
+        } => super::session_by_model::run(since_minutes, json).await,
         SessionCmd::AuditByKind {
             id,
             since_minutes,
@@ -224,14 +227,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             once,
             json,
         } => {
-            super::session_approval::approve(
-                &session_id,
-                &tool,
-                note.as_deref(),
-                once,
-                json,
-            )
-            .await
+            super::session_approval::approve(&session_id, &tool, note.as_deref(), once, json).await
         }
         SessionCmd::RevokeApproval {
             session_id,
@@ -246,15 +242,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             since_minutes,
             threshold,
             json,
-        } => {
-            super::session_capability_gaps::run(
-                &session_id,
-                since_minutes,
-                threshold,
-                json,
-            )
-            .await
-        }
+        } => super::session_capability_gaps::run(&session_id, since_minutes, threshold, json).await,
     }
 }
 
@@ -264,7 +252,14 @@ use super::session_list::{count_sessions, list_sessions};
 async fn reopen_session(raw: &str) -> ArgoResult<()> {
     let store = legacy_store().await?;
     let n = store.reopen_session(store_id(raw)?).await?;
-    println!("{}", if n == 0 { format!("(session {raw} not found)") } else { format!("reopened {raw}") });
+    println!(
+        "{}",
+        if n == 0 {
+            format!("(session {raw} not found)")
+        } else {
+            format!("reopened {raw}")
+        }
+    );
     Ok(())
 }
 
@@ -272,22 +267,37 @@ async fn set_title(raw: &str, new: Option<&str>, clear: bool) -> ArgoResult<()> 
     let store = legacy_store().await?;
     let title = if clear { "" } else { new.unwrap_or("") };
     let n = store.set_session_title(store_id(raw)?, title).await?;
-    println!("{}", if n == 0 { format!("(session {raw} not found)") } else if clear || title.trim().is_empty() { format!("cleared title on {raw}") } else { format!("set title on {raw} to {title:?}") });
+    println!(
+        "{}",
+        if n == 0 {
+            format!("(session {raw} not found)")
+        } else if clear || title.trim().is_empty() {
+            format!("cleared title on {raw}")
+        } else {
+            format!("set title on {raw} to {title:?}")
+        }
+    );
     Ok(())
 }
 
 async fn end_session(raw: &str) -> ArgoResult<()> {
     let store = legacy_store().await?;
     let n = store.end_session(store_id(raw)?).await?;
-    println!("{}", if n == 0 { format!("(session {raw} already ended or not found)") } else { format!("ended {raw}") });
+    println!(
+        "{}",
+        if n == 0 {
+            format!("(session {raw} already ended or not found)")
+        } else {
+            format!("ended {raw}")
+        }
+    );
     Ok(())
 }
 
 async fn end_all(older_than_minutes: Option<i64>) -> ArgoResult<()> {
     let store = legacy_store().await?;
     let rows = store.list_all_sessions(10_000).await?;
-    let cutoff = older_than_minutes
-        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
+    let cutoff = older_than_minutes.map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let mut ended: u64 = 0;
     for s in rows
         .into_iter()
@@ -321,7 +331,14 @@ async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
         )));
     }
     let n = store.delete_session(id).await?;
-    println!("{}", if n == 0 { format!("(no session {raw} - nothing deleted)") } else { format!("deleted {raw} ({n} session row + cascaded children)") });
+    println!(
+        "{}",
+        if n == 0 {
+            format!("(no session {raw} - nothing deleted)")
+        } else {
+            format!("deleted {raw} ({n} session row + cascaded children)")
+        }
+    );
     Ok(())
 }
 
@@ -335,5 +352,7 @@ async fn legacy_store() -> ArgoResult<SessionStore> {
 }
 
 fn store_id(raw: &str) -> ArgoResult<StoreSessionId> {
-    uuid::Uuid::parse_str(raw).map(StoreSessionId).map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))
+    uuid::Uuid::parse_str(raw)
+        .map(StoreSessionId)
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))
 }

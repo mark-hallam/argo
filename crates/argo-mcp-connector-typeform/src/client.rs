@@ -76,19 +76,13 @@ impl TypeformClient {
     }
 
     /// POST `/forms` with a complete Typeform form definition.
-    pub async fn create_form(
-        &self,
-        args: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
+    pub async fn create_form(&self, args: &serde_json::Value) -> Result<serde_json::Value, String> {
         let form = required_object(args, "form")?;
         self.post_json("/forms", form).await
     }
 
     /// PUT `/forms/{form_id}` with a complete Typeform form definition.
-    pub async fn update_form(
-        &self,
-        args: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
+    pub async fn update_form(&self, args: &serde_json::Value) -> Result<serde_json::Value, String> {
         let form_id = clean_segment(&required_str(args, "form_id")?)?;
         let form = required_object(args, "form")?;
         self.put_json(&format!("/forms/{form_id}"), form).await

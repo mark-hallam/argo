@@ -80,11 +80,7 @@ fn render_tree(root_id: &str, rows: &[WalkedSubtask]) {
     print_children(&root.row.id, &children_of, "");
 }
 
-fn print_children(
-    parent_id: &str,
-    children_of: &HashMap<&str, Vec<&WalkedSubtask>>,
-    indent: &str,
-) {
+fn print_children(parent_id: &str, children_of: &HashMap<&str, Vec<&WalkedSubtask>>, indent: &str) {
     let Some(kids) = children_of.get(parent_id) else {
         return;
     };

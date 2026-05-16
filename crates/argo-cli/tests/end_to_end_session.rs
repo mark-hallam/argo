@@ -32,7 +32,9 @@ fn parse_uuid_after(prefix: &str, stdout: &str) -> String {
 }
 
 fn boot_session(workspace: &Path, home: &Path, title: &str) -> String {
-    assert!(run(workspace, home, &["workspace", "init"]).status.success());
+    assert!(run(workspace, home, &["workspace", "init"])
+        .status
+        .success());
     let out = run(
         workspace,
         home,
@@ -106,11 +108,7 @@ fn session_messages_filters_and_tail() {
     let session_id = boot_session(workspace.path(), home.path(), "messages test");
 
     for text in ["first steer", "second steer"] {
-        let out = run(
-            workspace.path(),
-            home.path(),
-            &["steer", &session_id, text],
-        );
+        let out = run(workspace.path(), home.path(), &["steer", &session_id, text]);
         assert!(out.status.success());
     }
 
@@ -140,7 +138,12 @@ fn session_messages_filters_and_tail() {
         workspace.path(),
         home.path(),
         &[
-            "session", "messages", &session_id, "--role", "user", "--json",
+            "session",
+            "messages",
+            &session_id,
+            "--role",
+            "user",
+            "--json",
         ],
     );
     let body = String::from_utf8_lossy(&out.stdout);
@@ -192,7 +195,9 @@ fn session_diff_markdown_renders_header_table() {
     let workspace = tempfile::tempdir().unwrap();
     let home = tempfile::tempdir().unwrap();
 
-    assert!(run(workspace.path(), home.path(), &["workspace", "init"]).status.success());
+    assert!(run(workspace.path(), home.path(), &["workspace", "init"])
+        .status
+        .success());
     let out_a = run(
         workspace.path(),
         home.path(),
@@ -206,10 +211,7 @@ fn session_diff_markdown_renders_header_table() {
             "a",
         ],
     );
-    let id_a = parse_uuid_after(
-        "created session",
-        &String::from_utf8_lossy(&out_a.stdout),
-    );
+    let id_a = parse_uuid_after("created session", &String::from_utf8_lossy(&out_a.stdout));
     let out_b = run(
         workspace.path(),
         home.path(),
@@ -223,10 +225,7 @@ fn session_diff_markdown_renders_header_table() {
             "b",
         ],
     );
-    let id_b = parse_uuid_after(
-        "created session",
-        &String::from_utf8_lossy(&out_b.stdout),
-    );
+    let id_b = parse_uuid_after("created session", &String::from_utf8_lossy(&out_b.stdout));
 
     let out = run(
         workspace.path(),
@@ -240,7 +239,10 @@ fn session_diff_markdown_renders_header_table() {
     assert!(body.contains(&format!("`{id_a}`")));
     assert!(body.contains(&format!("`{id_b}`")));
     // Header diffs render as a table; model rows differ.
-    assert!(body.contains("`model`"), "missing model header diff: {body}");
+    assert!(
+        body.contains("`model`"),
+        "missing model header diff: {body}"
+    );
     assert!(body.contains("claude-haiku-4-5"));
     assert!(body.contains("claude-opus-4-6"));
 }
@@ -289,7 +291,10 @@ fn session_list_markdown_renders_table() {
     let body = String::from_utf8_lossy(&out.stdout);
 
     assert!(body.contains("# Sessions ("), "missing header: {body}");
-    assert!(body.contains(&format!("`{session_id}`")), "missing session: {body}");
+    assert!(
+        body.contains(&format!("`{session_id}`")),
+        "missing session: {body}"
+    );
     assert!(body.contains("`anthropic`"));
     assert!(body.contains("list test"));
 }

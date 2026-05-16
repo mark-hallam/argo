@@ -27,14 +27,15 @@ pub fn run(cmd: Option<AgentsCmd>) -> ArgoResult<()> {
 }
 
 fn list_agents(json: bool, format: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
     let pick = if json { "json" } else { format };
     if !toml_path.exists() {
         match pick {
             "json" => println!("[]"),
-            "markdown" => println!("# Agents (0 matches)\n\n_(no argo.toml — run `argo workspace init` first)_"),
+            "markdown" => println!(
+                "# Agents (0 matches)\n\n_(no argo.toml — run `argo workspace init` first)_"
+            ),
             _ => println!("(no argo.toml — run `argo workspace init` first)"),
         }
         return Ok(());
@@ -195,8 +196,7 @@ fn delete_agent(name: &str) -> ArgoResult<()> {
 }
 
 fn workspace_toml() -> ArgoResult<(std::path::PathBuf, std::path::PathBuf)> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
     if !toml_path.exists() {
         return Err(ArgoError::Provider(format!(

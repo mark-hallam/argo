@@ -169,7 +169,14 @@ async fn team_create_with_parent_renders_markdown_show() {
     let tenant = world.tenant.to_string();
     let parent = run(
         &world,
-        &["team", "create", "--tenant", &tenant, "--json", "engineering"],
+        &[
+            "team",
+            "create",
+            "--tenant",
+            &tenant,
+            "--json",
+            "engineering",
+        ],
     );
     let parent_id = serde_json::from_slice::<Value>(&parent.stdout).unwrap()["team_id"]
         .as_str()
@@ -178,14 +185,7 @@ async fn team_create_with_parent_renders_markdown_show() {
     let child = run(
         &world,
         &[
-            "team",
-            "create",
-            "--tenant",
-            &tenant,
-            "--parent",
-            &parent_id,
-            "--json",
-            "platform",
+            "team", "create", "--tenant", &tenant, "--parent", &parent_id, "--json", "platform",
         ],
     );
     let child_id = serde_json::from_slice::<Value>(&child.stdout).unwrap()["team_id"]

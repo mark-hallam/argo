@@ -33,8 +33,7 @@ use std::time::Duration;
 /// emits either a human-readable text summary or a JSON object the
 /// monitoring pipeline can ingest.
 pub async fn run(json_out: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
     let cfg = ArgoConfig::load(&toml_path).unwrap_or_default();
     let _home = resolve_home(&cwd).ok();
@@ -127,13 +126,19 @@ fn print_text(payload: &Value) {
             let tps = p["tokens_per_sec"].as_f64().unwrap_or(0.0);
             let burst = p["burst"].as_u64().unwrap_or(0);
             let valid = p["valid"].as_bool().unwrap_or(false);
-            let tag = if valid { "" } else { "  [INVALID — tokens_per_sec or burst is zero / non-finite]" };
+            let tag = if valid {
+                ""
+            } else {
+                "  [INVALID — tokens_per_sec or burst is zero / non-finite]"
+            };
             println!("    - {action}: {tps} tok/s, burst {burst}{tag}");
         }
     }
     let buckets = payload["buckets"].as_array().cloned().unwrap_or_default();
     if buckets.is_empty() {
-        println!("  buckets:           (no live state — registry inspection is CLI-snapshot only in v1)");
+        println!(
+            "  buckets:           (no live state — registry inspection is CLI-snapshot only in v1)"
+        );
     } else {
         println!("  buckets ({}):", buckets.len());
         for b in &buckets {
@@ -141,9 +146,7 @@ fn print_text(payload: &Value) {
             let action = b["action_type"].as_str().unwrap_or("?");
             let available = b["tokens_available"].as_f64().unwrap_or(0.0);
             let burst = b["burst"].as_u64().unwrap_or(0);
-            println!(
-                "    - tenant={tenant}  action={action}  tokens={available:.2}/{burst}"
-            );
+            println!("    - tenant={tenant}  action={action}  tokens={available:.2}/{burst}");
         }
     }
 }

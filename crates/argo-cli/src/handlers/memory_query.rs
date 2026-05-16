@@ -20,8 +20,7 @@ pub(crate) async fn count(
         None => None,
         Some(s) => Some(parse_memory_file(s)?),
     };
-    let cutoff = since_minutes
-        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
+    let cutoff = since_minutes.map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let mut total = 0_usize;
     let all = [
         MemoryFile::Memory,
@@ -83,8 +82,7 @@ pub(crate) async fn list(
             )));
         }
     };
-    let cutoff = since_minutes
-        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
+    let cutoff = since_minutes.map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let needle = body_contains.map(str::to_lowercase);
     let all = [
         MemoryFile::Memory,
@@ -216,12 +214,7 @@ pub(crate) async fn list(
             .chars()
             .take(60)
             .collect::<String>();
-        println!(
-            "  [{:?}] {} ({} bytes)  {head}",
-            e.file,
-            e.id,
-            e.body.len()
-        );
+        println!("  [{:?}] {} ({} bytes)  {head}", e.file, e.id, e.body.len());
     }
     Ok(())
 }

@@ -47,17 +47,16 @@ struct CountingGate {
 
 impl CountingGate {
     fn ok(answer: bool) -> Self {
-        Self { answer, calls: AtomicUsize::new(0) }
+        Self {
+            answer,
+            calls: AtomicUsize::new(0),
+        }
     }
 }
 
 #[async_trait]
 impl DecomposeGate for CountingGate {
-    async fn should_decompose(
-        &self,
-        _: &str,
-        _: &PlannerContext,
-    ) -> Result<bool, GateError> {
+    async fn should_decompose(&self, _: &str, _: &PlannerContext) -> Result<bool, GateError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         Ok(self.answer)
     }
@@ -88,7 +87,11 @@ impl StaticPlanner {
                 cache_key: None,
             });
         }
-        Self { workflow, called: AtomicBool::new(false), fail: false }
+        Self {
+            workflow,
+            called: AtomicBool::new(false),
+            fail: false,
+        }
     }
 
     fn failing() -> Self {
@@ -128,9 +131,14 @@ async fn dispatch_without_gate_acts_single_task() {
     let gate = Arc::new(CountingGate::ok(false));
     let sink = Arc::new(VecSink::default());
     let outcome = maybe_decompose(
-        planner.as_ref(), gate.as_ref(), sink.as_ref(),
-        Some("session-1"), "trivial goal", &ctx(),
-    ).await;
+        planner.as_ref(),
+        gate.as_ref(),
+        sink.as_ref(),
+        Some("session-1"),
+        "trivial goal",
+        &ctx(),
+    )
+    .await;
     assert_eq!(outcome, DecomposeOutcome::SkippedByGate);
     assert_eq!(gate.calls.load(Ordering::SeqCst), 1);
     assert!(!planner.called.load(Ordering::SeqCst));
@@ -143,13 +151,21 @@ async fn gate_true_decomposes_and_records() {
     let gate = Arc::new(CountingGate::ok(true));
     let sink = Arc::new(VecSink::default());
     let outcome = maybe_decompose(
-        planner.as_ref(), gate.as_ref(), sink.as_ref(),
-        Some("session-2"), "do A; do B; do C", &ctx(),
-    ).await;
+        planner.as_ref(),
+        gate.as_ref(),
+        sink.as_ref(),
+        Some("session-2"),
+        "do A; do B; do C",
+        &ctx(),
+    )
+    .await;
     assert_eq!(outcome, DecomposeOutcome::Decomposed { children: 3 });
     let rows = sink.rows.lock().unwrap();
     assert_eq!(rows.len(), 3);
-    assert_eq!(rows[0].worker_id, "wkr-test", "ctx worker_id flows through apply_context");
+    assert_eq!(
+        rows[0].worker_id, "wkr-test",
+        "ctx worker_id flows through apply_context"
+    );
     assert_eq!(rows[0].plan_node_path, "/wf-stub/t0");
 }
 
@@ -159,9 +175,14 @@ async fn planner_error_falls_back_to_single() {
     let gate = Arc::new(CountingGate::ok(true));
     let sink = Arc::new(VecSink::default());
     let outcome = maybe_decompose(
-        planner.as_ref(), gate.as_ref(), sink.as_ref(),
-        Some("session-3"), "do A and then B", &ctx(),
-    ).await;
+        planner.as_ref(),
+        gate.as_ref(),
+        sink.as_ref(),
+        Some("session-3"),
+        "do A and then B",
+        &ctx(),
+    )
+    .await;
     assert_eq!(outcome, DecomposeOutcome::PlannerError);
     assert!(planner.called.load(Ordering::SeqCst));
     assert!(sink.rows.lock().unwrap().is_empty());
@@ -171,11 +192,19 @@ async fn planner_error_falls_back_to_single() {
 async fn record_error_logs_and_continues() {
     let planner = Arc::new(StaticPlanner::ok_with(2));
     let gate = Arc::new(CountingGate::ok(true));
-    let sink = Arc::new(VecSink { rows: Mutex::new(Vec::new()), fail_immediately: true });
+    let sink = Arc::new(VecSink {
+        rows: Mutex::new(Vec::new()),
+        fail_immediately: true,
+    });
     let outcome = maybe_decompose(
-        planner.as_ref(), gate.as_ref(), sink.as_ref(),
-        None, "long\n- bullet\n- list", &ctx(),
-    ).await;
+        planner.as_ref(),
+        gate.as_ref(),
+        sink.as_ref(),
+        None,
+        "long\n- bullet\n- list",
+        &ctx(),
+    )
+    .await;
     assert_eq!(outcome, DecomposeOutcome::SinkError { children: 2 });
     assert!(planner.called.load(Ordering::SeqCst));
     assert!(sink.rows.lock().unwrap().is_empty());

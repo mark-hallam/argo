@@ -89,10 +89,7 @@ async fn below_threshold_pass_rate_rejects_candidate() {
     // Two cases, Contains "ok" — executor returns "no" both times → 0/2.
     let evals_yaml = "evals:\n  - input: ping\n    expected:\n      kind: contains\n      text: ok\n  - input: ping\n    expected:\n      kind: contains\n      text: ok\n";
     let raw = skill_md_with_evals("eval-fail", evals_yaml);
-    let exec = StubExecutor::new(vec![
-        Value::String("no".into()),
-        Value::String("no".into()),
-    ]);
+    let exec = StubExecutor::new(vec![Value::String("no".into()), Value::String("no".into())]);
     let skill = s
         .propose_for_review_judged_with_evals(&raw, sid, "alpha", None, Some(&exec))
         .await

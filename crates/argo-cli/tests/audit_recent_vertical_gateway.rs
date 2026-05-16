@@ -100,8 +100,7 @@ fn audit_recent_json_carries_vertical_id_for_bound_and_unbound_rows() {
     let root = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
     write_demo_vertical(verticals.path());
-    let (mut child, _stderr, port) =
-        boot_gateway(home.path(), root.path(), verticals.path(), 10);
+    let (mut child, _stderr, port) = boot_gateway(home.path(), root.path(), verticals.path(), 10);
 
     // Bound + unbound session.
     let resp = http_post(
@@ -151,8 +150,7 @@ fn audit_recent_markdown_includes_vertical_column() {
     let root = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
     write_demo_vertical(verticals.path());
-    let (mut child, _stderr, port) =
-        boot_gateway(home.path(), root.path(), verticals.path(), 8);
+    let (mut child, _stderr, port) = boot_gateway(home.path(), root.path(), verticals.path(), 8);
 
     let resp = http_post(
         port,
@@ -184,8 +182,7 @@ fn audit_session_chain_markdown_includes_vertical_in_heading() {
     let root = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
     write_demo_vertical(verticals.path());
-    let (mut child, _stderr, port) =
-        boot_gateway(home.path(), root.path(), verticals.path(), 6);
+    let (mut child, _stderr, port) = boot_gateway(home.path(), root.path(), verticals.path(), 6);
 
     let resp = http_post(
         port,

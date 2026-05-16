@@ -107,10 +107,7 @@ impl DataClass {
     /// on. Public / untagged ⇒ leave alone.
     #[must_use]
     pub fn default_redact_in_export(self) -> bool {
-        matches!(
-            self,
-            Self::Pii | Self::Phi | Self::Financial | Self::Secret
-        )
+        matches!(self, Self::Pii | Self::Phi | Self::Financial | Self::Secret)
     }
 }
 
@@ -340,7 +337,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let argo_dir = dir.path().join(".argo");
         fs::create_dir_all(&argo_dir).unwrap();
-        fs::write(argo_dir.join("classification.toml"), "this is not toml @@@@").unwrap();
+        fs::write(
+            argo_dir.join("classification.toml"),
+            "this is not toml @@@@",
+        )
+        .unwrap();
         let rules = ClassificationRules::from_workspace(dir.path());
         assert_eq!(rules.rule_for(DataClass::Pii).retention_days, 90);
     }

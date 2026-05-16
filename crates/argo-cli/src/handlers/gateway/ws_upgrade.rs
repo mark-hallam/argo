@@ -43,9 +43,7 @@ pub(super) const CLOSE_LAGGED: u16 = 1011;
 /// single WS dispatch arm.
 pub(super) fn is_ws_request(req: &str) -> bool {
     has_upgrade(req)
-        && (matches_inbox(req)
-            || matches_audit(req)
-            || super::ws_skill_trace::matches_request(req))
+        && (matches_inbox(req) || matches_audit(req) || super::ws_skill_trace::matches_request(req))
 }
 
 fn inbox_broadcast() -> &'static broadcast::Sender<String> {
@@ -85,11 +83,12 @@ pub(super) async fn serve(
 ) -> tokio::io::Result<()> {
     let route = pick_route(req);
     let tenant_for_inbox = match &route {
-        Route::Inbox => match super::ws_inbox_events::authorize(req, chrono::Utc::now().timestamp())
-        {
-            Ok(auth) => Some(auth.tenant_key().to_string()),
-            Err((status, body)) => return write_http_response(stream, status, &body).await,
-        },
+        Route::Inbox => {
+            match super::ws_inbox_events::authorize(req, chrono::Utc::now().timestamp()) {
+                Ok(auth) => Some(auth.tenant_key().to_string()),
+                Err((status, body)) => return write_http_response(stream, status, &body).await,
+            }
+        }
         Route::Audit => {
             if let Err((status, body)) = check_auth(req, Route::Audit) {
                 return write_http_response(stream, status, &body).await;
@@ -360,7 +359,12 @@ pub(super) fn decode_frame(buf: &[u8]) -> Option<(u8, Vec<u8>)> {
         if buf.len() < offset + 4 {
             return None;
         }
-        let key = [buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3]];
+        let key = [
+            buf[offset],
+            buf[offset + 1],
+            buf[offset + 2],
+            buf[offset + 3],
+        ];
         offset += 4;
         Some(key)
     } else {

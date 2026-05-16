@@ -74,9 +74,7 @@ async fn llm_returns_invalid_slug_falls_through_to_keyword() {
 
 #[tokio::test]
 async fn llm_network_error_falls_through_to_keyword() {
-    let llm = MockProviderClient::err(ArgoError::Provider(
-        "simulated network timeout".into(),
-    ));
+    let llm = MockProviderClient::err(ArgoError::Provider("simulated network timeout".into()));
     let arch = classify_llm(MARKETING_CHARTER, &llm).await.unwrap();
     assert_eq!(
         arch,

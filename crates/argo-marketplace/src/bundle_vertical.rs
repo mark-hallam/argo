@@ -76,17 +76,14 @@ pub async fn unpack_vertical_bundle(
         )));
     }
     tokio::fs::create_dir_all(target_root).await.map_err(|e| {
-        ArgoError::Provider(format!(
-            "create target_root {}: {e}",
-            target_root.display()
-        ))
+        ArgoError::Provider(format!("create target_root {}: {e}", target_root.display()))
     })?;
     let mut archive = tar::Archive::new(std::io::Cursor::new(tar_bytes));
-    for entry in archive.entries().map_err(|e| {
-        ArgoError::Io(format!("read tar entries: {e}"))
-    })? {
-        let mut entry =
-            entry.map_err(|e| ArgoError::Provider(format!("tar entry: {e}")))?;
+    for entry in archive
+        .entries()
+        .map_err(|e| ArgoError::Io(format!("read tar entries: {e}")))?
+    {
+        let mut entry = entry.map_err(|e| ArgoError::Provider(format!("tar entry: {e}")))?;
         let rel = entry
             .path()
             .map_err(|e| ArgoError::Provider(format!("tar entry path: {e}")))?
@@ -94,10 +91,7 @@ pub async fn unpack_vertical_bundle(
         let abs = target_root.join(&rel);
         if let Some(parent) = abs.parent() {
             tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                ArgoError::Provider(format!(
-                    "create parent {}: {e}",
-                    parent.display()
-                ))
+                ArgoError::Provider(format!("create parent {}: {e}", parent.display()))
             })?;
         }
         let mut body = Vec::new();
@@ -168,7 +162,9 @@ mod tests {
         populate_vertical(&vroot).await;
         write(&vroot.join("custom_dir/extra.toml"), "x=1").await;
         let tar = dir.path().join("v.tar");
-        let manifest = build_vertical_bundle(&vroot, "v", "0.1", &tar).await.unwrap();
+        let manifest = build_vertical_bundle(&vroot, "v", "0.1", &tar)
+            .await
+            .unwrap();
         assert!(manifest
             .entries
             .iter()
@@ -181,7 +177,9 @@ mod tests {
         let vroot = dir.path().join("v");
         populate_vertical(&vroot).await;
         let tar = dir.path().join("v.tar");
-        let manifest = build_vertical_bundle(&vroot, "v", "0.1", &tar).await.unwrap();
+        let manifest = build_vertical_bundle(&vroot, "v", "0.1", &tar)
+            .await
+            .unwrap();
         let bytes = tokio::fs::read(&tar).await.unwrap();
         let mut tampered = bytes.clone();
         // Flip a byte mid-tar — not header (would invalid format) —

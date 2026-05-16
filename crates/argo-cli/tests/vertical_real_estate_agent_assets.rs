@@ -144,7 +144,11 @@ fn real_estate_agent_action_gates_split_two_auto_three_approval() {
             "`{name}` must be autonomous-safe (requires_approval = false)"
         );
     }
-    let gated = ["send_listing_packet", "draft_offer", "flag_inspection_finding"];
+    let gated = [
+        "send_listing_packet",
+        "draft_offer",
+        "flag_inspection_finding",
+    ];
     for name in &gated {
         let a = actions
             .actions

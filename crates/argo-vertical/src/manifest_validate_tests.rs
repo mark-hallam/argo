@@ -46,10 +46,17 @@ fn fixture_manifests_pass_strict() {
             continue;
         }
         let src = std::fs::read_to_string(&manifest_path).expect("read fixture");
-        let m = parse_strict(&src)
-            .unwrap_or_else(|e| panic!("fixture {} failed strict parse: {e}", manifest_path.display()));
+        let m = parse_strict(&src).unwrap_or_else(|e| {
+            panic!(
+                "fixture {} failed strict parse: {e}",
+                manifest_path.display()
+            )
+        });
         validate_strict(&m).unwrap_or_else(|e| {
-            panic!("fixture {} failed strict validation: {e}", manifest_path.display())
+            panic!(
+                "fixture {} failed strict validation: {e}",
+                manifest_path.display()
+            )
         });
         walked += 1;
     }
@@ -71,7 +78,10 @@ fn legacy_executor_unknown_kind_fails() {
     );
     let msg = err_message(&src);
     assert!(msg.contains("actions.draft.executor.kind"), "got: {msg}");
-    assert!(msg.contains("unknown executor kind 'telepathic'"), "got: {msg}");
+    assert!(
+        msg.contains("unknown executor kind 'telepathic'"),
+        "got: {msg}"
+    );
 }
 
 #[test]
@@ -118,8 +128,14 @@ fn api_requires_binding() {
         "{MINIMAL_HEADER}\n[actions.lookup]\nrisk = \"low\"\nrequires_approval = false\nexecutor = {{ kind = \"api\" }}\n"
     );
     let msg = err_message(&src);
-    assert!(msg.contains("actions.lookup.executor.binding"), "got: {msg}");
-    assert!(msg.contains("requires a non-empty 'binding' field"), "got: {msg}");
+    assert!(
+        msg.contains("actions.lookup.executor.binding"),
+        "got: {msg}"
+    );
+    assert!(
+        msg.contains("requires a non-empty 'binding' field"),
+        "got: {msg}"
+    );
 }
 
 #[test]
@@ -136,8 +152,14 @@ fn computer_use_requires_profile() {
         "{MINIMAL_HEADER}\n[actions.browse]\nrisk = \"low\"\nrequires_approval = false\nexecutor = {{ kind = \"computer_use\" }}\n"
     );
     let msg = err_message(&src);
-    assert!(msg.contains("actions.browse.executor.profile"), "got: {msg}");
-    assert!(msg.contains("requires a non-empty 'profile' field"), "got: {msg}");
+    assert!(
+        msg.contains("actions.browse.executor.profile"),
+        "got: {msg}"
+    );
+    assert!(
+        msg.contains("requires a non-empty 'profile' field"),
+        "got: {msg}"
+    );
 }
 
 #[test]
@@ -154,8 +176,14 @@ fn on_complete_emit_undeclared_action_fails() {
         "{MINIMAL_HEADER}\n[actions.draft]\nrisk = \"low\"\nrequires_approval = false\non_complete_emit = [\"send\"]\n"
     );
     let msg = err_message(&src);
-    assert!(msg.contains("actions.draft.on_complete_emit[0]"), "got: {msg}");
-    assert!(msg.contains("references undeclared action 'send'"), "got: {msg}");
+    assert!(
+        msg.contains("actions.draft.on_complete_emit[0]"),
+        "got: {msg}"
+    );
+    assert!(
+        msg.contains("references undeclared action 'send'"),
+        "got: {msg}"
+    );
 }
 
 #[test]
@@ -214,7 +242,10 @@ fn multiple_errors_aggregated_into_one_message() {
     let msg = err_message(&src);
     assert!(msg.contains("provider.default"), "got: {msg}");
     assert!(msg.contains("actions.first.executor.kind"), "got: {msg}");
-    assert!(msg.contains("actions.first.on_complete_emit[0]"), "got: {msg}");
+    assert!(
+        msg.contains("actions.first.on_complete_emit[0]"),
+        "got: {msg}"
+    );
     assert!(
         msg.contains("strict validation"),
         "wrapper missing — got: {msg}"

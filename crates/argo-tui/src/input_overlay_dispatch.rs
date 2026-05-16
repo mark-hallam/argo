@@ -124,10 +124,7 @@ pub(crate) async fn try_open_overlay(
             state.cost_overlay = Some(snap);
         }
         KeyCode::Char('K') => {
-            state.cron_overlay = Some(scan_dir_basenames(
-                &cwd.join("cron").join("jobs"),
-                "json",
-            ));
+            state.cron_overlay = Some(scan_dir_basenames(&cwd.join("cron").join("jobs"), "json"));
         }
         KeyCode::Char('P') => {
             state.providers_overlay = Some(scan_dir_basenames(
@@ -150,10 +147,7 @@ pub(crate) async fn try_open_overlay(
             // No selection → empty overlay so the user can tell
             // why nothing rendered.
             let rows = if let Some(s) = state.selected_session() {
-                store
-                    .list_audit_for_session(s.id)
-                    .await
-                    .unwrap_or_default()
+                store.list_audit_for_session(s.id).await.unwrap_or_default()
             } else {
                 Vec::new()
             };

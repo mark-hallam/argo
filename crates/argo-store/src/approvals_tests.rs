@@ -323,11 +323,7 @@ async fn expire_overdue_records_default_decision_per_row() {
     // SQLite ORDER BY string comparison: 'allow' < 'ask' < 'deny'.
     assert_eq!(
         labels,
-        vec![
-            "allow".to_string(),
-            "ask".to_string(),
-            "deny".to_string()
-        ]
+        vec!["allow".to_string(), "ask".to_string(), "deny".to_string()]
     );
 }
 

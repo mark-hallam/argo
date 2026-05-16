@@ -19,9 +19,7 @@
 use crate::cli::cli_team_cmds::TeamCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::{IdentityStore, WorkerId};
-use argo_store::team_roster::{
-    self, summarise_charter, TeamDetail, TeamMemberRow, TeamRow,
-};
+use argo_store::team_roster::{self, summarise_charter, TeamDetail, TeamMemberRow, TeamRow};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde::Serialize;
@@ -109,11 +107,7 @@ async fn show(tenant: &str, team_id: &str, format: &str) -> ArgoResult<()> {
     let tenant_id = parse_tenant(tenant)?;
     let detail = team_roster::get_team(store.pool(), tenant_id, team_id)
         .await?
-        .ok_or_else(|| {
-            ArgoError::Provider(format!(
-                "no team '{team_id}' in tenant '{tenant}'"
-            ))
-        })?;
+        .ok_or_else(|| ArgoError::Provider(format!("no team '{team_id}' in tenant '{tenant}'")))?;
     let payload = hydrate_show(detail, tenant_id, &store).await?;
     match fmt {
         OutputFormat::Json => print_json(&payload)?,

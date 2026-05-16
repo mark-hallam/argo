@@ -16,9 +16,7 @@ pub(super) use super::routes_top_sessions::{dispatch_sessions, sessions_count_re
 /// `GET /doctor[?format=markdown]` — JSON snapshot of
 /// `argo doctor` by default; markdown returns a paste-able
 /// status doc (workspace + DB + audit + creds sections).
-pub(super) async fn doctor_response(
-    format: Option<&str>,
-) -> (&'static str, String) {
+pub(super) async fn doctor_response(format: Option<&str>) -> (&'static str, String) {
     match crate::handlers::doctor::collect().await {
         Ok(v) => {
             if matches!(format, Some("markdown")) {

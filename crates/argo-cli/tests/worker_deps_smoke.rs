@@ -20,10 +20,15 @@ async fn add_list_remove_round_trip() {
         &home,
         work.path(),
         &[
-            "worker", "deps", "add",
-            "alpha", "bravo",
-            "--kind", "data",
-            "--note", "ledger pulls",
+            "worker",
+            "deps",
+            "add",
+            "alpha",
+            "bravo",
+            "--kind",
+            "data",
+            "--note",
+            "ledger pulls",
             "--json",
         ],
     );
@@ -38,7 +43,16 @@ async fn add_list_remove_round_trip() {
     let list_out = run(
         &home,
         work.path(),
-        &["worker", "deps", "list", "alpha", "--direction", "out", "--format", "json"],
+        &[
+            "worker",
+            "deps",
+            "list",
+            "alpha",
+            "--direction",
+            "out",
+            "--format",
+            "json",
+        ],
     );
     assert_success(&list_out);
     let body: Value = serde_json::from_slice(&list_out.stdout).unwrap();
@@ -50,7 +64,16 @@ async fn add_list_remove_round_trip() {
     let list_in = run(
         &home,
         work.path(),
-        &["worker", "deps", "list", "bravo", "--direction", "in", "--format", "json"],
+        &[
+            "worker",
+            "deps",
+            "list",
+            "bravo",
+            "--direction",
+            "in",
+            "--format",
+            "json",
+        ],
     );
     assert_success(&list_in);
     let body: Value = serde_json::from_slice(&list_in.stdout).unwrap();
@@ -64,14 +87,22 @@ async fn add_list_remove_round_trip() {
     );
     assert_success(&md);
     let stdout = String::from_utf8_lossy(&md.stdout);
-    assert!(stdout.contains("# Worker alpha dependencies (out)"), "header:\n{stdout}");
-    assert!(stdout.contains("| data | alpha | bravo | ledger pulls |"), "row:\n{stdout}");
+    assert!(
+        stdout.contains("# Worker alpha dependencies (out)"),
+        "header:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("| data | alpha | bravo | ledger pulls |"),
+        "row:\n{stdout}"
+    );
 
     // remove + verify gone
     let rm = run(
         &home,
         work.path(),
-        &["worker", "deps", "remove", "alpha", "bravo", "--kind", "data", "--json"],
+        &[
+            "worker", "deps", "remove", "alpha", "bravo", "--kind", "data", "--json",
+        ],
     );
     assert_success(&rm);
     let body: Value = serde_json::from_slice(&rm.stdout).unwrap();
@@ -79,7 +110,16 @@ async fn add_list_remove_round_trip() {
     let after = run(
         &home,
         work.path(),
-        &["worker", "deps", "list", "alpha", "--direction", "out", "--format", "json"],
+        &[
+            "worker",
+            "deps",
+            "list",
+            "alpha",
+            "--direction",
+            "out",
+            "--format",
+            "json",
+        ],
     );
     assert_success(&after);
     let body: Value = serde_json::from_slice(&after.stdout).unwrap();
@@ -100,9 +140,7 @@ async fn cycle_rejection_exits_non_zero_with_path() {
     let cycle = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
         .current_dir(work.path())
-        .args([
-            "worker", "deps", "add", "bravo", "alpha", "--kind", "data",
-        ])
+        .args(["worker", "deps", "add", "bravo", "alpha", "--kind", "data"])
         .output()
         .unwrap();
     assert!(!cycle.status.success(), "expected failure for cycle");
@@ -115,7 +153,9 @@ async fn cycle_rejection_exits_non_zero_with_path() {
     assert_success(&run(
         &home,
         work.path(),
-        &["worker", "deps", "add", "bravo", "alpha", "--kind", "approval"],
+        &[
+            "worker", "deps", "add", "bravo", "alpha", "--kind", "approval",
+        ],
     ));
 }
 
@@ -140,7 +180,10 @@ async fn graph_dot_and_impact_transitive_closure() {
     );
     assert_success(&dot);
     let stdout = String::from_utf8_lossy(&dot.stdout);
-    assert!(stdout.starts_with("digraph worker_deps {"), "preamble:\n{stdout}");
+    assert!(
+        stdout.starts_with("digraph worker_deps {"),
+        "preamble:\n{stdout}"
+    );
     assert!(stdout.contains("rankdir=LR;"), "layout:\n{stdout}");
     assert!(
         stdout.contains("\"B\" -> \"A\" [color=\"green\", label=\"handoff\"];"),
@@ -160,7 +203,12 @@ async fn graph_dot_and_impact_transitive_closure() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|v| (v["depth"].as_i64().unwrap(), v["worker_id"].as_str().unwrap()))
+        .map(|v| {
+            (
+                v["depth"].as_i64().unwrap(),
+                v["worker_id"].as_str().unwrap(),
+            )
+        })
         .collect();
     assert_eq!(depths, vec![(1, "B"), (2, "C"), (3, "D")]);
 }

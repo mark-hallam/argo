@@ -23,5 +23,5 @@ pub mod splunk;
 pub use datadog::DatadogLogsSink;
 pub use dispatcher::{spawn_siem_dispatcher, SiemDispatcher, SiemDispatcherConfig};
 pub use elastic::ElasticSink;
-pub use sink::{AuditEvent, SinkError, SiemSink};
+pub use sink::{AuditEvent, SiemSink, SinkError};
 pub use splunk::SplunkHecSink;

@@ -57,7 +57,11 @@ impl SetupStep {
 
 pub const GENESIS_STEP: &str = "Genesis archetype suggestions";
 
-pub async fn collect_steps(cwd: &Path, home: &Path, interactive: bool) -> ArgoResult<Vec<SetupStep>> {
+pub async fn collect_steps(
+    cwd: &Path,
+    home: &Path,
+    interactive: bool,
+) -> ArgoResult<Vec<SetupStep>> {
     let doctor = super::doctor::collect().await?;
     Ok(vec![
         doctor_step(&doctor),
@@ -92,7 +96,10 @@ pub fn doctor_step(payload: &Value) -> SetupStep {
 
 pub fn workspace_step(cwd: &Path, _home: &Path) -> SetupStep {
     if !cwd.exists() {
-        return SetupStep::fail("Workspace manifests", format!("{} is missing", cwd.display()));
+        return SetupStep::fail(
+            "Workspace manifests",
+            format!("{} is missing", cwd.display()),
+        );
     }
     let manifests = cwd.join(".argo").join("manifests");
     match ensure_writeable_dir(&manifests) {
@@ -113,11 +120,17 @@ pub fn vertical_step(cwd: &Path) -> SetupStep {
         ),
         Ok((_registry, errors)) if !errors.is_empty() => SetupStep::fail(
             "Vertical registry",
-            format!("{} vertical load error(s); run `argo vertical lint`", errors.len()),
+            format!(
+                "{} vertical load error(s); run `argo vertical lint`",
+                errors.len()
+            ),
         ),
         Ok((_registry, _errors)) => SetupStep::skip(
             "Vertical registry",
-            format!("no vertical.toml found under {}; run `argo genesis create`", dir.display()),
+            format!(
+                "no vertical.toml found under {}; run `argo genesis create`",
+                dir.display()
+            ),
         ),
         Err(e) => SetupStep::fail("Vertical registry", format!("load verticals: {e}")),
     }
@@ -147,11 +160,17 @@ pub fn notify_step(payload: &Value) -> SetupStep {
         .filter_map(|item| item["status"].as_str())
         .collect();
     if statuses.iter().any(|s| *s == "OK" || *s == "WARN") {
-        SetupStep::ok("Notify channels", "at least one NotifyChannel manifest validated")
+        SetupStep::ok(
+            "Notify channels",
+            "at least one NotifyChannel manifest validated",
+        )
     } else if statuses.iter().all(|s| *s == "MISSING") {
         SetupStep::skip("Notify channels", "no notify-channel env is configured yet")
     } else {
-        SetupStep::fail("Notify channels", "one or more configured channels failed validation")
+        SetupStep::fail(
+            "Notify channels",
+            "one or more configured channels failed validation",
+        )
     }
 }
 
@@ -163,13 +182,20 @@ pub fn genesis_step() -> SetupStep {
     let names: Vec<String> = archetypes.iter().take(3).map(|a| a.name.clone()).collect();
     SetupStep::ok(
         GENESIS_STEP,
-        format!("{} archetypes available; suggestions: {}", archetypes.len(), names.join(", ")),
+        format!(
+            "{} archetypes available; suggestions: {}",
+            archetypes.len(),
+            names.join(", ")
+        ),
     )
 }
 
 pub async fn audit_step(home: &Path) -> SetupStep {
     match audit_count(home).await {
-        Ok(n) => SetupStep::ok("Audit query", format!("fresh audit query succeeded ({n} row(s))")),
+        Ok(n) => SetupStep::ok(
+            "Audit query",
+            format!("fresh audit query succeeded ({n} row(s))"),
+        ),
         Err(e) => SetupStep::fail("Audit query", format!("audit query: {e}")),
     }
 }
@@ -194,7 +220,9 @@ fn ensure_writeable_dir(dir: &Path) -> Result<(), String> {
 async fn count_workers(home: &Path) -> ArgoResult<i64> {
     let store = SessionStore::open(db_path(home)).await?;
     store.migrate().await?;
-    argo_identity::IdentityStore::new(&store).ensure_schema().await?;
+    argo_identity::IdentityStore::new(&store)
+        .ensure_schema()
+        .await?;
     let count = sqlx::query_scalar("SELECT COUNT(*) FROM worker")
         .fetch_one(store.pool())
         .await

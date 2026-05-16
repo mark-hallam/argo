@@ -22,9 +22,13 @@ fn docx_template_generates_valid_zip() {
     )
     .expect("docx build");
     assert!(payload.starts_with(PKZIP_MAGIC), "missing PKZIP magic");
-    assert!(payload.len() > 200, "docx zip looks empty: {} bytes", payload.len());
-    let reader = zip::ZipArchive::new(std::io::Cursor::new(&payload[..]))
-        .expect("docx archive opens");
+    assert!(
+        payload.len() > 200,
+        "docx zip looks empty: {} bytes",
+        payload.len()
+    );
+    let reader =
+        zip::ZipArchive::new(std::io::Cursor::new(&payload[..])).expect("docx archive opens");
     let names: Vec<_> = reader.file_names().collect();
     assert!(names.contains(&"[Content_Types].xml"));
     assert!(names.contains(&"word/document.xml"));
@@ -45,8 +49,8 @@ fn xlsx_template_generates_valid_zip() {
     )
     .expect("xlsx build");
     assert!(payload.starts_with(PKZIP_MAGIC), "missing PKZIP magic");
-    let reader = zip::ZipArchive::new(std::io::Cursor::new(&payload[..]))
-        .expect("xlsx archive opens");
+    let reader =
+        zip::ZipArchive::new(std::io::Cursor::new(&payload[..])).expect("xlsx archive opens");
     let names: Vec<_> = reader.file_names().collect();
     assert!(names.contains(&"[Content_Types].xml"));
     assert!(names.contains(&"xl/workbook.xml"));
@@ -79,7 +83,10 @@ fn read_returns_bytes() {
     let client = MsGraphClient::new("tok").with_base_url("https://example.test/v1.0");
     let exec = MsGraphExecutor::new(client.clone());
     let url = client.endpoint_for_drive_item(exec.drive_id.as_deref(), "reports/q3.docx");
-    assert_eq!(url, "https://example.test/v1.0/me/drive/root:/reports/q3.docx");
+    assert_eq!(
+        url,
+        "https://example.test/v1.0/me/drive/root:/reports/q3.docx"
+    );
     let with_drive = MsGraphExecutor::new(client.clone()).with_drive_id("d!XYZ");
     let url2 = client.endpoint_for_drive_item(with_drive.drive_id.as_deref(), "/q3.docx");
     assert_eq!(url2, "https://example.test/v1.0/drives/d!XYZ/root:/q3.docx");
@@ -91,7 +98,10 @@ fn auth_failure_surfaces_clearly() {
     match err {
         MsGraphError::AuthExpired { status, ref hint } => {
             assert_eq!(status, 401);
-            assert!(hint.contains("refresh"), "hint should mention refresh: {hint}");
+            assert!(
+                hint.contains("refresh"),
+                "hint should mention refresh: {hint}"
+            );
             assert!(
                 hint.contains("ARGO_MSGRAPH_ACCESS_TOKEN"),
                 "hint should name the env var: {hint}",

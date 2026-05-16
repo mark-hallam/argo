@@ -46,7 +46,8 @@ async fn shared_team_rows_render_into_memory_compose_block() {
         .map(|e| (e.written_at, e.content))
         .collect();
 
-    let block = MemoryNs::new(tenant, WorkerId::nil(), MemoryScope::SharedTeam).compose_context(&rows);
+    let block =
+        MemoryNs::new(tenant, WorkerId::nil(), MemoryScope::SharedTeam).compose_context(&rows);
     assert!(
         block.starts_with("## Memory (workspace-shared, last 3)\n"),
         "expected memory header; got:\n{block}"
@@ -71,7 +72,8 @@ async fn empty_shared_team_yields_no_memory_block() {
         .into_iter()
         .map(|e| (e.written_at, e.content))
         .collect();
-    let block = MemoryNs::new(tenant, WorkerId::nil(), MemoryScope::SharedTeam).compose_context(&rows);
+    let block =
+        MemoryNs::new(tenant, WorkerId::nil(), MemoryScope::SharedTeam).compose_context(&rows);
     assert!(
         block.is_empty(),
         "expected empty block for no rows; got: {block}"

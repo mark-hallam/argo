@@ -63,7 +63,9 @@ fn build_invocation_ids(n: usize) -> Vec<String> {
 }
 
 fn build_run_ids(n: usize) -> Vec<String> {
-    (0..n).map(|i| format!("ab-run-{i:08}-{:08}", i.wrapping_mul(0x9E37_79B9))).collect()
+    (0..n)
+        .map(|i| format!("ab-run-{i:08}-{:08}", i.wrapping_mul(0x9E37_79B9)))
+        .collect()
 }
 
 criterion_group!(benches, ab_decision);

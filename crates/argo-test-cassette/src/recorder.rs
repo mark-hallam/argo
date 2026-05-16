@@ -6,8 +6,8 @@
 //! ad-hoc debug only.
 
 use crate::cassette::{
-    redact_body_json, redact_headers, Cassette, CassetteError, CassetteExchange,
-    CassetteRequest, CassetteResponse, Result, DEFAULT_HEADER_ALLOWLIST,
+    redact_body_json, redact_headers, Cassette, CassetteError, CassetteExchange, CassetteRequest,
+    CassetteResponse, Result, DEFAULT_HEADER_ALLOWLIST,
 };
 use std::collections::BTreeMap;
 
@@ -152,7 +152,8 @@ pub fn build_request_record(
     headers: &BTreeMap<String, String>,
     body: &[u8],
 ) -> CassetteRequest {
-    let body_json = serde_json::from_slice::<serde_json::Value>(body).unwrap_or(serde_json::Value::Null);
+    let body_json =
+        serde_json::from_slice::<serde_json::Value>(body).unwrap_or(serde_json::Value::Null);
     CassetteRequest {
         method: method.to_ascii_uppercase(),
         url: url.to_string(),

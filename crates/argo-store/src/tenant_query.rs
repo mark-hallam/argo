@@ -70,9 +70,12 @@ pub async fn list_tenants_with_stats(
         }));
     }
     rows.sort_by(|a, b| {
-        row_sort_key(b)
-            .cmp(&row_sort_key(a))
-            .then_with(|| a["id"].as_str().unwrap_or_default().cmp(b["id"].as_str().unwrap_or_default()))
+        row_sort_key(b).cmp(&row_sort_key(a)).then_with(|| {
+            a["id"]
+                .as_str()
+                .unwrap_or_default()
+                .cmp(b["id"].as_str().unwrap_or_default())
+        })
     });
     Ok(rows)
 }
@@ -126,7 +129,10 @@ async fn tenant_created_at(store: &SessionStore, tenant: TenantId) -> ArgoResult
     values.push(min_blob(store, "workspace", "created_at", tenant).await?);
     values.push(min_blob(store, "session", "started_at", tenant).await?);
     values.push(min_text(store, "worker", "created_at", tenant).await?);
-    Ok(values.into_iter().flatten().min_by_key(|v| normalize_epoch_micros(*v)))
+    Ok(values
+        .into_iter()
+        .flatten()
+        .min_by_key(|v| normalize_epoch_micros(*v)))
 }
 
 pub(crate) async fn workspace_text(
@@ -138,7 +144,9 @@ pub(crate) async fn workspace_text(
         return Ok(None);
     }
     // audit-allow: identifier substitution
-    let sql = format!("SELECT {column} FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1");
+    let sql = format!(
+        "SELECT {column} FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1"
+    );
     let row = sqlx::query(&sql)
         .bind(tenant.0.as_bytes().as_slice())
         .fetch_optional(store.pool())
@@ -147,12 +155,18 @@ pub(crate) async fn workspace_text(
     Ok(row.and_then(|row| row.get(column)))
 }
 
-async fn workspace_i64(store: &SessionStore, tenant: TenantId, column: &str) -> ArgoResult<Option<i64>> {
+async fn workspace_i64(
+    store: &SessionStore,
+    tenant: TenantId,
+    column: &str,
+) -> ArgoResult<Option<i64>> {
     if !has_column(store, "workspace", column).await? {
         return Ok(None);
     }
     // audit-allow: identifier substitution
-    let sql = format!("SELECT {column} FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1");
+    let sql = format!(
+        "SELECT {column} FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1"
+    );
     let row = sqlx::query(&sql)
         .bind(tenant.0.as_bytes().as_slice())
         .fetch_optional(store.pool())
@@ -195,7 +209,12 @@ pub(crate) async fn count_text(
         .map_err(|e| ArgoError::Provider(format!("tenant count {table}: {e}")))
 }
 
-async fn min_blob(store: &SessionStore, table: &str, column: &str, tenant: TenantId) -> ArgoResult<Option<i64>> {
+async fn min_blob(
+    store: &SessionStore,
+    table: &str,
+    column: &str,
+    tenant: TenantId,
+) -> ArgoResult<Option<i64>> {
     if !has_column(store, table, "tenant_id").await? || !has_column(store, table, column).await? {
         return Ok(None);
     }
@@ -208,7 +227,12 @@ async fn min_blob(store: &SessionStore, table: &str, column: &str, tenant: Tenan
         .map_err(|e| ArgoError::Provider(format!("tenant min {table}: {e}")))
 }
 
-async fn min_text(store: &SessionStore, table: &str, column: &str, tenant: TenantId) -> ArgoResult<Option<i64>> {
+async fn min_text(
+    store: &SessionStore,
+    table: &str,
+    column: &str,
+    tenant: TenantId,
+) -> ArgoResult<Option<i64>> {
     if !has_column(store, table, "tenant_id").await? || !has_column(store, table, column).await? {
         return Ok(None);
     }

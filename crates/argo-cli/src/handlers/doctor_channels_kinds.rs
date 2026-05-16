@@ -136,8 +136,7 @@ pub(super) async fn check_imessage(client: &reqwest::Client, cfg: &ProbeConfig) 
         return check("OK", format!("blue_bubbles reachable ({status})"))
             .with("http_status", status.as_u16());
     }
-    check("ERROR", format!("blue_bubbles returned {status}"))
-        .with("http_status", status.as_u16())
+    check("ERROR", format!("blue_bubbles returned {status}")).with("http_status", status.as_u16())
 }
 
 pub(super) async fn check_voice(client: &reqwest::Client, cfg: &ProbeConfig) -> Value {

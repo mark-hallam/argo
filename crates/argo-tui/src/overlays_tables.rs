@@ -109,10 +109,7 @@ pub(crate) fn draw_skills(
     let para = Paragraph::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(format!(
-                " active skills ({}) — Esc/S/q closes ",
-                rows.len()
-            )),
+            .title(format!(" active skills ({}) — Esc/S/q closes ", rows.len())),
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
@@ -159,10 +156,9 @@ pub(crate) fn draw_memory(
         }
     }
     let para = Paragraph::new(lines).block(
-        Block::default().borders(Borders::ALL).title(format!(
-            " active memory ({}) — Esc/M/q closes ",
-            rows.len()
-        )),
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" active memory ({}) — Esc/M/q closes ", rows.len())),
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
@@ -215,12 +211,10 @@ pub(crate) fn draw_audit(
     } else {
         String::new()
     };
-    let para = Paragraph::new(lines).block(
-        Block::default().borders(Borders::ALL).title(format!(
-            " audit chain ({}{scroll_tag}) — j/k scroll · Esc/A/q closes ",
-            rows.len()
-        )),
-    );
+    let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(format!(
+        " audit chain ({}{scroll_tag}) — j/k scroll · Esc/A/q closes ",
+        rows.len()
+    )));
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
 }

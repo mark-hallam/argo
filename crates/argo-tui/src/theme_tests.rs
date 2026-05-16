@@ -6,7 +6,12 @@ use std::collections::BTreeMap;
 #[test]
 fn presets_construct_without_panic() {
     // Each built-in preset must build and carry a non-empty name.
-    for theme in [Theme::dark(), Theme::light(), Theme::solarized(), Theme::dracula()] {
+    for theme in [
+        Theme::dark(),
+        Theme::light(),
+        Theme::solarized(),
+        Theme::dracula(),
+    ] {
         assert!(!theme.name.is_empty(), "preset name must be non-empty");
     }
 }

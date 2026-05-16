@@ -112,11 +112,7 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
         }
         let eval_marker = if eval_report.ok { "ok" } else { "FAIL" };
         let suite_count = eval_report.suites.len();
-        let total_fixtures: usize = eval_report
-            .suites
-            .iter()
-            .map(|s| s.fixture_count)
-            .sum();
+        let total_fixtures: usize = eval_report.suites.iter().map(|s| s.fixture_count).sum();
         println!(
             "  [{eval_marker}] eval ({suite_count} suite(s), {total_fixtures} fixture(s) total)"
         );

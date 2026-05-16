@@ -340,12 +340,9 @@ async fn workspace_tenant(cwd: &Path) -> ArgoResult<TenantId> {
 pub(crate) fn substitute_args(payload: &Value, action: &ActionRecord) -> Value {
     match payload {
         Value::String(s) => Value::String(render_template(s, action)),
-        Value::Array(items) => Value::Array(
-            items
-                .iter()
-                .map(|v| substitute_args(v, action))
-                .collect(),
-        ),
+        Value::Array(items) => {
+            Value::Array(items.iter().map(|v| substitute_args(v, action)).collect())
+        }
         Value::Object(map) => {
             let mut out = Map::with_capacity(map.len());
             for (k, v) in map {

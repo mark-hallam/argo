@@ -350,16 +350,14 @@ impl OneDriveConnector {
                 Err(_) => true,
             };
             if !retriable || attempt >= max {
-                return result
-                    .map_err(|e| ArgoError::Provider(format!("onedrive request: {e}")));
+                return result.map_err(|e| ArgoError::Provider(format!("onedrive request: {e}")));
             }
             let jitter = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| u64::from(d.subsec_nanos()))
                 .unwrap_or(0);
-            let delay = argo_mcp_connector_shared::retry::backoff_delay_ms(
-                &self.retry, attempt, jitter,
-            );
+            let delay =
+                argo_mcp_connector_shared::retry::backoff_delay_ms(&self.retry, attempt, jitter);
             tokio::time::sleep(Duration::from_millis(delay)).await;
         }
     }

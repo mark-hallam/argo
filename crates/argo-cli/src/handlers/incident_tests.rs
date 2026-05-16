@@ -4,8 +4,8 @@
 //! `#[cfg(test)]`.
 
 use super::incident::{
-    load_fixture, output_path, prompt_input, render, run_new, slugify, today_utc,
-    IncidentInput, MAX_SLUG_LEN, TEMPLATE_BODY,
+    load_fixture, output_path, prompt_input, render, run_new, slugify, today_utc, IncidentInput,
+    MAX_SLUG_LEN, TEMPLATE_BODY,
 };
 use std::fs;
 use std::io::Cursor;
@@ -38,7 +38,11 @@ fn yaml_fixture_round_trip_writes_complete_file() {
     let input = load_fixture(&fixture).expect("load fixture");
     let path = run_new(input.clone(), dir.path(), false).expect("run_new");
 
-    assert!(path.exists(), "output file should exist at {}", path.display());
+    assert!(
+        path.exists(),
+        "output file should exist at {}",
+        path.display()
+    );
     let body = fs::read_to_string(&path).expect("read output");
     // Every required section's content must appear in the rendered file.
     assert!(body.contains(&input.summary));
@@ -98,7 +102,10 @@ fn refuses_to_overwrite_without_force() {
 
     let err = run_new(input, dir.path(), false).expect_err("second write should refuse");
     let msg = format!("{err}");
-    assert!(msg.contains("--force"), "error should suggest --force, got: {msg}");
+    assert!(
+        msg.contains("--force"),
+        "error should suggest --force, got: {msg}"
+    );
     assert!(msg.contains("refusing to overwrite"));
 }
 
@@ -146,22 +153,22 @@ fn interactive_prompt_collects_each_section_and_timeline_round_trips() {
     // One line per single-line prompt, multi-line sections terminated
     // by `.`. Order must match the prompt list in `incident.rs`.
     let scripted = concat!(
-        "Gateway 502s after key rotation\n",            // summary
-        "SEV2\n",                                       // severity
-        "- 14:02 UTC — rotated key.\n",                 // timeline (multiline)
+        "Gateway 502s after key rotation\n", // summary
+        "SEV2\n",                            // severity
+        "- 14:02 UTC — rotated key.\n",      // timeline (multiline)
         "- 14:11 UTC — recovered.\n",
         ".\n",
-        "Cached secret in process memory.\n",           // root_cause
+        "Cached secret in process memory.\n", // root_cause
         ".\n",
-        "No reload runbook.\n",                         // contributing_factors
+        "No reload runbook.\n", // contributing_factors
         ".\n",
-        "Alert fired six minutes after onset.\n",       // detection
+        "Alert fired six minutes after onset.\n", // detection
         ".\n",
-        "Rolled key back, restarted gateway.\n",        // resolution
+        "Rolled key back, restarted gateway.\n", // resolution
         ".\n",
-        "- [ ] Add `argo cred reload`.\n",              // action_items
+        "- [ ] Add `argo cred reload`.\n", // action_items
         ".\n",
-        "Cached secrets are silent footguns.\n",        // lessons_learned
+        "Cached secrets are silent footguns.\n", // lessons_learned
         ".\n",
     );
     let mut output = Vec::new();

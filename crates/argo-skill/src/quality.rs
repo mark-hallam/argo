@@ -117,7 +117,10 @@ impl QualityInputs {
                     continue;
                 }
             }
-            let Some(is_error) = row.payload.get("is_error").and_then(serde_json::Value::as_bool)
+            let Some(is_error) = row
+                .payload
+                .get("is_error")
+                .and_then(serde_json::Value::as_bool)
             else {
                 tracing::trace!(
                     target: "argo_skill::quality",
@@ -126,8 +129,10 @@ impl QualityInputs {
                 );
                 continue;
             };
-            let Some(duration_ms) =
-                row.payload.get("duration_ms").and_then(serde_json::Value::as_f64)
+            let Some(duration_ms) = row
+                .payload
+                .get("duration_ms")
+                .and_then(serde_json::Value::as_f64)
             else {
                 tracing::trace!(
                     target: "argo_skill::quality",
@@ -328,9 +333,7 @@ impl SkillQualityStore {
     /// Map of `skill_id → latest score`, populated for every skill
     /// that has been scored. Convenience for the `--quality-min`
     /// filter on `argo skill list`.
-    pub async fn latest_by_skill(
-        &self,
-    ) -> ArgoResult<std::collections::HashMap<String, u8>> {
+    pub async fn latest_by_skill(&self) -> ArgoResult<std::collections::HashMap<String, u8>> {
         let rows = self.latest_all().await?;
         Ok(rows
             .into_iter()

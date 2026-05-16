@@ -84,11 +84,8 @@ fn accepts_every_documented_type() {
         "float",
         "bool",
     ] {
-        let src = format!(
-            "schema_version = \"1\"\n[[entry]]\nkey=\"x\"\ntype=\"{t}\"\n"
-        );
-        parse_memory_schema(&src)
-            .unwrap_or_else(|e| panic!("type {t} should parse, got: {e}"));
+        let src = format!("schema_version = \"1\"\n[[entry]]\nkey=\"x\"\ntype=\"{t}\"\n");
+        parse_memory_schema(&src).unwrap_or_else(|e| panic!("type {t} should parse, got: {e}"));
     }
 }
 

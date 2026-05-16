@@ -93,12 +93,10 @@ async fn fetch_payload(
     store: &Arc<SessionStore>,
     id_bytes: &[u8],
 ) -> Result<Option<String>, sqlx::Error> {
-    sqlx::query_scalar::<_, String>(
-        "SELECT payload_json FROM audit_record WHERE id = ? LIMIT 1",
-    )
-    .bind(id_bytes)
-    .fetch_optional(store.pool())
-    .await
+    sqlx::query_scalar::<_, String>("SELECT payload_json FROM audit_record WHERE id = ? LIMIT 1")
+        .bind(id_bytes)
+        .fetch_optional(store.pool())
+        .await
 }
 
 /// Build the public screenshot URL for `(action_id, idx)`. The
@@ -140,7 +138,10 @@ fn hmac_sha256(secret: &[u8], msg: &[u8]) -> [u8; 32] {
     }
     let mut i_pad = [0x36_u8; SHA256_BLOCK];
     let mut o_pad = [0x5c_u8; SHA256_BLOCK];
-    for i in 0..SHA256_BLOCK { i_pad[i] ^= key[i]; o_pad[i] ^= key[i]; }
+    for i in 0..SHA256_BLOCK {
+        i_pad[i] ^= key[i];
+        o_pad[i] ^= key[i];
+    }
     let mut inner = Sha256::new();
     inner.update(i_pad);
     inner.update(msg);
@@ -190,13 +191,24 @@ fn url_decode(s: &str) -> String {
     out
 }
 
-fn unauthorized(msg: &str) -> (&'static str, String) { err("401 Unauthorized", "unauthorized", msg) }
-fn not_found(msg: &str) -> (&'static str, String) { err("404 Not Found", "not_found", msg) }
-fn bad_request(msg: &str) -> (&'static str, String) { err("400 Bad Request", "bad_request", msg) }
-fn server_error(msg: &str) -> (&'static str, String) { err("500 Internal Server Error", "internal_error", msg) }
+fn unauthorized(msg: &str) -> (&'static str, String) {
+    err("401 Unauthorized", "unauthorized", msg)
+}
+fn not_found(msg: &str) -> (&'static str, String) {
+    err("404 Not Found", "not_found", msg)
+}
+fn bad_request(msg: &str) -> (&'static str, String) {
+    err("400 Bad Request", "bad_request", msg)
+}
+fn server_error(msg: &str) -> (&'static str, String) {
+    err("500 Internal Server Error", "internal_error", msg)
+}
 
 fn err(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
-    (status, serde_json::json!({"error": {"code": code, "message": message}}).to_string())
+    (
+        status,
+        serde_json::json!({"error": {"code": code, "message": message}}).to_string(),
+    )
 }
 
 #[cfg(test)]
@@ -208,10 +220,9 @@ mod tests {
         // RFC 4231 test case 1.
         let key = [0x0b_u8; 20];
         let msg = b"Hi There";
-        let expected = hex::decode(
-            "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7",
-        )
-        .unwrap();
+        let expected =
+            hex::decode("b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7")
+                .unwrap();
         assert_eq!(hmac_sha256(&key, msg).to_vec(), expected);
     }
 

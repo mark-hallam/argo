@@ -97,9 +97,8 @@ async fn show(store: &SessionStore, args: RecoverCacheShowCmd) -> ArgoResult<()>
                     "from_cache": true,
                     "suggestions": parsed,
                 });
-                let pretty = serde_json::to_string_pretty(&envelope).map_err(|e| {
-                    ArgoError::Provider(format!("serialize show envelope: {e}"))
-                })?;
+                let pretty = serde_json::to_string_pretty(&envelope)
+                    .map_err(|e| ArgoError::Provider(format!("serialize show envelope: {e}")))?;
                 println!("{pretty}");
             } else {
                 println!("session_id: {session_id}");

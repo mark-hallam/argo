@@ -31,8 +31,7 @@ pub(super) async fn messages_by_role_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT role, COUNT(*) FROM message WHERE created_at >= ? \
                  GROUP BY role ORDER BY role",
@@ -42,11 +41,9 @@ pub(super) async fn messages_by_role_response(
             .await
         }
         None => {
-            sqlx::query_as(
-                "SELECT role, COUNT(*) FROM message GROUP BY role ORDER BY role",
-            )
-            .fetch_all(pool)
-            .await
+            sqlx::query_as("SELECT role, COUNT(*) FROM message GROUP BY role ORDER BY role")
+                .fetch_all(pool)
+                .await
         }
     };
     match rows {
@@ -107,8 +104,7 @@ pub(super) async fn messages_by_session_response(
     let pool = store.pool();
     let rows: Result<Vec<(Vec<u8>, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT session_id, COUNT(*) FROM message \
                  WHERE created_at >= ? \
@@ -198,8 +194,7 @@ pub(super) async fn session_messages_by_role_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT role, COUNT(*) FROM message \
                  WHERE session_id = ? AND created_at >= ? \
@@ -305,9 +300,7 @@ pub(super) async fn messages_by_day_by_role_response(
             }
             let arr: Vec<serde_json::Value> = rows
                 .into_iter()
-                .map(|(b, r, c)| {
-                    serde_json::json!({"bucket": b, "role": r, "count": c})
-                })
+                .map(|(b, r, c)| serde_json::json!({"bucket": b, "role": r, "count": c}))
                 .collect();
             (
                 "200 OK",

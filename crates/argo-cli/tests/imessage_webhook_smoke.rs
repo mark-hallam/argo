@@ -89,5 +89,8 @@ fn tampered_body_rejects() {
     let err = channel()
         .parse_webhook(&tampered, Some(&sig))
         .expect_err("tampered body must reject");
-    assert!(err.to_string().to_lowercase().contains("auth"), "got: {err}");
+    assert!(
+        err.to_string().to_lowercase().contains("auth"),
+        "got: {err}"
+    );
 }

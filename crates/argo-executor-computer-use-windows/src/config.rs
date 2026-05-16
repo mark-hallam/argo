@@ -85,7 +85,14 @@ impl WindowsCuConfig {
         allowed_apps.insert(Self::NOTEPAD_APP.to_string());
 
         let mut allowed_actions = HashSet::new();
-        for kind in ["click", "double_click", "type", "key", "scroll", "mouse_move"] {
+        for kind in [
+            "click",
+            "double_click",
+            "type",
+            "key",
+            "scroll",
+            "mouse_move",
+        ] {
             allowed_actions.insert(kind.to_string());
         }
 
@@ -128,7 +135,9 @@ impl WindowsCuConfig {
         if !self.allow_send_keys
             && (self.allowed_actions.contains("key") || self.allowed_actions.contains("type"))
         {
-            return Err("allow_send_keys=false but allowlist contains key/type actions".to_string());
+            return Err(
+                "allow_send_keys=false but allowlist contains key/type actions".to_string(),
+            );
         }
         Ok(())
     }

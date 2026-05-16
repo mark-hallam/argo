@@ -15,11 +15,7 @@ use common::argo_bin;
 use std::path::Path;
 use std::process::Command;
 
-fn write_minimal_with_memory_schema(
-    verticals_dir: &Path,
-    id: &str,
-    schema_body: &str,
-) {
+fn write_minimal_with_memory_schema(verticals_dir: &Path, id: &str, schema_body: &str) {
     let v = verticals_dir.join(id);
     std::fs::create_dir_all(&v).unwrap();
     std::fs::write(
@@ -164,10 +160,7 @@ fn cli_show_json_for_real_receptionist_carries_four_entries() {
     let entries = v["memory_entries"]
         .as_array()
         .expect("receptionist must carry memory_entries");
-    let keys: Vec<&str> = entries
-        .iter()
-        .map(|e| e["key"].as_str().unwrap())
-        .collect();
+    let keys: Vec<&str> = entries.iter().map(|e| e["key"].as_str().unwrap()).collect();
     for required in [
         "recurring_visitors",
         "pending_followups",

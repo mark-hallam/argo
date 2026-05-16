@@ -64,9 +64,33 @@ async fn vertical_filter_returns_matching_skills_as_json() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
     let store = open_store(&home).await;
-    insert_skill(&store, Uuid::now_v7(), "alpha", "1.0", Some("vertical-a"), 100).await;
-    insert_skill(&store, Uuid::now_v7(), "beta", "1.0", Some("vertical-a"), 200).await;
-    insert_skill(&store, Uuid::now_v7(), "gamma", "1.0", Some("vertical-b"), 300).await;
+    insert_skill(
+        &store,
+        Uuid::now_v7(),
+        "alpha",
+        "1.0",
+        Some("vertical-a"),
+        100,
+    )
+    .await;
+    insert_skill(
+        &store,
+        Uuid::now_v7(),
+        "beta",
+        "1.0",
+        Some("vertical-a"),
+        200,
+    )
+    .await;
+    insert_skill(
+        &store,
+        Uuid::now_v7(),
+        "gamma",
+        "1.0",
+        Some("vertical-b"),
+        300,
+    )
+    .await;
     drop(store);
 
     let out = run(
@@ -78,7 +102,10 @@ async fn vertical_filter_returns_matching_skills_as_json() {
     let rows: Value = serde_json::from_slice(&out.stdout).unwrap();
     let arr = rows.as_array().unwrap();
     assert_eq!(arr.len(), 2);
-    let names: Vec<&str> = arr.iter().map(|r| r["skill_name"].as_str().unwrap()).collect();
+    let names: Vec<&str> = arr
+        .iter()
+        .map(|r| r["skill_name"].as_str().unwrap())
+        .collect();
     assert!(names.contains(&"alpha"));
     assert!(names.contains(&"beta"));
     assert!(!names.contains(&"gamma"));
@@ -95,7 +122,15 @@ async fn vertical_filter_returns_empty_table_for_known_vertical_with_no_skills()
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
     let store = open_store(&home).await;
-    insert_skill(&store, Uuid::now_v7(), "alpha", "1.0", Some("vertical-a"), 100).await;
+    insert_skill(
+        &store,
+        Uuid::now_v7(),
+        "alpha",
+        "1.0",
+        Some("vertical-a"),
+        100,
+    )
+    .await;
     drop(store);
 
     let out = run(
@@ -115,14 +150,36 @@ async fn unknown_vertical_returns_non_zero_with_known_ids_listed() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
     let store = open_store(&home).await;
-    insert_skill(&store, Uuid::now_v7(), "alpha", "1.0", Some("vertical-a"), 100).await;
-    insert_skill(&store, Uuid::now_v7(), "beta", "1.0", Some("vertical-b"), 200).await;
+    insert_skill(
+        &store,
+        Uuid::now_v7(),
+        "alpha",
+        "1.0",
+        Some("vertical-a"),
+        100,
+    )
+    .await;
+    insert_skill(
+        &store,
+        Uuid::now_v7(),
+        "beta",
+        "1.0",
+        Some("vertical-b"),
+        200,
+    )
+    .await;
     drop(store);
 
     let out = run(
         &home,
         work.path(),
-        &["skill", "search", "--vertical", "no-such-vertical", "--json"],
+        &[
+            "skill",
+            "search",
+            "--vertical",
+            "no-such-vertical",
+            "--json",
+        ],
     );
     assert!(!out.status.success());
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -138,7 +195,15 @@ async fn limit_caps_returned_rows() {
     let store = open_store(&home).await;
     for i in 0..5 {
         let name = format!("skill-{i}");
-        insert_skill(&store, Uuid::now_v7(), &name, "1.0", Some("vertical-a"), i64::from(i)).await;
+        insert_skill(
+            &store,
+            Uuid::now_v7(),
+            &name,
+            "1.0",
+            Some("vertical-a"),
+            i64::from(i),
+        )
+        .await;
     }
     drop(store);
 
@@ -146,7 +211,13 @@ async fn limit_caps_returned_rows() {
         &home,
         work.path(),
         &[
-            "skill", "search", "--vertical", "vertical-a", "--limit", "2", "--json",
+            "skill",
+            "search",
+            "--vertical",
+            "vertical-a",
+            "--limit",
+            "2",
+            "--json",
         ],
     );
     assert_success(&out);
@@ -178,23 +249,35 @@ async fn include_used_by_sessions_surfaces_via_session_skill_join() {
     .unwrap();
     let skill_id = Uuid::now_v7();
     // Skill was authored for vertical-shared (note: NOT vertical-customer).
-    insert_skill(&store, skill_id, "shared-skill", "1.0", Some("vertical-shared"), 0).await;
-    sqlx::query(
-        "INSERT INTO session_skill (session_id, skill_id, attached_at) VALUES (?, ?, ?)",
+    insert_skill(
+        &store,
+        skill_id,
+        "shared-skill",
+        "1.0",
+        Some("vertical-shared"),
+        0,
     )
-    .bind(session_id.0.as_bytes().as_slice())
-    .bind(skill_id.as_bytes().as_slice())
-    .bind(42_i64)
-    .execute(store.pool())
-    .await
-    .unwrap();
+    .await;
+    sqlx::query("INSERT INTO session_skill (session_id, skill_id, attached_at) VALUES (?, ?, ?)")
+        .bind(session_id.0.as_bytes().as_slice())
+        .bind(skill_id.as_bytes().as_slice())
+        .bind(42_i64)
+        .execute(store.pool())
+        .await
+        .unwrap();
     drop(store);
 
     // Direct mode: vertical-customer should error (no skills tagged with it).
     let direct = run(
         &home,
         work.path(),
-        &["skill", "search", "--vertical", "vertical-customer", "--json"],
+        &[
+            "skill",
+            "search",
+            "--vertical",
+            "vertical-customer",
+            "--json",
+        ],
     );
     assert!(!direct.status.success());
 

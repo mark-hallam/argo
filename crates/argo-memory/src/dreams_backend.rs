@@ -135,11 +135,7 @@ impl DreamsCaller for EnvDreamsCaller {
     }
 }
 
-fn build_request_body(
-    ns: &MemoryNs,
-    month: YearMonth,
-    rows: &[MemoryEntry],
-) -> serde_json::Value {
+fn build_request_body(ns: &MemoryNs, month: YearMonth, rows: &[MemoryEntry]) -> serde_json::Value {
     serde_json::json!({
         "model": "claude-dreams-1",
         "scope": "memory_summary",
@@ -224,7 +220,9 @@ impl DailyCapTracker {
     pub fn check_and_charge(&self, day: NaiveDate, charge_micros: i64) -> ArgoResult<i64> {
         std::fs::create_dir_all(&self.state_dir)
             .map_err(|e| ArgoError::Provider(format!("dreams cap dir: {e}")))?;
-        let path = self.state_dir.join(format!("{}.json", day.format("%Y-%m-%d")));
+        let path = self
+            .state_dir
+            .join(format!("{}.json", day.format("%Y-%m-%d")));
         let mut spent: i64 = if path.exists() {
             let body = std::fs::read_to_string(&path)
                 .map_err(|e| ArgoError::Provider(format!("dreams cap read: {e}")))?;

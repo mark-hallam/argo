@@ -92,7 +92,11 @@ impl From<String> for EdgeId {
 /// assert!(json.contains("\"type\":\"action\""));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
 pub enum NodeKind {
     /// Single deterministic action — invoke a tool or run an
     /// instruction. The runtime workhorse variant.
@@ -246,7 +250,11 @@ pub struct ToolBinding {
 /// );
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
 pub enum EdgeCond {
     /// Always follow this edge (the unconditional / default case).
     Always,
@@ -378,4 +386,3 @@ pub struct SkillGraph {
     #[serde(default)]
     pub metadata: SkillGraphMetadata,
 }
-

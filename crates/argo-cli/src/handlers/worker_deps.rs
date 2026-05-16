@@ -6,9 +6,7 @@
 //! (terminal-friendly), DOT (graphviz), JSON (machine-readable).
 
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_store::worker_deps::{
-    self, DepKind, DepRow, Direction, ImpactedWorker,
-};
+use argo_store::worker_deps::{self, DepKind, DepRow, Direction, ImpactedWorker};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use serde_json::json;

@@ -16,8 +16,15 @@ fn spawn_gateway(home: &std::path::Path, bind: &str, port: u16) -> Child {
         .env("ARGO_HOME", home)
         .current_dir(home)
         .args([
-            "gateway", "start", "--bind", bind, "--port", &port.to_string(),
-            "--max-requests", "1", "--skip-startup-check",
+            "gateway",
+            "start",
+            "--bind",
+            bind,
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "1",
+            "--skip-startup-check",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

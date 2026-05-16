@@ -25,7 +25,12 @@ impl PushDevice {
     /// Build a new registration stamped with the current time.
     #[must_use]
     pub fn new(operator_id: String, expo_push_token: String, platform: String) -> Self {
-        Self { operator_id, expo_push_token, platform, registered_at: Utc::now() }
+        Self {
+            operator_id,
+            expo_push_token,
+            platform,
+            registered_at: Utc::now(),
+        }
     }
 }
 
@@ -146,12 +151,14 @@ fn load_devices(path: &Path) -> ChannelResult<Vec<PushDevice>> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => return Err(ChannelError::Provider(format!("read push devices: {e}"))),
     };
-    serde_json::from_str(&raw).or_else(|_| {
-        raw.lines()
-            .filter(|line| !line.trim().is_empty())
-            .map(serde_json::from_str)
-            .collect()
-    }).map_err(|e| ChannelError::Parse(format!("parse push devices: {e}")))
+    serde_json::from_str(&raw)
+        .or_else(|_| {
+            raw.lines()
+                .filter(|line| !line.trim().is_empty())
+                .map(serde_json::from_str)
+                .collect()
+        })
+        .map_err(|e| ChannelError::Parse(format!("parse push devices: {e}")))
 }
 
 fn save_devices(path: &Path, devices: &[PushDevice]) -> ChannelResult<()> {

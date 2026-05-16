@@ -105,11 +105,7 @@ fn evict_old_culls_stale_entries() {
     // Jump well past EVICT_AGE_SECS and trigger an eviction sweep.
     let t1 = t0 + Duration::from_secs(EVICT_AGE_SECS + 30);
     limiter.evict_old(t1);
-    assert_eq!(
-        limiter.bucket_count(),
-        0,
-        "stale entries should be evicted"
-    );
+    assert_eq!(limiter.bucket_count(), 0, "stale entries should be evicted");
     // MAX_ENTRIES is the soft cap that triggers eviction in `check`.
     // Sanity: it's a positive integer the production path actually uses.
     const _: () = assert!(MAX_ENTRIES >= 1_000);
@@ -152,7 +148,10 @@ fn extract_ip_falls_back_to_peer_on_invalid_xff() {
 #[test]
 fn parse_first_xff_hop_is_case_insensitive_and_handles_ipv6() {
     let req = "GET / HTTP/1.1\r\nx-forwarded-for: ::1, 5.6.7.8\r\n\r\n";
-    assert_eq!(parse_first_xff_hop(req), Some(IpAddr::V6(Ipv6Addr::LOCALHOST)));
+    assert_eq!(
+        parse_first_xff_hop(req),
+        Some(IpAddr::V6(Ipv6Addr::LOCALHOST))
+    );
 }
 
 #[test]

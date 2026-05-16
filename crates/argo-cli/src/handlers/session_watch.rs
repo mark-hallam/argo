@@ -12,8 +12,7 @@ use argo_types::{ArgoError, ArgoResult};
 use std::time::Duration;
 
 pub async fn run(raw: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = std::sync::Arc::new(SessionStore::open(&db_path(&home)).await?);

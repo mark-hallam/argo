@@ -55,7 +55,14 @@ async fn create_session_for_vertical(
     vertical_id: &str,
 ) -> SessionId {
     store
-        .create_session(tenant, ws, "mock", "mock", Some(vertical_id), Some(vertical_id))
+        .create_session(
+            tenant,
+            ws,
+            "mock",
+            "mock",
+            Some(vertical_id),
+            Some(vertical_id),
+        )
         .await
         .unwrap()
 }
@@ -80,7 +87,11 @@ async fn pr_checker_learned_skill_not_visible_to_receptionist() {
 
     // Agent in pr-checker session proposes + human approves.
     let proposed = skills
-        .propose_for_review(&skill_doc("pr_helper", "pr-only body"), pr_session, "pr-checker")
+        .propose_for_review(
+            &skill_doc("pr_helper", "pr-only body"),
+            pr_session,
+            "pr-checker",
+        )
         .await
         .unwrap();
     skills
@@ -94,7 +105,10 @@ async fn pr_checker_learned_skill_not_visible_to_receptionist() {
     assert_eq!(pr_view[0].frontmatter.name, "pr_helper");
 
     // receptionist must NOT see it.
-    let recept_view = skills.list_skills_for_vertical("receptionist").await.unwrap();
+    let recept_view = skills
+        .list_skills_for_vertical("receptionist")
+        .await
+        .unwrap();
     assert!(
         recept_view.is_empty(),
         "PR-Checker learned skill leaked to Receptionist: {recept_view:?}"
@@ -124,7 +138,10 @@ async fn receptionist_learned_skill_not_visible_to_pr_checker() {
         .await
         .unwrap();
 
-    let recept_view = skills.list_skills_for_vertical("receptionist").await.unwrap();
+    let recept_view = skills
+        .list_skills_for_vertical("receptionist")
+        .await
+        .unwrap();
     assert_eq!(recept_view.len(), 1);
 
     let pr_view = skills.list_skills_for_vertical("pr-checker").await.unwrap();
@@ -211,7 +228,10 @@ async fn legacy_workspace_global_skill_is_not_silently_shared() {
     );
 
     // receptionist queries → also must NOT see it.
-    let recept_view = skills.list_skills_for_vertical("receptionist").await.unwrap();
+    let recept_view = skills
+        .list_skills_for_vertical("receptionist")
+        .await
+        .unwrap();
     assert!(recept_view.iter().all(|s| s.frontmatter.name != "legacy"));
 }
 

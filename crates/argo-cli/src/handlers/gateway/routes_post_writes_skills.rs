@@ -49,10 +49,7 @@ pub(super) async fn install_skill_response(
                 serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()),
             )
         }
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"install: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"install: {e}\"}}")),
     }
 }
 
@@ -102,9 +99,6 @@ pub(super) async fn skill_promote_response(
                 serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
             )
         }
-        Err(e) => (
-            "400 Bad Request",
-            format!("{{\"error\":\"promote: {e}\"}}"),
-        ),
+        Err(e) => ("400 Bad Request", format!("{{\"error\":\"promote: {e}\"}}")),
     }
 }

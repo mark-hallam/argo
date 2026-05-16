@@ -48,12 +48,7 @@ pub async fn add(tenant: &str, worker_id: &str, spec: &str, json: bool) -> ArgoR
 }
 
 /// `argo worker channels remove <worker-id> <kind:identifier> --tenant <t>`.
-pub async fn remove(
-    tenant: &str,
-    worker_id: &str,
-    channel_id: &str,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn remove(tenant: &str, worker_id: &str, channel_id: &str, json: bool) -> ArgoResult<()> {
     let tenant_id = parse_tenant(tenant)?;
     let worker = parse_worker(worker_id)?;
     let target = parse_channel_spec(channel_id)?;
@@ -313,9 +308,16 @@ fn print_list(worker_id: &str, channels: &[NotifyChannelRef], json: bool) {
         println!("worker {worker_id}: (no channels)");
         return;
     }
-    println!("worker {worker_id} channels ({} of {MAX_CHANNELS_PER_WORKER}):", channels.len());
+    println!(
+        "worker {worker_id} channels ({} of {MAX_CHANNELS_PER_WORKER}):",
+        channels.len()
+    );
     for ch in channels {
-        let risk = ch.risk_level.as_deref().map(|r| format!(" [risk:{r}]")).unwrap_or_default();
+        let risk = ch
+            .risk_level
+            .as_deref()
+            .map(|r| format!(" [risk:{r}]"))
+            .unwrap_or_default();
         println!("  - {}:{}{risk}", ch.channel, ch.target);
     }
 }

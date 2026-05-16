@@ -200,7 +200,10 @@ impl RiskResolver {
             .get(&(action_kind.to_string(), None))
             .copied();
         let (matched, scope) = match (per_vertical, all_verticals) {
-            (Some(r), _) => (Some(r), Some(OverrideScope::PerVertical(vertical_id.into()))),
+            (Some(r), _) => (
+                Some(r),
+                Some(OverrideScope::PerVertical(vertical_id.into())),
+            ),
             (None, Some(r)) => (Some(r), Some(OverrideScope::AllVerticals)),
             (None, None) => (None, None),
         };

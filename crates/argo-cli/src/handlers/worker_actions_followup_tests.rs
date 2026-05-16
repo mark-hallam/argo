@@ -252,7 +252,10 @@ executor = "human"
     let mut sold = HashSet::new();
     sold.insert("skates-A".to_string());
     apply_sold_gate(&mut rec, &sold);
-    assert_eq!(rec.state, "pending", "mark_item_sold must pass through the sold gate");
+    assert_eq!(
+        rec.state, "pending",
+        "mark_item_sold must pass through the sold gate"
+    );
 }
 
 #[test]

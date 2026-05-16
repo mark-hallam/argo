@@ -60,7 +60,10 @@ fn forge_runs_sweep_returns_200_and_echoes_param_on_empty_workspace() {
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
     let body = body_of(&resp);
     assert!(body.contains("\"swept\":0"), "body={body}");
-    assert!(body.contains("\"older_than_minutes\":60"), "default 60: {body}");
+    assert!(
+        body.contains("\"older_than_minutes\":60"),
+        "default 60: {body}"
+    );
 
     let resp = http_post(port, "/forge/runs/sweep?older-than-minutes=15", "");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");

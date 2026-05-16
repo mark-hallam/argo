@@ -1,8 +1,6 @@
 use super::*;
 use crate::handlers::worker_actions_notify::NotifySender;
-use argo_channels::fallback::{
-    read_recent_reports, AttemptOutcome, DeliveryReport, FallbackChain,
-};
+use argo_channels::fallback::{read_recent_reports, AttemptOutcome, DeliveryReport, FallbackChain};
 use argo_channels::{Notification, OperatorTarget, RiskLevel};
 use argo_identity::NotifyChannelRef;
 use chrono::{Duration as ChronoDuration, Utc};
@@ -130,7 +128,10 @@ async fn first_success_short_circuits() {
     .await;
     assert_eq!(report.attempts.len(), 1, "subsequent channels not tried");
     assert_eq!(report.attempts[0].channel, "slack");
-    assert!(matches!(report.attempts[0].outcome, AttemptOutcome::Success));
+    assert!(matches!(
+        report.attempts[0].outcome,
+        AttemptOutcome::Success
+    ));
     assert_eq!(report.succeeded_via.as_deref(), Some("slack"));
     assert!(report.ok());
     assert_eq!(mock.call_log(), vec!["slack"]);
@@ -154,7 +155,10 @@ async fn slack_fails_email_succeeds() {
         AttemptOutcome::Failure { error } => assert!(error.contains("transport")),
         other => panic!("expected Failure, got {other:?}"),
     }
-    assert!(matches!(report.attempts[1].outcome, AttemptOutcome::Success));
+    assert!(matches!(
+        report.attempts[1].outcome,
+        AttemptOutcome::Success
+    ));
     assert_eq!(report.succeeded_via.as_deref(), Some("email"));
     assert_eq!(mock.call_log(), vec!["slack", "email"]);
 }
@@ -163,7 +167,10 @@ async fn slack_fails_email_succeeds() {
 async fn slack_and_email_fail_webinbox_floor_succeeds() {
     let mock = MockChannel::new()
         .with("slack", Scripted::Err("transport: 401".into()))
-        .with("email", Scripted::Err("rate-limited; retry-after=30".into()))
+        .with(
+            "email",
+            Scripted::Err("rate-limited; retry-after=30".into()),
+        )
         .with("webinbox", Scripted::Ok);
     let report = dispatch_with_fallback(
         &notification("act-3"),
@@ -218,8 +225,14 @@ async fn per_step_timeout_counts_as_failure_and_falls_through() {
     )
     .await;
     assert_eq!(report.attempts.len(), 2);
-    assert!(matches!(report.attempts[0].outcome, AttemptOutcome::Timeout));
-    assert!(matches!(report.attempts[1].outcome, AttemptOutcome::Success));
+    assert!(matches!(
+        report.attempts[0].outcome,
+        AttemptOutcome::Timeout
+    ));
+    assert!(matches!(
+        report.attempts[1].outcome,
+        AttemptOutcome::Success
+    ));
     assert_eq!(report.succeeded_via.as_deref(), Some("email"));
 }
 

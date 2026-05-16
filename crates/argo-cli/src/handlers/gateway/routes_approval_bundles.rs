@@ -17,9 +17,7 @@
 
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
-use crate::handlers::worker_actions_transitions::{
-    self, find_action, open_workspace_memory,
-};
+use crate::handlers::worker_actions_transitions::{self, find_action, open_workspace_memory};
 use argo_memory::MemoryStore;
 use argo_store::approval_bundle::{
     create_bundle, decide_bundle, get_bundle, list_pending_bundles, ApprovalBundle, BundleDecision,
@@ -282,11 +280,8 @@ fn parse_members(value: Option<&Value>) -> Result<Vec<String>, String> {
     Ok(out)
 }
 
-async fn resolve_workspace_tenant(
-    store: &SessionStore,
-) -> ArgoResult<(TenantId, WorkspaceId)> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<(TenantId, WorkspaceId)> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())
@@ -360,11 +355,7 @@ fn server_error(message: &str) -> (&'static str, String) {
     error_envelope("500 Internal Server Error", "internal_error", message)
 }
 
-fn error_envelope(
-    status: &'static str,
-    code: &str,
-    message: &str,
-) -> (&'static str, String) {
+fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
     (
         status,
         json!({"error": {"code": code, "message": message}}).to_string(),

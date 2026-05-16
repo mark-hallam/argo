@@ -9,8 +9,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(since_minutes: Option<i64>, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -18,8 +17,7 @@ pub async fn run(since_minutes: Option<i64>, json: bool) -> ArgoResult<()> {
     let pool = store.pool();
     let rows: Vec<(String, i64)> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT json_extract(payload_json, '$.tool') AS tool, COUNT(*) \
                  FROM audit_record \
@@ -54,8 +52,7 @@ pub async fn run(since_minutes: Option<i64>, json: bool) -> ArgoResult<()> {
             .collect();
         println!(
             "{}",
-            serde_json::to_string(&serde_json::json!({"tool_errors": arr}))
-                .unwrap_or_default()
+            serde_json::to_string(&serde_json::json!({"tool_errors": arr})).unwrap_or_default()
         );
         return Ok(());
     }

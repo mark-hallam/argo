@@ -28,7 +28,10 @@ fn skill_md(name: &str, version: &str, description: &str) -> String {
 }
 
 async fn install_skill(skills: &SkillStore, name: &str, version: &str, desc: &str) -> Skill {
-    skills.install(&skill_md(name, version, desc), None).await.unwrap()
+    skills
+        .install(&skill_md(name, version, desc), None)
+        .await
+        .unwrap()
 }
 
 async fn fresh_skill_store() -> SkillStore {
@@ -109,8 +112,14 @@ async fn legacy_worker_treated_as_lowest_grade() {
     identity.create_worker(&worker).await.unwrap();
 
     let skills = SkillStore::new(Arc::clone(&store));
-    skills.install(&skill_md("open", "0.1.0", "no floor"), None).await.unwrap();
-    skills.install(&skill_md("locked", "0.1.0", "tenant only"), None).await.unwrap();
+    skills
+        .install(&skill_md("open", "0.1.0", "no floor"), None)
+        .await
+        .unwrap();
+    skills
+        .install(&skill_md("locked", "0.1.0", "tenant only"), None)
+        .await
+        .unwrap();
     skills
         .set_min_trust_grade("locked", Some(TrustGrade::Tenant))
         .await

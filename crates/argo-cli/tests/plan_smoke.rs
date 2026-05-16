@@ -123,7 +123,10 @@ fn plan_generate_rejects_unmatched_goal_offline() {
             "wkr-1",
         ],
     );
-    assert!(!bad.status.success(), "expected non-zero on no template match");
+    assert!(
+        !bad.status.success(),
+        "expected non-zero on no template match"
+    );
     let stderr = String::from_utf8_lossy(&bad.stderr);
     assert!(
         stderr.contains("no template matched") || stderr.contains("template"),

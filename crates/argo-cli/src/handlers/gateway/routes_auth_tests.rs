@@ -126,8 +126,8 @@ fn protected_admin_paths_still_require_auth() {
         "/workspace/info",
         "/search?q=foo",
     ] {
-        let resp =
-            gate(&get_req(path, Some("Bearer nope"))).unwrap_or_else(|| panic!("expected 401 for {path}"));
+        let resp = gate(&get_req(path, Some("Bearer nope")))
+            .unwrap_or_else(|| panic!("expected 401 for {path}"));
         assert_eq!(resp.0, "401 Unauthorized", "path {path}");
     }
     reset_env();

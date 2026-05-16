@@ -104,12 +104,21 @@ fn nested_spans_change_current_span() {
 
     let outer = s.span(spans::AGENT_TURN, &[]);
     let outer_id = Span::current().id();
-    assert!(outer_id.is_some(), "outer should be entered as the current span");
-    assert_ne!(outer_id, initial, "current span changes after entering outer");
+    assert!(
+        outer_id.is_some(),
+        "outer should be entered as the current span"
+    );
+    assert_ne!(
+        outer_id, initial,
+        "current span changes after entering outer"
+    );
 
     let inner = s.span(spans::AGENT_PROVIDER_REQUEST, &[]);
     let inner_id = Span::current().id();
-    assert!(inner_id.is_some(), "inner should be entered as the current span");
+    assert!(
+        inner_id.is_some(),
+        "inner should be entered as the current span"
+    );
     assert_ne!(inner_id, outer_id, "inner span has its own id");
 
     drop(inner);
@@ -140,11 +149,7 @@ fn otlp_record_path_does_not_panic_without_init() {
         1,
         &[("tier", "simple")],
     );
-    crate::otlp_exporter::record_histogram(
-        metrics::JUDGE_DURATION_MS,
-        42.0,
-        &[("verdict", "ok")],
-    );
+    crate::otlp_exporter::record_histogram(metrics::JUDGE_DURATION_MS, 42.0, &[("verdict", "ok")]);
     let span = crate::otlp_exporter::open_span(spans::AGENT_TURN, &[("session", "abc")]);
     drop(span);
 }

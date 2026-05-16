@@ -120,16 +120,28 @@ fn innocuous_string_with_word_token_is_not_scrubbed() {
         out.contains("requested a new token from the server"),
         "innocuous message lost: {out}"
     );
-    assert!(!out.contains("<scrubbed:"), "false-positive redaction: {out}");
+    assert!(
+        !out.contains("<scrubbed:"),
+        "false-positive redaction: {out}"
+    );
 }
 
 #[test]
 fn env_opt_out_disables_scrubbing() {
     // Pure-function check on the env resolver.
-    assert!(!enabled_from_env(Some("0")), "ARGO_TRACING_SCRUB=0 should disable");
+    assert!(
+        !enabled_from_env(Some("0")),
+        "ARGO_TRACING_SCRUB=0 should disable"
+    );
     assert!(enabled_from_env(None), "unset env should keep enabled");
-    assert!(enabled_from_env(Some("1")), "any non-zero value should keep enabled");
-    assert!(enabled_from_env(Some("yes")), "non-numeric should keep enabled");
+    assert!(
+        enabled_from_env(Some("1")),
+        "any non-zero value should keep enabled"
+    );
+    assert!(
+        enabled_from_env(Some("yes")),
+        "non-numeric should keep enabled"
+    );
 
     // End-to-end: a layer constructed in disabled mode passes the
     // bearer through verbatim.

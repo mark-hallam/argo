@@ -9,10 +9,15 @@ use argo_store::SessionStore;
 async fn build_system_prompt_returns_none_for_empty_workspace() {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
-    let prompt =
-        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new(), None)
-            .await
-            .unwrap();
+    let prompt = build_system_prompt(
+        &store,
+        SessionId(uuid::Uuid::nil()),
+        None,
+        TenantId::new(),
+        None,
+    )
+    .await
+    .unwrap();
     assert!(prompt.is_none());
 }
 
@@ -24,11 +29,16 @@ async fn build_system_prompt_concatenates_active_skills() {
     let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
                lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
     skills.install(raw, None).await.unwrap();
-    let prompt =
-        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new(), None)
-            .await
-            .unwrap()
-            .unwrap();
+    let prompt = build_system_prompt(
+        &store,
+        SessionId(uuid::Uuid::nil()),
+        None,
+        TenantId::new(),
+        None,
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert!(prompt.contains("## alpha (v0.1)"));
     assert!(prompt.contains("body-of-alpha"));
     assert!(prompt.starts_with("You have access to"));
@@ -199,7 +209,10 @@ async fn build_system_prompt_prefers_worker_memory_when_session_has_worker() {
     use argo_identity::{MemoryNs, MemoryScope};
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
-    let (tenant, ws) = store.ensure_workspace("ws", "/tmp/mwm-worker").await.unwrap();
+    let (tenant, ws) = store
+        .ensure_workspace("ws", "/tmp/mwm-worker")
+        .await
+        .unwrap();
     let worker = argo_store::WorkerId(uuid::Uuid::now_v7());
     let memory_worker = argo_identity::WorkerId(worker.0);
     let sid = store
@@ -228,7 +241,11 @@ async fn build_system_prompt_prefers_worker_memory_when_session_has_worker() {
         .await
         .unwrap();
     memory
-        .write_shared_team(&argo_memory::shared_team(tenant), memory_worker, "shared note".into())
+        .write_shared_team(
+            &argo_memory::shared_team(tenant),
+            memory_worker,
+            "shared note".into(),
+        )
         .await
         .unwrap();
 
@@ -236,7 +253,10 @@ async fn build_system_prompt_prefers_worker_memory_when_session_has_worker() {
         .await
         .unwrap()
         .unwrap();
-    assert!(prompt.contains("## Memory (worker-scoped)"), "got:\n{prompt}");
+    assert!(
+        prompt.contains("## Memory (worker-scoped)"),
+        "got:\n{prompt}"
+    );
     assert!(prompt.contains("worker-specific note"), "got:\n{prompt}");
     assert!(!prompt.contains("shared note"), "got:\n{prompt}");
 }
@@ -245,7 +265,10 @@ async fn build_system_prompt_prefers_worker_memory_when_session_has_worker() {
 async fn build_system_prompt_omits_memory_block_when_no_rows() {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
-    let (tenant, _ws) = store.ensure_workspace("ws", "/tmp/mwm-empty").await.unwrap();
+    let (tenant, _ws) = store
+        .ensure_workspace("ws", "/tmp/mwm-empty")
+        .await
+        .unwrap();
     let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant, None)
         .await
         .unwrap();
@@ -257,7 +280,10 @@ async fn prompt_memory_modes_select_shared_worker_and_both() {
     use argo_identity::{MemoryNs, MemoryScope};
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
-    let (tenant, ws) = store.ensure_workspace("ws", "/tmp/mwm-modes").await.unwrap();
+    let (tenant, ws) = store
+        .ensure_workspace("ws", "/tmp/mwm-modes")
+        .await
+        .unwrap();
     let worker = argo_store::WorkerId(uuid::Uuid::now_v7());
     let memory_worker = argo_identity::WorkerId(worker.0);
     let memory = argo_memory::MemoryStore::new(Arc::clone(&store));

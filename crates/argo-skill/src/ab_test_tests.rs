@@ -1,10 +1,9 @@
 //! Unit tests for `ab_test`. Lives in a sibling file so the
 //! main module stays under the per-file 500-LOC budget.
 use super::{
-    create_run, ensure_ab_schema, get_run, maybe_complete, maybe_complete_with_quality,
-    promote, record_outcome, select_variant, significance, variant_counts,
-    QualityWeightConfig, Variant, VariantCounts, WinnerReason,
-    CHI_SQUARE_CRIT_DF1_ALPHA_05,
+    create_run, ensure_ab_schema, get_run, maybe_complete, maybe_complete_with_quality, promote,
+    record_outcome, select_variant, significance, variant_counts, QualityWeightConfig, Variant,
+    VariantCounts, WinnerReason, CHI_SQUARE_CRIT_DF1_ALPHA_05,
 };
 use crate::quality::{QualityInputs, SkillQualityStore};
 use argo_store::SessionStore;
@@ -23,12 +22,7 @@ async fn insert_skill(store: &SessionStore, name: &str, version: &str) {
     insert_skill_with_id(store, name, version, &uuid::Uuid::now_v7()).await;
 }
 
-async fn insert_skill_with_id(
-    store: &SessionStore,
-    name: &str,
-    version: &str,
-    id: &uuid::Uuid,
-) {
+async fn insert_skill_with_id(store: &SessionStore, name: &str, version: &str, id: &uuid::Uuid) {
     let id_bytes = id.as_bytes().to_vec();
     sqlx::query(
         "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, learned_in, superseded_by, created_at) \
@@ -86,14 +80,28 @@ async fn setup_run(
     insert_skill_with_id(store, "demo", "v2", &b_uuid).await;
     let run_id = create_run(store, "demo", "v1", "v2", 100).await.unwrap();
     for i in 0..100 {
-        record_outcome(store, &run_id, &format!("a-{i}"), Variant::A, i < successes_a, Some(10))
-            .await
-            .unwrap();
+        record_outcome(
+            store,
+            &run_id,
+            &format!("a-{i}"),
+            Variant::A,
+            i < successes_a,
+            Some(10),
+        )
+        .await
+        .unwrap();
     }
     for i in 0..100 {
-        record_outcome(store, &run_id, &format!("b-{i}"), Variant::B, i < successes_b, Some(10))
-            .await
-            .unwrap();
+        record_outcome(
+            store,
+            &run_id,
+            &format!("b-{i}"),
+            Variant::B,
+            i < successes_b,
+            Some(10),
+        )
+        .await
+        .unwrap();
     }
     (run_id, SkillId(a_uuid), SkillId(b_uuid))
 }
@@ -122,16 +130,28 @@ fn select_variant_splits_roughly_evenly_over_many_inputs() {
 
 #[test]
 fn significance_refuses_below_min_sample() {
-    let a = VariantCounts { trials: 10, successes: 9 };
-    let b = VariantCounts { trials: 10, successes: 1 };
+    let a = VariantCounts {
+        trials: 10,
+        successes: 9,
+    };
+    let b = VariantCounts {
+        trials: 10,
+        successes: 1,
+    };
     let sig = significance(a, b, 30);
     assert!(!sig.significant);
 }
 
 #[test]
 fn significance_detects_clear_winner_above_min_sample() {
-    let a = VariantCounts { trials: 100, successes: 90 };
-    let b = VariantCounts { trials: 100, successes: 30 };
+    let a = VariantCounts {
+        trials: 100,
+        successes: 90,
+    };
+    let b = VariantCounts {
+        trials: 100,
+        successes: 30,
+    };
     let sig = significance(a, b, 30);
     assert!(sig.significant);
     assert!(sig.chi_square > CHI_SQUARE_CRIT_DF1_ALPHA_05);
@@ -139,8 +159,14 @@ fn significance_detects_clear_winner_above_min_sample() {
 
 #[test]
 fn significance_does_not_fire_on_equal_rates() {
-    let a = VariantCounts { trials: 100, successes: 50 };
-    let b = VariantCounts { trials: 100, successes: 50 };
+    let a = VariantCounts {
+        trials: 100,
+        successes: 50,
+    };
+    let b = VariantCounts {
+        trials: 100,
+        successes: 50,
+    };
     let sig = significance(a, b, 30);
     assert!(!sig.significant);
 }
@@ -149,7 +175,9 @@ fn significance_does_not_fire_on_equal_rates() {
 async fn create_run_rejects_identical_variants() {
     let store = open_store().await;
     insert_skill(&store, "demo", "v1").await;
-    let err = create_run(&store, "demo", "v1", "v1", 100).await.unwrap_err();
+    let err = create_run(&store, "demo", "v1", "v1", 100)
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("must differ"));
 }
 
@@ -157,7 +185,9 @@ async fn create_run_rejects_identical_variants() {
 async fn create_run_rejects_unknown_variant_version() {
     let store = open_store().await;
     insert_skill(&store, "demo", "v1").await;
-    let err = create_run(&store, "demo", "v1", "v2", 100).await.unwrap_err();
+    let err = create_run(&store, "demo", "v1", "v2", 100)
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("no version 'v2'"));
 }
 
@@ -169,14 +199,28 @@ async fn run_round_trip_records_outcomes_and_completes() {
     let run_id = create_run(&store, "demo", "v1", "v2", 100).await.unwrap();
     // 60 successes for A, 30 for B (clear winner)
     for i in 0..100 {
-        record_outcome(&store, &run_id, &format!("inv-{i}"), Variant::A, i < 60, Some(10))
-            .await
-            .unwrap();
+        record_outcome(
+            &store,
+            &run_id,
+            &format!("inv-{i}"),
+            Variant::A,
+            i < 60,
+            Some(10),
+        )
+        .await
+        .unwrap();
     }
     for i in 0..100 {
-        record_outcome(&store, &run_id, &format!("inv-b-{i}"), Variant::B, i < 30, Some(10))
-            .await
-            .unwrap();
+        record_outcome(
+            &store,
+            &run_id,
+            &format!("inv-b-{i}"),
+            Variant::B,
+            i < 30,
+            Some(10),
+        )
+        .await
+        .unwrap();
     }
     let sig = maybe_complete(&store, &run_id, 30).await.unwrap().unwrap();
     assert!(sig.significant);
@@ -199,15 +243,17 @@ async fn promote_marks_loser_superseded_by_winner() {
         .unwrap();
     let winner = promote(&store, &run_id, None).await.unwrap();
     assert_eq!(winner, "v2");
-    let row: Option<(Option<Vec<u8>>,)> = sqlx::query_as(
-        "SELECT superseded_by FROM skill WHERE name = ? AND version = ?",
-    )
-    .bind("demo")
-    .bind("v1")
-    .fetch_optional(store.pool())
-    .await
-    .unwrap();
-    assert!(row.unwrap().0.is_some(), "loser should be marked superseded");
+    let row: Option<(Option<Vec<u8>>,)> =
+        sqlx::query_as("SELECT superseded_by FROM skill WHERE name = ? AND version = ?")
+            .bind("demo")
+            .bind("v1")
+            .fetch_optional(store.pool())
+            .await
+            .unwrap();
+    assert!(
+        row.unwrap().0.is_some(),
+        "loser should be marked superseded"
+    );
 }
 
 #[tokio::test]
@@ -237,8 +283,14 @@ async fn quality_tips_decision_when_both_variants_have_recent_score() {
     let (run_id, a_id, b_id) = setup_run(&store, 0x10, 0x11, 60, 30).await;
     let qstore = make_qstore(Arc::clone(&store)).await;
     let now = Utc::now();
-    qstore.record(a_id, &inputs_for_score(0.20), now).await.unwrap();
-    qstore.record(b_id, &inputs_for_score(1.00), now).await.unwrap();
+    qstore
+        .record(a_id, &inputs_for_score(0.20), now)
+        .await
+        .unwrap();
+    qstore
+        .record(b_id, &inputs_for_score(1.00), now)
+        .await
+        .unwrap();
     let (sig, reason) = maybe_complete_with_quality(
         &store,
         &run_id,
@@ -250,7 +302,15 @@ async fn quality_tips_decision_when_both_variants_have_recent_score() {
     .unwrap();
     assert!(sig.unwrap().significant);
     assert_eq!(reason, Some(WinnerReason::WeightedQuality));
-    assert_eq!(get_run(&store, &run_id).await.unwrap().unwrap().winner.as_deref(), Some("v2"));
+    assert_eq!(
+        get_run(&store, &run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .winner
+            .as_deref(),
+        Some("v2")
+    );
 }
 
 #[tokio::test]
@@ -259,7 +319,10 @@ async fn falls_through_to_success_rate_when_only_one_variant_has_quality() {
     let (run_id, a_id, _b_id) = setup_run(&store, 0x20, 0x21, 60, 30).await;
     let qstore = make_qstore(Arc::clone(&store)).await;
     // Only A has a quality score.
-    qstore.record(a_id, &inputs_for_score(0.20), Utc::now()).await.unwrap();
+    qstore
+        .record(a_id, &inputs_for_score(0.20), Utc::now())
+        .await
+        .unwrap();
     let (_, reason) = maybe_complete_with_quality(
         &store,
         &run_id,
@@ -272,7 +335,15 @@ async fn falls_through_to_success_rate_when_only_one_variant_has_quality() {
     assert_eq!(reason, Some(WinnerReason::SuccessRate));
     // A wins on raw success rate even though its quality is lower
     // — the quality data wasn't actionable because B had no score.
-    assert_eq!(get_run(&store, &run_id).await.unwrap().unwrap().winner.as_deref(), Some("v1"));
+    assert_eq!(
+        get_run(&store, &run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .winner
+            .as_deref(),
+        Some("v1")
+    );
 }
 
 #[tokio::test]
@@ -290,7 +361,15 @@ async fn falls_through_to_success_rate_when_neither_variant_has_quality() {
     .await
     .unwrap();
     assert_eq!(reason, Some(WinnerReason::SuccessRate));
-    assert_eq!(get_run(&store, &run_id).await.unwrap().unwrap().winner.as_deref(), Some("v1"));
+    assert_eq!(
+        get_run(&store, &run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .winner
+            .as_deref(),
+        Some("v1")
+    );
 }
 
 #[tokio::test]
@@ -300,9 +379,15 @@ async fn stale_quality_score_is_treated_as_missing() {
     let qstore = make_qstore(Arc::clone(&store)).await;
     // Both scores recorded but B's is older than the 7-day cutoff
     // → B treated as missing → fall-through to success rate.
-    qstore.record(a_id, &inputs_for_score(0.20), Utc::now()).await.unwrap();
+    qstore
+        .record(a_id, &inputs_for_score(0.20), Utc::now())
+        .await
+        .unwrap();
     let stale = Utc::now() - Duration::days(10);
-    qstore.record(b_id, &inputs_for_score(1.00), stale).await.unwrap();
+    qstore
+        .record(b_id, &inputs_for_score(1.00), stale)
+        .await
+        .unwrap();
     let (_, reason) = maybe_complete_with_quality(
         &store,
         &run_id,
@@ -313,7 +398,15 @@ async fn stale_quality_score_is_treated_as_missing() {
     .await
     .unwrap();
     assert_eq!(reason, Some(WinnerReason::SuccessRate));
-    assert_eq!(get_run(&store, &run_id).await.unwrap().unwrap().winner.as_deref(), Some("v1"));
+    assert_eq!(
+        get_run(&store, &run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .winner
+            .as_deref(),
+        Some("v1")
+    );
 }
 
 #[tokio::test]
@@ -325,8 +418,14 @@ async fn weight_knob_changes_decision() {
     let (run_id, a_id, b_id) = setup_run(&store, 0x50, 0x51, 60, 30).await;
     let qstore = make_qstore(Arc::clone(&store)).await;
     let now = Utc::now();
-    qstore.record(a_id, &inputs_for_score(0.20), now).await.unwrap();
-    qstore.record(b_id, &inputs_for_score(1.00), now).await.unwrap();
+    qstore
+        .record(a_id, &inputs_for_score(0.20), now)
+        .await
+        .unwrap();
+    qstore
+        .record(b_id, &inputs_for_score(1.00), now)
+        .await
+        .unwrap();
     let (_, reason) = maybe_complete_with_quality(
         &store,
         &run_id,
@@ -340,5 +439,13 @@ async fn weight_knob_changes_decision() {
     .await
     .unwrap();
     assert_eq!(reason, Some(WinnerReason::SuccessRate));
-    assert_eq!(get_run(&store, &run_id).await.unwrap().unwrap().winner.as_deref(), Some("v1"));
+    assert_eq!(
+        get_run(&store, &run_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .winner
+            .as_deref(),
+        Some("v1")
+    );
 }

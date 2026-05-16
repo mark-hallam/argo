@@ -8,9 +8,7 @@ use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(cmd: Option<ToolsCmd>) -> ArgoResult<()> {
     match cmd {
-        None => {
-            list(false, "text", None).await
-        }
+        None => list(false, "text", None).await,
         Some(ToolsCmd::List {
             json,
             format,
@@ -21,8 +19,7 @@ pub async fn run(cmd: Option<ToolsCmd>) -> ArgoResult<()> {
 }
 
 async fn list(json: bool, format: &str, name_contains: Option<&str>) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let mut reg = ToolRegistry::new();
     for t in builtin_tools(cwd) {
         reg.register(t);
@@ -50,7 +47,11 @@ async fn list(json: bool, format: &str, name_contains: Option<&str>) -> ArgoResu
             }
         }
         "markdown" => {
-            println!("# Tools ({} match{})", rows.len(), if rows.len() == 1 { "" } else { "es" });
+            println!(
+                "# Tools ({} match{})",
+                rows.len(),
+                if rows.len() == 1 { "" } else { "es" }
+            );
             println!();
             if rows.is_empty() {
                 return Ok(());
@@ -95,8 +96,7 @@ async fn list(json: bool, format: &str, name_contains: Option<&str>) -> ArgoResu
 }
 
 fn show(name: &str, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let mut reg = ToolRegistry::new();
     for t in builtin_tools(cwd) {
         reg.register(t);

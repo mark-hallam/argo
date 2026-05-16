@@ -62,14 +62,24 @@ fn single_root_span_renders() {
 fn parent_plus_child_renders_nested() {
     let mut body = String::new();
     body.push_str(&span_line("a", None, "root", 0, 10_000_000, "ok"));
-    body.push_str(&span_line("b", Some("a"), "child", 1_000_000, 4_000_000, "ok"));
+    body.push_str(&span_line(
+        "b",
+        Some("a"),
+        "child",
+        1_000_000,
+        4_000_000,
+        "ok",
+    ));
     let dir = TempDir::new().expect("tempdir");
     let path = write_fixture(&dir, "s", &body);
     let roots = build_tree(load_spans(&path).expect("load"));
     assert_eq!(roots.len(), 1);
     assert_eq!(roots[0].children.len(), 1);
     assert_eq!(roots[0].children[0].span.name, "child");
-    assert_eq!(roots[0].children[0].span.parent_span_id.as_deref(), Some("a"));
+    assert_eq!(
+        roots[0].children[0].span.parent_span_id.as_deref(),
+        Some("a")
+    );
 }
 
 #[test]
@@ -79,7 +89,14 @@ fn multi_root_orphans_render_flat() {
     body.push_str(&span_line("a", None, "root_a", 0, 1_000, "ok"));
     body.push_str(&span_line("b", None, "root_b", 1_000, 2_000, "ok"));
     // Orphan: parent points at non-existent span.
-    body.push_str(&span_line("c", Some("missing"), "orphan_c", 2_000, 3_000, "ok"));
+    body.push_str(&span_line(
+        "c",
+        Some("missing"),
+        "orphan_c",
+        2_000,
+        3_000,
+        "ok",
+    ));
     let dir = TempDir::new().expect("tempdir");
     let path = write_fixture(&dir, "s", &body);
     let roots = build_tree(load_spans(&path).expect("load"));
@@ -138,7 +155,10 @@ fn missing_file_returns_clear_error_not_panic() {
 #[test]
 fn format_parse_accepts_known_values_rejects_others() {
     assert_eq!(TraceFormat::parse("").unwrap(), TraceFormat::Markdown);
-    assert_eq!(TraceFormat::parse("markdown").unwrap(), TraceFormat::Markdown);
+    assert_eq!(
+        TraceFormat::parse("markdown").unwrap(),
+        TraceFormat::Markdown
+    );
     assert_eq!(TraceFormat::parse("MD").unwrap(), TraceFormat::Markdown);
     assert_eq!(TraceFormat::parse("json").unwrap(), TraceFormat::Json);
     assert!(TraceFormat::parse("yaml").is_err());

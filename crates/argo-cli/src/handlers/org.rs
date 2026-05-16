@@ -4,9 +4,7 @@
 
 use crate::cli::cli_org_cmds::OrgCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_identity::{
-    IngestSummary, MemberKind, OrgChartYaml, OrgMember, OrgStore, OrgUnit,
-};
+use argo_identity::{IngestSummary, MemberKind, OrgChartYaml, OrgMember, OrgStore, OrgUnit};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::json;
@@ -19,12 +17,16 @@ pub async fn run(cmd: OrgCmd) -> ArgoResult<()> {
     org.ensure_schema().await?;
     match cmd {
         OrgCmd::Tree { tenant, json } => tree(&org, &tenant, json).await,
-        OrgCmd::Member { tenant, name_or_alias, json } => {
-            member(&org, &tenant, &name_or_alias, json).await
-        }
-        OrgCmd::ReportsTo { tenant, member, json } => {
-            reports_to(&org, &tenant, &member, json).await
-        }
+        OrgCmd::Member {
+            tenant,
+            name_or_alias,
+            json,
+        } => member(&org, &tenant, &name_or_alias, json).await,
+        OrgCmd::ReportsTo {
+            tenant,
+            member,
+            json,
+        } => reports_to(&org, &tenant, &member, json).await,
         OrgCmd::Ingest { path, json } => ingest(&org, &path, json).await,
     }
 }
@@ -34,10 +36,7 @@ async fn tree(org: &OrgStore, tenant: &str, as_json: bool) -> ArgoResult<()> {
     let units = org.list_units(tenant_id).await?;
     let members = org.list_members(tenant_id).await?;
     if as_json {
-        println!(
-            "{}",
-            json!({"units": units, "members": members})
-        );
+        println!("{}", json!({"units": units, "members": members}));
     } else {
         render_ascii_tree(&units, &members);
     }
@@ -84,10 +83,7 @@ async fn reports_to(
         })?;
     let chain = org.reports_to_chain(tenant_id, &m.id).await?;
     if as_json {
-        println!(
-            "{}",
-            json!({"member": m, "chain": chain})
-        );
+        println!("{}", json!({"member": m, "chain": chain}));
     } else {
         println!("reports-to chain for '{}':", m.canonical);
         if chain.is_empty() {
@@ -124,10 +120,7 @@ fn render_ascii_tree(units: &[OrgUnit], members: &[OrgMember]) {
     let by_id: BTreeMap<&str, &OrgUnit> = units.iter().map(|u| (u.id.as_str(), u)).collect();
     let mut children: BTreeMap<Option<&str>, Vec<&OrgUnit>> = BTreeMap::new();
     for u in units {
-        children
-            .entry(u.parent_id.as_deref())
-            .or_default()
-            .push(u);
+        children.entry(u.parent_id.as_deref()).or_default().push(u);
     }
     let mut members_by_unit: BTreeMap<Option<&str>, Vec<&OrgMember>> = BTreeMap::new();
     for m in members {
@@ -210,8 +203,7 @@ fn parse_tenant(s: &str) -> ArgoResult<TenantId> {
 }
 
 async fn open_org_store() -> ArgoResult<OrgStore> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

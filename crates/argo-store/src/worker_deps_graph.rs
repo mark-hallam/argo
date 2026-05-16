@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use argo_types::{ArgoError, ArgoResult};
 
-use super::{CYCLE_DETECTION_EDGE_CAP, DepKind, DepRow};
+use super::{DepKind, DepRow, CYCLE_DETECTION_EDGE_CAP};
 
 pub(super) async fn fetch_rows(
     pool: &SqlitePool,
@@ -150,11 +150,7 @@ fn reachable(adj: &BTreeMap<String, Vec<String>>, from: &str, to: &str) -> bool 
 
 /// Recover the path `from → … → to` over the forward adjacency, if any.
 /// Returns `None` when no path exists. Used for the cycle-error message.
-fn path_between(
-    adj: &BTreeMap<String, Vec<String>>,
-    from: &str,
-    to: &str,
-) -> Option<Vec<String>> {
+fn path_between(adj: &BTreeMap<String, Vec<String>>, from: &str, to: &str) -> Option<Vec<String>> {
     let mut parents: BTreeMap<String, String> = BTreeMap::new();
     let mut queue: VecDeque<String> = VecDeque::new();
     queue.push_back(from.to_string());

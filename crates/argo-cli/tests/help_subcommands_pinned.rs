@@ -124,7 +124,9 @@ fn cron_subcommands_unchanged_post_split() {
         .expect("argo cron --help should run");
     assert!(out.status.success());
     let help = String::from_utf8(out.stdout).unwrap();
-    for sub in ["list", "create", "edit", "delete", "trigger", "tick", "daemon"] {
+    for sub in [
+        "list", "create", "edit", "delete", "trigger", "tick", "daemon",
+    ] {
         assert!(help.contains(sub), "cron sub `{sub}` missing:\n{help}");
     }
 }

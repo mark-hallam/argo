@@ -117,8 +117,8 @@ pub struct WorkflowStep {
 
 /// Parse a workflow TOML string.
 pub fn parse_workflow(src: &str) -> ArgoResult<Workflow> {
-    let wf: Workflow = toml::from_str(src)
-        .map_err(|e| ArgoError::Schema(format!("workflow: {e}")))?;
+    let wf: Workflow =
+        toml::from_str(src).map_err(|e| ArgoError::Schema(format!("workflow: {e}")))?;
     if wf.schema_version != WORKFLOW_SCHEMA_VERSION {
         return Err(ArgoError::Schema(format!(
             "workflow schema_version '{}' is not supported by this argo build (expected '{}')",

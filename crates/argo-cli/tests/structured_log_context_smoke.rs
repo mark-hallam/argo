@@ -19,8 +19,8 @@
 //! brief installs at those call-sites against an in-process subscriber
 //! and asserts the three fields appear on every emitted line.
 
-use argo_telemetry::span_context::{enter_context, ContextInjectorLayer, LogContext};
 use argo_orchestrator::Session;
+use argo_telemetry::span_context::{enter_context, ContextInjectorLayer, LogContext};
 use argo_types::TenantId;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};

@@ -185,10 +185,7 @@ async fn channel_capacity_backpressure_drops_oldest() {
 #[tokio::test]
 async fn concurrent_bids_no_deadlock() {
     let dispatcher = Arc::new(AuctionDispatcher::new(DEFAULT_CHANNEL_CAPACITY));
-    dispatcher
-        .open_auction(task("a-concurrent"))
-        .await
-        .unwrap();
+    dispatcher.open_auction(task("a-concurrent")).await.unwrap();
 
     let mut handles = Vec::new();
     for i in 0..16 {

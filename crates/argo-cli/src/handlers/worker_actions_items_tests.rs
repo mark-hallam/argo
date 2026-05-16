@@ -40,9 +40,36 @@ fn rec(
 #[test]
 fn rollup_groups_per_item_id_within_vertical() {
     let tuples = vec![
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "verify_price", "completed", "2026-05-06T10:00:00Z")),
-        ("gtm".to_string(), rec("a-2", Some("skates-A"), "post_listing", "pending", "2026-05-06T10:01:00Z")),
-        ("gtm".to_string(), rec("a-3", Some("skates-B"), "verify_price", "completed", "2026-05-06T10:02:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "verify_price",
+                "completed",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-2",
+                Some("skates-A"),
+                "post_listing",
+                "pending",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-3",
+                Some("skates-B"),
+                "verify_price",
+                "completed",
+                "2026-05-06T10:02:00Z",
+            ),
+        ),
     ];
     let mut summaries = rollup_items(tuples);
     summaries.sort_by(|a, b| a.item_id.cmp(&b.item_id));
@@ -58,12 +85,33 @@ fn rollup_groups_per_item_id_within_vertical() {
 #[test]
 fn rollup_marks_sold_when_mark_item_sold_completed_exists() {
     let tuples = vec![
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "post_listing", "completed", "2026-05-06T10:00:00Z")),
-        ("gtm".to_string(), rec("a-2", Some("skates-A"), "mark_item_sold", "completed", "2026-05-06T10:01:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "post_listing",
+                "completed",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-2",
+                Some("skates-A"),
+                "mark_item_sold",
+                "completed",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
     ];
     let summaries = rollup_items(tuples);
     assert_eq!(summaries.len(), 1);
-    assert!(summaries[0].is_sold, "completed mark_item_sold must flip is_sold");
+    assert!(
+        summaries[0].is_sold,
+        "completed mark_item_sold must flip is_sold"
+    );
 }
 
 #[test]
@@ -72,12 +120,33 @@ fn rollup_does_not_mark_sold_for_pending_mark_item_sold() {
     // inventory. Locks the "only completion flips the bit"
     // rule from the module docs.
     let tuples = vec![
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "mark_item_sold", "pending", "2026-05-06T10:00:00Z")),
-        ("gtm".to_string(), rec("a-2", Some("skates-A"), "mark_item_sold", "approved", "2026-05-06T10:01:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "mark_item_sold",
+                "pending",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-2",
+                Some("skates-A"),
+                "mark_item_sold",
+                "approved",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
     ];
     let summaries = rollup_items(tuples);
     assert_eq!(summaries.len(), 1);
-    assert!(!summaries[0].is_sold, "pre-completion mark_item_sold rows must not flip is_sold");
+    assert!(
+        !summaries[0].is_sold,
+        "pre-completion mark_item_sold rows must not flip is_sold"
+    );
 }
 
 #[test]
@@ -85,8 +154,26 @@ fn rollup_skips_item_less_rows() {
     // Item-less actions (e.g. system maintenance) are not
     // inventory; they shouldn't appear in the items view.
     let tuples = vec![
-        ("gtm".to_string(), rec("a-1", None, "verify_price", "completed", "2026-05-06T10:00:00Z")),
-        ("gtm".to_string(), rec("a-2", Some("skates-A"), "verify_price", "completed", "2026-05-06T10:01:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                None,
+                "verify_price",
+                "completed",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-2",
+                Some("skates-A"),
+                "verify_price",
+                "completed",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
     ];
     let summaries = rollup_items(tuples);
     assert_eq!(summaries.len(), 1);
@@ -98,9 +185,36 @@ fn rollup_by_state_counts_match_per_action_states() {
     // 3 actions for skates-A: 1 completed, 1 pending, 1
     // blocked. Counts should reflect that.
     let tuples = vec![
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "verify_price", "completed", "2026-05-06T10:00:00Z")),
-        ("gtm".to_string(), rec("a-2", Some("skates-A"), "post_listing", "pending", "2026-05-06T10:01:00Z")),
-        ("gtm".to_string(), rec("a-3", Some("skates-A"), "boost_listing", "blocked", "2026-05-06T10:02:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "verify_price",
+                "completed",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-2",
+                Some("skates-A"),
+                "post_listing",
+                "pending",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-3",
+                Some("skates-A"),
+                "boost_listing",
+                "blocked",
+                "2026-05-06T10:02:00Z",
+            ),
+        ),
     ];
     let summaries = rollup_items(tuples);
     assert_eq!(summaries.len(), 1);
@@ -117,8 +231,26 @@ fn rollup_separates_same_item_id_under_different_verticals() {
     // separate items. Locks the cross-vertical isolation
     // contract for the items view.
     let tuples = vec![
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "verify_price", "completed", "2026-05-06T10:00:00Z")),
-        ("other".to_string(), rec("a-2", Some("skates-A"), "verify_price", "completed", "2026-05-06T10:01:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "verify_price",
+                "completed",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
+        (
+            "other".to_string(),
+            rec(
+                "a-2",
+                Some("skates-A"),
+                "verify_price",
+                "completed",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
     ];
     let summaries = rollup_items(tuples);
     assert_eq!(summaries.len(), 2);
@@ -140,10 +272,46 @@ fn show_timeline_sorts_chronologically_with_action_id_tiebreak() {
     // Out-of-order input. After sort: 10:00 → 10:01 → 10:02
     // (the two 10:01 rows tiebreak on action_id alphabetically).
     let mut rows = vec![
-        ("gtm".to_string(), rec("z-1", Some("skates-A"), "post_listing", "approved", "2026-05-06T10:01:00Z")),
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "verify_price", "completed", "2026-05-06T10:00:00Z")),
-        ("gtm".to_string(), rec("a-2", Some("skates-A"), "post_listing", "completed", "2026-05-06T10:02:00Z")),
-        ("gtm".to_string(), rec("b-1", Some("skates-A"), "post_listing", "pending", "2026-05-06T10:01:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "z-1",
+                Some("skates-A"),
+                "post_listing",
+                "approved",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "verify_price",
+                "completed",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-2",
+                Some("skates-A"),
+                "post_listing",
+                "completed",
+                "2026-05-06T10:02:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "b-1",
+                Some("skates-A"),
+                "post_listing",
+                "pending",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
     ];
     sort_for_timeline(&mut rows);
     let order: Vec<&str> = rows.iter().map(|(_, r)| r.action_id.as_str()).collect();
@@ -158,12 +326,51 @@ fn show_timeline_preserves_state_transition_history_for_one_action() {
     // order, so the operator can audit transitions. Locks the
     // "no latest-per-action dedup" contract.
     let mut rows = vec![
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "post_listing", "completed", "2026-05-06T10:03:00Z")),
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "post_listing", "executing", "2026-05-06T10:02:00Z")),
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "post_listing", "approved", "2026-05-06T10:01:00Z")),
-        ("gtm".to_string(), rec("a-1", Some("skates-A"), "post_listing", "pending", "2026-05-06T10:00:00Z")),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "post_listing",
+                "completed",
+                "2026-05-06T10:03:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "post_listing",
+                "executing",
+                "2026-05-06T10:02:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "post_listing",
+                "approved",
+                "2026-05-06T10:01:00Z",
+            ),
+        ),
+        (
+            "gtm".to_string(),
+            rec(
+                "a-1",
+                Some("skates-A"),
+                "post_listing",
+                "pending",
+                "2026-05-06T10:00:00Z",
+            ),
+        ),
     ];
     sort_for_timeline(&mut rows);
     let states: Vec<&str> = rows.iter().map(|(_, r)| r.state.as_str()).collect();
-    assert_eq!(states, vec!["pending", "approved", "executing", "completed"]);
+    assert_eq!(
+        states,
+        vec!["pending", "approved", "executing", "completed"]
+    );
 }

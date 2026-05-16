@@ -9,8 +9,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(raw: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -92,7 +91,10 @@ fn render_content(content_json: &str) -> String {
                 let body = b
                     .get("content")
                     .and_then(|c| c.as_array())
-                    .and_then(|a| a.iter().find_map(|cb| cb.get("text").and_then(|t| t.as_str())))
+                    .and_then(|a| {
+                        a.iter()
+                            .find_map(|cb| cb.get("text").and_then(|t| t.as_str()))
+                    })
                     .unwrap_or("");
                 let tag = if is_error { " [error]" } else { "" };
                 out.push(format!("← {id}{tag}: {body}"));

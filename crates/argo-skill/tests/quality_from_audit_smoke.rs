@@ -127,10 +127,7 @@ async fn session_store_reader_filters_by_skill_name() {
     write_tool_result(&store, "skill_b", true, 200, base.timestamp_micros()).await;
 
     let reader = SessionStoreAuditReader::new(Arc::clone(&store), "skill_a".to_string());
-    let rows = reader
-        .rows_for_skill(&SkillId::new(), None)
-        .await
-        .unwrap();
+    let rows = reader.rows_for_skill(&SkillId::new(), None).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(
         rows[0].payload.get("tool").and_then(|v| v.as_str()),

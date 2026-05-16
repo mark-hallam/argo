@@ -55,11 +55,10 @@ pub(super) async fn list_response(
         Err(msg) => return bad_request(&msg),
     }
 
-    let cohorts: Vec<CohortSummary> =
-        match list_cohorts(store.as_ref(), workspace_tenant).await {
-            Ok(v) => v,
-            Err(e) => return server_error(&format!("list cohorts: {e}")),
-        };
+    let cohorts: Vec<CohortSummary> = match list_cohorts(store.as_ref(), workspace_tenant).await {
+        Ok(v) => v,
+        Err(e) => return server_error(&format!("list cohorts: {e}")),
+    };
     let total = cohorts.len();
     emit_list_audit(store, req, total, workspace_tenant).await;
     let body = json!({ "cohorts": cohorts, "total_count": total }).to_string();
@@ -102,9 +101,11 @@ pub(super) async fn detail_response(
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
@@ -157,12 +158,7 @@ fn decode_path_segment(raw: &str) -> String {
     out
 }
 
-async fn emit_list_audit(
-    store: &Arc<SessionStore>,
-    req: &str,
-    count: usize,
-    tenant: TenantId,
-) {
+async fn emit_list_audit(store: &Arc<SessionStore>, req: &str, count: usize, tenant: TenantId) {
     let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
     let payload = json!({
         "endpoint": "cohorts.list.queried",

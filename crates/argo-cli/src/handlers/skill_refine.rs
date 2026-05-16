@@ -37,9 +37,7 @@ pub(super) async fn refine(
         active.frontmatter.version, new_version, new_skill.id.0
     );
     println!("  hint:    {trimmed}");
-    println!(
-        "  next chat will pick this up via the active-skills system prompt."
-    );
+    println!("  next chat will pick this up via the active-skills system prompt.");
     Ok(())
 }
 

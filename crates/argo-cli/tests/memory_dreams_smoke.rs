@@ -50,7 +50,13 @@ async fn smoke_dreams_call_persists_summary() {
     // Seed one row inside the previous-month window so the dream
     // has something to summarise.
     let row = memory
-        .append_in_namespace(&ns, ws, MemoryFile::Memory, "Customer asked for SOC2.".into(), None)
+        .append_in_namespace(
+            &ns,
+            ws,
+            MemoryFile::Memory,
+            "Customer asked for SOC2.".into(),
+            None,
+        )
         .await
         .unwrap();
     sqlx::query("UPDATE memory_entry SET learned_at = ? WHERE id = ?")

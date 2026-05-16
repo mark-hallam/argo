@@ -84,12 +84,7 @@ async fn write_audit(
         None => SYSTEM_AUDIT_TENANT_ID.to_string(),
     };
     AuditSink::new_with_tenant(store, tenant_id)
-        .write(
-            session_id,
-            AuditKind::SkillRolledBack,
-            payload,
-            None,
-        )
+        .write(session_id, AuditKind::SkillRolledBack, payload, None)
         .await
 }
 

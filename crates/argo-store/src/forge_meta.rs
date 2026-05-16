@@ -13,14 +13,16 @@ impl SessionStore {
     /// Fetch one forge_run row by id. Returns `None` if no row
     /// matches. Used by `argo forge runs show <id>`.
     pub async fn get_forge_run(&self, id: Uuid) -> StoreResult<Option<ForgeRunRow>> {
-        get_forge_run(self.pool(), id).await
+        get_forge_run(self.pool(), id)
+            .await
             .map_err(|e| ArgoError::Provider(format!("get_forge_run: {e}")))
     }
 
     /// Mark a forge_run as `aborted`. Returns rows affected (0
     /// when no row matches). Backs `argo forge runs abort <id>`.
     pub async fn abort_forge_run(&self, id: Uuid) -> StoreResult<u64> {
-        abort_forge_run(self.pool(), id).await
+        abort_forge_run(self.pool(), id)
+            .await
             .map_err(|e| ArgoError::Provider(format!("abort_forge_run: {e}")))
     }
 
@@ -33,7 +35,8 @@ impl SessionStore {
         base_version: &str,
         examples_count: u32,
     ) -> StoreResult<Uuid> {
-        start_forge_run(self.pool(), skill_name, base_version, examples_count).await
+        start_forge_run(self.pool(), skill_name, base_version, examples_count)
+            .await
             .map_err(|e| ArgoError::Provider(format!("start_forge_run: {e}")))
     }
 
@@ -50,15 +53,9 @@ impl SessionStore {
         best_score: Option<f64>,
         candidate_version: Option<&str>,
     ) -> StoreResult<u64> {
-        update_forge_run_progress(
-            self.pool(),
-            id,
-            iterations,
-            best_score,
-            candidate_version,
-        )
-        .await
-        .map_err(|e| ArgoError::Provider(format!("update_forge_run_progress: {e}")))
+        update_forge_run_progress(self.pool(), id, iterations, best_score, candidate_version)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("update_forge_run_progress: {e}")))
     }
 
     /// Update a `forge_run` row to a terminal status (succeeded /
@@ -70,7 +67,8 @@ impl SessionStore {
         final_score: Option<f64>,
         iterations: i64,
     ) -> StoreResult<u64> {
-        finish_forge_run(self.pool(), id, status, final_score, iterations).await
+        finish_forge_run(self.pool(), id, status, final_score, iterations)
+            .await
             .map_err(|e| ArgoError::Provider(format!("finish_forge_run: {e}")))
     }
 
@@ -84,11 +82,9 @@ impl SessionStore {
     /// Caller picks the cutoff (e.g. now - 1h). The gateway has
     /// no notion of "what's still alive" once it restarts, so
     /// this is the only safe way to clean up.
-    pub async fn sweep_stalled_forge_runs(
-        &self,
-        cutoff_micros: i64,
-    ) -> StoreResult<u64> {
-        sweep_stalled_forge_runs(self.pool(), cutoff_micros).await
+    pub async fn sweep_stalled_forge_runs(&self, cutoff_micros: i64) -> StoreResult<u64> {
+        sweep_stalled_forge_runs(self.pool(), cutoff_micros)
+            .await
             .map_err(|e| ArgoError::Provider(format!("sweep_stalled_forge_runs: {e}")))
     }
 
@@ -121,9 +117,7 @@ impl SessionStore {
     /// queued row exists. Race-safe by checking
     /// `rows_affected()` on the UPDATE: if another claimer won,
     /// the SELECT-then-UPDATE retries on the next call.
-    pub async fn claim_queued_forge_run(
-        &self,
-    ) -> StoreResult<Option<(Uuid, String)>> {
+    pub async fn claim_queued_forge_run(&self) -> StoreResult<Option<(Uuid, String)>> {
         claim_queued_forge_run(self.pool())
             .await
             .map_err(|e| ArgoError::Provider(format!("claim_queued_forge_run: {e}")))
@@ -137,10 +131,7 @@ impl SessionStore {
     /// it was created via `?in_process=true` and never had a
     /// queue entry) or doesn't exist. Caller can present 404
     /// to the user when None.
-    pub async fn requeue_forge_run(
-        &self,
-        source_id: Uuid,
-    ) -> StoreResult<Option<Uuid>> {
+    pub async fn requeue_forge_run(&self, source_id: Uuid) -> StoreResult<Option<Uuid>> {
         requeue_forge_run(self.pool(), source_id)
             .await
             .map_err(|e| ArgoError::Provider(format!("requeue_forge_run: {e}")))
@@ -151,10 +142,7 @@ impl SessionStore {
     /// `Ok(None)` when no `forge_queue` row exists — typical
     /// for runs created via `?in_process=true` or pre-v1.1
     /// rows that never had a queue entry.
-    pub async fn get_forge_queue_payload(
-        &self,
-        run_id: Uuid,
-    ) -> StoreResult<Option<String>> {
+    pub async fn get_forge_queue_payload(&self, run_id: Uuid) -> StoreResult<Option<String>> {
         get_forge_queue_payload(self.pool(), run_id)
             .await
             .map_err(|e| ArgoError::Provider(format!("get_forge_queue_payload: {e}")))
@@ -165,19 +153,15 @@ async fn get_forge_queue_payload(
     pool: &Pool<Sqlite>,
     run_id: Uuid,
 ) -> Result<Option<String>, sqlx::Error> {
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT payload_json FROM forge_queue WHERE forge_run_id = ?",
-    )
-    .bind(run_id.as_bytes().as_slice())
-    .fetch_optional(pool)
-    .await?;
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT payload_json FROM forge_queue WHERE forge_run_id = ?")
+            .bind(run_id.as_bytes().as_slice())
+            .fetch_optional(pool)
+            .await?;
     Ok(row.map(|(p,)| p))
 }
 
-async fn get_forge_run(
-    pool: &Pool<Sqlite>,
-    id: Uuid,
-) -> Result<Option<ForgeRunRow>, sqlx::Error> {
+async fn get_forge_run(pool: &Pool<Sqlite>, id: Uuid) -> Result<Option<ForgeRunRow>, sqlx::Error> {
     sqlx::query_as::<_, ForgeRunRow>(
         "SELECT id, skill_name, started_at, ended_at, base_version, \
          candidate_version, iterations, spend_usd_micros, \
@@ -189,13 +173,11 @@ async fn get_forge_run(
 }
 
 async fn abort_forge_run(pool: &Pool<Sqlite>, id: Uuid) -> Result<u64, sqlx::Error> {
-    let res = sqlx::query(
-        "UPDATE forge_run SET status = 'aborted', ended_at = ? WHERE id = ?",
-    )
-    .bind(Utc::now().timestamp_micros())
-    .bind(id.as_bytes().as_slice())
-    .execute(pool)
-    .await?;
+    let res = sqlx::query("UPDATE forge_run SET status = 'aborted', ended_at = ? WHERE id = ?")
+        .bind(Utc::now().timestamp_micros())
+        .bind(id.as_bytes().as_slice())
+        .execute(pool)
+        .await?;
     Ok(res.rows_affected())
 }
 

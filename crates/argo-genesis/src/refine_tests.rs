@@ -152,7 +152,13 @@ async fn five_additional_actions_all_land() {
     let caller = NoopCaller {
         response: response.to_string(),
     };
-    let original_count = sample_plan().manifest.actions.as_ref().unwrap().actions.len();
+    let original_count = sample_plan()
+        .manifest
+        .actions
+        .as_ref()
+        .unwrap()
+        .actions
+        .len();
     let refined = refine_plan(sample_plan(), &caller).await.expect("refine");
     let refined_count = refined.manifest.actions.as_ref().unwrap().actions.len();
     assert_eq!(
@@ -186,7 +192,13 @@ async fn configurable_cap_truncates_excess_actions() {
     let caller = NoopCaller {
         response: response.to_string(),
     };
-    let original_count = sample_plan().manifest.actions.as_ref().unwrap().actions.len();
+    let original_count = sample_plan()
+        .manifest
+        .actions
+        .as_ref()
+        .unwrap()
+        .actions
+        .len();
     let result = refine_plan(sample_plan(), &caller).await;
     match prev {
         Some(v) => std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", v),

@@ -109,7 +109,10 @@ pub async fn session_open(args: &serde_json::Value) -> CallToolResult {
         next_id: 1,
         last_used: std::time::Instant::now(),
     };
-    registry().lock().await.insert(id.clone(), Mutex::new(session));
+    registry()
+        .lock()
+        .await
+        .insert(id.clone(), Mutex::new(session));
     ok(format!("{{\"session_id\":\"{id}\"}}"))
 }
 
@@ -139,7 +142,6 @@ pub async fn session_list(_args: &serde_json::Value) -> CallToolResult {
     });
     ok(serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()))
 }
-
 
 /// Internal helper: send a `Runtime.evaluate` over the
 /// session's persistent WS and return the parsed JSON-RPC
@@ -179,8 +181,7 @@ pub(super) async fn send_cdp_method(
         "method": method,
         "params": params,
     });
-    let serialized =
-        serde_json::to_string(&req).map_err(|e| format!("serialize: {e}"))?;
+    let serialized = serde_json::to_string(&req).map_err(|e| format!("serialize: {e}"))?;
     session
         .ws
         .send(Message::Text(serialized))

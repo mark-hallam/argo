@@ -9,7 +9,10 @@ fn temp_path(name: &str) -> std::path::PathBuf {
 }
 
 fn headers(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
-    pairs.iter().map(|(k, v)| ((*k).to_string(), (*v).to_string())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+        .collect()
 }
 
 #[tokio::test]
@@ -27,7 +30,12 @@ async fn round_trip_record_then_replay() {
     let url = format!("{}/v1/x", server.uri());
     let body = br#"{"hello":"world","api_key":"shh"}"#.to_vec();
     let recorded = rec
-        .execute("POST", &url, headers(&[("authorization", "Bearer abc")]), body.clone())
+        .execute(
+            "POST",
+            &url,
+            headers(&[("authorization", "Bearer abc")]),
+            body.clone(),
+        )
         .await
         .unwrap();
     assert_eq!(recorded.status, 200);
@@ -37,7 +45,12 @@ async fn round_trip_record_then_replay() {
     assert_eq!(loaded.len(), 1);
     let mut rec2 = CassetteRecorder::new(loaded).with_mode(CassetteMode::Replay);
     let replayed = rec2
-        .execute("POST", &url, headers(&[("authorization", "Bearer abc")]), body)
+        .execute(
+            "POST",
+            &url,
+            headers(&[("authorization", "Bearer abc")]),
+            body,
+        )
         .await
         .unwrap();
     assert_eq!(replayed.body_json, serde_json::json!({"ok": true}));
@@ -48,8 +61,17 @@ async fn sequential_match_order_enforced() {
     let mut c = Cassette::new(temp_path("order.cassette.json"));
     for tag in ["A", "B"] {
         c.append(CassetteExchange {
-            request: build_request_record("GET", &format!("https://x/{tag}"), &BTreeMap::new(), b""),
-            response: CassetteResponse { status: 200, headers: BTreeMap::new(), body_json: serde_json::json!(tag) },
+            request: build_request_record(
+                "GET",
+                &format!("https://x/{tag}"),
+                &BTreeMap::new(),
+                b"",
+            ),
+            response: CassetteResponse {
+                status: 200,
+                headers: BTreeMap::new(),
+                body_json: serde_json::json!(tag),
+            },
             recorded_at: "t".into(),
         });
     }
@@ -67,7 +89,11 @@ async fn mismatch_on_replay_errors() {
     let mut c = Cassette::new(temp_path("mismatch.cassette.json"));
     c.append(CassetteExchange {
         request: build_request_record("POST", "https://x/foo", &BTreeMap::new(), b""),
-        response: CassetteResponse { status: 200, headers: BTreeMap::new(), body_json: serde_json::Value::Null },
+        response: CassetteResponse {
+            status: 200,
+            headers: BTreeMap::new(),
+            body_json: serde_json::Value::Null,
+        },
         recorded_at: "t".into(),
     });
     let mut rec = CassetteRecorder::new(c).with_mode(CassetteMode::Replay);
@@ -76,7 +102,11 @@ async fn mismatch_on_replay_errors() {
         .await
         .unwrap_err();
     match err {
-        CassetteError::Mismatch { expected_method, actual_method, .. } => {
+        CassetteError::Mismatch {
+            expected_method,
+            actual_method,
+            ..
+        } => {
             assert_eq!(expected_method, "POST");
             assert_eq!(actual_method, "GET");
         }
@@ -88,7 +118,10 @@ async fn mismatch_on_replay_errors() {
 fn env_driven_mode_selection() {
     assert_eq!(CassetteMode::parse(Some("record")), CassetteMode::Record);
     assert_eq!(CassetteMode::parse(Some("REPLAY")), CassetteMode::Replay);
-    assert_eq!(CassetteMode::parse(Some("passthrough")), CassetteMode::Passthrough);
+    assert_eq!(
+        CassetteMode::parse(Some("passthrough")),
+        CassetteMode::Passthrough
+    );
     assert_eq!(CassetteMode::parse(None), CassetteMode::Replay);
     assert_eq!(CassetteMode::parse(Some("garbage")), CassetteMode::Replay);
 }
@@ -101,14 +134,29 @@ fn secret_redaction_in_request_record() {
     ]);
     let body = br#"{"api_key":"S","password":"P","model":"opus","nested":{"bearer_token":"Z"}}"#;
     let req = build_request_record("POST", "https://x/", &hdrs, body);
-    assert_eq!(req.headers.get("authorization").map(String::as_str), Some(REDACTED_PLACEHOLDER));
-    assert_eq!(req.headers.get("content-type").map(String::as_str), Some("application/json"));
+    assert_eq!(
+        req.headers.get("authorization").map(String::as_str),
+        Some(REDACTED_PLACEHOLDER)
+    );
+    assert_eq!(
+        req.headers.get("content-type").map(String::as_str),
+        Some("application/json")
+    );
     let body_v = &req.body_json_redacted;
-    assert_eq!(body_v.get("api_key"), Some(&serde_json::json!(REDACTED_PLACEHOLDER)));
-    assert_eq!(body_v.get("password"), Some(&serde_json::json!(REDACTED_PLACEHOLDER)));
+    assert_eq!(
+        body_v.get("api_key"),
+        Some(&serde_json::json!(REDACTED_PLACEHOLDER))
+    );
+    assert_eq!(
+        body_v.get("password"),
+        Some(&serde_json::json!(REDACTED_PLACEHOLDER))
+    );
     assert_eq!(body_v.get("model"), Some(&serde_json::json!("opus")));
     let nested = body_v.get("nested").unwrap();
-    assert_eq!(nested.get("bearer_token"), Some(&serde_json::json!(REDACTED_PLACEHOLDER)));
+    assert_eq!(
+        nested.get("bearer_token"),
+        Some(&serde_json::json!(REDACTED_PLACEHOLDER))
+    );
     assert!(!req.body_sha256.is_empty());
 }
 
@@ -122,7 +170,13 @@ fn header_allowlist_filter_drops_unlisted() {
     ]);
     let filtered = redact_headers(&hdrs, DEFAULT_HEADER_ALLOWLIST);
     assert!(filtered.contains_key("content-type"));
-    assert_eq!(filtered.get("authorization").map(String::as_str), Some(REDACTED_PLACEHOLDER));
-    assert!(!filtered.contains_key("x-trace-id"), "non-allowlisted header should be dropped");
+    assert_eq!(
+        filtered.get("authorization").map(String::as_str),
+        Some(REDACTED_PLACEHOLDER)
+    );
+    assert!(
+        !filtered.contains_key("x-trace-id"),
+        "non-allowlisted header should be dropped"
+    );
     assert!(!filtered.contains_key("cookie"), "cookie should be dropped");
 }

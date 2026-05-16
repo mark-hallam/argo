@@ -50,10 +50,7 @@ pub struct SkillVersion {
 /// List every version of `name` in this workspace, newest-first.
 /// Returns an empty vec if the skill name has never been
 /// installed.
-pub async fn list_versions(
-    store: &SessionStore,
-    name: &str,
-) -> ArgoResult<Vec<SkillVersion>> {
+pub async fn list_versions(store: &SessionStore, name: &str) -> ArgoResult<Vec<SkillVersion>> {
     let rows = sqlx::query(
         "SELECT id, name, version, source, superseded_by, \
          COALESCE(lifecycle_state, 'active') AS lifecycle_state, created_at \
@@ -94,14 +91,13 @@ pub async fn find_version(
     name: &str,
     version: &str,
 ) -> ArgoResult<Option<String>> {
-    let row: Option<(Vec<u8>,)> = sqlx::query_as(
-        "SELECT id FROM skill WHERE name = ? AND version = ?",
-    )
-    .bind(name)
-    .bind(version)
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("find skill version: {e}")))?;
+    let row: Option<(Vec<u8>,)> =
+        sqlx::query_as("SELECT id FROM skill WHERE name = ? AND version = ?")
+            .bind(name)
+            .bind(version)
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("find skill version: {e}")))?;
     Ok(row.map(|(blob,)| hex_from_blob(&blob)))
 }
 
@@ -198,8 +194,7 @@ mod tests {
     #[tokio::test]
     async fn list_versions_marks_superseded_rows() {
         let store = open_store().await;
-        let v1_id =
-            insert_skill_row(&store, "demo", "v1", "builtin", 1_000, None).await;
+        let v1_id = insert_skill_row(&store, "demo", "v1", "builtin", 1_000, None).await;
         insert_skill_row(&store, "demo", "v2", "tenant", 2_000, Some(&v1_id)).await;
         let v = list_versions(&store, "demo").await.unwrap();
         // Row order is newest first; v2 supersedes v1 by *itself* not being

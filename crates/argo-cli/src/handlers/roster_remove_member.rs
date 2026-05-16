@@ -15,12 +15,7 @@ struct RemovedOut {
     member_count: usize,
 }
 
-pub async fn run(
-    tenant: &str,
-    roster_ref: &str,
-    worker_ref: &str,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn run(tenant: &str, roster_ref: &str, worker_ref: &str, json: bool) -> ArgoResult<()> {
     let store = open_roster_store().await?;
     store.ensure_schema().await?;
     let tenant_id = parse_tenant(tenant)?;

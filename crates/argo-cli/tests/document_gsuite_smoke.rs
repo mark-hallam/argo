@@ -61,14 +61,11 @@ async fn trash(doc_id: &str, auth: &GsuiteAuthConfig) {
     // Best-effort cleanup; failures are not the test's concern. We
     // re-mint a fresh client + token so the trash call doesn't
     // depend on cached state from the write path.
-    let api =
-        argo_executor_document_gsuite::auth::GsuiteAuth::new(auth.clone());
+    let api = argo_executor_document_gsuite::auth::GsuiteAuth::new(auth.clone());
     let Ok(token) = api.acquire_token().await else {
         return;
     };
-    let url = format!(
-        "https://www.googleapis.com/drive/v3/files/{doc_id}?fields=id"
-    );
+    let url = format!("https://www.googleapis.com/drive/v3/files/{doc_id}?fields=id");
     let client = reqwest::Client::new();
     let _ = client
         .patch(&url)

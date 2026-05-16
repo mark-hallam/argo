@@ -60,9 +60,8 @@ impl Executor for DocumentCsvExecutor {
         let report = DocumentCsv::new()
             .write(request)
             .map_err(|e| ArgoError::Provider(format!("document-csv executor: {e}")))?;
-        let rejections_json = serde_json::to_value(&report.rejections).unwrap_or_else(|_| {
-            serde_json::Value::Array(Vec::new())
-        });
+        let rejections_json = serde_json::to_value(&report.rejections)
+            .unwrap_or_else(|_| serde_json::Value::Array(Vec::new()));
         Ok(ActionOutcome::Completed {
             bundle_path: bundle,
             result_json: serde_json::json!({

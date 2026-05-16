@@ -10,7 +10,7 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use argo_workflow::{
-    parse_yaml, ExecutionRequest, ExecutionReport, Executor, MockRunner, TaskVerdict,
+    parse_yaml, ExecutionReport, ExecutionRequest, Executor, MockRunner, TaskVerdict,
 };
 use chrono::Utc;
 use std::path::PathBuf;
@@ -20,7 +20,14 @@ const SCHEMA_SQL: &str = include_str!("../../../argo-store/migrations/18__workfl
 
 /// `(workflow_id, workflow_yaml, started_at, finished_at, ok, task_verdicts_json)` —
 /// row shape returned by `argo workflow status`.
-type StatusRow = (String, String, i64, Option<i64>, Option<i64>, Option<String>);
+type StatusRow = (
+    String,
+    String,
+    i64,
+    Option<i64>,
+    Option<i64>,
+    Option<String>,
+);
 
 /// `(id, workflow_id, started_at, finished_at, ok)` — row shape
 /// returned by `argo workflow list-runs`.
@@ -29,9 +36,11 @@ type RunRow = (String, String, i64, Option<i64>, Option<i64>);
 pub async fn run(cmd: WorkflowCmd) -> ArgoResult<()> {
     match cmd {
         WorkflowCmd::Validate { path, json } => validate(&PathBuf::from(path), json).await,
-        WorkflowCmd::Run { path, dry_run, json } => {
-            run_workflow(&PathBuf::from(path), dry_run, json).await
-        }
+        WorkflowCmd::Run {
+            path,
+            dry_run,
+            json,
+        } => run_workflow(&PathBuf::from(path), dry_run, json).await,
         WorkflowCmd::Status { run_id, json } => status(&run_id, json).await,
         WorkflowCmd::ListRuns { limit, json } => list_runs(limit, json).await,
         WorkflowCmd::Resume { run_id, json } => super::workflow_resume::run(&run_id, json).await,
@@ -80,9 +89,9 @@ async fn run_workflow(path: &std::path::Path, dry_run: bool, json: bool) -> Argo
     let workflow = parse_yaml(path).map_err(|e| ArgoError::Provider(format!("{e}")))?;
     let exec = Executor::new(MockRunner::echo());
     if dry_run {
-        let plan = exec.dry_run(&workflow).map_err(|e| {
-            ArgoError::Schema(format!("dry-run: {e}"))
-        })?;
+        let plan = exec
+            .dry_run(&workflow)
+            .map_err(|e| ArgoError::Schema(format!("dry-run: {e}")))?;
         if json {
             println!("{}", serde_json::to_string(&plan).unwrap_or_default());
         } else {
@@ -153,13 +162,13 @@ async fn status(run_id: &str, json: bool) -> ArgoResult<()> {
     let store = open_store().await?;
     ensure_workflow_schema(&store).await?;
     let row: Option<StatusRow> = sqlx::query_as(
-            "SELECT workflow_id, workflow_yaml, started_at, finished_at, ok, task_verdicts_json \
+        "SELECT workflow_id, workflow_yaml, started_at, finished_at, ok, task_verdicts_json \
              FROM workflow_run WHERE id = ?",
-        )
-        .bind(run_id)
-        .fetch_optional(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("workflow_run lookup: {e}")))?;
+    )
+    .bind(run_id)
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("workflow_run lookup: {e}")))?;
     let row = row.ok_or_else(|| ArgoError::Provider(format!("no run with id '{run_id}'")))?;
     let payload = serde_json::json!({
         "id": run_id,
@@ -175,8 +184,14 @@ async fn status(run_id: &str, json: bool) -> ArgoResult<()> {
         println!("run {run_id}");
         println!("  workflow:    {}", row.0);
         println!("  started_at:  {}", row.2);
-        println!("  finished_at: {}", row.3.map_or("(running)".to_string(), |n| n.to_string()));
-        println!("  ok:          {}", row.4.map_or("?".to_string(), |n| (n != 0).to_string()));
+        println!(
+            "  finished_at: {}",
+            row.3.map_or("(running)".to_string(), |n| n.to_string())
+        );
+        println!(
+            "  ok:          {}",
+            row.4.map_or("?".to_string(), |n| (n != 0).to_string())
+        );
     }
     Ok(())
 }

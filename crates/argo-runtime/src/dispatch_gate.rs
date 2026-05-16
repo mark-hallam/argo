@@ -47,11 +47,7 @@ pub trait DecomposeGate: Send + Sync {
     /// pass. Returns `Ok(true)` → call planner; `Ok(false)` → skip
     /// and dispatch as a single task. Errors → caller treats as
     /// `false` (see module-level docs).
-    async fn should_decompose(
-        &self,
-        goal: &str,
-        ctx: &PlannerContext,
-    ) -> Result<bool, GateError>;
+    async fn should_decompose(&self, goal: &str, ctx: &PlannerContext) -> Result<bool, GateError>;
 }
 
 /// Length threshold above which the heuristic gate decides a goal
@@ -89,11 +85,7 @@ impl HeuristicGate {
 
 #[async_trait]
 impl DecomposeGate for HeuristicGate {
-    async fn should_decompose(
-        &self,
-        goal: &str,
-        _ctx: &PlannerContext,
-    ) -> Result<bool, GateError> {
+    async fn should_decompose(&self, goal: &str, _ctx: &PlannerContext) -> Result<bool, GateError> {
         let trimmed = goal.trim();
         if trimmed.is_empty() {
             return Ok(false);

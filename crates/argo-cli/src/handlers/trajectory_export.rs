@@ -126,8 +126,7 @@ pub(crate) async fn run(args: ExportArgs) -> ArgoResult<()> {
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&envelope)
-                .unwrap_or_else(|_| "{}".into())
+            serde_json::to_string_pretty(&envelope).unwrap_or_else(|_| "{}".into())
         );
     }
     Ok(())
@@ -206,7 +205,11 @@ pub(crate) fn collect_trajectories(
             out.push(trajectory);
         }
     }
-    out.sort_by(|a, b| a.created_at.cmp(&b.created_at).then(a.action_id.cmp(&b.action_id)));
+    out.sort_by(|a, b| {
+        a.created_at
+            .cmp(&b.created_at)
+            .then(a.action_id.cmp(&b.action_id))
+    });
     Ok(out)
 }
 
@@ -244,8 +247,14 @@ pub(crate) fn load_trajectory(bundle: &Path, include_screenshots: bool) -> ArgoR
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let payload = record.get("payload").cloned().unwrap_or(serde_json::Value::Null);
-    let result = record.get("result").cloned().unwrap_or(serde_json::Value::Null);
+    let payload = record
+        .get("payload")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let result = record
+        .get("result")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let mut steps = load_browser_steps(bundle, include_screenshots).unwrap_or_default();
     // Always synthesize a leading "request" step so non-CU
     // trajectories aren't empty — the model sees the action_type
@@ -276,10 +285,7 @@ pub(crate) fn load_trajectory(bundle: &Path, include_screenshots: bool) -> ArgoR
 }
 
 /// Read `browser.jsonl` (CU only). Missing file → empty vec.
-fn load_browser_steps(
-    bundle: &Path,
-    include_screenshots: bool,
-) -> ArgoResult<Vec<TrajectoryStep>> {
+fn load_browser_steps(bundle: &Path, include_screenshots: bool) -> ArgoResult<Vec<TrajectoryStep>> {
     let jsonl = bundle.join("browser.jsonl");
     let Ok(raw) = fs::read_to_string(&jsonl) else {
         return Ok(Vec::new());
@@ -293,9 +299,19 @@ fn load_browser_steps(
             Ok(v) => v,
             Err(_) => continue,
         };
-        let at = row.get("at").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let action = row.get("action").cloned().unwrap_or(serde_json::Value::Null);
-        let result = row.get("result").cloned().unwrap_or(serde_json::Value::Null);
+        let at = row
+            .get("at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let action = row
+            .get("action")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let result = row
+            .get("result")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
         let screenshot_relpath = row
             .get("screenshot_relpath")
             .and_then(|v| v.as_str())
@@ -311,11 +327,7 @@ fn load_browser_steps(
     Ok(out)
 }
 
-fn resolve_screenshot(
-    bundle: &Path,
-    relpath: &str,
-    include_screenshots: bool,
-) -> Option<String> {
+fn resolve_screenshot(bundle: &Path, relpath: &str, include_screenshots: bool) -> Option<String> {
     if relpath.is_empty() {
         return None;
     }

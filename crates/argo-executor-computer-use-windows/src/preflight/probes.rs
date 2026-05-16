@@ -10,7 +10,9 @@ use super::PreflightStatus;
 #[cfg(target_os = "windows")]
 pub(super) fn probe_uac_consent() -> PreflightStatus {
     use windows::Win32::Foundation::HANDLE;
-    use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+    use windows::Win32::Security::{
+        GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
+    };
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
     unsafe {
@@ -41,11 +43,10 @@ pub(super) fn probe_uac_consent() -> PreflightStatus {
 
 #[cfg(target_os = "windows")]
 pub(super) fn probe_secure_desktop() -> PreflightStatus {
-    use windows::Win32::System::RemoteDesktop::{
-        WTSQuerySessionInformationW, WTSConnectState, WTS_CURRENT_SERVER_HANDLE,
-        WTSActive,
-    };
     use windows::Win32::System::RemoteDesktop::WTSGetActiveConsoleSessionId;
+    use windows::Win32::System::RemoteDesktop::{
+        WTSActive, WTSConnectState, WTSQuerySessionInformationW, WTS_CURRENT_SERVER_HANDLE,
+    };
 
     unsafe {
         let session_id = WTSGetActiveConsoleSessionId();
@@ -75,8 +76,8 @@ pub(super) fn probe_secure_desktop() -> PreflightStatus {
 #[cfg(target_os = "windows")]
 pub(super) fn probe_dpi_awareness() -> PreflightStatus {
     use windows::Win32::UI::HiDpi::{
-        GetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
-        AreDpiAwarenessContextsEqual,
+        AreDpiAwarenessContextsEqual, GetThreadDpiAwarenessContext,
+        DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
     };
 
     unsafe {
@@ -95,7 +96,8 @@ pub(super) fn probe_a11y_service() -> PreflightStatus {
     use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation};
 
     unsafe {
-        let res: Result<IUIAutomation, _> = CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER);
+        let res: Result<IUIAutomation, _> =
+            CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER);
         match res {
             Ok(_) => PreflightStatus::Pass,
             Err(_) => PreflightStatus::Fail,

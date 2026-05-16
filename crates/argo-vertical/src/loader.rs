@@ -107,11 +107,7 @@ version = "0.1.0"
     fn write_vertical(root: &Path, id: &str) {
         let dir = root.join(id);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(
-            dir.join("vertical.toml"),
-            MIN_TOML.replace("{id}", id),
-        )
-        .unwrap();
+        fs::write(dir.join("vertical.toml"), MIN_TOML.replace("{id}", id)).unwrap();
     }
 
     #[test]

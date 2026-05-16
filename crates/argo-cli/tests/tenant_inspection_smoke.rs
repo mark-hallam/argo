@@ -45,7 +45,13 @@ async fn tenant_inspection_and_id_rename_work_end_to_end() {
     assert_eq!(shown["tenant"]["summary"]["worker_count"], 1);
     assert_eq!(shown["tenant"]["recent_activity"][0]["kind"], "tenant_seed");
     assert_eq!(shown["tenant"]["channels"][0]["manifest_present"], true);
-    assert!(shown["tenant"]["classification_rules"].as_array().unwrap().len() >= 6);
+    assert!(
+        shown["tenant"]["classification_rules"]
+            .as_array()
+            .unwrap()
+            .len()
+            >= 6
+    );
 
     let new_id = Uuid::now_v7().to_string();
     let renamed = json(run(

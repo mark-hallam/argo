@@ -140,8 +140,12 @@ impl Handoff {
     #[must_use]
     pub fn active_escalation_chain(&self) -> Option<EscalationChain> {
         let arr = self.payload.get("escalation_chain")?.as_array()?;
-        let current = self.payload.get("escalation_index")
-            .and_then(serde_json::Value::as_u64).map(|n| n as usize).unwrap_or(0);
+        let current = self
+            .payload
+            .get("escalation_index")
+            .and_then(serde_json::Value::as_u64)
+            .map(|n| n as usize)
+            .unwrap_or(0);
         let steps: Vec<EscalationStep> = arr
             .iter()
             .skip(current)
@@ -158,8 +162,10 @@ impl Handoff {
             self.payload = serde_json::json!({});
         }
         if let Some(obj) = self.payload.as_object_mut() {
-            obj.insert("escalation_chain".into(),
-                serde_json::json!(chain.steps().iter().map(stringify_step).collect::<Vec<_>>()));
+            obj.insert(
+                "escalation_chain".into(),
+                serde_json::json!(chain.steps().iter().map(stringify_step).collect::<Vec<_>>()),
+            );
             obj.insert("escalation_index".into(), serde_json::json!(index));
         }
     }
@@ -193,9 +199,14 @@ impl Handoff {
     /// Mark `Cancelled`. Only Pending/Acknowledged can be cancelled.
     pub fn cancel(&mut self) -> ArgoResult<()> {
         match self.status {
-            HandoffStatus::Pending | HandoffStatus::Acknowledged => { self.status = HandoffStatus::Cancelled; Ok(()) }
+            HandoffStatus::Pending | HandoffStatus::Acknowledged => {
+                self.status = HandoffStatus::Cancelled;
+                Ok(())
+            }
             HandoffStatus::Cancelled => Ok(()),
-            HandoffStatus::Settled | HandoffStatus::Expired => Err(ArgoError::Invariant("invalid handoff status transition".into())),
+            HandoffStatus::Settled | HandoffStatus::Expired => Err(ArgoError::Invariant(
+                "invalid handoff status transition".into(),
+            )),
         }
     }
 

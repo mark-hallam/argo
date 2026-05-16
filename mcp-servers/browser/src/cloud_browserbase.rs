@@ -126,7 +126,12 @@ pub async fn close_session(session_id: &str) -> CallToolResult {
     }
     let url = format!("https://api.browserbase.com/v1/sessions/{session_id}");
     let client = reqwest::Client::new();
-    let resp = match client.delete(&url).header("X-BB-API-Key", &api_key).send().await {
+    let resp = match client
+        .delete(&url)
+        .header("X-BB-API-Key", &api_key)
+        .send()
+        .await
+    {
         Ok(r) => r,
         Err(e) => return err(format!("browserbase DELETE {url}: {e}")),
     };

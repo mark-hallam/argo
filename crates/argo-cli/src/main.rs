@@ -174,7 +174,12 @@ async fn dispatch_runtime(cmd: RuntimeCmd) -> ArgoResult<()> {
             main_dispatch_session::runtime_steer(session_id, text).await
         }
         RuntimeCmd::Trace {
-            cmd: Some(cli::TraceCmd::Explore { session, format, path }),
+            cmd:
+                Some(cli::TraceCmd::Explore {
+                    session,
+                    format,
+                    path,
+                }),
             ..
         } => main_dispatch_session::runtime_trace_explore(session, format, path),
         RuntimeCmd::Trace {
@@ -185,9 +190,7 @@ async fn dispatch_runtime(cmd: RuntimeCmd) -> ArgoResult<()> {
         RuntimeCmd::Recover { session_id, json } => {
             main_dispatch_session::runtime_recover(session_id, json).await
         }
-        RuntimeCmd::RecoverCache { cmd } => {
-            main_dispatch_session::runtime_recover_cache(cmd).await
-        }
+        RuntimeCmd::RecoverCache { cmd } => main_dispatch_session::runtime_recover_cache(cmd).await,
         // Runtime-edge surfaces.
         RuntimeCmd::Health { json, format } => {
             main_dispatch_gateway::runtime_health(json, format).await
@@ -224,6 +227,8 @@ async fn dispatch_runtime(cmd: RuntimeCmd) -> ArgoResult<()> {
         // Developer-experience surfaces.
         RuntimeCmd::Tui => main_dispatch_dev::runtime_tui().await,
         RuntimeCmd::Tools { cmd } => main_dispatch_dev::runtime_tools(cmd).await,
-        RuntimeCmd::Voice { mock_script, json } => main_dispatch_dev::runtime_voice(mock_script, json),
+        RuntimeCmd::Voice { mock_script, json } => {
+            main_dispatch_dev::runtime_voice(mock_script, json)
+        }
     }
 }

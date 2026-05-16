@@ -44,11 +44,12 @@ fn run_score_json(verticals: &Path) -> (bool, serde_json::Value) {
         .output()
         .expect("spawn");
     let body = String::from_utf8(out.stdout).unwrap();
-    let v: serde_json::Value =
-        serde_json::from_str(&body).unwrap_or_else(|e| {
-            panic!("scored output not JSON: {e}\nbody:\n{body}\nstderr:\n{}",
-                String::from_utf8_lossy(&out.stderr))
-        });
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_else(|e| {
+        panic!(
+            "scored output not JSON: {e}\nbody:\n{body}\nstderr:\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        )
+    });
     (out.status.success(), v)
 }
 
@@ -106,18 +107,20 @@ fn scored_eval_fails_when_forbidden_substring_present_hallucination_guard() {
     assert!(!success, "hallucinated facts must fail");
     let suite = &v["suites"][0];
     assert_eq!(suite["failed"], 1);
-    let reasons = suite["fixtures"][0]["fail_reasons"]
-        .as_array()
-        .unwrap();
+    let reasons = suite["fixtures"][0]["fail_reasons"].as_array().unwrap();
     // Both the must_not_include AND the hallucination rule
     // should have flagged this — that's the defence-in-depth
     // the contract documents.
     assert!(
-        reasons.iter().any(|r| r.as_str().unwrap().contains("recently raised $")),
+        reasons
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("recently raised $")),
         "reasons: {reasons:?}"
     );
     assert!(
-        reasons.iter().any(|r| r.as_str().unwrap().contains("ungrounded-claim")),
+        reasons
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("ungrounded-claim")),
         "reasons: {reasons:?}"
     );
 }
@@ -135,7 +138,9 @@ fn scored_eval_catches_failure_to_abstain_under_weak_context() {
         .as_array()
         .unwrap();
     assert!(
-        reasons.iter().any(|r| r.as_str().unwrap().contains("expected abstention")),
+        reasons
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("expected abstention")),
         "reasons: {reasons:?}"
     );
 }
@@ -156,7 +161,9 @@ fn scored_eval_catches_unwarranted_skill_proposal_from_weak_evidence() {
         .as_array()
         .unwrap();
     assert!(
-        reasons.iter().any(|r| r.as_str().unwrap().contains("skill_proposal")),
+        reasons
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("skill_proposal")),
         "reasons: {reasons:?}"
     );
 }
@@ -174,11 +181,15 @@ fn scored_eval_catches_unsafe_external_send_attempt() {
         .as_array()
         .unwrap();
     assert!(
-        reasons.iter().any(|r| r.as_str().unwrap().contains("UNSAFE")),
+        reasons
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("UNSAFE")),
         "reasons: {reasons:?}"
     );
     assert!(
-        reasons.iter().any(|r| r.as_str().unwrap().contains("expected refusal")),
+        reasons
+            .iter()
+            .any(|r| r.as_str().unwrap().contains("expected refusal")),
         "reasons: {reasons:?}"
     );
 }
@@ -251,10 +262,16 @@ fn structural_mode_unchanged_without_score_flag() {
     // no `pass_rate`. The only top-level keys are id/ok/suites.
     assert_eq!(v["id"], "score-fixture");
     assert_eq!(v["ok"], true);
-    assert!(v.get("mode").is_none(), "structural mode must NOT emit `mode`: {v}");
+    assert!(
+        v.get("mode").is_none(),
+        "structural mode must NOT emit `mode`: {v}"
+    );
     let suite = &v["suites"][0];
     assert_eq!(suite["fixture_count"], 3);
-    assert!(suite.get("passed").is_none(), "structural suite shape gained scored fields: {suite}");
+    assert!(
+        suite.get("passed").is_none(),
+        "structural suite shape gained scored fields: {suite}"
+    );
     assert!(suite.get("pass_rate").is_none());
 }
 
@@ -287,4 +304,3 @@ fn gtm_engineer_scored_eval_without_actuals_is_all_no_actual() {
     assert_eq!(suite["no_actual"], 10);
     assert_eq!(suite["scored_count"], 0);
 }
-

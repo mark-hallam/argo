@@ -129,7 +129,8 @@ async fn query_rows(
     );
     qb.push_bind(worker_id);
     if let Some(tenant) = tenant {
-        qb.push(" AND tenant_id = ").push_bind(tenant.bytes.as_slice());
+        qb.push(" AND tenant_id = ")
+            .push_bind(tenant.bytes.as_slice());
     }
     if let Some(since) = since {
         qb.push(" AND charged_at >= ").push_bind(since.timestamp());
@@ -217,9 +218,7 @@ fn parse_since(raw: Option<&str>) -> ArgoResult<Option<DateTime<Utc>>> {
         DateTime::parse_from_rfc3339(since)
             .map(|dt| dt.with_timezone(&Utc))
             .map_err(|e| {
-                ArgoError::Provider(format!(
-                    "invalid --since '{since}' (expected RFC3339): {e}"
-                ))
+                ArgoError::Provider(format!("invalid --since '{since}' (expected RFC3339): {e}"))
             })
     })
     .transpose()

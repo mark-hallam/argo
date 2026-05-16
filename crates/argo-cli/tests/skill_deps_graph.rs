@@ -91,10 +91,7 @@ fn deps_markdown_renders_tree_with_kind_label() {
     assert!(out.status.success(), "deps md: {}", stderr(&out));
     let s = stdout(&out);
     assert!(s.contains("# Dependencies of `parent-1`"), "header: {s}");
-    assert!(
-        s.contains("`child-1` [references]"),
-        "edge with kind: {s}"
-    );
+    assert!(s.contains("`child-1` [references]"), "edge with kind: {s}");
 }
 
 #[test]
@@ -104,7 +101,12 @@ fn deps_handles_branching_chain() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
     create(home.path(), work.path(), "leaf-x", "leaf");
-    create(home.path(), work.path(), "branch-a", "argo skill run leaf-x");
+    create(
+        home.path(),
+        work.path(),
+        "branch-a",
+        "argo skill run leaf-x",
+    );
     create(home.path(), work.path(), "branch-b", "no refs");
     create(
         home.path(),
@@ -123,7 +125,12 @@ fn deps_handles_branching_chain() {
     let edges = v["edges"].as_array().unwrap();
     let pairs: Vec<(String, String)> = edges
         .iter()
-        .map(|e| (e["from"].as_str().unwrap().into(), e["to"].as_str().unwrap().into()))
+        .map(|e| {
+            (
+                e["from"].as_str().unwrap().into(),
+                e["to"].as_str().unwrap().into(),
+            )
+        })
         .collect();
     assert!(pairs.contains(&("branch-root".into(), "branch-a".into())));
     assert!(pairs.contains(&("branch-root".into(), "branch-b".into())));
@@ -162,8 +169,18 @@ fn deps_max_depth_is_honored() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
     create(home.path(), work.path(), "depth-c", "leaf");
-    create(home.path(), work.path(), "depth-b", "argo skill run depth-c");
-    create(home.path(), work.path(), "depth-a", "argo skill run depth-b");
+    create(
+        home.path(),
+        work.path(),
+        "depth-b",
+        "argo skill run depth-c",
+    );
+    create(
+        home.path(),
+        work.path(),
+        "depth-a",
+        "argo skill run depth-b",
+    );
     create(
         home.path(),
         work.path(),
@@ -183,14 +200,22 @@ fn deps_max_depth_is_honored() {
     // is parsed but its edges don't recurse further.
     let froms: Vec<&str> = edges.iter().map(|e| e["from"].as_str().unwrap()).collect();
     assert!(froms.contains(&"depth-root"));
-    assert!(!froms.contains(&"depth-a"), "depth-1 must not recurse: {froms:?}");
+    assert!(
+        !froms.contains(&"depth-a"),
+        "depth-1 must not recurse: {froms:?}"
+    );
 }
 
 #[test]
 fn deps_reverse_finds_parents() {
     let home = tempfile::tempdir().unwrap();
     let work = tempfile::tempdir().unwrap();
-    create(home.path(), work.path(), "rev-shared", "leaf shared by many");
+    create(
+        home.path(),
+        work.path(),
+        "rev-shared",
+        "leaf shared by many",
+    );
     create(
         home.path(),
         work.path(),

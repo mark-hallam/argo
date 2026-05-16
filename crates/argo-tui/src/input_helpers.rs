@@ -98,10 +98,7 @@ pub(crate) async fn force_refresh_open_overlays(
     }
     if state.audit_overlay.is_some() {
         let rows = if let Some(s) = state.selected_session() {
-            store
-                .list_audit_for_session(s.id)
-                .await
-                .unwrap_or_default()
+            store.list_audit_for_session(s.id).await.unwrap_or_default()
         } else {
             Vec::new()
         };
@@ -178,6 +175,9 @@ fn extract_first_text(content_json: &str) -> Option<String> {
     let parsed: serde_json::Value = serde_json::from_str(content_json).ok()?;
     parsed
         .as_array()
-        .and_then(|arr| arr.iter().find_map(|b| b.get("text").and_then(|v| v.as_str())))
+        .and_then(|arr| {
+            arr.iter()
+                .find_map(|b| b.get("text").and_then(|v| v.as_str()))
+        })
         .map(str::to_string)
 }

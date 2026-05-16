@@ -126,7 +126,10 @@ fn dispatch_bundle_carries_sha256_path_and_row_counts() {
             assert!(result_json["sha256"].as_str().unwrap().len() == 64);
             assert!(result_json["bytes_written"].as_u64().unwrap() > 0);
             assert_eq!(result_json["rows_written"].as_u64().unwrap(), 2);
-            assert!(result_json["output_path"].as_str().unwrap().ends_with("out.csv"));
+            assert!(result_json["output_path"]
+                .as_str()
+                .unwrap()
+                .ends_with("out.csv"));
         }
         ActionOutcome::HumanHandoff { .. } => panic!("expected Completed"),
     }

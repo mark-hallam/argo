@@ -144,12 +144,7 @@ fn execute_and_complete_next(home: &Path, work: &Path, action_type: &str) -> Str
 /// test distinguish chain-emitted rows from any other rows
 /// the mock provider produced (e.g. the mock initially emits
 /// a `post_listing` that lands `blocked` under mock evidence).
-fn latest_row_evidence(
-    home: &Path,
-    work: &Path,
-    action_type: &str,
-    state: &str,
-) -> Vec<String> {
+fn latest_row_evidence(home: &Path, work: &Path, action_type: &str, state: &str) -> Vec<String> {
     let list = run_argo(
         home,
         work,
@@ -170,9 +165,10 @@ fn latest_row_evidence(
     );
     assert!(list.status.success());
     let stdout = String::from_utf8(list.stdout).expect("utf8");
-    let line = stdout.lines().next().unwrap_or_else(|| {
-        panic!("no `{action_type}` row in state `{state}`:\n{stdout}")
-    });
+    let line = stdout
+        .lines()
+        .next()
+        .unwrap_or_else(|| panic!("no `{action_type}` row in state `{state}`:\n{stdout}"));
     let row: Value = serde_json::from_str(line).expect("json");
     row["evidence"]
         .as_array()
@@ -278,7 +274,8 @@ fn pre_sale_chain_fires_through_the_binary() {
         ],
     );
     let stdout = String::from_utf8(list.stdout).expect("utf8");
-    let row: Value = serde_json::from_str(stdout.lines().next().expect("post_listing row")).unwrap();
+    let row: Value =
+        serde_json::from_str(stdout.lines().next().expect("post_listing row")).unwrap();
     assert_eq!(
         row["requires_approval"].as_bool(),
         Some(true),

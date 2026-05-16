@@ -13,9 +13,10 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
     let session_store = SessionStore::open(&db_path(&home)).await?;
     session_store.migrate().await?;
     let store = AuctionStore::new(session_store.pool().clone());
-    let auction = store.get(id).await?.ok_or_else(|| {
-        ArgoError::Provider(format!("auction '{id}' not found"))
-    })?;
+    let auction = store
+        .get(id)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("auction '{id}' not found")))?;
 
     if json {
         let bids: Vec<serde_json::Value> = auction
@@ -57,7 +58,10 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
         }
         println!("description: {}", auction.task.description);
         if !auction.task.required_skills.is_empty() {
-            println!("required_skills: {}", auction.task.required_skills.join(", "));
+            println!(
+                "required_skills: {}",
+                auction.task.required_skills.join(", ")
+            );
         }
         if let Some(w) = &auction.winner {
             println!(

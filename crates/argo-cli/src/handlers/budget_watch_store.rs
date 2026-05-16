@@ -5,7 +5,7 @@
 //! from `budget_watch.rs` and re-exported with `pub(crate) use` so
 //! existing call sites (and the tests file) are unchanged.
 
-use super::{AlertCandidate, BudgetAlertRow, alert_day, micros_to_usd};
+use super::{alert_day, micros_to_usd, AlertCandidate, BudgetAlertRow};
 use argo_identity::AutoApprovalPolicy;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};

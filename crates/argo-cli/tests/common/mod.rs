@@ -191,15 +191,13 @@ pub fn await_listening(stderr: &mut BufReader<impl Read>) {
     let mut line = String::new();
     loop {
         if Instant::now() > deadline {
-            panic!(
-                "listener did not announce in {deadline_ms}ms (set {DEADLINE_ENV} to extend)"
-            );
+            panic!("listener did not announce in {deadline_ms}ms (set {DEADLINE_ENV} to extend)");
         }
         line.clear();
         match stderr.read_line(&mut line) {
-            Ok(0) => panic!(
-                "gateway crashed before listener bound (stderr closed without announce)"
-            ),
+            Ok(0) => {
+                panic!("gateway crashed before listener bound (stderr closed without announce)")
+            }
             Ok(_) => {
                 if line.contains("listening on") {
                     break;

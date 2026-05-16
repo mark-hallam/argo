@@ -133,7 +133,10 @@ pub fn write_artefacts(
         &build_persona_prompt(archetype, persona),
     )?;
     write(&memory_dir.join("schema.toml"), &build_memory_schema())?;
-    write(&eval_dir.join("seed.jsonl"), &build_eval_seed(archetype, persona))?;
+    write(
+        &eval_dir.join("seed.jsonl"),
+        &build_eval_seed(archetype, persona),
+    )?;
     Ok(())
 }
 

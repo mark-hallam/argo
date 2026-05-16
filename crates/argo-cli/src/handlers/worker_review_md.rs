@@ -44,9 +44,13 @@ fn push_kpis(out: &mut String, kpis: &[KpiDelta]) {
         out.push_str(&format!(
             "| {} | {} | {:.4} | {} | {} |\n",
             k.kpi,
-            k.baseline.map(|v| format!("{v:.4}")).unwrap_or_else(|| "n/a".into()),
+            k.baseline
+                .map(|v| format!("{v:.4}"))
+                .unwrap_or_else(|| "n/a".into()),
             k.latest,
-            k.delta.map(|v| format!("{v:+.4}")).unwrap_or_else(|| "n/a".into()),
+            k.delta
+                .map(|v| format!("{v:+.4}"))
+                .unwrap_or_else(|| "n/a".into()),
             k.latest_at_rfc3339,
         ));
     }

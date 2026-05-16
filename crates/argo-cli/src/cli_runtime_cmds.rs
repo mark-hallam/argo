@@ -108,10 +108,7 @@ pub enum RuntimeCmd {
     /// nudge a running agent without waiting for the next prompt.
     #[command(after_help = "Examples:\n  \
         argo steer 01J9XYZ... \"pause and summarise progress\"")]
-    Steer {
-        session_id: String,
-        text: String,
-    },
+    Steer { session_id: String, text: String },
     /// Inspect session traces. Without a subcommand, renders the
     /// audit-log timeline (`--session`) or one turn's span tree
     /// (`--turn`); with `explore <session>`, walks the local OTLP

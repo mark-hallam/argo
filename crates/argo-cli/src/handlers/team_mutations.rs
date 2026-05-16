@@ -40,9 +40,7 @@ pub(super) async fn add(
         print_json(&payload)?;
     } else {
         let role_str = role.unwrap_or("(none)");
-        println!(
-            "ok: added worker {worker_id} to team {team_id} (role: {role_str})"
-        );
+        println!("ok: added worker {worker_id} to team {team_id} (role: {role_str})");
     }
     Ok(())
 }
@@ -77,9 +75,7 @@ pub(super) async fn remove(
     } else if did {
         println!("ok: soft-removed worker {worker_id} from team {team_id}");
     } else {
-        println!(
-            "no-op: worker {worker_id} was not an active member of team {team_id}"
-        );
+        println!("no-op: worker {worker_id} was not an active member of team {team_id}");
     }
     Ok(())
 }
@@ -151,20 +147,13 @@ pub(super) async fn create(
                 "ok: created team {} ({}) under parent {}",
                 outcome.name, outcome.id, p
             ),
-            None => println!(
-                "ok: created team {} ({}) at root",
-                outcome.name, outcome.id
-            ),
+            None => println!("ok: created team {} ({}) at root", outcome.name, outcome.id),
         }
     }
     Ok(())
 }
 
-async fn require_team(
-    store: &SessionStore,
-    tenant: TenantId,
-    team_id: &str,
-) -> ArgoResult<()> {
+async fn require_team(store: &SessionStore, tenant: TenantId, team_id: &str) -> ArgoResult<()> {
     let exists = team_roster::get_team(store.pool(), tenant, team_id).await?;
     if exists.is_none() {
         return Err(ArgoError::Provider(format!(

@@ -141,7 +141,10 @@ async fn sweep_at_exact_retention_boundary_deletes_the_row() {
     // puts the boundary exactly at `captured_at` — the `<=` form
     // therefore sweeps the row.
     let now = SystemTime::now() + Duration::from_secs(1);
-    let deleted = store.sweep_expired(now, Duration::from_secs(0)).await.unwrap();
+    let deleted = store
+        .sweep_expired(now, Duration::from_secs(0))
+        .await
+        .unwrap();
     assert_eq!(deleted, 1);
 }
 

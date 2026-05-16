@@ -17,10 +17,7 @@ fn dashboard_fleet_renders_html_with_status_chrome() {
     let (mut child, _drain) = boot(port, 2);
 
     let resp = http_get(port, "/dashboard/fleet");
-    assert!(
-        resp.contains("HTTP/1.1 200 OK"),
-        "fleet status: {resp}"
-    );
+    assert!(resp.contains("HTTP/1.1 200 OK"), "fleet status: {resp}");
     assert!(
         resp.contains("Content-Type: text/html; charset=utf-8"),
         "fleet content-type: {resp}"
@@ -28,18 +25,12 @@ fn dashboard_fleet_renders_html_with_status_chrome() {
 
     let body = body_of(&resp);
     assert!(body.contains("<h1>Fleet</h1>"), "fleet body: {body}");
-    assert!(
-        body.contains("setTimeout"),
-        "auto-refresh present: {body}"
-    );
+    assert!(body.contains("setTimeout"), "auto-refresh present: {body}");
     assert!(
         body.contains("location.reload"),
         "auto-refresh reloads: {body}"
     );
-    assert!(
-        !body.contains("https://"),
-        "no external CDN refs: {body}"
-    );
+    assert!(!body.contains("https://"), "no external CDN refs: {body}");
     // Empty-fleet message is the seeded baseline state.
     assert!(
         body.contains("No workers have reported activity yet."),

@@ -48,8 +48,8 @@ fn context_anon_from_env() -> String {
 pub fn init() {
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn,argo=info"));
-    let ctx_layer = context_enabled_from_env()
-        .then(|| ContextInjectorLayer::new(context_anon_from_env()));
+    let ctx_layer =
+        context_enabled_from_env().then(|| ContextInjectorLayer::new(context_anon_from_env()));
     if secrets_scrubber::enabled() {
         let _ = tracing_subscriber::registry()
             .with(ctx_layer)

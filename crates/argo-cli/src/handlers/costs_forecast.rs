@@ -72,14 +72,9 @@ const BAND_PCT: f64 = 0.20;
 
 /// CLI entry point. Loads the spend ledger, computes the forecast,
 /// and prints in the requested format.
-pub async fn run(
-    horizon: Horizon,
-    lookback_raw: &str,
-    format: ForecastFormat,
-) -> ArgoResult<()> {
+pub async fn run(horizon: Horizon, lookback_raw: &str, format: ForecastFormat) -> ArgoResult<()> {
     let lookback = parse_lookback(lookback_raw)?;
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -152,8 +147,7 @@ fn compute_forecast(
         Some(e) if e > lookback_start_us => e,
         _ => lookback_start_us,
     };
-    let effective_lookback_seconds =
-        ((now_us - effective_start_us).max(1_000_000)) / 1_000_000;
+    let effective_lookback_seconds = ((now_us - effective_start_us).max(1_000_000)) / 1_000_000;
 
     let lookback_rows: Vec<&SpendRow> = spend
         .iter()

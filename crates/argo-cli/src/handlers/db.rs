@@ -7,7 +7,11 @@ use argo_types::ArgoResult;
 pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
     // `Rekey` opens its own pool with `[security.encryption] key_source`
     // applied; dispatch it before the generic plaintext-store open below.
-    if let DbCmd::Rekey { new_key_source, json } = &cmd {
+    if let DbCmd::Rekey {
+        new_key_source,
+        json,
+    } = &cmd
+    {
         return super::db_rekey::run(new_key_source, *json).await;
     }
     let cwd = std::env::current_dir()
@@ -145,8 +149,7 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
             if json {
                 println!(
                     "{}",
-                    serde_json::to_string(&serde_json::json!({"version": v}))
-                        .unwrap_or_default()
+                    serde_json::to_string(&serde_json::json!({"version": v})).unwrap_or_default()
                 );
             } else {
                 println!("{v}");
@@ -157,9 +160,7 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
             let rows: Vec<(String,)> = sqlx::query_as("PRAGMA integrity_check")
                 .fetch_all(pool)
                 .await
-                .map_err(|e| {
-                    argo_types::ArgoError::Provider(format!("integrity_check: {e}"))
-                })?;
+                .map_err(|e| argo_types::ArgoError::Provider(format!("integrity_check: {e}")))?;
             let lines: Vec<String> = rows.into_iter().map(|(s,)| s).collect();
             let ok = lines.len() == 1 && lines.first().is_some_and(|s| s == "ok");
             if json {

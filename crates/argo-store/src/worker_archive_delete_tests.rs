@@ -10,8 +10,7 @@ use crate::SessionStore;
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-const IDENTITY_SCHEMA_SQL: &str =
-    include_str!("../migrations/12__worker_identity.sql");
+const IDENTITY_SCHEMA_SQL: &str = include_str!("../migrations/12__worker_identity.sql");
 
 /// Mirrors the helper in `worker_archive_tests::pool` — re-applies the
 /// `argo-identity` schema atop a fully-migrated store so seed helpers
@@ -40,7 +39,9 @@ async fn pool() -> SqlitePool {
             .execute(store.pool())
             .await;
     }
-    ensure_schema(store.pool()).await.expect("apply archive schema");
+    ensure_schema(store.pool())
+        .await
+        .expect("apply archive schema");
     ensure_audit_tombstone_column(store.pool())
         .await
         .expect("apply audit tombstone column");
@@ -223,8 +224,9 @@ async fn delete_rejects_inside_grace_window_with_remaining_days() {
     );
 
     // The archive row is still present — error path must not delete.
-    let still_archived =
-        list_archived(&pool, tenant_id).await.expect("list archived");
+    let still_archived = list_archived(&pool, tenant_id)
+        .await
+        .expect("list archived");
     assert_eq!(still_archived.len(), 1);
 }
 
@@ -240,8 +242,7 @@ async fn delete_succeeds_after_grace_and_drops_archive_row() {
         .await
         .expect("delete after grace");
 
-    let archive_after =
-        list_archived(&pool, tenant_id).await.expect("list");
+    let archive_after = list_archived(&pool, tenant_id).await.expect("list");
     assert!(
         archive_after.is_empty(),
         "archive row dropped on successful delete"
@@ -260,21 +261,19 @@ async fn delete_cascades_memory_rows_within_tenant_only() {
     let workspace_a = workspace_id_for_seed(&pool, tenant_id).await;
     let workspace_b = workspace_id_for_seed(&pool, other_tenant).await;
     seed_memory_entry(&pool, &workspace_a, worker_id, tenant_id).await;
-    let cross_id =
-        seed_memory_entry(&pool, &workspace_b, worker_id, other_tenant).await;
+    let cross_id = seed_memory_entry(&pool, &workspace_b, worker_id, other_tenant).await;
 
     delete_worker(&pool, worker_id, tenant_id)
         .await
         .expect("delete cascade");
 
-    let in_tenant: Option<Vec<u8>> = sqlx::query_scalar(
-        "SELECT id FROM memory_entry WHERE worker_id = ? AND tenant_id = ?",
-    )
-    .bind(Uuid::parse_str(worker_id).unwrap().as_bytes().as_slice())
-    .bind(Uuid::parse_str(tenant_id).unwrap().as_bytes().as_slice())
-    .fetch_optional(&pool)
-    .await
-    .unwrap();
+    let in_tenant: Option<Vec<u8>> =
+        sqlx::query_scalar("SELECT id FROM memory_entry WHERE worker_id = ? AND tenant_id = ?")
+            .bind(Uuid::parse_str(worker_id).unwrap().as_bytes().as_slice())
+            .bind(Uuid::parse_str(tenant_id).unwrap().as_bytes().as_slice())
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
     assert!(in_tenant.is_none(), "in-tenant memory row purged");
 
     let cross_tenant: Option<Vec<u8>> =
@@ -298,8 +297,7 @@ async fn delete_tombstones_audit_rows_without_breaking_chain_hashes() {
     archive_then_age(&pool, worker_id, tenant_id, well_past).await;
 
     let workspace = workspace_id_for_seed(&pool, tenant_id).await;
-    let audit_id =
-        seed_session_and_audit(&pool, &workspace, worker_id, tenant_id).await;
+    let audit_id = seed_session_and_audit(&pool, &workspace, worker_id, tenant_id).await;
 
     delete_worker(&pool, worker_id, tenant_id)
         .await
@@ -338,7 +336,6 @@ async fn force_delete_skips_grace_gate_but_demands_confirm() {
         .await
         .expect("force delete with confirm");
 
-    let archive_after =
-        list_archived(&pool, tenant_id).await.expect("list");
+    let archive_after = list_archived(&pool, tenant_id).await.expect("list");
     assert!(archive_after.is_empty(), "archive row purged by force path");
 }

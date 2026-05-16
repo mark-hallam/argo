@@ -20,17 +20,15 @@ pub async fn run(
     threshold: u64,
     json: bool,
 ) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let store = Arc::new(store);
 
-    let uuid = Uuid::parse_str(session_id_str).map_err(|e| {
-        ArgoError::Schema(format!("invalid session id '{session_id_str}': {e}"))
-    })?;
+    let uuid = Uuid::parse_str(session_id_str)
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{session_id_str}': {e}")))?;
     let sid = SessionId(uuid);
 
     // Fail loud on ghost session id — operator probably typo'd.
@@ -71,7 +69,13 @@ pub async fn run(
             denials.len()
         );
         for g in &denials {
-            println!("  [{}] {} ({}× ) — {}", g.kind.label(), g.anchor, g.count, g.message);
+            println!(
+                "  [{}] {} ({}× ) — {}",
+                g.kind.label(),
+                g.anchor,
+                g.count,
+                g.message
+            );
         }
     }
     Ok(())

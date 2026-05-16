@@ -31,8 +31,7 @@ pub(super) async fn down<'a, 'b>(
     _tx: &'a mut sqlx::Transaction<'b, Sqlite>,
 ) -> Result<(), ArgoError> {
     Err(ArgoError::Provider(
-        "v16 rollback unsupported: orchestrator session columns may own live data"
-            .into(),
+        "v16 rollback unsupported: orchestrator session columns may own live data".into(),
     ))
 }
 

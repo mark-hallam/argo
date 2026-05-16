@@ -24,8 +24,12 @@ async fn fresh() -> (SessionStore, TenantId) {
 #[tokio::test]
 async fn list_markdown_snapshot() {
     let (store, tenant) = fresh().await;
-    let _ = create_team(store.pool(), tenant, "alpha", None).await.unwrap();
-    let _ = create_team(store.pool(), tenant, "beta", None).await.unwrap();
+    let _ = create_team(store.pool(), tenant, "alpha", None)
+        .await
+        .unwrap();
+    let _ = create_team(store.pool(), tenant, "beta", None)
+        .await
+        .unwrap();
     let teams = argo_store::team_roster::list_teams(store.pool(), tenant)
         .await
         .unwrap();
@@ -63,15 +67,12 @@ async fn show_markdown_snapshot_with_charter_summary() {
             .to_string(),
     );
     identities.create_worker(&worker).await.unwrap();
-    let team = create_team(store.pool(), tenant, "support", None).await.unwrap();
-    add_team_member(
-        store.pool(),
-        &team.id,
-        &worker.id.to_string(),
-        Some("lead"),
-    )
-    .await
-    .unwrap();
+    let team = create_team(store.pool(), tenant, "support", None)
+        .await
+        .unwrap();
+    add_team_member(store.pool(), &team.id, &worker.id.to_string(), Some("lead"))
+        .await
+        .unwrap();
     let detail = argo_store::team_roster::get_team(store.pool(), tenant, &team.id)
         .await
         .unwrap()
@@ -91,7 +92,9 @@ async fn show_markdown_snapshot_with_charter_summary() {
 #[tokio::test]
 async fn show_markdown_no_active_members() {
     let (store, tenant) = fresh().await;
-    let team = create_team(store.pool(), tenant, "ops", None).await.unwrap();
+    let team = create_team(store.pool(), tenant, "ops", None)
+        .await
+        .unwrap();
     let detail = argo_store::team_roster::get_team(store.pool(), tenant, &team.id)
         .await
         .unwrap()

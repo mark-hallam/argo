@@ -19,8 +19,7 @@ use uuid::Uuid;
 /// audit + grant writes share the connection pool.
 async fn open_store() -> ArgoResult<Arc<SessionStore>> {
     use crate::home::{db_path, ensure_dir, resolve_home};
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let pool = SessionStore::open(db_path(&home).to_string_lossy().as_ref()).await?;
@@ -48,9 +47,10 @@ pub async fn approve(
     // Sanity check: the session exists. Fail loud — silent
     // grants against ghost sessions would confuse the operator
     // and accumulate dead rows.
-    let session = store.get_session(sid).await?.ok_or_else(|| {
-        ArgoError::Provider(format!("no session with id '{session_id_str}'"))
-    })?;
+    let session = store
+        .get_session(sid)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no session with id '{session_id_str}'")))?;
     let grant_id = store
         .add_session_grant(sid, tool, "cli", note, once)
         .await?;
@@ -89,13 +89,9 @@ pub async fn approve(
             "approved tool '{tool}' for session '{session_id_str}'{suffix} (grant {grant_id})"
         );
         if once {
-            println!(
-                "  → next dispatch of '{tool}' goes through; subsequent calls re-block"
-            );
+            println!("  → next dispatch of '{tool}' goes through; subsequent calls re-block");
         } else {
-            println!(
-                "  → next turn against this session will let '{tool}' dispatch"
-            );
+            println!("  → next turn against this session will let '{tool}' dispatch");
         }
     }
     Ok(())
@@ -150,7 +146,11 @@ pub async fn list_grants(session_id_str: &str, json: bool) -> ArgoResult<()> {
                 .filter(|n| !n.is_empty())
                 .map(|n| format!(" — {n}"))
                 .unwrap_or_default();
-            let kind = if g.is_one_shot { "one-shot" } else { "persistent" };
+            let kind = if g.is_one_shot {
+                "one-shot"
+            } else {
+                "persistent"
+            };
             println!(
                 "  [{}] tool={} ({kind}, source={}, granted_at_secs={}){note}",
                 g.id, g.tool_name, g.source, g.granted_at_secs
@@ -161,16 +161,13 @@ pub async fn list_grants(session_id_str: &str, json: bool) -> ArgoResult<()> {
 }
 
 /// `argo session revoke-approval <session-id> --tool <name>`.
-pub async fn revoke_approval(
-    session_id_str: &str,
-    tool: &str,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn revoke_approval(session_id_str: &str, tool: &str, json: bool) -> ArgoResult<()> {
     let sid = parse_session_id(session_id_str)?;
     let store = open_store().await?;
-    let session = store.get_session(sid).await?.ok_or_else(|| {
-        ArgoError::Provider(format!("no session with id '{session_id_str}'"))
-    })?;
+    let session = store
+        .get_session(sid)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no session with id '{session_id_str}'")))?;
     let removed = store.revoke_session_grants_for_tool(sid, tool).await?;
     let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     let payload = serde_json::json!({
@@ -194,9 +191,7 @@ pub async fn revoke_approval(
             .unwrap_or_default()
         );
     } else {
-        println!(
-            "revoked {removed} grant(s) for tool '{tool}' on session '{session_id_str}'"
-        );
+        println!("revoked {removed} grant(s) for tool '{tool}' on session '{session_id_str}'");
     }
     Ok(())
 }

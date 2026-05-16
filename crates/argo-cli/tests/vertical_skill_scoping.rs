@@ -12,11 +12,7 @@ use common::argo_bin;
 use std::path::Path;
 use std::process::Command;
 
-fn write_vertical_with_skill(
-    verticals_dir: &Path,
-    id: &str,
-    skill_name: &str,
-) {
+fn write_vertical_with_skill(verticals_dir: &Path, id: &str, skill_name: &str) {
     let v = verticals_dir.join(id);
     std::fs::create_dir_all(v.join("skills")).unwrap();
     std::fs::write(
@@ -164,7 +160,11 @@ fn vertical_run_attaches_only_its_own_bundled_skills() {
         .args(["vertical", "run", "alpha", "--workflow", "go", "--json"])
         .output()
         .expect("spawn vertical run alpha");
-    assert!(out.status.success(), "alpha run stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "alpha run stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let v: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     let attached = v["skills_attached"].as_u64().unwrap();

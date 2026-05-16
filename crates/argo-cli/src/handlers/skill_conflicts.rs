@@ -12,9 +12,7 @@
 //! "no library configured" error on `show`/`resolve`) so the
 //! command degrades cleanly without a library wired.
 use crate::cli::SkillConflictsCmd;
-use argo_skill::{
-    detect_conflicts, parse_keep_flag, render_diff, SkillConflict, SkillStore,
-};
+use argo_skill::{detect_conflicts, parse_keep_flag, render_diff, SkillConflict, SkillStore};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
@@ -70,9 +68,7 @@ async fn list(workspace: &SkillStore, library: Option<&SkillStore>, json: bool) 
     for c in &conflicts {
         println!(
             "  {:<24} workspace@{} | library@{}",
-            c.name,
-            c.workspace.frontmatter.version,
-            c.library.frontmatter.version,
+            c.name, c.workspace.frontmatter.version, c.library.frontmatter.version,
         );
     }
     Ok(())
@@ -124,9 +120,7 @@ async fn resolve(
         )
     })?;
     let keep_layer = parse_keep_flag(keep).ok_or_else(|| {
-        ArgoError::Schema(format!(
-            "--keep '{keep}' must be `workspace` or `library`"
-        ))
+        ArgoError::Schema(format!("--keep '{keep}' must be `workspace` or `library`"))
     })?;
     let conflicts = detect_conflicts(workspace, library).await?;
     let conflict = conflicts

@@ -20,8 +20,12 @@ pub async fn run(skills: &SkillStore, cmd: SkillSignCmd) -> ArgoResult<()> {
     let source = load_source(skills, &cmd).await?;
     let signing = load_private_key(key_path)?;
     let tag = cmd.tag.clone().unwrap_or_else(|| source.version.clone());
-    let sig =
-        build_signature_artifact(&source.name, &source.version, &signing, source.raw.as_bytes());
+    let sig = build_signature_artifact(
+        &source.name,
+        &source.version,
+        &signing,
+        source.raw.as_bytes(),
+    );
     let path = write_signature_artifact(&cmd.registry, &sig, &tag)?;
     if cmd.json {
         println!(
@@ -51,10 +55,7 @@ pub async fn run(skills: &SkillStore, cmd: SkillSignCmd) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn load_source(
-    skills: &SkillStore,
-    cmd: &SkillSignCmd,
-) -> ArgoResult<SkillPublishSource> {
+async fn load_source(skills: &SkillStore, cmd: &SkillSignCmd) -> ArgoResult<SkillPublishSource> {
     if let Some(path) = &cmd.manifest {
         let raw = std::fs::read_to_string(path)
             .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;

@@ -11,7 +11,12 @@ use crate::policy::{PolicyMode, RedactionPolicy};
 /// The four string fields on the `ApprovalRow` JSON shape that the
 /// fence redacts. Order is stable so tests don't depend on hash
 /// iteration.
-const REDACTABLE_FIELDS: [&str; 4] = ["detail", "consequence_if_yes", "consequence_if_no", "reason"];
+const REDACTABLE_FIELDS: [&str; 4] = [
+    "detail",
+    "consequence_if_yes",
+    "consequence_if_no",
+    "reason",
+];
 
 /// Wire `event_type` value the gateway uses when emitting the
 /// per-row redaction audit signal. Carried as a tracing field on
@@ -142,18 +147,17 @@ pub fn redact_approval_row(
 /// payload only carries the categories that were masked, not the
 /// underlying values.
 #[must_use]
-pub fn audit_payload(
-    actor_id: &str,
-    approval_id: &str,
-    redaction: &ApprovalRedaction,
-) -> Value {
+pub fn audit_payload(actor_id: &str, approval_id: &str, redaction: &ApprovalRedaction) -> Value {
     let cats: Vec<&str> = redaction
         .categories_masked
         .iter()
         .map(|c| c.label())
         .collect();
     let mut obj = Map::new();
-    obj.insert("event_type".to_string(), Value::String(AUDIT_EVENT_TYPE.to_string()));
+    obj.insert(
+        "event_type".to_string(),
+        Value::String(AUDIT_EVENT_TYPE.to_string()),
+    );
     obj.insert("actor_id".to_string(), Value::String(actor_id.to_string()));
     obj.insert(
         "approval_id".to_string(),
@@ -161,7 +165,11 @@ pub fn audit_payload(
     );
     obj.insert(
         "categories_masked".to_string(),
-        Value::Array(cats.into_iter().map(|c| Value::String(c.to_string())).collect()),
+        Value::Array(
+            cats.into_iter()
+                .map(|c| Value::String(c.to_string()))
+                .collect(),
+        ),
     );
     if let Some(gid) = redaction.grant_id.as_ref() {
         obj.insert("grant_id".to_string(), Value::String(gid.clone()));

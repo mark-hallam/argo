@@ -59,8 +59,7 @@ fn fixture_manifest_path() -> PathBuf {
 fn write_vertical_manifest(verticals_dir: &Path) {
     let dir = verticals_dir.join(VERTICAL_ID);
     std::fs::create_dir_all(&dir).expect("verticals/<id> dir");
-    let src = std::fs::read_to_string(fixture_manifest_path())
-        .expect("read fixture manifest");
+    let src = std::fs::read_to_string(fixture_manifest_path()).expect("read fixture manifest");
     std::fs::write(dir.join("vertical.toml"), src).expect("write vertical.toml");
 }
 
@@ -122,7 +121,12 @@ fn workspace_setup() -> (tempfile::TempDir, tempfile::TempDir, PathBuf) {
     (home, work, verticals_dir)
 }
 
-fn execute_action(home: &Path, work: &Path, verticals_dir: &Path, action_id: &str) -> serde_json::Value {
+fn execute_action(
+    home: &Path,
+    work: &Path,
+    verticals_dir: &Path,
+    action_id: &str,
+) -> serde_json::Value {
     let out = Command::new(env!("CARGO_BIN_EXE_argo"))
         .env("ARGO_HOME", home)
         .env("ARGO_VERTICALS_DIR", verticals_dir)
@@ -200,7 +204,11 @@ fn dispatch_arm_resolves_for_computer_use_macos_kind() {
 /// "Anthropic returned a specific summary".
 #[test]
 fn dispatch_autonomous_loop_smoke() {
-    if std::env::var("ARGO_NATIVE_MACOS_INTEGRATION").ok().as_deref() != Some("1") {
+    if std::env::var("ARGO_NATIVE_MACOS_INTEGRATION")
+        .ok()
+        .as_deref()
+        != Some("1")
+    {
         eprintln!(
             "WARN: skipping dispatch_autonomous_loop_smoke — \
              set ARGO_NATIVE_MACOS_INTEGRATION=1 on the demo machine to enable"

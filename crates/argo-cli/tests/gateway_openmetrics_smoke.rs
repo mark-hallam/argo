@@ -60,10 +60,7 @@ fn gateway_serves_metrics_and_openmetrics_routes() {
     // New /openmetrics — prometheus-registry-backed, carries the 8
     // brief-specified families.
     let resp = http_get(port, "/openmetrics");
-    assert!(
-        resp.contains("HTTP/1.1 200 OK"),
-        "/openmetrics resp={resp}"
-    );
+    assert!(resp.contains("HTTP/1.1 200 OK"), "/openmetrics resp={resp}");
     assert!(
         resp.contains("Content-Type: text/plain; version=0.0.4"),
         "/openmetrics content-type: {resp}"

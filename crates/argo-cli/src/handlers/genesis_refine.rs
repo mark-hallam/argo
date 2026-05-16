@@ -359,14 +359,10 @@ mod tests {
             calls: AtomicUsize::new(0),
             response: response("send_special_offer", false),
         };
-        let (refined, _evolved) = refine_once(
-            plan,
-            &caller,
-            false,
-            RefineConfig::DEFAULT_MAX_VOCAB_SIZE,
-        )
-        .await
-        .unwrap();
+        let (refined, _evolved) =
+            refine_once(plan, &caller, false, RefineConfig::DEFAULT_MAX_VOCAB_SIZE)
+                .await
+                .unwrap();
         let action = refined
             .manifest
             .actions
@@ -394,10 +390,9 @@ mod tests {
         };
         let mut refined = plan;
         for _ in 0..opts.max_iterations {
-            let (plan, _evolved) =
-                refine_once(refined, &caller, opts.judge, opts.max_vocab_size)
-                    .await
-                    .unwrap();
+            let (plan, _evolved) = refine_once(refined, &caller, opts.judge, opts.max_vocab_size)
+                .await
+                .unwrap();
             refined = plan;
         }
         assert_eq!(caller.calls.load(Ordering::SeqCst), 2);

@@ -39,13 +39,11 @@ pub(crate) fn draw_tool_errors(
         }
     }
     let total: i64 = rows.iter().map(|(_, n)| *n).sum();
-    let para = Paragraph::new(lines).block(
-        Block::default().borders(Borders::ALL).title(format!(
-            " tool errors ({total} failures across {} tool{}) — Esc/E/q closes ",
-            rows.len(),
-            if rows.len() == 1 { "" } else { "s" }
-        )),
-    );
+    let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(format!(
+        " tool errors ({total} failures across {} tool{}) — Esc/E/q closes ",
+        rows.len(),
+        if rows.len() == 1 { "" } else { "s" }
+    )));
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
 }

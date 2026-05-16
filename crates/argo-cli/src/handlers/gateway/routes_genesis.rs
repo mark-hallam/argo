@@ -8,8 +8,7 @@
 use super::{body_from_request, rate_limit};
 use argo_audit::{AuditKind, AuditSink};
 use argo_genesis::{
-    classify_charter, dialogue_to_charter, name_to_persona_slug, plan, CharterDialogue,
-    GenesisPlan,
+    classify_charter, dialogue_to_charter, name_to_persona_slug, plan, CharterDialogue, GenesisPlan,
 };
 use argo_store::SessionStore;
 use serde::Serialize;
@@ -58,7 +57,13 @@ struct DraftResponse {
     cost_usd: Option<f64>,
 }
 
-fn q(id: &str, text: &str, answer_type: &str, options: Option<Vec<&str>>, required: bool) -> ClassifyQuestion {
+fn q(
+    id: &str,
+    text: &str,
+    answer_type: &str,
+    options: Option<Vec<&str>>,
+    required: bool,
+) -> ClassifyQuestion {
     ClassifyQuestion {
         id: id.to_string(),
         text: text.to_string(),
@@ -104,7 +109,15 @@ pub(super) async fn classify_response(
     };
 
     let question_count = resp.questions.len();
-    emit_audit(store, req, "classify", problem.len(), question_count, resp.cost_usd).await;
+    emit_audit(
+        store,
+        req,
+        "classify",
+        problem.len(),
+        question_count,
+        resp.cost_usd,
+    )
+    .await;
     ok_json(&resp)
 }
 
@@ -120,7 +133,10 @@ pub(super) async fn draft_worker_response(
         Some(v) if v.is_object() => v.clone(),
         _ => return bad_request("`answers` (object) is required"),
     };
-    let adjustment = parsed.get("adjustment").and_then(|v| v.as_str()).map(str::to_string);
+    let adjustment = parsed
+        .get("adjustment")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let dialogue = match build_dialogue(&answers) {
         Ok(d) => d,
         Err(msg) => return bad_request(&msg),
@@ -164,8 +180,8 @@ fn parse_problem_envelope(
     req: &str,
 ) -> Result<(serde_json::Value, String), (&'static str, String)> {
     let body = body_from_request(req);
-    let parsed: serde_json::Value = serde_json::from_str(body)
-        .map_err(|e| bad_request(&format!("parse body: {e}")))?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(body).map_err(|e| bad_request(&format!("parse body: {e}")))?;
     let problem = parse_problem(&parsed).map_err(|m| bad_request(&m))?;
     Ok((parsed, problem))
 }
@@ -220,10 +236,7 @@ fn required_str(answers: &serde_json::Value, key: &str) -> Result<String, String
 
 // Accept either a JSON array or a newline/comma-delimited string;
 // pre-E2-d clients sometimes send the latter form.
-fn required_string_list(
-    answers: &serde_json::Value,
-    key: &str,
-) -> Result<Vec<String>, String> {
+fn required_string_list(answers: &serde_json::Value, key: &str) -> Result<Vec<String>, String> {
     let raw = answers
         .get(key)
         .ok_or_else(|| format!("missing required answer: `{key}`"))?;
@@ -286,7 +299,11 @@ fn derive_approval_policy(gp: &GenesisPlan) -> String {
     if total == 0 {
         return "No actions declared; manifest is informational only.".to_string();
     }
-    let gated = actions.actions.values().filter(|d| d.requires_approval).count();
+    let gated = actions
+        .actions
+        .values()
+        .filter(|d| d.requires_approval)
+        .count();
     format!(
         "{gated} of {total} actions require operator approval. Sensitive verbs (send, post, pay) need explicit operator OK before the worker can act."
     )
@@ -297,7 +314,10 @@ fn bad_request(message: &str) -> (&'static str, String) {
 }
 
 fn server_error(message: &str) -> (&'static str, String) {
-    ("500 Internal Server Error", error_envelope("internal", message))
+    (
+        "500 Internal Server Error",
+        error_envelope("internal", message),
+    )
 }
 
 fn timeout_response() -> (&'static str, String) {

@@ -81,11 +81,8 @@ async fn compose_worker_memory(
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
     let ns_worker = argo_identity::WorkerId(worker_id.0);
-    let ns = argo_identity::MemoryNs::new(
-        tenant_id,
-        ns_worker,
-        argo_identity::MemoryScope::WorkerSelf,
-    );
+    let ns =
+        argo_identity::MemoryNs::new(tenant_id, ns_worker, argo_identity::MemoryScope::WorkerSelf);
     match memory.compose_context(&ns, SYSTEM_PROMPT_ACTION).await {
         Ok(pack) => render_worker_memory(&pack.text),
         Err(e) => {
@@ -104,10 +101,7 @@ async fn compose_worker_memory(
 /// via `MemoryNs::compose_context`. Returns the markdown block,
 /// or empty string when there are no rows or the store is
 /// unreachable.
-async fn compose_shared_team_memory(
-    store: &Arc<SessionStore>,
-    tenant_id: TenantId,
-) -> String {
+async fn compose_shared_team_memory(store: &Arc<SessionStore>, tenant_id: TenantId) -> String {
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
     match memory
         .read_shared_team(&argo_memory::shared_team(tenant_id))

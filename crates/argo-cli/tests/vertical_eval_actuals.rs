@@ -33,10 +33,7 @@ fn write_synthetic_vertical(verticals: &Path, body: &str) {
     std::fs::write(v.join("eval/cases.jsonl"), body).unwrap();
 }
 
-fn run_score_with_actuals(
-    verticals: &Path,
-    actuals_path: &Path,
-) -> (bool, String, String) {
+fn run_score_with_actuals(verticals: &Path, actuals_path: &Path) -> (bool, String, String) {
     let out = Command::new(argo_bin())
         .env("ARGO_VERTICALS_DIR", verticals)
         .args([
@@ -90,7 +87,11 @@ fn actuals_response_field_is_alias_for_actual() {
     let actuals = dir.path().join("actuals.jsonl");
     // Use `response` instead of `actual` to mirror externally-
     // captured LLM transcripts that often use that key name.
-    std::fs::write(&actuals, "{\"id\":\"a\",\"response\":\"alpha is present\"}\n").unwrap();
+    std::fs::write(
+        &actuals,
+        "{\"id\":\"a\",\"response\":\"alpha is present\"}\n",
+    )
+    .unwrap();
     let (success, out, _) = run_score_with_actuals(dir.path(), &actuals);
     assert!(success, "out={out}");
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -227,7 +228,10 @@ fn gtm_engineer_scored_with_known_good_actuals_passes_ten_of_ten() {
         .to_path_buf();
     let repo_verticals = workspace_root.join("verticals");
     let actuals = workspace_root.join("verticals/gtm-engineer/eval/known_good_actuals.jsonl");
-    assert!(actuals.is_file(), "shipped actuals file must exist: {actuals:?}");
+    assert!(
+        actuals.is_file(),
+        "shipped actuals file must exist: {actuals:?}"
+    );
     let out = Command::new(argo_bin())
         .env("ARGO_VERTICALS_DIR", &repo_verticals)
         .args([
@@ -250,7 +254,10 @@ fn gtm_engineer_scored_with_known_good_actuals_passes_ten_of_ten() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     let suite = &v["suites"][0];
     assert_eq!(suite["fixture_count"], 10, "expected 10 fixtures: {suite}");
-    assert_eq!(suite["scored_count"], 10, "all 10 should have actuals: {suite}");
+    assert_eq!(
+        suite["scored_count"], 10,
+        "all 10 should have actuals: {suite}"
+    );
     assert_eq!(suite["passed"], 10, "all 10 must pass: {suite}");
     assert_eq!(suite["failed"], 0);
     assert_eq!(suite["no_actual"], 0);

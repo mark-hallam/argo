@@ -45,7 +45,11 @@ fn cli_list_empty_dir_returns_no_verticals_marker() {
         .args(["vertical", "list"])
         .output()
         .expect("spawn");
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8(out.stdout).unwrap();
     assert!(stdout.contains("(no verticals"), "got: {stdout}");
 }
@@ -87,7 +91,8 @@ fn cli_list_json_surfaces_per_vertical_errors_without_failing() {
     // List exits 0 even when individual verticals failed — the
     // catalogue is still partially useful.
     assert!(out.status.success());
-    let v: serde_json::Value = serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(v["ok"], false);
     assert_eq!(v["loaded"].as_array().unwrap().len(), 1);
     assert_eq!(v["errors"].as_array().unwrap().len(), 1);
@@ -105,7 +110,8 @@ fn cli_show_json_returns_full_summary() {
         .output()
         .expect("spawn");
     assert!(out.status.success());
-    let v: serde_json::Value = serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(v["id"], "demo");
     assert_eq!(v["name"], "Demo Vertical");
     assert_eq!(v["description"], "Smoke test fixture");
@@ -276,7 +282,8 @@ fn gateway_verticals_show_returns_404_for_missing() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
-    let (mut child, _stderr) = spawn_gateway_with_verticals_dir(port, home.path(), verticals.path(), 1);
+    let (mut child, _stderr) =
+        spawn_gateway_with_verticals_dir(port, home.path(), verticals.path(), 1);
 
     let resp = http_get(port, "/verticals/ghost");
     assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
@@ -290,7 +297,8 @@ fn gateway_routes_catalog_lists_vertical_endpoints() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
-    let (mut child, _stderr) = spawn_gateway_with_verticals_dir(port, home.path(), verticals.path(), 1);
+    let (mut child, _stderr) =
+        spawn_gateway_with_verticals_dir(port, home.path(), verticals.path(), 1);
 
     let resp = http_get(port, "/routes");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");

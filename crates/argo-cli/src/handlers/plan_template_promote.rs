@@ -80,9 +80,11 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
 
     let sink = SkillStoreSink::new(Arc::clone(&session));
     promote(session.pool(), id, &sink).await?;
-    let after = get(session.pool(), id)
-        .await?
-        .ok_or_else(|| ArgoError::Provider(format!("no learned plan template with id '{id}' after promote")))?;
+    let after = get(session.pool(), id).await?.ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "no learned plan template with id '{id}' after promote"
+        ))
+    })?;
 
     if json {
         let envelope = serde_json::json!({

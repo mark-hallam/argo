@@ -20,7 +20,9 @@ pub(crate) async fn post_pause(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let (_, worker) = match preflight(worker_id_raw, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
@@ -34,7 +36,9 @@ pub(crate) async fn post_resume(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let worker_id = match parse_worker_id(worker_id_raw) {
         Ok(id) => id,
         Err(resp) => return resp,
@@ -71,12 +75,17 @@ pub(crate) async fn post_archive(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let (tenant, worker) = match preflight(worker_id_raw, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
     };
-    if let Err(e) = IdentityStore::new(store).archive_worker(tenant, worker.id).await {
+    if let Err(e) = IdentityStore::new(store)
+        .archive_worker(tenant, worker.id)
+        .await
+    {
         return server_error(&format!("archive: {e}"));
     }
     emit_audit(store, req, &worker, "worker.archived", json!({})).await;
@@ -94,7 +103,9 @@ pub(crate) async fn delete_worker_endpoint(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let worker_id = match parse_worker_id(worker_id_raw) {
         Ok(id) => id,
         Err(resp) => return resp,

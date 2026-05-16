@@ -128,11 +128,9 @@ fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
     } else {
         state.composer.clone()
     };
-    let para = Paragraph::new(body).style(style).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(title),
-    );
+    let para = Paragraph::new(body)
+        .style(style)
+        .block(Block::default().borders(Borders::ALL).title(title));
     frame.render_widget(para, area);
 }
 
@@ -257,8 +255,10 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
         let body = if n == 0 {
             format!("● agent running [{elapsed}]… (assistant reply will appear above)")
         } else {
-            format!("● agent running [{elapsed}]… ({n} live event{plural} so far)",
-                plural = if n == 1 { "" } else { "s" })
+            format!(
+                "● agent running [{elapsed}]… ({n} live event{plural} so far)",
+                plural = if n == 1 { "" } else { "s" }
+            )
         };
         let p = Paragraph::new(body);
         frame.render_widget(p, area);
@@ -306,8 +306,7 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             state.filter
         )
     } else if state.filter.is_empty() {
-        "?=help  j/k  Tab focus  / filter  i comp  s steer  n new  r ren  d del  q quit"
-            .to_string()
+        "?=help  j/k  Tab focus  / filter  i comp  s steer  n new  r ren  d del  q quit".to_string()
     } else {
         format!(
             "filter='{}' ({} match)    /  edit    Esc  clear    q  quit",
@@ -342,13 +341,16 @@ fn fmt_duration(seconds: i64) -> String {
     if seconds < 86400 {
         return format!("{h}h{m}m", h = seconds / 3600, m = (seconds % 3600) / 60);
     }
-    format!("{d}d{h}h", d = seconds / 86400, h = (seconds % 86400) / 3600)
+    format!(
+        "{d}d{h}h",
+        d = seconds / 86400,
+        h = (seconds % 86400) / 3600
+    )
 }
 
 fn short_id(s: &str) -> String {
     s.chars().take(8).collect()
 }
-
 
 #[cfg(test)]
 #[path = "render_tests.rs"]

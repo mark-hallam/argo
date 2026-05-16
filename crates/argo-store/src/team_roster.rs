@@ -32,7 +32,7 @@ use sqlx::{Row, SqlitePool};
 use std::collections::HashSet;
 
 pub use crate::team_roster_mutations::{
-    CreateTeamOutcome, add_team_member, create_team, remove_team_member, rename_team,
+    add_team_member, create_team, remove_team_member, rename_team, CreateTeamOutcome,
 };
 
 /// Embedded SQL doc — the actual schema additions are applied via
@@ -222,11 +222,7 @@ pub async fn get_team(
 
 /// Walk the parent chain to compute tree depth. Cycles short-
 /// circuit at 64 hops to keep a buggy tree from looping forever.
-async fn compute_level(
-    pool: &SqlitePool,
-    tenant: &str,
-    parent: Option<&str>,
-) -> StoreResult<u32> {
+async fn compute_level(pool: &SqlitePool, tenant: &str, parent: Option<&str>) -> StoreResult<u32> {
     let mut level = 0_u32;
     let mut current: Option<String> = parent.map(str::to_string);
     while let Some(pid) = current.take() {
@@ -234,15 +230,14 @@ async fn compute_level(
             break;
         }
         level += 1;
-        current = sqlx::query_scalar(
-            "SELECT parent_id FROM org_unit WHERE tenant_id = ? AND id = ?",
-        )
-        .bind(tenant)
-        .bind(&pid)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("compute_level: {e}")))?
-        .flatten();
+        current =
+            sqlx::query_scalar("SELECT parent_id FROM org_unit WHERE tenant_id = ? AND id = ?")
+                .bind(tenant)
+                .bind(&pid)
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("compute_level: {e}")))?
+                .flatten();
     }
     Ok(level)
 }

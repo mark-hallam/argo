@@ -43,9 +43,9 @@ async fn ensure_schema_adds_resolved_at_column_and_partial_index() {
         .fetch_all(store.pool())
         .await
         .unwrap();
-    assert!(columns.iter().any(|row| {
-        row.try_get::<String, _>("name").ok().as_deref() == Some("resolved_at")
-    }));
+    assert!(columns
+        .iter()
+        .any(|row| { row.try_get::<String, _>("name").ok().as_deref() == Some("resolved_at") }));
     let index_sql: String = sqlx::query_scalar(
         "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_handoff_resolved_at'",
     )

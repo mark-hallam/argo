@@ -143,7 +143,14 @@ fn emit_orchestrator_lands_safe_action_pending_when_evidence_ok() {
     let text = "```action\n\
         {\"action_type\": \"verify_price\", \"payload\": {\"target\": 250}}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &no_sold(),
+    );
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].state, "pending");
     assert!(!records[0].requires_approval);
@@ -156,7 +163,14 @@ fn emit_orchestrator_lands_approval_action_pending_when_evidence_ok() {
     let text = "```action\n\
         {\"action_type\": \"post_listing\", \"payload\": {\"title\":\"x\"}}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &no_sold(),
+    );
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].state, "pending");
     assert!(records[0].requires_approval);
@@ -173,7 +187,14 @@ fn emit_orchestrator_blocks_approval_action_when_evidence_insufficient() {
     let text = "```action\n\
         {\"action_type\": \"post_listing\", \"payload\": {\"title\":\"x\"}}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, false, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        false,
+        &no_sold(),
+    );
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].state, "blocked");
     assert!(records[0]
@@ -192,7 +213,14 @@ fn emit_orchestrator_does_not_downgrade_safe_action_when_evidence_insufficient()
     let text = "```action\n\
         {\"action_type\": \"verify_price\", \"payload\": {\"target\": 250}}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, false, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        false,
+        &no_sold(),
+    );
     assert_eq!(records[0].state, "pending");
     assert!(records[0].blocked_reason.is_none());
 }
@@ -212,7 +240,14 @@ fn emit_orchestrator_per_action_evidence_gate_decision() {
 {\"action_type\": \"post_listing\", \"payload\": {\"title\":\"x\"}}
 ```
 ";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, false, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        false,
+        &no_sold(),
+    );
     assert_eq!(records.len(), 2);
     assert_eq!(records[0].action_type, "verify_price");
     assert_eq!(records[0].state, "pending"); // safe-autonomous, untouched
@@ -227,7 +262,14 @@ fn emit_orchestrator_preserves_undeclared_action_blocking_reason() {
         {\"action_type\": \"drain_bank_account\", \"payload\": {\"amount\": 99999}}\n\
         ```";
     // Even with evidence sufficient, undeclared types stay blocked.
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &no_sold(),
+    );
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].state, "blocked");
     let reason = records[0].blocked_reason.as_deref().unwrap_or("");
@@ -260,7 +302,14 @@ fn render_execution_plan_groups_by_state_and_approval_class() {
 {\"action_type\": \"drain_bank_account\", \"payload\": {}}
 ```
 ";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &no_sold(),
+    );
     assert_eq!(records.len(), 3);
     let plan = render_execution_plan(&records);
     // Header + section headings present.
@@ -284,7 +333,14 @@ fn render_execution_plan_omits_empty_sections() {
     let text = "```action\n\
         {\"action_type\": \"verify_price\", \"payload\": {\"target\": 250}}\n\
         ```";
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, true, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        true,
+        &no_sold(),
+    );
     let plan = render_execution_plan(&records);
     // Only the autonomous-safe section should be present.
     assert!(plan.contains("## Pending (autonomous-safe)"));
@@ -299,7 +355,14 @@ fn render_execution_plan_evidence_gated_approval_lands_in_blocked_section() {
         {\"action_type\": \"post_listing\", \"payload\": {\"title\":\"x\"}}\n\
         ```";
     // Evidence insufficient → approval-gated emission blocks.
-    let records = emit_actions_from_text(&v, "job-1", argo_identity::WorkerId::nil(), text, false, &no_sold());
+    let records = emit_actions_from_text(
+        &v,
+        "job-1",
+        argo_identity::WorkerId::nil(),
+        text,
+        false,
+        &no_sold(),
+    );
     let plan = render_execution_plan(&records);
     assert!(plan.contains("## Blocked"));
     assert!(!plan.contains("## Pending approval"));

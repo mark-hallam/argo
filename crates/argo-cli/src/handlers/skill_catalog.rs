@@ -67,13 +67,8 @@ pub struct CatalogFilters<'a> {
 
 /// CLI entrypoint. Loads the catalog + installed set, applies
 /// filters, and renders either a table or a JSON envelope.
-pub async fn run(
-    skills: &SkillStore,
-    filters: CatalogFilters<'_>,
-    json: bool,
-) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+pub async fn run(skills: &SkillStore, filters: CatalogFilters<'_>, json: bool) -> ArgoResult<()> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = crate::home::resolve_home(&cwd)?;
     let market_rows = fetch_catalog(&home).await;
     let installed = installed_versions(skills).await?;

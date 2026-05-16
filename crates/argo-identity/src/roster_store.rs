@@ -71,7 +71,9 @@ impl RosterStore {
             .map_err(|e| ArgoError::Provider(format!("serialize roster policy: {e}")))?;
         let channels_json = serde_json::to_string(&roster.channels)
             .map_err(|e| ArgoError::Provider(format!("serialize roster channels: {e}")))?;
-        let budget_micros = roster.budget_cap_usd.map(|cap| (cap * 1_000_000.0).round() as i64);
+        let budget_micros = roster
+            .budget_cap_usd
+            .map(|cap| (cap * 1_000_000.0).round() as i64);
         let now_micros = Utc::now().timestamp_micros();
         sqlx::query(
             "INSERT INTO roster (id, tenant_id, name, policy_json, \
@@ -203,9 +205,9 @@ impl RosterStore {
         let mut out = Vec::with_capacity(rows.len());
         for row in rows {
             let raw: String = row.get("worker_id");
-            let id: WorkerId = raw.parse().map_err(|e| {
-                ArgoError::Invariant(format!("decode worker id '{raw}': {e}"))
-            })?;
+            let id: WorkerId = raw
+                .parse()
+                .map_err(|e| ArgoError::Invariant(format!("decode worker id '{raw}': {e}")))?;
             out.push(id);
         }
         Ok(out)
@@ -280,13 +282,17 @@ impl RosterStore {
         let mut roster = hydrate_row(&row)?;
         roster.member_worker_ids = self.list_members(roster.id).await?;
         let override_raw: Option<String> = row.get("policy_override_json");
-        let policy_override = match override_raw {
-            Some(raw) => Some(serde_json::from_str::<RosterPolicyOverride>(&raw).map_err(
-                |e| ArgoError::Invariant(format!("decode roster policy_override: {e}")),
-            )?),
-            None => None,
-        };
-        Ok(Some(RosterAssignment { roster, policy_override }))
+        let policy_override =
+            match override_raw {
+                Some(raw) => Some(serde_json::from_str::<RosterPolicyOverride>(&raw).map_err(
+                    |e| ArgoError::Invariant(format!("decode roster policy_override: {e}")),
+                )?),
+                None => None,
+            };
+        Ok(Some(RosterAssignment {
+            roster,
+            policy_override,
+        }))
     }
 
     /// Find every roster a given worker is a member of.
@@ -317,9 +323,7 @@ impl RosterStore {
     }
 }
 
-async fn ensure_policy_override_column(
-    pool: &sqlx::Pool<sqlx::Sqlite>,
-) -> ArgoResult<()> {
+async fn ensure_policy_override_column(pool: &sqlx::Pool<sqlx::Sqlite>) -> ArgoResult<()> {
     let already_present = sqlx::query("PRAGMA table_info(roster)")
         .fetch_all(pool)
         .await

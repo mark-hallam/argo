@@ -33,10 +33,7 @@ fn overrides_for(
     }
 }
 
-fn resolver_with(
-    default: RiskLevel,
-    overrides: OperatorRiskOverrides,
-) -> RiskResolver {
+fn resolver_with(default: RiskLevel, overrides: OperatorRiskOverrides) -> RiskResolver {
     let source = InMemoryOperatorRiskOverridesSource::new();
     source.insert(overrides);
     RiskResolver::new(Arc::new(source), Arc::new(FixedDefault(default)))
@@ -137,11 +134,7 @@ async fn per_vertical_wins_over_all_verticals() {
 async fn downgrade_blocked_without_allow_downgrade() {
     let resolver = resolver_with(
         RiskLevel::Medium,
-        overrides_for(
-            "alice",
-            vec![("book_travel", None, RiskLevel::Low)],
-            false,
-        ),
+        overrides_for("alice", vec![("book_travel", None, RiskLevel::Low)], false),
     );
     let (risk, trace) = resolver
         .resolve(&op("alice"), "book_travel", "support")
@@ -157,11 +150,7 @@ async fn downgrade_blocked_without_allow_downgrade() {
 async fn downgrade_allowed_with_allow_downgrade() {
     let resolver = resolver_with(
         RiskLevel::Medium,
-        overrides_for(
-            "alice",
-            vec![("book_travel", None, RiskLevel::Low)],
-            true,
-        ),
+        overrides_for("alice", vec![("book_travel", None, RiskLevel::Low)], true),
     );
     let (risk, trace) = resolver
         .resolve(&op("alice"), "book_travel", "support")
@@ -177,11 +166,7 @@ async fn upgrade_always_allowed_even_without_allow_downgrade() {
     // Paranoia is free.
     let resolver = resolver_with(
         RiskLevel::Low,
-        overrides_for(
-            "alice",
-            vec![("send_email", None, RiskLevel::High)],
-            false,
-        ),
+        overrides_for("alice", vec![("send_email", None, RiskLevel::High)], false),
     );
     let (risk, trace) = resolver
         .resolve(&op("alice"), "send_email", "support")
@@ -217,11 +202,7 @@ async fn trace_shape_when_override_applied() {
 async fn trace_shape_when_downgrade_blocked() {
     let resolver = resolver_with(
         RiskLevel::High,
-        overrides_for(
-            "alice",
-            vec![("book_travel", None, RiskLevel::Low)],
-            false,
-        ),
+        overrides_for("alice", vec![("book_travel", None, RiskLevel::Low)], false),
     );
     let (_risk, trace) = resolver
         .resolve(&op("alice"), "book_travel", "support")

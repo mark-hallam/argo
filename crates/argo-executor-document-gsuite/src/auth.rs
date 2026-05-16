@@ -64,23 +64,17 @@ impl GsuiteAuthConfig {
     /// empty. The error message names the missing var; the private
     /// key's content is never echoed.
     pub fn from_env() -> ArgoResult<Self> {
-        let client_email = std::env::var("ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL")
-            .map_err(|_| {
-                ArgoError::Schema(
-                    "ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL must be set".to_string(),
-                )
-            })?;
+        let client_email = std::env::var("ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL").map_err(|_| {
+            ArgoError::Schema("ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL must be set".to_string())
+        })?;
         if client_email.trim().is_empty() {
             return Err(ArgoError::Schema(
                 "ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL must not be empty".to_string(),
             ));
         }
-        let private_key_pem = std::env::var("ARGO_GSUITE_SERVICE_ACCOUNT_KEY")
-            .map_err(|_| {
-                ArgoError::Schema(
-                    "ARGO_GSUITE_SERVICE_ACCOUNT_KEY must be set".to_string(),
-                )
-            })?;
+        let private_key_pem = std::env::var("ARGO_GSUITE_SERVICE_ACCOUNT_KEY").map_err(|_| {
+            ArgoError::Schema("ARGO_GSUITE_SERVICE_ACCOUNT_KEY must be set".to_string())
+        })?;
         if private_key_pem.trim().is_empty() {
             return Err(ArgoError::Schema(
                 "ARGO_GSUITE_SERVICE_ACCOUNT_KEY must not be empty".to_string(),
@@ -213,10 +207,7 @@ impl GsuiteAuth {
     async fn refresh_token(&self) -> ArgoResult<String> {
         let assertion = self.build_assertion()?;
         let form = [
-            (
-                "grant_type",
-                "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            ),
+            ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
             ("assertion", assertion.as_str()),
         ];
         let resp = self
@@ -241,9 +232,7 @@ impl GsuiteAuth {
         let access_token = parsed
             .get("access_token")
             .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| {
-                ArgoError::Schema("gsuite token missing access_token".to_string())
-            })?
+            .ok_or_else(|| ArgoError::Schema("gsuite token missing access_token".to_string()))?
             .to_string();
         let expires_in = parsed
             .get("expires_in")
@@ -272,8 +261,8 @@ impl GsuiteAuth {
             exp: now + 3600,
         };
         let header = Header::new(Algorithm::RS256);
-        let key = EncodingKey::from_rsa_pem(self.config.private_key_pem.as_bytes())
-            .map_err(|e| {
+        let key =
+            EncodingKey::from_rsa_pem(self.config.private_key_pem.as_bytes()).map_err(|e| {
                 ArgoError::Schema(format!(
                     "gsuite private key (PEM): {e} — check the env var carries the full \
                      -----BEGIN PRIVATE KEY----- body"
@@ -338,7 +327,10 @@ mod tests {
             .decode(parts[1])
             .unwrap();
         let claims: serde_json::Value = serde_json::from_slice(&claims_bytes).unwrap();
-        assert_eq!(claims["iss"].as_str().unwrap(), "sa@x.iam.gserviceaccount.com");
+        assert_eq!(
+            claims["iss"].as_str().unwrap(),
+            "sa@x.iam.gserviceaccount.com"
+        );
         assert_eq!(claims["scope"].as_str().unwrap(), "scope-a scope-b");
         assert!(claims["aud"].as_str().unwrap().ends_with("/token"));
     }
@@ -347,8 +339,8 @@ mod tests {
     fn debug_impl_redacts_private_key() {
         let auth = GsuiteAuth::new(GsuiteAuthConfig {
             client_email: "sa@x.iam.gserviceaccount.com".into(),
-            private_key_pem:
-                "-----BEGIN PRIVATE KEY-----\nSECRETBODY\n-----END PRIVATE KEY-----\n".into(),
+            private_key_pem: "-----BEGIN PRIVATE KEY-----\nSECRETBODY\n-----END PRIVATE KEY-----\n"
+                .into(),
             token_uri: "http://127.0.0.1:9/token".into(),
             scopes: "scope-a".into(),
         });

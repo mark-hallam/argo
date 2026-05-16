@@ -5,8 +5,7 @@ use argo_config::ArgoConfig;
 use argo_types::{ArgoError, ArgoResult};
 
 pub fn run(cmd: PluginCmd) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     match cmd {
         PluginCmd::List { json, format } => list(&cfg, json, &format),

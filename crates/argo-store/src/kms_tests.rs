@@ -30,8 +30,7 @@ const SAMPLE_DEK: [u8; 32] = [
     0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
     0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
 ];
-const SAMPLE_DEK_HEX: &str =
-    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const SAMPLE_DEK_HEX: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const SAMPLE_WRAPPED: &[u8] = b"FAKE-WRAPPED-DEK-CIPHERTEXT-BLOB";
 
 fn b64(bytes: &[u8]) -> String {
@@ -148,8 +147,7 @@ mod gcp_tests {
     use super::*;
     use crate::kms::gcp::GcpCmekClient;
 
-    const KEY_PATH: &str =
-        "/v1/projects/acme/locations/global/keyRings/skycot/cryptoKeys/db";
+    const KEY_PATH: &str = "/v1/projects/acme/locations/global/keyRings/skycot/cryptoKeys/db";
 
     fn client(endpoint: String, bearer: Option<String>) -> GcpCmekClient {
         GcpCmekClient::with_endpoint(
@@ -204,9 +202,10 @@ mod gcp_tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path(format!("{KEY_PATH}:decrypt")))
-            .respond_with(ResponseTemplate::new(404).set_body_string(
-                r#"{"error":{"code":404,"message":"CryptoKey not found"}}"#,
-            ))
+            .respond_with(
+                ResponseTemplate::new(404)
+                    .set_body_string(r#"{"error":{"code":404,"message":"CryptoKey not found"}}"#),
+            )
             .mount(&server)
             .await;
 
@@ -370,7 +369,9 @@ async fn key_source_resolve_async_aws_kms_end_to_end() {
     let mut wrapped_file = tempfile::NamedTempFile::new().unwrap();
     wrapped_file.write_all(SAMPLE_WRAPPED).unwrap();
     let mut bearer_file = tempfile::NamedTempFile::new().unwrap();
-    bearer_file.write_all(b"AWS4-HMAC-SHA256 Credential=...").unwrap();
+    bearer_file
+        .write_all(b"AWS4-HMAC-SHA256 Credential=...")
+        .unwrap();
 
     let spec = format!(
         "aws-kms:arn:aws:kms:us-east-1:111122223333:key/integration?region=us-east-1\
@@ -400,9 +401,8 @@ async fn key_source_sync_resolve_rejects_kms_variants() {
 
 #[test]
 fn key_source_parse_rejects_kms_missing_wrapped() {
-    let err =
-        KeySource::parse("aws-kms:arn:aws:kms:us-east-1:111122223333:key/x?region=us-east-1")
-            .expect_err("must fail");
+    let err = KeySource::parse("aws-kms:arn:aws:kms:us-east-1:111122223333:key/x?region=us-east-1")
+        .expect_err("must fail");
     assert!(format!("{err}").contains("wrapped"));
 }
 

@@ -26,8 +26,7 @@ const _WORKER_CHARTER_SCHEMA: &str =
 // Documentation-only: ALTER TABLE for the tenure `level` column,
 // applied via `ensure_worker_level_columns`. Stream
 // `claude-worker-promotion-workflow`.
-const _WORKER_LEVEL_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/99__worker_level.sql");
+const _WORKER_LEVEL_SCHEMA: &str = include_str!("../../argo-store/migrations/99__worker_level.sql");
 // Documentation-only: ALTER TABLE for `trust_grade` + `last_used_at`,
 // applied via `ensure_worker_trust_grade_columns`. Stream
 // `mvp-worker-trust-grade-column`.
@@ -35,8 +34,7 @@ const _WORKER_TRUST_GRADE_SCHEMA: &str =
     include_str!("../../argo-store/migrations/50__worker_trust_grade.sql");
 // Raw schema for the worker↔skill association table, applied via
 // [`ensure_worker_skill_table`]. Stream `mvp-worker-skills-table`.
-const WORKER_SKILL_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/101__worker_skill.sql");
+const WORKER_SKILL_SCHEMA: &str = include_str!("../../argo-store/migrations/101__worker_skill.sql");
 // Documentation-only: ALTER TABLE for `role_name`, applied via
 // `ensure_worker_role_name_columns`. Stream
 // `mission-routing-skillmatch-rolematch`.
@@ -81,9 +79,7 @@ pub(crate) async fn ensure_worker_charter_columns(
 /// [`ensure_worker_charter_columns`]: PRAGMA-checks the column,
 /// `ALTER TABLE ADD COLUMN ... NOT NULL DEFAULT 'entry'` if missing,
 /// and best-effort creates the supporting index.
-pub(crate) async fn ensure_worker_level_columns(
-    pool: &sqlx::Pool<sqlx::Sqlite>,
-) -> ArgoResult<()> {
+pub(crate) async fn ensure_worker_level_columns(pool: &sqlx::Pool<sqlx::Sqlite>) -> ArgoResult<()> {
     let rows = sqlx::query("PRAGMA table_info(worker)")
         .fetch_all(pool)
         .await
@@ -176,9 +172,7 @@ pub(crate) async fn ensure_worker_role_name_columns(
 /// `CREATE TABLE/INDEX IF NOT EXISTS`, so the crate-scoped
 /// `ensure_schema` path matches the versioned-migration path
 /// (`v47.rs`) on fresh DBs.
-pub(crate) async fn ensure_worker_skill_table(
-    pool: &sqlx::Pool<sqlx::Sqlite>,
-) -> ArgoResult<()> {
+pub(crate) async fn ensure_worker_skill_table(pool: &sqlx::Pool<sqlx::Sqlite>) -> ArgoResult<()> {
     for stmt in WORKER_SKILL_SCHEMA.split_terminator(';') {
         let sql = stmt.trim();
         if sql.is_empty() {
@@ -217,8 +211,7 @@ pub(crate) async fn ensure_role_columns(pool: &sqlx::Pool<sqlx::Sqlite>) -> Argo
 
 pub(crate) fn kpis_to_json(kpis: Option<&serde_json::Value>) -> ArgoResult<Option<String>> {
     kpis.map(|v| {
-        serde_json::to_string(v)
-            .map_err(|e| ArgoError::Provider(format!("serialize kpis: {e}")))
+        serde_json::to_string(v).map_err(|e| ArgoError::Provider(format!("serialize kpis: {e}")))
     })
     .transpose()
 }
@@ -286,8 +279,9 @@ pub(crate) fn worker_from_row(
     let level = WorkerLevel::from_str(&level_raw)
         .map_err(|e| ArgoError::Provider(format!("parse worker.level: {e}")))?;
     let trust_grade_raw: i64 = row.get("trust_grade");
-    let trust_grade = u8::try_from(trust_grade_raw)
-        .map_err(|e| ArgoError::Provider(format!("parse worker.trust_grade {trust_grade_raw}: {e}")))?;
+    let trust_grade = u8::try_from(trust_grade_raw).map_err(|e| {
+        ArgoError::Provider(format!("parse worker.trust_grade {trust_grade_raw}: {e}"))
+    })?;
     let last_used_at = match row.get::<Option<String>, _>("last_used_at") {
         Some(raw) => Some(
             DateTime::parse_from_rfc3339(&raw)
@@ -317,8 +311,7 @@ pub(crate) fn worker_from_row(
 }
 
 pub(crate) fn to_json<T: Serialize>(value: &T, label: &str) -> ArgoResult<String> {
-    serde_json::to_string(value)
-        .map_err(|e| ArgoError::Provider(format!("serialize {label}: {e}")))
+    serde_json::to_string(value).map_err(|e| ArgoError::Provider(format!("serialize {label}: {e}")))
 }
 
 pub(crate) fn from_json<T: serde::de::DeserializeOwned>(value: &str, label: &str) -> ArgoResult<T> {

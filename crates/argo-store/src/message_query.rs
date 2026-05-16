@@ -61,13 +61,16 @@ impl SessionStore {
         // Fallback: per-row insert in its own transaction. Identical
         // to the historical path so tests / callers that opt out via
         // env knob see no behaviour change.
-        insert_one(&self.pool, &MessageItem {
-            id,
-            session_id,
-            role: role_str,
-            content_json: scanned,
-            created_at,
-        })
+        insert_one(
+            &self.pool,
+            &MessageItem {
+                id,
+                session_id,
+                role: role_str,
+                content_json: scanned,
+                created_at,
+            },
+        )
         .await?;
         Ok(id)
     }
@@ -168,13 +171,12 @@ async fn insert_one(pool: &Pool<Sqlite>, item: &MessageItem) -> StoreResult<()> 
         .begin()
         .await
         .map_err(|e| ArgoError::Provider(format!("tx begin: {e}")))?;
-    let next_seq: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(MAX(seq), 0) + 1 FROM message WHERE session_id = ?",
-    )
-    .bind(item.session_id.0.as_bytes().as_slice())
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("next_seq: {e}")))?;
+    let next_seq: i64 =
+        sqlx::query_scalar("SELECT COALESCE(MAX(seq), 0) + 1 FROM message WHERE session_id = ?")
+            .bind(item.session_id.0.as_bytes().as_slice())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("next_seq: {e}")))?;
     sqlx::query(
         "INSERT INTO message (id, session_id, role, content_json, created_at, seq)
          VALUES (?, ?, ?, ?, ?, ?)",
@@ -198,10 +200,7 @@ async fn insert_one(pool: &Pool<Sqlite>, item: &MessageItem) -> StoreResult<()> 
 /// by `session_id` so the per-session `seq` is computed with one
 /// `MAX(seq)` lookup per session per batch (vs. per row), then
 /// issues all inserts inside one `BEGIN`/`COMMIT`.
-pub(crate) async fn flush_messages(
-    pool: Pool<Sqlite>,
-    batch: Vec<MessageItem>,
-) -> ArgoResult<()> {
+pub(crate) async fn flush_messages(pool: Pool<Sqlite>, batch: Vec<MessageItem>) -> ArgoResult<()> {
     if batch.is_empty() {
         return Ok(());
     }

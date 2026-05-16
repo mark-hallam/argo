@@ -48,9 +48,9 @@ pub(super) async fn providers_response(
     paths.sort();
     let needle = family.map(str::to_lowercase);
     for p in paths {
-        match std::fs::read_to_string(&p).and_then(|body| {
-            ProviderManifest::from_toml_str(&body).map_err(std::io::Error::other)
-        }) {
+        match std::fs::read_to_string(&p)
+            .and_then(|body| ProviderManifest::from_toml_str(&body).map_err(std::io::Error::other))
+        {
             Ok(m) => {
                 if let Some(want) = needle.as_deref() {
                     let actual = format!("{:?}", m.provider.family).to_lowercase();
@@ -257,7 +257,10 @@ pub(super) async fn provider_show_response_with_format(
         }
     };
     if matches!(format, Some("markdown")) {
-        let mut out = format!("# Provider `{}` ({:?})\n\n", m.provider.id, m.provider.family);
+        let mut out = format!(
+            "# Provider `{}` ({:?})\n\n",
+            m.provider.id, m.provider.family
+        );
         out.push_str(&format!("- **base_url**: `{}`\n", m.provider.base_url));
         out.push_str(&format!(
             "- **auth**: env=`{}` (header=`{}`, format=`{}`)\n",
@@ -338,10 +341,7 @@ pub(super) async fn providers_count_response(
         if matches!(format, Some("markdown")) {
             return ("200 OK", "# Providers (0)\n".to_string());
         }
-        return (
-            "200 OK",
-            "{\"count\":0}".to_string(),
-        );
+        return ("200 OK", "{\"count\":0}".to_string());
     }
     let paths: Vec<PathBuf> = match std::fs::read_dir(&dir) {
         Ok(rd) => rd

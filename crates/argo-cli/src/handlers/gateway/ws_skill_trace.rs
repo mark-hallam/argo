@@ -88,7 +88,9 @@ fn seq_registry() -> &'static Mutex<SeqMap> {
 
 fn next_seq(key: &TopicKey) -> u64 {
     let mut guard = seq_registry().lock().unwrap_or_else(|e| e.into_inner());
-    let counter = guard.entry(key.clone()).or_insert_with(|| AtomicU64::new(0));
+    let counter = guard
+        .entry(key.clone())
+        .or_insert_with(|| AtomicU64::new(0));
     counter.fetch_add(1, Ordering::Relaxed) + 1
 }
 

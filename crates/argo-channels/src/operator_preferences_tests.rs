@@ -228,7 +228,10 @@ channel_overrides = {}
     f.set_modified(new_mtime).expect("bump mtime");
     drop(f);
 
-    let p2 = source.for_operator(&op("alice")).await.expect("second read");
+    let p2 = source
+        .for_operator(&op("alice"))
+        .await
+        .expect("second read");
     assert_eq!(p2.primary_channel, ch("email"));
 }
 
@@ -286,9 +289,7 @@ high = "voice"
     std::fs::write(&path, body).expect("write");
     let source = TomlPreferencesSource::new(&path);
     let rt = tokio::runtime::Runtime::new().expect("runtime");
-    let prefs_out = rt
-        .block_on(source.for_operator(&op("bob")))
-        .expect("read");
+    let prefs_out = rt.block_on(source.for_operator(&op("bob"))).expect("read");
     assert_eq!(prefs_out.primary_channel, ch("signal"));
     assert_eq!(prefs_out.fallback_chain.len(), 1);
     assert_eq!(prefs_out.fallback_chain[0].channel, ch("imessage"));

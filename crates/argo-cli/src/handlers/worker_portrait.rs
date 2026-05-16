@@ -64,7 +64,10 @@ impl Context {
         ensure_dir(&home)?;
         let store = SessionStore::open(db_path(&home)).await?;
         store.migrate().await?;
-        let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+        let name = cwd
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("workspace");
         let (_tenant, workspace) = store.ensure_workspace(name, &cwd.to_string_lossy()).await?;
         Ok(Self {
             store: Arc::new(store),
@@ -105,22 +108,37 @@ async fn build_portrait(ctx: &Context, worker: Worker, now: DateTime<Utc>) -> Ar
     }))
 }
 
-async fn load_worker(store: &SessionStore, tenant: TenantId, worker_id: WorkerId) -> ArgoResult<Worker> {
+async fn load_worker(
+    store: &SessionStore,
+    tenant: TenantId,
+    worker_id: WorkerId,
+) -> ArgoResult<Worker> {
     let identities = IdentityStore::new(store);
     identities.ensure_schema().await?;
     identities
         .get_worker(tenant, worker_id)
         .await?
-        .ok_or_else(|| ArgoError::Provider(format!("no worker '{worker_id}' for tenant '{tenant}'")))
+        .ok_or_else(|| {
+            ArgoError::Provider(format!("no worker '{worker_id}' for tenant '{tenant}'"))
+        })
 }
 
-async fn load_rosters(store: &Arc<SessionStore>, tenant: TenantId, worker: WorkerId) -> ArgoResult<Vec<argo_identity::Roster>> {
+async fn load_rosters(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    worker: WorkerId,
+) -> ArgoResult<Vec<argo_identity::Roster>> {
     let rosters = RosterStore::new(Arc::clone(store));
     rosters.ensure_schema().await?;
     rosters.rosters_for_worker(tenant, worker).await
 }
 
-async fn budget_json(store: &SessionStore, worker_id: &str, policy: &AutoApprovalPolicy, now: DateTime<Utc>) -> ArgoResult<Value> {
+async fn budget_json(
+    store: &SessionStore,
+    worker_id: &str,
+    policy: &AutoApprovalPolicy,
+    now: DateTime<Utc>,
+) -> ArgoResult<Value> {
     ensure_budget_schema(store).await?;
     let today_start = now.date_naive().and_hms_opt(0, 0, 0).unwrap_or_default();
     let month_start = Utc
@@ -177,7 +195,10 @@ fn action_stats_for(
     };
     let mut latency = Vec::new();
     let mut retries = Vec::new();
-    for action in actions.iter().filter(|a| a.worker_id.to_string() == worker_id) {
+    for action in actions
+        .iter()
+        .filter(|a| a.worker_id.to_string() == worker_id)
+    {
         let Some(created) = parse_time(&action.created_at) else {
             continue;
         };
@@ -201,9 +222,15 @@ fn action_stats_for(
     stats
 }
 
-async fn handoffs_for(store: &Arc<SessionStore>, tenant: TenantId, worker: WorkerId) -> ArgoResult<Vec<Value>> {
+async fn handoffs_for(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    worker: WorkerId,
+) -> ArgoResult<Vec<Value>> {
     let orch = OrchestratorStore::new(Arc::clone(store));
-    let rows = orch.list_pending_handoffs_for_worker(tenant, worker).await?;
+    let rows = orch
+        .list_pending_handoffs_for_worker(tenant, worker)
+        .await?;
     Ok(rows.into_iter().map(handoff_json).collect())
 }
 
@@ -239,21 +266,32 @@ async fn skill_candidates_for(ctx: &Context, worker: &Worker) -> ArgoResult<Vec<
 
 fn candidate_worker(body: &str) -> Option<String> {
     let v: Value = serde_json::from_str(body).ok()?;
-    ["worker_id", "proposed_by_worker_id", "source_worker_id", "worker"]
-        .iter()
-        .find_map(|k| v.get(*k).and_then(Value::as_str).map(str::to_string))
+    [
+        "worker_id",
+        "proposed_by_worker_id",
+        "source_worker_id",
+        "worker",
+    ]
+    .iter()
+    .find_map(|k| v.get(*k).and_then(Value::as_str).map(str::to_string))
 }
 
 fn parse_tenant(value: &str) -> ArgoResult<TenantId> {
-    Uuid::parse_str(value).map(TenantId).map_err(|e| ArgoError::Provider(format!("tenant id '{value}': {e}")))
+    Uuid::parse_str(value)
+        .map(TenantId)
+        .map_err(|e| ArgoError::Provider(format!("tenant id '{value}': {e}")))
 }
 
 fn parse_worker(value: &str) -> ArgoResult<WorkerId> {
-    value.parse().map_err(|e| ArgoError::Provider(format!("worker id '{value}': {e}")))
+    value
+        .parse()
+        .map_err(|e| ArgoError::Provider(format!("worker id '{value}': {e}")))
 }
 
 fn parse_time(raw: &str) -> Option<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(raw).ok().map(|dt| dt.with_timezone(&Utc))
+    DateTime::parse_from_rfc3339(raw)
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc))
 }
 
 fn average(values: &[f64]) -> Option<f64> {
@@ -261,7 +299,8 @@ fn average(values: &[f64]) -> Option<f64> {
 }
 
 fn average_u32(values: &[u32]) -> Option<f64> {
-    (!values.is_empty()).then(|| values.iter().map(|v| f64::from(*v)).sum::<f64>() / values.len() as f64)
+    (!values.is_empty())
+        .then(|| values.iter().map(|v| f64::from(*v)).sum::<f64>() / values.len() as f64)
 }
 
 #[cfg(test)]
@@ -270,17 +309,32 @@ mod tests {
     use argo_identity::{Persona, Role};
 
     fn worker() -> Worker {
-        Worker::draft(TenantId::new(), "gtm-engineer", Persona::named("Maya", "op"), Role::new("Own approved marketplace follow-up."))
+        Worker::draft(
+            TenantId::new(),
+            "gtm-engineer",
+            Persona::named("Maya", "op"),
+            Role::new("Own approved marketplace follow-up."),
+        )
     }
 
     fn portrait() -> Value {
-        let w = worker(); json!({"generated_at":"2026-05-06T00:00:00Z","identity":identity_json(&w),"policy":{"resolved_policy":{"enabled":true},"source":"worker","worker_policy_enabled":true,"workspace_policy_enabled":false,"roster_lineage":[{"id":"r1","name":"ops","policy_enabled":true}]},"budget":{"spend_today_usd":1.0,"spend_month_usd":2.0,"daily_cap_usd_micros":5000000,"daily_headroom_usd":4.0},"recent_action_stats":{"window_hours":24,"completed":1,"failed":1,"average_latency_ms":1500.0,"average_retries":0.5},"open_handoffs":[{"id":"h1","from_worker_id":"w2","expected_outcome":"finish"}],"skill_candidates":[{"skill_name":"post_listing","vertical_id":"gtm-engineer","learned_at":"now"}],"anomalies":[],"circuit_breaker":{"state":"closed"}})
+        let w = worker();
+        json!({"generated_at":"2026-05-06T00:00:00Z","identity":identity_json(&w),"policy":{"resolved_policy":{"enabled":true},"source":"worker","worker_policy_enabled":true,"workspace_policy_enabled":false,"roster_lineage":[{"id":"r1","name":"ops","policy_enabled":true}]},"budget":{"spend_today_usd":1.0,"spend_month_usd":2.0,"daily_cap_usd_micros":5000000,"daily_headroom_usd":4.0},"recent_action_stats":{"window_hours":24,"completed":1,"failed":1,"average_latency_ms":1500.0,"average_retries":0.5},"open_handoffs":[{"id":"h1","from_worker_id":"w2","expected_outcome":"finish"}],"skill_candidates":[{"skill_name":"post_listing","vertical_id":"gtm-engineer","learned_at":"now"}],"anomalies":[],"circuit_breaker":{"state":"closed"}})
     }
 
     #[test]
     fn markdown_renders_all_sections_without_ansi() {
         let body = render_markdown(&portrait());
-        for heading in ["Identity", "Auto-Approval Policy", "Budget", "Recent Action Stats", "Open Handoffs", "Recent Skill Candidates", "Anomalies", "Circuit Breaker"] {
+        for heading in [
+            "Identity",
+            "Auto-Approval Policy",
+            "Budget",
+            "Recent Action Stats",
+            "Open Handoffs",
+            "Recent Skill Candidates",
+            "Anomalies",
+            "Circuit Breaker",
+        ] {
             assert!(body.contains(heading), "missing {heading}");
         }
         assert!(!body.contains('\u{1b}'));
@@ -303,8 +357,20 @@ mod tests {
         let w = worker().id;
         let now = Utc.with_ymd_and_hms(2026, 5, 6, 12, 0, 0).single().unwrap();
         let rows = vec![
-            action(w, "completed", now, Some(now - chrono::Duration::seconds(2)), vec![]),
-            action(w, "failed", now, Some(now - chrono::Duration::seconds(1)), vec!["argo://action/old".into()]),
+            action(
+                w,
+                "completed",
+                now,
+                Some(now - chrono::Duration::seconds(2)),
+                vec![],
+            ),
+            action(
+                w,
+                "failed",
+                now,
+                Some(now - chrono::Duration::seconds(1)),
+                vec!["argo://action/old".into()],
+            ),
             action(WorkerId::new(), "failed", now, None, vec![]),
         ];
         let stats = action_stats_for(&rows, &w.to_string(), now);
@@ -314,7 +380,32 @@ mod tests {
         assert_eq!(stats.average_latency_ms, Some(1500.0));
     }
 
-    fn action(worker_id: WorkerId, state: &str, at: DateTime<Utc>, executed_at: Option<DateTime<Utc>>, evidence: Vec<String>) -> super::super::worker_actions::ActionRecord {
-        super::super::worker_actions::ActionRecord { schema_key: "worker_action".into(), action_id: Uuid::now_v7().to_string(), job_id: "job".into(), worker_id, item_id: None, action_type: "post_listing".into(), risk_level: "low".into(), requires_approval: false, state: state.into(), payload: json!({}), approved_by: None, approved_at: None, executed_at: executed_at.map(|t| t.to_rfc3339()), platform: None, result: None, evidence, blocked_reason: None, created_at: at.to_rfc3339() }
+    fn action(
+        worker_id: WorkerId,
+        state: &str,
+        at: DateTime<Utc>,
+        executed_at: Option<DateTime<Utc>>,
+        evidence: Vec<String>,
+    ) -> super::super::worker_actions::ActionRecord {
+        super::super::worker_actions::ActionRecord {
+            schema_key: "worker_action".into(),
+            action_id: Uuid::now_v7().to_string(),
+            job_id: "job".into(),
+            worker_id,
+            item_id: None,
+            action_type: "post_listing".into(),
+            risk_level: "low".into(),
+            requires_approval: false,
+            state: state.into(),
+            payload: json!({}),
+            approved_by: None,
+            approved_at: None,
+            executed_at: executed_at.map(|t| t.to_rfc3339()),
+            platform: None,
+            result: None,
+            evidence,
+            blocked_reason: None,
+            created_at: at.to_rfc3339(),
+        }
     }
 }

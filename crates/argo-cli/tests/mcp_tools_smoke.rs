@@ -54,8 +54,7 @@ echo = {{ transport = "stdio", command = "{python}", args = ["{script}"] }}
         python = python_path,
         script = script_path.display(),
     );
-    std::fs::write(dir.join("vertical.toml"), manifest)
-        .expect("write vertical.toml");
+    std::fs::write(dir.join("vertical.toml"), manifest).expect("write vertical.toml");
 }
 
 fn run_tools(verticals_dir: &Path, args: &[&str]) -> std::process::Output {
@@ -91,10 +90,22 @@ fn mcp_tools_lists_three_tools_via_argo_binary() {
         String::from_utf8_lossy(&out.stderr),
     );
     let stdout = String::from_utf8(out.stdout).expect("utf-8 stdout");
-    assert!(stdout.contains("3 tools discovered."), "header missing tool count:\n{stdout}");
-    assert!(stdout.contains("## `echo`"), "echo section missing:\n{stdout}");
-    assert!(stdout.contains("## `tool_error`"), "tool_error section missing:\n{stdout}");
-    assert!(stdout.contains("## `slow`"), "slow section missing:\n{stdout}");
+    assert!(
+        stdout.contains("3 tools discovered."),
+        "header missing tool count:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("## `echo`"),
+        "echo section missing:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("## `tool_error`"),
+        "tool_error section missing:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("## `slow`"),
+        "slow section missing:\n{stdout}"
+    );
 
     // --json emits NDJSON (one JSON object per line)
     let out = run_tools(
@@ -104,19 +115,39 @@ fn mcp_tools_lists_three_tools_via_argo_binary() {
     assert!(out.status.success(), "ndjson run failed: {out:?}");
     let ndjson = String::from_utf8(out.stdout).expect("utf-8");
     let lines: Vec<&str> = ndjson.lines().filter(|l| !l.is_empty()).collect();
-    assert_eq!(lines.len(), 3, "expected 3 NDJSON lines, got {} lines:\n{ndjson}", lines.len());
+    assert_eq!(
+        lines.len(),
+        3,
+        "expected 3 NDJSON lines, got {} lines:\n{ndjson}",
+        lines.len()
+    );
     for line in &lines {
         let v: serde_json::Value = serde_json::from_str(line)
             .unwrap_or_else(|e| panic!("ndjson line not JSON: {e}\nline: {line}"));
         assert!(v.get("name").is_some(), "ndjson missing name: {line}");
-        assert!(v.get("input_schema").is_some(), "ndjson missing input_schema: {line}");
-        assert!(v.get("description").is_some(), "ndjson missing description: {line}");
+        assert!(
+            v.get("input_schema").is_some(),
+            "ndjson missing input_schema: {line}"
+        );
+        assert!(
+            v.get("description").is_some(),
+            "ndjson missing description: {line}"
+        );
     }
 
     // --filter narrows
     let out = run_tools(
         verticals_root.path(),
-        &["mcp", "tools", "echo", "--vertical", VERTICAL_ID, "--filter", "^echo$", "--json"],
+        &[
+            "mcp",
+            "tools",
+            "echo",
+            "--vertical",
+            VERTICAL_ID,
+            "--filter",
+            "^echo$",
+            "--json",
+        ],
     );
     assert!(out.status.success(), "filtered run failed: {out:?}");
     let lines: Vec<String> = String::from_utf8(out.stdout)
@@ -132,7 +163,15 @@ fn mcp_tools_lists_three_tools_via_argo_binary() {
     // --schema-only drops descriptions
     let out = run_tools(
         verticals_root.path(),
-        &["mcp", "tools", "echo", "--vertical", VERTICAL_ID, "--json", "--schema-only"],
+        &[
+            "mcp",
+            "tools",
+            "echo",
+            "--vertical",
+            VERTICAL_ID,
+            "--json",
+            "--schema-only",
+        ],
     );
     assert!(out.status.success(), "schema-only run failed: {out:?}");
     let line0 = String::from_utf8(out.stdout)
@@ -142,7 +181,10 @@ fn mcp_tools_lists_three_tools_via_argo_binary() {
         .map(str::to_string)
         .expect("at least one line");
     let v: serde_json::Value = serde_json::from_str(&line0).expect("json");
-    assert!(v.get("description").is_none(), "schema-only line must drop description: {line0}");
+    assert!(
+        v.get("description").is_none(),
+        "schema-only line must drop description: {line0}"
+    );
 }
 
 #[test]

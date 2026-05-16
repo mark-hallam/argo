@@ -15,10 +15,8 @@
 
 mod common;
 
-use common::work_queue_helpers::{
-    fresh_workspace, list_jobs_by_schema, run_argo, workspace_root,
-};
 use common::argo_bin;
+use common::work_queue_helpers::{fresh_workspace, list_jobs_by_schema, run_argo, workspace_root};
 use serde_json::Value;
 use std::path::Path;
 use std::process::Command;

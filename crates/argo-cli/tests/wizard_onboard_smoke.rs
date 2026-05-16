@@ -51,11 +51,17 @@ skip_key_test = true
 
     let argo_toml = std::fs::read_to_string(work.path().join("argo.toml")).unwrap();
     assert!(argo_toml.contains("[operator]"), "argo.toml: {argo_toml}");
-    assert!(argo_toml.contains("ada@example.com"), "argo.toml: {argo_toml}");
+    assert!(
+        argo_toml.contains("ada@example.com"),
+        "argo.toml: {argo_toml}"
+    );
     assert!(argo_toml.contains("Ada Lovelace"), "argo.toml: {argo_toml}");
 
     let worker_toml = std::fs::read_to_string(work.path().join("workers/ada/worker.toml")).unwrap();
-    assert!(worker_toml.contains("name = \"ada\""), "worker: {worker_toml}");
+    assert!(
+        worker_toml.contains("name = \"ada\""),
+        "worker: {worker_toml}"
+    );
     assert!(
         worker_toml.contains("marketplace-seller-browser"),
         "worker: {worker_toml}"

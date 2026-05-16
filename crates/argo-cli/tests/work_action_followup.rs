@@ -74,7 +74,12 @@ fn complete_emits_followup_with_inherited_item_and_evidence_chain() {
     let verticals = tempfile::tempdir().expect("verticals");
     write_synthetic_vertical(verticals.path());
 
-    let init = run_argo(home.path(), work.path(), verticals.path(), &["workspace", "init"]);
+    let init = run_argo(
+        home.path(),
+        work.path(),
+        verticals.path(),
+        &["workspace", "init"],
+    );
     assert!(
         init.status.success(),
         "init: {}",
@@ -159,8 +164,8 @@ fn complete_emits_followup_with_inherited_item_and_evidence_chain() {
         String::from_utf8_lossy(&list.stderr)
     );
     let stdout = String::from_utf8(list.stdout).expect("utf8");
-    let row: Value = serde_json::from_str(stdout.lines().next().expect("at least one row"))
-        .expect("json row");
+    let row: Value =
+        serde_json::from_str(stdout.lines().next().expect("at least one row")).expect("json row");
     let verify_id = row["action_id"]
         .as_str()
         .expect("action_id present")
@@ -183,13 +188,7 @@ fn complete_emits_followup_with_inherited_item_and_evidence_chain() {
         work.path(),
         verticals.path(),
         &[
-            "worker",
-            "actions",
-            "complete",
-            &verify_id,
-            "--note",
-            "verified",
-            "--json",
+            "worker", "actions", "complete", &verify_id, "--note", "verified", "--json",
         ],
     );
     assert!(
@@ -237,7 +236,11 @@ fn complete_emits_followup_with_inherited_item_and_evidence_chain() {
     );
     let followup = rows.pop().expect("one row");
     let evidence = followup["evidence"].as_array().expect("evidence array");
-    assert_eq!(evidence.len(), 1, "follow-up evidence should reference the source");
+    assert_eq!(
+        evidence.len(),
+        1,
+        "follow-up evidence should reference the source"
+    );
     assert_eq!(
         evidence[0].as_str().unwrap_or(""),
         format!("argo://chain/{verify_id}"),

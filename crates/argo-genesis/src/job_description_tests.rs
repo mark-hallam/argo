@@ -17,9 +17,7 @@ use super::{genesis_from_job_description, JobDescInput};
 
 #[tokio::test]
 async fn pdf_input_extracts_text_and_drives_pipeline() {
-    let pdf = make_minimal_pdf(
-        "Be my marketing intern, run weekly campaigns to cold leads",
-    );
+    let pdf = make_minimal_pdf("Be my marketing intern, run weekly campaigns to cold leads");
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("jd.pdf");
     std::fs::write(&path, &pdf).unwrap();
@@ -44,7 +42,11 @@ async fn text_input_passes_through_identity() {
     // v1 synthesise = identity. When the LLM lands this becomes
     // a sub-string assertion instead.
     assert_eq!(draft.synthesized_charter, charter);
-    assert!(draft.manifest.vertical.id.starts_with("recruiter-screener-"));
+    assert!(draft
+        .manifest
+        .vertical
+        .id
+        .starts_with("recruiter-screener-"));
 }
 
 #[tokio::test]
@@ -101,8 +103,7 @@ async fn synthesize_charter_falls_through_to_existing_pipeline() {
     let jd_draft = genesis_from_job_description(JobDescInput::Text(charter.into()))
         .await
         .expect("jd plan");
-    let direct =
-        crate::plan(charter, "worker").expect("direct plan");
+    let direct = crate::plan(charter, "worker").expect("direct plan");
     assert_eq!(jd_draft.archetype, direct.archetype);
     assert_eq!(jd_draft.manifest.vertical.id, direct.vertical_id);
 }
@@ -122,11 +123,7 @@ fn make_minimal_pdf(text: &str) -> Vec<u8> {
     let mut offsets: Vec<usize> = Vec::with_capacity(5);
     out.extend_from_slice(b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
 
-    push_obj(
-        &mut out,
-        &mut offsets,
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-    );
+    push_obj(&mut out, &mut offsets, b"<< /Type /Catalog /Pages 2 0 R >>");
     push_obj(
         &mut out,
         &mut offsets,
@@ -159,10 +156,7 @@ fn make_minimal_pdf(text: &str) -> Vec<u8> {
         out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
     }
     out.extend_from_slice(
-        format!(
-            "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n"
-        )
-        .as_bytes(),
+        format!("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n").as_bytes(),
     );
     out
 }
@@ -197,10 +191,7 @@ fn make_minimal_pdf_without_text() -> Vec<u8> {
         out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
     }
     out.extend_from_slice(
-        format!(
-            "trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n"
-        )
-        .as_bytes(),
+        format!("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n").as_bytes(),
     );
     out
 }

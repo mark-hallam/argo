@@ -140,12 +140,10 @@ fn seed_peer_snapshots(peers: &[String]) {
         Err(_) => return,
     };
     for url in peers {
-        guard
-            .entry(url.clone())
-            .or_insert_with(|| PeerSnapshot {
-                url: url.clone(),
-                ..Default::default()
-            });
+        guard.entry(url.clone()).or_insert_with(|| PeerSnapshot {
+            url: url.clone(),
+            ..Default::default()
+        });
     }
 }
 
@@ -182,9 +180,7 @@ pub(super) fn notify_peers_of_local_change() {
 }
 
 async fn send_poke(peer_url: &str, secret: Option<&str>) -> reqwest::Result<()> {
-    let client = reqwest::Client::builder()
-        .timeout(http_timeout())
-        .build()?;
+    let client = reqwest::Client::builder().timeout(http_timeout()).build()?;
     let mut req = client.post(format!("{peer_url}/peer/poke"));
     if let Some(s) = secret {
         req = req.bearer_auth(s);
@@ -237,7 +233,9 @@ async fn poll_one_peer(peer_url: &str, prior_backoff_ms: Option<u64>) -> Option<
             None
         }
         Err(e) => {
-            let next = (prior_backoff_ms.unwrap_or(500)).saturating_mul(2).min(MAX_BACKOFF_MS);
+            let next = (prior_backoff_ms.unwrap_or(500))
+                .saturating_mul(2)
+                .min(MAX_BACKOFF_MS);
             record_failure(peer_url, e.to_string()).await;
             tracing::warn!(
                 target: "gateway::peer",
@@ -259,10 +257,7 @@ struct SyncPayload {
     audit: Vec<serde_json::Value>,
 }
 
-async fn fetch_peer_sync(
-    peer_url: &str,
-    secret: Option<&str>,
-) -> Result<SyncPayload, String> {
+async fn fetch_peer_sync(peer_url: &str, secret: Option<&str>) -> Result<SyncPayload, String> {
     let client = reqwest::Client::builder()
         .timeout(http_timeout())
         .build()
@@ -271,15 +266,9 @@ async fn fetch_peer_sync(
     if let Some(s) = secret {
         req = req.bearer_auth(s);
     }
-    let resp = req
-        .send()
-        .await
-        .map_err(|e| format!("send: {e}"))?;
+    let resp = req.send().await.map_err(|e| format!("send: {e}"))?;
     let status = resp.status();
-    let body = resp
-        .text()
-        .await
-        .map_err(|e| format!("read body: {e}"))?;
+    let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
     if !status.is_success() {
         return Err(format!("HTTP {status}: {body}"));
     }

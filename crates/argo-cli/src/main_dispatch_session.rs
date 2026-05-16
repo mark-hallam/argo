@@ -72,14 +72,8 @@ pub(crate) async fn action(cmd: cli::ActionCmd) -> ArgoResult<()> {
             include_skill,
             json,
         } => {
-            handlers::action_history::run(
-                &worker_id,
-                since.as_deref(),
-                limit,
-                include_skill,
-                json,
-            )
-            .await
+            handlers::action_history::run(&worker_id, since.as_deref(), limit, include_skill, json)
+                .await
         }
         cli::ActionCmd::Timeline {
             worker_id,
@@ -133,10 +127,7 @@ pub(crate) fn runtime_trace_explore(
     handlers::trace_explore::run(&session, fmt, path_buf.as_deref())
 }
 
-pub(crate) async fn runtime_trace(
-    turn: Option<String>,
-    session: Option<String>,
-) -> ArgoResult<()> {
+pub(crate) async fn runtime_trace(turn: Option<String>, session: Option<String>) -> ArgoResult<()> {
     handlers::trace::run(turn, session).await
 }
 
@@ -144,6 +135,8 @@ pub(crate) async fn runtime_recover(session_id: String, json: bool) -> ArgoResul
     handlers::recover::run(&session_id, json).await
 }
 
-pub(crate) async fn runtime_recover_cache(cmd: cli::cli_recover_cmds::RecoverCacheCmd) -> ArgoResult<()> {
+pub(crate) async fn runtime_recover_cache(
+    cmd: cli::cli_recover_cmds::RecoverCacheCmd,
+) -> ArgoResult<()> {
     handlers::recover_cache::run(cmd).await
 }

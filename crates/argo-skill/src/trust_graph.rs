@@ -165,10 +165,7 @@ impl TrustGraph {
     /// Like [`Self::from_observations`] but with an injectable
     /// "now". Used by tests so decay math is deterministic.
     #[must_use]
-    pub fn from_observations_at(
-        observations: &[TrustObservation],
-        now: DateTime<Utc>,
-    ) -> Self {
+    pub fn from_observations_at(observations: &[TrustObservation], now: DateTime<Utc>) -> Self {
         let decay_window = Duration::days(DECAY_WINDOW_DAYS);
         let window_secs = decay_window.num_seconds().max(1) as f32;
 
@@ -230,12 +227,7 @@ impl TrustGraph {
     /// `max_hops > DEFAULT_MAX_HOPS` is honored but discouraged; the
     /// brief deliberately caps the default at 3.
     #[must_use]
-    pub fn composed_trust(
-        &self,
-        from: &TenantId,
-        to: &TenantId,
-        max_hops: usize,
-    ) -> Option<f32> {
+    pub fn composed_trust(&self, from: &TenantId, to: &TenantId, max_hops: usize) -> Option<f32> {
         if max_hops == 0 || from == to {
             return None;
         }
@@ -302,7 +294,14 @@ impl TrustGraph {
             visited,
             path: vec![*from],
         });
-        while let Some(PathFrame { node, acc, depth, visited: vis, path }) = frontier.pop_front() {
+        while let Some(PathFrame {
+            node,
+            acc,
+            depth,
+            visited: vis,
+            path,
+        }) = frontier.pop_front()
+        {
             if depth >= max_hops {
                 continue;
             }

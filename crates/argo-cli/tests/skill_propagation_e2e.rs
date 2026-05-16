@@ -61,11 +61,7 @@ struct E2eTrustReader<'a, 's> {
 
 #[async_trait]
 impl WorkerTrustReader for E2eTrustReader<'_, '_> {
-    async fn trust_grade(
-        &self,
-        tenant_id: TenantId,
-        worker_id: Uuid,
-    ) -> ArgoResult<Option<u8>> {
+    async fn trust_grade(&self, tenant_id: TenantId, worker_id: Uuid) -> ArgoResult<Option<u8>> {
         let worker = self
             .identity
             .get_worker(tenant_id, WorkerId(worker_id))
@@ -132,7 +128,9 @@ async fn skill_propagates_to_workers_clearing_min_trust_grade() {
         .await
         .unwrap();
 
-    let reader = E2eTrustReader { identity: &identity };
+    let reader = E2eTrustReader {
+        identity: &identity,
+    };
 
     // Worker A (grade 4) clears 2 → sees skill X.
     let a_skills = skills
@@ -140,7 +138,9 @@ async fn skill_propagates_to_workers_clearing_min_trust_grade() {
         .await
         .unwrap();
     assert!(
-        a_skills.iter().any(|s| s.frontmatter.name == "propagated-x"),
+        a_skills
+            .iter()
+            .any(|s| s.frontmatter.name == "propagated-x"),
         "Worker A (grade 4) should see propagated-x; got {:?}",
         a_skills
             .iter()
@@ -154,7 +154,9 @@ async fn skill_propagates_to_workers_clearing_min_trust_grade() {
         .await
         .unwrap();
     assert!(
-        b_skills.iter().any(|s| s.frontmatter.name == "propagated-x"),
+        b_skills
+            .iter()
+            .any(|s| s.frontmatter.name == "propagated-x"),
         "Worker B (grade 2) should see propagated-x; got {:?}",
         b_skills
             .iter()
@@ -198,7 +200,9 @@ async fn unrestricted_skill_propagates_to_every_worker() {
     skills.install(SKILL_X_MD, None).await.unwrap();
     // Note: no `set_min_trust_grade` call — floor stays NULL.
 
-    let reader = E2eTrustReader { identity: &identity };
+    let reader = E2eTrustReader {
+        identity: &identity,
+    };
 
     for (label, id) in [("high", worker_high.id), ("low", worker_low.id)] {
         let names: Vec<String> = skills

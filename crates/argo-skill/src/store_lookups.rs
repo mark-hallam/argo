@@ -20,10 +20,7 @@ impl SkillStore {
     /// attachment-order. Returns an empty vec when nothing's
     /// attached — the agent runner falls back to all active
     /// in that case.
-    pub async fn skills_for_session(
-        &self,
-        session_id: SessionId,
-    ) -> ArgoResult<Vec<Skill>> {
+    pub async fn skills_for_session(&self, session_id: SessionId) -> ArgoResult<Vec<Skill>> {
         let rows: Vec<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
              s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \

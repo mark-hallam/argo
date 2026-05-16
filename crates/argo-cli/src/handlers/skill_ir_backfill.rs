@@ -11,11 +11,11 @@
 //! Tenant scope: the local skill store has no tenant column, so the
 //! backfill writes under the current workspace tenant resolved from
 //! the session store.
-use argo_skill::SkillStore;
 use argo_skill::ir::backfill::backfill;
 use argo_skill::ir::{
-    BackfillEntry, BackfillReport, BackfillStatus, SqliteSkillIrStore, ensure_schema,
+    ensure_schema, BackfillEntry, BackfillReport, BackfillStatus, SqliteSkillIrStore,
 };
+use argo_skill::SkillStore;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use std::sync::Arc;
@@ -60,11 +60,7 @@ fn print_summary(report: &BackfillReport, dry_run: bool) {
 }
 
 fn print_json(report: &BackfillReport, dry_run: bool) -> ArgoResult<()> {
-    let entries: Vec<_> = report
-        .entries
-        .iter()
-        .map(entry_to_json)
-        .collect();
+    let entries: Vec<_> = report.entries.iter().map(entry_to_json).collect();
     let payload = serde_json::json!({
         "dry_run": dry_run,
         "backfilled": report.backfilled,

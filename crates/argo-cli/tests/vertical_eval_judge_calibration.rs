@@ -133,16 +133,12 @@ fn anthropic_key_present() -> bool {
 #[test]
 fn codex_calibration_live_judge_orders_argo_aligned_and_polished_above_weak() {
     if !anthropic_key_present() {
-        eprintln!(
-            "SKIP: ANTHROPIC_API_KEY not set — calibration test requires live judge"
-        );
+        eprintln!("SKIP: ANTHROPIC_API_KEY not set — calibration test requires live judge");
         return;
     }
-    let argo_aligned =
-        run_live_judge_against_corpus("gtm_engineer_codex_argo_aligned.jsonl");
-    let polished = run_live_judge_against_corpus(
-        "gtm_engineer_codex_polished_but_less_grounded.jsonl",
-    );
+    let argo_aligned = run_live_judge_against_corpus("gtm_engineer_codex_argo_aligned.jsonl");
+    let polished =
+        run_live_judge_against_corpus("gtm_engineer_codex_polished_but_less_grounded.jsonl");
     let weak = run_live_judge_against_corpus("gtm_engineer_codex_weak.jsonl");
     let argo_aligned_avg = average_judge_score(&argo_aligned);
     let polished_avg = average_judge_score(&polished);
@@ -216,9 +212,7 @@ fn codex_calibration_strict_argo_aligned_above_polished_above_weak() {
     // across multiple model releases, this becomes the
     // load-bearing assertion.
     if !anthropic_key_present() {
-        eprintln!(
-            "SKIP: ANTHROPIC_API_KEY not set — strict calibration test requires live judge"
-        );
+        eprintln!("SKIP: ANTHROPIC_API_KEY not set — strict calibration test requires live judge");
         return;
     }
     if std::env::var("ARGO_CALIBRATION_STRICT")
@@ -233,11 +227,9 @@ fn codex_calibration_strict_argo_aligned_above_polished_above_weak() {
         );
         return;
     }
-    let argo_aligned =
-        run_live_judge_against_corpus("gtm_engineer_codex_argo_aligned.jsonl");
-    let polished = run_live_judge_against_corpus(
-        "gtm_engineer_codex_polished_but_less_grounded.jsonl",
-    );
+    let argo_aligned = run_live_judge_against_corpus("gtm_engineer_codex_argo_aligned.jsonl");
+    let polished =
+        run_live_judge_against_corpus("gtm_engineer_codex_polished_but_less_grounded.jsonl");
     let weak = run_live_judge_against_corpus("gtm_engineer_codex_weak.jsonl");
     let argo_aligned_avg = average_judge_score(&argo_aligned);
     let polished_avg = average_judge_score(&polished);

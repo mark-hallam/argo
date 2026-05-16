@@ -53,7 +53,10 @@ pub(super) fn print_db(v: &serde_json::Value) {
         println!("  db:         MIGRATE FAILED ({e})");
         return;
     }
-    let version = v.get("schema_version").and_then(|n| n.as_u64()).unwrap_or(0);
+    let version = v
+        .get("schema_version")
+        .and_then(|n| n.as_u64())
+        .unwrap_or(0);
     let ws = v
         .get("workspace_registered")
         .and_then(|b| b.as_bool())
@@ -117,8 +120,7 @@ pub(super) fn print_audit(v: &serde_json::Value) {
 /// opened with the profile from `[store.wal_tuning].profile` so the
 /// readout reflects what the runtime would actually apply.
 pub(super) async fn wal_stats(json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     let home = resolve_home(&cwd).unwrap_or_else(|_| cfg.core.resolved_home());
     let db = db_path(&home);

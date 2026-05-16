@@ -53,7 +53,11 @@ pub async fn run(
         );
         for r in &rows {
             let worker = r.worker_id.as_deref().unwrap_or("-");
-            let comment = if r.comment.is_empty() { "-" } else { r.comment.as_str() };
+            let comment = if r.comment.is_empty() {
+                "-"
+            } else {
+                r.comment.as_str()
+            };
             println!(
                 "{:<6} {:<6} {:<24} {:<28} {:<16} {}",
                 r.id,

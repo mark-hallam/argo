@@ -115,17 +115,11 @@ async fn disabled_affinity_mints_distinct_session_ids() {
 async fn affinity_isolates_distinct_tenants_sharing_a_worker_id() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    let store = store.with_affinity(Arc::new(PromptCacheAffinity::enabled(
-        Duration::from_secs(270),
-    )));
-    let (tenant_a, workspace_a) = store
-        .ensure_workspace("alpha", "/tmp/alpha")
-        .await
-        .unwrap();
-    let (tenant_b, workspace_b) = store
-        .ensure_workspace("bravo", "/tmp/bravo")
-        .await
-        .unwrap();
+    let store = store.with_affinity(Arc::new(PromptCacheAffinity::enabled(Duration::from_secs(
+        270,
+    ))));
+    let (tenant_a, workspace_a) = store.ensure_workspace("alpha", "/tmp/alpha").await.unwrap();
+    let (tenant_b, workspace_b) = store.ensure_workspace("bravo", "/tmp/bravo").await.unwrap();
     assert_ne!(
         tenant_a, tenant_b,
         "test precondition: workspaces must mint distinct tenants",
@@ -143,9 +137,9 @@ async fn affinity_isolates_distinct_tenants_sharing_a_worker_id() {
 #[tokio::test]
 async fn affinity_without_worker_id_still_mints_fresh() {
     let (store, tenant, workspace) = store_with_workspace().await;
-    let store = store.with_affinity(Arc::new(PromptCacheAffinity::enabled(
-        Duration::from_secs(270),
-    )));
+    let store = store.with_affinity(Arc::new(PromptCacheAffinity::enabled(Duration::from_secs(
+        270,
+    ))));
 
     let sid_a = mint(&store, tenant, workspace, None).await;
     let sid_b = mint(&store, tenant, workspace, None).await;

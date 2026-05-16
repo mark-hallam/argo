@@ -135,7 +135,10 @@ async fn create_user(
             .and_then(Value::as_str)
             .map(str::to_string),
         emails: extract_emails(parsed.get("emails")),
-        active: parsed.get("active").and_then(Value::as_bool).unwrap_or(true),
+        active: parsed
+            .get("active")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
         created_at: Utc::now(),
     };
     let id = match scim.insert(new).await {
@@ -168,11 +171,7 @@ async fn get_user(scim: &ScimUserStore<'_>, id: &str) -> (&'static str, String) 
 /// Operations: [...]`) and a plain-attribute body (`{ active: false,
 /// displayName: "..." }`). The plain form is what Okta sends in
 /// some integration profiles; supporting both keeps interop wide.
-async fn patch_user(
-    scim: &ScimUserStore<'_>,
-    id: &str,
-    req: &str,
-) -> (&'static str, String) {
+async fn patch_user(scim: &ScimUserStore<'_>, id: &str, req: &str) -> (&'static str, String) {
     let parsed = match Uuid::parse_str(id) {
         Ok(u) => u,
         Err(_) => return scim_error(400, "invalid user id (expected UUID)"),
@@ -219,8 +218,7 @@ async fn delete_user(scim: &ScimUserStore<'_>, id: &str) -> (&'static str, Strin
 }
 
 async fn resolve_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())

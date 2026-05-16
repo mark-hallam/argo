@@ -27,8 +27,7 @@ fn microsite_dir() -> PathBuf {
 
 fn read_file(rel: &str) -> String {
     let path = microsite_dir().join(rel);
-    std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("could not read {path:?}: {e}"))
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("could not read {path:?}: {e}"))
 }
 
 fn pluck<'a>(v: &'a Value, dotted: &str) -> &'a Value {
@@ -43,25 +42,21 @@ fn pluck<'a>(v: &'a Value, dotted: &str) -> &'a Value {
 
 fn require_non_empty_string(v: &Value, dotted: &str) {
     let node = pluck(v, dotted);
-    let s = node.as_str().unwrap_or_else(|| {
-        panic!("{dotted:?} must be a string; got: {node}")
-    });
+    let s = node
+        .as_str()
+        .unwrap_or_else(|| panic!("{dotted:?} must be a string; got: {node}"));
     assert!(!s.trim().is_empty(), "{dotted:?} must not be empty");
 }
 
 fn require_number(v: &Value, dotted: &str) {
     let node = pluck(v, dotted);
-    assert!(
-        node.is_number(),
-        "{dotted:?} must be a number; got: {node}"
-    );
+    assert!(node.is_number(), "{dotted:?} must be a number; got: {node}");
 }
 
 #[test]
 fn launch_microsite_demo_json_has_expected_shape() {
     let raw = read_file("data/demo.json");
-    let v: Value = serde_json::from_str(&raw)
-        .expect("data/demo.json must be valid JSON");
+    let v: Value = serde_json::from_str(&raw).expect("data/demo.json must be valid JSON");
 
     // Hero
     for path in [
@@ -196,9 +191,8 @@ fn launch_microsite_readme_documents_both_modes() {
         md.contains("deterministic"),
         "README.md must mention deterministic mode"
     );
-    let mentions_live = md.contains("--live")
-        || md.contains("live_llm")
-        || md.contains("live mode");
+    let mentions_live =
+        md.contains("--live") || md.contains("live_llm") || md.contains("live mode");
     assert!(
         mentions_live,
         "README.md must mention live mode (--live / LIVE_LLM=1 / 'live mode')"

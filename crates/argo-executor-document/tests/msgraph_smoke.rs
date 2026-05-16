@@ -21,7 +21,9 @@ use argo_executor_document::msgraph::MsGraphClient;
 use argo_executor_document::{MsGraphExecutor, MsGraphFormat};
 
 fn token() -> Option<String> {
-    std::env::var("ARGO_MSGRAPH_TEST_TOKEN").ok().filter(|t| !t.trim().is_empty())
+    std::env::var("ARGO_MSGRAPH_TEST_TOKEN")
+        .ok()
+        .filter(|t| !t.trim().is_empty())
 }
 
 fn random_suffix() -> String {
@@ -61,6 +63,9 @@ async fn msgraph_round_trip_uploads_and_reads_back() {
     assert!(!file.item_id.is_empty(), "item_id should be populated");
 
     let read_bytes = exec.read(&path).await.expect("read .docx back");
-    assert!(read_bytes.starts_with(b"PK\x03\x04"), "round-trip should preserve PKZIP magic");
+    assert!(
+        read_bytes.starts_with(b"PK\x03\x04"),
+        "round-trip should preserve PKZIP magic"
+    );
     assert!(read_bytes.len() > 100, "round-tripped file looks empty");
 }

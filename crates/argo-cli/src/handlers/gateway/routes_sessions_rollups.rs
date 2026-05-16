@@ -85,8 +85,7 @@ pub(super) async fn sessions_by_provider_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT provider, COUNT(*) FROM session WHERE started_at >= ? \
                  GROUP BY provider ORDER BY provider",
@@ -158,8 +157,7 @@ pub(super) async fn sessions_by_model_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT model, COUNT(*) FROM session WHERE started_at >= ? \
                  GROUP BY model ORDER BY model",
@@ -169,11 +167,9 @@ pub(super) async fn sessions_by_model_response(
             .await
         }
         None => {
-            sqlx::query_as(
-                "SELECT model, COUNT(*) FROM session GROUP BY model ORDER BY model",
-            )
-            .fetch_all(pool)
-            .await
+            sqlx::query_as("SELECT model, COUNT(*) FROM session GROUP BY model ORDER BY model")
+                .fetch_all(pool)
+                .await
         }
     };
     match rows {

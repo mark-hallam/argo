@@ -325,24 +325,34 @@ fn is_session_worker_id_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
 fn is_skill_shared_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
     stmt.contains("ALTER TABLE skill ADD COLUMN shared")
         && (err.to_string().contains("duplicate column name: shared")
-            || err.to_string().contains("duplicate column name: shared_with_cluster"))
+            || err
+                .to_string()
+                .contains("duplicate column name: shared_with_cluster"))
 }
 
 fn is_audit_principal_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
     stmt.contains("ALTER TABLE audit_record ADD COLUMN principal_id")
-        && err.to_string().contains("duplicate column name: principal_id")
+        && err
+            .to_string()
+            .contains("duplicate column name: principal_id")
 }
 
 fn is_worker_archived_at_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
     stmt.contains("ALTER TABLE worker ADD COLUMN archived_at")
-        && err.to_string().contains("duplicate column name: archived_at")
+        && err
+            .to_string()
+            .contains("duplicate column name: archived_at")
 }
 
 fn is_worker_trust_grade_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
     stmt.contains("ALTER TABLE worker ADD COLUMN trust_grade")
-        && err.to_string().contains("duplicate column name: trust_grade")
+        && err
+            .to_string()
+            .contains("duplicate column name: trust_grade")
         || stmt.contains("ALTER TABLE worker ADD COLUMN last_used_at")
-            && err.to_string().contains("duplicate column name: last_used_at")
+            && err
+                .to_string()
+                .contains("duplicate column name: last_used_at")
 }
 
 fn is_skill_min_trust_grade_duplicate(stmt: &str, err: &sqlx::Error) -> bool {

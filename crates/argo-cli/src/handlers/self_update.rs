@@ -25,12 +25,11 @@ use argo_types::{ArgoError, ArgoResult};
 pub use super::self_update_install::{is_newer, parse_pubkey_pem, verify_signature};
 
 use super::self_update_install::{
-    download_to, emit_check, emit_installed, emit_noop, replace_binary,
-    restart_daemon_best_effort, RELEASE_PUBKEY_PEM,
+    download_to, emit_check, emit_installed, emit_noop, replace_binary, restart_daemon_best_effort,
+    RELEASE_PUBKEY_PEM,
 };
 
-const GITHUB_API_RELEASES: &str =
-    "https://api.github.com/repos/mark-hallam/Argo-Agent/releases";
+const GITHUB_API_RELEASES: &str = "https://api.github.com/repos/mark-hallam/Argo-Agent/releases";
 pub(crate) const USER_AGENT: &str = concat!("argo-cli/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,13 +108,7 @@ pub async fn run(args: Args) -> ArgoResult<()> {
     replace_binary(&asset_path, &current_exe)?;
     let restarted = restart_daemon_best_effort(&current_exe);
 
-    emit_installed(
-        &current,
-        &latest.tag,
-        channel,
-        restarted,
-        args.json,
-    );
+    emit_installed(&current, &latest.tag, channel, restarted, args.json);
     Ok(())
 }
 
@@ -162,7 +155,10 @@ pub(crate) fn parse_releases(body: &serde_json::Value, channel: Channel) -> Argo
     let allow_pre = channel.allows_prerelease();
     for item in arr {
         let draft = item.get("draft").and_then(|v| v.as_bool()).unwrap_or(false);
-        let pre = item.get("prerelease").and_then(|v| v.as_bool()).unwrap_or(false);
+        let pre = item
+            .get("prerelease")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if draft {
             continue;
         }

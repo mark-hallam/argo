@@ -95,13 +95,13 @@ async fn different_action_types_interleave_freely() {
     // Drain send_email's burst; post_listing must still proceed
     // immediately on the next call.
     let first = acquire_or_wait(
-            &registry,
-            "tenant-a",
-            "send_email",
-            Utc::now,
-            tokio::time::sleep,
-        )
-        .await;
+        &registry,
+        "tenant-a",
+        "send_email",
+        Utc::now,
+        tokio::time::sleep,
+    )
+    .await;
     assert_eq!(first, Duration::ZERO);
     let second = acquire_or_wait(
         &registry,
@@ -126,8 +126,7 @@ async fn disabled_registry_never_waits() {
     // the bucket lock.
     let registry = ThrottleRegistry::disabled();
     for _ in 0..50 {
-        let waited =
-            acquire_or_wait(
+        let waited = acquire_or_wait(
             &registry,
             "tenant-a",
             "send_email",
@@ -152,8 +151,7 @@ fn audit_signal_fires_past_threshold() {
     let cfg = ThrottleConfig::default();
     assert!(!should_emit_audit(&cfg, Duration::from_secs(5)));
     assert!(should_emit_audit(&cfg, Duration::from_secs(12)));
-    let payload =
-        build_audit_payload("tenant-a", "send_email", Duration::from_secs(12));
+    let payload = build_audit_payload("tenant-a", "send_email", Duration::from_secs(12));
     assert_eq!(payload["tenant_id"], "tenant-a");
     assert_eq!(payload["action_type"], "send_email");
     assert!(

@@ -67,7 +67,11 @@ async fn query_scored_ranks_and_caps_via_tool_surface() {
         )
         .await
         .expect("dispatch ok");
-    assert!(!result.is_error, "expected success, got {:?}", result.content);
+    assert!(
+        !result.is_error,
+        "expected success, got {:?}",
+        result.content
+    );
 
     let body = result
         .content

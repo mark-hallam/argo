@@ -60,8 +60,12 @@ async fn maps_5xx_to_transient() {
 
 #[test]
 fn debug_redacts_auth_header() {
-    let sink = ElasticSink::new("https://es.example.com".into(), "Basic c2VjcmV0".into(), None)
-        .unwrap();
+    let sink = ElasticSink::new(
+        "https://es.example.com".into(),
+        "Basic c2VjcmV0".into(),
+        None,
+    )
+    .unwrap();
     let dbg = format!("{sink:?}");
     assert!(!dbg.contains("c2VjcmV0"));
 }
@@ -77,4 +81,3 @@ fn encode_alternates_action_and_doc_lines() {
     let doc: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
     assert_eq!(doc["seq"], 1);
 }
-

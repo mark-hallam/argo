@@ -32,8 +32,7 @@ pub async fn run(
     older_than_minutes: i64,
     max_ticks: Option<u64>,
 ) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -44,14 +43,11 @@ pub async fn run(
     let mut ticks = 0_u64;
     loop {
         let cutoff_micros =
-            (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes))
-                .timestamp_micros();
+            (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes)).timestamp_micros();
         match store.sweep_stalled_forge_runs(cutoff_micros).await {
             Ok(0) => {}
             Ok(n) => {
-                println!(
-                    "tick {ticks}: swept {n} stalled run(s) older than {older_than_minutes}m"
-                );
+                println!("tick {ticks}: swept {n} stalled run(s) older than {older_than_minutes}m");
             }
             Err(e) => {
                 eprintln!("tick {ticks}: sweep error: {e}");
@@ -84,18 +80,11 @@ pub async fn run(
 /// indefinitely. The payload was serialized at enqueue time and
 /// has the shape:
 /// `{"skill": …, "examples": …, "iterations": N, "budget_usd": X}`.
-async fn run_claimed_row(
-    store: &SessionStore,
-    run_id: uuid::Uuid,
-    payload: &str,
-    tick: u64,
-) {
+async fn run_claimed_row(store: &SessionStore, run_id: uuid::Uuid, payload: &str, tick: u64) {
     let parsed: serde_json::Value = match serde_json::from_str(payload) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!(
-                "tick {tick}: claim {run_id}: payload parse failed: {e}; failing run"
-            );
+            eprintln!("tick {tick}: claim {run_id}: payload parse failed: {e}; failing run");
             let _ = store.finish_forge_run(run_id, "failed", None, 0).await;
             return;
         }
@@ -110,13 +99,16 @@ async fn run_claimed_row(
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let iterations =
-        parsed.get("iterations").and_then(|v| v.as_u64()).unwrap_or(12) as u32;
-    let budget_usd = parsed.get("budget_usd").and_then(|v| v.as_f64()).unwrap_or(5.0);
+    let iterations = parsed
+        .get("iterations")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(12) as u32;
+    let budget_usd = parsed
+        .get("budget_usd")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(5.0);
     if skill.is_empty() || examples.is_empty() {
-        eprintln!(
-            "tick {tick}: claim {run_id}: payload missing skill or examples; failing run"
-        );
+        eprintln!("tick {tick}: claim {run_id}: payload missing skill or examples; failing run");
         let _ = store.finish_forge_run(run_id, "failed", None, 0).await;
         return;
     }

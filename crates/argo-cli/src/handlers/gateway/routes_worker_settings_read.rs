@@ -8,9 +8,8 @@
 
 use super::super::routes_worker_detail::PrincipalRole;
 use super::helpers::{
-    bad_request, emit_audit, enforce_archive_410, load_worker_by_id, parse_body,
-    parse_role_header, parse_worker_id, preflight, require_string, resolve_tenant,
-    server_error, store_unavail,
+    bad_request, emit_audit, enforce_archive_410, load_worker_by_id, parse_body, parse_role_header,
+    parse_worker_id, preflight, require_string, resolve_tenant, server_error, store_unavail,
 };
 use argo_identity::{NotifyChannelRef, Worker, WorkerId};
 use argo_store::SessionStore;
@@ -22,7 +21,9 @@ pub(crate) async fn get_settings(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let worker_id = match parse_worker_id(worker_id_raw) {
         Ok(id) => id,
         Err(resp) => return resp,
@@ -49,7 +50,9 @@ pub(crate) async fn patch_channels(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let (_, worker) = match preflight(worker_id_raw, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
@@ -59,7 +62,10 @@ pub(crate) async fn patch_channels(
         Err(resp) => return resp,
     };
     let all: Vec<String> = match body.get("channels").and_then(Value::as_array) {
-        Some(arr) => arr.iter().filter_map(|v| v.as_str().map(str::to_string)).collect(),
+        Some(arr) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect(),
         None => return bad_request("missing 'channels' array"),
     };
     let primary = match body.get("primary").and_then(Value::as_str) {
@@ -70,7 +76,14 @@ pub(crate) async fn patch_channels(
         return bad_request("'primary' must be present in 'channels'");
     }
     let payload = json!({ "channels": all, "primary": primary });
-    emit_audit(store, req, &worker, "worker.channels.changed", payload.clone()).await;
+    emit_audit(
+        store,
+        req,
+        &worker,
+        "worker.channels.changed",
+        payload.clone(),
+    )
+    .await;
     ("200 OK", json!({ "channels": payload }).to_string())
 }
 
@@ -79,7 +92,9 @@ pub(crate) async fn patch_quiet_hours(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let (_, worker) = match preflight(worker_id_raw, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
@@ -96,7 +111,14 @@ pub(crate) async fn patch_quiet_hours(
         _ => return bad_request("body must include 'start', 'end', 'tz'"),
     };
     let payload = json!({ "start": start, "end": end, "tz": tz });
-    emit_audit(store, req, &worker, "worker.quiet_hours.changed", payload.clone()).await;
+    emit_audit(
+        store,
+        req,
+        &worker,
+        "worker.quiet_hours.changed",
+        payload.clone(),
+    )
+    .await;
     ("200 OK", json!({ "quiet_hours": payload }).to_string())
 }
 
@@ -105,7 +127,9 @@ pub(crate) async fn patch_budget(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let (_, worker) = match preflight(worker_id_raw, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
@@ -121,7 +145,14 @@ pub(crate) async fn patch_budget(
         _ => return bad_request("body must include non-negative 'daily_usd' and 'monthly_usd'"),
     };
     let payload = json!({ "daily_usd": daily, "monthly_usd": monthly });
-    emit_audit(store, req, &worker, "worker.budget.changed", payload.clone()).await;
+    emit_audit(
+        store,
+        req,
+        &worker,
+        "worker.budget.changed",
+        payload.clone(),
+    )
+    .await;
     ("200 OK", json!({ "budget": payload }).to_string())
 }
 
@@ -130,7 +161,9 @@ pub(crate) async fn patch_autonomy(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let Some(store) = store else { return store_unavail() };
+    let Some(store) = store else {
+        return store_unavail();
+    };
     let (_, worker) = match preflight(worker_id_raw, store, true).await {
         Ok(p) => p,
         Err(resp) => return resp,
@@ -144,7 +177,14 @@ pub(crate) async fn patch_autonomy(
         _ => return bad_request("'level' must be conservative | balanced | aggressive"),
     };
     let payload = json!({ "level": level });
-    emit_audit(store, req, &worker, "worker.autonomy.changed", payload.clone()).await;
+    emit_audit(
+        store,
+        req,
+        &worker,
+        "worker.autonomy.changed",
+        payload.clone(),
+    )
+    .await;
     if level == "conservative" {
         emit_audit(
             store,
@@ -200,7 +240,10 @@ async fn derive_channels(store: &Arc<SessionStore>, worker: &Worker) -> (String,
         from_audit.get("primary").and_then(Value::as_str),
         from_audit.get("channels").and_then(Value::as_array),
     ) {
-        let all: Vec<String> = arr.iter().filter_map(|v| v.as_str().map(str::to_string)).collect();
+        let all: Vec<String> = arr
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect();
         return (primary.to_string(), all);
     }
     let all: Vec<String> = worker

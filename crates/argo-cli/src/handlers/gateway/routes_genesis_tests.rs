@@ -11,8 +11,7 @@ use super::*;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-const VALID_PROBLEM: &str =
-    "Marketing intern to handle our weekly campaigns and newsletter";
+const VALID_PROBLEM: &str = "Marketing intern to handle our weekly campaigns and newsletter";
 
 fn classify_req(body: &str) -> String {
     format!(
@@ -134,11 +133,10 @@ async fn classify_writes_audit_row_with_genesis_metadata() {
     let body = serde_json::json!({ "problem": VALID_PROBLEM }).to_string();
     let (_, _) = classify_response(&classify_req(&body), Some(&store)).await;
 
-    let rows: Vec<(String, String)> =
-        sqlx::query_as("SELECT kind, payload_json FROM audit_record")
-            .fetch_all(store.pool())
-            .await
-            .unwrap();
+    let rows: Vec<(String, String)> = sqlx::query_as("SELECT kind, payload_json FROM audit_record")
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 1, "exactly one audit row per call");
     assert_eq!(rows[0].0, "http.request");
     let payload: serde_json::Value = serde_json::from_str(&rows[0].1).unwrap();
@@ -287,7 +285,14 @@ fn canonical_questions_lists_six_questions_with_stable_ids() {
     let ids: Vec<&str> = qs.iter().map(|q| q.id.as_str()).collect();
     assert_eq!(
         ids,
-        vec!["role", "name", "industry", "duties", "channels", "spend_cap"],
+        vec![
+            "role",
+            "name",
+            "industry",
+            "duties",
+            "channels",
+            "spend_cap"
+        ],
     );
     // role, name, duties, channels, spend_cap are required; industry is not.
     let required_count = qs.iter().filter(|q| q.required).count();

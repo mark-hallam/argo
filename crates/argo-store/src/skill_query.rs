@@ -122,31 +122,39 @@ async fn search_indirect(
 }
 
 fn direct_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<SkillVerticalRow> {
-    let id_blob: Vec<u8> = row.try_get("id")
+    let id_blob: Vec<u8> = row
+        .try_get("id")
         .map_err(|e| ArgoError::Provider(format!("skill.id: {e}")))?;
     Ok(SkillVerticalRow {
         skill_id: uuid_from_blob(&id_blob).to_string(),
-        skill_name: row.try_get("name")
+        skill_name: row
+            .try_get("name")
             .map_err(|e| ArgoError::Provider(format!("skill.name: {e}")))?,
-        version: row.try_get("version")
+        version: row
+            .try_get("version")
             .map_err(|e| ArgoError::Provider(format!("skill.version: {e}")))?,
         vertical_id: row.try_get("vertical_id").ok(),
-        last_activity_micros: row.try_get("created_at")
+        last_activity_micros: row
+            .try_get("created_at")
             .map_err(|e| ArgoError::Provider(format!("skill.created_at: {e}")))?,
     })
 }
 
 fn indirect_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<SkillVerticalRow> {
-    let id_blob: Vec<u8> = row.try_get("id")
+    let id_blob: Vec<u8> = row
+        .try_get("id")
         .map_err(|e| ArgoError::Provider(format!("skill.id: {e}")))?;
     Ok(SkillVerticalRow {
         skill_id: uuid_from_blob(&id_blob).to_string(),
-        skill_name: row.try_get("name")
+        skill_name: row
+            .try_get("name")
             .map_err(|e| ArgoError::Provider(format!("skill.name: {e}")))?,
-        version: row.try_get("version")
+        version: row
+            .try_get("version")
             .map_err(|e| ArgoError::Provider(format!("skill.version: {e}")))?,
         vertical_id: row.try_get("vertical_id").ok(),
-        last_activity_micros: row.try_get("last_attached")
+        last_activity_micros: row
+            .try_get("last_attached")
             .map_err(|e| ArgoError::Provider(format!("session_skill.attached_at: {e}")))?,
     })
 }
@@ -194,11 +202,21 @@ mod tests {
         let v_a_old = Uuid::now_v7();
         let v_a_new = Uuid::now_v7();
         let v_b = Uuid::now_v7();
-        insert_skill(pool, v_a_old, "alpha", "1.0", Some("vertical-a"), now - 1_000).await;
+        insert_skill(
+            pool,
+            v_a_old,
+            "alpha",
+            "1.0",
+            Some("vertical-a"),
+            now - 1_000,
+        )
+        .await;
         insert_skill(pool, v_a_new, "beta", "1.0", Some("vertical-a"), now).await;
         insert_skill(pool, v_b, "gamma", "1.0", Some("vertical-b"), now).await;
 
-        let rows = search_by_vertical(pool, "vertical-a", 10, false).await.unwrap();
+        let rows = search_by_vertical(pool, "vertical-a", 10, false)
+            .await
+            .unwrap();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].skill_name, "beta");
         assert_eq!(rows[1].skill_name, "alpha");
@@ -209,7 +227,9 @@ mod tests {
         let store = seed_store().await;
         let pool = store.pool();
         insert_skill(pool, Uuid::now_v7(), "alpha", "1.0", Some("vertical-a"), 0).await;
-        let rows = search_by_vertical(pool, "vertical-z", 10, false).await.unwrap();
+        let rows = search_by_vertical(pool, "vertical-z", 10, false)
+            .await
+            .unwrap();
         assert!(rows.is_empty());
     }
 
@@ -219,9 +239,19 @@ mod tests {
         let pool = store.pool();
         for i in 0..5 {
             let name = format!("skill-{i}");
-            insert_skill(pool, Uuid::now_v7(), &name, "1.0", Some("vertical-a"), i as i64).await;
+            insert_skill(
+                pool,
+                Uuid::now_v7(),
+                &name,
+                "1.0",
+                Some("vertical-a"),
+                i as i64,
+            )
+            .await;
         }
-        let rows = search_by_vertical(pool, "vertical-a", 2, false).await.unwrap();
+        let rows = search_by_vertical(pool, "vertical-a", 2, false)
+            .await
+            .unwrap();
         assert_eq!(rows.len(), 2);
     }
 
@@ -289,11 +319,15 @@ mod tests {
         .unwrap();
 
         // Direct mode for vertical-a → empty (skill row says vertical-b).
-        let direct = search_by_vertical(pool, "vertical-a", 10, false).await.unwrap();
+        let direct = search_by_vertical(pool, "vertical-a", 10, false)
+            .await
+            .unwrap();
         assert!(direct.is_empty());
 
         // Indirect mode for vertical-a → finds the shared skill.
-        let indirect = search_by_vertical(pool, "vertical-a", 10, true).await.unwrap();
+        let indirect = search_by_vertical(pool, "vertical-a", 10, true)
+            .await
+            .unwrap();
         assert_eq!(indirect.len(), 1);
         assert_eq!(indirect[0].skill_name, "shared");
         assert_eq!(indirect[0].last_activity_micros, 123);

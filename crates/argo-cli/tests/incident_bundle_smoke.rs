@@ -67,7 +67,10 @@ fn incident_bundle_produces_redacted_targz_with_all_sections() {
 
     let entries = read_archive(&bundle);
     let names: BTreeSet<String> = entries.keys().cloned().collect();
-    assert!(names.contains("manifest.json"), "missing manifest.json; got {names:?}");
+    assert!(
+        names.contains("manifest.json"),
+        "missing manifest.json; got {names:?}"
+    );
     for expected in EXPECTED_SECTIONS {
         assert!(
             names.contains(*expected),
@@ -93,9 +96,18 @@ fn incident_bundle_produces_redacted_targz_with_all_sections() {
     }
 
     let redacted = std::str::from_utf8(entries.get("argo-toml.redacted.toml").unwrap()).unwrap();
-    assert!(redacted.contains("api_key = \"<REDACTED>\""), "api_key not redacted: {redacted}");
-    assert!(redacted.contains("bearer_token = \"<REDACTED>\""), "bearer_token not redacted");
-    assert!(redacted.contains("model = \"opus\""), "non-sensitive stripped: {redacted}");
+    assert!(
+        redacted.contains("api_key = \"<REDACTED>\""),
+        "api_key not redacted: {redacted}"
+    );
+    assert!(
+        redacted.contains("bearer_token = \"<REDACTED>\""),
+        "bearer_token not redacted"
+    );
+    assert!(
+        redacted.contains("model = \"opus\""),
+        "non-sensitive stripped: {redacted}"
+    );
     assert!(redacted.contains("note = \"public\""), "note stripped");
     assert!(!redacted.contains("sk-AAA"), "raw api_key leaked");
     assert!(!redacted.contains("BBB"), "raw bearer leaked");
@@ -105,7 +117,10 @@ fn incident_bundle_produces_redacted_targz_with_all_sections() {
     assert!(log_tail.contains("line 3"));
 
     let build_id = std::str::from_utf8(entries.get("build-identity.txt").unwrap()).unwrap();
-    assert!(build_id.starts_with("argo_version="), "build identity: {build_id}");
+    assert!(
+        build_id.starts_with("argo_version="),
+        "build identity: {build_id}"
+    );
 }
 
 fn read_archive(path: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {

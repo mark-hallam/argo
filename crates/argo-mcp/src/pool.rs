@@ -176,7 +176,8 @@ impl McpClientPool {
     /// Construct an empty pool.
     #[must_use]
     pub fn new(config: PoolConfig) -> Arc<Self> {
-        let cap = NonZeroUsize::new(config.max_clients.max(1) as usize).unwrap_or(NonZeroUsize::MIN);
+        let cap =
+            NonZeroUsize::new(config.max_clients.max(1) as usize).unwrap_or(NonZeroUsize::MIN);
         Arc::new(Self {
             inner: Mutex::new(LruCache::new(cap)),
             idle_ttl: Duration::from_secs(config.idle_ttl_secs),

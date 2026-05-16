@@ -84,9 +84,8 @@ pub(crate) fn inspect_archive(path: &Path) -> ArgoResult<BackupInspection> {
         }
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
-    let manifest = manifest.ok_or_else(|| {
-        ArgoError::Provider(format!("backup archive missing {MANIFEST_PATH}"))
-    })?;
+    let manifest = manifest
+        .ok_or_else(|| ArgoError::Provider(format!("backup archive missing {MANIFEST_PATH}")))?;
     Ok(BackupInspection { manifest, files })
 }
 

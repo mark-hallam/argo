@@ -27,9 +27,12 @@ async fn schema_applies_idempotently() {
 #[tokio::test]
 async fn insert_and_get_round_trip() {
     let pool = fresh_pool().await;
-    let id = insert(&pool, &fixture("marketing-launch-distilled", "promote our blog post"))
-        .await
-        .expect("insert");
+    let id = insert(
+        &pool,
+        &fixture("marketing-launch-distilled", "promote our blog post"),
+    )
+    .await
+    .expect("insert");
     let row = get(&pool, &id).await.expect("get").expect("row exists");
     assert_eq!(row.name, "marketing-launch-distilled");
     assert_eq!(row.parent_goal, "promote our blog post");
@@ -51,7 +54,9 @@ async fn keywords_round_trip_lowercased() {
 async fn promote_marks_row_and_stamps_timestamp() {
     let pool = fresh_pool().await;
     let id = insert(&pool, &fixture("t", "g")).await.unwrap();
-    promote(&pool, &id, &NoopSkillIngestSink).await.expect("promote");
+    promote(&pool, &id, &NoopSkillIngestSink)
+        .await
+        .expect("promote");
     let row = get(&pool, &id).await.unwrap().unwrap();
     assert_eq!(row.trust_grade, TrustGrade::Promoted);
     assert!(row.promoted_at.is_some());
@@ -61,7 +66,9 @@ async fn promote_marks_row_and_stamps_timestamp() {
 async fn reject_marks_row_without_promoted_at() {
     let pool = fresh_pool().await;
     let id = insert(&pool, &fixture("t", "g")).await.unwrap();
-    reject(&pool, &id, &NoopSkillIngestSink).await.expect("reject");
+    reject(&pool, &id, &NoopSkillIngestSink)
+        .await
+        .expect("reject");
     let row = get(&pool, &id).await.unwrap().unwrap();
     assert_eq!(row.trust_grade, TrustGrade::Rejected);
     assert!(row.promoted_at.is_none());
@@ -136,7 +143,10 @@ async fn trust_grade_string_round_trip() {
     assert_eq!(TrustGrade::from_str_lossy("promoted"), TrustGrade::Promoted);
     assert_eq!(TrustGrade::from_str_lossy("rejected"), TrustGrade::Rejected);
     // Unknown / forward-rolled values fall back to Pending.
-    assert_eq!(TrustGrade::from_str_lossy("future-grade"), TrustGrade::Pending);
+    assert_eq!(
+        TrustGrade::from_str_lossy("future-grade"),
+        TrustGrade::Pending
+    );
 }
 
 /// Capturing sink used by the sink-wiring tests. Records every

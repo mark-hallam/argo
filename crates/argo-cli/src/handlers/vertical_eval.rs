@@ -172,7 +172,10 @@ fn scan_suite(path: &Path) -> ScanResult {
         }
         count += 1;
     }
-    ScanResult { fixture_count: count, errors }
+    ScanResult {
+        fixture_count: count,
+        errors,
+    }
 }
 
 fn print_text_report(r: &SuiteReport) {
@@ -227,7 +230,11 @@ mod tests {
     fn scan_suite_flags_invalid_json() {
         let dir = tempdir().unwrap();
         let p = dir.path().join("bad.jsonl");
-        fs::write(&p, "{\"id\":\"a\",\"input\":\"x\",\"expected\":{}}\nNOT JSON\n").unwrap();
+        fs::write(
+            &p,
+            "{\"id\":\"a\",\"input\":\"x\",\"expected\":{}}\nNOT JSON\n",
+        )
+        .unwrap();
         let r = scan_suite(&p);
         assert_eq!(r.fixture_count, 1);
         assert_eq!(r.errors.len(), 1);
@@ -248,8 +255,14 @@ mod tests {
         let r = scan_suite(&p);
         assert_eq!(r.fixture_count, 2);
         assert_eq!(r.errors.len(), 2);
-        assert!(r.errors.iter().any(|e| e.contains("line 1") && e.contains("expected")));
-        assert!(r.errors.iter().any(|e| e.contains("line 2") && e.contains("input")));
+        assert!(r
+            .errors
+            .iter()
+            .any(|e| e.contains("line 1") && e.contains("expected")));
+        assert!(r
+            .errors
+            .iter()
+            .any(|e| e.contains("line 2") && e.contains("input")));
     }
 
     #[test]

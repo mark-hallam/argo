@@ -160,7 +160,10 @@ async fn available_only_flag_drops_unrestricted_skills() {
     )
     .await
     .unwrap();
-    let names: Vec<&str> = all.iter().map(|(s, _)| s.frontmatter.name.as_str()).collect();
+    let names: Vec<&str> = all
+        .iter()
+        .map(|(s, _)| s.frontmatter.name.as_str())
+        .collect();
     assert!(names.contains(&"open"));
     assert!(names.contains(&"gated"));
 

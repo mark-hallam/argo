@@ -40,8 +40,7 @@ async fn schedule_gate_blocks_when_current_hour_outside_window() {
 
 #[tokio::test]
 async fn quiet_hours_gate_blocks_during_deny_window() {
-    let local_hour =
-        u8::try_from(Utc::now().with_timezone(&chrono_tz::UTC).hour()).unwrap();
+    let local_hour = u8::try_from(Utc::now().with_timezone(&chrono_tz::UTC).hour()).unwrap();
     let g = QuietHoursGate::new(vec![local_hour], chrono_tz::UTC);
     assert_eq!(
         g.evaluate(&record("0 * * * * *")).await.unwrap(),
@@ -51,8 +50,7 @@ async fn quiet_hours_gate_blocks_during_deny_window() {
 
 #[tokio::test]
 async fn quiet_hours_gate_allows_outside_deny_window() {
-    let local_hour =
-        u8::try_from(Utc::now().with_timezone(&chrono_tz::UTC).hour()).unwrap();
+    let local_hour = u8::try_from(Utc::now().with_timezone(&chrono_tz::UTC).hour()).unwrap();
     let deny: Vec<u8> = (0u8..24).filter(|h| *h != local_hour).collect();
     let g = QuietHoursGate::new(deny, chrono_tz::UTC);
     assert_eq!(
@@ -66,8 +64,12 @@ async fn quiet_hours_gate_respects_per_zone_local_hour() {
     // Pick a tz whose local hour is guaranteed-different from UTC
     // (Pacific/Kiritimati is UTC+14, the largest civil offset).
     let utc_now = Utc::now();
-    let kir_hour =
-        u8::try_from(utc_now.with_timezone(&chrono_tz::Pacific::Kiritimati).hour()).unwrap();
+    let kir_hour = u8::try_from(
+        utc_now
+            .with_timezone(&chrono_tz::Pacific::Kiritimati)
+            .hour(),
+    )
+    .unwrap();
     let utc_hour = u8::try_from(utc_now.hour()).unwrap();
     if kir_hour == utc_hour {
         // Skip the assertion in the rare case the hour-shift wraps

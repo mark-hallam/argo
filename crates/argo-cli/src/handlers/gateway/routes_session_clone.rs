@@ -142,21 +142,14 @@ async fn clone_or_branch_response(
             other => {
                 return (
                     "500 Internal Server Error",
-                    format!(
-                        "{{\"error\":\"unknown role '{other}' in source session\"}}"
-                    ),
+                    format!("{{\"error\":\"unknown role '{other}' in source session\"}}"),
                 );
             }
         };
-        if let Err(e) = store
-            .append_message(new_id, role, &r.content_json)
-            .await
-        {
+        if let Err(e) = store.append_message(new_id, role, &r.content_json).await {
             return (
                 "500 Internal Server Error",
-                format!(
-                    "{{\"error\":\"append_message #{copied}: {e}\"}}"
-                ),
+                format!("{{\"error\":\"append_message #{copied}: {e}\"}}"),
             );
         }
         copied += 1;

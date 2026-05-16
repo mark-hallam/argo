@@ -15,7 +15,10 @@ const SAMPLE_KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef012345
 fn parse_none_variants() {
     assert!(matches!(KeySource::parse("none").unwrap(), KeySource::None));
     assert!(matches!(KeySource::parse("").unwrap(), KeySource::None));
-    assert!(matches!(KeySource::parse("  NONE ").unwrap(), KeySource::None));
+    assert!(matches!(
+        KeySource::parse("  NONE ").unwrap(),
+        KeySource::None
+    ));
 }
 
 #[test]
@@ -94,7 +97,11 @@ fn resolve_none_returns_none() {
 fn resolve_rejects_invalid_hex() {
     // File-based to avoid env::set_var race on multi-threaded tests.
     let mut f = NamedTempFile::new().unwrap();
-    writeln!(f, "ghghghghghghghghghghghghghghghghghghghghghghghghghghghghghghghgh").unwrap();
+    writeln!(
+        f,
+        "ghghghghghghghghghghghghghghghghghghghghghghghghghghghghghghghgh"
+    )
+    .unwrap();
     let err = KeySource::File(f.path().into()).resolve().unwrap_err();
     assert!(
         format!("{err}").contains("non-hex"),
@@ -117,7 +124,10 @@ fn resolve_rejects_wrong_length() {
 fn debug_impl_is_redacted() {
     let ks = KeySource::Env("MY_SECRET_VAR_NAME".into());
     let s = format!("{ks:?}");
-    assert!(!s.contains("MY_SECRET_VAR_NAME"), "Debug leaked env name: {s}");
+    assert!(
+        !s.contains("MY_SECRET_VAR_NAME"),
+        "Debug leaked env name: {s}"
+    );
     assert!(s.contains("redacted"));
 
     let ks = KeySource::File("/very/secret/path.key".into());
@@ -132,7 +142,9 @@ async fn apply_and_rekey_round_trip_on_stock_sqlite() {
     // statement executes cleanly and that rekey is callable after
     // open. It does NOT verify on-disk encryption.
     let store = crate::SessionStore::open(":memory:").await.unwrap();
-    apply_encryption_pragma(store.pool(), SAMPLE_KEY).await.unwrap();
+    apply_encryption_pragma(store.pool(), SAMPLE_KEY)
+        .await
+        .unwrap();
     let new_key = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
     apply_rekey_pragma(store.pool(), new_key).await.unwrap();
 }

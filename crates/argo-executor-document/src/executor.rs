@@ -266,10 +266,7 @@ mod tests {
     fn output_path_resolve_accepts_nested_subdir() {
         let bundle = Path::new("/tmp/bundle");
         let p = OutputPath::resolve(bundle, "reports/q3/summary.md").unwrap();
-        assert_eq!(
-            p.as_path(),
-            Path::new("/tmp/bundle/reports/q3/summary.md")
-        );
+        assert_eq!(p.as_path(), Path::new("/tmp/bundle/reports/q3/summary.md"));
     }
 
     #[test]

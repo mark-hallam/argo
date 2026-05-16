@@ -25,8 +25,14 @@ fn parses_full_candidate_with_all_optional_fields() {
     }"#;
     let c = parse_skill_candidate(body).expect("must parse");
     assert_eq!(c.skill_name, "technical_founder_outreach");
-    assert_eq!(c.problem.as_deref(), Some("generic copy fails on technical founders"));
-    assert_eq!(c.reusable_pattern.as_deref(), Some("lead with auditability angle"));
+    assert_eq!(
+        c.problem.as_deref(),
+        Some("generic copy fails on technical founders")
+    );
+    assert_eq!(
+        c.reusable_pattern.as_deref(),
+        Some("lead with auditability angle")
+    );
     assert!(c.evidence.is_some());
     assert!(c.expected_reuse.is_some());
     assert!(c.risk.is_some());
@@ -94,5 +100,8 @@ fn schema_key_constant_is_stable() {
     // Lock the wire constant — verticals + tests reference this
     // string literal across the codebase. Changing it would
     // silently orphan every existing memory row.
-    assert_eq!(SCHEMA_KEY_LEARNED_SKILL_CANDIDATE, "learned_skill_candidates");
+    assert_eq!(
+        SCHEMA_KEY_LEARNED_SKILL_CANDIDATE,
+        "learned_skill_candidates"
+    );
 }

@@ -15,13 +15,7 @@ async fn store() -> SessionStore {
     s
 }
 
-async fn insert_skill(
-    store: &SessionStore,
-    id: Uuid,
-    name: &str,
-    version: &str,
-    created_at: i64,
-) {
+async fn insert_skill(store: &SessionStore, id: Uuid, name: &str, version: &str, created_at: i64) {
     sqlx::query(
         "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, created_at) \
          VALUES (?, ?, ?, '', '', 'inline', randomblob(8), ?)",
@@ -63,7 +57,9 @@ async fn set_shared_toggles_flag_and_persists_cluster() {
     let id = Uuid::now_v7();
     insert_skill(&s, id, "alpha", "1.0", 100).await;
 
-    set_shared(&s, "alpha", "1.0", true, Some("eng")).await.unwrap();
+    set_shared(&s, "alpha", "1.0", true, Some("eng"))
+        .await
+        .unwrap();
 
     let row: (i64, Option<String>) = sqlx::query_as(
         "SELECT shared, shared_with_cluster FROM skill WHERE name = ? AND version = ?",
@@ -100,8 +96,12 @@ async fn list_returns_only_skills_in_same_cluster() {
     insert_skill(&s, id_a, "alpha", "1.0", 200).await;
     insert_skill(&s, id_b, "beta", "1.0", 201).await;
 
-    set_shared(&s, "alpha", "1.0", true, Some("eng")).await.unwrap();
-    set_shared(&s, "beta", "1.0", true, Some("finance")).await.unwrap();
+    set_shared(&s, "alpha", "1.0", true, Some("eng"))
+        .await
+        .unwrap();
+    set_shared(&s, "beta", "1.0", true, Some("finance"))
+        .await
+        .unwrap();
 
     let rows = list_shared_for_tenant(&s, "tenant-b").await.unwrap();
     assert_eq!(rows.len(), 1);
@@ -117,7 +117,9 @@ async fn list_returns_empty_when_no_cluster_match() {
 
     let id = Uuid::now_v7();
     insert_skill(&s, id, "gamma", "1.0", 300).await;
-    set_shared(&s, "gamma", "1.0", true, Some("eng")).await.unwrap();
+    set_shared(&s, "gamma", "1.0", true, Some("eng"))
+        .await
+        .unwrap();
 
     let rows = list_shared_for_tenant(&s, "tenant-c").await.unwrap();
     assert!(rows.is_empty());
@@ -133,7 +135,9 @@ async fn unshared_skills_are_never_returned() {
     insert_skill(&s, id_shared, "shared-skill", "1.0", 400).await;
     insert_skill(&s, id_private, "private-skill", "1.0", 401).await;
 
-    set_shared(&s, "shared-skill", "1.0", true, Some("eng")).await.unwrap();
+    set_shared(&s, "shared-skill", "1.0", true, Some("eng"))
+        .await
+        .unwrap();
     // `private-skill` stays unshared but DOES carry the cluster label,
     // confirming `shared = 0` is the gate, not the cluster column alone.
     sqlx::query("UPDATE skill SET shared_with_cluster = 'eng' WHERE name = 'private-skill'")
@@ -151,7 +155,9 @@ async fn list_returns_empty_for_tenant_without_org_unit() {
     let s = store().await;
     let id = Uuid::now_v7();
     insert_skill(&s, id, "delta", "1.0", 500).await;
-    set_shared(&s, "delta", "1.0", true, Some("eng")).await.unwrap();
+    set_shared(&s, "delta", "1.0", true, Some("eng"))
+        .await
+        .unwrap();
 
     let rows = list_shared_for_tenant(&s, "tenant-z").await.unwrap();
     assert!(rows.is_empty());
@@ -173,7 +179,9 @@ async fn migration_down_drops_columns() {
     let s = store().await;
     let id = Uuid::now_v7();
     insert_skill(&s, id, "epsilon", "1.0", 600).await;
-    set_shared(&s, "epsilon", "1.0", true, Some("eng")).await.unwrap();
+    set_shared(&s, "epsilon", "1.0", true, Some("eng"))
+        .await
+        .unwrap();
 
     s.migrate_down_to(40).await.unwrap();
 

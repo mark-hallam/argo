@@ -124,8 +124,7 @@ async fn resolved_worker(tenant: &str, worker_id: &str) -> ArgoResult<ShowWorker
     let rosters = roster_lineage_for_worker(&store, tenant_id, worker_id).await?;
     let roster_policies: Vec<AutoApprovalPolicy> =
         rosters.iter().map(|r| r.policy.clone()).collect();
-    let resolved_policy =
-        worker.resolved_policy_with_rosters(&roster_policies, &workspace_default);
+    let resolved_policy = worker.resolved_policy_with_rosters(&roster_policies, &workspace_default);
     let lineage = rosters
         .iter()
         .map(|r| RosterLineage {

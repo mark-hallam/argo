@@ -6,8 +6,8 @@
 //! doesn't fault on macOS/Windows runners.
 
 use crate::worker_resource_cage::{
-    CageStatus, WorkerResourceCage, WorkerResourceConfig, DEFAULT_CGROUP_ROOT,
-    DEFAULT_CPU_WEIGHT, DEFAULT_MEMORY_MAX_MIB, MAX_CPU_WEIGHT, MIN_CPU_WEIGHT, SLICE_PREFIX,
+    CageStatus, WorkerResourceCage, WorkerResourceConfig, DEFAULT_CGROUP_ROOT, DEFAULT_CPU_WEIGHT,
+    DEFAULT_MEMORY_MAX_MIB, MAX_CPU_WEIGHT, MIN_CPU_WEIGHT, SLICE_PREFIX,
 };
 
 #[test]

@@ -18,8 +18,14 @@ fn fixture_chart(tenant: TenantId) -> OrgChartYaml {
         tenant: tenant.to_string(),
         org: "Acme".into(),
         units: vec![
-            OrgUnitYaml { name: "Engineering".into(), parent: None },
-            OrgUnitYaml { name: "Backend".into(), parent: Some("Engineering".into()) },
+            OrgUnitYaml {
+                name: "Engineering".into(),
+                parent: None,
+            },
+            OrgUnitYaml {
+                name: "Backend".into(),
+                parent: Some("Engineering".into()),
+            },
         ],
         members: vec![
             OrgMemberYaml {
@@ -90,7 +96,11 @@ async fn resolve_canonical_returns_full_member() {
     let org = open_store().await;
     let tenant = TenantId::new();
     org.ingest(tenant, &fixture_chart(tenant)).await.unwrap();
-    let m = org.resolve(tenant, "Maria Hernandez").await.unwrap().unwrap();
+    let m = org
+        .resolve(tenant, "Maria Hernandez")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(m.canonical, "Maria Hernandez");
     assert_eq!(m.kind, MemberKind::Human);
 }
@@ -128,7 +138,11 @@ async fn reports_to_chain_is_empty_for_top_of_org() {
     let org = open_store().await;
     let tenant = TenantId::new();
     org.ingest(tenant, &fixture_chart(tenant)).await.unwrap();
-    let maria = org.resolve(tenant, "Maria Hernandez").await.unwrap().unwrap();
+    let maria = org
+        .resolve(tenant, "Maria Hernandez")
+        .await
+        .unwrap()
+        .unwrap();
     let chain = org.reports_to_chain(tenant, &maria.id).await.unwrap();
     assert!(chain.is_empty());
 }

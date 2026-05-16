@@ -153,10 +153,14 @@ async fn list_isolates_by_tenant() {
     )
     .await
     .unwrap();
-    let a = list_objectives(&pool, worker, tenant_a, None).await.unwrap();
+    let a = list_objectives(&pool, worker, tenant_a, None)
+        .await
+        .unwrap();
     assert_eq!(a.len(), 1);
     assert_eq!(a[0].title, "alpha");
-    let b = list_objectives(&pool, worker, tenant_b, None).await.unwrap();
+    let b = list_objectives(&pool, worker, tenant_b, None)
+        .await
+        .unwrap();
     assert_eq!(b.len(), 1);
     assert_eq!(b[0].title, "beta");
 }

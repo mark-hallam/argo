@@ -172,11 +172,7 @@ async fn partial_legacy_19_collision_pair_migrates_to_full_v40() {
     )
     .await;
     apply_raw(&store, include_str!("../migrations/78__anomaly.sql")).await;
-    apply_raw(
-        &store,
-        include_str!("../migrations/79__worker_fs_root.sql"),
-    )
-    .await;
+    apply_raw(&store, include_str!("../migrations/79__worker_fs_root.sql")).await;
 
     store.migrate().await.unwrap();
 
@@ -225,11 +221,7 @@ async fn partial_legacy_28_collision_trio_migrates_to_full_v40() {
         include_str!("../migrations/90__handoff_auctions.sql"),
     )
     .await;
-    apply_raw(
-        &store,
-        include_str!("../migrations/92__recovery_cache.sql"),
-    )
-    .await;
+    apply_raw(&store, include_str!("../migrations/92__recovery_cache.sql")).await;
 
     store.migrate().await.unwrap();
 

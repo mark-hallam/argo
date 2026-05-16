@@ -49,11 +49,7 @@ impl ElasticSink {
     /// # Errors
     /// Returns [`SinkError::Config`] if the reqwest client cannot be
     /// built.
-    pub fn new(
-        endpoint: String,
-        token: String,
-        index: Option<String>,
-    ) -> Result<Self, SinkError> {
+    pub fn new(endpoint: String, token: String, index: Option<String>) -> Result<Self, SinkError> {
         let trimmed = endpoint.trim_end_matches('/').to_string();
         let post_url = format!("{trimmed}{BULK_PATH}");
         let client = reqwest::Client::builder()

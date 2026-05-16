@@ -8,9 +8,7 @@
 
 use crate::cli::cli_operator_cmds::{OperatorCmd, OperatorRiskOverridesCmd, RiskLevelArg};
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_store::operator_risk_overrides::{
-    OperatorRiskOverrideRow, OperatorRiskOverridesStore,
-};
+use argo_store::operator_risk_overrides::{OperatorRiskOverrideRow, OperatorRiskOverridesStore};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
@@ -36,7 +34,17 @@ pub async fn run(cmd: OperatorRiskOverridesCmd) -> ArgoResult<()> {
             vertical,
             allow_downgrade,
             json,
-        } => set(&operator, &action_kind, risk_level, vertical.as_deref(), allow_downgrade, json).await,
+        } => {
+            set(
+                &operator,
+                &action_kind,
+                risk_level,
+                vertical.as_deref(),
+                allow_downgrade,
+                json,
+            )
+            .await
+        }
         OperatorRiskOverridesCmd::Get { operator, json } => get(&operator, json).await,
         OperatorRiskOverridesCmd::List { json } => list(json).await,
         OperatorRiskOverridesCmd::Delete {

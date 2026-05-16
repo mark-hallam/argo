@@ -47,11 +47,7 @@ pub(super) async fn session_judge_response(
                     out.push_str("| subject | verdict | judge | reason |\n");
                     out.push_str("| --- | :---: | --- | --- |\n");
                     for r in &rows {
-                        let reason = r
-                            .reason
-                            .as_deref()
-                            .unwrap_or("—")
-                            .replace('|', "\\|");
+                        let reason = r.reason.as_deref().unwrap_or("—").replace('|', "\\|");
                         out.push_str(&format!(
                             "| `{}/{}` | `{}` | `{}/{}` | {reason} |\n",
                             r.subject_kind,

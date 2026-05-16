@@ -104,8 +104,7 @@ pub(super) async fn artifacts_response(
                     out.push_str("| oci_ref | digest | pushed_by | pushed_at_micros |\n");
                     out.push_str("| --- | --- | --- | ---: |\n");
                     for r in &filtered {
-                        let digest_short: String =
-                            r.digest.chars().take(20).collect();
+                        let digest_short: String = r.digest.chars().take(20).collect();
                         out.push_str(&format!(
                             "| `{}` | `{digest_short}…` | `{}` | {} |\n",
                             r.oci_ref, r.pushed_by, r.pushed_at,

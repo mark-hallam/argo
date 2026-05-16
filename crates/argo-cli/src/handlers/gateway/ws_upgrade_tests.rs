@@ -22,8 +22,7 @@ fn bad_key_rejected_when_header_missing() {
 
 #[test]
 fn missing_upgrade_header_rejects_route() {
-    let req =
-        "GET /inbox/ws HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer x\r\n\r\n";
+    let req = "GET /inbox/ws HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer x\r\n\r\n";
     assert!(!is_ws_request(req));
 
     let upgraded =

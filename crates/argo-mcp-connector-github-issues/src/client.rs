@@ -353,5 +353,4 @@ mod tests {
             .unwrap();
         assert_eq!(value["state"], "closed");
     }
-
 }

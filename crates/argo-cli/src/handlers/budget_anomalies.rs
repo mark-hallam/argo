@@ -82,11 +82,7 @@ pub(crate) async fn list(
 }
 
 /// `argo budget anomaly-tick` — run one detection pass.
-pub(crate) async fn tick(
-    store: &SessionStore,
-    now: DateTime<Utc>,
-    json: bool,
-) -> ArgoResult<()> {
+pub(crate) async fn tick(store: &SessionStore, now: DateTime<Utc>, json: bool) -> ArgoResult<()> {
     let pool = store.pool();
     let workers = list_active_worker_ids(pool).await?;
     let threshold = configured_threshold();

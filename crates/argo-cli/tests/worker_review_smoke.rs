@@ -22,14 +22,17 @@ async fn empty_worker_returns_all_zero_counts_in_json() {
         &home,
         work.path(),
         &[
-            "worker", "review", worker_id,
-            "--period", "quarterly",
-            "--format", "json",
+            "worker",
+            "review",
+            worker_id,
+            "--period",
+            "quarterly",
+            "--format",
+            "json",
         ],
     );
     assert_success(&out);
-    let body: Value = serde_json::from_slice(&out.stdout)
-        .expect("JSON output parses");
+    let body: Value = serde_json::from_slice(&out.stdout).expect("JSON output parses");
     assert_eq!(body["worker_id"], worker_id);
     assert_eq!(body["period"], "quarterly");
     assert_eq!(body["summary"]["session_count"], 0);
@@ -55,10 +58,7 @@ async fn empty_worker_returns_markdown_with_six_section_headers() {
     let weekly = run(
         &home,
         work.path(),
-        &[
-            "worker", "review", worker_id,
-            "--period", "weekly",
-        ],
+        &["worker", "review", worker_id, "--period", "weekly"],
     );
     assert_success(&weekly);
     let stdout = String::from_utf8_lossy(&weekly.stdout);
@@ -86,10 +86,15 @@ async fn empty_worker_returns_markdown_with_six_section_headers() {
         &home,
         work.path(),
         &[
-            "worker", "review", worker_id,
-            "--period", "monthly",
-            "--since", "2026-01-01T00:00:00Z",
-            "--format", "markdown",
+            "worker",
+            "review",
+            worker_id,
+            "--period",
+            "monthly",
+            "--since",
+            "2026-01-01T00:00:00Z",
+            "--format",
+            "markdown",
         ],
     );
     assert_success(&with_since);

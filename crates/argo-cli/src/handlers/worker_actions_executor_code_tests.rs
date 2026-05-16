@@ -45,15 +45,20 @@ fn parse_request_round_trips_node_payload_with_input_and_timeout() {
 #[test]
 fn parse_request_rejects_missing_language() {
     let err = parse_request(&json!({"code": "x"})).expect_err("must reject");
-    assert!(err.to_string().contains("code-execution payload"), "got: {err}");
+    assert!(
+        err.to_string().contains("code-execution payload"),
+        "got: {err}"
+    );
 }
 
 #[test]
 fn parse_request_rejects_unknown_language() {
-    let err = parse_request(&json!({"language": "ruby", "code": "x"}))
-        .expect_err("must reject");
+    let err = parse_request(&json!({"language": "ruby", "code": "x"})).expect_err("must reject");
     assert!(err.to_string().contains("ruby"), "got: {err}");
-    assert!(err.to_string().contains("python"), "should list valid: {err}");
+    assert!(
+        err.to_string().contains("python"),
+        "should list valid: {err}"
+    );
 }
 
 #[test]
@@ -186,7 +191,11 @@ async fn integration_python_round_trip_runs_real_script_when_enabled() {
         .await
         .expect("run");
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-    assert!(result.stdout.contains("it works"), "stdout: {}", result.stdout);
+    assert!(
+        result.stdout.contains("it works"),
+        "stdout: {}",
+        result.stdout
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -215,5 +224,9 @@ async fn integration_node_round_trip_runs_real_script_when_enabled() {
         .await
         .expect("run");
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-    assert!(result.stdout.contains("node ok"), "stdout: {}", result.stdout);
+    assert!(
+        result.stdout.contains("node ok"),
+        "stdout: {}",
+        result.stdout
+    );
 }

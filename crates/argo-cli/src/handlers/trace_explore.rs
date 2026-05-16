@@ -245,7 +245,11 @@ fn render_md_node(node: &TreeNode, depth: usize) {
     println!(
         "{indent}- {name} ({kind}, dur={dur:.1}ms, status={status})",
         name = span.name,
-        kind = if span.kind.is_empty() { "INTERNAL" } else { span.kind.as_str() },
+        kind = if span.kind.is_empty() {
+            "INTERNAL"
+        } else {
+            span.kind.as_str()
+        },
         dur = span.duration_ms(),
         status = span.status_label(),
     );

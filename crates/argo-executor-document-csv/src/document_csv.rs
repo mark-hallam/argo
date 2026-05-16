@@ -16,9 +16,7 @@
 //! offending row.
 
 use crate::sandbox::{resolve_sandboxed_path, CsvSandboxError};
-use crate::types::{
-    CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason, RowRejection,
-};
+use crate::types::{CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason, RowRejection};
 use argo_types::{ArgoError, ArgoResult};
 use csv::{QuoteStyle, Terminator, WriterBuilder};
 use sha2::{Digest, Sha256};
@@ -121,8 +119,7 @@ impl DocumentCsv {
                 .from_writer(&mut body);
 
             if req.include_header {
-                let header: Vec<&str> =
-                    req.schema.iter().map(|c| c.header.as_str()).collect();
+                let header: Vec<&str> = req.schema.iter().map(|c| c.header.as_str()).collect();
                 writer
                     .write_record(&header)
                     .map_err(|e| ArgoError::Io(format!("write header: {e}")))?;
@@ -158,7 +155,10 @@ impl DocumentCsv {
         let mut hasher = Sha256::new();
         hasher.update(&body);
         let digest = hasher.finalize();
-        let sha256_hex = digest.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let sha256_hex = digest
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
 
         Ok(CsvWriteReport {
             path: target,

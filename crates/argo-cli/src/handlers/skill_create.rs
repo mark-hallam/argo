@@ -16,8 +16,9 @@ pub(super) async fn create(
     }
     let body = match (body_arg, from_file) {
         (Some(b), _) => b.to_string(),
-        (None, Some(path)) => std::fs::read_to_string(path)
-            .map_err(|e| ArgoError::Io(format!("read {path}: {e}")))?,
+        (None, Some(path)) => {
+            std::fs::read_to_string(path).map_err(|e| ArgoError::Io(format!("read {path}: {e}")))?
+        }
         (None, None) => read_stdin_body()?,
     };
     if body.trim().is_empty() {

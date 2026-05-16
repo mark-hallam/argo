@@ -21,10 +21,7 @@ pub async fn run(json: bool) -> ArgoResult<()> {
         }
         println!("{}", serde_json::to_string(&obj).unwrap_or_default());
     } else {
-        println!(
-            "{:<10} {:<16} redact_in_export",
-            "class", "retention_days"
-        );
+        println!("{:<10} {:<16} redact_in_export", "class", "retention_days");
         for class in DataClass::all() {
             let rule = rules.rule_for(class);
             let retention = if rule.retention_days == 0 {

@@ -41,13 +41,14 @@ pub struct Envelope {
 
 pub async fn run(cmd: SecurityCmd) -> ArgoResult<()> {
     match cmd {
-        SecurityCmd::Audit { severity_floor, compact } => {
-            run_audit(&severity_floor, compact)
-        }
+        SecurityCmd::Audit {
+            severity_floor,
+            compact,
+        } => run_audit(&severity_floor, compact),
         SecurityCmd::ScanSecrets(args) => crate::handlers::security_scan_secrets::run(args),
-        SecurityCmd::RotateKeys { .. } => unreachable!(
-            "security rotate-keys is dispatched separately from main.rs"
-        ),
+        SecurityCmd::RotateKeys { .. } => {
+            unreachable!("security rotate-keys is dispatched separately from main.rs")
+        }
     }
 }
 
@@ -86,7 +87,10 @@ fn run_audit(floor: &str, compact: bool) -> ArgoResult<()> {
         .collect();
     let unmitigated_above_floor = filtered.iter().any(|v| v.status == "unmitigated");
 
-    let env = Envelope { vulnerabilities: filtered, total_count_by_severity: totals };
+    let env = Envelope {
+        vulnerabilities: filtered,
+        total_count_by_severity: totals,
+    };
     let rendered = if compact {
         serde_json::to_string(&env)
     } else {
@@ -102,7 +106,9 @@ fn run_audit(floor: &str, compact: bool) -> ArgoResult<()> {
 }
 
 fn severity_rank(s: &str) -> Option<usize> {
-    SEVERITIES.iter().position(|sev| sev.eq_ignore_ascii_case(s))
+    SEVERITIES
+        .iter()
+        .position(|sev| sev.eq_ignore_ascii_case(s))
 }
 
 /// Shell out to `cargo <args...>` and return UTF-8 stdout. We treat

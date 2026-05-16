@@ -52,7 +52,12 @@ fn file_item(id: &str, name: &str, size: u64) -> serde_json::Value {
 }
 
 async fn mock(server: &MockServer, m: &str, p: &str, resp: ResponseTemplate) {
-    Mock::given(method(m)).and(path(p)).respond_with(resp).expect(1).mount(server).await;
+    Mock::given(method(m))
+        .and(path(p))
+        .respond_with(resp)
+        .expect(1)
+        .mount(server)
+        .await;
 }
 
 #[tokio::test]
@@ -142,17 +147,38 @@ async fn upload_large_file_resumable_three_chunk_session_success() {
     let server = MockServer::start().await;
     let session = "/upload-sessions/abc";
     mock(
-        &server, "POST", "/me/drive/items/root:/big.bin:/createUploadSession",
+        &server,
+        "POST",
+        "/me/drive/items/root:/big.bin:/createUploadSession",
         ResponseTemplate::new(200).set_body_json(json!({
             "uploadUrl": format!("{}{session}", server.uri())
         })),
-    ).await;
-    chunk_mock(&server, session, "bytes 0-1/5", 202, json!({"nextExpectedRanges": ["2-"]})).await;
-    chunk_mock(&server, session, "bytes 2-3/5", 202, json!({"nextExpectedRanges": ["4-"]})).await;
+    )
+    .await;
     chunk_mock(
-        &server, session, "bytes 4-4/5", 200,
+        &server,
+        session,
+        "bytes 0-1/5",
+        202,
+        json!({"nextExpectedRanges": ["2-"]}),
+    )
+    .await;
+    chunk_mock(
+        &server,
+        session,
+        "bytes 2-3/5",
+        202,
+        json!({"nextExpectedRanges": ["4-"]}),
+    )
+    .await;
+    chunk_mock(
+        &server,
+        session,
+        "bytes 4-4/5",
+        200,
         file_item("01BIG", "big.bin", 5),
-    ).await;
+    )
+    .await;
 
     let item = connector(&server)
         .with_chunk_bytes(2)
@@ -170,22 +196,39 @@ async fn upload_large_file_resumes_after_connection_drop() {
     let server = MockServer::start().await;
     let session = "/upload-sessions/drop";
     mock(
-        &server, "POST", "/me/drive/items/root:/big.bin:/createUploadSession",
+        &server,
+        "POST",
+        "/me/drive/items/root:/big.bin:/createUploadSession",
         ResponseTemplate::new(200).set_body_json(json!({
             "uploadUrl": format!("{}{session}", server.uri())
         })),
-    ).await;
+    )
+    .await;
     // Chunk 1 fails 500 → connector falls through to GET status.
     chunk_mock(&server, session, "bytes 0-1/5", 500, json!({})).await;
     mock(
-        &server, "GET", session,
+        &server,
+        "GET",
+        session,
         ResponseTemplate::new(200).set_body_json(json!({"nextExpectedRanges": ["2-"]})),
-    ).await;
-    chunk_mock(&server, session, "bytes 2-3/5", 202, json!({"nextExpectedRanges": ["4-"]})).await;
+    )
+    .await;
     chunk_mock(
-        &server, session, "bytes 4-4/5", 201,
+        &server,
+        session,
+        "bytes 2-3/5",
+        202,
+        json!({"nextExpectedRanges": ["4-"]}),
+    )
+    .await;
+    chunk_mock(
+        &server,
+        session,
+        "bytes 4-4/5",
+        201,
         file_item("01RES", "big.bin", 5),
-    ).await;
+    )
+    .await;
 
     let item = connector(&server)
         .with_chunk_bytes(2)
@@ -226,15 +269,24 @@ async fn download_file_returns_body_verbatim_and_401_carries_refresh_hint() {
         .mount(&server)
         .await;
     mock(
-        &server, "GET", "/me/drive/items/expired/content",
+        &server,
+        "GET",
+        "/me/drive/items/expired/content",
         ResponseTemplate::new(401).set_body_string("InvalidAuthenticationToken"),
-    ).await;
+    )
+    .await;
 
     let od = connector(&server);
     let bytes = od.download_file("abc").await.unwrap();
-    assert_eq!(bytes, payload, "download body must round-trip byte-identical");
+    assert_eq!(
+        bytes, payload,
+        "download body must round-trip byte-identical"
+    );
 
-    let err = od.download_file("expired").await.expect_err("401 must surface");
+    let err = od
+        .download_file("expired")
+        .await
+        .expect_err("401 must surface");
     match err {
         ArgoError::Provider(msg) => {
             assert!(msg.contains("401"), "must mention status, got {msg:?}");
@@ -255,7 +307,9 @@ async fn create_share_link_serializes_each_type_and_scope() {
     for (id, t, s, url) in cases {
         Mock::given(method("POST"))
             .and(path(format!("/me/drive/items/{id}/createLink")))
-            .and(body_json_string(format!(r#"{{"type":"{t}","scope":"{s}"}}"#)))
+            .and(body_json_string(format!(
+                r#"{{"type":"{t}","scope":"{s}"}}"#
+            )))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "link": { "webUrl": url }
             })))
@@ -265,11 +319,20 @@ async fn create_share_link_serializes_each_type_and_scope() {
     }
 
     let od = connector(&server);
-    let want_v = od.create_share_link("v1", LinkType::View, LinkScope::Anonymous).await.unwrap();
+    let want_v = od
+        .create_share_link("v1", LinkType::View, LinkScope::Anonymous)
+        .await
+        .unwrap();
     assert_eq!(want_v, "https://1drv.ms/v/view-anon");
-    let want_e = od.create_share_link("e1", LinkType::Edit, LinkScope::Organization).await.unwrap();
+    let want_e = od
+        .create_share_link("e1", LinkType::Edit, LinkScope::Organization)
+        .await
+        .unwrap();
     assert_eq!(want_e, "https://1drv.ms/e/edit-org");
-    let want_b = od.create_share_link("b1", LinkType::Embed, LinkScope::Users).await.unwrap();
+    let want_b = od
+        .create_share_link("b1", LinkType::Embed, LinkScope::Users)
+        .await
+        .unwrap();
     assert_eq!(want_b, "https://1drv.ms/b/embed-users");
 }
 

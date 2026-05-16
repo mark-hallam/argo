@@ -61,8 +61,7 @@ impl SessionDetailPane {
                 ])
             })
             .collect();
-        let para = Paragraph::new(lines)
-            .block(Block::default().borders(Borders::ALL).title(title));
+        let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(title));
         frame.render_widget(para, area);
     }
 
@@ -90,8 +89,7 @@ impl SessionDetailPane {
                 r.seq, r.kind, preview,
             )));
         }
-        let para = Paragraph::new(lines)
-            .block(Block::default().borders(Borders::ALL).title(title));
+        let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(title));
         frame.render_widget(para, area);
     }
 
@@ -140,8 +138,7 @@ impl SessionDetailPane {
                 s.frontmatter.name, s.frontmatter.version, hash_short,
             )));
         }
-        let para = Paragraph::new(lines)
-            .block(Block::default().borders(Borders::ALL).title(title));
+        let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(title));
         frame.render_widget(para, area);
     }
 }

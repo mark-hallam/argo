@@ -127,7 +127,10 @@ fn register_cron_duties(
             tenant_id,
             &name,
             cron,
-            format!("Run worker {worker_id} duty {}: {}", duty.entry_action, duty.description),
+            format!(
+                "Run worker {worker_id} duty {}: {}",
+                duty.entry_action, duty.description
+            ),
             CronTarget {
                 platform: "worker".into(),
                 chat: worker_id.to_string(),
@@ -158,7 +161,10 @@ fn print_worker(worker: &WorkerOut, json: bool) -> ArgoResult<()> {
     if !worker.role.duties.is_empty() {
         println!("duties");
         for duty in &worker.role.duties {
-            println!("  {} -> {} ({})", duty.cron, duty.entry_action, duty.description);
+            println!(
+                "  {} -> {} ({})",
+                duty.cron, duty.entry_action, duty.description
+            );
         }
     }
     Ok(())

@@ -40,9 +40,7 @@ pub(super) async fn session_spend_total_response(
     }
     (
         "200 OK",
-        format!(
-            "{{\"session_id\":\"{sid}\",\"total_usd_micros\":{total}}}"
-        ),
+        format!("{{\"session_id\":\"{sid}\",\"total_usd_micros\":{total}}}"),
     )
 }
 

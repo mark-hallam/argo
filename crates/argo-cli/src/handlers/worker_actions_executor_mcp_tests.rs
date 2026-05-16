@@ -125,7 +125,10 @@ fn args_substitution_walks_strings_objects_arrays() {
     let action = sample_action();
     let out = substitute_args(&action.payload, &action);
     let map = out.as_object().expect("object");
-    assert_eq!(map.get("to").and_then(|v| v.as_str()), Some("buyer@example.com"));
+    assert_eq!(
+        map.get("to").and_then(|v| v.as_str()),
+        Some("buyer@example.com")
+    );
     assert_eq!(
         map.get("subject").and_then(|v| v.as_str()),
         Some("Hello item-7")
@@ -208,9 +211,7 @@ async fn dispatch_action_success_path_returns_completed() {
         ActionOutcome::Completed { result_json, .. } => {
             assert_eq!(result_json["server"].as_str(), Some("echo"));
             assert_eq!(result_json["tool"].as_str(), Some("echo"));
-            let content = result_json["content"]
-                .as_array()
-                .expect("content array");
+            let content = result_json["content"].as_array().expect("content array");
             assert_eq!(content.len(), 1);
             // Substitution happened before the args reached the server.
             assert_eq!(content[0]["text"].as_str(), Some("hi item-7"));

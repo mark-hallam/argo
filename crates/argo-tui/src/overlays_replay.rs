@@ -157,8 +157,8 @@ fn draw_top_bar(frame: &mut Frame<'_>, area: Rect, state: &ReplayState) {
             format!("(search: {})", state.search)
         }
     );
-    let para = Paragraph::new(Line::from(""))
-        .block(Block::default().borders(Borders::ALL).title(title));
+    let para =
+        Paragraph::new(Line::from("")).block(Block::default().borders(Borders::ALL).title(title));
     frame.render_widget(para, area);
 }
 
@@ -178,19 +178,14 @@ fn draw_action_list(frame: &mut Frame<'_>, area: Rect, state: &ReplayState) {
     if lines.is_empty() {
         lines.push(Line::from("  (no matching steps)"));
     }
-    let para = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title(" steps "));
+    let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" steps "));
     frame.render_widget(para, area);
 }
 
 fn draw_step_detail(frame: &mut Frame<'_>, area: Rect, state: &ReplayState) {
     let title = format!(
         " step {} — {} ",
-        state
-            .steps
-            .get(state.selected)
-            .map(|s| s.idx)
-            .unwrap_or(0),
+        state.steps.get(state.selected).map(|s| s.idx).unwrap_or(0),
         state
             .steps
             .get(state.selected)
@@ -215,7 +210,9 @@ pub fn render_step_body(step: Option<&ReplayStep>) -> Vec<Line<'static>> {
     lines.push(Line::from(format!("headline: {}", s.headline)));
     if let Some(p) = &s.screenshot_path {
         // No sixel/iTerm support yet — gracefully degrade.
-        lines.push(Line::from(format!("(screenshot at {p}; ASCII rendering not wired)")));
+        lines.push(Line::from(format!(
+            "(screenshot at {p}; ASCII rendering not wired)"
+        )));
     }
     lines.push(Line::from(""));
     for body_line in s.body.lines() {

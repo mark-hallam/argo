@@ -22,8 +22,7 @@ pub(super) async fn list_sessions(
     vertical: Option<String>,
 ) -> ArgoResult<()> {
     use super::session_aggregates::{spend_per_session, tool_calls_per_session};
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -133,7 +132,11 @@ pub(super) async fn list_sessions(
             return Ok(());
         }
         "markdown" => {
-            println!("# Sessions ({} match{})", sessions.len(), if sessions.len() == 1 { "" } else { "es" });
+            println!(
+                "# Sessions ({} match{})",
+                sessions.len(),
+                if sessions.len() == 1 { "" } else { "es" }
+            );
             println!();
             if sessions.is_empty() {
                 return Ok(());
@@ -231,8 +234,7 @@ pub(super) async fn count_sessions(
     json: bool,
 ) -> ArgoResult<()> {
     use super::session_aggregates::spend_per_session;
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

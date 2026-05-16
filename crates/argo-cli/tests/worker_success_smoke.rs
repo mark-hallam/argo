@@ -58,11 +58,7 @@ async fn rejects_bad_worker_id_and_bad_bucket_label() {
     let work = tempfile::tempdir().unwrap();
 
     // Bad worker id — UUID parse error surfaces.
-    let bad_uuid = run(
-        &home,
-        work.path(),
-        &["worker", "success", "not-a-uuid"],
-    );
+    let bad_uuid = run(&home, work.path(), &["worker", "success", "not-a-uuid"]);
     assert!(!bad_uuid.status.success());
     let stderr = String::from_utf8_lossy(&bad_uuid.stderr);
     assert!(
@@ -77,9 +73,7 @@ async fn rejects_bad_worker_id_and_bad_bucket_label() {
     let bad_bucket = run(
         &home,
         work.path(),
-        &[
-            "worker", "success", worker_id, "--bucket", "decade",
-        ],
+        &["worker", "success", worker_id, "--bucket", "decade"],
     );
     assert!(!bad_bucket.status.success());
     let stderr = String::from_utf8_lossy(&bad_bucket.stderr);

@@ -102,12 +102,19 @@ async fn recommend_only_tick_records_state_without_mutating_pool() {
         panic!("expected ScaleUp recommendation, got {rec:?}");
     };
     assert_eq!(*target, 3, "scale up by exactly one");
-    assert_eq!(controller.spawns.load(Ordering::SeqCst), 0, "RecommendOnly is no-op");
+    assert_eq!(
+        controller.spawns.load(Ordering::SeqCst),
+        0,
+        "RecommendOnly is no-op"
+    );
     assert_eq!(controller.drains.load(Ordering::SeqCst), 0);
     let latest = latest_tick().expect("tick recorded");
     assert_eq!(latest.snapshot.queue_depth, 20);
     assert_eq!(latest.mode, ElasticityMode::RecommendOnly);
-    assert!(matches!(latest.recommendation, ScaleRecommendation::ScaleUp { .. }));
+    assert!(matches!(
+        latest.recommendation,
+        ScaleRecommendation::ScaleUp { .. }
+    ));
     assert_eq!(
         scale_up_total(),
         baseline_up + 1,

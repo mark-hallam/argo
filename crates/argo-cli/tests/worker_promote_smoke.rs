@@ -108,7 +108,11 @@ async fn level_then_force_promote_round_trip() {
         .await
         .unwrap();
     let identities = IdentityStore::new(&store);
-    let reloaded = identities.get_worker(tenant, worker.id).await.unwrap().unwrap();
+    let reloaded = identities
+        .get_worker(tenant, worker.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(reloaded.level, WorkerLevel::Junior);
 }
 

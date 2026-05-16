@@ -17,23 +17,14 @@ pub(super) async fn dispatch_forge_run_get(
         if tail.starts_with("payload ") || tail.starts_with("payload?") {
             let format = parse_query_kv(tail, "format");
             return Some(
-                super::routes_forge::forge_run_payload_response(
-                    id,
-                    store,
-                    format.as_deref(),
-                )
-                .await,
+                super::routes_forge::forge_run_payload_response(id, store, format.as_deref()).await,
             );
         }
         if tail.starts_with("audit ") || tail.starts_with("audit?") {
             let format = parse_query_kv(tail, "format");
             return Some(
-                super::routes_forge_rollups::forge_run_audit_response(
-                    id,
-                    store,
-                    format.as_deref(),
-                )
-                .await,
+                super::routes_forge_rollups::forge_run_audit_response(id, store, format.as_deref())
+                    .await,
             );
         }
     }
@@ -46,12 +37,8 @@ pub(super) async fn dispatch_forge_run_get(
             .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
             .map(str::to_string);
         return Some(
-            super::routes_forge::forge_run_show_response_with_format(
-                id,
-                store,
-                format.as_deref(),
-            )
-            .await,
+            super::routes_forge::forge_run_show_response_with_format(id, store, format.as_deref())
+                .await,
         );
     }
     None

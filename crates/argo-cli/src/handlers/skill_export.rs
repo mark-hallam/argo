@@ -105,8 +105,7 @@ pub async fn run(
             )));
         }
     };
-    std::fs::write(output, bytes)
-        .map_err(|e| ArgoError::Io(format!("write {output}: {e}")))?;
+    std::fs::write(output, bytes).map_err(|e| ArgoError::Io(format!("write {output}: {e}")))?;
     println!("exported skill {} to {output}", skill_id.0);
     Ok(())
 }
@@ -208,8 +207,8 @@ fn parse_selector(selector: &str) -> ArgoResult<(&str, Option<&str>)> {
 }
 
 fn write_skill_artifact(path: &Path, artifact: &SkillArtifact) -> ArgoResult<()> {
-    let file = File::create(path)
-        .map_err(|e| ArgoError::Io(format!("create {}: {e}", path.display())))?;
+    let file =
+        File::create(path).map_err(|e| ArgoError::Io(format!("create {}: {e}", path.display())))?;
     let encoder = GzEncoder::new(file, Compression::default());
     let mut builder = tar::Builder::new(encoder);
     append_bytes(
@@ -254,8 +253,8 @@ fn append_bytes<W: std::io::Write>(
 }
 
 fn file_sha256(path: &Path) -> ArgoResult<String> {
-    let bytes = std::fs::read(path)
-        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
+    let bytes =
+        std::fs::read(path).map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let mut h = Sha256::new();
     h.update(&bytes);
     Ok(format!("sha256-{}", hex::encode(h.finalize())))

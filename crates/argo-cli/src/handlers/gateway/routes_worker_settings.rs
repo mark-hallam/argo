@@ -44,12 +44,12 @@
 //!   `worker.trust_ratchet.reset` audit row so the future consumer brief
 //!   can pick it up. Flagged as `mission-enterprise-trust-ratchet-reset`.
 
+#[path = "routes_worker_settings_danger.rs"]
+mod danger;
 #[path = "routes_worker_settings_helpers.rs"]
 mod helpers;
 #[path = "routes_worker_settings_read.rs"]
 mod read;
-#[path = "routes_worker_settings_danger.rs"]
-mod danger;
 
 pub(super) use danger::{delete_worker_endpoint, post_archive, post_pause, post_resume};
 pub(super) use read::{

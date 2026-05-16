@@ -23,7 +23,10 @@ fn empty_baseline_has_zero_stddev_and_no_z_score() {
     let b = SpendBaseline::empty("worker-1", 9);
     assert_eq!(b.sample_count, 0);
     assert_eq!(b.stddev(), 0.0);
-    assert!(b.z_score_for(100.0).is_none(), "no detect below MIN_SAMPLES");
+    assert!(
+        b.z_score_for(100.0).is_none(),
+        "no detect below MIN_SAMPLES"
+    );
 }
 
 #[test]
@@ -46,8 +49,11 @@ fn welford_update_many_samples_matches_naive_mean_and_stddev() {
     }
     let n = samples.len() as f64;
     let naive_mean = samples.iter().sum::<f64>() / n;
-    let naive_var =
-        samples.iter().map(|x| (x - naive_mean).powi(2)).sum::<f64>() / (n - 1.0);
+    let naive_var = samples
+        .iter()
+        .map(|x| (x - naive_mean).powi(2))
+        .sum::<f64>()
+        / (n - 1.0);
     let naive_stddev = naive_var.sqrt();
     assert!(
         (b.mean_usd_per_hour - naive_mean).abs() < 1e-9,
@@ -278,7 +284,10 @@ async fn observe_recent_hour_sums_worker_budget_in_window() {
         .await
         .expect("observe");
     assert_eq!(hod, 13);
-    assert!((dollars - 1.0).abs() < 1e-9, "expected $1.00, got ${dollars}");
+    assert!(
+        (dollars - 1.0).abs() < 1e-9,
+        "expected $1.00, got ${dollars}"
+    );
 }
 
 #[tokio::test]
@@ -314,13 +323,17 @@ async fn integration_full_tick_writes_anomaly_when_spend_spikes() {
     for v in [1.0, 1.0, 1.0, 1.0, 1.0, 2.0] {
         baseline.update(v, 1_000);
     }
-    save_baseline(&pool, &baseline).await.expect("seed baseline");
+    save_baseline(&pool, &baseline)
+        .await
+        .expect("seed baseline");
 
     // The spike: $50 in the last hour → way above $1 mean.
     let observed_dollars = 50.0;
     let mut updated = baseline.clone();
     updated.update(observed_dollars, now.timestamp_micros());
-    save_baseline(&pool, &updated).await.expect("update baseline");
+    save_baseline(&pool, &updated)
+        .await
+        .expect("update baseline");
 
     // The pre-update baseline already had stddev > 0, so the
     // pre-update z-score on the spike fires.

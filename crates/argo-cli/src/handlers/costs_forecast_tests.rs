@@ -158,7 +158,10 @@ fn json_format_round_trips() {
     // Serialize → parse → verify the public-shape fields land where
     // a downstream script would expect them.
     let now = Utc.with_ymd_and_hms(2026, 5, 9, 12, 0, 0).unwrap();
-    let spend = vec![row((now - Duration::minutes(30)).timestamp_micros(), 500_000)];
+    let spend = vec![row(
+        (now - Duration::minutes(30)).timestamp_micros(),
+        500_000,
+    )];
     let f = compute_forecast(&spend, now, Horizon::Eom, Duration::hours(1));
     let json = serde_json::to_string(&f).expect("forecast serializes");
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("forecast parses");

@@ -8,8 +8,8 @@
 //! `worker_actions_executor.rs` to keep per-file LOC under the
 //! 500-line budget.
 
-use super::*;
 use super::worker_actions_executor_tests::{human_bundle, rec};
+use super::*;
 
 #[test]
 fn human_executor_kind_returns_human() {

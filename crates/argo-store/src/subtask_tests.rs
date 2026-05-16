@@ -102,7 +102,11 @@ async fn list_filters_compose() {
             &NewSubtask {
                 parent_goal: "g",
                 parent_session_id: Some("s"),
-                worker_id: if path.starts_with("/a") { "alpha" } else { "beta" },
+                worker_id: if path.starts_with("/a") {
+                    "alpha"
+                } else {
+                    "beta"
+                },
                 plan_node_path: path,
                 description: "d",
             },

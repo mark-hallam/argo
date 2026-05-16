@@ -27,8 +27,7 @@ use uuid::Uuid;
 use argo_types::{ArgoError, ArgoResult};
 
 const WORKER_ARCHIVE_SCHEMA: &str = include_str!("../migrations/31__worker_archive.sql");
-const AUDIT_TOMBSTONE_SCHEMA: &str =
-    include_str!("../migrations/100__audit_worker_deleted_at.sql");
+const AUDIT_TOMBSTONE_SCHEMA: &str = include_str!("../migrations/100__audit_worker_deleted_at.sql");
 
 /// Default delete-grace window in days. Overridable per-process via
 /// `ARGO_WORKER_DELETE_GRACE_DAYS`; the runtime parses any non-negative
@@ -96,24 +95,24 @@ pub async fn archive_worker(
         .await
         .map_err(|e| ArgoError::Provider(format!("worker_archive tx: {e}")))?;
 
-    let live = sqlx::query_scalar::<_, String>("SELECT id FROM worker WHERE id = ? AND tenant_id = ?")
-        .bind(worker_id)
-        .bind(tenant_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("worker_archive lookup: {e}")))?;
+    let live =
+        sqlx::query_scalar::<_, String>("SELECT id FROM worker WHERE id = ? AND tenant_id = ?")
+            .bind(worker_id)
+            .bind(tenant_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("worker_archive lookup: {e}")))?;
     if live.is_none() {
         return Err(ArgoError::Provider(format!(
             "archive_worker: no live worker with id '{worker_id}' for tenant '{tenant_id}'"
         )));
     }
 
-    let already: Option<String> =
-        sqlx::query_scalar("SELECT id FROM worker_archive WHERE id = ?")
-            .bind(worker_id)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("worker_archive existing: {e}")))?;
+    let already: Option<String> = sqlx::query_scalar("SELECT id FROM worker_archive WHERE id = ?")
+        .bind(worker_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker_archive existing: {e}")))?;
     if already.is_some() {
         return Err(ArgoError::Provider(format!(
             "archive_worker: worker '{worker_id}' is already archived"
@@ -195,14 +194,13 @@ pub async fn rehydrate_worker(
         )));
     }
 
-    let frozen: Option<String> = sqlx::query_scalar(
-        "SELECT frozen_json FROM worker_archive WHERE id = ? AND tenant_id = ?",
-    )
-    .bind(worker_id)
-    .bind(tenant_id)
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("rehydrate lookup archive: {e}")))?;
+    let frozen: Option<String> =
+        sqlx::query_scalar("SELECT frozen_json FROM worker_archive WHERE id = ? AND tenant_id = ?")
+            .bind(worker_id)
+            .bind(tenant_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("rehydrate lookup archive: {e}")))?;
     let frozen = frozen.ok_or_else(|| {
         ArgoError::Provider(format!(
             "rehydrate_worker: no archive row for '{worker_id}' in tenant '{tenant_id}'"
@@ -223,10 +221,7 @@ pub async fn rehydrate_worker(
 }
 
 /// List archived workers for one tenant, newest-first.
-pub async fn list_archived(
-    pool: &SqlitePool,
-    tenant_id: &str,
-) -> ArgoResult<Vec<ArchiveRow>> {
+pub async fn list_archived(pool: &SqlitePool, tenant_id: &str) -> ArgoResult<Vec<ArchiveRow>> {
     ensure_schema(pool).await?;
     let rows = sqlx::query(
         "SELECT id, tenant_id, archived_at, archived_by_principal, reason, frozen_json
@@ -269,11 +264,7 @@ pub async fn list_archived(
 /// see [`force_delete_worker`].
 ///
 /// [`worker_deleted_at`]: ../../migrations/51__audit_worker_deleted_at.sql
-pub async fn delete_worker(
-    pool: &SqlitePool,
-    worker_id: &str,
-    tenant_id: &str,
-) -> ArgoResult<()> {
+pub async fn delete_worker(pool: &SqlitePool, worker_id: &str, tenant_id: &str) -> ArgoResult<()> {
     delete_with_grace(pool, worker_id, tenant_id, false).await
 }
 
@@ -336,14 +327,13 @@ async fn delete_with_grace(
         .await
         .map_err(|e| ArgoError::Provider(format!("delete_worker tx: {e}")))?;
 
-    let live: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM worker WHERE id = ? AND tenant_id = ?",
-    )
-    .bind(worker_id)
-    .bind(tenant_id)
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("delete_worker live lookup: {e}")))?;
+    let live: Option<String> =
+        sqlx::query_scalar("SELECT id FROM worker WHERE id = ? AND tenant_id = ?")
+            .bind(worker_id)
+            .bind(tenant_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("delete_worker live lookup: {e}")))?;
     if live.is_some() {
         return Err(ArgoError::Schema(format!(
             "delete_worker: worker '{worker_id}' is still live in tenant '{tenant_id}'; \
@@ -351,14 +341,13 @@ async fn delete_with_grace(
         )));
     }
 
-    let archived_at: Option<i64> = sqlx::query_scalar(
-        "SELECT archived_at FROM worker_archive WHERE id = ? AND tenant_id = ?",
-    )
-    .bind(worker_id)
-    .bind(tenant_id)
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("delete_worker archive lookup: {e}")))?;
+    let archived_at: Option<i64> =
+        sqlx::query_scalar("SELECT archived_at FROM worker_archive WHERE id = ? AND tenant_id = ?")
+            .bind(worker_id)
+            .bind(tenant_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("delete_worker archive lookup: {e}")))?;
     let archived_at = archived_at.ok_or_else(|| {
         ArgoError::Provider(format!(
             "delete_worker: no archive row for '{worker_id}' in tenant '{tenant_id}'"

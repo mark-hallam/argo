@@ -54,7 +54,10 @@ fn empty_or_non_url_input_is_malformed() {
     assert_eq!(parse("").unwrap_err(), DeepLinkError::Malformed);
     assert_eq!(parse("   ").unwrap_err(), DeepLinkError::Malformed);
     assert_eq!(parse("not a url").unwrap_err(), DeepLinkError::Malformed);
-    assert_eq!(parse("argo:approve/foo").unwrap_err(), DeepLinkError::Malformed);
+    assert_eq!(
+        parse("argo:approve/foo").unwrap_err(),
+        DeepLinkError::Malformed
+    );
 }
 
 #[test]

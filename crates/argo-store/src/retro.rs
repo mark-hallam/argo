@@ -253,11 +253,7 @@ impl<'a> RetroStore<'a> {
     /// Overwrite `sections_json` on a draft retro. Returns
     /// [`RetroError::NotFound`] when the id is unknown, or
     /// [`RetroError::Finalized`] when the row is locked.
-    pub async fn update_sections(
-        &self,
-        id: Uuid,
-        sections: &Value,
-    ) -> Result<(), RetroError> {
+    pub async fn update_sections(&self, id: Uuid, sections: &Value) -> Result<(), RetroError> {
         let current = self.get(id).await?;
         if current.is_finalized() {
             return Err(RetroError::Finalized);
@@ -340,9 +336,10 @@ pub async fn aggregate_metrics(
             // contributes to the generic "other" bucket so the
             // operator notices unexpected activity in the metrics
             // panel without us rewriting the aggregator.
-            other if other.starts_with("rbac.")
-                || other.contains(".rejected")
-                || other == "lock.violate" =>
+            other
+                if other.starts_with("rbac.")
+                    || other.contains(".rejected")
+                    || other == "lock.violate" =>
             {
                 let key = other.to_string();
                 error_by_category
@@ -408,15 +405,12 @@ fn decode_row(row: RetroSqlRow) -> Result<RetroRow, RetroError> {
         created_at,
         finalized_at,
     ) = row;
-    let id = Uuid::from_slice(&id_blob).map_err(|e| {
-        RetroError::Backend(ArgoError::Provider(format!("retro id decode: {e}")))
-    })?;
-    let metrics_json: Value = serde_json::from_str(&metrics_str).map_err(|e| {
-        RetroError::Backend(ArgoError::Provider(format!("metrics decode: {e}")))
-    })?;
-    let sections_json: Value = serde_json::from_str(&sections_str).map_err(|e| {
-        RetroError::Backend(ArgoError::Provider(format!("sections decode: {e}")))
-    })?;
+    let id = Uuid::from_slice(&id_blob)
+        .map_err(|e| RetroError::Backend(ArgoError::Provider(format!("retro id decode: {e}"))))?;
+    let metrics_json: Value = serde_json::from_str(&metrics_str)
+        .map_err(|e| RetroError::Backend(ArgoError::Provider(format!("metrics decode: {e}"))))?;
+    let sections_json: Value = serde_json::from_str(&sections_str)
+        .map_err(|e| RetroError::Backend(ArgoError::Provider(format!("sections decode: {e}"))))?;
     Ok(RetroRow {
         id,
         tenant_id,

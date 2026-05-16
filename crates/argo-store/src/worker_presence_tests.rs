@@ -75,14 +75,22 @@ async fn schema_is_idempotent() {
     let pool = pool().await;
     ensure_schema(&pool).await.unwrap();
     ensure_schema(&pool).await.unwrap();
-    assert!(column_exists(&pool, "worker", "last_active_at").await.unwrap());
+    assert!(column_exists(&pool, "worker", "last_active_at")
+        .await
+        .unwrap());
 }
 
 #[tokio::test]
 async fn touch_presence_sets_epoch_seconds() {
     let pool = pool().await;
     let worker = "11111111-1111-1111-1111-111111111111";
-    seed_worker(&pool, worker, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "Maya").await;
+    seed_worker(
+        &pool,
+        worker,
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "Maya",
+    )
+    .await;
     let before = Utc::now().timestamp();
     touch_presence(&pool, worker).await.unwrap();
     let after = Utc::now().timestamp();
@@ -145,7 +153,9 @@ async fn fleet_filters_since_and_limit() {
     set_last_active(&pool, recent, Some(200)).await;
     set_last_active(&pool, old, Some(100)).await;
 
-    let rows = fleet_at(&pool, Some(tenant), 10, Some(150), 200).await.unwrap();
+    let rows = fleet_at(&pool, Some(tenant), 10, Some(150), 200)
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].worker_id, recent);
 

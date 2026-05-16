@@ -94,10 +94,7 @@ impl<'a> TenantRateLimitStore<'a> {
     /// let _row = TenantRateLimitStore::new(pool).get(TenantId::new()).await?;
     /// # Ok(()) }
     /// ```
-    pub async fn get(
-        &self,
-        tenant: TenantId,
-    ) -> StoreResult<Option<TenantRateLimitOverride>> {
+    pub async fn get(&self, tenant: TenantId) -> StoreResult<Option<TenantRateLimitOverride>> {
         let row: Option<(i64, i64)> = sqlx::query_as(
             "SELECT requests_per_minute, updated_at \
              FROM tenant_rate_limit WHERE tenant_id = ?",

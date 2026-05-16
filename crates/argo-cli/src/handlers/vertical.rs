@@ -28,9 +28,7 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
             source,
             include_archived,
             json,
-        } => {
-            super::vertical_list::run(tenant.as_deref(), &source, include_archived, json).await
-        }
+        } => super::vertical_list::run(tenant.as_deref(), &source, include_archived, json).await,
         VerticalCmd::Archive { id, json } => super::vertical_archive::run(&id, json).await,
         VerticalCmd::Unarchive { id, json } => super::vertical_unarchive::run(&id, json).await,
         VerticalCmd::Delete { id, force, json } => {
@@ -52,14 +50,7 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
             actuals,
             judge,
         } => {
-            super::vertical_eval::run(
-                &id,
-                json,
-                score,
-                actuals.as_deref(),
-                judge.as_deref(),
-            )
-            .await
+            super::vertical_eval::run(&id, json, score, actuals.as_deref(), judge.as_deref()).await
         }
         VerticalCmd::Lint { id, json } => super::vertical_lint::run(&id, json).await,
         VerticalCmd::Doctor { id, json } => super::vertical_doctor::run(&id, json).await,
@@ -75,13 +66,8 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
             session,
             json,
         } => {
-            super::vertical_workflow::run(
-                &vertical_id,
-                &workflow_name,
-                session.as_deref(),
-                json,
-            )
-            .await
+            super::vertical_workflow::run(&vertical_id, &workflow_name, session.as_deref(), json)
+                .await
         }
         VerticalCmd::Install {
             source,
@@ -212,10 +198,7 @@ async fn show(id: &str, json: bool, format: &str) -> ArgoResult<()> {
     let dir = resolve_verticals_dir();
     let (registry, _errors) = load_dir(&dir)?;
     let loaded = registry.get(id).ok_or_else(|| {
-        ArgoError::Provider(format!(
-            "vertical '{id}' not found in {}",
-            dir.display()
-        ))
+        ArgoError::Provider(format!("vertical '{id}' not found in {}", dir.display()))
     })?;
     if json {
         println!(
@@ -299,10 +282,7 @@ async fn validate(id: &str, json: bool) -> ArgoResult<()> {
     }
 
     let loaded = registry.get(id).ok_or_else(|| {
-        ArgoError::Provider(format!(
-            "vertical '{id}' not found in {}",
-            dir.display()
-        ))
+        ArgoError::Provider(format!("vertical '{id}' not found in {}", dir.display()))
     })?;
 
     // Re-run validate explicitly so the operator sees a clean
@@ -381,20 +361,14 @@ pub(crate) fn summarize_loaded(v: &LoadedVertical) -> serde_json::Value {
 pub(crate) fn render_markdown(v: &LoadedVertical) -> String {
     let m = &v.manifest;
     let mut out = String::new();
-    out.push_str(&format!(
-        "# {} (`{}`)\n\n",
-        m.vertical.name, m.vertical.id
-    ));
+    out.push_str(&format!("# {} (`{}`)\n\n", m.vertical.name, m.vertical.id));
     if !m.vertical.description.is_empty() {
         out.push_str(&format!("{}\n\n", m.vertical.description));
     }
     out.push_str(&format!("- **version**: {}\n", m.vertical.version));
     out.push_str(&format!("- **root**: `{}`\n", v.root.display()));
     if !m.vertical.tags.is_empty() {
-        out.push_str(&format!(
-            "- **tags**: {}\n",
-            m.vertical.tags.join(", ")
-        ));
+        out.push_str(&format!("- **tags**: {}\n", m.vertical.tags.join(", ")));
     }
     if let Some(role) = &m.role {
         out.push_str("\n## Role\n\n");

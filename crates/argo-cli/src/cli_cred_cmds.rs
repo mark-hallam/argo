@@ -9,10 +9,7 @@ pub enum CredCmd {
     #[command(after_help = "Examples:\n  \
         argo cred set ANTHROPIC_API_KEY\n  \
         argo cred set OPENAI_API_KEY sk-...   # value inline (history risk)")]
-    Set {
-        key: String,
-        value: Option<String>,
-    },
+    Set { key: String, value: Option<String> },
     /// List stored credential keys; values are masked by default.
     #[command(after_help = "Examples:\n  \
         argo cred list\n  \
@@ -24,9 +21,7 @@ pub enum CredCmd {
     /// Remove one stored credential.
     #[command(after_help = "Examples:\n  \
         argo cred clear OPENAI_API_KEY")]
-    Clear {
-        key: String,
-    },
+    Clear { key: String },
     /// Remove every stored credential.
     #[command(after_help = "Examples:\n  \
         argo cred clear-all")]

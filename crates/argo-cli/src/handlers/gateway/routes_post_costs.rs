@@ -51,15 +51,15 @@ pub(super) async fn costs_breakdown_response(
                     _ => "Spend",
                 };
                 let n = rows.len();
-                let mut out = format!("# {title} ({n} bucket{})\n\n", if n == 1 { "" } else { "s" });
+                let mut out = format!(
+                    "# {title} ({n} bucket{})\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
                 if !rows.is_empty() {
                     out.push_str("| bucket | total (USD) |\n");
                     out.push_str("| --- | ---: |\n");
                     for (b, t) in &rows {
-                        out.push_str(&format!(
-                            "| `{b}` | ${:.4} |\n",
-                            *t as f64 / 1_000_000.0
-                        ));
+                        out.push_str(&format!("| `{b}` | ${:.4} |\n", *t as f64 / 1_000_000.0));
                     }
                 }
                 return ("200 OK", out);

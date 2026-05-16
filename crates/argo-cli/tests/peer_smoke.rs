@@ -184,11 +184,12 @@ fn two_gateways_peer_and_session_replicates_to_peer_state() {
         "g1 /peer/sync (auth): {sync}"
     );
     let sync_body = body_of(&sync);
-    let sync_json: serde_json::Value =
-        serde_json::from_str(sync_body).expect("valid sync json");
+    let sync_json: serde_json::Value = serde_json::from_str(sync_body).expect("valid sync json");
     let sessions = sync_json["sessions"].as_array().expect("sessions array");
     assert!(
-        sessions.iter().any(|s| s["id"].as_str() == Some(&session_id)),
+        sessions
+            .iter()
+            .any(|s| s["id"].as_str() == Some(&session_id)),
         "g1 /peer/sync did not include created session: {sync_body}"
     );
 

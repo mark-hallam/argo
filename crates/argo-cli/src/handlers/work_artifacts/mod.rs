@@ -27,8 +27,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 mod evidence;
-mod sections;
 mod sectioned_output;
+mod sections;
 mod transcript;
 
 pub(crate) use sectioned_output::SectionedOutput;
@@ -226,8 +226,7 @@ pub(crate) async fn write_artifacts(
 }
 
 fn write_file(path: &Path, body: &str) -> ArgoResult<()> {
-    std::fs::write(path, body)
-        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
+    std::fs::write(path, body).map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
 }
 
 /// Pull just the `text` blocks out of a stored `content_json`

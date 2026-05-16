@@ -78,13 +78,7 @@ fn classify_set_list_filters_and_rules_round_trip() {
         &run(
             workspace.path(),
             home.path(),
-            &[
-                "classify",
-                "set",
-                "memory_entry:m-2",
-                "phi",
-                "--json",
-            ],
+            &["classify", "set", "memory_entry:m-2", "phi", "--json"],
         ),
         "classify set phi",
     );

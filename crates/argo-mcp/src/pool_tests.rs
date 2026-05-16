@@ -45,8 +45,14 @@ fn pool_key_equality_isolates_tenant_and_manifest() {
         manifest_id: "slack".into(),
     };
     assert_eq!(key_a_gmail, key_a_gmail_2);
-    assert_ne!(key_a_gmail, key_b_gmail, "different tenants must not collide");
-    assert_ne!(key_a_gmail, key_a_slack, "different manifests must not collide");
+    assert_ne!(
+        key_a_gmail, key_b_gmail,
+        "different tenants must not collide"
+    );
+    assert_ne!(
+        key_a_gmail, key_a_slack,
+        "different manifests must not collide"
+    );
 }
 
 #[test]

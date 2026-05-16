@@ -64,8 +64,8 @@ pub(super) fn verify_voice_token(token: &str, secret: &str) -> Result<VoiceToken
     let (payload_hex, sig) = token
         .rsplit_once('.')
         .ok_or_else(|| "voice callback token must have payload.signature".to_string())?;
-    let payload_bytes = hex::decode(payload_hex)
-        .map_err(|e| format!("voice callback token payload hex: {e}"))?;
+    let payload_bytes =
+        hex::decode(payload_hex).map_err(|e| format!("voice callback token payload hex: {e}"))?;
     let payload = std::str::from_utf8(&payload_bytes)
         .map_err(|e| format!("voice callback token payload utf8: {e}"))?;
     let expected = hmac_hex(payload.as_bytes(), secret.as_bytes());

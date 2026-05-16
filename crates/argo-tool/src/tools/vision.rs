@@ -114,11 +114,7 @@ pub trait VisionDispatcher: Send + Sync + std::fmt::Debug {
 
     /// Send the image + question to the provider and return
     /// the assistant's answer + a token estimate.
-    async fn analyze(
-        &self,
-        image: ResolvedImage,
-        question: &str,
-    ) -> Result<VisionAnswer, String>;
+    async fn analyze(&self, image: ResolvedImage, question: &str) -> Result<VisionAnswer, String>;
 }
 
 /// Provider's answer to a `vision_analyze` call.
@@ -282,9 +278,7 @@ async fn resolve_image(
             let stripped = image.trim_start_matches("file://");
             read_file_bytes(workspace_root, std::path::Path::new(stripped)).await
         }
-        ImageKind::Path => {
-            read_file_bytes(workspace_root, std::path::Path::new(image)).await
-        }
+        ImageKind::Path => read_file_bytes(workspace_root, std::path::Path::new(image)).await,
     }
 }
 

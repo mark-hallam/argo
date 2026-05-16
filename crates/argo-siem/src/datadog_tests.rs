@@ -78,4 +78,3 @@ fn encode_emits_json_array_with_canonical_fields() {
     assert_eq!(arr[0]["service"], "argo-gateway");
     assert_eq!(arr[0]["seq"], 1);
 }
-

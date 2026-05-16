@@ -46,10 +46,7 @@ async fn fresh() -> Fixture {
     }
 }
 
-fn memory_tool(
-    fx: &Fixture,
-    namespace: Option<MemoryNs>,
-) -> Arc<dyn Tool> {
+fn memory_tool(fx: &Fixture, namespace: Option<MemoryNs>) -> Arc<dyn Tool> {
     let tools = builtin_tools_with_runtime(
         PathBuf::from("/tmp/argo-memory-namespace-runtime"),
         Some((Arc::clone(&fx.memory), fx.workspace, None)),
@@ -151,11 +148,7 @@ async fn runtime_namespace_isolates_workers_in_same_tenant() {
     assert!(!a.is_error, "A query: {:?}", a.content);
     let a_hits: Vec<serde_json::Value> =
         serde_json::from_str(&text_body(&a)).expect("A envelope JSON");
-    assert_eq!(
-        a_hits.len(),
-        1,
-        "A must see its own row, got: {a_hits:?}"
-    );
+    assert_eq!(a_hits.len(), 1, "A must see its own row, got: {a_hits:?}");
 
     // Worker B in the same tenant must not see A's private row.
     let b = tool_b

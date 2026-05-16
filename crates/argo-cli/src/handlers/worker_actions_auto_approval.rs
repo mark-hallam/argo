@@ -349,8 +349,8 @@ async fn maybe_auto_approve_with_pool(
             // propagate; the AutoApprovalDecision is the source of truth.
             let cwd_for_notify =
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-            let _ = super::worker_actions_notify::try_dispatch_on_ask(action, &cwd_for_notify)
-                .await;
+            let _ =
+                super::worker_actions_notify::try_dispatch_on_ask(action, &cwd_for_notify).await;
             Ok(decision)
         }
         AutoApprovalDecision::Block { reason } => Err(block_to_error(action_id, reason)),

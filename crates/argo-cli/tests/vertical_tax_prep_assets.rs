@@ -42,9 +42,7 @@ fn tax_prep_loads_via_argo_vertical() {
         our_errors.is_empty(),
         "tax-prep loader errors: {our_errors:?}"
     );
-    let v = registry
-        .get("tax-prep")
-        .expect("tax-prep not in registry");
+    let v = registry.get("tax-prep").expect("tax-prep not in registry");
     assert_eq!(v.manifest.vertical.name, "Tax Preparation Assistant");
     assert_eq!(v.manifest.vertical.version, "0.1.0");
 }
@@ -54,8 +52,7 @@ fn tax_prep_validates_clean() {
     let dir = repo_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(dir).expect("load_dir");
     let v = registry.get("tax-prep").unwrap();
-    argo_vertical::validate(&v.manifest, &v.root)
-        .expect("tax-prep manifest must validate");
+    argo_vertical::validate(&v.manifest, &v.root).expect("tax-prep manifest must validate");
 }
 
 #[test]
@@ -149,11 +146,7 @@ fn tax_prep_action_gates_split_two_auto_three_approval() {
             "`{name}` must be autonomous-safe (requires_approval = false)"
         );
     }
-    let gated = [
-        "flag_deduction_eligibility",
-        "draft_return",
-        "file_return",
-    ];
+    let gated = ["flag_deduction_eligibility", "draft_return", "file_return"];
     for name in &gated {
         let a = actions
             .actions

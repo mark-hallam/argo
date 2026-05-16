@@ -75,9 +75,8 @@ fn accept_ndjson(req: &str) -> bool {
 fn accept_header(req: &str) -> Option<&str> {
     req.lines().find_map(|l| {
         let l = l.trim_end_matches('\r');
-        l.split_once(':').and_then(|(k, v)| {
-            k.eq_ignore_ascii_case("accept").then(|| v.trim())
-        })
+        l.split_once(':')
+            .and_then(|(k, v)| k.eq_ignore_ascii_case("accept").then(|| v.trim()))
     })
 }
 
@@ -136,19 +135,22 @@ pub(super) async fn serve_streamed_list(
     };
     let fmt = pick_wire_fmt(req);
     match kind {
-        ListKind::Sessions => super::routes_top_sessions::stream_sessions(req, store, out, fmt).await,
-        ListKind::Messages => super::routes_msgs::stream_session_messages(req, store, out, fmt).await,
-        ListKind::AuditRecent => super::routes_audit::stream_audit_recent(req, store, out, fmt).await,
+        ListKind::Sessions => {
+            super::routes_top_sessions::stream_sessions(req, store, out, fmt).await
+        }
+        ListKind::Messages => {
+            super::routes_msgs::stream_session_messages(req, store, out, fmt).await
+        }
+        ListKind::AuditRecent => {
+            super::routes_audit::stream_audit_recent(req, store, out, fmt).await
+        }
     }
 }
 
 /// Drain `stream` to `out` as one chunked-encoded JSON array.
 /// Empty streams emit `[]\n`. Mid-stream errors kill the
 /// connection (loud + obvious — chunked transfer cannot rewind).
-pub(super) async fn stream_json_array<T, S, W>(
-    out: &mut W,
-    stream: S,
-) -> tokio::io::Result<()>
+pub(super) async fn stream_json_array<T, S, W>(out: &mut W, stream: S) -> tokio::io::Result<()>
 where
     S: Stream<Item = ArgoResult<T>>,
     T: Serialize,
@@ -183,10 +185,7 @@ where
 /// Drain `stream` to `out` as chunked NDJSON — one JSON value per
 /// line, no array brackets. Empty streams emit zero data chunks
 /// (still HTTP 200). Mid-stream errors kill the connection.
-pub(super) async fn stream_ndjson<T, S, W>(
-    out: &mut W,
-    stream: S,
-) -> tokio::io::Result<()>
+pub(super) async fn stream_ndjson<T, S, W>(out: &mut W, stream: S) -> tokio::io::Result<()>
 where
     S: Stream<Item = ArgoResult<T>>,
     T: Serialize,
@@ -217,10 +216,7 @@ async fn write_chunked_head<W: AsyncWrite + Unpin>(
     out.flush().await
 }
 
-async fn write_chunk<W: AsyncWrite + Unpin>(
-    out: &mut W,
-    body: &str,
-) -> tokio::io::Result<()> {
+async fn write_chunk<W: AsyncWrite + Unpin>(out: &mut W, body: &str) -> tokio::io::Result<()> {
     let hdr = format!("{:X}\r\n", body.len());
     out.write_all(hdr.as_bytes()).await?;
     out.write_all(body.as_bytes()).await?;

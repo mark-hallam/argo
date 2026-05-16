@@ -17,7 +17,10 @@ pub(crate) async fn delete_memory(store: &SessionStore, subject: &str) -> StoreR
     Ok(())
 }
 
-pub(crate) async fn delete_skill_candidates(store: &SessionStore, subject: &str) -> StoreResult<()> {
+pub(crate) async fn delete_skill_candidates(
+    store: &SessionStore,
+    subject: &str,
+) -> StoreResult<()> {
     sqlx::query(
         "DELETE FROM skill
          WHERE lifecycle_state = 'pending_review'
@@ -37,12 +40,16 @@ pub(crate) async fn delete_skill_candidates(store: &SessionStore, subject: &str)
 }
 
 pub(crate) async fn update_notify_channels(store: &SessionStore, subject: &str) -> StoreResult<()> {
-    if !has_table(store, "worker").await? { return Ok(()); }
-    let rows = sqlx::query("SELECT id, channels_json FROM worker WHERE instr(lower(channels_json), ?) > 0")
-        .bind(subject)
-        .fetch_all(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("gdpr channel read: {e}")))?;
+    if !has_table(store, "worker").await? {
+        return Ok(());
+    }
+    let rows = sqlx::query(
+        "SELECT id, channels_json FROM worker WHERE instr(lower(channels_json), ?) > 0",
+    )
+    .bind(subject)
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("gdpr channel read: {e}")))?;
     for r in rows {
         let id: String = r.get("id");
         let channels: String = r.get("channels_json");
@@ -63,14 +70,26 @@ pub(crate) async fn redact_worker_refs(
     subject: &str,
     replacement: &str,
 ) -> StoreResult<()> {
-    if !has_table(store, "worker").await? { return Ok(()); }
+    if !has_table(store, "worker").await? {
+        return Ok(());
+    }
     let rows = sqlx::query("SELECT id, auto_approval_json FROM worker")
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("gdpr worker read: {e}")))?;
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("gdpr worker read: {e}")))?;
     for r in rows {
         let wid: String = r.get("id");
-        update_text(store, "worker", "auto_approval_json", "id", &wid, r.get("auto_approval_json"), subject, replacement).await?;
+        update_text(
+            store,
+            "worker",
+            "auto_approval_json",
+            "id",
+            &wid,
+            r.get("auto_approval_json"),
+            subject,
+            replacement,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -80,10 +99,38 @@ pub(crate) async fn redact_session_payloads(
     subject: &str,
     replacement: &str,
 ) -> StoreResult<()> {
-    update_payload_table(store, subject, replacement, "session", &["title", "system_prompt", "summary"]).await?;
-    update_payload_table(store, subject, replacement, "message", &["content_json", "tool_calls_json", "provider_meta"]).await?;
-    update_payload_table(store, subject, replacement, "tool_call", &["arguments_json", "result_json"]).await?;
-    update_payload_table(store, subject, replacement, "handoff", &["to", "expected_outcome", "payload"]).await
+    update_payload_table(
+        store,
+        subject,
+        replacement,
+        "session",
+        &["title", "system_prompt", "summary"],
+    )
+    .await?;
+    update_payload_table(
+        store,
+        subject,
+        replacement,
+        "message",
+        &["content_json", "tool_calls_json", "provider_meta"],
+    )
+    .await?;
+    update_payload_table(
+        store,
+        subject,
+        replacement,
+        "tool_call",
+        &["arguments_json", "result_json"],
+    )
+    .await?;
+    update_payload_table(
+        store,
+        subject,
+        replacement,
+        "handoff",
+        &["to", "expected_outcome", "payload"],
+    )
+    .await
 }
 
 async fn update_payload_table(
@@ -93,7 +140,9 @@ async fn update_payload_table(
     table: &'static str,
     columns: &[&'static str],
 ) -> StoreResult<()> {
-    if !has_table(store, table).await? { return Ok(()); }
+    if !has_table(store, table).await? {
+        return Ok(());
+    }
     let id_col = "id";
     let sql = format!("SELECT * FROM {table}");
     let rows = sqlx::query(&sql)

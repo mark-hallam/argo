@@ -47,7 +47,9 @@ fn worker_portrait_renders_json_and_markdown_sections() {
     let out = run(
         workspace.path(),
         home.path(),
-        &["worker", "portrait", &worker_id, "--tenant", &tenant, "--json"],
+        &[
+            "worker", "portrait", &worker_id, "--tenant", &tenant, "--json",
+        ],
     );
     assert_success(&out);
     let body: Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -82,7 +84,10 @@ async fn seed(home: &Path, workspace: &Path) -> (argo_types::TenantId, String) {
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("workspace");
-    let (tenant, ws) = store.ensure_workspace(name, &root.to_string_lossy()).await.unwrap();
+    let (tenant, ws) = store
+        .ensure_workspace(name, &root.to_string_lossy())
+        .await
+        .unwrap();
     let identities = IdentityStore::new(&store);
     let mut worker = Worker::draft(
         tenant,
@@ -145,13 +150,23 @@ async fn seed_actions(store: &Arc<SessionStore>, ws: argo_types::WorkspaceId, wo
             "evidence":evidence,"created_at":now.to_rfc3339()
         });
         memory
-            .append_for_vertical(ws, MemoryFile::Memory, body.to_string(), None, "gtm-engineer")
+            .append_for_vertical(
+                ws,
+                MemoryFile::Memory,
+                body.to_string(),
+                None,
+                "gtm-engineer",
+            )
             .await
             .unwrap();
     }
 }
 
-async fn seed_handoff(store: &Arc<SessionStore>, tenant: argo_types::TenantId, to: argo_identity::WorkerId) {
+async fn seed_handoff(
+    store: &Arc<SessionStore>,
+    tenant: argo_types::TenantId,
+    to: argo_identity::WorkerId,
+) {
     let orch = OrchestratorStore::new(Arc::clone(store));
     let session = Session::new(tenant, "handoff smoke");
     orch.insert_session(&session).await.unwrap();
@@ -169,7 +184,13 @@ async fn seed_candidate(store: &Arc<SessionStore>, ws: argo_types::WorkspaceId, 
     let memory = MemoryStore::new(Arc::clone(store));
     let body = json!({"schema_key":"learned_skill_candidates","skill_name":"post_listing_followup","worker_id":worker_id,"problem":"repeatable follow-up"});
     memory
-        .append_for_vertical(ws, MemoryFile::Memory, body.to_string(), None, "gtm-engineer")
+        .append_for_vertical(
+            ws,
+            MemoryFile::Memory,
+            body.to_string(),
+            None,
+            "gtm-engineer",
+        )
         .await
         .unwrap();
 }

@@ -100,10 +100,7 @@ pub(super) async fn skill_show_response_with_format(
                 let mut out = String::from("---\n");
                 out.push_str(&format!("name: {}\n", s.frontmatter.name));
                 out.push_str(&format!("version: \"{}\"\n", s.frontmatter.version));
-                out.push_str(&format!(
-                    "description: {}\n",
-                    s.frontmatter.description
-                ));
+                out.push_str(&format!("description: {}\n", s.frontmatter.description));
                 out.push_str(&format!("lock: {:?}\n", s.frontmatter.lock));
                 out.push_str("provenance:\n");
                 out.push_str(&format!("  hash: sha256-{}\n", hex::encode(s.hash)));

@@ -191,7 +191,9 @@ pub fn gate_from_config(cfg: &GateConfig) -> ArgoResult<Box<dyn DutyGate>> {
     match cfg {
         GateConfig::Open => Ok(Box::new(OpenGate)),
         GateConfig::Closed => Ok(Box::new(ClosedGate)),
-        GateConfig::Schedule { allow_hours } => Ok(Box::new(ScheduleGate::new(allow_hours.clone()))),
+        GateConfig::Schedule { allow_hours } => {
+            Ok(Box::new(ScheduleGate::new(allow_hours.clone())))
+        }
         GateConfig::QuietHours { deny_hours, tz } => {
             let parsed = chrono_tz::Tz::from_str(tz)
                 .map_err(|e| ArgoError::Schema(format!("gate.quiet_hours.tz '{tz}': {e}")))?;

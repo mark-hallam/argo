@@ -97,9 +97,7 @@ fn print_table(rows: &[worker_presence::FleetRow]) {
         println!("(no workers)");
         return;
     }
-    println!(
-        "| worker_id | persona | last_active | status |"
-    );
+    println!("| worker_id | persona | last_active | status |");
     println!("| --- | --- | --- | --- |");
     for row in rows {
         let persona = row.persona.as_deref().unwrap_or("-");

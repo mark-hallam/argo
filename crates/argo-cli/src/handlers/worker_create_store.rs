@@ -61,8 +61,7 @@ pub(super) struct WorkerOut {
 }
 
 pub(super) async fn open_workspace_store() -> ArgoResult<(SessionStore, TenantId, PathBuf)> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -122,17 +121,17 @@ pub(super) async fn insert_worker(
             charter, kpis_json, escalation
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
-        .bind(tenant_id.0.as_bytes().as_slice())
-        .bind(&role_name)
-        .bind(Option::<String>::None)
-        .bind("[]")
-        .bind(&worker_id)
-        .bind(charter)
-        .bind(json_string(&Vec::<String>::new(), "role kpis")?)
-        .bind(Option::<String>::None)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("insert role: {e}")))?;
+    .bind(tenant_id.0.as_bytes().as_slice())
+    .bind(&role_name)
+    .bind(Option::<String>::None)
+    .bind("[]")
+    .bind(&worker_id)
+    .bind(charter)
+    .bind(json_string(&Vec::<String>::new(), "role kpis")?)
+    .bind(Option::<String>::None)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("insert role: {e}")))?;
 
     let fs_root_value = fs_root.map(|p| p.display().to_string());
     sqlx::query(
@@ -141,19 +140,22 @@ pub(super) async fn insert_worker(
             memory_scope, auto_approval_json, channels_json, created_at, fs_root
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
-        .bind(&worker_id)
-        .bind(tenant_id.to_string())
-        .bind(vertical)
-        .bind(&persona_id)
-        .bind(&role_name)
-        .bind("worker_self")
-        .bind(json_string(&serde_json::json!({"enabled": false}), "auto approval")?)
-        .bind(json_string(&Vec::<serde_json::Value>::new(), "channels")?)
-        .bind(now)
-        .bind(fs_root_value.as_deref())
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("insert worker: {e}")))?;
+    .bind(&worker_id)
+    .bind(tenant_id.to_string())
+    .bind(vertical)
+    .bind(&persona_id)
+    .bind(&role_name)
+    .bind("worker_self")
+    .bind(json_string(
+        &serde_json::json!({"enabled": false}),
+        "auto approval",
+    )?)
+    .bind(json_string(&Vec::<serde_json::Value>::new(), "channels")?)
+    .bind(now)
+    .bind(fs_root_value.as_deref())
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("insert worker: {e}")))?;
 
     for duty in duties {
         sqlx::query("INSERT INTO duty VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
@@ -254,8 +256,7 @@ fn worker_from_row(row: sqlx::sqlite::SqliteRow, duties: Vec<DutyOut>) -> ArgoRe
 }
 
 fn json_string<T: Serialize>(value: &T, label: &str) -> ArgoResult<String> {
-    serde_json::to_string(value)
-        .map_err(|e| ArgoError::Provider(format!("serialize {label}: {e}")))
+    serde_json::to_string(value).map_err(|e| ArgoError::Provider(format!("serialize {label}: {e}")))
 }
 
 fn json_value<T: serde::de::DeserializeOwned>(value: &str, label: &str) -> ArgoResult<T> {

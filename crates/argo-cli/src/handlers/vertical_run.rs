@@ -28,8 +28,7 @@ pub async fn run(
     json: bool,
 ) -> ArgoResult<()> {
     // 1. Resolve home + open store.
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -71,12 +70,9 @@ pub async fn run(
     //    need an LLM (`skill_invoke`, `prompt`) record
     //    `deferred_no_llm`; the composition still completes.
     let session_id_str = session_id.to_string();
-    let report = super::vertical_workflow::run_collect(
-        vertical_id,
-        workflow_name,
-        Some(&session_id_str),
-    )
-    .await?;
+    let report =
+        super::vertical_workflow::run_collect(vertical_id, workflow_name, Some(&session_id_str))
+            .await?;
 
     // 6. Combined output. JSON mode is one document; text mode
     //    prints session metadata then the workflow report.

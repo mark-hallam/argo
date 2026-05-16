@@ -101,7 +101,10 @@ fn unbound_session_detail_pane_does_not_render_vertical_line() {
     let state = ViewerState::new(vec![header("legacy-detail")]);
     let frame = render_to_strings(&state);
     assert!(frame.contains("provider:"));
-    assert!(!frame.contains("vertical:"), "unbound got vertical line:\n{frame}");
+    assert!(
+        !frame.contains("vertical:"),
+        "unbound got vertical line:\n{frame}"
+    );
 }
 
 #[test]

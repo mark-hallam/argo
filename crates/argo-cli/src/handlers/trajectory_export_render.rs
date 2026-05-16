@@ -146,10 +146,9 @@ pub(super) fn redact_emails_in_str(input: &str) -> String {
             continue;
         }
         let candidate = &input[start..end];
-        if candidate
-            .rsplit_once('.')
-            .is_some_and(|(_, tld)| !tld.is_empty() && tld.bytes().all(|b| b.is_ascii_alphanumeric()))
-        {
+        if candidate.rsplit_once('.').is_some_and(|(_, tld)| {
+            !tld.is_empty() && tld.bytes().all(|b| b.is_ascii_alphanumeric())
+        }) {
             out.push_str(&input[last..start]);
             out.push_str("<redacted>");
             last = end;
@@ -176,8 +175,7 @@ fn scan_right(bytes: &[u8], from: usize) -> usize {
 }
 
 fn is_email_char(b: u8) -> bool {
-    b.is_ascii_alphanumeric()
-        || matches!(b, b'.' | b'_' | b'-' | b'+' | b'%')
+    b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'+' | b'%')
 }
 
 pub(super) fn sha256_hex(bytes: &[u8]) -> String {

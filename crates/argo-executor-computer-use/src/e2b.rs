@@ -350,11 +350,9 @@ pub struct ActionResult {
 pub(crate) fn decode_inline_screenshot(b64: &str) -> Result<Vec<u8>, CuError> {
     use base64::engine::general_purpose::STANDARD;
     use base64::Engine;
-    STANDARD.decode(b64).map_err(|e| {
-        CuError::Protocol(format!(
-            "e2b returned malformed inline screenshot: {e}"
-        ))
-    })
+    STANDARD
+        .decode(b64)
+        .map_err(|e| CuError::Protocol(format!("e2b returned malformed inline screenshot: {e}")))
 }
 
 async fn read_body_truncated(resp: reqwest::Response) -> String {

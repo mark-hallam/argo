@@ -17,7 +17,10 @@ fn parse_response_extracts_click_action() {
     let resps = parse_response(raw).unwrap();
     assert_eq!(resps.len(), 1);
     match &resps[0] {
-        CuStepResponse::ToolCall { action, tokens_used } => {
+        CuStepResponse::ToolCall {
+            action,
+            tokens_used,
+        } => {
             assert_eq!(*action, CuAction::Click { x: 42, y: 84 });
             assert_eq!(*tokens_used, 150);
         }
@@ -84,11 +87,7 @@ fn parse_response_extracts_stop_success_tool() {
     let resps = parse_response(raw).unwrap();
     assert_eq!(resps.len(), 1);
     match &resps[0] {
-        CuStepResponse::Stop {
-            reason,
-            text,
-            ..
-        } => {
+        CuStepResponse::Stop { reason, text, .. } => {
             assert_eq!(*reason, StopReason::Success);
             assert_eq!(text.as_deref(), Some("listing posted at $X"));
         }
@@ -330,7 +329,10 @@ fn build_messages_body_uses_configured_tool_variant_and_beta_header() {
     assert_eq!(body["tools"][0]["type"], "computer_20251124");
     assert_eq!(body["tools"][0]["name"], "computer");
     assert_eq!(body["model"], "claude-opus-4-7");
-    assert_eq!(beta_header_for("computer_20251124"), "computer-use-2025-11-24");
+    assert_eq!(
+        beta_header_for("computer_20251124"),
+        "computer-use-2025-11-24"
+    );
 
     // Override path: a caller pinning the older 2025-01-24
     // variant must round-trip through the request body and the
@@ -344,8 +346,14 @@ fn build_messages_body_uses_configured_tool_variant_and_beta_header() {
     };
     let body2 = build_messages_body(req2, "claude-sonnet-4-5", "computer_20250124");
     assert_eq!(body2["tools"][0]["type"], "computer_20250124");
-    assert_eq!(beta_header_for("computer_20250124"), "computer-use-2025-01-24");
+    assert_eq!(
+        beta_header_for("computer_20250124"),
+        "computer-use-2025-01-24"
+    );
     // Unknown variants fall back to the current default header
     // so a future config-only bump still produces a valid call.
-    assert_eq!(beta_header_for("computer_99999999"), "computer-use-2025-11-24");
+    assert_eq!(
+        beta_header_for("computer_99999999"),
+        "computer-use-2025-11-24"
+    );
 }

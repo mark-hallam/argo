@@ -76,9 +76,7 @@ fn catalog_marks_installed_rows_and_filters() {
     assert_success(&not_installed);
     let rows: Value = serde_json::from_slice(&not_installed.stdout).unwrap();
     let rows = rows.as_array().unwrap();
-    assert!(rows
-        .iter()
-        .all(|r| r["id"] != "marketplace-listing-draft"));
+    assert!(rows.iter().all(|r| r["id"] != "marketplace-listing-draft"));
     assert!(rows.iter().all(|r| r["installed"] == false));
 
     // Unknown --vertical surfaces a clear error.
@@ -93,8 +91,7 @@ fn catalog_marks_installed_rows_and_filters() {
     );
     let stderr = String::from_utf8_lossy(&unknown.stderr);
     assert!(
-        stderr.contains("vertical no-such-tenant not found")
-            || stderr.contains("not found"),
+        stderr.contains("vertical no-such-tenant not found") || stderr.contains("not found"),
         "stderr did not mention the missing vertical: {stderr}"
     );
 
@@ -102,12 +99,7 @@ fn catalog_marks_installed_rows_and_filters() {
     let conflict = run(
         home.path(),
         workspace.path(),
-        &[
-            "skill",
-            "catalog",
-            "--installed-only",
-            "--not-installed",
-        ],
+        &["skill", "catalog", "--installed-only", "--not-installed"],
     );
     assert!(
         !conflict.status.success(),

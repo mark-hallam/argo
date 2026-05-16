@@ -290,11 +290,7 @@ mod tests {
             body_utf8: "a".into(),
         })
         .unwrap();
-        let outcome = exec
-            .run(FsAction::ListDir {
-                path: ".".into(),
-            })
-            .unwrap();
+        let outcome = exec.run(FsAction::ListDir { path: ".".into() }).unwrap();
         match outcome {
             FsOpOutcome::ListDir { entries, .. } => {
                 let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();

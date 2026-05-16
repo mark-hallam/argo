@@ -37,8 +37,7 @@ pub(crate) async fn replay_core_with_events(
     provider: Option<&str>,
     events: Option<&argo_agent_runner::RunEventSink>,
 ) -> ArgoResult<ReplayResult> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
@@ -77,7 +76,14 @@ pub(crate) async fn replay_core_with_events(
         .map(|t| format!("replay of {t}"))
         .unwrap_or_else(|| format!("replay of {}", source.id.0));
     let new_id = store
-        .create_session(tenant, ws, &target_model, &target_provider, Some(&title), None)
+        .create_session(
+            tenant,
+            ws,
+            &target_model,
+            &target_provider,
+            Some(&title),
+            None,
+        )
         .await?;
 
     let mut final_text = String::new();
@@ -127,10 +133,7 @@ pub(crate) async fn run(
     if !snippet_text.is_empty() {
         println!("final reply: {snippet_text}");
     }
-    println!(
-        "\ninspect with `argo session show {}`.",
-        result.new_id.0
-    );
+    println!("\ninspect with `argo session show {}`.", result.new_id.0);
     Ok(())
 }
 
@@ -140,11 +143,7 @@ pub(crate) async fn run(
 /// user_message_count}` (or `{"event":"error", "message": …}`
 /// if the replay fails). Mirrors the gateway's
 /// `POST /sessions/<id>/replay/stream` chunked response.
-async fn run_streaming(
-    raw: &str,
-    model: Option<&str>,
-    provider: Option<&str>,
-) -> ArgoResult<()> {
+async fn run_streaming(raw: &str, model: Option<&str>, provider: Option<&str>) -> ArgoResult<()> {
     use std::io::Write;
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<serde_json::Value>();
     let raw_owned = raw.to_string();

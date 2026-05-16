@@ -52,7 +52,10 @@ fn cli_new_without_vertical_still_works() {
     );
     let stdout = String::from_utf8(out.stdout).unwrap();
     assert!(stdout.contains("created session"), "got: {stdout}");
-    assert!(!stdout.contains("vertical:"), "should not print vertical line");
+    assert!(
+        !stdout.contains("vertical:"),
+        "should not print vertical line"
+    );
 }
 
 #[test]
@@ -115,12 +118,24 @@ fn cli_session_list_includes_vertical_id_when_present() {
     // Create one session bound + one unbound.
     for args in [
         vec![
-            "new", "--provider", "anthropic", "--model", "haiku",
-            "--title", "bound", "--vertical", "demo",
+            "new",
+            "--provider",
+            "anthropic",
+            "--model",
+            "haiku",
+            "--title",
+            "bound",
+            "--vertical",
+            "demo",
         ],
         vec![
-            "new", "--provider", "anthropic", "--model", "haiku",
-            "--title", "unbound",
+            "new",
+            "--provider",
+            "anthropic",
+            "--model",
+            "haiku",
+            "--title",
+            "unbound",
         ],
     ] {
         let out = Command::new(argo_bin())
@@ -129,7 +144,11 @@ fn cli_session_list_includes_vertical_id_when_present() {
             .args(&args)
             .output()
             .expect("spawn");
-        assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
     }
 
     // List as JSON; verify the bound row has vertical_id="demo"
@@ -157,7 +176,10 @@ fn cli_session_list_includes_vertical_id_when_present() {
             Some("unbound") => {
                 // skip_serializing_if(Option::is_none) means the key
                 // is absent for unbound rows.
-                assert!(v.get("vertical_id").is_none(), "unbound row should omit vertical_id");
+                assert!(
+                    v.get("vertical_id").is_none(),
+                    "unbound row should omit vertical_id"
+                );
                 found_unbound = true;
             }
             _ => {}
@@ -172,8 +194,26 @@ fn cli_session_list_filter_by_vertical() {
     let verticals = tempfile::tempdir().unwrap();
     write_demo_vertical(verticals.path());
     for args in [
-        vec!["new", "--provider", "p", "--model", "m", "--title", "bound", "--vertical", "demo"],
-        vec!["new", "--provider", "p", "--model", "m", "--title", "unbound"],
+        vec![
+            "new",
+            "--provider",
+            "p",
+            "--model",
+            "m",
+            "--title",
+            "bound",
+            "--vertical",
+            "demo",
+        ],
+        vec![
+            "new",
+            "--provider",
+            "p",
+            "--model",
+            "m",
+            "--title",
+            "unbound",
+        ],
     ] {
         Command::new(argo_bin())
             .env("ARGO_HOME", home.path())
@@ -191,7 +231,12 @@ fn cli_session_list_filter_by_vertical() {
     assert!(out.status.success());
     let body = String::from_utf8(out.stdout).unwrap();
     let lines: Vec<&str> = body.lines().filter(|l| !l.is_empty()).collect();
-    assert_eq!(lines.len(), 1, "expected only bound row, got {}: {body}", lines.len());
+    assert_eq!(
+        lines.len(),
+        1,
+        "expected only bound row, got {}: {body}",
+        lines.len()
+    );
     let v: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
     assert_eq!(v["title"], "bound");
     assert_eq!(v["vertical_id"], "demo");
@@ -277,7 +322,10 @@ fn gateway_legacy_post_sessions_still_works_unbound() {
     assert!(resp.contains("HTTP/1.1 201 Created"), "resp={resp}");
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
     // No vertical was supplied -> vertical_id should be null/absent
-    assert!(v["vertical_id"].is_null(), "vertical_id should be null: {v}");
+    assert!(
+        v["vertical_id"].is_null(),
+        "vertical_id should be null: {v}"
+    );
     let _ = child.wait();
 }
 

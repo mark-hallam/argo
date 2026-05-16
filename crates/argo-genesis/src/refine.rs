@@ -35,8 +35,8 @@ use serde::{Deserialize, Serialize};
 
 #[path = "refine_apply.rs"]
 mod apply;
-pub use apply::{apply_refinement, apply_refinement_with_cap};
 use apply::build_prompt;
+pub use apply::{apply_refinement, apply_refinement_with_cap};
 
 /// Optional refinement config. Built once at cli startup; passed
 /// to [`refine_plan`] when `--refine` is on.

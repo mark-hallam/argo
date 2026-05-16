@@ -242,7 +242,9 @@ mod tenant_tests {
         session.id = session_id.clone();
         store.insert_session(&session).await.unwrap();
 
-        let principal = Principal::Local { os_user: "delegate".into() };
+        let principal = Principal::Local {
+            os_user: "delegate".into(),
+        };
         let mut ctx = ToolContext::new_with_tenant(principal, "/tmp".into(), tenant);
         ctx.session_id = session_id.clone();
         let result = DelegateTask::new(Arc::clone(&store))
@@ -259,13 +261,11 @@ mod tenant_tests {
             .await
             .unwrap();
         assert_eq!(handoffs.len(), 1);
-        assert!(
-            store
-                .list_handoffs_for_session(TenantId::new(), &session_id)
-                .await
-                .unwrap()
-                .is_empty()
-        );
+        assert!(store
+            .list_handoffs_for_session(TenantId::new(), &session_id)
+            .await
+            .unwrap()
+            .is_empty());
     }
 }
 

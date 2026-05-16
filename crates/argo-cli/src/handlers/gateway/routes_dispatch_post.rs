@@ -200,9 +200,7 @@ async fn dispatch_post_inner(
     if let Some(rest) = req.strip_prefix("POST /api/v1/approvals/bundles/") {
         if let Some((id, tail)) = rest.split_once('/') {
             if tail.starts_with("decide ") || tail.starts_with("decide?") {
-                return Some(
-                    super::routes_approval_bundles::decide_response(id, req, store).await,
-                );
+                return Some(super::routes_approval_bundles::decide_response(id, req, store).await);
             }
         }
     }
@@ -402,9 +400,7 @@ async fn dispatch_post_inner(
         if let Some((sid, tail)) = rest.split_once('/') {
             if tail.starts_with("messages ") {
                 if let Some(s) = store {
-                    if let Some(resp) =
-                        check_quota_or_reject(s, QuotaActionKind::Messages).await
-                    {
+                    if let Some(resp) = check_quota_or_reject(s, QuotaActionKind::Messages).await {
                         return Some(resp);
                     }
                 }

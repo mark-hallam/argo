@@ -30,8 +30,7 @@ pub async fn run(store: &SessionStore, args: ExportArgs) -> ArgoResult<()> {
     };
     let sha = sha256_hex(&artifact);
     if let Some(path) = query.bundle_out.as_deref() {
-        std::fs::write(path, &artifact)
-            .map_err(|e| ArgoError::Io(format!("write {path}: {e}")))?;
+        std::fs::write(path, &artifact).map_err(|e| ArgoError::Io(format!("write {path}: {e}")))?;
     } else if !query.json {
         let mut out = io::stdout().lock();
         out.write_all(&artifact)
@@ -133,7 +132,9 @@ fn render_csv(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
             row.self_hash.clone(),
         ]);
     }
-    Ok(argo_executor_document_csv::render_rfc4180(&header, &body_rows))
+    Ok(argo_executor_document_csv::render_rfc4180(
+        &header, &body_rows,
+    ))
 }
 
 fn render_tarball(query: &NormalizedExport, rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {

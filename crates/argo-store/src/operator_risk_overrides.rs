@@ -106,16 +106,18 @@ impl<'a> OperatorRiskOverridesStore<'a> {
         .map_err(|e| ArgoError::Provider(format!("operator_risk_overrides get: {e}")))?;
         Ok(rows
             .into_iter()
-            .map(|(action_kind, vertical_id, risk_level, allow, created_at)| {
-                OperatorRiskOverrideRow {
-                    operator_id: operator_id.to_string(),
-                    action_kind,
-                    vertical_id: non_empty_vertical(vertical_id),
-                    risk_level,
-                    allow_downgrade: allow != 0,
-                    created_at,
-                }
-            })
+            .map(
+                |(action_kind, vertical_id, risk_level, allow, created_at)| {
+                    OperatorRiskOverrideRow {
+                        operator_id: operator_id.to_string(),
+                        action_kind,
+                        vertical_id: non_empty_vertical(vertical_id),
+                        risk_level,
+                        allow_downgrade: allow != 0,
+                        created_at,
+                    }
+                },
+            )
             .collect())
     }
 

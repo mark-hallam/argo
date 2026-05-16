@@ -57,10 +57,7 @@ fn req(verb: &str, path: &str, body: &str) -> String {
     }
 }
 
-async fn provision(
-    store: &Arc<SessionStore>,
-    user_name: &str,
-) -> Value {
+async fn provision(store: &Arc<SessionStore>, user_name: &str) -> Value {
     let body = json!({
         "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
         "userName": user_name,
@@ -192,12 +189,9 @@ async fn get_user_400_for_invalid_uuid() {
     let _g = lock_env().await;
     enable_bypass();
     let store = mem_store().await;
-    let (status, _) = dispatch(
-        &req("GET", "/scim/v2/Users/not-a-uuid", ""),
-        Some(&store),
-    )
-    .await
-    .expect("dispatch");
+    let (status, _) = dispatch(&req("GET", "/scim/v2/Users/not-a-uuid", ""), Some(&store))
+        .await
+        .expect("dispatch");
     assert_eq!(status, "400 Bad Request");
     reset_env();
 }

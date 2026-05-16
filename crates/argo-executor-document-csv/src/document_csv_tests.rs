@@ -1,9 +1,7 @@
 //! Unit coverage for the RFC 4180 writer + sandbox primitive.
 
 use crate::sandbox::CsvSandboxError;
-use crate::types::{
-    CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason,
-};
+use crate::types::{CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason};
 use crate::{CsvWriteRequest, DocumentCsv};
 use serde_json::json;
 use std::collections::HashMap;
@@ -109,12 +107,42 @@ fn quote_all_mode_quotes_every_field_including_header() {
 fn type_coerce_six_kinds() {
     let root = TempDir::new().unwrap();
     let schema = vec![
-        CsvColumnSchema { header: "t".into(), kind: CsvColumnKind::Text, required: false, max_len: None },
-        CsvColumnSchema { header: "i".into(), kind: CsvColumnKind::Integer, required: false, max_len: None },
-        CsvColumnSchema { header: "d".into(), kind: CsvColumnKind::Decimal, required: false, max_len: None },
-        CsvColumnSchema { header: "dt".into(), kind: CsvColumnKind::Date, required: false, max_len: None },
-        CsvColumnSchema { header: "b".into(), kind: CsvColumnKind::Boolean, required: false, max_len: None },
-        CsvColumnSchema { header: "e".into(), kind: CsvColumnKind::EmailAddress, required: false, max_len: None },
+        CsvColumnSchema {
+            header: "t".into(),
+            kind: CsvColumnKind::Text,
+            required: false,
+            max_len: None,
+        },
+        CsvColumnSchema {
+            header: "i".into(),
+            kind: CsvColumnKind::Integer,
+            required: false,
+            max_len: None,
+        },
+        CsvColumnSchema {
+            header: "d".into(),
+            kind: CsvColumnKind::Decimal,
+            required: false,
+            max_len: None,
+        },
+        CsvColumnSchema {
+            header: "dt".into(),
+            kind: CsvColumnKind::Date,
+            required: false,
+            max_len: None,
+        },
+        CsvColumnSchema {
+            header: "b".into(),
+            kind: CsvColumnKind::Boolean,
+            required: false,
+            max_len: None,
+        },
+        CsvColumnSchema {
+            header: "e".into(),
+            kind: CsvColumnKind::EmailAddress,
+            required: false,
+            max_len: None,
+        },
     ];
     let rows = vec![row(&[
         ("t", json!("hi")),
@@ -138,8 +166,18 @@ fn type_coerce_six_kinds() {
 fn missing_required_rejects_row_without_aborting_rest() {
     let root = TempDir::new().unwrap();
     let schema = vec![
-        CsvColumnSchema { header: "a".into(), kind: CsvColumnKind::Text, required: true, max_len: None },
-        CsvColumnSchema { header: "b".into(), kind: CsvColumnKind::Text, required: false, max_len: None },
+        CsvColumnSchema {
+            header: "a".into(),
+            kind: CsvColumnKind::Text,
+            required: true,
+            max_len: None,
+        },
+        CsvColumnSchema {
+            header: "b".into(),
+            kind: CsvColumnKind::Text,
+            required: false,
+            max_len: None,
+        },
     ];
     let rows = vec![
         row(&[("a", json!("ok")), ("b", json!("v1"))]),
@@ -153,7 +191,10 @@ fn missing_required_rejects_row_without_aborting_rest() {
     assert_eq!(report.rows_rejected, 1);
     assert_eq!(report.rejections.len(), 1);
     assert_eq!(report.rejections[0].row_index, 1);
-    assert!(matches!(report.rejections[0].reason, RejectionReason::MissingRequired));
+    assert!(matches!(
+        report.rejections[0].reason,
+        RejectionReason::MissingRequired
+    ));
     let body = std::fs::read_to_string(&report.path).unwrap();
     let lines: Vec<&str> = body.split("\r\n").filter(|l| !l.is_empty()).collect();
     assert_eq!(lines.len(), 3); // header + 2 surviving rows
@@ -192,7 +233,12 @@ fn path_traversal_variants_are_rejected() {
     assert!(format!("{err}").contains("sandbox"));
 
     // (b) absolute path outside root
-    req = base_req(&root, "/tmp/totally-outside-root.csv", schema_basic(), vec![]);
+    req = base_req(
+        &root,
+        "/tmp/totally-outside-root.csv",
+        schema_basic(),
+        vec![],
+    );
     req.path = PathBuf::from("/tmp/totally-outside-the-root-xyz.csv");
     let err = DocumentCsv::new().write(req).unwrap_err();
     assert!(format!("{err}").contains("sandbox"));

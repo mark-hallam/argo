@@ -27,7 +27,11 @@ pub(super) struct AuditRow {
     pub payload: Value,
 }
 
-pub(super) async fn fetch_audit_rows(store: &SessionStore, worker_id: WorkerId, now: DateTime<Utc>) -> ArgoResult<Vec<AuditRow>> {
+pub(super) async fn fetch_audit_rows(
+    store: &SessionStore,
+    worker_id: WorkerId,
+    now: DateTime<Utc>,
+) -> ArgoResult<Vec<AuditRow>> {
     let since = (now - Duration::days(KPI_WINDOW_DAYS)).timestamp_micros();
     let rows = sqlx::query(
         "SELECT a.id, a.kind, a.payload_json, a.created_at \
@@ -44,7 +48,9 @@ pub(super) async fn fetch_audit_rows(store: &SessionStore, worker_id: WorkerId, 
         .into_iter()
         .map(|row| {
             let id_bytes: Vec<u8> = row.try_get("id").unwrap_or_default();
-            let id = uuid::Uuid::from_slice(&id_bytes).map(|u| u.to_string()).unwrap_or_default();
+            let id = uuid::Uuid::from_slice(&id_bytes)
+                .map(|u| u.to_string())
+                .unwrap_or_default();
             let kind: String = row.try_get("kind").unwrap_or_default();
             let payload_json: String = row.try_get("payload_json").unwrap_or_default();
             let created_micros: i64 = row.try_get("created_at").unwrap_or(0);
@@ -127,7 +133,11 @@ fn row_matches(source: SourceKind, kind: &str) -> bool {
     }
 }
 
-fn sparkline_for(audit: &[AuditRow], source: SourceKind, today: NaiveDate) -> [i64; SPARKLINE_DAYS] {
+fn sparkline_for(
+    audit: &[AuditRow],
+    source: SourceKind,
+    today: NaiveDate,
+) -> [i64; SPARKLINE_DAYS] {
     let mut bucket = [0_i64; SPARKLINE_DAYS];
     for row in audit {
         if !row_matches(source, &row.kind) {
@@ -147,7 +157,9 @@ fn prev_window_count(audit: &[AuditRow], source: SourceKind, now: DateTime<Utc>)
     let prev_end = now - Duration::days(SPARKLINE_DAYS as i64);
     audit
         .iter()
-        .filter(|r| row_matches(source, &r.kind) && r.created_at >= prev_start && r.created_at < prev_end)
+        .filter(|r| {
+            row_matches(source, &r.kind) && r.created_at >= prev_start && r.created_at < prev_end
+        })
         .count() as i64
 }
 
@@ -159,11 +171,21 @@ pub(super) fn trend_for(curr: f64, prev: f64) -> (&'static str, f64) {
     } else {
         0.0
     };
-    let direction = if pct.abs() < 2.0 { "flat" } else if pct > 0.0 { "up" } else { "down" };
+    let direction = if pct.abs() < 2.0 {
+        "flat"
+    } else if pct > 0.0 {
+        "up"
+    } else {
+        "down"
+    };
     (direction, (pct * 10.0).round() / 10.0)
 }
 
-pub(super) fn compute_kpis(vertical_id: &str, audit: &[AuditRow], now: DateTime<Utc>) -> Vec<Value> {
+pub(super) fn compute_kpis(
+    vertical_id: &str,
+    audit: &[AuditRow],
+    now: DateTime<Utc>,
+) -> Vec<Value> {
     let today = now.date_naive();
     bullets_for_vertical(vertical_id)
         .iter()
@@ -194,7 +216,12 @@ pub(super) fn recent_activity_rows(audit: &[AuditRow]) -> Vec<Value> {
         .iter()
         .take(RECENT_LIMIT)
         .map(|row| {
-            let verb = row.payload.get("verb").and_then(Value::as_str).unwrap_or(&row.kind).to_string();
+            let verb = row
+                .payload
+                .get("verb")
+                .and_then(Value::as_str)
+                .unwrap_or(&row.kind)
+                .to_string();
             let status = row
                 .payload
                 .get("status")
@@ -235,7 +262,9 @@ pub(super) async fn duties_for_worker(
     .await
     {
         Ok(r) => r,
-        Err(sqlx::Error::Database(db)) if db.message().contains("no such table") => return Ok(Vec::new()),
+        Err(sqlx::Error::Database(db)) if db.message().contains("no such table") => {
+            return Ok(Vec::new())
+        }
         Err(e) => return Err(ArgoError::Provider(format!("role_duty list: {e}"))),
     };
     Ok(rows
@@ -253,7 +282,8 @@ pub(super) async fn duties_for_worker(
             } else {
                 description.clone()
             };
-            let live = enabled == 1 && !matches!(paused_until, Some(u) if u > now.timestamp_micros());
+            let live =
+                enabled == 1 && !matches!(paused_until, Some(u) if u > now.timestamp_micros());
             let next_fire_at = next_fire_for(&cron, last_fired, now).map(|t| t.to_rfc3339());
             json!({
                 "id": id,
@@ -267,7 +297,11 @@ pub(super) async fn duties_for_worker(
         .collect())
 }
 
-pub(super) fn next_fire_for(cron_expr: &str, last_fired_micros: Option<i64>, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+pub(super) fn next_fire_for(
+    cron_expr: &str,
+    last_fired_micros: Option<i64>,
+    now: DateTime<Utc>,
+) -> Option<DateTime<Utc>> {
     let schedule = Schedule::from_str(cron_expr).ok()?;
     let origin = last_fired_micros
         .and_then(|m| Utc.timestamp_micros(m).single())

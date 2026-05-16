@@ -19,24 +19,17 @@ use std::path::{Path, PathBuf};
 /// Resolves the workspace's session store, validates the JSON
 /// against `AutoApprovalPolicy`, and writes the new value to
 /// `worker.auto_approval_json` for the row whose id matches.
-pub async fn update_auto_approval(
-    worker_id: &str,
-    json_path: &Path,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn update_auto_approval(worker_id: &str, json_path: &Path, json: bool) -> ArgoResult<()> {
     let policy = read_policy_file(json_path)?;
     let (store, _cwd) = open_store().await?;
-    let serialised = serde_json::to_string(&policy).map_err(|e| {
-        ArgoError::Provider(format!("serialise auto_approval policy: {e}"))
-    })?;
-    let result = sqlx::query(
-        "UPDATE worker SET auto_approval_json = ? WHERE id = ?",
-    )
-    .bind(&serialised)
-    .bind(worker_id)
-    .execute(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("update worker policy: {e}")))?;
+    let serialised = serde_json::to_string(&policy)
+        .map_err(|e| ArgoError::Provider(format!("serialise auto_approval policy: {e}")))?;
+    let result = sqlx::query("UPDATE worker SET auto_approval_json = ? WHERE id = ?")
+        .bind(&serialised)
+        .bind(worker_id)
+        .execute(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("update worker policy: {e}")))?;
     if result.rows_affected() == 0 {
         return Err(ArgoError::Provider(format!(
             "no worker with id '{worker_id}' in this workspace"

@@ -31,11 +31,12 @@ pub async fn archive(
     let parsed = parse_worker(worker_id)?;
     let owned = open_identity_store().await?;
     let identities = IdentityStore::new(&owned.store);
-    let worker = identities.get_worker(tenant_id, parsed).await?.ok_or_else(|| {
-        ArgoError::Provider(format!(
-            "worker {worker_id} not found in tenant {tenant}"
-        ))
-    })?;
+    let worker = identities
+        .get_worker(tenant_id, parsed)
+        .await?
+        .ok_or_else(|| {
+            ArgoError::Provider(format!("worker {worker_id} not found in tenant {tenant}"))
+        })?;
 
     let frozen = serde_json::to_string(&worker)
         .map_err(|e| ArgoError::Provider(format!("freeze worker: {e}")))?;
@@ -67,14 +68,8 @@ pub async fn archive(
             serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
         );
     } else {
-        let reason_line = reason
-            .map(|r| format!(" ({r})"))
-            .unwrap_or_default();
-        println!(
-            "worker {} archived{}",
-            worker.id,
-            reason_line
-        );
+        let reason_line = reason.map(|r| format!(" ({r})")).unwrap_or_default();
+        println!("worker {} archived{}", worker.id, reason_line);
     }
     Ok(())
 }
@@ -146,12 +141,7 @@ pub async fn rehydrate(tenant: &str, worker_id: &str, json: bool) -> ArgoResult<
 /// `argo worker delete <id> --tenant <t> [--force] [--json]`. Calls
 /// through to `worker_archive::delete_worker` (or `force_delete_worker`
 /// when `--force` is set) — see that module for the cascade contract.
-pub async fn delete(
-    tenant: &str,
-    worker_id: &str,
-    force: bool,
-    json: bool,
-) -> ArgoResult<()> {
+pub async fn delete(tenant: &str, worker_id: &str, force: bool, json: bool) -> ArgoResult<()> {
     let tenant_id = parse_tenant(tenant)?;
     let parsed = parse_worker(worker_id)?;
     let owned = open_identity_store().await?;
@@ -198,11 +188,7 @@ pub async fn delete(
 pub async fn list(tenant: &str, json: bool) -> ArgoResult<()> {
     let tenant_id = parse_tenant(tenant)?;
     let owned = open_identity_store().await?;
-    let rows = worker_archive::list_archived(
-        owned.store.pool(),
-        &tenant_id.to_string(),
-    )
-    .await?;
+    let rows = worker_archive::list_archived(owned.store.pool(), &tenant_id.to_string()).await?;
     if json {
         let payload = json!({
             "ok": true,
@@ -234,7 +220,10 @@ pub async fn list(tenant: &str, json: bool) -> ArgoResult<()> {
 }
 
 fn print_table(rows: &[ArchiveRow]) {
-    println!("{:<36}  {:<25}  {:<20}  reason", "worker_id", "archived_at", "principal");
+    println!(
+        "{:<36}  {:<25}  {:<20}  reason",
+        "worker_id", "archived_at", "principal"
+    );
     for row in rows {
         let ts = format_iso(row.archived_at);
         let principal = row.archived_by_principal.as_deref().unwrap_or("");

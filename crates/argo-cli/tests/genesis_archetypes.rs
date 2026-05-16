@@ -9,7 +9,11 @@ fn genesis_archetype_discovery_commands_work() {
         .args(["genesis", "list-archetypes", "--json"])
         .output()
         .expect("spawn list");
-    assert!(list.status.success(), "stderr: {}", String::from_utf8_lossy(&list.stderr));
+    assert!(
+        list.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&list.stderr)
+    );
     let body = String::from_utf8(list.stdout).unwrap();
     let listed: serde_json::Value = serde_json::from_str(&body).unwrap();
     let archetypes = listed["archetypes"].as_array().unwrap();
@@ -20,10 +24,18 @@ fn genesis_archetype_discovery_commands_work() {
         .args(["genesis", "show-archetype", "marketing-intern", "--json"])
         .output()
         .expect("spawn show");
-    assert!(show.status.success(), "stderr: {}", String::from_utf8_lossy(&show.stderr));
+    assert!(
+        show.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&show.stderr)
+    );
     let shown: serde_json::Value = serde_json::from_slice(&show.stdout).unwrap();
     assert_eq!(shown["name"], "Marketing Intern");
-    assert!(shown["seed_actions"].as_array().unwrap().iter().any(|a| a["name"] == "post_campaign"));
+    assert!(shown["seed_actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|a| a["name"] == "post_campaign"));
 
     let suggest = Command::new(argo_bin())
         .args([
@@ -35,7 +47,11 @@ fn genesis_archetype_discovery_commands_work() {
         ])
         .output()
         .expect("spawn suggest");
-    assert!(suggest.status.success(), "stderr: {}", String::from_utf8_lossy(&suggest.stderr));
+    assert!(
+        suggest.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&suggest.stderr)
+    );
     let suggested: serde_json::Value = serde_json::from_slice(&suggest.stdout).unwrap();
     let matches = suggested["matches"].as_array().unwrap();
     assert_eq!(matches.len(), 3);

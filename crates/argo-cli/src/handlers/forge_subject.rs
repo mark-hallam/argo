@@ -13,8 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub(super) async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

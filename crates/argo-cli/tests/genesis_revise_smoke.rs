@@ -70,8 +70,12 @@ fn revise_dry_run_prompt_reports_non_empty_diff_and_does_not_write() {
         String::from_utf8_lossy(&result.stdout)
     );
 
-    let envelope: Value = serde_json::from_slice(&result.stdout)
-        .unwrap_or_else(|e| panic!("non-JSON stdout: {e}\n{}", String::from_utf8_lossy(&result.stdout)));
+    let envelope: Value = serde_json::from_slice(&result.stdout).unwrap_or_else(|e| {
+        panic!(
+            "non-JSON stdout: {e}\n{}",
+            String::from_utf8_lossy(&result.stdout)
+        )
+    });
     assert_eq!(envelope["vertical"], plan.vertical_id);
     assert_eq!(envelope["target"], "prompt");
     assert_eq!(envelope["dry_run"], true);

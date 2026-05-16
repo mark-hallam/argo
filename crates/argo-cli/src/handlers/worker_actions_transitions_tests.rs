@@ -263,9 +263,15 @@ async fn cancel_pending_writes_cancelled_row() {
     let (memory, ws) = open_test_memory().await;
     let rec = pending_record("a-cancel-pending", true);
     seed(&memory, ws, &rec).await;
-    let cancelled = cancel(&memory, ws, "a-cancel-pending", "operator", Some("changed mind"))
-        .await
-        .unwrap();
+    let cancelled = cancel(
+        &memory,
+        ws,
+        "a-cancel-pending",
+        "operator",
+        Some("changed mind"),
+    )
+    .await
+    .unwrap();
     assert_eq!(cancelled.state, "cancelled");
     let payload = cancelled.result.expect("cancellation payload");
     let cancellation = payload.get("cancellation").expect("cancellation key");

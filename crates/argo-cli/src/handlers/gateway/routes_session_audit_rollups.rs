@@ -8,7 +8,6 @@
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-
 /// `GET /sessions/<id>/audit/by-kind[?since-minutes=M&format=markdown]`
 /// — per-session drill-down of `/audit/by-kind` (#570). For one
 /// session, returns the histogram of audit-row kinds (turn_start,
@@ -37,8 +36,7 @@ pub(super) async fn session_audit_by_kind_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT kind, COUNT(*) FROM audit_record \
                  WHERE session_id = ? AND created_at >= ? \
@@ -123,8 +121,7 @@ pub(super) async fn session_audit_by_tool_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT json_extract(payload_json, '$.tool') AS tool, COUNT(*) \
                  FROM audit_record \
@@ -212,8 +209,7 @@ pub(super) async fn session_audit_tool_errors_response(
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
-            let cutoff =
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            let cutoff = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
             sqlx::query_as(
                 "SELECT json_extract(payload_json, '$.tool') AS tool, COUNT(*) \
                  FROM audit_record \

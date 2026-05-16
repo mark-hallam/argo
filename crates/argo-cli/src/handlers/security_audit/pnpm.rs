@@ -22,28 +22,40 @@ struct PnpmAuditReport {
 
 #[derive(Debug, Default, Deserialize)]
 struct PnpmAdvisory {
-    #[serde(default)] severity: Option<String>,
-    #[serde(default)] module_name: String,
-    #[serde(default)] patched_versions: Option<String>,
+    #[serde(default)]
+    severity: Option<String>,
+    #[serde(default)]
+    module_name: String,
+    #[serde(default)]
+    patched_versions: Option<String>,
 }
 
 fn detect_js_root(cwd: &Path) -> Option<PathBuf> {
-    [cwd.to_path_buf(), cwd.join("web")].into_iter().find(|c| {
-        c.join("pnpm-lock.yaml").exists() || c.join("package.json").exists()
-    })
+    [cwd.to_path_buf(), cwd.join("web")]
+        .into_iter()
+        .find(|c| c.join("pnpm-lock.yaml").exists() || c.join("package.json").exists())
 }
 
 /// Run `pnpm audit --json` if a JS package is detected and `pnpm` is
 /// on PATH; otherwise return no rows. Pnpm spawn or parse failures
 /// warn to stderr and return no rows (exit-2 stays reserved for cargo).
 pub fn collect_pnpm(cwd: &Path) -> Vec<Vuln> {
-    let Some(js_root) = detect_js_root(cwd) else { return Vec::new(); };
+    let Some(js_root) = detect_js_root(cwd) else {
+        return Vec::new();
+    };
     if Command::new("pnpm").arg("--version").output().is_err() {
         return Vec::new();
     }
-    let out = match Command::new("pnpm").args(["audit", "--json"]).current_dir(&js_root).output() {
+    let out = match Command::new("pnpm")
+        .args(["audit", "--json"])
+        .current_dir(&js_root)
+        .output()
+    {
         Ok(o) => o,
-        Err(e) => { eprintln!("argo: pnpm audit spawn failed: {e}"); return Vec::new(); }
+        Err(e) => {
+            eprintln!("argo: pnpm audit spawn failed: {e}");
+            return Vec::new();
+        }
     };
     parse_pnpm_audit(&String::from_utf8_lossy(&out.stdout)).unwrap_or_else(|e| {
         eprintln!("argo: {e}");
@@ -60,12 +72,19 @@ pub fn parse_pnpm_audit(json: &str) -> ArgoResult<Vec<Vuln>> {
     }
     let report: PnpmAuditReport = serde_json::from_str(trimmed)
         .map_err(|e| ArgoError::Schema(format!("pnpm audit JSON: {e}")))?;
-    Ok(report.advisories.into_iter().map(|(id, adv)| Vuln {
-        advisory_id: id,
-        severity: adv.severity.unwrap_or_else(|| "unknown".into()).to_ascii_lowercase(),
-        affected_crate: adv.module_name,
-        fixed_in: adv.patched_versions,
-        status: "unmitigated".into(),
-        mitigation_note: None,
-    }).collect())
+    Ok(report
+        .advisories
+        .into_iter()
+        .map(|(id, adv)| Vuln {
+            advisory_id: id,
+            severity: adv
+                .severity
+                .unwrap_or_else(|| "unknown".into())
+                .to_ascii_lowercase(),
+            affected_crate: adv.module_name,
+            fixed_in: adv.patched_versions,
+            status: "unmitigated".into(),
+            mitigation_note: None,
+        })
+        .collect())
 }

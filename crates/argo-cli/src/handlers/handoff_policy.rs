@@ -118,8 +118,7 @@ pub struct ActionContext {
 impl HandoffPolicy {
     /// Parse from a TOML string. Empty input → empty policy.
     pub fn from_toml(s: &str) -> ArgoResult<Self> {
-        toml::from_str(s)
-            .map_err(|e| ArgoError::Provider(format!("handoff-policy parse: {e}")))
+        toml::from_str(s).map_err(|e| ArgoError::Provider(format!("handoff-policy parse: {e}")))
     }
 
     /// Load from `.skycot/handoff-policy.toml` under `root`. A
@@ -175,7 +174,9 @@ impl PolicyKind {
     fn resolve(&self) -> HandoffDecision {
         match self {
             Self::Inline => HandoffDecision::Inline,
-            Self::Escalate | Self::AlwaysEscalate | Self::EscalateToSenior => HandoffDecision::Escalate,
+            Self::Escalate | Self::AlwaysEscalate | Self::EscalateToSenior => {
+                HandoffDecision::Escalate
+            }
         }
     }
 }

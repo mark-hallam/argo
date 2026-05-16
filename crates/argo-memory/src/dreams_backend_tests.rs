@@ -98,7 +98,10 @@ fn parse_response_extracts_summary_cost_model() {
         }
     });
     let r = parse_response(&v).expect("valid response parses");
-    assert_eq!(r.summary, "Maya resolved 3 escalations and asked for SOC2 docs.");
+    assert_eq!(
+        r.summary,
+        "Maya resolved 3 escalations and asked for SOC2 docs."
+    );
     assert_eq!(r.cost_micros, 812_000);
     assert_eq!(r.model, "claude-dreams-1.2");
 }
@@ -169,10 +172,10 @@ fn daily_cap_env_override_lowers_cap() {
 async fn anomaly_guard_blocks_when_event_present() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    argo_store::anomaly::ensure_schema(store.pool()).await.unwrap();
-    let mut baseline = argo_store::anomaly::BehaviorBaseline::empty(
-        "worker-anomaly", "send_email",
-    );
+    argo_store::anomaly::ensure_schema(store.pool())
+        .await
+        .unwrap();
+    let mut baseline = argo_store::anomaly::BehaviorBaseline::empty("worker-anomaly", "send_email");
     let sample = argo_store::anomaly::BehaviorSample {
         latency_ms: 2400,
         retry_count: 0,
@@ -205,7 +208,9 @@ async fn anomaly_guard_blocks_when_event_present() {
 async fn anomaly_guard_passes_for_clean_worker() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    argo_store::anomaly::ensure_schema(store.pool()).await.unwrap();
+    argo_store::anomaly::ensure_schema(store.pool())
+        .await
+        .unwrap();
     anomaly_guard(store.pool(), "worker-clean")
         .await
         .expect("clean worker passes");
@@ -214,7 +219,9 @@ async fn anomaly_guard_passes_for_clean_worker() {
 #[tokio::test]
 async fn run_dream_for_worker_persists_summary_with_marker() {
     let (memory, ws, tenant) = fresh().await;
-    argo_store::anomaly::ensure_schema(memory.pool()).await.unwrap();
+    argo_store::anomaly::ensure_schema(memory.pool())
+        .await
+        .unwrap();
     let ns = MemoryNs::new(tenant, WorkerId::new(), MemoryScope::WorkerSelf);
 
     // Seed a single recent row inside the previous calendar month.
@@ -225,7 +232,13 @@ async fn run_dream_for_worker_persists_summary_with_marker() {
         .single()
         .unwrap();
     let row = memory
-        .append_in_namespace(&ns, ws, MemoryFile::Memory, "Customer asked for SOC2".into(), None)
+        .append_in_namespace(
+            &ns,
+            ws,
+            MemoryFile::Memory,
+            "Customer asked for SOC2".into(),
+            None,
+        )
         .await
         .unwrap();
     sqlx::query("UPDATE memory_entry SET learned_at = ? WHERE id = ?")
@@ -267,7 +280,9 @@ async fn run_dream_for_worker_persists_summary_with_marker() {
 #[tokio::test]
 async fn run_dream_for_worker_errors_on_empty_window() {
     let (memory, ws, tenant) = fresh().await;
-    argo_store::anomaly::ensure_schema(memory.pool()).await.unwrap();
+    argo_store::anomaly::ensure_schema(memory.pool())
+        .await
+        .unwrap();
     let ns = MemoryNs::new(tenant, WorkerId::new(), MemoryScope::WorkerSelf);
     let dir = tempfile::tempdir().unwrap();
     let caller = StubCaller::new("would-not-be-saved", 750_000);
@@ -285,12 +300,11 @@ async fn run_dream_for_worker_errors_on_empty_window() {
 
 #[test]
 fn dream_summary_marker_includes_namespace_and_model() {
-    let ns = MemoryNs::new(
-        TenantId::new(),
-        WorkerId::new(),
-        MemoryScope::SharedTeam,
-    );
-    let month = YearMonth { year: 2026, month: 5 };
+    let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::SharedTeam);
+    let month = YearMonth {
+        year: 2026,
+        month: 5,
+    };
     let m = dream_summary_marker(&ns, month, "claude-dreams-1");
     assert!(m.contains("argo-memory-dream-summary"));
     assert!(m.contains("source=dreams_api"));
@@ -301,12 +315,11 @@ fn dream_summary_marker_includes_namespace_and_model() {
 
 #[test]
 fn build_request_body_includes_namespace_and_rows() {
-    let ns = MemoryNs::new(
-        TenantId::new(),
-        WorkerId::new(),
-        MemoryScope::WorkerSelf,
-    );
-    let month = YearMonth { year: 2026, month: 5 };
+    let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::WorkerSelf);
+    let month = YearMonth {
+        year: 2026,
+        month: 5,
+    };
     let row = MemoryEntry {
         id: uuid::Uuid::now_v7(),
         workspace_id: WorkspaceId::new(),

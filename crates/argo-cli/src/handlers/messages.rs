@@ -9,9 +9,7 @@ use argo_types::ArgoResult;
 
 pub async fn run(cmd: MessagesCmd) -> ArgoResult<()> {
     match cmd {
-        MessagesCmd::ByDay { days, json } => {
-            super::messages_by_day::run(days, json).await
-        }
+        MessagesCmd::ByDay { days, json } => super::messages_by_day::run(days, json).await,
         MessagesCmd::ByRole {
             since_minutes,
             json,

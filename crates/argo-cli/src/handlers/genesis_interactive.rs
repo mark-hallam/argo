@@ -51,10 +51,7 @@ pub(crate) fn run(
 /// walkthrough without TTY input.
 pub(crate) fn load_dialogue_yaml(path: &Path) -> ArgoResult<CharterDialogue> {
     let body = std::fs::read_to_string(path).map_err(|e| {
-        ArgoError::Provider(format!(
-            "genesis interactive: read {}: {e}",
-            path.display()
-        ))
+        ArgoError::Provider(format!("genesis interactive: read {}: {e}", path.display()))
     })?;
     serde_yaml::from_str(&body).map_err(|e| {
         ArgoError::Provider(format!(
@@ -72,12 +69,7 @@ fn emit_dialogue_summary(d: &CharterDialogue, persona_slug: &str) {
         println!("  industry:   {}", d.industry);
     }
     println!("  duties:");
-    for (i, duty) in d
-        .duties
-        .iter()
-        .filter(|x| !x.trim().is_empty())
-        .enumerate()
-    {
+    for (i, duty) in d.duties.iter().filter(|x| !x.trim().is_empty()).enumerate() {
         println!("    {}. {}", i + 1, duty.trim());
     }
     println!("  channels:   {}", d.channels.join(", "));

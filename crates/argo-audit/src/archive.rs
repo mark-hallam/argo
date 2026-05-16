@@ -185,14 +185,20 @@ pub fn verify_archive(bundle: &ArchiveBundle, archive_dir: &Path) -> ArgoResult<
     if actual_sha != bundle.sha256 {
         return Err(pe(
             format!("verify {}", bundle.filename),
-            format!("sha256 mismatch (manifest={}, actual={actual_sha})", bundle.sha256),
+            format!(
+                "sha256 mismatch (manifest={}, actual={actual_sha})",
+                bundle.sha256
+            ),
         ));
     }
     let actual_hmac = hmac_hex(&load_hmac_key(), &bytes)?;
     if actual_hmac != bundle.signed_by {
         return Err(pe(
             format!("verify {}", bundle.filename),
-            format!("hmac mismatch (manifest={}, actual={actual_hmac})", bundle.signed_by),
+            format!(
+                "hmac mismatch (manifest={}, actual={actual_hmac})",
+                bundle.signed_by
+            ),
         ));
     }
     Ok(())
@@ -342,7 +348,8 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 fn hmac_hex(key: &[u8], bytes: &[u8]) -> ArgoResult<String> {
-    let mut mac = <SimpleHmac<Sha256> as Mac>::new_from_slice(key).map_err(|e| pe("hmac key", e))?;
+    let mut mac =
+        <SimpleHmac<Sha256> as Mac>::new_from_slice(key).map_err(|e| pe("hmac key", e))?;
     mac.update(bytes);
     Ok(hex::encode(mac.finalize().into_bytes()))
 }

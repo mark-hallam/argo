@@ -73,23 +73,14 @@ fn xff_trust_picks_rightmost_minus_hops() {
 #[test]
 fn ipv6_match_plus_family_mismatch() {
     let gate = IpAllowlist::from_config(&cfg(true, &["2001:db8::/32"], 0)).unwrap();
-    let ok = gate.check(
-        "GET / HTTP/1.1\r\n\r\n",
-        peer_v6("2001:db8:1234::1"),
-    );
+    let ok = gate.check("GET / HTTP/1.1\r\n\r\n", peer_v6("2001:db8:1234::1"));
     assert_eq!(ok, AllowResult::Allow);
     // A peer in 2001:db8::/32 is fine; a peer outside it is denied.
-    let nope = gate.check(
-        "GET / HTTP/1.1\r\n\r\n",
-        peer_v6("2001:db9::1"),
-    );
+    let nope = gate.check("GET / HTTP/1.1\r\n\r\n", peer_v6("2001:db9::1"));
     assert_eq!(nope, AllowResult::Deny);
     // Family mismatch: a v4-only allowlist must not match a v6 peer.
     let v4_only = IpAllowlist::from_config(&cfg(true, &["10.0.0.0/8"], 0)).unwrap();
-    let result = v4_only.check(
-        "GET / HTTP/1.1\r\n\r\n",
-        peer_v6("2001:db8::1"),
-    );
+    let result = v4_only.check("GET / HTTP/1.1\r\n\r\n", peer_v6("2001:db8::1"));
     assert_eq!(result, AllowResult::Deny);
 }
 
@@ -98,11 +89,11 @@ fn malformed_cidr_rejected_at_construction() {
     // Missing slash, prefix-too-large, garbage addr — each should
     // fail at gate-construction time rather than silently widening.
     let cases = [
-        "10.0.0.0",        // no '/'
-        "10.0.0.0/33",     // IPv4 prefix > 32
-        "::1/129",         // IPv6 prefix > 128
-        "not-an-ip/8",     // bad addr
-        "10.0.0.0/abc",    // bad prefix
+        "10.0.0.0",     // no '/'
+        "10.0.0.0/33",  // IPv4 prefix > 32
+        "::1/129",      // IPv6 prefix > 128
+        "not-an-ip/8",  // bad addr
+        "10.0.0.0/abc", // bad prefix
     ];
     for raw in cases {
         let cfg = IpAllowlistConfig {
@@ -111,7 +102,11 @@ fn malformed_cidr_rejected_at_construction() {
             trust_x_forwarded_for_hops: 0,
         };
         let r = IpAllowlist::from_config(&cfg);
-        assert!(r.is_err(), "expected '{raw}' to reject, got {:?}", r.as_ref().ok());
+        assert!(
+            r.is_err(),
+            "expected '{raw}' to reject, got {:?}",
+            r.as_ref().ok()
+        );
     }
 }
 
@@ -132,10 +127,7 @@ fn multiple_cidrs_any_match_wins() {
         AllowResult::Allow
     );
     assert_eq!(
-        gate.check(
-            "GET / HTTP/1.1\r\n\r\n",
-            peer_v6("2001:db8::dead:beef")
-        ),
+        gate.check("GET / HTTP/1.1\r\n\r\n", peer_v6("2001:db8::dead:beef")),
         AllowResult::Allow
     );
     // A peer outside every block is denied — multiple-CIDRs is

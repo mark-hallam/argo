@@ -43,10 +43,7 @@ pub(crate) async fn spend_per_session(
 }
 
 /// Sum of `amount_usd_micros` for one session — single-row variant.
-pub(crate) async fn session_spend_micros(
-    store: &SessionStore,
-    sid: SessionId,
-) -> ArgoResult<u64> {
+pub(crate) async fn session_spend_micros(store: &SessionStore, sid: SessionId) -> ArgoResult<u64> {
     let total: i64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger WHERE session_id = ?",
     )

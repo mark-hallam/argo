@@ -113,14 +113,14 @@ impl Theme {
     pub fn solarized() -> Self {
         Self {
             name: "solarized".into(),
-            fg: Color::Rgb(0x83, 0x94, 0x96), // base0
-            bg: Color::Rgb(0x00, 0x2b, 0x36), // base03
-            accent: Color::Rgb(0x26, 0x8b, 0xd2), // blue
+            fg: Color::Rgb(0x83, 0x94, 0x96),      // base0
+            bg: Color::Rgb(0x00, 0x2b, 0x36),      // base03
+            accent: Color::Rgb(0x26, 0x8b, 0xd2),  // blue
             success: Color::Rgb(0x85, 0x99, 0x00), // green
             warning: Color::Rgb(0xb5, 0x89, 0x00), // yellow
-            error: Color::Rgb(0xdc, 0x32, 0x2f), // red
-            muted: Color::Rgb(0x58, 0x6e, 0x75), // base01
-            border: Color::Rgb(0x07, 0x36, 0x42), // base02
+            error: Color::Rgb(0xdc, 0x32, 0x2f),   // red
+            muted: Color::Rgb(0x58, 0x6e, 0x75),   // base01
+            border: Color::Rgb(0x07, 0x36, 0x42),  // base02
             selection_bg: Color::Rgb(0x07, 0x36, 0x42),
             selection_fg: Color::Rgb(0x93, 0xa1, 0xa1),
             status_idle: Color::Rgb(0x65, 0x7b, 0x83),
@@ -137,10 +137,10 @@ impl Theme {
             name: "dracula".into(),
             fg: Color::Rgb(0xf8, 0xf8, 0xf2),
             bg: Color::Rgb(0x28, 0x2a, 0x36),
-            accent: Color::Rgb(0xbd, 0x93, 0xf9), // purple
+            accent: Color::Rgb(0xbd, 0x93, 0xf9),  // purple
             success: Color::Rgb(0x50, 0xfa, 0x7b), // green
             warning: Color::Rgb(0xf1, 0xfa, 0x8c), // yellow
-            error: Color::Rgb(0xff, 0x55, 0x55), // red
+            error: Color::Rgb(0xff, 0x55, 0x55),   // red
             muted: Color::Rgb(0x62, 0x72, 0xa4),
             border: Color::Rgb(0x44, 0x47, 0x5a),
             selection_bg: Color::Rgb(0x44, 0x47, 0x5a),

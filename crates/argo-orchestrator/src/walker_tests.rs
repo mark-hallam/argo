@@ -54,12 +54,7 @@ impl HandoffNotifier for RecordingNotifier {
     }
 }
 
-async fn fixture() -> (
-    Arc<OrchestratorStore>,
-    Arc<AuditSink>,
-    SqlitePool,
-    TenantId,
-) {
+async fn fixture() -> (Arc<OrchestratorStore>, Arc<AuditSink>, SqlitePool, TenantId) {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
     let pool = store.pool().clone();
@@ -212,7 +207,11 @@ async fn chain_exhaustion_writes_audit_and_expires_session() {
     assert_eq!(report.chain_exhausted, 1);
 
     // Session flipped to Expired.
-    let s = repo.find_session(tenant, &session.id).await.unwrap().unwrap();
+    let s = repo
+        .find_session(tenant, &session.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(s.status, crate::SessionStatus::Expired);
 
     // Audit row labelled escalation_exhausted exists.
@@ -289,7 +288,11 @@ async fn notify_failure_treats_as_chain_exhausted() {
     assert_eq!(report.expired, 1);
     assert_eq!(report.notifications, 0);
     assert_eq!(report.chain_exhausted, 1);
-    let s = repo.find_session(tenant, &session.id).await.unwrap().unwrap();
+    let s = repo
+        .find_session(tenant, &session.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(s.status, crate::SessionStatus::Expired);
 }
 
@@ -316,7 +319,10 @@ async fn second_sweep_is_idempotent() {
         Arc::new(RecordingNotifier::new()),
     );
     let r1 = walker.sweep_once(now).await.unwrap();
-    let r2 = walker.sweep_once(now + Duration::seconds(30)).await.unwrap();
+    let r2 = walker
+        .sweep_once(now + Duration::seconds(30))
+        .await
+        .unwrap();
     assert_eq!(r1.expired, 1);
     assert_eq!(r2.expired, 0);
     assert_eq!(r2.chain_exhausted, 0);

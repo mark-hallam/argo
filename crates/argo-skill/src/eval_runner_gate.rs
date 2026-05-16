@@ -8,7 +8,9 @@
 //! match the expected predicate" is the same conceptual layer as the
 //! gate itself — both decide pass-vs-fail.
 
-use crate::eval_runner::{run_evals, ActualOutcome, EvalExecutor, DEFAULT_EVAL_PASS_RATE_THRESHOLD};
+use crate::eval_runner::{
+    run_evals, ActualOutcome, EvalExecutor, DEFAULT_EVAL_PASS_RATE_THRESHOLD,
+};
 use crate::skill::{ExpectedOutcome, LifecycleState, Skill, SkillFrontmatter};
 use argo_types::SkillId;
 use chrono::Utc;
@@ -119,11 +121,7 @@ mod tests {
 
     #[async_trait]
     impl EvalExecutor for MockEvalExecutor {
-        async fn run_one(
-            &self,
-            _skill: &Skill,
-            _case: &EvalCase,
-        ) -> ArgoResult<ActualOutcome> {
+        async fn run_one(&self, _skill: &Skill, _case: &EvalCase) -> ArgoResult<ActualOutcome> {
             let mut q = self.outputs.lock().unwrap_or_else(|p| p.into_inner());
             assert!(!q.is_empty(), "MockEvalExecutor exhausted");
             match q.remove(0) {

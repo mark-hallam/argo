@@ -41,7 +41,8 @@ impl SkillStore {
                 frontmatter.name
             )));
         }
-        self.insert_row(frontmatter, body, learned_in, vertical_id).await
+        self.insert_row(frontmatter, body, learned_in, vertical_id)
+            .await
     }
 
     /// List skills bundled by a specific vertical (#678). Returns
@@ -84,10 +85,7 @@ impl SkillStore {
     /// This is the default skill set the agent runner uses
     /// when no per-session attachments exist (#653 attachment
     /// path takes precedence when present).
-    pub async fn list_skills_for_vertical(
-        &self,
-        vertical_id: &str,
-    ) -> ArgoResult<Vec<Skill>> {
+    pub async fn list_skills_for_vertical(&self, vertical_id: &str) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, crate::store::RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
                     s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
@@ -107,9 +105,7 @@ impl SkillStore {
         .bind(vertical_id)
         .fetch_all(self.pool())
         .await
-        .map_err(|e| {
-            ArgoError::Provider(format!("list_skills_for_vertical: {e}"))
-        })?;
+        .map_err(|e| ArgoError::Provider(format!("list_skills_for_vertical: {e}")))?;
         rows.into_iter().map(Skill::try_from).collect()
     }
 
@@ -222,29 +218,29 @@ impl SkillStore {
             }
             EvalGateOutcome::Pass => match judge {
                 None => LifecycleState::PendingReview,
-                Some(j) => match adjudicate_with_timeout(j, learned_in, &frontmatter.name, &body)
-                    .await
-                {
-                    JudgeOutcome::Allow => LifecycleState::PendingReview,
-                    JudgeOutcome::Reject(reason) => {
-                        tracing::info!(
-                            target: "argo_skill::judge::reject",
-                            skill = %frontmatter.name,
-                            reason = %reason,
-                            "judge rejected skill candidate"
-                        );
-                        LifecycleState::Rejected
+                Some(j) => {
+                    match adjudicate_with_timeout(j, learned_in, &frontmatter.name, &body).await {
+                        JudgeOutcome::Allow => LifecycleState::PendingReview,
+                        JudgeOutcome::Reject(reason) => {
+                            tracing::info!(
+                                target: "argo_skill::judge::reject",
+                                skill = %frontmatter.name,
+                                reason = %reason,
+                                "judge rejected skill candidate"
+                            );
+                            LifecycleState::Rejected
+                        }
+                        JudgeOutcome::Unavailable(why) => {
+                            tracing::warn!(
+                                target: "argo_skill::judge::unavailable",
+                                skill = %frontmatter.name,
+                                why = %why,
+                                "judge unavailable; failing OPEN to PendingReview"
+                            );
+                            LifecycleState::PendingReview
+                        }
                     }
-                    JudgeOutcome::Unavailable(why) => {
-                        tracing::warn!(
-                            target: "argo_skill::judge::unavailable",
-                            skill = %frontmatter.name,
-                            why = %why,
-                            "judge unavailable; failing OPEN to PendingReview"
-                        );
-                        LifecycleState::PendingReview
-                    }
-                },
+                }
             },
         };
         self.insert_row_with_state(
@@ -271,19 +267,16 @@ impl SkillStore {
         skill_id: SkillId,
         next: LifecycleState,
     ) -> ArgoResult<LifecycleState> {
-        let row: Option<String> = sqlx::query_scalar(
-            "SELECT lifecycle_state FROM skill WHERE id = ?",
-        )
-        .bind(skill_id.0.as_bytes().as_slice())
-        .fetch_optional(self.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("transition lookup: {e}")))?;
+        let row: Option<String> =
+            sqlx::query_scalar("SELECT lifecycle_state FROM skill WHERE id = ?")
+                .bind(skill_id.0.as_bytes().as_slice())
+                .fetch_optional(self.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("transition lookup: {e}")))?;
         let current = row
             .as_deref()
             .and_then(LifecycleState::from_label)
-            .ok_or_else(|| {
-                ArgoError::Schema(format!("skill '{skill_id}' not found"))
-            })?;
+            .ok_or_else(|| ArgoError::Schema(format!("skill '{skill_id}' not found")))?;
         if !is_legal_transition(current, next) {
             return Err(ArgoError::Schema(format!(
                 "illegal lifecycle transition: {} → {}",

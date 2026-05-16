@@ -4,7 +4,10 @@ use crate::models::SessionHeader;
 async fn store_with_workspace() -> (SessionStore, TenantId, WorkspaceId) {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    let (tenant, workspace) = store.ensure_workspace("worker", "/tmp/worker").await.unwrap();
+    let (tenant, workspace) = store
+        .ensure_workspace("worker", "/tmp/worker")
+        .await
+        .unwrap();
     (store, tenant, workspace)
 }
 
@@ -31,7 +34,10 @@ async fn create_session_with_worker_round_trips() {
 
     let got = store.get_session(sid).await.unwrap().unwrap();
     assert_eq!(got.worker_id, Some(worker));
-    assert_eq!(store.list_sessions(tenant, 10).await.unwrap()[0].worker_id, Some(worker));
+    assert_eq!(
+        store.list_sessions(tenant, 10).await.unwrap()[0].worker_id,
+        Some(worker)
+    );
 }
 
 #[tokio::test]
@@ -41,7 +47,10 @@ async fn create_session_without_worker_stays_null() {
         .create_session(tenant, workspace, "model", "provider", None, None)
         .await
         .unwrap();
-    assert_eq!(store.get_session(sid).await.unwrap().unwrap().worker_id, None);
+    assert_eq!(
+        store.get_session(sid).await.unwrap().unwrap().worker_id,
+        None
+    );
 }
 
 #[tokio::test]
@@ -52,10 +61,22 @@ async fn set_session_worker_id_updates_and_clears() {
         .await
         .unwrap();
     let worker = worker();
-    assert_eq!(store.set_session_worker_id(sid, Some(worker)).await.unwrap(), 1);
-    assert_eq!(store.get_session(sid).await.unwrap().unwrap().worker_id, Some(worker));
+    assert_eq!(
+        store
+            .set_session_worker_id(sid, Some(worker))
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        store.get_session(sid).await.unwrap().unwrap().worker_id,
+        Some(worker)
+    );
     assert_eq!(store.set_session_worker_id(sid, None).await.unwrap(), 1);
-    assert_eq!(store.get_session(sid).await.unwrap().unwrap().worker_id, None);
+    assert_eq!(
+        store.get_session(sid).await.unwrap().unwrap().worker_id,
+        None
+    );
 }
 
 #[tokio::test]

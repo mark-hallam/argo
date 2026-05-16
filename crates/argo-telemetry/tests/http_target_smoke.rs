@@ -67,7 +67,12 @@ async fn five_events_reach_wiremock_in_one_post() {
     tokio::time::sleep(Duration::from_millis(50)).await;
 
     let recv = server.received_requests().await.unwrap_or_default();
-    assert_eq!(recv.len(), 1, "expected exactly one POST, got {}", recv.len());
+    assert_eq!(
+        recv.len(),
+        1,
+        "expected exactly one POST, got {}",
+        recv.len()
+    );
     let body: serde_json::Value =
         serde_json::from_slice(&recv[0].body).expect("body parses as JSON");
     let array = body.as_array().expect("body is a JSON array");

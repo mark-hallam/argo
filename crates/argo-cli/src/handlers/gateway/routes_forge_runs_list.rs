@@ -72,9 +72,8 @@ pub(super) async fn forge_runs_response(
     };
     match store.list_forge_runs(limit).await {
         Ok(rows) => {
-            let cutoff_micros = since_minutes.map(|m| {
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
-            });
+            let cutoff_micros = since_minutes
+                .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
             let filtered: Vec<argo_store::ForgeRunRow> = rows
                 .into_iter()
                 .filter(|r| match cutoff_micros {
@@ -121,14 +120,10 @@ pub(super) async fn forge_runs_response(
                     out.push_str(
                         "| status | id | skill | base | candidate | iters | spend (USD) | score |\n",
                     );
-                    out.push_str(
-                        "| :---: | --- | --- | --- | --- | ---: | ---: | ---: |\n",
-                    );
+                    out.push_str("| :---: | --- | --- | --- | --- | ---: | ---: | ---: |\n");
                     for r in &filtered {
-                        let id_short: String =
-                            hex::encode(&r.id).chars().take(8).collect();
-                        let cand =
-                            r.candidate_version.clone().unwrap_or_else(|| "-".into());
+                        let id_short: String = hex::encode(&r.id).chars().take(8).collect();
+                        let cand = r.candidate_version.clone().unwrap_or_else(|| "-".into());
                         let score = r
                             .final_score
                             .map(|s| format!("{s:.3}"))

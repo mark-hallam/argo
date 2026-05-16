@@ -80,8 +80,9 @@ pub(super) async fn list(
         // Most-trusted first: TrustGrade's derived Ord is smallest-variant
         // = highest trust (Builtin < Tenant), so ascending sort surfaces
         // builtins/verified ahead of learned-unreviewed.
-        "trust" => active
-            .sort_by_key(|s| TrustGrade::from_source(&s.frontmatter.provenance.source)),
+        "trust" => {
+            active.sort_by_key(|s| TrustGrade::from_source(&s.frontmatter.provenance.source))
+        }
         other => {
             return Err(ArgoError::Provider(format!(
                 "unknown --sort-by '{other}' — use created-at|name|trust"

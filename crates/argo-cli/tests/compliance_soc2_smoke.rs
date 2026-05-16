@@ -46,7 +46,14 @@ async fn soc2_report_aggregates_categories_via_cli() {
     let out = run_ok(
         home.path(),
         &[
-            "compliance", "soc2", "--from", from, "--to", to, "--format", "json",
+            "compliance",
+            "soc2",
+            "--from",
+            from,
+            "--to",
+            to,
+            "--format",
+            "json",
         ],
     );
     let body = String::from_utf8(out.stdout).unwrap();
@@ -84,7 +91,10 @@ async fn soc2_report_aggregates_categories_via_cli() {
     assert_eq!(events[0]["category"], "Access");
 
     // Markdown is the default.
-    let md = run_ok(home.path(), &["compliance", "soc2", "--from", from, "--to", to]);
+    let md = run_ok(
+        home.path(),
+        &["compliance", "soc2", "--from", from, "--to", to],
+    );
     let md = String::from_utf8(md.stdout).unwrap();
     assert!(md.starts_with("# SOC2 audit trail report"));
     assert!(md.contains("## Access"));

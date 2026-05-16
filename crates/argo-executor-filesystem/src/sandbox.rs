@@ -56,8 +56,7 @@ impl Sandbox {
             .canonicalize()
             .map_err(|e| FsExecutorError::io("canonicalize_root", root, e))?;
         let op_size_cap = parse_env_size(ENV_OP_SIZE_CAP).unwrap_or(DEFAULT_OP_SIZE_CAP);
-        let total_size_cap =
-            parse_env_size(ENV_TOTAL_SIZE_CAP).unwrap_or(DEFAULT_TOTAL_SIZE_CAP);
+        let total_size_cap = parse_env_size(ENV_TOTAL_SIZE_CAP).unwrap_or(DEFAULT_TOTAL_SIZE_CAP);
         Ok(Self {
             root: canonical,
             op_size_cap,
@@ -182,8 +181,7 @@ fn walk_total(dir: &Path) -> FsResult<u64> {
     let mut total: u64 = 0;
     let mut stack = vec![dir.to_path_buf()];
     while let Some(cur) = stack.pop() {
-        let read = std::fs::read_dir(&cur)
-            .map_err(|e| FsExecutorError::io("read_dir", &cur, e))?;
+        let read = std::fs::read_dir(&cur).map_err(|e| FsExecutorError::io("read_dir", &cur, e))?;
         for entry in read {
             let entry = entry.map_err(|e| FsExecutorError::io("read_dir_entry", &cur, e))?;
             let meta = entry
@@ -258,7 +256,10 @@ mod tests {
         let sb = Sandbox::open(dir.path()).unwrap().with_caps(8, 1024);
         assert!(sb.preflight_op_size(8).is_ok());
         let err = sb.preflight_op_size(9).unwrap_err();
-        assert!(matches!(err, FsExecutorError::OpSizeCap { size: 9, cap: 8 }));
+        assert!(matches!(
+            err,
+            FsExecutorError::OpSizeCap { size: 9, cap: 8 }
+        ));
     }
 
     #[test]

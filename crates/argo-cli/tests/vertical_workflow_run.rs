@@ -275,7 +275,13 @@ fn cli_workflow_pr_checker_real_anchor_workflow_runs_clean() {
         .env("ARGO_HOME", home.path())
         .env("ARGO_VERTICALS_DIR", &repo_verticals)
         .current_dir(&repo_root)
-        .args(["vertical", "workflow", "pr-checker", "read_repo_anchors", "--json"])
+        .args([
+            "vertical",
+            "workflow",
+            "pr-checker",
+            "read_repo_anchors",
+            "--json",
+        ])
         .output()
         .expect("spawn");
     assert!(
@@ -290,7 +296,8 @@ fn cli_workflow_pr_checker_real_anchor_workflow_runs_clean() {
     assert_eq!(steps.len(), 3);
     for s in steps {
         assert_eq!(
-            s["status"], "ok",
+            s["status"],
+            "ok",
             "expected ok, got step={}",
             serde_json::to_string(s).unwrap_or_default()
         );

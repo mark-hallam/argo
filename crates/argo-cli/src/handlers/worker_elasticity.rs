@@ -158,4 +158,3 @@ pub fn to_elasticity_config(c: &WorkerPoolElasticityConfig) -> ElasticityConfig 
         },
     }
 }
-

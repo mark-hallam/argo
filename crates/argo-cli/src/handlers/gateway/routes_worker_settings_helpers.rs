@@ -86,7 +86,9 @@ pub(super) fn parse_body(req: &str) -> Result<Value, (&'static str, String)> {
 }
 
 pub(super) fn require_string<'a>(body: &'a Value, key: &str) -> Option<&'a str> {
-    body.get(key).and_then(Value::as_str).filter(|s| !s.is_empty())
+    body.get(key)
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
 }
 
 pub(super) fn parse_role_header(req: &str) -> Option<PrincipalRole> {
@@ -131,7 +133,12 @@ pub(super) async fn emit_audit(
     }
     let sink = AuditSink::new_with_tenant(Arc::clone(store), worker.tenant_id.to_string());
     if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            principal_id_for_audit(req),
+        )
         .await
     {
         tracing::warn!(
@@ -144,9 +151,11 @@ pub(super) async fn emit_audit(
 }
 
 pub(super) async fn resolve_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)

@@ -208,9 +208,7 @@ pub async fn flush_to_store(
 }
 
 /// Read the persisted bucket totals into a kind→[counts] map.
-pub async fn load_persisted(
-    pool: &SqlitePool,
-) -> ArgoResult<HashMap<String, [u64; N_BUCKETS]>> {
+pub async fn load_persisted(pool: &SqlitePool) -> ArgoResult<HashMap<String, [u64; N_BUCKETS]>> {
     ensure_schema(pool).await?;
     let rows = sqlx::query(
         "SELECT executor_kind, bucket_idx, count \

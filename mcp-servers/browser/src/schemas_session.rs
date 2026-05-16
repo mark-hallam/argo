@@ -304,7 +304,6 @@ pub(crate) fn session_reap_schema() -> McpToolSchema {
     }
 }
 
-
 /// `cloud_browserbase_open_session` schema (#642). Spawns a hosted
 /// Chromium session via Browserbase's REST API and returns the
 /// CDP WebSocket connect URL plus the Browserbase session id.

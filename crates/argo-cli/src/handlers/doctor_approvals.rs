@@ -21,8 +21,7 @@ pub struct ExpiredApprovalRow {
 
 pub async fn run(since: &str, json_out: bool) -> ArgoResult<()> {
     let window = parse_since(since)?;
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     let store = SessionStore::open(db_path(&home)).await?;
     store.migrate().await?;

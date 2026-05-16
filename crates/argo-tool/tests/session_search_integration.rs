@@ -46,7 +46,10 @@ async fn seeded_three_session_store() -> (Arc<SessionStore>, Vec<SessionId>) {
     for (title, body) in [
         ("alpha", "shipping the postgres migration tonight"),
         ("beta", "user asked about the postgres rollback plan"),
-        ("gamma", "totally unrelated discussion of llm prompt caching"),
+        (
+            "gamma",
+            "totally unrelated discussion of llm prompt caching",
+        ),
     ] {
         let s = store
             .create_session(tenant, ws, "claude-haiku", "anthropic", Some(title), None)

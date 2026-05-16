@@ -65,9 +65,8 @@ fn capture(rec: ActionRecord, cwd: &Path) -> (ArgoResult<ActionOutcome>, String)
         .with_ansi(false)
         .with_max_level(tracing::Level::INFO)
         .finish();
-    let result = tracing::subscriber::with_default(sub, || {
-        FilesystemExecutor::new().dispatch(&rec, cwd)
-    });
+    let result =
+        tracing::subscriber::with_default(sub, || FilesystemExecutor::new().dispatch(&rec, cwd));
     let log = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
     (result, log)
 }

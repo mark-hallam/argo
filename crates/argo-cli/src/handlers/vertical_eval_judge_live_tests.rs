@@ -95,13 +95,7 @@ async fn grade_fixture_dispatches_prompt_and_parses_pass() {
 #[tokio::test]
 async fn grade_fixture_returns_uncertain_when_backend_errors() {
     let backend = MockBackend::with_error("transport blew up");
-    let v = grade_fixture(
-        &backend,
-        "x",
-        &serde_json::json!({}),
-        "y",
-    )
-    .await;
+    let v = grade_fixture(&backend, "x", &serde_json::json!({}), "y").await;
     assert!(!v.passed);
     assert_eq!(v.score, Some(0.5));
     assert!(v.reason.starts_with("uncertain:"), "{}", v.reason);
@@ -145,8 +139,14 @@ async fn judge_all_fixtures_skips_no_actual_and_malformed_rows() {
     let verdicts = judge_all_fixtures(&backend, &scores, &inputs).await;
     assert_eq!(verdicts.len(), 3);
     assert!(verdicts[0].is_some(), "scored fixture should be judged");
-    assert!(verdicts[1].is_none(), "no_actual fixture should NOT be judged");
-    assert!(verdicts[2].is_none(), "malformed fixture should NOT be judged");
+    assert!(
+        verdicts[1].is_none(),
+        "no_actual fixture should NOT be judged"
+    );
+    assert!(
+        verdicts[2].is_none(),
+        "malformed fixture should NOT be judged"
+    );
     assert_eq!(backend.prompts_seen().len(), 1, "backend invoked once");
 }
 
@@ -223,10 +223,7 @@ fn judge_max_tokens_for_thinking_mode_strictly_exceeds_thinking_budget() {
     // Symmetric: thinking off → smaller cap is fine.
     let off = judge_max_tokens_for(false);
     assert!(off < max, "thinking-off mode can use a tighter cap");
-    assert!(
-        off > 0,
-        "even compact JSON needs a non-zero cap to render"
-    );
+    assert!(off > 0, "even compact JSON needs a non-zero cap to render");
 }
 
 #[test]
@@ -258,12 +255,9 @@ fn shipped_anthropic_manifest_enables_thinking_so_temperature_must_be_one() {
         .parent()
         .and_then(std::path::Path::parent)
         .expect("workspace root");
-    let body = std::fs::read_to_string(
-        workspace_root.join("manifests/providers/anthropic.toml"),
-    )
-    .expect("shipped anthropic manifest readable from workspace root");
-    let m = argo_provider::ProviderManifest::from_toml_str(&body)
-        .expect("shipped manifest parses");
+    let body = std::fs::read_to_string(workspace_root.join("manifests/providers/anthropic.toml"))
+        .expect("shipped anthropic manifest readable from workspace root");
+    let m = argo_provider::ProviderManifest::from_toml_str(&body).expect("shipped manifest parses");
     let thinking = manifest_enables_thinking(&m);
     assert!(
         thinking,
@@ -286,20 +280,14 @@ fn build_anthropic_backend_errors_clearly_when_manifest_missing() {
     // without picking a known-missing id; choose one that
     // definitely doesn't exist + assert the error mentions
     // both the provider id and the expected path.
-    let result = build_anthropic_backend(
-        "definitely-not-a-real-provider-id-12345",
-        "claude-x",
-    );
+    let result = build_anthropic_backend("definitely-not-a-real-provider-id-12345", "claude-x");
     assert!(result.is_err(), "missing manifest must fail");
     let msg = format!("{}", result.err().unwrap());
     assert!(
         msg.contains("definitely-not-a-real-provider-id-12345"),
         "{msg}"
     );
-    assert!(
-        msg.contains("manifests/providers"),
-        "{msg}"
-    );
+    assert!(msg.contains("manifests/providers"), "{msg}");
 }
 
 // ---- multi-provider dispatch (#701b) ---------------------------
@@ -312,11 +300,7 @@ async fn build_judge_backend_errors_clearly_when_manifest_missing() {
     // expected path. Symmetric to the Anthropic-only builder
     // test above so a future refactor can't quietly drop the
     // diagnostic.
-    let result = build_judge_backend(
-        "definitely-not-a-real-provider-id-99999",
-        "any-model",
-    )
-    .await;
+    let result = build_judge_backend("definitely-not-a-real-provider-id-99999", "any-model").await;
     let err = match result {
         Ok(_) => panic!("missing manifest must fail"),
         Err(e) => e,

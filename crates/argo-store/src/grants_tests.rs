@@ -155,21 +155,19 @@ async fn consume_one_shot_grant_marks_oldest_unconsumed() {
         .await
         .unwrap();
 
-    let consumed = store
-        .consume_one_shot_grant(sid, "terminal")
-        .await
-        .unwrap();
-    assert_eq!(consumed, Some(first), "oldest unconsumed must consume first");
+    let consumed = store.consume_one_shot_grant(sid, "terminal").await.unwrap();
+    assert_eq!(
+        consumed,
+        Some(first),
+        "oldest unconsumed must consume first"
+    );
 
     // Active list now shows only the second.
     let active = store.list_session_grants(sid).await.unwrap();
     assert_eq!(active.len(), 1);
 
     // include_consumed shows both.
-    let all = store
-        .list_session_grants_with_consumed(sid)
-        .await
-        .unwrap();
+    let all = store.list_session_grants_with_consumed(sid).await.unwrap();
     assert_eq!(all.len(), 2);
     let consumed_rows: Vec<&_> = all
         .iter()
@@ -190,10 +188,7 @@ async fn consume_one_shot_grant_returns_none_when_no_active_grant() {
         .add_session_grant(sid, "terminal", "cli", None, false)
         .await
         .unwrap();
-    let consumed = store
-        .consume_one_shot_grant(sid, "terminal")
-        .await
-        .unwrap();
+    let consumed = store.consume_one_shot_grant(sid, "terminal").await.unwrap();
     assert!(consumed.is_none());
     // Persistent grant is still active.
     let active = store.list_session_grants(sid).await.unwrap();
@@ -210,10 +205,7 @@ async fn list_active_excludes_consumed_one_shot_grants() {
         .add_session_grant(sid, "terminal", "cli", None, true)
         .await
         .unwrap();
-    let _ = store
-        .consume_one_shot_grant(sid, "terminal")
-        .await
-        .unwrap();
+    let _ = store.consume_one_shot_grant(sid, "terminal").await.unwrap();
     let active = store.list_session_grants(sid).await.unwrap();
     assert!(active.is_empty(), "consumed one-shot grant must be hidden");
 }

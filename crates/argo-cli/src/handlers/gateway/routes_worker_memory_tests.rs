@@ -47,7 +47,10 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _) = store
         .ensure_workspace(name, &root)
@@ -109,8 +112,7 @@ fn delete_req(id: &str, fact_id: &str) -> String {
 
 async fn create_fact(store: &Arc<SessionStore>, worker: &Worker, text: &str) -> String {
     let req = post_req(&worker.id.to_string(), &format!(r#"{{"text":"{text}"}}"#));
-    let (status, body) =
-        fact_create_response(&worker.id.to_string(), &req, Some(store)).await;
+    let (status, body) = fact_create_response(&worker.id.to_string(), &req, Some(store)).await;
     assert_eq!(status, "201 Created", "body: {body}");
     let v: Value = serde_json::from_str(&body).unwrap();
     v["fact_id"].as_str().expect("fact_id").to_string()
@@ -145,11 +147,18 @@ async fn get_memory_hides_namespace_id_from_delegator() {
     let store = mem_store().await;
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:mark").await;
-    let req = get_req(&worker.id.to_string(), Some("delegator"), Some("human:mark"));
+    let req = get_req(
+        &worker.id.to_string(),
+        Some("delegator"),
+        Some("human:mark"),
+    );
     let (status, body) = list_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "200 OK", "body: {body}");
     let v: Value = serde_json::from_str(&body).unwrap();
-    assert!(v["namespace_id"].is_null(), "delegator must not see namespace_id");
+    assert!(
+        v["namespace_id"].is_null(),
+        "delegator must not see namespace_id"
+    );
 }
 
 #[tokio::test]
@@ -215,13 +224,19 @@ async fn post_fact_creates_row_and_returns_201() {
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:mark").await;
     let fact_id = create_fact(&store, &worker, "Customer prefers email").await;
-    assert!(Uuid::parse_str(&fact_id).is_ok(), "fact_id parses: {fact_id}");
+    assert!(
+        Uuid::parse_str(&fact_id).is_ok(),
+        "fact_id parses: {fact_id}"
+    );
     // Visible in subsequent GET.
     let req = get_req(&worker.id.to_string(), Some("operator"), Some("human:mark"));
     let (_, body) = list_response(&worker.id.to_string(), &req, Some(&store)).await;
     let v: Value = serde_json::from_str(&body).unwrap();
     let facts = v["facts"].as_array().expect("facts array");
-    assert!(facts.iter().any(|f| f["fact_id"] == fact_id), "fact present");
+    assert!(
+        facts.iter().any(|f| f["fact_id"] == fact_id),
+        "fact present"
+    );
 }
 
 #[tokio::test]
@@ -233,8 +248,7 @@ async fn post_empty_text_returns_400() {
     let tenant = workspace_tenant(&store).await;
     let worker = add_worker(&store, tenant, "Maya", "human:mark").await;
     let req = post_req(&worker.id.to_string(), r#"{"text":""}"#);
-    let (status, body) =
-        fact_create_response(&worker.id.to_string(), &req, Some(&store)).await;
+    let (status, body) = fact_create_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "400 Bad Request", "body: {body}");
 }
 
@@ -248,8 +262,7 @@ async fn post_oversized_text_returns_400_with_limit() {
     let worker = add_worker(&store, tenant, "Maya", "human:mark").await;
     let big = "x".repeat(1001);
     let req = post_req(&worker.id.to_string(), &format!(r#"{{"text":"{big}"}}"#));
-    let (status, body) =
-        fact_create_response(&worker.id.to_string(), &req, Some(&store)).await;
+    let (status, body) = fact_create_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "400 Bad Request", "body: {body}");
     assert!(body.contains("1000"), "limit message: {body}");
 }
@@ -267,8 +280,7 @@ async fn post_tombstone_marker_rejected() {
     }))
     .unwrap();
     let req = post_req(&worker.id.to_string(), &body_json);
-    let (status, body) =
-        fact_create_response(&worker.id.to_string(), &req, Some(&store)).await;
+    let (status, body) = fact_create_response(&worker.id.to_string(), &req, Some(&store)).await;
     assert_eq!(status, "400 Bad Request", "body: {body}");
 }
 

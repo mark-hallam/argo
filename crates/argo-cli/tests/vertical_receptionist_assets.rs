@@ -18,8 +18,13 @@ fn repo_verticals_dir() -> &'static Path {
 fn receptionist_loads_via_argo_vertical() {
     let dir = repo_verticals_dir();
     let (registry, errors) = argo_vertical::load_dir(dir).expect("load_dir");
-    assert!(errors.is_empty(), "shipped verticals must all load: {errors:?}");
-    let r = registry.get("receptionist").expect("receptionist not in registry");
+    assert!(
+        errors.is_empty(),
+        "shipped verticals must all load: {errors:?}"
+    );
+    let r = registry
+        .get("receptionist")
+        .expect("receptionist not in registry");
     assert_eq!(r.manifest.vertical.name, "AI Receptionist");
 }
 
@@ -92,7 +97,10 @@ fn receptionist_distinct_from_pr_checker() {
         .as_ref()
         .map(|t| t.allowed.iter().map(String::as_str).collect())
         .unwrap_or_default();
-    assert_ne!(r_allowed, p_allowed, "two verticals should have different tool surfaces");
+    assert_ne!(
+        r_allowed, p_allowed,
+        "two verticals should have different tool surfaces"
+    );
 
     // Concrete distinguishing surface: PR-Checker uses
     // `web_extract` to fetch PR diffs; the receptionist

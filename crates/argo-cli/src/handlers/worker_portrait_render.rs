@@ -36,7 +36,9 @@ pub(crate) fn policy_json(
     };
     let roster_lineage: Vec<_> = rosters
         .iter()
-        .map(|r| json!({"id": r.id.to_string(), "name": r.name, "policy_enabled": r.policy.enabled}))
+        .map(
+            |r| json!({"id": r.id.to_string(), "name": r.name, "policy_enabled": r.policy.enabled}),
+        )
         .collect();
     json!({
         "resolved_policy": resolved,
@@ -78,7 +80,10 @@ pub(crate) fn render_markdown(p: &Value) -> String {
     let policy = &p["policy"];
     let budget = &p["budget"];
     let stats = &p["recent_action_stats"];
-    let mut out = format!("# Worker Portrait: {}\n\n", s(&identity["persona"], "worker"));
+    let mut out = format!(
+        "# Worker Portrait: {}\n\n",
+        s(&identity["persona"], "worker")
+    );
     out.push_str(&format!(
         "## Identity\n\n- Worker: `{}`\n- Tenant: `{}`\n- Vertical: `{}`\n- Role: {}\n\n",
         s(&identity["worker_id"], "-"),
@@ -108,9 +113,27 @@ pub(crate) fn render_markdown(p: &Value) -> String {
         stats["average_latency_ms"].as_f64().map(|v| format!("{v:.0}ms")).unwrap_or_else(|| "n/a".into()),
         stats["average_retries"].as_f64().map(|v| format!("{v:.2}")).unwrap_or_else(|| "n/a".into())
     ));
-    render_rows(&mut out, "Open Handoffs", "No open handoffs.", &p["open_handoffs"], render_handoff);
-    render_rows(&mut out, "Recent Skill Candidates", "No recent skill candidates for this worker.", &p["skill_candidates"], render_candidate);
-    render_rows(&mut out, "Anomalies (24h)", "No anomalies detected.", &p["anomalies"], render_anomaly);
+    render_rows(
+        &mut out,
+        "Open Handoffs",
+        "No open handoffs.",
+        &p["open_handoffs"],
+        render_handoff,
+    );
+    render_rows(
+        &mut out,
+        "Recent Skill Candidates",
+        "No recent skill candidates for this worker.",
+        &p["skill_candidates"],
+        render_candidate,
+    );
+    render_rows(
+        &mut out,
+        "Anomalies (24h)",
+        "No anomalies detected.",
+        &p["anomalies"],
+        render_anomaly,
+    );
     out.push_str(&format!(
         "## Circuit Breaker\n\n- State: `{}`\n\n_Generated at {}_\n",
         s(&p["circuit_breaker"]["state"], "closed"),
@@ -182,7 +205,9 @@ pub(crate) fn micros_to_usd(v: u64) -> f64 {
 }
 
 fn usd_value(v: &Value) -> String {
-    v.as_u64().map(|m| format!("${:.2}", micros_to_usd(m))).unwrap_or_else(|| "unlimited".into())
+    v.as_u64()
+        .map(|m| format!("${:.2}", micros_to_usd(m)))
+        .unwrap_or_else(|| "unlimited".into())
 }
 
 fn s<'a>(v: &'a Value, default: &'a str) -> &'a str {

@@ -69,8 +69,7 @@ fn artifact_roundtrip_ok_through_mock_registry() {
     let sig = build_signature_artifact("foo", "0.1.0", &kp, payload);
     write_signature_artifact(&registry, &sig, "0.1.0").unwrap();
     let outcome =
-        verify_skill_signature(&registry, "foo", "0.1.0", &kp.verifying_key(), payload)
-            .unwrap();
+        verify_skill_signature(&registry, "foo", "0.1.0", &kp.verifying_key(), payload).unwrap();
     assert_eq!(outcome, SkillVerifyOutcome::Ok);
     let _ = fs::remove_dir_all(root);
 }
@@ -98,8 +97,7 @@ fn missing_signature_yields_missing_outcome() {
     let registry = format!("mock://{}", root.display());
     let kp = generate_keypair();
     let outcome =
-        verify_skill_signature(&registry, "no-such", "0.1.0", &kp.verifying_key(), b"x")
-            .unwrap();
+        verify_skill_signature(&registry, "no-such", "0.1.0", &kp.verifying_key(), b"x").unwrap();
     assert_eq!(outcome, SkillVerifyOutcome::Missing);
     let _ = fs::remove_dir_all(root);
 }

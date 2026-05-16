@@ -81,7 +81,10 @@ async fn round_trip_1kb_payload_then_clean_up() {
         item_id: uploaded_id.clone(),
     };
 
-    let entries = od.list_folder(None).await.expect("list_folder should succeed");
+    let entries = od
+        .list_folder(None)
+        .await
+        .expect("list_folder should succeed");
     let found = entries.iter().any(|e| match e {
         DriveItem::File(f) => f.id == uploaded_id,
         _ => false,

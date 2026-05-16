@@ -55,9 +55,8 @@ impl MatrixChannelConfig {
     /// - [`ChannelError::Config`] when the configured env var is
     ///   missing/empty, or `user_id`/`default_room_id` are malformed.
     pub fn from_toml(cfg: &argo_config::MatrixTomlConfig) -> ChannelResult<Self> {
-        let access_token = argo_config::cred::get(&cfg.access_token_env).map_err(|_| {
-            ChannelError::Config(format!("missing env {}", cfg.access_token_env))
-        })?;
+        let access_token = argo_config::cred::get(&cfg.access_token_env)
+            .map_err(|_| ChannelError::Config(format!("missing env {}", cfg.access_token_env)))?;
         if access_token.trim().is_empty() {
             return Err(ChannelError::Config(format!(
                 "{} must not be empty",
@@ -225,9 +224,11 @@ impl MatrixChannel {
                 "matrix returned {status}: {body}"
             )));
         }
-        let provider_message_id = serde_json::from_str::<Value>(&body)
-            .ok()
-            .and_then(|v| v.get("event_id").and_then(Value::as_str).map(str::to_string));
+        let provider_message_id = serde_json::from_str::<Value>(&body).ok().and_then(|v| {
+            v.get("event_id")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        });
         Ok(DeliveryReceipt {
             channel_id: self.id(),
             notification_id: approval_id.to_string(),

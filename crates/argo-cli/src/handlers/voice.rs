@@ -19,9 +19,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use argo_voice_tui::{
-    run_one_tick, MockRecognizer, PendingApproval, RunnerConfig, TickOutcome,
-};
+use argo_voice_tui::{run_one_tick, MockRecognizer, PendingApproval, RunnerConfig, TickOutcome};
 
 #[derive(Debug, Deserialize)]
 struct MockScript {
@@ -170,8 +168,7 @@ fn run_live_whisper(json: bool) -> i32 {
 
     let devices = enumerate_input_devices();
     if devices.is_empty() {
-        let msg =
-            "argo voice: no input device found (mic permission denied or no hardware). \
+        let msg = "argo voice: no input device found (mic permission denied or no hardware). \
              Falling back to TUI list view — run `argo tui`.";
         if json {
             let line = serde_json::json!({"kind": "fallback", "payload": msg});
@@ -211,7 +208,11 @@ fn run_live_whisper(json: bool) -> i32 {
         let outcome = run_one_tick(&mut recognizer, &pending, 0, &cfg);
         emit(&outcome, json);
         if matches!(outcome, TickOutcome::Quit | TickOutcome::Error(_)) {
-            return if matches!(outcome, TickOutcome::Quit) { 0 } else { 1 };
+            return if matches!(outcome, TickOutcome::Quit) {
+                0
+            } else {
+                1
+            };
         }
     }
 }

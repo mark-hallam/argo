@@ -6,9 +6,9 @@
 #![warn(missing_docs)]
 
 pub mod backfill;
+pub mod composition;
 pub mod confidence_telemetry;
 pub mod from_cu_trajectory;
-pub mod composition;
 pub mod ghostwriter;
 pub mod ghostwriter_prompts;
 pub mod portable;
@@ -24,15 +24,15 @@ pub use self::backfill::{
     synthesize_graph, BackfillEntry, BackfillReport, BackfillStatus, BACKFILL_ENTRY_NODE_ID,
     BACKFILL_SOURCE,
 };
+pub use self::composition::{
+    compose_skill_graphs, sub_skill_calls, CompositionEdge, CompositionError, CompositionReport,
+    SubSkillResolver,
+};
 pub use self::confidence_telemetry::{
     ConfidenceTelemetry, NodeTelemetryKey, NodeTelemetryRow, TelemetryOutcome, TelemetrySample,
 };
 pub use self::from_cu_trajectory::{
     graph_from_cu_trajectory, CuTrajectory, CU_RECORDING_SOURCE, LOW_CONFIDENCE_THRESHOLD,
-};
-pub use self::composition::{
-    compose_skill_graphs, sub_skill_calls, CompositionEdge, CompositionError, CompositionReport,
-    SubSkillResolver,
 };
 pub use self::ghostwriter::{
     generate_from_prompt, offline_template, validate_graph, GhostwriterClient, GhostwriterError,

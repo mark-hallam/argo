@@ -41,8 +41,7 @@ pub fn canonical_json(graph: &SkillGraph) -> ArgoResult<String> {
         .map_err(|e| ArgoError::Provider(format!("ir canonical_json serialize: {e}")))?;
     let mut buf = Vec::with_capacity(256);
     write_canonical(&mut buf, &value)?;
-    String::from_utf8(buf)
-        .map_err(|e| ArgoError::Provider(format!("ir canonical_json utf8: {e}")))
+    String::from_utf8(buf).map_err(|e| ArgoError::Provider(format!("ir canonical_json utf8: {e}")))
 }
 
 /// Compute `sha256(canonical_json(graph))` and return the 32-byte
@@ -125,9 +124,8 @@ fn write_canonical(out: &mut Vec<u8>, v: &Value) -> ArgoResult<()> {
 }
 
 fn write_json_string(out: &mut Vec<u8>, s: &str) -> ArgoResult<()> {
-    let encoded = serde_json::to_string(s).map_err(|e| {
-        ArgoError::Provider(format!("ir canonical_json string-escape: {e}"))
-    })?;
+    let encoded = serde_json::to_string(s)
+        .map_err(|e| ArgoError::Provider(format!("ir canonical_json string-escape: {e}")))?;
     out.extend_from_slice(encoded.as_bytes());
     Ok(())
 }

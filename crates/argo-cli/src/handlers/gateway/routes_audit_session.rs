@@ -72,7 +72,10 @@ pub(super) async fn audit_session_verify_response(
                     })
                     .collect();
                 if let Some(obj) = payload.as_object_mut() {
-                    obj.insert("breaks_detail".to_string(), serde_json::Value::Array(detail));
+                    obj.insert(
+                        "breaks_detail".to_string(),
+                        serde_json::Value::Array(detail),
+                    );
                 }
             }
             (
@@ -118,8 +121,8 @@ pub(super) async fn audit_session_response(
                 rows.retain(|r| r.kind == want);
             }
             if let Some(m) = since_minutes {
-                let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(m))
-                    .timestamp_micros();
+                let cutoff_micros =
+                    (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
                 rows.retain(|r| r.created_at_micros >= cutoff_micros);
             }
             if matches!(format, Some("markdown")) {
@@ -128,9 +131,7 @@ pub(super) async fn audit_session_response(
                 // when present. Within one session every row shares
                 // the same vertical so a per-row column would be
                 // pure repetition.
-                let vert = rows
-                    .iter()
-                    .find_map(|r| r.vertical_id.as_deref());
+                let vert = rows.iter().find_map(|r| r.vertical_id.as_deref());
                 let header_suffix = match vert {
                     Some(v) => format!(" — vertical `{v}`"),
                     None => String::new(),
@@ -143,12 +144,8 @@ pub(super) async fn audit_session_response(
                     out.push_str("| seq | kind | hash |\n");
                     out.push_str("| ---: | --- | --- |\n");
                     for r in &rows {
-                        let hash_short: String =
-                            r.self_hash.chars().take(12).collect();
-                        out.push_str(&format!(
-                            "| {} | `{}` | `{hash_short}…` |\n",
-                            r.seq, r.kind
-                        ));
+                        let hash_short: String = r.self_hash.chars().take(12).collect();
+                        out.push_str(&format!("| {} | `{}` | `{hash_short}…` |\n", r.seq, r.kind));
                     }
                 }
                 return ("200 OK", out);

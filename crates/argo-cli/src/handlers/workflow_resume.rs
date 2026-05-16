@@ -20,25 +20,22 @@ pub async fn run(run_id: &str, json: bool) -> ArgoResult<()> {
         .await
         .map_err(|e| ArgoError::Provider(format!("checkpoint schema: {e}")))?;
 
-    let row: Option<(String, String)> = sqlx::query_as(
-        "SELECT workflow_id, workflow_yaml FROM workflow_run WHERE id = ?",
-    )
-    .bind(run_id)
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("workflow_run lookup: {e}")))?;
+    let row: Option<(String, String)> =
+        sqlx::query_as("SELECT workflow_id, workflow_yaml FROM workflow_run WHERE id = ?")
+            .bind(run_id)
+            .fetch_optional(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("workflow_run lookup: {e}")))?;
     let (workflow_id_label, yaml_body) =
         row.ok_or_else(|| ArgoError::Provider(format!("no run with id '{run_id}'")))?;
 
     let workflow = parse_yaml_str(&yaml_body)
         .map_err(|e| ArgoError::Provider(format!("re-parse run yaml: {e}")))?;
     let ckpt_store = SqliteCheckpointStore::new(Arc::clone(&store));
-    let existing = argo_workflow::CheckpointStore::list_for_run(
-        &ckpt_store,
-        &WorkflowId(run_id.to_string()),
-    )
-    .await
-    .map_err(|e| ArgoError::Provider(format!("list checkpoints: {e}")))?;
+    let existing =
+        argo_workflow::CheckpointStore::list_for_run(&ckpt_store, &WorkflowId(run_id.to_string()))
+            .await
+            .map_err(|e| ArgoError::Provider(format!("list checkpoints: {e}")))?;
 
     let exec = Executor::new(MockRunner::echo());
     let req = ExecutionRequest::with_id(workflow.clone(), WorkflowId(run_id.to_string()));

@@ -101,7 +101,10 @@ impl SessionStore {
     /// reused. With no affinity attached (or a `None`
     /// `worker_id`) each call mints a fresh `SessionId::new()` and
     /// inserts a new row, matching the pre-brief behavior.
-    pub async fn create_session_with_worker(&self, input: SessionCreate<'_>) -> StoreResult<SessionId> {
+    pub async fn create_session_with_worker(
+        &self,
+        input: SessionCreate<'_>,
+    ) -> StoreResult<SessionId> {
         let id = match (&self.prompt_cache_affinity, input.worker_id) {
             (Some(affinity), Some(worker)) => {
                 affinity.acquire_or_mint(input.tenant_id, &worker.to_string())

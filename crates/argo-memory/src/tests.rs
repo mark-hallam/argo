@@ -172,13 +172,7 @@ async fn hash_is_sha256_of_body() {
 async fn append_for_vertical_persists_vertical_id() {
     let (m, ws) = fresh().await;
     let entry = m
-        .append_for_vertical(
-            ws,
-            MemoryFile::Memory,
-            "alpha-row".into(),
-            None,
-            "alpha",
-        )
+        .append_for_vertical(ws, MemoryFile::Memory, "alpha-row".into(), None, "alpha")
         .await
         .unwrap();
     assert_eq!(entry.vertical_id.as_deref(), Some("alpha"));
@@ -244,13 +238,7 @@ async fn vertical_id_round_trips_through_get_and_list_active() {
     // (otherwise downstream serialization drops it).
     let (m, ws) = fresh().await;
     let written = m
-        .append_for_vertical(
-            ws,
-            MemoryFile::Memory,
-            "round-trip".into(),
-            None,
-            "alpha",
-        )
+        .append_for_vertical(ws, MemoryFile::Memory, "round-trip".into(), None, "alpha")
         .await
         .unwrap();
 

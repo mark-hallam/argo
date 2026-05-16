@@ -29,8 +29,7 @@ pub(super) async fn export_response(
             "{\"error\":\"store unavailable\"}".to_string(),
         );
     };
-    let format = parse_query_kv(tail, "format")
-        .unwrap_or_else(|| "jsonl".to_string());
+    let format = parse_query_kv(tail, "format").unwrap_or_else(|| "jsonl".to_string());
     let include_audit = parse_query_kv(tail, "include-audit")
         .map(|v| v == "true" || v == "1")
         .unwrap_or(false);
@@ -78,9 +77,7 @@ pub(super) async fn export_response(
         "markdown" => ("200 OK", render_markdown_body(sid, &messages)),
         other => (
             "400 Bad Request",
-            format!(
-                "{{\"error\":\"unknown format '{other}' (expected 'jsonl' or 'markdown')\"}}"
-            ),
+            format!("{{\"error\":\"unknown format '{other}' (expected 'jsonl' or 'markdown')\"}}"),
         ),
     }
 }

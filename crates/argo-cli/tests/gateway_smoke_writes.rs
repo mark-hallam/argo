@@ -385,4 +385,3 @@ fn skill_lock_returns_404_on_unknown_skill() {
 
     assert!(child.wait().expect("wait").success());
 }
-

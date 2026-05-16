@@ -6,9 +6,7 @@
 
 use crate::auth::{GsuiteAuth, GsuiteAuthConfig, TEST_RSA_PRIVATE_KEY};
 use crate::document_gsuite::DocumentGsuite;
-use crate::types::{
-    GsuiteDocKind, GsuiteSheetRow, GsuiteSlideSpec, GsuiteWriteRequest,
-};
+use crate::types::{GsuiteDocKind, GsuiteSheetRow, GsuiteSlideSpec, GsuiteWriteRequest};
 use argo_executor_document_csv::{CsvColumnKind, CsvColumnSchema};
 use chrono::{Duration, Utc};
 use std::collections::HashMap;
@@ -377,9 +375,7 @@ async fn slide_image_url_validation_rejects_non_image_mime() {
     // HEAD probe returns text/html, not image/*.
     Mock::given(method("HEAD"))
         .and(path("/badmime.png"))
-        .respond_with(
-            ResponseTemplate::new(200).insert_header("content-type", "text/html"),
-        )
+        .respond_with(ResponseTemplate::new(200).insert_header("content-type", "text/html"))
         .mount(&server)
         .await;
 
@@ -444,10 +440,7 @@ async fn token_endpoint_sends_jwt_assertion_with_bearer_grant() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/token"))
-        .and(header(
-            "content-type",
-            "application/x-www-form-urlencoded",
-        ))
+        .and(header("content-type", "application/x-www-form-urlencoded"))
         .respond_with(token_response_ok())
         .mount(&server)
         .await;
@@ -468,4 +461,3 @@ async fn token_endpoint_sends_jwt_assertion_with_bearer_grant() {
     let report = exec.write(make_doc_request()).await.unwrap();
     assert_eq!(report.doc_id.0, "doc-jwt");
 }
-

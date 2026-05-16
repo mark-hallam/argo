@@ -47,8 +47,12 @@ async fn maps_5xx_to_transient_error() {
 
 #[test]
 fn debug_redacts_token() {
-    let sink = SplunkHecSink::new("https://splunk.example.com".into(), "topsecret".into(), None)
-        .unwrap();
+    let sink = SplunkHecSink::new(
+        "https://splunk.example.com".into(),
+        "topsecret".into(),
+        None,
+    )
+    .unwrap();
     let dbg = format!("{sink:?}");
     assert!(!dbg.contains("topsecret"), "Debug must not leak token");
     assert!(dbg.contains("<redacted>"));
@@ -66,4 +70,3 @@ fn encode_batch_emits_one_envelope_per_line() {
         assert_eq!(v["sourcetype"], "argo:audit");
     }
 }
-

@@ -45,17 +45,17 @@ pub mod context_compress;
 /// the minimum-must-keep set doesn't fit. Exposes a
 /// `runtime.context_truncated` audit payload.
 pub mod context_truncate;
-/// Dreams plan-template learning — distill cohorts of similar
-/// successful Planner decompositions into [`PlanTemplate`]
-/// candidates that ride the TrustGrade ladder. Stream
-/// `claude-dreams-plan-templates`.
-pub mod dreams_plan_templates;
 /// Decompose-or-dispatch gate — `DecomposeGate` trait + the v1
 /// deterministic `HeuristicGate` impl. Wired into the agent
 /// dispatch loop (mission-planner-dispatch-loop-wire) so coarse
 /// goals get a planner pass before falling through to single-task
 /// dispatch.
 pub mod dispatch_gate;
+/// Dreams plan-template learning — distill cohorts of similar
+/// successful Planner decompositions into [`PlanTemplate`]
+/// candidates that ride the TrustGrade ladder. Stream
+/// `claude-dreams-plan-templates`.
+pub mod dreams_plan_templates;
 /// OOM-kill detection + bounded exponential-backoff worker
 /// restart (mission-oom-restart-handler). Pure-logic primitives
 /// (`classify_exit` / `decide_restart`) plus an
@@ -100,13 +100,13 @@ mod prompt_cache_affinity_tests;
 #[cfg(test)]
 mod worker_resource_cage_tests;
 
+pub use anomaly::{AnomalyDecision, AnomalyPolicy, SessionAnomalyState, StepSignal};
 pub use dispatch_gate::{
     DecomposeGate, GateError, HeuristicGate, HEURISTIC_LENGTH_THRESHOLD, HEURISTIC_LIST_MARKERS,
 };
-pub use anomaly::{AnomalyDecision, AnomalyPolicy, SessionAnomalyState, StepSignal};
 pub use planner::{
-    record_decomposition, AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate, PlannedSubtask,
-    Planner, PlannerContext, PlannerError, SubtaskSink, TemplatePlanner,
+    record_decomposition, AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate,
+    PlannedSubtask, Planner, PlannerContext, PlannerError, SubtaskSink, TemplatePlanner,
 };
 pub use planner_bias::{
     BiasConfig, InMemoryTemplateSource, LearnedPlanTemplateSource, LearnedTemplateCandidate,

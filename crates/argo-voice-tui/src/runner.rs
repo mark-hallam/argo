@@ -45,7 +45,9 @@ pub struct RunnerConfig {
 
 impl Default for RunnerConfig {
     fn default() -> Self {
-        Self { max_fuzzy_distance: 2 }
+        Self {
+            max_fuzzy_distance: 2,
+        }
     }
 }
 
@@ -92,7 +94,9 @@ pub fn run_one_tick(
     cfg: &RunnerConfig,
 ) -> TickOutcome {
     let utterance = match recognizer.transcribe_next() {
-        Ok(t) if t.trim().is_empty() => return TickOutcome::Reprompted("no speech detected".into()),
+        Ok(t) if t.trim().is_empty() => {
+            return TickOutcome::Reprompted("no speech detected".into())
+        }
         Ok(t) => t,
         Err(RecognizerError::Backend(msg)) => return TickOutcome::Error(msg),
         Err(RecognizerError::Exhausted) => {
@@ -100,16 +104,15 @@ pub fn run_one_tick(
         }
     };
     let Some(after_wake) = strip_wake_word(&utterance) else {
-        return TickOutcome::Reprompted(format!(
-            "ignored (no wake word): {}",
-            utterance.trim()
-        ));
+        return TickOutcome::Reprompted(format!("ignored (no wake word): {}", utterance.trim()));
     };
     if after_wake.trim().is_empty() {
         return TickOutcome::Reprompted("wake word only — say a command".into());
     }
     match classify(&after_wake) {
-        Intent::ApproveCurrent => decide_current("approve", pending, current_focus_index, recognizer),
+        Intent::ApproveCurrent => {
+            decide_current("approve", pending, current_focus_index, recognizer)
+        }
         Intent::DenyCurrent => decide_current("deny", pending, current_focus_index, recognizer),
         Intent::ApproveSpecific(name) => {
             decide_specific("approve", pending, &name, cfg, recognizer)
@@ -126,9 +129,7 @@ pub fn run_one_tick(
             let pool: Vec<&str> = pending.iter().map(|p| p.worker_name.as_str()).collect();
             match best_match(&name, &pool, cfg.max_fuzzy_distance) {
                 Some(matched) => {
-                    if let Some(p) =
-                        pending.iter().find(|p| p.worker_name.as_str() == matched)
-                    {
+                    if let Some(p) = pending.iter().find(|p| p.worker_name.as_str() == matched) {
                         TickOutcome::DetailsRequested(p.token.clone())
                     } else {
                         TickOutcome::Reprompted(format!("worker '{name}' not found"))
@@ -174,13 +175,8 @@ fn decide_specific(
     confirm_then(verb, p, recognizer)
 }
 
-fn confirm_then(
-    verb: &str,
-    p: &PendingApproval,
-    recognizer: &mut dyn Recognizer,
-) -> TickOutcome {
-    let prompt =
-        format_confirmation(verb, &p.worker_name, &p.action_summary, p.spend_usd);
+fn confirm_then(verb: &str, p: &PendingApproval, recognizer: &mut dyn Recognizer) -> TickOutcome {
+    let prompt = format_confirmation(verb, &p.worker_name, &p.action_summary, p.spend_usd);
     tracing::info!(target: "argo_voice_tui::runner", confirmation = %prompt);
     let response = match recognizer.transcribe_next() {
         Ok(t) => t,
@@ -226,18 +222,15 @@ mod tests {
 
     #[test]
     fn approve_specific_with_yes_confirms() {
-        let mut r =
-            MockRecognizer::new(["Argo approve Maria", "yes"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let mut r = MockRecognizer::new(["Argo approve Maria", "yes"]);
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         assert_eq!(outcome, TickOutcome::Approved("tok-maria".into()));
     }
 
     #[test]
     fn deny_with_no_response_cancels() {
         let mut r = MockRecognizer::new(["Argo deny Maya", "no"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         let TickOutcome::Reprompted(msg) = outcome else {
             panic!("expected reprompt, got {:?}", outcome);
         };
@@ -247,8 +240,7 @@ mod tests {
     #[test]
     fn missing_wake_word_drops_utterance() {
         let mut r = MockRecognizer::new(["approve Maria"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         let TickOutcome::Reprompted(msg) = outcome else {
             panic!("expected reprompt, got {:?}", outcome);
         };
@@ -258,16 +250,14 @@ mod tests {
     #[test]
     fn next_advances_focus_signal() {
         let mut r = MockRecognizer::new(["Argo next"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         assert_eq!(outcome, TickOutcome::Next);
     }
 
     #[test]
     fn quit_propagates() {
         let mut r = MockRecognizer::new(["Argo exit"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         assert_eq!(outcome, TickOutcome::Quit);
     }
 
@@ -275,16 +265,14 @@ mod tests {
     fn fuzzy_resolves_misheard_name() {
         // "Mariah" → fuzzy match "Maria Hernandez"
         let mut r = MockRecognizer::new(["Argo approve Mariah", "yes"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         assert_eq!(outcome, TickOutcome::Approved("tok-maria".into()));
     }
 
     #[test]
     fn unknown_worker_reprompts() {
         let mut r = MockRecognizer::new(["Argo approve Zaphod"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         let TickOutcome::Reprompted(msg) = outcome else {
             panic!("expected reprompt, got {:?}", outcome);
         };
@@ -295,16 +283,14 @@ mod tests {
     fn backend_error_propagates() {
         // Empty mock → exhausted → Error outcome
         let mut r = MockRecognizer::new::<[String; 0], String>([]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 0, &RunnerConfig::default());
         assert!(matches!(outcome, TickOutcome::Error(_)));
     }
 
     #[test]
     fn details_uses_focused_index_when_no_argument() {
         let mut r = MockRecognizer::new(["Argo details"]);
-        let outcome =
-            run_one_tick(&mut r, &pending_fixture(), 1, &RunnerConfig::default());
+        let outcome = run_one_tick(&mut r, &pending_fixture(), 1, &RunnerConfig::default());
         assert_eq!(outcome, TickOutcome::DetailsRequested("tok-maria".into()));
     }
 }

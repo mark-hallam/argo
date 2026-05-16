@@ -88,9 +88,7 @@ pub(crate) fn parse_binding(decl: &ActionDeclaration) -> ArgoResult<BrowserBindi
         .and_then(Value::as_str)
         .filter(|v| !v.trim().is_empty())
         .ok_or_else(|| {
-            ArgoError::Provider(
-                "browser executor binding missing required `target_url`".into(),
-            )
+            ArgoError::Provider("browser executor binding missing required `target_url`".into())
         })?
         .to_string();
     let mode = match value
@@ -163,10 +161,7 @@ fn parse_steps(value: Option<&Value>) -> ArgoResult<Vec<BrowserStep>> {
             .get("selector")
             .and_then(Value::as_str)
             .map(str::to_string);
-        let value = map
-            .get("value")
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        let value = map.get("value").and_then(Value::as_str).map(str::to_string);
         steps.push(BrowserStep {
             action,
             selector,

@@ -76,7 +76,12 @@ pub fn resolve_paths(
     };
     let plist_path = launch_agents_dir.join(PLIST_FILENAME);
     let log_dir = home.join("Library").join("Logs");
-    Ok(ResolvedPaths { bin, home, log_dir, plist_path })
+    Ok(ResolvedPaths {
+        bin,
+        home,
+        log_dir,
+        plist_path,
+    })
 }
 
 /// Top-level handler.
@@ -91,8 +96,8 @@ pub async fn run(
             "argo daemon install is macOS-only (launchd is a macOS feature)".into(),
         ));
     }
-    let current_exe = std::env::current_exe()
-        .map_err(|e| ArgoError::Provider(format!("current_exe: {e}")))?;
+    let current_exe =
+        std::env::current_exe().map_err(|e| ArgoError::Provider(format!("current_exe: {e}")))?;
     let home_env = std::env::var("HOME").ok();
     let paths = resolve_paths(
         bin_override,
@@ -108,16 +113,13 @@ pub async fn run(
     }
 
     if let Some(parent) = paths.plist_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            ArgoError::Io(format!("create_dir_all {}: {e}", parent.display()))
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| ArgoError::Io(format!("create_dir_all {}: {e}", parent.display())))?;
     }
-    std::fs::create_dir_all(&paths.log_dir).map_err(|e| {
-        ArgoError::Io(format!("create_dir_all {}: {e}", paths.log_dir.display()))
-    })?;
-    std::fs::write(&paths.plist_path, &plist).map_err(|e| {
-        ArgoError::Io(format!("write {}: {e}", paths.plist_path.display()))
-    })?;
+    std::fs::create_dir_all(&paths.log_dir)
+        .map_err(|e| ArgoError::Io(format!("create_dir_all {}: {e}", paths.log_dir.display())))?;
+    std::fs::write(&paths.plist_path, &plist)
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", paths.plist_path.display())))?;
 
     let loaded = launchctl_load(&paths.plist_path)?;
     emit(&paths, loaded, json, None)?;
@@ -125,7 +127,10 @@ pub async fn run(
 }
 
 fn launchctl_load(plist_path: &Path) -> ArgoResult<bool> {
-    let _ = Command::new("launchctl").arg("unload").arg(plist_path).status();
+    let _ = Command::new("launchctl")
+        .arg("unload")
+        .arg(plist_path)
+        .status();
     let status = Command::new("launchctl")
         .arg("load")
         .arg(plist_path)

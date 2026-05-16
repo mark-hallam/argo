@@ -127,10 +127,7 @@ fn rejects_malformed_token_shape() {
     );
     assert_eq!(verify_jwt("", now()), Err(JwtError::Malformed));
     // Non-base64url in any segment surfaces as `Base64`.
-    assert_eq!(
-        verify_jwt("!!!.!!!.!!!", now()),
-        Err(JwtError::Base64)
-    );
+    assert_eq!(verify_jwt("!!!.!!!.!!!", now()), Err(JwtError::Base64));
     std::env::remove_var(PUBKEY_ENV);
 }
 
@@ -139,9 +136,8 @@ fn pem_pubkey_path_verifies() {
     let signing = SigningKey::generate(&mut OsRng);
     let vk = signing.verifying_key();
     let b64 = base64::engine::general_purpose::STANDARD.encode(vk.to_bytes());
-    let pem = format!(
-        "-----BEGIN ARGO RELEASE PUBKEY-----\n{b64}\n-----END ARGO RELEASE PUBKEY-----\n"
-    );
+    let pem =
+        format!("-----BEGIN ARGO RELEASE PUBKEY-----\n{b64}\n-----END ARGO RELEASE PUBKEY-----\n");
     std::env::remove_var(PUBKEY_ENV);
     std::env::set_var(PUBKEY_PEM_ENV, pem);
     let claims = Claims {

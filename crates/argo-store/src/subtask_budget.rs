@@ -46,14 +46,12 @@ pub async fn set_subtask_budget(
     subtask_id: &str,
     budget_usd_cents: i64,
 ) -> ArgoResult<()> {
-    let rows = sqlx::query(
-        "UPDATE subtask_ledger SET budget_usd_cents = ? WHERE id = ?",
-    )
-    .bind(budget_usd_cents)
-    .bind(subtask_id)
-    .execute(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("set_subtask_budget: {e}")))?;
+    let rows = sqlx::query("UPDATE subtask_ledger SET budget_usd_cents = ? WHERE id = ?")
+        .bind(budget_usd_cents)
+        .bind(subtask_id)
+        .execute(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("set_subtask_budget: {e}")))?;
     if rows.rows_affected() == 0 {
         return Err(ArgoError::Provider(format!(
             "set_subtask_budget: no row with id '{subtask_id}'"
@@ -110,14 +108,12 @@ pub async fn set_subtask_parent(
     subtask_id: &str,
     parent_subtask_id: &str,
 ) -> ArgoResult<()> {
-    let rows = sqlx::query(
-        "UPDATE subtask_ledger SET parent_subtask_id = ? WHERE id = ?",
-    )
-    .bind(parent_subtask_id)
-    .bind(subtask_id)
-    .execute(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("set_subtask_parent: {e}")))?;
+    let rows = sqlx::query("UPDATE subtask_ledger SET parent_subtask_id = ? WHERE id = ?")
+        .bind(parent_subtask_id)
+        .bind(subtask_id)
+        .execute(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("set_subtask_parent: {e}")))?;
     if rows.rows_affected() == 0 {
         return Err(ArgoError::Provider(format!(
             "set_subtask_parent: no row with id '{subtask_id}'"
@@ -224,8 +220,10 @@ pub async fn walk_tree(pool: &SqlitePool, root_subtask_id: &str) -> ArgoResult<V
         .map_err(|e| ArgoError::Provider(format!("walk_tree: {e}")))?;
 
     // Build a child index for the in-memory aggregation pass.
-    let mut by_id: std::collections::HashMap<&str, &SubtaskTreeRow> = std::collections::HashMap::new();
-    let mut children_of: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
+    let mut by_id: std::collections::HashMap<&str, &SubtaskTreeRow> =
+        std::collections::HashMap::new();
+    let mut children_of: std::collections::HashMap<&str, Vec<&str>> =
+        std::collections::HashMap::new();
     for r in &rows {
         by_id.insert(r.id.as_str(), r);
         if let Some(p) = r.parent_subtask_id.as_deref() {
@@ -258,7 +256,6 @@ pub async fn walk_tree(pool: &SqlitePool, root_subtask_id: &str) -> ArgoResult<V
     }
     Ok(out)
 }
-
 
 const WALK_TREE_SQL: &str = "\
 WITH RECURSIVE tree(id, parent_goal, parent_session_id, worker_id, plan_node_path, \

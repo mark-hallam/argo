@@ -5,8 +5,8 @@
 //! we test the parse contract, not the upstream tools.
 
 use super::security_audit::{
-    count_by_severity, dedup_by_advisory, parse_cargo_audit, parse_cargo_deny,
-    parse_pnpm_audit, Vuln,
+    count_by_severity, dedup_by_advisory, parse_cargo_audit, parse_cargo_deny, parse_pnpm_audit,
+    Vuln,
 };
 
 /// Embedded fixture mirroring the shape of `cargo audit --json`
@@ -50,7 +50,9 @@ fn parse_cargo_audit_empty_returns_no_rows() {
     assert!(parse_cargo_audit("").expect("empty").is_empty());
     assert!(parse_cargo_audit("   \n  ").expect("whitespace").is_empty());
     let empty_report = r#"{ "vulnerabilities": { "list": [] } }"#;
-    assert!(parse_cargo_audit(empty_report).expect("empty list").is_empty());
+    assert!(parse_cargo_audit(empty_report)
+        .expect("empty list")
+        .is_empty());
 }
 
 #[test]
@@ -151,7 +153,11 @@ fn count_and_dedup_match_expected_envelope() {
     assert_eq!(counts.get("critical"), Some(&1));
     assert_eq!(counts.get("high"), Some(&1));
     assert_eq!(counts.get("medium"), Some(&1));
-    assert_eq!(counts.get("low"), Some(&0), "low bucket present even when empty");
+    assert_eq!(
+        counts.get("low"),
+        Some(&0),
+        "low bucket present even when empty"
+    );
     assert_eq!(counts.get("unknown"), Some(&0));
 }
 
@@ -160,7 +166,9 @@ fn parse_pnpm_audit_empty_returns_no_rows() {
     assert!(parse_pnpm_audit("").expect("empty").is_empty());
     assert!(parse_pnpm_audit("   \n  ").expect("whitespace").is_empty());
     let empty_report = r#"{ "advisories": {} }"#;
-    assert!(parse_pnpm_audit(empty_report).expect("empty advisories").is_empty());
+    assert!(parse_pnpm_audit(empty_report)
+        .expect("empty advisories")
+        .is_empty());
 }
 
 #[test]
@@ -188,9 +196,15 @@ fn parse_pnpm_merge_dedups_with_cargo_and_buckets_severities() {
     let pnpm_rows = parse_pnpm_audit(pnpm_fixture).expect("parse ok");
     assert_eq!(pnpm_rows.len(), 2);
 
-    let axios = pnpm_rows.iter().find(|v| v.advisory_id == "GHSA-9999-0000-aaaa").expect("axios row");
+    let axios = pnpm_rows
+        .iter()
+        .find(|v| v.advisory_id == "GHSA-9999-0000-aaaa")
+        .expect("axios row");
     assert_eq!(axios.severity, "high", "severity is lowercased");
-    assert_eq!(axios.affected_crate, "axios", "module_name maps to affected_crate");
+    assert_eq!(
+        axios.affected_crate, "axios",
+        "module_name maps to affected_crate"
+    );
     assert_eq!(axios.fixed_in.as_deref(), Some(">=1.7.4"));
     assert_eq!(axios.status, "unmitigated");
     assert!(axios.mitigation_note.is_none());
@@ -202,10 +216,22 @@ fn parse_pnpm_merge_dedups_with_cargo_and_buckets_severities() {
     let mut all = cargo_rows;
     all.extend(pnpm_rows);
     let merged = dedup_by_advisory(all);
-    assert_eq!(merged.len(), 3, "GHSA-axios + RUSTSEC-2024-0003 + RUSTSEC-2024-0099");
-    assert!(merged.iter().any(|v| v.advisory_id == "GHSA-9999-0000-aaaa"));
-    let dedup_winner = merged.iter().find(|v| v.advisory_id == "RUSTSEC-2024-0003").expect("dedup winner");
-    assert_eq!(dedup_winner.affected_crate, "hyper", "cargo-side row wins dedup");
+    assert_eq!(
+        merged.len(),
+        3,
+        "GHSA-axios + RUSTSEC-2024-0003 + RUSTSEC-2024-0099"
+    );
+    assert!(merged
+        .iter()
+        .any(|v| v.advisory_id == "GHSA-9999-0000-aaaa"));
+    let dedup_winner = merged
+        .iter()
+        .find(|v| v.advisory_id == "RUSTSEC-2024-0003")
+        .expect("dedup winner");
+    assert_eq!(
+        dedup_winner.affected_crate, "hyper",
+        "cargo-side row wins dedup"
+    );
 
     let counts = count_by_severity(&merged);
     assert_eq!(counts.get("high"), Some(&2), "axios (pnpm) + hyper (cargo)");

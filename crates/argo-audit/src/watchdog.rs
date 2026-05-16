@@ -153,9 +153,14 @@ mod tests {
         let (store, session) = fresh().await;
         let sink = AuditSink::new(store.clone());
         for _ in 0..3 {
-            sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
-                .await
-                .unwrap();
+            sink.write(
+                Some(session),
+                AuditKind::TurnStart,
+                serde_json::json!({}),
+                None,
+            )
+            .await
+            .unwrap();
         }
         let (counter, cb) = counting_cb();
         let mut consecutive = 0u32;
@@ -170,12 +175,22 @@ mod tests {
     async fn tampered_chain_fires_callback() {
         let (store, session) = fresh().await;
         let sink = AuditSink::new(store.clone());
-        sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({"a": 1}), None)
-            .await
-            .unwrap();
-        sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}), None)
-            .await
-            .unwrap();
+        sink.write(
+            Some(session),
+            AuditKind::TurnStart,
+            serde_json::json!({"a": 1}),
+            None,
+        )
+        .await
+        .unwrap();
+        sink.write(
+            Some(session),
+            AuditKind::TurnEnd,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
         sqlx::query("UPDATE audit_record SET payload_json = '{\"a\": 999}' WHERE seq = 1")
             .execute(store.pool())
             .await
@@ -190,12 +205,22 @@ mod tests {
     async fn consecutive_failure_threshold() {
         let (store, session) = fresh().await;
         let sink = AuditSink::new(store.clone());
-        sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({"a": 1}), None)
-            .await
-            .unwrap();
-        sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}), None)
-            .await
-            .unwrap();
+        sink.write(
+            Some(session),
+            AuditKind::TurnStart,
+            serde_json::json!({"a": 1}),
+            None,
+        )
+        .await
+        .unwrap();
+        sink.write(
+            Some(session),
+            AuditKind::TurnEnd,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
         let original: String =
             sqlx::query_scalar("SELECT payload_json FROM audit_record WHERE seq = 1")
                 .fetch_one(store.pool())

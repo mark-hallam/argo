@@ -100,7 +100,7 @@ fn is_safe_principal_value(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Principal, parse_principal_header, principal_payload};
+    use super::{parse_principal_header, principal_payload, Principal};
     use serde_json::json;
     use uuid::Uuid;
 

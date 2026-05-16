@@ -133,7 +133,10 @@ async fn reject_demotes_existing_skill_not_deletes() {
         .await
         .expect("lookup")
         .expect("skill still present");
-    assert_eq!(active.id, demoted, "active row should be the new demoted one");
+    assert_eq!(
+        active.id, demoted,
+        "active row should be the new demoted one"
+    );
     assert_eq!(
         TrustGrade::from_source(&active.frontmatter.provenance.source),
         TrustGrade::LearnedUnreviewed,

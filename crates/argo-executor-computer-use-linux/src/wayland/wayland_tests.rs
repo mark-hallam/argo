@@ -12,17 +12,11 @@ use crate::probe::WaylandCapabilities;
 fn classify_compositor_recognizes_gnome_kde_sway_hyprland() {
     use super::probe::classify_compositor;
     assert_eq!(classify_compositor(Some("GNOME"), None), "gnome");
-    assert_eq!(
-        classify_compositor(Some("ubuntu:GNOME"), None),
-        "gnome"
-    );
+    assert_eq!(classify_compositor(Some("ubuntu:GNOME"), None), "gnome");
     assert_eq!(classify_compositor(Some("KDE"), None), "kde");
     assert_eq!(classify_compositor(Some("plasma"), None), "kde");
     assert_eq!(classify_compositor(Some("sway"), None), "sway");
-    assert_eq!(
-        classify_compositor(Some("Hyprland"), None),
-        "hyprland"
-    );
+    assert_eq!(classify_compositor(Some("Hyprland"), None), "hyprland");
     assert_eq!(classify_compositor(None, None), "unknown");
     assert_eq!(classify_compositor(Some("xfce"), None), "unknown");
 }
@@ -116,8 +110,7 @@ fn portal_uri_to_path_handles_authority_and_percent_escape() {
 #[test]
 fn portal_constants_are_canonical_freedesktop_names() {
     use super::portal::{
-        PORTAL_BUS_NAME, PORTAL_OBJECT_PATH, REMOTE_DESKTOP_INTERFACE,
-        SCREENSHOT_INTERFACE,
+        PORTAL_BUS_NAME, PORTAL_OBJECT_PATH, REMOTE_DESKTOP_INTERFACE, SCREENSHOT_INTERFACE,
     };
     assert_eq!(PORTAL_BUS_NAME, "org.freedesktop.portal.Desktop");
     assert_eq!(PORTAL_OBJECT_PATH, "/org/freedesktop/portal/desktop");

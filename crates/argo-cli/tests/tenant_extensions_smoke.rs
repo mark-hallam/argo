@@ -61,8 +61,7 @@ async fn tenant_lifecycle_commands_work_end_to_end() {
     assert_success(&visible);
     let visible: Value = serde_json::from_slice(&visible.stdout).unwrap();
     assert_eq!(visible["ok"], true);
-    assert!(!visible
-        ["tenants"]
+    assert!(!visible["tenants"]
         .as_array()
         .unwrap()
         .iter()
@@ -76,8 +75,7 @@ async fn tenant_lifecycle_commands_work_end_to_end() {
     assert_success(&archived);
     let archived: Value = serde_json::from_slice(&archived.stdout).unwrap();
     assert_eq!(archived["ok"], true);
-    let row = archived
-        ["tenants"]
+    let row = archived["tenants"]
         .as_array()
         .unwrap()
         .iter()

@@ -176,7 +176,14 @@ fn run_vertical(
         } else {
             failed += 1;
         }
-        emit_streaming_line(effective_mode, i + 1, total, &fixture.id, fixture_passed, &result);
+        emit_streaming_line(
+            effective_mode,
+            i + 1,
+            total,
+            &fixture.id,
+            fixture_passed,
+            &result,
+        );
         rows.push(result);
     }
 
@@ -254,9 +261,7 @@ fn emit_streaming_line(
     }
 }
 
-pub(super) fn load_vertical(
-    id: &str,
-) -> ArgoResult<(argo_vertical::Registry, LoadedVertical)> {
+pub(super) fn load_vertical(id: &str) -> ArgoResult<(argo_vertical::Registry, LoadedVertical)> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, errors) = argo_vertical::load_dir(&dir)?;
     let loaded = registry.get(id).cloned().ok_or_else(|| {

@@ -37,10 +37,10 @@ mod store_role;
 mod store_skill_tests;
 mod store_skills;
 mod store_sql;
-#[cfg(test)]
-mod voice_profile_tests;
 mod store_trust_grade;
 mod types;
+#[cfg(test)]
+mod voice_profile_tests;
 pub mod worker_budget;
 mod worker_update;
 

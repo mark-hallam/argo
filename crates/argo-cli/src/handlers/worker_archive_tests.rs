@@ -37,8 +37,7 @@ async fn round_trip_archive_then_rehydrate_via_identity_store() {
     .await
     .expect("archive");
 
-    let live_after_archive =
-        identities.get_worker(tenant, worker.id).await.expect("get");
+    let live_after_archive = identities.get_worker(tenant, worker.id).await.expect("get");
     assert!(
         live_after_archive.is_none(),
         "live worker row removed after archive"
@@ -189,12 +188,9 @@ async fn delete_after_grace_drops_archive_row_via_store_layer() {
     .await
     .expect("delete after grace");
 
-    let remaining = worker_archive::list_archived(
-        store.pool(),
-        &worker.tenant_id.to_string(),
-    )
-    .await
-    .expect("list");
+    let remaining = worker_archive::list_archived(store.pool(), &worker.tenant_id.to_string())
+        .await
+        .expect("list");
     assert!(remaining.is_empty(), "archive row purged");
 }
 

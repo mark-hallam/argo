@@ -8,8 +8,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -34,8 +33,7 @@ pub async fn run(json: bool) -> ArgoResult<()> {
             .collect();
         println!(
             "{}",
-            serde_json::to_string(&serde_json::json!({"by_provider": arr}))
-                .unwrap_or_default()
+            serde_json::to_string(&serde_json::json!({"by_provider": arr})).unwrap_or_default()
         );
         return Ok(());
     }

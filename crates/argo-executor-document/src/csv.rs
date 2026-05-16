@@ -57,21 +57,13 @@ mod tests {
 
     #[test]
     fn render_csv_doubles_internal_quote() {
-        let rendered = render_csv(
-            &["q".into()],
-            &[vec![r#"She said "hi""#.into()]],
-        )
-        .unwrap();
+        let rendered = render_csv(&["q".into()], &[vec![r#"She said "hi""#.into()]]).unwrap();
         assert_eq!(rendered, "q\r\n\"She said \"\"hi\"\"\"\r\n");
     }
 
     #[test]
     fn render_csv_quotes_field_with_newline() {
-        let rendered = render_csv(
-            &["body".into()],
-            &[vec!["line1\nline2".into()]],
-        )
-        .unwrap();
+        let rendered = render_csv(&["body".into()], &[vec!["line1\nline2".into()]]).unwrap();
         assert_eq!(rendered, "body\r\n\"line1\nline2\"\r\n");
     }
 

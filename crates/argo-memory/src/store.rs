@@ -248,7 +248,6 @@ impl MemoryStore {
         .ok_or_else(|| ArgoError::Schema(format!("memory entry {entry_id} not found")))?;
         MemoryEntry::try_from(row)
     }
-
 }
 
 fn sha256(body: &str) -> [u8; 32] {

@@ -22,7 +22,7 @@
 //!      between, confirm `uptime_seconds` is non-decreasing.
 
 use super::{health_response_with_cwd, live_response, mark_start};
-use argo_store::{EXPECTED_SCHEMA_VERSION, SessionStore};
+use argo_store::{SessionStore, EXPECTED_SCHEMA_VERSION};
 use std::sync::Arc;
 
 async fn fresh_store(tmp: &tempfile::TempDir) -> Arc<SessionStore> {

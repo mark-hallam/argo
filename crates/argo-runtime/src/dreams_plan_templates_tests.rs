@@ -11,15 +11,26 @@ fn input(parent_goal: &str, success: bool) -> PlanCohortInput {
 
 #[test]
 fn goal_tokens_lowercases_and_splits() {
-    assert_eq!(goal_tokens("Promote our launch!"), vec!["promote", "our", "launch"]);
+    assert_eq!(
+        goal_tokens("Promote our launch!"),
+        vec!["promote", "our", "launch"]
+    );
     assert_eq!(goal_tokens(""), Vec::<String>::new());
     assert_eq!(goal_tokens("  hello-world\n"), vec!["hello", "world"]);
 }
 
 #[test]
 fn cosine_similarity_recognises_overlap() {
-    let a = vec!["promote".to_string(), "our".to_string(), "launch".to_string()];
-    let b = vec!["promote".to_string(), "our".to_string(), "launch".to_string()];
+    let a = vec![
+        "promote".to_string(),
+        "our".to_string(),
+        "launch".to_string(),
+    ];
+    let b = vec![
+        "promote".to_string(),
+        "our".to_string(),
+        "launch".to_string(),
+    ];
     assert!((cosine_similarity(&a, &b) - 1.0).abs() < 1e-9);
     let c = vec!["fly".to_string(), "kite".to_string(), "today".to_string()];
     assert!(cosine_similarity(&a, &c) < PLAN_COHORT_SIMILARITY_THRESHOLD);
@@ -33,7 +44,10 @@ fn cosine_similarity_handles_empty_input() {
 
 #[test]
 fn group_into_plan_cohorts_drops_below_floor() {
-    let only_two = vec![input("promote our launch", true), input("promote our launch", true)];
+    let only_two = vec![
+        input("promote our launch", true),
+        input("promote our launch", true),
+    ];
     assert!(group_into_plan_cohorts(only_two).is_empty());
 }
 
@@ -64,10 +78,7 @@ fn group_into_plan_cohorts_clusters_similar_goals() {
     let c = &cohorts[0];
     assert_eq!(c.members.len(), 3);
     assert!(c.anchor_parent_goal.contains("promote"));
-    assert!(c
-        .members
-        .iter()
-        .all(|m| m.parent_goal.contains("promote")));
+    assert!(c.members.iter().all(|m| m.parent_goal.contains("promote")));
 }
 
 struct StubCaller {
@@ -144,7 +155,9 @@ async fn distill_plan_cohort_propagates_caller_errors() {
         anchor_parent_goal: "g".into(),
         members: vec![input("g", true), input("g", true), input("g", true)],
     };
-    let err = distill_plan_cohort(&cohort, &FailingCaller).await.unwrap_err();
+    let err = distill_plan_cohort(&cohort, &FailingCaller)
+        .await
+        .unwrap_err();
     let msg = format!("{err}");
     assert!(msg.contains("upstream timeout"));
 }

@@ -53,8 +53,7 @@ use argo_identity::AutoApprovalPolicy;
 use argo_store::SessionStore;
 use chrono::{DateTime, TimeZone, Utc};
 
-const FIXTURE_BUDGET_TOML: &str =
-    include_str!("fixtures/auto_approval/auto_approval_budget.toml");
+const FIXTURE_BUDGET_TOML: &str = include_str!("fixtures/auto_approval/auto_approval_budget.toml");
 
 const WORKER_ID: &str = "worker-budget-e2e";
 
@@ -66,9 +65,8 @@ struct Candidate {
 }
 
 fn load_policy() -> AutoApprovalPolicy {
-    toml::from_str(FIXTURE_BUDGET_TOML).expect(
-        "fixture auto_approval_budget.toml must deserialise into AutoApprovalPolicy",
-    )
+    toml::from_str(FIXTURE_BUDGET_TOML)
+        .expect("fixture auto_approval_budget.toml must deserialise into AutoApprovalPolicy")
 }
 
 fn pending_for(c: &Candidate) -> PendingAction<'static> {
@@ -106,10 +104,26 @@ fn budget_and_window_envelope_reconciles_end_to_end() {
     let outside = Utc.with_ymd_and_hms(2026, 5, 16, 15, 0, 0).unwrap();
 
     let candidates = [
-        Candidate { id: "act-1", estimated_usd: 3.0, fired_at: inside },
-        Candidate { id: "act-2", estimated_usd: 4.0, fired_at: inside },
-        Candidate { id: "act-3", estimated_usd: 6.0, fired_at: inside },
-        Candidate { id: "act-4", estimated_usd: 2.0, fired_at: outside },
+        Candidate {
+            id: "act-1",
+            estimated_usd: 3.0,
+            fired_at: inside,
+        },
+        Candidate {
+            id: "act-2",
+            estimated_usd: 4.0,
+            fired_at: inside,
+        },
+        Candidate {
+            id: "act-3",
+            estimated_usd: 6.0,
+            fired_at: inside,
+        },
+        Candidate {
+            id: "act-4",
+            estimated_usd: 2.0,
+            fired_at: outside,
+        },
     ];
 
     // ARGO_HOME-style isolated tmpdir — every test gets a fresh

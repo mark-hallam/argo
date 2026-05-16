@@ -13,9 +13,10 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
     let session_store = SessionStore::open(&db_path(&home)).await?;
     session_store.migrate().await?;
     let store = AuctionStore::new(session_store.pool().clone());
-    let mut auction = store.get(id).await?.ok_or_else(|| {
-        ArgoError::Provider(format!("auction '{id}' not found"))
-    })?;
+    let mut auction = store
+        .get(id)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("auction '{id}' not found")))?;
     let was_open = matches!(auction.status, AuctionStatus::Open);
     auction.cancel();
     if was_open {

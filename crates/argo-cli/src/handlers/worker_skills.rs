@@ -18,8 +18,8 @@
 //! floor. The full end-to-end assertion (boot prompt content) lives
 //! in `tests/skill_propagation_e2e.rs`.
 
-use crate::home::{db_path, ensure_dir, resolve_home};
 use crate::handlers::worker_trust_reader::IdentityWorkerTrustReader;
+use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::{IdentityStore, WorkerId};
 use argo_skill::trust::TrustGrade;
 use argo_skill::{Skill, SkillStore};
@@ -40,8 +40,7 @@ pub async fn run(
 ) -> ArgoResult<()> {
     let tenant_id = parse_tenant(tenant)?;
     let worker_uuid = parse_worker_uuid(worker_id)?;
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(db_path(&home)).await?);
@@ -49,8 +48,7 @@ pub async fn run(
     let identity = IdentityStore::new(&store);
     let reader = IdentityWorkerTrustReader::new(&identity);
     let skills = SkillStore::new(Arc::clone(&store));
-    let decorated =
-        gather(&skills, &reader, tenant_id, worker_uuid, available_only).await?;
+    let decorated = gather(&skills, &reader, tenant_id, worker_uuid, available_only).await?;
     render(&decorated, json);
     Ok(())
 }

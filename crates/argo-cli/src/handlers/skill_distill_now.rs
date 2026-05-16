@@ -17,8 +17,8 @@
 //! Brief: `claude-dreams-skill-distillation` (V2.0 Integration B).
 use argo_memory::dreams_backend::DailyCapTracker;
 use argo_skill::dreams_distillation::{
-    distill_cohort, group_into_cohorts, Cohort, DistillationResult,
-    SkillDistillationCaller, TrajectoryInput,
+    distill_cohort, group_into_cohorts, Cohort, DistillationResult, SkillDistillationCaller,
+    TrajectoryInput,
 };
 use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
@@ -213,9 +213,7 @@ impl SkillDistillationCaller for EnvSkillDistillationCaller {
         if !resp.status().is_success() {
             let status = resp.status();
             let txt = resp.text().await.unwrap_or_default();
-            return Err(ArgoError::Provider(format!(
-                "distill http {status}: {txt}"
-            )));
+            return Err(ArgoError::Provider(format!("distill http {status}: {txt}")));
         }
         let parsed: serde_json::Value = resp
             .json()
@@ -270,8 +268,7 @@ fn parse_response(parsed: &serde_json::Value) -> ArgoResult<DistillationResult> 
 /// production HTTP caller (constructed lazily so a no-cohort
 /// invocation does not require `ANTHROPIC_API_KEY`).
 pub async fn run_cli(worker: &str, json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = crate::home::resolve_home(&cwd)?;
     crate::home::ensure_dir(&home)?;
     // Read stdin, parse, group. If no cohorts qualify there's
@@ -290,13 +287,16 @@ pub async fn run_cli(worker: &str, json: bool) -> ArgoResult<()> {
     let cohorts = group_into_cohorts(trajectories);
     if cohorts.is_empty() {
         if json {
-            println!("{}", serde_json::json!({
-                "worker": worker,
-                "cohorts_total": 0,
-                "distilled": 0,
-                "skipped": 0,
-                "details": Vec::<CohortSummary>::new(),
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "worker": worker,
+                    "cohorts_total": 0,
+                    "distilled": 0,
+                    "skipped": 0,
+                    "details": Vec::<CohortSummary>::new(),
+                })
+            );
         } else {
             println!("distill-now: worker={worker} cohorts=0 distilled=0 skipped=0");
         }

@@ -49,7 +49,11 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
     let para = Paragraph::new(body)
-        .block(Block::default().borders(Borders::ALL).title(" keybindings "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" keybindings "),
+        )
         .style(Style::default().add_modifier(Modifier::BOLD));
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
@@ -74,12 +78,7 @@ pub(crate) fn draw_approval_tray(
 
 /// Cron job list overlay. Triggered by `K`. Lists every
 /// `cron/jobs/*.json` basename in cwd. Esc / K / q close.
-pub(crate) fn draw_cron(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    rows: &[String],
-    scroll: usize,
-) {
+pub(crate) fn draw_cron(frame: &mut Frame<'_>, area: Rect, rows: &[String], scroll: usize) {
     let w = area.width.min(60);
     let h = area.height.saturating_mul(8) / 10;
     let x = area.x + (area.width.saturating_sub(w)) / 2;
@@ -97,10 +96,9 @@ pub(crate) fn draw_cron(
         }
     }
     let para = Paragraph::new(lines).block(
-        Block::default().borders(Borders::ALL).title(format!(
-            " cron jobs ({}) — Esc/K/q closes ",
-            rows.len()
-        )),
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" cron jobs ({}) — Esc/K/q closes ", rows.len())),
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
@@ -110,12 +108,7 @@ pub(crate) fn draw_cron(
 /// `manifests/providers/*.toml` basename (no manifest parse —
 /// the basename IS the provider id by convention). Esc / P /
 /// q close.
-pub(crate) fn draw_providers(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    rows: &[String],
-    scroll: usize,
-) {
+pub(crate) fn draw_providers(frame: &mut Frame<'_>, area: Rect, rows: &[String], scroll: usize) {
     let w = area.width.min(60);
     let h = area.height.saturating_mul(8) / 10;
     let x = area.x + (area.width.saturating_sub(w)) / 2;
@@ -125,9 +118,7 @@ pub(crate) fn draw_providers(
     let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
     lines.push(Line::from(" provider id"));
     if rows.is_empty() {
-        lines.push(Line::from(
-            "  (no manifests/providers/*.toml found in cwd)",
-        ));
+        lines.push(Line::from("  (no manifests/providers/*.toml found in cwd)"));
     } else {
         let clamped = scroll.min(rows.len().saturating_sub(1));
         for id in &rows[clamped..] {
@@ -135,10 +126,9 @@ pub(crate) fn draw_providers(
         }
     }
     let para = Paragraph::new(lines).block(
-        Block::default().borders(Borders::ALL).title(format!(
-            " providers ({}) — Esc/P/q closes ",
-            rows.len()
-        )),
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" providers ({}) — Esc/P/q closes ", rows.len())),
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
@@ -147,12 +137,7 @@ pub(crate) fn draw_providers(
 /// Tools overlay. Triggered by `T`. Snapshot of the in-core
 /// `ToolRegistry` (built from `argo_tool::builtin_tools(cwd)`).
 /// Names only — full schemas via the gateway's GET /tools.
-pub(crate) fn draw_tools(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    rows: &[String],
-    scroll: usize,
-) {
+pub(crate) fn draw_tools(frame: &mut Frame<'_>, area: Rect, rows: &[String], scroll: usize) {
     let w = area.width.min(50);
     let h = area.height.saturating_mul(8) / 10;
     let x = area.x + (area.width.saturating_sub(w)) / 2;
@@ -170,10 +155,9 @@ pub(crate) fn draw_tools(
         }
     }
     let para = Paragraph::new(lines).block(
-        Block::default().borders(Borders::ALL).title(format!(
-            " tools ({}) — Esc/T/q closes ",
-            rows.len()
-        )),
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" tools ({}) — Esc/T/q closes ", rows.len())),
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
@@ -183,11 +167,7 @@ pub(crate) fn draw_tools(
 /// today / month-to-date / all-time totals; ceilings live in
 /// argo.toml and aren't rendered here (the CLI already gives
 /// them with `argo costs show`). Esc / `$` / q close.
-pub(crate) fn draw_cost(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    snap: &argo_store::GlobalSpend,
-) {
+pub(crate) fn draw_cost(frame: &mut Frame<'_>, area: Rect, snap: &argo_store::GlobalSpend) {
     let w = area.width.min(60);
     let h = area.height.min(10);
     let x = area.x + (area.width.saturating_sub(w)) / 2;
@@ -199,8 +179,14 @@ pub(crate) fn draw_cost(
         Line::from("  spend rollup (USD, all tenants)"),
         Line::from(""),
         Line::from(format!("    today:        ${:>10.2}", to_usd(snap.today))),
-        Line::from(format!("    this month:   ${:>10.2}", to_usd(snap.this_month))),
-        Line::from(format!("    all time:     ${:>10.2}", to_usd(snap.all_time))),
+        Line::from(format!(
+            "    this month:   ${:>10.2}",
+            to_usd(snap.this_month)
+        )),
+        Line::from(format!(
+            "    all time:     ${:>10.2}",
+            to_usd(snap.all_time)
+        )),
         Line::from(""),
         Line::from("  (ceilings live in argo.toml; see `argo costs show`)"),
     ];
@@ -229,12 +215,7 @@ pub(crate) fn draw_spend_monitor(
 /// text payloads so the user can see them without JSON noise.
 /// Triggered by `o` while focused on the messages pane;
 /// toggled by `t`.
-pub(crate) fn draw_message(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    state: &ViewerState,
-    idx: usize,
-) {
+pub(crate) fn draw_message(frame: &mut Frame<'_>, area: Rect, state: &ViewerState, idx: usize) {
     let Some(msg) = state.selected_messages.get(idx) else {
         return;
     };

@@ -18,11 +18,7 @@ struct FakeTrustReader(Option<u8>);
 
 #[async_trait]
 impl WorkerTrustReader for FakeTrustReader {
-    async fn trust_grade(
-        &self,
-        _tenant_id: TenantId,
-        _worker_id: Uuid,
-    ) -> ArgoResult<Option<u8>> {
+    async fn trust_grade(&self, _tenant_id: TenantId, _worker_id: Uuid) -> ArgoResult<Option<u8>> {
         Ok(self.0)
     }
 }

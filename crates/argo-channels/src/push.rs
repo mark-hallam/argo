@@ -20,7 +20,8 @@ pub use crate::push_format::{
 };
 
 const DEFAULT_EXPO_ENDPOINT: &str = "https://exp.host/--/api/v2/push/send";
-#[cfg(test)] const EXPO_TEST_TOKEN_ENV: &str = "EXPO_TEST_TOKEN";
+#[cfg(test)]
+const EXPO_TEST_TOKEN_ENV: &str = "EXPO_TEST_TOKEN";
 
 /// Configuration for [`PushApprovalChannel`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,7 +217,10 @@ mod tests {
         let token =
             token::sign_approval_token("act-1", ApprovalDecision::Approve, exp, "secret").unwrap();
         Notification {
-            target: OperatorTarget { operator_id: "op-1".into(), email: "op@example.com".into() },
+            target: OperatorTarget {
+                operator_id: "op-1".into(),
+                email: "op@example.com".into(),
+            },
             action_id: "act-1".into(),
             approval_id: "act-1".into(),
             risk_level: RiskLevel::High,
@@ -231,7 +235,11 @@ mod tests {
     fn register_device_upserts_per_operator_token() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("devices.json");
-        let device = PushDevice::new("op-1".into(), "ExponentPushToken[test]".into(), "ios".into());
+        let device = PushDevice::new(
+            "op-1".into(),
+            "ExponentPushToken[test]".into(),
+            "ios".into(),
+        );
         register_device(&path, device.clone()).unwrap();
         register_device(&path, device).unwrap();
         assert_eq!(load_devices_for_operator(&path, "op-1").unwrap().len(), 1);
@@ -240,8 +248,14 @@ mod tests {
     #[test]
     fn payload_deep_links_to_mobile_inbox() {
         let channel = PushApprovalChannel::new(PushApprovalChannelConfig::local("devices.json"));
-        let device = PushDevice::new("op-1".into(), "ExponentPushToken[test]".into(), "ios".into());
-        let payloads = channel.message_payloads(&notification(), &[device]).unwrap();
+        let device = PushDevice::new(
+            "op-1".into(),
+            "ExponentPushToken[test]".into(),
+            "ios".into(),
+        );
+        let payloads = channel
+            .message_payloads(&notification(), &[device])
+            .unwrap();
         let url = payloads[0]["data"]["url"].as_str().unwrap();
         assert!(url.starts_with("argo://inbox/approval/act-1.approve."));
     }
@@ -249,7 +263,10 @@ mod tests {
     #[test]
     fn parses_gateway_registration_and_decision() {
         let req = "POST /channels/push/devices HTTP/1.1\r\n\r\n{\"operator_id\":\"op-1\",\"expo_push_token\":\"ExponentPushToken[test]\",\"platform\":\"ios\"}";
-        assert!(matches!(parse_gateway_request(req).unwrap(), PushGatewayRequest::Register(_)));
+        assert!(matches!(
+            parse_gateway_request(req).unwrap(),
+            PushGatewayRequest::Register(_)
+        ));
         let req = "POST /channels/push/decision/abc.approve.1.sig?d=reject HTTP/1.1\r\n\r\n";
         assert!(matches!(
             parse_gateway_request(req).unwrap(),
@@ -262,7 +279,10 @@ mod tests {
 
     #[tokio::test]
     async fn expo_integration_gated_on_env() {
-        let Some(token) = std::env::var(EXPO_TEST_TOKEN_ENV).ok().filter(|v| !v.is_empty()) else {
+        let Some(token) = std::env::var(EXPO_TEST_TOKEN_ENV)
+            .ok()
+            .filter(|v| !v.is_empty())
+        else {
             return;
         };
         let dir = tempfile::tempdir().unwrap();

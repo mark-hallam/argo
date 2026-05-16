@@ -56,9 +56,7 @@ pub(super) async fn db_stats(pool: &Pool<Sqlite>) -> Result<DbStats, ArgoError> 
 /// name (extracted from `payload_json`'s `$.tool` field).
 /// Backs the `E` overlay in the TUI (#645) and mirrors the
 /// gateway's `/audit/tool-errors` (#617).
-pub async fn tool_errors_histogram(
-    pool: &Pool<Sqlite>,
-) -> Result<Vec<(String, i64)>, ArgoError> {
+pub async fn tool_errors_histogram(pool: &Pool<Sqlite>) -> Result<Vec<(String, i64)>, ArgoError> {
     sqlx::query_as::<_, (String, i64)>(
         "SELECT json_extract(payload_json, '$.tool') AS tool, COUNT(*) \
          FROM audit_record \

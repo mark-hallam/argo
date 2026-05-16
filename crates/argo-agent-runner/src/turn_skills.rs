@@ -96,7 +96,9 @@ pub(crate) async fn compose_available_skills_block(
 ) -> Option<String> {
     let worker_id = worker_id?.0;
     let identity = IdentityStore::new(store);
-    let reader = IdentityTrustReader { identity: &identity };
+    let reader = IdentityTrustReader {
+        identity: &identity,
+    };
     let skills_store = SkillStore::new(Arc::clone(store));
     match skills_store
         .available_for_worker(&reader, tenant_id, worker_id)
@@ -125,11 +127,7 @@ struct IdentityTrustReader<'a, 's> {
 
 #[async_trait]
 impl WorkerTrustReader for IdentityTrustReader<'_, '_> {
-    async fn trust_grade(
-        &self,
-        tenant_id: TenantId,
-        worker_id: Uuid,
-    ) -> ArgoResult<Option<u8>> {
+    async fn trust_grade(&self, tenant_id: TenantId, worker_id: Uuid) -> ArgoResult<Option<u8>> {
         let worker = self
             .identity
             .get_worker(tenant_id, argo_identity::WorkerId(worker_id))

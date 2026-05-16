@@ -54,7 +54,10 @@ async fn append_audit_then_list_reports_age() {
     let row = rows.iter().find(|r| r.name == "db-encryption").unwrap();
     assert!(row.last_rotated.is_some());
     let age = row.age_days.unwrap();
-    assert!((0..=1).contains(&age), "fresh rotation should be ≤ 1 day old, got {age}");
+    assert!(
+        (0..=1).contains(&age),
+        "fresh rotation should be ≤ 1 day old, got {age}"
+    );
 }
 
 #[tokio::test]
@@ -139,7 +142,10 @@ async fn audit_key_age_returns_one_when_a_key_is_stale() {
             .unwrap()
             .iter()
             .any(|r| r.age_days.is_none());
-    assert!(any_stale, "either explicit stale row or null-age key triggers exit=1");
+    assert!(
+        any_stale,
+        "either explicit stale row or null-age key triggers exit=1"
+    );
 }
 
 #[tokio::test]
@@ -157,7 +163,10 @@ async fn audit_key_age_returns_zero_when_every_key_is_fresh() {
         Some(age) => age > 90,
         None => true,
     });
-    assert!(!any_stale, "every registered key should be fresh after seeding");
+    assert!(
+        !any_stale,
+        "every registered key should be fresh after seeding"
+    );
 }
 
 async fn insert_audit_at(store: &SessionStore, key_name: &str, when: DateTime<Utc>) {
@@ -270,7 +279,9 @@ async fn dry_run_envelope_resolves_command_without_spawning() {
     let env = dry_run_envelope(entry, "env:SECRET_FOO", "env");
     assert_eq!(env["status"], "dry_run");
     assert_eq!(env["execution"], "subprocess");
-    let cmd = env["command"].as_str().expect("subprocess entry yields command");
+    let cmd = env["command"]
+        .as_str()
+        .expect("subprocess entry yields command");
     assert!(cmd.contains("db rekey"));
     assert!(cmd.contains("--new-key-source"));
     // Raw env-var name must be scrubbed from the rendered command.
@@ -359,5 +370,8 @@ async fn operator_prompt_categories_skip_subprocess_dispatch() {
     let v: Value = serde_json::from_str(&payload).unwrap();
     assert_eq!(v["execution"], "operator_prompt");
     assert_eq!(v["outcome"], "succeeded");
-    assert!(v["subprocess"].is_null(), "operator_prompt audit row must have null subprocess");
+    assert!(
+        v["subprocess"].is_null(),
+        "operator_prompt audit row must have null subprocess"
+    );
 }

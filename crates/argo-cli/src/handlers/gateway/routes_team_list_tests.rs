@@ -47,9 +47,15 @@ async fn mem_store() -> Arc<SessionStore> {
 
 async fn workspace_tenant(store: &Arc<SessionStore>) -> TenantId {
     let cwd = std::env::current_dir().expect("cwd");
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await.expect("ensure workspace");
+    let (tenant, _) = store
+        .ensure_workspace(name, &root)
+        .await
+        .expect("ensure workspace");
     tenant
 }
 
@@ -75,7 +81,10 @@ async fn add_worker_with_vertical(
         Role::new("test"),
     );
     let identities = IdentityStore::new(store);
-    identities.create_worker(&worker).await.expect("create worker");
+    identities
+        .create_worker(&worker)
+        .await
+        .expect("create worker");
     worker
 }
 
@@ -166,7 +175,10 @@ async fn cap_at_max_workers_and_total_count_reflects_truth() {
     let v = parse_ok(&req(None), &store).await;
     assert_eq!(v["workers"].as_array().unwrap().len(), 7);
     assert_eq!(v["total_count"], 7);
-    const _: () = assert!(MAX_WORKERS >= 200, "v1 cap must be at least the brief's 200");
+    const _: () = assert!(
+        MAX_WORKERS >= 200,
+        "v1 cap must be at least the brief's 200"
+    );
 }
 
 #[tokio::test]

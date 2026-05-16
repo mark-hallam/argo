@@ -31,8 +31,7 @@ pub(super) async fn session_end_all_response(
             );
         }
     };
-    let cutoff = older_than_minutes
-        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
+    let cutoff = older_than_minutes.map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let mut ended: u64 = 0;
     for s in rows
         .into_iter()

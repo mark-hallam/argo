@@ -118,9 +118,7 @@ async fn run_tool_call_step(
         .await;
         return StepOutcome {
             status: "denied_by_vertical".into(),
-            message: format!(
-                "tool '{tool_name}' is in the bound vertical's [tools].denied list"
-            ),
+            message: format!("tool '{tool_name}' is in the bound vertical's [tools].denied list"),
         };
     }
     // Approval gate (#660) — emit EscalationRequired when bound
@@ -212,7 +210,10 @@ async fn emit_audit(
     };
     // Best-effort — a failed audit write must not abort the
     // workflow. The chain verifier will flag any breaks.
-    let _ = ctx.audit.write(Some(ctx.session_id), kind, payload, None).await;
+    let _ = ctx
+        .audit
+        .write(Some(ctx.session_id), kind, payload, None)
+        .await;
 }
 
 async fn workflow_tenant(cwd: &Path, audit_ctx: Option<&WorkflowAuditCtx>) -> ArgoResult<TenantId> {
@@ -235,18 +236,14 @@ async fn workflow_tenant(cwd: &Path, audit_ctx: Option<&WorkflowAuditCtx>) -> Ar
 
 pub(super) async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowAuditCtx> {
     use crate::home::{db_path, ensure_dir, resolve_home};
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home).to_string_lossy().as_ref()).await?;
     store.migrate().await?;
     let store = Arc::new(store);
-    let uuid = Uuid::parse_str(session_id_str).map_err(|e| {
-        ArgoError::Provider(format!(
-            "invalid session id '{session_id_str}': {e}"
-        ))
-    })?;
+    let uuid = Uuid::parse_str(session_id_str)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{session_id_str}': {e}")))?;
     let sid = SessionId(uuid);
     let Some(session) = store.get_session(sid).await? else {
         return Err(ArgoError::Provider(format!(

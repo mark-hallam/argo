@@ -54,9 +54,14 @@ async fn write_then_verify_clean_chain() {
     )
     .await
     .unwrap();
-    sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(session),
+        AuditKind::TurnEnd,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     let report = verify_session(&store, session).await.unwrap();
     assert!(report.ok, "{:?}", report.breaks);
     assert_eq!(report.rows, 4);
@@ -96,9 +101,14 @@ async fn tampered_payload_breaks_chain() {
     )
     .await
     .unwrap();
-    sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(session),
+        AuditKind::TurnEnd,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     // Tamper with the first row's payload.
     sqlx::query("UPDATE audit_record SET payload_json = '{\"a\": 999}' WHERE seq = 1")
         .execute(store.pool())
@@ -119,9 +129,14 @@ async fn tampered_parent_hash_breaks_chain() {
     let (store, session) = fresh().await;
     let sink = AuditSink::new(store.clone());
     for _ in 0..3 {
-        sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
-            .await
-            .unwrap();
+        sink.write(
+            Some(session),
+            AuditKind::TurnStart,
+            serde_json::json!({}),
+            None,
+        )
+        .await
+        .unwrap();
     }
     sqlx::query("UPDATE audit_record SET parent_hash = randomblob(32) WHERE seq = 2")
         .execute(store.pool())
@@ -136,9 +151,14 @@ async fn tampered_parent_hash_breaks_chain() {
 async fn unknown_kind_label_is_flagged() {
     let (store, session) = fresh().await;
     let sink = AuditSink::new(store.clone());
-    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(session),
+        AuditKind::TurnStart,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     // Manually rewrite the kind to something the enum doesn't know.
     sqlx::query("UPDATE audit_record SET kind = 'mysterious_kind' WHERE seq = 1")
         .execute(store.pool())
@@ -264,7 +284,10 @@ async fn broadcast_subscribers_added_late_only_see_subsequent_writes() {
         .await
         .expect("recv timed out")
         .expect("recv ok");
-    assert_eq!(ev.payload.get("phase").and_then(|v| v.as_str()), Some("second"));
+    assert_eq!(
+        ev.payload.get("phase").and_then(|v| v.as_str()),
+        Some("second")
+    );
 }
 
 #[tokio::test]
@@ -337,9 +360,14 @@ async fn write_with_principal_stamps_audit_record_column() {
 async fn write_with_tenant_stamps_column_and_payload() {
     let (store, session) = fresh().await;
     let sink = AuditSink::new_with_tenant(store.clone(), "tenant-acme".to_string());
-    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({"a": 1}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(session),
+        AuditKind::TurnStart,
+        serde_json::json!({"a": 1}),
+        None,
+    )
+    .await
+    .unwrap();
     let row: (String, String) = sqlx::query_as(
         "SELECT tenant_id, payload_json FROM audit_record \
          WHERE session_id = ? ORDER BY seq DESC LIMIT 1",
@@ -362,9 +390,14 @@ async fn legacy_default_tenant_unchanged_for_existing_call_sites() {
     // surfaces these rows for single-tenant deployments.
     let (store, session) = fresh().await;
     let sink = AuditSink::new(store.clone());
-    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(session),
+        AuditKind::TurnStart,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     let tenant: String = sqlx::query_scalar(
         "SELECT tenant_id FROM audit_record \
          WHERE session_id = ? ORDER BY seq DESC LIMIT 1",
@@ -408,9 +441,14 @@ async fn verify_chain_flags_tenant_denorm_drift() {
     // ChainBreak.
     let (store, session) = fresh().await;
     let sink = AuditSink::new_with_tenant(store.clone(), "tenant-clean".into());
-    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    sink.write(
+        Some(session),
+        AuditKind::TurnStart,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     // Tamper: rewrite only the column, leave payload_json.tenant_id alone.
     sqlx::query("UPDATE audit_record SET tenant_id = 'tenant-other' WHERE seq = 1")
         .execute(store.pool())

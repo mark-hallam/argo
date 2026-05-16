@@ -122,10 +122,7 @@ pub fn write_slides(target: &Path, markdown: &str, title: &str) -> DocResult<u64
         }
     }
     std::fs::write(target, html.as_bytes()).map_err(|e| {
-        crate::error::DocExecutorError::io(
-            format!("slides: write {}", target.display()),
-            e,
-        )
+        crate::error::DocExecutorError::io(format!("slides: write {}", target.display()), e)
     })?;
     Ok(html.len() as u64)
 }

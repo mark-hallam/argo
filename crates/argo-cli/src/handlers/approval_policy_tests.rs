@@ -6,8 +6,8 @@
 //! via `tests/help_smoke.rs` plus the round-trip checks below.
 
 use super::{
-    body_uses_templates, bundled_body, parse_and_merge_at, resolve_at,
-    resolve_workspace_body_at, table_to_policy, BUNDLED_TEMPLATES,
+    body_uses_templates, bundled_body, parse_and_merge_at, resolve_at, resolve_workspace_body_at,
+    table_to_policy, BUNDLED_TEMPLATES,
 };
 use argo_identity::AutoApprovalPolicy;
 use std::fs;
@@ -16,7 +16,11 @@ use tempfile::TempDir;
 #[test]
 fn registry_lists_five_bundled_templates() {
     let names: Vec<&str> = BUNDLED_TEMPLATES.iter().map(|(n, _)| *n).collect();
-    assert_eq!(names.len(), 5, "expected 5 bundled templates, got {names:?}");
+    assert_eq!(
+        names.len(),
+        5,
+        "expected 5 bundled templates, got {names:?}"
+    );
     for expected in [
         "auto-approve-low-risk",
         "require-human-for-finance",
@@ -117,7 +121,10 @@ enabled = false
 max_usd_micros_per_action = 1
 "#;
     let policy = resolve_workspace_body_at(body, dir.path()).unwrap();
-    assert!(!policy.enabled, "local enabled=false should override template");
+    assert!(
+        !policy.enabled,
+        "local enabled=false should override template"
+    );
     assert_eq!(policy.max_usd_micros_per_action, Some(1));
     // Untouched fields fall through from the template.
     assert_eq!(policy.daily_budget_usd_micros, Some(5_000_000));
@@ -176,12 +183,12 @@ fn round_trip_bundled_to_policy_to_toml_is_equivalent() {
     // produces an equivalent `AutoApprovalPolicy`.
     let dir = TempDir::new().unwrap();
     for (name, _) in BUNDLED_TEMPLATES {
-        let policy = resolve_at(name, dir.path())
-            .unwrap_or_else(|e| panic!("{name}: resolve failed: {e}"));
+        let policy =
+            resolve_at(name, dir.path()).unwrap_or_else(|e| panic!("{name}: resolve failed: {e}"));
         let serialised = toml::to_string_pretty(&policy)
             .unwrap_or_else(|e| panic!("{name}: serialise failed: {e}"));
-        let reparsed: AutoApprovalPolicy = toml::from_str(&serialised)
-            .unwrap_or_else(|e| panic!("{name}: reparse failed: {e}"));
+        let reparsed: AutoApprovalPolicy =
+            toml::from_str(&serialised).unwrap_or_else(|e| panic!("{name}: reparse failed: {e}"));
         assert_eq!(policy, reparsed, "{name}: round-trip diverged");
     }
 }

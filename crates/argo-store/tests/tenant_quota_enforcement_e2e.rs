@@ -193,8 +193,5 @@ async fn admin_raises_limit_then_check_passes() {
     let allowed = quotas
         .check_or_reject("t-1", QuotaActionKind::SkillInvocations, 1, at())
         .await;
-    assert!(
-        allowed.is_ok(),
-        "post-raise check should pass: {allowed:?}"
-    );
+    assert!(allowed.is_ok(), "post-raise check should pass: {allowed:?}");
 }

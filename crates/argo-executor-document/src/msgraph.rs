@@ -73,7 +73,10 @@ pub struct MsGraphClient {
 
 impl MsGraphClient {
     pub fn new(bearer_token: impl Into<String>) -> Self {
-        Self { bearer_token: bearer_token.into(), base_url: GRAPH_V1_BASE.into() }
+        Self {
+            bearer_token: bearer_token.into(),
+            base_url: GRAPH_V1_BASE.into(),
+        }
     }
 
     /// Read the access token from `ARGO_MSGRAPH_ACCESS_TOKEN`.
@@ -113,7 +116,10 @@ pub struct MsGraphExecutor {
 
 impl MsGraphExecutor {
     pub fn new(client: MsGraphClient) -> Self {
-        Self { client, drive_id: None }
+        Self {
+            client,
+            drive_id: None,
+        }
     }
 
     pub fn with_drive_id(mut self, id: impl Into<String>) -> Self {
@@ -137,7 +143,8 @@ impl MsGraphExecutor {
         }
         let url = format!(
             "{}:/content",
-            self.client.endpoint_for_drive_item(self.drive_id.as_deref(), path),
+            self.client
+                .endpoint_for_drive_item(self.drive_id.as_deref(), path),
         );
         let resp = reqwest::Client::new()
             .put(&url)
@@ -146,7 +153,10 @@ impl MsGraphExecutor {
             .body(payload)
             .send()
             .await
-            .map_err(|e| MsGraphError::Request { url: url.clone(), detail: e.to_string() })?;
+            .map_err(|e| MsGraphError::Request {
+                url: url.clone(),
+                detail: e.to_string(),
+            })?;
         let body = consume_response(&url, resp).await?;
         let json: serde_json::Value =
             serde_json::from_slice(&body).map_err(|e| MsGraphError::Parse(e.to_string()))?;
@@ -157,24 +167,28 @@ impl MsGraphExecutor {
     pub async fn read(&self, path: &str) -> Result<Vec<u8>, MsGraphError> {
         let url = format!(
             "{}:/content",
-            self.client.endpoint_for_drive_item(self.drive_id.as_deref(), path),
+            self.client
+                .endpoint_for_drive_item(self.drive_id.as_deref(), path),
         );
         let resp = reqwest::Client::new()
             .get(&url)
             .bearer_auth(&self.client.bearer_token)
             .send()
             .await
-            .map_err(|e| MsGraphError::Request { url: url.clone(), detail: e.to_string() })?;
+            .map_err(|e| MsGraphError::Request {
+                url: url.clone(),
+                detail: e.to_string(),
+            })?;
         consume_response(&url, resp).await
     }
 }
 
 async fn consume_response(url: &str, resp: reqwest::Response) -> Result<Vec<u8>, MsGraphError> {
     let status = resp.status();
-    let body = resp
-        .bytes()
-        .await
-        .map_err(|e| MsGraphError::Request { url: url.into(), detail: e.to_string() })?;
+    let body = resp.bytes().await.map_err(|e| MsGraphError::Request {
+        url: url.into(),
+        detail: e.to_string(),
+    })?;
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
         return Err(classify_auth_error(status.as_u16()));
     }
@@ -218,7 +232,11 @@ pub fn parse_drive_item(json: &serde_json::Value) -> Result<MsGraphFile, MsGraph
         .ok_or_else(|| MsGraphError::Parse("response missing id".into()))?
         .to_string();
     let size_bytes = json.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
-    Ok(MsGraphFile { web_url, item_id, size_bytes })
+    Ok(MsGraphFile {
+        web_url,
+        item_id,
+        size_bytes,
+    })
 }
 
 /// Map a 401/403 to [`MsGraphError::AuthExpired`].
@@ -233,11 +251,16 @@ fn build_docx(title: &str, body: &str) -> Result<Vec<u8>, MsGraphError> {
     let mut buf = std::io::Cursor::new(Vec::new());
     {
         let mut zip = zip::ZipWriter::new(&mut buf);
-        let opts = zip::write::FileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let opts =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
         write_zip_entry(&mut zip, "[Content_Types].xml", DOCX_CONTENT_TYPES, opts)?;
         write_zip_entry(&mut zip, "_rels/.rels", DOCX_RELS_ROOT, opts)?;
-        write_zip_entry(&mut zip, "word/_rels/document.xml.rels", DOCX_RELS_EMPTY, opts)?;
+        write_zip_entry(
+            &mut zip,
+            "word/_rels/document.xml.rels",
+            DOCX_RELS_EMPTY,
+            opts,
+        )?;
         let document = format!(
             r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t xml:space="preserve">{}</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">{}</w:t></w:r></w:p></w:body></w:document>"#,
@@ -254,17 +277,27 @@ fn build_xlsx(sheet_name: &str, rows: &[Vec<String>]) -> Result<Vec<u8>, MsGraph
     let mut buf = std::io::Cursor::new(Vec::new());
     {
         let mut zip = zip::ZipWriter::new(&mut buf);
-        let opts = zip::write::FileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated);
+        let opts =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
         write_zip_entry(&mut zip, "[Content_Types].xml", XLSX_CONTENT_TYPES, opts)?;
         write_zip_entry(&mut zip, "_rels/.rels", XLSX_RELS_ROOT, opts)?;
-        write_zip_entry(&mut zip, "xl/_rels/workbook.xml.rels", XLSX_RELS_WORKBOOK, opts)?;
+        write_zip_entry(
+            &mut zip,
+            "xl/_rels/workbook.xml.rels",
+            XLSX_RELS_WORKBOOK,
+            opts,
+        )?;
         let workbook = format!(
             r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="{}" sheetId="1" r:id="rId1"/></sheets></workbook>"#,
             xml_escape(sheet_name),
         );
         write_zip_entry(&mut zip, "xl/workbook.xml", &workbook, opts)?;
-        write_zip_entry(&mut zip, "xl/worksheets/sheet1.xml", &build_sheet(rows), opts)?;
+        write_zip_entry(
+            &mut zip,
+            "xl/worksheets/sheet1.xml",
+            &build_sheet(rows),
+            opts,
+        )?;
         zip.finish().map_err(zip_err)?;
     }
     Ok(buf.into_inner())
@@ -311,12 +344,18 @@ fn write_zip_entry<W: std::io::Write + std::io::Seek>(
 ) -> Result<(), MsGraphError> {
     zip.start_file(name, opts).map_err(zip_err)?;
     zip.write_all(body.as_bytes())
-        .map_err(|e| MsGraphError::ZipBuild { context: format!("write {name}"), detail: e.to_string() })?;
+        .map_err(|e| MsGraphError::ZipBuild {
+            context: format!("write {name}"),
+            detail: e.to_string(),
+        })?;
     Ok(())
 }
 
 fn zip_err(e: zip::result::ZipError) -> MsGraphError {
-    MsGraphError::ZipBuild { context: "zip writer".into(), detail: e.to_string() }
+    MsGraphError::ZipBuild {
+        context: "zip writer".into(),
+        detail: e.to_string(),
+    }
 }
 
 fn xml_escape(s: &str) -> String {

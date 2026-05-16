@@ -56,7 +56,14 @@ impl MacosCuConfig {
         allowed_apps.insert(Self::NOTES_BUNDLE_ID.to_string());
 
         let mut allowed_actions = HashSet::new();
-        for kind in ["click", "double_click", "type", "key", "scroll", "mouse_move"] {
+        for kind in [
+            "click",
+            "double_click",
+            "type",
+            "key",
+            "scroll",
+            "mouse_move",
+        ] {
             allowed_actions.insert(kind.to_string());
         }
 

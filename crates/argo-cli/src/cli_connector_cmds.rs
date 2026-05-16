@@ -52,9 +52,20 @@ pub enum ConnectorCmd {
         json: bool,
     },
     /// Show authorization status for every known connector.
-    ListStatus { #[arg(long)] json: bool },
+    ListStatus {
+        #[arg(long)]
+        json: bool,
+    },
     /// Delete stored credentials for one connector.
-    Revoke { kind: String, #[arg(long)] json: bool },
+    Revoke {
+        kind: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Run a no-op API call using stored credentials.
-    Test { kind: String, #[arg(long)] json: bool },
+    Test {
+        kind: String,
+        #[arg(long)]
+        json: bool,
+    },
 }

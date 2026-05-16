@@ -71,12 +71,11 @@ impl SqliteAuditSampler {
 #[async_trait]
 impl AuditSampler for SqliteAuditSampler {
     async fn total_count(&self, skill_id: &str) -> ArgoResult<usize> {
-        let rows: Vec<(String,)> = sqlx::query_as(
-            "SELECT payload_json FROM audit_record WHERE kind = 'tool_result'",
-        )
-        .fetch_all(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("honesty count: {e}")))?;
+        let rows: Vec<(String,)> =
+            sqlx::query_as("SELECT payload_json FROM audit_record WHERE kind = 'tool_result'")
+                .fetch_all(self.store.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("honesty count: {e}")))?;
         Ok(rows
             .into_iter()
             .filter_map(|(p,)| extract_sample(&p, skill_id, Uuid::nil()))
@@ -197,17 +196,29 @@ fn emit(result: &HonestyResult, skill_id: &str, json_out: bool) -> ArgoResult<()
         return Ok(());
     }
     match result {
-        HonestyResult::NotEnoughHistory { available, required } => {
+        HonestyResult::NotEnoughHistory {
+            available,
+            required,
+        } => {
             println!("honesty: {skill_id}: not enough history ({available}/{required})");
         }
-        HonestyResult::Honest { self_reported, observed, delta, breakdown } => {
+        HonestyResult::Honest {
+            self_reported,
+            observed,
+            delta,
+            breakdown,
+        } => {
             println!(
                 "honesty: {skill_id}: HONEST  self={self_reported:.2}  observed={observed:.2}  delta={delta:.2}  n={}",
                 breakdown.len()
             );
         }
         HonestyResult::Suspicious {
-            self_reported, observed, delta, sample_size, breakdown,
+            self_reported,
+            observed,
+            delta,
+            sample_size,
+            breakdown,
         } => {
             println!(
                 "honesty: {skill_id}: SUSPICIOUS  self={self_reported:.2}  observed={observed:.2}  delta={delta:.2}  n={sample_size}"

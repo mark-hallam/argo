@@ -31,7 +31,9 @@
 //! responsibility so the gateway can attach tenant / skill id / audit.
 
 use crate::ir::ghostwriter_prompts::{build_initial_prompt, build_self_correction_prompt};
-use crate::ir::types::{Edge, EdgeCond, EdgeId, Node, NodeAnnotations, NodeId, NodeKind, SkillGraph, SkillGraphMetadata};
+use crate::ir::types::{
+    Edge, EdgeCond, EdgeId, Node, NodeAnnotations, NodeId, NodeKind, SkillGraph, SkillGraphMetadata,
+};
 use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
 use std::collections::HashSet;
@@ -139,7 +141,10 @@ fn strip_code_fence(raw: &str) -> &str {
         .or_else(|| trimmed.strip_prefix("```"))
         .unwrap_or(trimmed)
         .trim_start_matches('\n');
-    without_open.trim_end_matches('\n').trim_end_matches("```").trim()
+    without_open
+        .trim_end_matches('\n')
+        .trim_end_matches("```")
+        .trim()
 }
 
 /// Run the full Ghostwriter pipeline. Returns the validated graph on
@@ -323,7 +328,13 @@ pub fn offline_template(description: &str) -> SkillGraph {
 
 fn slug(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .split('-')
         .filter(|p| !p.is_empty())

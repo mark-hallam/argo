@@ -43,7 +43,10 @@ fn await_listening(stderr: &mut BufReader<impl Read>) {
     }
 }
 
-fn boot(port: u16, max_requests: u32) -> (std::process::Child, BufReader<std::process::ChildStderr>) {
+fn boot(
+    port: u16,
+    max_requests: u32,
+) -> (std::process::Child, BufReader<std::process::ChildStderr>) {
     let home = tempfile::tempdir().unwrap();
     // Persist the tempdir for the child's lifetime by leaking
     // its path into ARGO_HOME — the test process tears it down
@@ -121,14 +124,20 @@ fn session_export_handles_bad_uuid_and_unknown_format() {
     let resp = http_get(port, "/sessions/not-a-uuid/export");
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
-    let resp = http_get(port, "/sessions/00000000-0000-0000-0000-000000000000/export?format=bogus");
+    let resp = http_get(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/export?format=bogus",
+    );
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
     assert!(
         resp.contains("expected 'jsonl' or 'markdown'"),
         "expected hint about valid formats, got resp={resp}"
     );
 
-    let resp = http_get(port, "/sessions/00000000-0000-0000-0000-000000000000/export");
+    let resp = http_get(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/export",
+    );
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
 
     assert!(child.wait().expect("wait").success());

@@ -20,7 +20,13 @@ async fn handoff_stats_report_and_histogram_round_trip_via_cli() {
     let start = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
         .args([
-            "session", "start", "--tenant", &tenant_s, "--title", "stats demo", "--json",
+            "session",
+            "start",
+            "--tenant",
+            &tenant_s,
+            "--title",
+            "stats demo",
+            "--json",
         ])
         .output()
         .unwrap();
@@ -62,18 +68,23 @@ async fn handoff_stats_report_and_histogram_round_trip_via_cli() {
             repo.update_handoff_status(tenant, &hid, HandoffStatus::Acknowledged)
                 .await
                 .unwrap();
-            repo.update_handoff_status(tenant, &hid, status).await.unwrap();
+            repo.update_handoff_status(tenant, &hid, status)
+                .await
+                .unwrap();
         }
     }
 
-    let report = run_json(home.path(), &[
-        "handoff-stats",
-        "--tenant",
-        &tenant_s,
-        "--since",
-        "1d",
-        "--json",
-    ]);
+    let report = run_json(
+        home.path(),
+        &[
+            "handoff-stats",
+            "--tenant",
+            &tenant_s,
+            "--since",
+            "1d",
+            "--json",
+        ],
+    );
     assert_eq!(report["tenant_id"], tenant_s);
     assert_eq!(report["overview"]["total"], 4);
     assert_eq!(report["overview"]["resolved"], 2);
@@ -90,31 +101,37 @@ async fn handoff_stats_report_and_histogram_round_trip_via_cli() {
     assert_eq!(top_from[0]["count"], 4);
     assert_eq!(report["by"], "worker");
 
-    let by_skill = run_json(home.path(), &[
-        "handoff-stats",
-        "--tenant",
-        &tenant_s,
-        "--by",
-        "skill",
-        "--since",
-        "1d",
-        "--json",
-    ]);
+    let by_skill = run_json(
+        home.path(),
+        &[
+            "handoff-stats",
+            "--tenant",
+            &tenant_s,
+            "--by",
+            "skill",
+            "--since",
+            "1d",
+            "--json",
+        ],
+    );
     let breakdown = by_skill["breakdown"].as_array().unwrap();
     assert_eq!(breakdown.len(), 1);
     assert_eq!(breakdown[0]["key"], "ship");
     assert_eq!(breakdown[0]["count"], 4);
     assert_eq!(by_skill["by"], "skill");
 
-    let histogram = run_json(home.path(), &[
-        "handoff-stats",
-        "--tenant",
-        &tenant_s,
-        "--histogram",
-        "--bucket-mins",
-        "60",
-        "--json",
-    ]);
+    let histogram = run_json(
+        home.path(),
+        &[
+            "handoff-stats",
+            "--tenant",
+            &tenant_s,
+            "--histogram",
+            "--bucket-mins",
+            "60",
+            "--json",
+        ],
+    );
     let buckets = histogram["buckets"].as_array().unwrap();
     assert_eq!(buckets.len(), 24, "1d window / 60min buckets = 24");
     let total: u64 = buckets.iter().map(|b| b["count"].as_u64().unwrap()).sum();

@@ -140,10 +140,7 @@ fn demo_gtm_engineer_learning_loop_runs_clean_and_promotes_consultable_skill() {
             .iter()
             .find(|s| s.frontmatter.name == PROMOTED_SKILL_NAME)
             .unwrap_or_else(|| {
-                let names: Vec<_> = active
-                    .iter()
-                    .map(|s| s.frontmatter.name.as_str())
-                    .collect();
+                let names: Vec<_> = active.iter().map(|s| s.frontmatter.name.as_str()).collect();
                 panic!(
                     "promoted skill {PROMOTED_SKILL_NAME:?} missing from \
                      list_skills_for_vertical(\"gtm-engineer\"); got: {names:?}"
@@ -156,8 +153,7 @@ fn demo_gtm_engineer_learning_loop_runs_clean_and_promotes_consultable_skill() {
         // the demo's data file authored this exact phrase.
         let body = &promoted.body;
         assert!(
-            body.contains("technical founder")
-                && body.contains("agent-platform"),
+            body.contains("technical founder") && body.contains("agent-platform"),
             "promoted skill body missing expected pattern text; body:\n{body}"
         );
 
@@ -305,7 +301,10 @@ fn demo_live_mode_end_to_end_when_opted_in() {
             "expected ≥9 active gtm-engineer skills (8 bundled + 1 promoted); \
              got {} ({:?})",
             active.len(),
-            active.iter().map(|s| s.frontmatter.name.as_str()).collect::<Vec<_>>()
+            active
+                .iter()
+                .map(|s| s.frontmatter.name.as_str())
+                .collect::<Vec<_>>()
         );
         // The newly promoted skill should be the most recently created
         // one (manifest skills were materialised at workspace_init time;

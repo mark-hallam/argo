@@ -224,14 +224,13 @@ pub(crate) async fn try_advance_via_org_chart(
     current_index: usize,
 ) -> ArgoResult<Option<EscalationStep>> {
     let tenant_str = tenant.to_string();
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM org_member WHERE tenant_id = ? AND worker_id = ? LIMIT 1",
-    )
-    .bind(&tenant_str)
-    .bind(originator.to_string())
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("org chart member lookup: {e}")))?;
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT id FROM org_member WHERE tenant_id = ? AND worker_id = ? LIMIT 1")
+            .bind(&tenant_str)
+            .bind(originator.to_string())
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("org chart member lookup: {e}")))?;
     let Some((member_id,)) = row else {
         return Ok(None);
     };
@@ -242,25 +241,23 @@ pub(crate) async fn try_advance_via_org_chart(
     let mut cur = member_id;
     let mut last_worker_id: Option<String> = None;
     for _ in 0..=current_index {
-        let mgr: Option<(Option<String>,)> = sqlx::query_as(
-            "SELECT manager_id FROM org_member WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(&cur)
-        .bind(&tenant_str)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("org chart manager lookup: {e}")))?;
+        let mgr: Option<(Option<String>,)> =
+            sqlx::query_as("SELECT manager_id FROM org_member WHERE id = ? AND tenant_id = ?")
+                .bind(&cur)
+                .bind(&tenant_str)
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("org chart manager lookup: {e}")))?;
         let Some((Some(mgr_id),)) = mgr else {
             return Ok(None);
         };
-        let row: Option<(String, Option<String>)> = sqlx::query_as(
-            "SELECT id, worker_id FROM org_member WHERE id = ? AND tenant_id = ?",
-        )
-        .bind(&mgr_id)
-        .bind(&tenant_str)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("org chart manager row: {e}")))?;
+        let row: Option<(String, Option<String>)> =
+            sqlx::query_as("SELECT id, worker_id FROM org_member WHERE id = ? AND tenant_id = ?")
+                .bind(&mgr_id)
+                .bind(&tenant_str)
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("org chart manager row: {e}")))?;
         let Some((next_id, worker_id)) = row else {
             return Ok(None);
         };

@@ -49,7 +49,11 @@ fn create_fixture_skill(home: &Path, cwd: &Path) {
             BODY,
         ],
     );
-    assert!(create.status.success(), "create failed: {}", stderr(&create));
+    assert!(
+        create.status.success(),
+        "create failed: {}",
+        stderr(&create)
+    );
 }
 
 #[test]
@@ -58,12 +62,12 @@ fn list_json_emits_trust_grade_field_for_unknown_source() {
     let work = tempfile::tempdir().unwrap();
     create_fixture_skill(home.path(), work.path());
 
-    let list = argo(
-        home.path(),
-        work.path(),
-        &["skill", "list", "--json"],
+    let list = argo(home.path(), work.path(), &["skill", "list", "--json"]);
+    assert!(
+        list.status.success(),
+        "list --json failed: {}",
+        stderr(&list)
     );
-    assert!(list.status.success(), "list --json failed: {}", stderr(&list));
 
     let mut found = false;
     for line in stdout(&list).lines() {
@@ -71,8 +75,8 @@ fn list_json_emits_trust_grade_field_for_unknown_source() {
         if trimmed.is_empty() {
             continue;
         }
-        let v: Value = serde_json::from_str(trimmed)
-            .unwrap_or_else(|e| panic!("not JSON: {trimmed:?} ({e})"));
+        let v: Value =
+            serde_json::from_str(trimmed).unwrap_or_else(|e| panic!("not JSON: {trimmed:?} ({e})"));
         if v["name"] == SKILL_NAME {
             // cli-create is not in TrustGrade::from_source's known
             // prefixes; the fallback is LearnedUnreviewed (strictest
@@ -114,11 +118,7 @@ fn view_markdown_emits_trust_grade_line() {
     let work = tempfile::tempdir().unwrap();
     create_fixture_skill(home.path(), work.path());
 
-    let view = argo(
-        home.path(),
-        work.path(),
-        &["skill", "view", SKILL_NAME],
-    );
+    let view = argo(home.path(), work.path(), &["skill", "view", SKILL_NAME]);
     assert!(view.status.success(), "view failed: {}", stderr(&view));
 
     let out = stdout(&view);
@@ -195,7 +195,11 @@ fn view_json_includes_trust_grade_field() {
         work.path(),
         &["skill", "view", SKILL_NAME, "--json"],
     );
-    assert!(view.status.success(), "view --json failed: {}", stderr(&view));
+    assert!(
+        view.status.success(),
+        "view --json failed: {}",
+        stderr(&view)
+    );
 
     let v: Value = serde_json::from_slice(&view.stdout).unwrap();
     assert_eq!(v["trust_grade"], "learned_unreviewed");

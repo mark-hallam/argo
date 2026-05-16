@@ -99,7 +99,9 @@ pub(crate) fn build_vertical_approval_set(
     out
 }
 
-pub(crate) use crate::turn_vertical_grants::{build_session_grant_state, consume_one_shot_if_present, SessionGrantState};
+pub(crate) use crate::turn_vertical_grants::{
+    build_session_grant_state, consume_one_shot_if_present, SessionGrantState,
+};
 
 /// Resolve the vertical's `[role].system_prompt` markdown for a
 /// vertical-bound session. Returns `None` (silently) when:
@@ -137,7 +139,9 @@ mod tests {
     }
     impl EnvGuard<'_> {
         fn new(value: &std::path::Path) -> Self {
-            let lock = ENV_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let lock = ENV_LOCK
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, value);
             Self { _lock: lock }
         }
@@ -152,7 +156,10 @@ mod tests {
     fn turn_start_payload_omits_vertical_id_for_unbound() {
         let v = build_turn_start_payload("anthropic", "haiku", None);
         let obj = v.as_object().unwrap();
-        assert_eq!(obj.get("provider").and_then(|x| x.as_str()), Some("anthropic"));
+        assert_eq!(
+            obj.get("provider").and_then(|x| x.as_str()),
+            Some("anthropic")
+        );
         assert_eq!(obj.get("model").and_then(|x| x.as_str()), Some("haiku"));
         assert!(obj.get("vertical_id").is_none());
     }
@@ -161,7 +168,10 @@ mod tests {
     fn turn_start_payload_includes_vertical_id_when_bound() {
         let v = build_turn_start_payload("anthropic", "haiku", Some("pr-checker"));
         let obj = v.as_object().unwrap();
-        assert_eq!(obj.get("vertical_id").and_then(|x| x.as_str()), Some("pr-checker"));
+        assert_eq!(
+            obj.get("vertical_id").and_then(|x| x.as_str()),
+            Some("pr-checker")
+        );
     }
 
     fn write_vertical_with_prompt(dir: &std::path::Path, body: &str) {
@@ -260,7 +270,12 @@ mod tests {
     #[test]
     fn deny_set_carries_manifest_denies() {
         let dir = tempfile::tempdir().unwrap();
-        write_vertical_with_tools(dir.path(), "ro", &["file_read"], &["file_write", "terminal"]);
+        write_vertical_with_tools(
+            dir.path(),
+            "ro",
+            &["file_read"],
+            &["file_write", "terminal"],
+        );
         let _g = EnvGuard::new(dir.path());
         let s = build_vertical_deny_set(Some("ro"));
         assert!(s.contains("file_write"));
@@ -289,11 +304,7 @@ mod tests {
 
     // ---- vertical approval-set (#660) ------------------------
 
-    fn write_vertical_with_approval(
-        dir: &std::path::Path,
-        id: &str,
-        approval: &[&str],
-    ) {
+    fn write_vertical_with_approval(dir: &std::path::Path, id: &str, approval: &[&str]) {
         let v = dir.join(id);
         std::fs::create_dir_all(&v).unwrap();
         let approval_toml = approval

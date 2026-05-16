@@ -81,10 +81,7 @@ pub(super) async fn hire_response(
     };
 
     if !vertical_exists(&draft.suggested_vertical) {
-        return bad_request(&format!(
-            "unknown vertical '{}'",
-            draft.suggested_vertical
-        ));
+        return bad_request(&format!("unknown vertical '{}'", draft.suggested_vertical));
     }
 
     let idem_key = idempotency_key(req);
@@ -115,7 +112,16 @@ pub(super) async fn hire_response(
         remember_idempotency(tenant_id, key, &body_digest, new_id);
     }
 
-    emit_hire_audit(store, tenant_id, &principal_id, new_id, &problem, &answers, &draft).await;
+    emit_hire_audit(
+        store,
+        tenant_id,
+        &principal_id,
+        new_id,
+        &problem,
+        &answers,
+        &draft,
+    )
+    .await;
     (
         "201 Created",
         json!({
@@ -130,8 +136,7 @@ async fn resolve_tenant_principal(
     store: &SessionStore,
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())
@@ -257,7 +262,12 @@ async fn emit_hire_audit(
     });
     let sink = AuditSink::new_with_tenant(std::sync::Arc::clone(store), tenant_id.to_string());
     if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, Some(principal_id.to_string()))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            Some(principal_id.to_string()),
+        )
         .await
     {
         tracing::warn!(
@@ -274,7 +284,11 @@ async fn emit_hire_audit(
 /// `argo-redact::redact_text` (Stream J2) becomes the authoritative
 /// fence once it lands.
 fn redact_text(input: &str) -> String {
-    let email = redact_pattern(input, r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}", "[EMAIL]");
+    let email = redact_pattern(
+        input,
+        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}",
+        "[EMAIL]",
+    );
     redact_pattern(&email, r"\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b", "[PHONE]")
 }
 

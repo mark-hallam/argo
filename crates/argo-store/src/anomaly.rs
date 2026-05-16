@@ -15,9 +15,7 @@ use sqlx::SqlitePool;
 
 use argo_types::ArgoResult;
 
-pub use crate::anomaly_persistence::{
-    insert_event, list_for_worker, load_baseline, save_baseline,
-};
+pub use crate::anomaly_persistence::{insert_event, list_for_worker, load_baseline, save_baseline};
 
 /// Default `|z|` threshold above which a sample is flagged.
 pub const DEFAULT_Z_THRESHOLD: f64 = 3.0;
@@ -125,12 +123,12 @@ impl BehaviorBaseline {
     /// Z-scores against the CURRENT baseline (BEFORE folding).
     #[must_use]
     pub fn z_scores(&self, sample: &BehaviorSample) -> (Option<f64>, Option<f64>) {
-        let l_z = self.latency_stddev().and_then(|s| {
-            (s > 0.0).then(|| (sample.latency_ms as f64 - self.latency_mean) / s)
-        });
-        let r_z = self.retry_stddev().and_then(|s| {
-            (s > 0.0).then(|| (sample.retry_count as f64 - self.retry_mean) / s)
-        });
+        let l_z = self
+            .latency_stddev()
+            .and_then(|s| (s > 0.0).then(|| (sample.latency_ms as f64 - self.latency_mean) / s));
+        let r_z = self
+            .retry_stddev()
+            .and_then(|s| (s > 0.0).then(|| (sample.retry_count as f64 - self.retry_mean) / s));
         (l_z, r_z)
     }
 }
@@ -245,11 +243,23 @@ async fn emit_event(
     now: DateTime<Utc>,
 ) -> ArgoResult<AnomalyEvent> {
     let id = insert_event(
-        pool, worker_id, action_id, action_kind, dimension, observed, baseline, z, threshold, now,
+        pool,
+        worker_id,
+        action_id,
+        action_kind,
+        dimension,
+        observed,
+        baseline,
+        z,
+        threshold,
+        now,
     )
     .await?;
     let (mean, stddev) = if dimension == "latency_ms" {
-        (baseline.latency_mean, baseline.latency_stddev().unwrap_or(0.0))
+        (
+            baseline.latency_mean,
+            baseline.latency_stddev().unwrap_or(0.0),
+        )
     } else {
         (baseline.retry_mean, baseline.retry_stddev().unwrap_or(0.0))
     };

@@ -132,15 +132,13 @@ impl SkillStore {
         })?;
         let target_id_blob = row.id.clone();
         // Point every other row for this name at the target's id.
-        sqlx::query(
-            "UPDATE skill SET superseded_by = ? WHERE name = ? AND id <> ?",
-        )
-        .bind(&target_id_blob)
-        .bind(name)
-        .bind(&target_id_blob)
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("skill promote supersede chain: {e}")))?;
+        sqlx::query("UPDATE skill SET superseded_by = ? WHERE name = ? AND id <> ?")
+            .bind(&target_id_blob)
+            .bind(name)
+            .bind(&target_id_blob)
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("skill promote supersede chain: {e}")))?;
         // Clear the target's own superseded_by so it's the active row.
         sqlx::query("UPDATE skill SET superseded_by = NULL WHERE id = ?")
             .bind(&target_id_blob)
@@ -261,9 +259,8 @@ impl SkillStore {
         .fetch_optional(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("get_min_trust_grade: {e}")))?;
-        let (raw,) = row.ok_or_else(|| {
-            ArgoError::Provider(format!("no active skill named '{name}'"))
-        })?;
+        let (raw,) =
+            row.ok_or_else(|| ArgoError::Provider(format!("no active skill named '{name}'")))?;
         match raw {
             None => Ok(None),
             Some(v) => {
@@ -311,14 +308,12 @@ impl SkillStore {
         session_id: SessionId,
         skill_id: SkillId,
     ) -> ArgoResult<u64> {
-        let res = sqlx::query(
-            "DELETE FROM session_skill WHERE session_id = ? AND skill_id = ?",
-        )
-        .bind(session_id.0.as_bytes().as_slice())
-        .bind(skill_id.0.as_bytes().as_slice())
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("detach_from_session: {e}")))?;
+        let res = sqlx::query("DELETE FROM session_skill WHERE session_id = ? AND skill_id = ?")
+            .bind(session_id.0.as_bytes().as_slice())
+            .bind(skill_id.0.as_bytes().as_slice())
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("detach_from_session: {e}")))?;
         Ok(res.rows_affected())
     }
 

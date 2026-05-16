@@ -30,8 +30,8 @@ fn voice_webhook_valid_twilio_payload_keeps_legacy_response_shape() {
         .spawn()
         .expect("spawn argo gateway start");
     let stderr = child.stderr.take().expect("stderr piped");
-    let _drain = common::listener_signal::await_listener_signal(stderr)
-        .expect("gateway listener signal");
+    let _drain =
+        common::listener_signal::await_listener_signal(stderr).expect("gateway listener signal");
 
     let body = "Digits=1&From=%2B15551234567";
     let url = "http://localhost/twilio/voice/decision";
@@ -49,7 +49,10 @@ fn voice_webhook_valid_twilio_payload_keeps_legacy_response_shape() {
     let mut resp = String::new();
     stream.read_to_string(&mut resp).expect("read response");
 
-    assert!(resp.starts_with("HTTP/1.1 400 Bad Request"), "response: {resp}");
+    assert!(
+        resp.starts_with("HTTP/1.1 400 Bad Request"),
+        "response: {resp}"
+    );
     assert_eq!(
         common::body_of(&resp),
         "{\"error\":\"missing voice callback token\"}"

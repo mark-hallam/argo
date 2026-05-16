@@ -75,18 +75,54 @@ pub fn patterns() -> Vec<Pattern> {
     // any future bad pattern degrades coverage rather than crashing.
     const RAW: &[(&str, &str, &str)] = &[
         ("openai_sk", "OpenAI API key", r"sk-[A-Za-z0-9_\-]{20,}"),
-        ("anthropic_key", "Anthropic API key", r"sk-ant-[A-Za-z0-9_\-]{20,}"),
-        ("aws_access_key_id", "AWS access key id", r"AKIA[0-9A-Z]{16}"),
-        ("stripe_live_secret", "Stripe live key", r"(?:sk|rk)_live_[A-Za-z0-9]{20,}"),
-        ("slack_token", "Slack token", r"xox[abprs]-[A-Za-z0-9-]{10,}"),
+        (
+            "anthropic_key",
+            "Anthropic API key",
+            r"sk-ant-[A-Za-z0-9_\-]{20,}",
+        ),
+        (
+            "aws_access_key_id",
+            "AWS access key id",
+            r"AKIA[0-9A-Z]{16}",
+        ),
+        (
+            "stripe_live_secret",
+            "Stripe live key",
+            r"(?:sk|rk)_live_[A-Za-z0-9]{20,}",
+        ),
+        (
+            "slack_token",
+            "Slack token",
+            r"xox[abprs]-[A-Za-z0-9-]{10,}",
+        ),
         ("github_pat", "GitHub PAT", r"gh[pousr]_[A-Za-z0-9]{36,}"),
-        ("private_key_header", "PEM private-key header", r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY-----"),
-        ("jwt_long", "JWT-shaped token", r"eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}"),
-        ("argo_bearer_token", "Argo gateway bearer token", r"ARGO_GATEWAY_BEARER_TOKEN\s*[:=]\s*[\x22']?[A-Za-z0-9_\-]{16,}"),
-        ("argo_admin_token", "Argo admin token", r"ARGO_ADMIN_TOKEN\s*[:=]\s*[\x22']?[A-Za-z0-9_\-]{16,}"),
+        (
+            "private_key_header",
+            "PEM private-key header",
+            r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY-----",
+        ),
+        (
+            "jwt_long",
+            "JWT-shaped token",
+            r"eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}",
+        ),
+        (
+            "argo_bearer_token",
+            "Argo gateway bearer token",
+            r"ARGO_GATEWAY_BEARER_TOKEN\s*[:=]\s*[\x22']?[A-Za-z0-9_\-]{16,}",
+        ),
+        (
+            "argo_admin_token",
+            "Argo admin token",
+            r"ARGO_ADMIN_TOKEN\s*[:=]\s*[\x22']?[A-Za-z0-9_\-]{16,}",
+        ),
     ];
     RAW.iter()
-        .filter_map(|(id, human, src)| Regex::new(src).ok().map(|regex| Pattern { id, human, regex }))
+        .filter_map(|(id, human, src)| {
+            Regex::new(src)
+                .ok()
+                .map(|regex| Pattern { id, human, regex })
+        })
         .collect()
 }
 
@@ -99,7 +135,14 @@ pub fn redact(s: &str) -> String {
         return "*".repeat(chars.len());
     }
     let head: String = chars.iter().take(4).collect();
-    let tail: String = chars.iter().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    let tail: String = chars
+        .iter()
+        .rev()
+        .take(4)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
     format!("{head}...{tail}")
 }
 
@@ -295,13 +338,18 @@ pub fn scan_paths(
 /// unsuppressed finding survives, so CI can wire this up as a
 /// blocking gate without further glue.
 pub fn run(args: SecretScanArgs) -> ArgoResult<()> {
-    let SecretScanArgs { paths, allowlist, json } = args;
+    let SecretScanArgs {
+        paths,
+        allowlist,
+        json,
+    } = args;
     if paths.is_empty() {
         return Err(ArgoError::Schema(
             "argo security scan-secrets: at least one path required".into(),
         ));
     }
-    let allow_path = allowlist.unwrap_or_else(|| PathBuf::from(".skycot/secret-scan-allowlist.toml"));
+    let allow_path =
+        allowlist.unwrap_or_else(|| PathBuf::from(".skycot/secret-scan-allowlist.toml"));
     let allow = load_allowlist(&allow_path)?;
     let pats = patterns();
     let findings = scan_paths(&paths, &allow, &pats)?;

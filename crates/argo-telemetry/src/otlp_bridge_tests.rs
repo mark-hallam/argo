@@ -57,8 +57,7 @@ fn span_fields_propagate_through_bridge() {
         );
         outer.record("session_id", "sess-1234");
         let _outer_entered = outer.enter();
-        let _inner =
-            tracing::info_span!("inner.span", parent_session = "sess-1234").entered();
+        let _inner = tracing::info_span!("inner.span", parent_session = "sess-1234").entered();
         tracing::info!(event = "child", "nested event");
     });
 }

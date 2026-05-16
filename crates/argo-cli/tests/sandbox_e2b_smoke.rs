@@ -22,7 +22,9 @@ const TEST_TEMPLATE: &str = "browser";
 const REQUEST_TIMEOUT_SECS: u32 = 30;
 
 fn read_env() -> Option<(String, String)> {
-    let key = std::env::var(ARGO_E2B_API_KEY_ENV).ok().filter(|s| !s.is_empty())?;
+    let key = std::env::var(ARGO_E2B_API_KEY_ENV)
+        .ok()
+        .filter(|s| !s.is_empty())?;
     let base_url =
         std::env::var(ARGO_E2B_BASE_URL_ENV).unwrap_or_else(|_| DEFAULT_BASE_URL.to_owned());
     Some((key, base_url))
@@ -32,9 +34,7 @@ fn read_env() -> Option<(String, String)> {
 #[ignore = "real E2B call — set ARGO_E2B_API_KEY to opt in"]
 async fn reap_idle_with_max_age_zero_closes_freshly_opened_sandbox() {
     let Some((api_key, base_url)) = read_env() else {
-        eprintln!(
-            "skipping: {ARGO_E2B_API_KEY_ENV} unset; see test docstring for how to enable"
-        );
+        eprintln!("skipping: {ARGO_E2B_API_KEY_ENV} unset; see test docstring for how to enable");
         return;
     };
 

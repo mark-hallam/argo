@@ -1,9 +1,7 @@
 //! Unit tests for the L3 backfill primitive.
-use super::{
-    BACKFILL_ENTRY_NODE_ID, BACKFILL_SOURCE, BackfillStatus, backfill, synthesize_graph,
-};
-use crate::ir::store::{SkillIrStore as _, SqliteSkillIrStore, ensure_schema};
-use crate::ir::{NodeKind, NodePolicy, canonical_hash};
+use super::{backfill, synthesize_graph, BackfillStatus, BACKFILL_ENTRY_NODE_ID, BACKFILL_SOURCE};
+use crate::ir::store::{ensure_schema, SkillIrStore as _, SqliteSkillIrStore};
+use crate::ir::{canonical_hash, NodeKind, NodePolicy};
 use crate::skill::{LifecycleState, Provenance, Skill, SkillFrontmatter};
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};

@@ -160,7 +160,10 @@ pub(super) async fn steer_response(
         );
     };
     if let Ok(None) = store.get_session(id).await {
-        return ("404 Not Found", format!("{{\"error\":\"no session {sid}\"}}"));
+        return (
+            "404 Not Found",
+            format!("{{\"error\":\"no session {sid}\"}}"),
+        );
     }
     let content = serde_json::json!([{
         "type": "text",
@@ -170,10 +173,7 @@ pub(super) async fn steer_response(
         .append_message(id, MessageRole::System, &content.to_string())
         .await
     {
-        Ok(msg_id) => (
-            "201 Created",
-            format!("{{\"message_id\":\"{msg_id}\"}}"),
-        ),
+        Ok(msg_id) => ("201 Created", format!("{{\"message_id\":\"{msg_id}\"}}")),
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"steer: {e}\"}}"),
