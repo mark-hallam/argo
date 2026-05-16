@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 pub use crate::sections_audit::AuditConfig;
 pub use crate::sections_budget::{BudgetConfig, DelegateConfig, ParallelConfig};
 pub use crate::sections_channels::{
-    ChannelsConfig, MatrixTomlConfig, TeamsTomlConfig, WebInboxTomlConfig,
+    ChannelsConfig, MatrixTomlConfig, TeamsTomlConfig, VoiceTomlConfig, WebInboxTomlConfig,
 };
 pub use crate::sections_core::{CoreConfig, LoopConfig, PluginConfig, TenantConfig};
 pub use crate::sections_executor::{DocumentCsvConfig, DocumentGsuiteConfig};

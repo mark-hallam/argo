@@ -82,7 +82,7 @@ pub use sections::{
     RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
     SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant,
     StorageConfig, StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig,
-    WebInboxTomlConfig,
+    VoiceTomlConfig, WebInboxTomlConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, AnomalyAlertingConfig, ContextCompressConfig,

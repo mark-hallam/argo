@@ -1,14 +1,14 @@
 //! Messaging-channel config sections: `[channels]`,
-//! `[channels.teams]`, `[channels.matrix]`. Extracted from
+//! `[channels.teams]`, `[channels.matrix]`, `[channels.voice]`. Extracted from
 //! [`crate::sections`] to keep that module under the 500-LOC ceiling.
 //! Re-exported through `sections` so the public API is unchanged.
 use crate::defaults;
 use serde::{Deserialize, Serialize};
 
 /// `[channels]` — parent for per-channel TOML config blocks.
-/// Today `[channels.teams]` and `[channels.matrix]`; sibling blocks
-/// land here as other channels (slack, discord, whatsapp, etc.) move
-/// off env-only configuration.
+/// Today `[channels.teams]`, `[channels.matrix]`, `[channels.voice]`;
+/// sibling blocks land here as other channels (slack, discord,
+/// whatsapp, etc.) move off env-only configuration.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChannelsConfig {
@@ -18,6 +18,8 @@ pub struct ChannelsConfig {
     pub matrix: MatrixTomlConfig,
     /// `[channels.webinbox]`.
     pub webinbox: WebInboxTomlConfig,
+    /// `[channels.voice]`.
+    pub voice: VoiceTomlConfig,
 }
 
 /// `[channels.webinbox]` — browser inbox defaults.
@@ -99,5 +101,66 @@ impl Default for MatrixTomlConfig {
             access_token_env: defaults::DEFAULT_MATRIX_ACCESS_TOKEN_ENV.into(),
             default_room_id: None,
         }
+    }
+}
+
+/// `[channels.voice]` — Twilio (or Plivo, in v1.x) outbound voice
+/// approval calls. Mirrors the `[channels.teams]` env-indirect
+/// pattern: the TOML carries non-secret identifiers (account SID,
+/// from-number, provider name) and a `*_env` field naming the env
+/// var that holds the actual auth token. Operators rotate secrets
+/// without editing config.
+///
+/// Today the dispatcher (`worker_actions_notify_voice`) still reads
+/// the Twilio credentials directly from env so that the same
+/// `TWILIO_*` setup that backs SMS continues to work; this block
+/// exists so the auto-approval gate (and future config-driven
+/// channel registry) can discover that voice is enabled and which
+/// env var to consult.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VoiceTomlConfig {
+    /// Master enable. Defaults to `false` — opt-in.
+    pub enabled: bool,
+    /// Provider id (`twilio` in v1; `plivo` and `vonage` are
+    /// DEFERRED-v1.x).
+    pub provider: String,
+    /// Twilio Account SID (`AC…`). Non-secret; safe to commit.
+    pub account_sid: String,
+    /// Env var name holding the provider auth token.
+    pub auth_token_env: String,
+    /// Twilio caller phone number (E.164, e.g. `+15551234567`).
+    pub from_number: String,
+}
+
+impl Default for VoiceTomlConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            provider: defaults::DEFAULT_VOICE_PROVIDER.into(),
+            account_sid: String::new(),
+            auth_token_env: defaults::DEFAULT_VOICE_AUTH_TOKEN_ENV.into(),
+            from_number: String::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod voice_config_tests {
+    #[test]
+    fn voice_toml_config_parses_with_defaults() {
+        let cfg = crate::ArgoConfig::from_toml(
+            "[channels.voice]\n\
+             enabled = true\n\
+             account_sid = \"AC123\"\n\
+             from_number = \"+15550000000\"\n",
+        )
+        .unwrap();
+
+        assert!(cfg.channels.voice.enabled);
+        assert_eq!(cfg.channels.voice.provider, "twilio");
+        assert_eq!(cfg.channels.voice.account_sid, "AC123");
+        assert_eq!(cfg.channels.voice.auth_token_env, "TWILIO_AUTH_TOKEN");
+        assert_eq!(cfg.channels.voice.from_number, "+15550000000");
     }
 }

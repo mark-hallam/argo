@@ -55,6 +55,8 @@ mod notify_slack;
 mod notify_sms;
 #[path = "worker_actions_notify_sse.rs"]
 mod notify_sse;
+#[path = "worker_actions_notify_voice.rs"]
+mod notify_voice;
 
 /// `.skycot/notify.toml` — workspace-level approval-notification
 /// config. Loaded once per `AutoApprovalDecision::Ask` dispatch.
@@ -316,8 +318,11 @@ impl NotifySender for EnvChannelSender {
             "discord" => notify_discord::send_discord(n).await,
             "chat" => notify_chat::send_chat(n).await,
             "sse" => notify_sse::send_sse(n).await,
+            "voice" => notify_voice::send_voice(ref_, n).await,
             other => Err(format!(
-                "channel kind '{other}' is not supported by dispatch_notify"
+                "channel kind '{other}' is not supported by dispatch_notify \
+                 (v1 channels: push, webinbox, slack, email, sms, discord, chat, sse, voice; \
+                 DEFERRED-v1.x: imessage, whatsapp, teams, matrix)"
             )),
         }
     }

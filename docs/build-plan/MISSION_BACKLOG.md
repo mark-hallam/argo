@@ -282,8 +282,8 @@ unblocks a mission claim.
 
 115. Wire outbound notify on Decision::Ask.
      `[SHIPPED]`
-116. Add `is_imessage_webhook` to gateway dispatcher. `[BRIEF: mission-imessage-webhook-dispatcher]`
-117. Move voice route into channels dispatcher consistency. `[BRIEF: mission-voice-route-consistency]`
+116. Add `is_imessage_webhook` to gateway dispatcher. `[BRIEF: mission-imessage-webhook-dispatcher — DEFERRED-v1.x; auto-approval dispatcher does not route iMessage for v1 (codex-channel-dispatcher-voice-completion)]`
+117. Move voice route into channels dispatcher consistency. `[SHIPPED — codex-channel-dispatcher-voice-completion wired voice into EnvChannelSender; inbound gateway route already in routes_channels_voice.rs]`
 118. Implement multi-step approval N-of-M.
      `[BRIEF: codex-multi-step-approval — DEFERRED-v1.x]`
 119. Build Discord channel.
@@ -295,9 +295,9 @@ unblocks a mission claim.
 123. Replace `setInterval(reload, 5000)` with real WebSocket on
      `/inbox/ws`. `[SHIPPED — E1-f #1420 (ManagedWebSocket + useApprovalsLive); J3 #1418 (structured event protocol). No setInterval reload remains in web/.]`
 124. Add Telegram channel. `[BRIEF: mission-mcp-connector-telegram]`
-125. Add Microsoft Teams channel. `[BRIEF: mission-channel-microsoft-teams]`
+125. Add Microsoft Teams channel. `[BRIEF: mission-channel-microsoft-teams — DEFERRED-v1.x; Teams impl + config exist but auto-approval dispatcher does not route Teams for v1 (codex-channel-dispatcher-voice-completion)]`
 126. Add Signal channel. `[BRIEF: mission-mcp-connector-signal]`
-127. Add Matrix channel. `[BRIEF: mission-channel-matrix]`
+127. Add Matrix channel. `[BRIEF: mission-channel-matrix — DEFERRED-v1.x; Matrix impl + config exist but auto-approval dispatcher does not route Matrix for v1 (codex-channel-dispatcher-voice-completion)]`
 128. Build approval-bundle UI. `[BRIEF: mission-approval-bundle-ui]`
 129. Build approval-policy UI. `[BRIEF: mission-approval-policy-ui]`
 130. Add escalation-on-no-reply. `[BRIEF: mission-escalation-on-no-reply]`

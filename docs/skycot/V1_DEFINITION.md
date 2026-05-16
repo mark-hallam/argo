@@ -243,11 +243,29 @@ For each of the 6 claims: what code/tracks deliver it + gaps.
 ### Claim 6 — Multi-channel approval gates
 
 **Delivering**:
-- NotifyChannel trait (`argo-channels`) + 8 channel implementations
+- NotifyChannel trait (`argo-channels`) + 9 channel implementations
 - E1 approvals SPA (6 sub-briefs all MERGED)
 - M8 multi-channel approval routing composition (TODO)
 
-**Gaps**: M8 not yet shipped — without it, the "Slack→SMS→email fallback" composition isn't operator-editable. SAML signature verification (mission-sso-saml-xml-dsig-verify) BLOCKED on SSO gateway dependency.
+**Claim 6 v1 channels (dispatchable through `EnvChannelSender`)**:
+
+| Channel    | Status   | Notes                                                          |
+| ---------- | -------- | -------------------------------------------------------------- |
+| email      | v1       | SMTP transport                                                 |
+| slack      | v1       | webhook                                                        |
+| sms        | v1       | Twilio Messages.json                                           |
+| push       | v1       | argo-channels push                                             |
+| voice      | v1       | Twilio Calls.json + TwiML DTMF gather (signed callback URL)    |
+| web        | v1       | webinbox                                                       |
+| imessage   | DEFERRED-v1.x | Implementation exists but auto-approval dispatcher does NOT route it; treat as not-shipped for v1. |
+| whatsapp   | DEFERRED-v1.x | As above — not dispatcher-wired for v1.                    |
+| teams      | DEFERRED-v1.x | TOML config + channel impl exist; not auto-approval-wired. |
+| matrix     | DEFERRED-v1.x | TOML config + channel impl exist; not auto-approval-wired. |
+
+Additional dispatchable transports outside Claim 6: Discord webhook,
+generic chat webhook, and SSE sink.
+
+**Gaps**: M8 not yet shipped — without it, the "Slack→SMS→email fallback" composition isn't operator-editable. iMessage / WhatsApp / Teams / Matrix are explicitly DEFERRED-v1.x: their channel implementations and inbound webhooks exist, but the auto-approval `EnvChannelSender` returns "channel kind not supported" for them by design, so Claim 6 v1 only claims the six mission channels above. SAML signature verification (mission-sso-saml-xml-dsig-verify) BLOCKED on SSO gateway dependency.
 
 ## 7. Documented gaps (for the audit to verify)
 

@@ -236,6 +236,18 @@ pub const DEFAULT_MATRIX_ACCESS_TOKEN_ENV: &str = "ARGO_MATRIX_ACCESS_TOKEN";
 /// override per-tenant.
 pub const DEFAULT_MATRIX_HOMESERVER_URL: &str = "https://matrix.org";
 
+// --- [channels.voice] -----------------------------------------------
+
+/// `channels.voice.auth_token_env` default — env var the operator
+/// populates with the Twilio account auth token. Mirrors the SMS /
+/// Teams env-indirect pattern (no plaintext secrets in `argo.toml`).
+pub const DEFAULT_VOICE_AUTH_TOKEN_ENV: &str = "TWILIO_AUTH_TOKEN";
+
+/// `channels.voice.provider` default — Twilio is the v1 reference
+/// provider for outbound voice approval calls. Plivo and Vonage may
+/// land as additional providers in v1.x.
+pub const DEFAULT_VOICE_PROVIDER: &str = "twilio";
+
 // --- [loop] ----------------------------------------------------------
 
 /// `document_csv.output_root` default — sandbox root for the

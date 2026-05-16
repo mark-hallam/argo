@@ -32,10 +32,13 @@ LOC: ~300.
 ## Files you may touch
 
 - `crates/argo-cli/src/handlers/worker_actions_notify.rs` — add voice arm; update error message to list deferred-channel names explicitly. ≤30 modified lines.
-- `crates/argo-cli/src/handlers/notify_voice.rs` (NEW) — thin module wrapping `argo-channels::voice::send`. ≤80 LOC.
+- `crates/argo-cli/src/handlers/worker_actions_notify_voice.rs` (NEW) — thin module wrapping `argo-channels::voice::VoiceApprovalChannel`. ≤80 LOC.
 - `crates/argo-channels/src/voice.rs` — narrowly: ensure `send_voice(ref, n)` is the public outbound entrypoint at `:154` or expose it. ≤30 modified lines.
-- `crates/argo-config/src/sections.rs` — `[channels.voice]` config block (provider, account_sid, auth_token_env, from_number). ≤30 modified lines.
-- `crates/argo-cli/src/handlers/notify_voice_tests.rs` (NEW) — mock-provider outbound test. ≤80 LOC.
+- `crates/argo-config/src/sections.rs` — re-export the split channel config type. ≤5 modified lines.
+- `crates/argo-config/src/sections_channels.rs` — `[channels.voice]` config block (provider, account_sid, auth_token_env, from_number). ≤80 modified lines.
+- `crates/argo-config/src/defaults.rs` — voice config default constants. ≤15 modified lines.
+- `crates/argo-config/src/lib.rs` — public re-export for `VoiceTomlConfig`. ≤5 modified lines.
+- `crates/argo-cli/src/handlers/worker_actions_notify_tests_env_channels.rs` — mock-provider outbound tests for the EnvChannelSender arm. ≤80 modified lines.
 - `crates/argo-cli/tests/voice_approval_roundtrip.rs` (NEW) — integration test for voice approval round-trip (mocked Twilio webhook). ≤120 LOC.
 - `docs/skycot/V1_DEFINITION.md` — narrowly: claim 6 channel status table (v1 vs v1.x split). ≤20 modified lines.
 - `docs/build-plan/MISSION_BACKLOG.md` — lines 285/286/298/300 status updates. ≤10 modified lines.

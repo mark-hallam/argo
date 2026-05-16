@@ -150,3 +150,62 @@ async fn sse_posts_notify_ask_event() {
     assert!(req.contains("\"event\":\"notify_ask\""));
     assert!(req.contains("\"channel\":\"sse\""));
 }
+
+#[tokio::test]
+async fn voice_missing_env_names_var() {
+    let _guard = env_guard().await;
+    clear_env(&[
+        "TWILIO_ACCOUNT_SID",
+        "TWILIO_VOICE_FROM_NUMBER",
+        "TWILIO_FROM_NUMBER",
+        "ARGO_TWILIO_VOICE_DECISION_URL",
+        "ARGO_CHANNEL_HMAC_SECRET",
+        "TWILIO_API_BASE_URL",
+    ]);
+    let err = send_env_channel("voice", "+15551234567").await.unwrap_err();
+    assert!(err.contains("voice not configured"));
+    assert!(err.contains("TWILIO_ACCOUNT_SID"));
+}
+
+#[tokio::test]
+async fn voice_empty_target_is_rejected() {
+    let _guard = env_guard().await;
+    let err = send_env_channel("voice", "").await.unwrap_err();
+    assert!(err.contains("voice not configured"));
+    assert!(err.contains("operator E.164"));
+}
+
+#[tokio::test]
+async fn voice_posts_to_twilio() {
+    let _guard = env_guard().await;
+    let (url, handle) = http_mock("201 Created", r#"{"sid":"CA456","status":"queued"}"#).await;
+    std::env::set_var("TWILIO_ACCOUNT_SID", "AC123");
+    std::env::set_var("TWILIO_AUTH_TOKEN", "token");
+    std::env::set_var("TWILIO_VOICE_FROM_NUMBER", "+15550000000");
+    std::env::set_var(
+        "ARGO_TWILIO_VOICE_DECISION_URL",
+        "https://gw.example.com/twilio/voice/decision",
+    );
+    std::env::set_var("ARGO_CHANNEL_HMAC_SECRET", "secret");
+    std::env::set_var("TWILIO_API_BASE_URL", url);
+    send_env_channel("voice", "+15551234567").await.unwrap();
+    let req = handle.await.unwrap();
+    assert!(req.starts_with("POST /2010-04-01/Accounts/AC123/Calls.json "));
+    assert!(req.contains("authorization: Basic") || req.contains("Authorization: Basic"));
+    assert!(req.contains("To=%2B15551234567"));
+    assert!(req.contains("From=%2B15550000000"));
+    assert!(req.contains("Twiml="));
+    assert!(req.contains("dtmf"));
+}
+
+#[tokio::test]
+async fn voice_unsupported_kind_error_lists_deferred_set() {
+    let _guard = env_guard().await;
+    let err = send_env_channel("imessage", "+15551234567")
+        .await
+        .unwrap_err();
+    assert!(err.contains("not supported"));
+    assert!(err.contains("imessage"));
+    assert!(err.contains("DEFERRED-v1.x"));
+    assert!(err.contains("voice"));
+}
