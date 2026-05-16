@@ -20,10 +20,18 @@ These five are the spec. Anything that violates them is a bug.
 
 ## Running a worker (SKYCOT)
 
-Argo also ships **SKYCOT** — the commercial worker layer for running role-bound, evidence-aware, approval-gated AI workers. If you came here to operate a worker (not extend the platform), start with the operator-facing docs:
+Argo also ships **SKYCOT** — the commercial worker layer for running role-bound, evidence-aware, approval-gated AI workers. The product is a hosted SaaS at [`app.skycot.com`](https://app.skycot.com); the CLI path below is for engineers and contributors running the binary directly.
 
+**Customer path (hosted, no install):**
+
+- [`skycot.com`](https://skycot.com) — landing page; sign up and the onboarding wizard walks you to your first hired worker in under 10 minutes.
+- [`docs/skycot/getting_started.md`](docs/skycot/getting_started.md) — SPA-first walkthrough: signup → workspace → provider → vertical pick → first hire → first approval.
 - [`docs/skycot/README.md`](docs/skycot/README.md) — what SKYCOT is + safety boundaries.
-- [`docs/skycot/getting_started.md`](docs/skycot/getting_started.md) — 10-minute path from install to your first approved + executed action.
+
+**Developer / contributor path (local CLI):**
+
+- [`docs/skycot/developer/cli-getting-started.md`](docs/skycot/developer/cli-getting-started.md) — install the binary, init a workspace, drive a worker job through the approval ledger from the terminal.
+- [`docs/skycot/developer/README.md`](docs/skycot/developer/README.md) — developer doc index (CLI, plugin ABI, contributing).
 - [`docs/skycot/demo_script.md`](docs/skycot/demo_script.md) — marketplace-seller end-to-end demo.
 - [`docs/skycot/operator_runbook.md`](docs/skycot/operator_runbook.md) — full `argo worker actions` CLI reference + ledger artifact map.
 - [`scripts/smoke-skycot.sh`](scripts/smoke-skycot.sh) — end-to-end mock-mode smoke test (no API key needed); companion [`scripts/smoke-skycot-real-llm.sh`](scripts/smoke-skycot-real-llm.sh) drives the same path against a real provider (Anthropic or OpenAI), skip-with-exit-0 when no key is set.

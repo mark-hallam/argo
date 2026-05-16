@@ -15,6 +15,16 @@ reviews + merges + replenishes the queue.
 AND `./scripts/smoke-skycot.sh` passes including BrowserExecutor +
 Slack-approval scenarios.
 
+**Customer path is SPA-first.** As of Wave 3 (2026-05-16), the
+customer-facing onboarding starts at `skycot.com → signup → 5-step
+onboarding wizard` and is documented at
+[`docs/skycot/getting_started.md`](../skycot/getting_started.md).
+The legacy CLI walkthrough (`argo setup → workspace init`) is
+preserved for engineers and contributors at
+[`docs/skycot/developer/cli-getting-started.md`](../skycot/developer/cli-getting-started.md).
+Briefs that touch user-facing docs should default to SPA-first
+framing.
+
 ## Read in this order (5 files, ~20 min)
 
 1. **`docs/build-plan/BUILD_STATUS.md` — first ~90 lines.** The live
