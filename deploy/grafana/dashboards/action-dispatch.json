@@ -1,0 +1,90 @@
+{
+  "uid": "skycot-action-dispatch",
+  "title": "SKYCOT — Action dispatch",
+  "tags": ["skycot", "actions", "dispatch"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      },
+      {
+        "name": "kind",
+        "label": "Kind",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+        "query": "label_values(action_dispatch_total, kind)",
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2
+      }
+    ]
+  },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Dispatch count per minute (by kind)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(action_dispatch_total{kind=~\"$kind\"}[1m]))",
+          "legendFormat": "{{kind}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Success rate (5m, per kind)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(action_dispatch_total{kind=~\"$kind\",status=\"ok\"}[5m])) / clamp_min(sum by (kind) (rate(action_dispatch_total{kind=~\"$kind\"}[5m])), 1)",
+          "legendFormat": "{{kind}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Dispatch latency p95 (by kind)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (kind, le) (rate(action_dispatch_duration_seconds_bucket{kind=~\"$kind\"}[5m])))",
+          "legendFormat": "{{kind}}"
+        }
+      ]
+    }
+  ]
+}

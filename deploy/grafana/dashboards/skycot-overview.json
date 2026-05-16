@@ -1,0 +1,162 @@
+{
+  "uid": "skycot-overview",
+  "title": "SKYCOT overview",
+  "tags": ["skycot", "overview", "red"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Gateway request rate (req/s)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(gateway_request_total[1m]))",
+          "legendFormat": "req/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Error rate (5xx / total, 5m)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.005 },
+              { "color": "red", "value": 0.01 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(gateway_request_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(gateway_request_total[5m])), 1)",
+          "legendFormat": "err"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active tenants (5m)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "refId": "A", "expr": "tenant_active_count", "legendFormat": "active" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Signups (last hour)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(tenant_signup_total[1h])",
+          "legendFormat": "signups/hr"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Request latency (p50 / p95 / p99)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(gateway_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(gateway_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(gateway_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Request rate by status class",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(gateway_request_total[1m]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Workflow cron failure rate",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (rate(workflow_cron_tick_total{status=\"error\"}[5m]))",
+          "legendFormat": "{{name}} errors"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (name) (rate(workflow_cron_tick_total[5m]))",
+          "legendFormat": "{{name}} total"
+        }
+      ]
+    }
+  ]
+}

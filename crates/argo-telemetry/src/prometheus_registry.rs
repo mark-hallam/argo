@@ -238,6 +238,143 @@ fn register_or_existing<C: prometheus::core::Collector + Clone + 'static>(
     }
 }
 
+/// Histogram buckets for action-dispatch latency. Coarser than the
+/// gateway-request ladder because action dispatch (email send, slack
+/// post, voice-call setup) crosses external services and dwells in
+/// the seconds range, not milliseconds.
+pub const ACTION_DISPATCH_DURATION_BUCKETS: &[f64] =
+    &[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0];
+
+/// Histogram buckets for provider-call latency. Providers vary widely;
+/// the upper bound (120s) matches the gateway streaming-deadline policy.
+pub const PROVIDER_CALL_DURATION_BUCKETS: &[f64] =
+    &[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
+
+/// `action_dispatch_total{kind, status}` — counter incremented on every
+/// channel-dispatcher action attempt. `status` is `ok|error`. `kind` is
+/// the dispatcher kind id (email, slack, voice, push, …).
+#[must_use]
+pub fn action_dispatch_total() -> IntCounterVec {
+    register_counter(
+        "action_dispatch_total",
+        "Action-dispatch attempts, labelled by kind and outcome (ok|error)",
+        &["kind", "status"],
+    )
+}
+
+/// `action_dispatch_duration_seconds{kind}` — histogram of dispatch
+/// latency, observed on every action attempt (success or failure).
+#[must_use]
+pub fn action_dispatch_duration() -> HistogramVec {
+    register_histogram(
+        "action_dispatch_duration_seconds",
+        "Action-dispatch latency in seconds, labelled by kind",
+        ACTION_DISPATCH_DURATION_BUCKETS,
+        &["kind"],
+    )
+}
+
+/// `provider_call_duration_seconds{provider, model}` — provider-call
+/// latency histogram. Sibling to the existing `provider_call_total`
+/// counter exposed by `routes_openmetrics`.
+#[must_use]
+pub fn provider_call_duration() -> HistogramVec {
+    register_histogram(
+        "provider_call_duration_seconds",
+        "Provider transport latency in seconds, labelled by provider and model",
+        PROVIDER_CALL_DURATION_BUCKETS,
+        &["provider", "model"],
+    )
+}
+
+/// `tenant_active_count` — gauge of tenants with at least one
+/// session in the last 5 minutes. Operator-set at scrape time from a
+/// store query.
+#[must_use]
+pub fn tenant_active_count() -> GenericGauge<AtomicI64> {
+    register_scalar_gauge(
+        "tenant_active_count",
+        "Tenants with at least one active session in the rolling 5-minute window",
+    )
+}
+
+/// `tenant_signup_total` — counter incremented on every new tenant
+/// signup. The `signup-rate-spike` Alertmanager rule uses
+/// `rate(tenant_signup_total[5m])` against a 1-hour baseline.
+#[must_use]
+pub fn tenant_signup_total() -> GenericCounter<AtomicU64> {
+    register_scalar_counter(
+        "tenant_signup_total",
+        "Total tenant signups since gateway boot",
+    )
+}
+
+/// `audit_rows_written_total` — counter incremented after every
+/// successful audit-record append. Feeds `audit-rows-per-second`
+/// dashboard panel via `rate(audit_rows_written_total[1m])`.
+#[must_use]
+pub fn audit_rows_written_total() -> GenericCounter<AtomicU64> {
+    register_scalar_counter(
+        "audit_rows_written_total",
+        "Audit-record rows written since gateway boot",
+    )
+}
+
+/// `audit_chain_verify_total{result}` — counter incremented on every
+/// chain-verify run. `result` is `ok|broken`. The verify-pass-rate
+/// dashboard panel uses `rate(audit_chain_verify_total{result="ok"}[5m])
+/// / rate(audit_chain_verify_total[5m])`.
+#[must_use]
+pub fn audit_chain_verify_total() -> IntCounterVec {
+    register_counter(
+        "audit_chain_verify_total",
+        "Audit-chain verify-all runs, labelled by result (ok|broken)",
+        &["result"],
+    )
+}
+
+/// `workflow_cron_tick_total{name, status}` — counter incremented on
+/// every cron-driven workflow tick. `status` is `ok|error`. The
+/// cron-failure-rate dashboard panel uses
+/// `rate(workflow_cron_tick_total{status="error"}[5m])`.
+#[must_use]
+pub fn workflow_cron_tick_total() -> IntCounterVec {
+    register_counter(
+        "workflow_cron_tick_total",
+        "Cron-driven workflow ticks, labelled by workflow name and outcome (ok|error)",
+        &["name", "status"],
+    )
+}
+
+/// Materialise zero-valued init children for the production-metric
+/// families so the first scrape after gateway boot already lists every
+/// expected `# HELP` / `# TYPE` line. Prometheus elides empty families
+/// from the text exposition, so without this step an idle gateway
+/// scrapes empty and the dashboards/alerts see no metric until the
+/// first emission.
+///
+/// Idempotent — the `OnceLock` keeps the cost off the per-scrape path
+/// and the underlying `register_*` helpers are duplicate-safe anyway.
+pub fn ensure_production_metrics_registered() {
+    static REGISTERED: OnceLock<()> = OnceLock::new();
+    REGISTERED.get_or_init(|| {
+        action_dispatch_total()
+            .with_label_values(&["init", "init"])
+            .inc_by(0);
+        let _ = action_dispatch_duration().with_label_values(&["init"]);
+        let _ = provider_call_duration().with_label_values(&["init", "init"]);
+        tenant_active_count().set(0);
+        tenant_signup_total().inc_by(0);
+        audit_rows_written_total().inc_by(0);
+        audit_chain_verify_total()
+            .with_label_values(&["init"])
+            .inc_by(0);
+        workflow_cron_tick_total()
+            .with_label_values(&["init", "init"])
+            .inc_by(0);
+    });
+}
+
 #[cfg(test)]
 #[path = "prometheus_registry_tests.rs"]
 mod tests;

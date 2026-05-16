@@ -1,0 +1,32 @@
+# Prometheus scrape configuration for the SKYCOT gateway.
+#
+# The gateway exposes Prometheus exposition at two paths:
+#   /metrics      — SQL-derived gauges + registry-driven production
+#                   families (action/tenant/audit/workflow/provider).
+#                   Single scrape target; recommended.
+#   /openmetrics  — registry-only view (gateway/rate-limit/provider).
+#                   Optional; remove the second job to skip.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    deployment: skycot
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+scrape_configs:
+  - job_name: skycot-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gateway:8080"]
+        labels: { service: gateway }
+  - job_name: skycot-gateway-openmetrics
+    metrics_path: /openmetrics
+    honor_labels: true
+    static_configs:
+      - targets: ["gateway:8080"]
+        labels: { service: gateway }

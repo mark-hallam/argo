@@ -1,0 +1,71 @@
+# Prometheus alerting rules consumed by Alertmanager.
+#
+# Severity convention: `page` routes to PagerDuty (optional v1; ignored
+# if PD integration not configured), `slack` routes to the SKYCOT
+# operator Slack channel.
+groups:
+  - name: skycot-reliability
+    interval: 30s
+    rules:
+      - alert: GatewayErrorRateHigh
+        expr: |
+          sum(rate(gateway_request_total{status=~"5.."}[5m]))
+            /
+          clamp_min(sum(rate(gateway_request_total[5m])), 1)
+            > 0.01
+        for: 5m
+        labels:
+          severity: page
+          team: skycot
+        annotations:
+          summary: "Gateway 5xx error rate >1% over 5m"
+          description: "Error ratio is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: ProviderLatencyP99High
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (provider, le) (rate(provider_call_duration_seconds_bucket[5m]))
+          ) > 30
+        for: 10m
+        labels:
+          severity: slack
+          team: skycot
+        annotations:
+          summary: "Provider p99 latency >30s ({{ $labels.provider }})"
+          description: "p99 latency for provider {{ $labels.provider }} is {{ $value }}s."
+
+      - alert: SignupRateSpike
+        expr: |
+          rate(tenant_signup_total[5m])
+            >
+          on() (avg_over_time(rate(tenant_signup_total[5m])[1h:5m]) * 10 + 0.01)
+        for: 5m
+        labels:
+          severity: slack
+          team: skycot
+        annotations:
+          summary: "Signup rate >10x baseline"
+          description: "5m signup rate {{ $value }}/s exceeds 10x the trailing-hour baseline. Could indicate viral moment or DoS."
+
+      - alert: TenantSpendBurnRateHigh
+        expr: |
+          sum by (tenant_id) (rate(provider_cost_micros_total[5m])) * 3600 / 1e6
+            > 100
+        for: 10m
+        labels:
+          severity: slack
+          team: skycot
+        annotations:
+          summary: "Tenant spend >$100/hr ({{ $labels.tenant_id }})"
+          description: "Projected hourly spend for tenant {{ $labels.tenant_id }} is ${{ $value }}."
+
+      - alert: AuditChainBroken
+        expr: argo_audit_chain_ok == 0
+        for: 1m
+        labels:
+          severity: page
+          team: skycot
+        annotations:
+          summary: "Audit chain integrity check failed"
+          description: "argo_audit_chain_ok dropped to 0; verify_all reports {{ $value }} breaks."

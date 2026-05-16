@@ -15,7 +15,19 @@
 //! Sibling modules share the per-file 500-LOC budget:
 //!   - `metrics_text`: SQL→Prometheus text helpers used here.
 //!   - `metrics_json`: the JSON variant served at `/metrics/json`.
+//!
+//! The brief-specified production metric families
+//! (`action_dispatch_*`, `provider_call_duration_*`, `tenant_*`,
+//! `audit_rows_written_*`, `audit_chain_verify_*`,
+//! `workflow_cron_tick_*`) live in the process-wide
+//! `argo_telemetry::prometheus_registry`. They are appended to
+//! `/metrics` via `prometheus_registry::encode_text` so a single
+//! scrape target gets both the legacy SQL-derived gauges and the
+//! registry-driven families. The parallel `/openmetrics` route
+//! continues to serve the registry-only view for operators that
+//! prefer scraping the registry surface alone.
 use argo_store::SessionStore;
+use argo_telemetry::prometheus_registry;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -67,6 +79,10 @@ pub(super) fn uptime_seconds() -> u64 {
 /// query are surfaced as `# error: …` comment lines + a `0`
 /// fallback so a partial DB never breaks the whole scrape.
 pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
+    // Lazy idempotent registration. Materialises zero-valued init
+    // children so the brief-specified families surface on the very
+    // first scrape even before any callsite emits.
+    prometheus_registry::ensure_production_metrics_registered();
     let scrape_n = next_scrape_n();
     let mut out = String::with_capacity(1024);
     let _ = writeln!(
@@ -97,6 +113,7 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
              # TYPE argo_store_available gauge\n\
              argo_store_available 0"
         );
+        append_registry_text(&mut out);
         return out;
     };
     let _ = writeln!(
@@ -233,7 +250,23 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
             );
         }
     }
+    append_registry_text(&mut out);
     out
+}
+
+/// Append the process-global registry's Prometheus-text exposition to
+/// `out`. The registry's encoder emits its own `# HELP` / `# TYPE`
+/// headers, so the combined result remains a single valid exposition
+/// body. Called from both the store-available and store-unavailable
+/// paths in `render` so the brief-specified production metric families
+/// (action / provider-latency / tenant / audit-write / workflow)
+/// always surface, even if the store hasn't opened.
+fn append_registry_text(out: &mut String) {
+    let registry_text = prometheus_registry::encode_text();
+    if !registry_text.is_empty() {
+        out.push('\n');
+        out.push_str(&registry_text);
+    }
 }
 
 /// Build the full HTTP response (status line + headers + body)
@@ -282,6 +315,26 @@ mod tests {
         assert!(body.contains("argo_build_info{version="));
         assert!(body.contains("argo_store_available 0"));
         assert!(body.contains("# TYPE"));
+    }
+
+    #[tokio::test]
+    async fn render_includes_production_metric_families() {
+        let body = render(None).await;
+        for name in [
+            "action_dispatch_total",
+            "action_dispatch_duration_seconds",
+            "provider_call_duration_seconds",
+            "tenant_active_count",
+            "tenant_signup_total",
+            "audit_rows_written_total",
+            "audit_chain_verify_total",
+            "workflow_cron_tick_total",
+        ] {
+            assert!(
+                body.contains(name),
+                "production metric `{name}` should appear in /metrics body:\n{body}"
+            );
+        }
     }
 
     #[tokio::test]

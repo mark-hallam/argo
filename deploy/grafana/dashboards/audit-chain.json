@@ -1,0 +1,77 @@
+{
+  "uid": "skycot-audit-chain",
+  "title": "SKYCOT — Audit chain health",
+  "tags": ["skycot", "audit"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "1m",
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Chain OK (last scrape)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "BROKEN", "color": "red" }, "1": { "text": "OK", "color": "green" } } }
+          ]
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "argo_audit_chain_ok" } ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Verify pass rate (5m)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(audit_chain_verify_total{result=\"ok\"}[5m])) / clamp_min(sum(rate(audit_chain_verify_total[5m])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Audit rows written per second",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "rate(audit_rows_written_total[1m])", "legendFormat": "rows/s" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Chain breaks (gauge)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "argo_audit_chain_breaks", "legendFormat": "breaks" } ]
+    }
+  ]
+}
