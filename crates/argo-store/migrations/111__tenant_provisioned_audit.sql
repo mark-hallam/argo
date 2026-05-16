@@ -1,0 +1,5 @@
+-- claude-tenant-provisioning-endpoint — documentation-only marker.
+-- The `audit_record.kind` column is a plain TEXT (no enum/CHECK), so a
+-- new variant is enforced in Rust (`argo_audit::AuditKind::TenantProvisioned`,
+-- label `tenant.provisioned`) without a schema change. This file is the
+-- additive marker the stream expected; nothing here runs.

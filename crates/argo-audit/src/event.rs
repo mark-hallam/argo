@@ -154,6 +154,14 @@ pub enum AuditKind {
     /// the development/recovery escape hatch. Payload carries bind,
     /// port, pid, TLS/proxy context, and the source of the bind value.
     GatewayInsecureBind,
+    /// A new tenant (+ owner-linked workspace) was provisioned via
+    /// `POST /api/v1/onboarding/provision` (stream
+    /// `claude-tenant-provisioning-endpoint`). Payload carries
+    /// `tenant_id`, `workspace_id`, `user_id`, `workspace_name`, and
+    /// `created` (false on the idempotent re-call). Distinct from the
+    /// `HttpRequest` row the gateway wrapper also writes so the
+    /// onboarding-funnel verifier can categorise it directly.
+    TenantProvisioned,
 }
 
 impl AuditKind {
@@ -191,6 +199,7 @@ impl AuditKind {
             Self::ApprovalExpiredByTimeout => "approval.expired_by_timeout",
             Self::CrossRegionBlocked => "security.cross_region_blocked",
             Self::GatewayInsecureBind => "gateway_insecure_bind",
+            Self::TenantProvisioned => "tenant.provisioned",
         }
     }
 
@@ -230,6 +239,7 @@ impl AuditKind {
             "approval.expired_by_timeout" => Self::ApprovalExpiredByTimeout,
             "security.cross_region_blocked" => Self::CrossRegionBlocked,
             "gateway_insecure_bind" => Self::GatewayInsecureBind,
+            "tenant.provisioned" => Self::TenantProvisioned,
             _ => return None,
         })
     }
@@ -269,6 +279,7 @@ impl AuditKind {
             Self::ApprovalExpiredByTimeout,
             Self::CrossRegionBlocked,
             Self::GatewayInsecureBind,
+            Self::TenantProvisioned,
         ];
         v.sort_by_key(|k| k.label());
         v

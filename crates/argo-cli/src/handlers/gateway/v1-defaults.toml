@@ -1,0 +1,29 @@
+# claude-tenant-provisioning-endpoint — default workspace config template.
+#
+# This file documents the seed `[provider]` config a freshly-provisioned
+# workspace inherits. The endpoint records the operator's choice
+# (`vertical_id = "gtm-engineer"`) on the audit row and surfaces
+# `next_step = "/onboarding/connect-provider"` so the operator can supply
+# a real API key. The wizard route that persists the key into per-tenant
+# `argo.toml` is a follow-up brief — until then this template is the
+# documented contract the wizard reads.
+#
+# Reference-only: the gateway handler does not include_str! this file.
+# Operators may copy + customise it post-onboarding.
+
+[provider]
+# Anthropic (default — credentials sourced from the operator's environment).
+default = "anthropic"
+
+[provider.anthropic]
+api_key_env = "ANTHROPIC_API_KEY"
+model = "claude-sonnet-4-6"
+
+[provider.openai]
+# Optional second provider. Disabled until the operator supplies a key.
+enabled = false
+api_key_env = "OPENAI_API_KEY"
+model = "gpt-4o-mini"
+
+[workspace]
+vertical_id = "gtm-engineer"

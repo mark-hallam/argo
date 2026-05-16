@@ -172,6 +172,15 @@ async fn dispatch_post_inner(
     {
         return Some(super::routes_ghostwriter::draft_from_prompt_response(req, store).await);
     }
+    // claude-tenant-provisioning-endpoint — self-serve onboarding.
+    // Bearer auth + principal-header validation applied above; the
+    // handler also requires a `human:<email>` principal to scope the
+    // provisioned tenant to the magic-link-verified caller.
+    if req.starts_with("POST /api/v1/onboarding/provision ")
+        || req.starts_with("POST /api/v1/onboarding/provision?")
+    {
+        return Some(super::onboarding_provision::provision_response(req, store).await);
+    }
     if let Some(resp) = super::routes_skill_ir::dispatch_post(req, store).await {
         return Some(resp);
     }

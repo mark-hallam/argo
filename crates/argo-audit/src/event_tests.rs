@@ -110,6 +110,15 @@ fn approval_expired_by_timeout_round_trips_and_listed() {
 }
 
 #[test]
+fn tenant_provisioned_round_trips_and_listed() {
+    let kind = AuditKind::TenantProvisioned;
+    assert_eq!(AuditKind::from_label("tenant.provisioned"), Some(kind));
+    assert_eq!(kind.label(), "tenant.provisioned");
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"tenant.provisioned"));
+}
+
+#[test]
 fn gateway_insecure_bind_round_trips_and_listed() {
     let kind = AuditKind::GatewayInsecureBind;
     assert_eq!(AuditKind::from_label("gateway_insecure_bind"), Some(kind));
