@@ -287,4 +287,83 @@ fn build_system_prompt(action: &ActionRecord, decl: Option<&ActionDeclaration>) 
 
 #[cfg(test)]
 #[path = "worker_actions_executor_cu_macos_tests.rs"]
-mod cu_macos_tests;
+mod cu_macos_current_tests;
+
+#[cfg(test)]
+mod cu_macos_tests {
+    use super::map_macos_outcome;
+    use crate::handlers::worker_actions::ActionRecord;
+    use crate::handlers::worker_actions_executor::{resolve_executor, ActionOutcome, ExecutorKind};
+
+    fn rec_for(action_id: &str, action_type: &str) -> ActionRecord {
+        serde_json::from_value(serde_json::json!({
+            "schema_key": ActionRecord::SCHEMA_KEY, "action_id": action_id,
+            "job_id": "job-cu-macos", "action_type": action_type,
+            "state": "executing", "payload": {"target": "Notes"},
+            "created_at": "2026-05-16T00:00:00Z"
+        }))
+        .expect("valid action record")
+    }
+
+    fn manifest_src(kind: &str) -> String {
+        format!(
+            "schema_version = \"1\"\n\n[vertical]\nid = \"cu-macos-fix\"\n\
+             name = \"cu-macos-fix\"\nversion = \"0.0.1\"\n\n[actions.do_thing]\n\
+             risk = \"low\"\nrequires_approval = false\ndescription = \"x\"\n\
+             executor = {{ kind = \"{kind}\", profile = \"com.apple.Notes\" }}\n"
+        )
+    }
+
+    fn manifest_with_kind(kind: &str) -> argo_vertical::VerticalManifest {
+        argo_vertical::parse(&manifest_src(kind)).expect("manifest parses")
+    }
+
+    #[test]
+    fn dispatch_on_macos_writes_bundle() {
+        let r = rec_for("act-cu-mac-handoff", "do_thing");
+        let cwd = tempfile::tempdir().expect("tempdir");
+        let outcome = argo_executor_computer_use_macos::MacosCuOutcome::HumanHandoff {
+            reason: "Screen Recording missing".into(),
+            steps: Vec::new(),
+        };
+
+        let mapped = map_macos_outcome(&r, cwd.path(), None, outcome).expect("maps");
+        let ActionOutcome::HumanHandoff { bundle_path } = mapped else {
+            panic!("expected HumanHandoff");
+        };
+        let body = std::fs::read_to_string(bundle_path.join("instructions.md"))
+            .expect("instructions.md must exist");
+        assert!(body.contains("computer-use-macos"));
+        assert!(body.contains("Screen Recording missing"));
+        assert!(body.contains(&r.action_id));
+    }
+
+    #[test]
+    fn manifest_hyphen_alias_resolves_to_macos_kind() {
+        let manifest = manifest_with_kind("computer-use-macos");
+        let exec = resolve_executor(&manifest, "do_thing").expect("resolves");
+        assert_eq!(exec.kind(), ExecutorKind::ComputerUseMacOS);
+    }
+
+    #[test]
+    fn manifest_underscore_form_resolves_to_macos_kind() {
+        let manifest = manifest_with_kind("computer_use_macos");
+        let exec = resolve_executor(&manifest, "do_thing").expect("resolves");
+        assert_eq!(exec.kind(), ExecutorKind::ComputerUseMacOS);
+    }
+
+    #[test]
+    fn unknown_kind_with_macos_in_name_does_not_resolve() {
+        let err = argo_vertical::parse(&manifest_src("computer_use_macos_garbage"))
+            .expect_err("unknown kind must not pass strict manifest validation");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("unknown executor kind"),
+            "expected unknown-kind error, got: {msg}"
+        );
+        assert!(
+            msg.contains("computer_use_macos_garbage"),
+            "expected bogus kind in error, got: {msg}"
+        );
+    }
+}
