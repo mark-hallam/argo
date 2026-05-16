@@ -6,12 +6,12 @@ use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
 use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use argo_telemetry::span_context::{enter_context, LogContext};
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::{json, Value};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -158,6 +158,44 @@ pub(super) async fn start(
     let _audit_watchdog = bg_store.map(|s| spawn_audit_watchdog(Arc::clone(s)));
     let _forge_cron = bg_store
         .map(|s| AbortOnDrop::new(spawn_forge_cron(Arc::clone(s), ForgeCronConfig::from_env())));
+    #[rustfmt::skip]
+    let _skill_learning_crons = bg_store.and_then(|s| {
+        let learning_cfg = cfg.skill_learning.clone();
+        if !learning_cfg.enabled { eprintln!("argo gateway: skill learning cron disabled by config"); return None; }
+        let store = Arc::clone(s);
+        Some(AbortOnDrop::new(tokio::spawn(async move {
+            let tenant_filter = match learning_cfg.tenant_filter.as_deref().map(uuid::Uuid::parse_str).transpose() {
+                Ok(v) => v.map(TenantId),
+                Err(e) => { eprintln!("argo gateway: invalid [skill_learning].tenant_filter ({e}); skipping cron"); return; }
+            };
+            let rows = match tenant_filter {
+                Some(t) => sqlx::query_as::<_, (String, String)>(
+                    "SELECT id, tenant_id FROM worker WHERE tenant_id = ? AND archived_at IS NULL",
+                ).bind(t.to_string()).fetch_all(store.pool()).await,
+                None => sqlx::query_as::<_, (String, String)>(
+                    "SELECT id, tenant_id FROM worker WHERE archived_at IS NULL",
+                ).fetch_all(store.pool()).await,
+            };
+            let rows = match rows { Ok(rows) => rows, Err(e) => {
+                tracing::warn!(target: "gateway::skill_learning", error = %e, "list workers failed; cron disabled"); return;
+            }};
+            let skills = Arc::new(argo_skill::SkillStore::new(Arc::clone(&store)));
+            let interval = Duration::from_secs(learning_cfg.interval_secs.max(1));
+            let mut handles = Vec::new();
+            for (worker_raw, tenant_raw) in rows {
+                let (Ok(worker), Ok(tenant)) =
+                    (worker_raw.parse::<argo_store::WorkerId>(), uuid::Uuid::parse_str(&tenant_raw))
+                else { continue };
+                let tick_cfg = argo_skill::PerWorkerLearningConfig { tenant_id: Some(TenantId(tenant)), ..Default::default() };
+                handles.push(AbortOnDrop::new(argo_skill::spawn_per_worker_learning_cron(
+                    worker, Arc::clone(&skills), tick_cfg, interval,
+                )));
+            }
+            eprintln!("argo gateway: skill learning cron enabled (workers={}, interval={}s)", handles.len(), interval.as_secs());
+            std::future::pending::<()>().await;
+            drop(handles);
+        })))
+    });
     let _siem_dispatcher = bg_store.and_then(|s| {
         let cfg = ArgoConfig::load(&cwd_for_store.join("argo.toml")).unwrap_or_default();
         spawn_siem_from_config(Arc::clone(s), &cfg.siem)

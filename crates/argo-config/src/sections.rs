@@ -47,6 +47,48 @@ pub use crate::sections_sso::{SsoConfig, SsoOidcTenant, SsoSamlTenant};
 pub use crate::sections_storage::{StorageConfig, StorageTenantConfig};
 pub use crate::sections_telemetry::TelemetryConfig;
 
+/// `[skill_learning]` — autonomous per-worker skill-learning cron.
+///
+/// Enabled by default so a gateway process starts the shipped
+/// learning loop unless an operator explicitly disables it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SkillLearningConfig {
+    /// Spawn the per-worker learning cron from gateway boot.
+    pub enabled: bool,
+    /// Tick cadence in seconds.
+    pub interval_secs: u64,
+    /// Optional single tenant UUID to restrict cron spawning.
+    pub tenant_filter: Option<String>,
+}
+
+impl Default for SkillLearningConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval_secs: 3_600,
+            tenant_filter: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod skill_learning_config_tests {
+    #[test]
+    fn skill_learning_toml_parses() {
+        let cfg = crate::ArgoConfig::from_toml(
+            "[skill_learning]\nenabled = false\ninterval_secs = 5\ntenant_filter = \"00000000-0000-0000-0000-000000000001\"\n",
+        )
+        .unwrap();
+        assert!(!cfg.skill_learning.enabled);
+        assert_eq!(cfg.skill_learning.interval_secs, 5);
+        assert_eq!(
+            cfg.skill_learning.tenant_filter.as_deref(),
+            Some("00000000-0000-0000-0000-000000000001")
+        );
+    }
+}
+
 /// `[anomaly]` — session-level worker anomaly detector. Defaults are
 /// observe-only; `auto_pause = true` opts into stopping the work loop
 /// when the runtime score crosses `threshold`.
@@ -65,6 +107,11 @@ pub struct AnomalyConfig {
 
 impl Default for AnomalyConfig {
     fn default() -> Self {
-        Self { auto_pause: false, threshold: 0.85, repeated_step_limit: 3, max_step_latency_ms: 120_000 }
+        Self {
+            auto_pause: false,
+            threshold: 0.85,
+            repeated_step_limit: 3,
+            max_step_latency_ms: 120_000,
+        }
     }
 }

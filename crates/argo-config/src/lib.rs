@@ -79,8 +79,9 @@ pub use sections::{
     GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig,
     LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
     RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
-    SecurityHipaaConfig, SiemConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, StorageConfig,
-    StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig, WebInboxTomlConfig,
+    SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant,
+    StorageConfig, StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig,
+    WebInboxTomlConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, AnomalyAlertingConfig, ContextCompressConfig,
@@ -219,6 +220,8 @@ pub struct ArgoConfig {
     /// `_bulk` / Datadog Logs). Default-off; gateway boot only
     /// spawns the dispatcher when `enabled = true`.
     pub siem: SiemConfig,
+    /// `[skill_learning]` — per-worker skill-rating learning cron.
+    pub skill_learning: SkillLearningConfig,
     /// `[storage]` — tenant-specific database residency routing.
     pub storage: StorageConfig,
     /// Bookkeeping for which fields a particular layer explicitly
