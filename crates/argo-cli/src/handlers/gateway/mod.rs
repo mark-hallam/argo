@@ -10,6 +10,7 @@
 //!   - `routes`:               HTTP route dispatch + per-endpoint handlers.
 mod approval_expiry_sweeper;
 mod approval_reminder;
+mod billing;
 mod boot;
 mod boot_helpers;
 mod boot_spawns;

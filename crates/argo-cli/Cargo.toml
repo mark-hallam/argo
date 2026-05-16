@@ -47,6 +47,7 @@ argo-mcp = { path = "../argo-mcp" }
 argo-mcp-image-gen = { path = "../argo-mcp-image-gen" }
 argo-memory = { path = "../argo-memory", features = ["dreams-backend"] }
 argo-provider = { path = "../argo-provider" }
+argo-billing = { path = "../argo-billing" }
 argo-redact = { path = "../argo-redact" }
 argo-routing = { path = "../argo-routing" }
 argo-skill = { path = "../argo-skill" }

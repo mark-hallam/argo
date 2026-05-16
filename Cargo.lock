@@ -318,6 +318,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-billing"
+version = "0.0.1"
+dependencies = [
+ "argo-identity",
+ "argo-store",
+ "argo-types",
+ "chrono",
+ "hex",
+ "hmac 0.12.1",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "argo-bluebubbles-client"
 version = "0.0.1"
 dependencies = [
@@ -373,6 +394,7 @@ version = "0.0.1"
 dependencies = [
  "argo-agent-runner",
  "argo-audit",
+ "argo-billing",
  "argo-capability",
  "argo-channels",
  "argo-compliance",

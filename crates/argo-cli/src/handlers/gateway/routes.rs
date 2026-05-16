@@ -73,6 +73,14 @@ async fn dispatch_route_inner(
     if let Some(resp) = dispatch_peer(req, store).await {
         return resp;
     }
+    // Stripe webhook (claude-stripe-subscription-integration). The
+    // request is authenticated by `Stripe-Signature` HMAC, not the
+    // operator bearer — so it MUST run ahead of `check_bearer_auth`.
+    if req.starts_with("POST /api/v1/billing/webhook ")
+        || req.starts_with("POST /api/v1/billing/webhook?")
+    {
+        return super::billing::webhook_response(req, store).await;
+    }
     // Web dashboard MVP (`claude-web-dashboard-mvp`). Mounted ahead
     // of the bearer-token gate so the operator UX works in a browser
     // without provisioning a per-tab token; mutating actions still
@@ -119,6 +127,22 @@ async fn dispatch_route_inner(
         if let Some(resp) = super::marketplace::dispatch(req, store).await {
             return resp;
         }
+    }
+    // Bearer-gated billing POSTs (checkout, portal). Auth runs here
+    // because dispatch_post (which carries the standard POST bearer
+    // gate) hasn't been reached yet.
+    if req.starts_with("POST /api/v1/billing/checkout ")
+        || req.starts_with("POST /api/v1/billing/checkout?")
+        || req.starts_with("POST /api/v1/billing/portal ")
+        || req.starts_with("POST /api/v1/billing/portal?")
+    {
+        if let Some(resp) = check_bearer_auth(req) {
+            return resp;
+        }
+        if req.starts_with("POST /api/v1/billing/checkout") {
+            return super::billing::checkout_response(req, store).await;
+        }
+        return super::billing::portal_response(req, store).await;
     }
     if let Some(resp) = dispatch_post(req, store).await {
         return resp;
