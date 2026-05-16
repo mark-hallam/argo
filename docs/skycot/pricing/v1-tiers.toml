@@ -1,0 +1,52 @@
+# SKYCOT v1 pricing tiers — canonical source of truth.
+#
+# Loaded by `argo_identity::tier::TierConfig::from_default()` (compiled
+# in via `include_str!`). Stripe product names match the lowercase tier
+# slug. Schema is intentionally narrow: tier-level quotas (workers,
+# monthly actions) plus a flat feature flag set per tier. Anything more
+# nuanced (custom enterprise quotas, per-channel limits, region
+# pinning) belongs in the Stripe subscription record or a per-tenant
+# override row, not this file.
+
+[free]
+display_name      = "Free"
+price_monthly_usd = 0
+max_workers       = 1
+max_actions_per_month = 100
+features = [
+    "provider_mock",
+    "support_community",
+]
+
+[pro]
+display_name      = "Pro"
+price_monthly_usd = 29
+max_workers       = 5
+max_actions_per_month = 5000
+features = [
+    "provider_real_keys",
+    "support_email",
+    "channel_slack",
+    "channel_email",
+    "channel_sms",
+    "marketplace_skills",
+]
+
+[enterprise]
+display_name      = "Enterprise"
+price_monthly_usd = 0          # custom-quoted; 0 = "contact sales"
+max_workers       = 0          # 0 == unlimited
+max_actions_per_month = 0      # 0 == unlimited
+features = [
+    "provider_real_keys",
+    "support_dedicated",
+    "channel_slack",
+    "channel_email",
+    "channel_sms",
+    "channel_voice",
+    "marketplace_skills",
+    "sso",
+    "audit_export",
+    "custom_verticals",
+    "priority_queue",
+]

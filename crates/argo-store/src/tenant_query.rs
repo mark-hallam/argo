@@ -16,6 +16,11 @@ use crate::SessionStore;
 
 pub use crate::tenant_query_inspect::{rename_tenant, show_tenant};
 
+const ENSURE_TIER_COLUMN_SQL: &str =
+    include_str!("../migrations/104__tenant_tier.sql");
+const ENSURE_TENANT_USAGE_SQL: &str =
+    include_str!("../migrations/105__tenant_usage.sql");
+
 pub(crate) const BLOB_TENANT_TABLES: &[&str] = &[
     "agent",
     "memory_entry",
@@ -322,4 +327,113 @@ pub(crate) fn format_epoch_auto(value: i64) -> Option<String> {
 
 fn micros_to_usd(micros: i64) -> String {
     format!("${:.4}", micros as f64 / 1_000_000.0)
+}
+
+/// claude-pricing-plans-config — idempotently apply the additive
+/// `workspace.tier` column + `tenant_usage` table. Mirrors the
+/// `ensure_team_roster_columns` PRAGMA-detect-then-ALTER pattern; the
+/// versioned migration runner only registers slots ≤ 69, so newer
+/// additive schema is bootstrapped lazily on first access.
+pub async fn ensure_pricing_schema(store: &SessionStore) -> ArgoResult<()> {
+    if !has_column(store, "workspace", "tier").await? && table_exists(store, "workspace").await? {
+        for stmt in split_sql_statements(ENSURE_TIER_COLUMN_SQL) {
+            sqlx::query(&stmt)
+                .execute(store.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("ensure_pricing_schema tier: {e}")))?;
+        }
+    }
+    for stmt in split_sql_statements(ENSURE_TENANT_USAGE_SQL) {
+        sqlx::query(&stmt)
+            .execute(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("ensure_pricing_schema usage: {e}")))?;
+    }
+    Ok(())
+}
+
+/// Strip line-prefix `--` comments and split the remainder on `;`,
+/// yielding non-empty trimmed statements. Robust to semicolons
+/// appearing inside comments (which a naïve `split(';')` mis-handles).
+fn split_sql_statements(sql: &str) -> Vec<String> {
+    let stripped: String = sql
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("--"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    stripped
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Pricing tier currently assigned to `tenant`. Returns `"free"` when
+/// the tenant has no workspace row yet or the schema is pre-tier.
+pub async fn tenant_tier(store: &SessionStore, tenant: TenantId) -> ArgoResult<String> {
+    ensure_pricing_schema(store).await?;
+    Ok(workspace_text(store, tenant, "tier")
+        .await?
+        .unwrap_or_else(|| "free".to_string()))
+}
+
+/// Period-to-date action count for `tenant`. Returns `(used_actions,
+/// period_start_unix_seconds)`. `period_start` falls back to the
+/// current calendar-month boundary when no row exists yet.
+pub async fn tenant_usage_for_period(
+    store: &SessionStore,
+    tenant: TenantId,
+    now: DateTime<Utc>,
+) -> ArgoResult<(u64, i64)> {
+    ensure_pricing_schema(store).await?;
+    let period_start = month_start_micros(now) / 1_000_000;
+    let row: Option<(i64, i64)> = sqlx::query_as(
+        "SELECT used_actions, period_start FROM tenant_usage WHERE tenant_id = ?",
+    )
+    .bind(tenant.to_string())
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("tenant_usage read: {e}")))?;
+    let (used, start) = match row {
+        Some((used, start)) if start >= period_start => (u64::try_from(used).unwrap_or(0), start),
+        _ => (0, period_start),
+    };
+    Ok((used, start))
+}
+
+/// Atomically bump `used_actions` for `tenant` within the current
+/// calendar-month window. Resets the counter to `delta` when the
+/// stored period is older than the current one.
+pub async fn increment_tenant_usage(
+    store: &SessionStore,
+    tenant: TenantId,
+    delta: u64,
+    now: DateTime<Utc>,
+) -> ArgoResult<u64> {
+    ensure_pricing_schema(store).await?;
+    let period_start = month_start_micros(now) / 1_000_000;
+    let (current_used, current_start) = tenant_usage_for_period(store, tenant, now).await?;
+    let next = if current_start >= period_start {
+        current_used.saturating_add(delta)
+    } else {
+        delta
+    };
+    let next_i64 = i64::try_from(next).unwrap_or(i64::MAX);
+    sqlx::query(
+        "INSERT INTO tenant_usage (tenant_id, period_start, used_actions, updated_at) \
+         VALUES (?, ?, ?, ?) \
+         ON CONFLICT(tenant_id) DO UPDATE SET \
+             period_start = excluded.period_start, \
+             used_actions = excluded.used_actions, \
+             updated_at = excluded.updated_at",
+    )
+    .bind(tenant.to_string())
+    .bind(period_start)
+    .bind(next_i64)
+    .bind(now.timestamp())
+    .execute(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("tenant_usage write: {e}")))?;
+    Ok(next)
 }

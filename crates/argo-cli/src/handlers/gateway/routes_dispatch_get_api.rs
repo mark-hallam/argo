@@ -55,6 +55,12 @@ pub(super) async fn dispatch_api_get(
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
         return Some(super::routes_team_list::list_response(req, store).await);
     }
+    // claude-pricing-plans-config — pricing tier + monthly usage view.
+    if req.starts_with("GET /api/v1/tenant/usage ")
+        || req.starts_with("GET /api/v1/tenant/usage?")
+    {
+        return Some(super::usage_endpoint::show_response(req, store).await);
+    }
     // mission-skill-cohort-ui — fleet-wide cohort fan-out. Detail
     // path (`/api/v1/cohorts/<id>`) must come BEFORE the bare list
     // prefix so the longer route wins.

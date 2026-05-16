@@ -69,6 +69,7 @@ mod routes_dispatch_forge;
 mod routes_dispatch_get;
 mod routes_dispatch_get_admin;
 mod routes_dispatch_get_api;
+mod usage_endpoint;
 mod routes_dispatch_get_catalog;
 mod routes_dispatch_get_forge_audit;
 mod routes_dispatch_patch;
