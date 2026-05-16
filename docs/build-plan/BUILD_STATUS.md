@@ -1,15 +1,5 @@
 # Build status — live ledger
 
-> **🛑 CLAUDE POOL PAUSED 2026-05-17 — fresh worker spawn pending.** Operator paused
-> the existing claude worker tabs (which had been running ≥18h, several crashed/stuck
-> evidenced by 6 stale-DIRTY PRs and 3 stale-CLAIMED rows). Existing claude workers MUST
-> stand down: complete current iteration if mid-build, but do NOT claim new TODO rows.
-> Exit cleanly when done. Codex pool is unaffected — continues normal operation.
-> Conductor has authored 6 `claude-rebase-pr-<N>` recovery briefs (1740/1749/1756/1773/
-> 1778/1780). When fresh claude workers spawn, they should preferentially claim those
-> recovery briefs first (especially `claude-rebase-pr-1756` — P0 SHIP-blocking magic-link
-> auth). **To resume:** operator removes this banner block when ready.
->
 > **✅ CODEX POOL FULL USAGE RESTORED 2026-05-17** (operator account restored 3 days
 > early from the prior pause). Mixed-pool replenishment resumed; author `codex-*` and
 > `claude-*` briefs both at Step-8 as the queues require. Codex profile: Pro 20x plan,
