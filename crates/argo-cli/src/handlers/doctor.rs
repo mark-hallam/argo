@@ -76,6 +76,7 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
             )));
         }
     }
+    print_build_info(&payload["build_info"]);
     let cwd = payload["cwd"].as_str().unwrap_or("?").to_string();
     let toml_path = payload["argo_toml"]["path"].as_str().unwrap_or("?");
     let toml_ok = payload["argo_toml"]["ok"].as_bool().unwrap_or(false);
@@ -317,6 +318,39 @@ fn status_group_state(v: &serde_json::Value) -> SummaryState {
     state
 }
 
+/// Render the "Build Info" block printed above the existing health
+/// checks (`mission-cli-version-doctor-extras`). Silently no-ops if
+/// the payload lacks `build_info` (e.g. older callers that build the
+/// JSON directly) so the rest of the doctor output still prints.
+fn print_build_info(v: &serde_json::Value) {
+    if !v.is_object() {
+        return;
+    }
+    let version = v["version"].as_str().unwrap_or("?");
+    let git_sha = v["git_sha"].as_str().unwrap_or("?");
+    let git_date = v["git_date"].as_str().unwrap_or("?");
+    let target = v["target"].as_str().unwrap_or("?");
+    let rustc = v["rustc"].as_str().unwrap_or("?");
+    let profile = v["profile"].as_str().unwrap_or("?");
+    let binary_path = v["binary_path"].as_str().unwrap_or("?");
+    let features: Vec<&str> = v["features"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+        .unwrap_or_default();
+    let features_str = if features.is_empty() {
+        "(none)".to_string()
+    } else {
+        features.join(",")
+    };
+    println!("argo doctor — Build Info");
+    println!("  version:  {version} ({git_sha} {git_date})");
+    println!("  target:   {target}");
+    println!("  rustc:    {rustc}");
+    println!("  profile:  {profile}");
+    println!("  binary:   {binary_path}");
+    println!("  features: {features_str}");
+}
+
 fn print_channels(v: &serde_json::Value) {
     println!("  Channels:");
     for key in ["email", "slack", "sms", "push"] {
@@ -358,7 +392,22 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let routes = super::doctor_gateway::routes_count();
     let auto_approval = doctor_h_stack::collect(&cwd, &home).await;
     let channels = doctor_channels::collect().await;
+    let build = crate::build_info::BuildInfo::current();
+    let binary_path = std::env::current_exe()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "unknown".into());
+    let build_info_json = serde_json::json!({
+        "version": build.version,
+        "git_sha": build.git_sha,
+        "git_date": build.git_date,
+        "target": build.target,
+        "rustc": build.rustc,
+        "profile": build.profile,
+        "features": build.features,
+        "binary_path": binary_path,
+    });
     Ok(serde_json::json!({
+        "build_info": build_info_json,
         "cwd": cwd.display().to_string(),
         "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
         "argo_home": {"path": home.display().to_string(), "ok": home_ok},

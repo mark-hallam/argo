@@ -12,6 +12,7 @@
 
 #[path = "handlers/action_replay.rs"]
 mod action_replay;
+mod build_info;
 mod cli;
 mod handlers;
 mod home;
@@ -30,14 +31,29 @@ mod system_jobs;
 mod tracing_setup;
 
 use argo_types::ArgoResult;
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches};
 use cli::cli_runtime_cmds::RuntimeCmd;
 use cli::{Cli, Command};
 
 #[tokio::main]
 async fn main() {
     tracing_setup::init();
-    let cli = Cli::parse();
+    // Wire the build-info long-form into clap's `--version` output
+    // so `argo --version` prints git SHA + date + target + rustc +
+    // features alongside the cargo-pkg version
+    // (mission-cli-version-doctor-extras). clap's `long_version`
+    // needs a `&'static str`; the process lives for the binary's
+    // lifetime, so a leaked allocation is the simplest fit.
+    let long_version: &'static str =
+        Box::leak(build_info::version_string_long().into_boxed_str());
+    let mut cmd = Cli::command()
+        .version(build_info::VERSION)
+        .long_version(long_version);
+    let matches = cmd.clone().get_matches();
+    let cli = match Cli::from_arg_matches(&matches) {
+        Ok(cli) => cli,
+        Err(err) => err.format(&mut cmd).exit(),
+    };
     let exit_code = match dispatch(cli).await {
         Ok(()) => 0,
         Err(err) => {

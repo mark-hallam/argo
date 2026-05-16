@@ -63,3 +63,55 @@ fn summary_json_shape_is_compact() {
     assert_eq!(value["warned"], 0);
     assert_eq!(value["failed"], 0);
 }
+
+#[tokio::test]
+async fn collect_includes_build_info_block() {
+    // `collect()` is the shared payload builder behind both the CLI
+    // and the gateway's `GET /doctor` endpoint. The
+    // `mission-cli-version-doctor-extras` brief requires a
+    // `build_info` key on the JSON envelope with seven well-known
+    // fields. Probe the keys, not the values — git SHA / target /
+    // rustc all depend on the invoking environment.
+    let payload = collect().await.expect("doctor collect");
+    let build_info = &payload["build_info"];
+    assert!(build_info.is_object(), "build_info missing: {payload}");
+    for key in [
+        "version",
+        "git_sha",
+        "git_date",
+        "target",
+        "rustc",
+        "profile",
+        "features",
+        "binary_path",
+    ] {
+        assert!(
+            build_info.get(key).is_some(),
+            "build_info.{key} missing: {build_info}",
+        );
+    }
+    assert!(
+        build_info["features"].is_array(),
+        "features must be array, got: {}",
+        build_info["features"]
+    );
+    // Version comes from CARGO_PKG_VERSION at compile time — it
+    // can never be empty.
+    assert!(
+        !build_info["version"].as_str().unwrap_or("").is_empty(),
+        "version must be non-empty",
+    );
+}
+
+#[test]
+fn build_info_long_version_string_includes_provenance() {
+    // `version_string_long()` is what clap renders for
+    // `argo --version`. Pin the headline shape (multi-line with the
+    // labelled fields) so accidental format regressions surface
+    // here rather than in operator bug reports.
+    let s = crate::build_info::version_string_long();
+    assert!(s.starts_with("argo "), "expected leading `argo `, got: {s}");
+    for needle in ["target:", "rustc:", "profile:", "features:"] {
+        assert!(s.contains(needle), "missing {needle} in: {s}");
+    }
+}
