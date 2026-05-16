@@ -17,6 +17,8 @@ pub mod cli_budget_cmds;
 pub mod cli_classify_cmds;
 #[path = "cli_compliance_cmds.rs"]
 pub mod cli_compliance_cmds;
+#[path = "cli_config_cmds.rs"]
+pub mod cli_config_cmds;
 #[path = "cli_contract_cmds.rs"]
 pub mod cli_contract_cmds;
 #[path = "cli_cred_cmds.rs"]
@@ -136,6 +138,7 @@ pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;
 pub use cli_budget_cmds::*;
 pub use cli_compliance_cmds::{CliComplianceDeleteArgs, CliComplianceExportArgs, ComplianceCmd};
+pub use cli_config_cmds::ConfigCmd;
 pub use cli_doctor_cmds::DoctorCmd;
 pub use cli_feedback_cmds::FeedbackCmd;
 pub use cli_genesis_cmds::*;

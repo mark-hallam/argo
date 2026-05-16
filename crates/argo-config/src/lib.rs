@@ -64,6 +64,7 @@ mod sections_storage;
 mod sections_streaming_retry;
 mod sections_telemetry;
 mod sections_worker_resource;
+pub mod source_tracking;
 pub mod store;
 pub mod tui;
 /// `[worker_pool]` TOML section — worker-pool elasticity recommender

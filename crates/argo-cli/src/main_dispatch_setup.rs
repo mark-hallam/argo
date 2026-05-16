@@ -37,6 +37,17 @@ pub(crate) async fn workspace(cmd: cli::WorkspaceCmd) -> ArgoResult<()> {
     handlers::workspace::run(cmd).await
 }
 
+pub(crate) fn config(cmd: cli::ConfigCmd) -> ArgoResult<()> {
+    match cmd {
+        cli::ConfigCmd::Show {
+            key,
+            json,
+            source,
+            show_secrets,
+        } => handlers::config_show::run(key.as_deref(), json, source, show_secrets),
+    }
+}
+
 pub(crate) async fn route(cmd: cli::RouteCmd) -> ArgoResult<()> {
     handlers::route::run(cmd).await
 }

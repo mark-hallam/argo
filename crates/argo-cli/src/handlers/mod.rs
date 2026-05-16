@@ -58,6 +58,7 @@ pub mod compliance_delete;
 pub mod compliance_export;
 pub mod compliance_soc2;
 pub mod compliance_tenant_tables;
+pub mod config_show;
 pub mod connector_authorize;
 pub mod connector_list;
 pub mod connector_list_status;

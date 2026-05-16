@@ -305,6 +305,11 @@ pub enum Command {
         #[command(subcommand)]
         cmd: WorkspaceCmd,
     },
+    /// Inspect the effective merged Argo configuration.
+    Config {
+        #[command(subcommand)]
+        cmd: ConfigCmd,
+    },
     Db {
         #[command(subcommand)]
         cmd: DbCmd,

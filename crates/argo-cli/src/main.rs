@@ -133,6 +133,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Db { cmd } => main_dispatch_setup::db(cmd).await,
         Command::Storage { cmd } => main_dispatch_setup::storage(cmd).await,
         Command::Workspace { cmd } => main_dispatch_setup::workspace(cmd).await,
+        Command::Config { cmd } => main_dispatch_setup::config(cmd),
         Command::Route { cmd } => main_dispatch_setup::route(cmd).await,
         Command::Cred { cmd } => main_dispatch_setup::cred(cmd),
         Command::Backup { cmd } => main_dispatch_setup::backup(cmd).await,
