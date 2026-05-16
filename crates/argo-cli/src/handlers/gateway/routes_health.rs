@@ -2,9 +2,9 @@
 //! paths share three handlers here:
 //!
 //!   - `GET /health` and `GET /readyz` — `health_response`; full
-//!     readiness probe. 200 + `{"status":"ok","schema_version":N,
-//!     "uptime_seconds":S}` on pass; 503 + `{"status":"degraded",
-//!     "reason":"<tag>"}` on first failing check.
+//!     readiness probe. 200 + `{"status":"ok","version":"V",
+//!     "schema_version":N,"uptime_seconds":S}` on pass; 503 +
+//!     `{"status":"degraded","reason":"<tag>"}` on first failing check.
 //!   - `GET /livez` and `GET /health/live` — `live_response`;
 //!     k8s-convention liveness, always 200, no readiness checks.
 //!   - `GET /health/ready` — `ready_response`; legacy SQLite-ping
@@ -48,8 +48,9 @@ fn uptime_seconds() -> u64 {
 
 /// `GET /health` and `GET /readyz` — full readiness probe.
 ///
-/// Returns `200 OK` + `{"status":"ok","schema_version":N,"uptime_seconds":S}`
-/// when every check passes, `503 Service Unavailable` +
+/// Returns `200 OK` +
+/// `{"status":"ok","version":"V","schema_version":N,"uptime_seconds":S}` when
+/// every check passes, `503 Service Unavailable` +
 /// `{"status":"degraded","reason":"<machine_tag>"}` on the first
 /// failing check (short-circuit).
 pub(super) async fn health_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
@@ -80,8 +81,9 @@ pub(super) async fn health_response_with_cwd(
     (
         "200 OK",
         format!(
-            "{{\"status\":\"ok\",\"schema_version\":{schema_version},\
+            "{{\"status\":\"ok\",\"version\":\"{}\",\"schema_version\":{schema_version},\
               \"uptime_seconds\":{}}}",
+            env!("CARGO_PKG_VERSION"),
             uptime_seconds()
         ),
     )

@@ -41,6 +41,7 @@ async fn health_ok_all_checks_pass() {
     assert_eq!(status, "200 OK", "body={body}");
     let v: serde_json::Value = serde_json::from_str(&body).expect("parse body");
     assert_eq!(v["status"], "ok", "body={body}");
+    assert_eq!(v["version"], env!("CARGO_PKG_VERSION"), "body={body}");
     assert!(
         v["schema_version"].as_u64().is_some(),
         "schema_version missing: {body}"
@@ -114,7 +115,9 @@ async fn readyz_handler_returns_health_shape() {
     let (status, body) = health_response_with_cwd(Some(&store), Some(tmp.path())).await;
     assert_eq!(status, "200 OK");
     assert!(
-        body.contains("\"schema_version\":") && body.contains("\"uptime_seconds\":"),
+        body.contains("\"version\":")
+            && body.contains("\"schema_version\":")
+            && body.contains("\"uptime_seconds\":"),
         "body must carry new shape: {body}"
     );
 }

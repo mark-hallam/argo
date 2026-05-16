@@ -1,0 +1,32 @@
+# Disabled until the first manual Fly.io deploy is verified.
+# To enable: rename this file to .github/workflows/deploy-prod.yml.
+
+name: deploy-prod
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  flyio:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      FLY_APP: ${{ vars.FLY_APP || 'skycot-api' }}
+      BASE_URL: ${{ vars.SKY_API_URL || 'https://api.skycot.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --config fly.toml --app "$FLY_APP"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Post-deploy smoke
+        run: ./deploy/flyio/post-deploy-smoke.sh

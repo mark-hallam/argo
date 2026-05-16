@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+set -eu
+
+FLY_APP="${FLY_APP:-skycot-api}"
+
+command -v fly >/dev/null 2>&1 || {
+  echo "flyctl is required. Install it with: brew install flyctl" >&2
+  exit 1
+}
+
+: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY}"
+: "${STRIPE_SECRET_KEY:?set STRIPE_SECRET_KEY}"
+: "${STRIPE_WEBHOOK_SECRET:?set STRIPE_WEBHOOK_SECRET}"
+: "${JWT_SIGNING_KEY:?set JWT_SIGNING_KEY}"
+: "${ARGO_GATEWAY_BEARER_TOKEN:?set ARGO_GATEWAY_BEARER_TOKEN}"
+
+fly secrets set --app "$FLY_APP" \
+  ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+  STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
+  STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" \
+  JWT_SIGNING_KEY="$JWT_SIGNING_KEY" \
+  ARGO_GATEWAY_BEARER_TOKEN="$ARGO_GATEWAY_BEARER_TOKEN"
