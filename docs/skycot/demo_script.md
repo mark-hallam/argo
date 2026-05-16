@@ -1,229 +1,150 @@
-# SKYCOT demo script — marketplace seller end-to-end
+# SKYCOT v1.0 mission demo — script
 
-A 15-minute live walkthrough showing what an operator hour looks
-like when SKYCOT is running the marketplace-seller vertical.
+A 5–7 minute single-take walkthrough of the v1.0 product surface,
+from a fresh browser through hiring the first worker, getting an
+approval round-trip on Slack, and inspecting the audit chain.
 
-## Setup (one-time, before the demo starts)
+This is the recording script for `docs/skycot/demos/v1-mission-mvp.mp4`.
+The recording exercises the shipped product — there is no demo-mode
+code path. See `recording-checklist.md` for the operator playbook
+and `scripts/demo-dry-run.sh` for the pre-recording validator.
 
-```bash
-mkdir demo-seller && cd demo-seller
-argo workspace init
-argo setup        # configure Anthropic or OpenAI key
-```
+## Required surfaces (must be green before recording)
 
-Confirm the vertical loaded:
+- Marketing site reachable at `https://skycot.com` (CTA → `/signup`).
+- SPA + gateway running locally or against staging.
+- Real Slack workspace with the SKYCOT app installed; operator is
+  signed in.
+- Throwaway Anthropic API key (rotate after recording).
+- Throwaway email visible on screen (e.g. `demo@throwaway.cc`).
 
-```bash
-argo vertical list | grep gtm-engineer
-```
+## Scene-by-scene (5–7 min total)
 
-## Scene 1 — Operator describes the job
+### Scene 0 — Cold-open (0:00 – 0:30)
 
-The operator wants to sell a pair of used inline skates. They drop
-the brief into the worker queue:
+**Visual:** Fresh browser, blank new tab.
 
-```bash
-argo work add \
-  --vertical gtm-engineer \
-  --prompt "I have a pair of Powerslide Imperial 110mm inline skates, size 12 US, used 8x. Sell on Facebook Marketplace + eBay. Reserve $150."
-```
+**Action:** Operator types `skycot.com`, hits enter. Marketing
+landing renders. Hero CTA "Hire your first worker" is visible.
 
-**Talk track:** "Notice we don't tell the worker WHAT to research,
-or HOW to write the listing, or WHICH price to set. The worker's
-manifest declares its action vocabulary, its safety boundaries, and
-what evidence threshold it has to clear before claiming approval-
-readiness. The operator just describes the goal."
+**Talk track:** "SKYCOT is an operating system for AI workers.
+Today I'm going to hire my first one, give it a task, approve its
+output, and look at the audit trail — single take, no edits."
 
-## Scene 2 — Worker runs
+### Scene 1 — Signup + magic-link (0:30 – 1:30)
 
-```bash
-argo work serve --vertical gtm-engineer --once --max-steps 5 --json
-```
+**Visual:** Marketing → signup → check-email → verify.
 
-The worker runs through ~5 multi-step turns. In each step it can:
-- Call `web_search` to find comp listings.
-- Call `web_extract` to pull pricing pages.
-- Assemble its sectioned output (research/pricing/listings/checklist).
-- Emit ` ```action ``` ` blocks for the OS to land in the ledger.
+**Actions:**
+1. Click "Hire your first worker". Lands on `/signup` which routes
+   into `/auth/signup`.
+2. Enter `demo@throwaway.cc`. Submit. SPA navigates to
+   `/auth/check-email`.
+3. Cut to a real inbox (throwaway address). The magic-link email
+   arrives. Click the link.
+4. Browser opens `/auth/verify?token=…`, then redirects to
+   `/onboarding/welcome`.
 
-It stops with one of:
-- `[STOP: TASK_COMPLETE]` — autonomous-safe work done.
-- `[STOP: APPROVAL_REQUIRED]` — drafts ready, human review next.
-- `[STOP: NEED_INFO ...]` — missing critical fact.
+**Talk track:** "Signup is email-only. No password. The link in the
+email is single-use and short-lived; that's the auth model."
 
-For the skate prompt, expect the worker to land
-`stop_reason: approval_required`.
+### Scene 2 — Onboarding wizard (1:30 – 3:30)
 
-## Scene 3 — Inspect what landed
+**Visual:** Five-step wizard, footer "Step N of 5" indicator.
 
-```bash
-ls .skycot/outputs/<job_id>/
-```
+**Actions:**
+1. `/onboarding/welcome` — click "Get started".
+2. `/onboarding/workspace` — workspace name "Acme Co", click "Next".
+3. `/onboarding/connect-provider` — paste throwaway Anthropic key.
+   Status flips to "Connected". Click "Next".
+4. `/onboarding/pick-vertical` — pick **Marketing Intern** from the
+   five-tile grid. Click "Next".
+5. `/onboarding/first-hire` — describe the worker:
+   > A marketing intern named Maya who drafts blog posts based on
+   > briefs and asks for approval before publishing.
 
-```
-transcript.md
-assistant_output.md
-research.md
-pricing.md
-listings.md
-approval_checklist.md
-execution_plan.md
-actions.json
-job.json
-result.json
-```
+   Click "Hire Maya". Wizard finalizes; lands on
+   `/workers/maya` (dynamic route, `workerId` resolved from the
+   draft).
 
-Open the ones that matter:
+**Talk track:** "The vertical is a template — manifest, skills,
+prompt pack, escalation policy. The free-text description becomes
+the worker's charter; the manifest defines the rails."
 
-```bash
-cat .skycot/outputs/<job_id>/research.md       # comp links + cited URLs
-cat .skycot/outputs/<job_id>/pricing.md        # comparison table
-cat .skycot/outputs/<job_id>/listings.md       # draft copy for both platforms
-cat .skycot/outputs/<job_id>/execution_plan.md # action plan grouped by state
-```
+### Scene 3 — Brief + auto-approval ASK (3:30 – 5:00)
 
-**Talk track:** "Note the BLOCKED banner on `approval_checklist.md`
-when research evidence is thin. The worker doesn't get to claim
-approval-readiness on top of zero search hits — that's enforced by
-the OS, not the prompt."
+**Visual:** `/workers/maya` overview tab → activity tab.
 
-## Scene 4 — Review the action ledger
+**Actions:**
+1. Operator types into the chat composer:
+   > Draft a launch blog post for our new fleet-routing feature.
+   > Target: SMB ops managers. 600 words. Approve before publishing.
+2. Maya turns: research → outline → first draft. Stream visible.
+3. Maya proposes `publish_post` action. Trust on a fresh worker is
+   below the auto-approve threshold, so the action lands in
+   `ApprovalAsked`. The activity feed shows the ASK row.
+4. Channel notify fires: Slack message to the configured channel.
 
-```bash
-argo worker actions list --vertical gtm-engineer --state all --json | jq -c '.'
-```
+**Talk track:** "Maya did the legwork. She's also gated — first
+action on a new worker can't bypass approval. The escalation policy
+in her manifest fired the Slack notify."
 
-You'll see something like:
+### Scene 4 — Slack approval round-trip (5:00 – 6:00)
 
-| state    | type           | requires_approval | platform              |
-|----------|----------------|-------------------|-----------------------|
-| pending  | verify_price   | false             | -                     |
-| pending  | post_listing   | true              | facebook_marketplace  |
-| pending  | post_listing   | true              | ebay                  |
+**Visual:** Cut to Slack workspace.
 
-**Talk track:** "Three rows. `verify_price` doesn't need approval —
-that's autonomous-safe. The two `post_listing` rows do. Until the
-operator approves them, the OS will refuse to advance them past
-`pending`. This is the core safety primitive."
+**Actions:**
+1. Slack message visible: "Maya wants to publish a blog post — review."
+2. Operator clicks the ✅ button (or replies `approve`).
+3. Cut back to SPA. Activity feed shows `ApprovalReplied` → action
+   transitions to `Executing` → `Completed`. Draft is posted to
+   the configured destination (Notion sink for this demo; could
+   also be the worker's outputs directory).
 
-## Scene 5 — Try to bypass approval
+**Talk track:** "Operator never left Slack. The action chain is
+the same primitive whether the approval comes from the SPA, Slack,
+or email."
 
-```bash
-# This should fail.
-argo worker actions execute <post_listing-action-id>
-```
+### Scene 5 — Audit chain + close (6:00 – 7:00)
 
-Output:
+**Visual:** SPA `/audit` page.
 
-```
-Error: action <id>: approval required (state pending,
-requires_approval=true); run `argo worker actions approve <id>` first
-```
+**Actions:**
+1. Click "Audit" in the nav. `/audit` renders the cross-worker
+   forensic timeline.
+2. Filter to Maya's worker id. The chain renders in time order:
+   `TurnStart` → `ToolDispatch(draft_post)` → `ApprovalAsked` →
+   `ApprovalReplied(approved_by=operator)` → `ActionExecuted` →
+   `TurnComplete`.
+3. Hover the row group; tooltip shows the hash-chain link
+   (previous-row hash + content hash). Operator notes briefly:
+   "Every row is hash-linked — tamper-evident."
 
-**Talk track:** "There's no way to advance an approval-gated action
-past `pending` without going through `approve`. The state machine
-holds the line."
+**Talk track:** "The audit chain is the data model itself, not a
+side channel. Every action a worker takes — every approval, every
+gate — is on this page. End."
 
-## Scene 6 — Approve + execute the eBay listing
+## Hidden constraints (also documented in the brief)
 
-```bash
-argo worker actions approve <ebay-post_listing-id> --note "prices comp out OK"
-argo worker actions execute <ebay-post_listing-id> --json
-```
+- **Single take.** Pre-warm caches before recording (see
+  `recording-checklist.md`). Mid-scene loads must stay under 2 s.
+- **Real Slack, real email.** Throwaway addresses only. No live
+  customer data.
+- **No demo-mode code paths.** If the approval gate ever skips on a
+  flag, the demo would be lying. Don't introduce one.
+- **Browser-computer-use is NOT in this demo.** Maya drafts via
+  prompts + Notion sink, not via BrowserExecutor. The CU demo is a
+  separate per-vertical script.
 
-The execute command returns the bundle path:
+## Dry-run gate
 
-```json
-{
-  "action_id": "...",
-  "state": "executing",
-  ...
-  "execution_bundle_path": ".../actions/<action_id>"
-}
-```
+Before scheduling a recording, run:
 
 ```bash
-cat .skycot/outputs/<job_id>/actions/<action_id>/instructions.md
+bash scripts/demo-dry-run.sh
 ```
 
-You see an **eBay-specific** checklist — item specifics, listing
-format, photo count, returns policy. Different from the
-Facebook-Marketplace one for the same action_type.
-
-**Talk track:** "The instruction template is platform-aware. The
-manifest declares per-platform overrides; the executor renders
-against the action's payload. For a buyer the worker is going to
-message, this would render the message body inline — flagged HIGH
-RISK — so the operator can edit it before sending."
-
-## Scene 7 — Operator carries the action out
-
-The operator opens eBay in a browser, follows the checklist,
-publishes the listing. They copy the URL.
-
-```bash
-argo worker actions complete <ebay-post_listing-id> \
-  --note "live" \
-  --result-json '{"listing_url": "https://www.ebay.com/itm/...", "platform": "ebay"}'
-```
-
-## Scene 8 — Render the workspace-level ledger
-
-```bash
-argo worker actions render --vertical gtm-engineer
-```
-
-```
-wrote 1 (queue), 1 (completed), 0 (blocked) under .skycot
-```
-
-```bash
-cat .skycot/approval_queue.md         # 1 entry: facebook_marketplace post_listing
-cat .skycot/completed_actions.md      # 1 entry: ebay listing live
-cat .skycot/blocked_actions.md        # empty
-```
-
-**Talk track:** "These three files are the operator's daily
-review surface. `argo worker actions render` re-renders them after
-each transition. They span every job + every vertical, so you can
-see your whole worker fleet's state at a glance."
-
-## Scene 9 — Trace the audit trail
-
-```bash
-argo worker actions status <ebay-post_listing-id>
-```
-
-Shows every state-row in time order:
-
-```
-action_id   <id>
-type        post_listing
-job         <job_id>
-transitions (4 state-row(s)):
-  2026-05-05T10:00:00Z — pending
-  2026-05-05T10:15:42Z — approved
-      approved_by: operator
-  2026-05-05T10:16:01Z — executing
-  2026-05-05T10:25:08Z — completed
-```
-
-**Talk track:** "Every transition is an append-only memory row.
-You never lose state. Audit trail is the data model itself, not a
-side channel."
-
-## Wrap
-
-What we just demonstrated:
-
-1. The worker did the legwork — research, pricing, drafting, the
-   approval checklist, the eBay-specific instructions.
-2. The operator did the legwork the worker can't legally do —
-   pressed `approve`, signed into eBay, hit publish.
-3. The OS held the line — refused `execute` without approval,
-   downgraded weak-evidence emissions to `blocked`, kept an
-   immutable transition trail.
-
-Time on operator: ~3 minutes (review research, click approve,
-follow checklist, paste URL). Time saved vs starting from blank:
-~30–60 minutes per listing.
+Exits 0 on green; non-zero with a per-scene error otherwise. If
+red, fix the break before recording. Output:
+`dry-run-results-YYYY-MM-DD.json` + per-scene screenshots under
+`/tmp/skycot-demo-dry-run/`.

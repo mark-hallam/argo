@@ -1,0 +1,12 @@
+{
+  "workerDraft": {
+    "name": "Maya",
+    "vertical": "marketing-intern",
+    "charter": "Drafts blog posts based on briefs and asks for approval before publishing."
+  },
+  "problem": "Draft a launch blog post for our new fleet-routing feature. Target: SMB ops managers. 600 words.",
+  "answers": {
+    "tone": "practical, evidence-led",
+    "approval_required": true
+  }
+}
