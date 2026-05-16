@@ -1,7 +1,7 @@
 //! Tests for [`workspace_tenant_id`] + [`LEGACY_AUDIT_TENANT_SENTINEL`]
 //! (Stream `mission-enterprise-cross-tenant-audit`).
 
-use crate::{workspace_tenant_id, LEGACY_AUDIT_TENANT_SENTINEL};
+use crate::{workspace_tenant_id, ArgoConfig, ErrorReportingMode, LEGACY_AUDIT_TENANT_SENTINEL};
 use std::path::Path;
 
 fn write_argo_toml(dir: &Path, body: &str) {
@@ -55,4 +55,31 @@ fn shipped_default_id_falls_through_to_hash() {
     write_argo_toml(tmp.path(), "[tenant]\ndefault_id = \"default\"\n");
     let id = workspace_tenant_id(tmp.path());
     assert!(id.starts_with("ws-"));
+}
+
+#[test]
+fn error_reporting_defaults_disabled() {
+    let cfg = ArgoConfig::from_toml("").expect("parse defaults");
+    assert_eq!(cfg.error_reporting.mode, ErrorReportingMode::Disabled);
+    assert!(cfg.error_reporting.dsn.is_empty());
+}
+
+#[test]
+fn error_reporting_modes_parse_from_toml() {
+    let otlp = ArgoConfig::from_toml(
+        "[error_reporting]\nmode = \"otlp\"\notlp_endpoint = \"https://otel.example\"\npseudonym_salt = \"salt\"\n",
+    )
+    .expect("parse otlp");
+    assert_eq!(otlp.error_reporting.mode, ErrorReportingMode::Otlp);
+    assert_eq!(otlp.error_reporting.otlp_endpoint, "https://otel.example");
+
+    let sentry = ArgoConfig::from_toml(
+        "[error_reporting]\nmode = \"sentry\"\ndsn = \"https://public@sentry.example/42\"\n",
+    )
+    .expect("parse sentry");
+    assert_eq!(sentry.error_reporting.mode, ErrorReportingMode::Sentry);
+    assert_eq!(
+        sentry.error_reporting.dsn,
+        "https://public@sentry.example/42"
+    );
 }

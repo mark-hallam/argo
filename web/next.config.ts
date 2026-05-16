@@ -10,6 +10,7 @@ const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   typedRoutes: true,
+  productionBrowserSourceMaps: process.env.CI === "true",
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "api.skycot.com" },

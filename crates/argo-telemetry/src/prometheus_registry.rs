@@ -20,14 +20,15 @@
 //!
 //! ```
 //! use argo_telemetry::prometheus_registry::{default_registry, register_counter};
+//! use argo_telemetry::prometheus::{Encoder, TextEncoder};
 //! let c = register_counter(
 //!     "doc_example_counter_total",
 //!     "Example counter from the rustdoc",
 //!     &[],
 //! );
-//! c.inc();
+//! c.with_label_values(&[]).inc();
 //! let mut buf = Vec::new();
-//! prometheus::TextEncoder::new()
+//! TextEncoder::new()
 //!     .encode(&default_registry().gather(), &mut buf)
 //!     .unwrap();
 //! assert!(String::from_utf8_lossy(&buf).contains("doc_example_counter_total"));

@@ -16,8 +16,10 @@
 mod sink;
 mod tracing_sink;
 
+pub mod error_reporting;
 pub mod http_target;
 pub mod metrics_prompt_cache;
+pub mod pii_scrubber;
 /// Process-global Prometheus registry + `register_counter` /
 /// `register_histogram` / `register_gauge` helpers. Backs the gateway's
 /// `/openmetrics` parallel route
@@ -42,6 +44,9 @@ pub mod otlp_exporter;
 #[cfg(feature = "otlp")]
 pub use otlp_bridge::{otlp_layer, otlp_layer_boxed};
 
+#[cfg(test)]
+#[path = "pii_scrubber_tests.rs"]
+mod pii_scrubber_tests;
 #[cfg(test)]
 mod tests;
 

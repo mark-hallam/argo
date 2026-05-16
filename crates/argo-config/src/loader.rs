@@ -309,6 +309,18 @@ impl ArgoConfig {
         if o.telemetry_endpoint {
             self.telemetry.endpoint = other.telemetry.endpoint;
         }
+        if o.error_reporting_mode {
+            self.error_reporting.mode = other.error_reporting.mode;
+        }
+        if o.error_reporting_dsn {
+            self.error_reporting.dsn = other.error_reporting.dsn;
+        }
+        if o.error_reporting_otlp_endpoint {
+            self.error_reporting.otlp_endpoint = other.error_reporting.otlp_endpoint;
+        }
+        if o.error_reporting_pseudonym_salt {
+            self.error_reporting.pseudonym_salt = other.error_reporting.pseudonym_salt;
+        }
         if o.gateway_host {
             self.gateway.host = other.gateway.host;
         }

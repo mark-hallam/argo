@@ -19,6 +19,11 @@ tracing = { workspace = true }
 reqwest = { workspace = true }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
+tracing-error = "0.2"
+hmac = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+regex = { workspace = true }
 # Process-global Prometheus registry (`prometheus_registry::default_registry()`)
 # plus the `register_counter` / `register_histogram` / `register_gauge`
 # helpers consumed by the gateway's `/openmetrics` parallel route and by
@@ -39,6 +44,10 @@ opentelemetry-otlp = { version = "0.27", optional = true, default-features = fal
 # OpenTelemetry tracer registered by `otlp_exporter::init()`. Pinned
 # to the 0.28 series to match `opentelemetry 0.27`.
 tracing-opentelemetry = { version = "0.28", optional = true, default-features = false }
+# Sentry exporter — optional and pinned to a Rust-1.75-compatible
+# release. Default off so operators opt in at build + config time.
+sentry = { version = "0.34", optional = true, default-features = false, features = ["backtrace", "contexts", "panic", "reqwest"] }
+sentry-tracing = { version = "0.34", optional = true, default-features = false }
 
 [dev-dependencies]
 # Used by `nested_spans_change_current_span` to install a `Registry`
@@ -58,4 +67,8 @@ otlp = [
     "dep:opentelemetry_sdk",
     "dep:opentelemetry-otlp",
     "dep:tracing-opentelemetry",
+]
+sentry = [
+    "dep:sentry",
+    "dep:sentry-tracing",
 ]

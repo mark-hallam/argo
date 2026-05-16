@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/skycot/AuthProvider";
 import { QueryProvider } from "@/components/skycot/QueryProvider";
 import { ThemeProvider } from "@/components/skycot/ThemeProvider";
+import { ErrorReportingInit } from "@/lib/error-reporting/init";
 import "./globals.css";
 
 const inter = Inter({
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AuthProvider>
           <QueryProvider>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+              <ErrorReportingInit />
+              {children}
+            </ThemeProvider>
           </QueryProvider>
         </AuthProvider>
       </body>

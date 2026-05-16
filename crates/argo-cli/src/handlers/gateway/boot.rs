@@ -100,6 +100,7 @@ pub(super) async fn start(
     if let Ok(env_cfg) = ArgoConfig::from_env() {
         cfg.merge(env_cfg);
     }
+    let _error_reporting = super::boot_telemetry::init_gateway_error_reporting(&cfg);
     let gateway_cfg = cfg.gateway.clone();
     let behind_proxy = gateway_cfg.behind_proxy.clone();
     let request_audit_cfg = gateway_cfg.request_audit.clone();

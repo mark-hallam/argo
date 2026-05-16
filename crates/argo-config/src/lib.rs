@@ -167,6 +167,10 @@ pub struct ArgoConfig {
     pub tenant: TenantConfig,
     /// `[telemetry]`.
     pub telemetry: TelemetryConfig,
+    /// `[error_reporting]` — opt-in runtime error export. Default is
+    /// disabled so no third-party reporting is active unless an
+    /// operator configures it explicitly.
+    pub error_reporting: ErrorReportingConfig,
     /// `[audit]`.
     pub audit: AuditConfig,
     /// `[budget]`.
@@ -229,6 +233,55 @@ pub struct ArgoConfig {
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]
     pub(crate) overrides: loader::ArgoConfigOverrides,
+}
+
+/// `[error_reporting]` mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ErrorReportingMode {
+    /// No runtime error export. This is the shipped default.
+    Disabled,
+    /// OpenTelemetry OTLP export to `otlp_endpoint`.
+    Otlp,
+    /// Sentry/Glitchtip export to `dsn`.
+    Sentry,
+}
+
+impl ErrorReportingMode {
+    /// Stable lowercase string used by gateway metadata responses.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Otlp => "otlp",
+            Self::Sentry => "sentry",
+        }
+    }
+}
+
+/// `[error_reporting]` — opt-in runtime exception reporting.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ErrorReportingConfig {
+    /// Export backend. Defaults to [`ErrorReportingMode::Disabled`].
+    pub mode: ErrorReportingMode,
+    /// Sentry or Glitchtip DSN. Used only when `mode = "sentry"`.
+    pub dsn: String,
+    /// OTLP collector base endpoint. Used only when `mode = "otlp"`.
+    pub otlp_endpoint: String,
+    /// HMAC salt for stable tenant pseudonyms in exported events.
+    pub pseudonym_salt: String,
+}
+
+impl Default for ErrorReportingConfig {
+    fn default() -> Self {
+        Self {
+            mode: ErrorReportingMode::Disabled,
+            dsn: String::new(),
+            otlp_endpoint: String::new(),
+            pseudonym_salt: String::new(),
+        }
+    }
 }
 
 impl ArgoConfig {

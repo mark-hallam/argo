@@ -16,6 +16,11 @@ pub(super) async fn dispatch_api_get(
     if req.starts_with("GET /auth/status ") || req.starts_with("GET /auth/status?") {
         return Some(auth_status_response());
     }
+    if req.starts_with("GET /api/v1/meta/error-reporting ")
+        || req.starts_with("GET /api/v1/meta/error-reporting?")
+    {
+        return Some(super::routes_meta_error_reporting::response());
+    }
     // `mission-approval-bundle-ui` — server-defined approval bundles.
     // MUST come before the J1 `GET /api/v1/approvals` arm so the more
     // specific `/bundles` path wins prefix-match dispatch.

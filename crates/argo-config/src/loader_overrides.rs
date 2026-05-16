@@ -23,6 +23,10 @@ pub(crate) struct ArgoConfigOverrides {
     pub telemetry_enabled: bool,
     pub telemetry_exporter: bool,
     pub telemetry_endpoint: bool,
+    pub error_reporting_mode: bool,
+    pub error_reporting_dsn: bool,
+    pub error_reporting_otlp_endpoint: bool,
+    pub error_reporting_pseudonym_salt: bool,
     pub gateway_host: bool,
     pub gateway_port: bool,
     pub gateway_url: bool,
@@ -49,6 +53,10 @@ impl ArgoConfigOverrides {
         self.telemetry_enabled |= other.telemetry_enabled;
         self.telemetry_exporter |= other.telemetry_exporter;
         self.telemetry_endpoint |= other.telemetry_endpoint;
+        self.error_reporting_mode |= other.error_reporting_mode;
+        self.error_reporting_dsn |= other.error_reporting_dsn;
+        self.error_reporting_otlp_endpoint |= other.error_reporting_otlp_endpoint;
+        self.error_reporting_pseudonym_salt |= other.error_reporting_pseudonym_salt;
         self.gateway_host |= other.gateway_host;
         self.gateway_port |= other.gateway_port;
         self.gateway_url |= other.gateway_url;
@@ -81,6 +89,12 @@ impl ArgoConfigOverrides {
         self.telemetry_enabled |= raw.contains("[telemetry]") && raw.contains("enabled");
         self.telemetry_exporter |= raw.contains("[telemetry]") && raw.contains("exporter");
         self.telemetry_endpoint |= raw.contains("[telemetry]") && raw.contains("endpoint");
+        self.error_reporting_mode |= raw.contains("[error_reporting]") && raw.contains("mode");
+        self.error_reporting_dsn |= raw.contains("[error_reporting]") && raw.contains("dsn");
+        self.error_reporting_otlp_endpoint |=
+            raw.contains("[error_reporting]") && raw.contains("otlp_endpoint");
+        self.error_reporting_pseudonym_salt |=
+            raw.contains("[error_reporting]") && raw.contains("pseudonym_salt");
         self.gateway_host |= raw.contains("[gateway]") && raw.contains("host");
         self.gateway_port |= raw.contains("[gateway]") && raw.contains("port");
         self.gateway_url |= raw.contains("[gateway]") && raw.contains("url");
