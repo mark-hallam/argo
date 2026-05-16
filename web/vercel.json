@@ -1,0 +1,38 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm build",
+  "outputDirectory": ".next",
+  "ignoreCommand": "bash -lc 'if [ -z \"$VERCEL_GIT_PREVIOUS_SHA\" ] || [ -z \"$VERCEL_GIT_COMMIT_SHA\" ]; then exit 1; fi; git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" \"$VERCEL_GIT_COMMIT_SHA\" -- .'",
+  "env": {
+    "NEXT_PUBLIC_ENV": "production",
+    "NEXT_PUBLIC_GATEWAY_URL": "https://api.skycot.com",
+    "NEXT_PUBLIC_API_URL": "https://api.skycot.com",
+    "NEXT_PUBLIC_GATEWAY_AUTH_BYPASS": "0",
+    "NEXTAUTH_URL": "https://app.skycot.com"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_ENV": "production",
+      "NEXT_PUBLIC_GATEWAY_URL": "https://api.skycot.com",
+      "NEXT_PUBLIC_API_URL": "https://api.skycot.com",
+      "NEXT_PUBLIC_GATEWAY_AUTH_BYPASS": "0",
+      "NEXTAUTH_URL": "https://app.skycot.com"
+    }
+  },
+  "github": {
+    "enabled": true,
+    "silent": false
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
+  ]
+}
