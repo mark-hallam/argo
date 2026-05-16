@@ -7,7 +7,7 @@
 //! parsing — no I/O, no async.
 use argo_audit::ExportedRow;
 use argo_types::{ArgoError, ArgoResult};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 
 pub struct ExportArgs {
     pub format: String,
@@ -20,6 +20,9 @@ pub struct ExportArgs {
     pub since_minutes: Option<i64>,
     pub gdpr_redact_emails: bool,
     pub json: bool,
+    /// Comma-separated list of audit-kind labels to include. `None`
+    /// (or empty after split) means "every kind".
+    pub kinds: Option<String>,
 }
 
 #[derive(Debug)]
@@ -36,12 +39,18 @@ pub(super) struct NormalizedExport {
     pub(super) until_micros: Option<i64>,
     pub(super) gdpr_redact_emails: bool,
     pub(super) json: bool,
+    pub(super) kinds: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub(super) enum ExportFormat {
     Ndjson,
+    /// Synonym for `Ndjson` exposed under the SIEM-friendlier
+    /// `--format jsonl` surface (`mission-audit-csv-export`).
+    Jsonl,
+    /// Single top-level JSON array (`mission-audit-csv-export`).
+    Json,
     Csv,
     Tarball,
 }
@@ -75,6 +84,7 @@ impl NormalizedExport {
                 ));
             }
         }
+        let kinds = parse_kinds(args.kinds.as_deref());
         Ok(Self {
             format,
             bundle_out: args.bundle_out,
@@ -88,6 +98,7 @@ impl NormalizedExport {
             until_micros,
             gdpr_redact_emails: args.gdpr_redact_emails,
             json: args.json,
+            kinds,
         })
     }
 
@@ -125,6 +136,9 @@ impl NormalizedExport {
         {
             return false;
         }
+        if !self.kinds.is_empty() && !self.kinds.iter().any(|k| k == &row.kind) {
+            return false;
+        }
         true
     }
 }
@@ -141,21 +155,31 @@ fn payload_matches(payload: &serde_json::Value, expected: &str, pointers: &[&str
 fn parse_format(raw: &str) -> ArgoResult<ExportFormat> {
     match raw {
         "ndjson" => Ok(ExportFormat::Ndjson),
+        "jsonl" => Ok(ExportFormat::Jsonl),
+        "json" => Ok(ExportFormat::Json),
         "csv" => Ok(ExportFormat::Csv),
         "tarball" => Ok(ExportFormat::Tarball),
         other => Err(ArgoError::Provider(format!(
-            "unsupported audit export format '{other}' (expected ndjson, csv, or tarball)"
+            "unsupported audit export format '{other}' \
+             (expected ndjson, jsonl, json, csv, or tarball)"
         ))),
     }
 }
 
 fn parse_bound(raw: &str, until: bool, flag: &str) -> ArgoResult<i64> {
+    if let Some(dur) = try_parse_duration(raw) {
+        // Relative durations (`7d`, `24h`, `30m`) always anchor at
+        // "now" — the `until` direction would never make sense as a
+        // future delta, so the same anchor applies in both modes.
+        return Ok((Utc::now() - dur).timestamp_micros());
+    }
     if let Ok(dt) = DateTime::parse_from_rfc3339(raw) {
         return Ok(dt.timestamp_micros());
     }
     let date = NaiveDate::parse_from_str(raw, "%Y-%m-%d").map_err(|e| {
         ArgoError::Provider(format!(
-            "invalid {flag} date '{raw}': {e} (expected YYYY-MM-DD or RFC3339)"
+            "invalid {flag} value '{raw}': {e} \
+             (expected YYYY-MM-DD, RFC3339, or duration like 7d/24h/30m)"
         ))
     })?;
     let time = if until {
@@ -165,6 +189,38 @@ fn parse_bound(raw: &str, until: bool, flag: &str) -> ArgoResult<i64> {
     }
     .ok_or_else(|| ArgoError::Schema(format!("invalid {flag} date '{raw}'")))?;
     Ok(DateTime::<Utc>::from_naive_utc_and_offset(time, Utc).timestamp_micros())
+}
+
+/// Parse compact durations like `30m`, `24h`, `7d`, `90s`. Returns
+/// `None` for inputs that aren't a `<digits><unit>` pair so the
+/// caller can fall through to RFC3339 / date parsing.
+fn try_parse_duration(raw: &str) -> Option<Duration> {
+    if raw.len() < 2 {
+        return None;
+    }
+    let (digits, unit) = raw.split_at(raw.len() - 1);
+    let value: i64 = digits.parse().ok()?;
+    if value <= 0 {
+        return None;
+    }
+    match unit {
+        "s" => Some(Duration::seconds(value)),
+        "m" => Some(Duration::minutes(value)),
+        "h" => Some(Duration::hours(value)),
+        "d" => Some(Duration::days(value)),
+        _ => None,
+    }
+}
+
+fn parse_kinds(raw: Option<&str>) -> Vec<String> {
+    let Some(raw) = raw else {
+        return Vec::new();
+    };
+    raw.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect()
 }
 
 #[cfg(test)]
@@ -181,5 +237,48 @@ mod tests {
             parse_bound("2026-05-06T01:02:03Z", true, "--until").unwrap(),
             1_778_029_323_000_000
         );
+    }
+
+    #[test]
+    fn parse_bound_accepts_duration_suffixes_relative_to_now() {
+        let before = Utc::now();
+        let micros = parse_bound("1h", false, "--since").unwrap();
+        let parsed = DateTime::<Utc>::from_timestamp_micros(micros).unwrap();
+        // ~1h before "now"; allow a few seconds of slack for the
+        // interval between `before` and the parser's own `Utc::now`.
+        let expected = before - Duration::hours(1);
+        let delta = (parsed - expected).num_seconds().abs();
+        assert!(delta < 5, "delta seconds={delta}");
+    }
+
+    #[test]
+    fn parse_bound_rejects_garbage_with_actionable_message() {
+        let err = parse_bound("yesterday", false, "--since").unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("YYYY-MM-DD") && msg.contains("7d/24h/30m"),
+            "error message should list accepted formats: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_kinds_splits_and_trims() {
+        let kinds = parse_kinds(Some("tool_call , tool_result,  , halt"));
+        assert_eq!(kinds, vec!["tool_call", "tool_result", "halt"]);
+    }
+
+    #[test]
+    fn parse_kinds_none_or_empty_returns_empty_vec() {
+        assert!(parse_kinds(None).is_empty());
+        assert!(parse_kinds(Some("")).is_empty());
+        assert!(parse_kinds(Some("  ,, ")).is_empty());
+    }
+
+    #[test]
+    fn parse_format_accepts_new_aliases() {
+        assert_eq!(parse_format("jsonl").unwrap(), ExportFormat::Jsonl);
+        assert_eq!(parse_format("json").unwrap(), ExportFormat::Json);
+        assert_eq!(parse_format("csv").unwrap(), ExportFormat::Csv);
+        assert!(parse_format("yaml").is_err());
     }
 }

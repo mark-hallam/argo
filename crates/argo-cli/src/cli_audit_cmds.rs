@@ -89,13 +89,16 @@ pub enum AuditQueryCmd {
     },
     /// Export audit rows for compliance review.
     Export {
-        /// Output format: ndjson, csv, or tarball.
+        /// Output format: `ndjson`, `jsonl`, `json`, `csv`, or
+        /// `tarball`. `jsonl` is a SIEM-friendly synonym for
+        /// `ndjson`; `json` emits a single top-level array.
         #[arg(long, default_value = "ndjson")]
         format: String,
         /// Write output to a path instead of stdout.
         #[arg(long = "bundle-out", alias = "out")]
         bundle_out: Option<String>,
-        /// Lower created-at bound: YYYY-MM-DD or RFC3339.
+        /// Lower created-at bound: YYYY-MM-DD, RFC3339, or a compact
+        /// duration like `7d`, `24h`, `30m`, `90s` (relative to now).
         #[arg(long)]
         since: Option<String>,
         /// Upper created-at bound: YYYY-MM-DD or RFC3339.
@@ -120,6 +123,11 @@ pub enum AuditQueryCmd {
         /// Emit a JSON summary envelope instead of records.
         #[arg(long)]
         json: bool,
+        /// Comma-separated list of `AuditKind` labels to include
+        /// (`mission-audit-csv-export`). When set, only rows whose
+        /// `kind` matches one of the listed labels are exported.
+        #[arg(long = "kind", alias = "kinds")]
+        kinds: Option<String>,
     },
     /// Render a human-readable compliance summary report.
     Report {

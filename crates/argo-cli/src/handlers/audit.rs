@@ -174,6 +174,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             since_minutes,
             gdpr_redact_emails,
             json,
+            kinds,
         } => {
             super::audit_export::run(
                 &store,
@@ -188,6 +189,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                     since_minutes,
                     gdpr_redact_emails,
                     json,
+                    kinds,
                 },
             )
             .await

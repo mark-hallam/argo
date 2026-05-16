@@ -29,6 +29,9 @@
 /// Periodic evidence archival (#228, Tier S) — tar.gz bundle +
 /// signed manifest + verify + optional prune.
 pub mod archive;
+/// Streaming RFC 4180 CSV export of audit rows
+/// (`mission-audit-csv-export`).
+pub mod csv;
 mod event;
 mod export;
 /// Denormalized filter-dimension extraction shared by the write
@@ -51,6 +54,9 @@ mod sink_tenant_tests;
 #[cfg(test)]
 mod tests;
 
+pub use csv::{
+    canonical_payload_json, write_audit_csv_header, write_audit_csv_row, CSV_HEADER,
+};
 pub use event::AuditKind;
 pub use export::{
     export_ndjson, rows_for_session, tail_rows, tail_rows_filtered, ExportedRow, TailFilters,
