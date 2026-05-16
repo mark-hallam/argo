@@ -1,6 +1,9 @@
+import { MessageCircle } from "lucide-react";
 import type { ComponentType, HTMLAttributes, ReactNode, SVGProps } from "react";
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
+
+export const DISCORD_INVITE_URL = "https://discord.gg/skycot";
 
 export interface FooterLink {
   label: string;
@@ -17,6 +20,12 @@ export interface FooterSocial {
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 }
+
+export const skycotDiscordSocial: FooterSocial = {
+  label: "Discord",
+  href: DISCORD_INVITE_URL,
+  icon: MessageCircle,
+};
 
 export interface FooterProps extends HTMLAttributes<HTMLElement> {
   brand?: ReactNode;
