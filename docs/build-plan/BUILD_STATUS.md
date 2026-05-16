@@ -1,14 +1,12 @@
 # Build status — live ledger
 
-> **⏸ CODEX POOL PAUSED 2026-05-17 → 2026-05-20T07:00 UTC** (5pm Melbourne / AEST, UTC+10).
-> Codex weekly usage exhausted by operator-account. **Do not author new `codex-*` briefs**
-> or new `mission-*` briefs with `owner=codex` at Step-8 replenishment until 2026-05-20
-> evening Melbourne. Already-CLAIMED codex briefs continue (workers finish what they started).
-> Already-IN_REVIEW codex PRs: admin-merge as normal when clean. DIRTY codex PRs: rebase
-> comments stand; worker will rebase post-reset. **Replenishment in the meantime is
-> claude-only** — author `claude-*` / `mission-*` (owner=claude) briefs to keep the
-> claude pool fed; don't grow the codex TODO queue. The codex side of the queue will
-> drain naturally and re-fill on 2026-05-20.
+> **✅ CODEX POOL FULL USAGE RESTORED 2026-05-17** (operator account restored 3 days
+> early from the prior pause). Mixed-pool replenishment resumed; author `codex-*` and
+> `claude-*` briefs both at Step-8 as the queues require. Codex profile: Pro 20x plan,
+> GPT-5.5 Pro on extra-high thinking, fast-mode available — codex can handle 200-1200
+> LOC briefs spanning 2-3 crates with architectural judgment (not just narrow
+> mechanical). Suggest fast-mode in brief headers when the work is pure mechanical
+> extraction.
 >
 > **CODEX BACK ONLINE 2026-05-13** (~2026-05-14 fully active again):
 > the earlier "CODEX OFFLINE 2026-05-09" banner is HISTORICAL. Codex
