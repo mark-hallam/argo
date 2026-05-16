@@ -17,6 +17,8 @@ impl Drop for PidGuard {
 pub(super) fn pid_is_alive(pid: i32) -> bool {
     // signal 0 = "do not actually send a signal, just check that
     // the target process exists and we have permission to signal it".
+    // SAFETY: callers pass pid values parsed as i32 from our PID file;
+    // signal 0 is the POSIX existence probe and does not alias memory.
     unsafe { libc::kill(pid, 0) == 0 }
 }
 
@@ -28,6 +30,8 @@ pub(super) fn pid_is_alive(_pid: i32) -> bool {
 
 #[cfg(unix)]
 pub(super) fn signal_term(pid: i32) -> std::io::Result<()> {
+    // SAFETY: callers pass pid values parsed as i32 from our PID file;
+    // SIGTERM is a valid libc signal constant and does not alias memory.
     if unsafe { libc::kill(pid, libc::SIGTERM) } == 0 {
         Ok(())
     } else {

@@ -172,6 +172,8 @@ pub(crate) fn restart_daemon_best_effort(exe: &Path) -> bool {
         return false;
     };
     #[cfg(unix)]
+    // SAFETY: pid is parsed as i32 from our gateway PID file; signal 0
+    // probes liveness and SIGTERM is a valid libc signal constant.
     unsafe {
         if libc::kill(pid, 0) != 0 {
             return false;

@@ -78,6 +78,8 @@ fn drain_stderr_in_background(reader: BufReader<ChildStderr>) -> std::thread::Jo
 fn send_signal(pid: u32, signal: i32) {
     // Cast through i32 — `nix::sys::signal::kill` would be cleaner but
     // pulling in the dep just for tests is overkill.
+    // SAFETY: pid comes from Child::id(); callers pass valid libc signal
+    // constants and the syscall does not alias memory.
     let rc = unsafe { libc::kill(pid as i32, signal) };
     assert_eq!(rc, 0, "kill({pid}, {signal}) returned {rc}");
 }

@@ -75,8 +75,8 @@ fn serve_exits_cleanly_on_sigterm() {
     // similar would be cleaner but introducing a test-only dep
     // for one syscall feels heavy.
     let pid = child.id() as i32;
-    // SAFETY: kill(2) is signal-safe; we hold the Child so the
-    // pid is valid until we wait() below.
+    // SAFETY: pid is a non-negative i32 from Child::id(); SIGTERM is a
+    // valid libc signal constant and the syscall does not alias memory.
     let rc = unsafe { libc::kill(pid, libc::SIGTERM) };
     assert_eq!(rc, 0, "kill(SIGTERM) returned {rc} (errno?)");
 
@@ -156,7 +156,8 @@ fn serve_exits_cleanly_on_sigint() {
     std::thread::sleep(Duration::from_millis(500));
 
     let pid = child.id() as i32;
-    // SAFETY: see SIGTERM test above.
+    // SAFETY: pid is a non-negative i32 from Child::id(); SIGINT is a
+    // valid libc signal constant and the syscall does not alias memory.
     let rc = unsafe { libc::kill(pid, libc::SIGINT) };
     assert_eq!(rc, 0, "kill(SIGINT) returned {rc}");
 

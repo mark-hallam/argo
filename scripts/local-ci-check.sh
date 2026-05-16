@@ -178,7 +178,19 @@ span_naming_check() {
 }
 gate "span-naming" span_naming_check
 
-# 8. Workspace tests (skipped in --fast mode)
+# 8. Unsafe FFI SAFETY comments
+unsafe_safety_check() {
+    local script="$REPO_ROOT/scripts/check-unsafe-safety.sh"
+    if [[ -x "$script" ]]; then
+        "$script"
+        return $?
+    fi
+    echo "  (no scripts/check-unsafe-safety.sh; skipping)"
+    return 0
+}
+gate "unsafe-safety comments" unsafe_safety_check
+
+# 9. Workspace tests (skipped in --fast mode)
 if [[ "$MODE" != "fast" ]]; then
     test_check() {
         cargo test --workspace --no-fail-fast 2>&1 | tail -50
