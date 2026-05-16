@@ -65,6 +65,15 @@ fn auth_header_format_substitutes_key() {
 }
 
 #[test]
+fn debug_redacts_api_key() {
+    let m = parse_manifest();
+    let t = AnthropicTransport::from_manifest(m, "sk-ant-12345").unwrap();
+    let out = format!("{t:?}");
+    assert!(out.contains("[redacted]"));
+    assert!(!out.contains("sk-ant-12345"));
+}
+
+#[test]
 fn endpoint_uses_chat_path() {
     let m = parse_manifest();
     let t = AnthropicTransport::from_manifest(m, "sk-ant-x").unwrap();

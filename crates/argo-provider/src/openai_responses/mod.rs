@@ -18,7 +18,7 @@ use crate::transport::{
     build_http_client, ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport,
 };
 use crate::HeartbeatMonitor;
-use argo_types::{ArgoError, ArgoResult, CapabilitySet, RequestId};
+use argo_types::{ArgoError, ArgoResult, CapabilitySet, Redacted, RequestId};
 use async_trait::async_trait;
 use futures::stream::{self as fstream, BoxStream, StreamExt};
 use reqwest::{header::HeaderName, Client};
@@ -41,7 +41,7 @@ const ERROR_BODY_CAP: usize = 4096;
 /// ```
 pub struct OpenAiResponsesTransport {
     manifest: ProviderManifest,
-    api_key: String,
+    api_key: Redacted<String>,
     client: Client,
     capabilities: CapabilitySet,
 }
@@ -51,7 +51,7 @@ impl std::fmt::Debug for OpenAiResponsesTransport {
         f.debug_struct("OpenAiResponsesTransport")
             .field("provider_id", &self.manifest.provider.id)
             .field("base_url", &self.manifest.provider.base_url)
-            .field("api_key", &"<redacted>")
+            .field("api_key", &self.api_key)
             .field("capabilities", &self.capabilities)
             .finish()
     }
@@ -79,7 +79,7 @@ impl OpenAiResponsesTransport {
         let capabilities = manifest.capabilities.to_set(&manifest.auth.api_key_env);
         Ok(Self {
             manifest,
-            api_key: api_key.to_string(),
+            api_key: Redacted::new(api_key.to_string()),
             client,
             capabilities,
         })
@@ -102,7 +102,7 @@ impl OpenAiResponsesTransport {
         self.manifest
             .auth
             .header_format
-            .replace("{key}", &self.api_key)
+            .replace("{key}", self.api_key.expose())
     }
 }
 
