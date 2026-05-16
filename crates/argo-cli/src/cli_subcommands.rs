@@ -183,7 +183,7 @@ pub use super::cli_cred_cmds::CredCmd;
 pub use super::cli_memory_cmd::MemoryCmd;
 pub use super::cli_subcommands_provider::{ModelCmd, ProviderCmd};
 pub use super::cli_subcommands_skill::{
-    SkillCmd, SkillIrCmd, SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd,
+    SkillCmd, SkillIrCmd, SkillPackCmd, SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd,
 };
 #[path = "cli_connector_cmds.rs"]
 mod cli_connector_cmds;

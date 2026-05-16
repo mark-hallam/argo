@@ -8,7 +8,7 @@
 //! dispatcher and the small leaf ops (count / install /
 //! lock+unlock) along with a shared `body_hash` helper used
 //! by `skill_create` and `skill_refine`.
-use crate::cli::{SkillCmd, SkillIrCmd};
+use crate::cli::{SkillCmd, SkillIrCmd, SkillPackCmd};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_skill::{PrincipalOverride, SkillStore};
 use argo_store::SessionStore;
@@ -16,6 +16,19 @@ use argo_types::{ArgoError, ArgoResult, Lock};
 use std::sync::Arc;
 
 pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
+    // `skill pack` is offline (no DB writes, no network); dispatch
+    // before opening the session store so it works against a fresh
+    // checkout where migrations haven't run yet.
+    let cmd = match cmd {
+        SkillCmd::Pack { cmd: pack_cmd } => {
+            return match pack_cmd {
+                SkillPackCmd::Lint { path, strict, json } => {
+                    super::skill_pack_lint::run(&path, strict, json)
+                }
+            };
+        }
+        other => other,
+    };
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
@@ -267,6 +280,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
                 super::skill_ir_backfill::run(&skills, Arc::clone(&store), dry_run, json).await
             }
         },
+        SkillCmd::Pack { .. } => Ok(()), // handled in pre-match above
     }
 }
 

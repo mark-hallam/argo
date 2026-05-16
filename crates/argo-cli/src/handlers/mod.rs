@@ -262,6 +262,7 @@ pub mod skill_keygen;
 pub mod skill_list;
 pub mod skill_list_migrations;
 pub mod skill_migrate;
+pub mod skill_pack_lint;
 pub mod skill_publish;
 pub mod skill_quality;
 pub mod skill_quality_list;

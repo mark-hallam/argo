@@ -37,6 +37,8 @@ pub mod ir;
 pub mod learn;
 pub mod library;
 pub mod marketplace;
+pub mod pack_lint;
+mod pack_lint_checks;
 mod parse;
 pub mod per_worker_learning_cron;
 pub mod publish;
@@ -119,6 +121,7 @@ pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use marketplace::{
     parse_trust_grade, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT,
 };
+pub use pack_lint::{lint_pack, CheckId, LintFinding, LintReport, Severity};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use per_worker_learning_cron::{
     per_worker_learning_tick, per_worker_learning_tick_with_config, spawn_per_worker_learning_cron,

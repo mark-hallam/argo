@@ -5,6 +5,7 @@ use super::cli_skill_review_cmds::SkillReviewCmd;
 pub use super::cli_subcommands_skill_migration::{
     SkillListMigrationsCmd, SkillMigrateCmd, SkillUpgradeCmd,
 };
+pub use super::cli_subcommands_skill_pack::SkillPackCmd;
 pub use super::cli_subcommands_skill_publish::{SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd};
 pub use super::cli_subcommands_skill_quality::{
     SkillQualityCmd, SkillQualityListCmd, SkillQualityRecomputeCmd, SkillQualityTrendCmd,
@@ -470,6 +471,10 @@ pub enum SkillCmd {
     Ir {
         #[command(subcommand)]
         cmd: SkillIrCmd,
+    },
+    Pack {
+        #[command(subcommand)]
+        cmd: SkillPackCmd,
     },
 }
 
