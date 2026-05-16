@@ -12,7 +12,7 @@
 //! through the existing [`NotifySender`] trait used by
 //! [`worker_actions_notify::dispatch`], so swapping channel impls
 //! does not touch this file.
-use crate::handlers::worker_actions_notify::NotifySender;
+use crate::handlers::worker_actions_notify::{matches_risk, NotifySender};
 use argo_channels::fallback::{
     append_report, reports_path, AttemptOutcome, DeliveryAttempt, DeliveryReport, FallbackChain,
 };
@@ -32,10 +32,10 @@ use std::time::Duration;
 /// `.skycot/notify.toml`; the chain looks up by `ref_.channel`.
 /// The first matching ref wins when multiple targets share a kind.
 ///
-/// `notification` is sent verbatim to each channel — fan-out,
-/// per-channel templating, and risk filtering happen in the caller
-/// (`worker_actions_notify::dispatch`); the chain only sequences
-/// the attempts.
+/// `notification` is sent verbatim to each channel — fan-out and
+/// per-channel templating happen in the caller
+/// (`worker_actions_notify::dispatch`); the chain filters by risk
+/// before sequencing attempts.
 pub async fn dispatch_with_fallback(
     notification: &Notification,
     chain: &FallbackChain,
@@ -78,11 +78,16 @@ async fn run_one_attempt(
     sender: &dyn NotifySender,
     timeout: Duration,
 ) -> AttemptOutcome {
-    let Some(ref_) = channel_refs.iter().find(|c| c.channel == kind) else {
+    let risk_level = notification.risk_level.to_string();
+    let Some(ref_) = channel_refs
+        .iter()
+        .find(|c| c.channel == kind && matches_risk(c, &risk_level))
+    else {
         tracing::info!(
             channel = kind,
             action_id = %notification.action_id,
-            "fallback step skipped: no matching NotifyChannelRef configured",
+            risk_level = %risk_level,
+            "fallback step skipped: no matching risk-eligible NotifyChannelRef configured",
         );
         return AttemptOutcome::Unconfigured;
     };

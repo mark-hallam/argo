@@ -28,7 +28,7 @@ enum Scripted {
 #[derive(Default)]
 struct MockChannel {
     script: HashMap<String, Scripted>,
-    calls: Mutex<Vec<String>>,
+    calls: Mutex<Vec<NotifyChannelRef>>,
 }
 
 impl MockChannel {
@@ -42,7 +42,21 @@ impl MockChannel {
     }
 
     fn call_log(&self) -> Vec<String> {
-        self.calls.lock().unwrap().clone()
+        self.calls
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|ref_| ref_.channel.clone())
+            .collect()
+    }
+
+    fn target_log(&self) -> Vec<String> {
+        self.calls
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|ref_| ref_.target.clone())
+            .collect()
     }
 }
 
@@ -53,7 +67,7 @@ impl NotifySender for MockChannel {
         ref_: &NotifyChannelRef,
         _notification: &Notification,
     ) -> Result<(), String> {
-        self.calls.lock().unwrap().push(ref_.channel.clone());
+        self.calls.lock().unwrap().push(ref_.clone());
         let scripted = self
             .script
             .get(&ref_.channel)
@@ -270,6 +284,52 @@ async fn first_matching_ref_wins_when_kind_appears_twice() {
     assert!(report.ok());
     // Only one call - first ref wins.
     assert_eq!(mock.call_log().len(), 1);
+}
+
+#[tokio::test]
+async fn fallback_selects_same_kind_ref_matching_action_risk() {
+    let mock = MockChannel::new().with("email", Scripted::Ok);
+    let mut low_email = NotifyChannelRef::new("email", "low@example.com");
+    low_email.risk_level = Some("low".into());
+    let mut high_email = NotifyChannelRef::new("email", "high@example.com");
+    high_email.risk_level = Some("high".into());
+    let report = dispatch_with_fallback(
+        &notification("act-risk-high"),
+        &chain(&["email"], 5),
+        &[low_email, high_email],
+        &mock,
+    )
+    .await;
+    assert_eq!(report.attempts.len(), 1);
+    assert!(matches!(
+        report.attempts[0].outcome,
+        AttemptOutcome::Success
+    ));
+    assert_eq!(mock.target_log(), vec!["high@example.com"]);
+}
+
+#[tokio::test]
+async fn fallback_does_not_send_to_high_only_channel_for_low_risk_action() {
+    let mock = MockChannel::new().with("email", Scripted::Ok);
+    let mut high_email = NotifyChannelRef::new("email", "high@example.com");
+    high_email.risk_level = Some("high".into());
+    let mut low_notification = notification("act-risk-low");
+    low_notification.risk_level = RiskLevel::Low;
+    let report = dispatch_with_fallback(
+        &low_notification,
+        &chain(&["email"], 5),
+        &[high_email],
+        &mock,
+    )
+    .await;
+    assert_eq!(report.attempts.len(), 1);
+    assert!(matches!(
+        report.attempts[0].outcome,
+        AttemptOutcome::Unconfigured
+    ));
+    assert!(report.succeeded_via.is_none());
+    assert!(!report.ok());
+    assert!(mock.call_log().is_empty());
 }
 
 #[tokio::test]
