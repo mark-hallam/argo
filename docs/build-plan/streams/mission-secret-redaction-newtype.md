@@ -39,13 +39,16 @@ LOC: ~250.
 - `crates/argo-types/Cargo.toml` — narrowly: add `subtle = "2"` dep for constant-time compare. ≤3 modified LOC.
 
 **Migration:**
-- `crates/argo-config/src/sections_siem.rs` — flip api_key field, delete local `SecretString` if defined here. ≤30 modified LOC.
+- `crates/argo-config/src/sections_siem.rs` — flip `token: String` → `token: Redacted<String>`, delete local `SecretString` if defined here. ≤30 modified LOC.
 - One other `sections_*.rs` (worker picks one, names in PR body). ≤20 modified LOC.
 - `crates/argo-config/Cargo.toml` — narrowly: ensure dep on `argo-types`. ≤2 modified LOC.
 
+**Consumer migration (added 2026-05-16 errata):**
+- `crates/argo-cli/src/handlers/gateway/boot_spawns.rs` — narrowly: 3 callsites currently call `cfg.token.clone()` (lines ~200/215/232). Flip to `cfg.token.expose().clone()`. ≤8 modified LOC. This is the minimum consumer-side change needed for the SIEM sink to keep working post-newtype. Brief's must-NOT-touch list previously forbade `argo-cli`; this brief errata permits this single file + only these 3 lines.
+
 ## Files you must NOT touch
 
-- `argo-cli` / gateway handlers — touching those triples the blast radius. Migration is config-only.
+- `argo-cli` / gateway handlers EXCEPT `handlers/gateway/boot_spawns.rs` (3-line SIEM-consumer fix permitted per errata above). All other gateway handlers stay out of scope.
 - Any test that currently does `assert_eq!(format!("{:?}", config), "...")` against the LITERAL secret value — those tests are buggy (they encode the leak); flag in PR body as follow-up.
 - The audit chain — secrets in audit payloads is a separate brief (sealed payloads). Out of scope.
 
