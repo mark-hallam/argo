@@ -18,6 +18,10 @@ mod lock;
 mod messages;
 mod plan_provenance;
 mod routing;
+mod secret;
+
+#[cfg(test)]
+mod secret_tests;
 
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +44,7 @@ pub use lock::Lock;
 pub use messages::{ContentBlock, Message, MessageRole, ToolCallRequest, ToolCallResult};
 pub use plan_provenance::PlanProvenance;
 pub use routing::{ProviderModel, RoutingDecision, RoutingPolicy, TieredRouting};
+pub use secret::Redacted;
 
 /// Operator approval decision shared by channel tokens and approval
 /// persistence.

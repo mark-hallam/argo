@@ -7,6 +7,7 @@
 //! from the new dispatcher — no task spawned, no schema touch, no
 //! HTTP client. Operators flip the flag + set `backend` / `endpoint`
 //! / `token` to ship.
+use argo_types::Redacted;
 use serde::{Deserialize, Serialize};
 
 /// `[siem]`.
@@ -28,10 +29,12 @@ pub struct SiemConfig {
     /// host).
     pub endpoint: String,
     /// Credential. Splunk HEC token / verbatim Elastic
-    /// `Authorization` header value / Datadog API key. Never
-    /// rendered in `Debug` or `tracing` field output — the
-    /// dispatcher wraps in a `SecretString` before storing.
-    pub token: String,
+    /// `Authorization` header value / Datadog API key. Wrapped in
+    /// [`argo_types::Redacted`] so `Debug`, `Display`, and
+    /// `Serialize` all emit `[redacted]` — the value only leaves
+    /// the wrapper via an explicit `.expose()` call (today: the
+    /// SIEM dispatcher boot path).
+    pub token: Redacted<String>,
     /// Optional `sourcetype` (Splunk) / index name (Elastic) /
     /// `ddsource` (Datadog) override. Each sink picks the field
     /// relevant to its backend; the others are ignored.

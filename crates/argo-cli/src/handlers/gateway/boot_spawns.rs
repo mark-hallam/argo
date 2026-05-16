@@ -197,7 +197,7 @@ pub(super) fn spawn_siem_from_config(
     let sink: Arc<dyn SiemSink> = match cfg.backend.as_str() {
         "splunk" => match SplunkHecSink::new(
             cfg.endpoint.clone(),
-            cfg.token.clone(),
+            cfg.token.expose().clone(),
             if cfg.sourcetype.is_empty() {
                 None
             } else {
@@ -212,7 +212,7 @@ pub(super) fn spawn_siem_from_config(
         },
         "elastic" => match ElasticSink::new(
             cfg.endpoint.clone(),
-            cfg.token.clone(),
+            cfg.token.expose().clone(),
             if cfg.index.is_empty() {
                 None
             } else {
@@ -229,7 +229,7 @@ pub(super) fn spawn_siem_from_config(
         },
         "datadog" => match DatadogLogsSink::new(
             cfg.endpoint.clone(),
-            cfg.token.clone(),
+            cfg.token.expose().clone(),
             None,
             if cfg.service.is_empty() {
                 None
