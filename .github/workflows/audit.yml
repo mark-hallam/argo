@@ -3,10 +3,20 @@ on:
   schedule:
     - cron: "0 9 * * *"
   pull_request:
+    branches:
+      - main
     paths:
       - "**/Cargo.lock"
       - ".cargo-audit-ignore.toml"
-      - ".github/workflows/audit.yml.disabled"
+      - ".github/workflows/audit.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/Cargo.lock"
+      - ".cargo-audit-ignore.toml"
+      - ".github/workflows/audit.yml"
+  workflow_dispatch:
 
 jobs:
   audit:

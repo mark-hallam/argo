@@ -74,7 +74,7 @@ unblocks a mission claim.
 
 9. Re-enable `.github/workflows/ci.yml` triggers (resolve GH
    Actions billing OR move to self-hosted runner).
-   `[SHIPPED]`
+   `[BRIEF: codex-ci-workflows-reactivate]`
 10. Add cargo-llvm-cov to CI; emit coverage badge.
     `[SHIPPED]`
 11. Add nightly job that runs all 65 silent-skip integration
