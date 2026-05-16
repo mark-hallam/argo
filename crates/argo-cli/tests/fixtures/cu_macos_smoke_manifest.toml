@@ -1,0 +1,22 @@
+schema_version = "1"
+
+# Fixture vertical for the `cu_macos_dispatch_smoke` integration
+# test. Pins a single action onto the native macOS computer-use
+# executor so the test can drive the dispatch resolution path
+# end-to-end via `argo worker actions execute`.
+#
+# Kept intentionally minimal: one vertical, one action, no
+# eval/kpis/skills, so the smoke targets the dispatch arm rather
+# than the manifest validator.
+
+[vertical]
+id = "cu-macos-smoke"
+name = "cu-macos smoke fixture"
+version = "0.0.1"
+description = "Fixture vertical pinning computer_use_macos for one action."
+
+[actions.cu_macos_noop]
+risk = "low"
+requires_approval = false
+description = "Smoke action — drives the macOS CU dispatch arm. Resolves to HumanHandoff on stock CI; reaches the autonomous loop on demo machines that pass preflight + carry ANTHROPIC_API_KEY."
+executor = { kind = "computer_use_macos", profile = "com.apple.Notes" }
