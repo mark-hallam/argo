@@ -307,7 +307,26 @@ Your job — ONE brief, then exit:
 If you cannot ship (premise wrong, may-touch too tight, 3-attempt fail):
   - Edit BUILD_STATUS.md row to BLOCKED with a one-line reason.
   - Commit and push to main.
-  - Exit cleanly.
+  - Exit cleanly (run cleanup in step 9 below first).
+
+9. **Disk cleanup before exit (MANDATORY).** After step 8 (PR open + ledger
+   updated) OR the BLOCKED-exit path, you MUST clean up the per-brief
+   artifacts so /tmp doesn't fill up over the loop's lifetime. Run from
+   the main repo directory (\$REPO), NOT from inside the worktree:
+
+   cd \$REPO
+   git worktree remove --force /tmp/\$BRIEF_ID 2>/dev/null || true
+   rm -rf /tmp/\$BRIEF_ID-target /tmp/argo-shared-target-\$BRIEF_ID 2>/dev/null || true
+   git worktree prune
+
+   Hard rules:
+   - Always 'cd \$REPO' BEFORE 'git worktree remove' (git refuses if cwd is
+     inside the target worktree).
+   - Use 'git worktree remove', NEVER 'rm -rf' the worktree directly
+     (rm-rf corrupts git's internal worktree state).
+   - NEVER touch ~/.cargo/registry/ — that's the cross-iteration cache.
+   - If 'git worktree remove' fails because of uncommitted changes, the
+     PR likely didn't push cleanly. Re-check step 6 before forcing.
 
 DO NOT loop. DO NOT claim another brief. The outer bash loop handles
 the next iteration.
@@ -448,6 +467,24 @@ PY
     continue
   fi
   rm -f "$QUOTA_HIT"  # belt-and-braces cleanup if file existed but was empty
+
+  # Defensive disk cleanup: if the worker followed step 9 of its prompt
+  # the worktree is already gone, but workers sometimes skip it under
+  # quota pressure or context cap. Sweep here as a safety net so /tmp
+  # doesn't accumulate over a long-running loop.
+  if [ -n "${BRIEF_ID:-}" ]; then
+    cd "$REPO" 2>/dev/null || true
+    git worktree remove --force "/tmp/${BRIEF_ID}" 2>/dev/null || true
+    rm -rf "/tmp/${BRIEF_ID}-target" "/tmp/argo-shared-target-${BRIEF_ID}" 2>/dev/null || true
+    git worktree prune 2>/dev/null || true
+    # Report freed space periodically (every 10 iterations is enough)
+    ITER_COUNT=$((${ITER_COUNT:-0} + 1))
+    if [ "$((ITER_COUNT % 10))" -eq 0 ]; then
+      echo "[$(date +%H:%M:%S)] 🧹 /tmp disk usage after $ITER_COUNT iterations:"
+      df -h /tmp 2>/dev/null | tail -1 || true
+    fi
+    export ITER_COUNT
+  fi
 
   JITTER=$((RANDOM % 26 + 5))
   echo "[$(date +%H:%M:%S)] Iteration done. Jittering ${JITTER}s..."

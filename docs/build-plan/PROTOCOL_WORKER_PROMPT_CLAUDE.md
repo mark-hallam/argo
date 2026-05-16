@@ -44,3 +44,43 @@ CLI-loop workers are exempt from the graceful-exit protocol in
 `SWARM_PROTOCOL.md` — every iteration is a fresh window, so context
 never accumulates and there is no degraded-session mode to exit from.
 Stop the loop by `touch /tmp/argo-stop` or Ctrl-C.
+
+## Disk cleanup after each iteration (handled by the loop)
+
+Each iteration creates a per-brief worktree at `/tmp/$BRIEF_ID` and a
+cargo target dir at `/tmp/$BRIEF_ID-target` (often several GB). Without
+explicit cleanup, /tmp fills up over a long-running loop (the swarm
+typically runs 24–48hrs continuously during ship windows).
+
+The cleanup is enforced at **two levels**:
+
+1. **Worker-side (step 9 in the prompt that `claude -p` receives).**
+   After PR push + ledger update OR the BLOCKED-exit path, the worker
+   runs:
+
+   ```bash
+   cd $REPO
+   git worktree remove --force /tmp/$BRIEF_ID 2>/dev/null || true
+   rm -rf /tmp/$BRIEF_ID-target /tmp/argo-shared-target-$BRIEF_ID 2>/dev/null || true
+   git worktree prune
+   ```
+
+2. **Outer-bash safety net.** If the worker skipped step 9 (quota
+   pressure, context cap, network glitch mid-push, etc.), the bash
+   wrapper sweeps the same paths defensively at the end of each
+   iteration. Every 10 iterations it logs `/tmp` disk usage so the
+   operator can spot leaks visually.
+
+Hard rules (also embedded in the worker prompt):
+
+- Always `cd $REPO` BEFORE `git worktree remove`. Git refuses if cwd
+  is inside the target worktree.
+- Use `git worktree remove`, NEVER `rm -rf` the worktree directly —
+  raw rm-rf corrupts git's internal worktree state.
+- NEVER touch `~/.cargo/registry/`. That's the cross-iteration cache;
+  losing it costs many minutes per restart.
+- If `git worktree remove` fails because of uncommitted changes, the
+  PR probably didn't push cleanly. Don't force; investigate.
+
+Codex workers (one-shot per session, not looped) have a parallel
+mandate in `AGENTS.md` + `PROTOCOL_WORKER_PROMPT_CODEX.md`.
