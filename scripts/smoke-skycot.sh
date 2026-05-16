@@ -6,7 +6,11 @@
 # exposes, and asserts the artifact bundle landed correctly.
 #
 # Usage:
-#   ./scripts/smoke-skycot.sh [argo-binary]
+#   ./scripts/smoke-skycot.sh [argo-binary] [--target-url <URL>]
+#
+# Pass --target-url <URL> to additionally run 8 post-deploy scenarios
+# (#31-#38) against a remote SKYCOT instance — Fly app, staging, etc.
+# Default (no flag): local-only scenarios run, behavior unchanged.
 #
 # Internal cargo smoke scenarios inherit CARGO_TARGET_DIR. If unset,
 # the script exports the repo-local target/ directory before running
@@ -17,6 +21,35 @@
 # right after install to confirm SKYCOT is wired end-to-end.
 
 set -uo pipefail
+
+# Parse --target-url out of $@ before consuming positional arg 1.
+TARGET_URL=""
+POSITIONAL=()
+while (( "$#" > 0 )); do
+  case "$1" in
+    --target-url)
+      if [[ -z "${2:-}" ]]; then
+        echo "FAIL: --target-url requires a URL argument"
+        exit 2
+      fi
+      TARGET_URL="$2"
+      shift 2
+      ;;
+    --target-url=*)
+      TARGET_URL="${1#--target-url=}"
+      shift
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      shift
+      ;;
+  esac
+done
+if (( ${#POSITIONAL[@]} > 0 )); then
+  set -- "${POSITIONAL[@]}"
+else
+  set --
+fi
 
 ARGO_BIN="${1:-argo}"
 SCRIPT_NAME="$(basename "$0")"
@@ -51,7 +84,10 @@ if [[ -z "${CARGO_TARGET_DIR:-}" ]]; then
 fi
 export CARGO_TARGET_DIR
 
-cd "$WORKDIR"
+cd "$WORKDIR" || {
+  echo "FAIL: cd to workdir $WORKDIR"
+  exit 1
+}
 
 # Scenario-result counters. Mission assertions count as PASS; compatibility
 # checks that runtime-detect they can't exercise the mission path count as
@@ -59,7 +95,9 @@ cd "$WORKDIR"
 # still exit immediately via fail().
 PASSED_COUNT=0
 SKIPPED_COUNT=0
+WARNED_COUNT=0
 SKIPPED_REASONS=()
+WARNED_REASONS=()
 
 ok() {
   PASSED_COUNT=$((PASSED_COUNT + 1))
@@ -70,11 +108,18 @@ skip() {
   SKIPPED_REASONS+=("$*")
   echo "  SKIP: $*"
 }
+warn() {
+  WARNED_COUNT=$((WARNED_COUNT + 1))
+  WARNED_REASONS+=("$*")
+  echo "  WARN: $*"
+}
 fail() {
   echo "FAIL: $1"
   if [[ -n "${2:-}" ]]; then
     echo "      output:"
-    echo "$2" | sed 's/^/        /'
+    while IFS= read -r line; do
+      echo "        $line"
+    done <<< "$2"
   fi
   exit 1
 }
@@ -191,10 +236,9 @@ heading "14. canonical action-emitting vertical lint clean"
 # ships with its own [actions] declarations + instruction templates.
 # Catch template-key typos / malformed manifests before the
 # customer hits them at runtime.
-for vid in gtm-engineer; do
-  lint_out=$("$ARGO_BIN" vertical lint "$vid" 2>&1) || fail "lint $vid" "$lint_out"
-  echo "$lint_out" | grep -q "lint clean" || fail "$vid not lint-clean" "$lint_out"
-done
+vid="gtm-engineer"
+lint_out=$("$ARGO_BIN" vertical lint "$vid" 2>&1) || fail "lint $vid" "$lint_out"
+echo "$lint_out" | grep -q "lint clean" || fail "$vid not lint-clean" "$lint_out"
 ok "canonical Worker v3 vertical lint clean"
 
 heading "15. all shipped action-emitting verticals have valid eval suites"
@@ -402,18 +446,172 @@ else
   ok "slack_approval_smoke passed (outbound stub + inbound gateway round-trip)"
 fi
 
+# ---------------------------------------------------------------------
+# Deployed-target scenarios (31-38). Only run when --target-url is set.
+# Each scenario must be runnable without the local argo binary; they
+# exercise the deployed HTTP surface (gateway) via curl + openssl.
+# ---------------------------------------------------------------------
+if [[ -n "$TARGET_URL" ]]; then
+  # Strip trailing slash so $TARGET_URL/$path joins cleanly.
+  TARGET_URL="${TARGET_URL%/}"
+  if [[ ! "$TARGET_URL" =~ ^https?:// ]]; then
+    fail "--target-url must start with http:// or https:// (got '$TARGET_URL')"
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    fail "--target-url requires curl on PATH"
+  fi
+
+  heading "31. health-deployed — GET /healthz"
+  resp=$(curl -fsS --max-time 10 "$TARGET_URL/healthz" 2>&1) \
+    || fail "GET $TARGET_URL/healthz" "$resp"
+  echo "$resp" | grep -q '"ok"[[:space:]]*:[[:space:]]*true' \
+    || fail "/healthz body missing \"ok\":true" "$resp"
+  ok "/healthz returned 200 with ok:true"
+
+  heading "32. meta-deployed — GET /meta"
+  resp=$(curl -fsS --max-time 10 "$TARGET_URL/meta" 2>&1) \
+    || fail "GET $TARGET_URL/meta" "$resp"
+  echo "$resp" | grep -q '"version"' \
+    || fail "/meta body missing version field" "$resp"
+  ok "/meta returned 200 with version field"
+
+  heading "33. meta-tools-deployed — GET /meta/tools"
+  resp=$(curl -fsS --max-time 10 "$TARGET_URL/meta/tools" 2>&1) \
+    || fail "GET $TARGET_URL/meta/tools" "$resp"
+  tool_count=$(echo "$resp" | grep -oE '"name"[[:space:]]*:' | wc -l | tr -d ' ')
+  if (( tool_count < 8 )); then
+    fail "/meta/tools advertised $tool_count tools (expected ≥8)" "$resp"
+  fi
+  ok "/meta/tools returned 200 with $tool_count tools"
+
+  heading "34. auth-signup-rate-limit — POST × 11 /api/v1/auth/signup"
+  signup_path="/api/v1/auth/signup"
+  rate_429=""
+  for i in $(seq 1 11); do
+    email="test-rl-${RANDOM}-${i}@smoketest.local"
+    code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 \
+      -X POST -H 'Content-Type: application/json' \
+      -d "{\"email\":\"$email\"}" \
+      "$TARGET_URL$signup_path" 2>&1)
+    if [[ "$i" == "11" && "$code" == "429" ]]; then
+      rate_429="yes"
+    fi
+  done
+  if [[ "$rate_429" == "yes" ]]; then
+    ok "11th signup correctly rate-limited (429)"
+  else
+    warn "rate-limit not observed on 11th request — gateway may not enforce burst limits yet (informational)"
+  fi
+
+  heading "35. auth-signup-happy — POST /api/v1/auth/signup"
+  email_happy="test-happy-${RANDOM}@smoketest.local"
+  resp=$(curl -sS --max-time 10 \
+    -X POST -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$email_happy\"}" \
+    "$TARGET_URL$signup_path" 2>&1) \
+    || fail "POST $signup_path" "$resp"
+  if echo "$resp" | grep -q '"status"[[:space:]]*:[[:space:]]*"sent"'; then
+    ok "happy-path signup returned status:sent (throwaway $email_happy)"
+  else
+    warn "happy-path signup did not return status:sent — response was: $resp"
+  fi
+
+  heading "36. cors-preflight — OPTIONS /api/v1/dispatch"
+  headers=$(curl -sS -i --max-time 10 \
+    -X OPTIONS \
+    -H 'Origin: https://app.skycot.com' \
+    -H 'Access-Control-Request-Method: POST' \
+    -H 'Access-Control-Request-Headers: content-type' \
+    "$TARGET_URL/api/v1/dispatch" 2>&1) \
+    || fail "OPTIONS /api/v1/dispatch" "$headers"
+  if echo "$headers" | grep -qi '^access-control-allow-origin:'; then
+    ok "CORS preflight returned Access-Control-Allow-Origin header"
+  else
+    fail "OPTIONS /api/v1/dispatch missing Access-Control-Allow-Origin" "$headers"
+  fi
+
+  heading "37. tls-cert — openssl handshake + expiry"
+  if [[ "$TARGET_URL" =~ ^https:// ]]; then
+    if ! command -v openssl >/dev/null 2>&1; then
+      skip "tls-cert — openssl not on PATH (compatibility check, not mission proof)"
+    else
+      host="${TARGET_URL#https://}"
+      host="${host%%/*}"
+      port="${host##*:}"
+      if [[ "$port" == "$host" ]]; then port="443"; fi
+      host="${host%%:*}"
+      cert_dates=$(openssl s_client -servername "$host" -connect "$host:$port" \
+          -showcerts < /dev/null 2>/dev/null \
+          | openssl x509 -noout -dates 2>&1) \
+        || fail "openssl handshake to $host:$port failed" "$cert_dates"
+      not_after=$(echo "$cert_dates" | grep '^notAfter=' | sed 's/^notAfter=//')
+      if [[ -z "$not_after" ]]; then
+        fail "could not parse certificate notAfter for $host" "$cert_dates"
+      fi
+      ok "TLS handshake succeeded for $host; cert expires $not_after"
+    fi
+  else
+    skip "tls-cert — target is plain http:// (compatibility check, not mission proof)"
+  fi
+
+  heading "38. latency-budget — 100×GET /healthz (parallel)"
+  lat_dir=$(mktemp -d)
+  for i in $(seq 1 100); do
+    (
+      curl -sS -o /dev/null --max-time 10 \
+        -w '%{time_total}\n' "$TARGET_URL/healthz" \
+        > "$lat_dir/$i" 2>/dev/null
+    ) &
+  done
+  wait
+  samples=$(cat "$lat_dir"/* 2>/dev/null | grep -E '^[0-9]+\.?[0-9]*$' | sort -n)
+  rm -rf "$lat_dir"
+  n=$(echo "$samples" | wc -l | tr -d ' ')
+  if (( n < 50 )); then
+    fail "latency-budget collected only $n/100 samples — target unreachable?" ""
+  fi
+  pick_pct() {
+    # $1 = percentile (50/95/99). Uses awk to read sorted lines.
+    echo "$samples" | awk -v p="$1" -v n="$n" '
+      BEGIN { idx = int((p/100) * n); if (idx < 1) idx = 1 }
+      NR == idx { print; exit }'
+  }
+  p50=$(pick_pct 50)
+  p95=$(pick_pct 95)
+  p99=$(pick_pct 99)
+  echo "  samples=$n p50=${p50}s p95=${p95}s p99=${p99}s"
+  # Convert p95 to milliseconds via awk (portable; no bc dependency).
+  p95_ms=$(awk -v v="$p95" 'BEGIN { printf "%.0f", v * 1000 }')
+  if (( p95_ms > 2000 )); then
+    fail "latency budget breached: p95=${p95_ms}ms > 2000ms hard ceiling" ""
+  elif (( p95_ms > 500 )); then
+    warn "latency yellow flag: p95=${p95_ms}ms > 500ms target (network-dependent, not a deploy block)"
+  else
+    ok "latency p95=${p95_ms}ms within 500ms target"
+  fi
+fi
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
-echo "  scenarios: $PASSED_COUNT passed, $SKIPPED_COUNT skipped"
+echo "  scenarios: $PASSED_COUNT passed, $SKIPPED_COUNT skipped, $WARNED_COUNT warned"
 if (( SKIPPED_COUNT > 0 )); then
   echo "  skipped scenarios (compatibility checks, not mission proofs):"
   for reason in "${SKIPPED_REASONS[@]}"; do
     echo "    - $reason"
   done
 fi
+if (( WARNED_COUNT > 0 )); then
+  echo "  warnings (informational, not failures):"
+  for reason in "${WARNED_REASONS[@]}"; do
+    echo "    - $reason"
+  done
+fi
 echo "  workspace: $WORKDIR"
 echo "  argo home: $HOME_DIR"
 echo "  job_id:    $job_id"
+if [[ -n "$TARGET_URL" ]]; then
+  echo "  target:    $TARGET_URL"
+fi
 echo
 echo "Next step: read docs/skycot/getting_started.md to run a real"
 echo "(non-mock) job against your provider of choice."
