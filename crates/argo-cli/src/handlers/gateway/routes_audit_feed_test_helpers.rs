@@ -1,0 +1,136 @@
+//! Shared helpers for the `routes_audit_feed_*_tests.rs` siblings.
+//!
+//! Each `routes_audit_feed_*_tests.rs` is its own `#[cfg(test)] mod`
+//! under `routes_audit_feed.rs`. The helpers live here so the query,
+//! pagination, and tenant sibling files can reach them via
+//! `use super::routes_audit_feed_test_helpers::*;`.
+
+#![allow(dead_code)]
+#![allow(deprecated)]
+
+use argo_audit::{AuditKind, AuditSink};
+use argo_store::SessionStore;
+use serde_json::{json, Value};
+use std::sync::Arc;
+
+pub(super) async fn mem_store() -> Arc<SessionStore> {
+    let store = SessionStore::open(":memory:").await.expect("open mem db");
+    store.migrate().await.expect("migrate");
+    Arc::new(store)
+}
+
+pub(super) async fn seed_row(store: &Arc<SessionStore>, payload: Value) {
+    AuditSink::new(Arc::clone(store))
+        .write(None, AuditKind::HttpRequest, payload, None)
+        .await
+        .expect("write audit row");
+}
+
+/// Standard row shape carrying every dimension the feed filters on.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn row(
+    worker_id: &str,
+    channel: &str,
+    action_type: &str,
+    status: &str,
+    approver_id: Option<&str>,
+    cost_usd: Option<f64>,
+    classification: &str,
+    verb: &str,
+) -> Value {
+    let mut v = json!({
+        "endpoint": "test.action",
+        "worker_id": worker_id,
+        "worker_name": format!("Worker-{worker_id}"),
+        "channel": channel,
+        "action_type": action_type,
+        "outcome_status": status,
+        "data_classification": classification,
+        "verb": verb,
+    });
+    if let Some(a) = approver_id {
+        v["approver_id"] = json!(a);
+        v["approver_name"] = json!(format!("Approver-{a}"));
+    }
+    if let Some(c) = cost_usd {
+        v["cost_usd"] = json!(c);
+    }
+    v
+}
+
+pub(super) fn get(path: &str) -> String {
+    format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n")
+}
+
+pub(super) async fn parse_body(resp: (&str, String)) -> (&str, Value) {
+    let v: Value =
+        serde_json::from_str(&resp.1).unwrap_or_else(|_| panic!("invalid JSON body: {}", resp.1));
+    (resp.0, v)
+}
+
+pub(super) async fn seed_minimal_two(store: &Arc<SessionStore>) {
+    seed_row(
+        store,
+        row(
+            "w1",
+            "web",
+            "approval.decided",
+            "succeeded",
+            Some("a1"),
+            Some(0.5),
+            "internal",
+            "approved transfer",
+        ),
+    )
+    .await;
+    seed_row(
+        store,
+        row(
+            "w2",
+            "slack",
+            "message.sent",
+            "failed",
+            None,
+            Some(0.001),
+            "public",
+            "sent message to channel",
+        ),
+    )
+    .await;
+}
+
+pub(super) async fn seed_row_for_tenant(store: &Arc<SessionStore>, tenant_id: &str, worker: &str) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    sink.write(
+        None,
+        AuditKind::HttpRequest,
+        row(
+            worker,
+            "web",
+            "msg",
+            "succeeded",
+            None,
+            None,
+            "internal",
+            "did x",
+        ),
+        None,
+    )
+    .await
+    .expect("write tenant-scoped row");
+    // Drop the batched-writer latency-window before the test reads back. The
+    // sink-per-helper-call pattern queues into a per-sink batch that would
+    // otherwise be lost when the sink drops at end-of-scope.
+    sink.flush_pending().await.expect("flush tenant-scoped row");
+}
+
+pub(super) fn get_with_tenant(path: &str, tenant: &str) -> String {
+    format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n")
+}
+
+pub(super) fn get_with_tenant_and_cap(path: &str, tenant: &str) -> String {
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\
+         X-Argo-Audit-Cross-Tenant: 1\r\n\r\n"
+    )
+}

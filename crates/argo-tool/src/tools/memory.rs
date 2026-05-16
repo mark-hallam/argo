@@ -393,5 +393,13 @@ mod query;
 mod team;
 
 #[cfg(test)]
-#[path = "memory_tests.rs"]
-mod tests;
+#[path = "memory_test_helpers.rs"]
+mod test_helpers;
+
+#[cfg(test)]
+#[path = "memory_legacy_tests.rs"]
+mod legacy_tests;
+
+#[cfg(test)]
+#[path = "memory_namespace_tests.rs"]
+mod namespace_tests;

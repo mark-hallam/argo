@@ -451,5 +451,13 @@ fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static 
 }
 
 #[cfg(test)]
-#[path = "routes_audit_feed_tests.rs"]
-mod tests;
+#[path = "routes_audit_feed_test_helpers.rs"]
+mod test_helpers;
+
+#[cfg(test)]
+#[path = "routes_audit_feed_query_tests.rs"]
+mod query_tests;
+
+#[cfg(test)]
+#[path = "routes_audit_feed_tenant_tests.rs"]
+mod tenant_tests;
