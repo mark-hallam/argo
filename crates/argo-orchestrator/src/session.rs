@@ -139,7 +139,7 @@ impl Session {
     #[must_use = "drop the returned guard at end of session-scoped work"]
     pub fn enter_log_context(&self) -> tracing::span::EnteredSpan {
         tracing::info_span!(
-            "session",
+            argo_telemetry::spans::SESSION_CONTEXT,
             tenant_id = %self.tenant_id,
             session_id = %self.id,
         )

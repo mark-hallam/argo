@@ -1,9 +1,9 @@
 use super::*;
 
 #[test]
-fn span_taxonomy_has_thirteen_names() {
-    // §18.1: 6 from v0.1 + 7 v0.2 additions = 13 total.
-    assert_eq!(spans::all().len(), 13);
+fn span_taxonomy_has_declared_names() {
+    // §18.1 plus runtime structured-logging spans.
+    assert_eq!(spans::all().len(), 17);
 }
 
 #[test]

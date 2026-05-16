@@ -19,6 +19,7 @@ argo-provider = { path = "../argo-provider" }
 argo-runtime = { path = "../argo-runtime" }
 argo-skill = { path = "../argo-skill" }
 argo-store = { path = "../argo-store" }
+argo-telemetry = { path = "../argo-telemetry" }
 argo-tool = { path = "../argo-tool" }
 argo-types = { path = "../argo-types" }
 argo-vertical = { path = "../argo-vertical" }
@@ -33,7 +34,6 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
-argo-telemetry = { path = "../argo-telemetry" }
 argo-workflow = { path = "../argo-workflow" }
 tempfile = "3"
 tokio = { workspace = true }

@@ -9,13 +9,14 @@
 //! contract.
 //!
 //! The test is intentionally self-contained: it opens spans with
-//! the same `info_span!(...)` invocations the production handlers
+//! the same canonical span constants the production handlers
 //! use and asserts the rendered output through a captured writer.
 //! Exercising the real handlers requires a live SessionStore +
 //! provider transport, which is out of scope for a single smoke
 //! (and would only confirm what this test already locks — that
 //! `tracing-subscriber::fmt` renders the field set we declared).
 
+use argo_telemetry::spans;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 use tracing::Instrument;
@@ -63,7 +64,7 @@ fn capture<F: FnOnce()>(f: F) -> String {
 fn gateway_request_span_carries_route_principal_request_id() {
     let log = capture(|| {
         let span = tracing::info_span!(
-            "request",
+            spans::GATEWAY_REQUEST_DISPATCH,
             route = "POST /sessions",
             principal_id = "human:operator@example.com",
             request_id = "req-abc-123",
@@ -71,7 +72,10 @@ fn gateway_request_span_carries_route_principal_request_id() {
         let _enter = span.enter();
         tracing::info!("dispatched");
     });
-    assert!(log.contains("request"), "no span name in: {log}");
+    assert!(
+        log.contains(spans::GATEWAY_REQUEST_DISPATCH),
+        "no span name in: {log}"
+    );
     assert!(
         log.contains("route=\"POST /sessions\""),
         "route field missing: {log}"
@@ -94,7 +98,7 @@ fn agent_runner_turn_span_carries_session_tenant_worker() {
         let tenant = "00112233-4455-6677-8899-aabbccddeeff";
         let worker = "ffeeddcc-bbaa-9988-7766-554433221100";
         let span = tracing::info_span!(
-            "turn",
+            spans::AGENT_TURN,
             session_id = session,
             tenant_id = tenant,
             worker_id = worker,
@@ -120,7 +124,7 @@ fn agent_runner_turn_span_carries_session_tenant_worker() {
 fn worker_job_span_carries_tenant_vertical_job_id() {
     let log = capture(|| {
         let span = tracing::info_span!(
-            "worker_job",
+            spans::WORKER_JOB_DISPATCH,
             tenant_id = "tenant-uuid",
             vertical_id = "gtm-engineer",
             job_id = "job-uuid",
@@ -136,7 +140,7 @@ fn worker_job_span_carries_tenant_vertical_job_id() {
 #[test]
 fn worker_step_span_carries_step_iteration_counter() {
     let log = capture(|| {
-        let span = tracing::info_span!("step", step = 2u32, max_steps = 5u32);
+        let span = tracing::info_span!(spans::WORKER_STEP, step = 2u32, max_steps = 5u32);
         let _enter = span.enter();
         tracing::info!("step running");
     });
@@ -153,18 +157,18 @@ fn nested_spans_propagate_fields_through_async_await() {
     // structured-logging brief locks.
     let log = capture(|| {
         let outer = tracing::info_span!(
-            "worker_job",
+            spans::WORKER_JOB_DISPATCH,
             tenant_id = "T1",
             vertical_id = "v",
             job_id = "j",
         );
         let fut = async {
             tokio::task::yield_now().await;
-            let step = tracing::info_span!("step", step = 1u32, max_steps = 3u32);
+            let step = tracing::info_span!(spans::WORKER_STEP, step = 1u32, max_steps = 3u32);
             async {
                 tokio::task::yield_now().await;
                 let turn = tracing::info_span!(
-                    "turn",
+                    spans::AGENT_TURN,
                     session_id = "S1",
                     tenant_id = "T1",
                     worker_id = "W1",

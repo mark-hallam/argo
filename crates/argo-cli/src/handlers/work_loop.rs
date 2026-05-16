@@ -161,7 +161,11 @@ where
         // span + the agent-runner turn span give every emission
         // the full {tenant_id, vertical_id, job_id, step,
         // session_id, worker_id} set.
-        let step_span = tracing::info_span!("step", step = step, max_steps = max_steps);
+        let step_span = tracing::info_span!(
+            argo_telemetry::spans::WORKER_STEP,
+            step = step,
+            max_steps = max_steps
+        );
         let started = Instant::now();
         let result = step_fn(step, prompt).instrument(step_span).await;
         steps_completed = step;

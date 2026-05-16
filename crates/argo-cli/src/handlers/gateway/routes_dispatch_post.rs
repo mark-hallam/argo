@@ -116,7 +116,7 @@ async fn check_quota_or_reject(
 /// letting `dispatch_route` fall through to its other branches
 /// (and ultimately the 404 default).
 ///
-/// Wrapped in `tracing::info_span!("request", …)` so every
+/// Wrapped in the canonical gateway request span so every
 /// `info!`/`warn!`/`error!` emission below this point inherits
 /// `route`, `principal_id`, and `request_id` fields without a
 /// per-callsite change (mvp-structured-logging).
@@ -125,7 +125,7 @@ pub(super) async fn dispatch_post(
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
     let span = tracing::info_span!(
-        "request",
+        argo_telemetry::spans::GATEWAY_REQUEST_DISPATCH,
         route = %request_route(req),
         principal_id = %principal_id_for_audit(req).unwrap_or_default(),
         request_id = %request_id_header(req),

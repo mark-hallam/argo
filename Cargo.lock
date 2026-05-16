@@ -1276,6 +1276,7 @@ dependencies = [
  "argo-mcp-connector-shared",
  "argo-runtime",
  "argo-store",
+ "argo-telemetry",
  "argo-types",
  "async-trait",
  "chrono",

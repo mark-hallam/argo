@@ -70,6 +70,14 @@ pub mod spans {
     pub const AGENT_PROVIDER_REQUEST: &str = "agent.provider.request";
     /// Streaming response.
     pub const AGENT_PROVIDER_STREAM: &str = "agent.provider.stream";
+    /// Gateway request dispatch.
+    pub const GATEWAY_REQUEST_DISPATCH: &str = "gateway.request.dispatch";
+    /// Session-level logging context.
+    pub const SESSION_CONTEXT: &str = "session.context";
+    /// Worker job dispatch.
+    pub const WORKER_JOB_DISPATCH: &str = "worker.job.dispatch";
+    /// Worker loop step execution.
+    pub const WORKER_STEP: &str = "worker.step";
     /// Tool planning (which tools to dispatch).
     pub const AGENT_TOOLS_PLAN: &str = "agent.tools.plan";
     /// Tool execution.
@@ -96,6 +104,10 @@ pub mod spans {
             ROUTING_CLASSIFY,
             AGENT_PROVIDER_REQUEST,
             AGENT_PROVIDER_STREAM,
+            GATEWAY_REQUEST_DISPATCH,
+            SESSION_CONTEXT,
+            WORKER_JOB_DISPATCH,
+            WORKER_STEP,
             AGENT_TOOLS_PLAN,
             AGENT_TOOLS_EXECUTE,
             JUDGE_ADJUDICATE,

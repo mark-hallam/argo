@@ -13,6 +13,7 @@ argo-identity = { path = "../argo-identity" }
 argo-mcp-connector-shared = { path = "../argo-mcp-connector-shared" }
 argo-runtime = { path = "../argo-runtime" }
 argo-store = { path = "../argo-store" }
+argo-telemetry = { path = "../argo-telemetry" }
 argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 chrono = { workspace = true }

@@ -18,10 +18,10 @@ LOC: ~150 (mechanical).
 
 ## Acceptance criteria
 
-- [ ] `bash scripts/check-span-naming.sh` exits 0.
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean.
-- [ ] No span-literal in production code.
-- [ ] BUILD_STATUS.md row updated.
+- [x] `bash scripts/check-span-naming.sh` exits 0.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean.
+- [x] No span-literal in production code.
+- [x] BUILD_STATUS.md row updated.
 
 ## Branch + PR
 

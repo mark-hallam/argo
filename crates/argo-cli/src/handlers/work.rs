@@ -189,7 +189,7 @@ async fn serve(
                 // fields land on the agent-runner's nested `turn`
                 // span (opened in `argo_agent_runner::turn`).
                 let job_span = tracing::info_span!(
-                    "worker_job",
+                    argo_telemetry::spans::WORKER_JOB_DISPATCH,
                     tenant_id = %tenant.0,
                     vertical_id = %vertical_id,
                     job_id = %job.id,

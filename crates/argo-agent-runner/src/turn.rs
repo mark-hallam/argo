@@ -130,7 +130,7 @@ pub async fn run_turn_with_planner_hook(
 /// non-streaming gateway pass `None`. Each event mirrors the audit
 /// emission that just landed.
 ///
-/// Wrapped in `tracing::info_span!("turn", …)` so every emission
+/// Wrapped in the canonical agent turn span so every emission
 /// inside the agent loop inherits `session_id`, `tenant_id`, and
 /// `worker_id` without per-callsite changes
 /// (mvp-structured-logging). `tenant_id`/`worker_id` are recorded
@@ -146,7 +146,7 @@ pub async fn run_turn_with_events(
     events: Option<&RunEventSink>,
 ) -> ArgoResult<TurnResult> {
     let span = tracing::info_span!(
-        "turn",
+        argo_telemetry::spans::AGENT_TURN,
         session_id = %session_id.0,
         tenant_id = tracing::field::Empty,
         worker_id = tracing::field::Empty,
