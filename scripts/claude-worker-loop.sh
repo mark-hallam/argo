@@ -309,24 +309,44 @@ If you cannot ship (premise wrong, may-touch too tight, 3-attempt fail):
   - Commit and push to main.
   - Exit cleanly (run cleanup in step 9 below first).
 
-9. **Disk cleanup before exit (MANDATORY).** After step 8 (PR open + ledger
-   updated) OR the BLOCKED-exit path, you MUST clean up the per-brief
-   artifacts so /tmp doesn't fill up over the loop's lifetime. Run from
-   the main repo directory (\$REPO), NOT from inside the worktree:
+9. **Disk cleanup before exit (MANDATORY — scoped to YOUR brief only).**
+   Other workers (Claude lane A + B + codex) are running concurrently
+   on this machine. You MUST only touch paths containing your \$BRIEF_ID.
 
-   cd \$REPO
-   git worktree remove --force /tmp/\$BRIEF_ID 2>/dev/null || true
-   rm -rf /tmp/\$BRIEF_ID-target /tmp/argo-shared-target-\$BRIEF_ID 2>/dev/null || true
-   git worktree prune
+   ALLOWED (scoped to your brief):
+   - /tmp/\$BRIEF_ID/                       (your worktree)
+   - /tmp/\$BRIEF_ID-target/                (your target dir)
+   - /tmp/argo-shared-target-\$BRIEF_ID/    (alt target dir naming)
+
+   FORBIDDEN (would damage other workers):
+   - rm -rf /tmp/*-target                   (nukes every worker)
+   - rm -rf /tmp/*                          (nukes everything)
+   - cargo clean --workspace                (invalidates shared cache)
+   - rm -rf ~/.cargo/registry               (cross-iteration cache)
+   - rm -rf /tmp/argo-shared-target         (without brief-id suffix)
+   - git worktree prune --expire=now        (too aggressive)
+
+   Run from \$REPO (NOT inside the worktree):
+
+   if [ -z \"\${BRIEF_ID:-}\" ]; then
+     echo \"BRIEF_ID empty; skipping cleanup\" >&2
+   else
+     cd \$REPO
+     git worktree remove --force \"/tmp/\$BRIEF_ID\" 2>/dev/null || true
+     rm -rf \"/tmp/\$BRIEF_ID-target\" \"/tmp/argo-shared-target-\$BRIEF_ID\" 2>/dev/null || true
+     git worktree prune
+   fi
 
    Hard rules:
+   - Scope is sacred: only paths containing \$BRIEF_ID may be touched. No globs.
    - Always 'cd \$REPO' BEFORE 'git worktree remove' (git refuses if cwd is
      inside the target worktree).
-   - Use 'git worktree remove', NEVER 'rm -rf' the worktree directly
-     (rm-rf corrupts git's internal worktree state).
-   - NEVER touch ~/.cargo/registry/ — that's the cross-iteration cache.
-   - If 'git worktree remove' fails because of uncommitted changes, the
-     PR likely didn't push cleanly. Re-check step 6 before forcing.
+   - Use 'git worktree remove', NEVER 'rm -rf' the worktree directly.
+   - NEVER touch ~/.cargo/registry/.
+   - 'git worktree prune' is SAFE — it only removes refs to dirs that no
+     longer exist on disk; it cannot touch another worker's active worktree.
+   - If 'git worktree remove' fails, the PR didn't push cleanly. Don't
+     force; investigate.
 
 DO NOT loop. DO NOT claim another brief. The outer bash loop handles
 the next iteration.
@@ -468,16 +488,46 @@ PY
   fi
   rm -f "$QUOTA_HIT"  # belt-and-braces cleanup if file existed but was empty
 
-  # Defensive disk cleanup: if the worker followed step 9 of its prompt
-  # the worktree is already gone, but workers sometimes skip it under
-  # quota pressure or context cap. Sweep here as a safety net so /tmp
-  # doesn't accumulate over a long-running loop.
+  # Defensive disk cleanup — SCOPED STRICTLY to this iteration's BRIEF_ID.
+  # If the worker followed step 9 of its prompt the worktree is already
+  # gone, but workers sometimes skip it under quota pressure or context
+  # cap. This safety net repeats the same scoped cleanup at the bash
+  # level so /tmp doesn't accumulate over a long-running loop.
+  #
+  # MULTI-WORKER SAFETY: other workers (Claude lane A + B + codex)
+  # are running concurrently on this machine. Every path below contains
+  # ${BRIEF_ID} so only THIS iteration's artifacts are touched. Never
+  # glob /tmp/*-target; never touch ~/.cargo/registry; never use
+  # 'git worktree prune --expire=now'. Plain 'git worktree prune' is
+  # safe — it only removes refs to dirs that no longer exist on disk
+  # (other workers' active worktrees stay intact).
   if [ -n "${BRIEF_ID:-}" ]; then
     cd "$REPO" 2>/dev/null || true
-    git worktree remove --force "/tmp/${BRIEF_ID}" 2>/dev/null || true
+
+    # Sanity check: verify the worktree at /tmp/${BRIEF_ID} actually
+    # belongs to us (branch name contains our brief id). If not,
+    # skip the remove — could be a leftover from a different worker
+    # or a same-named path collision.
+    if [ -d "/tmp/${BRIEF_ID}/.git" ] || [ -d "/tmp/${BRIEF_ID}" ]; then
+      ACTUAL_BRANCH=$(git -C "/tmp/${BRIEF_ID}" branch --show-current 2>/dev/null || echo "")
+      case "$ACTUAL_BRANCH" in
+        *"$BRIEF_ID"*)
+          git worktree remove --force "/tmp/${BRIEF_ID}" 2>/dev/null || true
+          ;;
+        *)
+          echo "[$(date +%H:%M:%S)] 🛡  worktree /tmp/${BRIEF_ID} branch='${ACTUAL_BRANCH}' doesn't match brief; skipping remove (multi-worker safety)" >&2
+          ;;
+      esac
+    fi
+
+    # Target dirs are unambiguously per-brief by naming convention.
     rm -rf "/tmp/${BRIEF_ID}-target" "/tmp/argo-shared-target-${BRIEF_ID}" 2>/dev/null || true
+
+    # 'git worktree prune' only removes worktree refs whose dirs no
+    # longer exist on disk. Other workers' active worktrees survive.
     git worktree prune 2>/dev/null || true
-    # Report freed space periodically (every 10 iterations is enough)
+
+    # Report freed space periodically (every 10 iterations).
     ITER_COUNT=$((${ITER_COUNT:-0} + 1))
     if [ "$((ITER_COUNT % 10))" -eq 0 ]; then
       echo "[$(date +%H:%M:%S)] 🧹 /tmp disk usage after $ITER_COUNT iterations:"

@@ -145,43 +145,97 @@ accumulate fast if not cleaned up:
 - **Cached cargo registry** at `~/.cargo/registry/` (shared; do
   NOT touch — this is the only persistence between runs).
 
+### Multi-worker safety (CRITICAL — read before running cleanup)
+
+This machine runs **multiple workers in parallel** (Claude lane A + B
++ codex). Your cleanup MUST be scoped to **only your own brief's
+artifacts**. Touching another worker's worktree or cache will corrupt
+their in-flight build.
+
+**Allowed cleanup targets — strictly scoped to YOUR brief-id:**
+- `/tmp/$BRIEF_ID/` — your worktree
+- `/tmp/$BRIEF_ID-target/` — your cargo target dir
+- `/tmp/argo-shared-target-$BRIEF_ID/` — alternate target dir naming if used
+
+**FORBIDDEN cleanup patterns** (will damage other workers):
+- `rm -rf /tmp/*-target` — nukes every worker's target dir
+- `rm -rf /tmp/*` — nukes everything
+- `cargo clean --workspace` — invalidates the shared registry
+- `rm -rf ~/.cargo/registry` — cross-session cache
+- `rm -rf /tmp/argo-shared-target` (without brief-id suffix) — possible shared target
+- `git worktree prune --expire=now` — too aggressive; can prune valid worktrees
+
 Before exiting (after PR push, or on quota cap, or on
 no-claimable-work) run THIS cleanup sequence from the **main
 repo directory** (NOT from inside the worktree you're cleaning):
 
 ```bash
-# 1. Identify the worktree + target dir from this session
+# 0. SAFETY GUARD: refuse cleanup if BRIEF_ID is unset or empty
+#    (avoids cleanup expanding to /tmp/-target or git worktree remove /tmp/)
+if [ -z "${BRIEF_ID:-}" ]; then
+  echo "⚠ BRIEF_ID is empty; skipping cleanup. Operator should investigate." >&2
+  exit 0
+fi
+
+# 1. Pin the exact paths to clean (scoped to your brief)
 WORKTREE_PATH="/tmp/${BRIEF_ID}"        # adapt to /private/tmp if needed
 TARGET_DIR="/tmp/${BRIEF_ID}-target"
+SHARED_TARGET_ALT="/tmp/argo-shared-target-${BRIEF_ID}"
 
 # 2. Move OUT of the worktree before removing it
-cd ~/code/argo-codex      # main repo
+cd ~/code/argo-codex      # main repo (NOT the worktree)
 
-# 3. Remove the git worktree registration (only if the branch is
+# 3. PRE-REMOVAL SANITY CHECK: verify the worktree at WORKTREE_PATH
+#    is actually OUR worktree (branch contains our brief-id), not
+#    someone else's that happened to land at the same path
+EXPECTED_BRANCH_PATTERN="${BRIEF_ID}"
+if [ -d "$WORKTREE_PATH" ]; then
+  ACTUAL_BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current 2>/dev/null || echo "")
+  if [[ "$ACTUAL_BRANCH" != *"$EXPECTED_BRANCH_PATTERN"* ]]; then
+    echo "⚠ Worktree at $WORKTREE_PATH branch='$ACTUAL_BRANCH' doesn't match brief '$BRIEF_ID'." >&2
+    echo "⚠ Skipping cleanup — operator should investigate." >&2
+    exit 0
+  fi
+fi
+
+# 4. Remove the git worktree registration (only if the branch is
 #    already pushed + PR is open; otherwise SKIP — operator handles)
 git worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
 
-# 4. Delete the per-brief cargo target dir (always safe; just cache)
-rm -rf "$TARGET_DIR"
+# 5. Delete the per-brief cargo target dir(s) — both are scoped by brief-id
+rm -rf "$TARGET_DIR" "$SHARED_TARGET_ALT" 2>/dev/null || true
 
-# 5. Prune any lingering worktree references
+# 6. Prune the worktree refs. SAFE: only prunes worktrees whose
+#    directories no longer exist on disk. Other workers' active
+#    worktrees stay intact because their dirs still exist.
 git worktree prune
 
-# 6. Report freed space
+# 7. Report freed space
 df -h /tmp | tail -1
 ```
 
 **Hard rules:**
 
+- **Scope is sacred:** only paths containing `$BRIEF_ID` may be touched. No globs.
 - Always `cd` out of the worktree before `git worktree remove`.
 - NEVER `rm -rf` the worktree directory directly — use
   `git worktree remove` so git's internal state stays consistent.
 - NEVER delete `~/.cargo/registry/` — that's the cross-session
   cache and re-downloading it costs many minutes per restart.
+- NEVER use globs like `/tmp/*-target` or `cargo clean --workspace`.
 - If `git worktree remove` fails (e.g., branch checked out
   elsewhere), report it in your exit summary; do not force-delete.
+- If `BRIEF_ID` is empty/unset, SKIP cleanup entirely (safety guard
+  catches this; do not work around it).
 - If your session ran multiple briefs, run the cleanup for EACH
-  brief's worktree + target dir before exiting.
+  brief's worktree + target dir before exiting — one block per brief
+  with that brief's `$BRIEF_ID` pinned.
+
+**`git worktree prune` safety:** it ONLY removes references to worktrees
+whose directories no longer exist on disk. Another worker's active
+worktree at `/tmp/<their-brief>/` has its directory present, so prune
+cannot touch it. This is git's built-in safety; you don't need to add
+extra guards around prune.
 
 **Post-mortem sweep (operator-triggered, not worker):**
 
