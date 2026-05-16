@@ -50,6 +50,7 @@ async fn runtime_constructor_wires_memory_delegate_and_session_search() {
     for tool in builtin_tools_with_runtime(
         root.clone(),
         Some((memory, workspace, None)),
+        None,
         orchestrator,
         Arc::clone(&store),
     ) {

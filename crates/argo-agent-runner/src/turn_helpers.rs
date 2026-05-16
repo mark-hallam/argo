@@ -22,6 +22,7 @@ use crate::helpers::{
 use crate::transport::load_manifest;
 use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
 use argo_audit::{AuditKind, AuditSink};
+use argo_identity::{MemoryNs, MemoryScope};
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_skill::{LayeredLookup, Skill, SkillLayer, SkillStore};
 use argo_store::SessionStore;
@@ -163,14 +164,29 @@ pub(super) async fn run_turn_with_tools(
             vertical_scope.map(str::to_string),
         )
     });
+    // codex-memory-tool-namespace-wiring (F-03 P1): when the session
+    // carries a `worker_id`, bind the in-core `memory` tool to a
+    // per-worker `MemoryNs` so the `query_scored` / `*_team` actions
+    // address the tenant-scoped namespace store. Defaults to
+    // `MemoryScope::WorkerSelf`; the `*_team` actions promote the
+    // bound namespace to `SharedTeam` internally. Sessions without a
+    // `worker_id` (legacy / ad-hoc chat) fall back to the workspace-
+    // global path for legacy `list`/`read`/`write`.
+    let memory_namespace = worker_id
+        .map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
     // mission-delegate-task-make-real: hand the in-core `delegate_task`
     // tool a live OrchestratorStore so it can insert a Pending handoff
     // when invoked. The store is reused across every dispatched tool
     // call in this turn.
     let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
     let orch_session_id = argo_orchestrator::SessionId::from_string(session_id.to_string());
-    let (registry, engine, principal) =
-        build_dispatch_ctx(cwd, memory_ctx, orchestrator_ctx, Arc::clone(store))?;
+    let (registry, engine, principal) = build_dispatch_ctx(
+        cwd,
+        memory_ctx,
+        memory_namespace,
+        orchestrator_ctx,
+        Arc::clone(store),
+    )?;
     // #721: hide manifest-denied tools from the model's tool list
     // entirely — the per-call deny check below remains the hard
     // authoritative guard; this is the discoverability layer that

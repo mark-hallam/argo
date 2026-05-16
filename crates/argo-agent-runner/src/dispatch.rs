@@ -1,6 +1,7 @@
 //! Tool dispatch: registry assembly, capability-checked calls,
 //! and MCP dispatch wiring.
 use argo_capability::CapabilityEngine;
+use argo_identity::MemoryNs;
 use argo_mcp::{McpClient, McpClientPool, McpContent, PoolConfig};
 use argo_memory::MemoryStore;
 use argo_orchestrator::{OrchestratorStore, SessionId as OrchSessionId};
@@ -65,15 +66,26 @@ impl McpConnectionPool {
 /// OS user the `owner` role. Runtime-backed tools are registered with
 /// the stores from the active turn: `memory` when a workspace exists,
 /// `delegate_task` through the orchestrator store, and `session_search`
-/// through the session store.
+/// through the session store. `memory_namespace`, when `Some`, binds
+/// the `memory` tool to a worker [`MemoryNs`] so the `query_scored` /
+/// `*_team` actions reach the per-worker namespace store; sessions
+/// without a `worker_id` pass `None` and the tool falls back to the
+/// workspace-global path for legacy `list`/`read`/`write`.
 pub(crate) fn build_dispatch_ctx(
     cwd: &Path,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
+    memory_namespace: Option<MemoryNs>,
     orchestrator: Arc<OrchestratorStore>,
     session_store: Arc<SessionStore>,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
-    let tools = builtin_tools_with_runtime(cwd.to_path_buf(), memory, orchestrator, session_store);
+    let tools = builtin_tools_with_runtime(
+        cwd.to_path_buf(),
+        memory,
+        memory_namespace,
+        orchestrator,
+        session_store,
+    );
     for t in tools {
         reg.register(t);
     }

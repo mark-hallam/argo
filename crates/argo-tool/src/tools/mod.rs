@@ -44,6 +44,7 @@ pub use vision::{ResolvedImage, Vision, VisionAnswer, VisionDispatcher};
 pub use web::{WebExtract, WebSearch};
 
 use crate::tool::Tool;
+use argo_identity::MemoryNs;
 use argo_memory::MemoryStore;
 use argo_orchestrator::OrchestratorStore;
 use argo_store::SessionStore;
@@ -118,25 +119,40 @@ pub fn builtin_tools_with_memory(
 /// that need stores supplied by the agent runner.
 ///
 /// `memory`, when `Some`, enables live memory dispatch through
-/// [`MemoryStore`]. `delegate_task` is always wired to the supplied
-/// [`OrchestratorStore`], and `session_search` is always wired to the
-/// supplied [`SessionStore`]. `send_message` intentionally remains on
-/// its default dispatcher until a production channel dispatcher exists.
+/// [`MemoryStore`]. `memory_namespace`, when `Some`, binds the
+/// `memory` tool to a worker [`MemoryNs`] via [`Memory::with_namespace`]
+/// so the `query_scored` / `*_team` actions can reach the
+/// tenant-scoped namespace store; when `None` the tool falls back to
+/// [`Memory::new`] and the namespace-bound actions return a typed
+/// error (`Memory::new` is retained for legacy callers that haven't
+/// plumbed a worker id yet). `delegate_task` is always wired to the
+/// supplied [`OrchestratorStore`], and `session_search` is always
+/// wired to the supplied [`SessionStore`]. `send_message` intentionally
+/// remains on its default dispatcher until a production channel
+/// dispatcher exists.
 ///
 /// ```ignore
-/// let tools = builtin_tools_with_runtime(cwd, memory, orchestrator, session_store);
+/// let tools = builtin_tools_with_runtime(
+///     cwd,
+///     memory,
+///     memory_namespace,
+///     orchestrator,
+///     session_store,
+/// );
 /// ```
 #[must_use]
 pub fn builtin_tools_with_runtime(
     _workspace_root: PathBuf,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
+    memory_namespace: Option<MemoryNs>,
     orchestrator: Arc<OrchestratorStore>,
     session_store: Arc<SessionStore>,
 ) -> Vec<Arc<dyn Tool>> {
     let memory_tool: Arc<dyn Tool> = match memory {
-        Some((store, workspace_id, vertical_id)) => {
-            Arc::new(Memory::new(store, workspace_id, vertical_id))
-        }
+        Some((store, workspace_id, vertical_id)) => match memory_namespace {
+            Some(ns) => Arc::new(Memory::with_namespace(store, workspace_id, vertical_id, ns)),
+            None => Arc::new(Memory::new(store, workspace_id, vertical_id)),
+        },
         None => Arc::new(Memory::default()),
     };
     vec![
