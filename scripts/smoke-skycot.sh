@@ -8,6 +8,10 @@
 # Usage:
 #   ./scripts/smoke-skycot.sh [argo-binary]
 #
+# Internal cargo smoke scenarios inherit CARGO_TARGET_DIR. If unset,
+# the script exports the repo-local target/ directory before running
+# cargo so builds and tests use the same cache.
+#
 # Exits non-zero on the first failure with a clear "FAIL: <reason>"
 # message + the offending command + its stderr. Operators run this
 # right after install to confirm SKYCOT is wired end-to-end.
@@ -31,7 +35,8 @@ trap 'rm -rf "$WORKDIR" "$HOME_DIR"' EXIT
 # Resolve the verticals dir relative to this script so the test
 # uses the in-tree gtm-engineer manifest.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERTICALS_DIR="$SCRIPT_DIR/../verticals"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+VERTICALS_DIR="$REPO_ROOT/verticals"
 if [[ ! -d "$VERTICALS_DIR/gtm-engineer" ]]; then
   echo "FAIL: gtm-engineer vertical not found at $VERTICALS_DIR"
   echo "      this script must run from the Argo repo (or have"
@@ -41,6 +46,10 @@ if [[ ! -d "$VERTICALS_DIR/gtm-engineer" ]]; then
 fi
 export ARGO_HOME="$HOME_DIR"
 export ARGO_VERTICALS_DIR="$VERTICALS_DIR"
+if [[ -z "${CARGO_TARGET_DIR:-}" ]]; then
+  CARGO_TARGET_DIR="$REPO_ROOT/target"
+fi
+export CARGO_TARGET_DIR
 
 cd "$WORKDIR"
 
@@ -236,6 +245,7 @@ echo "$strict_both" | grep -q "all required keys loadable" || fail "strict-pair 
 ok "setup --check --require strict-pair contract verified"
 
 heading "19. BrowserExecutor smoke"
+echo "  TARGET_DIR=$CARGO_TARGET_DIR" >&2
 # Drives the existing integration smoke
 # `crates/argo-cli/tests/browser_action_executor_smoke.rs`, which
 # spawns `python3 tests/fixtures/browser_mock_mcp.py` as a stub
@@ -245,7 +255,7 @@ heading "19. BrowserExecutor smoke"
 if ! command -v python3 >/dev/null 2>&1; then
   echo "  SKIP #19 BrowserExecutor — python3 not in PATH"
 else
-  cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+  cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
   bx_out=$(cargo test -p argo-cli --test browser_action_executor_smoke --quiet 2>&1) \
     || fail "browser_action_executor_smoke" "$bx_out"
   cd "$WORKDIR" || fail "cd back to workdir" ""
@@ -256,7 +266,7 @@ heading "20. macOS computer-use smoke"
 # Runs the v1-primary native computer-use smoke. On non-macOS runners
 # or when ARGO_NATIVE_MACOS_INTEGRATION is unset, the integration test
 # prints a skip reason and still exercises config validation.
-cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
 macos_cu_out=$(cargo test -p argo-executor-computer-use-macos --test notes_smoke --quiet 2>&1) \
   || fail "macOS computer-use notes_smoke" "$macos_cu_out"
 cd "$WORKDIR" || fail "cd back to workdir" ""
@@ -266,35 +276,35 @@ heading "21. Slack approval roundtrip"
 # Drives the existing integration smoke
 # `crates/argo-cli/tests/slack_approval_roundtrip_e2e.rs`. Pure-Rust
 # HMAC verification — no external dependencies, no skip path.
-cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
 slack_out=$(cargo test -p argo-cli --test slack_approval_roundtrip_e2e --quiet 2>&1) \
   || fail "slack_approval_roundtrip_e2e" "$slack_out"
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "slack_approval_roundtrip_e2e passed"
 
 heading "22. Auto-approval multi-window fallback smoke"
-cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
 multiwindow_out=$(cargo test -p argo-cli --test auto_approval_multiwindow_e2e --quiet 2>&1) \
   || fail "auto_approval_multiwindow_e2e" "$multiwindow_out"
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "auto_approval_multiwindow_e2e passed"
 
 heading "23. Multi-worker handoff memory smoke"
-cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
 handoff_out=$(cargo test -p argo-orchestrator --test multiworker_handoff_e2e_smoke --quiet 2>&1) \
   || fail "multiworker_handoff_e2e_smoke" "$handoff_out"
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "multiworker_handoff_e2e_smoke passed"
 
 heading "24. Cross-tenant skill discovery negative smoke"
-cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
 cross_tenant_out=$(cargo test -p argo-cli --test cross_tenant_skill_discovery_negative --quiet 2>&1) \
   || fail "cross_tenant_skill_discovery_negative" "$cross_tenant_out"
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "cross_tenant_skill_discovery_negative passed"
 
 heading "25. Claim-4 skill marketplace loop smoke"
-cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
 claim4_out=$(cargo test -p argo-skill --test end_to_end_claim4_loop --quiet 2>&1) \
   || fail "end_to_end_claim4_loop" "$claim4_out"
 cd "$WORKDIR" || fail "cd back to workdir" ""
