@@ -35,9 +35,14 @@ LOC: ~80 (Cargo.toml + script + verification test).
 
 ## Files you may touch
 
-- `Cargo.toml` (workspace) — `[patch.crates-io]` block. ≤30 modified LOC.
+**REVISED 2026-05-18 by conductor (post-BLOCK).** Worker verified that Cargo ignores `features` in `[patch.crates-io]` entries, so Route A as originally scoped is structurally invalid. Expanded may-touch:
+
+- `Cargo.toml` (workspace) — `[workspace.dependencies]` block for `libsqlite3-sys`, OR `[patch.crates-io]` if vendoring. ≤30 modified LOC.
+- `crates/argo-store/Cargo.toml` — direct `libsqlite3-sys` dep with `bundled-sqlcipher` feature (Route A revised). ≤8 modified LOC.
+- `crates/argo-store/build.rs` — ONLY if needed for cargo-feature wire-through. ≤20 modified LOC.
 - `scripts/verify-sqlcipher-link.sh` (NEW) — verification script. ≤50 LOC.
 - `crates/argo-store/tests/sqlcipher_link_verify.rs` (NEW) — minimal integration test that opens an encrypted DB. ≤40 LOC.
+- `Cargo.lock` — regen after dep update. (auto-update, do not hand-edit)
 
 ## Files you must NOT touch
 
