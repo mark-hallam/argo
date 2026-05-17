@@ -67,6 +67,35 @@ jobs:
         if: ${{ github.event.inputs.target_url != '' || vars.FLY_DEPLOYED_URL != '' }}
         run: bash scripts/smoke-skycot.sh target/debug/argo --target-url "$DEPLOY_URL"
 
+      - name: Set up pnpm (deployed-real Playwright lane)
+        if: ${{ vars.ARGO_E2E_DEPLOYED_URL != '' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Install deployed-lane web deps
+        if: ${{ vars.ARGO_E2E_DEPLOYED_URL != '' }}
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Install Playwright browsers (deployed-real lane)
+        if: ${{ vars.ARGO_E2E_DEPLOYED_URL != '' }}
+        run: pnpm --dir web exec playwright install --with-deps chromium
+
+      - name: Run deployed-real Playwright lane
+        # Gated on `ARGO_E2E_DEPLOYED_URL` repo variable. RED runs fail
+        # this workflow but do NOT block PR merges — they signal
+        # operator-decision territory (roll back or push fix). See
+        # docs/skycot/operator/deployed-e2e.md.
+        if: ${{ vars.ARGO_E2E_DEPLOYED_URL != '' }}
+        env:
+          ARGO_E2E_TARGET: deploy
+          ARGO_E2E_SPA_URL: ${{ vars.ARGO_E2E_DEPLOYED_URL }}
+          ARGO_E2E_GATEWAY_URL: ${{ vars.ARGO_E2E_GATEWAY_URL }}
+          ARGO_E2E_MARKETING_URL: ${{ vars.ARGO_E2E_MARKETING_URL }}
+          ARGO_E2E_MAIL_CATCHER_URL: ${{ vars.ARGO_E2E_MAIL_CATCHER_URL }}
+          ARGO_E2E_ADMIN_TOKEN: ${{ secrets.ARGO_E2E_ADMIN_TOKEN }}
+        run: pnpm --dir web test:e2e:deploy
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

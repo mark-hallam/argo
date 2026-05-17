@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:deploy": "ARGO_E2E_TARGET=deploy playwright test tests/e2e/deployed",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build"
   },
