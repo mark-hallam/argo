@@ -1,17 +1,23 @@
 [graph]
 all-features = false
 
+# Tighten policy edits go through PR review. Adding to `allow = [...]`
+# or `skip = [...]` is a stand-alone PR with justification in the
+# commit message. Don't `*` anything.
+#
 # cargo-deny is the workspace supply-chain / license / advisory gate.
 # The 4 check kinds (advisories, bans, licenses, sources) run as a
 # matrix from `.github/workflows/deny.yml.disabled` and locally via
-# `scripts/cargo-deny.sh`. See `docs/skycot/runbook/cargo-deny.md`
-# for the process required to add or modify allowlists below.
+# `scripts/cargo-deny.sh`. See `docs/skycot/security/dep-policy.md`
+# for the policy and `docs/skycot/runbook/cargo-deny.md` for the
+# command-level troubleshooting guide.
 
 [advisories]
 yanked = "deny"
+unused-ignored-advisory = "warn"
 # Allowlist of accepted RUSTSEC advisory IDs. Every entry is a known
 # risk the operators have explicitly chosen to accept. Add via the
-# process documented in `docs/skycot/runbook/cargo-deny.md`:
+# process documented in `docs/skycot/security/dep-policy.md`:
 # security review + 2 business day soak + comment link to discussion.
 # NO blanket ignores.
 #
@@ -32,31 +38,239 @@ ignore = [
     "RUSTSEC-2026-0098",
     "RUSTSEC-2026-0099",
     "RUSTSEC-2026-0104",
+    { id = "RUSTSEC-2023-0071", reason = "rsa timing side-channel advisory has no patched release; current reachability is document-signing dependencies, not exposed private-key service operations. Track dependency replacement in follow-up." },
+    { id = "RUSTSEC-2024-0437", reason = "protobuf is pulled by prometheus 0.13; no dependency bump in this policy brief. Follow up by upgrading prometheus/protobuf or proving parser input is trusted." },
+    { id = "RUSTSEC-2025-0057", reason = "fxhash is an unmaintained transitive dependency; no vulnerability reported. Follow up through the reverse dependency rather than changing deps in this policy brief." },
+    { id = "RUSTSEC-2026-0002", reason = "lru unsound IterMut advisory is in argo-mcp cache plumbing; this brief does not bump dependencies. Follow up with lru >=0.16.3 or remove IterMut reachability." },
+    { id = "RUSTSEC-2026-0141", reason = "lettre boring-tls hostname-verification bug; Argo should upgrade to lettre >=0.11.22 in a dependency brief. This policy brief records the accepted short-term exception." },
 ]
 
 [licenses]
 # Operator-approved license set for workspace dependencies. Any
 # dependency carrying a license outside this list will fail the
 # `licenses` check. Add new licenses only via the process in
-# `docs/skycot/runbook/cargo-deny.md`.
-allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016", "Unicode-3.0", "Zlib", "MPL-2.0", "CDLA-Permissive-2.0"]
-confidence-threshold = 0.93
+# `docs/skycot/security/dep-policy.md`.
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.8
+unused-allowed-license = "allow"
+unused-license-exception = "allow"
+exceptions = [
+    # Internal workspace crates inherit `LicenseRef-Proprietary`.
+    # Third-party dependencies still have to match `[licenses].allow`.
+    { crate = "argo-acp", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-agent-runner", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-audit", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-billing", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-bluebubbles-client", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-capability", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-channels", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-cli", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-compliance", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-config", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-core", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-credentials", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-cron", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-email-templates", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-eval", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-computer-use", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-computer-use-linux", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-computer-use-macos", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-computer-use-windows", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-document", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-document-csv", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-document-gsuite", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-executor-filesystem", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-forge", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-genesis", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-identity", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-judge", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-marketplace", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-browser", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-airtable", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-asana", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-calendly", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-clickup", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-discord", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-figma", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-fireflies", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-gcal", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-github-issues", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-gmail", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-google-meet", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-hubspot", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-imessage", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-jira", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-linear", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-mailchimp", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-monday", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-notion", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-onedrive", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-pagerduty", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-postmark", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-salesforce", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-sendgrid", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-shared", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-slack", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-stripe", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-stripe-events", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-trello", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-typeform", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-connector-zendesk", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-image-gen", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-mcp-voice", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-memory", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-orchestrator", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-plugin", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-provider", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-redact", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-replay", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-routing", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-runtime", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-sandbox", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-security", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-siem", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-skill", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-skill-sdk", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-store", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-team-headline", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-telemetry", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-test-cassette", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-tool", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-tui", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-types", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-vertical", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-vertical-packs", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-vertical-regression", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-voice-tui", allow = ["LicenseRef-Proprietary"] },
+    { crate = "argo-workflow", allow = ["LicenseRef-Proprietary"] },
+]
+
+[licenses.private]
+ignore = true
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
 # Explicit deny-list of crate names. Used when policy forbids a
 # specific crate (e.g. `openssl` when the project is `ring`-only).
-# Empty placeholder — operators add entries as policy requires.
-# Format:
-#   { name = "<crate>", reason = "<one-line justification>" }
-deny = []
+deny = [
+    { crate = "openssl", reason = "prefer rustls-backed TLS dependencies" },
+    { crate = "git2", reason = "libgit2 FFI is not part of the approved supply-chain profile; prefer pure-Rust gix" },
+]
+skip = [
+    # cargo-deny sees path-only workspace deps as `*`; keep registry
+    # wildcards denied while skipping those internal package nodes.
+    { crate = "argo-acp", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-agent-runner", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-audit", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-billing", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-bluebubbles-client", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-capability", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-channels", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-cli", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-compliance", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-config", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-core", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-credentials", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-cron", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-email-templates", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-eval", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-computer-use", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-computer-use-linux", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-computer-use-macos", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-computer-use-windows", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-document", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-document-csv", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-document-gsuite", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-executor-filesystem", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-forge", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-genesis", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-identity", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-judge", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-marketplace", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-browser", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-airtable", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-asana", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-calendly", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-clickup", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-discord", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-figma", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-fireflies", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-gcal", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-github-issues", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-gmail", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-google-meet", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-hubspot", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-imessage", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-jira", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-linear", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-mailchimp", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-monday", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-notion", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-onedrive", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-pagerduty", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-postmark", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-salesforce", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-sendgrid", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-shared", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-slack", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-stripe", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-stripe-events", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-trello", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-typeform", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-connector-zendesk", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-image-gen", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-mcp-voice", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-memory", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-orchestrator", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-plugin", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-provider", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-redact", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-replay", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-routing", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-runtime", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-sandbox", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-security", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-siem", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-skill", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-skill-sdk", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-store", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-team-headline", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-telemetry", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-test-cassette", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-tool", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-tui", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-types", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-vertical", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-vertical-packs", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-vertical-regression", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-voice-tui", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+    { crate = "argo-workflow", reason = "workspace path crate; skip cargo-deny public-path wildcard false positive" },
+]
 
 [sources]
 # Registry / git-source allowlist. Empty arrays accept cargo-deny's
 # defaults (crates.io only). Add entries only when a dependency
 # must come from a non-default source; document the rationale in
-# `docs/skycot/runbook/cargo-deny.md`.
+# `docs/skycot/security/dep-policy.md`.
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
