@@ -30,13 +30,32 @@ tracing = { workspace = true }
 reqwest = { workspace = true, optional = true }
 base64 = { version = "0.22", optional = true }
 
+# Direct dep on the libsqlite3-sys instance that sqlx-sqlite already
+# pulls in transitively (mission-sqlcipher-1-libsqlite3-patch). The
+# crate is `optional = true` so the default unencrypted build does
+# not change behavior; enabling the `bundled-sqlcipher` feature
+# below flips libsqlite3-sys onto its bundled-SQLCipher C source —
+# with vendored OpenSSL for cross-platform reproducibility — which
+# Cargo's feature unification then applies to the same instance
+# used by sqlx-sqlite, so `PRAGMA key` becomes load-bearing on
+# every connection sqlx opens.
+libsqlite3-sys = { workspace = true, optional = true }
+
 # Marker feature for at-rest encryption (Stream
-# `mission-encryption-at-rest-sqlcipher`). Enabling it does NOT by
-# itself swap the linked SQLite driver — the stock sqlx 0.8 driver is
+# `mission-encryption-at-rest-sqlcipher`). Enabling it alone does
+# NOT swap the linked SQLite driver — the stock sqlx 0.8 driver is
 # pure-Rust and ignores `PRAGMA key`. The feature is the operator-
 # facing toggle that downstream builds (FIPS / SQLCipher Commercial)
 # can wire to a libsqlite3-sys-with-SQLCipher fork. See
 # `docs/skycot/RUNBOOK.md` § "At-rest encryption".
+#
+# `bundled-sqlcipher` (mission-sqlcipher-1-libsqlite3-patch) is the
+# build-time companion that actually links the SQLCipher engine via
+# libsqlite3-sys' bundled C source + vendored OpenSSL. It implies
+# `sqlcipher` so the marker stays consistent. Default unencrypted
+# builds remain unchanged; existing unencrypted-DB paths keep
+# working when the feature is enabled (SQLCipher reads a database
+# with no `PRAGMA key` as plaintext).
 #
 # `kms-aws` / `kms-gcp` / `kms-azure` (mission-byok-enterprise-tenants)
 # each compile in one cloud KMS unwrap path. They are additive — a
@@ -44,6 +63,11 @@ base64 = { version = "0.22", optional = true }
 [features]
 default = []
 sqlcipher = []
+bundled-sqlcipher = [
+    "sqlcipher",
+    "dep:libsqlite3-sys",
+    "libsqlite3-sys/bundled-sqlcipher-vendored-openssl",
+]
 kms = ["dep:reqwest", "dep:base64"]
 kms-aws = ["kms"]
 kms-gcp = ["kms"]

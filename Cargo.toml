@@ -110,6 +110,11 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros", "migrate", "uuid", "chrono"] }
+# Transitive of sqlx-sqlite. Declared at the workspace level so the
+# optional `bundled-sqlcipher` feature on argo-store can unify with
+# sqlx-sqlite's already-selected feature set on the same crate
+# instance. See `mission-sqlcipher-1-libsqlite3-patch` brief.
+libsqlite3-sys = { version = "0.30", default-features = false }
 uuid = { version = "1", features = ["v7", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8"
