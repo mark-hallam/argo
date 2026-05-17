@@ -103,6 +103,7 @@ mod routes_ghostwriter;
 mod routes_health;
 mod routes_lists;
 mod routes_lists_memory;
+mod routes_me_export;
 mod routes_messages_rollups;
 mod routes_messages_rollups_recent;
 mod routes_meta;

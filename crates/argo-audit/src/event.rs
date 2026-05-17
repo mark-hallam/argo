@@ -190,6 +190,13 @@ pub enum AuditKind {
     /// `HttpRequest` row the gateway wrapper also writes so the
     /// onboarding-funnel verifier can categorise it directly.
     TenantProvisioned,
+    /// A customer-facing GDPR/CCPA Article 15 data export was requested
+    /// via `POST /api/v1/me/export` (stream
+    /// `mission-data-export-customer-flow`). Payload carries
+    /// `user_id`, `tenant_id` (when the user has one), `job_id`, and
+    /// `requested_at`. One row per accepted request; rate-limit
+    /// rejections (HTTP 429) do not emit.
+    DataExportRequested,
 }
 
 impl AuditKind {
@@ -230,6 +237,7 @@ impl AuditKind {
             Self::CrossRegionBlocked => "security.cross_region_blocked",
             Self::GatewayInsecureBind => "gateway_insecure_bind",
             Self::TenantProvisioned => "tenant.provisioned",
+            Self::DataExportRequested => "data_export.requested",
         }
     }
 
@@ -272,6 +280,7 @@ impl AuditKind {
             "security.cross_region_blocked" => Self::CrossRegionBlocked,
             "gateway_insecure_bind" => Self::GatewayInsecureBind,
             "tenant.provisioned" => Self::TenantProvisioned,
+            "data_export.requested" => Self::DataExportRequested,
             _ => return None,
         })
     }
@@ -314,6 +323,7 @@ impl AuditKind {
             Self::CrossRegionBlocked,
             Self::GatewayInsecureBind,
             Self::TenantProvisioned,
+            Self::DataExportRequested,
         ];
         v.sort_by_key(|k| k.label());
         v

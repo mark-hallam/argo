@@ -22,6 +22,12 @@
 pub mod auto_approval;
 pub mod circuit;
 pub mod classification;
+/// Customer-facing GDPR/CCPA Article 15 data-export bundle assembly
+/// (Stream `mission-data-export-customer-flow`). Reads the user's
+/// substrate rows + tenant memberships + audit principals into a
+/// typed [`data_export::ExportBundle`] the gateway turns into a
+/// `tar.gz`.
+pub mod data_export;
 pub mod org;
 pub mod org_ingest;
 pub mod policy;

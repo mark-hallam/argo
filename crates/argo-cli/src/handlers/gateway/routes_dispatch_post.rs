@@ -181,6 +181,11 @@ async fn dispatch_post_inner(
     {
         return Some(super::onboarding_provision::provision_response(req, store).await);
     }
+    // mission-data-export-customer-flow — customer-facing GDPR/CCPA
+    // Article 15 export. Scoped to the X-Argo-Principal human caller.
+    if let Some(resp) = super::routes_me_export::dispatch(req, store).await {
+        return Some(resp);
+    }
     if let Some(resp) = super::routes_skill_ir::dispatch_post(req, store).await {
         return Some(resp);
     }

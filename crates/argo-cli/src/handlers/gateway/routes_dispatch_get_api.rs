@@ -21,6 +21,14 @@ pub(super) async fn dispatch_api_get(
     {
         return Some(super::routes_meta_error_reporting::response());
     }
+    // mission-data-export-customer-flow — status polling +
+    // token-suffixed download. Both branches share the dispatcher
+    // helper so the path-extraction logic only lives in one place.
+    if req.starts_with("GET /api/v1/me/export/") {
+        if let Some(resp) = super::routes_me_export::dispatch(req, store).await {
+            return Some(resp);
+        }
+    }
     // `mission-approval-bundle-ui` — server-defined approval bundles.
     // MUST come before the J1 `GET /api/v1/approvals` arm so the more
     // specific `/bundles` path wins prefix-match dispatch.

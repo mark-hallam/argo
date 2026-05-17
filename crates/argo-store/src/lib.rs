@@ -21,6 +21,12 @@ pub mod approvals;
 pub mod attached_blob;
 /// Read-side aggregates over canonical `audit_record` rows.
 pub mod audit_record_query;
+/// Customer-facing GDPR/CCPA Article 15 data-export job tracker
+/// (Stream `mission-data-export-customer-flow`). Per-user export
+/// requests, lifecycle (`queued`/`running`/`ready`/`expired`/`failed`),
+/// tarball storage, and the SHA-256-hashed download token. Lazy-bootstrap
+/// pattern mirrors `magic_link_tokens` / `outbound_message` (slot 116).
+pub mod data_export_job_query;
 /// Generic write coalescer used by the message + audit hot paths
 /// (Stream `claude-perf-store-batched-writes`). Each per-row insert
 /// becomes a `submit()` into the writer; many concurrent submits

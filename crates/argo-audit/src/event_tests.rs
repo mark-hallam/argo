@@ -145,6 +145,15 @@ fn tenant_provisioned_round_trips_and_listed() {
 }
 
 #[test]
+fn data_export_requested_round_trips_and_listed() {
+    let kind = AuditKind::DataExportRequested;
+    assert_eq!(AuditKind::from_label("data_export.requested"), Some(kind));
+    assert_eq!(kind.label(), "data_export.requested");
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"data_export.requested"));
+}
+
+#[test]
 fn gateway_insecure_bind_round_trips_and_listed() {
     let kind = AuditKind::GatewayInsecureBind;
     assert_eq!(AuditKind::from_label("gateway_insecure_bind"), Some(kind));
