@@ -208,6 +208,20 @@ jobs:
         shell: bash
         run: bash scripts/check-no-direct-env-reads.sh
 
+  audit-sink-tenant-guard:
+    # Enforces AuditSink::new_with_tenant in production. Closes
+    # 2026-05-17 audit finding #9. Policy + exception process:
+    # docs/skycot/security/audit-sink-policy.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce AuditSink::new_with_tenant in production
+        shell: bash
+        run: bash scripts/lint-no-audit-sink-new-in-production.sh
+      - name: Golden tests for the lint's skip rules
+        shell: bash
+        run: bash scripts/lint-no-audit-sink-new-in-production_tests.sh
+
   deny:
     runs-on: ubuntu-latest
     steps:
