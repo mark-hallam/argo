@@ -22,7 +22,10 @@ fn payload() -> serde_json::Value {
             "email": {"status": "OK"},
             "slack": {"status": "OK"}
         },
-        "network_checks": {"skipped": false, "dns": [], "tls": [], "auth": []}
+        "network_checks": {"skipped": false, "dns": [], "tls": [], "auth": []},
+        "audit_chain": {"status": "OK", "head_seq": 3},
+        "storage": {"status": "OK", "used_pct": 25},
+        "workers": {"status": "OK", "stale_count": 0}
     })
 }
 
@@ -54,6 +57,36 @@ fn summary_fail_for_failed_checks() {
     assert_eq!(summary.state, SummaryState::Fail);
     assert_eq!(summary.failed, 1);
     assert!(summary.line().contains("fail: audit"));
+}
+
+#[test]
+fn summary_fail_for_audit_chain_break() {
+    let mut p = payload();
+    p["audit_chain"]["status"] = json!("FAIL");
+    p["audit_chain"]["break_at"] = json!(7);
+    let summary = summarize(&p);
+    assert_eq!(summary.state, SummaryState::Fail);
+    assert!(summary.line().contains("fail: audit_chain"));
+}
+
+#[test]
+fn summary_degraded_for_storage_capacity_warning() {
+    let mut p = payload();
+    p["storage"]["status"] = json!("WARN");
+    p["storage"]["used_pct"] = json!(88);
+    let summary = summarize(&p);
+    assert_eq!(summary.state, SummaryState::Degraded);
+    assert!(summary.line().contains("warn: storage"));
+}
+
+#[test]
+fn summary_degraded_for_stale_workers() {
+    let mut p = payload();
+    p["workers"]["status"] = json!("WARN");
+    p["workers"]["stale_count"] = json!(2);
+    let summary = summarize(&p);
+    assert_eq!(summary.state, SummaryState::Degraded);
+    assert!(summary.line().contains("warn: workers"));
 }
 
 #[test]
@@ -102,6 +135,40 @@ async fn collect_includes_build_info_block() {
         !build_info["version"].as_str().unwrap_or("").is_empty(),
         "version must be non-empty",
     );
+}
+
+#[tokio::test]
+async fn collect_skip_network_skips_online_doctor_probes() {
+    let payload = collect_with_skip(true).await.expect("doctor collect");
+    assert_eq!(payload["network_checks"]["skipped"], true);
+    assert_eq!(payload["audit_chain"]["status"], "SKIP");
+    assert_eq!(payload["channels"]["slack"]["status"], "SKIP");
+}
+
+#[tokio::test]
+async fn audit_chain_probe_skips_empty_home() {
+    let home = tempfile::tempdir().expect("home");
+    let payload = doctor_audit_chain::collect(home.path()).await;
+    assert_eq!(payload["status"], "SKIP");
+}
+
+#[tokio::test]
+async fn storage_probe_reports_empty_home_without_network() {
+    let home = tempfile::tempdir().expect("home");
+    let cwd = tempfile::tempdir().expect("cwd");
+    let payload = super::super::doctor_storage::capacity_status(home.path(), cwd.path()).await;
+    assert!(payload["total_bytes"].is_number() || payload["total_bytes"].is_null());
+    assert_eq!(payload["tables"]["audit_record"]["rows"], 0);
+    assert_eq!(payload["tables"]["memory_row"]["rows"], 0);
+}
+
+#[tokio::test]
+async fn worker_probe_reports_empty_home_ok() {
+    let home = tempfile::tempdir().expect("home");
+    let cwd = tempfile::tempdir().expect("cwd");
+    let payload = doctor_workers::collect(home.path(), cwd.path()).await;
+    assert_eq!(payload["status"], "OK");
+    assert_eq!(payload["stale_count"], 0);
 }
 
 #[test]

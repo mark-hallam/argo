@@ -77,6 +77,32 @@ pub(super) async fn collect() -> Value {
     collect_with(ProbeConfig::from_env()).await
 }
 
+pub(super) fn collect_skipped() -> Value {
+    let skipped = check("SKIP", "skip requested");
+    json!({
+        "email": skipped.clone(),
+        "slack": skipped.clone(),
+        "discord": skipped.clone(),
+        "sms": skipped.clone(),
+        "push": skipped.clone(),
+        "imessage": skipped.clone(),
+        "voice": skipped,
+        "recent_delivery_reports": json!([]),
+    })
+}
+
+pub(super) fn print_text(v: &Value) {
+    println!("  Channels:");
+    for key in [
+        "email", "slack", "discord", "sms", "push", "imessage", "voice",
+    ] {
+        let item = &v[key];
+        let status = item["status"].as_str().unwrap_or("ERROR");
+        let detail = item["detail"].as_str().unwrap_or("unavailable");
+        println!("    {key}: {status} - {detail}");
+    }
+}
+
 pub(super) async fn collect_with(cfg: ProbeConfig) -> Value {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     collect_with_at(cfg, &cwd).await

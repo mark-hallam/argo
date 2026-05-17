@@ -6,12 +6,16 @@ use crate::home::resolve_home;
 use argo_config::ArgoConfig;
 use argo_types::{ArgoError, ArgoResult};
 
+#[path = "doctor_audit_chain.rs"]
+mod doctor_audit_chain;
 #[path = "doctor_channels.rs"]
 mod doctor_channels;
 #[path = "doctor_h_stack.rs"]
 mod doctor_h_stack;
 #[path = "doctor_network.rs"]
 mod doctor_network;
+#[path = "doctor_workers.rs"]
+mod doctor_workers;
 
 /// Single entry point for every `argo doctor [...]` invocation —
 /// keeps the per-subcommand wiring out of `main.rs` so the dispatch
@@ -137,7 +141,10 @@ pub async fn run(json: bool, format: &str, skip_network: bool) -> ArgoResult<()>
     super::doctor_gateway::print_routes(&payload["routes"]);
     doctor_network::print_text(&payload["network_checks"]);
     doctor_h_stack::print_text(&payload["auto_approval"]);
-    print_channels(&payload["channels"]);
+    doctor_channels::print_text(&payload["channels"]);
+    doctor_audit_chain::print_text(&payload["audit_chain"]);
+    super::doctor_storage::print_capacity(&payload["storage"]);
+    doctor_workers::print_text(&payload["workers"]);
     std::process::exit(summary.state.exit_code());
 }
 
@@ -253,6 +260,9 @@ pub(crate) fn summarize(v: &serde_json::Value) -> DoctorSummary {
         ("auto_approval", status_group_state(&v["auto_approval"])),
         ("channels", status_group_state(&v["channels"])),
         ("network", network_state(&v["network_checks"])),
+        ("audit_chain", status_item_state(&v["audit_chain"])),
+        ("storage", status_item_state(&v["storage"])),
+        ("workers", status_item_state(&v["workers"])),
     ];
     let mut out = DoctorSummary {
         state: SummaryState::Ok,
@@ -326,6 +336,13 @@ fn status_group_state(v: &serde_json::Value) -> SummaryState {
     }
     state
 }
+fn status_item_state(v: &serde_json::Value) -> SummaryState {
+    match v["status"].as_str().unwrap_or("WARN") {
+        "OK" | "SKIP" => SummaryState::Ok,
+        "FAIL" | "ERROR" | "BROKEN" => SummaryState::Fail,
+        _ => SummaryState::Degraded,
+    }
+}
 fn network_state(v: &serde_json::Value) -> SummaryState {
     if v["skipped"].as_bool().unwrap_or(false) {
         return SummaryState::Ok;
@@ -376,16 +393,6 @@ fn print_build_info(v: &serde_json::Value) {
     println!("  features: {features_str}");
 }
 
-fn print_channels(v: &serde_json::Value) {
-    println!("  Channels:");
-    for key in ["email", "slack", "sms", "push"] {
-        let item = &v[key];
-        let status = item["status"].as_str().unwrap_or("ERROR");
-        let detail = item["detail"].as_str().unwrap_or("unavailable");
-        println!("    {key}: {status} - {detail}");
-    }
-}
-
 /// Gather every doctor check into a single JSON document. Shared
 /// between the CLI handler and the gateway's `GET /doctor`
 /// endpoint.
@@ -420,9 +427,20 @@ pub(crate) async fn collect_with_skip(skip_network: bool) -> ArgoResult<serde_js
     let gateway_health = super::doctor_gateway::gateway_health_probe(&gateway).await;
     let routes = super::doctor_gateway::routes_count();
     let auto_approval = doctor_h_stack::collect(&cwd, &home).await;
-    let channels = doctor_channels::collect().await;
-    let network_checks =
-        doctor_network::collect(&cwd, skip_network || doctor_network::skip_from_env()).await;
+    let skip_online = skip_network || doctor_network::skip_from_env();
+    let channels = if skip_online {
+        doctor_channels::collect_skipped()
+    } else {
+        doctor_channels::collect().await
+    };
+    let network_checks = doctor_network::collect(&cwd, skip_online).await;
+    let audit_chain = if skip_online {
+        doctor_audit_chain::skipped()
+    } else {
+        doctor_audit_chain::collect(&home).await
+    };
+    let storage = super::doctor_storage::capacity_status(&home, &cwd).await;
+    let workers = doctor_workers::collect(&home, &cwd).await;
     let build = crate::build_info::BuildInfo::current();
     let binary_path = std::env::current_exe()
         .map(|p| p.display().to_string())
@@ -456,6 +474,9 @@ pub(crate) async fn collect_with_skip(skip_network: bool) -> ArgoResult<serde_js
         "auto_approval": auto_approval,
         "channels": channels,
         "network_checks": network_checks,
+        "audit_chain": audit_chain,
+        "storage": storage,
+        "workers": workers,
     }))
 }
 
