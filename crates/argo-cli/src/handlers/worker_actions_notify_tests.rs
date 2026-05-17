@@ -167,6 +167,41 @@ async fn no_channels_is_no_op() {
 }
 
 #[tokio::test]
+async fn approval_asked_audit_row_written_per_successful_dispatch() {
+    // Audit finding P0-2: every successful channel-send emits one
+    // `approval.asked` audit row carrying the per-channel context
+    // forensic queries need. Failed sends MUST NOT emit (already
+    // tested by the existing fan-out tests verifying success-only
+    // results).
+    use argo_audit::{AuditKind, AuditSink};
+    use argo_store::SessionStore;
+    use std::sync::Arc;
+    let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+    store.migrate().await.unwrap();
+    let audit = AuditSink::new_with_tenant(Arc::clone(&store), "acme".to_string());
+    let action = action("act-emit-1", "high");
+    let notification = build_notification(&action);
+    emit_approval_asked(&audit, &action, &notification, "slack", "#approvals").await;
+    audit.flush_pending().await.unwrap();
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT kind, payload_json FROM audit_record WHERE kind = 'approval.asked'",
+    )
+    .fetch_all(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(rows.len(), 1, "expected exactly one approval.asked row");
+    let payload: serde_json::Value = serde_json::from_str(&rows[0].1).unwrap();
+    assert_eq!(payload["action_id"], "act-emit-1");
+    assert_eq!(payload["channel"], "slack");
+    assert_eq!(payload["target"], "#approvals");
+    assert_eq!(payload["risk_level"], "high");
+    assert_eq!(payload["tenant_id"], "acme");
+    // Round-trip the label through the AuditKind enum so a future
+    // typo in `label()` would surface here.
+    assert_eq!(AuditKind::from_label("approval.asked"), Some(AuditKind::ApprovalAsked));
+}
+
+#[tokio::test]
 async fn single_channel_one_send() {
     let cfg = NotifyConfig {
         channels: vec![NotifyChannelRef::new("push", "operator-iphone")],

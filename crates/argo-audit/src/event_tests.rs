@@ -31,6 +31,8 @@ fn escalation_required_is_listed() {
 #[test]
 fn approval_kinds_round_trip() {
     for (label, kind) in [
+        ("approval.asked", AuditKind::ApprovalAsked),
+        ("approval.replied", AuditKind::ApprovalReplied),
         ("approval.granted", AuditKind::ApprovalGranted),
         ("approval.revoked", AuditKind::ApprovalRevoked),
         ("approval.consumed", AuditKind::ApprovalConsumed),
@@ -39,9 +41,33 @@ fn approval_kinds_round_trip() {
         assert_eq!(kind.label(), label);
     }
     let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"approval.asked"));
+    assert!(labels.contains(&"approval.replied"));
     assert!(labels.contains(&"approval.granted"));
     assert!(labels.contains(&"approval.revoked"));
     assert!(labels.contains(&"approval.consumed"));
+}
+
+#[test]
+fn approval_asked_and_replied_round_trip_and_listed() {
+    // Audit finding P0-2 — the ask/reply variants document the
+    // notify-dispatch → channel-reply round-trip that the chain
+    // forensic trail otherwise lost. Both must round-trip and
+    // appear in `all()` so the verifier and gateway rollups
+    // categorise them as first-class kinds (not via the legacy
+    // `HttpRequest + event_type=` workaround).
+    let kinds = [
+        ("approval.asked", AuditKind::ApprovalAsked),
+        ("approval.replied", AuditKind::ApprovalReplied),
+    ];
+    for (label, kind) in kinds {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+    }
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    for (label, _) in kinds {
+        assert!(labels.contains(&label), "missing label {label}: {labels:?}");
+    }
 }
 
 #[test]

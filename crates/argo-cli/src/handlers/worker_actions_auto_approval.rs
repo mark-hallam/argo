@@ -204,6 +204,14 @@ pub(crate) async fn maybe_auto_approve(
         &located.record.action_type,
     );
     let decl = manifest_decl_for(&located.record.action_type);
+    // Stamp `approval.asked` audit rows with the workspace's tenant
+    // (`workspace_tenant_id(cwd)`), so forensic queries can scope
+    // ask/reply pairs per tenant alongside the existing
+    // `approval.granted` / `approval.consumed` rows.
+    let audit_sink = argo_audit::AuditSink::new_with_tenant(
+        Arc::clone(&store),
+        session_ctx.tenant_str.clone(),
+    );
     maybe_auto_approve_with_pool(
         memory,
         workspace,
@@ -213,6 +221,7 @@ pub(crate) async fn maybe_auto_approve(
         &effective,
         &session_ctx,
         store.pool(),
+        Some(&audit_sink),
         Utc::now(),
     )
     .await?;
@@ -303,6 +312,7 @@ async fn maybe_auto_approve_with_pool(
     effective: &EffectivePolicy,
     session_ctx: &SessionContext,
     pool: &Pool<Sqlite>,
+    audit: Option<&argo_audit::AuditSink>,
     now: DateTime<Utc>,
 ) -> ArgoResult<AutoApprovalDecision> {
     let policy = &effective.auto_approval;
@@ -349,8 +359,12 @@ async fn maybe_auto_approve_with_pool(
             // propagate; the AutoApprovalDecision is the source of truth.
             let cwd_for_notify =
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-            let _ =
-                super::worker_actions_notify::try_dispatch_on_ask(action, &cwd_for_notify).await;
+            let _ = super::worker_actions_notify::try_dispatch_on_ask(
+                action,
+                &cwd_for_notify,
+                audit,
+            )
+            .await;
             Ok(decision)
         }
         AutoApprovalDecision::Block { reason } => Err(block_to_error(action_id, reason)),

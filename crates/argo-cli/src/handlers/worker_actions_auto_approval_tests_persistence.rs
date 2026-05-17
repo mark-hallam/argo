@@ -22,6 +22,7 @@ async fn persisted_spend_blocks_second_action_over_daily_cap() {
         &effective,
         &empty_ctx(),
         store.pool(),
+        None,
         now,
     )
     .await
@@ -46,6 +47,7 @@ async fn persisted_spend_blocks_second_action_over_daily_cap() {
         &effective,
         &empty_ctx(),
         store.pool(),
+        None,
         now,
     )
     .await
@@ -71,6 +73,7 @@ async fn exactly_at_cap_still_allows_zero_cost_action() {
         &effective,
         &empty_ctx(),
         store.pool(),
+        None,
         now,
     )
     .await
@@ -88,6 +91,7 @@ async fn exactly_at_cap_still_allows_zero_cost_action() {
         &effective,
         &empty_ctx(),
         store.pool(),
+        None,
         now,
     )
     .await
@@ -117,6 +121,7 @@ async fn persisted_spend_is_isolated_by_worker() {
         &effective,
         &empty_ctx(),
         store.pool(),
+        None,
         now,
     )
     .await
@@ -164,6 +169,7 @@ async fn yesterday_spend_does_not_count_toward_today() {
         &effective,
         &empty_ctx(),
         store.pool(),
+        None,
         today,
     )
     .await

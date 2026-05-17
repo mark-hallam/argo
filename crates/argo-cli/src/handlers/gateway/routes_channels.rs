@@ -18,6 +18,7 @@ use super::routes_channels_webinbox::{is_webinbox, webinbox_response};
 use super::routes_channels_whatsapp::{is_whatsapp_webhook, whatsapp_webhook_response};
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_transitions;
+use argo_audit::{AuditKind, AuditSink};
 use argo_memory::{MemoryFile, MemoryStore};
 use argo_types::{ArgoError, ArgoResult, WorkspaceId};
 use serde_json::json;
@@ -82,15 +83,45 @@ pub(super) async fn settle(
     note: Option<&str>,
     source: &str,
 ) -> ArgoResult<String> {
-    let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    let (memory, ws, store) =
+        worker_actions_transitions::open_workspace_memory_with_store().await?;
     let located = worker_actions_transitions::find_action(&memory, ws, &claims.approval_id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no approval '{}'", claims.approval_id)))?;
     if located.record.state != ActionState::Pending.as_str() {
+        // Late replies hit this branch: don't emit a second
+        // `approval.replied` row per the brief's hidden constraint
+        // (first reply wins).
         return Ok(json!({"ok":true,"already_resolved":true,"approval_id":&claims.approval_id,"state":located.record.state,"resolved_by":resolved_by(&located.record)}).to_string());
     }
     if !located.record.requires_approval {
         return Ok(json!({"ok":true,"already_resolved":true,"approval_id":&claims.approval_id,"state":located.record.state,"resolved_by":"autonomous-safe"}).to_string());
+    }
+    // Emit `AuditKind::ApprovalReplied` BEFORE handing off to the
+    // gate (audit finding P0-2). The action is still `Pending` here
+    // — late replies short-circuit above. The workspace tenant id
+    // stamps the row alongside the same tenant that owns the
+    // workspace's other audit rows.
+    let tenant = argo_config::workspace_tenant_id(&std::env::current_dir().unwrap_or_default());
+    let audit = AuditSink::new_with_tenant(std::sync::Arc::clone(&store), tenant);
+    let payload = json!({
+        "action_id": &claims.approval_id,
+        "channel": source,
+        "replier": actor,
+        "reply_kind": decision_str(claims.decision),
+        "reply_body": note,
+        "replied_at": chrono::Utc::now().to_rfc3339(),
+    });
+    if let Err(e) = audit
+        .write(None, AuditKind::ApprovalReplied, payload, None)
+        .await
+    {
+        tracing::warn!(
+            approval_id = %claims.approval_id,
+            channel = %source,
+            error = %e,
+            "approval.replied audit write failed; continuing to gate",
+        );
     }
     let rec = match claims.decision {
         Decision::Approve => {

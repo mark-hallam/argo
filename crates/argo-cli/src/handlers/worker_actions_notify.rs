@@ -34,6 +34,7 @@
 //! fan-out with a stub sender that records calls.
 use crate::handlers::worker_actions::ActionRecord;
 use crate::handlers::worker_actions_notify_fallback;
+use argo_audit::{AuditKind, AuditSink};
 use argo_channels::fallback::{FallbackChain, FallbackChainManifest};
 use argo_channels::{ChannelError, Notification, NotifyChannel, OperatorTarget, RiskLevel};
 use argo_identity::NotifyChannelRef;
@@ -272,11 +273,21 @@ pub async fn dispatch(
 ///    [`EnvChannelSender`] otherwise — preserves the no-config
 ///    default behaviour.
 ///
+/// When `audit` is `Some`, every successful per-channel send writes
+/// a `AuditKind::ApprovalAsked` row carrying
+/// `{ action_id, worker_id, channel, target, risk_level,
+///   requested_at, expiry_ts }` (audit finding P0-2). Failed sends
+/// do NOT emit so the chain stays free of phantom asks.
+///
 /// Returns the count of successful sends — callers ignore it; the
 /// value is surfaced for tests + future telemetry.
 ///
 /// [`DeliveryReport`]: argo_channels::fallback::DeliveryReport
-pub async fn try_dispatch_on_ask(action: &ActionRecord, cwd: &Path) -> usize {
+pub async fn try_dispatch_on_ask(
+    action: &ActionRecord,
+    cwd: &Path,
+    audit: Option<&AuditSink>,
+) -> usize {
     let config = NotifyConfig::load(cwd);
     if config.channels.is_empty() {
         return 0;
@@ -291,11 +302,62 @@ pub async fn try_dispatch_on_ask(action: &ActionRecord, cwd: &Path) -> usize {
             &sender,
         )
         .await;
+        if let (Some(sink), Some(channel)) = (audit, report.succeeded_via.as_deref()) {
+            // First-success-wins: emit one `ApprovalAsked` row for
+            // the channel that delivered. Late attempts are
+            // reported in the JSONL log but not the audit chain
+            // (they never reached the operator).
+            let target = config
+                .channels
+                .iter()
+                .find(|c| c.channel == channel)
+                .map(|c| c.target.clone())
+                .unwrap_or_default();
+            emit_approval_asked(sink, action, &notification, channel, &target).await;
+        }
         worker_actions_notify_fallback::persist_report(cwd, &report);
         return usize::from(report.ok());
     }
+    let notification = build_notification(action);
     let results = dispatch(&config, action, &sender).await;
+    if let Some(sink) = audit {
+        for r in results.iter().filter(|r| r.success) {
+            emit_approval_asked(sink, action, &notification, &r.channel, &r.target).await;
+        }
+    }
     results.iter().filter(|r| r.success).count()
+}
+
+/// Best-effort `AuditKind::ApprovalAsked` write. Failures are
+/// logged via `tracing::warn!` and never propagate — audit emit
+/// is observability, not a delivery-path correctness gate.
+pub(crate) async fn emit_approval_asked(
+    audit: &AuditSink,
+    action: &ActionRecord,
+    notification: &Notification,
+    channel: &str,
+    target: &str,
+) {
+    let payload = json!({
+        "action_id": action.action_id,
+        "worker_id": action.worker_id.0.to_string(),
+        "channel": channel,
+        "target": target,
+        "risk_level": action.risk_level,
+        "requested_at": Utc::now().to_rfc3339(),
+        "expiry_ts": notification.expiry.to_rfc3339(),
+    });
+    if let Err(e) = audit
+        .write(None, AuditKind::ApprovalAsked, payload, None)
+        .await
+    {
+        tracing::warn!(
+            action_id = %action.action_id,
+            channel = %channel,
+            error = %e,
+            "approval.asked audit write failed; continuing",
+        );
+    }
 }
 
 /// Production [`NotifySender`] — dispatches by `ref_.channel` to

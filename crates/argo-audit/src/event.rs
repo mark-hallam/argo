@@ -42,6 +42,34 @@ pub enum AuditKind {
     /// (#660). The dispatch did NOT run; an operator must approve
     /// (or refuse) before the agent can re-issue the call.
     EscalationRequired,
+    /// A pending action's auto-approval gate decided
+    /// `AutoApprovalDecision::Ask` and the outbound notify
+    /// dispatcher successfully delivered the ask to a channel
+    /// (slack / email / sms / voice / discord / push /
+    /// webinbox). One row per channel that successfully
+    /// delivered — a fallback chain that lands on the 3rd
+    /// channel emits one row for that channel; a v0 fan-out
+    /// where 3 channels succeed in parallel emits 3 rows.
+    /// Emit happens AFTER the channel's `send()` returns Ok so
+    /// failed sends don't bloat the chain with phantom asks.
+    /// Pairs with [`Self::ApprovalReplied`] for forensic
+    /// reconstruction of the ask/reply round-trip. Payload:
+    /// `{ action_id, worker_id, channel, target, risk_level,
+    ///   requested_at, expiry_ts }`. (Audit finding P0-2.)
+    ApprovalAsked,
+    /// An operator replied to a pending approval via one of
+    /// the channel inbound webhooks (slack action button,
+    /// email reply parse, voice IVR, etc.). Emitted at the
+    /// channel-dispatch entry point — after HMAC verify +
+    /// payload decode succeed, before the gate (`approve` /
+    /// `reject` state transition) runs. First reply wins per
+    /// the existing channel-dispatch contract; late replies
+    /// hit the log/discard path and DO NOT emit a second
+    /// `ApprovalReplied` row. Payload: `{ action_id, channel,
+    ///   replier, reply_kind: "approve"|"reject", reply_body,
+    ///   replied_at }`. Pairs with [`Self::ApprovalAsked`].
+    /// (Audit finding P0-2.)
+    ApprovalReplied,
     /// An operator granted human approval for a previously-
     /// blocked tool on a specific session via `argo session
     /// approve` or the gateway equivalent (#664).
@@ -182,6 +210,8 @@ impl AuditKind {
             Self::ForgeRunEnd => "forge.run.end",
             Self::SteerEnqueued => "steer.enqueued",
             Self::EscalationRequired => "escalation.required",
+            Self::ApprovalAsked => "approval.asked",
+            Self::ApprovalReplied => "approval.replied",
             Self::ApprovalGranted => "approval.granted",
             Self::ApprovalRevoked => "approval.revoked",
             Self::ApprovalConsumed => "approval.consumed",
@@ -222,6 +252,8 @@ impl AuditKind {
             "forge.run.end" => Self::ForgeRunEnd,
             "steer.enqueued" => Self::SteerEnqueued,
             "escalation.required" => Self::EscalationRequired,
+            "approval.asked" => Self::ApprovalAsked,
+            "approval.replied" => Self::ApprovalReplied,
             "approval.granted" => Self::ApprovalGranted,
             "approval.revoked" => Self::ApprovalRevoked,
             "approval.consumed" => Self::ApprovalConsumed,
@@ -262,6 +294,8 @@ impl AuditKind {
             Self::ForgeRunEnd,
             Self::SteerEnqueued,
             Self::EscalationRequired,
+            Self::ApprovalAsked,
+            Self::ApprovalReplied,
             Self::ApprovalGranted,
             Self::ApprovalRevoked,
             Self::ApprovalConsumed,
