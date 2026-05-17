@@ -15,7 +15,7 @@ use sqlx::Row;
 use crate::SessionStore;
 
 const ENSURE_OUTBOUND_MESSAGE_SQL: &str =
-    include_str!("../migrations/113__outbound_message.sql");
+    include_str!("../migrations/114__outbound_message.sql");
 
 /// One row in the `outbound_message` dedup + audit-mirror table.
 ///
