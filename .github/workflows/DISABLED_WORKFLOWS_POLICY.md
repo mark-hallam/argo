@@ -1,7 +1,7 @@
 # Disabled workflows policy
 
 **Decision date:** 2026-05-17 (operator-locked)
-**Status:** All 11 disabled workflows in this directory are **intentionally disabled for v1.0**. None are accidentally-off.
+**Status:** All 12 disabled workflows in this directory are **intentionally disabled for v1.0**. None are accidentally-off.
 **Audit reference:** Closes 2026-05-17 read-only audit finding #12 (`docs/skycot/audit/2026-05-17-readonly-codebase-audit.md`).
 
 ## Rationale
@@ -23,6 +23,7 @@ GitHub Actions billing is operator-side blocked. Admin-merge is the v1.0 strateg
 | `schema-doc-check.yml.disabled` | **keep-disabled** (v1) | Pending JSON schema export surface; not on v1 critical path. |
 | `silent-skip-nightly.yml.disabled` | **keep-disabled** (v1) | Tracks `#[ignore]` accumulation; cosmetic-quality not load-bearing. |
 | `soak.yml.disabled` | **keep-disabled** (v1) | Multi-hour soak tests; operator-triggered. v1 load-soak coverage comes via `codex-gateway-load-soak-baseline` (manual workflow_dispatch). |
+| `load-soak.yml.disabled` | **keep-disabled** (v1) | Operator-triggered via `workflow_dispatch`; expensive; not needed for routine merge gating. Added by PR #1811 (`codex-gateway-load-soak-baseline`). |
 
 ## Re-enable trigger conditions
 

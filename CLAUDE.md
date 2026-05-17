@@ -119,7 +119,7 @@ The full audit reports live in `docs/skycot/audit/`:
 - `2026-05-17-readonly-codebase-audit.md` — codex audit (13 findings)
 - `2026-05-17-claude-conductor-audit.md` — claude audit (13 findings + closure verification)
 
-**Status 2026-05-17:** **~50 PRs MERGED in last 24h via admin-wave-6.** All 6 audit-derived briefs landed; 5 of 6 mission claims runtime-PROVEN. CI gates GREEN (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool restored 2026-05-17 with full Pro 20x usage. Remaining for launch: #1796 magic-link rebase (P0 SHIP-GATE for demo recording), tonight's demo recording on operator macOS, plus 13 polish-pass findings from the 2026-05-17 claude audit.
+**Status 2026-05-18:** **Magic-link signup+verify LIVE on main via #1823.** Mission claim 4 PROVEN via #1822 (skill-loop closure smoke). All 6 audit-derived briefs from 2026-05-17 closed. CI gates GREEN locally (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool at full Pro 20x. Remaining for launch: SQLCipher 4-PR sequence (v1.0 scope per operator 2026-05-18) + tonight's demo recording.
 
 ## Project rename — Argo → Skycot
 

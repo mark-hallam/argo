@@ -1,5 +1,8 @@
 # claude-rebase-pr-1796 — recovery rebase for magic-link signup/verify (CRITICAL v1.0 demo unblock)
 
+> **STALE-FIXED 2026-05-18**: intent delivered by #1823 (which merged the
+> recovery work). This brief file remains for traceability; do not re-claim.
+
 **Owner**: claude. **Sizing hint**: rebase + conflict resolution; LOC-neutral.
 **Depends on**: none.
 **Authored against**: origin/main `b866e8f7` on `2026-05-18`.
