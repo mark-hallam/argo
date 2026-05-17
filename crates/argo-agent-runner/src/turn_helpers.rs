@@ -24,7 +24,10 @@ use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{MemoryNs, MemoryScope};
 use argo_provider::{ProviderRequest, Sampling, Transport};
-use argo_skill::{LayeredLookup, Skill, SkillLayer, SkillStore};
+use argo_skill::{
+    LayeredLookup, Skill, SkillRelevanceConfig, SkillRelevanceSelector, SkillSelectionContext,
+    SkillStore,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult};
 use std::path::Path;
@@ -61,19 +64,23 @@ pub(super) async fn load_prompt_skills_with_library(
 
     let lookup = LayeredLookup::with_library(workspace, library);
     let rows = lookup.list_for_action("low").await?;
-    let mut active = Vec::new();
-    for row in rows {
-        if row.layer == SkillLayer::Library && !is_marketplace_skill(&row.skill) {
-            continue;
+    let selector = SkillRelevanceSelector::new(load_skill_relevance_config()?);
+    let vertical_tag;
+    let task_tags: &[&str] = match vertical_id {
+        Some(vid) => {
+            vertical_tag = [vid];
+            &vertical_tag
         }
-        if let Some(vid) = vertical_id {
-            if row.layer == SkillLayer::Workspace && row.skill.vertical_id.as_deref() != Some(vid) {
-                continue;
-            }
-        }
-        active.push(row.skill);
-    }
-    Ok(active)
+        None => &[],
+    };
+    Ok(selector.select(
+        rows,
+        SkillSelectionContext {
+            action_type: None,
+            vertical_id,
+            task_tags,
+        },
+    ))
 }
 
 pub(super) fn render_skill_prompt(active: Vec<Skill>) -> String {
@@ -111,12 +118,21 @@ async fn open_skill_library() -> ArgoResult<Option<SkillStore>> {
     Ok(Some(SkillStore::new(Arc::new(store))))
 }
 
-fn is_marketplace_skill(skill: &Skill) -> bool {
-    skill
-        .frontmatter
-        .provenance
-        .source
-        .starts_with("published:")
+fn load_skill_relevance_config() -> ArgoResult<SkillRelevanceConfig> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    for path in [cwd.join(".skycot/argo.toml"), cwd.join("argo.toml")] {
+        if !path.exists() {
+            continue;
+        }
+        let cfg = argo_config::ArgoConfig::load(&path)?
+            .skill_library
+            .relevance;
+        return Ok(SkillRelevanceConfig::from_operator_config(
+            cfg.max_marketplace_skills,
+            &cfg.min_trust_grade,
+        ));
+    }
+    Ok(SkillRelevanceConfig::default())
 }
 
 #[allow(clippy::too_many_arguments)]

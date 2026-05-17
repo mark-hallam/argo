@@ -91,6 +91,33 @@ mod skill_learning_config_tests {
     }
 }
 
+/// `[skill_library]` — prompt-time skill library controls.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SkillLibraryConfig {
+    /// `[skill_library.relevance]` selector policy.
+    pub relevance: SkillLibraryRelevanceConfig,
+}
+
+/// `[skill_library.relevance]` — marketplace prompt-selection caps.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SkillLibraryRelevanceConfig {
+    /// Maximum marketplace skills rendered into a single prompt.
+    pub max_marketplace_skills: usize,
+    /// Minimum marketplace trust label (`verified` by default).
+    pub min_trust_grade: String,
+}
+
+impl Default for SkillLibraryRelevanceConfig {
+    fn default() -> Self {
+        Self {
+            max_marketplace_skills: 5,
+            min_trust_grade: "verified".to_string(),
+        }
+    }
+}
+
 /// `[anomaly]` — session-level worker anomaly detector. Defaults are
 /// observe-only; `auto_pause = true` opts into stopping the work loop
 /// when the runtime score crosses `threshold`.

@@ -80,10 +80,10 @@ pub use sections::{
     GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig,
     LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
     RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
-    SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant,
-    StorageConfig, StorageTenantConfig, TeamsTomlConfig, TelemetryConfig,
-    TelemetryPrometheusCardinalityCapConfig, TelemetryPrometheusConfig, TenantConfig,
-    VoiceTomlConfig, WebInboxTomlConfig,
+    SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SkillLibraryConfig,
+    SkillLibraryRelevanceConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, StorageConfig,
+    StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TelemetryPrometheusCardinalityCapConfig,
+    TelemetryPrometheusConfig, TenantConfig, VoiceTomlConfig, WebInboxTomlConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, AnomalyAlertingConfig, ContextCompressConfig,
@@ -230,6 +230,8 @@ pub struct ArgoConfig {
     pub skill_learning: SkillLearningConfig,
     /// `[storage]` — tenant-specific database residency routing.
     pub storage: StorageConfig,
+    /// `[skill_library]` — prompt-time marketplace skill relevance.
+    pub skill_library: SkillLibraryConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]

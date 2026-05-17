@@ -44,6 +44,8 @@ pub mod per_worker_learning_cron;
 pub mod publish;
 pub mod quality;
 pub mod regression;
+pub mod relevance_selector;
+mod relevance_selector_markers;
 pub mod sign;
 mod skill;
 mod store;
@@ -133,6 +135,10 @@ pub use publish::{
 };
 pub use quality::{compute_score, QualityInputs, QualityScore, SkillQualityStore};
 pub use regression::{detect_regression, RegressionConfig, RegressionDecision};
+pub use relevance_selector::{
+    SkillRelevanceConfig, SkillRelevanceSelector, SkillSelectionContext,
+    DEFAULT_MAX_MARKETPLACE_SKILLS,
+};
 pub use skill::{
     EvalCase, ExpectedOutcome, LifecycleState, PrincipalOverride, Provenance, Skill,
     SkillFrontmatter,
