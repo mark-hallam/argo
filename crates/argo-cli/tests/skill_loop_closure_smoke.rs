@@ -101,13 +101,12 @@ async fn skills_learned_loop_closes_across_workers() {
 
     // ── Waypoint 3: propose_for_review lands a `pending_review` row ──
     //
-    // Drift discovered: `SkillCandidate::to_skill_md` emits
-    // `capabilities:\n  - cu\n` as a plain list, but
-    // `argo_types::Capability` is a tagged enum, so the raw output
-    // fails to parse. Strip the malformed block — `capabilities` is
-    // `#[serde(default)]`. Documented as a follow-up in
-    // `docs/skycot/operator/skill-lifecycle.md`.
-    let raw = strip_capabilities_block(&candidate.to_skill_md("workerA-session"));
+    // The capabilities-block serde drift surfaced here on #1822 was
+    // fixed in mission-skill-md-capabilities-serde-fix: `to_skill_md`
+    // now emits the tagged-enum YAML shape that
+    // `SkillStore::propose_for_review` expects, so the raw output
+    // round-trips without a workaround.
+    let raw = candidate.to_skill_md("workerA-session");
     let proposed = tenant_a_skills
         .propose_for_review(&raw, worker_a_session, WORKER_A_VERTICAL)
         .await
@@ -335,24 +334,3 @@ fn skill_md_for(name: &str, source: &str, body: &str, _vertical: &str) -> String
     )
 }
 
-/// Strip `capabilities:` block from a SKILL.md. Compensates for the
-/// known `to_skill_md` drift documented in the operator runbook.
-fn strip_capabilities_block(raw: &str) -> String {
-    let mut out = String::with_capacity(raw.len());
-    let mut in_caps = false;
-    for line in raw.lines() {
-        if line == "capabilities:" {
-            in_caps = true;
-            continue;
-        }
-        if in_caps {
-            if line.starts_with("  -") || line.starts_with("  ") {
-                continue;
-            }
-            in_caps = false;
-        }
-        out.push_str(line);
-        out.push('\n');
-    }
-    out
-}

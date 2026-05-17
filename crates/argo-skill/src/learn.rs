@@ -24,6 +24,7 @@
 //! placeholder body the operator can refine before approving.
 //! That keeps the loop testable without `ANTHROPIC_API_KEY` set.
 
+use argo_types::Capability;
 use serde::{Deserialize, Serialize};
 
 /// Threshold above which a successful CU trajectory is worth
@@ -147,7 +148,8 @@ impl SkillCandidate {
             "description: {}\n",
             json_string(&self.description)
         ));
-        body.push_str("capabilities:\n  - cu\n");
+        body.push_str("capabilities:\n");
+        body.push_str(&capabilities_yaml_block(&learned_capabilities()));
         body.push_str("provenance:\n");
         body.push_str(&format!("  source: learned:{session_short}\n"));
         body.push_str("  hash: sha256-pending\n");
@@ -168,6 +170,39 @@ impl SkillCandidate {
         }
         body
     }
+}
+
+/// Default capability set granted to a CU-derived learned skill:
+/// dispatch the `computer_use` tool family. Serialised via
+/// [`serde_yaml`] so the emitted block round-trips through
+/// [`argo_types::Capability`]'s `#[serde(tag = "kind")]` representation.
+///
+/// Stays single-variant for now (the only caller is
+/// [`SkillCandidate::from_cu_trajectory`]); future emission sites can
+/// pass their own capability list to a parameterised helper.
+fn learned_capabilities() -> Vec<Capability> {
+    vec![Capability::ToolDispatch {
+        tool_name_glob: "computer_use".into(),
+    }]
+}
+
+/// Serialise a capability list as the body of a `capabilities:`
+/// YAML mapping (i.e. the list items only, each indented by two
+/// spaces so the result drops directly under `capabilities:\n`).
+///
+/// Uses `serde_yaml::to_string` so the output is exactly the shape
+/// `Vec<Capability>`'s `Deserialize` impl expects.
+fn capabilities_yaml_block(caps: &[Capability]) -> String {
+    // `serde_yaml::to_string(&Vec<Capability>)` produces a top-level
+    // sequence; indent each line so it sits under the parent key.
+    let raw = serde_yaml::to_string(caps).unwrap_or_default();
+    let mut out = String::with_capacity(raw.len() + raw.matches('\n').count() * 2);
+    for line in raw.lines() {
+        out.push_str("  ");
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
 }
 
 /// Minimal JSON-style escape for embedding free-form text in a
@@ -261,6 +296,58 @@ mod tests {
         // Description rides in a YAML-safe quoted string.
         assert!(md.contains("\\\"quotes\\\""), "got: {md}");
         assert!(md.contains("\\\\backslash\\\\"), "got: {md}");
+    }
+
+    #[test]
+    fn to_skill_md_capabilities_block_round_trips_via_serde() {
+        // Locks the contract surfaced by #1822's
+        // `strip_capabilities_block` workaround: the YAML emitted
+        // here must parse back into a `Vec<Capability>` so
+        // `SkillStore::propose_for_review` accepts the document
+        // without the workaround.
+        let c = sample();
+        let md = c.to_skill_md("workerA-session");
+        let yaml = extract_frontmatter(&md);
+
+        #[derive(serde::Deserialize)]
+        struct ProbeFrontmatter {
+            capabilities: Vec<Capability>,
+        }
+        let probe: ProbeFrontmatter =
+            serde_yaml::from_str(&yaml).expect("frontmatter must deserialize");
+        assert_eq!(
+            probe.capabilities,
+            vec![Capability::ToolDispatch {
+                tool_name_glob: "computer_use".into()
+            }],
+            "emitted capabilities must round-trip through Capability's tagged-enum repr",
+        );
+
+        // Full parse via the production path locks the integration
+        // contract — `parse_skill_md` is what `propose_for_review`
+        // calls under the hood.
+        let (frontmatter, _body) = crate::parse_skill_md(&md).expect("parse_skill_md");
+        assert!(
+            frontmatter.capabilities.covers(&Capability::ToolDispatch {
+                tool_name_glob: "computer_use".into(),
+            }),
+            "parsed CapabilitySet should cover computer_use ToolDispatch",
+        );
+    }
+
+    /// Extract the YAML frontmatter (between the leading `---` and the
+    /// closing `\n---`) from a SKILL.md document. Mirrors the boundary
+    /// logic in [`crate::parse::parse_skill_md`] so the test exercises
+    /// the same byte range without pulling the full parser into the
+    /// assertion.
+    fn extract_frontmatter(md: &str) -> String {
+        let after_open = md
+            .strip_prefix("---\n")
+            .expect("frontmatter must start with `---\\n`");
+        let close = after_open
+            .find("\n---")
+            .expect("frontmatter must close with `\\n---`");
+        after_open[..close].to_string()
     }
 
     #[test]
