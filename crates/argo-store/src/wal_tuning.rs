@@ -136,6 +136,7 @@ pub async fn apply_pragmas(
     ];
 
     for (name, value) in pragmas {
+        // audit-allow: identifier substitution from fixed WAL pragma table
         let sql = format!("PRAGMA {name} = {value}");
         sqlx::query(&sql)
             .execute(pool)
@@ -162,6 +163,16 @@ pub async fn apply_pragmas(
 /// Returns [`ArgoError::Provider`] if the pragma query fails or the
 /// result row cannot be decoded.
 pub async fn read_pragma(pool: &Pool<Sqlite>, name: &str) -> Result<String, ArgoError> {
+    let name = match name {
+        "journal_mode" | "synchronous" | "wal_autocheckpoint" | "cache_size" | "mmap_size"
+        | "temp_store" | "busy_timeout" => name,
+        other => {
+            return Err(ArgoError::Schema(format!(
+                "unsupported wal_tuning pragma '{other}'"
+            )));
+        }
+    };
+    // audit-allow: identifier substitution from fixed WAL pragma allowlist
     let sql = format!("PRAGMA {name}");
     let row = sqlx::query(&sql)
         .fetch_optional(pool)

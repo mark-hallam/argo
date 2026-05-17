@@ -124,6 +124,7 @@ pub async fn ensure_team_roster_columns(pool: &SqlitePool) -> StoreResult<()> {
 }
 
 async fn existing_columns(pool: &SqlitePool, table: &str) -> StoreResult<HashSet<String>> {
+    // audit-allow: identifier substitution from fixed team-roster table probes
     let sql = format!("PRAGMA table_info({table})");
     let rows = sqlx::query(&sql)
         .fetch_all(pool)

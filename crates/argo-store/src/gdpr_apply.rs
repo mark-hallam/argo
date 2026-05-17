@@ -144,6 +144,7 @@ async fn update_payload_table(
         return Ok(());
     }
     let id_col = "id";
+    // audit-allow: identifier substitution from fixed GDPR table inventory
     let sql = format!("SELECT * FROM {table}");
     let rows = sqlx::query(&sql)
         .fetch_all(store.pool())
@@ -183,6 +184,7 @@ async fn update_text(
         return Ok(());
     }
     let next = gdpr_redact_payload(&value, subject, replacement);
+    // audit-allow: identifier substitution from fixed GDPR table/column inventory
     let sql = format!("UPDATE {table} SET \"{column}\" = ? WHERE {id_predicate} = ?");
     sqlx::query(&sql)
         .bind(next)

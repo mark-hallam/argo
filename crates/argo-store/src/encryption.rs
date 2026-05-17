@@ -363,6 +363,8 @@ fn validate_hex_key(s: &str) -> Result<String> {
 /// # Errors
 /// Returns [`ArgoError::Provider`] if SQLite rejects the PRAGMA.
 pub async fn apply_encryption_pragma(pool: &Pool<Sqlite>, hex_key: &str) -> Result<()> {
+    let hex_key = validate_hex_key(hex_key)?;
+    // audit-allow: validated SQLCipher PRAGMA literal
     let stmt = format!("PRAGMA key = \"x'{hex_key}'\"");
     sqlx::query(&stmt)
         .execute(pool)
@@ -378,6 +380,8 @@ pub async fn apply_encryption_pragma(pool: &Pool<Sqlite>, hex_key: &str) -> Resu
 /// # Errors
 /// Returns [`ArgoError::Provider`] if SQLite rejects the rekey.
 pub async fn apply_rekey_pragma(pool: &Pool<Sqlite>, new_hex_key: &str) -> Result<()> {
+    let new_hex_key = validate_hex_key(new_hex_key)?;
+    // audit-allow: validated SQLCipher PRAGMA literal
     let stmt = format!("PRAGMA rekey = \"x'{new_hex_key}'\"");
     sqlx::query(&stmt)
         .execute(pool)

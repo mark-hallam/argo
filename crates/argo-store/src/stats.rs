@@ -42,6 +42,7 @@ pub(super) async fn db_stats(pool: &Pool<Sqlite>) -> Result<DbStats, ArgoError> 
         ("forge_run", &mut stats.forge_runs),
         ("spend_ledger", &mut stats.spend_rows),
     ] {
+        // audit-allow: identifier substitution from fixed stats table inventory
         let n: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
             .fetch_one(pool)
             .await

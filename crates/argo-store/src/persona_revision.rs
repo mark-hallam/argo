@@ -129,6 +129,7 @@ pub async fn revert_persona_to(
     let target = fetch_revision(pool, rev_id).await?;
     let column = persona_column_for(&target.field)?;
 
+    // audit-allow: identifier substitution from persona_column_for allowlist
     let current_value: String = sqlx::query_scalar(&format!(
         "SELECT COALESCE({column}, '') FROM persona WHERE worker_id = ?"
     ))
@@ -143,6 +144,7 @@ pub async fn revert_persona_to(
         ))
     })?;
 
+    // audit-allow: identifier substitution from persona_column_for allowlist
     sqlx::query(&format!(
         "UPDATE persona SET {column} = ? WHERE worker_id = ?"
     ))

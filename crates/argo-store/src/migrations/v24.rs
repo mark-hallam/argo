@@ -46,6 +46,7 @@ pub(super) async fn down<'a, 'b>(
             exec(
                 tx,
                 "v24 down",
+                // audit-allow: identifier substitution from WORKSPACE_COLUMNS
                 &format!("ALTER TABLE workspace DROP COLUMN {column}"),
             )
             .await?;
@@ -71,6 +72,7 @@ async fn column_exists<'a, 'b>(
     table: &str,
     column: &str,
 ) -> Result<bool, ArgoError> {
+    // audit-allow: identifier substitution from fixed v24 migration probes
     let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
         .fetch_all(&mut **tx)
         .await

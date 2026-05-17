@@ -54,6 +54,7 @@ pub(super) async fn down<'a, 'b>(
     .await?;
     for (col, _) in BUDGET_COLUMNS.iter().rev() {
         if column_exists(tx, "subtask_ledger", col).await? {
+            // audit-allow: identifier substitution from BUDGET_COLUMNS
             let sql = format!("ALTER TABLE subtask_ledger DROP COLUMN {col}");
             exec(tx, "v52 down", &sql).await?;
         }
@@ -93,6 +94,7 @@ async fn column_exists<'a, 'b>(
     table: &str,
     column: &str,
 ) -> Result<bool, ArgoError> {
+    // audit-allow: identifier substitution from fixed v52 migration probes
     let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
         .fetch_all(&mut **tx)
         .await

@@ -47,6 +47,7 @@ async fn column_exists<'a, 'b>(
     table: &str,
     column: &str,
 ) -> Result<bool, ArgoError> {
+    // audit-allow: identifier substitution from fixed v12 migration probes
     let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
         .fetch_all(&mut **tx)
         .await

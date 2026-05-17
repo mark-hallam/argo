@@ -277,6 +277,7 @@ async fn collect_text_rows(
         .map(|c| format!("instr(lower(COALESCE(\"{c}\", '')), ?) > 0"))
         .collect::<Vec<_>>()
         .join(" OR ");
+    // audit-allow: identifier substitution from fixed GDPR table/column inventory
     let sql = format!("SELECT * FROM {table} WHERE {expr}");
     let mut q = sqlx::query(&sql);
     for _ in columns {

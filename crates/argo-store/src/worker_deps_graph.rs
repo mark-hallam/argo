@@ -19,6 +19,15 @@ pub(super) async fn fetch_rows(
     column: &str,
     value: &str,
 ) -> ArgoResult<Vec<DepRow>> {
+    let column = match column {
+        "a_worker_id" | "b_worker_id" => column,
+        other => {
+            return Err(ArgoError::Schema(format!(
+                "unsupported worker_dependency lookup column '{other}'"
+            )));
+        }
+    };
+    // audit-allow: identifier substitution from worker_dependency column allowlist
     let sql = format!(
         "SELECT a_worker_id, b_worker_id, kind, declared_at, note
          FROM worker_dependency

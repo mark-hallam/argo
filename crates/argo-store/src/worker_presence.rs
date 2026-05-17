@@ -164,6 +164,7 @@ async fn table_exists(pool: &SqlitePool, table: &str) -> ArgoResult<bool> {
 }
 
 async fn column_exists(pool: &SqlitePool, table: &str, column: &str) -> ArgoResult<bool> {
+    // audit-allow: identifier substitution after sqlite_master table probe
     let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
         .fetch_all(pool)
         .await

@@ -286,6 +286,7 @@ pub(crate) async fn has_column(
     if !table_exists(store, table).await? {
         return Ok(false);
     }
+    // audit-allow: identifier substitution after sqlite_master table probe
     let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
         .fetch_all(store.pool())
         .await

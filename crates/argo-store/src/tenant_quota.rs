@@ -198,6 +198,7 @@ impl<'a> TenantQuotaStore<'a> {
                     TenantQuotaField::MaxActions => "max_actions",
                     TenantQuotaField::MaxWorkers => "max_workers",
                 };
+                // audit-allow: identifier substitution from TenantQuotaField enum
                 let sql = format!(
                     "UPDATE tenant_quota SET {column} = NULL, set_at = ? WHERE tenant_id = ?"
                 );

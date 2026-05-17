@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Enforce sqlx prepared-statement caching on hot-path query sites.
+# Enforce sqlx prepared-statement caching on production query sites.
 #
-# Rule: hot-path files must not build SQL strings via
-# format!("SELECT|INSERT|UPDATE|DELETE ..."). Such strings bypass sqlx's
-# per-connection prepared-statement cache and re-parse on every call.
-# Use sqlx::query("... ? ...").bind(v) or query!/query_as! macros.
+# Rule: production Rust must not build SQL via format!("SELECT|INSERT|
+# UPDATE|DELETE ...") unless the interpolation is a documented dynamic
+# identifier / PRAGMA exception. Values must be passed through sqlx
+# bind parameters so prepared statements stay cached and injection-safe.
 #
-# Exception: identifier substitution (table/column name from trusted
-# code, not data) cannot be parameterised. Mark such a line with
-# `// audit-allow: identifier substitution` on the same line or the
-# line immediately above the offending format!().
+# Exception: identifiers and SQLite/SQLCipher PRAGMAs cannot always be
+# parameterised. Mark the dynamic format! with `audit-allow:` on the
+# same line or within the three lines immediately above it, and keep a
+# fixed allowlist / enum / validated literal at the callsite.
 #
 # Inventory tracks brief claude-perf-store-prepared-statements.
 
@@ -18,60 +18,81 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-shopt -s nullglob
-files=(
-  crates/argo-store/src/*query*.rs
-  crates/argo-cli/src/handlers/audit_*.rs
-  crates/argo-cli/src/handlers/session_*.rs
-  crates/argo-cli/src/handlers/message_*.rs
+python3 - <<'PY'
+from pathlib import Path
+import re
+import sys
+
+roots = [
+    Path("crates/argo-store/src"),
+    Path("crates/argo-audit/src"),
+    Path("crates/argo-cli/src/handlers"),
+]
+handler_re = re.compile(r"(audit_|session_|message_).*\.rs$")
+format_re = re.compile(
+    r'format!\s*\(\s*(r#*".*?"#*|"(?:\\.|[^"\\])*?")',
+    re.DOTALL,
 )
-shopt -u nullglob
+sql_re = re.compile(r"^\s*(SELECT|INSERT|UPDATE|DELETE|PRAGMA|ALTER\s+TABLE|DROP\s+COLUMN)\b")
 
-if [ "${#files[@]}" -eq 0 ]; then
-  echo "OK: no hot-path files matched the inventory globs."
-  exit 0
-fi
 
-pattern='format!\("(SELECT|INSERT|UPDATE|DELETE)'
-offences=()
+def candidate_files():
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*.rs"):
+            name = path.name
+            if name == "tests.rs" or name.endswith("_tests.rs") or name.endswith("_test_helpers.rs"):
+                continue
+            if name in {"gap_tests.rs", "filter_dims_tests.rs", "sink_tenant_tests.rs", "archive_tests.rs"}:
+                continue
+            if root.as_posix().endswith("/handlers") and not handler_re.match(name):
+                continue
+            yield path
 
-for f in "${files[@]}"; do
-  while IFS=: read -r lineno match; do
-    [ -z "$lineno" ] && continue
-    # Same-line marker.
-    if printf '%s' "$match" | grep -q 'audit-allow:'; then
-      continue
-    fi
-    # Previous-line marker.
-    prev_no=$((lineno - 1))
-    if [ "$prev_no" -ge 1 ]; then
-      prev=$(sed -n "${prev_no}p" "$f")
-      if printf '%s' "$prev" | grep -q 'audit-allow:'; then
-        continue
-      fi
-    fi
-    offences+=("$f:$lineno: $(printf '%s' "$match" | sed 's/^[[:space:]]*//')")
-  done < <(grep -nE "$pattern" "$f" || true)
-done
 
-if [ "${#offences[@]}" -gt 0 ]; then
-  echo "FAIL: ad-hoc SQL via format!() in hot-path files (${#offences[@]} site(s)):" >&2
-  for o in "${offences[@]}"; do
-    printf '  %s\n' "$o" >&2
-  done
-  cat >&2 <<'HINT'
+def literal_body(lit: str) -> str:
+    lit = lit.lstrip("r#").strip('#"')
+    return lit.replace("\\\n", "")
 
-Convert each offending line to a parameterised query:
-  sqlx::query("SELECT ... WHERE x = ?").bind(value)
-or use the compile-time-checked macros:
-  sqlx::query!(...) / sqlx::query_as!(...)
 
-If the SQL legitimately needs identifier substitution (table/column
-name from trusted code, not data), add this marker on the same line
-or the line immediately above:
-  // audit-allow: identifier substitution
-HINT
-  exit 1
-fi
+offences = []
+allowed = 0
+scanned = 0
+for path in sorted(candidate_files()):
+    scanned += 1
+    text = path.read_text()
+    lines = text.splitlines()
+    for match in format_re.finditer(text):
+        body = literal_body(match.group(1))
+        if not sql_re.search(body):
+            continue
+        line_no = text.count("\n", 0, match.start()) + 1
+        line = lines[line_no - 1] if line_no <= len(lines) else ""
+        window = "\n".join(lines[max(0, line_no - 4):line_no])
+        if "audit-allow:" in line or "audit-allow:" in window:
+            allowed += 1
+            continue
+        sql = " ".join(body.split())
+        offences.append(f"{path}:{line_no}: {sql[:140]}")
 
-echo "OK: ${#files[@]} hot-path file(s) clean."
+if offences:
+    print(
+        f"FAIL: undocumented SQL interpolation via format!() ({len(offences)} site(s)):",
+        file=sys.stderr,
+    )
+    for offence in offences:
+        print(f"  {offence}", file=sys.stderr)
+    print(
+        "\nUse sqlx bind parameters for values. For dynamic identifiers or non-bindable "
+        "PRAGMA literals, add `// audit-allow: ...` near the format! and keep the "
+        "callsite gated by a fixed allowlist, enum, or validator.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+print(
+    f"OK: count: 0 undocumented SQL interpolation site(s); "
+    f"{allowed} documented exception(s) across {scanned} production file(s)."
+)
+PY

@@ -140,6 +140,7 @@ pub async fn tail_rows_filtered(
     // re-orders ASC so callers always get oldest→newest within the
     // window. LEFT JOIN runs at the outer level so the LIMIT
     // semantics are unchanged from before #691.
+    // audit-allow: identifier substitution from fixed WHERE-clause fragments
     let sql = format!(
         "SELECT a.seq, a.id, a.session_id, s.vertical_id, a.kind, \
                 a.payload_json, a.parent_hash, a.self_hash, a.created_at \

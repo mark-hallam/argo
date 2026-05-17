@@ -76,6 +76,7 @@ pub(super) async fn down<'a, 'b>(
     .await?;
     for (col, _) in COST_COLUMNS.iter().rev() {
         if column_exists(tx, "forge_run", col).await? {
+            // audit-allow: identifier substitution from COST_COLUMNS
             let sql = format!("ALTER TABLE forge_run DROP COLUMN {col}");
             exec(tx, "v49 down", &sql).await?;
         }
@@ -131,6 +132,7 @@ async fn column_exists<'a, 'b>(
     table: &str,
     column: &str,
 ) -> Result<bool, ArgoError> {
+    // audit-allow: identifier substitution from fixed v49 migration probes
     let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
         .fetch_all(&mut **tx)
         .await
