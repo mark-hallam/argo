@@ -20,6 +20,7 @@ mod boot_telemetry;
 mod boot_telemetry_admin;
 mod dashboard;
 mod dashboard_fleet;
+mod email_outbound;
 mod hipaa_startup_check;
 mod ip_allowlist;
 mod jwt;

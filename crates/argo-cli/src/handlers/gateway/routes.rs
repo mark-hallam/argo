@@ -81,10 +81,12 @@ async fn dispatch_route_inner(
     {
         return super::billing::webhook_response(req, store).await;
     }
-    // Magic-link signup + verify
-    // (claude-magic-link-auth-backend). Mounted ahead of the bearer-
-    // auth gate so anonymous browsers can complete the self-serve
-    // signup flow at `app.skycot.com/signup`.
+    // Magic-link signup (claude-magic-link-auth-backend). Mounted
+    // ahead of the bearer-auth gate so anonymous browsers can sign
+    // up at `app.skycot.com/signup`. The companion `verify` endpoint
+    // is handled by `boot_router::try_dispatch_gates` because it
+    // owns its own TcpStream to emit `Set-Cookie: __Host-session=...`
+    // (mission-magic-link-v1x-hardening).
     if let Some(resp) = super::auth_magic_link::dispatch(req, store).await {
         return resp;
     }

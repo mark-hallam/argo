@@ -36,7 +36,7 @@
 use argo_config::GatewayRateLimitIpConfig;
 use dashmap::DashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 #[cfg(test)]
@@ -49,6 +49,15 @@ pub(super) const DEFAULT_REFILL_PER_SEC: f64 = 2.0;
 pub(super) const MAX_ENTRIES: usize = 100_000;
 /// Buckets idle this long are eligible for eviction.
 pub(super) const EVICT_AGE_SECS: u64 = 5 * 60;
+
+/// `signup` bucket — 5 magic-link issuances per source IP per hour
+/// (mission-magic-link-v1x-hardening). Process-global because the
+/// `(status, body)` dispatch the magic-link signup runs through has
+/// no place to thread a per-connection limiter handle.
+pub(super) const SIGNUP_BUCKET_CAPACITY: u32 = 5;
+/// Refill: cap / window. 5 tokens / 3600 s ≈ 0.001389 tokens/s, so
+/// the bucket refills one slot every 12 minutes once exhausted.
+pub(super) const SIGNUP_BUCKET_REFILL_PER_SEC: f64 = 5.0 / 3600.0;
 
 /// One IP's token bucket. `tokens` is fractional so the refill rate
 /// can be sub-1 tokens per second without integer drift.
@@ -181,6 +190,22 @@ impl IpRateLimiter {
     pub(super) fn bucket_count(&self) -> usize {
         self.buckets.len()
     }
+}
+
+/// Process-global limiter for `POST /api/v1/auth/signup`. Lazy-built
+/// on first use; trusts the first `X-Forwarded-For` hop because the
+/// signup endpoint sits behind the SPA + ingress proxy in every real
+/// deployment (mission-magic-link-v1x-hardening).
+pub(super) fn signup_limiter() -> &'static Arc<IpRateLimiter> {
+    static INSTANCE: OnceLock<Arc<IpRateLimiter>> = OnceLock::new();
+    INSTANCE.get_or_init(|| {
+        Arc::new(IpRateLimiter::new(
+            SIGNUP_BUCKET_CAPACITY,
+            SIGNUP_BUCKET_REFILL_PER_SEC,
+            true,
+            true,
+        ))
+    })
 }
 
 /// Pick the source IP to rate-limit on.

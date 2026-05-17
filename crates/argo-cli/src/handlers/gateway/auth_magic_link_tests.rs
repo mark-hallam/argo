@@ -3,7 +3,6 @@
 use super::*;
 use argo_store::SessionStore;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 async fn fresh_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:")
@@ -61,16 +60,27 @@ async fn signup_rejects_malformed_json() {
 }
 
 #[tokio::test]
-async fn signup_rate_limit_hits_429_on_sixth_attempt() {
-    // Drive the limiter directly so the test isn't racy on wall-clock.
+async fn signup_rate_limit_uses_shared_signup_bucket() {
+    use super::rate_limit_ip::{
+        signup_limiter, RateLimitIpCheckResult, SIGNUP_BUCKET_CAPACITY,
+    };
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::time::Instant;
+    // Drive the shared limiter directly so the test isn't racy on
+    // wall-clock and doesn't share buckets with the live `signup`
+    // singleton (we use a process-unique IP).
+    let ip: IpAddr = Ipv4Addr::new(192, 0, 2, 99).into();
     let now = Instant::now();
-    let ip = "203.0.113.20";
-    for _ in 0..IP_LIMIT {
-        assert!(ip_limit_check_at(ip, now));
+    for _ in 0..SIGNUP_BUCKET_CAPACITY {
+        assert!(matches!(
+            signup_limiter().check_with_now(ip, now),
+            RateLimitIpCheckResult::Allow
+        ));
     }
-    assert!(!ip_limit_check_at(ip, now), "6th attempt must be denied");
-    let later = now + IP_WINDOW + Duration::from_secs(1);
-    assert!(ip_limit_check_at(ip, later));
+    assert!(matches!(
+        signup_limiter().check_with_now(ip, now),
+        RateLimitIpCheckResult::Deny { .. }
+    ));
 }
 
 #[tokio::test]
@@ -81,13 +91,19 @@ async fn verify_with_invalid_token_returns_401() {
         None,
         r#"{"token":"never-issued"}"#,
     );
-    let (status, body) = verify_response(&r, Some(&store)).await;
-    assert!(status.starts_with("401"), "status={status} body={body}");
-    assert!(body.contains("\"invalid\""));
+    let outcome = verify_outcome(&r, Some(&store)).await;
+    assert!(
+        outcome.status.starts_with("401"),
+        "status={} body={}",
+        outcome.status,
+        outcome.body
+    );
+    assert!(outcome.body.contains("\"invalid\""));
+    assert!(outcome.set_cookie.is_none(), "no cookie on failure");
 }
 
 #[tokio::test]
-async fn signup_then_verify_round_trip() {
+async fn signup_then_verify_round_trip_sets_host_cookie() {
     let store = fresh_store().await;
     // Signup mints a token; we can't fish the raw token out of the
     // response (it goes only into the email/log), so insert one
@@ -108,11 +124,23 @@ async fn signup_then_verify_round_trip() {
         None,
         &format!(r#"{{"token":"{raw_token}"}}"#),
     );
-    let (status, body) = verify_response(&verify_req, Some(&store)).await;
-    assert!(status.starts_with("200"), "status={status} body={body}");
-    assert!(body.contains("\"needs_onboarding\":true"));
-    assert!(body.contains("\"jwt\""));
-    assert!(body.contains("\"skycot_session\""));
+    let outcome = verify_outcome(&verify_req, Some(&store)).await;
+    assert!(
+        outcome.status.starts_with("200"),
+        "status={} body={}",
+        outcome.status,
+        outcome.body
+    );
+    assert!(outcome.body.contains("\"needs_onboarding\":true"));
+    // JWT is no longer in the body; cookie is the canonical carrier.
+    assert!(!outcome.body.contains("\"jwt\""));
+    let cookie = outcome.set_cookie.expect("verify must emit Set-Cookie");
+    assert!(cookie.starts_with("__Host-session="), "cookie={cookie}");
+    assert!(cookie.contains("HttpOnly"), "cookie={cookie}");
+    assert!(cookie.contains("Secure"), "cookie={cookie}");
+    assert!(cookie.contains("SameSite=Lax"), "cookie={cookie}");
+    assert!(cookie.contains("Path=/"), "cookie={cookie}");
+    assert!(cookie.contains("Max-Age=604800"), "cookie={cookie}");
 }
 
 #[tokio::test]
@@ -134,11 +162,17 @@ async fn verify_is_single_use() {
         None,
         &format!(r#"{{"token":"{raw_token}"}}"#),
     );
-    let (s1, _) = verify_response(&r, Some(&store)).await;
-    assert!(s1.starts_with("200"));
-    let (s2, b2) = verify_response(&r, Some(&store)).await;
-    assert!(s2.starts_with("401"), "{s2} {b2}");
-    assert!(b2.contains("already_used"));
+    let first = verify_outcome(&r, Some(&store)).await;
+    assert!(first.status.starts_with("200"));
+    let second = verify_outcome(&r, Some(&store)).await;
+    assert!(
+        second.status.starts_with("401"),
+        "{} {}",
+        second.status,
+        second.body
+    );
+    assert!(second.body.contains("already_used"));
+    assert!(second.set_cookie.is_none());
 }
 
 #[tokio::test]
@@ -160,9 +194,29 @@ async fn verify_expired_token_returns_401() {
         None,
         &format!(r#"{{"token":"{raw_token}"}}"#),
     );
-    let (status, body) = verify_response(&r, Some(&store)).await;
-    assert!(status.starts_with("401"), "{status} {body}");
-    assert!(body.contains("expired"));
+    let outcome = verify_outcome(&r, Some(&store)).await;
+    assert!(
+        outcome.status.starts_with("401"),
+        "{} {}",
+        outcome.status,
+        outcome.body
+    );
+    assert!(outcome.body.contains("expired"));
+    assert!(outcome.set_cookie.is_none());
+}
+
+#[test]
+fn is_verify_request_matches_only_verify() {
+    assert!(is_verify_request(
+        "POST /api/v1/auth/verify HTTP/1.1\r\n\r\n"
+    ));
+    assert!(is_verify_request(
+        "POST /api/v1/auth/verify?x=1 HTTP/1.1\r\n\r\n"
+    ));
+    assert!(!is_verify_request(
+        "POST /api/v1/auth/signup HTTP/1.1\r\n\r\n"
+    ));
+    assert!(!is_verify_request("GET /api/v1/auth/verify HTTP/1.1\r\n\r\n"));
 }
 
 #[test]

@@ -172,6 +172,15 @@ async fn try_dispatch_gates(
         super::sso_dispatch::serve(req, ctx.store, stream).await;
         return Some(200);
     }
+    // Magic-link verify is stream-owning (mirroring SSO) so it can
+    // emit `Set-Cookie: __Host-session=...` directly, which the
+    // `(status, body)` dispatch tuple cannot carry. Signup stays on
+    // the normal dispatch path.
+    if super::auth_magic_link::is_verify_request(req) {
+        let _ = super::auth_magic_link::serve_verify_stream(req, ctx.store, stream).await;
+        request_audit::spawn_record(audit.take(), ctx.store, "200 OK", 0);
+        return Some(200);
+    }
     None
 }
 

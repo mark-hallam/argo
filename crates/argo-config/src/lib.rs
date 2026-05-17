@@ -49,6 +49,7 @@ mod sections_channels;
 mod sections_context;
 mod sections_context_compress;
 mod sections_core;
+mod sections_email_outbound;
 mod sections_executor;
 mod sections_gateway;
 mod sections_mcp_pool;
@@ -100,6 +101,7 @@ pub use sections_rate_limit::{
 pub use sections_billing::{
     BillingConfig, BillingWebhookConfig, DEFAULT_BILLING_WEBHOOK_MAX_RETRIES,
 };
+pub use sections_email_outbound::{EmailConfig, EmailOutboundConfig, EmailOutboundProvider};
 pub use sections_streaming_retry::{
     StreamingRetryConfig, DEFAULT_STREAMING_RETRY_BACKOFF_INITIAL_MS,
     DEFAULT_STREAMING_RETRY_ENABLED, DEFAULT_STREAMING_RETRY_MAX_ATTEMPTS,
@@ -239,6 +241,10 @@ pub struct ArgoConfig {
     /// `[billing]` — Stripe billing tuning (currently
     /// `[billing.webhook.max_retries]`).
     pub billing: BillingConfig,
+    /// `[email]` — outbound mail provider for magic-link signin and
+    /// other transactional templates (default
+    /// [`EmailOutboundProvider::Noop`] keeps the v1.0 demo flow).
+    pub email: EmailConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]

@@ -2,15 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifySchema } from "@/lib/auth/signup-schema";
 
 const DEFAULT_GATEWAY = "http://127.0.0.1:8787";
-const COOKIE_NAME = "skycot_session";
-const COOKIE_MAX_AGE_SECS = 7 * 24 * 60 * 60;
 
 function gatewayBase(): string {
   return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
 }
 
 interface GatewayVerifyResponse {
-  jwt?: string;
   needs_onboarding?: boolean;
   tenant_id?: string | null;
   error?: { code: string; message: string };
@@ -49,7 +46,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const payload = (await upstream.json().catch(() => ({}))) as GatewayVerifyResponse;
-  if (!upstream.ok || !payload.jwt) {
+  if (!upstream.ok) {
     return NextResponse.json(payload, { status: upstream.status || 401 });
   }
   const res = NextResponse.json({
@@ -57,12 +54,14 @@ export async function POST(req: NextRequest) {
     needs_onboarding: payload.needs_onboarding ?? true,
     tenant_id: payload.tenant_id ?? null,
   });
-  res.cookies.set(COOKIE_NAME, payload.jwt, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: COOKIE_MAX_AGE_SECS,
-  });
+  // Gateway mints `Set-Cookie: __Host-session=...; HttpOnly; Secure;
+  // SameSite=Lax; Path=/; Max-Age=...` directly
+  // (mission-magic-link-v1x-hardening). Forward it untouched so the
+  // SPA never sees the JWT and the cookie attributes have a single
+  // source of truth.
+  const upstreamCookie = upstream.headers.get("set-cookie");
+  if (upstreamCookie) {
+    res.headers.set("set-cookie", upstreamCookie);
+  }
   return res;
 }
