@@ -26,6 +26,11 @@ pub mod audit_record_query;
 /// becomes a `submit()` into the writer; many concurrent submits
 /// share one `BEGIN`/`COMMIT` to amortize WAL fsync.
 pub mod batched_writer;
+/// Dead-letter queue for Stripe webhook events that exhausted retries
+/// (Stream `codex-billing-webhook-resilience`). The `argo billing
+/// replay` CLI re-applies rows from this table without re-calling
+/// Stripe.
+pub mod billing_dlq_query;
 /// Budget rollups over skills and spend.
 pub mod budget;
 /// Data classification tags (Stream `claude-data-classification`).

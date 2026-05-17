@@ -249,3 +249,79 @@ fn classify_picks_up_tier_from_price_metadata() {
     };
     assert_eq!(sub.tier, Tier::Enterprise);
 }
+
+async fn fresh_store() -> argo_store::SessionStore {
+    let store = argo_store::SessionStore::open(":memory:")
+        .await
+        .expect("memory store");
+    store.migrate().await.expect("migrate");
+    store
+}
+
+#[tokio::test]
+async fn record_failure_returns_retry_until_max_then_dead_letters() {
+    let store = fresh_store().await;
+    let tenant = TenantId::new();
+    let now = Utc::now();
+    let raw = r#"{"id":"evt_x"}"#;
+    for attempt in 1..=4 {
+        let outcome = record_apply_failure(
+            &store,
+            "evt_x",
+            "customer.subscription.updated",
+            Some(tenant),
+            raw,
+            "tenant locked",
+            5,
+            now,
+        )
+        .await
+        .expect("retry");
+        match outcome {
+            FailureOutcome::Retry { retry_count, .. } => assert_eq!(retry_count, attempt),
+            other => panic!("expected Retry at attempt {attempt}, got {other:?}"),
+        }
+        let dedup_written = crate::tier_store::has_processed_event(&store, "evt_x")
+            .await
+            .expect("dedup lookup");
+        assert!(!dedup_written, "dedup must not be set while retrying");
+    }
+    let outcome = record_apply_failure(
+        &store,
+        "evt_x",
+        "customer.subscription.updated",
+        Some(tenant),
+        raw,
+        "still locked",
+        5,
+        now,
+    )
+    .await
+    .expect("fifth attempt");
+    match outcome {
+        FailureOutcome::DeadLettered { retry_count, .. } => assert_eq!(retry_count, 5),
+        other => panic!("expected DeadLettered, got {other:?}"),
+    }
+    let dedup_written = crate::tier_store::has_processed_event(&store, "evt_x")
+        .await
+        .expect("dedup lookup");
+    assert!(dedup_written, "dedup must be set after dead-lettering");
+}
+
+#[tokio::test]
+async fn apply_subscription_event_writes_dedup_last() {
+    use crate::tier_store::{apply_subscription_event, has_processed_event};
+    let store = fresh_store().await;
+    let event = SubscriptionEvent {
+        event_id: "evt_apply".into(),
+        tenant_id: TenantId::new(),
+        customer_id: "cus_apply".into(),
+        subscription_id: Some("sub_apply".into()),
+        tier: Tier::Pro,
+        past_due_warning: false,
+    };
+    apply_subscription_event(&store, &event, Utc::now())
+        .await
+        .expect("apply");
+    assert!(has_processed_event(&store, "evt_apply").await.expect("dedup"));
+}

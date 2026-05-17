@@ -12,7 +12,10 @@ use argo_billing::{
     checkout::{create_checkout_session, CheckoutInput},
     portal::{create_portal_session, PortalInput},
     tier_store::{apply_subscription_event, has_processed_event, lookup_stripe_customer},
-    webhook::{classify_event, decode_event, verify_signature, WebhookOutcome},
+    webhook::{
+        classify_event, decode_event, record_apply_failure, verify_signature, FailureOutcome,
+        WebhookOutcome, DEFAULT_MAX_RETRIES,
+    },
     StripeClient,
 };
 use argo_store::SessionStore;
@@ -171,7 +174,8 @@ pub(super) async fn webhook_response(
                     }
                     ("200 OK", body.to_string())
                 }
-                Err(e) => server_error(&format!("apply: {e}")),
+                Err(e) => apply_failure_response(store, &event.id, &event.event_type,
+                    Some(sub.tenant_id), body, &e.to_string(), now).await,
             }
         }
     }
@@ -215,6 +219,67 @@ fn server_error(message: &str) -> (&'static str, String) {
         "500 Internal Server Error",
         json!({ "error": { "code": "internal_error", "message": message } }).to_string(),
     )
+}
+
+/// Resolve the operator-configured retry ceiling for webhook apply
+/// failures. Falls back to [`DEFAULT_MAX_RETRIES`] when config can't
+/// be loaded so the webhook continues to make progress.
+fn webhook_max_retries() -> u32 {
+    argo_config::load()
+        .map(|c| c.billing.webhook.max_retries)
+        .unwrap_or(DEFAULT_MAX_RETRIES)
+}
+
+/// Translate an apply failure into the right HTTP response: 500
+/// while we still have retry budget (Stripe re-delivers), 200 once
+/// the DLQ has absorbed the event (Stripe stops). The DLQ row is
+/// written either way so operators see ongoing failures via `argo
+/// billing dlq list`.
+async fn apply_failure_response(
+    store: &SessionStore,
+    event_id: &str,
+    event_type: &str,
+    tenant_id: Option<TenantId>,
+    raw_payload: &str,
+    reason: &str,
+    now: chrono::DateTime<Utc>,
+) -> (&'static str, String) {
+    let max = webhook_max_retries();
+    match record_apply_failure(store, event_id, event_type, tenant_id, raw_payload, reason, max, now).await {
+        Ok(FailureOutcome::Retry { retry_count, .. }) => {
+            tracing::warn!(
+                target: "billing::webhook",
+                event_id, retry_count, reason,
+                "apply failed — returning 500 so Stripe retries",
+            );
+            (
+                "500 Internal Server Error",
+                json!({
+                    "outcome": "retry",
+                    "retry_count": retry_count,
+                    "error": { "code": "apply_retry", "message": reason },
+                })
+                .to_string(),
+            )
+        }
+        Ok(FailureOutcome::DeadLettered { retry_count, .. }) => {
+            tracing::error!(
+                target: "billing::webhook",
+                event_id, retry_count, reason,
+                "apply failed — dead-lettered after retry budget exhausted",
+            );
+            (
+                "200 OK",
+                json!({
+                    "outcome": "dead_lettered",
+                    "retry_count": retry_count,
+                    "error": { "code": "apply_dead_letter", "message": reason },
+                })
+                .to_string(),
+            )
+        }
+        Err(e) => server_error(&format!("dlq upsert: {e}")),
+    }
 }
 
 #[derive(Debug, Deserialize)]

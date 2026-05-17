@@ -128,6 +128,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Connector { cmd } => main_dispatch_gateway::connector(cmd).await,
         Command::Sandbox { cmd } => main_dispatch_gateway::sandbox(cmd).await,
         Command::Security { cmd } => main_dispatch_gateway::security(cmd).await,
+        Command::Billing { cmd } => billing_dispatch(cmd).await,
         // Bootstrap / installer / packaging surfaces.
         Command::Wizard { cmd } => main_dispatch_setup::wizard(cmd).await,
         Command::Provider { cmd } => main_dispatch_setup::provider(cmd).await,
@@ -250,5 +251,12 @@ async fn dispatch_runtime(cmd: RuntimeCmd) -> ArgoResult<()> {
         RuntimeCmd::Voice { mock_script, json } => {
             main_dispatch_dev::runtime_voice(mock_script, json)
         }
+    }
+}
+
+async fn billing_dispatch(cmd: cli::BillingCmd) -> ArgoResult<()> {
+    match cmd {
+        cli::BillingCmd::Replay(args) => handlers::billing_replay::run(args).await,
+        cli::BillingCmd::Dlq { cmd } => handlers::billing_dlq::dispatch(cmd).await,
     }
 }

@@ -43,6 +43,7 @@ mod sandbox;
 mod sections;
 mod sections_action_throttle;
 mod sections_audit;
+mod sections_billing;
 mod sections_budget;
 mod sections_channels;
 mod sections_context;
@@ -95,6 +96,9 @@ pub use sections_context::{
 pub use sections_rate_limit::{
     GatewayRateLimitConfig, GatewayRateLimitIpConfig, GatewayRateLimitRouteConfig,
     GatewayRateLimitTenantConfig,
+};
+pub use sections_billing::{
+    BillingConfig, BillingWebhookConfig, DEFAULT_BILLING_WEBHOOK_MAX_RETRIES,
 };
 pub use sections_streaming_retry::{
     StreamingRetryConfig, DEFAULT_STREAMING_RETRY_BACKOFF_INITIAL_MS,
@@ -232,6 +236,9 @@ pub struct ArgoConfig {
     pub storage: StorageConfig,
     /// `[skill_library]` — prompt-time marketplace skill relevance.
     pub skill_library: SkillLibraryConfig,
+    /// `[billing]` — Stripe billing tuning (currently
+    /// `[billing.webhook.max_retries]`).
+    pub billing: BillingConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]

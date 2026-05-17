@@ -500,4 +500,9 @@ pub enum Command {
         #[command(subcommand)]
         cmd: SecurityCmd,
     },
+    /// Stripe billing recovery — DLQ inspection + event replay.
+    Billing {
+        #[command(subcommand)]
+        cmd: cli_billing_cmds::BillingCmd,
+    },
 }

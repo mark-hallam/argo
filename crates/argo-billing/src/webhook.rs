@@ -24,8 +24,10 @@
 //! so an operator can't accidentally promote a customer to `Enterprise`
 //! by mistyping a price id.
 
+use crate::tier_store;
 use argo_identity::tier::Tier;
-use argo_types::TenantId;
+use argo_store::{billing_dlq_query, SessionStore};
+use argo_types::{ArgoResult, TenantId};
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
@@ -262,6 +264,79 @@ pub struct StripeEventEnvelope {
 pub struct StripeEventData {
     /// The object Stripe is reporting on (subscription, invoice, …).
     pub object: serde_json::Value,
+}
+
+/// Default ceiling on apply re-attempts before we give up and let
+/// Stripe stop delivering (Stream `codex-billing-webhook-resilience`).
+/// Matches Stripe's documented exponential retry schedule (1h/3h/12h/
+/// 24h/48h ≈ 5 attempts). Operator-configurable via
+/// `[billing.webhook.max_retries]`.
+pub const DEFAULT_MAX_RETRIES: u32 = 5;
+
+/// What the webhook should tell Stripe after an apply failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FailureOutcome {
+    /// Retry budget not yet exhausted — the gateway should respond
+    /// `500` so Stripe re-delivers per its own schedule. Carries the
+    /// updated `retry_count` so the caller can log it.
+    Retry {
+        /// Number of failed apply attempts recorded so far (post-bump).
+        retry_count: i64,
+        /// Short failure reason from the apply path.
+        failure_reason: String,
+    },
+    /// Retry budget exhausted — the DLQ row holds the canonical
+    /// payload, the dedup row has been written so Stripe stops
+    /// re-delivering, and the gateway should respond `200`.
+    DeadLettered {
+        /// Number of failed apply attempts that triggered dead-letter.
+        retry_count: i64,
+        /// Short failure reason from the final attempt.
+        failure_reason: String,
+    },
+}
+
+/// Record an apply failure into the DLQ and decide whether to keep
+/// retrying. Always upserts the DLQ row (so operator visibility
+/// starts at the first failure). When `retry_count >= max_retries`
+/// also writes the dedup row so a subsequent Stripe redelivery is a
+/// no-op duplicate.
+///
+/// `raw_payload` is the canonical JSON Stripe POSTed — replay reads
+/// from this, so we never need to call Stripe to reconstruct it.
+#[allow(clippy::too_many_arguments)]
+pub async fn record_apply_failure(
+    store: &SessionStore,
+    event_id: &str,
+    event_type: &str,
+    tenant_id: Option<TenantId>,
+    raw_payload: &str,
+    failure_reason: &str,
+    max_retries: u32,
+    now: DateTime<Utc>,
+) -> ArgoResult<FailureOutcome> {
+    let retry_count = billing_dlq_query::upsert_dead_letter(
+        store,
+        event_id,
+        event_type,
+        tenant_id,
+        raw_payload,
+        now,
+        failure_reason,
+    )
+    .await?;
+    if retry_count as u32 >= max_retries {
+        tier_store::record_event(store, event_id, now).await?;
+        Ok(FailureOutcome::DeadLettered {
+            retry_count,
+            failure_reason: failure_reason.to_string(),
+        })
+    } else {
+        Ok(FailureOutcome::Retry {
+            retry_count,
+            failure_reason: failure_reason.to_string(),
+        })
+    }
 }
 
 #[cfg(test)]

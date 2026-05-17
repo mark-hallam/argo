@@ -32,6 +32,14 @@ pub mod portal;
 pub mod webhook;
 /// Persistence helpers — `stripe_customer`, `stripe_event`, `workspace.tier`.
 pub mod tier_store;
+/// Operator-driven replay of dead-lettered Stripe events (Stream
+/// `codex-billing-webhook-resilience`). Reads the canonical
+/// `raw_payload` and re-runs the same classify-then-apply path.
+pub mod replay;
 
+pub use replay::{replay_event, replay_since, ReplayOutcome};
 pub use stripe_client::{StripeClient, StripeConfig};
-pub use webhook::{SubscriptionEvent, WebhookError, WebhookOutcome};
+pub use webhook::{
+    record_apply_failure, FailureOutcome, SubscriptionEvent, WebhookError, WebhookOutcome,
+    DEFAULT_MAX_RETRIES,
+};

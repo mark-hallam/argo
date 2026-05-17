@@ -146,15 +146,23 @@ pub async fn set_workspace_tier(
     Ok(result.rows_affected())
 }
 
-/// Apply one [`SubscriptionEvent`] atomically: write the dedup row,
-/// upsert the customer mapping, and persist the new tier. The caller
-/// must check [`has_processed_event`] first.
+/// Apply one [`SubscriptionEvent`] atomically: upsert the customer
+/// mapping, persist the new tier, and finally mark the event id as
+/// processed in `stripe_event`. The caller must check
+/// [`has_processed_event`] first.
+///
+/// **Ordering matters for retry** (Stream
+/// `codex-billing-webhook-resilience`): the dedup row is written
+/// LAST so a mid-apply failure leaves `stripe_event` empty for this
+/// id and Stripe's redelivery (or the operator `argo billing
+/// replay`) can re-attempt cleanly. `upsert_stripe_customer` and
+/// `set_workspace_tier` are themselves idempotent — re-running the
+/// same event yields the same row state.
 pub async fn apply_subscription_event(
     store: &SessionStore,
     event: &SubscriptionEvent,
     now: DateTime<Utc>,
 ) -> ArgoResult<TierApplyOutcome> {
-    record_event(store, &event.event_id, now).await?;
     upsert_stripe_customer(
         store,
         event.tenant_id,
@@ -164,6 +172,7 @@ pub async fn apply_subscription_event(
     )
     .await?;
     let touched = set_workspace_tier(store, event.tenant_id, event.tier).await?;
+    record_event(store, &event.event_id, now).await?;
     Ok(TierApplyOutcome {
         rows_touched: touched,
         past_due_warning: event.past_due_warning,

@@ -11,6 +11,8 @@ pub mod cli_activity_cmds;
 pub mod cli_audit_cmds;
 #[path = "cli_backup_cmds.rs"]
 pub mod cli_backup_cmds;
+#[path = "cli_billing_cmds.rs"]
+pub mod cli_billing_cmds;
 #[path = "cli_budget_cmds.rs"]
 pub mod cli_budget_cmds;
 #[path = "cli_classify_cmds.rs"]
@@ -138,6 +140,7 @@ pub mod cli_workspace_cmds;
 
 pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;
+pub use cli_billing_cmds::{BillingCmd, BillingDlqCmd, BillingReplayArgs};
 pub use cli_budget_cmds::*;
 pub use cli_compliance_cmds::{CliComplianceDeleteArgs, CliComplianceExportArgs, ComplianceCmd};
 pub use cli_config_cmds::ConfigCmd;
