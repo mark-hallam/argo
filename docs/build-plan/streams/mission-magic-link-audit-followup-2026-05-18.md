@@ -60,16 +60,18 @@ LOC: ~200 (fixes + tests + possible new audit variant).
 
 ## Files you may touch
 
-- `crates/argo-cli/src/handlers/gateway/auth_magic_link.rs` — fixes 1, 2, 3. ≤80 modified LOC.
-- `crates/argo-cli/src/handlers/gateway/auth_magic_link_tests.rs` — add 3 new tests. ≤80 modified LOC.
-- `crates/argo-audit/src/event.rs` — add `AuthSucceeded` + `AuthFailed` variants IF needed (verify by grep first). ≤30 modified LOC.
-- `crates/argo-audit/src/sink.rs` — minor wiring if a new variant requires schema fields. ≤10 modified LOC.
+- `crates/argo-cli/src/handlers/gateway/auth_magic_link.rs` — fixes 1, 2, 3. ≤80 modified LOC. (Currently 377 LOC; +60 → 437; comfortably under 500.)
+- `crates/argo-cli/src/handlers/gateway/auth_magic_link_tests.rs` — add 3 new tests. ≤80 modified LOC. (Currently 235 LOC; +80 → 315; well under 500.)
+- `crates/argo-audit/src/event.rs` — add `AuthSucceeded` + `AuthFailed` variants IF needed (verify by grep first). ≤30 modified LOC. (Currently 335 LOC.)
+
+**REVISED 2026-05-18 by conductor (pre-claim ceiling-refusal response):** Removed `crates/argo-audit/src/sink.rs` from may-touch. It sits at 488 LOC (≥480 at-risk band) and would trip the worker's pre-claim ceiling check. The new audit variants follow the #1819 pattern (`ApprovalAsked`/`ApprovalReplied`): enum addition in `event.rs` only; the emission path in `sink.rs` is variant-agnostic and does NOT need changes. If a sink.rs change unexpectedly becomes load-bearing during implementation, BLOCK with a clear note and wait for `codex-split-files-450-500-wave` to drop sink.rs below 420.
 
 ## Files you must NOT touch
 
 - The migration slot 115 schema (`magic_link_tokens.sql`) — fixes are runtime-only.
 - The `user_tenant_store.rs` query — fix is at the call-site, not in the store.
 - The SPA verify route (`web/app/api/auth/verify/route.ts`) — gateway-only fix.
+- `crates/argo-audit/src/sink.rs` — pre-claim refused (488 LOC). See revised may-touch note above.
 - Other audit emit sites — don't drift this brief's scope to a global audit-coverage sweep.
 
 ## Acceptance criteria
