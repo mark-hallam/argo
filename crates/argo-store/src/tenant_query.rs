@@ -382,6 +382,18 @@ pub async fn tenant_tier(store: &SessionStore, tenant: TenantId) -> ArgoResult<S
         .unwrap_or_else(|| "free".to_string()))
 }
 
+/// Typed alias for [`tenant_tier`]. Caller-side parsing into
+/// `argo_identity::Tier` would create a `argo-store → argo-identity`
+/// crate cycle (argo-identity already depends on argo-store), so the
+/// store-side helper continues to return the lowercase tier slug
+/// (`"free"` / `"pro"` / `"enterprise"`). Gateway-side callers parse
+/// via `Tier::from_str`. Kept as a separate symbol so consumers can
+/// import `get_tenant_tier` per the runtime-enforcement brief spec
+/// without losing the schema-lazy `ensure_pricing_schema` path.
+pub async fn get_tenant_tier(store: &SessionStore, tenant: TenantId) -> ArgoResult<String> {
+    tenant_tier(store, tenant).await
+}
+
 /// Period-to-date action count for `tenant`. Returns `(used_actions,
 /// period_start_unix_seconds)`. `period_start` falls back to the
 /// current calendar-month boundary when no row exists yet.

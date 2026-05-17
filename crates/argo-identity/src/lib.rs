@@ -42,6 +42,7 @@ pub mod tenant;
 pub mod tenant_provision;
 pub mod tenant_store;
 pub mod tier;
+pub mod tier_limits;
 mod types;
 pub mod user;
 pub mod user_store;
@@ -65,6 +66,7 @@ pub use store_hire::{ApprovalPolicyChoice, HireDraft, HireDutyDraft};
 pub use tenant::{Tenant, TenantStatus};
 pub use tenant_provision::{provision_for_user, ProvisionOutcome, ProvisionRequest};
 pub use tier::{AllowDecision, Tier, TierConfig, TierLimits};
+pub use tier_limits::{ConnectorPolicy, RuntimeTierLimits, UNLIMITED_ACTIONS};
 pub use user::{UserAccount, UserId, UserStatus};
 pub use user_tenant::{UserTenant, UserTenantRole};
 pub use types::{

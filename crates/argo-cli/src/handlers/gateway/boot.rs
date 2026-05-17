@@ -225,6 +225,10 @@ pub(super) async fn start(
     let _guard = PidGuard(pidfile.clone());
     phases.mark("pidfile");
 
+    // claude-pricing-tier-enforcement-runtime — warm the tier LRU
+    // cache (60s TTL) before the listener accepts so the first
+    // tier-aware quota lookup doesn't pay an extra OnceLock init.
+    super::quota_middleware::init_tier_cache();
     metrics::init_boot_time();
     // Auto-wire the brief-specified prometheus metrics + stamp the
     // boot-time `store_migration_chain_version` gauge before the first
