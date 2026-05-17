@@ -278,6 +278,10 @@ pub(super) async fn start(
             ip_allowlist.cidr_count()
         );
     }
+    let maintenance_cfg = super::maintenance_middleware::from_env();
+    if maintenance_cfg.is_some() {
+        eprintln!("argo gateway: MAINTENANCE MODE — non-/health requests return 503");
+    }
     let mut served = 0_u64;
     let shutdown_ctl = ShutdownController::new();
     let mut shutdown_rx = shutdown::install_signal_handler(shutdown_ctl.clone());
@@ -302,7 +306,9 @@ pub(super) async fn start(
             accept = listener.accept() => {
                 let (mut stream, peer) = accept
                     .map_err(|e| ArgoError::Provider(format!("accept: {e}")))?;
-                boot_router::handle_connection(&mut stream, peer, &ctx).await;
+                if !super::maintenance_middleware::try_serve(&mut stream, maintenance_cfg.as_ref()).await {
+                    boot_router::handle_connection(&mut stream, peer, &ctx).await;
+                }
                 served += 1;
                 if max_requests.is_some_and(|cap| served >= cap) {
                     eprintln!(

@@ -23,6 +23,7 @@ mod hipaa_startup_check;
 mod ip_allowlist;
 mod jwt;
 mod lifecycle;
+mod maintenance_middleware;
 mod marketplace;
 mod marketplace_render;
 mod metrics;

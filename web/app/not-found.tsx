@@ -1,24 +1,36 @@
-"use client";
-
-import { AppShell } from "@/components/skycot/AppShell";
+import Link from "next/link";
+import { ErrorShell } from "@/components/error/ErrorShell";
 import { buttonVariants } from "@/components/ui/Button";
+
+const SUGGESTIONS = [
+  { href: "/", label: "Approvals" },
+  { href: "/workers", label: "Workers" },
+  { href: "/docs", label: "Docs" },
+];
 
 export default function NotFound() {
   return (
-    <AppShell>
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-20">
-        <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-16 px-6 text-center space-y-4">
-          <h1 className="text-xl font-semibold text-[var(--foreground)]">Page not found</h1>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            That route doesn&apos;t exist or you don&apos;t have access.
-          </p>
-          <div className="pt-2">
-            <a href="/" className={buttonVariants({ variant: "primary", size: "md" })}>
-              Back to approvals
-            </a>
-          </div>
-        </div>
-      </div>
-    </AppShell>
+    <ErrorShell
+      code="404"
+      variant="not-found"
+      title="That page isn't here."
+      description="The link may be out of date, or the page may have moved. Try one of the destinations below."
+      actions={
+        <>
+          {SUGGESTIONS.map((s) => (
+            <Link
+              key={s.href}
+              href={s.href}
+              className={buttonVariants({
+                variant: s.href === "/" ? "primary" : "secondary",
+                size: "md",
+              })}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </>
+      }
+    />
   );
 }
