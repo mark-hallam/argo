@@ -272,6 +272,26 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_dispatch_post_approvals::dispatch_approvals(req).await {
         return Some(resp);
     }
+    // claude-support-inbox-spa-page — POST /api/v1/support/tickets and
+    // POST /api/v1/support/tickets/<id>/reply. Bearer auth +
+    // principal-header validation already ran above.
+    if req.starts_with("POST /api/v1/support/tickets ")
+        || req.starts_with("POST /api/v1/support/tickets?")
+    {
+        return Some(super::routes_support_tickets::create_response(req, store).await);
+    }
+    if let Some(rest) = req.strip_prefix("POST /api/v1/support/tickets/") {
+        if let Some((head, _)) = rest.split_once(' ') {
+            let head_no_query = head.split('?').next().unwrap_or(head);
+            if let Some((id, tail)) = head_no_query.split_once('/') {
+                if tail == "reply" {
+                    return Some(
+                        super::routes_support_tickets::reply_response(id, req, store).await,
+                    );
+                }
+            }
+        }
+    }
     if req.starts_with("POST /sessions ") {
         if let Some(s) = store {
             if let Some(resp) = check_quota_or_reject(s, QuotaActionKind::Sessions).await {

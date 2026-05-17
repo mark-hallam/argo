@@ -145,6 +145,12 @@ pub mod skill_provenance;
 /// session-attachment indirection (Stream
 /// `claude-skill-search-by-vertical`).
 pub mod skill_query;
+/// Inbound support-ticket storage (Stream
+/// `claude-support-inbox-spa-page`). Source-of-truth persistence for
+/// tickets created via the Next.js `POST /api/support/ticket` route
+/// shipped in #1762 plus the operator-side reply thread surfaced by
+/// the `/api/v1/support/...` gateway handlers.
+pub mod support_query;
 /// Operator-to-publisher skill-rating store (Stream
 /// `mission-skill-ratings-publisher`, mission claim 4 #80) — one row
 /// per `(skill_id, skill_version, rater_tenant)`, idempotent on the
@@ -280,7 +286,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 69;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 70;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

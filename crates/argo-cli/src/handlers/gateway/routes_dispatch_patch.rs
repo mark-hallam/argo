@@ -12,11 +12,20 @@
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-/// Dispatch PATCH verbs anchored under `/api/v1/workers/<id>/...`.
+/// Dispatch PATCH verbs anchored under `/api/v1/workers/<id>/...` or
+/// `/api/v1/support/tickets/<id>` (Stream `claude-support-inbox-spa-page`).
 pub(super) async fn dispatch_patch(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    if let Some(rest) = req.strip_prefix("PATCH /api/v1/support/tickets/") {
+        if let Some((head, _)) = rest.split_once(' ') {
+            let id = head.split('?').next().unwrap_or(head);
+            if !id.is_empty() && !id.contains('/') {
+                return Some(super::routes_support_tickets::update_response(id, req, store).await);
+            }
+        }
+    }
     let rest = req.strip_prefix("PATCH /api/v1/workers/")?;
     let (head, _) = rest.split_once(' ')?;
     let head_no_query = head.split('?').next().unwrap_or(head);

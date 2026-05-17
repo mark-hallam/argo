@@ -150,6 +150,7 @@ mod routes_skill_refine;
 mod routes_skills;
 mod routes_skills_quality;
 mod routes_skills_show;
+mod routes_support_tickets;
 mod routes_team_list;
 mod routes_top;
 mod routes_top_sessions;

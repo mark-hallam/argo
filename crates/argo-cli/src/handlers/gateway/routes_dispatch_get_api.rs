@@ -195,6 +195,22 @@ pub(super) async fn dispatch_api_get(
     if req.starts_with("GET /api/v1/audit ") || req.starts_with("GET /api/v1/audit?") {
         return Some(super::routes_audit_feed::list_response(req, store).await);
     }
+    // claude-support-inbox-spa-page — operator inbox. Detail
+    // (`/api/v1/support/tickets/<id>`) must come BEFORE the bare list
+    // prefix so the longer route wins prefix-match dispatch.
+    if let Some(rest) = req.strip_prefix("GET /api/v1/support/tickets/") {
+        if let Some((head, _)) = rest.split_once(' ') {
+            let id = head.split('?').next().unwrap_or(head);
+            if !id.is_empty() && !id.contains('/') {
+                return Some(super::routes_support_tickets::detail_response(id, req, store).await);
+            }
+        }
+    }
+    if req.starts_with("GET /api/v1/support/tickets ")
+        || req.starts_with("GET /api/v1/support/tickets?")
+    {
+        return Some(super::routes_support_tickets::list_response(req, store).await);
+    }
     None
 }
 
