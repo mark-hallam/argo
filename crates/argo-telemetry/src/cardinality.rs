@@ -11,9 +11,9 @@
 //! rate-limited to one event per metric per 5-minute window.
 //!
 //! ```
-//! use argo_telemetry::cardinality::{CardinalityTracker, Caps, Decision};
+//! use argo_telemetry::cardinality::{CardinalityTracker, Caps, CardinalityDecision};
 //! let tracker = CardinalityTracker::new(Caps::defaults());
-//! assert!(matches!(tracker.observe("argo_demo", &["a"]), Decision::Allow));
+//! assert!(matches!(tracker.observe("argo_demo", &["a"]), CardinalityDecision::Allow));
 //! ```
 
 use parking_lot::Mutex;
@@ -31,7 +31,7 @@ const HLL_PRECISION: u32 = 10;
 
 /// Allow / drop decision returned by [`CardinalityTracker::observe`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Decision {
+pub enum CardinalityDecision {
     /// Label set is within the per-family cap; record it.
     Allow,
     /// Label set is over the hard cap; drop. Never blocks, never
@@ -138,11 +138,11 @@ impl CardinalityTracker {
         *self.caps.lock() = caps;
     }
     /// Observe a label set against the counter/gauge default.
-    pub fn observe(&self, metric: &str, labels: &[&str]) -> Decision {
+    pub fn observe(&self, metric: &str, labels: &[&str]) -> CardinalityDecision {
         self.observe_kind(metric, labels, FamilyKind::CounterGauge)
     }
     /// Observe a label set with an explicit kind hint.
-    pub fn observe_kind(&self, metric: &str, labels: &[&str], kind: FamilyKind) -> Decision {
+    pub fn observe_kind(&self, metric: &str, labels: &[&str], kind: FamilyKind) -> CardinalityDecision {
         let cap = self.caps.lock().cap_for(metric, kind);
         let mut families = self.families.lock();
         let state = families
@@ -166,7 +166,7 @@ impl CardinalityTracker {
                     "metric `{metric}` at cardinality hard cap ({count}/{cap}); dropping new label set"
                 );
             }
-            return Decision::Drop;
+            return CardinalityDecision::Drop;
         }
         let warn_floor = cap.saturating_mul(4) / 5;
         if count >= warn_floor && should_log(state.last_warn_at) {
@@ -177,7 +177,7 @@ impl CardinalityTracker {
                 "metric `{metric}` approaching cardinality cap ({count}/{cap})"
             );
         }
-        Decision::Allow
+        CardinalityDecision::Allow
     }
     /// Snapshot per-family state for `/metrics/cardinality`.
     #[must_use]

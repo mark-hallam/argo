@@ -7,7 +7,7 @@ fn under_cap_allows_recording() {
         let label = format!("series_{i}");
         assert_eq!(
             t.observe("argo_under_cap", &[label.as_str()]),
-            Decision::Allow,
+            CardinalityDecision::Allow,
             "label set {i} should be allowed under the cap",
         );
     }
@@ -32,7 +32,7 @@ fn at_hard_cap_drops_new_label_sets() {
         let label = format!("series_{i}");
         if matches!(
             t.observe("argo_hard_cap", &[label.as_str()]),
-            Decision::Drop
+            CardinalityDecision::Drop
         ) {
             drops += 1;
         }

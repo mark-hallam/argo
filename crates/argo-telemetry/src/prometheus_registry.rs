@@ -42,7 +42,7 @@ use prometheus::{
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
-use crate::cardinality::{self, Decision, FamilyKind};
+use crate::cardinality::{self, CardinalityDecision, FamilyKind};
 
 /// Histogram buckets for `gateway_request_duration_seconds`. 10
 /// boundary values → 11 buckets per the prometheus convention
@@ -364,8 +364,8 @@ pub fn cardinality_capped_total() -> IntCounterVec {
 }
 
 /// Gate a `with_label_values(...)` callsite through the process-global
-/// cardinality tracker. Returns [`Decision::Allow`] when the caller may
-/// record the series, [`Decision::Drop`] when the family is over its
+/// cardinality tracker. Returns [`CardinalityDecision::Allow`] when the caller may
+/// record the series, [`CardinalityDecision::Drop`] when the family is over its
 /// hard cap. On `Drop` the self-tracking counter
 /// `argo_metric_cardinality_capped_total{metric}` is incremented.
 ///
@@ -383,9 +383,9 @@ pub fn cardinality_capped_total() -> IntCounterVec {
 /// `argo_config::TelemetryPrometheusCardinalityCapConfig`) apply
 /// regardless.
 #[must_use]
-pub fn observe_cardinality(metric: &str, labels: &[&str], kind: FamilyKind) -> Decision {
+pub fn observe_cardinality(metric: &str, labels: &[&str], kind: FamilyKind) -> CardinalityDecision {
     let decision = cardinality::global_tracker().observe_kind(metric, labels, kind);
-    if matches!(decision, Decision::Drop) {
+    if matches!(decision, CardinalityDecision::Drop) {
         cardinality_capped_total()
             .with_label_values(&[metric])
             .inc();
@@ -395,13 +395,13 @@ pub fn observe_cardinality(metric: &str, labels: &[&str], kind: FamilyKind) -> D
 
 /// Convenience for counter and gauge families (the looser default).
 #[must_use]
-pub fn observe_counter_cardinality(metric: &str, labels: &[&str]) -> Decision {
+pub fn observe_counter_cardinality(metric: &str, labels: &[&str]) -> CardinalityDecision {
     observe_cardinality(metric, labels, FamilyKind::CounterGauge)
 }
 
 /// Convenience for histogram and summary families (the tighter default).
 #[must_use]
-pub fn observe_histogram_cardinality(metric: &str, labels: &[&str]) -> Decision {
+pub fn observe_histogram_cardinality(metric: &str, labels: &[&str]) -> CardinalityDecision {
     observe_cardinality(metric, labels, FamilyKind::Histogram)
 }
 

@@ -123,7 +123,7 @@ pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use marketplace::{
     parse_trust_grade, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT,
 };
-pub use pack_lint::{lint_pack, CheckId, LintFinding, LintReport, Severity};
+pub use pack_lint::{lint_pack, CheckId, LintFinding, LintReport, PackLintSeverity};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use per_worker_learning_cron::{
     per_worker_learning_tick, per_worker_learning_tick_with_config, spawn_per_worker_learning_cron,

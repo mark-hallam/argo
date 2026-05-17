@@ -27,11 +27,11 @@ pub(crate) struct VerticalBundleManifest {
     pub(crate) vertical_name: String,
     pub(crate) vertical_version: String,
     pub(crate) argo_version: String,
-    pub(crate) files: Vec<BundleFile>,
+    pub(crate) files: Vec<GenesisBundleFile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct BundleFile {
+pub(crate) struct GenesisBundleFile {
     pub(crate) path: String,
     pub(crate) size: u64,
     pub(crate) sha256: String,
@@ -39,7 +39,7 @@ pub(crate) struct BundleFile {
 
 #[derive(Debug, Clone)]
 struct BundleEntry {
-    meta: BundleFile,
+    meta: GenesisBundleFile,
     bytes: Vec<u8>,
 }
 
@@ -225,7 +225,7 @@ fn read_entry(root: &Path, rel: PathBuf) -> ArgoResult<BundleEntry> {
     let bytes =
         fs::read(&path).map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     Ok(BundleEntry {
-        meta: BundleFile {
+        meta: GenesisBundleFile {
             path: archive_path,
             size: bytes.len() as u64,
             sha256: sha256_bytes(&bytes),

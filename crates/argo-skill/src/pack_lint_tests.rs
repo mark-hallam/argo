@@ -24,7 +24,7 @@ fn minimal_pack(root: &Path) {
     write(&root.join("README.md"), "# good-pack\n");
 }
 
-fn find(report: &LintReport, id: CheckId, severity: Severity) -> Option<&LintFinding> {
+fn find(report: &LintReport, id: CheckId, severity: PackLintSeverity) -> Option<&LintFinding> {
     report
         .findings
         .iter()
@@ -43,7 +43,7 @@ fn clean_minimal_pack_has_no_findings() {
 fn missing_pack_toml_is_error() {
     let tmp = tempdir().unwrap();
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::PackToml, Severity::Error).is_some());
+    assert!(find(&report, CheckId::PackToml, PackLintSeverity::Error).is_some());
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn unparseable_pack_toml_is_error() {
     let tmp = tempdir().unwrap();
     write(&tmp.path().join("pack.toml"), "not = valid = toml = at = all");
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::PackToml, Severity::Error).is_some());
+    assert!(find(&report, CheckId::PackToml, PackLintSeverity::Error).is_some());
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn worker_toml_optional_when_missing() {
     let tmp = tempdir().unwrap();
     minimal_pack(tmp.path());
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::WorkerToml, Severity::Error).is_none());
+    assert!(find(&report, CheckId::WorkerToml, PackLintSeverity::Error).is_none());
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn unparseable_worker_toml_is_error() {
     minimal_pack(tmp.path());
     write(&tmp.path().join("worker.toml"), "][not toml");
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::WorkerToml, Severity::Error).is_some());
+    assert!(find(&report, CheckId::WorkerToml, PackLintSeverity::Error).is_some());
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn memory_schema_missing_type_is_error() {
         r#"{"collections":[{"name":"c","fields":{"x":"","y":"string"}}]}"#,
     );
     let report = lint_pack(tmp.path());
-    let f = find(&report, CheckId::MemorySchema, Severity::Error)
+    let f = find(&report, CheckId::MemorySchema, PackLintSeverity::Error)
         .expect("missing type should be error");
     assert!(f.message.contains("\"x\""));
 }
@@ -95,7 +95,7 @@ fn flat_memory_schema_missing_type_is_error() {
         r#"{"fields":{"id":{"type":"string"},"created":{}}}"#,
     );
     let report = lint_pack(tmp.path());
-    let f = find(&report, CheckId::MemorySchema, Severity::Error)
+    let f = find(&report, CheckId::MemorySchema, PackLintSeverity::Error)
         .expect("missing type should be error");
     assert!(f.message.contains("\"created\""));
 }
@@ -106,7 +106,7 @@ fn skill_ir_unparseable_is_error() {
     minimal_pack(tmp.path());
     write(&tmp.path().join("skills/bad.skill.json"), "{ not json");
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::SkillIrParse, Severity::Error).is_some());
+    assert!(find(&report, CheckId::SkillIrParse, PackLintSeverity::Error).is_some());
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn skill_ir_empty_tool_binding_is_warning() {
         &serde_json::to_string(&ir).unwrap(),
     );
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::SkillIrToolRef, Severity::Warning).is_some());
+    assert!(find(&report, CheckId::SkillIrToolRef, PackLintSeverity::Warning).is_some());
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn invalid_capabilities_is_error() {
         &serde_json::to_string(&ir).unwrap(),
     );
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::Capabilities, Severity::Error).is_some());
+    assert!(find(&report, CheckId::Capabilities, PackLintSeverity::Error).is_some());
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn eval_missing_expected_outcome_is_warning() {
         r#"[{"id":"e1","prompt":"hi"}]"#,
     );
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::EvalShape, Severity::Warning).is_some());
+    assert!(find(&report, CheckId::EvalShape, PackLintSeverity::Warning).is_some());
 }
 
 #[test]
@@ -177,7 +177,7 @@ fn eval_schema_version_zero_is_error() {
         r#"{"schema_version":0,"cases":[]}"#,
     );
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::EvalParse, Severity::Error).is_some());
+    assert!(find(&report, CheckId::EvalParse, PackLintSeverity::Error).is_some());
 }
 
 #[test]
@@ -188,7 +188,7 @@ fn missing_readme_is_warning() {
         "[pack]\nname='good-pack'\nversion='1.0.0'\n\n[[verticals]]\nid='good'\npath='.'\n",
     );
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::ReadmePresent, Severity::Warning).is_some());
+    assert!(find(&report, CheckId::ReadmePresent, PackLintSeverity::Warning).is_some());
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn oversized_file_is_warning() {
     let big = "x\n".repeat(501);
     write(&tmp.path().join("notes.md"), &big);
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::FileLocLimit, Severity::Warning).is_some());
+    assert!(find(&report, CheckId::FileLocLimit, PackLintSeverity::Warning).is_some());
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn non_kebab_pack_name_is_warning() {
     );
     write(&tmp.path().join("README.md"), "# x\n");
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::KebabCase, Severity::Warning).is_some());
+    assert!(find(&report, CheckId::KebabCase, PackLintSeverity::Warning).is_some());
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn non_semver_version_is_error() {
     );
     write(&tmp.path().join("README.md"), "# x\n");
     let report = lint_pack(tmp.path());
-    assert!(find(&report, CheckId::Semver, Severity::Error).is_some());
+    assert!(find(&report, CheckId::Semver, PackLintSeverity::Error).is_some());
 }
 
 #[test]

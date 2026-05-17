@@ -3,7 +3,7 @@
 //! linter into text or JSON output and maps severity counts to
 //! exit codes. Brief: `mission-skill-pack-lint-cli`.
 
-use argo_skill::pack_lint::{lint_pack, LintReport, Severity};
+use argo_skill::pack_lint::{lint_pack, LintReport, PackLintSeverity};
 use argo_types::{ArgoError, ArgoResult};
 use std::io::{self, IsTerminal, Write};
 use std::path::Path;
@@ -64,7 +64,7 @@ fn emit_json<W: Write>(w: &mut W, report: &LintReport) -> ArgoResult<()> {
         "pack": report.pack,
         "checks": report.findings.iter().map(|f| serde_json::json!({
             "id": f.id.as_slug(),
-            "severity": match f.severity { Severity::Error => "error", Severity::Warning => "warning" },
+            "severity": match f.severity { PackLintSeverity::Error => "error", PackLintSeverity::Warning => "warning" },
             "message": f.message,
         })).collect::<Vec<_>>(),
         "summary": {
@@ -92,8 +92,8 @@ fn emit_text<W: Write>(w: &mut W, report: &LintReport, color: bool) -> ArgoResul
     }
     for finding in &report.findings {
         let (tag, color_code) = match finding.severity {
-            Severity::Error => ("ERROR", "31"),
-            Severity::Warning => ("WARN ", "33"),
+            PackLintSeverity::Error => ("ERROR", "31"),
+            PackLintSeverity::Warning => ("WARN ", "33"),
         };
         writeln!(
             w,

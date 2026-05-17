@@ -10,7 +10,7 @@ use semver::Version;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::pack_lint::{push, CheckId, LintFinding, Severity};
+use super::pack_lint::{push, CheckId, LintFinding, PackLintSeverity};
 use crate::ir::SkillGraph;
 
 pub(super) fn check_pack_toml(
@@ -22,7 +22,7 @@ pub(super) fn check_pack_toml(
         push(
             findings,
             CheckId::PackToml,
-            Severity::Error,
+            PackLintSeverity::Error,
             "pack.toml missing",
         );
         return None;
@@ -33,7 +33,7 @@ pub(super) fn check_pack_toml(
             push(
                 findings,
                 CheckId::PackToml,
-                Severity::Error,
+                PackLintSeverity::Error,
                 &format!("pack.toml: {e}"),
             );
             None
@@ -51,7 +51,7 @@ pub(super) fn check_worker_toml(root: &Path, findings: &mut Vec<LintFinding>) {
             push(
                 findings,
                 CheckId::WorkerToml,
-                Severity::Error,
+                PackLintSeverity::Error,
                 &format!("worker.toml parse: {e}"),
             );
         }
@@ -59,7 +59,7 @@ pub(super) fn check_worker_toml(root: &Path, findings: &mut Vec<LintFinding>) {
         push(
             findings,
             CheckId::WorkerToml,
-            Severity::Error,
+            PackLintSeverity::Error,
             "worker.toml unreadable",
         );
     }
@@ -80,7 +80,7 @@ pub(super) fn check_memory_schema(root: &Path, findings: &mut Vec<LintFinding>) 
             push(
                 findings,
                 CheckId::MemorySchema,
-                Severity::Error,
+                PackLintSeverity::Error,
                 &format!("{}: {e}", path.display()),
             );
             return;
@@ -92,7 +92,7 @@ pub(super) fn check_memory_schema(root: &Path, findings: &mut Vec<LintFinding>) 
             push(
                 findings,
                 CheckId::MemorySchema,
-                Severity::Error,
+                PackLintSeverity::Error,
                 &format!("{}: {e}", path.display()),
             );
             return;
@@ -113,7 +113,7 @@ pub(super) fn check_memory_schema(root: &Path, findings: &mut Vec<LintFinding>) 
                     push(
                         findings,
                         CheckId::MemorySchema,
-                        Severity::Error,
+                        PackLintSeverity::Error,
                         &format!(
                             "{}: collection \"{col_name}\" field \"{field}\" missing type",
                             path.display()
@@ -131,7 +131,7 @@ pub(super) fn check_memory_schema(root: &Path, findings: &mut Vec<LintFinding>) 
                 push(
                     findings,
                     CheckId::MemorySchema,
-                    Severity::Error,
+                    PackLintSeverity::Error,
                     &format!("{}: field \"{field}\" missing type", path.display()),
                 );
             }
@@ -155,7 +155,7 @@ pub(super) fn check_skill_irs(root: &Path, findings: &mut Vec<LintFinding>) -> V
                 push(
                     findings,
                     CheckId::SkillIrParse,
-                    Severity::Error,
+                    PackLintSeverity::Error,
                     &format!("{}: {e}", entry.display()),
                 );
                 continue;
@@ -167,7 +167,7 @@ pub(super) fn check_skill_irs(root: &Path, findings: &mut Vec<LintFinding>) -> V
                 push(
                     findings,
                     CheckId::SkillIrParse,
-                    Severity::Error,
+                    PackLintSeverity::Error,
                     &format!("{}: parse: {e}", entry.display()),
                 );
                 continue;
@@ -192,7 +192,7 @@ fn check_skill_ir_tool_refs(path: &Path, graph: &SkillGraph, findings: &mut Vec<
             push(
                 findings,
                 CheckId::SkillIrToolRef,
-                Severity::Warning,
+                PackLintSeverity::Warning,
                 &format!(
                     "{}: node \"{}\" tool_binding has empty mcp_server or tool_name",
                     path.display(),
@@ -214,7 +214,7 @@ fn check_skill_capabilities(path: &Path, body: &str, findings: &mut Vec<LintFind
         push(
             findings,
             CheckId::Capabilities,
-            Severity::Error,
+            PackLintSeverity::Error,
             &format!("{}: capabilities: {e}", path.display()),
         );
     }
@@ -239,7 +239,7 @@ pub(super) fn check_eval_fixtures(
                 push(
                     findings,
                     CheckId::EvalParse,
-                    Severity::Error,
+                    PackLintSeverity::Error,
                     &format!("{}: {e}", entry.display()),
                 );
                 continue;
@@ -251,7 +251,7 @@ pub(super) fn check_eval_fixtures(
                 push(
                     findings,
                     CheckId::EvalParse,
-                    Severity::Error,
+                    PackLintSeverity::Error,
                     &format!("{}: parse: {e}", entry.display()),
                 );
                 continue;
@@ -267,7 +267,7 @@ pub(super) fn check_eval_fixtures(
                         push(
                             findings,
                             CheckId::EvalParse,
-                            Severity::Error,
+                            PackLintSeverity::Error,
                             &format!("{}: schema_version must be >= 1", entry.display()),
                         );
                     }
@@ -280,7 +280,7 @@ pub(super) fn check_eval_fixtures(
                 push(
                     findings,
                     CheckId::EvalParse,
-                    Severity::Error,
+                    PackLintSeverity::Error,
                     &format!("{}: top-level must be array or object", entry.display()),
                 );
                 continue;
@@ -310,7 +310,7 @@ fn check_one_eval_case(
         push(
             findings,
             CheckId::EvalShape,
-            Severity::Warning,
+            PackLintSeverity::Warning,
             &format!("{}: case {id} missing expected_outcome", entry.display()),
         );
     }
@@ -319,7 +319,7 @@ fn check_one_eval_case(
             push(
                 findings,
                 CheckId::EvalShape,
-                Severity::Warning,
+                PackLintSeverity::Warning,
                 &format!(
                     "{}: case {id} expected_skill \"{expected}\" not in pack skills",
                     entry.display(),
@@ -334,7 +334,7 @@ pub(super) fn check_readme(root: &Path, findings: &mut Vec<LintFinding>) {
         push(
             findings,
             CheckId::ReadmePresent,
-            Severity::Warning,
+            PackLintSeverity::Warning,
             "README.md missing at pack root",
         );
     }
@@ -353,7 +353,7 @@ pub(super) fn check_file_loc(root: &Path, findings: &mut Vec<LintFinding>) {
             push(
                 findings,
                 CheckId::FileLocLimit,
-                Severity::Warning,
+                PackLintSeverity::Warning,
                 &format!("{}: {lines} LOC exceeds 500-line limit", entry.display()),
             );
         }
@@ -365,7 +365,7 @@ pub(super) fn check_kebab_case_pack(name: &str, findings: &mut Vec<LintFinding>)
         push(
             findings,
             CheckId::KebabCase,
-            Severity::Warning,
+            PackLintSeverity::Warning,
             &format!("pack.name \"{name}\" is not kebab-case"),
         );
     }
@@ -379,7 +379,7 @@ fn check_kebab_case_skill(path: &Path, name: &str, findings: &mut Vec<LintFindin
         push(
             findings,
             CheckId::KebabCase,
-            Severity::Warning,
+            PackLintSeverity::Warning,
             &format!(
                 "{}: skill name \"{name}\" should be lowercase + hyphens/underscores",
                 path.display()
@@ -393,7 +393,7 @@ pub(super) fn check_semver_pack(version: &str, findings: &mut Vec<LintFinding>) 
         push(
             findings,
             CheckId::Semver,
-            Severity::Error,
+            PackLintSeverity::Error,
             &format!("pack.version \"{version}\" is not valid semver"),
         );
     }

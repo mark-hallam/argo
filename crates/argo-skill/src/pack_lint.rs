@@ -90,7 +90,7 @@ impl CheckId {
 /// from the report — only errors/warnings flow through.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Severity {
+pub enum PackLintSeverity {
     /// Hard fail — pack is broken.
     Error,
     /// Soft fail — pack works but the author should look.
@@ -103,7 +103,7 @@ pub struct LintFinding {
     /// Which check raised this finding.
     pub id: CheckId,
     /// `error` or `warning`.
-    pub severity: Severity,
+    pub severity: PackLintSeverity,
     /// Operator-facing message; should name the offending file
     /// when applicable.
     pub message: String,
@@ -119,19 +119,19 @@ pub struct LintReport {
 }
 
 impl LintReport {
-    /// Count findings at [`Severity::Error`].
+    /// Count findings at [`PackLintSeverity::Error`].
     pub fn errors(&self) -> usize {
         self.findings
             .iter()
-            .filter(|f| f.severity == Severity::Error)
+            .filter(|f| f.severity == PackLintSeverity::Error)
             .count()
     }
 
-    /// Count findings at [`Severity::Warning`].
+    /// Count findings at [`PackLintSeverity::Warning`].
     pub fn warnings(&self) -> usize {
         self.findings
             .iter()
-            .filter(|f| f.severity == Severity::Warning)
+            .filter(|f| f.severity == PackLintSeverity::Warning)
             .count()
     }
 }
@@ -180,7 +180,7 @@ pub fn lint_pack(path: &Path) -> LintReport {
 pub(super) fn push(
     findings: &mut Vec<LintFinding>,
     id: CheckId,
-    severity: Severity,
+    severity: PackLintSeverity,
     message: &str,
 ) {
     findings.push(LintFinding {

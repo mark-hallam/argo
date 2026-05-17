@@ -124,7 +124,7 @@ fn observe_cardinality_drops_past_cap_and_increments_self_counter() {
                 &[label.as_str()],
                 cardinality::FamilyKind::CounterGauge,
             ),
-            cardinality::Decision::Drop
+            cardinality::CardinalityDecision::Drop
         ) {
             drops += 1;
         }

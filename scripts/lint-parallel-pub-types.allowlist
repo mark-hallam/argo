@@ -49,3 +49,12 @@ WorkerResourceConfig argo-config argo-runtime
 # would require adding a dep; the doc comment in argo-skill explicitly
 # notes the mirror.
 PrincipalOverride argo-memory argo-skill
+
+# StripeClient — deliberate mirror across two architectural layers.
+# argo-billing's StripeClient is the internal HTTP client driven by webhook
+# delivery + invoice reconciliation (server-to-server, secret-key auth).
+# argo-mcp-connector-stripe's StripeClient is the MCP-connector tool-call
+# client surfaced to verticals (tenant-scoped credentials, tool schema).
+# Different lifecycle, different auth surface, different audit trail; folding
+# would conflate billing-trust with tool-call-trust.
+StripeClient argo-billing argo-mcp-connector-stripe
