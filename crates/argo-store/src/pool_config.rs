@@ -66,6 +66,18 @@ impl Default for StorePoolConfig {
 impl StorePoolConfig {
     /// Parse `ARGO_STORE_POOL_*` env vars; invalid values warn and fall
     /// back to [`StorePoolConfig::default`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::pool_config::StorePoolConfig;
+    /// // With no `ARGO_STORE_POOL_*` env vars set, the structural defaults apply.
+    /// for k in ["ARGO_STORE_POOL_MAX", "ARGO_STORE_POOL_MIN",
+    ///           "ARGO_STORE_POOL_ACQUIRE_TIMEOUT_MS", "ARGO_STORE_POOL_IDLE_TIMEOUT_S"] {
+    ///     std::env::remove_var(k);
+    /// }
+    /// assert_eq!(StorePoolConfig::from_env(), StorePoolConfig::default());
+    /// ```
     #[must_use]
     pub fn from_env() -> Self {
         let mut cfg = Self::default();

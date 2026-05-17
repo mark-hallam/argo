@@ -41,6 +41,14 @@ use std::str::FromStr;
 /// time. Defaults to [`WalTuningProfile::Default`].
 ///
 /// [`SessionStore::open_with_profile`]: crate::SessionStore::open_with_profile
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::wal_tuning::WalTuningProfile;
+/// // The `Default` variant is the production-grade seven-pragma set.
+/// assert_eq!(WalTuningProfile::default(), WalTuningProfile::Default);
+/// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum WalTuningProfile {
     /// SQLite defaults (apart from sqlx's existing `journal_mode = WAL`).
@@ -84,6 +92,15 @@ impl FromStr for WalTuningProfile {
 ///
 /// Exposed for tests so the round-trip assertions can iterate the
 /// same list the production path applies.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::wal_tuning::default_pragmas;
+/// let pragmas = default_pragmas();
+/// assert_eq!(pragmas.len(), 7);
+/// assert_eq!(pragmas[0], ("journal_mode", "WAL"));
+/// ```
 #[must_use]
 pub fn default_pragmas() -> [(&'static str, &'static str); 7] {
     [

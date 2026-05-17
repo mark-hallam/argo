@@ -59,6 +59,14 @@ use argo_types::{ArgoError, ArgoResult, TenantId};
 
 /// Lifecycle states an [`ApprovalRequest`] can occupy. Stored as a
 /// lower-case string in the `status` column.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::approvals::ApprovalStatus;
+/// assert_eq!(ApprovalStatus::Granted.as_str(), "granted");
+/// assert_eq!(ApprovalStatus::from_str_lossy("expired"), ApprovalStatus::Expired);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalStatus {
@@ -75,6 +83,14 @@ pub enum ApprovalStatus {
 
 impl ApprovalStatus {
     /// Lower-case label used in the `status` column.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approvals::ApprovalStatus;
+    /// assert_eq!(ApprovalStatus::Pending.as_str(), "pending");
+    /// assert_eq!(ApprovalStatus::Expired.as_str(), "expired");
+    /// ```
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -88,6 +104,14 @@ impl ApprovalStatus {
     /// Parse the column label back to a status. Unknown values fall
     /// back to [`ApprovalStatus::Pending`] so a forward-rolled DB
     /// doesn't crash older readers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approvals::ApprovalStatus;
+    /// assert_eq!(ApprovalStatus::from_str_lossy("granted"), ApprovalStatus::Granted);
+    /// assert_eq!(ApprovalStatus::from_str_lossy("future"), ApprovalStatus::Pending);
+    /// ```
     #[must_use]
     pub fn from_str_lossy(s: &str) -> Self {
         match s {
@@ -102,6 +126,15 @@ impl ApprovalStatus {
 /// Default decision recorded at request-creation time. The future
 /// timeout sweep applies one of these to a Pending row whose
 /// deadline has passed.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::approvals::DefaultDecision;
+/// assert_eq!(DefaultDecision::Deny.as_str(), "deny");
+/// // Unknown labels fall back to Deny (safe default).
+/// assert_eq!(DefaultDecision::from_str_lossy("garbage"), DefaultDecision::Deny);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DefaultDecision {
@@ -117,6 +150,14 @@ pub enum DefaultDecision {
 
 impl DefaultDecision {
     /// Lower-case label used in the `default_decision` column.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approvals::DefaultDecision;
+    /// assert_eq!(DefaultDecision::Allow.as_str(), "allow");
+    /// assert_eq!(DefaultDecision::Ask.as_str(), "ask");
+    /// ```
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -128,6 +169,14 @@ impl DefaultDecision {
 
     /// Parse the column label back to a default decision. Unknown
     /// values fall back to [`DefaultDecision::Deny`] (safe default).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approvals::DefaultDecision;
+    /// assert_eq!(DefaultDecision::from_str_lossy("allow"), DefaultDecision::Allow);
+    /// assert_eq!(DefaultDecision::from_str_lossy(""), DefaultDecision::Deny);
+    /// ```
     #[must_use]
     pub fn from_str_lossy(s: &str) -> Self {
         match s {

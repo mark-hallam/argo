@@ -58,6 +58,15 @@ use std::path::PathBuf;
 /// the KMS key reference. Resolving these variants performs a
 /// network call to the KMS to unwrap the DEK; the raw key bytes are
 /// only ever held briefly in memory.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::encryption::KeySource;
+/// // Empty / "none" parses to KeySource::None (the default).
+/// assert_eq!(KeySource::parse("").unwrap(), KeySource::None);
+/// assert_eq!(KeySource::parse("none").unwrap(), KeySource::None);
+/// ```
 #[derive(Clone, Default, PartialEq, Eq)]
 pub enum KeySource {
     /// Encryption disabled (plaintext store).
@@ -132,6 +141,16 @@ impl WrappedDekSource {
     /// # Errors
     /// Returns [`ArgoError::Schema`] if the prefix is unknown or
     /// the value is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::encryption::WrappedDekSource;
+    /// let env = WrappedDekSource::parse("env:ARGO_WRAPPED_DEK").unwrap();
+    /// assert!(matches!(env, WrappedDekSource::Env(_)));
+    /// // Unknown prefix is rejected.
+    /// assert!(WrappedDekSource::parse("http://example.com/dek").is_err());
+    /// ```
     pub fn parse(spec: &str) -> Result<Self> {
         let trimmed = spec.trim();
         if let Some(var) = trimmed.strip_prefix("env:") {
@@ -214,6 +233,17 @@ impl KeySource {
     /// # Errors
     /// Returns [`ArgoError::Schema`] when the prefix is unknown or
     /// the value after the prefix is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::encryption::KeySource;
+    /// // The local-source variants round-trip the env / file pointer.
+    /// let env = KeySource::parse("env:ARGO_DB_ENCRYPTION_KEY").unwrap();
+    /// assert!(matches!(env, KeySource::Env(_)));
+    /// // Empty `env:` / `file:` payload is rejected.
+    /// assert!(KeySource::parse("env:").is_err());
+    /// ```
     pub fn parse(spec: &str) -> Result<Self> {
         let trimmed = spec.trim();
         if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") {

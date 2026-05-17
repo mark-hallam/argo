@@ -17,6 +17,14 @@ use serde::Serialize;
 use sqlx::{Row, SqlitePool};
 
 /// The calendar window used to aggregate tenant usage.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::tenant_quota::QuotaPeriod;
+/// assert_eq!(QuotaPeriod::Daily.as_str(), "daily");
+/// assert_eq!(QuotaPeriod::Monthly.as_str(), "monthly");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuotaPeriod {
@@ -28,6 +36,13 @@ pub enum QuotaPeriod {
 
 impl QuotaPeriod {
     /// Stable database label.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::tenant_quota::QuotaPeriod;
+    /// assert_eq!(QuotaPeriod::Daily.as_str(), "daily");
+    /// ```
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -57,6 +72,20 @@ pub struct TenantQuota {
 }
 
 /// Patch used by the quota setter.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::tenant_quota::{QuotaPeriod, TenantQuotaUpdate};
+/// // Default is all-absent — `set_quota` then preserves the existing row.
+/// let patch = TenantQuotaUpdate {
+///     period: Some(QuotaPeriod::Daily),
+///     max_actions: Some(1_000),
+///     ..Default::default()
+/// };
+/// assert_eq!(patch.max_actions, Some(1_000));
+/// assert!(patch.max_usd_micros.is_none());
+/// ```
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TenantQuotaUpdate {
     /// Replacement period. Existing period is preserved when absent.
@@ -70,6 +99,16 @@ pub struct TenantQuotaUpdate {
 }
 
 /// A single quota field that can be cleared.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::tenant_quota::TenantQuotaField;
+/// // Pass to `TenantQuotaStore::clear` to null out one column without
+/// // dropping the whole row.
+/// let field = TenantQuotaField::MaxActions;
+/// assert_eq!(field, TenantQuotaField::MaxActions);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TenantQuotaField {
@@ -101,6 +140,18 @@ pub struct TenantQuotaStore<'a> {
 
 impl<'a> TenantQuotaStore<'a> {
     /// Bind quota operations to a SQLite pool.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn run() -> argo_types::ArgoResult<()> {
+    /// use argo_store::{tenant_quota::TenantQuotaStore, SessionStore};
+    /// let store = SessionStore::open(":memory:").await?;
+    /// store.migrate().await?;
+    /// let quotas = TenantQuotaStore::new(store.pool());
+    /// let _ = quotas.quota("tenant-1").await?;
+    /// # Ok(()) }
+    /// ```
     #[must_use]
     pub fn new(pool: &'a SqlitePool) -> Self {
         Self { pool }

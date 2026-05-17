@@ -11,6 +11,15 @@ use std::str::FromStr;
 
 /// Resource dimension checked by
 /// [`crate::tenant_quota::TenantQuotaStore::has_headroom_for`].
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::tenant_quota_kinds::TenantQuotaKind;
+/// // Three resource dimensions a tenant can hit a quota on.
+/// let kinds = [TenantQuotaKind::UsdMicros, TenantQuotaKind::Actions, TenantQuotaKind::Workers];
+/// assert_eq!(kinds.len(), 3);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TenantQuotaKind {
     /// USD micros against `max_usd_micros`.
@@ -25,6 +34,15 @@ pub enum TenantQuotaKind {
 /// variant maps to one of the existing tenant-quota caps; the
 /// label survives into the API error body so callers know which
 /// dimension was rejected.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::tenant_quota_kinds::QuotaActionKind;
+/// use std::str::FromStr;
+/// assert_eq!(QuotaActionKind::from_str("forge_runs").unwrap(), QuotaActionKind::ForgeRuns);
+/// assert_eq!(QuotaActionKind::Messages.to_string(), "messages");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuotaActionKind {
@@ -99,6 +117,14 @@ impl FromStr for QuotaActionKind {
 
 /// Error returned by
 /// [`crate::tenant_quota::TenantQuotaStore::check_or_reject`].
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::tenant_quota_kinds::QuotaError;
+/// let err = QuotaError::Exceeded { kind: "actions".into(), current: 10, limit: 10 };
+/// assert!(err.to_string().contains("current=10"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QuotaError {
     /// Adding `delta` would push usage over the configured cap.

@@ -42,6 +42,13 @@ use serde::{Deserialize, Serialize};
 /// the request doesn't carry a per-call cost estimate. Deliberately
 /// pessimistic so the ceiling fires *before* a runaway request is
 /// dispatched, not after.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::spend_ceiling::FALLBACK_PROJECTED_COST_MICROS;
+/// assert_eq!(FALLBACK_PROJECTED_COST_MICROS, 40_000);
+/// ```
 pub const FALLBACK_PROJECTED_COST_MICROS: u64 = 40_000;
 
 /// Per-window hard ceilings in USD micros. `None` ⇒ that window is
@@ -93,6 +100,15 @@ impl CeilingConfig {
     }
 
     /// `true` when every window is `None` — the gate is a no-op.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::spend_ceiling::CeilingConfig;
+    /// assert!(CeilingConfig::uncapped().all_uncapped());
+    /// let some = CeilingConfig { per_day_usd_micros: Some(1), ..Default::default() };
+    /// assert!(!some.all_uncapped());
+    /// ```
     #[must_use]
     pub fn all_uncapped(&self) -> bool {
         self.per_session_usd_micros.is_none()
@@ -107,6 +123,16 @@ impl CeilingConfig {
 /// `remaining` is `None` whenever the corresponding ceiling is unset.
 /// When the ceiling is set, `remaining = max(0, ceiling - used)` —
 /// always non-negative.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::spend_ceiling::CeilingCheck;
+/// // Defaults are all zero / uncapped — a projected charge of 0 micros
+/// // is trivially allowed.
+/// let check = CeilingCheck::default();
+/// assert!(check.project(0).is_ok());
+/// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CeilingCheck {
     /// Spend on this session so far (USD micros).

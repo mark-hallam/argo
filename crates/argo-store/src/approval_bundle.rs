@@ -32,6 +32,14 @@ use uuid::Uuid;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 
 /// Lifecycle states a bundle can occupy.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::approval_bundle::BundleStatus;
+/// assert_eq!(BundleStatus::Pending.as_str(), "pending");
+/// assert_eq!(BundleStatus::from_str_lossy("approved"), BundleStatus::Approved);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BundleStatus {
@@ -45,6 +53,14 @@ pub enum BundleStatus {
 
 impl BundleStatus {
     /// Lower-case label stored in the `status` column.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approval_bundle::BundleStatus;
+    /// assert_eq!(BundleStatus::Approved.as_str(), "approved");
+    /// assert_eq!(BundleStatus::Refused.as_str(), "refused");
+    /// ```
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -55,6 +71,14 @@ impl BundleStatus {
     }
 
     /// Parse the column label back to a status; unknown → Pending.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approval_bundle::BundleStatus;
+    /// assert_eq!(BundleStatus::from_str_lossy("approved"), BundleStatus::Approved);
+    /// assert_eq!(BundleStatus::from_str_lossy("bogus"), BundleStatus::Pending);
+    /// ```
     #[must_use]
     pub fn from_str_lossy(s: &str) -> Self {
         match s {
@@ -66,6 +90,14 @@ impl BundleStatus {
 }
 
 /// Operator decision recorded by [`decide_bundle`].
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::approval_bundle::{BundleDecision, BundleStatus};
+/// assert_eq!(BundleDecision::Approve.status(), BundleStatus::Approved);
+/// assert_eq!(BundleDecision::Refuse.as_str(), "refuse");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BundleDecision {
@@ -77,6 +109,14 @@ pub enum BundleDecision {
 
 impl BundleDecision {
     /// The terminal [`BundleStatus`] this decision lands the row in.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approval_bundle::{BundleDecision, BundleStatus};
+    /// assert_eq!(BundleDecision::Approve.status(), BundleStatus::Approved);
+    /// assert_eq!(BundleDecision::Refuse.status(), BundleStatus::Refused);
+    /// ```
     #[must_use]
     pub fn status(self) -> BundleStatus {
         match self {
@@ -86,6 +126,13 @@ impl BundleDecision {
     }
 
     /// Lower-case label used in the `decision` column.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::approval_bundle::BundleDecision;
+    /// assert_eq!(BundleDecision::Approve.as_str(), "approve");
+    /// ```
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -119,6 +166,19 @@ pub struct ApprovalBundle {
 }
 
 /// Insert payload for [`create_bundle`].
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::approval_bundle::NewBundle;
+/// use argo_types::TenantId;
+/// let payload = NewBundle {
+///     tenant_id: TenantId::new(),
+///     label: "3 listing replies",
+///     member_approval_ids: vec!["a1".into(), "a2".into(), "a3".into()],
+/// };
+/// assert_eq!(payload.member_approval_ids.len(), 3);
+/// ```
 #[derive(Debug, Clone)]
 pub struct NewBundle<'a> {
     /// Owning tenant.

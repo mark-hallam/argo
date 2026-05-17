@@ -18,6 +18,13 @@ use argo_types::ArgoResult;
 pub use crate::anomaly_persistence::{insert_event, list_for_worker, load_baseline, save_baseline};
 
 /// Default `|z|` threshold above which a sample is flagged.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::anomaly::DEFAULT_Z_THRESHOLD;
+/// assert_eq!(DEFAULT_Z_THRESHOLD, 3.0);
+/// ```
 pub const DEFAULT_Z_THRESHOLD: f64 = 3.0;
 
 /// No-op shim retained for callers in crates outside the
@@ -32,9 +39,25 @@ pub async fn ensure_schema(_pool: &SqlitePool) -> ArgoResult<()> {
 }
 
 /// Minimum baseline sample count before z-score detection emits.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::anomaly::MIN_SAMPLES_FOR_DETECT;
+/// assert_eq!(MIN_SAMPLES_FOR_DETECT, 5);
+/// ```
 pub const MIN_SAMPLES_FOR_DETECT: u64 = 5;
 
 /// Read the anomaly threshold from env or fall back to default.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::anomaly::{configured_threshold, DEFAULT_Z_THRESHOLD};
+/// // Without `ARGO_ANOMALY_Z_THRESHOLD` set, the default applies.
+/// std::env::remove_var("ARGO_ANOMALY_Z_THRESHOLD");
+/// assert_eq!(configured_threshold(), DEFAULT_Z_THRESHOLD);
+/// ```
 #[must_use]
 pub fn configured_threshold() -> f64 {
     std::env::var("ARGO_ANOMALY_Z_THRESHOLD")
@@ -45,6 +68,15 @@ pub fn configured_threshold() -> f64 {
 }
 
 /// Per-(worker, action_kind) Welford running stats.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::anomaly::BehaviorBaseline;
+/// let b = BehaviorBaseline::empty("worker-1", "post_listing");
+/// assert_eq!(b.sample_count, 0);
+/// assert!(b.latency_variance().is_none());
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BehaviorBaseline {
     /// Worker the baseline tracks.
@@ -67,6 +99,16 @@ pub struct BehaviorBaseline {
 
 impl BehaviorBaseline {
     /// Empty baseline.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::anomaly::BehaviorBaseline;
+    /// let b = BehaviorBaseline::empty("worker-1", "send_email");
+    /// assert_eq!(b.worker_id, "worker-1");
+    /// assert_eq!(b.action_kind, "send_email");
+    /// assert_eq!(b.sample_count, 0);
+    /// ```
     #[must_use]
     pub fn empty(worker_id: &str, action_kind: &str) -> Self {
         Self {
@@ -106,6 +148,17 @@ impl BehaviorBaseline {
     }
 
     /// Welford fold one sample into the baseline.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_store::anomaly::{BehaviorBaseline, BehaviorSample};
+    /// use chrono::Utc;
+    /// let mut b = BehaviorBaseline::empty("w", "k");
+    /// b.fold(&BehaviorSample { latency_ms: 100, retry_count: 0 }, Utc::now());
+    /// assert_eq!(b.sample_count, 1);
+    /// assert_eq!(b.latency_mean, 100.0);
+    /// ```
     pub fn fold(&mut self, sample: &BehaviorSample, now: DateTime<Utc>) {
         self.sample_count += 1;
         let n = self.sample_count as f64;
@@ -134,6 +187,14 @@ impl BehaviorBaseline {
 }
 
 /// One behavioural sample drawn from a completed action.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::anomaly::BehaviorSample;
+/// let sample = BehaviorSample { latency_ms: 250, retry_count: 1 };
+/// assert_eq!(sample.latency_ms, 250);
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct BehaviorSample {
     /// End-to-end latency in milliseconds.
