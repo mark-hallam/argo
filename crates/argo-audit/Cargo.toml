@@ -33,6 +33,10 @@ fs2 = { workspace = true }
 name = "audit_write"
 harness = false
 
+[[bench]]
+name = "chain_perf"
+harness = false
+
 [dev-dependencies]
 tokio = { workspace = true }
 criterion = { workspace = true }
