@@ -336,7 +336,7 @@ fn micros_to_usd(micros: i64) -> String {
 /// claude-pricing-plans-config — idempotently apply the additive
 /// `workspace.tier` column + `tenant_usage` table. Mirrors the
 /// `ensure_team_roster_columns` PRAGMA-detect-then-ALTER pattern; the
-/// versioned migration runner only registers slots ≤ 69, so newer
+/// versioned migration runner only registers slots ≤ 70, so newer
 /// additive schema is bootstrapped lazily on first access.
 pub async fn ensure_pricing_schema(store: &SessionStore) -> ArgoResult<()> {
     if !has_column(store, "workspace", "tier").await? && table_exists(store, "workspace").await? {

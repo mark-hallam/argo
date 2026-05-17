@@ -3,7 +3,7 @@
 //! (`mission-send-message-production-dispatcher`).
 //!
 //! Mirrors the `argo_store::tenant_query::ensure_*` pattern: the
-//! versioned migration runner stops at slot 69, so callers bootstrap
+//! versioned migration runner stops at slot 70, so callers bootstrap
 //! the table lazily via [`ensure_outbound_message_schema`]. The
 //! production dispatcher in `argo-channels` calls this on every
 //! dispatch attempt; tests exercise the helpers against an in-memory
