@@ -43,8 +43,9 @@ pub use tool::{
     STREAM_CHUNK_MAX_BYTES,
 };
 pub use tools::{
-    builtin_tools, builtin_tools_with_memory, builtin_tools_with_runtime, risk_tier, Clarify,
-    ClarifyAnswer, ClarifyDispatcher, CodeExecute, DelegateTask, FilePatch, FileRead, FileWrite,
-    Memory, MessageDispatcher, Process, ResolvedImage, SendMessage, SendOutcome, SessionSearch,
-    Terminal, Todo, TodoItem, Vision, VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
+    builtin_tools, builtin_tools_with_memory, builtin_tools_with_runtime,
+    builtin_tools_with_runtime_and_message_dispatcher, risk_tier, Clarify, ClarifyAnswer,
+    ClarifyDispatcher, CodeExecute, DelegateTask, FilePatch, FileRead, FileWrite, Memory,
+    MessageDispatcher, Process, ResolvedImage, SendMessage, SendOutcome, SessionSearch, Terminal,
+    Todo, TodoItem, Vision, VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
 };

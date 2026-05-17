@@ -25,6 +25,7 @@ pub mod fallback;
 pub mod imessage;
 pub mod manifest;
 pub mod matrix;
+pub mod message_dispatcher;
 pub mod operator_preferences;
 pub mod operator_risk_overrides;
 pub mod push;
@@ -46,6 +47,7 @@ pub use argo_types::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 pub use discord::DiscordChannel;
 pub use dispatch::{MultiChannelDispatch, NoopDispatch};
 pub use matrix::{MatrixChannel, MatrixChannelConfig};
+pub use message_dispatcher::{OutboundChannel, ProductionMessageDispatcher};
 pub use operator_preferences::{
     InMemoryPreferencesSource, OperatorId, OperatorPreferences, OperatorPreferencesResolver,
     OperatorPreferencesSource, OperatorQuietHours, TomlPreferencesSource,

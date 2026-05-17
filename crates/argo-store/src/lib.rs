@@ -99,6 +99,10 @@ pub mod multi_tenant_pool;
 /// `(operator_id, action_kind, vertical_id)` triple. Missing row →
 /// caller falls back to the manifest-driven default.
 pub mod operator_risk_overrides;
+/// Outbound-message idempotency table for the production
+/// `send_message` dispatcher
+/// (`mission-send-message-production-dispatcher`).
+pub mod outbound_message_query;
 /// Per-worker persona revision log — append-only diff history with
 /// sha256 audit-chain hashes + one-step revert (Stream
 /// `mission-persona-evolution-audit-revert`, MISSION_BACKLOG Section

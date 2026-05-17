@@ -127,9 +127,10 @@ pub fn builtin_tools_with_memory(
 /// error (`Memory::new` is retained for legacy callers that haven't
 /// plumbed a worker id yet). `delegate_task` is always wired to the
 /// supplied [`OrchestratorStore`], and `session_search` is always
-/// wired to the supplied [`SessionStore`]. `send_message` intentionally
-/// remains on its default dispatcher until a production channel
-/// dispatcher exists.
+/// wired to the supplied [`SessionStore`]. `send_message` keeps its
+/// default "backend not wired" dispatcher; callers that want the
+/// production routing dispatcher use
+/// [`builtin_tools_with_runtime_and_message_dispatcher`] instead.
 ///
 /// ```ignore
 /// let tools = builtin_tools_with_runtime(
@@ -142,11 +143,40 @@ pub fn builtin_tools_with_memory(
 /// ```
 #[must_use]
 pub fn builtin_tools_with_runtime(
+    workspace_root: PathBuf,
+    memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
+    memory_namespace: Option<MemoryNs>,
+    orchestrator: Arc<OrchestratorStore>,
+    session_store: Arc<SessionStore>,
+) -> Vec<Arc<dyn Tool>> {
+    builtin_tools_with_runtime_and_message_dispatcher(
+        workspace_root,
+        memory,
+        memory_namespace,
+        orchestrator,
+        session_store,
+        None,
+    )
+}
+
+/// Same as [`builtin_tools_with_runtime`] but registers the
+/// `send_message` tool with the supplied [`MessageDispatcher`] when
+/// `message_dispatcher` is `Some`
+/// (`mission-send-message-production-dispatcher`). When `None`, the
+/// tool keeps its default dispatcher (`"send_message backend not wired"`).
+///
+/// Production wiring constructs an
+/// `argo_channels::ProductionMessageDispatcher` over the per-turn
+/// `SessionStore` + `AuditSink` and registers per-tenant
+/// [`OutboundChannel`](https://docs.rs/argo-channels) impls on it.
+#[must_use]
+pub fn builtin_tools_with_runtime_and_message_dispatcher(
     _workspace_root: PathBuf,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
     memory_namespace: Option<MemoryNs>,
     orchestrator: Arc<OrchestratorStore>,
     session_store: Arc<SessionStore>,
+    message_dispatcher: Option<Arc<dyn MessageDispatcher>>,
 ) -> Vec<Arc<dyn Tool>> {
     let memory_tool: Arc<dyn Tool> = match memory {
         Some((store, workspace_id, vertical_id)) => match memory_namespace {
@@ -154,6 +184,10 @@ pub fn builtin_tools_with_runtime(
             None => Arc::new(Memory::new(store, workspace_id, vertical_id)),
         },
         None => Arc::new(Memory::default()),
+    };
+    let send_message_tool: Arc<dyn Tool> = match message_dispatcher {
+        Some(dispatcher) => Arc::new(SendMessage::with_dispatcher(dispatcher)),
+        None => Arc::new(SendMessage::default()),
     };
     vec![
         Arc::new(FileRead),
@@ -166,7 +200,7 @@ pub fn builtin_tools_with_runtime(
         Arc::new(DelegateTask::new(orchestrator)),
         Arc::new(Vision::default()),
         Arc::new(CodeExecute::default()),
-        Arc::new(SendMessage::default()),
+        send_message_tool,
         Arc::new(SessionSearch::new(session_store)),
         Arc::new(Todo),
         Arc::new(Clarify::default()),
@@ -177,6 +211,13 @@ pub fn builtin_tools_with_runtime(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tool::ToolContext;
+    use crate::tools::send_message::SendOutcome;
+    use argo_orchestrator::OrchestratorStore;
+    use argo_store::SessionStore;
+    use async_trait::async_trait;
+    use chrono::Utc;
+    use std::sync::Mutex;
 
     #[test]
     fn builtin_tools_returns_unique_names() {
@@ -207,5 +248,102 @@ mod tests {
                 "web_search",
             ]
         );
+    }
+
+    #[derive(Debug, Default)]
+    struct CountingDispatcher {
+        calls: Mutex<u32>,
+    }
+
+    #[async_trait]
+    impl MessageDispatcher for CountingDispatcher {
+        async fn dispatch(
+            &self,
+            _channel: &str,
+            _recipient: &str,
+            _body: &str,
+            _attachments: &[std::path::PathBuf],
+        ) -> Result<SendOutcome, String> {
+            *self.calls.lock().unwrap() += 1;
+            Ok(SendOutcome {
+                message_id: "stub-1".into(),
+                sent_at: Utc::now(),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn builtin_tools_with_runtime_and_message_dispatcher_wires_send_message() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let orch = Arc::new(OrchestratorStore::new(Arc::clone(&store)));
+        let dispatcher = Arc::new(CountingDispatcher::default());
+        let tools = builtin_tools_with_runtime_and_message_dispatcher(
+            PathBuf::from("/tmp"),
+            None,
+            None,
+            orch,
+            Arc::clone(&store),
+            Some(dispatcher.clone() as Arc<dyn MessageDispatcher>),
+        );
+        let send_message = tools
+            .iter()
+            .find(|t| t.name() == "send_message")
+            .expect("send_message tool registered");
+        let ctx = ToolContext::new(
+            argo_types::Principal::Local {
+                os_user: "u".into(),
+            },
+            std::env::temp_dir(),
+        );
+        let r = send_message
+            .dispatch(
+                serde_json::json!({
+                    "channel": "slack",
+                    "recipient": "C1",
+                    "body": "hi",
+                }),
+                &ctx,
+            )
+            .await
+            .unwrap();
+        assert!(!r.is_error, "send_message dispatch should hit the supplied dispatcher");
+        assert_eq!(*dispatcher.calls.lock().unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn builtin_tools_with_runtime_keeps_default_send_message_when_dispatcher_none() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let orch = Arc::new(OrchestratorStore::new(Arc::clone(&store)));
+        let tools = builtin_tools_with_runtime(
+            PathBuf::from("/tmp"),
+            None,
+            None,
+            orch,
+            Arc::clone(&store),
+        );
+        let send_message = tools
+            .iter()
+            .find(|t| t.name() == "send_message")
+            .expect("send_message tool registered");
+        let ctx = ToolContext::new(
+            argo_types::Principal::Local {
+                os_user: "u".into(),
+            },
+            std::env::temp_dir(),
+        );
+        let r = send_message
+            .dispatch(
+                serde_json::json!({
+                    "channel": "slack",
+                    "recipient": "C1",
+                    "body": "hi",
+                }),
+                &ctx,
+            )
+            .await
+            .unwrap();
+        assert!(r.is_error, "default dispatcher must error out");
     }
 }

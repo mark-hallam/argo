@@ -368,8 +368,11 @@ dependencies = [
 name = "argo-channels"
 version = "0.0.1"
 dependencies = [
+ "argo-audit",
  "argo-bluebubbles-client",
  "argo-config",
+ "argo-store",
+ "argo-tool",
  "argo-types",
  "async-trait",
  "chrono",
@@ -386,6 +389,7 @@ dependencies = [
  "tokio",
  "toml 0.8.23",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
