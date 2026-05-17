@@ -13,6 +13,7 @@ mod approval_reminder;
 mod billing;
 mod boot;
 mod boot_helpers;
+mod boot_router;
 mod boot_spawns;
 mod boot_telemetry;
 mod boot_telemetry_admin;

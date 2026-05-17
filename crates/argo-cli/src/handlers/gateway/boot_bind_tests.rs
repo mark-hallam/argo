@@ -1,7 +1,9 @@
 //! Focused bind-default hardening tests for
 //! `mission-gateway-bind-default-harden`.
 
-use super::{emit_insecure_bind_audit, insecure_bind_audit_payload, is_loopback_bind};
+use super::super::boot_router::{
+    emit_insecure_bind_audit, insecure_bind_audit_payload, is_loopback_bind,
+};
 use argo_store::SessionStore;
 use clap::{CommandFactory, Parser};
 use serde_json::Value;
