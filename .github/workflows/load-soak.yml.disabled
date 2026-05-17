@@ -1,0 +1,66 @@
+name: Load + soak baseline
+
+# Operator-triggered whole-system load + soak baseline. Manual
+# only — load runs eat tens of minutes of dedicated-runner CPU and
+# are not per-PR gates.
+#
+# Disabled by default. Rename `.disabled` → `.yml` to activate, per
+# the same pattern as soak.yml.disabled and bench.yml.disabled.
+#
+# Brief: docs/build-plan/streams/codex-gateway-load-soak-baseline.md
+# Runbook: scripts/load/README.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Profile to run"
+        required: true
+        default: "sustained"
+        type: choice
+        options: [burst, sustained, spike]
+      soak_minutes:
+        description: "Soak duration in minutes (overrides profile when > 0)"
+        required: false
+        default: "0"
+        type: string
+
+jobs:
+  load-soak:
+    runs-on: ubuntu-latest
+    # 5-min sustained + spawn + aggregation has fit in ~8min on a
+    # cold runner historically; bump generously for the soak path.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: load-soak
+
+      - name: Install oha
+        run: cargo install --locked oha
+
+      - name: Build argo release binary
+        run: cargo build -p argo-cli --release
+
+      - name: Run load profile
+        env:
+          PATH: ${{ github.workspace }}/target/release:${{ env.PATH }}
+        run: |
+          set -euo pipefail
+          ARGS=(--report-dir "$GITHUB_WORKSPACE/target")
+          if [[ "${{ inputs.soak_minutes }}" != "0" ]]; then
+            ARGS+=(--soak "${{ inputs.soak_minutes }}")
+          else
+            ARGS+=(--profile "${{ inputs.profile }}")
+          fi
+          bash scripts/load/gateway-soak.sh "${ARGS[@]}"
+
+      - name: Upload results JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-soak-results
+          path: target/skycot-load-soak-*.json
+          retention-days: 30
