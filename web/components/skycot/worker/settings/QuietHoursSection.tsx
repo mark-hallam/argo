@@ -72,7 +72,7 @@ export function QuietHoursSection({ value, workerName, onSave }: QuietHoursSecti
               value={start}
               onChange={(e) => setStart(e.target.value)}
               data-testid="quiet-hours-start"
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm text-[var(--foreground)]"
+              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-[var(--muted-foreground)]">
@@ -82,7 +82,7 @@ export function QuietHoursSection({ value, workerName, onSave }: QuietHoursSecti
               value={end}
               onChange={(e) => setEnd(e.target.value)}
               data-testid="quiet-hours-end"
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm text-[var(--foreground)]"
+              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-[var(--muted-foreground)]">
@@ -91,7 +91,7 @@ export function QuietHoursSection({ value, workerName, onSave }: QuietHoursSecti
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               data-testid="quiet-hours-tz"
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm text-[var(--foreground)]"
+              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
             >
               {tzOptions.map((tz) => (
                 <option key={tz} value={tz}>

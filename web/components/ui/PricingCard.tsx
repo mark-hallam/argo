@@ -31,7 +31,7 @@ export const PricingCard = forwardRef<HTMLDivElement, PricingCardProps>(
         <h3 className="text-sm font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
           {planName}
         </h3>
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline gap-1">
           <span className="text-4xl font-bold tracking-tight text-[var(--foreground)]">{price}</span>
           {cadence ? (
             <span className="text-sm text-[var(--muted-foreground)]">{cadence}</span>

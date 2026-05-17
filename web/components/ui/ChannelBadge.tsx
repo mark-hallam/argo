@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 export type ChannelKind = "slack" | "email" | "sms" | "voice";
 
 const channelBadge = cva(
-  "inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border px-2 py-0.5 text-xs font-medium",
+  "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2 py-0.5 text-xs font-medium",
   {
     variants: {
       kind: {

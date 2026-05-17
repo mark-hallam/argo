@@ -161,7 +161,7 @@ function Chip({
       data-testid={`audit-chip-${testKey}`}
       aria-label={`Remove ${label} filter`}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)]",
+        "inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)]",
         "hover:border-[var(--primary)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
       )}
     >

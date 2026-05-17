@@ -109,7 +109,7 @@ export function BudgetSection({ value, onSave }: BudgetSectionProps) {
               onChange={(e) => setDaily(e.target.value)}
               data-testid="budget-daily-input"
               aria-invalid={!validDaily}
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm text-[var(--foreground)]"
+              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-[var(--muted-foreground)]">
@@ -122,7 +122,7 @@ export function BudgetSection({ value, onSave }: BudgetSectionProps) {
               onChange={(e) => setMonthly(e.target.value)}
               data-testid="budget-monthly-input"
               aria-invalid={!validMonthly}
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm text-[var(--foreground)]"
+              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
             />
           </label>
         </div>

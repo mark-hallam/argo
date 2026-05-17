@@ -178,7 +178,7 @@ export function ApprovalCard({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--muted-foreground)]">
             {channel ? (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1">
                 <MessageSquare className="size-3" />
                 {CHANNEL_LABEL[channel]}
               </span>

@@ -81,14 +81,14 @@ function ProvenanceRow({ row }: { row: ProvenanceRow }) {
   return (
     <div
       data-testid={`audit-provenance-row-${row.key}`}
-      className="grid grid-cols-[120px_1fr_auto] items-center gap-3 rounded-[var(--radius-sm)] px-2 py-1.5 hover:bg-[var(--muted)]/30"
+      className="grid grid-cols-[120px_1fr_auto] items-center gap-3 rounded-[var(--radius-sm)] px-2 py-1 hover:bg-[var(--muted)]/30"
     >
       <dt className="text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
         {row.label}
       </dt>
       <dd className="font-mono text-[12px] text-[var(--foreground)] truncate">
         <span data-testid={`audit-provenance-id-${row.key}`}>{row.id}</span>
-        <span aria-hidden className="mx-1.5 text-[var(--muted-foreground)]">·</span>
+        <span aria-hidden className="mx-2 text-[var(--muted-foreground)]">·</span>
         <span
           data-testid={`audit-provenance-hash-${row.key}`}
           title={row.full}
@@ -121,7 +121,7 @@ function CopyHashChainButton({ detail }: { detail: AuditDetail }) {
           window.setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+      className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
     >
       {copied ? <Check aria-hidden className="size-4 text-[var(--success)]" /> : <Copy aria-hidden className="size-4" />}
       {copied ? "Copied hash chain" : "Copy hash chain"}

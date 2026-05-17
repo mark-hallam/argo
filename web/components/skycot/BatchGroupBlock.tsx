@@ -241,7 +241,7 @@ function BatchGroupItem({
       {failed ? (
         <div
           data-testid={`batch-error-chip-${item.id}`}
-          className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-xs text-[var(--destructive)]"
+          className="ml-2 inline-flex items-center gap-1 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-xs text-[var(--destructive)]"
         >
           Couldn&apos;t submit — Retry above.
         </div>

@@ -213,7 +213,7 @@ function ProgressStrip({
     <div
       role="list"
       aria-label="Progress"
-      className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-[var(--border)] bg-[var(--background)]"
+      className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[var(--border)] bg-[var(--background)]"
     >
       {items.map((item, i) => {
         const d = decisionsById[item.id];

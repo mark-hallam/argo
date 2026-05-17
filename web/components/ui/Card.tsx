@@ -31,7 +31,7 @@ Card.displayName = "Card";
 
 export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("flex flex-col gap-1.5 px-5 pt-5", className)} {...props} />
+    <div ref={ref} className={cn("flex flex-col gap-2 px-4 pt-4 sm:px-5 sm:pt-5", className)} {...props} />
   ),
 );
 CardHeader.displayName = "CardHeader";
@@ -52,7 +52,7 @@ CardDescription.displayName = "CardDescription";
 
 export const CardBody = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("px-5 py-4", className)} {...props} />
+    <div ref={ref} className={cn("px-4 py-4 sm:px-5", className)} {...props} />
   ),
 );
 CardBody.displayName = "CardBody";
@@ -61,7 +61,7 @@ export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("flex items-center gap-2 px-5 pb-5 pt-2", className)}
+      className={cn("flex items-center gap-2 px-4 pb-4 pt-2 sm:px-5 sm:pb-5", className)}
       {...props}
     />
   ),

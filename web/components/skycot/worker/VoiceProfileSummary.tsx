@@ -92,7 +92,7 @@ export function VoiceProfileSummary({
             <ul
               data-testid="voice-phrases"
               role="list"
-              className="flex flex-wrap gap-1.5"
+              className="flex flex-wrap gap-2"
             >
               {voice.signaturePhrases.map((phrase) => (
                 <li
@@ -128,7 +128,7 @@ export function VoiceProfileSummarySkeleton() {
       <CardBody className="pt-1 space-y-2">
         <div className="h-3 w-40 rounded bg-[var(--muted)]" />
         <div className="h-3 w-48 rounded bg-[var(--muted)]" />
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <div className="h-5 w-24 rounded-full bg-[var(--muted)]" />
           <div className="h-5 w-32 rounded-full bg-[var(--muted)]" />
         </div>

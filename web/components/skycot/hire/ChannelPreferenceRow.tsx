@@ -118,7 +118,7 @@ export function ChannelPreferenceRow({
                 aria-pressed={on}
                 aria-label={`Toggle ${label}`}
                 data-testid={`hire-step5-channel-${kind}-toggle`}
-                className="inline-flex items-center gap-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] rounded-full"
+                className="inline-flex items-center gap-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] rounded-full"
               >
                 <Icon className="size-3.5" aria-hidden />
                 {label}

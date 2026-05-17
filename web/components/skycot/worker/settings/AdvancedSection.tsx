@@ -164,7 +164,7 @@ function ProvenanceChip({ label, value, testid, onCopy }: ProvenanceChipProps) {
   return (
     <div
       data-testid={testid}
-      className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-1.5 text-xs"
+      className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-1 text-xs"
     >
       <span className="font-medium text-[var(--muted-foreground)]">{label}</span>
       <code className="flex-1 truncate font-mono text-[var(--foreground)]">{value}</code>

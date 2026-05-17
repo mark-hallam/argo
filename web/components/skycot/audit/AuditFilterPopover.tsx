@@ -255,7 +255,7 @@ function Section({ dimension, label, count, defaultOpen, children }: SectionProp
         aria-expanded={open}
         data-testid={`audit-filter-section-toggle-${dimension}`}
         className={cn(
-          "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[var(--radius-sm)]",
+          "w-full flex items-center justify-between gap-2 px-2 py-2 rounded-[var(--radius-sm)]",
           "hover:bg-[var(--accent)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
         )}
       >
@@ -265,7 +265,7 @@ function Section({ dimension, label, count, defaultOpen, children }: SectionProp
         </span>
         {count > 0 ? (
           <span
-            className="rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--primary)]"
+            className="rounded-full bg-[var(--primary)]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]"
             data-testid={`audit-filter-section-count-${dimension}`}
           >
             {count}
@@ -305,7 +305,7 @@ function Option({
         onClick={onToggle}
         data-testid={testId}
         className={cn(
-          "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[var(--radius-sm)] text-sm",
+          "w-full flex items-center justify-between gap-2 px-2 py-2 rounded-[var(--radius-sm)] text-sm",
           "hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)] transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
         )}

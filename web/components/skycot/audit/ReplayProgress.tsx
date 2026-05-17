@@ -55,7 +55,7 @@ export function ReplayProgress({ current, total }: ReplayProgressProps) {
         data-testid="replay-progress-bar"
       >
         <div
-          className="absolute inset-y-0 left-0 bg-[var(--primary)] transition-[width] duration-300 ease-out"
+          className="absolute inset-y-0 left-0 bg-[var(--primary)] transition-[width] duration-[var(--duration-slow)] ease-[var(--motion-ease)]"
           style={{ width: `${pct}%` }}
         />
       </div>

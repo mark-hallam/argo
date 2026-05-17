@@ -73,7 +73,7 @@ export function TeamEmptyState() {
           What can SKYCOT teammates do?
           <ChevronDown
             aria-hidden
-            className="size-4 text-[var(--muted-foreground)] transition-transform duration-[var(--duration-fast)] ease-out group-open:rotate-180"
+            className="size-4 text-[var(--muted-foreground)] transition-transform duration-[var(--duration-fast)] ease-[var(--motion-ease)] group-open:rotate-180"
           />
         </summary>
         <ul

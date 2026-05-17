@@ -130,7 +130,7 @@ export function ActivityFilterBar({
 
 const selectClass = cn(
   "block rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)]",
-  "px-2.5 py-1.5 text-sm text-[var(--foreground)]",
+  "px-2.5 py-2 text-sm text-[var(--foreground)]",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--background)]",
   "disabled:cursor-not-allowed disabled:opacity-60",
 );

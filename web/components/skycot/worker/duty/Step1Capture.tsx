@@ -130,7 +130,7 @@ export function Step1Capture({
               placeholder="e.g. 30 8 * * 1-5"
               aria-invalid={cronSpec.length > 0 && !cronValid}
               className={cn(
-                "w-full rounded-[var(--radius-md)] border bg-[var(--background)] px-3 py-1.5 text-sm",
+                "w-full rounded-[var(--radius-md)] border bg-[var(--background)] px-3 py-2 text-sm",
                 "focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
                 cronSpec.length > 0 && !cronValid ? "border-[var(--destructive)]" : "border-[var(--input)]",
               )}

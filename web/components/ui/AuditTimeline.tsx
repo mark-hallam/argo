@@ -67,7 +67,7 @@ export const AuditTimeline = forwardRef<HTMLOListElement, AuditTimelineProps>(
             <span
               aria-hidden
               className={cn(
-                "absolute -left-[21px] top-1.5 size-2.5 rounded-full ring-2 ring-[var(--background)]",
+                "absolute -left-[21px] top-1 size-2.5 rounded-full ring-2 ring-[var(--background)]",
                 dotByTone[row.tone ?? "default"],
               )}
             />

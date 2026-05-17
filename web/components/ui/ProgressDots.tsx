@@ -49,7 +49,7 @@ export function ProgressDots({
       aria-valuemin={1}
       aria-valuemax={safeTotal}
       aria-label={label ?? "Progress"}
-      className={cn("inline-flex items-center gap-1.5", className)}
+      className={cn("inline-flex items-center gap-1 sm:gap-2", className)}
     >
       {Array.from({ length: safeTotal }).map((_, i) => {
         const step = i + 1;

@@ -34,7 +34,7 @@ export function ExampleRoleTile({ role }: ExampleRoleTileProps) {
         "group relative flex flex-col gap-3 h-full",
         "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)]",
         "p-5 text-left",
-        "transition-[box-shadow,border-color,transform] duration-[var(--duration-fast)] ease-out",
+        "transition-[box-shadow,border-color,transform] duration-[var(--duration-fast)] ease-[var(--motion-ease)]",
         "hover:border-[var(--primary)] hover:shadow-md",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
       )}
@@ -49,9 +49,9 @@ export function ExampleRoleTile({ role }: ExampleRoleTileProps) {
         <span
           data-testid={`team-example-tile-cta-${role.id}`}
           className={cn(
-            "inline-flex items-center gap-1.5 text-xs font-medium",
+            "inline-flex items-center gap-1 text-xs font-medium",
             "text-[var(--primary)] opacity-80 group-hover:opacity-100",
-            "transition-opacity duration-[var(--duration-fast)] ease-out",
+            "transition-opacity duration-[var(--duration-fast)] ease-[var(--motion-ease)]",
           )}
         >
           Start with this

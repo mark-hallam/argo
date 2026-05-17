@@ -75,7 +75,7 @@ export function Step1Land({ step1 }: Step1LandProps) {
             "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)]",
             "px-4 py-3 text-base text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
-            "transition-shadow duration-[var(--duration-fast)] ease-out",
+            "transition-shadow duration-[var(--duration-fast)] ease-[var(--motion-ease)]",
           ].join(" ")}
         />
 

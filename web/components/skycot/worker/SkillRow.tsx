@@ -103,7 +103,7 @@ export function SkillRow({ id, title, version, meta, actions, ariaLabel }: Skill
           <div className="mt-1 flex flex-wrap items-center gap-2">{meta}</div>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">{actions}</div>
+      <div className="flex flex-wrap items-center gap-2">{actions}</div>
     </li>
   );
 }

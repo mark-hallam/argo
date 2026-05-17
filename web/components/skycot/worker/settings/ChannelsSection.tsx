@@ -88,7 +88,7 @@ export function ChannelsSection({ value, workerName, onSave }: ChannelsSectionPr
                 </span>
                 <label
                   className={cn(
-                    "flex items-center gap-1.5 text-xs",
+                    "flex items-center gap-1 text-xs",
                     on ? "text-[var(--muted-foreground)]" : "text-[var(--muted-foreground)]/50",
                   )}
                 >

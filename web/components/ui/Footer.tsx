@@ -58,7 +58,7 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
             <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
               {section.title}
             </h3>
-            <ul className="flex flex-col gap-1.5">
+            <ul className="flex flex-col gap-2">
               {section.links.map((link) => (
                 <li key={link.href}>
                   <a

@@ -21,7 +21,7 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
             draggable
             data-testid={`palette-${kind}`}
             onClick={() => onAdd(kind)}
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent)]/40"
+            className="inline-flex items-center gap-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent)]/40"
           >
             <Icon className={`size-3.5 ${iconClass}`} aria-hidden="true" />
             {label}

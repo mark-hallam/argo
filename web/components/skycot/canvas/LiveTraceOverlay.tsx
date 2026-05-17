@@ -103,7 +103,7 @@ export function LiveTraceOverlay(
           Live trace
         </h3>
         <span
-          className="flex items-center gap-1.5 text-xs"
+          className="flex items-center gap-1 text-xs"
           data-testid="live-trace-status"
         >
           <span

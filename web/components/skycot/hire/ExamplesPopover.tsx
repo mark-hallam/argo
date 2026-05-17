@@ -69,7 +69,7 @@ export function ExamplesPopover({
                       "w-full text-left rounded-[var(--radius-md)] px-3 py-2",
                       "hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
-                      "transition-colors duration-[var(--duration-fast)] ease-out",
+                      "transition-colors duration-[var(--duration-fast)] ease-[var(--motion-ease)]",
                     )}
                   >
                     <span className="block text-sm font-medium text-[var(--foreground)]">

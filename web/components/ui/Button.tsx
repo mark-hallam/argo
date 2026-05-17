@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium " +
-    "transition-colors duration-[var(--duration-fast)] ease-out " +
+    "transition-colors duration-[var(--duration-fast)] ease-[var(--motion-ease)] " +
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] " +
     "disabled:pointer-events-none disabled:opacity-50 " +
     "[&_svg]:size-4 [&_svg]:shrink-0",
@@ -29,7 +29,7 @@ const buttonVariants = cva(
       size: {
         sm: "h-8 px-3 text-sm rounded-[var(--radius-sm)]",
         md: "h-9 px-4 text-sm rounded-[var(--radius-md)]",
-        lg: "h-11 px-6 text-base rounded-[var(--radius-md)]",
+        lg: "h-10 px-5 text-sm sm:h-11 sm:px-6 sm:text-base rounded-[var(--radius-md)]",
         icon: "size-9 rounded-[var(--radius-md)]",
       },
     },

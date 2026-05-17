@@ -3,7 +3,7 @@ import { forwardRef, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const pillVariants = cva(
-  "inline-flex items-center gap-1.5 font-medium border whitespace-nowrap",
+  "inline-flex items-center gap-1 font-medium border whitespace-nowrap",
   {
     variants: {
       tone: {

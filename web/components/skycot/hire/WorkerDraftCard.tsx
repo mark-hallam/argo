@@ -252,7 +252,7 @@ function InlineEditable({
         onChange={(e) => setDraftValue(e.target.value)}
         {...sharedProps}
         className={cn(
-          "block w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-[var(--ring)]",
+          "block w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)] px-2 py-0.5 outline-none focus:ring-2 focus:ring-[var(--ring)]",
           displayClassName,
         )}
       />

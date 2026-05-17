@@ -113,7 +113,7 @@ function Item({ testid, icon, disabled, onSelect, children }: ItemProps) {
       disabled={disabled}
       onSelect={onSelect}
       className={cn(
-        "flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 outline-none cursor-default select-none",
+        "flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-2 outline-none cursor-default select-none",
         "data-[highlighted]:bg-[var(--accent)] data-[highlighted]:text-[var(--accent-foreground)]",
         "data-[disabled]:opacity-40 data-[disabled]:pointer-events-none",
       )}

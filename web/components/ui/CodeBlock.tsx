@@ -37,7 +37,7 @@ export function CodeBlock({
       )}
     >
       {(language || showCopy) ? (
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5 bg-[var(--card)]/40">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2 bg-[var(--card)]/40">
           {language ? (
             <code className="text-xs font-mono text-[var(--muted-foreground)] uppercase tracking-wide">
               {language}

@@ -31,7 +31,7 @@ export function AuditDayGroup({ bucket }: AuditDayGroupProps) {
     >
       <h2
         data-testid={`audit-day-header-${bucket.key}`}
-        className="sticky top-0 z-10 -mx-2 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] bg-[var(--background)]/85 backdrop-blur-sm"
+        className="sticky top-0 z-10 -mx-2 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] bg-[var(--background)]/85 backdrop-blur-sm"
       >
         {bucket.label}
       </h2>

@@ -70,7 +70,7 @@ function DiffRow({ axis, entry }: { axis: Axis; entry: AxisEntry }) {
     <div
       data-testid={`replay-provenance-row-${axis}`}
       data-changed={changed ? "true" : "false"}
-      className={`grid grid-cols-[120px_1fr] items-center gap-3 rounded-[var(--radius-sm)] px-2 py-1.5 ${
+      className={`grid grid-cols-[120px_1fr] items-center gap-3 rounded-[var(--radius-sm)] px-2 py-1 ${
         changed ? "bg-[var(--warning)]/10" : "hover:bg-[var(--muted)]/30"
       }`}
     >
@@ -94,7 +94,7 @@ function DiffRow({ axis, entry }: { axis: Axis; entry: AxisEntry }) {
 
 function SameValue() {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1">
       <Minus aria-hidden className="size-3" />
       <span>same</span>
     </span>
@@ -104,7 +104,7 @@ function SameValue() {
 function ChangedValue({ entry }: { entry: AxisEntry }) {
   if (entry.from && entry.to) {
     return (
-      <span className="inline-flex items-center gap-1.5 flex-wrap">
+      <span className="inline-flex items-center gap-1 flex-wrap">
         <span data-testid="replay-provenance-from">{entry.from}</span>
         <ArrowRight aria-hidden className="size-3 text-[var(--warning)]" />
         <span data-testid="replay-provenance-to">{entry.to}</span>

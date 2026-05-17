@@ -33,7 +33,7 @@ export const ToastViewport = forwardRef<
   <RToast.Viewport
     ref={ref}
     className={cn(
-      "fixed bottom-4 right-4 z-50 flex max-h-screen w-full max-w-sm flex-col gap-2 outline-none",
+      "fixed bottom-4 left-4 right-4 z-50 flex max-h-screen w-auto flex-col gap-2 outline-none sm:left-auto sm:w-full sm:max-w-sm",
       className,
     )}
     {...props}

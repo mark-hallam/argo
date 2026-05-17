@@ -74,7 +74,7 @@ export function AlertDialog({
                 aria-modal="true"
                 className={cn(
                   "fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2",
-                  "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg",
+                  "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-5 sm:p-6 shadow-lg",
                   "focus:outline-none",
                 )}
                 data-testid="alert-dialog"

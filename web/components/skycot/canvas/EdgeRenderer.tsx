@@ -70,7 +70,7 @@ function EdgeRendererImpl(props: EdgeProps) {
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: "all",
             }}
-            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)] shadow-sm"
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)] shadow-sm"
           >
             {labelText}
           </div>

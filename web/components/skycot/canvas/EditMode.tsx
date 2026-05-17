@@ -260,7 +260,7 @@ function EdgeControls({
         type="button"
         data-testid="connect-nodes"
         onClick={onConnect}
-        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] px-2 py-1.5 text-sm hover:bg-[var(--accent)]/40"
+        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] px-2 py-2 text-sm hover:bg-[var(--accent)]/40"
       >
         Connect
       </button>

@@ -39,7 +39,7 @@ export function ThemePicker() {
         <label htmlFor="tenant-theme" className="sr-only">Tenant theme</label>
         <select
           id="tenant-theme"
-          className="rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)] px-2 py-1.5 text-xs text-[var(--foreground)]"
+          className="rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)] px-2 py-1 text-xs text-[var(--foreground)]"
           value={theme.id}
           onChange={(e) => setThemeById(e.target.value)}
         >

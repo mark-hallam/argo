@@ -23,8 +23,8 @@ export interface BreadcrumbProps {
 
 export function Breadcrumb({ children, className }: BreadcrumbProps) {
   return (
-    <nav aria-label="Breadcrumb" className={cn("flex items-center gap-1.5 text-sm", className)}>
-      <ol className="flex flex-wrap items-center gap-1.5">{children}</ol>
+    <nav aria-label="Breadcrumb" className={cn("flex items-center gap-2 text-xs sm:text-sm", className)}>
+      <ol className="flex flex-wrap items-center gap-2">{children}</ol>
     </nav>
   );
 }
