@@ -32,6 +32,10 @@ pub mod pool;
 #[cfg(test)]
 mod pool_tests;
 mod protocol;
+/// Per-(tenant, connector) token buckets for MCP dispatch.
+pub mod rate_limit;
+#[cfg(test)]
+mod rate_limit_tests;
 mod server;
 
 pub use client::{McpClient, DEFAULT_CALL_TIMEOUT};

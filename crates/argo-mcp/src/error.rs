@@ -42,6 +42,14 @@ pub enum McpError {
     /// Per-call wall-clock deadline exceeded.
     #[error("MCP call timed out after {0} ms")]
     Timeout(u64),
+    /// Tenant/connector token bucket was exhausted before dispatch.
+    #[error("MCP rate limited; retry after {retry_after_ms} ms (limit {limit}/min)")]
+    RateLimited {
+        /// Milliseconds until one token should be available.
+        retry_after_ms: u64,
+        /// Sustained calls-per-minute limit for this bucket.
+        limit: u32,
+    },
     /// Caller used the client after `shutdown()`.
     #[error("MCP client shut down")]
     Shutdown,

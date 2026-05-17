@@ -27,16 +27,9 @@
 //! collision would leak credentials across tenants and is the only
 //! correctness invariant of this module.
 //!
-//! ## Outstanding guards survive eviction
-//!
-//! Entries hold `Arc<McpClient>` and so does the guard. When the pool
-//! evicts an entry that still has an outstanding guard, the
-//! subprocess stays alive until the last `Arc` drops; the dropped
-//! guard simply isn't re-poolable because its slot is gone. This is
-//! the simplest correct semantic given that [`McpClient`] is itself
-//! `Sync` and supports concurrent `call_tool` invocations.
 use crate::client::McpClient;
 use crate::error::McpResult;
+use crate::rate_limit::BucketRegistry;
 use argo_types::TenantId;
 use lru::LruCache;
 use std::future::Future;
@@ -154,6 +147,7 @@ struct PoolEntry {
 pub struct McpClientPool {
     inner: Mutex<LruCache<PoolKey, PoolEntry>>,
     idle_ttl: Duration,
+    rate_limiter: BucketRegistry,
 }
 
 impl std::fmt::Debug for McpClientPool {
@@ -272,12 +266,11 @@ impl McpClientPool {
         Arc::new(Self {
             inner: Mutex::new(LruCache::new(cap)),
             idle_ttl: Duration::from_secs(config.idle_ttl_secs),
+            rate_limiter: BucketRegistry::new(),
         })
     }
 
     /// Test-only constructor that accepts a sub-second idle TTL.
-    /// Production code goes through [`Self::new`] which derives the
-    /// TTL from `config.idle_ttl_secs`.
     #[doc(hidden)]
     #[must_use]
     pub fn new_with_idle_ttl(max_clients: u32, idle_ttl: Duration) -> Arc<Self> {
@@ -285,6 +278,7 @@ impl McpClientPool {
         Arc::new(Self {
             inner: Mutex::new(LruCache::new(cap)),
             idle_ttl,
+            rate_limiter: BucketRegistry::new(),
         })
     }
 
@@ -292,11 +286,7 @@ impl McpClientPool {
     /// `spawn` is invoked to construct the client; the new client is
     /// installed in the cache (evicting the LRU entry if at capacity).
     ///
-    /// Two acquisitions of the same key racing on a cold pool will
-    /// each invoke `spawn`; the second installation supersedes the
-    /// first and the loser's subprocess is best-effort shut down.
-    /// This is acceptable for v1 (per the brief — the mutex is not
-    /// the bottleneck).
+    /// Concurrent cold misses may each spawn; install re-check keeps one.
     ///
     /// # Errors
     /// Returns whatever `spawn` returns. The pool itself does not
@@ -333,11 +323,18 @@ impl McpClientPool {
             tenant_id,
             manifest_id: manifest_id.into(),
         };
+        self.rate_limiter.check(key.tenant_id, &key.manifest_id)?;
         if let Some(guard) = self.try_hit(&key) {
             return Ok(guard);
         }
         let client = Arc::new(spawn().await?);
         Ok(self.install(key, client))
+    }
+
+    /// Access the pool's token-bucket registry for operator overrides.
+    #[must_use]
+    pub fn rate_limiter(&self) -> &BucketRegistry {
+        &self.rate_limiter
     }
 
     fn try_hit(self: &Arc<Self>, key: &PoolKey) -> Option<PoolGuard> {

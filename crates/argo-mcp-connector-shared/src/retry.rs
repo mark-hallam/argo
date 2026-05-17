@@ -96,6 +96,7 @@ pub fn default_http_policy() -> RetryPolicy {
 /// Returns `true` for:
 /// - `McpError::Io` — covers connection resets, DNS, TLS handshake hiccups.
 /// - `McpError::Timeout` — per-call deadline; worth one more try.
+/// - `McpError::RateLimited` — local tenant/connector bucket asked us to wait.
 /// - `McpError::Rpc { code, .. }` where `code` is 429 or any 5xx — upstream
 ///   asking us to back off or signalling a server-side fault.
 ///
@@ -105,7 +106,7 @@ pub fn default_http_policy() -> RetryPolicy {
 #[must_use]
 pub fn is_http_retriable(err: &McpError) -> bool {
     match err {
-        McpError::Io(_) | McpError::Timeout(_) => true,
+        McpError::Io(_) | McpError::Timeout(_) | McpError::RateLimited { .. } => true,
         McpError::Rpc { code, .. } => *code == 429 || (500..=599).contains(code),
         McpError::Spawn(_)
         | McpError::Initialize(_)
@@ -121,11 +122,11 @@ pub fn is_http_retriable(err: &McpError) -> bool {
 /// and 8 (`ResourceExhausted`) — the standard gRPC status codes that
 /// indicate a transient server-side or rate-limit condition. Other codes
 /// (e.g., 3 `InvalidArgument`, 7 `PermissionDenied`) are not retried.
-/// Transport-level `Io` and `Timeout` are also retried.
+/// Transport-level `Io` and `Timeout` plus local `RateLimited` are also retried.
 #[must_use]
 pub fn is_tonic_retriable(err: &McpError) -> bool {
     match err {
-        McpError::Io(_) | McpError::Timeout(_) => true,
+        McpError::Io(_) | McpError::Timeout(_) | McpError::RateLimited { .. } => true,
         McpError::Rpc { code, .. } => matches!(*code, 4 | 8 | 14),
         McpError::Spawn(_)
         | McpError::Initialize(_)
