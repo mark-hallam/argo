@@ -81,6 +81,8 @@ pub mod cli_skill_sign_cmds;
 pub mod cli_subcommands;
 #[path = "cli_subcommands_cron.rs"]
 pub mod cli_subcommands_cron;
+#[path = "cli_subcommands_migrate.rs"]
+pub mod cli_subcommands_migrate;
 #[path = "cli_subcommands_provider.rs"]
 pub mod cli_subcommands_provider;
 #[path = "cli_subcommands_skill.rs"]

@@ -71,6 +71,11 @@ pub enum Command {
         #[command(flatten)]
         args: RestoreCmd,
     },
+    /// Data migrations (`mission-sqlcipher-3-migrate-cli`).
+    Migrate {
+        #[command(subcommand)]
+        cmd: crate::cli::cli_subcommands_migrate::MigrateCmd,
+    },
     /// macOS launchd-agent install/uninstall (Stream
     /// `claude-installer-macos`). Writes
     /// `~/Library/LaunchAgents/com.skycot.argo.plist` so the

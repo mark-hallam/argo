@@ -183,6 +183,9 @@ pub mod memory_dream_now;
 pub mod memory_query;
 pub mod memory_shared_team;
 pub mod messages;
+pub mod migrate;
+pub mod migrate_encrypt;
+
 pub mod messages_by_day;
 pub mod messages_by_day_by_role;
 pub mod messages_by_role;
