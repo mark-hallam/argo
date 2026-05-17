@@ -26,6 +26,40 @@ use async_trait::async_trait;
 use std::io::{BufRead, Write};
 
 /// User-supplied service that backs the MCP server's tool methods.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::{
+///     CallToolParams, CallToolResult, McpContent, McpResult, McpServerService,
+///     McpToolSchema, ServerInfo,
+/// };
+/// use async_trait::async_trait;
+///
+/// struct EchoService;
+///
+/// #[async_trait]
+/// impl McpServerService for EchoService {
+///     fn server_info(&self) -> ServerInfo {
+///         ServerInfo { name: "example-connector".into(), version: "0.1.0".into() }
+///     }
+///     fn list_tools(&self) -> Vec<McpToolSchema> {
+///         vec![McpToolSchema {
+///             name: "echo".into(),
+///             description: "Echo back the input.".into(),
+///             input_schema: serde_json::json!({"type": "object"}),
+///         }]
+///     }
+///     async fn call_tool(&self, _params: CallToolParams) -> McpResult<CallToolResult> {
+///         Ok(CallToolResult {
+///             content: vec![McpContent::Text { text: "pong".into() }],
+///             is_error: false,
+///         })
+///     }
+/// }
+///
+/// assert_eq!(EchoService.server_info().name, "example-connector");
+/// ```
 #[async_trait]
 pub trait McpServerService: Send + Sync {
     /// Server identity reported in `initialize`.
@@ -38,6 +72,35 @@ pub trait McpServerService: Send + Sync {
 
 /// Dispatch one parsed JSON-RPC request through `service` and
 /// return the response to write back.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::{
+///     handle_request, CallToolParams, CallToolResult, JsonRpcRequest, McpResult,
+///     McpServerService, McpToolSchema, ServerInfo,
+/// };
+/// use async_trait::async_trait;
+///
+/// struct EmptyService;
+/// #[async_trait]
+/// impl McpServerService for EmptyService {
+///     fn server_info(&self) -> ServerInfo {
+///         ServerInfo { name: "example-connector".into(), version: "0.0.1".into() }
+///     }
+///     fn list_tools(&self) -> Vec<McpToolSchema> { vec![] }
+///     async fn call_tool(&self, _: CallToolParams) -> McpResult<CallToolResult> {
+///         Ok(CallToolResult { content: vec![], is_error: false })
+///     }
+/// }
+///
+/// let req = JsonRpcRequest::new(1, "tools/list", None);
+/// let resp = tokio::runtime::Builder::new_current_thread()
+///     .build()
+///     .unwrap()
+///     .block_on(handle_request(&EmptyService, req));
+/// assert!(resp.error.is_none());
+/// ```
 pub async fn handle_request<S: McpServerService>(
     service: &S,
     req: JsonRpcRequest,
@@ -159,6 +222,35 @@ fn internal_error(id: serde_json::Value, detail: String) -> JsonRpcResponse {
 ///
 /// # Errors
 /// Returns the underlying I/O error on read/write failure.
+///
+/// # Examples
+///
+/// ```no_run
+/// use argo_mcp::{
+///     run_loop, CallToolParams, CallToolResult, McpResult, McpServerService, McpToolSchema,
+///     ServerInfo,
+/// };
+/// use async_trait::async_trait;
+///
+/// struct EmptyService;
+/// #[async_trait]
+/// impl McpServerService for EmptyService {
+///     fn server_info(&self) -> ServerInfo {
+///         ServerInfo { name: "example-connector".into(), version: "0.0.1".into() }
+///     }
+///     fn list_tools(&self) -> Vec<McpToolSchema> { vec![] }
+///     async fn call_tool(&self, _: CallToolParams) -> McpResult<CallToolResult> {
+///         Ok(CallToolResult { content: vec![], is_error: false })
+///     }
+/// }
+///
+/// # async fn doc() -> argo_mcp::McpResult<()> {
+/// // Wire the service to stdio for `argo mcp serve`.
+/// let stdin = std::io::stdin();
+/// let stdout = std::io::stdout();
+/// run_loop(&EmptyService, stdin.lock(), stdout.lock()).await?;
+/// # Ok(()) }
+/// ```
 pub async fn run_loop<S, R, W>(service: &S, mut reader: R, mut writer: W) -> McpResult<()>
 where
     S: McpServerService,

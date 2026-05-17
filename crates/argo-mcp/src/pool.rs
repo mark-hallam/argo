@@ -47,13 +47,39 @@ use std::time::{Duration, Instant};
 
 /// Default LRU capacity. Bounded so an idle worker can't accumulate
 /// hundreds of FDs against rarely-used MCP servers.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::DEFAULT_POOL_MAX_CLIENTS;
+/// assert_eq!(DEFAULT_POOL_MAX_CLIENTS, 32);
+/// ```
 pub const DEFAULT_POOL_MAX_CLIENTS: u32 = 32;
 /// Default idle TTL — long enough to span turn-to-turn pauses, short
 /// enough that abandoned sessions free their subprocesses.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::DEFAULT_POOL_IDLE_TTL_SECS;
+/// assert_eq!(DEFAULT_POOL_IDLE_TTL_SECS, 600);
+/// ```
 pub const DEFAULT_POOL_IDLE_TTL_SECS: u64 = 600;
 
 /// Operator-tunable pool knobs. Defaults match
 /// [`DEFAULT_POOL_MAX_CLIENTS`] / [`DEFAULT_POOL_IDLE_TTL_SECS`].
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::{PoolConfig, DEFAULT_POOL_MAX_CLIENTS, DEFAULT_POOL_IDLE_TTL_SECS};
+/// let cfg = PoolConfig::default();
+/// assert_eq!(cfg.max_clients, DEFAULT_POOL_MAX_CLIENTS);
+/// assert_eq!(cfg.idle_ttl_secs, DEFAULT_POOL_IDLE_TTL_SECS);
+///
+/// let tight = PoolConfig { max_clients: 4, idle_ttl_secs: 60 };
+/// assert_eq!(tight.max_clients, 4);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PoolConfig {
     /// Hard cap on cached clients. New acquisitions past this evict
@@ -76,6 +102,19 @@ impl Default for PoolConfig {
 
 /// Pool key: `(tenant, manifest)`. Per-tenant isolation is the only
 /// correctness invariant — see module docs.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::PoolKey;
+/// use argo_types::TenantId;
+/// let tenant = TenantId::new();
+/// let key = PoolKey { tenant_id: tenant, manifest_id: "example-connector".into() };
+/// assert_eq!(key.manifest_id, "example-connector");
+/// // Same tenant + manifest hash-equal so the cache can dedupe lookups.
+/// let twin = PoolKey { tenant_id: tenant, manifest_id: "example-connector".into() };
+/// assert_eq!(key, twin);
+/// ```
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PoolKey {
     /// Tenant scope.
@@ -86,6 +125,14 @@ pub struct PoolKey {
 }
 
 /// Snapshot of pool state for operator tooling.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::PoolStats;
+/// let stats = PoolStats { entries: 0, idle_seconds_p50: 0, idle_seconds_max: 0 };
+/// assert_eq!(stats.entries, 0);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PoolStats {
     /// Number of cached entries.
@@ -126,6 +173,23 @@ impl std::fmt::Debug for McpClientPool {
 /// Borrow handle for a pooled [`McpClient`]. Deref'ing exposes the
 /// underlying client; on drop the entry's `last_used` is bumped so
 /// the LRU and idle-TTL reaper see fresh activity.
+///
+/// # Examples
+///
+/// ```no_run
+/// use argo_mcp::{McpClient, McpClientPool, PoolConfig};
+/// use argo_types::TenantId;
+/// # async fn doc() -> argo_mcp::McpResult<()> {
+/// let pool = McpClientPool::new(PoolConfig::default());
+/// let guard = pool
+///     .acquire(TenantId::new(), "example-connector", || async {
+///         McpClient::connect_stdio("example-server", &[]).await
+///     })
+///     .await?;
+/// // Deref to the underlying client to issue a call.
+/// let _tools = guard.list_tools().await?;
+/// # Ok(()) }
+/// ```
 pub struct PoolGuard {
     client: Arc<McpClient>,
     pool: Weak<McpClientPool>,
@@ -151,6 +215,25 @@ impl Deref for PoolGuard {
 impl PoolGuard {
     /// Borrow the underlying client as an `Arc`. Useful when callers
     /// want to hand the client to a task that outlives the guard.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::{McpClient, McpClientPool, PoolConfig};
+    /// use argo_types::TenantId;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let pool = McpClientPool::new(PoolConfig::default());
+    /// let guard = pool
+    ///     .acquire(TenantId::new(), "example-connector", || async {
+    ///         McpClient::connect_stdio("example-server", &[]).await
+    ///     })
+    ///     .await?;
+    /// let client = guard.client_arc();
+    /// tokio::spawn(async move {
+    ///     let _ = client.list_tools().await;
+    /// });
+    /// # Ok(()) }
+    /// ```
     #[must_use]
     pub fn client_arc(&self) -> Arc<McpClient> {
         self.client.clone()
@@ -174,6 +257,14 @@ impl Drop for PoolGuard {
 
 impl McpClientPool {
     /// Construct an empty pool.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_mcp::{McpClientPool, PoolConfig};
+    /// let pool = McpClientPool::new(PoolConfig { max_clients: 4, idle_ttl_secs: 60 });
+    /// assert_eq!(pool.stats().entries, 0);
+    /// ```
     #[must_use]
     pub fn new(config: PoolConfig) -> Arc<Self> {
         let cap =
@@ -210,6 +301,24 @@ impl McpClientPool {
     /// # Errors
     /// Returns whatever `spawn` returns. The pool itself does not
     /// produce errors.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::{McpClient, McpClientPool, PoolConfig};
+    /// use argo_types::TenantId;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let pool = McpClientPool::new(PoolConfig::default());
+    /// // Cold cache: the closure is invoked and the resulting client
+    /// // is installed. A second `acquire` with the same key reuses it.
+    /// let guard = pool
+    ///     .acquire(TenantId::new(), "example-connector", || async {
+    ///         McpClient::connect_stdio("example-server", &[]).await
+    ///     })
+    ///     .await?;
+    /// drop(guard);
+    /// # Ok(()) }
+    /// ```
     pub async fn acquire<F, Fut>(
         self: &Arc<Self>,
         tenant_id: TenantId,
@@ -291,6 +400,18 @@ impl McpClientPool {
     /// [`PoolConfig::idle_ttl_secs`]; shut each evicted client down
     /// in-band so callers can `await` the reap. Safe to call on any
     /// schedule; an empty pool returns immediately.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_mcp::{McpClientPool, PoolConfig};
+    /// # async fn doc() {
+    /// let pool = McpClientPool::new(PoolConfig::default());
+    /// // No-op on an empty pool; safe to call from a cron tick.
+    /// pool.evict_idle().await;
+    /// assert_eq!(pool.stats().entries, 0);
+    /// # }
+    /// ```
     pub async fn evict_idle(&self) {
         let ttl = self.idle_ttl;
         let now = Instant::now();
@@ -321,6 +442,14 @@ impl McpClientPool {
 
     /// Snapshot of the pool's current state. Cheap; takes the
     /// internal mutex briefly.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_mcp::{McpClientPool, PoolConfig};
+    /// let stats = McpClientPool::new(PoolConfig::default()).stats();
+    /// assert_eq!(stats.entries, 0);
+    /// ```
     #[must_use]
     pub fn stats(&self) -> PoolStats {
         let cache = self

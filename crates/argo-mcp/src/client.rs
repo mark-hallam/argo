@@ -26,6 +26,13 @@ use tokio::task::JoinHandle;
 
 /// Default per-call timeout. MCP servers are normally fast; 30 s is
 /// generous enough for browser navigations.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::DEFAULT_CALL_TIMEOUT;
+/// assert_eq!(DEFAULT_CALL_TIMEOUT.as_secs(), 30);
+/// ```
 pub const DEFAULT_CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// `initialize` carries its own deadline so a tight per-call timeout
@@ -36,6 +43,17 @@ const INIT_TIMEOUT: Duration = Duration::from_secs(5);
 type PendingMap = Arc<Mutex<HashMap<u64, oneshot::Sender<McpResult<JsonRpcResponse>>>>>;
 
 /// Stdio-transport MCP client.
+///
+/// # Examples
+///
+/// ```no_run
+/// use argo_mcp::McpClient;
+/// # async fn doc() -> argo_mcp::McpResult<()> {
+/// let client = McpClient::connect_stdio("example-server", &[]).await?;
+/// assert_eq!(client.server_info().name.is_empty(), false);
+/// client.shutdown().await?;
+/// # Ok(()) }
+/// ```
 pub struct McpClient {
     server_info: crate::protocol::ServerInfo,
     next_id: AtomicU64,
@@ -60,6 +78,17 @@ impl std::fmt::Debug for McpClient {
 
 impl McpClient {
     /// Spawn an MCP server over stdio and complete `initialize`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::McpClient;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let client = McpClient::connect_stdio("example-server", &[]).await?;
+    /// let _ = client.list_tools().await?;
+    /// client.shutdown().await?;
+    /// # Ok(()) }
+    /// ```
     pub async fn connect_stdio(
         program: impl AsRef<std::ffi::OsStr>,
         args: &[String],
@@ -68,6 +97,22 @@ impl McpClient {
     }
 
     /// Same as [`Self::connect_stdio`] with a custom per-call timeout.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::McpClient;
+    /// use std::time::Duration;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let client = McpClient::connect_stdio_with_timeout(
+    ///     "example-server",
+    ///     &[],
+    ///     Duration::from_secs(10),
+    /// )
+    /// .await?;
+    /// client.shutdown().await?;
+    /// # Ok(()) }
+    /// ```
     pub async fn connect_stdio_with_timeout(
         program: impl AsRef<std::ffi::OsStr>,
         args: &[String],
@@ -115,12 +160,35 @@ impl McpClient {
     }
 
     /// Server identity reported during `initialize`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::McpClient;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let client = McpClient::connect_stdio("example-server", &[]).await?;
+    /// let info = client.server_info();
+    /// println!("connected to {} {}", info.name, info.version);
+    /// # Ok(()) }
+    /// ```
     #[must_use]
     pub fn server_info(&self) -> &crate::protocol::ServerInfo {
         &self.server_info
     }
 
     /// `tools/list` — every tool the server exposes.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::McpClient;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let client = McpClient::connect_stdio("example-server", &[]).await?;
+    /// for tool in client.list_tools().await? {
+    ///     println!("{}: {}", tool.name, tool.description);
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub async fn list_tools(&self) -> McpResult<Vec<McpToolSchema>> {
         let v = self
             .call_method("tools/list", None, self.call_timeout)
@@ -131,6 +199,19 @@ impl McpClient {
     }
 
     /// `tools/call` — invoke `name` with `arguments`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::McpClient;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let client = McpClient::connect_stdio("example-server", &[]).await?;
+    /// let result = client
+    ///     .call_tool("echo", serde_json::json!({"text": "hello"}))
+    ///     .await?;
+    /// assert!(!result.is_error);
+    /// # Ok(()) }
+    /// ```
     pub async fn call_tool(
         &self,
         name: &str,
@@ -154,6 +235,18 @@ impl McpClient {
     }
 
     /// Best-effort shutdown: cancel reader task, kill subprocess.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use argo_mcp::McpClient;
+    /// # async fn doc() -> argo_mcp::McpResult<()> {
+    /// let client = McpClient::connect_stdio("example-server", &[]).await?;
+    /// // Calling shutdown twice is safe: subsequent calls are no-ops.
+    /// client.shutdown().await?;
+    /// client.shutdown().await?;
+    /// # Ok(()) }
+    /// ```
     pub async fn shutdown(&self) -> McpResult<()> {
         if self.shutdown_flag.swap(true, Ordering::SeqCst) {
             return Ok(());

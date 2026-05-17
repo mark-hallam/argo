@@ -7,14 +7,44 @@
 use serde::{Deserialize, Serialize};
 
 /// MCP protocol version pinned for Phase 1.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::MCP_PROTOCOL_VERSION;
+/// assert_eq!(MCP_PROTOCOL_VERSION, "2024-11-05");
+/// ```
 pub const MCP_PROTOCOL_VERSION: &str = "2024-11-05";
 
 /// Argo's name + version in the `initialize` handshake.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::ARGO_CLIENT_NAME;
+/// assert_eq!(ARGO_CLIENT_NAME, "argo");
+/// ```
 pub const ARGO_CLIENT_NAME: &str = "argo";
 /// Argo client version reported during `initialize`.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::ARGO_CLIENT_VERSION;
+/// assert!(!ARGO_CLIENT_VERSION.is_empty());
+/// ```
 pub const ARGO_CLIENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// JSON-RPC 2.0 request (Argo → server, sometimes the reverse).
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::JsonRpcRequest;
+/// let req = JsonRpcRequest::new(1, "tools/list", None);
+/// let line = serde_json::to_string(&req).unwrap();
+/// assert!(line.contains("\"method\":\"tools/list\""));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
     /// Always `"2.0"`.
@@ -30,6 +60,20 @@ pub struct JsonRpcRequest {
 
 impl JsonRpcRequest {
     /// Build a request with id `id` and the given method/params.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_mcp::JsonRpcRequest;
+    /// let req = JsonRpcRequest::new(
+    ///     42,
+    ///     "tools/call",
+    ///     Some(serde_json::json!({"name": "echo", "arguments": {}})),
+    /// );
+    /// assert_eq!(req.jsonrpc, "2.0");
+    /// assert_eq!(req.id, serde_json::json!(42));
+    /// assert_eq!(req.method, "tools/call");
+    /// ```
     #[must_use]
     pub fn new(id: u64, method: &str, params: Option<serde_json::Value>) -> Self {
         Self {
@@ -42,6 +86,16 @@ impl JsonRpcRequest {
 }
 
 /// JSON-RPC 2.0 response.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::JsonRpcResponse;
+/// let raw = r#"{"jsonrpc":"2.0","id":1,"result":{"ok":true}}"#;
+/// let resp: JsonRpcResponse = serde_json::from_str(raw).unwrap();
+/// assert!(resp.error.is_none());
+/// assert_eq!(resp.result.unwrap()["ok"], true);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcResponse {
     /// Always `"2.0"`.
@@ -57,6 +111,18 @@ pub struct JsonRpcResponse {
 }
 
 /// Structured error in a [`JsonRpcResponse`].
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::JsonRpcError;
+/// let err = JsonRpcError {
+///     code: -32601,
+///     message: "method not found".into(),
+///     data: None,
+/// };
+/// assert_eq!(err.code, -32601);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcError {
     /// JSON-RPC error code.
@@ -69,6 +135,20 @@ pub struct JsonRpcError {
 }
 
 /// `initialize` params (Argo → server).
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::{ClientInfo, InitializeParams, MCP_PROTOCOL_VERSION};
+/// let params = InitializeParams {
+///     protocol_version: MCP_PROTOCOL_VERSION.into(),
+///     capabilities: serde_json::json!({}),
+///     client_info: ClientInfo { name: "argo".into(), version: "0.1.0".into() },
+/// };
+/// let encoded = serde_json::to_value(&params).unwrap();
+/// assert_eq!(encoded["protocolVersion"], MCP_PROTOCOL_VERSION);
+/// assert_eq!(encoded["clientInfo"]["name"], "argo");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitializeParams {
     /// MCP protocol version Argo speaks.
@@ -82,6 +162,19 @@ pub struct InitializeParams {
 }
 
 /// Server-reported result of `initialize`.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::InitializeResult;
+/// let raw = r#"{
+///   "protocolVersion": "2024-11-05",
+///   "capabilities": {"tools": {}},
+///   "serverInfo": {"name": "example-connector", "version": "0.1.0"}
+/// }"#;
+/// let result: InitializeResult = serde_json::from_str(raw).unwrap();
+/// assert_eq!(result.server_info.name, "example-connector");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitializeResult {
     /// Protocol version the server agrees to.
@@ -95,6 +188,15 @@ pub struct InitializeResult {
 }
 
 /// Argo's identity sent during `initialize`.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::ClientInfo;
+/// let info = ClientInfo { name: "argo".into(), version: "0.1.0".into() };
+/// let encoded = serde_json::to_string(&info).unwrap();
+/// assert!(encoded.contains("\"name\":\"argo\""));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientInfo {
     /// Client name.
@@ -104,6 +206,14 @@ pub struct ClientInfo {
 }
 
 /// MCP server identity reported during `initialize`.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::ServerInfo;
+/// let info = ServerInfo { name: "example-connector".into(), version: "0.2.1".into() };
+/// assert_eq!(info.name, "example-connector");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerInfo {
     /// Server name (matches manifest).
@@ -113,6 +223,16 @@ pub struct ServerInfo {
 }
 
 /// Body of a `tools/list` response.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::ListToolsResult;
+/// let raw = r#"{"tools": [{"name": "echo", "description": "Echo back."}]}"#;
+/// let parsed: ListToolsResult = serde_json::from_str(raw).unwrap();
+/// assert_eq!(parsed.tools.len(), 1);
+/// assert!(parsed.next_cursor.is_none());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListToolsResult {
     /// Tool schemas the server exposes.
@@ -127,6 +247,18 @@ pub struct ListToolsResult {
 }
 
 /// One tool the server exposes.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::McpToolSchema;
+/// let schema = McpToolSchema {
+///     name: "navigate".into(),
+///     description: "Open a URL.".into(),
+///     input_schema: serde_json::json!({"type": "object"}),
+/// };
+/// assert_eq!(schema.name, "navigate");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpToolSchema {
     /// Tool name.
@@ -144,6 +276,18 @@ fn default_input_schema() -> serde_json::Value {
 }
 
 /// `tools/call` params.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::CallToolParams;
+/// let params = CallToolParams {
+///     name: "echo".into(),
+///     arguments: serde_json::json!({"text": "hello"}),
+/// };
+/// let encoded = serde_json::to_value(&params).unwrap();
+/// assert_eq!(encoded["name"], "echo");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CallToolParams {
     /// Tool name.
@@ -153,6 +297,16 @@ pub struct CallToolParams {
 }
 
 /// `tools/call` result.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::CallToolResult;
+/// let raw = r#"{"content": [{"type": "text", "text": "ok"}], "isError": false}"#;
+/// let result: CallToolResult = serde_json::from_str(raw).unwrap();
+/// assert!(!result.is_error);
+/// assert_eq!(result.content.len(), 1);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CallToolResult {
     /// Content blocks (Argo only consumes text + image for Phase 1).
@@ -164,6 +318,27 @@ pub struct CallToolResult {
 }
 
 /// Subset of MCP content types Argo handles in Phase 1.
+///
+/// # Examples
+///
+/// ```
+/// use argo_mcp::McpContent;
+/// let msg = McpContent::Text { text: "hello".into() };
+/// match msg {
+///     McpContent::Text { text } => assert_eq!(text, "hello"),
+///     McpContent::Image { .. } | McpContent::Unknown => unreachable!(),
+/// }
+/// ```
+///
+/// Unknown content types decode into [`McpContent::Unknown`] so a
+/// future server tagging cannot break parsing:
+///
+/// ```
+/// use argo_mcp::McpContent;
+/// let raw = r#"{"type": "audio", "data": "..."}"#;
+/// let parsed: McpContent = serde_json::from_str(raw).unwrap();
+/// assert!(matches!(parsed, McpContent::Unknown));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum McpContent {
