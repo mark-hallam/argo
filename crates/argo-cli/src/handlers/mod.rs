@@ -364,6 +364,8 @@ mod work_steps;
 pub mod worker_actions;
 mod worker_actions_anomaly;
 mod worker_actions_auto_approval;
+mod worker_actions_auto_approval_gates;
+mod worker_actions_auto_approval_quiet_hours;
 mod worker_actions_batch;
 mod worker_actions_dispatch;
 mod worker_actions_dispatch_ledger;
