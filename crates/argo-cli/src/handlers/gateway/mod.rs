@@ -180,6 +180,7 @@ mod security_headers;
 mod shutdown;
 pub(super) mod sso_dispatch;
 mod sso_oidc;
+mod sso_oidc_helpers;
 mod sso_saml;
 mod sso_session;
 mod start_banner;

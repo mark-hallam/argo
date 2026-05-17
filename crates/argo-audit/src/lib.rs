@@ -42,6 +42,7 @@ pub mod filter_dims;
 mod gap;
 mod replay;
 mod sink;
+mod sink_chain;
 /// Audit tenant constants for default, system, and pre-auth writes.
 pub mod sink_tenant;
 mod verify;

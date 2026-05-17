@@ -92,20 +92,14 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             vertical,
             json,
         } => super::skill_export_all::run(&skills, &out, vertical.as_deref(), json).await,
-        SkillCmd::Import {
-            path,
-            name,
-            workspace,
-            dry_run,
-            json,
-        } => {
+        SkillCmd::Import(cmd) => {
             super::skill_import::import_artifact(
                 &skills,
-                &path,
-                name.as_deref(),
-                workspace.as_deref(),
-                dry_run,
-                json,
+                &cmd.path,
+                cmd.name.as_deref(),
+                cmd.workspace.as_deref(),
+                cmd.dry_run,
+                cmd.json,
             )
             .await
         }
@@ -126,23 +120,16 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             super::skill_rollback::run(&skills, &name, &to, dry_run, reason.as_deref(), json).await
         }
         SkillCmd::Review { cmd } => super::skill_review::run(&skills, cmd).await,
-        SkillCmd::Catalog {
-            vertical,
-            tag,
-            installed_only,
-            not_installed,
-            all: _,
-            json,
-        } => {
+        SkillCmd::Catalog(cmd) => {
             super::skill_catalog::run(
                 &skills,
                 super::skill_catalog::CatalogFilters {
-                    vertical: vertical.as_deref(),
-                    tag: tag.as_deref(),
-                    installed_only,
-                    not_installed,
+                    vertical: cmd.vertical.as_deref(),
+                    tag: cmd.tag.as_deref(),
+                    installed_only: cmd.installed_only,
+                    not_installed: cmd.not_installed,
                 },
-                json,
+                cmd.json,
             )
             .await
         }
@@ -233,28 +220,27 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             min_trust_grade,
             json,
         } => super::skill_update::run(&skills, &name, min_trust_grade.as_deref(), json).await,
-        SkillCmd::Rate {
-            name,
-            version,
-            vote,
-            comment,
-            json,
-        } => {
-            super::skill_rate::run(&name, version.as_deref(), &vote, comment.as_deref(), json).await
+        SkillCmd::Rate(cmd) => {
+            super::skill_rate::run(
+                &cmd.name,
+                cmd.version.as_deref(),
+                &cmd.vote,
+                cmd.comment.as_deref(),
+                cmd.json,
+            )
+            .await
         }
-        SkillCmd::Ratings {
-            name,
-            version,
-            json,
-        } => super::skill_ratings::run(&name, version.as_deref(), json).await,
-        SkillCmd::SetFlag {
-            name,
-            no_forge_feedback,
-            clear_no_forge_feedback,
-            json,
-        } => {
-            super::skill_set_flag::run(&name, no_forge_feedback, clear_no_forge_feedback, json)
-                .await
+        SkillCmd::Ratings(cmd) => {
+            super::skill_ratings::run(&cmd.name, cmd.version.as_deref(), cmd.json).await
+        }
+        SkillCmd::SetFlag(cmd) => {
+            super::skill_set_flag::run(
+                &cmd.name,
+                cmd.no_forge_feedback,
+                cmd.clear_no_forge_feedback,
+                cmd.json,
+            )
+            .await
         }
         SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
         SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),

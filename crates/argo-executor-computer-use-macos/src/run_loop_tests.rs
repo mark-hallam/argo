@@ -1,4 +1,4 @@
-use crate::executor::run_loop_with_client;
+use crate::executor_loop::run_loop_with_client;
 use crate::{MacosCuConfig, MacosCuError, MacosCuExecutor, MacosCuOutcome, MacosCuRunRequest};
 use argo_executor_computer_use::anthropic::{
     AnthropicCall, CuStepRequest, CuStepResponse, StopReason,

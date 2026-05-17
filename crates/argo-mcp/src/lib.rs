@@ -31,6 +31,7 @@ mod error;
 pub mod pool;
 #[cfg(test)]
 mod pool_tests;
+mod pool_types;
 mod protocol;
 /// Per-(tenant, connector) token buckets for MCP dispatch.
 pub mod rate_limit;
@@ -40,9 +41,9 @@ mod server;
 
 pub use client::{McpClient, DEFAULT_CALL_TIMEOUT};
 pub use error::{McpError, McpResult};
-pub use pool::{
-    McpClientPool, PoolConfig, PoolGuard, PoolKey, PoolStats, DEFAULT_POOL_IDLE_TTL_SECS,
-    DEFAULT_POOL_MAX_CLIENTS,
+pub use pool::{McpClientPool, PoolGuard};
+pub use pool_types::{
+    PoolConfig, PoolKey, PoolStats, DEFAULT_POOL_IDLE_TTL_SECS, DEFAULT_POOL_MAX_CLIENTS,
 };
 pub use protocol::{
     CallToolParams, CallToolResult, ClientInfo, InitializeParams, InitializeResult, JsonRpcError,

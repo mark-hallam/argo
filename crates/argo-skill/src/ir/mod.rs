@@ -19,6 +19,8 @@ pub mod types;
 
 #[cfg(test)]
 mod types_tests;
+#[cfg(test)]
+mod types_tests_canonical;
 
 pub use self::backfill::{
     synthesize_graph, BackfillEntry, BackfillReport, BackfillStatus, BACKFILL_ENTRY_NODE_ID,

@@ -87,6 +87,8 @@ pub mod cli_subcommands_migrate;
 pub mod cli_subcommands_provider;
 #[path = "cli_subcommands_skill.rs"]
 pub mod cli_subcommands_skill;
+#[path = "cli_subcommands_skill_catalog.rs"]
+pub mod cli_subcommands_skill_catalog;
 #[path = "cli_subcommands_skill_migration.rs"]
 pub mod cli_subcommands_skill_migration;
 #[path = "cli_subcommands_skill_pack.rs"]
@@ -95,6 +97,8 @@ pub mod cli_subcommands_skill_pack;
 pub mod cli_subcommands_skill_publish;
 #[path = "cli_subcommands_skill_quality.rs"]
 pub mod cli_subcommands_skill_quality;
+#[path = "cli_subcommands_skill_ratings.rs"]
+pub mod cli_subcommands_skill_ratings;
 #[path = "cli_subtask_cmds.rs"]
 pub mod cli_subtask_cmds;
 #[path = "cli_team_cmds.rs"]

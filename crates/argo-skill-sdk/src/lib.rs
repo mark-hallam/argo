@@ -16,16 +16,15 @@
 //! ```
 
 mod builders;
+mod builders_inputs;
 mod error;
 
 pub use argo_skill::ir::{
     BranchArm, Edge, EdgeCond, EdgeId, Node, NodeAnnotations, NodeId, NodeKind, NodePolicy,
     SkillGraph, SkillGraphMetadata, SubSkillRef, ToolBinding, Variable, VariableScope,
 };
-pub use builders::{
-    branch_arm, branch_arm_pattern, create_skill, validate_skill_graph, BuilderNodeOptions,
-    SkillBuilder, SkillBuilderInput,
-};
+pub use builders::{branch_arm, branch_arm_pattern, create_skill, validate_skill_graph, SkillBuilder};
+pub use builders_inputs::{BuilderNodeOptions, SkillBuilderInput};
 pub use error::SkillBuildError;
 
 /// Five sample graphs matching the TypeScript SDK package.

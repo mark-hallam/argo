@@ -2,6 +2,7 @@ use clap::Subcommand;
 
 use super::cli_skill_conflicts_cmds::SkillConflictsCmd;
 use super::cli_skill_review_cmds::SkillReviewCmd;
+pub use super::cli_subcommands_skill_catalog::{SkillCatalogCmd, SkillImportCmd};
 pub use super::cli_subcommands_skill_migration::{
     SkillListMigrationsCmd, SkillMigrateCmd, SkillUpgradeCmd,
 };
@@ -10,6 +11,7 @@ pub use super::cli_subcommands_skill_publish::{SkillPublishCmd, SkillTagsCmd, Sk
 pub use super::cli_subcommands_skill_quality::{
     SkillQualityCmd, SkillQualityListCmd, SkillQualityRecomputeCmd, SkillQualityTrendCmd,
 };
+pub use super::cli_subcommands_skill_ratings::{SkillRateCmd, SkillRatingsCmd, SkillSetFlagCmd};
 
 #[derive(Subcommand, Debug)]
 pub enum SkillCmd {
@@ -121,33 +123,7 @@ pub enum SkillCmd {
     /// field (no separate vertical column exists yet on
     /// `IndexedSkill`); `--tag` is a substring match against the
     /// marketplace entry description.
-    Catalog {
-        /// Filter to marketplace entries whose tenant (vertical
-        /// analog) matches this id (case-insensitive). Unknown
-        /// values surface a `vertical <id> not found` error.
-        #[arg(long)]
-        vertical: Option<String>,
-        /// Substring match (case-insensitive) against the
-        /// marketplace entry description.
-        #[arg(long)]
-        tag: Option<String>,
-        /// Show only locally-installed marketplace entries.
-        #[arg(long, conflicts_with = "not_installed")]
-        installed_only: bool,
-        /// Show only entries that are NOT locally installed.
-        #[arg(long)]
-        not_installed: bool,
-        /// Explicit no-filter flag. Present for parity with the
-        /// brief; the default behaviour is already to show all
-        /// entries.
-        #[arg(long)]
-        all: bool,
-        /// Emit a JSON array `[{ id, name, vertical, tags,
-        /// installed, version, installed_version? }]` instead of
-        /// the human-readable table.
-        #[arg(long)]
-        json: bool,
-    },
+    Catalog(SkillCatalogCmd),
     /// Publish a local skill to the marketplace registry.
     Publish(SkillPublishCmd),
     /// Remove a mutable marketplace tag while preserving blobs.
@@ -317,25 +293,7 @@ pub enum SkillCmd {
     },
     /// Import a portable `.skill.tar.gz` artifact into the local
     /// skill store.
-    Import {
-        /// Artifact path.
-        path: String,
-        /// Rename on import; required to avoid duplicate-name
-        /// conflicts when the original name is already installed.
-        #[arg(long)]
-        name: Option<String>,
-        /// Resolve the target skill store as if running from this
-        /// workspace path.
-        #[arg(long)]
-        workspace: Option<String>,
-        /// Validate and print what would be installed without
-        /// writing the store.
-        #[arg(long)]
-        dry_run: bool,
-        /// Emit JSON.
-        #[arg(long)]
-        json: bool,
-    },
+    Import(SkillImportCmd),
     Lock {
         name: String,
     },
@@ -384,37 +342,12 @@ pub enum SkillCmd {
     /// from the marketplace (`provenance.source` of the form
     /// `published:<grade>:<publisher>`); non-published sources return
     /// an explicit "only published skills can be rated" error.
-    Rate {
-        /// Active local skill name to rate.
-        name: String,
-        /// Skill version label being rated. Defaults to the active
-        /// version of `name` if omitted.
-        #[arg(long)]
-        version: Option<String>,
-        /// `up` or `down`.
-        #[arg(long)]
-        vote: String,
-        /// Optional free-form comment (truncated at 500 chars).
-        #[arg(long)]
-        comment: Option<String>,
-        /// Emit a JSON envelope.
-        #[arg(long)]
-        json: bool,
-    },
+    Rate(SkillRateCmd),
     /// Show aggregated up/down counts + score + recent comments for
     /// one marketplace-installed skill
     /// (Stream `mission-skill-ratings-publisher`). Counts roll up
     /// across every rater tenant; `comments` are the most-recent 10.
-    Ratings {
-        /// Skill name.
-        name: String,
-        /// Skill version. Defaults to the active version.
-        #[arg(long)]
-        version: Option<String>,
-        /// Emit JSON.
-        #[arg(long)]
-        json: bool,
-    },
+    Ratings(SkillRatingsCmd),
     /// Recompute the quality score for one or every active skill
     /// from the audit log (mission-skill-quality-cron). For each
     /// skill: walks `tool_result` audit rows, derives the four
@@ -429,21 +362,7 @@ pub enum SkillCmd {
     /// to skip operator-vote eval cases for this skill. The
     /// underlying `skill_flag` table is generic, so future
     /// per-skill toggles piggyback on the same surface.
-    SetFlag {
-        /// Skill name to flag.
-        name: String,
-        /// Set `no-forge-feedback=1` for this skill so the Forge
-        /// ingestion path skips its operator votes.
-        #[arg(long, conflicts_with = "clear_no_forge_feedback")]
-        no_forge_feedback: bool,
-        /// Clear `no-forge-feedback` for this skill (set value=0).
-        #[arg(long = "clear-no-forge-feedback")]
-        clear_no_forge_feedback: bool,
-        /// Emit a JSON envelope `{skill, flag, value}` instead of
-        /// the human-readable confirmation line.
-        #[arg(long)]
-        json: bool,
-    },
+    SetFlag(SkillSetFlagCmd),
     QualityRecompute(SkillQualityRecomputeCmd),
     /// Record a publisher-side `skill_version_migration` row
     /// linking `--from` to `--to`. Tenant workspaces with the

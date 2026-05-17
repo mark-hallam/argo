@@ -365,6 +365,7 @@ mod work_loop_stop_marker;
 mod work_shutdown;
 mod work_steps;
 pub mod worker_actions;
+mod worker_actions_actions_dispatch_arms;
 mod worker_actions_anomaly;
 mod worker_actions_auto_approval;
 mod worker_actions_auto_approval_gates;
