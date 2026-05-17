@@ -109,17 +109,17 @@ These are not architectural preferences; they are operator decisions that scope 
 - **macOS is the v1 demo path for computer-use.** `argo-executor-computer-use-macos` is the only OS-native executor v1 hardens. E2B, Linux, and Windows executors are DEFERRED-v1.x — they stay shipped, just not v1-polished. See `streams/claude-defer-non-macos-computer-use.md`. Demo recording `docs/skycot/demos/v1-mission-mvp.mp4` is macOS.
 - **Enterprise focus, not consumer.** SKYCOT serves enterprise customers. MCP connector priority and authoring decisions reflect this. The 4 consumer/redundant connector stubs (signal, telegram, mailgun, resend) are being deleted; the 3 enterprise stubs (apollo, zoominfo, zoom) stay as DEFERRED-v1.x placeholders. When in doubt about a connector, ask "is this enterprise?"
 - **Type canonicalization is in progress.** Phase A audit found 11+ duplicate `pub struct/enum` definitions across crates (worst: `AuditRow` in 4 crates, real data-integrity risk). 4 canonicalization briefs + 1 CI-lint brief are authored; do not introduce new parallel `pub` types until the canonical home is established. Re-export from `argo-types` is the preferred pattern when in doubt.
-- **Skill-library worker load is the v1 SHIP-BLOCKER.** Phase A.5 audit found that `argo-agent-runner/src/turn.rs` never calls `LayeredLookup::with_library` — workers do NOT load marketplace skills at runtime. MISSION.md success scenario #2 silently fails. Brief: `streams/claude-skill-library-worker-load-wire.md` (~150 LOC). Ship this first.
-- **Migration slot collisions are P0 operational risk.** Phase D audit found 11 slot-number collisions in `crates/argo-store/migrations/` (slots 19, 22, 23, 24, 26, 27, 28, 30, 45, 51, 75 — some 3-way). sqlx runner may process duplicates silently in filesystem order. Brief: `streams/claude-migration-slot-dedup-and-validator.md` (~500 LOC). Ship in the first wave alongside the SHIP-BLOCKER.
+- **Skill-library worker load: SHIPPED** (#1682 + cross-tenant negative test #1702). `LayeredLookup::with_library` is wired at `crates/argo-agent-runner/src/turn_helpers.rs:65`. MISSION.md success scenario #2 is now runtime-live.
+- **Migration slot collisions: GUARDED** (post #1735). `scripts/check-migration-slots.sh` runs in CI; `crates/argo-store/src/migrations/registry.rs:21` calls `duplicate_slot_validator::validate_no_duplicate_slots()` at boot. Last admin-wave-6 added migrations 109-114 cleanly.
 
-The full audit reports live in `docs/skycot/audit/` (5 phases, all complete 2026-05-14):
-- `2026-05-14-phase-A-crate-inventory.md` — 88 crates × 6 claims mapping
-- `2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace (found SHIP-BLOCKER)
-- `2026-05-14-phase-B-per-crate-deep-dive.md` — top 20 by LOC (verdict: production-ready, 1 orphan)
-- `2026-05-14-phase-C-mission-claim-coverage.md` — E2E coverage per claim
-- `2026-05-14-phase-D-cross-cutting-drift.md` — 11 migration collisions + 19 new parallel names + 236 TOML violations
+The full audit reports live in `docs/skycot/audit/`:
+- `2026-05-14-phase-A` through `phase-D` — original 5-phase deep audit
+- `2026-05-15-codex-full-architecture-audit.md` — 18-finding audit
+- `2026-05-16-one-shot-architecture-audit.md` — F-01 through F-14
+- `2026-05-17-readonly-codebase-audit.md` — codex audit (13 findings)
+- `2026-05-17-claude-conductor-audit.md` — claude audit (13 findings + closure verification)
 
-**Status 2026-05-15 evening:** **26 PRs MERGED 2026-05-14 → 2026-05-15.** Track L Phase 1 essentially complete (L1-L5, L4-gw, L9 MERGED; only L6 awaiting rebase via `claude-rebase-pr-1632`). Track M Phase 1 essentially complete (M1, M4-M7, M9-M13 MERGED; M-Eval sub-track COMPLETE). Type canonicalization round 1 complete except AuditRow. 🔴 SHIP-BLOCKER + P0 migration-slot + AuditRow + parallel-names-round2-high still TODO — all 4 CLAUDE-PREFERRED, held for the fresh session 2026-05-19. 3 rebase recovery briefs in TODO for codex pickup. PR #1506 blocked on operator-side GitHub Actions billing failure (not a code issue). See `docs/build-plan/RESUME.md` "Right-now snapshot" for the per-PR breakdown + remaining priority order.
+**Status 2026-05-17:** **~50 PRs MERGED in last 24h via admin-wave-6.** All 6 audit-derived briefs landed; 5 of 6 mission claims runtime-PROVEN. CI gates GREEN (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool restored 2026-05-17 with full Pro 20x usage. Remaining for launch: #1796 magic-link rebase (P0 SHIP-GATE for demo recording), tonight's demo recording on operator macOS, plus 13 polish-pass findings from the 2026-05-17 claude audit.
 
 ## Project rename — Argo → Skycot
 
