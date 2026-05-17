@@ -25,6 +25,19 @@ vi.mock("@/lib/api/duties", async () => {
   };
 });
 
+const toastSuccessMock = vi.fn();
+vi.mock("@/lib/ui/use-toast", () => ({
+  useToast: () => ({
+    success: toastSuccessMock,
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    loading: vi.fn(),
+    promise: vi.fn(),
+    dismiss: vi.fn(),
+  }),
+}));
+
 import { classifyDuty, commitDuty, previewDuty } from "@/lib/api/duties";
 
 const mockedClassify = vi.mocked(classifyDuty);
@@ -110,6 +123,7 @@ function CardHarness(props: Partial<React.ComponentProps<typeof DutiesCard>> = {
 }
 
 beforeEach(() => {
+  toastSuccessMock.mockClear();
   mockedClassify.mockResolvedValue({
     proposal: recurringProposal(),
     source: "mock",
@@ -299,7 +313,7 @@ describe("DutiesCard mount + step 6 toast", () => {
     expect(screen.queryByTestId("duty-dialog")).toBeNull();
   });
 
-  it("renders the step-6 toast with the duty label and next-fire copy after commit", async () => {
+  it("fires the step-6 toast with the duty label and next-fire copy after commit", async () => {
     const user = userEvent.setup();
     render(<CardHarness />);
     await user.click(screen.getByTestId("duties-add"));
@@ -309,9 +323,11 @@ describe("DutiesCard mount + step 6 toast", () => {
     await screen.findByTestId("duty-step-draft");
     await user.click(screen.getByTestId("duty-continue"));
     await user.click(screen.getByTestId("duty-commit"));
-    const toast = await screen.findByTestId("duty-added-toast");
-    expect(toast).toHaveTextContent(/EOD summary/);
-    expect(toast).toHaveTextContent(/Mariah's next run/);
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled());
+    const [title, options] = toastSuccessMock.mock.calls.at(-1)!;
+    expect(title).toMatch(/Added the new responsibility/);
+    expect(options.description).toMatch(/EOD summary/);
+    expect(options.description).toMatch(/Mariah's next run/);
   });
 });
 

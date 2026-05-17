@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { useWorkerActions } from "@/lib/hooks/use-worker-actions";
+import { useToast } from "@/lib/ui/use-toast";
 import { cn } from "@/lib/utils";
 import type { Worker, WorkerStatus } from "@/lib/types/worker";
 import {
@@ -36,17 +37,8 @@ const STATUS_LABELS: Record<WorkerStatus, string> = {
 
 const LONG_PRESS_MS = 500;
 
-/** Toast payload emitted to the host page's toast viewport. */
-export interface TeammateCardToast {
-  id: string;
-  title: string;
-  tone: "default" | "success";
-}
-
 export interface TeammateCardProps {
   worker: Worker;
-  /** Host renders a Radix Toast for each emission. Optional in tests. */
-  onShowToast?: (toast: TeammateCardToast) => void;
   className?: string;
   /** Forwarded to outer Card for tests / parents that need a handle. */
   "data-testid"?: string;
@@ -54,7 +46,6 @@ export interface TeammateCardProps {
 
 export function TeammateCard({
   worker,
-  onShowToast,
   className,
   "data-testid": testId,
 }: TeammateCardProps) {
@@ -62,6 +53,7 @@ export function TeammateCard({
   const menuRef = useRef<TeammateCardContextMenuHandle>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actions = useWorkerActions(worker.id);
+  const { success: toastSuccess, error: toastError } = useToast();
   const [confirm, setConfirm] = useState<"pause" | "resume" | null>(null);
 
   const cardTestId = testId ?? `teammate-${worker.id}`;
@@ -114,26 +106,22 @@ export function TeammateCard({
       try {
         if (kind === "pause") await actions.pauseWorker(worker.id);
         else await actions.resumeWorker(worker.id);
-        onShowToast?.({
-          id: `${worker.id}-${kind}-${Date.now()}`,
-          title:
-            kind === "pause"
-              ? `${worker.name} paused. Resume from her profile.`
-              : `${worker.name} resumed.`,
-          tone: "success",
-        });
+        toastSuccess(
+          kind === "pause"
+            ? `${worker.name} paused. Resume from her profile.`
+            : `${worker.name} resumed.`,
+          { id: `worker-${worker.id}-${kind}` },
+        );
       } catch {
-        onShowToast?.({
-          id: `${worker.id}-${kind}-error-${Date.now()}`,
-          title:
-            kind === "pause"
-              ? `Couldn't pause ${worker.name}. Try again.`
-              : `Couldn't resume ${worker.name}. Try again.`,
-          tone: "default",
-        });
+        toastError(
+          kind === "pause"
+            ? `Couldn't pause ${worker.name}. Try again.`
+            : `Couldn't resume ${worker.name}. Try again.`,
+          { id: `worker-${worker.id}-${kind}-error` },
+        );
       }
     },
-    [actions, worker.id, worker.name, onShowToast],
+    [actions, worker.id, worker.name, toastSuccess, toastError],
   );
 
   const bullets = worker.headline?.bullets ?? [];

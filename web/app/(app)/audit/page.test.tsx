@@ -42,6 +42,19 @@ vi.mock("@/lib/hooks/use-viewer-policy", async () => {
   return { useViewerPolicy: () => VIEWER_POLICY_OPERATOR };
 });
 
+const toastInfoMock = vi.fn();
+vi.mock("@/lib/ui/use-toast", () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: toastInfoMock,
+    warning: vi.fn(),
+    loading: vi.fn(),
+    promise: vi.fn(),
+    dismiss: vi.fn(),
+  }),
+}));
+
 import AuditPage from "@/app/(app)/audit/page";
 
 function makeRow(overrides: Partial<AuditRow> = {}): AuditRow {
@@ -75,6 +88,7 @@ beforeEach(() => {
   searchParams = new URLSearchParams();
   replaceMock.mockClear();
   useFeedMock.mockReset();
+  toastInfoMock.mockClear();
 });
 
 afterEach(() => {
@@ -112,7 +126,9 @@ describe("AuditPage", () => {
     render(<AuditPage />);
     await user.selectOptions(screen.getByTestId("audit-range-select"), "custom");
     expect(replaceMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId("audit-toast")).toHaveTextContent(/E5-b/);
+    expect(toastInfoMock).toHaveBeenCalledWith(
+      expect.stringMatching(/E5-b/),
+    );
   });
 
   it("typing in search debounces a ?q= write to the URL", async () => {

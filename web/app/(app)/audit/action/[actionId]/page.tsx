@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { ActionInputsCard } from "@/components/skycot/audit/ActionInputsCard";
@@ -16,6 +16,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "@/components/ui
 import { useAuditDetail } from "@/lib/hooks/use-audit-detail";
 import { AuditDetailNotFoundError } from "@/lib/api/audit-detail";
 import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
+import { useToast } from "@/lib/ui/use-toast";
 import { redactAuditDetail } from "@/lib/redaction/redact";
 import { categoriesLackedBy } from "@/lib/redaction/audit-rules";
 import type { RbacPermission } from "@/lib/redaction/types";
@@ -37,8 +38,6 @@ import type { RbacPermission } from "@/lib/redaction/types";
  *  - Action-not-found uses `<AuditActionNotFound>` — an in-shell
  *    404 rather than the Next.js framework not-found.
  */
-
-const TOAST_TTL_MS = 2500;
 
 export default function AuditActionDetailPage() {
   return (
@@ -66,7 +65,7 @@ function AuditActionDetailContent() {
   const router = useRouter();
   const policy = useViewerPolicy();
   const detailQuery = useAuditDetail(actionId);
-  const [toast, setToast] = useState<string | null>(null);
+  const { info: toastInfo } = useToast();
   const [exporterOpen, setExporterOpen] = useState(false);
   const rawDetail = detailQuery.data;
   const detail = useMemo(
@@ -77,12 +76,6 @@ function AuditActionDetailContent() {
     () => categoriesLackedBy(policy.permissions),
     [policy.permissions],
   );
-
-  useEffect(() => {
-    if (!toast) return;
-    const handle = window.setTimeout(() => setToast(null), TOAST_TTL_MS);
-    return () => window.clearTimeout(handle);
-  }, [toast]);
 
   const onReplay = useCallback(() => {
     router.push(`/audit/action/${encodeURIComponent(actionId)}/replay`);
@@ -160,18 +153,8 @@ function AuditActionDetailContent() {
           tenantLabel="Default tenant"
           initialScope={singleActionScope(detail.id, detail.timestamp)}
           mode="single-action"
-          onToast={setToast}
+          onToast={toastInfo}
         />
-      ) : null}
-
-      {toast ? (
-        <div
-          role="status"
-          data-testid="audit-detail-toast"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm text-[var(--foreground)] shadow-md"
-        >
-          {toast}
-        </div>
       ) : null}
     </div>
   );

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ClipboardCopy, FileCode, History, PlaySquare } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button, buttonVariants } from "@/components/ui/Button";
+import { useToast } from "@/lib/ui/use-toast";
 import type { AdvancedConfig } from "@/lib/api/worker-settings";
 import { cn } from "@/lib/utils";
 
@@ -29,17 +30,19 @@ export interface AdvancedSectionProps {
 
 export function AdvancedSection({ workerId, advanced }: AdvancedSectionProps) {
   const [manifestOpen, setManifestOpen] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
+  const { success: toastSuccess } = useToast();
 
-  const onCopy = useCallback((label: string, value: string) => {
-    setCopied(label);
-    try {
-      navigator.clipboard?.writeText(value);
-    } catch {
-      // ignore in environments without the API (e.g. jsdom)
-    }
-    setTimeout(() => setCopied(null), 1200);
-  }, []);
+  const onCopy = useCallback(
+    (label: string, value: string) => {
+      try {
+        navigator.clipboard?.writeText(value);
+      } catch {
+        // ignore in environments without the API (e.g. jsdom)
+      }
+      toastSuccess(`${label} copied`, { id: `copy-${label}`, duration: 1500 });
+    },
+    [toastSuccess],
+  );
 
   const auditHref = `/audit?worker=${encodeURIComponent(workerId)}&action_type=settings_change`;
   const replayHref = `/audit?worker=${encodeURIComponent(workerId)}&action_type=trajectory_replay`;
@@ -102,15 +105,6 @@ export function AdvancedSection({ workerId, advanced }: AdvancedSectionProps) {
           testid="provenance-version"
           onCopy={onCopy}
         />
-
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="advanced-copy-announcement"
-          className="sr-only"
-        >
-          {copied ? `${copied} copied` : ""}
-        </div>
       </CardBody>
 
       <DialogPrimitive.Root open={manifestOpen} onOpenChange={setManifestOpen}>

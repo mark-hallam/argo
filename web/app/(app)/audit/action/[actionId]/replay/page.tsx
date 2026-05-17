@@ -9,6 +9,7 @@ import { ReplayHeader } from "@/components/skycot/audit/ReplayHeader";
 import { ReplayProgress, REPLAY_STAGES } from "@/components/skycot/audit/ReplayProgress";
 import { useAuditDetail } from "@/lib/hooks/use-audit-detail";
 import { useReplay } from "@/lib/hooks/use-replay";
+import { useToast } from "@/lib/ui/use-toast";
 import type { ReplayOutcome } from "@/lib/api/replay";
 
 /**
@@ -28,7 +29,6 @@ import type { ReplayOutcome } from "@/lib/api/replay";
  * by the sibling backend brief.
  */
 
-const TOAST_TTL_MS = 2500;
 const PROGRESS_TICK_MS = 250;
 
 export default function ReplayPage() {
@@ -53,7 +53,7 @@ function ReplayContent() {
   const router = useRouter();
   const replay = useReplay(actionId);
   const detail = useAuditDetail(actionId, { enabled: actionId.length > 0 });
-  const [toast, setToast] = useState<string | null>(null);
+  const { info: toastInfo } = useToast();
   const [stepIdx, setStepIdx] = useState(1);
 
   useEffect(() => {
@@ -69,19 +69,13 @@ function ReplayContent() {
     return () => window.clearInterval(handle);
   }, [replay.isPending]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const handle = window.setTimeout(() => setToast(null), TOAST_TTL_MS);
-    return () => window.clearTimeout(handle);
-  }, [toast]);
-
   const onBack = useCallback(() => {
     router.push(`/audit/action/${encodeURIComponent(actionId)}`);
   }, [router, actionId]);
 
   const onExport = useCallback(() => {
-    setToast("Replay artifact export ships in E5-e");
-  }, []);
+    toastInfo("Replay artifact export ships in E5-e");
+  }, [toastInfo]);
 
   const onRetry = useCallback(() => {
     setStepIdx(1);
@@ -123,16 +117,6 @@ function ReplayContent() {
       ) : null}
 
       <FooterButtons onBack={onBack} onExport={onExport} />
-
-      {toast ? (
-        <div
-          role="status"
-          data-testid="replay-toast"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm text-[var(--foreground)] shadow-md"
-        >
-          {toast}
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Card, CardBody, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/lib/ui/use-toast";
 import { cn } from "@/lib/utils";
 import type { WorkerDuty } from "@/lib/api/worker-overview";
 import { AddResponsibilityDialog } from "@/components/skycot/worker/AddResponsibilityDialog";
@@ -54,17 +55,32 @@ export function DutiesCard({
 }: DutiesCardProps) {
   const dialogAvailable = canEdit && Boolean(workerId && workerName);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [confirmation, setConfirmation] = useState<CommitDutyResult | null>(null);
-
-  useEffect(() => {
-    if (!confirmation) return;
-    const t = setTimeout(() => setConfirmation(null), 6000);
-    return () => clearTimeout(t);
-  }, [confirmation]);
+  const { success: toastSuccess } = useToast();
 
   const handleAddClick = () => {
     onAddDuty?.();
     if (dialogAvailable) setDialogOpen(true);
+  };
+
+  const handleCommitted = (result: CommitDutyResult) => {
+    const nextFire = result.nextFireAt
+      ? new Date(result.nextFireAt).toLocaleString(undefined, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null;
+    const who = workerName ?? "She";
+    toastSuccess("Added the new responsibility.", {
+      description: nextFire
+        ? `${result.duty.label}. ${who}'s next run kicks off ${nextFire}.`
+        : `${result.duty.label}.`,
+      duration: 6000,
+      id: `duty-added-${result.duty.id ?? result.duty.label}`,
+    });
+    setDialogOpen(false);
   };
 
   return (
@@ -112,65 +128,10 @@ export function DutiesCard({
           onOpenChange={setDialogOpen}
           workerId={workerId!}
           workerName={workerName!}
-          onCommitted={(result) => {
-            setConfirmation(result);
-            setDialogOpen(false);
-          }}
-        />
-      ) : null}
-
-      {confirmation ? (
-        <DutyAddedToast
-          workerName={workerName ?? "She"}
-          result={confirmation}
-          onClose={() => setConfirmation(null)}
+          onCommitted={handleCommitted}
         />
       ) : null}
     </Card>
-  );
-}
-
-function DutyAddedToast({
-  workerName,
-  result,
-  onClose,
-}: {
-  workerName: string;
-  result: CommitDutyResult;
-  onClose: () => void;
-}) {
-  const nextFire = result.nextFireAt
-    ? new Date(result.nextFireAt).toLocaleString(undefined, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      data-testid="duty-added-toast"
-      className="fixed bottom-6 right-6 z-40 max-w-sm rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--card-foreground)] shadow-lg"
-    >
-      <p className="font-medium text-[var(--foreground)]">
-        Added the new responsibility.
-      </p>
-      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-        {result.duty.label}.
-        {nextFire ? ` ${workerName}'s next run kicks off ${nextFire}.` : ""}
-      </p>
-      <button
-        type="button"
-        onClick={onClose}
-        data-testid="duty-added-toast-dismiss"
-        className="mt-2 text-xs text-[var(--primary)] underline-offset-4 hover:underline"
-      >
-        Dismiss
-      </button>
-    </div>
   );
 }
 

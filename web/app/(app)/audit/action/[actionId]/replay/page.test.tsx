@@ -45,6 +45,19 @@ vi.mock("@/lib/api/audit-detail", async () => {
   };
 });
 
+const toastInfoMock = vi.fn();
+vi.mock("@/lib/ui/use-toast", () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: toastInfoMock,
+    warning: vi.fn(),
+    loading: vi.fn(),
+    promise: vi.fn(),
+    dismiss: vi.fn(),
+  }),
+}));
+
 import { replayAction } from "@/lib/api/replay";
 import ReplayPage from "@/app/(app)/audit/action/[actionId]/replay/page";
 
@@ -138,6 +151,7 @@ beforeEach(() => {
   pushMock.mockClear();
   backMock.mockClear();
   mockedReplayAction.mockReset();
+  toastInfoMock.mockClear();
 });
 
 afterEach(() => {
@@ -234,7 +248,9 @@ describe("ReplayPage", () => {
     render(<PageWrapper />);
     await screen.findByTestId("replay-verdict-pill-reproducible");
     await user.click(screen.getByTestId("replay-export"));
-    expect(screen.getByTestId("replay-toast")).toHaveTextContent(/E5-e/);
+    expect(toastInfoMock).toHaveBeenCalledWith(
+      expect.stringMatching(/E5-e/),
+    );
   });
 
   it("renders the loading progress block before the outcome resolves", async () => {

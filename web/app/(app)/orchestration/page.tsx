@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Loader2 } from "lucide-react";
 import { QueueTable } from "@/components/skycot/orch/QueueTable";
 import { SlaCard } from "@/components/skycot/orch/SlaCard";
+import { useToast } from "@/lib/ui/use-toast";
 import {
   EMPTY_ORCHESTRATION_FILTERS,
   applyOrchestrationFilters,
@@ -23,7 +24,7 @@ export default function OrchestrationPage() {
   const [data, setData] = useState<FetchOrchestrationResult | null>(null);
   const [filters, setFilters] = useState<OrchestrationFilters>(EMPTY_ORCHESTRATION_FILTERS);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { success: toastSuccess, error: toastError } = useToast();
 
   useEffect(() => {
     let alive = true;
@@ -45,11 +46,19 @@ export default function OrchestrationPage() {
   const workers = useMemo(() => [...new Set(runs.map((run) => run.worker))].sort(), [runs]);
   const skills = useMemo(() => [...new Set(runs.map((run) => run.skill))].sort(), [runs]);
 
-  async function runAction(label: string, op: () => Promise<void>) {
-    await op();
-    setToast(label);
-    window.setTimeout(() => setToast(null), 1800);
-  }
+  const runAction = useCallback(
+    async (label: string, op: () => Promise<void>) => {
+      try {
+        await op();
+        toastSuccess(label);
+      } catch (err) {
+        toastError(`${label} failed`, {
+          description: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    },
+    [toastSuccess, toastError],
+  );
 
   return (
     <>
@@ -70,11 +79,6 @@ export default function OrchestrationPage() {
       </div>
 
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6 lg:px-8" data-testid="orchestration-page">
-        {toast ? (
-          <div className="rounded-[var(--radius-md)] border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {toast}
-          </div>
-        ) : null}
         {error ? <ErrorState message={error} /> : null}
         {!data && !error ? <LoadingState /> : null}
         {data ? (

@@ -12,9 +12,8 @@ import {
 } from "react";
 import { ChevronDown, Plus, Search, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
-import { Toast, ToastProvider, ToastViewport } from "@/components/ui/Toast";
 import { TeamEmptyState } from "@/components/skycot/TeamEmptyState";
-import { TeammateCard, type TeammateCardToast } from "@/components/skycot/TeammateCard";
+import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
 import { TeamFilterChipRail } from "@/components/skycot/TeamFilterChipRail";
@@ -63,15 +62,6 @@ function TeamPageContent() {
   const router = useRouter();
   const pathname = usePathname() ?? "/team";
   const searchParams = useSearchParams();
-  const [toasts, setToasts] = useState<TeammateCardToast[]>([]);
-
-  const showToast = useCallback((toast: TeammateCardToast) => {
-    setToasts((prev) => [...prev, toast]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
 
   const filters = useMemo<TeamFilters>(
     () => parseTeamFilters(searchParams ?? new URLSearchParams("")),
@@ -147,7 +137,7 @@ function TeamPageContent() {
   );
 
   return (
-    <ToastProvider swipeDirection="right" duration={5000}>
+    <>
       <PageHeader
         total={total}
         filteredCount={filtered.length}
@@ -170,25 +160,12 @@ function TeamPageContent() {
         ) : (
           <TeammateGrid>
             {filtered.map((w) => (
-              <TeammateCard key={w.id} worker={w} onShowToast={showToast} />
+              <TeammateCard key={w.id} worker={w} />
             ))}
           </TeammateGrid>
         )}
       </div>
-
-      {toasts.map((t) => (
-        <Toast
-          key={t.id}
-          tone={t.tone}
-          title={t.title}
-          data-testid={`team-toast-${t.id}`}
-          onOpenChange={(open) => {
-            if (!open) dismissToast(t.id);
-          }}
-        />
-      ))}
-      <ToastViewport />
-    </ToastProvider>
+    </>
   );
 }
 

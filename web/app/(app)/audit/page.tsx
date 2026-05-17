@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AuditIllustration } from "@/components/empty-state/illustrations/AuditIllustration";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/lib/ui/use-toast";
 import { AuditDayGroup } from "@/components/skycot/audit/AuditDayGroup";
 import { AuditFilterChipRail } from "@/components/skycot/audit/AuditFilterChipRail";
 import { AuditFilterPopover } from "@/components/skycot/audit/AuditFilterPopover";
@@ -83,7 +84,7 @@ function AuditPageContent() {
   const [searchInput, setSearchInput] = useState(q ?? "");
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [pendingFilters, setPendingFilters] = useState<AuditMultiFilters | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { info: toastInfo } = useToast();
   const [exporterOpen, setExporterOpen] = useState(false);
   const feed = useAuditFeed(feedFilters);
 
@@ -111,23 +112,16 @@ function AuditPageContent() {
     return () => window.clearTimeout(handle);
   }, [pendingFilters, router, pathname, searchParams]);
 
-  // Auto-clear placeholder toast after 2.5s.
-  useEffect(() => {
-    if (!toast) return;
-    const handle = window.setTimeout(() => setToast(null), 2500);
-    return () => window.clearTimeout(handle);
-  }, [toast]);
-
   const onRangeChange = useCallback(
     (next: AuditRangePreset | "custom") => {
       if (next === "custom") {
-        setToast("Custom range picker ships in E5-b");
+        toastInfo("Custom range picker ships in E5-b");
         return;
       }
       const param = next === DEFAULT_AUDIT_RANGE ? null : next;
       writeSingleParam(router, pathname, searchParams, "range", param);
     },
-    [router, pathname, searchParams],
+    [router, pathname, searchParams, toastInfo],
   );
 
   const onToggleFilter = useCallback(
@@ -264,17 +258,8 @@ function AuditPageContent() {
           tenantId="tenant_default"
           tenantLabel="Default tenant"
           initialScope={{ kind: "filtered" }}
-          onToast={setToast}
+          onToast={toastInfo}
         />
-      ) : null}
-      {toast ? (
-        <div
-          role="status"
-          data-testid="audit-toast"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm text-[var(--foreground)] shadow-md"
-        >
-          {toast}
-        </div>
       ) : null}
     </>
   );
