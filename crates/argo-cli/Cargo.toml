@@ -69,6 +69,7 @@ argo-executor-document = { path = "../argo-executor-document" }
 argo-executor-document-csv = { path = "../argo-executor-document-csv" }
 argo-executor-document-gsuite = { path = "../argo-executor-document-gsuite" }
 argo-executor-filesystem = { path = "../argo-executor-filesystem" }
+argo-email-templates = { path = "../argo-email-templates" }
 argo-genesis = { path = "../argo-genesis" }
 argo-identity = { path = "../argo-identity" }
 # Ed25519 signature verification for `argo self-update` (release

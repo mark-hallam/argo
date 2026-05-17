@@ -405,6 +405,7 @@ dependencies = [
  "argo-config",
  "argo-credentials",
  "argo-cron",
+ "argo-email-templates",
  "argo-eval",
  "argo-executor-computer-use",
  "argo-executor-computer-use-linux",

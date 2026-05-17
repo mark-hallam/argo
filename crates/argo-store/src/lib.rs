@@ -254,6 +254,12 @@ pub mod worker_presence;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
 pub mod workflow_checkpoint;
 mod workspace;
+/// Magic-link token storage backing the gateway self-serve signup
+/// flow (Stream `claude-magic-link-auth-backend`). The user/tenant
+/// substrate (`user_account`, `user_tenant`) ships separately via
+/// `argo-identity::{user_store, user_tenant_store}`; this module
+/// owns only the `magic_link_tokens` table.
+pub mod user_account;
 
 pub use argo_runtime::prompt_cache_affinity::PromptCacheAffinity;
 pub use grants::SessionGrant;

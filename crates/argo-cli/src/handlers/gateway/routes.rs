@@ -81,6 +81,13 @@ async fn dispatch_route_inner(
     {
         return super::billing::webhook_response(req, store).await;
     }
+    // Magic-link signup + verify
+    // (claude-magic-link-auth-backend). Mounted ahead of the bearer-
+    // auth gate so anonymous browsers can complete the self-serve
+    // signup flow at `app.skycot.com/signup`.
+    if let Some(resp) = super::auth_magic_link::dispatch(req, store).await {
+        return resp;
+    }
     // Web dashboard MVP (`claude-web-dashboard-mvp`). Mounted ahead
     // of the bearer-token gate so the operator UX works in a browser
     // without provisioning a per-tab token; mutating actions still
