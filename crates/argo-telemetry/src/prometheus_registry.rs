@@ -42,6 +42,8 @@ use prometheus::{
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
+use crate::cardinality::{self, Decision, FamilyKind};
+
 /// Histogram buckets for `gateway_request_duration_seconds`. 10
 /// boundary values → 11 buckets per the prometheus convention
 /// (`+Inf` is implicit). Matches the brief's exponential ladder.
@@ -347,6 +349,73 @@ pub fn workflow_cron_tick_total() -> IntCounterVec {
     )
 }
 
+/// `argo_metric_cardinality_capped_total{metric}` — self-tracking
+/// counter that increments every time the cardinality cap drops a new
+/// label set on a family. Its own label cardinality is bounded by the
+/// number of distinct metric families registered (a small constant),
+/// so this counter does not itself cardinality-bomb.
+#[must_use]
+pub fn cardinality_capped_total() -> IntCounterVec {
+    register_counter(
+        "argo_metric_cardinality_capped_total",
+        "Per-family count of label sets dropped by the cardinality cap",
+        &["metric"],
+    )
+}
+
+/// Gate a `with_label_values(...)` callsite through the process-global
+/// cardinality tracker. Returns [`Decision::Allow`] when the caller may
+/// record the series, [`Decision::Drop`] when the family is over its
+/// hard cap. On `Drop` the self-tracking counter
+/// `argo_metric_cardinality_capped_total{metric}` is incremented.
+///
+/// Callers should call this BEFORE `.with_label_values(...)`. Existing
+/// brief-specified families in `routes_openmetrics.rs` are
+/// cardinality-bounded by design (`method`, `path`-template, `status`,
+/// `scope`, etc.) and do not call through — the tracker exists for
+/// future families whose label space is operator-driven (`tenant_id`,
+/// user agent, etc.) where a buggy emit path could explode the
+/// cardinality bill.
+///
+/// `kind` selects the default cap: histograms get 1000, counters and
+/// gauges get 5000. Operator overrides via
+/// `[telemetry.prometheus.cardinality_cap]` (see
+/// `argo_config::TelemetryPrometheusCardinalityCapConfig`) apply
+/// regardless.
+#[must_use]
+pub fn observe_cardinality(metric: &str, labels: &[&str], kind: FamilyKind) -> Decision {
+    let decision = cardinality::global_tracker().observe_kind(metric, labels, kind);
+    if matches!(decision, Decision::Drop) {
+        cardinality_capped_total()
+            .with_label_values(&[metric])
+            .inc();
+    }
+    decision
+}
+
+/// Convenience for counter and gauge families (the looser default).
+#[must_use]
+pub fn observe_counter_cardinality(metric: &str, labels: &[&str]) -> Decision {
+    observe_cardinality(metric, labels, FamilyKind::CounterGauge)
+}
+
+/// Convenience for histogram and summary families (the tighter default).
+#[must_use]
+pub fn observe_histogram_cardinality(metric: &str, labels: &[&str]) -> Decision {
+    observe_cardinality(metric, labels, FamilyKind::Histogram)
+}
+
+/// Snapshot of per-family cardinality state for `/metrics/cardinality`.
+#[must_use]
+pub fn cardinality_snapshot() -> Vec<cardinality::FamilyReport> {
+    cardinality::global_tracker().snapshot()
+}
+
+/// Replace the per-family caps at boot or on config reload.
+pub fn set_cardinality_caps(caps: cardinality::Caps) {
+    cardinality::global_tracker().set_caps(caps);
+}
+
 /// Materialise zero-valued init children for the production-metric
 /// families so the first scrape after gateway boot already lists every
 /// expected `# HELP` / `# TYPE` line. Prometheus elides empty families
@@ -372,6 +441,12 @@ pub fn ensure_production_metrics_registered() {
             .inc_by(0);
         workflow_cron_tick_total()
             .with_label_values(&["init", "init"])
+            .inc_by(0);
+        // Self-tracking cap counter — materialise an init child so the
+        // family appears in the very first scrape even when no metric
+        // has hit its hard cap yet.
+        cardinality_capped_total()
+            .with_label_values(&["init"])
             .inc_by(0);
     });
 }

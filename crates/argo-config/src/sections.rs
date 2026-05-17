@@ -45,7 +45,9 @@ pub use crate::sections_security::{
 pub use crate::sections_siem::SiemConfig;
 pub use crate::sections_sso::{SsoConfig, SsoOidcTenant, SsoSamlTenant};
 pub use crate::sections_storage::{StorageConfig, StorageTenantConfig};
-pub use crate::sections_telemetry::TelemetryConfig;
+pub use crate::sections_telemetry::{
+    TelemetryConfig, TelemetryPrometheusCardinalityCapConfig, TelemetryPrometheusConfig,
+};
 
 /// `[skill_learning]` — autonomous per-worker skill-learning cron.
 ///

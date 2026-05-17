@@ -81,7 +81,8 @@ pub use sections::{
     LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
     RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
     SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant,
-    StorageConfig, StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig,
+    StorageConfig, StorageTenantConfig, TeamsTomlConfig, TelemetryConfig,
+    TelemetryPrometheusCardinalityCapConfig, TelemetryPrometheusConfig, TenantConfig,
     VoiceTomlConfig, WebInboxTomlConfig,
 };
 pub use sections_context::{

@@ -44,6 +44,14 @@ pub const DEFAULT_AUTH_PROVIDER: &str = "none";
 /// `telemetry.enabled` default.
 pub const DEFAULT_TELEMETRY_ENABLED: bool = true;
 
+/// `telemetry.prometheus.cardinality_cap.histogram_default` default —
+/// matches `argo_telemetry::cardinality::DEFAULT_HISTOGRAM_CAP`.
+pub const DEFAULT_CARDINALITY_CAP_HISTOGRAM: u32 = 1000;
+
+/// `telemetry.prometheus.cardinality_cap.counter_gauge_default`
+/// default — matches `argo_telemetry::cardinality::DEFAULT_COUNTER_GAUGE_CAP`.
+pub const DEFAULT_CARDINALITY_CAP_COUNTER_GAUGE: u32 = 5000;
+
 /// `telemetry.exporter` default.
 pub const DEFAULT_TELEMETRY_EXPORTER: &str = "stdout";
 

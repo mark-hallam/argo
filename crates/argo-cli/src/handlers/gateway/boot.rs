@@ -101,6 +101,7 @@ pub(super) async fn start(
         cfg.merge(env_cfg);
     }
     let _error_reporting = super::boot_telemetry::init_gateway_error_reporting(&cfg);
+    super::boot_telemetry_admin::apply_cardinality_caps(&cfg.telemetry.prometheus.cardinality_cap);
     let gateway_cfg = cfg.gateway.clone();
     let behind_proxy = gateway_cfg.behind_proxy.clone();
     let request_audit_cfg = gateway_cfg.request_audit.clone();
@@ -367,6 +368,7 @@ pub(super) async fn start(
                     let body_len = request_audit::response_body_len_from_bytes(&bytes);
                     request_audit::spawn_record(audit.take(), store.as_ref(), "200 OK", body_len);
                     let _ = stream.shutdown().await;
+                } else if super::boot_telemetry_admin::try_serve(req, &mut stream).await {
                 } else if routes_openmetrics::is_openmetrics_request(req) {
                     let bytes = routes_openmetrics::http_response();
                     let _ = stream.write_all(&bytes).await;

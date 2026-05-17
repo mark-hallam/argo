@@ -106,3 +106,42 @@ fn register_scalar_gauge_set_visible_in_encoded_output() {
         "scalar gauge value should appear in encoded output:\n{text}"
     );
 }
+
+#[test]
+fn observe_cardinality_drops_past_cap_and_increments_self_counter() {
+    // Replace caps so the global tracker has a tiny cap for this
+    // family — the test then pushes well past it.
+    set_cardinality_caps(
+        cardinality::Caps::defaults()
+            .with_override("test_observe_cap_metric_total", 25),
+    );
+    let mut drops = 0_u64;
+    for i in 0..200_u32 {
+        let label = format!("series_{i}");
+        if matches!(
+            observe_cardinality(
+                "test_observe_cap_metric_total",
+                &[label.as_str()],
+                cardinality::FamilyKind::CounterGauge,
+            ),
+            cardinality::Decision::Drop
+        ) {
+            drops += 1;
+        }
+    }
+    assert!(
+        drops > 0,
+        "expected at least one Drop once HLL crosses the cap"
+    );
+    let text = encode_text();
+    assert!(
+        text.contains("argo_metric_cardinality_capped_total"),
+        "self-counter family should appear in encoded output:\n{text}"
+    );
+    assert!(
+        text.contains("test_observe_cap_metric_total"),
+        "self-counter should carry the offending metric label value:\n{text}"
+    );
+    // Reset caps so the next test (whatever order) sees defaults.
+    set_cardinality_caps(cardinality::Caps::defaults());
+}

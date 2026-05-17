@@ -1,9 +1,11 @@
-//! Telemetry config sections: `[telemetry]` and
-//! `[telemetry.log_shipping]`. Extracted from [`crate::sections`] to
-//! keep that module under the 500-LOC ceiling. Re-exported through
-//! `sections` so the public API is unchanged.
+//! Telemetry config sections: `[telemetry]`, `[telemetry.log_shipping]`,
+//! `[telemetry.context]`, and `[telemetry.prometheus.cardinality_cap]`.
+//! Extracted from [`crate::sections`] to keep that module under the
+//! 500-LOC ceiling. Re-exported through `sections` so the public API is
+//! unchanged.
 use crate::defaults;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// `[telemetry]`.
 ///
@@ -32,6 +34,11 @@ pub struct TelemetryConfig {
     /// `mission-structured-logging-tenant-worker-session`). Off by
     /// default; opt-in for operators with a structured log pipeline.
     pub context: TelemetryContextConfig,
+    /// `[telemetry.prometheus]` — Prometheus-exporter knobs. Currently
+    /// hosts the cardinality cap block; future Prometheus settings
+    /// (sample-rate, label-renames) can slot in alongside without
+    /// disturbing existing operator TOML.
+    pub prometheus: TelemetryPrometheusConfig,
 }
 
 impl Default for TelemetryConfig {
@@ -42,6 +49,62 @@ impl Default for TelemetryConfig {
             endpoint: String::new(),
             log_shipping: TelemetryLogShippingConfig::default(),
             context: TelemetryContextConfig::default(),
+            prometheus: TelemetryPrometheusConfig::default(),
+        }
+    }
+}
+
+/// `[telemetry.prometheus]` — Prometheus-specific telemetry config.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::TelemetryConfig;
+/// let cfg = TelemetryConfig::default();
+/// assert_eq!(cfg.prometheus.cardinality_cap.histogram_default, 1000);
+/// ```
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TelemetryPrometheusConfig {
+    /// `[telemetry.prometheus.cardinality_cap]` — per-family cap on
+    /// distinct label-set count. Above cap, new label sets are dropped
+    /// and `argo_metric_cardinality_capped_total{metric}` increments.
+    pub cardinality_cap: TelemetryPrometheusCardinalityCapConfig,
+}
+
+/// `[telemetry.prometheus.cardinality_cap]` — operator override for
+/// the Prometheus cardinality cap. Defaults: 1000 series per histogram
+/// family, 5000 per counter or gauge family. The cap uses a
+/// HyperLogLog estimator with ~3% standard error, so a configured cap
+/// of 1000 may fire anywhere between roughly 950 and 1050 actual
+/// series — document this in operator runbooks before tuning the cap
+/// downward.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::TelemetryConfig;
+/// let cfg = TelemetryConfig::default();
+/// assert_eq!(cfg.prometheus.cardinality_cap.counter_gauge_default, 5000);
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TelemetryPrometheusCardinalityCapConfig {
+    /// Default cap for histogram and summary metrics.
+    pub histogram_default: u32,
+    /// Default cap for counter and gauge metrics.
+    pub counter_gauge_default: u32,
+    /// Per-metric overrides keyed by metric family name. Wins over
+    /// the kind-based defaults when present.
+    pub per_metric: HashMap<String, u32>,
+}
+
+impl Default for TelemetryPrometheusCardinalityCapConfig {
+    fn default() -> Self {
+        Self {
+            histogram_default: defaults::DEFAULT_CARDINALITY_CAP_HISTOGRAM,
+            counter_gauge_default: defaults::DEFAULT_CARDINALITY_CAP_COUNTER_GAUGE,
+            per_metric: HashMap::new(),
         }
     }
 }

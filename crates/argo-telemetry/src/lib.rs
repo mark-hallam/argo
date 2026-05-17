@@ -16,6 +16,10 @@
 mod sink;
 mod tracing_sink;
 
+/// Process-global cardinality cap for Prometheus metric families.
+/// Protects operator scrape bills against own-goal cardinality
+/// explosions (e.g. an emit path that puts `tenant_id` on a label).
+pub mod cardinality;
 pub mod error_reporting;
 pub mod http_target;
 pub mod metrics_prompt_cache;
