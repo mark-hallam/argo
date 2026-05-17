@@ -1,19 +1,25 @@
 //! Tenant-scoped orchestrator session + handoff gateway routes.
 //!
-//! Handoff sub-resource handlers live in
-//! [`super::routes_orchestrator_handoffs`] to keep this file under the
-//! 500-LOC budget. They are re-exported below so the dispatcher (and
-//! external callers, if any) resolve the same paths as before the split.
-use argo_orchestrator::{HandoffStatus, OrchestratorStore, Session, SessionStatus};
+//! Handler implementations live in sibling modules so this file stays under
+//! the 500-LOC budget. The dispatcher in [`dispatch_route`] still owns auth,
+//! schema-ensure, and method/path matching.
+//!
+//! - Session lifecycle handlers: [`super::routes_orchestrator_sessions`].
+//! - Handoff sub-resource handlers: [`super::routes_orchestrator_handoffs`].
+//! - SLA sub-resource handlers: [`super::routes_orchestrator_slas`].
+
+use argo_orchestrator::OrchestratorStore;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
-use sqlx::Row;
 use std::sync::Arc;
 
 pub(super) use super::routes_orchestrator_handoffs::{
     handoff_json, list_handoffs, patch_handoff, show_handoff,
+};
+pub(super) use super::routes_orchestrator_sessions::{
+    create_session, list_sessions, patch_session, show_session,
 };
 
 pub(super) async fn dispatch_route(
@@ -71,105 +77,6 @@ async fn route(
         }
         _ => Err(not_found()),
     }
-}
-
-async fn create_session(
-    repo: &OrchestratorStore,
-    tenant: TenantId,
-    body: Option<&Value>,
-) -> Result<(&'static str, String), (&'static str, String)> {
-    let title = body
-        .and_then(|v| v.get("title"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| bad("missing title"))?;
-    let session = Session::new(tenant, title);
-    repo.insert_session(&session).await.map_err(server)?;
-    Ok(("201 Created", to_body(&session)))
-}
-
-async fn show_session(
-    repo: &OrchestratorStore,
-    tenant: TenantId,
-    path: &str,
-) -> Result<(&'static str, String), (&'static str, String)> {
-    let id = path_id(path, "/sessions/")?;
-    let sid = argo_orchestrator::SessionId::from_string(id.to_string());
-    let session = repo
-        .find_session(tenant, &sid)
-        .await
-        .map_err(server)?
-        .ok_or_else(not_found)?;
-    let pending: Vec<_> = repo
-        .list_handoffs_for_session(tenant, &sid)
-        .await
-        .map_err(server)?
-        .into_iter()
-        .filter(|h| h.status == HandoffStatus::Pending)
-        .map(|h| handoff_json(&h))
-        .collect();
-    Ok((
-        "200 OK",
-        to_body(
-            &json!({"session":session,"participants":session.participants,"pending_handoffs":pending}),
-        ),
-    ))
-}
-
-async fn patch_session(
-    repo: &OrchestratorStore,
-    tenant: TenantId,
-    path: &str,
-    body: Option<&Value>,
-) -> Result<(&'static str, String), (&'static str, String)> {
-    let id = path_id(path.trim_end_matches("/status"), "/sessions/")?;
-    let status = match body.and_then(|v| v.get("status")).and_then(Value::as_str) {
-        Some("resolved") => SessionStatus::Resolved,
-        Some("cancelled") => SessionStatus::Cancelled,
-        Some(_) => return Err(bad("status must be resolved|cancelled")),
-        None => return Err(bad("missing status")),
-    };
-    let sid = argo_orchestrator::SessionId::from_string(id.to_string());
-    repo.update_session_status(tenant, &sid, status)
-        .await
-        .map_err(conflict_or_server)?;
-    show_session(repo, tenant, &format!("/sessions/{id}")).await
-}
-
-async fn list_sessions(
-    store: &SessionStore,
-    target: &str,
-    tenant: TenantId,
-) -> Result<(&'static str, String), (&'static str, String)> {
-    let q = query(target, &["tenant", "status", "limit"])?;
-    let status = q.get("status").map(String::as_str);
-    let limit = q
-        .get("limit")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(50)
-        .clamp(1, 500);
-    let mut sql = "SELECT id,title,status,participants,created_at,deadline FROM session WHERE tenant_id=? AND provider='orchestrator'".to_string();
-    if status.is_some() {
-        sql.push_str(" AND status=?");
-    }
-    sql.push_str(" ORDER BY created_at DESC LIMIT ?");
-    let mut stmt = sqlx::query(&sql).bind(tenant.0.as_bytes().as_slice());
-    if let Some(s) = status {
-        if !matches!(s, "active" | "resolved" | "cancelled" | "expired") {
-            return Err(bad("status must be active|resolved|cancelled|expired"));
-        }
-        stmt = stmt.bind(s);
-    }
-    let rows = stmt
-        .bind(limit)
-        .fetch_all(store.pool())
-        .await
-        .map_err(server)?;
-    let out: Vec<_> = rows
-        .iter()
-        .map(session_row_json)
-        .collect::<ArgoResult<_>>()
-        .map_err(server)?;
-    Ok(("200 OK", to_body(&json!({"sessions":out}))))
 }
 
 fn is_orchestrator_path(method: &str, path: &str, req: &str) -> bool {
@@ -252,14 +159,6 @@ pub(super) fn path_id<'a>(path: &'a str, prefix: &str) -> Result<&'a str, (&'sta
     path.strip_prefix(prefix)
         .filter(|id| !id.is_empty() && !id.contains('/'))
         .ok_or_else(not_found)
-}
-
-fn session_row_json(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<Value> {
-    let id: Vec<u8> = row.try_get("id").map_err(db)?;
-    let participants: String = row.try_get("participants").map_err(db)?;
-    Ok(
-        json!({"id":uuid_blob(&id)?,"title":row.try_get::<Option<String>,_>("title").map_err(db)?,"status":row.try_get::<String,_>("status").map_err(db)?,"participants":serde_json::from_str::<Value>(&participants).unwrap_or_else(|_| json!([])),"created_at":micros(row.try_get("created_at").map_err(db)?)?,"deadline":opt_micros(row.try_get("deadline").map_err(db)?)?}),
-    )
 }
 
 pub(super) fn uuid_blob(bytes: &[u8]) -> ArgoResult<String> {
@@ -359,175 +258,5 @@ pub(super) fn conflict_or_server(e: ArgoError) -> (&'static str, String) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use argo_identity::WorkerId;
-    use argo_orchestrator::{EscalationStep, Handoff};
-    static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
-    fn req(method: &str, target: &str, token: Option<&str>, body: &str) -> String {
-        let auth = token
-            .map(|t| format!("Authorization: Bearer {t}\r\n"))
-            .unwrap_or_default();
-        format!("{method} {target} HTTP/1.1\r\n{auth}\r\n{body}")
-    }
-
-    async fn store() -> Arc<SessionStore> {
-        let store = SessionStore::open(":memory:").await.unwrap();
-        store.migrate().await.unwrap();
-        Arc::new(store)
-    }
-
-    #[tokio::test]
-    async fn orchestrator_routes_auth_and_lifecycle() {
-        let _guard = ENV_LOCK.lock().await;
-        std::env::set_var("ARGO_WEBINBOX_BEARER_TOKEN", "tok");
-        std::env::set_var(
-            "ARGO_WEBINBOX_TENANT_ID",
-            "019aff00-0000-7000-8000-000000000101",
-        );
-        let store = store().await;
-        let tenant = "019aff00-0000-7000-8000-000000000101";
-        let other = "019aff00-0000-7000-8000-000000000102";
-        assert_eq!(
-            dispatch_route(
-                &req("GET", &format!("/sessions?tenant={tenant}"), None, ""),
-                Some(&store)
-            )
-            .await
-            .unwrap()
-            .0,
-            "401 Unauthorized"
-        );
-        assert_eq!(
-            dispatch_route(
-                &req(
-                    "GET",
-                    &format!("/sessions?tenant={tenant}"),
-                    Some("bad"),
-                    ""
-                ),
-                Some(&store)
-            )
-            .await
-            .unwrap()
-            .0,
-            "401 Unauthorized"
-        );
-        assert_eq!(
-            dispatch_route(
-                &req("GET", &format!("/sessions?tenant={other}"), Some("tok"), ""),
-                Some(&store)
-            )
-            .await
-            .unwrap()
-            .0,
-            "403 Forbidden"
-        );
-        assert_eq!(
-            dispatch_route(
-                &req(
-                    "GET",
-                    &format!("/sessions?tenant={tenant}&oops=1"),
-                    Some("tok"),
-                    ""
-                ),
-                Some(&store)
-            )
-            .await
-            .unwrap()
-            .0,
-            "400 Bad Request"
-        );
-        let (status, body) = dispatch_route(
-            &req(
-                "POST",
-                "/sessions",
-                Some("tok"),
-                &json!({"tenant_id":tenant,"title":"demo"}).to_string(),
-            ),
-            Some(&store),
-        )
-        .await
-        .unwrap();
-        assert_eq!(status, "201 Created");
-        let sid = serde_json::from_str::<Value>(&body).unwrap()["id"]
-            .as_str()
-            .unwrap()
-            .to_string();
-        let repo = OrchestratorStore::new(Arc::clone(&store));
-        let from = WorkerId::new();
-        let to = WorkerId::new();
-        let h = Handoff::new(
-            argo_orchestrator::SessionId::from_string(sid.clone()),
-            from,
-            EscalationStep::Worker(to),
-            "finish",
-            json!({"k":1}),
-        );
-        repo.insert_handoff(TenantId(uuid::Uuid::parse_str(tenant).unwrap()), &h)
-            .await
-            .unwrap();
-        for target in [
-            format!("/sessions?tenant={tenant}&status=active"),
-            format!("/sessions/{sid}?tenant={tenant}"),
-            format!("/handoffs?tenant={tenant}&session={sid}"),
-            format!("/handoffs/{}?tenant={tenant}", h.id),
-        ] {
-            assert_eq!(
-                dispatch_route(&req("GET", &target, Some("tok"), ""), Some(&store))
-                    .await
-                    .unwrap()
-                    .0,
-                "200 OK"
-            );
-        }
-        assert_eq!(
-            dispatch_route(
-                &req(
-                    "PATCH",
-                    &format!("/handoffs/{}/status?tenant={tenant}", h.id),
-                    Some("tok"),
-                    r#"{"status":"acknowledged"}"#
-                ),
-                Some(&store)
-            )
-            .await
-            .unwrap()
-            .0,
-            "200 OK"
-        );
-        assert_eq!(
-            dispatch_route(
-                &req(
-                    "PATCH",
-                    &format!("/sessions/{sid}/status?tenant={tenant}"),
-                    Some("tok"),
-                    r#"{"status":"resolved"}"#
-                ),
-                Some(&store)
-            )
-            .await
-            .unwrap()
-            .0,
-            "200 OK"
-        );
-        assert_eq!(
-            dispatch_route(
-                &req(
-                    "PATCH",
-                    &format!("/sessions/{sid}/status?tenant={tenant}"),
-                    Some("tok"),
-                    r#"{"status":"cancelled"}"#
-                ),
-                Some(&store)
-            )
-            .await
-            .unwrap()
-            .0,
-            "409 Conflict"
-        );
-        std::env::remove_var("ARGO_WEBINBOX_BEARER_TOKEN");
-        std::env::remove_var("ARGO_WEBINBOX_TENANT_ID");
-    }
-}
+#[path = "routes_orchestrator_tests.rs"]
+mod tests;

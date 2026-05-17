@@ -140,13 +140,15 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Cred { cmd } => main_dispatch_setup::cred(cmd),
         Command::Backup { cmd } => main_dispatch_setup::backup(cmd).await,
         Command::Restore { args } => main_dispatch_setup::restore(args).await,
-        Command::Completions { shell } => handlers::completions::run(shell),
-        Command::SelfUpdate {
+        Command::Release(cli::ReleaseCmd::Completions { shell }) => {
+            handlers::completions::run(shell)
+        }
+        Command::Release(cli::ReleaseCmd::SelfUpdate {
             check,
             channel,
             force,
             json,
-        } => main_dispatch_setup::self_update(check, channel, force, json).await,
+        }) => main_dispatch_setup::self_update(check, channel, force, json).await,
         // Vertical-template / cost-control surfaces.
         Command::Vertical { cmd } => main_dispatch_vertical::vertical(cmd).await,
         Command::Genesis { cmd } => main_dispatch_vertical::genesis(cmd),

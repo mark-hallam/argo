@@ -4,38 +4,14 @@
 //! diagnostics, system ops) live in the sibling
 //! `cli_runtime_cmds::RuntimeCmd` enum and are folded back in here
 //! via `#[command(flatten)]` — so the `argo --help` subcommand list
-//! is identical pre/post split.
+//! is identical pre/post split. The same pattern is reused for the
+//! release-management `cli_release_cmds::ReleaseCmd` enum
+//! (`self-update`, `completions`) and for cloud-sandbox lifecycle
+//! (`cli_sandbox_cmds::SandboxCmd`) which keeps its own nested
+//! subcommand group.
 
 use super::*;
 use clap::Subcommand;
-
-/// Cloud-sandbox CLI surface (Stream `mission-e2b-reap-idle`). E2B
-/// today; AWS/GCP CU sandboxes when those land.
-#[derive(Subcommand, Debug)]
-pub enum SandboxCmd {
-    /// E2B managed-sandbox ops.
-    E2b {
-        #[command(subcommand)]
-        cmd: E2bSandboxCmd,
-    },
-}
-
-/// E2B-specific sandbox subcommands.
-#[derive(Subcommand, Debug)]
-pub enum E2bSandboxCmd {
-    /// JSON-line list of all sandboxes the configured E2B API key owns.
-    List,
-    /// One-shot reap of sandboxes idle longer than `--max-age` seconds.
-    /// Emits a single JSON summary object.
-    ReapIdle {
-        /// Idle-time threshold in seconds. Default 600 (10 minutes).
-        #[arg(long, default_value_t = 600)]
-        max_age: u64,
-        /// List the would-be-reaped sandboxes without closing them.
-        #[arg(long)]
-        dry_run: bool,
-    },
-}
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
@@ -169,7 +145,7 @@ pub enum Command {
     /// in-band Drop path.
     Sandbox {
         #[command(subcommand)]
-        cmd: SandboxCmd,
+        cmd: cli_sandbox_cmds::SandboxCmd,
     },
     /// Org chart, addressable names, manager chain
     /// (`claude-org-awareness`).
@@ -432,31 +408,6 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_trust_cmds::TrustCmd,
     },
-    /// Verified binary self-upgrade (Stream `codex-self-update-cli`,
-    /// V1.4). Queries GitHub Releases for a newer build, downloads
-    /// the platform asset + detached Ed25519 signature, verifies
-    /// against the embedded release pubkey, and atomically replaces
-    /// the running binary. Best-effort gateway daemon restart.
-    #[command(after_help = "Examples:\n  \
-        argo self-update --check\n  \
-        argo self-update\n  \
-        argo self-update --channel beta --force --json")]
-    SelfUpdate {
-        /// Report the latest available version without installing.
-        #[arg(long)]
-        check: bool,
-        /// Release channel: `stable` (default) or `beta` (allows
-        /// pre-release tags).
-        #[arg(long, default_value = "stable")]
-        channel: String,
-        /// Skip the "already on latest" short-circuit and reinstall.
-        /// Never bypasses signature verification.
-        #[arg(long)]
-        force: bool,
-        /// Emit a JSON envelope instead of human-readable status.
-        #[arg(long)]
-        json: bool,
-    },
     /// Direct-action operator commands (session lifecycle, runtime
     /// diagnostics, system ops). Flattened into the top-level
     /// `--help` subcommand list — `argo new`, `argo chat`,
@@ -472,20 +423,12 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_wizard_cmds::WizardCmd,
     },
-    /// Print a shell completion script for `argo` to stdout
-    /// (Stream `mission-cli-shell-completions`). Pipe to the
-    /// shell's completion-loader path:
-    ///
-    /// ```text
-    /// argo completions bash > /usr/local/etc/bash_completion.d/argo
-    /// argo completions zsh  > "${fpath[1]}/_argo"
-    /// argo completions fish > ~/.config/fish/completions/argo.fish
-    /// ```
-    Completions {
-        /// Target shell — `bash`, `zsh`, `fish`, `powershell`, or
-        /// `elvish`. Validated by `clap_complete::Shell`.
-        shell: clap_complete::Shell,
-    },
+    /// Release management — `self-update`, `completions`. Flattened
+    /// into the top-level `--help` subcommand list so `argo
+    /// self-update` and `argo completions` resolve identically to
+    /// before the cli_release_cmds split.
+    #[command(flatten)]
+    Release(cli_release_cmds::ReleaseCmd),
     /// Coordinated security operations. Subcommands:
     /// - `audit` — vuln-scan wrapper around `cargo audit` +
     ///   `cargo deny check advisories` (Mission
