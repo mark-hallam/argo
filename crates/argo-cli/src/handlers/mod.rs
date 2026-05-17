@@ -201,6 +201,7 @@ pub mod provider_cache_stats;
 pub mod recover;
 pub mod recover_cache;
 pub mod recover_prompt;
+pub mod replay_export;
 pub mod resume;
 pub mod roster_add_member;
 pub mod roster_create;

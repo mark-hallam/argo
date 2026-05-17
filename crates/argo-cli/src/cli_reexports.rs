@@ -59,6 +59,8 @@ pub mod cli_plan_cmds;
 pub mod cli_policy_cmds;
 #[path = "cli_recover_cmds.rs"]
 pub mod cli_recover_cmds;
+#[path = "cli_replay_cmds.rs"]
+pub mod cli_replay_cmds;
 #[path = "cli_roster_cmds.rs"]
 pub mod cli_roster_cmds;
 #[path = "cli_session_cmds.rs"]

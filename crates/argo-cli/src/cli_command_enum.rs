@@ -402,6 +402,15 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_cu_cmds::CuCmd,
     },
+    /// Time-travel session replay surface. `export` emits a
+    /// self-contained tarball of one session (audit chain, attached
+    /// skills, per-action bundles, manifest with checksum) for
+    /// offline analysis or support hand-off
+    /// (`mission-replay-cli-bundle-export`).
+    Replay {
+        #[command(subcommand)]
+        cmd: cli_replay_cmds::ReplayCmd,
+    },
     /// Apply / validate / show a `<role>.contract.toml` delegation
     /// contract (Stream `claude-delegation-contract-template`,
     /// V1.1 mission claim 2). Single artefact that captures

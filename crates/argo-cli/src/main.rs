@@ -120,6 +120,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Feedback { cmd } => main_dispatch_audit::feedback(cmd).await,
         Command::Classify { cmd } => main_dispatch_audit::classify(cmd).await,
         Command::Cu { cmd } => main_dispatch_audit::cu(cmd).await,
+        Command::Replay { cmd } => main_dispatch_audit::replay(cmd).await,
         // Runtime-edge surfaces (gateway, daemon, connectors,
         // sandbox, security).
         Command::Gateway { cmd } => main_dispatch_gateway::gateway(cmd).await,

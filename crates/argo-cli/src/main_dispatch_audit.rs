@@ -212,3 +212,14 @@ pub(crate) async fn classify(cmd: cli::ClassifyCmd) -> ArgoResult<()> {
 pub(crate) async fn cu(cmd: cli::cli_cu_cmds::CuCmd) -> ArgoResult<()> {
     handlers::cu_replay::run(cmd).await
 }
+
+pub(crate) async fn replay(cmd: cli::cli_replay_cmds::ReplayCmd) -> ArgoResult<()> {
+    match cmd {
+        cli::cli_replay_cmds::ReplayCmd::Export {
+            session_id,
+            out,
+            uncompressed,
+            sanitize,
+        } => handlers::replay_export::run(&session_id, &out, uncompressed, sanitize).await,
+    }
+}
