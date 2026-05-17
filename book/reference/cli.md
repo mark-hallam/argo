@@ -101,6 +101,7 @@ Commands:
   cred              Workspace credential storage and shell export helpers
   backup            Workspace backup create/list/verify
   restore           Restore a workspace backup tarball
+  migrate           Data migrations (`mission-sqlcipher-3-migrate-cli`)
   daemon            macOS launchd-agent install/uninstall (Stream `claude-installer-macos`). Writes `~/Library/LaunchAgents/com.skycot.argo.plist` so the gateway starts on login + auto-restarts on crash. macOS-only
   connector         Manage OAuth and token credentials for MCP connectors
   work              Work queue v0 (#716). `add` enqueues a unit of work for a vertical-bound worker; `serve` runs a persistent loop that processes the queue using existing session + memory + chat primitives. Default provider `mock` works without an API key
@@ -132,6 +133,7 @@ Commands:
   genesis           Charter → vertical generator (#G-genesis). Operator describes a role in plain English; Genesis emits a complete `verticals/<id>/` tree with safety judge guarantees on every action
   messages          Workspace-wide message rollups. Mirrors the gateway's `/messages/*` family
   workspace         
+  config            Inspect the effective merged Argo configuration
   db                
   storage           
   costs             
@@ -149,9 +151,9 @@ Commands:
   subtask           Inspect the persistent subtask ledger (Stream `claude-subtask-ledger-store`). One row per node the Planner emits during decomposition; durable across restarts so operators can read a worker's plan after the fact
   import            
   cu                Computer-use trajectory inspection (`claude-cu-action-replay-cli`). `replay <session-id>` renders a recorded CU dispatch as markdown (+ optional GIF)
+  replay            Time-travel session replay surface. `export` emits a self-contained tarball of one session (audit chain, attached skills, per-action bundles, manifest with checksum) for offline analysis or support hand-off (`mission-replay-cli-bundle-export`)
   contract          Apply / validate / show a `<role>.contract.toml` delegation contract (Stream `claude-delegation-contract-template`, V1.1 mission claim 2). Single artefact that captures charter + duties + KPI definitions + objectives + KRs + success criteria; `apply` materialises it into an existing worker through the same identity / OKR primitives that `argo worker charter set` and `argo worker okr set` already use
   trust             Cross-tenant trust-graph queries (Stream `mission-cross-tenant-trust-graph`, MISSION_BACKLOG Section 3 Claim 4 #81). `argo trust graph --from <t>` prints outgoing edges; `argo trust composed --from <a> --to <c>` prints the composed score and BFS path
-  self-update       Verified binary self-upgrade (Stream `codex-self-update-cli`, V1.4). Queries GitHub Releases for a newer build, downloads the platform asset + detached Ed25519 signature, verifies against the embedded release pubkey, and atomically replaces the running binary. Best-effort gateway daemon restart
   new               Start a fresh session row in the local store. Without a daemon to actually call the LLM this is just a header insert — useful for prototyping the read-side surface and for capturing externally-streamed messages via the gateway (`POST /sessions/<id>/messages`)
   resume            Re-render a recorded session: prints its header and every message in order. Read-only — for the live "continue this session against an LLM" flow, see the daemon's /sessions/<id>/runs binding (separate PR)
   setup             First-time interactive setup. Mirrors the `curl … | bash && argo setup` Hermes-style two-step install (#646). Idempotent: re-runnable to verify configuration or pick a different provider
@@ -169,8 +171,10 @@ Commands:
   latency           Show per-executor-kind action latency percentiles (Stream `claude-latency-percentiles-tracking`). Reads the `latency_buckets` table populated by the dispatch wrapper and prints `kind | n | p50 | p95 | p99 | max` as a markdown table (default) or as JSON
   update            Placeholder for an in-place upgrade command. Not yet wired in this build — see `argo self-update` for the working signed-release upgrade flow
   wizard            End-to-end operator setup wizard (Mission `mission-operator-onboarding-wizard`). `argo wizard onboard` replaces the five-command first-time bootstrap (detect → provider key → operator identity → vertical → first worker) with a single guided flow
+  self-update       Verified binary self-upgrade (Stream `codex-self-update-cli`, V1.4). Queries GitHub Releases for a newer build, downloads the platform asset + detached Ed25519 signature, verifies against the embedded release pubkey, and atomically replaces the running binary. Best-effort gateway daemon restart
   completions       Print a shell completion script for `argo` to stdout (Stream `mission-cli-shell-completions`). Pipe to the shell's completion-loader path:
   security          Coordinated security operations. Subcommands: - `audit` — vuln-scan wrapper around `cargo audit` + `cargo deny check advisories` (Mission `mission-vuln-management-workflow`). See `docs/skycot/security/vuln-management.md`. - `rotate-keys` — key-rotation coordinator across DB encryption / credentials master / gateway bearer / channel HMAC / per-connector OAuth (Mission `mission-automated-key-rotation`). See the "Key rotation" section of `docs/skycot/RUNBOOK.md`
+  billing           Stripe billing recovery — DLQ inspection + event replay
   help              Print this message or the help of the given subcommand(s)
 
 Options:
@@ -666,9 +670,9 @@ Export audit rows for compliance review
 Usage: argo audit export [OPTIONS]
 
 Options:
-      --format <FORMAT>                Output format: ndjson, csv, or tarball [default: ndjson]
+      --format <FORMAT>                Output format: `ndjson`, `jsonl`, `json`, `csv`, or `tarball`. `jsonl` is a SIEM-friendly synonym for `ndjson`; `json` emits a single top-level array [default: ndjson]
       --bundle-out <BUNDLE_OUT>        Write output to a path instead of stdout
-      --since <SINCE>                  Lower created-at bound: YYYY-MM-DD or RFC3339
+      --since <SINCE>                  Lower created-at bound: YYYY-MM-DD, RFC3339, or a compact duration like `7d`, `24h`, `30m`, `90s` (relative to now)
       --until <UNTIL>                  Upper created-at bound: YYYY-MM-DD or RFC3339
       --worker-id <WORKER_ID>          Filter by payload worker id
       --tenant <TENANT>                Filter by tenant id
@@ -676,6 +680,7 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to rows created within this many recent minutes. Combined with `--session` if both are set
       --gdpr-redact-emails             Replace emails in payloads with deterministic placeholders
       --json                           Emit a JSON summary envelope instead of records
+      --kind <KINDS>                   Comma-separated list of `AuditKind` labels to include (`mission-audit-csv-export`). When set, only rows whose `kind` matches one of the listed labels are exported
   -h, --help                           Print help
 ```
 
@@ -890,6 +895,82 @@ Options:
 Examples:
   argo backup verify .argo/backups/2026-05-13.tar.gz
   argo backup verify ./snap.tar.gz --json
+```
+
+### `argo billing`
+
+```text
+Stripe billing recovery — DLQ inspection + event replay
+
+Usage: argo billing <COMMAND>
+
+Commands:
+  replay  Replay one or more dead-lettered Stripe events. Reads from `billing_event_dead_letter`; no Stripe API call
+  dlq     Inspect or resolve dead-lettered webhook events
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo billing dlq`
+
+```text
+Inspect or resolve dead-lettered webhook events
+
+Usage: argo billing dlq <COMMAND>
+
+Commands:
+  list     List dead-letter entries with reasons + retry counts
+  resolve  Mark a DLQ entry resolved without running replay. Use when the operator has fixed the underlying state out-of-band and wants the entry off the queue
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+##### `argo billing dlq list`
+
+```text
+List dead-letter entries with reasons + retry counts
+
+Usage: argo billing dlq list [OPTIONS]
+
+Options:
+      --since <SINCE>     Only show entries failed within this duration (e.g. `24h`). Default: no lower bound
+      --include-resolved  Include rows that have already been resolved
+      --limit <LIMIT>     Row cap. Default 100 [default: 100]
+      --json              Emit JSON instead of human text
+  -h, --help              Print help
+```
+
+##### `argo billing dlq resolve`
+
+```text
+Mark a DLQ entry resolved without running replay. Use when the operator has fixed the underlying state out-of-band and wants the entry off the queue
+
+Usage: argo billing dlq resolve [OPTIONS] --event-id <EVENT_ID>
+
+Options:
+      --event-id <EVENT_ID>  Stripe `evt_…` id
+      --note <NOTE>          Free-text note recorded with the resolution
+      --json                 Emit JSON instead of human text
+  -h, --help                 Print help
+```
+
+#### `argo billing replay`
+
+```text
+Replay one or more dead-lettered Stripe events. Reads from `billing_event_dead_letter`; no Stripe API call
+
+Usage: argo billing replay [OPTIONS]
+
+Options:
+      --event-id <EVENT_ID>  Replay a single event by its Stripe `evt_…` id
+      --since <SINCE>        Replay every unresolved DLQ entry whose `failed_at` is within this duration of now. Accepts `30m`, `24h`, `7d`
+      --limit <LIMIT>        Per-batch row cap (replay-since only). Default 100 [default: 100]
+      --json                 Emit a JSON envelope to stdout instead of human text
+  -h, --help                 Print help
 ```
 
 ### `argo budget`
@@ -1288,6 +1369,36 @@ Options:
       --tenant <TENANT>  Optional tenant id filter
       --format <FORMAT>  Output format: `markdown` (default), `json`, or `csv` [default: markdown]
   -h, --help             Print help
+```
+
+### `argo config`
+
+```text
+Inspect the effective merged Argo configuration
+
+Usage: argo config <COMMAND>
+
+Commands:
+  show  Show the effective merged configuration
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo config show`
+
+```text
+Show the effective merged configuration
+
+Usage: argo config show [OPTIONS]
+
+Options:
+      --key <KEY>     Dotted key to print, for example `gateway.host`
+      --json          Emit JSON instead of TOML/text
+      --source        Annotate TOML lines with their source layer
+      --show-secrets  Reveal secret-looking fields. Also requires ARGO_SHOW_SECRETS=1
+  -h, --help          Print help
 ```
 
 ### `argo connector`
@@ -2195,6 +2306,7 @@ Options:
       --json             Emit a single JSON object with all the checks. Default is the human-readable text report. Equivalent to `--format json`
       --summary          Emit a one-line health summary. With `--json`, emits a compact summary envelope instead of the full report
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
+      --skip-network     Skip DNS, TLS, and provider-auth probes. Also honored when ARGO_DOCTOR_SKIP_NETWORK=1 is set
   -h, --help             Print help
 
 Examples:
@@ -4165,6 +4277,59 @@ Options:
   -h, --help                           Print help
 ```
 
+### `argo migrate`
+
+```text
+Data migrations (`mission-sqlcipher-3-migrate-cli`)
+
+Usage: argo migrate <COMMAND>
+
+Commands:
+  encrypt  Convert an unencrypted SQLite database to SQLCipher-encrypted in place. Creates a timestamped backup under `~/.argo/backups/`, verifies row counts across every user table, then atomically swaps the encrypted file in. Idempotent: running against an already-encrypted DB is a clean no-op
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo migrate encrypt`
+
+```text
+Convert an unencrypted SQLite database to SQLCipher-encrypted in place. Creates a timestamped backup under `~/.argo/backups/`, verifies row counts across every user table, then atomically swaps the encrypted file in. Idempotent: running against an already-encrypted DB is a clean no-op
+
+Usage: argo migrate encrypt [OPTIONS] --db <DB>
+
+Options:
+      --db <DB>
+          Path to the unencrypted SQLite database file to convert
+
+      --key-source <KEY_SOURCE>
+          Where the raw 32-byte encryption key comes from. `env` reads `SKYCOT_DB_KEY_BASE64` (base64-encoded 32 bytes). `keyring` will route through the per-tenant `argo_config::cred::db_key` API once PR 2 / PR 4 land; today it falls back to the env-var path with a one-line notice
+
+          Possible values:
+          - env:     Read base64-encoded 32-byte key from `SKYCOT_DB_KEY_BASE64`
+          - keyring: OS keyring (Keychain / Secret Service). Currently delegates to the env-var path; rewired by PR 4 (`mission-sqlcipher-4-default-flip`)
+          
+          [default: env]
+
+      --dry-run
+          Print the intended actions without writing anything
+
+      --json
+          Emit a `{ok, migrate_encrypt: {...}}` JSON envelope instead of a status line. Pairs cleanly with the rest of the CLI's list/show/status JSON contract
+
+      --yes
+          Skip the interactive "this will rewrite your database" confirmation. Required for non-interactive contexts (CI, runbooks, cron). `--dry-run` does not need this
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Examples:
+  argo migrate encrypt --db ~/.argo/session.db
+  argo migrate encrypt --db ./session.db --key-source env
+  argo migrate encrypt --db ./session.db --dry-run --json
+```
+
 ### `argo model`
 
 ```text
@@ -5092,6 +5257,43 @@ Arguments:
 Options:
       --json  Emit JSON envelope
   -h, --help  Print help
+```
+
+### `argo replay`
+
+```text
+Time-travel session replay surface. `export` emits a self-contained tarball of one session (audit chain, attached skills, per-action bundles, manifest with checksum) for offline analysis or support hand-off (`mission-replay-cli-bundle-export`)
+
+Usage: argo replay <COMMAND>
+
+Commands:
+  export  Export a session as a self-contained tar/tar.gz bundle for offline replay or support hand-off. Bundle includes the audit chain in JSONL, a verify-chain summary, attached skill ids, per-action bundles, a manifest with a content checksum, and a short README. With `--sanitize`, JSON payloads are scrubbed of provider keys, JWTs, emails, and phone numbers before write
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo replay export`
+
+```text
+Export a session as a self-contained tar/tar.gz bundle for offline replay or support hand-off. Bundle includes the audit chain in JSONL, a verify-chain summary, attached skill ids, per-action bundles, a manifest with a content checksum, and a short README. With `--sanitize`, JSON payloads are scrubbed of provider keys, JWTs, emails, and phone numbers before write
+
+Usage: argo replay export [OPTIONS] --out <OUT> <SESSION_ID>
+
+Arguments:
+  <SESSION_ID>  Session UUID to export
+
+Options:
+      --out <OUT>     Output path (tar.gz by default; tar with `--uncompressed`)
+      --uncompressed  Emit a plain tar archive instead of gzip-compressed
+      --sanitize      Redact provider keys, JWTs, emails, and phone numbers in JSON payloads before bundling. The manifest records `sanitized = true` so downstream consumers can distinguish
+  -h, --help          Print help
+
+Examples:
+  argo replay export 01J9XYZ... --out /tmp/s.tar.gz
+  argo replay export 01J9XYZ... --out /tmp/s.tar --uncompressed
+  argo replay export 01J9XYZ... --out /tmp/s.tar.gz --sanitize
 ```
 
 ### `argo restore`
@@ -6142,6 +6344,7 @@ Commands:
   upgrade            Apply a pending `skill_version_migration` to the locally- installed version of `<name>`. With `--dry-run`, prints what would happen without superseding. Without `--yes`, only auto-upgrade migrations are applied (others are surfaced for operator confirmation). (`mission-skill-version-migration-path`)
   list-migrations    List every pending migration across the tenant's installed skills (for each active skill, the row whose `from_version` matches its installed version). Operator dashboard input. (`mission-skill-version-migration-path`)
   ir                 Canonical-IR maintenance ops (Track L). One-shot tools the operator runs against the local skill store — currently just `backfill`, which synthesises a minimal `SkillGraph` for every installed skill that lacks one (brief `L3-skill-ir-backfill`)
+  pack               `argo skill pack <sub>` tree
   help               Print this message or the help of the given subcommand(s)
 
 Options:
@@ -6544,6 +6747,37 @@ Options:
           Emit a JSON envelope
   -h, --help
           Print help
+```
+
+#### `argo skill pack`
+
+```text
+`argo skill pack <sub>` tree
+
+Usage: argo skill pack <COMMAND>
+
+Commands:
+  lint  Lint a vertical-template pack directory before publish — validates `pack.toml`, Skill IRs, memory schema, eval fixtures, naming, semver, and the 500-LOC file limit
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+##### `argo skill pack lint`
+
+```text
+Lint a vertical-template pack directory before publish — validates `pack.toml`, Skill IRs, memory schema, eval fixtures, naming, semver, and the 500-LOC file limit
+
+Usage: argo skill pack lint [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>  Pack root directory to lint
+
+Options:
+      --strict  Treat warnings as errors (exit code 2)
+      --json    Emit machine-readable JSON instead of the text-formatted finding list
+  -h, --help    Print help
 ```
 
 #### `argo skill publish`

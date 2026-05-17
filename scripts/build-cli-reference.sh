@@ -5,9 +5,10 @@
 # BEGIN/END AUTO-GENERATED CLI REFERENCE markers.
 #
 # Usage:
-#   scripts/build-cli-reference.sh [output-file]
+#   scripts/build-cli-reference.sh              # write canonical page to stdout
+#   scripts/build-cli-reference.sh output-file  # update output-file in place
 #
-# Defaults: output → book/reference/cli.md. Resolves the `argo` binary
+# Defaults: template → book/reference/cli.md. Resolves the `argo` binary
 # from $ARGO if set, else $PATH, else $CARGO_TARGET_DIR/release/argo,
 # else target/release/argo.
 #
@@ -15,7 +16,17 @@
 # timestamp, no host data). The drift CI relies on that.
 set -euo pipefail
 
-OUT_FILE="${1:-book/reference/cli.md}"
+if [ "$#" -gt 1 ]; then
+  echo "usage: scripts/build-cli-reference.sh [output-file]" >&2
+  exit 2
+fi
+
+DEFAULT_OUT_FILE="book/reference/cli.md"
+OUT_FILE="${1:-$DEFAULT_OUT_FILE}"
+WRITE_OUTPUT=0
+if [ "$#" -eq 1 ]; then
+  WRITE_OUTPUT=1
+fi
 
 # Resolve the argo binary deterministically.
 if [ -z "${ARGO:-}" ]; then
@@ -121,6 +132,8 @@ emit_command "" 2
 BEGIN_MARK="<!-- BEGIN AUTO-GENERATED CLI REFERENCE -->"
 END_MARK="<!-- END AUTO-GENERATED CLI REFERENCE -->"
 
+RESULT_FILE="$TMP_DIR/out.md"
+
 if grep -qF "$BEGIN_MARK" "$OUT_FILE" && grep -qF "$END_MARK" "$OUT_FILE"; then
   awk -v begin="$BEGIN_MARK" -v end="$END_MARK" -v gen_file="$GEN_FILE" '
     $0 == begin {
@@ -136,15 +149,20 @@ if grep -qF "$BEGIN_MARK" "$OUT_FILE" && grep -qF "$END_MARK" "$OUT_FILE"; then
       next
     }
     !in_block { print }
-  ' "$OUT_FILE" > "$TMP_DIR/out.md"
-  mv "$TMP_DIR/out.md" "$OUT_FILE"
+  ' "$OUT_FILE" > "$RESULT_FILE"
 else
   {
+    cat "$OUT_FILE"
     echo
     echo "$BEGIN_MARK"
     cat "$GEN_FILE"
     echo "$END_MARK"
-  } >> "$OUT_FILE"
+  } > "$RESULT_FILE"
 fi
 
-echo "build-cli-reference: wrote $(wc -l < "$OUT_FILE") lines to $OUT_FILE"
+if [ "$WRITE_OUTPUT" -eq 1 ]; then
+  mv "$RESULT_FILE" "$OUT_FILE"
+  echo "build-cli-reference: wrote $(wc -l < "$OUT_FILE") lines to $OUT_FILE" >&2
+else
+  cat "$RESULT_FILE"
+fi

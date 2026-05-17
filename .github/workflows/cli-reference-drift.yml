@@ -18,6 +18,7 @@ on:
     paths:
       - "crates/argo-cli/**"
       - "scripts/build-cli-reference.sh"
+      - "scripts/check-cli-reference-drift.sh"
       - "book/reference/cli.md"
       - ".github/workflows/cli-reference-drift.yml"
   workflow_dispatch: {}
@@ -45,15 +46,7 @@ jobs:
       - name: Build argo-cli
         run: cargo build -p argo-cli --release
 
-      - name: Regenerate CLI reference
+      - name: Check CLI reference drift
         env:
           ARGO: target/release/argo
-        run: bash scripts/build-cli-reference.sh book/reference/cli.md
-
-      - name: Diff against committed page
-        run: |
-          if ! git diff --exit-code -- book/reference/cli.md; then
-            echo "::error::book/reference/cli.md is out of date." >&2
-            echo "::error::Re-run scripts/build-cli-reference.sh locally and commit the diff." >&2
-            exit 1
-          fi
+        run: bash scripts/check-cli-reference-drift.sh
