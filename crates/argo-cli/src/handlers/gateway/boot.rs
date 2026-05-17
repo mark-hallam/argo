@@ -282,6 +282,22 @@ pub(super) async fn start(
             ip_allowlist.cidr_count()
         );
     }
+    // At-rest encryption advisory. v1 stock builds ship the pure-Rust
+    // `sqlx` SQLite driver, which is not linked against SQLCipher —
+    // `PRAGMA key` is silently dropped and pages are written
+    // plaintext. Warn on every boot until the operator either ships a
+    // SQLCipher-linked build or sets
+    // `[security.encryption] acknowledge_plaintext = true`. See
+    // `docs/skycot/security/at-rest-encryption.md`.
+    let enc = &cfg.security.encryption;
+    if enc.key_source.eq_ignore_ascii_case("none") && !enc.acknowledge_plaintext {
+        eprintln!(
+            "argo gateway: ⚠️  at-rest encryption OFF (plaintext pages). \
+             v1 stock build does not link SQLCipher. Set \
+             `[security.encryption] acknowledge_plaintext = true` to \
+             suppress; see docs/skycot/security/at-rest-encryption.md."
+        );
+    }
     let maintenance_cfg = super::maintenance_middleware::from_env();
     if maintenance_cfg.is_some() {
         eprintln!("argo gateway: MAINTENANCE MODE — non-/health requests return 503");

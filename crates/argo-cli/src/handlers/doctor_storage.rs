@@ -11,15 +11,26 @@ use std::str::FromStr;
 
 pub(super) async fn db_status(home: &Path) -> serde_json::Value {
     let db = db_path(home);
+    let encryption = encryption_status();
     if !db.exists() {
-        return serde_json::json!({"present": false});
+        return serde_json::json!({"present": false, "encryption": encryption});
     }
     let store = match SessionStore::open(&db).await {
         Ok(s) => s,
-        Err(e) => return serde_json::json!({"present": true, "open_error": e.to_string()}),
+        Err(e) => {
+            return serde_json::json!({
+                "present": true,
+                "open_error": e.to_string(),
+                "encryption": encryption,
+            })
+        }
     };
     if let Err(e) = store.migrate().await {
-        return serde_json::json!({"present": true, "migrate_error": e.to_string()});
+        return serde_json::json!({
+            "present": true,
+            "migrate_error": e.to_string(),
+            "encryption": encryption,
+        });
     }
     let version = store.schema_version().await.unwrap_or(0);
     let workspace_ok = matches!(store.first_workspace().await, Ok(Some(_)));
@@ -28,6 +39,7 @@ pub(super) async fn db_status(home: &Path) -> serde_json::Value {
         "present": true,
         "schema_version": version,
         "workspace_registered": workspace_ok,
+        "encryption": encryption,
         "rows": stats.map(|s| serde_json::json!({
             "sessions": s.sessions,
             "messages": s.messages,
@@ -40,18 +52,54 @@ pub(super) async fn db_status(home: &Path) -> serde_json::Value {
     })
 }
 
+/// Report at-rest-encryption posture for `argo doctor`. v1 stock
+/// builds ship the pure-Rust `sqlx` SQLite driver which is NOT
+/// linked against SQLCipher, so `PRAGMA key` is silently dropped
+/// and pages are written plaintext regardless of whether
+/// `[security.encryption] key_source` is configured. A configured
+/// key is therefore necessary-but-not-sufficient; the operator
+/// also needs a SQLCipher-linked downstream build. See
+/// `docs/skycot/security/at-rest-encryption.md`.
+fn encryption_status() -> serde_json::Value {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let key_source = cfg.security.encryption.key_source.clone();
+    let configured = !key_source.eq_ignore_ascii_case("none") && !key_source.is_empty();
+    let acknowledged = cfg.security.encryption.acknowledge_plaintext;
+    // v1 stock build always reports OFF; the configured-but-stock case
+    // is the most dangerous (operator thinks they're encrypted, they
+    // are not) so it's called out explicitly.
+    let state = if configured {
+        "OFF (key configured but v1 stock build ships pure-Rust sqlx — \
+         driver silently drops PRAGMA key; ship a SQLCipher-linked build)"
+    } else if acknowledged {
+        "OFF (plaintext; acknowledged via acknowledge_plaintext = true)"
+    } else {
+        "OFF (plaintext — key_source = \"none\"; \
+         see docs/skycot/security/at-rest-encryption.md)"
+    };
+    serde_json::json!({
+        "state": state,
+        "key_source": key_source,
+        "acknowledge_plaintext": acknowledged,
+    })
+}
+
 pub(super) fn print_db(v: &serde_json::Value) {
     let present = v.get("present").and_then(|b| b.as_bool()).unwrap_or(false);
     if !present {
         println!("  db:         (no sessions.db yet — run `argo workspace init`)");
+        print_encryption(v);
         return;
     }
     if let Some(e) = v.get("open_error").and_then(|s| s.as_str()) {
         println!("  db:         OPEN FAILED ({e})");
+        print_encryption(v);
         return;
     }
     if let Some(e) = v.get("migrate_error").and_then(|s| s.as_str()) {
         println!("  db:         MIGRATE FAILED ({e})");
+        print_encryption(v);
         return;
     }
     let version = v
@@ -77,6 +125,18 @@ pub(super) fn print_db(v: &serde_json::Value) {
             n("skills")
         );
     }
+    print_encryption(v);
+}
+
+fn print_encryption(v: &serde_json::Value) {
+    let Some(enc) = v.get("encryption") else {
+        return;
+    };
+    let state = enc
+        .get("state")
+        .and_then(|s| s.as_str())
+        .unwrap_or("UNKNOWN");
+    println!("  encryption: {state}");
 }
 
 /// Report `{ok, rows, breaks}` for the global audit chain so

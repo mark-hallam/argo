@@ -69,15 +69,27 @@ pub struct SecurityEncryptionConfig {
     /// accept the spec strings but error at resolve time.
     ///
     /// The key value is NEVER logged. Losing the key = losing the
-    /// data; see `docs/skycot/runbook/at-rest-encryption.md` and
+    /// data; see `docs/skycot/security/at-rest-encryption.md`,
+    /// `docs/skycot/runbook/at-rest-encryption.md`, and
     /// `docs/skycot/runbook/byok-cloud-kms.md`.
     pub key_source: String,
+
+    /// Operator acknowledgement that the v1 stock build writes
+    /// plaintext SQLite pages. When `key_source = "none"` (the
+    /// default) AND `acknowledge_plaintext = false`, `argo gateway
+    /// start` prints a one-line warning on every boot. Flipping
+    /// this to `true` suppresses the warning — the operator has
+    /// signed off on plaintext-at-rest (typically because
+    /// full-disk encryption such as FileVault is the compensating
+    /// control). See `docs/skycot/security/at-rest-encryption.md`.
+    pub acknowledge_plaintext: bool,
 }
 
 impl Default for SecurityEncryptionConfig {
     fn default() -> Self {
         Self {
             key_source: "none".into(),
+            acknowledge_plaintext: false,
         }
     }
 }
@@ -123,10 +135,22 @@ mod tests {
     fn defaults_are_backward_compatible() {
         let cfg = SecurityConfig::default();
         assert_eq!(cfg.encryption.key_source, "none");
+        assert!(!cfg.encryption.acknowledge_plaintext);
         assert!(!cfg.hipaa.enabled);
         assert!(!cfg.ip_allowlist.enabled);
         assert!(cfg.ip_allowlist.cidrs.is_empty());
         assert_eq!(cfg.ip_allowlist.trust_x_forwarded_for_hops, 0);
+    }
+
+    #[test]
+    fn parses_acknowledge_plaintext_from_toml() {
+        let toml_src = r#"
+            [encryption]
+            acknowledge_plaintext = true
+        "#;
+        let cfg: SecurityConfig = toml::from_str(toml_src).unwrap();
+        assert!(cfg.encryption.acknowledge_plaintext);
+        assert_eq!(cfg.encryption.key_source, "none");
     }
 
     #[test]
