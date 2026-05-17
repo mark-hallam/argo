@@ -81,7 +81,7 @@ fn payload_for(tenant_id: &str, session_idx: usize, row_idx: usize) -> serde_jso
         "worker_name": format!("Bench Worker {}", session_idx % 10),
         "channel": "web",
         "action_type": "tool_call",
-        "outcome_status": if row_idx % 20 == 0 { "failed" } else { "succeeded" },
+        "outcome_status": if row_idx.is_multiple_of(20) { "failed" } else { "succeeded" },
         "approver_id": format!("approver-{}", row_idx % 4),
         "cost_usd": 0.001_f64,
         "data_classification": "internal",
