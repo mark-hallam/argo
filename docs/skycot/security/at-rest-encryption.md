@@ -75,6 +75,39 @@ acknowledge_plaintext = true
 regardless of suppression — `argo doctor --json` consumers can gate
 on the `db.encryption.state` field.
 
+## Encryption-key resolution (post-`mission-sqlcipher-2-keyring-wire`)
+
+Once a SQLCipher-linked build is in play (tracked in
+`mission-sqlcipher-default-v1x`), the symmetric key passed to
+`PRAGMA key` is resolved per-tenant by
+`argo_config::cred::db_key::get_or_create_db_key(tenant_id)`. PR 4
+of the `mission-sqlcipher-*` sequence wires this into
+`SessionStore::open`; PR 2 (this) ships the API only.
+
+Resolution precedence (fail-closed on malformed inputs):
+
+1. **`SKYCOT_DB_KEY_BASE64`** env var — base64-encoded 32 bytes.
+   Intended for Fly ephemeral containers and CI runners where no
+   OS keyring is available. Wrong length or non-base64 input is a
+   hard error, not a silent fallback.
+2. **OS keyring entry**, service `skycot.db.encryption`, account
+   `tenant-<uuid>`. macOS routes through Keychain via the
+   `security-framework`-backed `keyring` crate; Linux routes through
+   the Secret Service D-Bus API (libsecret / GNOME Keyring /
+   KWallet). Windows is out of scope for v1 (see CLAUDE.md "v1.0
+   strategic decisions").
+3. **Generate-and-persist** — fresh 32 bytes from `OsRng`, written
+   back to the keyring so subsequent calls retrieve the same value.
+
+Per-tenant isolation is enforced by the account name: each tenant
+gets a distinct keyring entry. Sharing one key across tenants would
+be a cross-tenant confidentiality regression.
+
+Operator inspection commands (macOS):
+```
+security find-generic-password -s skycot.db.encryption -a tenant-<uuid>
+```
+
 ## Operator runbook (SQLCipher-linked builds)
 
 The procedural runbook for *enabling* SQLCipher in a custom build

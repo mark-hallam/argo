@@ -1,5 +1,10 @@
 //! Workspace credential storage helpers.
 
+/// Per-tenant SQLCipher encryption-key resolution
+/// (`mission-sqlcipher-2-keyring-wire`). API only — wired into
+/// [`crate::store::SessionStore`] in PR 4.
+pub mod db_key;
+
 use argo_types::{ArgoError, ArgoResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

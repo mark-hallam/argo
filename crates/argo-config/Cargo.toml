@@ -15,6 +15,13 @@ argo-credentials = { path = "../argo-credentials" }
 # per-platform features so default-off still pulls macOS Keychain /
 # Windows Credential Manager / Linux Secret Service.
 keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native", "linux-native-sync-persistent", "crypto-rust"] }
+# Per-tenant SQLCipher key resolution (mission-sqlcipher-2-keyring-wire).
+# base64 for the canonical env-var / keyring wire format; rand_core for
+# OS-randomness when generating fresh keys; secrecy for zero-on-drop
+# secret holding (same crate already pulled transitively via age-core).
+base64 = "0.22"
+rand_core = { version = "0.6", features = ["getrandom"] }
+secrecy = "0.10"
 hex = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
