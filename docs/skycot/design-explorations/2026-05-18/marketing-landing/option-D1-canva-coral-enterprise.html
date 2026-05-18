@@ -1,0 +1,428 @@
+<!doctype html>
+<!--
+  Option D1 — CANVA-CORAL + ENTERPRISE
+  =====================================
+  Refined from D (friendly/illustrated) per operator feedback:
+  - Canva-inspired coral/peach as primary accent (#FF6B6B family)
+  - Enterprise trust signals: customer logos, SOC 2 / GDPR / SSO badges,
+    enterprise CTA, testimonial from a VP-level buyer
+  - Refined illustrations (abstract geometric, not cartoony)
+  - Melbourne, Australia origin
+  - Conversational voice + enterprise vocabulary ("audit chain", "RBAC",
+    "compliance")
+  Lean: warmest of the three. Friendliest. Closest to consumer-product
+  feeling but with full enterprise scaffolding.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — D1 — Canva Coral + Enterprise</title>
+<style>
+  :root {
+    --bg: #fff8f3;
+    --ink: #1a1a2e;
+    --muted: #6b6878;
+    --line: #f2e5d6;
+    --coral: #ff6b6b;
+    --coral-deep: #e54848;
+    --peach: #ffe5e0;
+    --navy: #2d3047;
+    --yellow: #fcd34d;
+    --mint: #b8f2e6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", -apple-system, system-ui, sans-serif;
+               line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+
+  /* NAV */
+  .nav { position: sticky; top: 0; z-index: 50;
+         background: rgba(255, 248, 243, 0.85); backdrop-filter: blur(12px);
+         border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 1280px; margin: 0 auto; padding: 16px 40px;
+               display: flex; justify-content: space-between; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px;
+           letter-spacing: -0.02em; }
+  .brand-mark { width: 32px; height: 32px; border-radius: 10px;
+                background: linear-gradient(135deg, var(--coral), #ff9a8b);
+                display: grid; place-items: center; color: white; font-weight: 900; font-size: 16px;
+                box-shadow: 0 4px 12px -3px rgba(255,107,107,0.4); }
+  .nav-links { display: flex; gap: 32px; font-size: 15px; color: var(--muted); }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta-row { display: flex; gap: 12px; align-items: center; }
+  .nav-cta-row .ghost { color: var(--ink); font-size: 14px; font-weight: 600; }
+  .nav-cta-row .primary { background: var(--coral); color: white;
+                          padding: 10px 20px; border-radius: 999px; font-weight: 700; font-size: 14px;
+                          box-shadow: 0 4px 14px -4px rgba(255,107,107,0.5);
+                          transition: all 0.15s ease; }
+  .nav-cta-row .primary:hover { background: var(--coral-deep); transform: translateY(-1px); }
+
+  /* HERO */
+  .hero { max-width: 1280px; margin: 0 auto; padding: 80px 40px 80px;
+          display: grid; grid-template-columns: 1.15fr 1fr; gap: 60px; align-items: center; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; background: white;
+                  border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px;
+                  font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 28px; }
+  .hero-eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+  .hero h1 { font-size: 76px; line-height: 1.02; letter-spacing: -0.03em; font-weight: 800;
+             margin-bottom: 28px; }
+  .hero h1 .stroke { position: relative; display: inline-block; }
+  .hero h1 .stroke::after { content: ""; position: absolute; left: -6px; right: -6px; bottom: 4px;
+                            height: 16px; background: var(--peach); border-radius: 4px;
+                            transform: skewX(-4deg); z-index: -1; }
+  .hero h1 .grad { background: linear-gradient(135deg, var(--coral), #ff9a8b);
+                   -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .sub { font-size: 21px; line-height: 1.45; color: var(--muted); max-width: 540px;
+               margin-bottom: 36px; }
+  .hero-ctas { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .btn-primary { background: var(--coral); color: white; padding: 16px 28px; border-radius: 999px;
+                 font-weight: 700; font-size: 16px;
+                 box-shadow: 0 8px 20px -6px rgba(255,107,107,0.5);
+                 transition: all 0.15s ease; }
+  .btn-primary:hover { background: var(--coral-deep); transform: translateY(-2px);
+                       box-shadow: 0 12px 24px -6px rgba(255,107,107,0.55); }
+  .btn-secondary { color: var(--ink); padding: 16px 24px; font-weight: 600; font-size: 16px;
+                   border-radius: 999px; }
+  .btn-secondary::after { content: " →"; }
+  .btn-secondary:hover { background: white; }
+  .hero-reassure { display: flex; gap: 24px; margin-top: 24px; font-size: 13px; color: var(--muted); }
+  .hero-reassure span { display: inline-flex; align-items: center; gap: 6px; }
+  .hero-reassure svg { width: 14px; height: 14px; }
+
+  /* HERO ILLUSTRATION */
+  .hero-illust { position: relative; aspect-ratio: 1; max-width: 520px; margin-left: auto; }
+  .hero-illust svg { width: 100%; height: 100%; }
+
+  /* CUSTOMER LOGO ROW */
+  .logos-row { padding: 32px 40px 64px; max-width: 1280px; margin: 0 auto;
+               border-top: 1px dashed var(--line); }
+  .logos-label { text-align: center; font-size: 12px; color: var(--muted); letter-spacing: 0.16em;
+                 text-transform: uppercase; margin-bottom: 24px; font-weight: 700; }
+  .logos { display: flex; justify-content: space-around; align-items: center; opacity: 0.6;
+           flex-wrap: wrap; gap: 40px; }
+  .logo-placeholder { font-weight: 800; font-size: 22px; letter-spacing: -0.02em; color: var(--ink); }
+  .logo-placeholder.italic { font-style: italic; font-family: Georgia, serif; }
+  .logo-placeholder.mono { font-family: "JetBrains Mono", monospace; font-size: 18px; }
+  .logo-placeholder.allcaps { text-transform: uppercase; letter-spacing: 0.08em; font-size: 16px; }
+
+  /* FEATURE CARDS */
+  .features { padding: 100px 40px; max-width: 1280px; margin: 0 auto; }
+  .features-header { text-align: center; max-width: 800px; margin: 0 auto 64px; }
+  .features-header h2 { font-size: 56px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 800;
+                        margin-bottom: 18px; }
+  .features-header h2 .accent { color: var(--coral); }
+  .features-header p { font-size: 19px; color: var(--muted); line-height: 1.5; }
+  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .feature-card { background: white; border: 1px solid var(--line); border-radius: 24px; padding: 36px 32px;
+                  transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .feature-card:hover { transform: translateY(-4px);
+                        box-shadow: 0 24px 40px -16px rgba(45,48,71,0.1); }
+  .feature-icon { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center;
+                  margin-bottom: 22px; }
+  .feature-icon.coral { background: var(--peach); }
+  .feature-icon.yellow { background: #fef3c7; }
+  .feature-icon.mint { background: var(--mint); }
+  .feature-card h3 { font-size: 24px; font-weight: 800; letter-spacing: -0.015em; margin-bottom: 12px; }
+  .feature-card p { color: var(--muted); font-size: 16px; line-height: 1.55; margin-bottom: 14px; }
+  .feature-card .stat { font-size: 13px; color: var(--coral); font-weight: 700;
+                        background: var(--peach); padding: 4px 10px; border-radius: 999px;
+                        display: inline-block; }
+
+  /* TESTIMONIAL / ENTERPRISE TRUST */
+  .testimonial { background: var(--navy); color: white; border-radius: 32px;
+                 max-width: 1280px; margin: 0 auto; padding: 80px 56px;
+                 display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+  .testimonial .quote-mark { font-size: 80px; color: var(--coral); line-height: 1; margin-bottom: 12px;
+                              font-family: Georgia, serif; }
+  .testimonial blockquote { font-size: 26px; line-height: 1.4; letter-spacing: -0.01em;
+                             font-weight: 500; margin-bottom: 28px; }
+  .testimonial .who { display: flex; gap: 14px; align-items: center; }
+  .testimonial .avatar { width: 56px; height: 56px; border-radius: 50%;
+                          background: linear-gradient(135deg, var(--coral), var(--yellow));
+                          display: grid; place-items: center; font-weight: 800; color: white; font-size: 20px; }
+  .testimonial .name { font-weight: 700; font-size: 16px; }
+  .testimonial .title { color: rgba(255,255,255,0.65); font-size: 14px; }
+  .compliance { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .compliance-badge { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+                       padding: 20px; border-radius: 16px; }
+  .compliance-badge .label { font-size: 12px; color: var(--coral); font-weight: 700; letter-spacing: 0.1em;
+                              text-transform: uppercase; margin-bottom: 6px; }
+  .compliance-badge .name-c { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .compliance-badge .detail { font-size: 13px; color: rgba(255,255,255,0.65); }
+
+  /* STATS */
+  .stats { padding: 80px 40px; max-width: 1280px; margin: 0 auto;
+           display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+  .stat-block { text-align: center; }
+  .stat-num { font-size: 64px; font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+              background: linear-gradient(135deg, var(--coral), var(--coral-deep));
+              -webkit-background-clip: text; background-clip: text; color: transparent;
+              margin-bottom: 10px; }
+  .stat-lbl { font-size: 15px; color: var(--muted); font-weight: 500; }
+
+  /* CLOSE */
+  .close { max-width: 1280px; margin: 0 auto 64px; padding: 0 40px; }
+  .close-inner { background: linear-gradient(135deg, var(--coral), #ff9a8b);
+                 border-radius: 36px; padding: 96px 56px; color: white; text-align: center;
+                 position: relative; overflow: hidden; }
+  .close-inner::before { content: ""; position: absolute; top: -40%; right: -20%;
+                          width: 60%; height: 180%; background: var(--yellow);
+                          border-radius: 50%; opacity: 0.15; }
+  .close-inner::after { content: ""; position: absolute; bottom: -40%; left: -20%;
+                         width: 60%; height: 180%; background: var(--navy);
+                         border-radius: 50%; opacity: 0.1; }
+  .close-inner h2 { font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 800;
+                     margin-bottom: 18px; position: relative; }
+  .close-inner p { font-size: 19px; opacity: 0.95; margin-bottom: 36px; position: relative; }
+  .close-ctas { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; position: relative; }
+  .close-ctas .primary { background: white; color: var(--coral-deep); padding: 18px 32px;
+                          border-radius: 999px; font-weight: 700; font-size: 16px;
+                          box-shadow: 0 12px 28px -8px rgba(0,0,0,0.2); }
+  .close-ctas .secondary { background: rgba(255,255,255,0.18); color: white;
+                            padding: 18px 32px; border-radius: 999px; font-weight: 700; font-size: 16px;
+                            border: 1px solid rgba(255,255,255,0.3); }
+
+  /* FOOTER */
+  footer { padding: 40px 40px 48px; max-width: 1280px; margin: 0 auto;
+           display: flex; justify-content: space-between; color: var(--muted); font-size: 14px;
+           border-top: 1px solid var(--line); }
+  footer .built { display: inline-flex; align-items: center; gap: 6px; }
+  footer .built::before { content: "♥ "; color: var(--coral); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      skycot
+    </div>
+    <div class="nav-links">
+      <a href="#">Workers</a>
+      <a href="#">How it works</a>
+      <a href="#">Customers</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+    </div>
+    <div class="nav-cta-row">
+      <a href="#" class="ghost">Sign in</a>
+      <a href="#" class="primary">Hire your first worker</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div>
+    <div class="hero-eyebrow"><span class="dot"></span> Now hiring · v1.0 shipped</div>
+    <h1>Hire a <span class="grad">teammate</span>.<br>
+        Not <span class="stroke">another tool</span>.</h1>
+    <p class="sub">
+      SKYCOT spins up AI workers from plain-English job descriptions.
+      They run in Slack, learn from your feedback, and ask before doing
+      anything you wouldn't. Built for teams from 50 to 5,000.
+    </p>
+    <div class="hero-ctas">
+      <a href="#" class="btn-primary">Hire your first worker</a>
+      <a href="#" class="btn-secondary">Watch a 90-second demo</a>
+    </div>
+    <div class="hero-reassure">
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> 5-minute setup</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> No credit card</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> SOC 2 ready</span>
+    </div>
+  </div>
+  <div class="hero-illust">
+    <svg viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg">
+      <!-- soft background ring -->
+      <circle cx="260" cy="260" r="240" fill="#ffe5e0" opacity="0.5"/>
+      <circle cx="260" cy="260" r="180" fill="#fcd34d" opacity="0.25"/>
+      <!-- central worker avatar -->
+      <g transform="translate(180, 180)">
+        <rect x="0" y="0" width="160" height="160" rx="40" fill="#fff" stroke="#1a1a2e" stroke-width="3"/>
+        <circle cx="60" cy="68" r="6" fill="#1a1a2e"/>
+        <circle cx="100" cy="68" r="6" fill="#1a1a2e"/>
+        <path d="M 55 100 Q 80 118 105 100" stroke="#1a1a2e" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <!-- antenna -->
+        <line x1="80" y1="-8" x2="80" y2="-22" stroke="#1a1a2e" stroke-width="3"/>
+        <circle cx="80" cy="-22" r="6" fill="#ff6b6b"/>
+        <!-- name tag -->
+        <rect x="35" y="130" width="90" height="22" rx="11" fill="#ff6b6b"/>
+        <text x="80" y="145" text-anchor="middle" fill="white" font-family="Inter, system-ui" font-size="12" font-weight="700">MAYA</text>
+      </g>
+      <!-- floating action cards -->
+      <g transform="translate(50, 80)">
+        <rect x="0" y="0" width="130" height="56" rx="14" fill="white" stroke="#1a1a2e" stroke-width="2.5"/>
+        <circle cx="20" cy="28" r="9" fill="#b8f2e6"/>
+        <path d="M 16 28 L 19 31 L 25 25" stroke="#1a1a2e" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="38" y="18" width="80" height="6" rx="3" fill="#1a1a2e"/>
+        <rect x="38" y="30" width="60" height="5" rx="2.5" fill="#6b6878" opacity="0.5"/>
+      </g>
+      <g transform="translate(350, 100)">
+        <rect x="0" y="0" width="130" height="56" rx="14" fill="white" stroke="#1a1a2e" stroke-width="2.5"/>
+        <circle cx="20" cy="28" r="9" fill="#fcd34d"/>
+        <text x="20" y="32" text-anchor="middle" fill="#1a1a2e" font-family="Inter" font-size="12" font-weight="800">?</text>
+        <rect x="38" y="18" width="80" height="6" rx="3" fill="#1a1a2e"/>
+        <rect x="38" y="30" width="60" height="5" rx="2.5" fill="#6b6878" opacity="0.5"/>
+      </g>
+      <g transform="translate(60, 380)">
+        <rect x="0" y="0" width="130" height="56" rx="14" fill="white" stroke="#1a1a2e" stroke-width="2.5"/>
+        <circle cx="20" cy="28" r="9" fill="#ff6b6b"/>
+        <path d="M 16 28 L 19 31 L 25 25" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="38" y="18" width="80" height="6" rx="3" fill="#1a1a2e"/>
+        <rect x="38" y="30" width="60" height="5" rx="2.5" fill="#6b6878" opacity="0.5"/>
+      </g>
+      <g transform="translate(350, 380)">
+        <rect x="0" y="0" width="130" height="56" rx="14" fill="white" stroke="#1a1a2e" stroke-width="2.5"/>
+        <circle cx="20" cy="28" r="9" fill="#b8f2e6"/>
+        <path d="M 16 28 L 19 31 L 25 25" stroke="#1a1a2e" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="38" y="18" width="80" height="6" rx="3" fill="#1a1a2e"/>
+        <rect x="38" y="30" width="60" height="5" rx="2.5" fill="#6b6878" opacity="0.5"/>
+      </g>
+      <!-- connector lines -->
+      <g stroke="#1a1a2e" stroke-width="2" stroke-dasharray="4 4" fill="none" opacity="0.3">
+        <path d="M 180 136 Q 200 200 240 240"/>
+        <path d="M 415 156 Q 380 220 300 240"/>
+        <path d="M 190 408 Q 220 360 260 340"/>
+        <path d="M 415 408 Q 380 360 310 340"/>
+      </g>
+    </svg>
+  </div>
+</header>
+
+<section class="logos-row">
+  <div class="logos-label">Trusted by ops, HR and marketing teams at</div>
+  <div class="logos">
+    <span class="logo-placeholder">Nimbus.io</span>
+    <span class="logo-placeholder italic">Hartwell &amp; Co.</span>
+    <span class="logo-placeholder mono">aether/labs</span>
+    <span class="logo-placeholder allcaps">Foundry Yard</span>
+    <span class="logo-placeholder">Cohort</span>
+    <span class="logo-placeholder italic">Mercer Health</span>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-header">
+    <h2>Built like an <span class="accent">enterprise tool</span>.<br>
+        Feels like a teammate.</h2>
+    <p>SOC 2-ready, hash-chained audit, single-sign-on (SSO), role-based access (RBAC), and multi-tenant by construction. Set up in five minutes; defensible in front of any auditor.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon coral">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 6 10 Q 14 6 22 10 L 22 20 Q 14 24 6 20 Z" stroke="#1a1a2e" stroke-width="2.5" fill="#ffe5e0"/>
+          <path d="M 14 6 L 14 24" stroke="#1a1a2e" stroke-width="2"/>
+          <circle cx="10" cy="15" r="1.5" fill="#1a1a2e"/>
+          <circle cx="18" cy="15" r="1.5" fill="#1a1a2e"/>
+        </svg>
+      </div>
+      <h3>Memory that compounds</h3>
+      <p>Each worker keeps a private memory of what you've taught it. Switch foundation models — your workers keep their notes.</p>
+      <span class="stat">~30k facts/worker</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon yellow">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 4 8 L 24 8 L 24 18 L 16 18 L 12 23 L 12 18 L 4 18 Z" stroke="#1a1a2e" stroke-width="2.5" fill="#fef3c7"/>
+          <circle cx="10" cy="13" r="1.5" fill="#1a1a2e"/>
+          <circle cx="14" cy="13" r="1.5" fill="#1a1a2e"/>
+          <circle cx="18" cy="13" r="1.5" fill="#1a1a2e"/>
+        </svg>
+      </div>
+      <h3>Approves where you live</h3>
+      <p>Slack, email, SMS, voice. Workers ask in your existing channels. No new dashboard to babysit; no new app to forget.</p>
+      <span class="stat">6 channels · &lt;200ms ask</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon mint">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 14 3 L 4 8 L 4 14 Q 4 21 14 25 Q 24 21 24 14 L 24 8 Z" stroke="#1a1a2e" stroke-width="2.5" fill="#b8f2e6"/>
+          <path d="M 10 13 L 13 16 L 19 10" stroke="#1a1a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h3>Audit by default</h3>
+      <p>Every action a worker takes is hash-chained, replayable, and auditable. SOC 2 and GDPR are side effects, not projects.</p>
+      <span class="stat">SHA-256 chain · replay-ready</span>
+    </div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-block">
+    <div class="stat-num">6</div>
+    <div class="stat-lbl">Mission claims, all proven</div>
+  </div>
+  <div class="stat-block">
+    <div class="stat-num">37</div>
+    <div class="stat-lbl">Pre-built connectors</div>
+  </div>
+  <div class="stat-block">
+    <div class="stat-num">∞</div>
+    <div class="stat-lbl">Workers per workspace</div>
+  </div>
+  <div class="stat-block">
+    <div class="stat-num">100%</div>
+    <div class="stat-lbl">Action audit coverage</div>
+  </div>
+</section>
+
+<section style="padding: 0 40px;">
+  <div class="testimonial">
+    <div>
+      <div class="quote-mark">"</div>
+      <blockquote>It felt like hiring an associate, except they finished their first task in the time it would have taken me to draft the brief. Six months in and we've delegated half our outbound to SKYCOT workers.</blockquote>
+      <div class="who">
+        <div class="avatar">RK</div>
+        <div>
+          <div class="name">Riley Kovacs</div>
+          <div class="title">VP, Customer Success · Nimbus.io (450 employees)</div>
+        </div>
+      </div>
+    </div>
+    <div class="compliance">
+      <div class="compliance-badge">
+        <div class="label">Compliance</div>
+        <div class="name-c">SOC 2 Type II</div>
+        <div class="detail">Audit complete · Report on request</div>
+      </div>
+      <div class="compliance-badge">
+        <div class="label">Privacy</div>
+        <div class="name-c">GDPR · Art. 15</div>
+        <div class="detail">Right-to-export built in</div>
+      </div>
+      <div class="compliance-badge">
+        <div class="label">Auth</div>
+        <div class="name-c">SSO + SAML</div>
+        <div class="detail">Okta, Auth0, Google Workspace</div>
+      </div>
+      <div class="compliance-badge">
+        <div class="label">Encryption</div>
+        <div class="name-c">SQLCipher at rest</div>
+        <div class="detail">AES-256, per-tenant keys</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="close-inner">
+    <h2>Ready to delegate<br>the work you've been avoiding?</h2>
+    <p>Spin up your first worker in under 5 minutes. No credit card, no sales call.</p>
+    <div class="close-ctas">
+      <a href="#" class="primary">Hire your first worker</a>
+      <a href="#" class="secondary">Talk to our team</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 SKYCOT · v1.0 · all rights reserved</div>
+  <div class="built">Built in Melbourne, Australia</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,473 @@
+<!doctype html>
+<!--
+  Option D2 — CANVA-TEAL + ENTERPRISE
+  ====================================
+  Same direction as D1 (refined-friendly + enterprise trust signals)
+  but with Canva's teal/turquoise as the primary accent. Cooler, more
+  refreshing, slightly more "tech-forward" than D1's coral.
+  Lean: balanced. The "middle child" — warm enough to feel approachable,
+  cool enough to feel like serious enterprise software. Closest fit for
+  a buyer who's evaluating SKYCOT against Notion/Linear/Cron.
+  Melbourne, Australia origin.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — D2 — Canva Teal + Enterprise</title>
+<style>
+  :root {
+    --bg: #f8faf9;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --teal: #14b8a6;
+    --teal-deep: #0d9488;
+    --teal-soft: #d2f5ed;
+    --mint: #b8f2e6;
+    --coral-pop: #ff6b6b;
+    --yellow-pop: #fcd34d;
+    --navy: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", -apple-system, system-ui, sans-serif;
+               line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+
+  /* NAV */
+  .nav { position: sticky; top: 0; z-index: 50;
+         background: rgba(248, 250, 249, 0.85); backdrop-filter: blur(12px);
+         border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 1280px; margin: 0 auto; padding: 16px 40px;
+               display: flex; justify-content: space-between; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px;
+           letter-spacing: -0.02em; }
+  .brand-mark { width: 32px; height: 32px; border-radius: 10px;
+                background: linear-gradient(135deg, var(--teal), #5eead4);
+                display: grid; place-items: center; color: white; font-weight: 900; font-size: 16px;
+                box-shadow: 0 4px 12px -3px rgba(20,184,166,0.4); }
+  .nav-links { display: flex; gap: 32px; font-size: 15px; color: var(--muted); }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta-row { display: flex; gap: 12px; align-items: center; }
+  .nav-cta-row .ghost { color: var(--ink); font-size: 14px; font-weight: 600; }
+  .nav-cta-row .primary { background: var(--teal); color: white;
+                          padding: 10px 20px; border-radius: 12px; font-weight: 700; font-size: 14px;
+                          box-shadow: 0 4px 14px -4px rgba(20,184,166,0.5);
+                          transition: all 0.15s ease; }
+  .nav-cta-row .primary:hover { background: var(--teal-deep); transform: translateY(-1px); }
+
+  /* HERO */
+  .hero { max-width: 1280px; margin: 0 auto; padding: 90px 40px 80px;
+          display: grid; grid-template-columns: 1.15fr 1fr; gap: 60px; align-items: center; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; background: white;
+                  border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px;
+                  font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 28px;
+                  box-shadow: 0 2px 8px -2px rgba(15,23,42,0.04); }
+  .hero-eyebrow .pill { background: var(--teal-soft); color: var(--teal-deep); padding: 2px 8px;
+                        border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; }
+  .hero h1 { font-size: 78px; line-height: 1.02; letter-spacing: -0.03em; font-weight: 800;
+             margin-bottom: 28px; }
+  .hero h1 .grad { background: linear-gradient(135deg, var(--teal), #5eead4);
+                   -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero h1 .underline { position: relative; }
+  .hero h1 .underline::after { content: ""; position: absolute; left: -4px; right: -4px; bottom: 6px;
+                               height: 14px; background: var(--mint); border-radius: 4px;
+                               z-index: -1; }
+  .hero .sub { font-size: 21px; line-height: 1.45; color: var(--muted); max-width: 560px;
+               margin-bottom: 36px; }
+  .hero-ctas { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .btn-primary { background: var(--teal); color: white; padding: 16px 28px; border-radius: 12px;
+                 font-weight: 700; font-size: 16px;
+                 box-shadow: 0 8px 20px -6px rgba(20,184,166,0.5);
+                 transition: all 0.15s ease; }
+  .btn-primary:hover { background: var(--teal-deep); transform: translateY(-2px); }
+  .btn-secondary { color: var(--ink); padding: 16px 22px; font-weight: 600; font-size: 16px;
+                   border-radius: 12px; border: 1px solid var(--line); background: white; }
+  .btn-secondary::after { content: " →"; }
+  .hero-reassure { display: flex; gap: 22px; margin-top: 24px; font-size: 13px; color: var(--muted); }
+  .hero-reassure span { display: inline-flex; align-items: center; gap: 6px; }
+  .hero-reassure svg { width: 14px; height: 14px; }
+
+  /* HERO ILLUSTRATION */
+  .hero-illust { position: relative; aspect-ratio: 1; max-width: 540px; margin-left: auto; }
+  .hero-illust svg { width: 100%; height: 100%; }
+
+  /* CUSTOMER LOGO ROW */
+  .logos-row { padding: 40px 40px 80px; max-width: 1280px; margin: 0 auto; }
+  .logos-label { text-align: center; font-size: 12px; color: var(--muted); letter-spacing: 0.16em;
+                 text-transform: uppercase; margin-bottom: 28px; font-weight: 700; }
+  .logos { display: flex; justify-content: space-around; align-items: center; opacity: 0.55;
+           flex-wrap: wrap; gap: 40px; }
+  .logo-placeholder { font-weight: 800; font-size: 22px; letter-spacing: -0.02em; color: var(--ink); }
+  .logo-placeholder.italic { font-style: italic; font-family: Georgia, serif; }
+  .logo-placeholder.mono { font-family: "JetBrains Mono", monospace; font-size: 18px; }
+  .logo-placeholder.allcaps { text-transform: uppercase; letter-spacing: 0.08em; font-size: 16px; }
+
+  /* HOW IT WORKS — visual flow */
+  .flow { max-width: 1280px; margin: 0 auto; padding: 80px 40px;
+          background: white; border-radius: 32px; border: 1px solid var(--line); }
+  .flow-header { text-align: center; margin-bottom: 48px; }
+  .flow-header .small { font-size: 12px; color: var(--teal-deep); letter-spacing: 0.16em;
+                        text-transform: uppercase; font-weight: 800; margin-bottom: 10px; }
+  .flow-header h2 { font-size: 44px; letter-spacing: -0.025em; font-weight: 800; line-height: 1.1; }
+  .flow-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+                position: relative; padding-top: 32px; }
+  .flow-step { text-align: center; padding: 24px 16px; position: relative; }
+  .flow-step .num-circle { width: 56px; height: 56px; border-radius: 50%;
+                            background: var(--teal-soft); color: var(--teal-deep);
+                            display: grid; place-items: center; font-weight: 800; font-size: 22px;
+                            margin: 0 auto 16px; }
+  .flow-step h4 { font-size: 17px; font-weight: 700; letter-spacing: -0.005em; margin-bottom: 6px; }
+  .flow-step p { font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .flow-step + .flow-step::before { content: "→"; position: absolute; left: -16px; top: 44px;
+                                      font-size: 24px; color: var(--teal); font-weight: 700; }
+
+  /* FEATURE CARDS */
+  .features { padding: 100px 40px; max-width: 1280px; margin: 0 auto; }
+  .features-header { text-align: center; max-width: 800px; margin: 0 auto 64px; }
+  .features-header h2 { font-size: 54px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 800;
+                        margin-bottom: 18px; }
+  .features-header h2 .accent { color: var(--teal); }
+  .features-header p { font-size: 19px; color: var(--muted); line-height: 1.5; }
+  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .feature-card { background: white; border: 1px solid var(--line); border-radius: 24px; padding: 36px 32px;
+                  transition: all 0.2s ease; }
+  .feature-card:hover { transform: translateY(-4px); border-color: var(--teal);
+                        box-shadow: 0 24px 40px -16px rgba(20,184,166,0.18); }
+  .feature-icon { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center;
+                  margin-bottom: 22px; background: var(--teal-soft); }
+  .feature-card h3 { font-size: 24px; font-weight: 800; letter-spacing: -0.015em; margin-bottom: 12px; }
+  .feature-card p { color: var(--muted); font-size: 16px; line-height: 1.55; margin-bottom: 14px; }
+  .feature-card .stat { font-size: 13px; color: var(--teal-deep); font-weight: 700;
+                        background: var(--teal-soft); padding: 4px 10px; border-radius: 999px;
+                        display: inline-block; }
+
+  /* ENTERPRISE TRUST BAND */
+  .trust { max-width: 1280px; margin: 0 auto; padding: 0 40px; }
+  .trust-inner { background: var(--navy); color: white; border-radius: 32px;
+                 padding: 72px 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+  .trust-left h2 { font-size: 44px; line-height: 1.1; letter-spacing: -0.02em; font-weight: 800;
+                    margin-bottom: 16px; }
+  .trust-left h2 .accent { color: var(--teal); }
+  .trust-left p { font-size: 17px; line-height: 1.55; color: rgba(255,255,255,0.7); margin-bottom: 24px; }
+  .trust-cta { background: var(--teal); color: white; padding: 14px 24px; border-radius: 12px;
+                font-weight: 700; font-size: 15px; display: inline-block; }
+  .trust-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .trust-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+                padding: 22px; border-radius: 16px; }
+  .trust-card .key { font-size: 11px; color: var(--teal); letter-spacing: 0.16em; text-transform: uppercase;
+                     font-weight: 800; margin-bottom: 8px; }
+  .trust-card .val { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .trust-card .desc { font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.4; }
+
+  /* TESTIMONIAL */
+  .testimonial { padding: 96px 40px 48px; max-width: 980px; margin: 0 auto; text-align: center; }
+  .testimonial .small { font-size: 12px; color: var(--teal-deep); letter-spacing: 0.16em;
+                        text-transform: uppercase; font-weight: 800; margin-bottom: 16px; }
+  .testimonial blockquote { font-size: 32px; line-height: 1.35; letter-spacing: -0.015em; font-weight: 500;
+                             margin-bottom: 32px; }
+  .testimonial blockquote .pop { background: var(--mint); padding: 2px 6px; border-radius: 4px; }
+  .testimonial .who { display: flex; gap: 14px; align-items: center; justify-content: center; }
+  .testimonial .avatar { width: 56px; height: 56px; border-radius: 50%;
+                          background: linear-gradient(135deg, var(--teal), var(--mint));
+                          display: grid; place-items: center; font-weight: 800; color: var(--navy); font-size: 20px; }
+  .testimonial .name { font-weight: 700; font-size: 16px; }
+  .testimonial .title { color: var(--muted); font-size: 14px; }
+
+  /* CLOSE */
+  .close { max-width: 1280px; margin: 80px auto 64px; padding: 0 40px; }
+  .close-inner { background: white; border: 2px solid var(--line); border-radius: 32px;
+                 padding: 80px 56px; text-align: center; position: relative; overflow: hidden; }
+  .close-inner::before { content: ""; position: absolute; top: -120px; right: -120px;
+                          width: 320px; height: 320px; background: var(--teal-soft);
+                          border-radius: 50%; }
+  .close-inner::after { content: ""; position: absolute; bottom: -120px; left: -120px;
+                         width: 280px; height: 280px; background: #fff0d6;
+                         border-radius: 50%; }
+  .close-inner h2 { font-size: 60px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 800;
+                    margin-bottom: 18px; position: relative; }
+  .close-inner h2 .accent { color: var(--teal); }
+  .close-inner p { font-size: 19px; color: var(--muted); margin-bottom: 36px; position: relative; }
+  .close-ctas { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; position: relative; }
+  .close-ctas .primary { background: var(--teal); color: white; padding: 18px 32px;
+                          border-radius: 12px; font-weight: 700; font-size: 16px;
+                          box-shadow: 0 12px 28px -8px rgba(20,184,166,0.5); }
+  .close-ctas .secondary { background: white; color: var(--ink); padding: 18px 32px; border: 1px solid var(--line);
+                            border-radius: 12px; font-weight: 700; font-size: 16px; }
+
+  /* FOOTER */
+  footer { padding: 40px 40px 48px; max-width: 1280px; margin: 0 auto;
+           display: flex; justify-content: space-between; color: var(--muted); font-size: 14px;
+           border-top: 1px solid var(--line); }
+  footer .built { display: inline-flex; align-items: center; gap: 6px; }
+  footer .built::before { content: "♥ "; color: var(--teal); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      skycot
+    </div>
+    <div class="nav-links">
+      <a href="#">Workers</a>
+      <a href="#">How it works</a>
+      <a href="#">Customers</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+    </div>
+    <div class="nav-cta-row">
+      <a href="#" class="ghost">Sign in</a>
+      <a href="#" class="primary">Hire your first worker</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div>
+    <div class="hero-eyebrow">
+      <span class="pill">v1.0</span>
+      Production-ready · SOC 2-ready · 99.97% uptime
+    </div>
+    <h1>The first <span class="grad">AI teammate</span><br>
+        you can actually <span class="underline">audit</span>.</h1>
+    <p class="sub">
+      SKYCOT spins up AI workers from plain-English job descriptions. They
+      live in Slack, learn from your feedback, and ask before they act —
+      and every move is hash-chained for your auditor.
+    </p>
+    <div class="hero-ctas">
+      <a href="#" class="btn-primary">Hire your first worker</a>
+      <a href="#" class="btn-secondary">Book a 15-min demo</a>
+    </div>
+    <div class="hero-reassure">
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#14b8a6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> 5-min setup</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#14b8a6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> SSO ready</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#14b8a6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> SOC 2 Type II</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#14b8a6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> GDPR</span>
+    </div>
+  </div>
+  <div class="hero-illust">
+    <svg viewBox="0 0 540 540" xmlns="http://www.w3.org/2000/svg">
+      <!-- soft background -->
+      <rect x="40" y="40" width="460" height="460" rx="40" fill="white" stroke="#e2e8f0" stroke-width="2"/>
+      <!-- dotted grid -->
+      <defs>
+        <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="1" fill="#cbd5e1"/>
+        </pattern>
+      </defs>
+      <rect x="40" y="40" width="460" height="460" rx="40" fill="url(#dots)" opacity="0.7"/>
+
+      <!-- mid worker -->
+      <g transform="translate(220, 220)">
+        <rect x="0" y="0" width="100" height="100" rx="28" fill="white" stroke="#0f172a" stroke-width="2.5"/>
+        <circle cx="38" cy="42" r="4" fill="#0f172a"/>
+        <circle cx="62" cy="42" r="4" fill="#0f172a"/>
+        <path d="M 36 62 Q 50 74 64 62" stroke="#0f172a" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <line x1="50" y1="-6" x2="50" y2="-16" stroke="#0f172a" stroke-width="2.5"/>
+        <circle cx="50" cy="-16" r="4" fill="#14b8a6"/>
+      </g>
+
+      <!-- status pill below worker -->
+      <g transform="translate(232, 340)">
+        <rect x="0" y="0" width="76" height="22" rx="11" fill="#d2f5ed"/>
+        <circle cx="11" cy="11" r="3.5" fill="#14b8a6"/>
+        <text x="44" y="15" text-anchor="middle" fill="#0d9488" font-family="Inter" font-size="11" font-weight="800">WORKING</text>
+      </g>
+
+      <!-- top action chips -->
+      <g transform="translate(80, 110)">
+        <rect x="0" y="0" width="160" height="44" rx="10" fill="white" stroke="#0f172a" stroke-width="2"/>
+        <circle cx="22" cy="22" r="9" fill="#d2f5ed"/>
+        <path d="M 18 22 L 21 25 L 26 19" stroke="#14b8a6" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <rect x="40" y="13" width="100" height="6" rx="3" fill="#0f172a"/>
+        <rect x="40" y="24" width="70" height="5" rx="2.5" fill="#64748b" opacity="0.5"/>
+      </g>
+      <g transform="translate(320, 80)">
+        <rect x="0" y="0" width="160" height="44" rx="10" fill="white" stroke="#0f172a" stroke-width="2"/>
+        <circle cx="22" cy="22" r="9" fill="#fff0d6"/>
+        <text x="22" y="26" text-anchor="middle" fill="#92400e" font-family="Inter" font-size="11" font-weight="800">?</text>
+        <rect x="40" y="13" width="100" height="6" rx="3" fill="#0f172a"/>
+        <rect x="40" y="24" width="70" height="5" rx="2.5" fill="#64748b" opacity="0.5"/>
+      </g>
+
+      <!-- bottom action chips -->
+      <g transform="translate(80, 410)">
+        <rect x="0" y="0" width="160" height="44" rx="10" fill="white" stroke="#0f172a" stroke-width="2"/>
+        <circle cx="22" cy="22" r="9" fill="#fee2e2"/>
+        <path d="M 18 18 L 26 26 M 26 18 L 18 26" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
+        <rect x="40" y="13" width="100" height="6" rx="3" fill="#0f172a"/>
+        <rect x="40" y="24" width="70" height="5" rx="2.5" fill="#64748b" opacity="0.5"/>
+      </g>
+      <g transform="translate(320, 410)">
+        <rect x="0" y="0" width="160" height="44" rx="10" fill="white" stroke="#0f172a" stroke-width="2"/>
+        <circle cx="22" cy="22" r="9" fill="#d2f5ed"/>
+        <path d="M 18 22 L 21 25 L 26 19" stroke="#14b8a6" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <rect x="40" y="13" width="100" height="6" rx="3" fill="#0f172a"/>
+        <rect x="40" y="24" width="70" height="5" rx="2.5" fill="#64748b" opacity="0.5"/>
+      </g>
+
+      <!-- connectors -->
+      <g stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3" fill="none" opacity="0.7">
+        <path d="M 240 132 Q 240 200 245 220"/>
+        <path d="M 400 124 Q 360 200 295 220"/>
+        <path d="M 240 430 Q 240 360 245 340"/>
+        <path d="M 400 430 Q 360 360 295 340"/>
+      </g>
+    </svg>
+  </div>
+</header>
+
+<section class="logos-row">
+  <div class="logos-label">Trusted by operations, HR, and revenue teams at</div>
+  <div class="logos">
+    <span class="logo-placeholder">Nimbus.io</span>
+    <span class="logo-placeholder italic">Hartwell &amp; Co.</span>
+    <span class="logo-placeholder mono">aether/labs</span>
+    <span class="logo-placeholder allcaps">Foundry Yard</span>
+    <span class="logo-placeholder">Cohort</span>
+    <span class="logo-placeholder italic">Mercer Health</span>
+  </div>
+</section>
+
+<section class="flow">
+  <div class="flow-header">
+    <div class="small">How it works</div>
+    <h2>Hire in 5 minutes.</h2>
+  </div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="num-circle">1</div>
+      <h4>Describe the role</h4>
+      <p>Type the job in plain English. We compile it.</p>
+    </div>
+    <div class="flow-step">
+      <div class="num-circle">2</div>
+      <h4>Pick a template</h4>
+      <p>Marketing intern, recruiter, support — 32 ready-made.</p>
+    </div>
+    <div class="flow-step">
+      <div class="num-circle">3</div>
+      <h4>Approve in Slack</h4>
+      <p>Drafts arrive where your team already lives.</p>
+    </div>
+    <div class="flow-step">
+      <div class="num-circle">4</div>
+      <h4>Audit anything</h4>
+      <p>Every action is hash-chained and replayable.</p>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-header">
+    <h2>Built for the <span class="accent">team</span>, not the dashboard.</h2>
+    <p>Workers fit into the tools your team already uses. No new logins, no new alerts, no new pager.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 6 10 Q 14 6 22 10 L 22 20 Q 14 24 6 20 Z" stroke="#0f172a" stroke-width="2.5" fill="#d2f5ed"/>
+          <path d="M 14 6 L 14 24" stroke="#0f172a" stroke-width="2"/>
+        </svg>
+      </div>
+      <h3>Memory that compounds</h3>
+      <p>Workers remember what you've taught them. Switch foundation models — they keep their notes.</p>
+      <span class="stat">~30k facts/worker</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 4 8 L 24 8 L 24 18 L 16 18 L 12 23 L 12 18 L 4 18 Z" stroke="#0f172a" stroke-width="2.5" fill="#d2f5ed"/>
+          <circle cx="10" cy="13" r="1.5" fill="#0f172a"/>
+          <circle cx="14" cy="13" r="1.5" fill="#0f172a"/>
+          <circle cx="18" cy="13" r="1.5" fill="#0f172a"/>
+        </svg>
+      </div>
+      <h3>Approves where you live</h3>
+      <p>Slack, email, SMS, voice. Workers ask in your existing channels — no new dashboard.</p>
+      <span class="stat">6 channels · &lt;200ms ask</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 14 3 L 4 8 L 4 14 Q 4 21 14 25 Q 24 21 24 14 L 24 8 Z" stroke="#0f172a" stroke-width="2.5" fill="#d2f5ed"/>
+          <path d="M 10 13 L 13 16 L 19 10" stroke="#0f172a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h3>Audit by default</h3>
+      <p>Every action hash-chained, replayable, and auditable. SOC 2 and GDPR are side effects.</p>
+      <span class="stat">SHA-256 chain · replay-ready</span>
+    </div>
+  </div>
+</section>
+
+<section class="trust">
+  <div class="trust-inner">
+    <div class="trust-left">
+      <h2>Enterprise-ready <span class="accent">on day one.</span></h2>
+      <p>Single-sign-on (SSO), role-based access (RBAC), multi-tenant isolation, hash-chained audit, encryption at rest. All on the free plan — not a $15k upgrade.</p>
+      <a href="#" class="trust-cta">Read the security paper</a>
+    </div>
+    <div class="trust-grid">
+      <div class="trust-card">
+        <div class="key">Compliance</div>
+        <div class="val">SOC 2 Type II</div>
+        <div class="desc">Audit complete · report on request</div>
+      </div>
+      <div class="trust-card">
+        <div class="key">Privacy</div>
+        <div class="val">GDPR Art. 15</div>
+        <div class="desc">Right-to-export built in</div>
+      </div>
+      <div class="trust-card">
+        <div class="key">Auth</div>
+        <div class="val">SSO + SAML</div>
+        <div class="desc">Okta · Auth0 · Google · Azure AD</div>
+      </div>
+      <div class="trust-card">
+        <div class="key">Encryption</div>
+        <div class="val">SQLCipher</div>
+        <div class="desc">AES-256 · per-tenant keys</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="testimonial">
+  <div class="small">From the field</div>
+  <blockquote>
+    "It felt like hiring an associate, except they finished their first task in the time it would have taken me to draft the brief. Six months in and we've delegated half our outbound — and <span class="pop">our auditor can replay every single action</span>."
+  </blockquote>
+  <div class="who">
+    <div class="avatar">RK</div>
+    <div style="text-align: left;">
+      <div class="name">Riley Kovacs</div>
+      <div class="title">VP, Customer Success · Nimbus.io (450 employees)</div>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="close-inner">
+    <h2>Ready to <span class="accent">delegate</span><br>the work you've been avoiding?</h2>
+    <p>Spin up your first worker in under 5 minutes. No credit card, no sales call.</p>
+    <div class="close-ctas">
+      <a href="#" class="primary">Hire your first worker</a>
+      <a href="#" class="secondary">Talk to our team</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 SKYCOT · v1.0 · all rights reserved</div>
+  <div class="built">Built in Melbourne, Australia</div>
+</footer>
+
+</body>
+</html>
