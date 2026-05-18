@@ -6,6 +6,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 const { SPA, GATEWAY, OUT_DIR, RESULTS, SLACK_STUB_LOG, FIXTURES } = process.env;
+// MARKETING is the standalone Next.js marketing site (port 3001). Scene 1
+// hits it directly because the SPA's root redirects unauthed users to
+// /auth/signin via middleware — the marketing CTA lives only in marketing/.
+const MARKETING = process.env.MARKETING || SPA;
 const T = 8000;
 const rows = [];
 
@@ -20,7 +24,7 @@ const browser = await chromium.launch();
 const page = await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
 try {
   await run("1-marketing-cta", async () => {
-    await page.goto(SPA, { timeout: T });
+    await page.goto(MARKETING, { timeout: T });
     if (!(await page.getByText(/hire your first worker/i).first().isVisible())) throw new Error("CTA missing on landing");
     return shot(page, "1-marketing-cta");
   });

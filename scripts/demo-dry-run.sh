@@ -93,6 +93,21 @@ if [[ ${KEEP_SERVER} -eq 0 ]]; then
   done
 fi
 
+# --- 2b. Marketing dev server (port 3001) — scene 1 needs this for the
+# "Hire your first worker" CTA, which lives in `marketing/`, not in the SPA.
+MARKETING_DIR="${REPO_ROOT}/marketing"
+MARKETING="${MARKETING_URL:-http://localhost:3001}"
+if [[ ${KEEP_SERVER} -eq 0 && -d "${MARKETING_DIR}" ]]; then
+  echo ">> launching marketing dev on :3001"
+  ( cd "${MARKETING_DIR}" && pnpm dev >"${OUT_DIR}/marketing.log" 2>&1 ) &
+  MARKETING_PID=$!
+  for _ in $(seq 1 60); do
+    code=$(curl -s -o /dev/null -w "%{http_code}" "${MARKETING}" || echo 000)
+    [[ "${code}" =~ ^(200|307|308)$ ]] && { echo ">> marketing dev up"; break; }
+    sleep 2
+  done
+fi
+
 # --- 3. Playwright scene walker.
 SPEC="${WEB_DIR}/dry-run.mjs"
 cp "${FIXTURES}/dry-run.mjs" "${SPEC}"
@@ -100,7 +115,7 @@ cp "${FIXTURES}/dry-run.mjs" "${SPEC}"
 echo ">> walking demo scenes via Playwright"
 SCENES_JSON="${RESULTS}.scenes"
 STUB_LOG="${OUT_DIR}/.slack-stub.log"
-export SPA GATEWAY FIXTURES
+export SPA GATEWAY FIXTURES MARKETING
 export OUT_DIR RESULTS_FILE="${SCENES_JSON}" SLACK_STUB_LOG="${STUB_LOG}"
 ( cd "${WEB_DIR}" && RESULTS="${RESULTS_FILE}" \
     node --experimental-vm-modules "${SPEC}" )
