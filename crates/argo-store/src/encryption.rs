@@ -366,7 +366,60 @@ impl fmt::Debug for KeySource {
     }
 }
 
-fn validate_hex_key(s: &str) -> Result<String> {
+/// Decode a base64-encoded 32-byte secret into the 64-character
+/// lowercase hex form that SQLCipher's `PRAGMA key = "x'…'"` literal
+/// expects.
+///
+/// Same canonical wire format as
+/// `argo_config::cred::db_key::DB_KEY_ENV` and
+/// `argo_config::cred::db_key::get_or_create_db_key` — the gateway
+/// boot path resolves a per-tenant `SecretString` from the keyring,
+/// exposes the inner base64 string, and feeds it through this helper
+/// before calling [`crate::SessionStore::open_with_hex_key`].
+///
+/// # Errors
+/// Returns [`ArgoError::Schema`] when the input is not valid base64,
+/// decodes to a length other than 32 bytes, or contains non-hex
+/// characters after re-encoding.
+///
+/// ```
+/// use argo_store::encryption::base64_to_hex;
+/// // 32 zero bytes → 64 zero hex chars.
+/// let zero_b64 = base64::Engine::encode(
+///     &base64::engine::general_purpose::STANDARD, [0u8; 32],
+/// );
+/// let hex = base64_to_hex(&zero_b64).unwrap();
+/// assert_eq!(hex, "0".repeat(64));
+/// ```
+pub fn base64_to_hex(base64_secret: &str) -> Result<String> {
+    use base64::engine::general_purpose::STANDARD as B64;
+    use base64::Engine;
+    const DB_KEY_RAW_LEN: usize = 32;
+    let bytes = B64
+        .decode(base64_secret.trim())
+        .map_err(|e| ArgoError::Schema(format!("db key not valid base64: {e}")))?;
+    if bytes.len() != DB_KEY_RAW_LEN {
+        return Err(ArgoError::Schema(format!(
+            "db key must decode to {DB_KEY_RAW_LEN} bytes (got {})",
+            bytes.len()
+        )));
+    }
+    let mut out = String::with_capacity(DB_KEY_RAW_LEN * 2);
+    for b in &bytes {
+        out.push_str(&format!("{b:02x}"));
+    }
+    Ok(out)
+}
+
+/// Validate that `s` is exactly 64 ASCII hex characters and return
+/// the lowercase canonical form. Used as the gatekeeper before any
+/// `PRAGMA key = "x'…'"` interpolation so a caller cannot smuggle a
+/// non-hex byte through into the literal.
+///
+/// # Errors
+/// Returns [`ArgoError::Schema`] when the length is wrong or any
+/// character is outside `[0-9a-fA-F]`.
+pub fn validate_hex_key(s: &str) -> Result<String> {
     if s.len() != 64 {
         return Err(ArgoError::Schema(format!(
             "encryption key must be 64 hex characters (got {})",

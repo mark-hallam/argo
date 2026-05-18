@@ -120,6 +120,12 @@ tar = "0.4"
 # (claude-cu-action-replay-cli).
 image = { version = "0.25", default-features = false, features = ["png", "gif"] }
 base64 = "0.22"
+# Used by gateway boot to expose the inner base64 string of the
+# `SecretString` returned by `argo_config::cred::db_key` so it can be
+# decoded into a SQLCipher hex key. The crate already lives in
+# argo-config (workspace transitive dep); pulling it in here keeps the
+# wire-in code explicit (mission-sqlcipher-4-default-flip).
+secrecy = "0.10"
 # Used by the gateway's `/inbox/ws` + `/audit/stream` WebSocket upgrade
 # (`mission-inbox-ws-real-websocket`): SHA-1 of `Sec-WebSocket-Key ||
 # RFC 6455 magic GUID` produces the `Sec-WebSocket-Accept` header.
@@ -166,6 +172,12 @@ default = []
 # Heavy native build — see crates/argo-voice-tui/Cargo.toml for
 # the cost.
 whisper-native = ["argo-voice-tui/whisper-native"]
+# Pass-through to argo-store's bundled-sqlcipher feature so the
+# encrypted_session_e2e integration test only runs against a
+# SQLCipher-linked libsqlite3 (mission-sqlcipher-4-default-flip).
+# Without the link, `PRAGMA key` is a silent no-op and the test's
+# wrong-key branch would not fail.
+bundled-sqlcipher = ["argo-store/bundled-sqlcipher"]
 
 [dev-dependencies]
 criterion = { workspace = true }

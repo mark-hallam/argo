@@ -1,4 +1,5 @@
 //! Per-tenant `SessionStore` registry for data-residency routing.
+use crate::wal_tuning::WalTuningProfile;
 use crate::{SessionStore, StoreResult};
 use argo_types::ArgoError;
 use serde::Serialize;
@@ -6,6 +7,20 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// Config needed to open one tenant-specific store.
+///
+/// `db_key_hex` is the per-tenant SQLCipher key (64-char lowercase hex,
+/// produced by `argo_store::encryption::base64_to_hex` from the
+/// `SecretString` that `argo_config::cred::db_key::get_or_create_db_key`
+/// returns). Each tenant MUST receive a distinct key — sharing one key
+/// across tenants would be a cross-tenant data-confidentiality
+/// regression
+/// (`mission-sqlcipher-4-default-flip` brief, hidden-constraints §
+/// "Per-tenant keys are non-negotiable"). A `None` value disables
+/// encryption for that tenant; the only legitimate use is BYOK-disabled
+/// internal-fixture deployments where the operator has explicitly
+/// opted out, and even then `SessionStore::open` will still consult
+/// `SKYCOT_DB_KEY_BASE64` from env before falling through to
+/// plaintext.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TenantPoolConfig {
     /// Tenant id that resolves to this pool.
@@ -14,6 +29,10 @@ pub struct TenantPoolConfig {
     pub db_url: String,
     /// Legal deployment region for this tenant.
     pub region: String,
+    /// Per-tenant SQLCipher key, hex-encoded (64 chars). When `None`,
+    /// the tenant pool falls back to the env-driven default — see the
+    /// struct-level doc.
+    pub db_key_hex: Option<String>,
 }
 
 /// Resolved store plus routing metadata.
@@ -60,6 +79,16 @@ pub struct MultiTenantStore {
 
 impl MultiTenantStore {
     /// Build a registry from an already-open default store and tenant DB configs.
+    ///
+    /// Each tenant store is opened with the per-tenant SQLCipher key
+    /// from [`TenantPoolConfig::db_key_hex`] when supplied — the v1
+    /// encrypted-by-default posture
+    /// (`mission-sqlcipher-4-default-flip`). Callers should populate
+    /// `db_key_hex` via
+    /// `argo_config::cred::db_key::get_or_create_db_key(tenant_id)` →
+    /// `argo_store::encryption::base64_to_hex` before passing the
+    /// config in. A `None` value falls back to `SessionStore::open`,
+    /// which still honors `SKYCOT_DB_KEY_BASE64` from env.
     pub async fn open(
         default_pool: SessionStore,
         tenants: impl IntoIterator<Item = TenantPoolConfig>,
@@ -67,7 +96,17 @@ impl MultiTenantStore {
         let mut pools = BTreeMap::new();
         for cfg in tenants {
             validate_config(&cfg)?;
-            let store = SessionStore::open(&cfg.db_url).await?;
+            let store = match cfg.db_key_hex.as_deref() {
+                Some(hex) => {
+                    SessionStore::open_with_hex_key(
+                        &cfg.db_url,
+                        WalTuningProfile::default(),
+                        hex,
+                    )
+                    .await?
+                }
+                None => SessionStore::open(&cfg.db_url).await?,
+            };
             pools.insert(
                 cfg.tenant_id,
                 TenantPool {

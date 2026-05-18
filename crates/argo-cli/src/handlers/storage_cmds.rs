@@ -70,5 +70,6 @@ fn tenant_config(tenant_id: &str, tenant: &StorageTenantConfig) -> TenantPoolCon
         tenant_id: tenant_id.to_string(),
         db_url: tenant.db_url.clone(),
         region: tenant.region.clone(),
+        db_key_hex: None,
     }
 }

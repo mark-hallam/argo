@@ -10,11 +10,13 @@ async fn registry() -> (tempfile::TempDir, MultiTenantStore) {
             tenant_id: "eu-a".into(),
             db_url: dir.path().join("eu-a.db").display().to_string(),
             region: "eu-west-1".into(),
+            db_key_hex: None,
         },
         TenantPoolConfig {
             tenant_id: "us-a".into(),
             db_url: dir.path().join("us-a.db").display().to_string(),
             region: "us-east-1".into(),
+            db_key_hex: None,
         },
     ];
     let store = MultiTenantStore::open(default, cfgs).await.unwrap();
@@ -87,6 +89,7 @@ async fn rejects_empty_db_url() {
             tenant_id: "eu-a".into(),
             db_url: String::new(),
             region: "eu-west-1".into(),
+            db_key_hex: None,
         }],
     )
     .await;

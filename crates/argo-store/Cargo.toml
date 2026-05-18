@@ -25,10 +25,13 @@ tracing = { workspace = true }
 # BYOK (mission-byok-enterprise-tenants) — cloud-KMS unwrap of the
 # wrapped data-encryption-key (DEK). All three providers speak
 # HTTP/JSON to their respective KMS endpoints (REST for GCP +
-# Azure; AWS KMS uses the JSON-1.1 wire format). reqwest + base64
-# are pulled only when at least one `kms-*` feature is enabled.
+# Azure; AWS KMS uses the JSON-1.1 wire format). reqwest is pulled
+# only when at least one `kms-*` feature is enabled. base64 is
+# always-on now (mission-sqlcipher-4-default-flip) — the default
+# `SessionStore::open` reads `SKYCOT_DB_KEY_BASE64` from env, so
+# the decoder is load-bearing on the encrypted-by-default path.
 reqwest = { workspace = true, optional = true }
-base64 = { version = "0.22", optional = true }
+base64 = "0.22"
 
 # Direct dep on the libsqlite3-sys instance that sqlx-sqlite already
 # pulls in transitively (mission-sqlcipher-1-libsqlite3-patch). The
@@ -68,7 +71,7 @@ bundled-sqlcipher = [
     "dep:libsqlite3-sys",
     "libsqlite3-sys/bundled-sqlcipher-vendored-openssl",
 ]
-kms = ["dep:reqwest", "dep:base64"]
+kms = ["dep:reqwest"]
 kms-aws = ["kms"]
 kms-gcp = ["kms"]
 kms-azure = ["kms"]

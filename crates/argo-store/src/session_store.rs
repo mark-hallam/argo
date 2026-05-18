@@ -43,6 +43,20 @@ impl SessionStore {
     /// Open a store at `path`. Creates the file if it doesn't exist.
     /// Use `":memory:"` for in-memory (tests).
     ///
+    /// Reads the optional `SKYCOT_DB_KEY_BASE64` environment variable
+    /// and applies `PRAGMA key` to every connection in the pool when
+    /// it is set. `:memory:` paths are exempt — they hold no on-disk
+    /// state, so encrypting them is meaningless and the ~666 existing
+    /// in-memory test callsites keep working without code changes.
+    /// Test fixtures that explicitly need a plaintext on-disk DB call
+    /// [`SessionStore::open_unencrypted_for_tests`] instead.
+    ///
+    /// Callers with a pre-resolved per-tenant key (e.g. gateway boot,
+    /// which derives the secret via
+    /// `argo_config::cred::db_key::get_or_create_db_key`) should use
+    /// [`SessionStore::open_with_hex_key`] so the key never has to
+    /// round-trip through process env.
+    ///
     /// ```
     /// # async fn doc() -> argo_store::StoreResult<()> {
     /// let store = argo_store::SessionStore::open(":memory:").await?;
@@ -51,6 +65,50 @@ impl SessionStore {
     /// ```
     pub async fn open(path: impl AsRef<Path>) -> StoreResult<Self> {
         Self::open_with_profile(path, wal_tuning::WalTuningProfile::default()).await
+    }
+
+    /// Explicit-opt-out variant of [`SessionStore::open`] used by test
+    /// fixtures that intentionally exercise the plaintext code path
+    /// (e.g. the `argo migrate encrypt` round-trip test, which has to
+    /// produce an unencrypted source DB to upgrade). Ignores
+    /// `SKYCOT_DB_KEY_BASE64` so CI runners that export the env
+    /// globally cannot break determinism.
+    ///
+    /// ```
+    /// # async fn doc() -> argo_store::StoreResult<()> {
+    /// let store = argo_store::SessionStore::open_unencrypted_for_tests(":memory:").await?;
+    /// store.migrate().await?;
+    /// # Ok(()) }
+    /// ```
+    pub async fn open_unencrypted_for_tests(path: impl AsRef<Path>) -> StoreResult<Self> {
+        store_open::open_unencrypted(path, wal_tuning::WalTuningProfile::default()).await
+    }
+
+    /// Open with the supplied already-validated SQLCipher hex key.
+    /// Callers that have resolved a per-tenant secret via
+    /// `argo_config::cred::db_key::get_or_create_db_key` decode the
+    /// base64 payload to hex with [`encryption::base64_to_hex`] and
+    /// pass it here. This is the load-bearing wire-in for the gateway
+    /// boot path + per-tenant multi-tenant pool entries.
+    ///
+    /// ```no_run
+    /// # async fn doc() -> argo_store::StoreResult<()> {
+    /// use argo_store::{SessionStore, wal_tuning::WalTuningProfile};
+    /// // 32 zero bytes → 64-char hex string. Real callers pass the
+    /// // output of `argo_store::store_open::base64_to_hex(...)`.
+    /// let hex = "0".repeat(64);
+    /// let store = SessionStore::open_with_hex_key(
+    ///     ":memory:", WalTuningProfile::Default, &hex,
+    /// ).await?;
+    /// store.migrate().await?;
+    /// # Ok(()) }
+    /// ```
+    pub async fn open_with_hex_key(
+        path: impl AsRef<Path>,
+        profile: wal_tuning::WalTuningProfile,
+        hex_key: &str,
+    ) -> StoreResult<Self> {
+        store_open::open_with_hex_key(path, profile, hex_key).await
     }
 
     /// Variant of [`SessionStore::open`] that takes an explicit

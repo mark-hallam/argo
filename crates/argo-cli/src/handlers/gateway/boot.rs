@@ -59,9 +59,41 @@ pub(super) fn pid_path() -> ArgoResult<PathBuf> {
 async fn open_store(cwd: &std::path::Path) -> ArgoResult<SessionStore> {
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
-    let store = SessionStore::open(&db_path(&home)).await?;
+    let db = db_path(&home);
+    let store = open_store_at(&db).await?;
     store.migrate().await?;
     Ok(store)
+}
+
+/// Resolve the workspace SQLCipher key via
+/// `argo_config::cred::db_key::get_or_create_db_key` and open the
+/// session store with `PRAGMA key` applied. This is the
+/// encrypted-by-default flip (`mission-sqlcipher-4-default-flip`):
+/// every gateway boot path now goes through it instead of the legacy
+/// plaintext `SessionStore::open`. Tenancy-aware deployments still
+/// resolve per-tenant keys through `MultiTenantStore`; the gateway's
+/// single-deployment default pool uses the workspace-default tenant
+/// `Uuid::nil()` so the keyring entry is stable across boots.
+async fn open_store_at(path: &std::path::Path) -> ArgoResult<SessionStore> {
+    use argo_types::TenantId;
+    use secrecy::ExposeSecret;
+    let tenant = TenantId(uuid::Uuid::nil());
+    let secret = argo_config::cred::db_key::get_or_create_db_key(tenant)
+        .await
+        .map_err(|e| {
+            ArgoError::Provider(format!(
+                "gateway store: derive SQLCipher key for workspace-default tenant: {e}. \
+                 Set SKYCOT_DB_KEY_BASE64 to a base64-encoded 32-byte secret, or run \
+                 with an OS keyring available."
+            ))
+        })?;
+    let hex_key = argo_store::encryption::base64_to_hex(secret.expose_secret())?;
+    SessionStore::open_with_hex_key(
+        path,
+        argo_store::wal_tuning::WalTuningProfile::default(),
+        &hex_key,
+    )
+    .await
 }
 
 pub(super) async fn start(
@@ -282,22 +314,14 @@ pub(super) async fn start(
             ip_allowlist.cidr_count()
         );
     }
-    // At-rest encryption advisory. v1 stock builds ship the pure-Rust
-    // `sqlx` SQLite driver, which is not linked against SQLCipher —
-    // `PRAGMA key` is silently dropped and pages are written
-    // plaintext. Warn on every boot until the operator either ships a
-    // SQLCipher-linked build or sets
-    // `[security.encryption] acknowledge_plaintext = true`. See
-    // `docs/skycot/security/at-rest-encryption.md`.
-    let enc = &cfg.security.encryption;
-    if enc.key_source.eq_ignore_ascii_case("none") && !enc.acknowledge_plaintext {
-        eprintln!(
-            "argo gateway: ⚠️  at-rest encryption OFF (plaintext pages). \
-             v1 stock build does not link SQLCipher. Set \
-             `[security.encryption] acknowledge_plaintext = true` to \
-             suppress; see docs/skycot/security/at-rest-encryption.md."
-        );
-    }
+    // mission-sqlcipher-4-default-flip — the v1 "encryption off"
+    // advisory is gone: every gateway boot now opens the store through
+    // `open_store_at`, which resolves a per-tenant SQLCipher key via
+    // `argo_config::cred::db_key::get_or_create_db_key` and applies
+    // `PRAGMA key` before any other SQL runs. The `[security.encryption]
+    // acknowledge_plaintext` knob is kept on `SecurityEncryptionConfig`
+    // for backward-compatible argo.toml parsing but no longer suppresses
+    // anything.
     let maintenance_cfg = super::maintenance_middleware::from_env();
     if maintenance_cfg.is_some() {
         eprintln!("argo gateway: MAINTENANCE MODE — non-/health requests return 503");
