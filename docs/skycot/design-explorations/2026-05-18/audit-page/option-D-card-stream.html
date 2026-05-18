@@ -1,0 +1,352 @@
+<!doctype html>
+<!--
+  AUDIT PAGE — OPTION D: CARD STREAM / TWITTER-FEED
+  ==================================================
+  Design language: like a Slack channel, Twitter feed, or Things 3.
+  Every action is a card with worker avatar + message + timestamp.
+  Conversational, scannable, "your team is talking" feel. Inline approve/
+  reject for pending items. Bigger emotional dimension.
+  Reference: Slack messages, Things 3 inbox, Linear comment threads,
+  Discord, Loom thread replies.
+  Brand: locked palette + Audiowide for page title + Inter throughout.
+  Closest to the currently-shipped audit page (sidebar + feed).
+  Best for: small teams, daily glance, "your team felt today"
+  storytelling. Costs: less efficient for 100s of actions per day.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT Audit — Option D — Card Stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaff;
+    --ink: #1e1b4b;
+    --muted: #6b7280;
+    --line: #ece9f5;
+    --purple: #8b5cf6;
+    --purple-deep: #6d28d9;
+    --pink: #ec4899;
+    --coral: #ff6b6b;
+    --yellow: #fcd34d;
+    --teal: #14b8a6;
+    --soft-purple: #f3e8ff;
+    --soft-pink: #fce7f3;
+    --green: #16a34a;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --red: #dc2626;
+    --red-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", system-ui, sans-serif; line-height: 1.55;
+               -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr 320px; min-height: 100vh; }
+
+  .sidebar { background: white; border-right: 1px solid var(--line); padding: 24px 18px;
+             display: flex; flex-direction: column; gap: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+  .brand-mark { width: 32px; height: 32px; border-radius: 10px;
+                background: linear-gradient(135deg, var(--purple), var(--pink));
+                display: grid; place-items: center; color: white; font-weight: 900; font-size: 16px; }
+  .brand-word { font-family: "Audiowide", sans-serif; font-size: 16px; letter-spacing: 0.14em; }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px;
+           font-size: 14px; color: var(--muted); font-weight: 500; justify-content: space-between; }
+  .nav a:hover { background: var(--soft-purple); color: var(--ink); }
+  .nav a.active { background: linear-gradient(135deg, var(--soft-purple), var(--soft-pink));
+                  color: var(--purple-deep); font-weight: 700; }
+  .nav .badge { background: var(--purple); color: white; font-size: 11px; font-weight: 800;
+                 padding: 2px 7px; border-radius: 999px; }
+
+  /* MAIN FEED */
+  .feed-wrap { padding: 32px 40px 80px; max-width: 760px; margin: 0 auto; width: 100%; }
+  .page-head { margin-bottom: 28px; }
+  .page-head h1 { font-family: "Audiowide", sans-serif; font-size: 44px; line-height: 1; letter-spacing: 0;
+                   margin-bottom: 6px; }
+  .page-head h1 .grad { background: linear-gradient(135deg, var(--purple), var(--pink));
+                          -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-head p { font-size: 15px; color: var(--muted); }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--line); padding: 0 4px; }
+  .tab { padding: 12px 20px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+         border-bottom: 2px solid transparent; transition: all 0.15s ease; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--purple-deep); border-bottom-color: var(--purple); }
+  .tab .badge-tab { background: var(--soft-purple); color: var(--purple-deep);
+                     padding: 2px 8px; border-radius: 999px; font-size: 11px; margin-left: 6px;
+                     font-weight: 700; }
+
+  /* DAY DIVIDER */
+  .day-divider { display: flex; align-items: center; gap: 14px; margin: 24px 0 18px; }
+  .day-divider .lbl { font-family: "Audiowide", sans-serif; font-size: 12px;
+                       background: linear-gradient(135deg, var(--purple), var(--pink));
+                       -webkit-background-clip: text; background-clip: text; color: transparent;
+                       letter-spacing: 0.24em; }
+  .day-divider .rule { flex: 1; height: 1px; background: var(--line); }
+  .day-divider .meta-d { font-size: 12px; color: var(--muted); }
+
+  /* CARD */
+  .card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px;
+           margin-bottom: 10px; display: grid; grid-template-columns: 44px 1fr; gap: 14px;
+           transition: all 0.15s ease; }
+  .card:hover { border-color: var(--purple); box-shadow: 0 8px 20px -8px rgba(139,92,246,0.15); }
+  .card.pend { border-left: 3px solid var(--amber); padding-left: 17px; }
+  .card.refu { border-left: 3px solid var(--red); padding-left: 17px; }
+  .card .av { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+               color: white; font-family: "Audiowide", sans-serif; font-size: 14px; letter-spacing: 0.06em; }
+  .card.w-ja .av { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.w-sa .av { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .card.w-pr .av { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .card.w-no .av { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.w-ma .av { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .card-head .name { font-weight: 700; font-size: 14px; }
+  .card-head .role { font-size: 12px; color: var(--muted); }
+  .card-head .role::before { content: "·"; margin: 0 6px; color: var(--line); }
+  .card-head .ts { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .card-body { font-size: 15px; color: var(--ink); line-height: 1.5; }
+  .card-body strong { font-weight: 700; }
+  .card-body .lk { color: var(--purple-deep); font-weight: 600; border-bottom: 1px dotted var(--purple);
+                    cursor: pointer; }
+  .card-meta { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .pill { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
+          display: inline-flex; align-items: center; gap: 4px; }
+  .pill.succ { background: var(--green-soft); color: var(--green); }
+  .pill.pend { background: var(--amber-soft); color: var(--amber); }
+  .pill.refu { background: var(--red-soft); color: var(--red); }
+  .pill::before { content: "●"; font-size: 8px; }
+  .chip { font-size: 11px; color: var(--muted); }
+  .chip.id { background: var(--soft-purple); color: var(--purple-deep);
+              padding: 1px 8px; border-radius: 4px; font-family: "JetBrains Mono", monospace; }
+  .chip.cost { color: var(--ink); font-family: "JetBrains Mono", monospace; font-weight: 600; }
+  .card .actions-row { display: flex; gap: 6px; margin-top: 12px; }
+  .btn-action { padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 700;
+                 border: 0; cursor: pointer; font-family: "Inter", sans-serif; }
+  .btn-approve { background: linear-gradient(135deg, var(--purple), var(--pink)); color: white; }
+  .btn-reject { background: white; color: var(--red); border: 1px solid var(--line); }
+  .btn-discuss { background: white; color: var(--ink); border: 1px solid var(--line); }
+
+  /* RIGHT RAIL — context panel */
+  .right-rail { background: white; border-left: 1px solid var(--line); padding: 32px 24px;
+                 display: flex; flex-direction: column; gap: 24px; position: sticky; top: 0; max-height: 100vh; overflow-y: auto; }
+  .rail-section h4 { font-family: "Audiowide", sans-serif; font-size: 11px; letter-spacing: 0.24em;
+                      color: var(--purple); margin-bottom: 14px; }
+  .digest { background: linear-gradient(135deg, var(--soft-purple), var(--soft-pink));
+             border-radius: 14px; padding: 18px; }
+  .digest .t { font-family: "Audiowide", sans-serif; font-size: 14px; line-height: 1.4;
+                background: linear-gradient(135deg, var(--purple-deep), var(--pink));
+                -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .rail-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rail-kpi { background: var(--soft-purple); border-radius: 10px; padding: 14px; }
+  .rail-kpi .num { font-family: "Audiowide", sans-serif; font-size: 26px;
+                    background: linear-gradient(135deg, var(--purple), var(--pink));
+                    -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1; }
+  .rail-kpi .lbl { font-size: 11px; color: var(--purple-deep); margin-top: 4px; font-weight: 600; }
+  .worker-list { display: flex; flex-direction: column; gap: 6px; }
+  .worker-list .w-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px;
+                         font-size: 13px; }
+  .worker-list .w-row:hover { background: var(--soft-purple); }
+  .worker-list .w-av { width: 24px; height: 24px; border-radius: 6px; color: white; display: grid;
+                        place-items: center; font-family: "Audiowide", sans-serif; font-size: 10px; letter-spacing: 0.06em; }
+  .worker-list .ja .w-av { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .worker-list .sa .w-av { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .worker-list .pr .w-av { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .worker-list .no .w-av { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .worker-list .ma .w-av { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .worker-list .w-name { flex: 1; font-weight: 600; }
+  .worker-list .w-count { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <span class="brand-word">SKYCOT</span>
+    </div>
+    <nav class="nav">
+      <a href="#">📥 &nbsp; Inbox <span class="badge">7</span></a>
+      <a href="#">👥 &nbsp; Team</a>
+      <a href="#">🤖 &nbsp; Workers</a>
+      <a href="#" class="active">📜 &nbsp; Audit</a>
+      <a href="#">🧠 &nbsp; Skills</a>
+      <a href="#">🎯 &nbsp; Cohorts</a>
+    </nav>
+  </aside>
+
+  <main class="feed-wrap">
+    <div class="page-head">
+      <h1>What your team did <span class="grad">today.</span></h1>
+      <p>Forensic + compliance view. Every action logged, replayable, audit-chained.</p>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">All <span class="badge-tab">17</span></div>
+      <div class="tab">Pending you <span class="badge-tab">7</span></div>
+      <div class="tab">Succeeded</div>
+      <div class="tab">Refused</div>
+      <div class="tab" style="margin-left:auto;color:var(--purple);">🔐 Verify chain ›</div>
+    </div>
+
+    <div class="day-divider">
+      <span class="lbl">▮ TODAY</span>
+      <span class="rule"></span>
+      <span class="meta-d">17 actions · $0.094 · chain ok</span>
+    </div>
+
+    <div class="card w-ja">
+      <div class="av">JA</div>
+      <div>
+        <div class="card-head"><span class="name">Jamal</span><span class="role">Customer support</span><span class="ts">5m ago</span></div>
+        <div class="card-body">Resolved <strong>SUP-29382</strong> with knowledge-base article <span class="lk">SK-413</span>. Customer marked thread as resolved.</div>
+        <div class="card-meta">
+          <span class="pill succ">Succeeded</span>
+          <span class="chip id">JAMAL_025</span>
+          <span class="chip cost">$0.004</span>
+          <span class="chip">auto-approved</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card w-sa">
+      <div class="av">SA</div>
+      <div>
+        <div class="card-head"><span class="name">Sara</span><span class="role">Finance — AR</span><span class="ts">7m ago</span></div>
+        <div class="card-body">Extracted 14 line items from <strong>INV-2024-08741</strong>. Total $48,250. Filed to QBO.</div>
+        <div class="card-meta">
+          <span class="pill succ">Succeeded</span>
+          <span class="chip id">SAM_010</span>
+          <span class="chip cost">$0.012</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card w-pr">
+      <div class="av">PR</div>
+      <div>
+        <div class="card-head"><span class="name">Priya</span><span class="role">Recruiter</span><span class="ts">9m ago</span></div>
+        <div class="card-body">Screened <strong>Diego Alvarez</strong> against <strong>JD-2024-08</strong>. Score 8.2/10 — recommend phone screen. Strong on systems design + Rust.</div>
+        <div class="card-meta">
+          <span class="pill succ">Succeeded</span>
+          <span class="chip id">PRIYA_080</span>
+          <span class="chip cost">$0.014</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card w-no pend">
+      <div class="av">NO</div>
+      <div>
+        <div class="card-head"><span class="name">Nori</span><span class="role">Sales ops</span><span class="ts">32m ago</span></div>
+        <div class="card-body">Flagged a 32% discount on <strong>QT-2024-7283</strong> for Deal Desk review. Approval threshold is 25%. Reply <strong>yes</strong> in <span class="lk">#deal-desk</span> to approve, or here.</div>
+        <div class="card-meta">
+          <span class="pill pend">Pending you</span>
+          <span class="chip id">NORI_033</span>
+          <span class="chip">routed to Slack</span>
+        </div>
+        <div class="actions-row">
+          <button class="btn-action btn-approve">✓ Approve</button>
+          <button class="btn-action btn-reject">✕ Reject</button>
+          <button class="btn-action btn-discuss">💬 Discuss</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card w-ma">
+      <div class="av">MA</div>
+      <div>
+        <div class="card-head"><span class="name">Mariah</span><span class="role">Marketing</span><span class="ts">15m ago</span></div>
+        <div class="card-body">Drafted RFP response summary for <strong>Tomás Industries</strong>. 1,240 words. Voice matched to your "practical, evidence-led" tone guide.</div>
+        <div class="card-meta">
+          <span class="pill succ">Succeeded</span>
+          <span class="chip id">MARIAH_018</span>
+          <span class="chip cost">$0.021</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card w-sa refu">
+      <div class="av">SA</div>
+      <div>
+        <div class="card-head"><span class="name">Sara</span><span class="role">Finance — AR</span><span class="ts">39m ago</span></div>
+        <div class="card-body">Refused to file <strong>INV-2024-08739</strong> as a duplicate of <strong>INV-2024-08712</strong>. Same vendor, same amount, posted 11 days apart. Sent to vendor for clarification.</div>
+        <div class="card-meta">
+          <span class="pill refu">Refused</span>
+          <span class="chip id">SAM_011</span>
+          <span class="chip">policy hold: dedup</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card w-pr pend">
+      <div class="av">PR</div>
+      <div>
+        <div class="card-head"><span class="name">Priya</span><span class="role">Recruiter</span><span class="ts">48m ago</span></div>
+        <div class="card-body">Drafted a rejection email to <strong>Sara Lin</strong> (Solutions Engineer applicant). Voice-matched and respectful — feedback included on portfolio.</div>
+        <div class="card-meta">
+          <span class="pill pend">Pending you</span>
+          <span class="chip id">PRIYA_082</span>
+          <span class="chip cost">$0.009</span>
+        </div>
+        <div class="actions-row">
+          <button class="btn-action btn-approve">✓ Send</button>
+          <button class="btn-action btn-reject">✕ Don't send</button>
+          <button class="btn-action btn-discuss">✏ Edit draft</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card w-ja">
+      <div class="av">JA</div>
+      <div>
+        <div class="card-head"><span class="name">Jamal</span><span class="role">Customer support</span><span class="ts">1h ago</span></div>
+        <div class="card-body">Escalated refund request <strong>SUP-29355</strong> to <strong>@lead-support</strong>. Customer paid in error, refund within authority $5k threshold.</div>
+        <div class="card-meta">
+          <span class="pill succ">Succeeded</span>
+          <span class="chip id">JAMAL_027</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <aside class="right-rail">
+    <div class="rail-section">
+      <h4>▮ TODAY'S DIGEST</h4>
+      <div class="digest">
+        <div class="t">Your team did 17 actions, kept 100% of audit chain clean, and shipped 4 customer-facing items.</div>
+      </div>
+    </div>
+    <div class="rail-section">
+      <h4>▮ KPIS</h4>
+      <div class="rail-kpis">
+        <div class="rail-kpi"><div class="num">17</div><div class="lbl">Actions today</div></div>
+        <div class="rail-kpi"><div class="num">7</div><div class="lbl">Pending you</div></div>
+        <div class="rail-kpi"><div class="num">$0.094</div><div class="lbl">Spend today</div></div>
+        <div class="rail-kpi"><div class="num">100%</div><div class="lbl">Chain verified</div></div>
+      </div>
+    </div>
+    <div class="rail-section">
+      <h4>▮ MOST ACTIVE TODAY</h4>
+      <div class="worker-list">
+        <div class="w-row ja"><div class="w-av">JA</div><span class="w-name">Jamal</span><span class="w-count">6 actions</span></div>
+        <div class="w-row pr"><div class="w-av">PR</div><span class="w-name">Priya</span><span class="w-count">5 actions</span></div>
+        <div class="w-row ma"><div class="w-av">MA</div><span class="w-name">Mariah</span><span class="w-count">3 actions</span></div>
+        <div class="w-row sa"><div class="w-av">SA</div><span class="w-name">Sara</span><span class="w-count">2 actions</span></div>
+        <div class="w-row no"><div class="w-av">NO</div><span class="w-name">Nori</span><span class="w-count">1 action</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+</body>
+</html>

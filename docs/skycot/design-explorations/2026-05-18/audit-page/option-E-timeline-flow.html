@@ -1,0 +1,370 @@
+<!doctype html>
+<!--
+  AUDIT PAGE — OPTION E: VERTICAL TIMELINE / FLOW
+  ================================================
+  Design language: vertical timeline with a brand-gradient spine running
+  down the center. Actions plot along the spine as colored dots. The
+  whole day's rhythm visible at a glance. Most "viral" / shareable
+  visual — would look amazing as a Product Hunt screenshot.
+  Reference: Vercel deployments timeline, GitHub Actions runs, Linear
+  cycles view, Notion calendar timeline.
+  Brand: locked palette + Audiowide for page title + Inter throughout.
+  Best for: visual storytelling. Demo recording's "the rhythm of an
+  AI team's day" hero shot. Costs: less efficient than the table for
+  high-volume daily use.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT Audit — Option E — Timeline Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaff;
+    --ink: #1e1b4b;
+    --muted: #6b7280;
+    --line: #ece9f5;
+    --purple: #8b5cf6;
+    --purple-deep: #6d28d9;
+    --pink: #ec4899;
+    --coral: #ff6b6b;
+    --yellow: #fcd34d;
+    --teal: #14b8a6;
+    --soft-purple: #f3e8ff;
+    --soft-pink: #fce7f3;
+    --green: #16a34a;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --red: #dc2626;
+    --red-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", system-ui, sans-serif; line-height: 1.55;
+               -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px;
+                  background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+                  z-index: -1; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px;
+                 background: radial-gradient(circle, rgba(236,72,153,0.06) 0%, transparent 70%);
+                 z-index: -1; pointer-events: none; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  .sidebar { background: white; border-right: 1px solid var(--line); padding: 24px 18px;
+             display: flex; flex-direction: column; gap: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+  .brand-mark { width: 32px; height: 32px; border-radius: 10px;
+                background: linear-gradient(135deg, var(--purple), var(--pink));
+                display: grid; place-items: center; color: white; font-weight: 900; font-size: 16px; }
+  .brand-word { font-family: "Audiowide", sans-serif; font-size: 16px; letter-spacing: 0.14em; }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px;
+           font-size: 14px; color: var(--muted); font-weight: 500; }
+  .nav a:hover { background: var(--soft-purple); color: var(--ink); }
+  .nav a.active { background: linear-gradient(135deg, var(--soft-purple), var(--soft-pink));
+                  color: var(--purple-deep); font-weight: 700; }
+
+  .content { padding: 40px 56px 100px; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+  .page-head { display: flex; justify-content: space-between; align-items: flex-end;
+                margin-bottom: 32px; }
+  .page-title { font-family: "Audiowide", sans-serif; font-size: 56px; line-height: 1; letter-spacing: 0;
+                 margin-bottom: 8px; }
+  .page-title .grad { background: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+                       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-sub { font-size: 15px; color: var(--muted); }
+  .head-actions { display: flex; gap: 8px; }
+  .head-actions button { background: white; border: 1px solid var(--line); padding: 9px 16px;
+                          border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer;
+                          font-family: "Inter", sans-serif; color: var(--ink); }
+  .head-actions .primary { background: linear-gradient(135deg, var(--purple), var(--pink));
+                            color: white; border: 0; }
+
+  /* TODAY KPI STRIP */
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 40px; }
+  .kpi-card { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .kpi-card .num { font-family: "Audiowide", sans-serif; font-size: 30px; letter-spacing: 0; line-height: 1;
+                    background: linear-gradient(135deg, var(--purple), var(--pink));
+                    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .kpi-card .num.green { background: linear-gradient(135deg, var(--green), var(--teal));
+                          -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .kpi-card .num.amber { background: linear-gradient(135deg, var(--amber), var(--coral));
+                          -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .kpi-card .lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.16em; text-transform: uppercase;
+                    font-weight: 700; margin-top: 6px; }
+
+  /* TIMELINE */
+  .timeline { position: relative; padding-left: 80px; }
+  .timeline::before { content: ""; position: absolute; left: 30px; top: 30px; bottom: 30px; width: 3px;
+                       background: linear-gradient(180deg, var(--purple), var(--pink), var(--coral), var(--yellow), var(--teal));
+                       border-radius: 2px; }
+
+  /* HOUR HEADER */
+  .hour { position: relative; margin-bottom: 28px; padding-top: 14px; }
+  .hour::before { content: ""; position: absolute; left: -60px; top: 30px; width: 24px; height: 24px;
+                    border-radius: 50%; background: var(--ink);
+                    border: 4px solid white; z-index: 2;
+                    box-shadow: 0 0 0 2px var(--ink); }
+  .hour-label { font-family: "Audiowide", sans-serif; font-size: 22px; line-height: 1;
+                 background: linear-gradient(135deg, var(--purple), var(--pink));
+                 -webkit-background-clip: text; background-clip: text; color: transparent;
+                 letter-spacing: 0.02em; margin-bottom: 4px; }
+  .hour-meta { font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+
+  /* EVENT */
+  .event { position: relative; background: white; border: 1px solid var(--line); border-radius: 14px;
+            padding: 16px 20px; margin-bottom: 10px; transition: all 0.15s ease;
+            display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+  .event::before { content: ""; position: absolute; left: -56px; top: 50%; transform: translateY(-50%);
+                    width: 16px; height: 16px; border-radius: 50%; z-index: 2;
+                    border: 3px solid white; box-shadow: 0 0 0 2px var(--line); }
+  .event::after { content: ""; position: absolute; left: -40px; top: 50%; transform: translateY(-50%);
+                   width: 24px; height: 2px; background: var(--line); z-index: 1; }
+  .event.succ::before { background: var(--green); box-shadow: 0 0 0 2px var(--green); }
+  .event.pend::before { background: var(--amber); box-shadow: 0 0 0 2px var(--amber); }
+  .event.refu::before { background: var(--red); box-shadow: 0 0 0 2px var(--red); }
+  .event:hover { border-color: var(--purple); transform: translateX(4px);
+                  box-shadow: 0 8px 20px -8px rgba(139,92,246,0.18); }
+  .event .body { display: flex; gap: 12px; align-items: center; min-width: 0; }
+  .event .av { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+                color: white; font-family: "Audiowide", sans-serif; font-size: 12px; letter-spacing: 0.06em; flex-shrink: 0; }
+  .event.w-ja .av { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .event.w-sa .av { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .event.w-pr .av { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .event.w-no .av { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .event.w-ma .av { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .event .text { min-width: 0; }
+  .event .desc { font-size: 14px; font-weight: 600; line-height: 1.35; white-space: nowrap;
+                  overflow: hidden; text-overflow: ellipsis; max-width: 540px; }
+  .event .desc strong { color: var(--purple-deep); }
+  .event .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .event .right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .pill { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+          display: inline-flex; align-items: center; gap: 4px; }
+  .pill.succ { background: var(--green-soft); color: var(--green); }
+  .pill.pend { background: var(--amber-soft); color: var(--amber); }
+  .pill.refu { background: var(--red-soft); color: var(--red); }
+  .pill::before { content: "●"; font-size: 8px; }
+  .cost { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--ink); font-weight: 600; }
+  .cost.zero { color: var(--muted); }
+
+  /* NOW marker */
+  .now-marker { position: relative; padding: 16px 0; margin: 8px 0; }
+  .now-marker::before { content: ""; position: absolute; left: -60px; top: 50%; transform: translateY(-50%);
+                          width: 24px; height: 24px; border-radius: 50%;
+                          background: linear-gradient(135deg, var(--purple), var(--pink));
+                          border: 4px solid white;
+                          box-shadow: 0 0 0 4px rgba(139,92,246,0.3);
+                          animation: pulse 2s ease-in-out infinite; z-index: 3; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(139,92,246,0.1); } }
+  .now-marker .label { font-family: "Audiowide", sans-serif; font-size: 14px;
+                        background: linear-gradient(135deg, var(--purple), var(--pink));
+                        -webkit-background-clip: text; background-clip: text; color: transparent;
+                        letter-spacing: 0.18em; }
+
+  /* CHAIN VERIFY BANNER at bottom */
+  .verify { margin-top: 60px; background: linear-gradient(135deg, var(--ink) 0%, var(--purple-deep) 100%);
+             color: white; border-radius: 20px; padding: 32px;
+             display: flex; justify-content: space-between; align-items: center; }
+  .verify .text h3 { font-family: "Audiowide", sans-serif; font-size: 22px; letter-spacing: 0;
+                       font-weight: 400; margin-bottom: 6px; }
+  .verify .text h3 .grad { background: linear-gradient(135deg, var(--pink), var(--yellow));
+                             -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .verify .text p { font-size: 13px; color: rgba(255,255,255,0.65); }
+  .verify .actions-v { display: flex; gap: 10px; }
+  .verify .actions-v button { background: white; color: var(--ink); padding: 10px 20px;
+                                border-radius: 10px; font-size: 13px; font-weight: 700;
+                                border: 0; cursor: pointer; font-family: "Inter", sans-serif; }
+  .verify .actions-v .ghost { background: transparent; color: white;
+                               border: 1px solid rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <span class="brand-word">SKYCOT</span>
+    </div>
+    <nav class="nav">
+      <a href="#">📥 &nbsp; Inbox</a>
+      <a href="#">👥 &nbsp; Team</a>
+      <a href="#">🤖 &nbsp; Workers</a>
+      <a href="#" class="active">📜 &nbsp; Audit</a>
+      <a href="#">🧠 &nbsp; Skills</a>
+      <a href="#">🎯 &nbsp; Cohorts</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">The day, in <span class="grad">flow.</span></h1>
+        <div class="page-sub">A timeline of every action your team took. Hash-chained. Replayable. Auditable.</div>
+      </div>
+      <div class="head-actions">
+        <button>📅 Today</button>
+        <button>📊 Spread view</button>
+        <button class="primary">🔐 Verify chain</button>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="num">17</div><div class="lbl">Actions today</div></div>
+      <div class="kpi-card"><div class="num green">8</div><div class="lbl">Auto-approved</div></div>
+      <div class="kpi-card"><div class="num amber">7</div><div class="lbl">Pending you</div></div>
+      <div class="kpi-card"><div class="num">$0.094</div><div class="lbl">Spend today</div></div>
+      <div class="kpi-card"><div class="num green">100%</div><div class="lbl">Chain verified</div></div>
+    </div>
+
+    <div class="timeline">
+
+      <div class="now-marker">
+        <span class="label">▮ NOW · 14:55 AEDT</span>
+      </div>
+
+      <div class="hour">
+        <div class="hour-label">14:00</div>
+        <div class="hour-meta">5 actions · $0.059 · all succeeded</div>
+      </div>
+      <div class="event succ w-ja">
+        <div class="body">
+          <div class="av">JA</div>
+          <div class="text">
+            <div class="desc"><strong>Jamal</strong> resolved SUP-29382 with KB SK-413</div>
+            <div class="meta">Customer support · 5m ago</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill succ">Succeeded</span><span class="cost">$0.004</span></div>
+      </div>
+      <div class="event succ w-sa">
+        <div class="body">
+          <div class="av">SA</div>
+          <div class="text">
+            <div class="desc"><strong>Sara</strong> extracted line items from INV-2024-08741</div>
+            <div class="meta">Finance — AR · 7m ago · filed to QBO</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill succ">Succeeded</span><span class="cost">$0.012</span></div>
+      </div>
+      <div class="event succ w-pr">
+        <div class="body">
+          <div class="av">PR</div>
+          <div class="text">
+            <div class="desc"><strong>Priya</strong> screened Diego Alvarez vs JD-2024-08 · score 8.2</div>
+            <div class="meta">Recruiter · 9m ago · phone-screen recommended</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill succ">Succeeded</span><span class="cost">$0.014</span></div>
+      </div>
+      <div class="event succ w-no">
+        <div class="body">
+          <div class="av">NO</div>
+          <div class="text">
+            <div class="desc"><strong>Nori</strong> validated QT-2024-7283 against pricing rules</div>
+            <div class="meta">Sales ops · 12m ago</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill succ">Succeeded</span><span class="cost">$0.008</span></div>
+      </div>
+      <div class="event succ w-ma">
+        <div class="body">
+          <div class="av">MA</div>
+          <div class="text">
+            <div class="desc"><strong>Mariah</strong> drafted RFP response · Tomás Industries · 1,240 words</div>
+            <div class="meta">Marketing · 15m ago · voice-matched</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill succ">Succeeded</span><span class="cost">$0.021</span></div>
+      </div>
+
+      <div class="hour">
+        <div class="hour-label">13:00</div>
+        <div class="hour-meta">3 actions · 2 pending · 1 refused</div>
+      </div>
+      <div class="event pend w-no">
+        <div class="body">
+          <div class="av">NO</div>
+          <div class="text">
+            <div class="desc"><strong>Nori</strong> flagged 32% discount on QT-2024-7283</div>
+            <div class="meta">Sales ops · 32m ago · routed to #deal-desk</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill pend">Pending you</span><span class="cost zero">—</span></div>
+      </div>
+      <div class="event refu w-sa">
+        <div class="body">
+          <div class="av">SA</div>
+          <div class="text">
+            <div class="desc"><strong>Sara</strong> refused duplicate invoice INV-2024-08739</div>
+            <div class="meta">Finance — AR · 39m ago · matches INV-2024-08712</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill refu">Refused</span><span class="cost zero">—</span></div>
+      </div>
+      <div class="event pend w-pr">
+        <div class="body">
+          <div class="av">PR</div>
+          <div class="text">
+            <div class="desc"><strong>Priya</strong> drafted rejection email to Sara Lin</div>
+            <div class="meta">Recruiter · 48m ago · voice-matched · awaiting your send</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill pend">Pending you</span><span class="cost">$0.009</span></div>
+      </div>
+
+      <div class="hour">
+        <div class="hour-label">12:00</div>
+        <div class="hour-meta">2 actions · all succeeded</div>
+      </div>
+      <div class="event succ w-ma">
+        <div class="body">
+          <div class="av">MA</div>
+          <div class="text">
+            <div class="desc"><strong>Mariah</strong> scheduled Q3 renewal review with Acme Tech</div>
+            <div class="meta">Marketing · 52m ago · gcal event created</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill succ">Succeeded</span><span class="cost zero">—</span></div>
+      </div>
+      <div class="event succ w-ja">
+        <div class="body">
+          <div class="av">JA</div>
+          <div class="text">
+            <div class="desc"><strong>Jamal</strong> escalated SUP-29355 to @lead-support</div>
+            <div class="meta">Customer support · 1h ago · refund &gt; $5k authority</div>
+          </div>
+        </div>
+        <div class="right"><span class="pill succ">Succeeded</span><span class="cost zero">—</span></div>
+      </div>
+
+      <div class="hour">
+        <div class="hour-label">11:00</div>
+        <div class="hour-meta">…and 7 earlier actions</div>
+      </div>
+
+    </div>
+
+    <div class="verify">
+      <div class="text">
+        <h3>CHAIN <span class="grad">VERIFIED</span> · 100% COVERAGE</h3>
+        <p>Every action since workspace creation has a parent_hash that matches the prior row. Auditor-ready.</p>
+      </div>
+      <div class="actions-v">
+        <button class="ghost">Replay any session</button>
+        <button>Download SOC 2 report</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

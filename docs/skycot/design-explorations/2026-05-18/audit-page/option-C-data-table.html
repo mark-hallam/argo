@@ -1,0 +1,339 @@
+<!doctype html>
+<!--
+  AUDIT PAGE — OPTION C: DATA TABLE / OPS DASHBOARD
+  ==================================================
+  Design language: like Notion's database view, Linear's issue table,
+  Retool. Sortable columns, dense rows, filter chips at top, bulk action
+  bar at bottom on selection, inline keyboard hints. The audit page that
+  ops people will actually USE 8 hours a day.
+  Reference: Linear, Notion DB, Airtable, Retool, Plane.so.
+  Brand: locked palette + Audiowide for page title + Inter for everything.
+  Best for: ops engineers, power users with 100s of actions per day.
+  Costs: less screenshot-worthy than the editorial / forensic options.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT Audit — Option C — Data Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaff;
+    --ink: #1e1b4b;
+    --muted: #6b7280;
+    --line: #ece9f5;
+    --line-soft: #f5f3fa;
+    --purple: #8b5cf6;
+    --purple-deep: #6d28d9;
+    --pink: #ec4899;
+    --coral: #ff6b6b;
+    --yellow: #fcd34d;
+    --teal: #14b8a6;
+    --soft-purple: #f3e8ff;
+    --green: #16a34a;
+    --green-soft: #d1fae5;
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --red: #dc2626;
+    --red-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", system-ui, sans-serif; line-height: 1.5;
+               -webkit-font-smoothing: antialiased; font-size: 14px; }
+  a { color: inherit; text-decoration: none; }
+
+  .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+
+  .sidebar { background: white; border-right: 1px solid var(--line); padding: 20px 16px;
+             display: flex; flex-direction: column; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 9px;
+                background: linear-gradient(135deg, var(--purple), var(--pink));
+                display: grid; place-items: center; color: white; font-weight: 900; font-size: 15px; }
+  .brand-word { font-family: "Audiowide", sans-serif; font-size: 15px; letter-spacing: 0.14em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+           font-size: 13px; color: var(--muted); font-weight: 500; }
+  .nav a:hover { background: var(--line-soft); color: var(--ink); }
+  .nav a.active { background: var(--soft-purple); color: var(--purple-deep); font-weight: 700; }
+
+  .content { padding: 16px 24px; display: flex; flex-direction: column; min-height: 100vh; }
+
+  .titlebar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .titlebar h1 { font-family: "Audiowide", sans-serif; font-size: 22px; letter-spacing: 0.02em; }
+  .titlebar .right { display: flex; gap: 8px; align-items: center; }
+  .titlebar .right .breadcrumb { font-size: 12px; color: var(--muted); }
+  .titlebar .right .breadcrumb code { background: var(--line-soft); padding: 2px 6px; border-radius: 4px;
+                                       font-family: "JetBrains Mono", monospace; font-size: 11px; }
+  .titlebar .right button { background: white; border: 1px solid var(--line); padding: 6px 12px;
+                             border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .titlebar .right .primary { background: linear-gradient(135deg, var(--purple), var(--pink));
+                               color: white; border: 0; }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: white;
+              border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+  .toolbar .search { flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  .toolbar .search input { flex: 1; border: 0; outline: 0; font-size: 13px; background: transparent;
+                            font-family: "Inter", sans-serif; }
+  .toolbar .search input::placeholder { color: var(--muted); }
+  .toolbar .search .kbd { background: var(--line-soft); padding: 2px 6px; border-radius: 4px;
+                          font-size: 10px; font-family: "JetBrains Mono", monospace; color: var(--muted); }
+  .toolbar .divider { width: 1px; height: 18px; background: var(--line); }
+  .toolbar .chip { padding: 4px 10px; background: white; border: 1px solid var(--line);
+                    border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
+                    display: inline-flex; align-items: center; gap: 4px; }
+  .toolbar .chip:hover { background: var(--line-soft); }
+  .toolbar .chip.active { background: var(--soft-purple); color: var(--purple-deep);
+                           border-color: var(--purple); }
+  .toolbar .chip .x { color: var(--muted); }
+  .toolbar .group { font-size: 12px; color: var(--muted); padding: 0 4px; }
+
+  /* TABLE */
+  .table-wrap { background: white; border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+                 flex: 1; }
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table thead { background: var(--line-soft); }
+  .table th { text-align: left; padding: 10px 14px; font-size: 11px; color: var(--muted); font-weight: 700;
+              letter-spacing: 0.08em; text-transform: uppercase; user-select: none; cursor: pointer; }
+  .table th .sort { color: var(--purple); margin-left: 4px; font-size: 10px; }
+  .table th.check { width: 36px; text-align: center; padding: 0; }
+  .table tbody tr { border-top: 1px solid var(--line-soft); transition: background 0.12s ease; }
+  .table tbody tr:hover { background: var(--line-soft); }
+  .table tbody tr.selected { background: var(--soft-purple); }
+  .table td { padding: 10px 14px; vertical-align: middle; }
+  .table .check input { accent-color: var(--purple); }
+  .ts { color: var(--muted); font-size: 12px; }
+  .worker { display: inline-flex; align-items: center; gap: 6px; }
+  .worker .av { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+                color: white; font-family: "Audiowide", sans-serif; font-size: 10px; letter-spacing: 0.06em; }
+  .worker.w-ja .av { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .worker.w-sa .av { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .worker.w-pr .av { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .worker.w-no .av { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .worker.w-ma .av { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .action strong { color: var(--ink); font-weight: 600; }
+  .action code { background: var(--soft-purple); color: var(--purple-deep); padding: 1px 6px;
+                  border-radius: 4px; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+  .pill { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700;
+          display: inline-flex; align-items: center; gap: 4px; }
+  .pill.succ { background: var(--green-soft); color: var(--green); }
+  .pill.pend { background: var(--amber-soft); color: var(--amber); }
+  .pill.refu { background: var(--red-soft); color: var(--red); }
+  .pill::before { content: "●"; font-size: 8px; }
+  .channel { font-size: 11px; color: var(--muted); }
+  .cost { font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600; color: var(--ink); }
+  .cost.zero { color: var(--muted); }
+  .row-actions { color: var(--muted); cursor: pointer; }
+
+  /* FOOTER STATUS BAR */
+  .statusbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px;
+                background: white; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px;
+                font-size: 12px; color: var(--muted); }
+  .statusbar .left { display: flex; gap: 16px; }
+  .statusbar .left strong { color: var(--ink); font-weight: 700; }
+  .statusbar .pager { display: flex; gap: 4px; align-items: center; }
+  .statusbar .pager button { background: white; border: 1px solid var(--line); padding: 4px 8px;
+                              border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .statusbar .chain-ok { color: var(--green); font-weight: 700; }
+  .statusbar .chain-ok::before { content: "● "; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <span class="brand-word">SKYCOT</span>
+    </div>
+    <nav class="nav">
+      <a href="#">📥 Inbox <span style="margin-left:auto;color:var(--purple);font-weight:700">7</span></a>
+      <a href="#">👥 Team</a>
+      <a href="#">🤖 Workers</a>
+      <a href="#" class="active">📜 Audit</a>
+      <a href="#">🧠 Skills</a>
+      <a href="#">🎯 Cohorts</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="titlebar">
+      <h1>AUDIT</h1>
+      <div class="right">
+        <span class="breadcrumb">tenant: <code>019e391a-288b</code></span>
+        <button>📥 Export</button>
+        <button>📊 Saved views</button>
+        <button class="primary">🔐 Verify chain</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search">
+        🔍 <input placeholder="Filter by action, worker, ID, status, cost…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <div class="divider"></div>
+      <span class="group">FILTERS</span>
+      <span class="chip active">Today <span class="x">✕</span></span>
+      <span class="chip">Kind <span class="x">▾</span></span>
+      <span class="chip">Worker <span class="x">▾</span></span>
+      <span class="chip">Status <span class="x">▾</span></span>
+      <span class="chip">+ Add filter</span>
+      <div class="divider"></div>
+      <span class="group">VIEW</span>
+      <span class="chip">⊞ Table</span>
+      <span class="chip">▤ Timeline</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="check"><input type="checkbox"></th>
+            <th>Time <span class="sort">↓</span></th>
+            <th>Worker</th>
+            <th style="width: 40%">Action</th>
+            <th>Status</th>
+            <th>Channel</th>
+            <th>Cost</th>
+            <th>Action ID</th>
+            <th style="width: 30px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">5m ago</td>
+            <td><span class="worker w-ja"><span class="av">JA</span> Jamal</span></td>
+            <td class="action">resolved <strong>SUP-29382</strong> with KB <code>SK-413</code></td>
+            <td><span class="pill succ">Succeeded</span></td>
+            <td class="channel">auto</td>
+            <td class="cost">$0.004</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">JAMAL_025</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">7m ago</td>
+            <td><span class="worker w-sa"><span class="av">SA</span> Sara</span></td>
+            <td class="action">extracted line items from <strong>INV-2024-08741</strong></td>
+            <td><span class="pill succ">Succeeded</span></td>
+            <td class="channel">auto</td>
+            <td class="cost">$0.012</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">SAM_010</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">9m ago</td>
+            <td><span class="worker w-pr"><span class="av">PR</span> Priya</span></td>
+            <td class="action">screened <strong>Diego Alvarez</strong> against <code>JD-2024-08</code> · score 8.2</td>
+            <td><span class="pill succ">Succeeded</span></td>
+            <td class="channel">auto</td>
+            <td class="cost">$0.014</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">PRIYA_080</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">12m ago</td>
+            <td><span class="worker w-no"><span class="av">NO</span> Nori</span></td>
+            <td class="action">validated <strong>QT-2024-7283</strong> against pricing rules</td>
+            <td><span class="pill succ">Succeeded</span></td>
+            <td class="channel">auto</td>
+            <td class="cost">$0.008</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">NORI_032</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">15m ago</td>
+            <td><span class="worker w-ma"><span class="av">MA</span> Mariah</span></td>
+            <td class="action">drafted RFP response summary for <strong>Tomás Industries</strong> · 1240 words</td>
+            <td><span class="pill succ">Succeeded</span></td>
+            <td class="channel">auto</td>
+            <td class="cost">$0.021</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">MARIAH_018</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr class="selected">
+            <td class="check"><input type="checkbox" checked></td>
+            <td class="ts">32m ago</td>
+            <td><span class="worker w-no"><span class="av">NO</span> Nori</span></td>
+            <td class="action">flagged 32% discount on <strong>QT-2024-7283</strong> for Deal Desk</td>
+            <td><span class="pill pend">Pending you</span></td>
+            <td class="channel">slack · #deal-desk</td>
+            <td class="cost zero">—</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">NORI_033</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">39m ago</td>
+            <td><span class="worker w-sa"><span class="av">SA</span> Sara</span></td>
+            <td class="action">refused to file duplicate invoice <strong>INV-2024-08739</strong></td>
+            <td><span class="pill refu">Refused</span></td>
+            <td class="channel">policy</td>
+            <td class="cost zero">—</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">SAM_011</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">48m ago</td>
+            <td><span class="worker w-pr"><span class="av">PR</span> Priya</span></td>
+            <td class="action">drafted rejection email to <strong>Sara Lin</strong></td>
+            <td><span class="pill pend">Pending you</span></td>
+            <td class="channel">email</td>
+            <td class="cost">$0.009</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">PRIYA_082</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">52m ago</td>
+            <td><span class="worker w-ma"><span class="av">MA</span> Mariah</span></td>
+            <td class="action">scheduled Q3 renewal review with <strong>Acme Tech</strong></td>
+            <td><span class="pill succ">Succeeded</span></td>
+            <td class="channel">gcal</td>
+            <td class="cost zero">—</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">MARIAH_019</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+          <tr>
+            <td class="check"><input type="checkbox"></td>
+            <td class="ts">1h ago</td>
+            <td><span class="worker w-ja"><span class="av">JA</span> Jamal</span></td>
+            <td class="action">escalated refund <strong>SUP-29355</strong> to @lead-support</td>
+            <td><span class="pill succ">Succeeded</span></td>
+            <td class="channel">slack</td>
+            <td class="cost zero">—</td>
+            <td><code style="font-family:'JetBrains Mono';font-size:11px;color:var(--muted)">JAMAL_027</code></td>
+            <td class="row-actions">⋯</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="statusbar">
+      <div class="left">
+        <span><strong>17 rows</strong> · 1 selected</span>
+        <span>$0.094 total spend</span>
+        <span class="chain-ok">Chain OK · 0 breaks · last verify 1m ago</span>
+      </div>
+      <div class="pager">
+        <button>‹ Prev</button>
+        <span>Page 1 of 4</span>
+        <button>Next ›</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

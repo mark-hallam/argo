@@ -1,0 +1,324 @@
+<!doctype html>
+<!--
+  AUDIT PAGE — OPTION B: FORENSIC / CHAIN-OF-CUSTODY
+  ====================================================
+  Design language: like a forensic accounting tool / blockchain explorer.
+  Visible hash chain, monospace font, cryptographic feel, status as
+  colored left-edge bar. The audit page that an auditor would PHOTOGRAPH
+  and put in a SOC 2 report.
+  Reference: Etherscan, Stripe Sigma, Splunk, Sentry's issue detail.
+  Brand: locked palette + Audiowide headers + JetBrains Mono for hashes
+  + Inter for everything else.
+  Best for: compliance buyers (SOC 2, GDPR, finance ops, regulated
+  industries). Costs: looks "scary" to non-technical buyers.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT Audit — Option B — Forensic Chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaff;
+    --ink: #1e1b4b;
+    --muted: #6b7280;
+    --line: #ece9f5;
+    --purple: #8b5cf6;
+    --purple-deep: #6d28d9;
+    --pink: #ec4899;
+    --coral: #ff6b6b;
+    --yellow: #fcd34d;
+    --teal: #14b8a6;
+    --soft-purple: #f3e8ff;
+    --green: #16a34a;
+    --amber: #d97706;
+    --red: #dc2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", system-ui, sans-serif; line-height: 1.5;
+               -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  .sidebar { background: white; border-right: 1px solid var(--line); padding: 24px 18px;
+             display: flex; flex-direction: column; gap: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+  .brand-mark { width: 32px; height: 32px; border-radius: 10px;
+                background: linear-gradient(135deg, var(--purple), var(--pink));
+                display: grid; place-items: center; color: white; font-weight: 900; font-size: 16px; }
+  .brand-word { font-family: "Audiowide", sans-serif; font-size: 16px; letter-spacing: 0.14em; }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px;
+           font-size: 14px; color: var(--muted); font-weight: 500; }
+  .nav a:hover { background: var(--soft-purple); color: var(--ink); }
+  .nav a.active { background: linear-gradient(135deg, var(--soft-purple), #fce7f3);
+                  color: var(--purple-deep); font-weight: 700; }
+
+  .content { padding: 24px 36px 80px; }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px;
+             padding: 14px 20px; background: white; border: 1px solid var(--line); border-radius: 14px; }
+  .topbar .title-block { display: flex; align-items: center; gap: 16px; }
+  .topbar h1 { font-family: "Audiowide", sans-serif; font-size: 24px; line-height: 1; letter-spacing: 0.04em; }
+  .topbar .chain-status { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px;
+                           background: rgba(22,163,74,0.1); color: var(--green); border-radius: 999px;
+                           font-size: 12px; font-weight: 700; font-family: "JetBrains Mono", monospace; }
+  .topbar .chain-status::before { content: "●"; }
+  .topbar .actions { display: flex; gap: 8px; }
+  .topbar .actions button { background: white; border: 1px solid var(--line); padding: 8px 14px;
+                             border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer;
+                             font-family: "Inter", sans-serif; color: var(--ink); }
+  .topbar .actions .primary { background: linear-gradient(135deg, var(--purple), var(--pink));
+                               color: white; border: 0; }
+
+  /* META STRIP */
+  .meta-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .meta-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .meta-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase;
+                     font-weight: 700; margin-bottom: 8px; }
+  .meta-card .val { font-family: "Audiowide", sans-serif; font-size: 22px; letter-spacing: 0; line-height: 1; }
+  .meta-card .val.grad { background: linear-gradient(135deg, var(--purple), var(--pink));
+                          -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .meta-card .sub-v { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* FILTER ROW */
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; padding: 12px; background: white;
+                 border: 1px solid var(--line); border-radius: 12px; align-items: center; }
+  .filter-bar input { flex: 1; border: 0; outline: 0; font-size: 13px; padding: 6px; background: transparent;
+                       font-family: "JetBrains Mono", monospace; color: var(--ink); }
+  .filter-bar input::placeholder { color: var(--muted); }
+  .filter-bar .filter-pill { padding: 6px 12px; background: var(--soft-purple); color: var(--purple-deep);
+                              border-radius: 8px; font-size: 12px; font-weight: 700;
+                              font-family: "JetBrains Mono", monospace; }
+
+  /* TABLE */
+  .chain-table { background: white; border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+                  font-family: "JetBrains Mono", monospace; }
+  .ct-head { display: grid; grid-template-columns: 60px 90px 100px 1fr 220px 100px 80px 40px;
+              gap: 0; padding: 12px 16px; background: var(--soft-purple); color: var(--purple-deep);
+              font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .row { display: grid; grid-template-columns: 60px 90px 100px 1fr 220px 100px 80px 40px;
+         gap: 0; padding: 14px 16px; border-top: 1px solid var(--line); font-size: 13px; align-items: center;
+         transition: background 0.15s ease; position: relative; }
+  .row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .row.succ::before { background: var(--green); }
+  .row.pend::before { background: var(--amber); }
+  .row.refu::before { background: var(--red); }
+  .row:hover { background: linear-gradient(90deg, var(--soft-purple), transparent); }
+  .seq { color: var(--muted); }
+  .ts { color: var(--muted); font-size: 12px; }
+  .kind { font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; display: inline-block;
+          letter-spacing: 0.06em; text-transform: uppercase; width: fit-content; }
+  .kind.dispatch { background: var(--soft-purple); color: var(--purple-deep); }
+  .kind.result { background: #d1fae5; color: var(--green); }
+  .kind.ask { background: #fef3c7; color: var(--amber); }
+  .kind.refuse { background: #fee2e2; color: var(--red); }
+  .description { font-family: "Inter", sans-serif; font-size: 13px; color: var(--ink); }
+  .description strong { color: var(--purple-deep); }
+  .hash { color: var(--muted); font-size: 11px; }
+  .hash .key { color: var(--purple); }
+  .hash .value { color: var(--ink); }
+  .actor { font-size: 12px; color: var(--ink); }
+  .cost { color: var(--ink); font-weight: 600; font-size: 12px; }
+  .cost.zero { color: var(--muted); }
+  .row .more { color: var(--muted); cursor: pointer; }
+
+  /* VERIFY BANNER */
+  .verify-banner { background: linear-gradient(135deg, var(--ink) 0%, var(--purple-deep) 100%);
+                    color: white; border-radius: 14px; padding: 24px 32px; margin-top: 24px;
+                    display: flex; justify-content: space-between; align-items: center; }
+  .verify-banner .text h3 { font-family: "Audiowide", sans-serif; font-size: 20px; letter-spacing: 0;
+                              font-weight: 400; margin-bottom: 4px; }
+  .verify-banner .text h3 .grad { background: linear-gradient(135deg, var(--pink), var(--yellow));
+                                    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .verify-banner .text p { font-size: 13px; color: rgba(255,255,255,0.7); }
+  .verify-banner .meta { font-family: "JetBrains Mono", monospace; font-size: 11px;
+                          color: rgba(255,255,255,0.7); }
+  .verify-banner .meta .ok { color: #4ade80; }
+  .verify-banner button { background: white; color: var(--ink); padding: 10px 18px; border-radius: 10px;
+                           font-size: 13px; font-weight: 700; border: 0; cursor: pointer;
+                           font-family: "Inter", sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <span class="brand-word">SKYCOT</span>
+    </div>
+    <nav class="nav">
+      <a href="#">📥 &nbsp; Inbox</a>
+      <a href="#">👥 &nbsp; Team</a>
+      <a href="#">🤖 &nbsp; Workers</a>
+      <a href="#" class="active">📜 &nbsp; Audit</a>
+      <a href="#">🧠 &nbsp; Skills</a>
+      <a href="#">🎯 &nbsp; Cohorts</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="topbar">
+      <div class="title-block">
+        <h1>AUDIT CHAIN</h1>
+        <span class="chain-status">CHAIN OK · 0 BREAKS · SHA-256</span>
+      </div>
+      <div class="actions">
+        <button>Export CSV</button>
+        <button>Export JSON</button>
+        <button class="primary">Verify chain</button>
+      </div>
+    </div>
+
+    <div class="meta-strip">
+      <div class="meta-card"><div class="lbl">Total rows today</div><div class="val grad">17</div><div class="sub-v">since 00:00 AEDT</div></div>
+      <div class="meta-card"><div class="lbl">Chain hash (head)</div><div class="val mono" style="font-size:14px">2e50…ce26</div><div class="sub-v">seq 51 · 1m ago</div></div>
+      <div class="meta-card"><div class="lbl">Breaks</div><div class="val" style="color: var(--green)">0</div><div class="sub-v">last verify 1m ago</div></div>
+      <div class="meta-card"><div class="lbl">Total spend</div><div class="val grad">$0.094</div><div class="sub-v">avg $0.005/row</div></div>
+      <div class="meta-card"><div class="lbl">Pending approval</div><div class="val" style="color: var(--amber)">7</div><div class="sub-v">oldest 32m ago</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <span style="color: var(--muted)">🔍</span>
+      <input placeholder="grep:  tenant_id=*  kind=ToolDispatch  worker=Priya  status=Pending  >$0.01" />
+      <span class="filter-pill">today</span>
+      <span class="filter-pill">all-kinds</span>
+      <span class="filter-pill">all-workers</span>
+    </div>
+
+    <div class="chain-table">
+      <div class="ct-head">
+        <div>seq</div>
+        <div>ts</div>
+        <div>kind</div>
+        <div>action</div>
+        <div>self_hash</div>
+        <div>actor</div>
+        <div>cost</div>
+        <div></div>
+      </div>
+
+      <div class="row succ">
+        <div class="seq">051</div>
+        <div class="ts">14:55:23</div>
+        <div><span class="kind result">tool.result</span></div>
+        <div class="description">Jamal resolved <strong>SUP-29382</strong> with KB <strong>SK-413</strong></div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">2e50…ce26</span></div>
+        <div class="actor">JA · auto-✓</div>
+        <div class="cost">$0.004</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row succ">
+        <div class="seq">049</div>
+        <div class="ts">14:53:18</div>
+        <div><span class="kind dispatch">tool.dispatch</span></div>
+        <div class="description">Sara extract_line_items <strong>INV-2024-08741</strong></div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">6f2a…509e</span></div>
+        <div class="actor">SA · auto-✓</div>
+        <div class="cost">$0.012</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row succ">
+        <div class="seq">047</div>
+        <div class="ts">14:51:09</div>
+        <div><span class="kind result">tool.result</span></div>
+        <div class="description">Priya screened <strong>Diego Alvarez</strong> vs <strong>JD-2024-08</strong> · score 8.2</div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">c0fe…f16b</span></div>
+        <div class="actor">PR · auto-✓</div>
+        <div class="cost">$0.014</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row succ">
+        <div class="seq">045</div>
+        <div class="ts">14:48:02</div>
+        <div><span class="kind dispatch">tool.dispatch</span></div>
+        <div class="description">Nori validate_pricing <strong>QT-2024-7283</strong></div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">8398…7001</span></div>
+        <div class="actor">NO · auto-✓</div>
+        <div class="cost">$0.008</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row succ">
+        <div class="seq">043</div>
+        <div class="ts">14:45:31</div>
+        <div><span class="kind result">tool.result</span></div>
+        <div class="description">Mariah drafted RFP response · <strong>Tomás Industries</strong> · 1240 words</div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">4bac…29b4</span></div>
+        <div class="actor">MA · auto-✓</div>
+        <div class="cost">$0.021</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row pend">
+        <div class="seq">037</div>
+        <div class="ts">14:23:11</div>
+        <div><span class="kind ask">approval.ask</span></div>
+        <div class="description">Nori flagged 32% discount on <strong>QT-2024-7283</strong> for Deal Desk</div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">68bf…dc3a</span></div>
+        <div class="actor">NO · pending @operator</div>
+        <div class="cost zero">—</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row refu">
+        <div class="seq">033</div>
+        <div class="ts">14:16:44</div>
+        <div><span class="kind refuse">policy.refuse</span></div>
+        <div class="description">Sara refused to file duplicate invoice <strong>INV-2024-08739</strong></div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">a9c1…7e8d</span></div>
+        <div class="actor">SA · policy: dedup</div>
+        <div class="cost zero">—</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row pend">
+        <div class="seq">029</div>
+        <div class="ts">14:07:12</div>
+        <div><span class="kind ask">approval.ask</span></div>
+        <div class="description">Priya drafted rejection email to <strong>Sara Lin</strong></div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">e5d4…0a7c</span></div>
+        <div class="actor">PR · pending @operator</div>
+        <div class="cost">$0.009</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row succ">
+        <div class="seq">025</div>
+        <div class="ts">14:03:55</div>
+        <div><span class="kind result">tool.result</span></div>
+        <div class="description">Mariah created gcal event · Q3 renewal review · <strong>Acme Tech</strong></div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">f173…b2c8</span></div>
+        <div class="actor">MA · auto-✓</div>
+        <div class="cost zero">—</div>
+        <div class="more">›</div>
+      </div>
+      <div class="row succ">
+        <div class="seq">021</div>
+        <div class="ts">13:55:18</div>
+        <div><span class="kind dispatch">tool.dispatch</span></div>
+        <div class="description">Jamal escalate <strong>SUP-29355</strong> → @lead-support</div>
+        <div class="hash"><span class="key">sha256:</span><span class="value">9c2f…45e9</span></div>
+        <div class="actor">JA · auto-✓</div>
+        <div class="cost zero">—</div>
+        <div class="more">›</div>
+      </div>
+    </div>
+
+    <div class="verify-banner">
+      <div class="text">
+        <h3>CHAIN <span class="grad">VERIFIED</span> · LAST 24 H</h3>
+        <p>Every row's parent_hash matches the prior row's self_hash. No tampering detected.</p>
+      </div>
+      <div class="meta">
+        rows = 51 · breaks = <span class="ok">0</span> · last_check = <span class="ok">2026-05-18 14:55:23 AEDT</span>
+      </div>
+      <button>Download SOC 2 report</button>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
