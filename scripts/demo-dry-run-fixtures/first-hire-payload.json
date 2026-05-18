@@ -1,8 +1,18 @@
 {
-  "workerDraft": {
-    "name": "Maya",
-    "vertical": "marketing-intern",
-    "charter": "Drafts blog posts based on briefs and asks for approval before publishing."
+  "worker_draft": {
+    "suggestedName": "Maya",
+    "charter": "Drafts blog posts based on briefs and asks for approval before publishing.",
+    "suggestedVertical": "marketing-intern",
+    "approvalPolicy": {"level": "balanced"},
+    "duties": [
+      {
+        "cron": "0 9 * * 1-5",
+        "entryAction": "draft_post",
+        "description": "Draft the day's blog post from the brief in inbox.",
+        "defaultEnabled": true
+      }
+    ],
+    "tagline": "Marketing intern that drafts and asks before publishing."
   },
   "problem": "Draft a launch blog post for our new fleet-routing feature. Target: SMB ops managers. 600 words.",
   "answers": {
