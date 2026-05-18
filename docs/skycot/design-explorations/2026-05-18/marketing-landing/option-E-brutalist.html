@@ -1,0 +1,195 @@
+<!doctype html>
+<!--
+  Option E — BRUTALIST / STATEMENT PIECE
+  =======================================
+  Design language: raw, bold, asymmetric, layered information density,
+  loud colors, no rounded corners, oversized type, oddly-cropped photos,
+  visible grid system, intentional "ugliness." References: Bloomberg
+  Businessweek redesign (Richard Turley), Are.na, Read.cv, MSCHF, Hello
+  Magazine, Tumblr's early-2010s era, Pentagram's recent identity work.
+  Voice: this is what 2030 web looks like. Confident enough to break rules.
+  Best for: standing out in a crowded category. Costs: hostile to users
+  who want reassurance; reads as "art project" not "enterprise software."
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — Option E — Brutalist</title>
+<style>
+  :root {
+    --black: #000;
+    --bone: #f4ede2;
+    --yellow: #f5e500;
+    --pink: #ff2e93;
+    --blue: #2828ff;
+    --red: #e3322a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; }
+  html, body { background: var(--bone); color: var(--black);
+               font-family: "Helvetica Neue", "Inter", Arial, sans-serif; font-weight: 800;
+               text-transform: uppercase; -webkit-font-smoothing: antialiased; }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .nav { display: grid; grid-template-columns: auto 1fr auto; gap: 0;
+         border-bottom: 4px solid var(--black); align-items: stretch; }
+  .nav .cell { padding: 16px 24px; border-right: 4px solid var(--black); font-size: 13px;
+               letter-spacing: 0.04em; display: flex; align-items: center; gap: 8px; }
+  .nav .cell:last-child { border-right: 0; }
+  .nav .brand { background: var(--yellow); font-weight: 900; font-size: 22px; }
+  .nav .links { display: flex; gap: 32px; }
+  .nav .links a { color: var(--black); text-decoration: none; }
+  .nav .links a:hover { background: var(--pink); padding: 2px 4px; }
+  .nav .cta { background: var(--pink); color: var(--bone); font-weight: 900; }
+  .nav .cta::after { content: " ▶"; }
+
+  .hero { display: grid; grid-template-columns: 7fr 5fr; border-bottom: 4px solid var(--black); }
+  .hero-left { padding: 64px 48px 56px; border-right: 4px solid var(--black); }
+  .hero-tag { font-size: 12px; background: var(--black); color: var(--yellow); padding: 6px 10px;
+              display: inline-block; margin-bottom: 32px; letter-spacing: 0.06em; }
+  .hero h1 { font-size: 132px; line-height: 0.9; letter-spacing: -0.04em; font-weight: 900; margin-bottom: 24px; }
+  .hero h1 .a { color: var(--pink); }
+  .hero h1 .b { color: var(--blue); }
+  .hero h1 .c { font-style: italic; }
+  .hero h1 .strike { text-decoration: line-through; text-decoration-thickness: 6px; }
+  .hero-sub { font-size: 22px; line-height: 1.25; max-width: 580px; font-weight: 700;
+              text-transform: none; letter-spacing: -0.005em; margin-bottom: 32px; }
+  .hero-cta-row { display: flex; gap: 0; }
+  .hero-cta-row a { padding: 18px 28px; text-decoration: none; font-size: 14px; letter-spacing: 0.06em;
+                    border: 4px solid var(--black); margin-right: -4px; color: var(--black); font-weight: 900; }
+  .hero-cta-row a.primary { background: var(--yellow); }
+  .hero-cta-row a.secondary { background: var(--bone); }
+  .hero-cta-row a.tertiary { background: var(--blue); color: var(--bone); }
+
+  .hero-right { background: var(--pink); color: var(--bone); padding: 32px 30px; position: relative;
+                display: flex; flex-direction: column; justify-content: space-between; }
+  .hero-right .price-tag { font-size: 200px; line-height: 0.85; font-weight: 900; letter-spacing: -0.06em; }
+  .hero-right .price-sub { font-size: 14px; letter-spacing: 0.1em; margin-top: 8px; }
+  .hero-right .bottom { font-size: 11px; text-transform: none; letter-spacing: 0.02em; line-height: 1.4;
+                       border-top: 4px solid var(--bone); padding-top: 18px; font-weight: 600; }
+  .hero-right .stamp { position: absolute; top: 24px; right: 24px; transform: rotate(8deg);
+                       border: 3px solid var(--bone); padding: 6px 10px; font-size: 11px; letter-spacing: 0.16em; }
+
+  .ticker { background: var(--yellow); padding: 14px 0; border-bottom: 4px solid var(--black);
+            font-size: 18px; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden;
+            display: flex; gap: 32px; }
+  .ticker span { padding-left: 32px; }
+  .ticker span::before { content: "●  "; color: var(--red); }
+
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 4px solid var(--black); }
+  .three .col { padding: 56px 32px 64px; border-right: 4px solid var(--black); position: relative; }
+  .three .col:last-child { border-right: 0; }
+  .three .col:nth-child(2) { background: var(--blue); color: var(--bone); }
+  .three .col-num { font-size: 80px; line-height: 0.85; font-weight: 900; letter-spacing: -0.03em;
+                    margin-bottom: 14px; }
+  .three .col-num.b { color: var(--yellow); }
+  .three .col h3 { font-size: 30px; line-height: 1.05; font-weight: 900; letter-spacing: -0.015em;
+                   margin-bottom: 16px; }
+  .three .col p { font-size: 17px; font-weight: 600; line-height: 1.4; letter-spacing: -0.005em;
+                  text-transform: none; max-width: 32ch; }
+
+  .close { background: var(--black); color: var(--yellow); padding: 100px 48px; text-align: center;
+           border-bottom: 4px solid var(--black); }
+  .close h2 { font-size: 96px; line-height: 0.92; font-weight: 900; letter-spacing: -0.035em; margin-bottom: 32px; }
+  .close .em { color: var(--pink); font-style: italic; }
+  .close .cta-row { display: inline-flex; gap: 0; margin-top: 16px; }
+  .close .cta-row a { padding: 22px 44px; font-size: 16px; font-weight: 900; text-decoration: none;
+                      color: var(--black); background: var(--yellow); border: 4px solid var(--yellow); }
+  .close .cta-row a.alt { background: transparent; color: var(--yellow); border: 4px solid var(--yellow); }
+
+  footer { padding: 24px 32px; font-size: 11px; letter-spacing: 0.04em; display: flex; justify-content: space-between;
+           background: var(--bone); }
+  footer .stamp-foot { background: var(--red); color: var(--bone); padding: 4px 8px; }
+</style>
+</head>
+<body class="grid-bg">
+
+<nav class="nav">
+  <div class="cell brand">SKYCOT®</div>
+  <div class="cell links">
+    <a href="#">WORKERS</a><a href="#">PRICING</a><a href="#">DOCS</a><a href="#">CHANGELOG</a><a href="#">MANIFESTO</a>
+  </div>
+  <div class="cell cta">HIRE</div>
+</nav>
+
+<section class="hero">
+  <div class="hero-left">
+    <span class="hero-tag">VOL. 01 / NOW HIRING</span>
+    <h1>
+      HIRE A<br>
+      <span class="a">TEAM-</span><span class="b">MATE.</span><br>
+      <span class="strike">NOT A TOOL.</span><br>
+      <span class="c">(seriously.)</span>
+    </h1>
+    <p class="hero-sub">
+      We compile English into AI workers. They live in Slack. They learn. They ask for permission.
+      Every move is logged on a hash chain — show your auditor, not your dashboard.
+    </p>
+    <div class="hero-cta-row">
+      <a href="#" class="primary">HIRE NOW ▶</a>
+      <a href="#" class="secondary">WATCH 90s</a>
+      <a href="#" class="tertiary">DOCS</a>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="stamp">SHIPPING NOW</div>
+    <div>
+      <div class="price-tag">$0</div>
+      <div class="price-sub">FIRST 5 MIN · NO CARD · NO CALL</div>
+    </div>
+    <div class="bottom">
+      Built single-binary in Rust. SQLite at rest (encrypted).
+      6 mission claims, 37 connectors, 2 execution backends.
+      Made for operators who hate dashboards.
+    </div>
+  </div>
+</section>
+
+<div class="ticker">
+  <span>0 ZERO DASHBOARDS TO BABYSIT</span>
+  <span>1 ONE SINGLE BINARY</span>
+  <span>6 SIX MISSION CLAIMS</span>
+  <span>37 THIRTY-SEVEN CONNECTORS</span>
+  <span>100% AUDIT COVERAGE</span>
+  <span>∞ MEMORY THAT COMPOUNDS</span>
+</div>
+
+<section class="three">
+  <div class="col">
+    <div class="col-num">01</div>
+    <h3>MEMORY THAT COMPOUNDS</h3>
+    <p>Each worker keeps a private memory of what you taught it. Survives model swaps. Yours, not the model's.</p>
+  </div>
+  <div class="col">
+    <div class="col-num b">02</div>
+    <h3>APPROVE WHERE YOU LIVE</h3>
+    <p>Slack, email, SMS, voice. Workers ask in your existing channels. No new dashboard to babysit.</p>
+  </div>
+  <div class="col">
+    <div class="col-num">03</div>
+    <h3>AUDIT BY DEFAULT</h3>
+    <p>Every action hash-chained, replayable, auditable by an outsider. SOC 2 is the by-product.</p>
+  </div>
+</section>
+
+<section class="close">
+  <h2>HIRE A TEAMMATE<br><span class="em">(seriously)</span></h2>
+  <div class="cta-row">
+    <a href="#">START FREE ▶</a>
+    <a href="#" class="alt">TALK TO US</a>
+  </div>
+</section>
+
+<footer>
+  <div>© SKYCOT 2026 · ESTABLISHED IN SYDNEY · TYPESET IN HELVETICA NEUE</div>
+  <div class="stamp-foot">BRUTALIST PERIOD</div>
+</footer>
+
+</body>
+</html>

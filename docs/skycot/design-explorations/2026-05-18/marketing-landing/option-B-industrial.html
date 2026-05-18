@@ -1,0 +1,194 @@
+<!doctype html>
+<!--
+  Option B — INDUSTRIAL / DEV-TOOL / TERMINAL
+  ============================================
+  Design language: technical confidence, dark-mode-first, mono typefaces,
+  precise grids, terminal-cursor cues, code-block visual treatments.
+  References: Vercel, Linear 2024, Resend, Plasmic, Modal.com, Cursor.
+  Voice: built for people who like power tools. Honest about what it does
+  and what it costs. No fluff.
+  Best for: technical buyer audiences (CTOs, ops engineers, dev tool
+  market). Costs: less accessible to non-technical buyers; can feel cold.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — Option B — Industrial</title>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: #11141c;
+    --text: #e5e8ee;
+    --muted: #8089a0;
+    --line: #1f2533;
+    --accent: #00d29c;
+    --accent-dim: #007a5b;
+    --warn: #ffb454;
+    --pink: #ff5d8f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text);
+              font-family: "JetBrains Mono", "Berkeley Mono", "SF Mono", Menlo, monospace;
+              font-size: 14px; line-height: 1.55;
+              background-image:
+                radial-gradient(at 0% 0%, rgba(0,210,156,.06) 0, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(255,93,143,.05) 0, transparent 40%);
+  }
+  .nav { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+         padding: 14px 32px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .nav-left { color: var(--accent); font-weight: 700; letter-spacing: 0.02em; }
+  .nav-left::before { content: "●  "; color: var(--accent); }
+  .nav-mid { display: flex; gap: 22px; color: var(--muted); }
+  .nav-mid a { color: var(--muted); text-decoration: none; }
+  .nav-mid a:hover { color: var(--text); }
+  .nav-right { text-align: right; display: flex; justify-content: flex-end; gap: 16px; }
+  .nav-right .btn { padding: 6px 14px; border: 1px solid var(--line); color: var(--text);
+                    text-decoration: none; border-radius: 3px; }
+  .nav-right .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+
+  .system-bar { padding: 8px 32px; font-size: 12px; color: var(--muted);
+                border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; }
+  .system-bar .status::before { content: "▮ "; color: var(--accent); }
+  .system-bar .ver { color: var(--accent-dim); }
+  .blink { animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .hero { padding: 80px 32px 48px; max-width: 1240px; margin: 0 auto; }
+  .hero .tag { color: var(--accent); font-size: 12px; letter-spacing: 0.08em; margin-bottom: 18px; }
+  .hero .tag::before { content: "─── "; color: var(--accent); }
+  .hero h1 { font-size: 64px; line-height: 1.02; font-weight: 700; letter-spacing: -0.02em;
+             margin-bottom: 28px; max-width: 1000px; font-family: "Inter", system-ui, sans-serif; }
+  .hero h1 .terminal { color: var(--accent); }
+  .hero h1 .term-cursor::after { content: "_"; color: var(--accent); margin-left: 4px; animation: blink 1s steps(2) infinite; }
+  .hero .sub { font-size: 18px; color: var(--muted); max-width: 760px; line-height: 1.6; margin-bottom: 36px;
+               font-family: "Inter", system-ui, sans-serif; }
+  .hero .ctas { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 12px 20px; text-decoration: none; border-radius: 4px;
+         font-size: 13px; }
+  .btn-primary { background: var(--accent); color: var(--bg); font-weight: 700; }
+  .btn-secondary { border: 1px solid var(--line); color: var(--text); }
+  .install { background: var(--panel); border: 1px solid var(--line); padding: 12px 16px;
+             border-radius: 4px; color: var(--muted); font-size: 13px;
+             margin-left: 8px; }
+  .install code { color: var(--text); }
+  .install .copy { color: var(--accent); margin-left: 12px; cursor: pointer; }
+
+  .grid { padding: 56px 32px; max-width: 1240px; margin: 0 auto;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+          background: var(--line); border: 1px solid var(--line); }
+  .cell { background: var(--bg); padding: 36px 28px; }
+  .cell .lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.16em; margin-bottom: 14px; }
+  .cell .lbl::before { content: "[ "; } .cell .lbl::after { content: " ]"; }
+  .cell h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 12px;
+             font-family: "Inter", system-ui, sans-serif; }
+  .cell p { color: var(--muted); margin-bottom: 14px; font-family: "Inter", system-ui, sans-serif; }
+  .cell .stat { color: var(--accent); font-size: 12px; }
+
+  .code-block { padding: 60px 32px; max-width: 1240px; margin: 0 auto; }
+  .code-block-inner { background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+                       padding: 20px 24px; font-size: 13px; }
+  .code-block-inner .prompt { color: var(--accent); }
+  .code-block-inner .comment { color: var(--muted); }
+  .code-block-inner .str { color: var(--warn); }
+  .code-block-inner .kw { color: var(--pink); }
+
+  .specs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; padding: 48px 32px;
+           max-width: 1240px; margin: 0 auto; border-top: 1px solid var(--line); }
+  .specs .num { font-size: 44px; color: var(--accent); font-weight: 700; letter-spacing: -0.02em; }
+  .specs .lbl-sm { font-size: 12px; color: var(--muted); letter-spacing: 0.1em; margin-top: 6px; text-transform: uppercase; }
+
+  .footer { padding: 28px 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px;
+            display: flex; justify-content: space-between; }
+  .footer .uptime { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">SKYCOT/v1.0</div>
+  <div class="nav-mid">
+    <a href="#">docs</a>
+    <a href="#">connectors</a>
+    <a href="#">pricing</a>
+    <a href="#">changelog</a>
+    <a href="#">status</a>
+  </div>
+  <div class="nav-right">
+    <a href="#" class="btn">sign in</a>
+    <a href="#" class="btn btn-primary">$ skycot hire</a>
+  </div>
+</nav>
+
+<div class="system-bar">
+  <div class="status">system: <span style="color:var(--accent)">operational</span> · 99.97% 30d · 0 incidents this week</div>
+  <div class="ver">build <span class="blink">●</span> v0.0.1 / 2026-05-18 / aarch64-darwin</div>
+</div>
+
+<section class="hero">
+  <div class="tag">A.I. WORKERS, AUDIT-FIRST</div>
+  <h1>
+    Software that takes <span class="terminal">orders</span><br>
+    instead of <span class="terminal">orders being given through it</span><span class="term-cursor"></span>
+  </h1>
+  <p class="sub">
+    SKYCOT compiles plain-English job descriptions into AI workers that
+    live in Slack, learn from your feedback, and ask for approval like
+    a teammate. Every action is hash-chained, replayable, and auditable
+    by an outsider. Built single-binary in Rust.
+  </p>
+  <div class="ctas">
+    <a href="#" class="btn btn-primary">$ skycot hire --first</a>
+    <a href="#" class="btn btn-secondary">read the spec →</a>
+    <div class="install">$ <code>curl -sS skycot.com/install | sh</code> <span class="copy">[copy]</span></div>
+  </div>
+</section>
+
+<section class="grid">
+  <div class="cell">
+    <div class="lbl">PRIMITIVE 01</div>
+    <h3>Memory that compounds</h3>
+    <p>Each worker keeps a private memory of what you've taught it. Survives model swaps. Owned by you.</p>
+    <div class="stat">~30k facts/worker · sqlite-encrypted at rest</div>
+  </div>
+  <div class="cell">
+    <div class="lbl">PRIMITIVE 02</div>
+    <h3>Approve where you live</h3>
+    <p>Slack, email, SMS, voice. Workers ask in your existing channel. No new dashboard.</p>
+    <div class="stat">6 channels · &lt;200ms ask latency</div>
+  </div>
+  <div class="cell">
+    <div class="lbl">PRIMITIVE 03</div>
+    <h3>Audit by default</h3>
+    <p>Hash-chained log per session. Replay any decision. SOC 2 / GDPR as side effect.</p>
+    <div class="stat">SHA-256 chain · &lt;1ms verify/row</div>
+  </div>
+</section>
+
+<section class="code-block">
+  <div class="code-block-inner">
+<pre>
+<span class="prompt">$</span> skycot hire <span class="str">"Maya"</span> --vertical=marketing-intern
+<span class="comment"># Drafted charter from your plain-English job desc.</span>
+<span class="comment"># Loaded vertical = marketing-intern (skills: 8, memory schema: 4 entries)</span>
+<span class="comment"># Approval channels detected: slack, email · default = slack#general</span>
+<span class="kw">→</span>  Worker <span class="str">"Maya"</span> ready. First action: draft Q3 launch post (awaiting your approval).
+<span class="prompt">$</span> _
+</pre>
+  </div>
+</section>
+
+<section class="specs">
+  <div><div class="num">6</div><div class="lbl-sm">mission claims</div></div>
+  <div><div class="num">37</div><div class="lbl-sm">MCP connectors</div></div>
+  <div><div class="num">2</div><div class="lbl-sm">execution backends</div></div>
+  <div><div class="num">100%</div><div class="lbl-sm">audit coverage</div></div>
+</section>
+
+<footer class="footer">
+  <div>SKYCOT · v1.0 · single-binary, sqlite-cipher, rust 1.95</div>
+  <div class="uptime">● all systems operational · 47ms last health probe</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!doctype html>
+<!--
+  Option D — HAND-DRAWN / FRIENDLY / ILLUSTRATED
+  ===============================================
+  Design language: warm peach + cream palette, slightly imperfect hand-drawn
+  illustrations (SVG), conversational copy, small humor moments, generous
+  rounded corners, soft shadows. References: Early Linear marketing, Loom,
+  Cron, Things 3 onboarding, Buffer's homepage circa 2021, Notion's templates.
+  Voice: like a teammate explaining over coffee. Trust-first, not feature-first.
+  Best for: SMB / first-time AI buyer who's nervous. Costs: can feel too soft
+  for enterprise; loses the technical authority of the product.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — Option D — Friendly</title>
+<style>
+  :root {
+    --cream: #fcf7f1;
+    --warm: #faecd9;
+    --peach: #f7b78d;
+    --rust: #cc5b3f;
+    --ink: #2b2520;
+    --muted: #5a5048;
+    --line: #e8ddcd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--cream); color: var(--ink);
+               font-family: "Söhne", "Inter", system-ui, sans-serif; line-height: 1.55; }
+
+  .nav { display: flex; justify-content: space-between; align-items: center;
+         padding: 22px 40px; max-width: 1280px; margin: 0 auto; }
+  .nav .brand { font-weight: 700; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+  .nav .brand svg { display: inline-block; }
+  .nav-links { display: flex; gap: 30px; font-size: 15px; color: var(--muted); }
+  .nav-links a { color: var(--muted); text-decoration: none; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav .cta { background: var(--ink); color: var(--cream); padding: 10px 20px; border-radius: 100px;
+              text-decoration: none; font-size: 14px; font-weight: 600; }
+
+  .hero { max-width: 1280px; margin: 30px auto 0; padding: 60px 40px 100px;
+          display: grid; grid-template-columns: 1.1fr 1fr; gap: 50px; align-items: center; }
+  .hero h1 { font-size: 72px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 700; margin-bottom: 24px; }
+  .hero h1 .underline { position: relative; }
+  .hero h1 .underline::after {
+    content: ""; position: absolute; left: -4px; right: -4px; bottom: 2px; height: 14px;
+    background: var(--peach); z-index: -1; border-radius: 4px;
+    transform: skewX(-5deg) rotate(-1deg);
+  }
+  .hero .sub { font-size: 19px; color: var(--muted); margin-bottom: 32px; max-width: 480px; }
+  .hero .ctas { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .btn-primary { background: var(--rust); color: var(--cream); padding: 14px 24px; border-radius: 100px;
+                 text-decoration: none; font-weight: 600; font-size: 15px;
+                 box-shadow: 0 4px 0 #9d3f29; transition: all 0.1s ease; }
+  .btn-primary:hover { transform: translateY(2px); box-shadow: 0 2px 0 #9d3f29; }
+  .btn-ghost { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px;
+               padding: 14px 16px; }
+  .btn-ghost::after { content: " →"; }
+  .reassure { font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .reassure::before { content: "♥  "; color: var(--rust); }
+
+  .illust-wrap { position: relative; }
+  .illust { width: 100%; max-width: 520px; margin-left: auto; }
+
+  .three { background: var(--warm); padding: 90px 40px;
+           border-top: 2px dashed var(--line); border-bottom: 2px dashed var(--line); }
+  .three-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 50px; }
+  .three .card { background: var(--cream); border-radius: 18px; padding: 32px;
+                 box-shadow: 0 4px 0 var(--line), 0 8px 24px -10px rgba(0,0,0,0.06); }
+  .three .icon-wrap { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center;
+                      margin-bottom: 18px; background: var(--peach); }
+  .three h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .three p { color: var(--muted); font-size: 16px; }
+
+  .testimonial { padding: 90px 40px; max-width: 880px; margin: 0 auto; text-align: center; }
+  .testimonial p { font-size: 32px; line-height: 1.35; letter-spacing: -0.015em; font-weight: 500; margin-bottom: 22px; }
+  .testimonial p .quote { color: var(--rust); }
+  .testimonial .who { font-size: 15px; color: var(--muted); }
+  .testimonial .who strong { color: var(--ink); }
+
+  .close { background: var(--ink); color: var(--cream); padding: 110px 40px; text-align: center; border-radius: 32px;
+           max-width: 1280px; margin: 0 auto 60px; }
+  .close h2 { font-size: 56px; line-height: 1.08; letter-spacing: -0.02em; margin-bottom: 18px; font-weight: 700; }
+  .close .yes { color: var(--peach); }
+  .close .sub-c { font-size: 18px; color: rgba(252,247,241,0.7); margin-bottom: 36px; max-width: 540px; margin-left: auto; margin-right: auto; }
+  .close .btn-primary { background: var(--peach); color: var(--ink); box-shadow: 0 4px 0 #d99570; }
+  .close .btn-primary:hover { box-shadow: 0 2px 0 #d99570; }
+
+  footer { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <path d="M6 22 Q 16 4 26 22" stroke="#cc5b3f" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <circle cx="11" cy="16" r="2" fill="#cc5b3f"/>
+      <circle cx="21" cy="16" r="2" fill="#cc5b3f"/>
+    </svg>
+    skycot
+  </div>
+  <div class="nav-links">
+    <a href="#">Workers</a>
+    <a href="#">How it works</a>
+    <a href="#">Pricing</a>
+    <a href="#">Customers</a>
+  </div>
+  <a href="#" class="cta">Try free →</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-text">
+    <h1>Hire a teammate.<br>Not <span class="underline">another tool</span>.</h1>
+    <p class="sub">SKYCOT spins up AI workers from plain-English job descriptions.
+    They run in Slack, learn from you, and ask before doing anything you wouldn't.</p>
+    <div class="ctas">
+      <a href="#" class="btn-primary">Hire your first worker</a>
+      <a href="#" class="btn-ghost">Watch a 90s demo</a>
+    </div>
+    <div class="reassure">5-minute setup. No credit card. Cancel anytime.</div>
+  </div>
+  <div class="illust-wrap">
+    <svg class="illust" viewBox="0 0 520 460" xmlns="http://www.w3.org/2000/svg">
+      <!-- desk -->
+      <path d="M 40 380 L 480 380" stroke="#2b2520" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 60 380 L 60 420" stroke="#2b2520" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 460 380 L 460 420" stroke="#2b2520" stroke-width="3" stroke-linecap="round"/>
+      <!-- laptop -->
+      <rect x="180" y="290" width="180" height="100" rx="6" fill="#faecd9" stroke="#2b2520" stroke-width="3"/>
+      <rect x="200" y="305" width="140" height="65" fill="#fcf7f1" stroke="#2b2520" stroke-width="2"/>
+      <rect x="208" y="313" width="65" height="6" fill="#cc5b3f" rx="2"/>
+      <rect x="208" y="325" width="100" height="4" fill="#5a5048" rx="2"/>
+      <rect x="208" y="333" width="80" height="4" fill="#5a5048" rx="2"/>
+      <rect x="208" y="341" width="110" height="4" fill="#f7b78d" rx="2"/>
+      <rect x="208" y="349" width="60" height="6" fill="#cc5b3f" rx="2"/>
+      <path d="M 180 390 L 180 395 L 360 395 L 360 390 Z" fill="#2b2520"/>
+      <!-- coffee -->
+      <ellipse cx="115" cy="370" rx="22" ry="6" fill="#cc5b3f"/>
+      <path d="M 95 370 L 100 350 L 130 350 L 135 370 Z" fill="#faecd9" stroke="#2b2520" stroke-width="2.5"/>
+      <path d="M 130 358 Q 140 358 140 365 Q 140 372 130 372" fill="none" stroke="#2b2520" stroke-width="2"/>
+      <path d="M 102 348 Q 108 340 114 348" stroke="#cc5b3f" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M 116 348 Q 122 340 128 348" stroke="#cc5b3f" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <!-- worker avatar floating bubble -->
+      <g transform="translate(380, 180)">
+        <circle cx="50" cy="50" r="42" fill="#faecd9" stroke="#2b2520" stroke-width="3"/>
+        <circle cx="40" cy="44" r="3" fill="#2b2520"/>
+        <circle cx="60" cy="44" r="3" fill="#2b2520"/>
+        <path d="M 38 60 Q 50 70 62 60" stroke="#2b2520" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <!-- antenna -->
+        <line x1="50" y1="8" x2="50" y2="0" stroke="#2b2520" stroke-width="2.5"/>
+        <circle cx="50" cy="0" r="3" fill="#cc5b3f"/>
+        <!-- speech bubble -->
+        <path d="M -120 30 L -10 30 L -10 70 L -60 70 L -75 84 L -68 70 L -120 70 Z"
+              fill="#fcf7f1" stroke="#2b2520" stroke-width="3" stroke-linejoin="round"/>
+        <text x="-65" y="55" text-anchor="middle" fill="#2b2520" font-family="Söhne, system-ui" font-size="13" font-weight="600">Approve this?</text>
+      </g>
+      <!-- sparkles -->
+      <g stroke="#cc5b3f" stroke-width="2" stroke-linecap="round" fill="none">
+        <path d="M 70 80 L 70 95 M 62 87 L 78 87"/>
+        <path d="M 320 60 L 320 70 M 315 65 L 325 65"/>
+        <path d="M 470 220 L 470 232 M 464 226 L 476 226"/>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<section class="three">
+  <div class="three-inner">
+    <div class="card">
+      <div class="icon-wrap">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 6 8 Q 14 4 22 8 L 22 20 Q 14 24 6 20 Z" stroke="#2b2520" stroke-width="2.5" fill="none"/>
+          <path d="M 14 4 L 14 24" stroke="#2b2520" stroke-width="2"/>
+        </svg>
+      </div>
+      <h3>Memory that compounds</h3>
+      <p>Each worker keeps a private memory of everything you've taught it. Switch models — keep the notes.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrap">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 4 8 L 24 8 L 24 18 L 16 18 L 12 23 L 12 18 L 4 18 Z" stroke="#2b2520" stroke-width="2.5" fill="none"/>
+          <circle cx="10" cy="13" r="1.5" fill="#2b2520"/>
+          <circle cx="14" cy="13" r="1.5" fill="#2b2520"/>
+          <circle cx="18" cy="13" r="1.5" fill="#2b2520"/>
+        </svg>
+      </div>
+      <h3>Approves where you live</h3>
+      <p>Slack. Email. SMS. Voice. Workers ask in your existing channels. No new dashboard to babysit.</p>
+    </div>
+    <div class="card">
+      <div class="icon-wrap">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 14 3 L 4 8 L 4 14 Q 4 21 14 25 Q 24 21 24 14 L 24 8 Z" stroke="#2b2520" stroke-width="2.5" fill="none"/>
+          <path d="M 10 13 L 13 16 L 19 10" stroke="#2b2520" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h3>Audited by default</h3>
+      <p>Every action a worker takes is logged with inputs, outputs, and the policy that approved it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="testimonial">
+  <p><span class="quote">"</span>It felt like hiring an associate, except they finished their first task in the time it would have taken me to draft the brief.<span class="quote">"</span></p>
+  <div class="who"><strong>Riley</strong> — VP, Customer Success at a 30-person SaaS</div>
+</section>
+
+<section class="close">
+  <h2>Ready to delegate the work you've been avoiding? <span class="yes">Yes →</span></h2>
+  <p class="sub-c">Spin up your first worker in under 5 minutes. No credit card. No sales call.</p>
+  <a href="#" class="btn-primary">Hire your first worker</a>
+</section>
+
+<footer>
+  © 2026 SKYCOT · Made with ♥ in Sydney
+</footer>
+
+</body>
+</html>

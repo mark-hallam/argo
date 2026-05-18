@@ -1,0 +1,162 @@
+<!doctype html>
+<!--
+  Option A — EDITORIAL / MAGAZINE COVER
+  ======================================
+  Design language: literary, confident, sparse. References: The New York Times
+  Magazine cover layouts, Stripe Press, Field Notes, the Aspen Institute.
+  Big serif headlines, lots of white space, single accent color (ink red),
+  highly typographic, very few images, body copy with proper rags.
+  Voice: confident, considered, literary. Reads like a brand essay.
+  Best for: positioning SKYCOT as a *category-defining* product, the way
+  Apple's "Think Different" did. Costs: takes longer to read; needs
+  visitor patience.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — Option A — Editorial</title>
+<style>
+  :root {
+    --ink: #14110f;
+    --paper: #f7f3ec;
+    --rule: #c8bfb0;
+    --accent: #c8351c;
+    --muted: #6b6258;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); }
+  body { font-family: "Times New Roman", Georgia, serif; font-size: 18px; line-height: 1.55; }
+  .nav { display: flex; justify-content: space-between; align-items: baseline;
+         padding: 22px 56px; border-bottom: 1px solid var(--rule); }
+  .nav-brand { font-weight: 700; letter-spacing: -0.01em; font-size: 22px; }
+  .nav-brand::after { content: " — vol. 01"; color: var(--muted); font-weight: 400; font-style: italic; font-size: 16px; }
+  .nav-links { display: flex; gap: 28px; font-size: 14px; font-variant: small-caps; letter-spacing: 0.08em; }
+  .nav-links a { color: var(--ink); text-decoration: none; }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-cta { font-size: 13px; font-variant: small-caps; letter-spacing: 0.1em; color: var(--accent);
+             border-bottom: 1px solid var(--accent); text-decoration: none; padding-bottom: 2px; }
+
+  .masthead { padding: 80px 56px 40px; max-width: 1200px; margin: 0 auto; }
+  .kicker { font-variant: small-caps; letter-spacing: 0.18em; font-size: 13px; color: var(--accent);
+            margin-bottom: 32px; }
+  .kicker::before { content: "■  "; color: var(--accent); }
+  .headline { font-size: 88px; line-height: 0.96; font-weight: 700; letter-spacing: -0.025em;
+              margin: 0 0 36px; max-width: 920px; }
+  .headline em { font-style: italic; color: var(--accent); }
+  .deck { font-size: 22px; line-height: 1.42; max-width: 720px; color: var(--ink);
+          border-left: 3px solid var(--accent); padding-left: 22px; font-style: italic; }
+
+  .byline { padding: 30px 56px 0; max-width: 1200px; margin: 0 auto; display: flex; gap: 24px;
+            font-size: 13px; color: var(--muted); letter-spacing: 0.04em; }
+  .byline span:first-child { font-variant: small-caps; letter-spacing: 0.1em; color: var(--accent); }
+
+  .essay { padding: 80px 56px; max-width: 1200px; margin: 0 auto;
+           display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 56px; }
+  .essay h2 { font-size: 26px; font-weight: 700; line-height: 1.15; margin: 0 0 14px;
+              letter-spacing: -0.01em; }
+  .essay h2::before { content: "§  "; color: var(--accent); font-style: italic; }
+  .essay p { margin: 0 0 14px; max-width: 32ch; }
+  .essay p:first-of-type::first-letter {
+    float: left; font-size: 58px; line-height: 0.92; font-weight: 700;
+    color: var(--accent); margin: 4px 6px 0 0;
+  }
+
+  .rule { width: 100%; height: 1px; background: var(--rule); max-width: 1200px; margin: 0 auto; }
+
+  .close { padding: 100px 56px; max-width: 900px; margin: 0 auto; text-align: center; }
+  .close .small { font-variant: small-caps; letter-spacing: 0.18em; font-size: 13px; color: var(--accent);
+                  margin-bottom: 22px; }
+  .close .end-headline { font-size: 56px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
+                         margin: 0 0 36px; }
+  .close .cta { display: inline-block; padding: 16px 36px; background: var(--ink); color: var(--paper);
+                font-variant: small-caps; letter-spacing: 0.16em; text-decoration: none;
+                font-size: 14px; margin-right: 20px; }
+  .close .cta-secondary { display: inline-block; padding: 16px 36px; border: 1px solid var(--ink);
+                          color: var(--ink); font-variant: small-caps; letter-spacing: 0.16em;
+                          text-decoration: none; font-size: 14px; }
+
+  .colophon { padding: 28px 56px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--rule);
+              display: flex; justify-content: space-between; }
+  .colophon em { font-style: italic; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">SKYCOT</div>
+  <div class="nav-links">
+    <a href="#">Manifesto</a>
+    <a href="#">Workers</a>
+    <a href="#">Pricing</a>
+    <a href="#">Customers</a>
+    <a href="#">Notes</a>
+  </div>
+  <a href="#" class="nav-cta">Begin →</a>
+</nav>
+
+<header class="masthead">
+  <div class="kicker">Volume One · A treatise on the post-tool office</div>
+  <h1 class="headline">
+    Software arrived as a tool.<br>
+    We're shipping it as <em>a teammate.</em>
+  </h1>
+  <p class="deck">
+    For thirty years we trained our companies on dashboards.
+    SKYCOT is the unwind: instructions you give a person, given to software,
+    that asks for approval the way an associate does — and remembers what
+    you taught it last week.
+  </p>
+</header>
+
+<div class="byline">
+  <span>By the SKYCOT Editors</span>
+  <span>·</span>
+  <span><em>May 2026 · 8 minute read</em></span>
+</div>
+
+<section class="essay">
+  <div>
+    <h2>Memory that compounds</h2>
+    <p>Each worker keeps a private memory of what you've taught it. The
+    longer it works for you, the sharper it gets — and the memory is
+    yours, not the model's. When you switch foundation models, your
+    workers keep their notes.</p>
+    <p>Memory means the second instruction is easier than the first.</p>
+  </div>
+  <div>
+    <h2>Approve where you already are</h2>
+    <p>Slack. Email. SMS. Voice. The SKYCOT inbox. A worker drafts; you
+    reply <em>yes</em> or <em>no</em>. There is no new dashboard to babysit,
+    no new place to forget about. Workers route to where your team
+    already lives.</p>
+    <p>Approval becomes the cost of trust, not the cost of attention.</p>
+  </div>
+  <div>
+    <h2>Audited by design</h2>
+    <p>Every action a worker takes is logged with its inputs, outputs,
+    and the policy that approved it. Show your auditor, not just your
+    team. The chain is hashed, the chain is verifiable, the chain is
+    yours.</p>
+    <p>SOC 2 is a side effect, not a project.</p>
+  </div>
+</section>
+
+<div class="rule"></div>
+
+<section class="close">
+  <div class="small">In closing</div>
+  <h2 class="end-headline">
+    Hire a teammate, not a tool.
+  </h2>
+  <a href="#" class="cta">Hire your first worker</a>
+  <a href="#" class="cta-secondary">Read the manifesto</a>
+</section>
+
+<footer class="colophon">
+  <div>SKYCOT · Established 2026 · Built in Australia</div>
+  <div><em>Set in Times New Roman. Composed in Sydney.</em></div>
+</footer>
+
+</body>
+</html>

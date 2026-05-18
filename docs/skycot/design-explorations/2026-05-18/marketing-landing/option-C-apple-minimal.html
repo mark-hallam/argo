@@ -1,0 +1,171 @@
+<!doctype html>
+<!--
+  Option C — APPLE-MINIMAL / SILENT CONFIDENCE
+  =============================================
+  Design language: one huge sentence per scroll, 80px+ headlines, massive
+  whitespace, single accent, almost no chrome. References: Apple product
+  pages (M-series chip launches), Things 3, Notion's pricing page,
+  Vercel's enterprise page, Linear's homepage circa 2024.
+  Voice: confident enough to say one thing per screen. The product
+  speaks louder than the marketing.
+  Best for: positioning at the high end. Costs: requires the product
+  to *be* polished — minimalism amplifies any rough edge.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — Option C — Apple-Minimal</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #e5e5e7;
+    --accent: #0066ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif;
+               font-weight: 400; -webkit-font-smoothing: antialiased; }
+
+  .nav { position: sticky; top: 0; backdrop-filter: blur(20px) saturate(1.8);
+         background: rgba(255,255,255,0.72); z-index: 10;
+         padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 980px; margin: 0 auto; display: flex; justify-content: space-between;
+                align-items: center; padding: 0 22px; font-size: 14px; }
+  .nav-inner .brand { font-weight: 600; letter-spacing: -0.01em; }
+  .nav-links { display: flex; gap: 32px; color: var(--muted); }
+  .nav-links a { color: var(--muted); text-decoration: none; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-inner .cta { color: var(--accent); text-decoration: none; }
+
+  section { padding: 140px 32px; }
+  .section-inner { max-width: 980px; margin: 0 auto; }
+  .center { text-align: center; }
+
+  .hero h1 {
+    font-size: 96px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 600;
+    max-width: 920px; margin: 0 auto 32px;
+  }
+  .hero h1 .accent { background: linear-gradient(135deg, #0066ff, #6e5cff);
+                     -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .sub { font-size: 24px; line-height: 1.4; color: var(--muted); max-width: 720px; margin: 0 auto 48px; }
+  .hero .ctas { display: flex; gap: 18px; justify-content: center; }
+  .btn { display: inline-block; padding: 14px 30px; border-radius: 980px; font-size: 16px;
+         font-weight: 500; text-decoration: none; transition: transform 0.15s ease; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-ghost { color: var(--accent); }
+  .btn-ghost::after { content: " →"; }
+
+  .product-image {
+    margin: 80px auto 0; max-width: 1100px; border-radius: 22px;
+    aspect-ratio: 16 / 9;
+    background:
+      radial-gradient(at 70% 30%, rgba(0, 102, 255, 0.18), transparent 50%),
+      radial-gradient(at 30% 70%, rgba(110, 92, 255, 0.18), transparent 50%),
+      linear-gradient(135deg, #f5f5f7, #ffffff);
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,0.12), 0 0 0 1px var(--line);
+    position: relative; overflow: hidden;
+  }
+  .product-image::before {
+    content: "Audit · 5m ago · resolved SUP-29382 with KB SK-413 · $0.004";
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 16px; color: var(--muted); letter-spacing: -0.005em;
+  }
+
+  .single { padding: 200px 32px; text-align: center; }
+  .single h2 { font-size: 80px; line-height: 1.06; letter-spacing: -0.035em; font-weight: 600;
+               max-width: 880px; margin: 0 auto 28px; }
+  .single .small { font-size: 18px; color: var(--muted); max-width: 580px; margin: 0 auto; line-height: 1.5; }
+  .single .accent { color: var(--accent); }
+
+  .three { padding: 140px 32px; }
+  .three-inner { max-width: 1100px; margin: 0 auto; display: grid;
+                 grid-template-columns: repeat(3, 1fr); gap: 64px; }
+  .three .card-num { font-size: 80px; font-weight: 200; letter-spacing: -0.04em; color: var(--accent);
+                     line-height: 1; margin-bottom: 24px; }
+  .three h3 { font-size: 26px; font-weight: 600; letter-spacing: -0.015em; margin-bottom: 14px; }
+  .three p { font-size: 17px; line-height: 1.5; color: var(--muted); }
+
+  .close-cta { padding: 160px 32px 200px; text-align: center; }
+  .close-cta h2 { font-size: 64px; line-height: 1.06; letter-spacing: -0.03em; font-weight: 600;
+                  margin-bottom: 32px; }
+  .close-cta .sub-c { font-size: 19px; color: var(--muted); margin-bottom: 40px; }
+
+  footer { padding: 60px 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px;
+           text-align: center; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand">skycot</div>
+    <div class="nav-links">
+      <a href="#">Workers</a>
+      <a href="#">Pricing</a>
+      <a href="#">Customers</a>
+      <a href="#">Docs</a>
+    </div>
+    <a href="#" class="cta">Hire your first worker</a>
+  </div>
+</nav>
+
+<section class="hero center">
+  <div class="section-inner">
+    <h1>The first <span class="accent">teammate</span><br>that wasn't a person.</h1>
+    <p class="sub">SKYCOT compiles plain-English instructions into AI workers
+    that ask for approval, learn from feedback, and remember what you taught them.</p>
+    <div class="ctas">
+      <a href="#" class="btn btn-primary">Hire your first worker</a>
+      <a href="#" class="btn btn-ghost">See what they do</a>
+    </div>
+    <div class="product-image"></div>
+  </div>
+</section>
+
+<section class="single">
+  <h2>Hire it once.<br>It learns the rest.</h2>
+  <p class="small">Each worker keeps a private memory of what you teach.
+  Switch the underlying model whenever you want — the worker keeps its notes.</p>
+</section>
+
+<section class="three">
+  <div class="three-inner">
+    <div>
+      <div class="card-num">01</div>
+      <h3>Memory</h3>
+      <p>Workers remember what you've taught them. The memory is yours, not the model's.</p>
+    </div>
+    <div>
+      <div class="card-num">02</div>
+      <h3>Approval</h3>
+      <p>Workers ask in Slack, email, SMS, or voice. You reply yes or no. No new dashboard.</p>
+    </div>
+    <div>
+      <div class="card-num">03</div>
+      <h3>Audit</h3>
+      <p>Every action is hash-chained, replayable, and auditable. SOC 2 is a side effect.</p>
+    </div>
+  </div>
+</section>
+
+<section class="single">
+  <h2>Approve in Slack.<br><span class="accent">Always.</span></h2>
+  <p class="small">No new dashboard to babysit. No new app to forget. Workers route to where your team already lives.</p>
+</section>
+
+<section class="close-cta">
+  <h2>Hire a teammate,<br>not a tool.</h2>
+  <p class="sub-c">Spin up your first worker in under five minutes. No credit card. No sales call.</p>
+  <a href="#" class="btn btn-primary">Hire your first worker</a>
+</section>
+
+<footer>
+  © 2026 SKYCOT · Designed in Sydney
+</footer>
+
+</body>
+</html>
