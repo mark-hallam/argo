@@ -4,63 +4,70 @@ Optometrist method: wildly different mockups, operator picks which feels right, 
 
 ## Round 1 — five wildly varied design languages (extremes)
 
-| File | Design language | Voice | Trade-off |
+| File | Design language |
+|---|---|
+| [option-A-editorial.html](./option-A-editorial.html) | Editorial / Magazine cover |
+| [option-B-industrial.html](./option-B-industrial.html) | Industrial / Dev-tool / Terminal |
+| [option-C-apple-minimal.html](./option-C-apple-minimal.html) | Apple-minimal / Silent confidence |
+| [option-D-friendly-illustrated.html](./option-D-friendly-illustrated.html) | Hand-drawn / Friendly / Illustrated |
+| [option-E-brutalist.html](./option-E-brutalist.html) | Brutalist / Statement piece |
+
+**Operator picked: D (friendly/illustrated).** Refinements requested: Canva-inspired colors, enterprise appeal, Melbourne (not Sydney) origin.
+
+## Round 2 — three palette variants on the D direction
+
+| File | Palette |
+|---|---|
+| [option-D1-canva-coral-enterprise.html](./option-D1-canva-coral-enterprise.html) | Coral / peach / yellow |
+| [option-D2-canva-teal-enterprise.html](./option-D2-canva-teal-enterprise.html) | Teal / mint / navy |
+| [option-D3-canva-gradient-vibrant.html](./option-D3-canva-gradient-vibrant.html) | Purple → pink → coral gradient |
+
+**Operator response: use the official SKYCOT brand colors instead** (Electric Violet `#8B5CF6` → Deep Cyan `#0891B2` logo gradient), and prefer light backgrounds. Brand guide loaded — full palette + Audiowide typography + usage rules now applied.
+
+## Round 3 — three brand-correct variants (this round)
+
+All three follow the official SKYCOT Brand Style Guide (April 2026):
+
+- **Light page** as base (operator preference)
+- **Logo plate** in nav: gradient text on dark bar (brand-correct, matches PDF page 2)
+- **Audiowide** for headings and display text
+- **Inter** for body and UI
+- **Brand gradient** `linear-gradient(135deg, #8B5CF6, #0891B2)` appears on:
+  - The logo plate
+  - Primary CTA fills (white text on gradient — meets WCAG AA)
+  - Dedicated dark "feature moments" within each variant
+- **Solid Electric Violet + Deep Cyan** as accent colors on light text (since "gradient text on light backgrounds" is a brand "don't")
+- **Extended palette** (`#D946EF` Fuchsia, `#3B82F6` Ocean) used in illustrations
+- **Tagline** "AI-Enabled Robotics" (from brand guide)
+- **Footer**: "Built in Melbourne, Australia"
+- **Enterprise scaffolding**: customer logo row, 4 compliance badges (SOC 2, GDPR, SSO, SQLCipher), VP testimonial
+
+### What's different — three approaches to the "how much gradient" dial
+
+| File | Lean | Dark/Gradient surface area | Energy |
 |---|---|---|---|
-| [option-A-editorial.html](./option-A-editorial.html) | Editorial / Magazine cover | Literary, confident, sparse | Slower to read |
-| [option-B-industrial.html](./option-B-industrial.html) | Industrial / Dev-tool / Terminal | Technical, honest, no fluff | Cold to non-technical buyers |
-| [option-C-apple-minimal.html](./option-C-apple-minimal.html) | Apple-minimal / Silent confidence | One huge sentence per scroll | Demands a polished product |
-| [option-D-friendly-illustrated.html](./option-D-friendly-illustrated.html) | Hand-drawn / Friendly / Illustrated | Like a teammate over coffee | Can feel "small" for enterprise |
-| [option-E-brutalist.html](./option-E-brutalist.html) | Brutalist / Statement piece | Loud, asymmetric, confident | Hostile to risk-averse buyers |
+| [option-D4-brand-premium.html](./option-D4-brand-premium.html) | **Premium / Restrained** | Minimal — only nav logo plate + hero art card + close-CTA section | Quiet, confident, Linear/Notion-feel |
+| [option-D5-brand-editorial-bands.html](./option-D5-brand-editorial-bands.html) | **Editorial / Balanced** | Medium — hero is split light+dark, plus a dedicated dark "how it works" band | Balanced, magazine-style, most varied |
+| [option-D6-brand-gradient-art.html](./option-D6-brand-gradient-art.html) | **Gradient-as-Art / Boldest** | High — big dark hero canvas + dark cards-with-art tops + dark testimonial section + dark close | Vibrant, "Stripe-feel", most likely to go viral |
 
-**Operator picked: D (friendly/illustrated).** Refinements requested:
-- Canva-inspired color palette
-- Enterprise appeal — keep warmth but add trust signals
-- Melbourne, Australia origin (not Sydney — original mockups had this wrong)
+### Layout signatures per variant
 
----
+- **D4** — Hero illustration sits inside a single dark rounded panel (right side); rest of page is white with subtle violet/cyan accents. The most enterprise-tasteful.
+- **D5** — Hero is half-light / half-dark side-by-side; a "How it works" dark band in the middle of the page gives the gradient its full proper treatment.
+- **D6** — Hero has a large dark "canvas" with abstract gradient blobs as art; each feature card has a mini gradient-art header; testimonial is a dark gradient-art container with KPIs.
 
-## Round 2 — three variants in the D direction (this round)
+## How to pick — round 3
 
-Each one carries the same enterprise scaffolding (customer logo row, compliance badges, VP-level testimonial, "Built in Melbourne, Australia") but with a different Canva color palette.
+Open all three. Five-second gut. Tell me one of:
 
-| File | Color palette | Lean | Best for |
-|---|---|---|---|
-| [option-D1-canva-coral-enterprise.html](./option-D1-canva-coral-enterprise.html) | **Coral / peach / yellow** (warmest) | Most approachable | SMB-to-mid-market buyers who want warmth + reassurance |
-| [option-D2-canva-teal-enterprise.html](./option-D2-canva-teal-enterprise.html) | **Teal / mint / navy** (balanced) | Cool but friendly | Mid-to-large enterprise buyers evaluating against Notion/Linear |
-| [option-D3-canva-gradient-vibrant.html](./option-D3-canva-gradient-vibrant.html) | **Purple → pink → coral gradient** (boldest) | Most viral / creative | Standing out + going viral; the "Canva" feel most directly |
+1. **"D4 — restrained"** → narrow with 2-3 minor variations (typography weight, hero illustration angle, CTA shape)
+2. **"D5 — editorial bands"** → narrow on the band approach
+3. **"D6 — gradient art"** → narrow on the gradient-art density
+4. **"Hybrid — D5's hero structure with D6's testimonial section"** → I'll merge
+5. **"None — go further toward [direction]"** → another round
 
-### What's the same across all 3
+Once a winner emerges:
 
-- Refined SVG illustrations (geometric central worker + floating action chips)
-- Hero with eyebrow pill + grad headline + sub + dual CTAs + reassurance row
-- "Trusted by ops, HR and revenue teams at" logo row (6 placeholder companies)
-- 3 feature cards with stat tags
-- 4 compliance badges (SOC 2 Type II, GDPR, SSO + SAML, SQLCipher AES-256)
-- VP-level testimonial ("Riley Kovacs · VP Customer Success · Nimbus.io")
-- Big CTA close section
-- Footer reads "Built in Melbourne, Australia"
-
-### What's different between them
-
-| Element | D1 (Coral) | D2 (Teal) | D3 (Gradient) |
-|---|---|---|---|
-| Primary CTA | Rounded pill, coral | Rounded square, teal | Pill, purple→pink gradient |
-| Hero headline | "Hire a teammate. Not another tool." | "The first AI teammate you can actually audit." | "Don't buy another tool. Hire a teammate. (seriously.)" |
-| Card hover | Lifts up | Lifts + teal border glow | Lifts + colored top stripe |
-| Testimonial section | Navy card with compliance grid | Centered quote with avatar | Gradient card with 4 KPI metrics |
-| Background | Plain warm cream | Plain off-white | Soft purple/pink blob gradients in viewport |
-| Energy | Warm + steady | Refreshing + crisp | Punchy + bold |
-
----
-
-## How to pick
-
-Open all three. Five-second gut reaction. Tell me:
-
-- **"D1 — coral"** → I'll do 2-3 narrow variants (e.g. "what if the coral was muted", "more yellow accent", "tighter spacing")
-- **"D2 — teal"** → same, narrow on teal
-- **"D3 — gradient"** → same, narrow on gradient
-- **"Hybrid — D1's warmth + D2's typography + D3's testimonial section"** → I'll merge
-- **"None — too SMB, lean harder enterprise"** → I'll produce another 3 in the D direction but more "Notion enterprise"
-
-Once a winner emerges, I author the implementation brief for the swarm to rebuild `marketing/` to match. Then we do the same exercise for the audit page (the in-product showpiece), then onboarding, then the rest.
+- I author the implementation brief for the swarm to rebuild `marketing/` to match
+- I produce the brand-consistent design pass on the **audit page** (the in-product showpiece — the screenshot people will share)
+- Then onboarding, workers, cohorts, auth pages, settings, marketplace

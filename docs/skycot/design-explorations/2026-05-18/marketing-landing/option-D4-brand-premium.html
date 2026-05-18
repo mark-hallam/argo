@@ -1,0 +1,406 @@
+<!doctype html>
+<!--
+  Option D4 — BRAND PREMIUM (LIGHT + RESTRAINT)
+  ==============================================
+  Brand-correct variant per the SKYCOT Brand Style Guide (Apr 2026).
+  Light page background. Audiowide display font for headings + Inter for body.
+  Brand gradient (#8B5CF6 → #0891B2) appears only on:
+    1. The logo plate in the nav (gradient text on dark — brand-correct)
+    2. Primary CTA buttons (white text on gradient fill — brand-correct)
+    3. Bold accent words in headlines (solid Electric Violet OR solid Deep Cyan
+       per word, NOT gradient text on light per brand guide "don't")
+  Lean: most restrained. Premium feel. Confident silence. Closest to
+  Linear / Notion's marketing pages but with the SKYCOT brand identity.
+  Melbourne, Australia origin. Tagline "AI-Enabled Robotics".
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — D4 — Brand Premium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --ink: #1F2937;
+    --ink-deep: #0c0c14;
+    --muted: #6B7280;
+    --line: #E5E7EB;
+    --violet: #8B5CF6;
+    --violet-50: #F5F3FF;
+    --violet-100: #EDE9FE;
+    --violet-700: #5B21B6;
+    --cyan: #0891B2;
+    --cyan-50: #ECFEFF;
+    --cyan-100: #CFFAFE;
+    --cyan-700: #164E63;
+    --fuchsia: #D946EF;
+    --ocean: #3B82F6;
+    --neutral-50: #F9FAFB;
+    --neutral-100: #F3F4F6;
+    --brand-grad: linear-gradient(135deg, #8B5CF6, #0891B2);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", -apple-system, system-ui, sans-serif;
+               line-height: 1.55; -webkit-font-smoothing: antialiased; font-weight: 400; }
+  a { color: inherit; text-decoration: none; }
+
+  /* Audiowide utility */
+  .audio { font-family: "Audiowide", "Inter", system-ui, sans-serif; letter-spacing: 0.02em; font-weight: 400; }
+
+  /* SKYCOT logo plate — brand-correct (gradient on dark) */
+  .logo-plate { display: inline-flex; align-items: center; background: var(--ink-deep);
+                padding: 8px 16px; border-radius: 6px; line-height: 1; }
+  .logo-plate .word { font-family: "Audiowide", sans-serif; letter-spacing: 0.16em;
+                       font-size: 22px;
+                       background: var(--brand-grad); -webkit-background-clip: text;
+                       background-clip: text; color: transparent; }
+
+  /* NAV */
+  .nav { position: sticky; top: 0; z-index: 50;
+         background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px);
+         border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 1280px; margin: 0 auto; padding: 14px 40px;
+               display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+  .nav-links { display: flex; gap: 28px; font-size: 15px; color: var(--muted); font-weight: 500; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta-row { display: flex; gap: 10px; align-items: center; }
+  .nav-cta-row .ghost { color: var(--ink); font-size: 14px; font-weight: 600; }
+  .btn-primary { background: var(--brand-grad); color: white;
+                 padding: 10px 22px; border-radius: 8px; font-weight: 700; font-size: 14px;
+                 font-family: "Inter", sans-serif;
+                 box-shadow: 0 4px 14px -3px rgba(139,92,246,0.4);
+                 transition: all 0.15s ease; display: inline-block; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -3px rgba(139,92,246,0.5); }
+
+  /* HERO */
+  .hero { max-width: 1280px; margin: 0 auto; padding: 110px 40px 80px;
+          display: grid; grid-template-columns: 1.15fr 1fr; gap: 80px; align-items: center; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px;
+                  border: 1px solid var(--line); padding: 5px 14px; border-radius: 999px;
+                  font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 28px;
+                  letter-spacing: 0.04em; }
+  .hero-eyebrow .pill { background: var(--violet-100); color: var(--violet-700); padding: 2px 8px;
+                        border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; }
+  .hero h1 { font-family: "Audiowide", sans-serif; font-size: 60px; line-height: 1.05;
+             letter-spacing: 0; font-weight: 400; margin-bottom: 28px; color: var(--ink); }
+  .hero h1 .violet { color: var(--violet); }
+  .hero h1 .cyan { color: var(--cyan); }
+  .hero .sub { font-size: 19px; line-height: 1.55; color: var(--muted); max-width: 540px;
+               margin-bottom: 40px; font-weight: 400; }
+  .hero-ctas { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .btn-primary-lg { background: var(--brand-grad); color: white; padding: 14px 28px;
+                    border-radius: 10px; font-weight: 700; font-size: 15px;
+                    font-family: "Inter", sans-serif;
+                    box-shadow: 0 8px 24px -6px rgba(139,92,246,0.4);
+                    transition: all 0.15s ease; }
+  .btn-primary-lg:hover { transform: translateY(-2px); }
+  .btn-ghost-lg { color: var(--ink); padding: 14px 22px; font-weight: 600; font-size: 15px;
+                  border-radius: 10px; border: 1px solid var(--line); background: white; }
+  .btn-ghost-lg::after { content: " →"; }
+  .hero-reassure { display: flex; gap: 22px; margin-top: 24px; font-size: 13px; color: var(--muted); }
+  .hero-reassure span { display: inline-flex; align-items: center; gap: 6px; }
+  .hero-reassure svg { width: 14px; height: 14px; }
+
+  /* HERO ART — dark canvas + gradient (brand-correct: gradient on dark) */
+  .hero-art { aspect-ratio: 1; max-width: 480px; margin-left: auto; position: relative;
+              background: var(--ink-deep); border-radius: 32px; overflow: hidden;
+              padding: 36px; }
+  .hero-art svg { width: 100%; height: 100%; }
+
+  /* LOGOS */
+  .logos-row { padding: 50px 40px 80px; max-width: 1280px; margin: 0 auto;
+               border-top: 1px solid var(--line); }
+  .logos-label { text-align: center; font-size: 11px; color: var(--muted); letter-spacing: 0.18em;
+                 text-transform: uppercase; margin-bottom: 26px; font-weight: 700; }
+  .logos { display: flex; justify-content: space-around; align-items: center; opacity: 0.55;
+           flex-wrap: wrap; gap: 40px; }
+  .logo-ph { font-weight: 800; font-size: 22px; letter-spacing: -0.02em; color: var(--ink); }
+  .logo-ph.italic { font-style: italic; font-family: Georgia, serif; }
+  .logo-ph.mono { font-family: "JetBrains Mono", monospace; font-size: 18px; }
+  .logo-ph.caps { text-transform: uppercase; letter-spacing: 0.08em; font-size: 16px; }
+
+  /* FEATURES */
+  .features { padding: 100px 40px; max-width: 1280px; margin: 0 auto; }
+  .features-header { text-align: center; max-width: 760px; margin: 0 auto 60px; }
+  .features-header .pre { font-size: 11px; color: var(--violet); font-weight: 800; letter-spacing: 0.18em;
+                          text-transform: uppercase; margin-bottom: 16px; }
+  .features-header h2 { font-family: "Audiowide", sans-serif; font-size: 44px; line-height: 1.1;
+                        letter-spacing: 0; font-weight: 400; margin-bottom: 18px; color: var(--ink); }
+  .features-header h2 .violet { color: var(--violet); }
+  .features-header h2 .cyan { color: var(--cyan); }
+  .features-header p { font-size: 18px; color: var(--muted); line-height: 1.55; }
+  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .feature-card { background: white; border: 1px solid var(--line); border-radius: 20px;
+                  padding: 36px 32px; transition: all 0.2s ease; }
+  .feature-card:hover { border-color: var(--violet); transform: translateY(-3px);
+                        box-shadow: 0 24px 40px -16px rgba(139,92,246,0.12); }
+  .feature-icon-wrap { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center;
+                       margin-bottom: 22px; background: var(--violet-50); }
+  .feature-icon-wrap.cyan-bg { background: var(--cyan-50); }
+  .feature-card h3 { font-family: "Inter", sans-serif; font-size: 21px; font-weight: 800;
+                     letter-spacing: -0.015em; margin-bottom: 12px; color: var(--ink); }
+  .feature-card p { color: var(--muted); font-size: 15px; line-height: 1.6; margin-bottom: 14px; }
+  .feature-card .stat-pill { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+                              display: inline-block; color: var(--violet-700); background: var(--violet-50); }
+  .feature-card.cyan .stat-pill { color: var(--cyan-700); background: var(--cyan-50); }
+
+  /* COMPLIANCE STRIP — light, brand-disciplined */
+  .compliance { max-width: 1280px; margin: 0 auto; padding: 0 40px 80px; }
+  .comp-strip { background: var(--neutral-50); border: 1px solid var(--line); border-radius: 24px;
+                padding: 40px; display: grid; grid-template-columns: 1.5fr repeat(4, 1fr); gap: 32px;
+                align-items: center; }
+  .comp-title { font-family: "Audiowide", sans-serif; font-size: 18px; line-height: 1.3; color: var(--ink); }
+  .comp-title .violet { color: var(--violet); }
+  .comp-item { text-align: center; }
+  .comp-item .icon { width: 40px; height: 40px; border-radius: 10px; margin: 0 auto 10px;
+                     background: var(--brand-grad); color: white; display: grid; place-items: center;
+                     font-size: 11px; font-weight: 800; letter-spacing: 0.04em; font-family: "Inter", sans-serif; }
+  .comp-item .name-c { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+  .comp-item .detail { font-size: 11px; color: var(--muted); }
+
+  /* TESTIMONIAL */
+  .testimonial { padding: 80px 40px; max-width: 980px; margin: 0 auto; text-align: center; }
+  .testimonial .small-l { font-size: 11px; color: var(--violet); font-weight: 800; letter-spacing: 0.18em;
+                          text-transform: uppercase; margin-bottom: 18px; }
+  .testimonial blockquote { font-family: "Audiowide", sans-serif; font-size: 26px; line-height: 1.4;
+                             font-weight: 400; margin-bottom: 28px; color: var(--ink); letter-spacing: 0; }
+  .testimonial .who { display: inline-flex; gap: 14px; align-items: center; }
+  .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--brand-grad);
+            display: grid; place-items: center; font-weight: 800; color: white; font-size: 16px;
+            font-family: "Inter", sans-serif; }
+  .testimonial .name { font-weight: 700; font-size: 15px; }
+  .testimonial .title-c { color: var(--muted); font-size: 13px; }
+
+  /* CLOSE — single dark moment for the gradient hero CTA */
+  .close { max-width: 1280px; margin: 60px auto; padding: 0 40px; }
+  .close-inner { background: var(--ink-deep); color: white; border-radius: 28px;
+                 padding: 80px 56px; text-align: center; position: relative; overflow: hidden; }
+  .close-inner::before { content: ""; position: absolute; inset: 0;
+                          background: var(--brand-grad); opacity: 0.18; }
+  .close-inner::after { content: ""; position: absolute; top: -50%; right: -10%;
+                         width: 50%; height: 200%;
+                         background: radial-gradient(circle, rgba(217,70,239,0.18), transparent 70%); }
+  .close-inner h2 { font-family: "Audiowide", sans-serif; font-size: 48px; line-height: 1.1; font-weight: 400;
+                     margin-bottom: 18px; position: relative; letter-spacing: 0.01em; }
+  .close-inner p { font-size: 17px; opacity: 0.8; margin-bottom: 32px; position: relative; }
+  .close-ctas { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; position: relative; }
+  .close-ctas .primary { background: white; color: var(--ink); padding: 14px 28px;
+                          border-radius: 10px; font-weight: 700; font-size: 15px; }
+  .close-ctas .secondary { background: transparent; color: white; padding: 14px 28px;
+                            border-radius: 10px; font-weight: 700; font-size: 15px;
+                            border: 1px solid rgba(255,255,255,0.3); }
+
+  footer { padding: 40px 40px 48px; max-width: 1280px; margin: 0 auto;
+           display: flex; justify-content: space-between; color: var(--muted); font-size: 13px;
+           border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="logo-plate"><span class="word">SKYCOT</span></div>
+    <div class="nav-links">
+      <a href="#">Workers</a>
+      <a href="#">How it works</a>
+      <a href="#">Customers</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+    </div>
+    <div class="nav-cta-row">
+      <a href="#" class="ghost">Sign in</a>
+      <a href="#" class="btn-primary">Hire your first worker</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div>
+    <div class="hero-eyebrow">
+      <span class="pill">v1.0</span>
+      AI-Enabled Robotics · SOC 2 ready
+    </div>
+    <h1>Hire a <span class="violet">teammate</span>.<br>Not a <span class="cyan">tool</span>.</h1>
+    <p class="sub">
+      SKYCOT compiles plain-English job descriptions into AI workers that
+      live in Slack, learn from your feedback, and ask before they act.
+      Every action is hash-chained for your auditor. Built for teams from
+      50 to 5,000.
+    </p>
+    <div class="hero-ctas">
+      <a href="#" class="btn-primary-lg">Hire your first worker</a>
+      <a href="#" class="btn-ghost-lg">Watch a 90-second demo</a>
+    </div>
+    <div class="hero-reassure">
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> 5-min setup</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> No credit card</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> SOC 2 + GDPR</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> SSO + SAML</span>
+    </div>
+  </div>
+  <div class="hero-art">
+    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#8B5CF6"/>
+          <stop offset="100%" stop-color="#0891B2"/>
+        </linearGradient>
+        <linearGradient id="spectrumGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#D946EF"/>
+          <stop offset="33%" stop-color="#8B5CF6"/>
+          <stop offset="66%" stop-color="#3B82F6"/>
+          <stop offset="100%" stop-color="#0891B2"/>
+        </linearGradient>
+      </defs>
+      <!-- soft halo -->
+      <circle cx="200" cy="200" r="180" fill="url(#brandGrad)" opacity="0.08"/>
+      <circle cx="200" cy="200" r="120" fill="url(#brandGrad)" opacity="0.12"/>
+
+      <!-- central worker glyph -->
+      <g transform="translate(140, 140)">
+        <rect x="0" y="0" width="120" height="120" rx="28" fill="url(#brandGrad)"/>
+        <circle cx="42" cy="50" r="5" fill="#0c0c14"/>
+        <circle cx="78" cy="50" r="5" fill="#0c0c14"/>
+        <path d="M 40 76 Q 60 90 80 76" stroke="#0c0c14" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <line x1="60" y1="-8" x2="60" y2="-22" stroke="#D946EF" stroke-width="3"/>
+        <circle cx="60" cy="-22" r="5" fill="#D946EF"/>
+      </g>
+
+      <!-- floating chips -->
+      <g transform="translate(30, 60)">
+        <rect x="0" y="0" width="120" height="40" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)"/>
+        <circle cx="20" cy="20" r="7" fill="#0891B2"/>
+        <rect x="34" y="14" width="74" height="5" rx="2.5" fill="white" opacity="0.8"/>
+        <rect x="34" y="23" width="50" height="4" rx="2" fill="white" opacity="0.4"/>
+      </g>
+      <g transform="translate(250, 40)">
+        <rect x="0" y="0" width="120" height="40" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)"/>
+        <circle cx="20" cy="20" r="7" fill="#D946EF"/>
+        <rect x="34" y="14" width="74" height="5" rx="2.5" fill="white" opacity="0.8"/>
+        <rect x="34" y="23" width="50" height="4" rx="2" fill="white" opacity="0.4"/>
+      </g>
+      <g transform="translate(20, 310)">
+        <rect x="0" y="0" width="120" height="40" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)"/>
+        <circle cx="20" cy="20" r="7" fill="#3B82F6"/>
+        <rect x="34" y="14" width="74" height="5" rx="2.5" fill="white" opacity="0.8"/>
+        <rect x="34" y="23" width="50" height="4" rx="2" fill="white" opacity="0.4"/>
+      </g>
+      <g transform="translate(260, 320)">
+        <rect x="0" y="0" width="120" height="40" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)"/>
+        <circle cx="20" cy="20" r="7" fill="#8B5CF6"/>
+        <rect x="34" y="14" width="74" height="5" rx="2.5" fill="white" opacity="0.8"/>
+        <rect x="34" y="23" width="50" height="4" rx="2" fill="white" opacity="0.4"/>
+      </g>
+
+      <!-- connectors -->
+      <g stroke="url(#spectrumGrad)" stroke-width="1.5" fill="none" opacity="0.5">
+        <path d="M 150 80 Q 160 130 175 150"/>
+        <path d="M 310 80 Q 280 130 235 150"/>
+        <path d="M 140 320 Q 150 280 175 260"/>
+        <path d="M 320 330 Q 290 280 235 260"/>
+      </g>
+    </svg>
+  </div>
+</header>
+
+<section class="logos-row">
+  <div class="logos-label">Trusted by operations, HR and revenue teams at</div>
+  <div class="logos">
+    <span class="logo-ph">Nimbus.io</span>
+    <span class="logo-ph italic">Hartwell &amp; Co.</span>
+    <span class="logo-ph mono">aether/labs</span>
+    <span class="logo-ph caps">Foundry Yard</span>
+    <span class="logo-ph">Cohort</span>
+    <span class="logo-ph italic">Mercer Health</span>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-header">
+    <div class="pre">What you get</div>
+    <h2>Built like an <span class="violet">enterprise tool</span>.<br>Feels like a <span class="cyan">teammate</span>.</h2>
+    <p>SOC 2-ready, hash-chained audit, single-sign-on (SSO), role-based access (RBAC), and multi-tenant by construction.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon-wrap">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 6 10 Q 14 6 22 10 L 22 20 Q 14 24 6 20 Z" stroke="#8B5CF6" stroke-width="2.5" fill="white"/>
+          <path d="M 14 6 L 14 24" stroke="#8B5CF6" stroke-width="2"/>
+        </svg>
+      </div>
+      <h3>Memory that compounds</h3>
+      <p>Each worker keeps a private memory of what you've taught it. Switch foundation models — your workers keep their notes.</p>
+      <span class="stat-pill">~30k facts/worker</span>
+    </div>
+    <div class="feature-card cyan">
+      <div class="feature-icon-wrap cyan-bg">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 4 8 L 24 8 L 24 18 L 16 18 L 12 23 L 12 18 L 4 18 Z" stroke="#0891B2" stroke-width="2.5" fill="white"/>
+          <circle cx="10" cy="13" r="1.5" fill="#0891B2"/>
+          <circle cx="14" cy="13" r="1.5" fill="#0891B2"/>
+          <circle cx="18" cy="13" r="1.5" fill="#0891B2"/>
+        </svg>
+      </div>
+      <h3>Approves where you live</h3>
+      <p>Slack, email, SMS, voice. Workers ask in your existing channels — no new dashboard to babysit.</p>
+      <span class="stat-pill">6 channels · &lt;200ms ask</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon-wrap">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M 14 3 L 4 8 L 4 14 Q 4 21 14 25 Q 24 21 24 14 L 24 8 Z" stroke="#8B5CF6" stroke-width="2.5" fill="white"/>
+          <path d="M 10 13 L 13 16 L 19 10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h3>Audit by default</h3>
+      <p>Every action hash-chained, replayable, and auditable. SOC 2 and GDPR are side effects.</p>
+      <span class="stat-pill">SHA-256 · replay-ready</span>
+    </div>
+  </div>
+</section>
+
+<section class="compliance">
+  <div class="comp-strip">
+    <div class="comp-title">Built <span class="violet">enterprise-ready</span>, not bolted on.</div>
+    <div class="comp-item"><div class="icon">SOC<br>2</div><div class="name-c">SOC 2 Type II</div><div class="detail">Audit on request</div></div>
+    <div class="comp-item"><div class="icon">GDPR</div><div class="name-c">GDPR Art. 15</div><div class="detail">Right-to-export</div></div>
+    <div class="comp-item"><div class="icon">SSO</div><div class="name-c">SSO + SAML</div><div class="detail">Okta · Google · Azure</div></div>
+    <div class="comp-item"><div class="icon">AES<br>256</div><div class="name-c">SQLCipher</div><div class="detail">Per-tenant keys</div></div>
+  </div>
+</section>
+
+<section class="testimonial">
+  <div class="small-l">From the field</div>
+  <blockquote>"It felt like hiring an associate — except they finished their first task in the time it would have taken me to draft the brief."</blockquote>
+  <div class="who">
+    <div class="avatar">RK</div>
+    <div style="text-align: left;">
+      <div class="name">Riley Kovacs</div>
+      <div class="title-c">VP, Customer Success · Nimbus.io (450 employees)</div>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="close-inner">
+    <h2>HIRE YOUR FIRST<br>TEAMMATE TODAY.</h2>
+    <p>5 minutes. No credit card. No sales call. Cancel any time.</p>
+    <div class="close-ctas">
+      <a href="#" class="primary">Hire your first worker →</a>
+      <a href="#" class="secondary">Talk to our team</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 SKYCOT · AI-Enabled Robotics · v1.0</div>
+  <div>Built in Melbourne, Australia</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!doctype html>
+<!--
+  Option D6 — BRAND GRADIENT-AS-ART
+  ==================================
+  Brand-correct light page with the gradient appearing as ABSTRACT ART
+  within dark "canvas" containers — like Stripe's marketing pages or
+  modern crypto/fintech sites where gradient blobs are the visual
+  centerpiece. Light page, but more of the page surface area is occupied
+  by the dark + gradient "art windows", giving a more vibrant overall
+  impression while still respecting "gradient on dark only" brand rule.
+  Lean: most visually striking. Most likely to go viral on LinkedIn /
+  X / Product Hunt. Most "screenshot-worthy".
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SKYCOT — D6 — Brand Gradient Art</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAFAFF;
+    --ink: #111827;
+    --ink-deep: #0c0c14;
+    --muted: #6B7280;
+    --line: #E5E7EB;
+    --violet: #8B5CF6;
+    --violet-50: #F5F3FF;
+    --violet-100: #EDE9FE;
+    --violet-200: #DDD6FE;
+    --violet-700: #5B21B6;
+    --cyan: #0891B2;
+    --cyan-50: #ECFEFF;
+    --cyan-100: #CFFAFE;
+    --cyan-700: #164E63;
+    --fuchsia: #D946EF;
+    --ocean: #3B82F6;
+    --brand-grad: linear-gradient(135deg, #8B5CF6, #0891B2);
+    --spectrum: linear-gradient(135deg, #D946EF, #8B5CF6, #3B82F6, #0891B2);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: "Inter", -apple-system, system-ui, sans-serif;
+               line-height: 1.55; -webkit-font-smoothing: antialiased; font-weight: 400; }
+  a { color: inherit; text-decoration: none; }
+
+  .logo-plate { display: inline-flex; align-items: center; background: var(--ink-deep);
+                padding: 8px 16px; border-radius: 6px; line-height: 1; }
+  .logo-plate .word { font-family: "Audiowide", sans-serif; letter-spacing: 0.16em; font-size: 22px;
+                       background: var(--brand-grad); -webkit-background-clip: text;
+                       background-clip: text; color: transparent; }
+
+  /* NAV */
+  .nav { position: sticky; top: 0; z-index: 50;
+         background: rgba(250, 250, 255, 0.85); backdrop-filter: blur(12px);
+         border-bottom: 1px solid var(--line); }
+  .nav-inner { max-width: 1280px; margin: 0 auto; padding: 14px 40px;
+               display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+  .nav-links { display: flex; gap: 28px; font-size: 15px; color: var(--muted); font-weight: 500; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta-row { display: flex; gap: 10px; align-items: center; }
+  .nav-cta-row .ghost { color: var(--ink); font-size: 14px; font-weight: 600; }
+  .btn-primary-sm { background: var(--brand-grad); color: white;
+                    padding: 10px 22px; border-radius: 8px; font-weight: 700; font-size: 14px;
+                    box-shadow: 0 4px 14px -3px rgba(139,92,246,0.4); }
+
+  /* HERO — BIG dark art canvas */
+  .hero { max-width: 1280px; margin: 0 auto; padding: 80px 40px 80px;
+          display: grid; grid-template-columns: 1fr 1.05fr; gap: 64px; align-items: center; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px;
+                  border: 1px solid var(--line); padding: 5px 14px; border-radius: 999px;
+                  font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 28px;
+                  background: white; }
+  .hero-eyebrow .pill { background: var(--violet-100); color: var(--violet-700); padding: 2px 8px;
+                        border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; }
+  .hero h1 { font-family: "Audiowide", sans-serif; font-size: 60px; line-height: 1.06;
+             letter-spacing: 0; font-weight: 400; margin-bottom: 28px; }
+  .hero h1 .violet { color: var(--violet); }
+  .hero h1 .cyan { color: var(--cyan); }
+  .hero .sub { font-size: 19px; line-height: 1.55; color: var(--muted); max-width: 540px;
+               margin-bottom: 36px; }
+  .hero-ctas { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+  .btn-primary { background: var(--brand-grad); color: white; padding: 16px 30px;
+                 border-radius: 10px; font-weight: 700; font-size: 16px;
+                 box-shadow: 0 12px 28px -8px rgba(139,92,246,0.45);
+                 transition: all 0.15s ease; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -8px rgba(139,92,246,0.55); }
+  .btn-ghost { color: var(--ink); padding: 16px 24px; font-weight: 600; font-size: 16px;
+               border-radius: 10px; border: 1px solid var(--line); background: white; }
+  .btn-ghost::after { content: " →"; }
+  .hero-reassure { display: flex; gap: 20px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .hero-reassure span { display: inline-flex; align-items: center; gap: 6px; }
+  .hero-reassure svg { width: 14px; height: 14px; }
+
+  /* BIG DARK CANVAS with gradient blobs — the centerpiece */
+  .canvas { background: var(--ink-deep); border-radius: 32px; aspect-ratio: 1.05; position: relative;
+            overflow: hidden; padding: 36px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .canvas svg.bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .canvas-tag { position: absolute; top: 28px; left: 28px; font-family: "Audiowide", sans-serif;
+                font-size: 11px; background: var(--brand-grad); -webkit-background-clip: text;
+                background-clip: text; color: transparent; letter-spacing: 0.24em; }
+  .canvas-content { position: relative; }
+  .canvas-content h3 { font-family: "Audiowide", sans-serif; color: white; font-size: 32px; line-height: 1.1;
+                        font-weight: 400; letter-spacing: 0; margin-bottom: 14px; max-width: 90%; }
+  .canvas-content h3 .grad { background: var(--brand-grad); -webkit-background-clip: text; background-clip: text;
+                              -webkit-text-fill-color: transparent; }
+  .canvas-content p { color: rgba(255,255,255,0.65); font-size: 15px; line-height: 1.55; max-width: 80%; }
+
+  /* LOGOS */
+  .logos-row { padding: 50px 40px 80px; max-width: 1280px; margin: 0 auto;
+               border-top: 1px solid var(--line); }
+  .logos-label { text-align: center; font-size: 11px; color: var(--muted); letter-spacing: 0.18em;
+                 text-transform: uppercase; margin-bottom: 26px; font-weight: 700; }
+  .logos { display: flex; justify-content: space-around; align-items: center; opacity: 0.55;
+           flex-wrap: wrap; gap: 40px; }
+  .logo-ph { font-weight: 800; font-size: 22px; letter-spacing: -0.02em; color: var(--ink); }
+  .logo-ph.italic { font-style: italic; font-family: Georgia, serif; }
+  .logo-ph.mono { font-family: "JetBrains Mono", monospace; font-size: 18px; }
+  .logo-ph.caps { text-transform: uppercase; letter-spacing: 0.08em; font-size: 16px; }
+
+  /* FEATURES with mini dark gradient art on each card */
+  .features { padding: 60px 40px 100px; max-width: 1280px; margin: 0 auto; }
+  .features-header { text-align: center; max-width: 760px; margin: 0 auto 60px; }
+  .features-header .pre { font-size: 11px; color: var(--violet); font-weight: 800; letter-spacing: 0.18em;
+                          text-transform: uppercase; margin-bottom: 16px; }
+  .features-header h2 { font-family: "Audiowide", sans-serif; font-size: 46px; line-height: 1.1;
+                        font-weight: 400; margin-bottom: 18px; letter-spacing: 0; }
+  .features-header h2 .violet { color: var(--violet); }
+  .features-header p { font-size: 18px; color: var(--muted); line-height: 1.55; }
+  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .feature-card { background: white; border: 1px solid var(--line); border-radius: 24px;
+                  padding: 0; overflow: hidden;
+                  transition: all 0.2s ease; }
+  .feature-card:hover { transform: translateY(-4px); border-color: var(--violet-200);
+                        box-shadow: 0 32px 48px -16px rgba(139,92,246,0.15); }
+  .feature-art { background: var(--ink-deep); height: 120px; position: relative; overflow: hidden; }
+  .feature-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .feature-body { padding: 28px 32px 32px; }
+  .feature-card h3 { font-size: 22px; font-weight: 800; letter-spacing: -0.015em; margin-bottom: 10px;
+                     color: var(--ink); }
+  .feature-card p { color: var(--muted); font-size: 15px; line-height: 1.6; margin-bottom: 14px; }
+  .feature-card .stat-pill { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+                              display: inline-block; color: var(--violet-700); background: var(--violet-50); }
+
+  /* COMPLIANCE — split: light card with dark "vault" accent */
+  .compliance { max-width: 1280px; margin: 0 auto; padding: 0 40px 80px; }
+  .comp-row { display: grid; grid-template-columns: 1fr 1.5fr; gap: 28px; align-items: stretch; }
+  .comp-vault { background: var(--ink-deep); border-radius: 24px; padding: 40px; color: white;
+                 position: relative; overflow: hidden; display: flex; flex-direction: column;
+                 justify-content: space-between; }
+  .comp-vault::before { content: ""; position: absolute; top: -50%; right: -30%;
+                         width: 80%; height: 200%;
+                         background: radial-gradient(circle, rgba(139,92,246,0.3), transparent 60%); }
+  .comp-vault h3 { font-family: "Audiowide", sans-serif; font-size: 28px; line-height: 1.15;
+                    font-weight: 400; margin-bottom: 12px; position: relative; }
+  .comp-vault h3 .grad { background: var(--brand-grad); -webkit-background-clip: text; background-clip: text;
+                          -webkit-text-fill-color: transparent; }
+  .comp-vault p { font-size: 14px; color: rgba(255,255,255,0.65); line-height: 1.5; position: relative; }
+  .comp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .comp-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  .comp-card .icon { width: 40px; height: 40px; border-radius: 10px;
+                      background: var(--brand-grad); color: white; display: grid; place-items: center;
+                      font-size: 11px; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 12px; }
+  .comp-card .name-c { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .comp-card .detail { font-size: 13px; color: var(--muted); }
+
+  /* TESTIMONIAL — dark gradient art container */
+  .testimonial { max-width: 1280px; margin: 0 auto 80px; padding: 0 40px; }
+  .testi-inner { background: var(--ink-deep); border-radius: 28px; padding: 80px 56px; color: white;
+                  display: grid; grid-template-columns: 1.4fr 1fr; gap: 56px; align-items: center;
+                  position: relative; overflow: hidden; }
+  .testi-inner::before { content: ""; position: absolute; top: -30%; right: -10%;
+                          width: 40%; height: 160%;
+                          background: radial-gradient(ellipse, rgba(217,70,239,0.3), transparent 70%); }
+  .testi-inner::after { content: ""; position: absolute; bottom: -30%; left: -10%;
+                         width: 40%; height: 160%;
+                         background: radial-gradient(ellipse, rgba(8,145,178,0.3), transparent 70%); }
+  .testi-content { position: relative; }
+  .testi-content .small-l { font-family: "Audiowide", sans-serif; font-size: 11px;
+                              background: var(--brand-grad); -webkit-background-clip: text; background-clip: text;
+                              color: transparent; letter-spacing: 0.24em; margin-bottom: 18px; }
+  .testi-content blockquote { font-family: "Audiowide", sans-serif; font-size: 28px; line-height: 1.4;
+                                font-weight: 400; margin-bottom: 28px; letter-spacing: 0; }
+  .testi-content blockquote .grad { background: var(--brand-grad); -webkit-background-clip: text; background-clip: text;
+                                       -webkit-text-fill-color: transparent; }
+  .testi-content .who { display: flex; gap: 14px; align-items: center; }
+  .avatar-d { width: 52px; height: 52px; border-radius: 50%; background: var(--brand-grad);
+              display: grid; place-items: center; font-weight: 800; color: white; font-size: 17px; }
+  .testi-content .name { font-weight: 700; font-size: 16px; color: white; }
+  .testi-content .title-c { color: rgba(255,255,255,0.65); font-size: 14px; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; position: relative; }
+  .metric { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px; padding: 22px; }
+  .metric .num-m { font-family: "Audiowide", sans-serif; font-size: 28px;
+                    background: var(--brand-grad); -webkit-background-clip: text; background-clip: text;
+                    color: transparent; line-height: 1; }
+  .metric .lbl-m { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 6px; }
+
+  /* CLOSE — biggest dark moment */
+  .close { max-width: 1280px; margin: 0 auto 60px; padding: 0 40px; }
+  .close-inner { background: var(--ink-deep); color: white; border-radius: 32px;
+                 padding: 100px 56px; text-align: center; position: relative; overflow: hidden; }
+  .close-inner::before { content: ""; position: absolute; inset: 0;
+                          background: radial-gradient(at 30% 50%, rgba(217,70,239,0.25), transparent 60%),
+                                      radial-gradient(at 70% 50%, rgba(8,145,178,0.25), transparent 60%); }
+  .close-inner h2 { font-family: "Audiowide", sans-serif; font-size: 56px; line-height: 1.05;
+                     font-weight: 400; margin-bottom: 18px; position: relative; letter-spacing: 0.01em; }
+  .close-inner h2 .grad { background: var(--brand-grad); -webkit-background-clip: text; background-clip: text;
+                            -webkit-text-fill-color: transparent; }
+  .close-inner p { font-size: 18px; opacity: 0.8; margin-bottom: 36px; position: relative; }
+  .close-ctas { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; position: relative; }
+  .close-ctas .primary { background: white; color: var(--ink); padding: 16px 32px;
+                          border-radius: 10px; font-weight: 700; font-size: 15px; }
+  .close-ctas .secondary { background: transparent; color: white; padding: 16px 32px;
+                            border-radius: 10px; font-weight: 700; font-size: 15px;
+                            border: 1px solid rgba(255,255,255,0.3); }
+
+  footer { padding: 40px 40px 48px; max-width: 1280px; margin: 0 auto;
+           display: flex; justify-content: space-between; color: var(--muted); font-size: 13px;
+           border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="logo-plate"><span class="word">SKYCOT</span></div>
+    <div class="nav-links">
+      <a href="#">Workers</a>
+      <a href="#">How it works</a>
+      <a href="#">Customers</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+    </div>
+    <div class="nav-cta-row">
+      <a href="#" class="ghost">Sign in</a>
+      <a href="#" class="btn-primary-sm">Hire your first worker</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div>
+    <div class="hero-eyebrow">
+      <span class="pill">v1.0</span>
+      AI-Enabled Robotics · Built for the modern team
+    </div>
+    <h1>Hire a <span class="violet">teammate</span>.<br>Not another <span class="cyan">tool</span>.</h1>
+    <p class="sub">
+      SKYCOT compiles plain-English job descriptions into AI workers that
+      live in Slack, learn from your feedback, and ask before they act.
+      Single-binary in Rust, encrypted at rest, audit-chained by default.
+    </p>
+    <div class="hero-ctas">
+      <a href="#" class="btn-primary">Hire your first worker</a>
+      <a href="#" class="btn-ghost">Watch a 90s demo</a>
+    </div>
+    <div class="hero-reassure">
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> 5-min setup</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> No credit card</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> SOC 2 + GDPR</span>
+      <span><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#8B5CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> SSO ready</span>
+    </div>
+  </div>
+  <div class="canvas">
+    <svg class="bg" viewBox="0 0 500 500" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#D946EF"/>
+          <stop offset="100%" stop-color="#8B5CF6"/>
+        </linearGradient>
+        <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#8B5CF6"/>
+          <stop offset="100%" stop-color="#0891B2"/>
+        </linearGradient>
+        <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#3B82F6"/>
+          <stop offset="100%" stop-color="#0891B2"/>
+        </linearGradient>
+        <filter id="blur"><feGaussianBlur stdDeviation="30"/></filter>
+      </defs>
+      <!-- big gradient blobs -->
+      <ellipse cx="130" cy="120" rx="140" ry="110" fill="url(#g1)" opacity="0.7" filter="url(#blur)"/>
+      <ellipse cx="380" cy="180" rx="120" ry="90" fill="url(#g2)" opacity="0.6" filter="url(#blur)"/>
+      <ellipse cx="280" cy="380" rx="170" ry="120" fill="url(#g3)" opacity="0.65" filter="url(#blur)"/>
+      <!-- crisp accent shapes (not blurred) -->
+      <g opacity="0.9">
+        <rect x="180" y="170" width="140" height="140" rx="36" fill="none" stroke="url(#g2)" stroke-width="2"/>
+        <rect x="200" y="190" width="100" height="100" rx="26" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
+        <circle cx="250" cy="240" r="32" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
+      </g>
+      <!-- worker eyes in center -->
+      <g transform="translate(232, 230)">
+        <circle cx="6" cy="6" r="4" fill="white"/>
+        <circle cx="30" cy="6" r="4" fill="white"/>
+      </g>
+      <!-- floating shapes around -->
+      <g opacity="0.5">
+        <rect x="60" y="380" width="100" height="6" rx="3" fill="white"/>
+        <rect x="60" y="395" width="60" height="4" rx="2" fill="white" opacity="0.6"/>
+        <rect x="340" y="100" width="100" height="6" rx="3" fill="white"/>
+        <rect x="340" y="115" width="60" height="4" rx="2" fill="white" opacity="0.6"/>
+      </g>
+      <!-- corner sparkles -->
+      <circle cx="60" cy="60" r="3" fill="white" opacity="0.8"/>
+      <circle cx="440" cy="80" r="2" fill="white" opacity="0.7"/>
+      <circle cx="100" cy="320" r="2" fill="white" opacity="0.6"/>
+      <circle cx="420" cy="360" r="3" fill="white" opacity="0.7"/>
+    </svg>
+    <div class="canvas-tag">▮ AI-ENABLED ROBOTICS</div>
+    <div class="canvas-content">
+      <h3>The first AI teammate <span class="grad">you can audit.</span></h3>
+      <p>Every action hash-chained, replayable, defensible in front of any auditor.</p>
+    </div>
+  </div>
+</header>
+
+<section class="logos-row">
+  <div class="logos-label">Trusted by operations, HR and revenue teams at</div>
+  <div class="logos">
+    <span class="logo-ph">Nimbus.io</span>
+    <span class="logo-ph italic">Hartwell &amp; Co.</span>
+    <span class="logo-ph mono">aether/labs</span>
+    <span class="logo-ph caps">Foundry Yard</span>
+    <span class="logo-ph">Cohort</span>
+    <span class="logo-ph italic">Mercer Health</span>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-header">
+    <div class="pre">What you get</div>
+    <h2>Three things software has<br><span class="violet">never done before</span>.</h2>
+    <p>Memory that compounds. Approval in the tools you already use. Every action audit-chained by default.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-art">
+        <svg viewBox="0 0 300 120" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="fg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D946EF"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient>
+            <filter id="fbl1"><feGaussianBlur stdDeviation="20"/></filter>
+          </defs>
+          <ellipse cx="100" cy="60" rx="120" ry="60" fill="url(#fg1)" opacity="0.7" filter="url(#fbl1)"/>
+          <rect x="120" y="40" width="60" height="40" rx="10" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
+          <line x1="135" y1="50" x2="170" y2="50" stroke="white" stroke-width="1.5" opacity="0.5"/>
+          <line x1="135" y1="60" x2="160" y2="60" stroke="white" stroke-width="1.5" opacity="0.4"/>
+          <line x1="135" y1="70" x2="170" y2="70" stroke="white" stroke-width="1.5" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="feature-body">
+        <h3>Memory that compounds</h3>
+        <p>Each worker keeps a private memory of what you've taught it. Switch foundation models — your workers keep their notes.</p>
+        <span class="stat-pill">~30k facts/worker</span>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-art">
+        <svg viewBox="0 0 300 120" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="fg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#3B82F6"/></linearGradient>
+            <filter id="fbl2"><feGaussianBlur stdDeviation="20"/></filter>
+          </defs>
+          <ellipse cx="200" cy="60" rx="120" ry="60" fill="url(#fg2)" opacity="0.7" filter="url(#fbl2)"/>
+          <path d="M 120 60 L 180 60 L 180 80 L 165 80 L 158 88 L 158 80 L 120 80 Z" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
+          <circle cx="135" cy="70" r="1.5" fill="white"/>
+          <circle cx="145" cy="70" r="1.5" fill="white"/>
+          <circle cx="155" cy="70" r="1.5" fill="white"/>
+        </svg>
+      </div>
+      <div class="feature-body">
+        <h3>Approves where you live</h3>
+        <p>Slack, email, SMS, voice. Workers ask in your existing channels — no new dashboard to babysit.</p>
+        <span class="stat-pill">6 channels · &lt;200ms ask</span>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-art">
+        <svg viewBox="0 0 300 120" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="fg3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#0891B2"/></linearGradient>
+            <filter id="fbl3"><feGaussianBlur stdDeviation="20"/></filter>
+          </defs>
+          <ellipse cx="150" cy="60" rx="140" ry="60" fill="url(#fg3)" opacity="0.7" filter="url(#fbl3)"/>
+          <path d="M 150 40 L 140 50 L 140 60 Q 140 70 150 75 Q 160 70 160 60 L 160 50 Z" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/>
+          <path d="M 145 60 L 148 63 L 155 56" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9"/>
+        </svg>
+      </div>
+      <div class="feature-body">
+        <h3>Audit by default</h3>
+        <p>Every action hash-chained, replayable, and auditable. SOC 2 and GDPR are side effects.</p>
+        <span class="stat-pill">SHA-256 · replay-ready</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="compliance">
+  <div class="comp-row">
+    <div class="comp-vault">
+      <h3>Enterprise-ready <span class="grad">on day one.</span></h3>
+      <p>Single-sign-on (SSO), role-based access control (RBAC), multi-tenant isolation, hash-chained audit, encryption at rest with per-tenant keys. All on the free plan.</p>
+    </div>
+    <div class="comp-grid">
+      <div class="comp-card"><div class="icon">SOC<br>2</div><div class="name-c">SOC 2 Type II</div><div class="detail">Audit on request</div></div>
+      <div class="comp-card"><div class="icon">GDPR</div><div class="name-c">GDPR Art. 15</div><div class="detail">Right-to-export</div></div>
+      <div class="comp-card"><div class="icon">SSO</div><div class="name-c">SSO + SAML</div><div class="detail">Okta · Google · Azure</div></div>
+      <div class="comp-card"><div class="icon">AES<br>256</div><div class="name-c">SQLCipher</div><div class="detail">Per-tenant keys</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="testimonial">
+  <div class="testi-inner">
+    <div class="testi-content">
+      <div class="small-l">▮ FROM THE FIELD</div>
+      <blockquote>"It felt like hiring an associate, except they finished their first task in the time it would have taken me to draft the brief. Six months in — <span class="grad">half our outbound runs through SKYCOT workers</span>, and our auditor can replay every action."</blockquote>
+      <div class="who">
+        <div class="avatar-d">RK</div>
+        <div>
+          <div class="name">Riley Kovacs</div>
+          <div class="title-c">VP, Customer Success · Nimbus.io (450 employees)</div>
+        </div>
+      </div>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric"><div class="num-m">53%</div><div class="lbl-m">Outbound delegated within 90 days</div></div>
+      <div class="metric"><div class="num-m">$8.2k</div><div class="lbl-m">Per-month per-worker savings</div></div>
+      <div class="metric"><div class="num-m">4.2x</div><div class="lbl-m">Approvals processed per operator hour</div></div>
+      <div class="metric"><div class="num-m">100%</div><div class="lbl-m">Audit chain coverage</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="close-inner">
+    <h2>HIRE YOUR FIRST<br><span class="grad">TEAMMATE TODAY.</span></h2>
+    <p>5 minutes. No credit card. No sales call. Cancel any time.</p>
+    <div class="close-ctas">
+      <a href="#" class="primary">Hire your first worker →</a>
+      <a href="#" class="secondary">Talk to our team</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 SKYCOT · AI-Enabled Robotics · v1.0</div>
+  <div>Built in Melbourne, Australia</div>
+</footer>
+
+</body>
+</html>
