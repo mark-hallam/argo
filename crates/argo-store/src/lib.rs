@@ -259,6 +259,15 @@ pub(crate) mod worker_okr_types;
 pub mod worker_presence;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
 pub mod workflow_checkpoint;
+/// Workflow definition persistence layer (Stream
+/// `mission-pm-workflow-persistence-schema`, P1 #5). Version-chain
+/// store for workflow TOML bodies + per-`(tenant, vertical, name)`
+/// head pointer. Downstream edit / rollback / diff briefs (P1 #6,
+/// P1 #7, P2 #9, P2 #10) write against this CRUD surface. Files in
+/// `verticals/<id>/workflows/*.workflow.toml` remain authoritative
+/// for v1 workflow loads; this layer is additive until the edit API
+/// lands.
+pub mod workflow_definition;
 mod workspace;
 /// Magic-link token storage backing the gateway self-serve signup
 /// flow (Stream `claude-magic-link-auth-backend`). The user/tenant
@@ -298,7 +307,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 71;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 72;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

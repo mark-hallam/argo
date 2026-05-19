@@ -11,6 +11,11 @@ description = "Argo — SQLite + FTS5 session store"
 argo-types = { path = "../argo-types" }
 argo-runtime = { path = "../argo-runtime" }
 argo-security = { path = "../argo-security" }
+# Workflow TOML parser, used by `workflow_definition::create` to
+# reject malformed bodies at the CRUD boundary (Stream
+# `mission-pm-workflow-persistence-schema`). argo-vertical depends
+# only on argo-types so no dependency cycle is introduced.
+argo-vertical = { path = "../argo-vertical" }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

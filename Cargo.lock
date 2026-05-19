@@ -1545,6 +1545,7 @@ dependencies = [
  "argo-runtime",
  "argo-security",
  "argo-types",
+ "argo-vertical",
  "async-trait",
  "base64 0.22.1",
  "chrono",
