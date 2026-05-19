@@ -13,6 +13,7 @@
 //! Sibling modules:
 //! - [`crate::sections_budget`] — `[budget]`, `[delegate]`, `[parallel]`
 //! - [`crate::sections_core`] — `[core]`, `[tenant]`, `[loop]`, `[plugin]`
+//! - [`crate::sections_auth`] — `[auth]`
 //! - [`crate::sections_telemetry`] — `[telemetry]`, `[telemetry.log_shipping]`
 //! - [`crate::sections_audit`] — `[audit]`
 //! - [`crate::sections_routing`] — `[routing]`, `[routing.tiered]`, `[judge]`, `[forge]`
@@ -27,6 +28,7 @@
 use serde::{Deserialize, Serialize};
 
 pub use crate::sections_audit::AuditConfig;
+pub use crate::sections_auth::AuthConfig;
 pub use crate::sections_budget::{BudgetConfig, DelegateConfig, ParallelConfig};
 pub use crate::sections_channels::{
     ChannelsConfig, MatrixTomlConfig, TeamsTomlConfig, VoiceTomlConfig, WebInboxTomlConfig,

@@ -181,6 +181,7 @@ mod runs_streaming;
 mod scim_auth;
 mod security_headers;
 mod shutdown;
+mod signup_protection;
 pub(super) mod sso_dispatch;
 mod sso_oidc;
 mod sso_oidc_helpers;

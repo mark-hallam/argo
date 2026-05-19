@@ -87,6 +87,28 @@ async fn signup_rate_limit_uses_shared_signup_bucket() {
 }
 
 #[tokio::test]
+async fn signup_honeypot_is_silent_and_does_not_insert_token() {
+    let store = fresh_store().await;
+    argo_store::user_account::ensure_schema(store.pool())
+        .await
+        .unwrap();
+    let r = req(
+        "POST /api/v1/auth/signup",
+        Some("203.0.113.13"),
+        r#"{"email":"trap@example.com","honeypot_url":"https://spam.invalid"}"#,
+    );
+    let (status, body) = signup_response(&r, Some(&store)).await;
+    assert!(status.starts_with("200"), "status={status} body={body}");
+    assert!(body.contains("\"status\":\"sent\""));
+
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM magic_link_tokens")
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+    assert_eq!(count.0, 0);
+}
+
+#[tokio::test]
 async fn verify_with_invalid_token_returns_401() {
     let store = fresh_store().await;
     let r = req(

@@ -291,6 +291,25 @@ impl ArgoConfig {
             .overrides
             .get("skill.execute")
             .copied();
+        if o.auth_trust_proxy_header {
+            self.auth.trust_proxy_header = other.auth.trust_proxy_header;
+        }
+        if o.auth_signup_ip_limit_per_hour {
+            self.auth.signup_protection.ip_limit_per_hour =
+                other.auth.signup_protection.ip_limit_per_hour;
+        }
+        if o.auth_signup_email_cooldown_secs {
+            self.auth.signup_protection.email_cooldown_secs =
+                other.auth.signup_protection.email_cooldown_secs;
+        }
+        if o.auth_signup_turnstile_enabled {
+            self.auth.signup_protection.turnstile.enabled =
+                other.auth.signup_protection.turnstile.enabled;
+        }
+        if o.auth_signup_turnstile_secret_key {
+            self.auth.signup_protection.turnstile.secret_key =
+                other.auth.signup_protection.turnstile.secret_key;
+        }
         if o.core_home {
             self.core.home = other.core.home;
         }

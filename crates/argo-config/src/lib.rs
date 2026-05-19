@@ -43,6 +43,7 @@ mod sandbox;
 mod sections;
 mod sections_action_throttle;
 mod sections_audit;
+mod sections_auth;
 mod sections_billing;
 mod sections_budget;
 mod sections_channels;
@@ -77,15 +78,19 @@ pub use loader::{load, load_from};
 pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
-    AnomalyConfig, AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig,
-    DocumentCsvConfig, DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig, GatewayConfig,
-    GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig,
-    LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
-    RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
+    AnomalyConfig, AuditConfig, AuthConfig, BudgetConfig, ChannelsConfig, CoreConfig,
+    DelegateConfig, DocumentCsvConfig, DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig,
+    GatewayConfig, GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig,
+    JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig,
+    PluginConfig, RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
     SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SkillLibraryConfig,
     SkillLibraryRelevanceConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, StorageConfig,
     StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TelemetryPrometheusCardinalityCapConfig,
     TelemetryPrometheusConfig, TenantConfig, VoiceTomlConfig, WebInboxTomlConfig,
+};
+pub use sections_auth::{AuthSignupProtectionConfig, AuthTurnstileConfig};
+pub use sections_billing::{
+    BillingConfig, BillingWebhookConfig, DEFAULT_BILLING_WEBHOOK_MAX_RETRIES,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, AnomalyAlertingConfig, ContextCompressConfig,
@@ -97,9 +102,6 @@ pub use sections_context::{
 pub use sections_rate_limit::{
     GatewayRateLimitConfig, GatewayRateLimitIpConfig, GatewayRateLimitRouteConfig,
     GatewayRateLimitTenantConfig,
-};
-pub use sections_billing::{
-    BillingConfig, BillingWebhookConfig, DEFAULT_BILLING_WEBHOOK_MAX_RETRIES,
 };
 pub use sections_email_outbound::{EmailConfig, EmailOutboundConfig, EmailOutboundProvider};
 pub use sections_streaming_retry::{
@@ -168,6 +170,8 @@ pub fn workspace_tenant_id(workspace_root: &Path) -> String {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ArgoConfig {
+    /// `[auth]` — public authentication surface controls.
+    pub auth: AuthConfig,
     /// `[core]`.
     pub core: CoreConfig,
     /// `[tenant]`.

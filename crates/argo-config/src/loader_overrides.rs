@@ -17,6 +17,11 @@ use argo_types::ArgoResult;
 /// present in the source — see that method for details.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ArgoConfigOverrides {
+    pub auth_trust_proxy_header: bool,
+    pub auth_signup_ip_limit_per_hour: bool,
+    pub auth_signup_email_cooldown_secs: bool,
+    pub auth_signup_turnstile_enabled: bool,
+    pub auth_signup_turnstile_secret_key: bool,
     pub core_home: bool,
     pub core_profile: bool,
     pub tenant_default_id: bool,
@@ -47,6 +52,11 @@ pub(crate) struct ArgoConfigOverrides {
 
 impl ArgoConfigOverrides {
     pub(crate) fn combine(&mut self, other: &Self) {
+        self.auth_trust_proxy_header |= other.auth_trust_proxy_header;
+        self.auth_signup_ip_limit_per_hour |= other.auth_signup_ip_limit_per_hour;
+        self.auth_signup_email_cooldown_secs |= other.auth_signup_email_cooldown_secs;
+        self.auth_signup_turnstile_enabled |= other.auth_signup_turnstile_enabled;
+        self.auth_signup_turnstile_secret_key |= other.auth_signup_turnstile_secret_key;
         self.core_home |= other.core_home;
         self.core_profile |= other.core_profile;
         self.tenant_default_id |= other.tenant_default_id;
@@ -83,6 +93,16 @@ impl ArgoConfigOverrides {
     pub(crate) fn mark_all_from_toml(&mut self, raw: &str) {
         // Only mark fields whose section appears in the raw TOML.
         // Coarse but cheap; works because the keys are unique.
+        self.auth_trust_proxy_header |=
+            raw.contains("[auth]") && raw.contains("trust_proxy_header");
+        self.auth_signup_ip_limit_per_hour |=
+            raw.contains("[auth.signup_protection]") && raw.contains("ip_limit_per_hour");
+        self.auth_signup_email_cooldown_secs |=
+            raw.contains("[auth.signup_protection]") && raw.contains("email_cooldown_secs");
+        self.auth_signup_turnstile_enabled |=
+            raw.contains("[auth.signup_protection.turnstile]") && raw.contains("enabled");
+        self.auth_signup_turnstile_secret_key |=
+            raw.contains("[auth.signup_protection.turnstile]") && raw.contains("secret_key");
         self.core_home |= raw.contains("[core]") && raw.contains("home");
         self.core_profile |= raw.contains("[core]") && raw.contains("profile");
         self.tenant_default_id |= raw.contains("[tenant]") && raw.contains("default_id");

@@ -28,6 +28,7 @@
 use super::body_from_request;
 use super::email_outbound::{self, OutboundMessage};
 use super::rate_limit_ip::{self, RateLimitIpCheckResult};
+use super::signup_protection::{SignupFields, SignupProtectionOutcome};
 use argo_audit::{AuditKind, AuditSink, ANONYMOUS_AUDIT_TENANT_ID};
 use argo_config::EmailOutboundConfig;
 use argo_email_templates::MagicLinkEmail;
@@ -53,6 +54,7 @@ use tokio::net::TcpStream;
 
 const JWT_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 const SESSION_COOKIE_NAME: &str = "__Host-session";
+const SIGNUP_SENT_BODY: &str = r#"{"status":"sent"}"#;
 
 /// Sliding-window verify rate limit: 60 attempts/IP/minute. Separate
 /// bucket from [`super::rate_limit_ip::signup_limiter`] so signup
@@ -67,6 +69,9 @@ mod tests;
 #[derive(Debug, Deserialize)]
 struct SignupBody {
     email: String,
+    #[serde(rename = "cf-turnstile-response")]
+    cf_turnstile_response: Option<String>,
+    honeypot_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -131,6 +136,16 @@ pub(super) async fn signup_response(
     let email = parsed.email.trim().to_ascii_lowercase();
     if !looks_like_email(&email) {
         return error_resp("400 Bad Request", "email is required");
+    }
+    let fields = SignupFields {
+        email: &email,
+        honeypot_url: parsed.honeypot_url.as_deref(),
+        turnstile_response: parsed.cf_turnstile_response.as_deref(),
+    };
+    match super::signup_protection::check_signup(req, fields).await {
+        SignupProtectionOutcome::Allow => {}
+        SignupProtectionOutcome::SilentOk => return ("200 OK", SIGNUP_SENT_BODY.to_string()),
+        SignupProtectionOutcome::Deny { status, body } => return (status, body),
     }
     let raw_token = mint_token();
     let token_hash = sha256_hex(&raw_token);
