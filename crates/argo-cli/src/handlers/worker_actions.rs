@@ -116,6 +116,14 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             reason,
             json,
         } => super::worker_resume::run(&worker_id, &tenant, reason.as_deref(), json).await,
+        WorkerCmd::Freeze {
+            worker_id,
+            reason,
+            json,
+        } => super::worker_freeze::freeze(&worker_id, &reason, json).await,
+        WorkerCmd::Unfreeze { worker_id, json } => {
+            super::worker_freeze::unfreeze(&worker_id, json).await
+        }
         WorkerCmd::Doctor { vertical, json } => {
             super::worker_doctor::run(vertical.as_deref(), json).await
         }
@@ -363,6 +371,8 @@ fn worker_id_from_cmd(cmd: &WorkerCmd) -> Option<String> {
         | WorkerCmd::Portrait { worker_id, .. }
         | WorkerCmd::Update { worker_id, .. }
         | WorkerCmd::Resume { worker_id, .. }
+        | WorkerCmd::Freeze { worker_id, .. }
+        | WorkerCmd::Unfreeze { worker_id, .. }
         | WorkerCmd::Anomalies { worker_id, .. }
         | WorkerCmd::Rehydrate { worker_id, .. }
         | WorkerCmd::Delete { worker_id, .. }

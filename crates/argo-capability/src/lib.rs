@@ -269,6 +269,7 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                 Capability::MemoryWrite,
                 Capability::SkillWrite,
                 Capability::AuditWrite,
+                Capability::WorkerFreeze,
                 Capability::SecretRead { name: "*".into() },
                 Capability::NetEgress {
                     host_glob: "**".into(),
@@ -301,6 +302,7 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                 },
                 Capability::MemoryWrite,
                 Capability::SkillWrite,
+                Capability::WorkerFreeze,
                 Capability::NetEgress {
                     host_glob: "**".into(),
                     port: None,

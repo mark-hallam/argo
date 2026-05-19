@@ -156,6 +156,25 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Freeze a worker so new turns and tool calls are refused.
+    Freeze {
+        /// Worker id.
+        worker_id: String,
+        /// Operator-facing reason for the freeze.
+        #[arg(long)]
+        reason: String,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Unfreeze a worker previously frozen with `argo worker freeze`.
+    Unfreeze {
+        /// Worker id.
+        worker_id: String,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Manage actions the worker has proposed / approved /
     /// executed. Backed by `worker_action` memory rows in the
     /// originating job's vertical namespace.

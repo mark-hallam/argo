@@ -426,6 +426,7 @@ pub mod worker_elasticity;
 pub mod worker_fleet;
 #[cfg(test)]
 mod worker_fleet_tests;
+pub mod worker_freeze;
 pub mod worker_kpi;
 pub mod worker_list;
 pub mod worker_metrics;

@@ -114,6 +114,8 @@ pub enum Capability {
     SkillMigrateRecord,
     /// Run an Argo Forge optimization (only the Forge subsystem).
     ForgeRun,
+    /// Freeze or unfreeze a worker through the cooperative kill switch.
+    WorkerFreeze,
     /// Dispatch image-generation tools served by
     /// `argo-mcp-image-gen` (`image.generate`, `image.edit`).
     /// Distinct from generic [`Capability::ToolDispatch`] because
@@ -210,7 +212,7 @@ fn capability_covers(grant: &Capability, want: &Capability) -> bool {
     use Capability::{
         AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, ImageGenerate, MemoryWrite,
         MemoryWriteTeam, MessageSend, NetEgress, SecretRead, SkillJudge, SkillMigrateRecord,
-        SkillWrite, Spawn, ToolDispatch,
+        SkillWrite, Spawn, ToolDispatch, WorkerFreeze,
     };
     match (grant, want) {
         (FsRead { path_glob: g }, FsRead { path_glob: w })
@@ -255,6 +257,7 @@ fn capability_covers(grant: &Capability, want: &Capability) -> bool {
         (SkillJudge, SkillJudge) => true,
         (SkillMigrateRecord, SkillMigrateRecord) => true,
         (ForgeRun, ForgeRun) => true,
+        (WorkerFreeze, WorkerFreeze) => true,
         (ImageGenerate, ImageGenerate) => true,
         _ => false,
     }
