@@ -111,10 +111,7 @@ async fn open_inner(
     // callers `after_connect` issues `PRAGMA key` first and then sets
     // WAL, matching the SQLCipher operator runbook.
     let key_stmt = if let Some(hex) = key_hex.as_deref() {
-        Some(format!(
-            "PRAGMA key = \"x'{}'\"",
-            encryption::validate_hex_key(hex)?
-        ))
+        Some(build_pragma_key(hex)?)
     } else {
         opts = opts.journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
         None
@@ -166,6 +163,14 @@ async fn open_inner(
         messages,
         prompt_cache_affinity: None,
     })
+}
+
+fn build_pragma_key(hex: &str) -> StoreResult<String> {
+    // audit-allow: SQLCipher PRAGMA literal, hex value pre-validated by encryption::validate_hex_key()
+    Ok(format!(
+        "PRAGMA key = \"x'{}'\"",
+        encryption::validate_hex_key(hex)?
+    ))
 }
 
 /// Resolve `SKYCOT_DB_KEY_BASE64` into a 64-char lowercase hex string,
@@ -235,6 +240,10 @@ pub(crate) async fn ensure_session_worker_id_column(pool: &Pool<Sqlite>) -> Stor
     .map_err(|e| ArgoError::Io(format!("create idx_session_worker: {e}")))?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "store_open_tests.rs"]
+mod tests;
 
 /// PRAGMA-detect-then-ALTER for `session.routing_policy` (Stream
 /// `mission-claim-3-runtime-wiring-v1x`). Same lazy-bootstrap pattern
