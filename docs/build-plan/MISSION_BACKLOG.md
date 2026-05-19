@@ -624,6 +624,67 @@ industry-leader claim.
 
 ---
 
+## SECTION 11 — Codex 2026-05-19 Audit Track
+
+Sourced 2026-05-19 from `argo-investigations/codex-audit-2026-05-19/` — 19
+findings; validation memo confirms 16 against current main (3 STALE/WRONG:
+P1-1 magic-link gaps already merged via #1841, P2-1 sonner missing was
+environmental not a code bug, P0-3 CI billing operator-decisional).
+Conductor landed 11 briefs (P0-2 / P1-2 / P1-3 are the 3 P0s; SQLCipher pair
+P1-5a/P1-5b; bundlefile-canonicalize AMENDED to cover the LifecycleState
+duplicate introduced by #1846 the same day; cost-routing finding P1-6
+formally superseded by #1847 mission-claim-3-runtime-wiring-v1x MERGED
+2026-05-19). One sibling brief skipped (cost-routing) because already
+shipped.
+
+### P0 (enterprise perimeter — gates the deployable claim)
+
+294. Gateway dashboards mounted before bearer-auth at `routes.rs:90-118`
+     — spend ledger / audit / approvals queryable without auth.
+     `[BRIEF: mission-audit-gateway-dashboard-auth-gate]`
+295. `X-Argo-Principal` + `X-Argo-Tenant-Id` headers caller-supplied with
+     no cross-check against bearer-derived identity. RBAC gap.
+     `[BRIEF: mission-audit-principal-tenant-from-token]`
+296. Bearer auth fail-open when `ARGO_GATEWAY_BEARER_TOKEN` unset; no
+     production-mode guard; `/api/v1/wizard` in public allowlist
+     indefinitely.
+     `[BRIEF: mission-audit-bearer-fail-closed-prod]`
+
+### P1 (security + runtime control)
+
+297. `check-prepared-statements.sh` fails on `store_open.rs:114` — audit-
+     allow comment 27 lines below the format!() callsite.
+     `[BRIEF: mission-audit-sqlcipher-prepared-stmt-fix]`
+298. SQLCipher not safe-default in production profile — fail-close
+     encrypted store startup when `key_source=none` + production mode.
+     `[BRIEF: mission-audit-sqlcipher-enterprise-default]`
+
+### P2 (code health + claim hardening)
+
+299. Two duplicate `pub` types — `BundleFile` (argo-identity vs argo-
+     replay) AND `LifecycleState` (argo-skill vs argo-store, NEW
+     2026-05-19 via #1846). Canonicalize both in one pass.
+     `[BRIEF: mission-audit-bundlefile-canonicalize]`
+300. `spawn_per_worker_learning_cron` only enrolled at gateway boot;
+     workers hired AFTER boot miss the learning loop.
+     `[BRIEF: mission-audit-skill-learning-dynamic-enroll]`
+301. Genesis `synthesize_charter` is a literal identity-fn stub
+     (`raw.to_string()`). Wire provider-backed synthesizer + eval seeds.
+     `[BRIEF: mission-audit-genesis-jd-llm-summarizer]`
+302. 40 files in the 450-500 LOC band on current main; split next-tier
+     10 to keep headroom. Manager-worker eligible. Depends on PR #1790
+     MERGED via recovery brief.
+     `[BRIEF: mission-audit-loc-band-wave-2]`
+303. `docs/build-plan/RESUME.md` self-contradiction (codex active vs
+     codex offline) + `V1_DEFINITION.md` stale shipped blockers.
+     `[BRIEF: mission-audit-docs-drift-sweep]`
+304. `mcp-servers/browser/` — 14 local CDP tools wired; cloud backends
+     (Browserbase/BrowserUse) opt-in but not wired; `wait_for
+     network_idle` documented but not implemented.
+     `[BRIEF: mission-audit-browser-mcp-cloud-docs]`
+
+---
+
 ## Sequencing — recommended phases
 
 Per the deep-research analysis (paraphrased):
