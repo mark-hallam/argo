@@ -6,9 +6,20 @@
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-audit-loc-band-wave-2`.
 **Source**: 2026-05-19 codex audit P2-3, validated by claude `VALIDATION.md` (CONFIRMED — 40 Rust files in 450-500 LOC band, top 10 listed below).
 
+## AMENDED 2026-05-20 by conductor (post-BLOCK)
+
+Original brief BLOCKED 2026-05-20 by codex pre-implementation: routes_dispatch_post.rs is now at 302 LOC (out of the 450-500 band — incidental collateral split from #1790's fn-LOC work). Effective splits = 9, not 10. Brief's "<30 final count" target was infeasible: 43 baseline - 9 effective splits = ~34 best case.
+
+Conductor adjustments:
+- Baseline updated 40 → 43 (current measured count).
+- Target updated `<30` → `<35` to match the 9-effective-splits ceiling.
+- Future wave-3 brief will pick up the remaining drift toward <30. The 5 next-in-band candidates (turn.rs, workflow_definition.rs, cli_session_cmds.rs, encryption.rs, plus a 5th in-band file) are out of scope for THIS wave-2 — they get their own brief once wave-2 ships.
+
+Original 10 cited files: 9 still in band, 1 (routes_dispatch_post.rs) already at 302 LOC. Worker may either (a) skip routes_dispatch_post entirely (the file is already split), or (b) include it as a no-op confirmation of the existing state.
+
 ## Scope
 
-CLAUDE.md mandates `<500 LOC per file`. 40 files are currently in the 450-500 band — every small security fix in those files risks pushing one over the ceiling and forcing an unplanned split. Splitting proactively, on customer-critical paths, reduces ship-blocking churn during the security-hardening pass.
+CLAUDE.md mandates `<500 LOC per file`. **43 files** are currently in the 450-500 band (baseline grew since brief authored) — every small security fix in those files risks pushing one over the ceiling and forcing an unplanned split. Splitting proactively, on customer-critical paths, reduces ship-blocking churn during the security-hardening pass.
 
 The 10 highest-priority files (mix of "biggest" + "most touched by security work"):
 
@@ -60,7 +71,7 @@ For EACH child PR (10 total):
 For the parent (this brief):
 
 - [ ] All 10 child splits land (or operator explicitly closes some as "leave alone — scheduled for refactor inside another brief").
-- [ ] Final count of files in 450-500 band drops below 30 (currently 40; even if only 8 of 10 ship, count drops to ~32).
+- [ ] Final count of files in 450-500 band drops **below 35** (current baseline 43; effective 9 splits of in-band cited files drops to ~34. Lower-target wave-3 brief will handle the remaining drift to <30 after wave-2 ships.)
 
 ## Branch + PR
 
