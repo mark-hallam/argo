@@ -68,6 +68,13 @@ pub(crate) const DEFAULT_MEMORY_MIB: u64 = 1024;
 /// the module docs for the trade-off.
 pub(crate) const ENV_E2B_TOKEN: &str = "ARGO_E2B_TOKEN";
 
+/// Env var that overrides the `[code_executor].profile` config
+/// field. Accepts `production` or `dev` (case-insensitive). When
+/// set, takes precedence over the TOML setting and the built-in
+/// default. Anything other than `dev` (after trim + lowercase)
+/// resolves to `production` so typos fail closed.
+pub(crate) const ENV_CODE_EXEC_PROFILE: &str = "ARGO_CODE_EXEC_PROFILE";
+
 /// Wire shape of the action payload. The dispatch shim deserialises
 /// `action.payload` into this struct; missing optional fields
 /// default to the most-restrictive setting.
@@ -105,6 +112,78 @@ pub(crate) struct ResolvedConfig {
     pub timeout: Duration,
     pub memory_mib: u64,
     pub backend: CodeExecBackendKind,
+}
+
+/// Production-vs-dev gate for the Local backend. Resolved per
+/// dispatch: env var > `[code_executor]` config > fail-closed
+/// shipped defaults. Anything other than the literal `"dev"`
+/// profile (post-trim+lowercase) is treated as production, so
+/// typos fail closed.
+#[derive(Debug, Clone)]
+pub(crate) struct ProductionGate {
+    pub profile: String,
+    pub allow_local_in_production: bool,
+}
+
+impl ProductionGate {
+    pub(crate) fn from_env_and_config() -> Self {
+        let cfg = argo_config::load()
+            .map(|c| c.code_executor)
+            .unwrap_or_default();
+        Self::resolve(env_profile_override(), &cfg)
+    }
+
+    pub(crate) fn resolve(
+        env_profile: Option<String>,
+        cfg: &argo_config::CodeExecutorConfig,
+    ) -> Self {
+        let raw = env_profile
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| cfg.profile.clone());
+        Self {
+            profile: raw.trim().to_ascii_lowercase(),
+            allow_local_in_production: cfg.allow_local_in_production,
+        }
+    }
+
+    pub(crate) fn is_production(&self) -> bool {
+        self.profile != "dev"
+    }
+
+    pub(crate) fn check_backend(
+        &self,
+        backend: CodeExecBackendKind,
+        action: &ActionRecord,
+    ) -> ArgoResult<()> {
+        if backend != CodeExecBackendKind::Local {
+            return Ok(());
+        }
+        if self.is_production() && !self.allow_local_in_production {
+            return Err(ArgoError::Provider(
+                "code-execution: local code execution disabled in \
+                 production (CodeExecBackendKind::Local refused). Set \
+                 [code_executor] allow_local_in_production = true \
+                 in argo.toml or ARGO_CODE_EXEC_PROFILE=dev for \
+                 trusted-workspace installs, or nominate the E2B \
+                 backend via ARGO_E2B_TOKEN."
+                    .into(),
+            ));
+        }
+        tracing::warn!(
+            action_id = %action.action_id,
+            job_id = %action.job_id,
+            worker_id = %action.worker_id,
+            profile = %self.profile,
+            "code-executor using non-isolated LocalSandbox backend \
+             (dev-only); nominate E2B via ARGO_E2B_TOKEN for prod."
+        );
+        Ok(())
+    }
+}
+
+fn env_profile_override() -> Option<String> {
+    let raw = std::env::var(ENV_CODE_EXEC_PROFILE).ok()?;
+    Some(raw.trim().to_ascii_lowercase())
 }
 
 /// Which sandbox backend the executor will use this dispatch.
@@ -173,6 +252,8 @@ impl Executor for CodeExecutor {
                     .into(),
             ));
         }
+        let gate = ProductionGate::from_env_and_config();
+        gate.check_backend(cfg.backend, action)?;
         let sandbox = LocalSandbox::new();
         let bundle = ensure_bundle_dir(cwd, &action.job_id, &action.action_id)?;
         let result = run_via(&sandbox, &req, &cfg, &bundle)?;

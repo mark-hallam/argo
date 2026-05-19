@@ -78,15 +78,16 @@ pub use loader::{load, load_from};
 pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
-    AnomalyConfig, AuditConfig, AuthConfig, BudgetConfig, ChannelsConfig, CoreConfig,
-    DelegateConfig, DocumentCsvConfig, DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig,
-    GatewayConfig, GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig,
-    JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig,
-    PluginConfig, RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
-    SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SkillLibraryConfig,
-    SkillLibraryRelevanceConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, StorageConfig,
-    StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TelemetryPrometheusCardinalityCapConfig,
-    TelemetryPrometheusConfig, TenantConfig, VoiceTomlConfig, WebInboxTomlConfig,
+    AnomalyConfig, AuditConfig, AuthConfig, BudgetConfig, ChannelsConfig, CodeExecutorConfig,
+    CoreConfig, DelegateConfig, DocumentCsvConfig, DocumentGsuiteConfig, ForgeConfig,
+    GatewayBehindProxyConfig, GatewayConfig, GatewayRequestAuditConfig,
+    GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig,
+    ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig,
+    RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, SiemConfig,
+    SkillLearningConfig, SkillLibraryConfig, SkillLibraryRelevanceConfig, SsoConfig, SsoOidcTenant,
+    SsoSamlTenant, StorageConfig, StorageTenantConfig, TeamsTomlConfig, TelemetryConfig,
+    TelemetryPrometheusCardinalityCapConfig, TelemetryPrometheusConfig, TenantConfig,
+    VoiceTomlConfig, WebInboxTomlConfig, DEFAULT_CODE_EXECUTOR_PROFILE,
 };
 pub use sections_auth::{AuthSignupProtectionConfig, AuthTurnstileConfig};
 pub use sections_billing::{
@@ -99,11 +100,11 @@ pub use sections_context::{
     DEFAULT_MCP_POOL_IDLE_TTL_SECS, DEFAULT_MCP_POOL_MAX_CLIENTS,
     DEFAULT_PLUGIN_REGISTRY_TIMEOUT_SECS,
 };
+pub use sections_email_outbound::{EmailConfig, EmailOutboundConfig, EmailOutboundProvider};
 pub use sections_rate_limit::{
     GatewayRateLimitConfig, GatewayRateLimitIpConfig, GatewayRateLimitRouteConfig,
     GatewayRateLimitTenantConfig,
 };
-pub use sections_email_outbound::{EmailConfig, EmailOutboundConfig, EmailOutboundProvider};
 pub use sections_streaming_retry::{
     StreamingRetryConfig, DEFAULT_STREAMING_RETRY_BACKOFF_INITIAL_MS,
     DEFAULT_STREAMING_RETRY_ENABLED, DEFAULT_STREAMING_RETRY_MAX_ATTEMPTS,
@@ -214,6 +215,10 @@ pub struct ArgoConfig {
     /// `[document_gsuite]` (Google Workspace draft writer — folder /
     /// permitted-doc-kinds gates etc.).
     pub document_gsuite: DocumentGsuiteConfig,
+    /// `[code_executor]` — production-vs-dev gate for the
+    /// code-execution executor's non-isolated `LocalSandbox` backend.
+    /// Defaults to fail-closed in production.
+    pub code_executor: CodeExecutorConfig,
     /// `[channels]` (per-channel TOML config blocks).
     pub channels: ChannelsConfig,
     /// `[worker_pool]` — pool elasticity recommender bounds.

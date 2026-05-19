@@ -34,7 +34,9 @@ pub use crate::sections_channels::{
     ChannelsConfig, MatrixTomlConfig, TeamsTomlConfig, VoiceTomlConfig, WebInboxTomlConfig,
 };
 pub use crate::sections_core::{CoreConfig, LoopConfig, PluginConfig, TenantConfig};
-pub use crate::sections_executor::{DocumentCsvConfig, DocumentGsuiteConfig};
+pub use crate::sections_executor::{
+    CodeExecutorConfig, DocumentCsvConfig, DocumentGsuiteConfig, DEFAULT_CODE_EXECUTOR_PROFILE,
+};
 pub use crate::sections_gateway::{
     GatewayBehindProxyConfig, GatewayConfig, GatewayRequestAuditConfig,
     GatewaySecurityHeadersConfig,

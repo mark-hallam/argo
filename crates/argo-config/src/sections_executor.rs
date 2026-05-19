@@ -1,9 +1,64 @@
-//! Per-executor config sections: `[document_csv]`, `[document_gsuite]`.
-//! Extracted from [`crate::sections`] to keep that module under the
-//! 500-LOC ceiling. Re-exported through `sections` so the public API
-//! is unchanged.
+//! Per-executor config sections: `[document_csv]`, `[document_gsuite]`,
+//! `[code_executor]`. Extracted from [`crate::sections`] to keep that
+//! module under the 500-LOC ceiling. Re-exported through `sections` so
+//! the public API is unchanged.
 use crate::defaults;
 use serde::{Deserialize, Serialize};
+
+/// Default `[code_executor].profile` ("production"). The `argo`
+/// binary ships fail-closed: when this profile is active and
+/// `allow_local_in_production` is false, the code executor refuses
+/// to fall back to the non-isolated `LocalSandbox` backend.
+pub const DEFAULT_CODE_EXECUTOR_PROFILE: &str = "production";
+
+/// `[code_executor]` — production-vs-dev gate for the
+/// `argo-cli` code-execution executor. v1 ships with a single
+/// `LocalSandbox` backend that shells out via `bash -c` in the
+/// parent OS namespace; the gate exists so a production deployment
+/// never silently accepts that backend.
+///
+/// Precedence (highest wins):
+///
+/// 1. `ARGO_CODE_EXEC_PROFILE` env var (`production` | `dev`).
+/// 2. `[code_executor] profile = "..."` in `argo.toml`.
+/// 3. Built-in default: `production`.
+///
+/// `allow_local_in_production` is the explicit operator opt-in
+/// that lets a production-profile deployment still run the Local
+/// backend (e.g. a single-tenant trusted-workspace install). It
+/// defaults to `false` so unsupervised configs fail closed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CodeExecutorConfig {
+    /// `production` (default) or `dev`. `production` engages the
+    /// fail-closed gate against the non-isolated `LocalSandbox`
+    /// backend unless `allow_local_in_production` is true.
+    pub profile: String,
+    /// Operator opt-in: permit the `LocalSandbox` backend even
+    /// when `profile = "production"`. Default false — production
+    /// deployments fail closed unless the operator explicitly
+    /// flips this in `argo.toml`.
+    pub allow_local_in_production: bool,
+}
+
+impl Default for CodeExecutorConfig {
+    fn default() -> Self {
+        Self {
+            profile: DEFAULT_CODE_EXECUTOR_PROFILE.to_string(),
+            allow_local_in_production: false,
+        }
+    }
+}
+
+impl CodeExecutorConfig {
+    /// True when the active profile is `production`. Whitespace
+    /// is trimmed; the comparison is ASCII case-insensitive so
+    /// `Production` / `PRODUCTION` flips the gate too.
+    #[must_use]
+    pub fn is_production(&self) -> bool {
+        self.profile.trim().eq_ignore_ascii_case("production")
+    }
+}
 
 /// `[document_csv]` — operator-side knobs for the
 /// `argo-executor-document-csv` ExecutorKind. Today only

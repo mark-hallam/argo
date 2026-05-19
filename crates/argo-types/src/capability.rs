@@ -121,6 +121,16 @@ pub enum Capability {
     /// Distinct from generic [`Capability::ToolDispatch`] because
     /// verticals must opt in to paid-API image spend explicitly.
     ImageGenerate,
+    /// Run the code-executor's non-isolated `LocalSandbox` backend
+    /// (`bash -c` in the parent OS namespace). Granted to `owner`
+    /// and `admin` in the default role presets; NOT in `user` or
+    /// `guest`. Distinct from generic [`Capability::ToolDispatch`]
+    /// because Local code execution can shell out to anything the
+    /// process can reach (filesystem, network, env), so operators
+    /// must opt principals into it explicitly. The runtime
+    /// production gate (`[code_executor]` config) is a separate,
+    /// stronger guard.
+    LocalCodeExecution,
 }
 
 /// What kind of process is being spawned.
@@ -210,9 +220,9 @@ impl CapabilitySet {
 
 fn capability_covers(grant: &Capability, want: &Capability) -> bool {
     use Capability::{
-        AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, ImageGenerate, MemoryWrite,
-        MemoryWriteTeam, MessageSend, NetEgress, SecretRead, SkillJudge, SkillMigrateRecord,
-        SkillWrite, Spawn, ToolDispatch, WorkerFreeze,
+        AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, ImageGenerate, LocalCodeExecution,
+        MemoryWrite, MemoryWriteTeam, MessageSend, NetEgress, SecretRead, SkillJudge,
+        SkillMigrateRecord, SkillWrite, Spawn, ToolDispatch, WorkerFreeze,
     };
     match (grant, want) {
         (FsRead { path_glob: g }, FsRead { path_glob: w })
@@ -259,6 +269,7 @@ fn capability_covers(grant: &Capability, want: &Capability) -> bool {
         (ForgeRun, ForgeRun) => true,
         (WorkerFreeze, WorkerFreeze) => true,
         (ImageGenerate, ImageGenerate) => true,
+        (LocalCodeExecution, LocalCodeExecution) => true,
         _ => false,
     }
 }

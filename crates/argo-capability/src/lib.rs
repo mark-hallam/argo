@@ -316,6 +316,7 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                     host_glob: "**".into(),
                     port: None,
                 },
+                Capability::LocalCodeExecution,
             ]),
         },
         CapabilityRole {
@@ -348,6 +349,7 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                     host_glob: "**".into(),
                     port: None,
                 },
+                Capability::LocalCodeExecution,
             ]),
         },
         CapabilityRole {
