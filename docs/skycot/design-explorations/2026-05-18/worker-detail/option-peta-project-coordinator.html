@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Worker · Peta — SKYCOT</title>
+<!-- Peta · Project Coordinator (L2) · cohort project-coordinator v1.0.
+     Uses locked C2-personality grammar from option-C2-personality.html + the
+     D3 brand-consistency recipe (Audiowide hero, purple→pink gradient, warm radial blobs). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --purple-deep: #6d28d9; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --soft-purple: #f3e8ff; --soft-pink: #fce7f3;
+    --ink: #1e1b4b; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F4F4F0; --paper-2: #EDEDE8; --bg: #fafaff;
+    --line: #ece9f5;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+    --gradient-peta: linear-gradient(135deg, var(--teal), var(--purple));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; position: relative; }
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px; background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(236,72,153,0.10) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; position: relative; z-index: 1; }
+  .side { background: white; border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; font-weight: 400; letter-spacing: 0.10em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 0 40px 80px; max-width: 1200px; }
+  .crumb { font-size: 12px; color: var(--ink-3); padding: 24px 0 16px; }
+  .crumb a { color: var(--ink-3); text-decoration: none; }
+
+  /* HEADER WITH BANNER */
+  .profile-card { background: white; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; margin-bottom: 20px; }
+  .banner { height: 168px; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4), transparent 40%), radial-gradient(circle at 80% 80%, rgba(139,92,246,0.6), transparent 50%), var(--gradient-peta); }
+  .profile-id { padding: 0 36px 28px; position: relative; }
+  .profile-portrait { width: 144px; height: 144px; border-radius: 36px; background: white; padding: 6px; position: absolute; top: -72px; left: 36px; box-shadow: 0 16px 36px -10px rgba(0,0,0,0.22); }
+  .profile-portrait .inner { width: 100%; height: 100%; border-radius: 30px; background: var(--gradient-peta); color: white; display: grid; place-items: center; font-family: 'Audiowide', sans-serif; font-size: 50px; font-weight: 400; letter-spacing: 0.04em; }
+  .profile-status-block { position: absolute; top: 20px; right: 36px; }
+  .profile-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; background: rgba(255,255,255,0.20); backdrop-filter: blur(10px); color: white; font-size: 11.5px; font-weight: 700; border: 1px solid rgba(255,255,255,0.30); }
+  .profile-status .d { width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 8px #4ADE80; }
+  .profile-content { padding-top: 92px; }
+  .profile-name { font-family: 'Audiowide', 'Inter', sans-serif; font-size: 44px; font-weight: 400; letter-spacing: 0; margin: 0 0 4px; line-height: 1.0; }
+  .profile-role { font-size: 16px; color: var(--ink-2); margin-bottom: 12px; }
+  .profile-role .grad { font-weight: 700; background: var(--gradient-peta); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* PERSONALITY TAGLINE */
+  .tagline {
+    font-style: italic; font-size: 16px; color: var(--ink-2);
+    padding: 14px 18px; border-left: 3px solid var(--teal);
+    background: var(--paper);
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 20px; line-height: 1.5;
+  }
+  .tagline strong { color: var(--ink); font-style: normal; font-weight: 600; }
+
+  /* Trait chips row */
+  .traits { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .trait {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 14px; border-radius: 999px;
+    background: white; border: 1px solid var(--line);
+    font-size: 13px; font-weight: 600;
+  }
+  .trait .ic { font-size: 15px; }
+  .trait.primary { background: rgba(139,92,246,0.08); color: var(--purple); border-color: rgba(139,92,246,0.25); }
+  .trait.teal { background: rgba(20,184,166,0.10); color: #0F766E; border-color: rgba(20,184,166,0.25); }
+  .trait.coral { background: rgba(255,107,107,0.10); color: #B91C1C; border-color: rgba(255,107,107,0.25); }
+  .trait.yellow { background: rgba(252,211,77,0.18); color: #92400E; border-color: rgba(252,211,77,0.30); }
+
+  .quick-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; padding: 18px 24px; background: var(--paper); border-radius: 14px; }
+  .quick-stats .qs { padding-right: 18px; border-right: 1px solid var(--line); }
+  .quick-stats .qs:last-child { border-right: none; padding-right: 0; }
+  .quick-stats .qs .v { font-family: 'Audiowide', 'Inter', sans-serif; font-size: 28px; font-weight: 400; letter-spacing: 0; }
+  .quick-stats .qs.grad .v { background: var(--gradient-peta); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .quick-stats .qs .l { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-top: 2px; }
+
+  .profile-actions { display: flex; gap: 8px; margin-top: 22px; }
+  .btn { padding: 10px 20px; border-radius: 999px; font-size: 13.5px; font-weight: 700; border: 1px solid var(--line); background: white; color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+  .btn.danger { color: var(--coral); border-color: var(--coral); }
+
+  /* PERSONALITY GRID */
+  .personality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .pers-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .pers-card .lbl { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3); margin-bottom: 12px; }
+  .pers-card .lbl .ic { font-size: 16px; }
+  .pers-card.great .lbl { color: #0F766E; }
+  .pers-card.escalate .lbl { color: #92400E; }
+  .pers-card h3 { margin: 0 0 12px; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .pers-card ul { list-style: none; padding: 0; margin: 0; }
+  .pers-card li { padding: 6px 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; display: flex; gap: 10px; align-items: flex-start; }
+  .pers-card li::before { content: ''; flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; margin-top: 8px; }
+  .pers-card.great li::before { background: var(--teal); }
+  .pers-card.escalate li::before { background: var(--yellow); }
+  .pers-card li strong { color: var(--ink); font-weight: 600; }
+
+  /* Section */
+  .section-card { background: white; border: 1px solid var(--line); border-radius: 18px; padding: 28px 36px; margin-bottom: 20px; }
+  .section-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+  .section-h h2 { margin: 0; font-family: 'Audiowide', 'Inter', sans-serif; font-size: 22px; font-weight: 400; letter-spacing: 0; }
+  .section-h .ct { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.08em; }
+
+  /* Signature behavior cards */
+  .behaviors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .behavior {
+    padding: 16px 18px; border-radius: 12px;
+    background: var(--paper); border: 1px solid var(--line);
+  }
+  .behavior .ico { font-size: 22px; margin-bottom: 8px; }
+  .behavior h4 { margin: 0 0 4px; font-size: 13.5px; font-weight: 700; }
+  .behavior .ex { font-size: 11.5px; color: var(--ink-3); line-height: 1.45; font-style: italic; }
+
+  /* Main grid */
+  .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+
+  .skills-list { display: flex; flex-direction: column; gap: 10px; }
+  .skill-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; background: var(--paper); }
+  .skill-card .ic { width: 36px; height: 36px; border-radius: 9px; color: white; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+  .skill-card .ic.linear { background: linear-gradient(135deg, #5E6AD2, #8B5CF6); }
+  .skill-card .ic.gh { background: linear-gradient(135deg, #1F2937, #374151); }
+  .skill-card .ic.slack { background: linear-gradient(135deg, #4A154B, #ECB22E); }
+  .skill-card .ic.gcal { background: linear-gradient(135deg, #4285F4, #34A853); }
+  .skill-card .ic.email { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .skill-card .ic.tone { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .skill-card .ic.meet { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .skill-card .ic.action { background: linear-gradient(135deg, var(--yellow), var(--coral)); }
+  .skill-card .ic.locked { background: var(--paper-2); color: var(--ink-3); }
+  .skill-card .info { flex: 1; }
+  .skill-card .name { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 600; }
+  .skill-card .desc { font-size: 12.5px; color: var(--ink-3); }
+  .skill-card .endorsement { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-3); }
+  .skill-card .endorsement strong { color: var(--ink); font-weight: 700; }
+  .skill-card.locked { opacity: 0.6; }
+
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before { content: ''; position: absolute; left: 10px; top: 12px; bottom: 12px; width: 2px; background: var(--gradient-peta); opacity: 0.30; }
+  .exp-item { position: relative; padding-bottom: 22px; }
+  .exp-item:last-child { padding-bottom: 0; }
+  .exp-item::before { content: ''; position: absolute; left: -28px; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: white; border: 2.5px solid var(--teal); box-shadow: 0 0 0 4px var(--paper); }
+  .exp-item .role-name { font-size: 14.5px; font-weight: 700; }
+  .exp-item .ts { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+  .exp-item .desc { font-size: 13.5px; color: var(--ink-2); line-height: 1.6; margin-top: 6px; }
+  .exp-item .desc strong { color: var(--ink); font-weight: 600; }
+
+  /* Cohort badge */
+  .cohort-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: linear-gradient(135deg, var(--soft-purple), var(--soft-pink)); color: var(--purple-deep); font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb"><a href="#">Workers</a> › Peta</div>
+
+    <div class="profile-card">
+      <div class="banner"></div>
+      <div class="profile-id">
+        <div class="profile-portrait"><div class="inner">PT</div></div>
+        <div class="profile-status-block"><div class="profile-status"><span class="d"></span>ACTIVE NOW · DRAFTING STANDUP</div></div>
+        <div class="profile-content">
+          <h1 class="profile-name">Peta</h1>
+          <div class="profile-role" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span class="grad">L2 Project Coordinator</span> · cohort project-coordinator v1.0 <span class="cohort-badge">★ NEW · PROJECT &amp; OPS</span></div>
+
+          <div class="tagline">
+            "Peta keeps the cadence." She drafts the standup, chases the action items, flags the slippage, sends the recap. <strong>She never forgets a follow-up.</strong> The teammate who lets Mark stop being the team's calendar.
+          </div>
+
+          <div class="traits">
+            <span class="trait primary"><span class="ic">📋</span>Detail-oriented</span>
+            <span class="trait teal"><span class="ic">⏰</span>Cadence-keeper</span>
+            <span class="trait yellow"><span class="ic">💬</span>Tone-matched</span>
+            <span class="trait coral"><span class="ic">🔍</span>Cross-tool reconciler</span>
+            <span class="trait teal"><span class="ic">🫶</span>Calm under pressure</span>
+          </div>
+
+          <div class="quick-stats">
+            <div class="qs grad"><div class="v">847</div><div class="l">Actions this month</div></div>
+            <div class="qs"><div class="v">98%</div><div class="l">Follow-up rate</div></div>
+            <div class="qs"><div class="v">4.9</div><div class="l">CSAT</div></div>
+            <div class="qs"><div class="v">3d</div><div class="l">Tenure</div></div>
+          </div>
+
+          <div class="profile-actions">
+            <button class="btn primary">⚙ Configure</button>
+            <button class="btn">💬 Message</button>
+            <button class="btn">⏸ Pause</button>
+            <button class="btn">▷ Replay</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERSONALITY GRID -->
+    <div class="personality-grid">
+
+      <div class="pers-card great">
+        <div class="lbl"><span class="ic">✦</span>WHAT PETA IS GREAT AT</div>
+        <ul>
+          <li><span><strong>Daily standup digest.</strong> Reads overnight Linear + GitHub + Slack and writes the 6-line briefing for your 9am standup before anyone wakes up.</span></li>
+          <li><span><strong>Action-item extraction.</strong> Takes the 45-minute meeting transcript and produces clean owner-due-date items. 24h later, sends polite re-pings on anything stale.</span></li>
+          <li><span><strong>Cross-tool reconciliation.</strong> "What's the status of project Alpha?" — reads Linear cycles + GitHub PRs + Slack threads + Notion docs, writes one paragraph.</span></li>
+          <li><span><strong>Slippage flagging.</strong> When a Linear cycle is 3 days past target, she drafts the polite escalation message and asks if you want to send it.</span></li>
+        </ul>
+      </div>
+
+      <div class="pers-card escalate">
+        <div class="lbl"><span class="ic">⚠</span>WHEN TO PULL PETA IN</div>
+        <ul>
+          <li><span><strong>Weekly status drafts.</strong> Peta drafts; you approve. She never sends exec updates autonomously — that's Patrick's job at L3.</span></li>
+          <li><span><strong>Meeting-summary follow-through.</strong> Three actions came out of Tuesday's planning. Peta turns them into Slack DMs and Linear tickets within an hour.</span></li>
+          <li><span><strong>Outbound to engineers.</strong> She'll DM Sarah on the API team to ask for a status update — always with your tone, always after surfacing the draft.</span></li>
+          <li><span><strong>Decision capture.</strong> When a decision happens in a Slack thread or meeting, she logs it to the decision-log with rationale + source URL.</span></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- SIGNATURE BEHAVIORS -->
+    <div class="section-card">
+      <div class="section-h"><h2>Signature behaviors</h2><span class="ct">Things Peta does without being asked</span></div>
+      <div class="behaviors">
+
+        <div class="behavior">
+          <div class="ico">🔍</div>
+          <h4>Researches before pinging</h4>
+          <p class="ex">"Reads the full ticket thread + linked PRs before DM'ing a teammate. Never sends a 'what's the status?' that wastes time."</p>
+        </div>
+
+        <div class="behavior">
+          <div class="ico">⏰</div>
+          <h4>Re-pings stale action items</h4>
+          <p class="ex">"24h after an action item has no Slack/Linear activity, sends a polite nudge — never irritated, never two-in-a-row."</p>
+        </div>
+
+        <div class="behavior">
+          <div class="ico">🛡</div>
+          <h4>Asks before status reports</h4>
+          <p class="ex">"Drafts every weekly status report. Always sends to you before publishing. Never autonomous on outbound at L2."</p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="main-grid">
+
+      <div class="section-card">
+        <div class="section-h"><h2>Activity</h2><span class="ct">Today · 11 actions · last 4m ago</span></div>
+        <div class="timeline">
+          <div class="exp-item">
+            <div class="role-name">Drafted standup digest for #eng-platform</div>
+            <div class="ts">09:01 · 4m ago</div>
+            <div class="desc">6 Linear updates · 3 PRs merged · 1 PR stuck in review · 2 customer issues opened overnight. Drafted the digest. <strong>Awaiting your approval</strong> before posting to channel.</div>
+          </div>
+          <div class="exp-item">
+            <div class="role-name">Re-pinged @sarah-eng on API stale action item</div>
+            <div class="ts">Yesterday 17:00</div>
+            <div class="desc">Action from Tuesday's planning: "Sarah confirms API timeline by Thursday." No update in 24h. <strong>Drafted polite re-ping</strong>, you approved at 17:01, DM sent at 17:01.</div>
+          </div>
+          <div class="exp-item">
+            <div class="role-name">Flagged slippage on Project Atlas · cycle 47</div>
+            <div class="ts">Yesterday 14:18</div>
+            <div class="desc">Cycle 47 is 3 days past target. Drafted escalation to @lead-platform. Awaiting your approval.</div>
+          </div>
+          <div class="exp-item">
+            <div class="role-name">Logged decision: "Defer Jira migration to v2"</div>
+            <div class="ts">Yesterday 11:30</div>
+            <div class="desc">Captured from Slack thread #leadership — owner Mark Hallam, rationale linked, source URL in decision-log.</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-card">
+          <div class="section-h"><h2>Skills</h2><span class="ct">8/11</span></div>
+          <div class="skills-list">
+            <div class="skill-card">
+              <div class="ic linear">LN</div>
+              <div class="info"><div class="name">linear.read</div><div class="desc">Tickets, cycles, status</div></div>
+              <div class="endorsement">★ <strong>432</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic gh">GH</div>
+              <div class="info"><div class="name">github.read</div><div class="desc">PRs &amp; reviews</div></div>
+              <div class="endorsement">★ <strong>284</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic slack">SL</div>
+              <div class="info"><div class="name">slack.dm</div><div class="desc">DMs &amp; reminders</div></div>
+              <div class="endorsement">★ <strong>96</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic gcal">GC</div>
+              <div class="info"><div class="name">gcal.read</div><div class="desc">Standups &amp; reviews</div></div>
+              <div class="endorsement">★ <strong>178</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic email">EM</div>
+              <div class="info"><div class="name">email.draft</div><div class="desc">Follow-ups (approval)</div></div>
+              <div class="endorsement">★ <strong>47</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic tone">PT</div>
+              <div class="info"><div class="name">policy.tone</div><div class="desc">Tone-matched drafts</div></div>
+              <div class="endorsement">★ <strong>523</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic meet">MS</div>
+              <div class="info"><div class="name">meeting.summarize</div><div class="desc">Transcripts → actions</div></div>
+              <div class="endorsement">★ <strong>34</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic action">AE</div>
+              <div class="info"><div class="name">action_item.extract</div><div class="desc">Source → owner+due</div></div>
+              <div class="endorsement">★ <strong>89</strong></div>
+            </div>
+            <div class="skill-card locked">
+              <div class="ic locked">RE</div>
+              <div class="info"><div class="name">risk.escalate</div><div class="desc">Autonomous escalations</div></div>
+              <div class="endorsement">🔒 L3</div>
+            </div>
+            <div class="skill-card locked">
+              <div class="ic locked">SR</div>
+              <div class="info"><div class="name">status_report.draft</div><div class="desc">Weekly reports</div></div>
+              <div class="endorsement">🔒 L3</div>
+            </div>
+            <div class="skill-card locked">
+              <div class="ic locked">DC</div>
+              <div class="info"><div class="name">dependency.check</div><div class="desc">Cross-team blockers</div></div>
+              <div class="endorsement">🔒 L3</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

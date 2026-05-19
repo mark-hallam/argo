@@ -45,7 +45,7 @@
   .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
 
   /* — DEPT TABS — */
-  .cat-tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 28px; }
+  .cat-tabs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 28px; }
   .cat-tab { padding: 18px 16px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); cursor: pointer; text-align: center; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
   .cat-tab:hover { transform: translateY(-2px); border-color: var(--line-2); }
   .cat-tab.on { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(139,92,246,0.08), 0 8px 20px -6px rgba(139,92,246,0.20); background: linear-gradient(180deg, rgba(139,92,246,0.04), rgba(139,92,246,0.02)); }
@@ -107,6 +107,9 @@
   .tile .av.fc { background: linear-gradient(135deg, var(--teal), var(--pink)); }
   .tile .av.cs { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
   .tile .av.pr { background: linear-gradient(135deg, var(--purple), var(--coral)); }
+  .tile .av.pt { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .tile .av.pa { background: linear-gradient(135deg, var(--purple), var(--coral)); }
+  .tile .av { font-family: 'Audiowide', sans-serif; font-weight: 400; }
 
   .tile .kicker { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; color: var(--ink-3); margin-bottom: 6px; }
   .tile h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
@@ -175,36 +178,36 @@
     <!-- KEPT FROM D — dept tabs -->
     <div class="cat-tabs">
       <div class="cat-tab"><div class="ico">🎧</div><div class="name">Support</div><div class="ct">5 COHORTS</div></div>
-      <div class="cat-tab on"><div class="ico" style="background:transparent;">💰</div><div class="name">Finance &amp; Ops</div><div class="ct">7 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">💰</div><div class="name">Finance &amp; Ops</div><div class="ct">7 COHORTS</div></div>
       <div class="cat-tab"><div class="ico">📊</div><div class="name">Sales</div><div class="ct">4 COHORTS</div></div>
+      <div class="cat-tab on"><div class="ico" style="background:transparent;">📋</div><div class="name">Project &amp; Ops</div><div class="ct">2 NEW</div></div>
       <div class="cat-tab"><div class="ico">👥</div><div class="name">People &amp; HR</div><div class="ct">3 COHORTS</div></div>
       <div class="cat-tab"><div class="ico">🔧</div><div class="name">IT &amp; Dev-ex</div><div class="ct">3 COHORTS</div></div>
       <div class="cat-tab"><div class="ico">⚖</div><div class="name">Legal</div><div class="ct">2 COHORTS</div></div>
     </div>
 
     <div class="cat-section-h">
-      <h2><strong>Finance &amp; Ops</strong> · 7 cohorts</h2>
-      <div class="meta"><strong>1,089</strong> ACTIVE HIRES · MOST TRUSTED CATEGORY ON SKYCOT</div>
+      <h2><strong>Project &amp; Ops</strong> · 2 just-launched cohorts</h2>
+      <div class="meta">★ <strong>NEW</strong> CATEGORY · LAUNCHED 19 MAY 2026 · BUILT IN MELBOURNE</div>
     </div>
 
-    <!-- ROW 1: lead + 2 stacked -->
+    <!-- ROW 1: lead Peta + 2 stacked -->
     <div class="row-1">
 
       <div class="tile lead">
-        <span class="badge featured">★ FEATURED</span>
-        <div class="av s">SL</div>
-        <div class="kicker">★ MOST-HIRED IN FINANCE</div>
-        <h3>L3 <strong>Invoice Operations</strong></h3>
-        <p class="desc">Extracts line items, validates against POs, codes to GL accounts, flags duplicates with 99.6% accuracy. The cohort that lets a finance team feel ten people bigger without hiring a single new human.</p>
+        <span class="badge featured">★ NEW LAUNCH</span>
+        <div class="av pt">PT</div>
+        <div class="kicker">★ THE DAILY-CADENCE COHORT</div>
+        <h3>L2 <strong>Project Coordinator</strong></h3>
+        <p class="desc">Drafts your standup digest before 9am. Extracts action items from meetings. Re-pings stale tasks at 24h. Flags slippage. Reads Linear + GitHub + Slack + GCal so you don't have to. <strong>Always-approval on outbound</strong> — Peta never sends an exec update on her own. Recommended first name: <strong>Peta</strong>.</p>
         <div class="stat-row">
-          <span class="grad">Teams <strong>612</strong></span>
-          <span>Rating <strong>★ 4.9</strong></span>
-          <span>Cost <strong>$0.008</strong>/act</span>
-          <span>Skills <strong>9</strong></span>
+          <span class="grad">Cost <strong>$0.012</strong>/act</span>
+          <span>Skills <strong>8</strong></span>
+          <span>Integrates <strong>Linear · GitHub · Slack · GCal · Gmail</strong></span>
         </div>
         <div class="foot-row">
-          <span style="font-size:12.5px;color:var(--ink-3)">v2.8 · updated 2 weeks ago</span>
-          <button class="hire-btn">Hire L3 Invoice Operations →</button>
+          <span style="font-size:12.5px;color:var(--ink-3)">cohort v1.0 · pairs with Status Reporter</span>
+          <button class="hire-btn">Hire your first Peta →</button>
         </div>
       </div>
 
@@ -212,59 +215,57 @@
 
         <div class="tile">
           <span class="badge new">NEW</span>
-          <div class="av ar">AR</div>
-          <div class="kicker">JUST RELEASED</div>
-          <h3>L2 AR Collector</h3>
-          <p class="desc">Chases overdue receivables. Drafts reminder emails. Escalates the awkward ones.</p>
-          <div class="stat-row"><span>Teams <strong>312</strong></span><span>★ <strong>4.8</strong></span><span><strong>$0.020</strong>/act</span></div>
-          <div class="foot-row"><span class="rating"><span class="stars">★★★★★</span></span><button class="hire-btn">Hire →</button></div>
+          <div class="av pa">PA</div>
+          <div class="kicker">PAIRS WITH PETA</div>
+          <h3>L3 Status Reporter</h3>
+          <p class="desc">Drafts the Friday exec summary. Maintains the RAID log. Matches your org's tone. <strong>Always-approval</strong> on all outbound.</p>
+          <div class="stat-row"><span>Skills <strong>10</strong></span><span><strong>$0.020</strong>/act</span><span>L3</span></div>
+          <div class="foot-row"><span class="rating" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3)">Recommended: Patrick</span><button class="hire-btn">Hire →</button></div>
         </div>
 
-        <div class="tile">
-          <span class="badge trending">★ TRENDING</span>
-          <div class="av fc">FC</div>
-          <div class="kicker">UP 23% THIS WEEK</div>
-          <h3>L3 Financial Closer</h3>
-          <p class="desc">Runs the month-end close checklist. Reconciles GL accounts, drafts JEs, files variance reports.</p>
-          <div class="stat-row"><span>Teams <strong>152</strong></span><span>★ <strong>4.8</strong></span><span><strong>$0.025</strong>/act</span></div>
-          <div class="foot-row"><span class="rating"><span class="stars">★★★★★</span></span><button class="hire-btn">Hire →</button></div>
+        <div class="tile" style="background: linear-gradient(180deg, rgba(139,92,246,0.04), rgba(139,92,246,0.02)); border: 1.5px dashed rgba(139,92,246,0.30);">
+          <div class="av" style="background: var(--paper-2); color: var(--ink-3);">SM</div>
+          <div class="kicker" style="color: var(--purple);">COMING IN V1.1</div>
+          <h3 style="color: var(--ink-3);">L3 Sprint Master</h3>
+          <p class="desc">For agile teams. Sprint planning prep, retro facilitation, capacity tracking. Specialised. Vote to prioritise →</p>
+          <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:'JetBrains Mono',monospace">Waitlist · <strong style="color:var(--purple)">47</strong> teams</span><button class="hire-btn" style="background:var(--paper-2);color:var(--ink-2);box-shadow:none;">Join waitlist</button></div>
         </div>
 
       </div>
     </div>
 
-    <!-- ROW 2: 4 compact tiles -->
+    <!-- ROW 2: 4 compact (coming soon + build custom) -->
     <div class="row-2">
 
-      <div class="tile compact">
-        <div class="av ex">EX</div>
-        <h3>L2 Expense Auditor</h3>
-        <p class="desc">Reviews Concur / Expensify submissions against policy. Flags out-of-policy spend.</p>
-        <div class="stat-row"><span>Teams <strong>187</strong></span><span>★ <strong>4.5</strong></span></div>
-        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">$0.009/act</span><button class="hire-btn">Hire →</button></div>
+      <div class="tile compact" style="opacity:0.85;">
+        <div class="av" style="background: var(--paper-2); color: var(--ink-3); font-family: 'Audiowide', sans-serif;">PG</div>
+        <h3 style="color: var(--ink-2);">L2 PR Reviewer</h3>
+        <p class="desc">First-pass code review for engineering teams. Style + obvious-bug pass. Coming v1.1.</p>
+        <div class="stat-row"><span>Waitlist <strong>32</strong></span><span>v1.1</span></div>
+        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">~$0.018/act est.</span><button class="hire-btn" style="background:var(--paper-2);color:var(--ink-2);box-shadow:none;">Join</button></div>
       </div>
 
-      <div class="tile compact">
-        <div class="av pr">PR</div>
-        <h3>L3 Procurement Reviewer</h3>
-        <p class="desc">Validates POs against vendor master, checks budget, drafts requisitions.</p>
-        <div class="stat-row"><span>Teams <strong>98</strong></span><span>★ <strong>4.6</strong></span></div>
-        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">$0.013/act</span><button class="hire-btn">Hire →</button></div>
+      <div class="tile compact" style="opacity:0.85;">
+        <div class="av" style="background: var(--paper-2); color: var(--ink-3); font-family: 'Audiowide', sans-serif;">RF</div>
+        <h3 style="color: var(--ink-2);">L2 Retro Facilitator</h3>
+        <p class="desc">Pre-retro prep, theme-clustering on post-its, action-item rollover. Coming v1.1.</p>
+        <div class="stat-row"><span>Waitlist <strong>18</strong></span><span>v1.1</span></div>
+        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">~$0.014/act est.</span><button class="hire-btn" style="background:var(--paper-2);color:var(--ink-2);box-shadow:none;">Join</button></div>
       </div>
 
-      <div class="tile compact">
-        <div class="av cs">CF</div>
-        <h3>L2 Cash Forecaster</h3>
-        <p class="desc">Builds rolling 13-week cash forecasts. Surfaces liquidity risk weekly.</p>
-        <div class="stat-row"><span>Teams <strong>67</strong></span><span>★ <strong>4.4</strong></span></div>
-        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">$0.011/act</span><button class="hire-btn">Hire →</button></div>
+      <div class="tile compact" style="opacity:0.85;">
+        <div class="av" style="background: var(--paper-2); color: var(--ink-3); font-family: 'Audiowide', sans-serif;">DR</div>
+        <h3 style="color: var(--ink-2);">L3 Roadmap Drafter</h3>
+        <p class="desc">Quarterly roadmap synthesis from execs' notes, OKRs, and shipped features. Coming v1.2.</p>
+        <div class="stat-row"><span>Waitlist <strong>11</strong></span><span>v1.2</span></div>
+        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">~$0.024/act est.</span><button class="hire-btn" style="background:var(--paper-2);color:var(--ink-2);box-shadow:none;">Join</button></div>
       </div>
 
       <div class="tile compact" style="background: transparent; border: 2px dashed var(--line-2); display: grid; place-items: center; cursor: pointer;">
         <div style="text-align: center;">
           <div style="font-size: 28px; color: var(--ink-3); margin-bottom: 6px; font-weight: 200;">+</div>
           <div style="font-size: 13px; font-weight: 700; color: var(--ink);">Build custom</div>
-          <div style="font-size: 11.5px; color: var(--ink-3); margin-top: 2px;">Finance cohort · ~5min</div>
+          <div style="font-size: 11.5px; color: var(--ink-3); margin-top: 2px;">PM/Ops cohort · ~5min</div>
         </div>
       </div>
 
