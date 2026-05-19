@@ -13,28 +13,23 @@
 //! and only `turn::run_turn_with_events` calls it.
 use super::turn_helpers_context::prepare_context_messages;
 use super::turn_helpers_overlay::{append_worker_overlays_as_workspace, merge_worker_overlays};
-use super::turn_skills_runtime::PendingAbOutcome;
-use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
-use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_tenant, provider_schemas_filtered};
-use crate::helpers::{
-    build_assistant_content, emit_event, message_from_row, record_turn_spend, stream_one_round,
-    RoundResp, RunEventSink, SpendCtx,
+use super::turn_helpers_run::{
+    build_turn_dispatch_ctx, dispatch_one_tool_call, emit_halt, finalize_turn, run_one_round,
 };
-use crate::transport::load_manifest;
-use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
-use argo_audit::{AuditKind, AuditSink};
-use argo_identity::{MemoryNs, MemoryScope};
+use super::turn_skills_runtime::PendingAbOutcome;
+use super::TurnResult;
+use crate::helpers::{message_from_row, RunEventSink, SpendCtx};
+use crate::turn_vertical::SessionGrantState;
+use argo_audit::AuditSink;
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_skill::{
     LayeredLookup, Skill, SkillRelevanceConfig, SkillRelevanceSelector, SkillSelectionContext,
     SkillStore,
 };
 use argo_store::{SessionStore, WorkerId};
-use argo_types::{ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult};
-use std::path::Path;
+use argo_types::{ArgoError, ArgoResult, SessionId};
 use std::path::PathBuf;
 use std::sync::Arc;
-use uuid::Uuid;
 
 pub(super) async fn load_prompt_skills(
     workspace: &SkillStore,
@@ -151,7 +146,7 @@ fn load_skill_relevance_config() -> ArgoResult<SkillRelevanceConfig> {
 pub(super) async fn run_turn_with_tools(
     store: &Arc<SessionStore>,
     transport: &dyn Transport,
-    cwd: &Path,
+    cwd: &std::path::Path,
     session_id: SessionId,
     model: &str,
     audit: &AuditSink,
@@ -169,316 +164,102 @@ pub(super) async fn run_turn_with_tools(
     pending_ab_outcomes: &mut Vec<PendingAbOutcome>,
 ) -> ArgoResult<TurnResult> {
     let mut session_grants = session_grants;
-    let session = store
-        .get_session(session_id)
-        .await?
-        .ok_or_else(|| ArgoError::Provider(format!("no session {}", session_id.0)))?;
-    let context_policy = match load_manifest(cwd, &session.provider) {
-        Ok(manifest) => ContextWindowPolicy::from_config(
-            super::load_context_compress_config(cwd)?,
-            super::model_context_window(&manifest, model),
-        ),
-        Err(_) => ContextWindowPolicy::disabled(),
-    };
-    // claude-memory-tool-wire: thread the live MemoryStore + workspace
-    // through dispatch so the in-core `memory` tool can actually
-    // persist. Vertical-bound writes go through `append_for_vertical`
-    // when `vertical_scope` is set; otherwise writes stay
-    // workspace-global.
-    let memory_ctx = store.first_workspace().await?.map(|ws| {
-        (
-            Arc::new(argo_memory::MemoryStore::new(store.clone())),
-            ws,
-            vertical_scope.map(str::to_string),
-        )
-    });
-    // codex-memory-tool-namespace-wiring (F-03 P1): when the session
-    // carries a `worker_id`, bind the in-core `memory` tool to a
-    // per-worker `MemoryNs` so the `query_scored` / `*_team` actions
-    // address the tenant-scoped namespace store. Defaults to
-    // `MemoryScope::WorkerSelf`; the `*_team` actions promote the
-    // bound namespace to `SharedTeam` internally. Sessions without a
-    // `worker_id` (legacy / ad-hoc chat) fall back to the workspace-
-    // global path for legacy `list`/`read`/`write`.
-    let memory_namespace =
-        worker_id.map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
-    // mission-delegate-task-make-real: hand the in-core `delegate_task`
-    // tool a live OrchestratorStore so it can insert a Pending handoff
-    // when invoked. The store is reused across every dispatched tool
-    // call in this turn.
-    let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
-    let orch_session_id = argo_orchestrator::SessionId::from_string(session_id.to_string());
-    let (registry, engine, principal) = build_dispatch_ctx(
-        cwd,
-        memory_ctx,
-        memory_namespace,
-        orchestrator_ctx,
-        Arc::clone(store),
-    )?;
-    // #721: hide manifest-denied tools from the model's tool list
-    // entirely — the per-call deny check below remains the hard
-    // authoritative guard; this is the discoverability layer that
-    // stops the agent wasting turns calling things that will get
-    // rejected anyway (observed in the first live worker run).
-    let tools = provider_schemas_filtered(&registry, vertical_deny);
-    // The vertical_id flows in via the parent `run_turn` call
-    // through `vertical_prompt` (when set) — but build_system_prompt
-    // needs the raw id, not the prompt body. The agent-runner's
-    // ergonomic seam: when we have a `vertical_prompt`, use the
-    // explicitly threaded `vertical_scope` value (id-only, no
-    // file content). Both come from the same session.vertical_id.
-    let (mut system_prompt, ab_pending) = build_system_prompt_with_ab(
+    let ctx = build_turn_dispatch_ctx(
         store,
+        cwd,
         session_id,
+        model,
+        spend,
+        vertical_prompt,
         vertical_scope,
-        spend.tenant_id,
+        vertical_deny,
         worker_id,
         invocation_id,
+        pending_ab_outcomes,
     )
     .await?;
-    pending_ab_outcomes.extend(ab_pending);
-    // Vertical-bound session: prepend the vertical's
-    // [role].system_prompt content so it lands ahead of skill-
-    // derived guidance (#654). Falls through cleanly when the
-    // session isn't bound or the file couldn't be read.
-    if let Some(vp) = vertical_prompt {
-        let merged = match system_prompt.take() {
-            Some(skill_prompt) => format!("{vp}\n\n---\n\n{skill_prompt}"),
-            None => vp.to_string(),
-        };
-        system_prompt = Some(merged);
-    }
-
-    let mut last_text = String::new();
-    let mut last_tokens_in: Option<u32> = None;
-    let mut last_tokens_out: Option<u32> = None;
-    let mut last_assistant_id = Uuid::nil();
-
+    let mut last_outcome = None;
     for round in 0..max_rounds {
-        let rows = store.list_messages(session_id).await?;
-        let messages = rows
-            .iter()
-            .map(|r| message_from_row(r, session_id))
-            .collect::<ArgoResult<Vec<_>>>()?;
-        let messages =
-            prepare_context_messages(messages, &context_policy, audit, session_id).await?;
-
-        let req = ProviderRequest {
-            model: model.to_string(),
-            messages,
-            tools: tools.clone(),
-            system: system_prompt.clone(),
-            sampling: Sampling::default(),
-        };
-        let resp = if stream {
-            stream_one_round(transport, &req).await?
-        } else {
-            let r = transport.complete(&req).await?;
-            RoundResp {
-                text: r.text.unwrap_or_default(),
-                tool_calls: r.tool_calls,
-                tokens_in: r.tokens_in,
-                tokens_out: r.tokens_out,
-            }
-        };
-        last_text = resp.text.clone();
-        last_tokens_in = resp.tokens_in;
-        last_tokens_out = resp.tokens_out;
-
-        let assistant_content = build_assistant_content(&resp.text, &resp.tool_calls);
-        last_assistant_id = store
-            .append_message(
+        let req = build_round_request(store, &ctx, audit, session_id, model).await?;
+        let outcome = run_one_round(
+            store, transport, session_id, audit, spend, events, req, stream, round,
+        )
+        .await?;
+        if outcome.tool_calls.is_empty() {
+            return Ok(finalize_turn(outcome));
+        }
+        for call in &outcome.tool_calls {
+            dispatch_one_tool_call(
+                &ctx,
+                store,
+                cwd,
                 session_id,
-                MessageRole::Assistant,
-                &assistant_content.to_string(),
+                audit,
+                spend,
+                events,
+                vertical_deny,
+                vertical_approval,
+                &mut session_grants,
+                call,
             )
             .await?;
-        let assistant_payload = serde_json::json!({
-            "message_id": last_assistant_id,
-            "round": round,
-            "tool_calls": resp.tool_calls.len(),
-            "tokens_in": last_tokens_in,
-            "tokens_out": last_tokens_out,
-        });
-        audit
-            .write(
-                Some(session_id),
-                AuditKind::AssistantMessage,
-                assistant_payload.clone(),
-                None,
-            )
-            .await?;
-        emit_event(events, "AssistantMessage", assistant_payload);
-        record_turn_spend(store, session_id, spend, last_tokens_in, last_tokens_out).await?;
-        // mission-delegation-budget-tree: same (tokens × price) math
-        // converted to USD cents, charged against the running subtask
-        // (if any) bound to this session. No-op when no subtask is
-        // currently running.
-        crate::turn_budget::record_subtask_turn_spend(
-            store,
-            session_id,
-            spend,
-            last_tokens_in,
-            last_tokens_out,
-        )
-        .await?;
-
-        if resp.tool_calls.is_empty() {
-            return Ok(TurnResult {
-                assistant_id: last_assistant_id,
-                text: last_text,
-                tokens_in: last_tokens_in,
-                tokens_out: last_tokens_out,
-                stopped_on_tool_budget: false,
-            });
         }
-
-        for call in &resp.tool_calls {
-            let call_payload = serde_json::json!({"tool": call.name, "call_id": call.id});
-            audit
-                .write(
-                    Some(session_id),
-                    AuditKind::ToolCall,
-                    call_payload.clone(),
-                    None,
-                )
-                .await?;
-            emit_event(events, "ToolCall", call_payload);
-
-            // Deny-wins (#655) → escalation gate (#660) →
-            // operator grants (#664/#667) → dispatch. Deny is
-            // the platform's hard "never"; the gate pauses for
-            // human approval; grants override the gate (one-shot
-            // grants consume after dispatch in the else branch).
-            let result: ToolCallResult = if vertical_deny.contains(&call.name) {
-                let deny_payload = serde_json::json!({
-                    "tool": call.name,
-                    "call_id": call.id,
-                    "denied_by": "vertical_manifest",
-                });
-                audit
-                    .write(
-                        Some(session_id),
-                        AuditKind::RbacDeny,
-                        deny_payload.clone(),
-                        None,
-                    )
-                    .await?;
-                emit_event(events, "RbacDeny", deny_payload);
-                argo_tool::error_text(
-                    call.id,
-                    format!(
-                        "tool '{}' denied by the bound vertical's manifest [tools].denied list",
-                        call.name
-                    ),
-                    0,
-                )
-            } else if vertical_approval.contains(&call.name) && !session_grants.allows(&call.name) {
-                // Approval gate (#660) — but if the operator has
-                // explicitly approved this tool for this session
-                // via `argo session approve` (#664/#667), the
-                // grant overrides the gate and we fall through
-                // to dispatch.
-                let escalation_payload = serde_json::json!({
-                    "tool": call.name,
-                    "call_id": call.id,
-                    "reason": "human_approval_required",
-                    "source": "vertical_manifest",
-                });
-                audit
-                    .write(
-                        Some(session_id),
-                        AuditKind::EscalationRequired,
-                        escalation_payload.clone(),
-                        None,
-                    )
-                    .await?;
-                emit_event(events, "EscalationRequired", escalation_payload);
-                argo_tool::error_text(
-                    call.id,
-                    format!(
-                        "tool '{}' requires human approval (declared in the bound vertical's manifest [escalation].human_approval_required); run `argo session approve <session-id> --tool {}` (add --once for a single-dispatch grant) and re-issue the turn",
-                        call.name, call.name
-                    ),
-                    0,
-                )
-            } else {
-                // #667: track grant-gate permission so we can
-                // consume the one-shot after the dispatch.
-                let approved_via_grant =
-                    vertical_approval.contains(&call.name) && session_grants.allows(&call.name);
-                let res = dispatch_one_with_tenant(
-                    &registry,
-                    &engine,
-                    &principal,
-                    spend.tenant_id,
-                    cwd,
-                    &orch_session_id,
-                    call,
-                )
-                .await;
-                if approved_via_grant {
-                    consume_one_shot_if_present(
-                        store,
-                        session_id,
-                        &call.name,
-                        &mut session_grants,
-                        audit,
-                        events,
-                    )
-                    .await?;
-                }
-                res
-            };
-            let result_payload = serde_json::json!({
-                "tool": call.name,
-                "call_id": call.id,
-                "is_error": result.is_error,
-                "duration_ms": result.duration_ms,
-            });
-            audit
-                .write(
-                    Some(session_id),
-                    AuditKind::ToolResult,
-                    result_payload.clone(),
-                    None,
-                )
-                .await?;
-            emit_event(events, "ToolResult", result_payload);
-            let tool_msg = serde_json::json!([ContentBlock::ToolResult(result)]);
-            store
-                .append_message(session_id, MessageRole::Tool, &tool_msg.to_string())
-                .await?;
-        }
-
-        // #724 — when we hit `max_rounds` the for-loop ends
-        // naturally; we DON'T return Err. The session state is
-        // consistent (every dispatched tool just got its
-        // `tool_result` appended above) so the caller can issue
-        // another `run_turn` to continue. We surface the cap via
-        // the `stopped_on_tool_budget` flag and an audit hint so
-        // the outer worker step loop (in argo-cli) can convert
-        // this into a clean step boundary rather than treating
-        // it as a transport error and stopping the job.
+        last_outcome = Some(outcome);
     }
-    let halt_payload = serde_json::json!({
-        "reason": "tool_budget_exhausted",
-        "max_rounds": max_rounds,
-    });
-    audit
-        .write(
-            Some(session_id),
-            AuditKind::Halt,
-            halt_payload.clone(),
-            None,
-        )
-        .await?;
-    emit_event(events, "Halt", halt_payload);
-    Ok(TurnResult {
-        assistant_id: last_assistant_id,
-        text: last_text,
-        tokens_in: last_tokens_in,
-        tokens_out: last_tokens_out,
-        stopped_on_tool_budget: true,
+    // #724 — when we hit `max_rounds` the for-loop ends naturally;
+    // we DON'T return Err. Every dispatched tool just got its
+    // `tool_result` appended, so the caller can issue another
+    // `run_turn` to continue. The `stopped_on_tool_budget` flag and
+    // the `Halt` audit hint let the outer worker step loop convert
+    // this into a clean step boundary rather than treating it as a
+    // transport error.
+    emit_halt(session_id, audit, events, max_rounds).await?;
+    Ok(budget_exhausted_result(last_outcome))
+}
+
+/// Assemble the [`ProviderRequest`] for one round — fetches the
+/// session history, applies context compression, then snapshots the
+/// tools / system prompt from `ctx`.
+async fn build_round_request(
+    store: &Arc<SessionStore>,
+    ctx: &super::turn_helpers_run::TurnDispatchCtx,
+    audit: &AuditSink,
+    session_id: SessionId,
+    model: &str,
+) -> ArgoResult<ProviderRequest> {
+    let rows = store.list_messages(session_id).await?;
+    let messages = rows
+        .iter()
+        .map(|r| message_from_row(r, session_id))
+        .collect::<ArgoResult<Vec<_>>>()?;
+    let messages = prepare_context_messages(messages, &ctx.context_policy, audit, session_id).await?;
+    Ok(ProviderRequest {
+        model: model.to_string(),
+        messages,
+        tools: ctx.tools.clone(),
+        system: ctx.system_prompt.clone(),
+        sampling: Sampling::default(),
     })
+}
+
+/// Build the budget-exhausted [`TurnResult`] from the most recent
+/// completed round's outcome. Falls back to a zero-token "nothing
+/// produced" result if `max_rounds == 0` (no rounds ran).
+fn budget_exhausted_result(last: Option<super::turn_helpers_run::RoundOutcome>) -> TurnResult {
+    match last {
+        Some(o) => TurnResult {
+            assistant_id: o.assistant_id,
+            text: o.text,
+            tokens_in: o.tokens_in,
+            tokens_out: o.tokens_out,
+            stopped_on_tool_budget: true,
+        },
+        None => TurnResult {
+            assistant_id: uuid::Uuid::nil(),
+            text: String::new(),
+            tokens_in: None,
+            tokens_out: None,
+            stopped_on_tool_budget: true,
+        },
+    }
 }

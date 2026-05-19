@@ -402,6 +402,7 @@ pub(crate) mod worker_actions_notify;
 pub(crate) mod worker_actions_notify_fallback;
 mod worker_actions_query;
 mod worker_actions_render;
+mod worker_actions_run_dispatch;
 mod worker_actions_schema;
 mod worker_actions_transitions;
 mod worker_actions_transitions_lookup;

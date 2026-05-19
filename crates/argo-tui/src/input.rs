@@ -2,26 +2,21 @@
 //! helpers (spawn agent turn, reap, delete, rename, clone) live in
 //! the sibling `actions.rs` so this file stays under 500 LOC as
 //! keybindings get added.
-use crate::actions::{
-    apply_delete, apply_rename, apply_steer, create_cloned_session, reap_agent, spawn_agent_turn,
-};
-use crate::app::{PaneFocus, ViewerState};
-use crate::input_helpers::{
-    force_refresh_open_overlays, handle_message_overlay, pick_yank_at_cursor, pick_yank_text,
-    scan_dir_basenames,
-};
+use crate::app::ViewerState;
 use crate::input_overlay_dispatch::try_close_overlay;
-use crate::render::draw;
-use crate::viewer::{fetch_message_count, fetch_messages};
+use crate::input_run::{
+    handle_composer_key, handle_filter_key, handle_navigation_key, handle_pending_delete,
+    handle_rename_key, handle_steer_key, tick_refresh, KeyOutcome,
+};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use argo_types::{ArgoError, ArgoResult};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::Stdout;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc::UnboundedReceiver;
 
 pub(crate) async fn run(
@@ -30,327 +25,161 @@ pub(crate) async fn run(
     cwd: PathBuf,
     state: &mut ViewerState,
 ) -> ArgoResult<()> {
-    let mut last_refresh = std::time::Instant::now();
+    let mut last_refresh = Instant::now();
     let mut events_rx: Option<UnboundedReceiver<serde_json::Value>> = None;
     loop {
-        if let Some(rx) = events_rx.as_mut() {
-            while let Ok(env) = rx.try_recv() {
-                state.push_live_event(&env);
-            }
-        }
-        if reap_agent(state).await {
-            events_rx = None;
-        }
-        terminal
-            .draw(|frame| draw(frame, state))
-            .map_err(|e| ArgoError::Provider(format!("tui draw: {e}")))?;
-        if last_refresh.elapsed() >= Duration::from_secs(1) {
-            state.messages_loaded = false;
-            fetch_messages(&store, state).await?;
-            // While the forge-runs overlay is open, re-fetch the
-            // 50-row window so an in-flight run's status flips
-            // from "running" → "succeeded" without the user
-            // having to close + re-open with `F`.
-            if state.forge_runs.is_some() {
-                let rows = store.list_forge_runs(50).await.unwrap_or_default();
-                state.forge_runs = Some(rows);
-            }
-            // While the cron overlay is open, re-scan
-            // cron/jobs/*.json so jobs added/removed externally
-            // (e.g. via `argo cron add`) appear without the
-            // user having to close + re-open with `K`.
-            if state.cron_overlay.is_some() {
-                state.cron_overlay =
-                    Some(scan_dir_basenames(&cwd.join("cron").join("jobs"), "json"));
-            }
-            // Same for the providers overlay — when a manifest
-            // appears in manifests/providers/*.toml externally
-            // (`argo provider add`), it shows up next tick.
-            if state.providers_overlay.is_some() {
-                state.providers_overlay = Some(scan_dir_basenames(
-                    &cwd.join("manifests").join("providers"),
-                    "toml",
-                ));
-            }
-            crate::input_dashboard::refresh_dashboard(state, &store).await;
-            crate::approval_tray::refresh_open_tray(state).await;
-            last_refresh = std::time::Instant::now();
-        }
+        tick_refresh(
+            terminal,
+            &store,
+            &cwd,
+            state,
+            &mut last_refresh,
+            &mut events_rx,
+        )
+        .await?;
         if !event::poll(Duration::from_millis(200))
             .map_err(|e| ArgoError::Provider(format!("tui poll: {e}")))?
         {
             continue;
         }
         let ev = event::read().map_err(|e| ArgoError::Provider(format!("tui read: {e}")))?;
-        if let Event::Key(key) = ev {
-            if key.kind != KeyEventKind::Press {
-                continue;
-            }
-            if state.filter_mode {
-                match key.code {
-                    KeyCode::Esc => state.filter_clear(),
-                    KeyCode::Enter => state.exit_filter_mode(),
-                    KeyCode::Backspace => {
-                        state.filter_pop();
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        state.filter_push(c);
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    _ => {}
-                }
-                continue;
-            }
-            if state.keybindings_help_overlay {
-                if matches!(
-                    crate::keybindings_help::handle_key(key.code),
-                    crate::keybindings_help::HelpOutcome::Close
-                ) {
-                    state.keybindings_help_overlay = false;
-                }
-                continue;
-            }
-            // Legacy static help overlay: any key closes it.
-            if crate::approval_tray::try_handle_approval_tray(state, key).await? {
-                continue;
-            }
-            if matches!(key.code, KeyCode::Char('A'))
-                && key.modifiers == KeyModifiers::NONE
-                && crate::input_globals::dispatch_global_key(terminal, state, &store, &cwd, key)
-                    .await?
-            {
-                continue;
-            }
-            // Help overlay: any key closes it.
-            if state.help_overlay {
-                state.help_overlay = false;
-                continue;
-            }
-            // Message-detail overlay: Esc/o/q close, t toggles
-            // drill view, j/k/PgUp/PgDn scroll the body, other
-            // keys ignored. Body lives in handle_message_overlay
-            // to keep this dispatcher under the LOC budget.
-            if state.message_overlay.is_some() {
-                handle_message_overlay(key.code, state);
-                continue;
-            }
-            if crate::spend_monitor::handle_spend_monitor_key(state, &store, key.code).await? {
-                continue;
-            }
-            // List/scroll overlays (forge-runs, skills, memory,
-            // cost, audit, cron, providers, tools, tool-errors)
-            // share a close-key shape — see input_overlay_dispatch.
-            if try_close_overlay(state, key.code) {
-                continue;
-            }
-            if crate::try_close_aux_overlay(state, key.code) {
-                continue;
-            }
-            // Pending-delete confirm: 'y' fires the delete, any
-            // other key cancels.
-            if state.pending_delete.is_some() {
-                let sid = state.pending_delete.take();
-                if matches!(key.code, KeyCode::Char('y')) {
-                    if let Some(sid) = sid {
-                        apply_delete(&store, state, sid).await;
-                    }
-                }
-                continue;
-            }
-            // Rename mode: type freely, Enter persists, Esc cancels.
-            if state.rename_mode() {
-                match key.code {
-                    KeyCode::Esc => state.rename_cancel(),
-                    KeyCode::Enter => {
-                        if let Some(new_title) = state.rename_take() {
-                            apply_rename(&store, state, &new_title).await;
-                        }
-                    }
-                    KeyCode::Backspace => state.rename_pop(),
-                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        state.rename_push(c);
-                    }
-                    _ => {}
-                }
-                continue;
-            }
-            // Steer mode: same shape as rename, Enter persists a
-            // system-role `[steer] <text>` message.
-            if state.steer_mode() {
-                match key.code {
-                    KeyCode::Esc => state.steer_cancel(),
-                    KeyCode::Enter => {
-                        if let Some(text) = state.steer_take() {
-                            apply_steer(&store, state, &text).await;
-                        }
-                    }
-                    KeyCode::Backspace => state.steer_pop(),
-                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        state.steer_push(c);
-                    }
-                    _ => {}
-                }
-                continue;
-            }
-            // Composer mode: Enter spawns a live agent turn.
-            if state.composer_mode {
-                match key.code {
-                    KeyCode::Esc => state.composer_cancel(),
-                    KeyCode::Enter => {
-                        events_rx = spawn_agent_turn(&store, &cwd, state).await;
-                    }
-                    KeyCode::Backspace => state.composer_pop(),
-                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        state.composer_push(c);
-                    }
-                    _ => {}
-                }
-                continue;
-            }
-            // Top-level overlay openers (?, F, S, $, K, P, T, A,
-            // E, M, O, H, B, V, D) live in input_globals so
-            // downstream global-key briefs have a narrow extension
-            // point instead of editing this event loop.
-            if crate::input_globals::dispatch_global_key(terminal, state, &store, &cwd, key).await?
-            {
-                continue;
-            }
-            match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    return Ok(());
-                }
-                KeyCode::Tab => state.toggle_focus(),
-                KeyCode::Char('C') => {
-                    // Drop the in-memory live-event trail
-                    // without spawning a new turn. Useful when
-                    // the trail from an earlier run is cluttering
-                    // the messages pane and the user just wants
-                    // to focus on the persisted history.
-                    state.clear_live_events();
-                }
-                KeyCode::Char('R') => {
-                    // Force-refresh of every pane + every open
-                    // overlay. Useful when a CLI in another
-                    // terminal just changed something and the
-                    // 1-Hz tick hasn't come round yet.
-                    state.messages_loaded = false;
-                    fetch_message_count(&store, state).await?;
-                    fetch_messages(&store, state).await?;
-                    force_refresh_open_overlays(&store, state).await;
-                    last_refresh = std::time::Instant::now();
-                }
-                KeyCode::Char('o')
-                    if matches!(state.focus, PaneFocus::Messages)
-                        && !state.selected_messages.is_empty() =>
-                {
-                    // Open the highlighted message in a detail
-                    // overlay. The "highlight" is the topmost
-                    // visible row — i.e. `messages_scroll` — so
-                    // page up/down + j/k work as the cursor.
-                    state.message_overlay =
-                        Some(state.messages_scroll.min(state.selected_messages.len() - 1));
-                }
-                KeyCode::Char('/') => state.enter_filter_mode(),
-                KeyCode::Char('i') => state.composer_mode = true,
-                KeyCode::Char('y') => {
-                    if let Some(text) = pick_yank_text(state) {
-                        crate::clipboard::write_to_clipboard(&text);
-                    }
-                }
-                KeyCode::Char('Y') => {
-                    if let Some(text) = pick_yank_at_cursor(state) {
-                        crate::clipboard::write_to_clipboard(&text);
-                    }
-                }
-                KeyCode::Char('n') => {
-                    if let Err(e) = create_cloned_session(&store, &cwd, state).await {
-                        state.last_agent_error = Some(format!("new session: {e}"));
-                    }
-                }
-                KeyCode::Char('r') if state.selected_session().is_some() => {
-                    state.enter_rename_mode();
-                }
-                KeyCode::Char('s') if state.selected_session().is_some() => {
-                    state.enter_steer_mode();
-                }
-                KeyCode::Char('d') => {
-                    if let Some(s) = state.selected_session() {
-                        state.pending_delete = Some(SessionId(s.id.0));
-                    }
-                }
-                KeyCode::Char('e') => {
-                    // Mark the selected session as ended (stamps
-                    // ended_at). Idempotent — re-pressing on an
-                    // already-ended session re-stamps but causes
-                    // no other behaviour change.
-                    if let Some(s) = state.selected_session() {
-                        let sid = SessionId(s.id.0);
-                        if let Err(e) = store.end_session(sid).await {
-                            state.last_agent_error = Some(format!("end_session: {e}"));
-                        } else {
-                            // Force a refresh so the marker
-                            // (●→○) flips on the next draw.
-                            state.sessions = store
-                                .list_all_sessions(crate::viewer::MAX_SESSIONS_LOAD)
-                                .await
-                                .unwrap_or_default();
-                        }
-                    }
-                }
-                KeyCode::Down | KeyCode::Char('j') => match state.focus {
-                    PaneFocus::Sessions => {
-                        state.next();
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    PaneFocus::Messages => state.scroll_messages_down(),
-                },
-                KeyCode::Up | KeyCode::Char('k') => match state.focus {
-                    PaneFocus::Sessions => {
-                        state.prev();
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    PaneFocus::Messages => state.scroll_messages_up(),
-                },
-                KeyCode::PageDown => match state.focus {
-                    PaneFocus::Sessions => {
-                        state.next_n(10);
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    PaneFocus::Messages => state.scroll_messages_down_n(10),
-                },
-                KeyCode::PageUp => match state.focus {
-                    PaneFocus::Sessions => {
-                        state.prev_n(10);
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    PaneFocus::Messages => state.scroll_messages_up_n(10),
-                },
-                KeyCode::Home | KeyCode::Char('g') => match state.focus {
-                    PaneFocus::Sessions => {
-                        state.first();
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    PaneFocus::Messages => state.scroll_messages_first(),
-                },
-                KeyCode::End | KeyCode::Char('G') => match state.focus {
-                    PaneFocus::Sessions => {
-                        state.last();
-                        fetch_message_count(&store, state).await?;
-                        fetch_messages(&store, state).await?;
-                    }
-                    PaneFocus::Messages => state.scroll_messages_last(),
-                },
-                _ => {}
-            }
+        let Event::Key(key) = ev else { continue };
+        if key.kind != KeyEventKind::Press {
+            continue;
+        }
+        match dispatch_key_event(
+            terminal,
+            &store,
+            &cwd,
+            state,
+            &mut last_refresh,
+            &mut events_rx,
+            key,
+        )
+        .await?
+        {
+            KeyOutcome::Quit => return Ok(()),
+            KeyOutcome::Consumed => {}
         }
     }
+}
+
+/// Walk a key event through the modal-priority ladder: filter mode,
+/// help overlays, approval tray, global one-shots, message-overlay
+/// keys, spend-monitor keys, close-overlay dispatch, and finally
+/// the navigation match. Returns `Consumed` when any handler
+/// claimed the key (the caller `continue`s the event loop).
+#[allow(clippy::too_many_arguments)]
+async fn dispatch_key_event(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    state: &mut ViewerState,
+    last_refresh: &mut Instant,
+    events_rx: &mut Option<UnboundedReceiver<serde_json::Value>>,
+    key: KeyEvent,
+) -> ArgoResult<KeyOutcome> {
+    if dispatch_text_modal(state, store, key).await? {
+        return Ok(KeyOutcome::Consumed);
+    }
+    if dispatch_overlay_keys(terminal, store, cwd, state, key).await? {
+        return Ok(KeyOutcome::Consumed);
+    }
+    if dispatch_input_mode(state, store, cwd, events_rx, key).await {
+        return Ok(KeyOutcome::Consumed);
+    }
+    if crate::input_globals::dispatch_global_key(terminal, state, store, cwd, key).await? {
+        return Ok(KeyOutcome::Consumed);
+    }
+    handle_navigation_key(key, store, cwd, state, last_refresh).await
+}
+
+/// Filter-mode + keybindings-help-overlay short-circuit. Returns
+/// `true` when the key was consumed by one of those modals.
+async fn dispatch_text_modal(
+    state: &mut ViewerState,
+    store: &Arc<SessionStore>,
+    key: KeyEvent,
+) -> ArgoResult<bool> {
+    if state.filter_mode {
+        handle_filter_key(key, store, state).await?;
+        return Ok(true);
+    }
+    if state.keybindings_help_overlay {
+        if matches!(
+            crate::keybindings_help::handle_key(key.code),
+            crate::keybindings_help::HelpOutcome::Close
+        ) {
+            state.keybindings_help_overlay = false;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+/// Approval tray, the `A` global one-shot, help overlay, message
+/// overlay, spend-monitor key handling, and the overlay-close
+/// dispatch (list overlays + aux overlays). Returns `true` on a hit.
+async fn dispatch_overlay_keys(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    state: &mut ViewerState,
+    key: KeyEvent,
+) -> ArgoResult<bool> {
+    if crate::approval_tray::try_handle_approval_tray(state, key).await? {
+        return Ok(true);
+    }
+    if matches!(key.code, KeyCode::Char('A'))
+        && key.modifiers == KeyModifiers::NONE
+        && crate::input_globals::dispatch_global_key(terminal, state, store, cwd, key).await?
+    {
+        return Ok(true);
+    }
+    if state.help_overlay {
+        state.help_overlay = false;
+        return Ok(true);
+    }
+    if state.message_overlay.is_some() {
+        crate::input_helpers::handle_message_overlay(key.code, state);
+        return Ok(true);
+    }
+    if crate::spend_monitor::handle_spend_monitor_key(state, store, key.code).await? {
+        return Ok(true);
+    }
+    if try_close_overlay(state, key.code) {
+        return Ok(true);
+    }
+    Ok(crate::try_close_aux_overlay(state, key.code))
+}
+
+/// Pending-delete / rename / steer / composer modes. Returns
+/// `true` when the active mode claims the key (the run loop then
+/// `continue`s without falling through to the navigation match).
+async fn dispatch_input_mode(
+    state: &mut ViewerState,
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    events_rx: &mut Option<UnboundedReceiver<serde_json::Value>>,
+    key: KeyEvent,
+) -> bool {
+    if state.pending_delete.is_some() {
+        handle_pending_delete(key, store, state).await;
+        return true;
+    }
+    if state.rename_mode() {
+        handle_rename_key(key, store, state).await;
+        return true;
+    }
+    if state.steer_mode() {
+        handle_steer_key(key, store, state).await;
+        return true;
+    }
+    if state.composer_mode {
+        if let Some(rx) = handle_composer_key(key, store, cwd, state).await {
+            *events_rx = Some(rx);
+        }
+        return true;
+    }
+    false
 }
