@@ -242,6 +242,10 @@ pub mod worker_budget_write;
 /// per-kind cycle detection and downstream impact closure
 /// (Stream `claude-worker-dependency-tracking`).
 pub mod worker_deps;
+/// Tenant-scoped cooperative worker freeze state
+/// (Stream `mission-pm-kill-switch-1-store-audit`). Runner, CLI,
+/// gateway, and UI consumers land in sibling slices.
+pub mod worker_freeze;
 /// Per-worker KPI time-series store — append-only observations
 /// recorded against KPI names from the worker's charter
 /// (Stream `claude-worker-kpi-tracker`, mission claim 2).
@@ -288,6 +292,7 @@ pub use session_store::SessionStore;
 pub use skill_runs_query::{runs_for_skill, runs_for_tenant, SkillRunRow};
 pub use spend::GlobalSpend;
 pub use stats::{tool_errors_histogram, DbStats};
+pub use worker_freeze::FreezeRecord;
 
 use argo_types::ArgoError;
 
@@ -307,7 +312,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 72;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 73;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

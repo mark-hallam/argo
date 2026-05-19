@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 38);
+    assert_eq!(AuditKind::all().len(), 39);
 }
 
 #[test]
@@ -91,6 +91,23 @@ fn worker_oom_restart_round_trips_and_listed() {
     assert_eq!(kind.label(), "worker.oom_restart");
     let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
     assert!(labels.contains(&"worker.oom_restart"));
+}
+
+#[test]
+fn worker_freeze_blocked_round_trips_and_serdes_as_snake_case() {
+    let kind = AuditKind::WorkerFreezeBlocked;
+    assert_eq!(AuditKind::from_label("worker_freeze_blocked"), Some(kind));
+    assert_eq!(kind.label(), "worker_freeze_blocked");
+    assert_eq!(
+        serde_json::to_string(&kind).unwrap(),
+        "\"worker_freeze_blocked\""
+    );
+    assert_eq!(
+        serde_json::from_str::<AuditKind>("\"worker_freeze_blocked\"").unwrap(),
+        kind
+    );
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"worker_freeze_blocked"));
 }
 
 #[test]

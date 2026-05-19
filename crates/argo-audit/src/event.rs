@@ -130,6 +130,11 @@ pub enum AuditKind {
     /// `RestartStrategy` paths (per-action retry, not whole-process
     /// death). One row per non-clean exit.
     WorkerOomRestart,
+    /// A worker action or turn was blocked because the worker is
+    /// currently frozen by the PM kill switch. Payload carries
+    /// `worker_id` and `reason`; sibling slices add the emitters after
+    /// this first-class kind exists.
+    WorkerFreezeBlocked,
     /// Runtime compressed the conversation history because the
     /// next turn would have exceeded the model's context window
     /// (`mission-context-window-aware-compression`). Payload shape
@@ -253,6 +258,7 @@ impl AuditKind {
             Self::SkillRolledBack => "skill.rollback",
             Self::HttpRequest => "http.request",
             Self::WorkerOomRestart => "worker.oom_restart",
+            Self::WorkerFreezeBlocked => "worker_freeze_blocked",
             Self::RuntimeContextCompressed => "runtime.context_compressed",
             Self::RetroCreated => "retro.created",
             Self::RetroFinalized => "retro.finalized",
@@ -300,6 +306,7 @@ impl AuditKind {
             "skill.rollback" => Self::SkillRolledBack,
             "http.request" => Self::HttpRequest,
             "worker.oom_restart" => Self::WorkerOomRestart,
+            "worker_freeze_blocked" => Self::WorkerFreezeBlocked,
             "runtime.context_compressed" => Self::RuntimeContextCompressed,
             "retro.created" => Self::RetroCreated,
             "retro.finalized" => Self::RetroFinalized,
@@ -347,6 +354,7 @@ impl AuditKind {
             Self::SkillRolledBack,
             Self::HttpRequest,
             Self::WorkerOomRestart,
+            Self::WorkerFreezeBlocked,
             Self::RuntimeContextCompressed,
             Self::RetroCreated,
             Self::RetroFinalized,

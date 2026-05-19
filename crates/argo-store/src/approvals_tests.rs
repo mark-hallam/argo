@@ -56,7 +56,7 @@ async fn migrate_creates_indexes() {
 async fn down_migration_drops_table() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 72);
+    assert_eq!(store.schema_version().await.unwrap(), 73);
 
     store.migrate_down_to(43).await.unwrap();
 
@@ -71,7 +71,7 @@ async fn down_migration_drops_table() {
 
     // And re-migrating UP recreates it.
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 72);
+    assert_eq!(store.schema_version().await.unwrap(), 73);
 }
 
 #[tokio::test]
