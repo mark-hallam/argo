@@ -170,6 +170,7 @@ mod routes_voice_auth;
 mod routes_wizard;
 mod routes_worker_activity;
 mod routes_worker_detail;
+mod routes_worker_freeze;
 mod routes_worker_memory;
 mod routes_worker_overview;
 mod routes_worker_policies;
