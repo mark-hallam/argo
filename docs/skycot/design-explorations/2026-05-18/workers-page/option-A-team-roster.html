@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workers — SKYCOT (A · Team Roster)</title>
+<!-- Design language: A — TEAM ROSTER.
+     "Your team" as a humanizing roster page. Big worker cards, warm,
+     LinkedIn-meets-Notion-team feel. Each worker reads as a person.
+     Current-task line is conversational. Best for trust + emotional resonance. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --line: #E5E7EB;
+    --line-2: #D1D5DB;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--paper); color: var(--ink);
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+  }
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .side {
+    background: var(--bg); border-right: 1px solid var(--line);
+    padding: 20px 14px; position: sticky; top: 0; height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+  .nav .badge { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--paper-2); color: var(--ink-3); font-family: 'JetBrains Mono', monospace; }
+
+  /* Main */
+  .main { padding: 32px 40px 80px; max-width: 1280px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 600; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+
+  /* Filter bar */
+  .filters { display: flex; gap: 6px; margin-bottom: 22px; }
+  .chip {
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line-2); background: var(--bg);
+    font-size: 12.5px; font-weight: 500; color: var(--ink-2); cursor: pointer;
+  }
+  .chip.on { border-color: var(--purple); background: rgba(139,92,246,0.05); color: var(--purple); }
+  .chip .ct { color: var(--ink-3); margin-left: 4px; font-weight: 400; }
+
+  /* Worker card grid */
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+  .card {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 16px; padding: 24px;
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  .card:hover { border-color: var(--line-2); box-shadow: 0 4px 14px -4px rgba(0,0,0,0.06); }
+
+  .card-top { display: flex; gap: 16px; align-items: flex-start; }
+  .av {
+    width: 64px; height: 64px; border-radius: 16px;
+    display: grid; place-items: center; color: white;
+    font-size: 20px; font-weight: 600; letter-spacing: 0.04em;
+    background: var(--gradient);
+    flex-shrink: 0;
+  }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .card-id { flex: 1; }
+  .card-id .name {
+    font-size: 20px; font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .card-id .role {
+    color: var(--ink-3); font-size: 14px;
+    margin-top: 2px;
+  }
+  .card-id .meta {
+    display: flex; gap: 12px; align-items: center;
+    margin-top: 8px;
+    font-size: 12.5px;
+  }
+  .status-dot { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+  .status-dot .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-dot.active { color: #0F766E; }
+  .status-dot.active .dot { background: var(--teal); box-shadow: 0 0 6px rgba(20,184,166,0.5); }
+  .status-dot.paused { color: var(--ink-3); }
+  .status-dot.paused .dot { background: var(--ink-4); }
+  .status-dot.training { color: #92400E; }
+  .status-dot.training .dot { background: var(--yellow); }
+  .meta .since {
+    color: var(--ink-3);
+  }
+
+  .card-now {
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--paper);
+    border-radius: 10px;
+    border-left: 3px solid var(--teal);
+  }
+  .card-now .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .card-now .now-text {
+    font-size: 14px; color: var(--ink); font-weight: 400;
+    line-height: 1.5;
+  }
+  .card-now .now-text strong { font-weight: 600; }
+
+  .card-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .stat .stat-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .stat .stat-val {
+    font-size: 22px; font-weight: 300;
+    letter-spacing: -0.02em; margin-top: 4px;
+    color: var(--ink);
+  }
+  .stat .stat-sub {
+    font-size: 11.5px; color: var(--ink-3); margin-top: 2px;
+  }
+
+  .card-skills {
+    margin-top: 18px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .skill {
+    padding: 3px 9px; border-radius: 5px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-size: 11.5px; font-weight: 500;
+  }
+
+  .card-actions {
+    margin-top: 18px; display: flex; gap: 8px;
+  }
+  .card-actions .btn { font-size: 12.5px; padding: 7px 12px; }
+  .card-actions .primary { background: var(--gradient); color: white; border: none; }
+  .card-actions .ghost {
+    background: var(--bg); border: 1px solid var(--line); color: var(--ink-2);
+  }
+
+  /* Add-new tile */
+  .add-card {
+    background: transparent;
+    border: 2px dashed var(--line-2);
+    border-radius: 16px;
+    padding: 40px;
+    display: grid; place-items: center;
+    color: var(--ink-3);
+    text-align: center;
+    transition: border-color 0.12s, color 0.12s;
+    cursor: pointer;
+  }
+  .add-card:hover { border-color: var(--purple); color: var(--purple); }
+  .add-card .plus {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--paper-2);
+    display: grid; place-items: center;
+    font-size: 24px; font-weight: 300;
+    margin: 0 auto 14px;
+  }
+  .add-card:hover .plus { background: rgba(139,92,246,0.10); color: var(--purple); }
+  .add-card .add-title { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .add-card .add-sub { font-size: 13px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Your <strong>team</strong></h1>
+        <p>Five AI teammates working alongside Mark and 23 others at Acme Corp.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn">⊟ View as table</button>
+        <button class="btn primary">+ Hire a teammate</button>
+      </div>
+    </div>
+
+    <div class="filters">
+      <span class="chip on">All · 5</span>
+      <span class="chip">Active <span class="ct">4</span></span>
+      <span class="chip">Paused <span class="ct">0</span></span>
+      <span class="chip">Training <span class="ct">1</span></span>
+      <span class="chip">Support</span>
+      <span class="chip">Sales / Ops</span>
+      <span class="chip">Recruiting</span>
+    </div>
+
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-top">
+          <div class="av">JM</div>
+          <div class="card-id">
+            <div class="name">Jamal</div>
+            <div class="role">Support specialist · L2 cohort</div>
+            <div class="meta">
+              <span class="status-dot active"><span class="dot"></span>Active now</span>
+              <span class="since">· hired 12 Sep 2025</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-now">
+          <div class="label">Currently working on</div>
+          <div class="now-text">Working through <strong>3 tickets</strong> in your support inbox · just resolved <strong>SUP-29382</strong> using KB SK-413.</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="stat-label">Today</div><div class="stat-val">4</div><div class="stat-sub">actions · $0.012</div></div>
+          <div class="stat"><div class="stat-label">This week</div><div class="stat-val">38</div><div class="stat-sub">actions · $0.087</div></div>
+          <div class="stat"><div class="stat-label">Resolution rate</div><div class="stat-val">94%</div><div class="stat-sub">↑ 2pts vs last week</div></div>
+        </div>
+        <div class="card-skills">
+          <span class="skill">zendesk.read</span>
+          <span class="skill">zendesk.reply</span>
+          <span class="skill">kb.search</span>
+          <span class="skill">slack.dm</span>
+          <span class="skill">+ 3 more</span>
+        </div>
+        <div class="card-actions">
+          <button class="primary">View dashboard →</button>
+          <button class="ghost">Pause</button>
+          <button class="ghost">Edit skills</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="av s">SL</div>
+          <div class="card-id">
+            <div class="name">Sara</div>
+            <div class="role">Invoice operations · L3 cohort</div>
+            <div class="meta">
+              <span class="status-dot active"><span class="dot"></span>Active now</span>
+              <span class="since">· hired 28 Sep 2025</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-now">
+          <div class="label">Currently working on</div>
+          <div class="now-text">Just extracted line items from <strong>INV-2024-08741</strong> — 12 lines totalling $48,290. Waiting for next AP queue drop.</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="stat-label">Today</div><div class="stat-val">3</div><div class="stat-sub">actions · $0.024</div></div>
+          <div class="stat"><div class="stat-label">This week</div><div class="stat-val">52</div><div class="stat-sub">actions · $0.412</div></div>
+          <div class="stat"><div class="stat-label">Avg extract acc.</div><div class="stat-val">99.6%</div><div class="stat-sub">99.2% target</div></div>
+        </div>
+        <div class="card-skills">
+          <span class="skill">ocr.read</span>
+          <span class="skill">netsuite.write</span>
+          <span class="skill">policy.dup_check</span>
+          <span class="skill">+ 4 more</span>
+        </div>
+        <div class="card-actions">
+          <button class="primary">View dashboard →</button>
+          <button class="ghost">Pause</button>
+          <button class="ghost">Edit skills</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="av p">PR</div>
+          <div class="card-id">
+            <div class="name">Priya</div>
+            <div class="role">Recruiting screener · L2 cohort</div>
+            <div class="meta">
+              <span class="status-dot active"><span class="dot"></span>Active now</span>
+              <span class="since">· hired 14 Oct 2025</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-now">
+          <div class="label">Currently working on</div>
+          <div class="now-text">Drafted rejection email to <strong>Sara Lin</strong> · <strong>awaiting your approval</strong> before sending. Screening <strong>Diego Alvarez</strong> next.</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="stat-label">Today</div><div class="stat-val">5</div><div class="stat-sub">actions · $0.043</div></div>
+          <div class="stat"><div class="stat-label">This week</div><div class="stat-val">28</div><div class="stat-sub">actions · $0.298</div></div>
+          <div class="stat"><div class="stat-label">Match accuracy</div><div class="stat-val">87%</div><div class="stat-sub">vs your overrides</div></div>
+        </div>
+        <div class="card-skills">
+          <span class="skill">greenhouse.read</span>
+          <span class="skill">jd.match</span>
+          <span class="skill">email.draft</span>
+          <span class="skill">+ 3 more</span>
+        </div>
+        <div class="card-actions">
+          <button class="primary">View dashboard →</button>
+          <button class="ghost">Pause</button>
+          <button class="ghost">Edit skills</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="av n">NM</div>
+          <div class="card-id">
+            <div class="name">Nori</div>
+            <div class="role">Quote operations · L3 cohort</div>
+            <div class="meta">
+              <span class="status-dot active"><span class="dot"></span>Active now</span>
+              <span class="since">· hired 02 Nov 2025</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-now">
+          <div class="label">Currently working on</div>
+          <div class="now-text">Flagged <strong>32% discount</strong> on QT-2024-7283 — exceeds your 25% threshold. <strong>Waiting on your decision.</strong></div>
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="stat-label">Today</div><div class="stat-val">2</div><div class="stat-sub">actions · $0.008</div></div>
+          <div class="stat"><div class="stat-label">This week</div><div class="stat-val">19</div><div class="stat-sub">actions · $0.094</div></div>
+          <div class="stat"><div class="stat-label">Policy adherence</div><div class="stat-val">100%</div><div class="stat-sub">0 silent overrides</div></div>
+        </div>
+        <div class="card-skills">
+          <span class="skill">salesforce.read</span>
+          <span class="skill">pricing.validate</span>
+          <span class="skill">policy.discount</span>
+          <span class="skill">+ 2 more</span>
+        </div>
+        <div class="card-actions">
+          <button class="primary">View dashboard →</button>
+          <button class="ghost">Pause</button>
+          <button class="ghost">Edit skills</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="av m">MA</div>
+          <div class="card-id">
+            <div class="name">Mariah</div>
+            <div class="role">Sales ops · L2 cohort · <span style="color:var(--yellow);font-weight:600">in training</span></div>
+            <div class="meta">
+              <span class="status-dot training"><span class="dot"></span>Training</span>
+              <span class="since">· hired 18 Apr 2026 · 30 days in</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-now">
+          <div class="label">Currently working on</div>
+          <div class="now-text">Drafted RFP response for <strong>Tomás Industries</strong> (1,240 words, 4 sections). Scheduled Q3 renewal review with Acme Tech.</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="stat-label">Today</div><div class="stat-val">3</div><div class="stat-sub">actions · $0.021</div></div>
+          <div class="stat"><div class="stat-label">This week</div><div class="stat-val">14</div><div class="stat-sub">actions · $0.142</div></div>
+          <div class="stat"><div class="stat-label">Training progress</div><div class="stat-val">62%</div><div class="stat-sub">12 days to certified</div></div>
+        </div>
+        <div class="card-skills">
+          <span class="skill">salesforce.write</span>
+          <span class="skill">rfp.draft</span>
+          <span class="skill">gcal.schedule</span>
+          <span class="skill">+ 5 more</span>
+        </div>
+        <div class="card-actions">
+          <button class="primary">View training →</button>
+          <button class="ghost">Promote to active</button>
+        </div>
+      </div>
+
+      <div class="add-card">
+        <div>
+          <div class="plus">+</div>
+          <div class="add-title">Hire a new teammate</div>
+          <div class="add-sub">Browse 24 starter cohorts or build your own</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

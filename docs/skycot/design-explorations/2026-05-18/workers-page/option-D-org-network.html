@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workers — SKYCOT (D · Org Network)</title>
+<!-- Design language: D — ORG NETWORK.
+     Force-directed graph: you at center, your 5 workers as connected nodes.
+     Shared skills draw thin lines between workers. Right panel: selected worker detail.
+     Like Figma's org tools, or a Lattice org chart. Visually distinctive, "see the whole team at once."
+     Best for understanding structure / collaboration / dependencies. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --line: #E5E7EB;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr 380px; height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  /* Center pane: graph */
+  .center {
+    background: var(--paper);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .center-head { padding: 18px 28px; border-bottom: 1px solid var(--line); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+  .center-head h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.025em; }
+  .center-head .sub { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+  .tabs { display: flex; gap: 2px; }
+  .tabs a { padding: 6px 12px; border-radius: 6px; font-size: 12.5px; color: var(--ink-3); text-decoration: none; font-weight: 500; }
+  .tabs a.on { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .center-head .right { display: flex; gap: 8px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 7px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  .graph-wrap {
+    flex: 1; position: relative;
+    background-image:
+      radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 50%);
+    overflow: hidden;
+  }
+  /* Grid background */
+  .graph-wrap::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: center center;
+    pointer-events: none;
+  }
+  svg.graph {
+    width: 100%; height: 100%;
+    display: block;
+  }
+
+  /* Node label */
+  .node-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600;
+    fill: var(--ink);
+    text-anchor: middle;
+  }
+  .node-role {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; font-weight: 400;
+    fill: var(--ink-3);
+    text-anchor: middle;
+  }
+  .node-status {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 600;
+    text-anchor: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Right pane: detail */
+  .detail { background: var(--bg); border-left: 1px solid var(--line); padding: 28px 24px 28px; overflow-y: auto; }
+  .detail-h {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+  }
+  .detail-h .av-big {
+    width: 56px; height: 56px; border-radius: 14px;
+    display: grid; place-items: center; color: white;
+    background: linear-gradient(135deg, var(--teal), var(--cyan));
+    font-size: 18px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .detail-h h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.025em; }
+  .detail-h .role { color: var(--ink-3); font-size: 13.5px; margin-top: 2px; }
+  .detail-h .status-pill {
+    margin-top: 8px;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 999px;
+    background: rgba(20,184,166,0.10); color: #0F766E;
+    font-size: 11.5px; font-weight: 600;
+  }
+  .detail-h .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px rgba(20,184,166,0.5); }
+
+  .section { margin-bottom: 22px; }
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3); font-weight: 700; margin-bottom: 10px; }
+
+  .now-block {
+    padding: 14px 14px;
+    background: var(--paper);
+    border-radius: 10px;
+    border-left: 3px solid var(--teal);
+    font-size: 13.5px;
+    color: var(--ink-2);
+  }
+  .now-block strong { color: var(--ink); font-weight: 600; }
+
+  .meta-grid { display: grid; grid-template-columns: 110px 1fr; gap: 6px 14px; font-size: 13px; }
+  .meta-grid .k { color: var(--ink-3); text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.08em; padding-top: 2px; font-weight: 700; }
+  .meta-grid .v { color: var(--ink); font-weight: 500; }
+  .meta-grid .v .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink-2); }
+
+  .connections { display: flex; flex-direction: column; gap: 10px; }
+  .conn-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px;
+    background: var(--paper);
+  }
+  .conn-row .av-tiny {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: grid; place-items: center; color: white;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .conn-row .conn-name { flex: 1; font-size: 13px; font-weight: 600; }
+  .conn-row .shared {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  .skills-list { display: flex; flex-wrap: wrap; gap: 5px; }
+  .skill {
+    padding: 3px 8px; border-radius: 5px;
+    background: var(--paper-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-2); font-weight: 500;
+  }
+
+  .detail-actions { display: flex; gap: 6px; margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--line); }
+  .detail-actions .btn { flex: 1; justify-content: center; padding: 8px 12px; font-size: 12.5px; }
+  .detail-actions .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Edge styles */
+  .edge-primary { stroke: rgba(139,92,246,0.5); stroke-width: 2; }
+  .edge-skill { stroke: rgba(139,92,246,0.20); stroke-width: 1; stroke-dasharray: 4 4; }
+  .edge-active { stroke: var(--purple); stroke-width: 3; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <section class="center">
+    <div class="center-head">
+      <div>
+        <h1>Team network</h1>
+        <div class="sub">5 workers · connected by shared skills · click any node to inspect</div>
+      </div>
+      <div class="tabs">
+        <a class="on" href="#">Network</a>
+        <a href="#">List</a>
+        <a href="#">Hierarchy</a>
+      </div>
+      <div class="right">
+        <button class="btn">⊟ Fit to screen</button>
+        <button class="btn primary">+ Hire</button>
+      </div>
+    </div>
+
+    <div class="graph-wrap">
+      <svg class="graph" viewBox="0 0 800 540" preserveAspectRatio="xMidYMid meet">
+        <!-- Edges from center (you) to workers -->
+        <line class="edge-primary" x1="400" y1="270" x2="220" y2="140"/>
+        <line class="edge-primary" x1="400" y1="270" x2="580" y2="140"/>
+        <line class="edge-primary" x1="400" y1="270" x2="160" y2="320"/>
+        <line class="edge-active" x1="400" y1="270" x2="640" y2="320"/>
+        <line class="edge-primary" x1="400" y1="270" x2="400" y2="470"/>
+
+        <!-- Skill-overlap edges (dashed, between workers) -->
+        <path class="edge-skill" d="M220,140 Q400,80 580,140"/>
+        <path class="edge-skill" d="M580,140 Q700,230 640,320"/>
+        <path class="edge-skill" d="M640,320 Q520,430 400,470"/>
+        <path class="edge-skill" d="M160,320 Q280,430 400,470"/>
+        <path class="edge-skill" d="M220,140 Q140,230 160,320"/>
+
+        <!-- Center node: YOU -->
+        <g>
+          <circle cx="400" cy="270" r="44" fill="white" stroke="rgba(139,92,246,0.2)" stroke-width="2"/>
+          <circle cx="400" cy="270" r="36" fill="url(#gradMain)"/>
+          <text class="node-label" x="400" y="276" fill="white" style="font-size:14px;font-weight:700">YOU</text>
+        </g>
+
+        <!-- Worker nodes -->
+        <!-- Jamal top-left -->
+        <g>
+          <circle cx="220" cy="140" r="32" fill="white" stroke="rgba(139,92,246,0.30)" stroke-width="2"/>
+          <circle cx="220" cy="140" r="26" fill="url(#gradMain)"/>
+          <text class="node-label" x="220" y="146" fill="white" style="font-size:11px">JM</text>
+          <text class="node-label" x="220" y="195">Jamal</text>
+          <text class="node-role" x="220" y="212">Support · L2</text>
+          <circle cx="248" cy="118" r="5" fill="#14B8A6"/>
+        </g>
+
+        <!-- Sara top-right -->
+        <g>
+          <circle cx="580" cy="140" r="32" fill="white" stroke="rgba(236,72,153,0.30)" stroke-width="2"/>
+          <circle cx="580" cy="140" r="26" fill="url(#gradS)"/>
+          <text class="node-label" x="580" y="146" fill="white" style="font-size:11px">SL</text>
+          <text class="node-label" x="580" y="195">Sara</text>
+          <text class="node-role" x="580" y="212">Invoice · L3</text>
+          <circle cx="608" cy="118" r="5" fill="#14B8A6"/>
+        </g>
+
+        <!-- Priya bottom-left -->
+        <g>
+          <circle cx="160" cy="320" r="32" fill="white" stroke="rgba(139,92,246,0.30)" stroke-width="2"/>
+          <circle cx="160" cy="320" r="26" fill="url(#gradP)"/>
+          <text class="node-label" x="160" y="326" fill="white" style="font-size:11px">PR</text>
+          <text class="node-label" x="160" y="375">Priya</text>
+          <text class="node-role" x="160" y="392">Recruiting · L2</text>
+          <circle cx="188" cy="298" r="5" fill="#14B8A6"/>
+        </g>
+
+        <!-- Nori (active selected) -->
+        <g>
+          <circle cx="640" cy="320" r="38" fill="white" stroke="var(--purple)" stroke-width="3"/>
+          <circle cx="640" cy="320" r="30" fill="url(#gradN)"/>
+          <text class="node-label" x="640" y="326" fill="white" style="font-size:12px">NM</text>
+          <text class="node-label" x="640" y="378" style="font-weight:700">Nori</text>
+          <text class="node-role" x="640" y="395">Quote · L3</text>
+          <circle cx="671" cy="295" r="5" fill="#14B8A6"/>
+          <text class="node-status" x="640" y="410" style="fill:var(--purple)">SELECTED</text>
+        </g>
+
+        <!-- Mariah bottom-center -->
+        <g>
+          <circle cx="400" cy="470" r="32" fill="white" stroke="rgba(252,211,77,0.50)" stroke-width="2" stroke-dasharray="4 4"/>
+          <circle cx="400" cy="470" r="26" fill="url(#gradM)"/>
+          <text class="node-label" x="400" y="476" fill="white" style="font-size:11px">MA</text>
+          <text class="node-label" x="400" y="525">Mariah</text>
+          <text class="node-role" x="400" y="540" style="display:none">Sales · training</text>
+          <circle cx="428" cy="448" r="5" fill="#FCD34D"/>
+        </g>
+
+        <!-- Gradient defs -->
+        <defs>
+          <linearGradient id="gradMain" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8B5CF6"/>
+            <stop offset="100%" stop-color="#0891B2"/>
+          </linearGradient>
+          <linearGradient id="gradS" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#EC4899"/>
+            <stop offset="100%" stop-color="#FF6B6B"/>
+          </linearGradient>
+          <linearGradient id="gradP" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8B5CF6"/>
+            <stop offset="100%" stop-color="#EC4899"/>
+          </linearGradient>
+          <linearGradient id="gradN" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#14B8A6"/>
+            <stop offset="100%" stop-color="#0891B2"/>
+          </linearGradient>
+          <linearGradient id="gradM" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FF6B6B"/>
+            <stop offset="100%" stop-color="#FCD34D"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <!-- Legend -->
+      <div style="position:absolute;bottom:18px;left:18px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:11.5px;display:flex;gap:18px;color:var(--ink-3);">
+        <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:20px;height:2px;background:rgba(139,92,246,0.5);"></span> Reports to you</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:20px;border-top:1px dashed rgba(139,92,246,0.4);"></span> Shared skill</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#14B8A6;"></span> Active</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#FCD34D;"></span> Training</div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="detail">
+    <div class="detail-h">
+      <div class="av-big">NM</div>
+      <div>
+        <h2>Nori</h2>
+        <div class="role">L3 Quote Operations</div>
+        <span class="status-pill"><span class="dot"></span>Active now</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Currently working on</div>
+      <div class="now-block">Flagged <strong>32% discount</strong> on QT-2024-7283 — exceeds your 25% threshold. <strong>Waiting on your decision.</strong></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">This week</div>
+      <div class="meta-grid">
+        <div class="k">Actions</div><div class="v">19 <span class="mono">(today: 2)</span></div>
+        <div class="k">Spend</div><div class="v"><span class="mono">$0.094</span> <span style="color:var(--ink-3)">(avg $0.005)</span></div>
+        <div class="k">Policy adh.</div><div class="v">100% <span style="color:#0F766E">↑</span></div>
+        <div class="k">Hired</div><div class="v">02 Nov 2025 <span style="color:var(--ink-3)">· 6 months</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Skills · 5</div>
+      <div class="skills-list">
+        <span class="skill">salesforce.read</span>
+        <span class="skill">pricing.validate</span>
+        <span class="skill">policy.discount</span>
+        <span class="skill">audit.escalate</span>
+        <span class="skill">slack.dm</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Collaborates with</div>
+      <div class="connections">
+        <div class="conn-row">
+          <div class="av-tiny" style="background:linear-gradient(135deg,#EC4899,#FF6B6B)">SL</div>
+          <div class="conn-name">Sara</div>
+          <div class="shared">shares <strong>policy.dup</strong></div>
+        </div>
+        <div class="conn-row">
+          <div class="av-tiny" style="background:linear-gradient(135deg,#FF6B6B,#FCD34D)">MA</div>
+          <div class="conn-name">Mariah</div>
+          <div class="shared">shares <strong>salesforce</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn primary">View dashboard</button>
+      <button class="btn">Pause</button>
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

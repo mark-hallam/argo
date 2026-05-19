@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workers — SKYCOT (C3 · Stat Sheet)</title>
+<!-- Design language: C3 — STAT-SHEET CARDS.
+     Athlete profile / fantasy-football card feel. Less playful, more functional.
+     Big stat numbers, mini activity sparkline, level + XP bar, current task as a status line.
+     Still a card aesthetic but ready for daily use. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --bg: #FFFFFF;
+    --line: #E5E7EB;
+    --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 32px 40px 80px; max-width: 1280px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+
+  .filters { display: flex; gap: 6px; margin-bottom: 22px; }
+  .chip { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); font-size: 12px; color: var(--ink-2); font-weight: 500; cursor: pointer; }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+
+  .deck { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  .card {
+    position: relative;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 0;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: var(--line-2);
+    box-shadow: 0 8px 24px -8px rgba(139,92,246,0.18);
+  }
+
+  /* Top header — color band + meta */
+  .card-h {
+    background: var(--gradient);
+    padding: 16px 18px;
+    color: white;
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative;
+  }
+  .card.s .card-h { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.p .card-h { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.n .card-h { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.m .card-h { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .card-h .who-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .card-h .av {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(255,255,255,0.35);
+    display: grid; place-items: center;
+    color: white; font-size: 14px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .card-h .name-block .name {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.015em;
+  }
+  .card-h .name-block .role {
+    font-size: 11.5px; opacity: 0.85;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+  .card-h .level {
+    text-align: right;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em;
+    opacity: 0.9;
+  }
+  .card-h .level .n {
+    display: block;
+    font-size: 28px; font-weight: 800; line-height: 1;
+    letter-spacing: -0.02em;
+    margin-top: 2px;
+  }
+
+  /* XP bar under header */
+  .card-xp {
+    height: 4px;
+    background: rgba(255,255,255,0.20);
+    position: relative;
+  }
+  .card-xp .fill {
+    height: 100%;
+    background: white;
+    border-radius: 0 2px 2px 0;
+  }
+
+  /* Status bar */
+  .card-status {
+    padding: 10px 18px;
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px;
+  }
+  .card-status .status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-weight: 600;
+  }
+  .card-status .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px rgba(20,184,166,0.5); }
+  .card-status .status.training { color: #92400E; } .card-status .status.training .dot { background: var(--yellow); }
+  .card-status .status.active { color: #0F766E; }
+  .card-status .hired {
+    color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+
+  /* Currently doing */
+  .card-now {
+    padding: 12px 18px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  .card-now .now-lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3); font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .card-now strong { color: var(--ink); font-weight: 600; }
+
+  /* Stats grid */
+  .card-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .stat .lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3); font-weight: 700;
+  }
+  .stat .val {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+    margin-top: 2px;
+    color: var(--ink);
+  }
+  .stat .delta {
+    font-size: 10.5px; font-weight: 600; color: #0F766E;
+  }
+  .stat .delta.down { color: var(--coral); }
+
+  /* Sparkline */
+  .card-spark { padding: 8px 18px 12px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+  .card-spark .spark-lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3); font-weight: 700;
+  }
+  .card-spark svg { flex: 1; height: 28px; }
+  .card-spark svg path.fill { fill: rgba(139,92,246,0.10); }
+  .card-spark svg path.line { fill: none; stroke: var(--purple); stroke-width: 1.5; }
+  .card-spark .spark-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-2); font-weight: 600;
+  }
+
+  /* Abilities */
+  .card-abil { padding: 12px 18px; }
+  .card-abil .lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3); font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .card-abil .pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    padding: 3px 8px; border-radius: 5px;
+    background: var(--paper-2);
+    color: var(--ink-2);
+  }
+
+  .card-foot { padding: 12px 18px; display: flex; gap: 8px; border-top: 1px solid var(--line); }
+  .card-foot .btn { flex: 1; justify-content: center; font-size: 12px; padding: 7px 10px; font-weight: 600; }
+  .card-foot .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: none; }
+  .card-foot .btn.ghost {
+    background: var(--bg); border: 1px solid var(--line); color: var(--ink-2);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Your <strong>team</strong></h1>
+        <p>5 active workers · 4 in service · 1 in training · 17 actions today</p>
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn">⊟ Table</button><button class="btn primary">+ Hire</button></div>
+    </div>
+
+    <div class="filters">
+      <span class="chip on">All · 5</span>
+      <span class="chip">Active · 4</span>
+      <span class="chip">Training · 1</span>
+      <span class="chip">Support</span>
+      <span class="chip">Ops</span>
+      <span class="chip">Recruiting</span>
+    </div>
+
+    <div class="deck">
+
+      <div class="card">
+        <div class="card-h">
+          <div class="who-row">
+            <div class="av">JM</div>
+            <div class="name-block"><div class="name">Jamal</div><div class="role">Support · L2</div></div>
+          </div>
+          <div class="level">LVL<span class="n">12</span></div>
+        </div>
+        <div class="card-xp"><div class="fill" style="width:72%"></div></div>
+        <div class="card-status">
+          <span class="status active"><span class="dot"></span>Active now</span>
+          <span class="hired">hired Sept 2025</span>
+        </div>
+        <div class="card-now">
+          <div class="now-lbl">Currently</div>
+          Resolved <strong>SUP-29382</strong> · using KB SK-413 · 2s ago
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="lbl">Today</div><div class="val">4</div><div class="delta">+1</div></div>
+          <div class="stat"><div class="lbl">Week</div><div class="val">38</div><div class="delta">+12%</div></div>
+          <div class="stat"><div class="lbl">Resolve</div><div class="val">94%</div><div class="delta">↑2pt</div></div>
+          <div class="stat"><div class="lbl">Cost/act</div><div class="val">$.003</div><div class="delta">↓5%</div></div>
+        </div>
+        <div class="card-spark">
+          <span class="spark-lbl">7d</span>
+          <svg viewBox="0 0 200 28" preserveAspectRatio="none">
+            <path class="fill" d="M0,28 L0,18 L20,16 L40,18 L60,12 L80,8 L100,14 L120,9 L140,5 L160,7 L180,3 L200,4 L200,28 Z"/>
+            <path class="line" d="M0,18 L20,16 L40,18 L60,12 L80,8 L100,14 L120,9 L140,5 L160,7 L180,3 L200,4"/>
+          </svg>
+          <span class="spark-val">38</span>
+        </div>
+        <div class="card-abil">
+          <div class="lbl">Abilities · 7</div>
+          <div class="pills">
+            <span class="pill">zendesk.read</span>
+            <span class="pill">zendesk.reply</span>
+            <span class="pill">kb.search</span>
+            <span class="pill">+4</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <button class="btn primary">Dashboard →</button>
+          <button class="btn ghost">Pause</button>
+        </div>
+      </div>
+
+      <div class="card s">
+        <div class="card-h">
+          <div class="who-row">
+            <div class="av">SL</div>
+            <div class="name-block"><div class="name">Sara</div><div class="role">Invoice · L3</div></div>
+          </div>
+          <div class="level">LVL<span class="n">18</span></div>
+        </div>
+        <div class="card-xp"><div class="fill" style="width:88%"></div></div>
+        <div class="card-status">
+          <span class="status active"><span class="dot"></span>Active now</span>
+          <span class="hired">hired Sept 2025</span>
+        </div>
+        <div class="card-now">
+          <div class="now-lbl">Currently</div>
+          Extracted <strong>INV-2024-08741</strong> · 12 lines, $48,290 · 4s ago
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="lbl">Today</div><div class="val">3</div><div class="delta">0</div></div>
+          <div class="stat"><div class="lbl">Week</div><div class="val">52</div><div class="delta">+8%</div></div>
+          <div class="stat"><div class="lbl">Extract</div><div class="val">99.6%</div><div class="delta">↑.2pt</div></div>
+          <div class="stat"><div class="lbl">Cost/act</div><div class="val">$.008</div><div class="delta">↓2%</div></div>
+        </div>
+        <div class="card-spark">
+          <span class="spark-lbl">7d</span>
+          <svg viewBox="0 0 200 28" preserveAspectRatio="none">
+            <path class="fill" d="M0,28 L0,16 L20,12 L40,8 L60,10 L80,5 L100,4 L120,7 L140,3 L160,5 L180,2 L200,4 L200,28 Z"/>
+            <path class="line" d="M0,16 L20,12 L40,8 L60,10 L80,5 L100,4 L120,7 L140,3 L160,5 L180,2 L200,4"/>
+          </svg>
+          <span class="spark-val">52</span>
+        </div>
+        <div class="card-abil">
+          <div class="lbl">Abilities · 7</div>
+          <div class="pills">
+            <span class="pill">ocr.read</span>
+            <span class="pill">netsuite.write</span>
+            <span class="pill">policy.dup</span>
+            <span class="pill">+4</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <button class="btn primary">Dashboard →</button>
+          <button class="btn ghost">Pause</button>
+        </div>
+      </div>
+
+      <div class="card p">
+        <div class="card-h">
+          <div class="who-row">
+            <div class="av">PR</div>
+            <div class="name-block"><div class="name">Priya</div><div class="role">Recruiting · L2</div></div>
+          </div>
+          <div class="level">LVL<span class="n">9</span></div>
+        </div>
+        <div class="card-xp"><div class="fill" style="width:54%"></div></div>
+        <div class="card-status">
+          <span class="status active"><span class="dot"></span>Active now</span>
+          <span class="hired">hired Oct 2025</span>
+        </div>
+        <div class="card-now">
+          <div class="now-lbl">Currently</div>
+          Drafted rejection to <strong>Sara Lin</strong> · awaiting your approval
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="lbl">Today</div><div class="val">5</div><div class="delta">+3</div></div>
+          <div class="stat"><div class="lbl">Week</div><div class="val">28</div><div class="delta">+4%</div></div>
+          <div class="stat"><div class="lbl">Match</div><div class="val">87%</div><div class="delta">+1pt</div></div>
+          <div class="stat"><div class="lbl">Cost/act</div><div class="val">$.014</div><div class="delta">↓1%</div></div>
+        </div>
+        <div class="card-spark">
+          <span class="spark-lbl">7d</span>
+          <svg viewBox="0 0 200 28" preserveAspectRatio="none">
+            <path class="fill" d="M0,28 L0,12 L20,14 L40,16 L60,11 L80,15 L100,18 L120,14 L140,16 L160,12 L180,10 L200,8 L200,28 Z"/>
+            <path class="line" d="M0,12 L20,14 L40,16 L60,11 L80,15 L100,18 L120,14 L140,16 L160,12 L180,10 L200,8"/>
+          </svg>
+          <span class="spark-val">28</span>
+        </div>
+        <div class="card-abil">
+          <div class="lbl">Abilities · 6</div>
+          <div class="pills">
+            <span class="pill">greenhouse.read</span>
+            <span class="pill">jd.match</span>
+            <span class="pill">email.draft</span>
+            <span class="pill">+3</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <button class="btn primary">Dashboard →</button>
+          <button class="btn ghost">Pause</button>
+        </div>
+      </div>
+
+      <div class="card n">
+        <div class="card-h">
+          <div class="who-row">
+            <div class="av">NM</div>
+            <div class="name-block"><div class="name">Nori</div><div class="role">Quote · L3</div></div>
+          </div>
+          <div class="level">LVL<span class="n">15</span></div>
+        </div>
+        <div class="card-xp"><div class="fill" style="width:81%"></div></div>
+        <div class="card-status">
+          <span class="status active"><span class="dot"></span>Active now</span>
+          <span class="hired">hired Nov 2025</span>
+        </div>
+        <div class="card-now">
+          <div class="now-lbl">Currently</div>
+          Flagged <strong>32% discount</strong> on QT-2024-7283 · waiting on you
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="lbl">Today</div><div class="val">2</div><div class="delta">0</div></div>
+          <div class="stat"><div class="lbl">Week</div><div class="val">19</div><div class="delta">+0%</div></div>
+          <div class="stat"><div class="lbl">Policy</div><div class="val">100%</div><div class="delta">=</div></div>
+          <div class="stat"><div class="lbl">Cost/act</div><div class="val">$.005</div><div class="delta">↓3%</div></div>
+        </div>
+        <div class="card-spark">
+          <span class="spark-lbl">7d</span>
+          <svg viewBox="0 0 200 28" preserveAspectRatio="none">
+            <path class="fill" d="M0,28 L0,14 L20,12 L40,15 L60,13 L80,10 L100,14 L120,12 L140,11 L160,13 L180,12 L200,14 L200,28 Z"/>
+            <path class="line" d="M0,14 L20,12 L40,15 L60,13 L80,10 L100,14 L120,12 L140,11 L160,13 L180,12 L200,14"/>
+          </svg>
+          <span class="spark-val">19</span>
+        </div>
+        <div class="card-abil">
+          <div class="lbl">Abilities · 5</div>
+          <div class="pills">
+            <span class="pill">salesforce.read</span>
+            <span class="pill">pricing.val</span>
+            <span class="pill">policy.disc</span>
+            <span class="pill">+2</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <button class="btn primary">Dashboard →</button>
+          <button class="btn ghost">Pause</button>
+        </div>
+      </div>
+
+      <div class="card m">
+        <div class="card-h">
+          <div class="who-row">
+            <div class="av">MA</div>
+            <div class="name-block"><div class="name">Mariah</div><div class="role">Sales · L2</div></div>
+          </div>
+          <div class="level">LVL<span class="n">5</span></div>
+        </div>
+        <div class="card-xp"><div class="fill" style="width:62%"></div></div>
+        <div class="card-status">
+          <span class="status training"><span class="dot"></span>Training · 62%</span>
+          <span class="hired">hired Apr 2026</span>
+        </div>
+        <div class="card-now">
+          <div class="now-lbl">Currently</div>
+          Drafted RFP for <strong>Tomás Industries</strong> · 1,240 words · 4 sections
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="lbl">Today</div><div class="val">3</div><div class="delta">+1</div></div>
+          <div class="stat"><div class="lbl">Week</div><div class="val">14</div><div class="delta">+22%</div></div>
+          <div class="stat"><div class="lbl">Approv.</div><div class="val">82%</div><div class="delta">↑5pt</div></div>
+          <div class="stat"><div class="lbl">Cost/act</div><div class="val">$.018</div><div class="delta">↓8%</div></div>
+        </div>
+        <div class="card-spark">
+          <span class="spark-lbl">7d</span>
+          <svg viewBox="0 0 200 28" preserveAspectRatio="none">
+            <path class="fill" d="M0,28 L0,22 L20,20 L40,18 L60,16 L80,14 L100,15 L120,12 L140,10 L160,8 L180,6 L200,4 L200,28 Z"/>
+            <path class="line" d="M0,22 L20,20 L40,18 L60,16 L80,14 L100,15 L120,12 L140,10 L160,8 L180,6 L200,4"/>
+          </svg>
+          <span class="spark-val">14</span>
+        </div>
+        <div class="card-abil">
+          <div class="lbl">Abilities · 8</div>
+          <div class="pills">
+            <span class="pill">salesforce.write</span>
+            <span class="pill">rfp.draft</span>
+            <span class="pill">gcal.sched</span>
+            <span class="pill">+5</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <button class="btn primary">Training →</button>
+          <button class="btn ghost">Promote</button>
+        </div>
+      </div>
+
+      <div class="card" style="background: transparent; border: 2px dashed var(--line-2); box-shadow: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 520px; cursor: pointer;">
+        <div style="text-align: center; padding: 32px;">
+          <div style="width: 56px; height: 56px; border-radius: 14px; background: var(--paper-2); display: grid; place-items: center; margin: 0 auto 14px; font-size: 26px; font-weight: 300; color: var(--ink-3);">+</div>
+          <div style="font-size: 15px; font-weight: 700; color: var(--ink); letter-spacing: -0.015em;">Hire a teammate</div>
+          <div style="font-size: 12.5px; color: var(--ink-3); margin-top: 4px;">7 open slots · browse 24 cohorts</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

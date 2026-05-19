@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audit — SKYCOT (B3c · Explorer with Detail Drawer)</title>
+<!-- Design language: B3c — Block explorer + slide-out detail drawer.
+     Keeps B3's spacious block-list (good for screenshots and demos),
+     but clicking a block opens a right-side detail drawer with:
+       - full hash chain (parent → this → next) in monospace
+       - decrypted JSON event body
+       - replay button, approve/reject for pending
+       - metadata grid (model, latency, tokens, policy hits, skill chain)
+     The "shipping product" answer — viral hero + deep-dive workflow. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --line: #E5E7EB;
+    --line-2: #D1D5DB;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding: 12px 32px; display: flex; align-items: center; gap: 22px;
+    height: 56px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 15px; letter-spacing: 0.06em; }
+  .topnav { display: flex; gap: 2px; }
+  .topnav a { padding: 6px 12px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-size: 13.5px; font-weight: 500; }
+  .topnav a.active { background: var(--paper-2); color: var(--ink); }
+  .search-big {
+    flex: 1; max-width: 500px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px; border-radius: 7px;
+    background: var(--paper); border: 1px solid var(--line);
+    color: var(--ink-3); font-size: 12.5px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .search-big .kbd { margin-left: auto; padding: 1px 6px; border-radius: 3px; background: var(--paper-2); font-size: 10.5px; }
+  .right-side { display: flex; gap: 10px; align-items: center; }
+  .right-side .ws { padding: 5px 11px; border-radius: 6px; background: var(--paper-2); font-size: 12.5px; font-weight: 500; }
+  .right-side .av {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--gradient); color: white;
+    display: grid; place-items: center; font-family: 'Audiowide', sans-serif; font-size: 11px;
+  }
+
+  /* Body grid: list + drawer */
+  .body-grid {
+    display: grid; grid-template-columns: 1fr 520px;
+    height: calc(100vh - 56px);
+  }
+
+  /* Left list pane */
+  .list-pane { overflow-y: auto; padding: 22px 28px 60px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 4px; }
+  .page-h h1 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 24px; font-weight: 400; letter-spacing: 0.02em;
+    margin: 0;
+  }
+  .page-h p { color: var(--ink-3); margin: 4px 0 0; font-size: 13px; }
+
+  /* Chain hero */
+  .chain-hero {
+    margin-top: 16px;
+    background: linear-gradient(135deg, rgba(20,184,166,0.06), rgba(8,145,178,0.06));
+    border: 1px solid rgba(20,184,166,0.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .chain-hero .check {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal), var(--cyan));
+    color: white; display: grid; place-items: center;
+    font-size: 18px; font-weight: 700;
+  }
+  .chain-hero h3 {
+    margin: 0;
+    font-family: 'Audiowide', sans-serif;
+    font-size: 13px; font-weight: 400; letter-spacing: 0.04em;
+    color: #0F766E;
+  }
+  .chain-hero p { margin: 2px 0 0; font-size: 12px; color: var(--ink-3); }
+  .chain-hero p .h { font-family: 'JetBrains Mono', monospace; color: var(--ink-2); }
+  .chain-hero .actions { margin-left: auto; display: flex; gap: 6px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 12.5px; font-weight: 500;
+    border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer;
+  }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Tabs */
+  .section-h {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 20px 0 12px;
+  }
+  .section-h h2 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 13px; font-weight: 400; letter-spacing: 0.06em;
+    margin: 0; text-transform: uppercase; color: var(--ink-3);
+  }
+  .tabs { display: flex; gap: 2px; }
+  .tabs a {
+    padding: 5px 10px; border-radius: 5px; font-size: 12px;
+    color: var(--ink-3); text-decoration: none;
+  }
+  .tabs a.on { background: var(--paper-2); color: var(--ink); font-weight: 500; }
+
+  /* Block list */
+  .blocks { position: relative; }
+  .blocks::before {
+    content: ''; position: absolute;
+    left: 32px; top: 28px; bottom: 28px; width: 2px;
+    background: linear-gradient(180deg, var(--purple), var(--cyan));
+    opacity: 0.25; z-index: 0;
+  }
+  .block {
+    display: grid; grid-template-columns: 64px 1fr; gap: 12px;
+    position: relative; z-index: 1; margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .block .num-col { text-align: right; padding-top: 14px; }
+  .block .blk-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--bg); border: 2px solid var(--purple);
+    color: var(--purple);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    margin-right: 16px;
+  }
+  .block.warn .blk-num { border-color: var(--yellow); color: #92400E; background: #FFFBEB; }
+  .block.bad .blk-num { border-color: var(--coral); color: #B91C1C; background: #FEF2F2; }
+
+  .block-card {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 18px;
+    transition: border-color 0.1s, box-shadow 0.1s;
+  }
+  .block:hover .block-card { border-color: var(--line-2); }
+  .block.active .block-card {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.10);
+  }
+  .block.warn .block-card { border-left: 3px solid var(--yellow); }
+  .block.bad .block-card { border-left: 3px solid var(--coral); }
+
+  .block-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+  .block-top-l { display: flex; align-items: center; gap: 10px; }
+  .av {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: grid; place-items: center; color: white;
+    font-family: 'Audiowide', sans-serif; font-size: 10px; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .who { font-weight: 600; color: var(--ink); }
+  .who .role { color: var(--ink-3); font-weight: 400; font-size: 12px; }
+  .meta { font-size: 12px; color: var(--ink-3); }
+  .meta .ts { font-family: 'JetBrains Mono', monospace; color: var(--ink-2); }
+  .meta .kind {
+    margin-left: 10px; padding: 1px 6px; border-radius: 4px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pill .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .pill.ok { background: rgba(20,184,166,0.10); color: #0F766E; } .pill.ok .dot { background: var(--teal); }
+  .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; } .pill.warn .dot { background: var(--yellow); }
+  .pill.bad { background: rgba(255,107,107,0.12); color: #B91C1C; } .pill.bad .dot { background: var(--coral); }
+
+  .block-body { font-size: 13px; color: var(--ink-2); margin-bottom: 10px; }
+  .block-body strong { color: var(--ink); font-weight: 600; }
+
+  /* Compact hash chain inside block card */
+  .hash-chain {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 8px; align-items: center;
+    padding: 8px 10px;
+    background: var(--paper);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  }
+  .hash-cell { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .hash-cell .lbl {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-4); font-family: 'Inter', sans-serif; font-weight: 600;
+  }
+  .hash-cell .h { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hash-cell.self .h { color: var(--ink); font-weight: 500; }
+  .hash-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--gradient); color: white;
+    font-size: 11px; font-weight: 700;
+  }
+  .block-foot { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; }
+  .block-foot .left { display: flex; gap: 12px; color: var(--ink-3); }
+  .block-foot .left .cost { font-family: 'JetBrains Mono', monospace; color: var(--ink-2); }
+
+  /* Drawer (right pane) */
+  .drawer {
+    background: var(--bg);
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .drawer-head {
+    padding: 16px 22px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.04), rgba(8,145,178,0.04));
+    border-bottom: 1px solid var(--line);
+  }
+  .drawer-head .top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .drawer-head .blk-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--purple); font-weight: 600;
+    background: rgba(139,92,246,0.08);
+    padding: 3px 8px; border-radius: 4px;
+    display: inline-block;
+  }
+  .drawer-head .close {
+    background: none; border: none; color: var(--ink-3); font-size: 18px;
+    cursor: pointer; padding: 4px 8px; border-radius: 4px;
+  }
+  .drawer-head .close:hover { background: var(--paper-2); color: var(--ink); }
+  .drawer-head h2 {
+    margin: 0;
+    font-family: 'Audiowide', sans-serif; font-size: 18px; font-weight: 400; letter-spacing: 0.02em;
+  }
+  .drawer-head .sub { margin-top: 4px; font-size: 13px; color: var(--ink-3); }
+  .drawer-actions { display: flex; gap: 6px; margin-top: 12px; }
+  .drawer-actions .approve { background: var(--teal); color: white; border: none; }
+  .drawer-actions .reject { color: var(--coral); border-color: var(--coral); }
+
+  .drawer-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+  .section { margin-bottom: 22px; }
+  .section-label {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 400;
+    margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .v-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 999px;
+    background: rgba(20,184,166,0.10); color: #0F766E;
+    font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600;
+    text-transform: none; letter-spacing: 0;
+  }
+  .v-tag .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+
+  .chain-detail {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .chain-row {
+    display: grid; grid-template-columns: 64px 1fr; gap: 10px;
+    align-items: center;
+    padding: 7px 10px; border-radius: 5px;
+  }
+  .chain-row.this { background: rgba(139,92,246,0.07); }
+  .chain-row .lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 700;
+  }
+  .chain-row .h {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink); overflow-wrap: anywhere;
+  }
+  .chain-row.this .h { color: var(--purple); font-weight: 600; }
+  .chain-row.this .lbl { color: var(--purple); }
+  .chain-arrow { text-align: center; color: var(--ink-4); font-family: monospace; font-size: 11px; margin: 2px 0; }
+
+  .meta-grid {
+    display: grid; grid-template-columns: 110px 1fr; gap: 6px 14px;
+    font-size: 12.5px;
+  }
+  .meta-grid .k { color: var(--ink-3); text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.08em; padding-top: 2px; font-weight: 600; }
+  .meta-grid .v { color: var(--ink); font-weight: 500; }
+  .meta-grid .v .mono { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-2); }
+  .meta-grid .v .badge {
+    background: rgba(252,211,77,0.20); color: #92400E;
+    padding: 1px 6px; border-radius: 3px;
+    font-size: 10.5px; font-weight: 700;
+  }
+
+  pre.json {
+    background: #0c0c14; color: #E4E4E7;
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    line-height: 1.65;
+    overflow-x: auto;
+    margin: 0;
+  }
+  pre.json .k { color: #A78BFA; }
+  pre.json .s { color: #5EEAD4; }
+  pre.json .n { color: #FCD34D; }
+  pre.json .c { color: #71717A; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <nav class="topnav">
+    <a href="#">Home</a><a href="#">Workers</a><a href="#">Team</a><a class="active" href="#">Audit</a><a href="#">Skills</a><a href="#">Cohorts</a>
+  </nav>
+  <div class="search-big">⌕ search by block #, worker, hash, ticket… <span class="kbd">⌘K</span></div>
+  <div class="right-side"><span class="ws">Acme Corp · prod</span><div class="av">MH</div></div>
+</header>
+
+<div class="body-grid">
+
+  <main class="list-pane">
+    <div class="crumb">Audit › Chain explorer</div>
+    <div class="page-h">
+      <h1>Block #1,247 · chain head</h1>
+      <p>Click any block to inspect the hash chain, decrypted event body, and replay it.</p>
+    </div>
+
+    <div class="chain-hero">
+      <div class="check">✓</div>
+      <div>
+        <h3>Chain verified · 1,247 blocks · 0 breaks</h3>
+        <p>Chain head <span class="h">812d499b…0ab7</span> · last verify 2s ago</p>
+      </div>
+      <div class="actions">
+        <button class="btn">⤓ Proof</button>
+        <button class="btn primary">↻ Re-verify</button>
+      </div>
+    </div>
+
+    <div class="section-h">
+      <h2>Recent blocks · 17 today</h2>
+      <div class="tabs">
+        <a class="on" href="#">All</a>
+        <a href="#">Pending · 7</a>
+        <a href="#">Refused · 1</a>
+      </div>
+    </div>
+
+    <div class="blocks">
+      <div class="block"><div class="num-col"><div class="blk-num">1247</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av">JM</div><div><div class="who">Jamal <span class="role">· Support</span></div><div class="meta"><span class="ts">10:42:18</span><span class="kind">tool.result</span></div></div></div><div><span class="pill ok"><span class="dot"></span>Succeeded</span></div></div><div class="block-body">Resolved <strong>SUP-29382</strong> using KB <strong>SK-413</strong></div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">d4c81a9f…2e4a</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">7f3a91c2…b8e6</span></div></div></div></div>
+
+      <div class="block"><div class="num-col"><div class="blk-num">1246</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av s">SL</div><div><div class="who">Sara <span class="role">· Invoice ops</span></div><div class="meta"><span class="ts">10:38:02</span><span class="kind">tool.result</span></div></div></div><div><span class="pill ok"><span class="dot"></span>Succeeded</span></div></div><div class="block-body">Extracted line items from <strong>INV-2024-08741</strong> · 12 lines · $48,290</div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">7f3a91c2…b8e6</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">a1b9c3e4…f209</span></div></div></div></div>
+
+      <div class="block"><div class="num-col"><div class="blk-num">1245</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av p">PR</div><div><div class="who">Priya <span class="role">· Recruiting</span></div><div class="meta"><span class="ts">10:31:55</span><span class="kind">tool.result</span></div></div></div><div><span class="pill ok"><span class="dot"></span>Succeeded</span></div></div><div class="block-body">Screened <strong>Diego Alvarez</strong> vs JD-2024-08 · match 8.2/10</div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">a1b9c3e4…f209</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">e8d2447a…1c33</span></div></div></div></div>
+
+      <div class="block"><div class="num-col"><div class="blk-num">1244</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av n">NM</div><div><div class="who">Nori <span class="role">· Quote ops</span></div><div class="meta"><span class="ts">10:24:31</span><span class="kind">tool.result</span></div></div></div><div><span class="pill ok"><span class="dot"></span>Succeeded</span></div></div><div class="block-body">Validated <strong>QT-2024-7283</strong> vs pricing rules</div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">e8d2447a…1c33</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">3c5f8e09…d447</span></div></div></div></div>
+
+      <div class="block"><div class="num-col"><div class="blk-num">1243</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av m">MA</div><div><div class="who">Mariah <span class="role">· Sales ops</span></div><div class="meta"><span class="ts">10:18:08</span><span class="kind">tool.result</span></div></div></div><div><span class="pill ok"><span class="dot"></span>Succeeded</span></div></div><div class="block-body">Drafted RFP for <strong>Tomás Industries</strong> · 1,240 words</div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">3c5f8e09…d447</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">b2a7c193…ee01</span></div></div></div></div>
+
+      <div class="block warn active"><div class="num-col"><div class="blk-num">1242</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av n">NM</div><div><div class="who">Nori <span class="role">· Quote ops</span></div><div class="meta"><span class="ts">10:11:42</span><span class="kind">approval.ask</span></div></div></div><div><span class="pill warn"><span class="dot"></span>Pending you</span></div></div><div class="block-body">Flagged <strong>32% discount</strong> on QT-2024-7283 · exceeds 25% threshold</div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">b2a7c193…ee01</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">9d142a8c…7b15</span></div></div></div></div>
+
+      <div class="block bad"><div class="num-col"><div class="blk-num">1241</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av s">SL</div><div><div class="who">Sara <span class="role">· Invoice ops</span></div><div class="meta"><span class="ts">10:04:17</span><span class="kind">policy.refuse</span></div></div></div><div><span class="pill bad"><span class="dot"></span>Refused</span></div></div><div class="block-body">Refused duplicate invoice <strong>INV-2024-08739</strong></div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">9d142a8c…7b15</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">f08c1973…aab2</span></div></div></div></div>
+
+      <div class="block warn"><div class="num-col"><div class="blk-num">1240</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av p">PR</div><div><div class="who">Priya <span class="role">· Recruiting</span></div><div class="meta"><span class="ts">09:58:09</span><span class="kind">approval.ask</span></div></div></div><div><span class="pill warn"><span class="dot"></span>Pending you</span></div></div><div class="block-body">Drafted rejection email to <strong>Sara Lin</strong> · awaiting send approval</div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">f08c1973…aab2</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">5a73e2c8…9f44</span></div></div></div></div>
+
+      <div class="block"><div class="num-col"><div class="blk-num">1239</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av m">MA</div><div><div class="who">Mariah <span class="role">· Sales ops</span></div><div class="meta"><span class="ts">09:52:48</span><span class="kind">tool.result</span></div></div></div><div><span class="pill ok"><span class="dot"></span>Succeeded</span></div></div><div class="block-body">Scheduled Q3 renewal review with <strong>Acme Tech</strong></div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">5a73e2c8…9f44</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">cc40b8a7…03d1</span></div></div></div></div>
+
+      <div class="block"><div class="num-col"><div class="blk-num">1238</div></div><div class="block-card"><div class="block-top"><div class="block-top-l"><div class="av">JM</div><div><div class="who">Jamal <span class="role">· Support</span></div><div class="meta"><span class="ts">09:47:33</span><span class="kind">tool.result</span></div></div></div><div><span class="pill ok"><span class="dot"></span>Succeeded</span></div></div><div class="block-body">Escalated <strong>SUP-29355</strong> to <strong>@lead-support</strong></div><div class="hash-chain"><div class="hash-cell"><span class="lbl">Parent</span><span class="h">cc40b8a7…03d1</span></div><div class="hash-arrow">→</div><div class="hash-cell self"><span class="lbl">This block</span><span class="h">812d499b…0ab7</span></div></div></div></div>
+    </div>
+  </main>
+
+  <aside class="drawer">
+    <div class="drawer-head">
+      <div class="top">
+        <div>
+          <span class="blk-tag">Block #1,242</span>
+        </div>
+        <button class="close">✕</button>
+      </div>
+      <h2>Discount approval requested</h2>
+      <div class="sub">Nori flagged a 32% discount on QT-2024-7283 — exceeds your 25% threshold</div>
+      <div class="drawer-actions">
+        <button class="btn approve" style="background:var(--teal);color:white;border-color:var(--teal)">✓ Approve discount</button>
+        <button class="btn reject" style="color:var(--coral);border-color:var(--coral)">✕ Reject</button>
+        <button class="btn">💬 Discuss</button>
+      </div>
+    </div>
+
+    <div class="drawer-body">
+      <div class="section">
+        <div class="section-label">Hash chain <span class="v-tag"><span class="dot"></span>verified · sig OK</span></div>
+        <div class="chain-detail">
+          <div class="chain-row">
+            <div class="lbl">Parent</div>
+            <div class="h">b2a7c193e441f8d62905a7c8e1d4f0b6a392c1e8d4f7a5b3c2e6d1f8a4b9c7d5…ee01</div>
+          </div>
+          <div class="chain-arrow">↓ sha-256 ↓</div>
+          <div class="chain-row this">
+            <div class="lbl">This block</div>
+            <div class="h">9d142a8c80f6e1bd9a44e7c1d2f3a6b8c5e4d7a1f8b9c2e6d3a4f5b7c8e9d0a1…7b15</div>
+          </div>
+          <div class="chain-arrow">↓ chained into ↓</div>
+          <div class="chain-row">
+            <div class="lbl">Next</div>
+            <div class="h">f08c1973aacd55b14a8e9c1d4f2a5b8c3e7d6a4f1b9c8e5d2a6f3b4c7e8d1a5…aab2</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Metadata</div>
+        <div class="meta-grid">
+          <div class="k">Tenant</div><div class="v">acme-corp</div>
+          <div class="k">Worker</div><div class="v">Nori <span class="mono">// quote_validator_v3</span></div>
+          <div class="k">Triggered by</div><div class="v">QT-2024-7283 created in Salesforce · 8m earlier</div>
+          <div class="k">Model</div><div class="v"><span class="mono">claude-sonnet-4-6</span></div>
+          <div class="k">Latency</div><div class="v"><span class="mono">2.0s</span> · 1,847 in / 230 out tokens</div>
+          <div class="k">Policy hit</div><div class="v"><span class="mono">discount.max=25%</span> <span class="badge">VIOLATION · WARN</span></div>
+          <div class="k">SLA</div><div class="v">expires <span class="mono">2026-05-18T12:11:42Z</span> (1h 22m)</div>
+          <div class="k">Replay</div><div class="v"><span class="mono">deterministic</span> ✓ verified 10:12</div>
+          <div class="k">Skill chain</div><div class="v"><span class="mono">crm.fetch_quote → pricing.discount_review → audit.escalate</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Event body <span class="v-tag" style="background:rgba(139,92,246,0.10);color:var(--purple)"><span class="dot" style="background:var(--purple)"></span>decrypted in-tenant</span></div>
+<pre class="json">{
+  <span class="k">"kind"</span>: <span class="s">"approval.ask"</span>,
+  <span class="k">"reason"</span>: <span class="s">"discount_exceeds_threshold"</span>,
+  <span class="k">"target"</span>: {
+    <span class="k">"quote_id"</span>: <span class="s">"QT-2024-7283"</span>,
+    <span class="k">"customer"</span>: <span class="s">"Tomás Industries"</span>,
+    <span class="k">"list_price"</span>: <span class="n">48290.00</span>,
+    <span class="k">"discount_pct"</span>: <span class="n">32.0</span>,
+    <span class="k">"discounted_total"</span>: <span class="n">32837.20</span>
+  },
+  <span class="k">"policy"</span>: {
+    <span class="k">"rule"</span>: <span class="s">"discount.max"</span>,
+    <span class="k">"threshold"</span>: <span class="n">25.0</span>,
+    <span class="k">"action_on_violation"</span>: <span class="s">"escalate"</span>
+  },
+  <span class="k">"requires_approval_from"</span>: <span class="s">"role:sales_leader"</span>,
+  <span class="k">"sla_expires_at"</span>: <span class="s">"2026-05-18T12:11:42Z"</span>
+}</pre>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+</body>
+</html>

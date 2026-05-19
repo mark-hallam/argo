@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Worker · Jamal — SKYCOT (B · Analytics Dashboard)</title>
+<!-- Design language: B — Personal analytics dashboard.
+     Slim worker header at top. Big KPI grid. Time-series charts. Recent activity below.
+     Like Stripe Atlas / Linear cycle dashboard / Vercel project view. Less viral, more functional. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 36px 80px; max-width: 1500px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 10px; }
+  .crumb a { color: var(--ink-3); text-decoration: none; }
+
+  /* SLIM HEADER */
+  .header { display: flex; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  .header .av { width: 52px; height: 52px; border-radius: 13px; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
+  .header .info { flex: 1; }
+  .header h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 10px; }
+  .header h1 .status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: rgba(20,184,166,0.10); color: #0F766E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+  .header h1 .status .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+  .header .meta { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .header .meta strong { color: var(--ink); font-weight: 600; }
+  .header .actions { display: flex; gap: 6px; }
+  .btn { padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+  .tabs a { padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--ink-3); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs a.on { color: var(--ink); border-bottom-color: var(--purple); }
+
+  /* KPI GRID */
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 22px; }
+  .kpi { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .kpi .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 600; }
+  .kpi .v { font-size: 30px; font-weight: 300; letter-spacing: -0.025em; margin-top: 4px; }
+  .kpi.grad .v { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 600; }
+  .kpi .d { font-size: 11.5px; color: #0F766E; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .kpi .d.down { color: var(--coral); }
+
+  /* CHARTS */
+  .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 22px; }
+  .chart-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .chart-card-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  .chart-card-h h3 { margin: 0; font-size: 13px; font-weight: 700; }
+  .chart-card-h .range { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); display: flex; gap: 4px; }
+  .chart-card-h .range span { padding: 2px 7px; border-radius: 4px; cursor: pointer; }
+  .chart-card-h .range .on { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+
+  .activity-chart { width: 100%; height: 200px; }
+  .activity-chart .area { fill: rgba(139,92,246,0.10); }
+  .activity-chart .line { fill: none; stroke: var(--purple); stroke-width: 2; }
+  .activity-chart .grid line { stroke: var(--line); stroke-width: 1; }
+  .activity-chart text { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--ink-3); }
+  .activity-chart .dot { fill: var(--purple); }
+
+  /* Donut */
+  .donut-chart { width: 100%; height: 200px; display: grid; place-items: center; }
+  .donut-svg { width: 140px; height: 140px; }
+  .donut-svg circle.bg { stroke: var(--paper-2); stroke-width: 12; fill: transparent; }
+  .donut-svg circle.fg { stroke: url(#g); stroke-width: 12; fill: transparent; stroke-dasharray: 339.3; stroke-dashoffset: 20.4; transform: rotate(-90deg); transform-origin: 50% 50%; stroke-linecap: round; }
+  .donut-legend { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .donut-legend .row { display: flex; align-items: center; gap: 8px; }
+  .donut-legend .row .d { width: 8px; height: 8px; border-radius: 50%; }
+  .donut-legend strong { font-family: 'JetBrains Mono', monospace; margin-left: auto; }
+
+  /* RECENT TABLE */
+  .recent-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .recent-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .recent-h h3 { margin: 0; font-size: 14px; font-weight: 700; }
+  .recent-h a { color: var(--purple); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+  .recent-row { display: grid; grid-template-columns: 80px 110px 1fr 80px 90px; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: center; }
+  .recent-row:last-child { border-bottom: none; }
+  .recent-row .ts { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); }
+  .recent-row .ts strong { color: var(--ink); font-weight: 600; display: block; }
+  .recent-row .kind { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; background: var(--paper-2); color: var(--ink-2); display: inline-block; }
+  .recent-row .what { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recent-row .what strong { color: var(--ink); font-weight: 600; }
+  .recent-row .cost { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); font-weight: 600; text-align: right; }
+  .recent-row .status { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(20,184,166,0.10); color: #0F766E; font-size: 11px; font-weight: 600; }
+  .recent-row .status .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb"><a href="#">Workers</a> › Jamal</div>
+
+    <div class="header">
+      <div class="av">JM</div>
+      <div class="info">
+        <h1>Jamal <span class="status"><span class="d"></span>ACTIVE NOW</span></h1>
+        <div class="meta">L2 Support Specialist · cohort v3.2 · serial <strong>#001</strong> · hired <strong>12 Sept 2025</strong> · last action <strong>2s ago</strong></div>
+      </div>
+      <div class="actions">
+        <button class="btn">⏸ Pause</button>
+        <button class="btn">▷ Replay</button>
+        <button class="btn primary">⚙ Configure</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <a class="on" href="#">Overview</a>
+      <a href="#">Activity</a>
+      <a href="#">Skills</a>
+      <a href="#">Cost</a>
+      <a href="#">Audit</a>
+      <a href="#">Settings</a>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi grad"><div class="l">Actions today</div><div class="v">4</div><div class="d">↑ 1 vs yest.</div></div>
+      <div class="kpi"><div class="l">7d throughput</div><div class="v">38</div><div class="d">↑ 12% vs prior wk</div></div>
+      <div class="kpi"><div class="l">Resolve rate</div><div class="v">94%</div><div class="d">↑ 2pt</div></div>
+      <div class="kpi"><div class="l">Cost / action</div><div class="v">$.003</div><div class="d">↓ 5%</div></div>
+      <div class="kpi"><div class="l">Avg latency</div><div class="v">1.8s</div><div class="d">stable</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-card">
+        <div class="chart-card-h">
+          <h3>Activity · last 30 days</h3>
+          <div class="range"><span>7d</span><span class="on">30d</span><span>90d</span><span>1y</span></div>
+        </div>
+        <svg class="activity-chart" viewBox="0 0 600 180" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#0891B2"/></linearGradient>
+          </defs>
+          <g class="grid">
+            <line x1="0" y1="0" x2="600" y2="0"/>
+            <line x1="0" y1="45" x2="600" y2="45"/>
+            <line x1="0" y1="90" x2="600" y2="90"/>
+            <line x1="0" y1="135" x2="600" y2="135"/>
+            <line x1="0" y1="180" x2="600" y2="180"/>
+          </g>
+          <path class="area" d="M0,180 L0,150 L30,140 L60,135 L90,125 L120,120 L150,130 L180,115 L210,105 L240,110 L270,95 L300,90 L330,85 L360,75 L390,80 L420,70 L450,65 L480,55 L510,60 L540,50 L570,45 L600,40 L600,180 Z"/>
+          <path class="line" d="M0,150 L30,140 L60,135 L90,125 L120,120 L150,130 L180,115 L210,105 L240,110 L270,95 L300,90 L330,85 L360,75 L390,80 L420,70 L450,65 L480,55 L510,60 L540,50 L570,45 L600,40"/>
+          <circle class="dot" cx="600" cy="40" r="4"/>
+          <text x="0" y="-4">0</text>
+          <text x="0" y="44">2</text>
+          <text x="0" y="89">4</text>
+          <text x="0" y="134">6</text>
+        </svg>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card-h"><h3>Resolution breakdown</h3></div>
+        <div class="donut-chart">
+          <svg class="donut-svg" viewBox="0 0 120 120">
+            <defs>
+              <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#0891B2"/></linearGradient>
+            </defs>
+            <circle class="bg" cx="60" cy="60" r="54"/>
+            <circle cx="60" cy="60" r="54" stroke="url(#g2)" stroke-width="12" fill="transparent" stroke-dasharray="339.3" stroke-dashoffset="20.4" transform="rotate(-90 60 60)" stroke-linecap="round"/>
+            <text x="60" y="60" text-anchor="middle" dominant-baseline="middle" font-family="Inter" font-size="22" font-weight="700" fill="var(--ink)">94%</text>
+            <text x="60" y="76" text-anchor="middle" font-family="Inter" font-size="9" font-weight="600" fill="var(--ink-3)" letter-spacing="0.1em">RESOLVED</text>
+          </svg>
+        </div>
+        <div class="donut-legend">
+          <div class="row"><div class="d" style="background:var(--purple)"></div><span>Resolved on first reply</span><strong>78%</strong></div>
+          <div class="row"><div class="d" style="background:var(--cyan)"></div><span>Resolved after thread</span><strong>16%</strong></div>
+          <div class="row"><div class="d" style="background:var(--coral)"></div><span>Escalated to human</span><strong>6%</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recent-card">
+      <div class="recent-h"><h3>Today's actions · 4</h3><a href="#">View full ledger →</a></div>
+
+      <div class="recent-row">
+        <div class="ts"><strong>10:42</strong>2s ago</div>
+        <div><span class="kind">tool.result</span></div>
+        <div class="what">Resolved <strong>SUP-29382</strong> using KB <strong>SK-413</strong> · sentiment: resolved</div>
+        <div class="cost">$0.004</div>
+        <div><span class="status"><span class="d"></span>OK</span></div>
+      </div>
+      <div class="recent-row">
+        <div class="ts"><strong>10:18</strong>24m ago</div>
+        <div><span class="kind">tool.result</span></div>
+        <div class="what">Replied to <strong>SUP-29381</strong> with status update · 3 sent · 1 received</div>
+        <div class="cost">$0.002</div>
+        <div><span class="status"><span class="d"></span>OK</span></div>
+      </div>
+      <div class="recent-row">
+        <div class="ts"><strong>09:47</strong>55m ago</div>
+        <div><span class="kind">tool.result</span></div>
+        <div class="what">Escalated <strong>SUP-29355</strong> to <strong>@lead-support</strong> · sentiment: frustrated</div>
+        <div class="cost">$0.001</div>
+        <div><span class="status"><span class="d"></span>OK</span></div>
+      </div>
+      <div class="recent-row">
+        <div class="ts"><strong>09:14</strong>1h ago</div>
+        <div><span class="kind">tool.result</span></div>
+        <div class="what">Refunded $89 on <strong>SUP-29378</strong> (approved by you) · duplicate charge confirmed</div>
+        <div class="cost">$0.005</div>
+        <div><span class="status"><span class="d"></span>OK</span></div>
+      </div>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

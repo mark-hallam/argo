@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workers — SKYCOT (E · Filled + Open Slots)</title>
+<!-- Design language: E — FILLED + OPEN SLOTS.
+     "You've filled 5 of 12 slots." Each filled slot is a worker tile,
+     each empty slot is a "Hire someone here" prompt with a starter cohort suggestion.
+     Emphasizes growth + the marketplace pull. Cross-sell built into the page.
+     Best for activation / expansion revenue. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --line: #E5E7EB;
+    --line-2: #D1D5DB;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 32px 40px 80px; max-width: 1280px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { margin-bottom: 24px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 600; }
+
+  /* Slot progress bar */
+  .slot-meter {
+    margin-top: 16px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: flex; align-items: center; gap: 22px;
+  }
+  .slot-meter .meter {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .slot-meter .meter-h {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .slot-meter .meter-h .left {
+    font-size: 15px; font-weight: 600;
+  }
+  .slot-meter .meter-h .left strong {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    font-weight: 800;
+  }
+  .slot-meter .meter-h .right {
+    font-size: 12px; color: var(--ink-3);
+  }
+  .slot-meter .track {
+    height: 8px; border-radius: 4px; background: var(--paper-2);
+    overflow: hidden;
+  }
+  .slot-meter .fill {
+    height: 100%;
+    width: 41.67%; /* 5/12 */
+    background: var(--gradient);
+    border-radius: 4px;
+  }
+  .slot-meter .meter-foot {
+    font-size: 12.5px; color: var(--ink-3); margin-top: 2px;
+  }
+  .slot-meter .meter-foot strong { color: var(--ink); font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+
+  /* Sections */
+  .section { margin-top: 32px; }
+  .section-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .section-h h2 {
+    margin: 0;
+    font-size: 18px; font-weight: 600; letter-spacing: -0.015em;
+  }
+  .section-h .ct { color: var(--ink-3); font-size: 13.5px; }
+
+  /* Tile grid */
+  .grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  }
+
+  /* Filled tile */
+  .tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+  }
+  .tile:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 6px 14px -4px rgba(0,0,0,0.06); }
+
+  .tile-av {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: grid; place-items: center; color: white;
+    background: var(--gradient);
+    font-size: 16px; font-weight: 700; letter-spacing: 0.04em;
+    margin-bottom: 14px;
+  }
+  .tile-av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .tile-av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .tile-av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .tile-av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .tile h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+  .tile .role { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+  .tile .status {
+    margin-top: 10px;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 9px; border-radius: 999px;
+    background: rgba(20,184,166,0.10); color: #0F766E;
+    font-size: 11px; font-weight: 600;
+  }
+  .tile .status .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .tile .status.training { background: rgba(252,211,77,0.18); color: #92400E; }
+  .tile .status.training .dot { background: var(--yellow); }
+  .tile .stats {
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between;
+  }
+  .tile .stat { font-size: 11px; color: var(--ink-3); }
+  .tile .stat .v { font-size: 16px; font-weight: 600; color: var(--ink); display: block; letter-spacing: -0.01em; }
+
+  /* Empty slot */
+  .slot {
+    background: repeating-linear-gradient(135deg, var(--paper-2) 0 6px, var(--paper) 6px 12px);
+    border: 2px dashed var(--line-2);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex; flex-direction: column;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .slot:hover {
+    border-color: var(--purple);
+    background: rgba(139,92,246,0.04);
+  }
+  .slot .slot-tag {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-3); font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .slot:hover .slot-tag { color: var(--purple); }
+  .slot .slot-suggest-av {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--bg); border: 1px dashed var(--line-2);
+    display: grid; place-items: center;
+    font-size: 22px; font-weight: 300; color: var(--ink-3);
+    margin-bottom: 14px;
+  }
+  .slot:hover .slot-suggest-av { border-color: var(--purple); color: var(--purple); }
+  .slot h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+  .slot .reason {
+    font-size: 12px; color: var(--ink-3); margin-top: 4px;
+    line-height: 1.4;
+  }
+  .slot .why-row {
+    margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line-2);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .slot .est-cost {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--ink-3);
+  }
+  .slot .est-cost strong { color: var(--ink); }
+  .slot .recruit {
+    font-size: 12px; font-weight: 700; color: var(--purple);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+
+  /* Featured slot — highlights one slot */
+  .slot.featured {
+    background: linear-gradient(135deg, rgba(139,92,246,0.06), rgba(8,145,178,0.06));
+    border: 2px solid rgba(139,92,246,0.25);
+    border-style: solid;
+  }
+  .slot.featured .slot-tag {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+  .slot.featured .slot-suggest-av {
+    background: var(--gradient); color: white; border: none; font-weight: 700;
+    font-size: 16px;
+  }
+
+  /* Marketplace footer card */
+  .marketplace-foot {
+    margin-top: 32px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(8,145,178,0.05));
+    border: 1px solid rgba(139,92,246,0.18);
+    border-radius: 16px;
+    padding: 24px 28px;
+    display: flex; align-items: center; gap: 22px;
+  }
+  .marketplace-foot .icon-block {
+    width: 56px; height: 56px; border-radius: 14px;
+    background: var(--gradient); color: white;
+    display: grid; place-items: center;
+    font-size: 22px;
+  }
+  .marketplace-foot .copy { flex: 1; }
+  .marketplace-foot h3 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
+  .marketplace-foot p { margin: 4px 0 0; color: var(--ink-3); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <h1>Your <strong>team</strong></h1>
+      <div class="slot-meter">
+        <div class="meter">
+          <div class="meter-h">
+            <div class="left"><strong>5</strong> of 12 slots filled</div>
+            <div class="right">your plan: <strong style="color:var(--ink)">Acme Pro · 12 worker slots</strong></div>
+          </div>
+          <div class="track"><div class="fill"></div></div>
+          <div class="meter-foot">7 open slots · <strong>Mariah</strong> graduates from training in 12 days · <a href="#" style="color:var(--purple);text-decoration:none;font-weight:600">upgrade your plan →</a></div>
+        </div>
+        <button class="btn primary">+ Hire a teammate</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h">
+        <h2>Active teammates <span class="ct">· 5</span></h2>
+        <a href="#" style="font-size:13px;color:var(--purple);text-decoration:none;font-weight:600">View as table →</a>
+      </div>
+      <div class="grid">
+
+        <div class="tile">
+          <div class="tile-av">JM</div>
+          <h3>Jamal</h3>
+          <div class="role">Support · L2</div>
+          <span class="status"><span class="dot"></span>Active</span>
+          <div class="stats">
+            <div class="stat">Today<span class="v">4</span></div>
+            <div class="stat">Week<span class="v">38</span></div>
+            <div class="stat">$<span class="v">0.012</span></div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-av s">SL</div>
+          <h3>Sara</h3>
+          <div class="role">Invoice · L3</div>
+          <span class="status"><span class="dot"></span>Active</span>
+          <div class="stats">
+            <div class="stat">Today<span class="v">3</span></div>
+            <div class="stat">Week<span class="v">52</span></div>
+            <div class="stat">$<span class="v">0.024</span></div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-av p">PR</div>
+          <h3>Priya</h3>
+          <div class="role">Recruiting · L2</div>
+          <span class="status"><span class="dot"></span>Active</span>
+          <div class="stats">
+            <div class="stat">Today<span class="v">5</span></div>
+            <div class="stat">Week<span class="v">28</span></div>
+            <div class="stat">$<span class="v">0.043</span></div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-av n">NM</div>
+          <h3>Nori</h3>
+          <div class="role">Quote · L3</div>
+          <span class="status"><span class="dot"></span>Active</span>
+          <div class="stats">
+            <div class="stat">Today<span class="v">2</span></div>
+            <div class="stat">Week<span class="v">19</span></div>
+            <div class="stat">$<span class="v">0.008</span></div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-av m">MA</div>
+          <h3>Mariah</h3>
+          <div class="role">Sales · L2</div>
+          <span class="status training"><span class="dot"></span>Training · 62%</span>
+          <div class="stats">
+            <div class="stat">Today<span class="v">3</span></div>
+            <div class="stat">Week<span class="v">14</span></div>
+            <div class="stat">$<span class="v">0.021</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h">
+        <h2>Suggested next hires <span class="ct">· based on your team's gaps</span></h2>
+      </div>
+      <div class="grid">
+
+        <div class="slot featured">
+          <div class="slot-tag">★ Recommended</div>
+          <div class="slot-suggest-av">AC</div>
+          <h3>Accounts collector</h3>
+          <div class="reason">5 invoices passed Sara in May that turned into late receivables. An AR-chase teammate would close them at ~$0.02 each.</div>
+          <div class="why-row">
+            <span class="est-cost"><strong>$0.020</strong> / action</span>
+            <a href="#" class="recruit">Recruit →</a>
+          </div>
+        </div>
+
+        <div class="slot">
+          <div class="slot-tag">Sales support</div>
+          <div class="slot-suggest-av">CS</div>
+          <h3>CS responder</h3>
+          <div class="reason">Mariah is drafting RFPs but customer success replies still go through humans. A CS responder pairs naturally.</div>
+          <div class="why-row">
+            <span class="est-cost"><strong>$0.011</strong> / action</span>
+            <a href="#" class="recruit">Recruit →</a>
+          </div>
+        </div>
+
+        <div class="slot">
+          <div class="slot-tag">HR / People</div>
+          <div class="slot-suggest-av">HR</div>
+          <h3>People-ops generalist</h3>
+          <div class="reason">Priya covers screening but doesn't handle offer letters or onboarding tickets. A people-ops teammate completes the loop.</div>
+          <div class="why-row">
+            <span class="est-cost"><strong>$0.015</strong> / action</span>
+            <a href="#" class="recruit">Recruit →</a>
+          </div>
+        </div>
+
+        <div class="slot">
+          <div class="slot-tag">Empty slot</div>
+          <div class="slot-suggest-av">+</div>
+          <h3>Browse marketplace</h3>
+          <div class="reason">21 more starter cohorts available — finance, legal, dev-ex, IT, marketing &amp; more.</div>
+          <div class="why-row">
+            <span class="est-cost">$0.005&ndash;0.05 / action</span>
+            <a href="#" class="recruit">Browse →</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h">
+        <h2>Open slots <span class="ct">· 4 unused · you're paying for these</span></h2>
+      </div>
+      <div class="grid">
+        <div class="slot">
+          <div class="slot-tag">Empty</div>
+          <div class="slot-suggest-av">+</div>
+          <h3>Open slot 9</h3>
+          <div class="reason">Costs $0 while empty. Available to fill at any time from the marketplace.</div>
+          <div class="why-row">
+            <span class="est-cost">no cost · empty</span>
+            <a href="#" class="recruit">Hire →</a>
+          </div>
+        </div>
+        <div class="slot">
+          <div class="slot-tag">Empty</div>
+          <div class="slot-suggest-av">+</div>
+          <h3>Open slot 10</h3>
+          <div class="reason">Costs $0 while empty.</div>
+          <div class="why-row">
+            <span class="est-cost">no cost · empty</span>
+            <a href="#" class="recruit">Hire →</a>
+          </div>
+        </div>
+        <div class="slot">
+          <div class="slot-tag">Empty</div>
+          <div class="slot-suggest-av">+</div>
+          <h3>Open slot 11</h3>
+          <div class="reason">Costs $0 while empty.</div>
+          <div class="why-row">
+            <span class="est-cost">no cost · empty</span>
+            <a href="#" class="recruit">Hire →</a>
+          </div>
+        </div>
+        <div class="slot">
+          <div class="slot-tag">Empty</div>
+          <div class="slot-suggest-av">+</div>
+          <h3>Open slot 12</h3>
+          <div class="reason">Costs $0 while empty.</div>
+          <div class="why-row">
+            <span class="est-cost">no cost · empty</span>
+            <a href="#" class="recruit">Hire →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="marketplace-foot">
+      <div class="icon-block">◫</div>
+      <div class="copy">
+        <h3>Explore the marketplace</h3>
+        <p>24 starter cohorts across support, ops, finance, recruiting, sales, IT, legal, marketing. Hire instantly · pay only when they work.</p>
+      </div>
+      <button class="btn primary">Browse marketplace →</button>
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

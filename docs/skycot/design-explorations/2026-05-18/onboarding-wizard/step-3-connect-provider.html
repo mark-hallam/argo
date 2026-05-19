@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Onboarding · step 3 / connect provider — SKYCOT</title>
+<!-- Step 3 of 5 — Connect provider. F1 editorial-center language. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --purple-deep: #6d28d9; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --soft-purple: #f3e8ff; --soft-pink: #fce7f3;
+    --ink: #1e1b4b; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF9; --paper-2: #F4F4F4; --bg: #fafaff;
+    --line: #ece9f5; --line-2: #D1D1D1;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body {
+    font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink);
+    font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+    min-height: 100vh; position: relative;
+  }
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px; background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  .top, .stage { position: relative; z-index: 1; }
+  .top { padding: 22px 48px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 10; }
+  .brand { display: flex; align-items: center; gap: 12px; justify-self: start; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--gradient); box-shadow: 0 4px 12px -2px rgba(139,92,246,0.30); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; letter-spacing: 0.08em; }
+  .steps-indicator { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; }
+  .steps-indicator .pos { color: var(--ink); font-weight: 700; }
+  .pips { display: flex; gap: 4px; margin: 0 12px; }
+  .pip { width: 24px; height: 3px; border-radius: 2px; background: var(--paper-2); }
+  .pip.on { background: var(--gradient); box-shadow: 0 0 8px rgba(139,92,246,0.45); }
+  .pip.done { background: var(--teal); opacity: 0.5; }
+  .top-right { justify-self: end; display: flex; align-items: center; gap: 16px; }
+  .top-right .exit { font-size: 13px; color: var(--ink-3); text-decoration: none; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
+  .top-right .help-btn { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); font-size: 12px; font-weight: 500; cursor: pointer; }
+
+  .stage { max-width: 1080px; margin: 0 auto; padding: 80px 48px 80px; text-align: center; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.20em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 26px;
+    padding: 5px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg);
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+  .eyebrow .grad { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; }
+
+  h1 { font-family: 'Audiowide', 'Inter', sans-serif; font-size: 56px; line-height: 1.05; font-weight: 400; letter-spacing: 0; margin: 0 0 18px; color: var(--ink); }
+  h1 strong { font-weight: 400; background: var(--gradient-3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .sub { font-size: 17px; font-weight: 300; color: var(--ink-2); max-width: 580px; margin: 0 auto 56px; line-height: 1.5; }
+  .sub strong { color: var(--ink); font-weight: 500; }
+
+  /* Provider grid */
+  .providers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 980px; margin: 0 auto; }
+  .provider-card {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px 24px 24px;
+    text-align: left;
+    cursor: pointer; position: relative;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .provider-card:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.08); }
+  .provider-card.selected {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.10), 0 12px 32px -8px rgba(139,92,246,0.25);
+  }
+  .provider-card .badge {
+    position: absolute; top: -10px; right: 16px;
+    padding: 4px 11px; border-radius: 999px;
+    background: var(--gradient); color: white;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    box-shadow: 0 4px 14px -2px rgba(139,92,246,0.5);
+  }
+
+  .provider-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: grid; place-items: center; margin-bottom: 16px;
+    font-size: 22px; font-weight: 700;
+  }
+  .provider-icon.anthropic { background: #C15F3C; color: white; }
+  .provider-icon.openai { background: #10A37F; color: white; }
+  .provider-icon.skycot { background: var(--gradient); color: white; box-shadow: 0 4px 14px -2px rgba(139,92,246,0.4); }
+
+  .provider-name {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.015em;
+    margin-bottom: 4px;
+  }
+  .provider-tagline { font-size: 12px; color: var(--ink-3); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em; margin-bottom: 14px; text-transform: uppercase; font-weight: 700; }
+
+  .provider-desc {
+    font-size: 13.5px; color: var(--ink-2); line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .provider-desc strong { color: var(--ink); font-weight: 600; }
+
+  .provider-meta {
+    border-top: 1px solid var(--line); padding-top: 14px;
+    display: flex; gap: 14px; align-items: center;
+    font-size: 11.5px; color: var(--ink-3);
+  }
+  .provider-meta .stat strong { color: var(--ink); font-weight: 600; }
+  .provider-meta .check {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid var(--line-2); background: var(--bg);
+    flex-shrink: 0;
+    transition: background 0.15s, border 0.15s;
+    margin-left: auto;
+  }
+  .provider-card.selected .check {
+    background: var(--gradient); border: none; color: white;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .provider-card.selected .check::after { content: '✓'; }
+
+  /* CTA row */
+  .cta-row { margin-top: 56px; display: flex; gap: 10px; justify-content: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 15px 28px; border-radius: 12px; font-size: 15px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 6px 20px -4px rgba(139,92,246,0.45); }
+  .btn.back { color: var(--ink-3); border: none; background: none; padding: 15px 14px; }
+  .btn .kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(0,0,0,0.06); }
+  .btn.primary .kbd { background: rgba(255,255,255,0.25); }
+
+  .nav-hint { margin-top: 20px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-4); letter-spacing: 0.04em; }
+  .nav-hint .kbd { padding: 2px 6px; border-radius: 4px; background: var(--paper-2); color: var(--ink-2); font-weight: 600; margin: 0 3px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <div class="steps-indicator">
+    <span>STEP</span><span class="pos">03</span><span>OF</span><span>05</span>
+    <div class="pips"><span class="pip done"></span><span class="pip done"></span><span class="pip on"></span><span class="pip"></span><span class="pip"></span></div>
+    <span>PROVIDER</span>
+  </div>
+  <div class="top-right"><button class="help-btn">Help</button><a class="exit" href="#">SAVE &amp; EXIT</a></div>
+</header>
+
+<main class="stage">
+  <div class="eyebrow"><span class="dot"></span><span class="grad">STEP 3</span> · CONNECT AI PROVIDER</div>
+
+  <h1>Where should your team's<br/><strong>brains</strong> come from?</h1>
+
+  <p class="sub">Pick a provider for the language models that power your teammates. <strong>Use your own key, or let us handle it.</strong></p>
+
+  <div class="providers">
+
+    <div class="provider-card">
+      <div class="provider-icon anthropic">⏱</div>
+      <div class="provider-name">Anthropic</div>
+      <div class="provider-tagline">Claude · Opus 4.7 · Sonnet 4.6</div>
+      <div class="provider-desc">Best-in-class reasoning, multi-step planning, and safety. Bring your own API key from <strong>console.anthropic.com</strong>.</div>
+      <div class="provider-meta">
+        <div class="stat">Used by <strong>61%</strong></div>
+        <span>·</span>
+        <div class="stat">Best for <strong>complex tasks</strong></div>
+        <div class="check"></div>
+      </div>
+    </div>
+
+    <div class="provider-card">
+      <div class="provider-icon openai">∞</div>
+      <div class="provider-name">OpenAI</div>
+      <div class="provider-tagline">GPT-4 family · GPT-5</div>
+      <div class="provider-desc">Strong general-purpose family with mature tooling. Bring your own API key from <strong>platform.openai.com</strong>.</div>
+      <div class="provider-meta">
+        <div class="stat">Used by <strong>27%</strong></div>
+        <span>·</span>
+        <div class="stat">Best for <strong>broad coverage</strong></div>
+        <div class="check"></div>
+      </div>
+    </div>
+
+    <div class="provider-card selected">
+      <span class="badge">RECOMMENDED</span>
+      <div class="provider-icon skycot">◆</div>
+      <div class="provider-name">SKYCOT-managed</div>
+      <div class="provider-tagline">Curated models · zero setup</div>
+      <div class="provider-desc">We pick the right model for each task and bill you per action. <strong>No API keys, no rate limits, no surprise bills.</strong></div>
+      <div class="provider-meta">
+        <div class="stat">Used by <strong>12%</strong> (growing)</div>
+        <span>·</span>
+        <div class="stat">From <strong>$0.003</strong>/action</div>
+        <div class="check"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="cta-row">
+    <button class="btn back">← Back</button>
+    <button class="btn primary">Continue with SKYCOT-managed <span class="kbd">↵</span></button>
+  </div>
+
+  <div class="nav-hint">
+    <span class="kbd">↵</span> Continue · <span class="kbd">⌘B</span> Back · <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> select · <span class="kbd">Esc</span> Save &amp; exit
+  </div>
+</main>
+
+</body>
+</html>

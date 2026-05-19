@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Worker · Jamal — SKYCOT (A · Card Extended)</title>
+<!-- Design language: A — Extended trading card.
+     Big hero card at top (the trading-card grammar from C2 Workers but blown up).
+     Below: activity stream + skills panel + stats panels.
+     Most directly mirrors the Workers card → detail metaphor. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #ECECEA; --paper-2: #E0E0DE; --bg: #FFFFFF;
+    --line: #D4D4D0;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; background-image: radial-gradient(1200px circle at 50% -10%, rgba(139,92,246,0.10), transparent 50%); min-height: 100vh; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 32px 40px 80px; max-width: 1280px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 14px; }
+  .crumb a { color: var(--ink-3); text-decoration: none; }
+  .crumb a:hover { color: var(--ink); }
+
+  /* HERO CARD */
+  .hero {
+    background: var(--bg); border-radius: 24px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 32px 60px -12px rgba(139,92,246,0.20), inset 0 0 0 1px rgba(139,92,246,0.10);
+    margin-bottom: 24px;
+  }
+  .hero-banner {
+    background: var(--gradient); color: white;
+    padding: 36px 40px 100px;
+    position: relative; overflow: hidden;
+  }
+  .hero-banner::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 80% -20%, rgba(255,255,255,0.25), transparent 50%); pointer-events: none; }
+  .hero-banner-top { display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1; }
+  .hero-banner-top .tag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; padding: 5px 13px; border-radius: 999px; background: rgba(255,255,255,0.20); backdrop-filter: blur(10px); }
+  .hero-banner-top .right-tags { display: flex; gap: 8px; align-items: center; }
+  .hero-banner-top .status-pill { padding: 4px 12px; border-radius: 999px; background: rgba(20,184,166,0.18); border: 1px solid rgba(20,184,166,0.4); color: white; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+  .hero-banner-top .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 6px #4ADE80; }
+  .hero-banner-bottom { position: absolute; bottom: -30px; left: 40px; right: 40px; display: flex; align-items: flex-end; gap: 24px; }
+  .hero-portrait {
+    width: 120px; height: 120px; border-radius: 28px;
+    background: var(--bg); padding: 6px;
+    box-shadow: 0 16px 40px -10px rgba(0,0,0,0.20);
+  }
+  .hero-portrait .inner { width: 100%; height: 100%; border-radius: 22px; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 40px; font-weight: 800; letter-spacing: 0.04em; }
+  .hero-banner-level { color: white; padding-bottom: 8px; }
+  .hero-banner-level .l { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; opacity: 0.85; }
+  .hero-banner-level .n { font-size: 64px; font-weight: 900; letter-spacing: -0.04em; line-height: 0.9; text-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+
+  .hero-body { padding: 56px 40px 32px; }
+  .hero-body h1 { margin: 0 0 4px; font-size: 36px; font-weight: 800; letter-spacing: -0.025em; }
+  .hero-body .role { font-size: 14.5px; color: var(--ink-3); font-weight: 600; margin-bottom: 16px; }
+  .hero-body .meta-row { display: flex; gap: 24px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-3); }
+  .hero-body .meta-row strong { color: var(--ink); font-weight: 700; }
+
+  .hero-actions { display: flex; gap: 8px; margin-top: 18px; }
+  .btn { padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+  .btn.danger { color: var(--coral); border-color: var(--coral); }
+
+  /* STATS GRID */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--bg); border-radius: 14px; padding: 18px 20px; border: 1px solid var(--line); }
+  .stat-card .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); font-weight: 700; }
+  .stat-card .val { font-size: 30px; font-weight: 800; letter-spacing: -0.025em; margin-top: 4px; }
+  .stat-card.grad .val { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat-card .delta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #0F766E; font-weight: 600; margin-top: 4px; }
+  .stat-card .spark { width: 100%; height: 24px; margin-top: 6px; }
+  .stat-card .spark path { fill: none; stroke: var(--purple); stroke-width: 1.5; }
+
+  /* MAIN GRID */
+  .main-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; }
+
+  /* Activity stream */
+  .panel { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .panel-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .panel-h h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .panel-h .more { color: var(--purple); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+
+  .activity-row { display: grid; grid-template-columns: 80px 1fr auto; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: center; }
+  .activity-row:last-child { border-bottom: none; }
+  .activity-row .ts { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); }
+  .activity-row .ts strong { color: var(--ink); font-weight: 600; display: block; }
+  .activity-row .what { font-size: 13.5px; color: var(--ink); }
+  .activity-row .what strong { font-weight: 600; }
+  .activity-row .what .sub { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .activity-row .status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: rgba(20,184,166,0.10); color: #0F766E; font-size: 11px; font-weight: 700; }
+  .activity-row .status .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .activity-row .status.warn { background: rgba(252,211,77,0.18); color: #92400E; }
+  .activity-row .status.warn .d { background: var(--yellow); }
+
+  /* Skills panel */
+  .skills-list { display: flex; flex-direction: column; gap: 8px; }
+  .skill-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--paper); }
+  .skill-row .av { width: 28px; height: 28px; border-radius: 7px; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .skill-row .info { flex: 1; }
+  .skill-row .name { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+  .skill-row .desc { font-size: 11.5px; color: var(--ink-3); }
+  .skill-row .pill { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--bg); color: var(--ink-3); font-weight: 600; }
+  .skill-row.locked { opacity: 0.5; }
+  .skill-row.locked .av { background: var(--paper-2); color: var(--ink-3); }
+  .skill-row.locked .pill { color: var(--coral); }
+
+  /* XP bar */
+  .xp-card { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; margin-top: 18px; }
+  .xp-card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 700; }
+  .xp-card .sub { font-size: 12.5px; color: var(--ink-3); margin-bottom: 12px; }
+  .xp-bar { height: 10px; border-radius: 6px; background: var(--paper-2); overflow: hidden; }
+  .xp-bar .fill { height: 100%; width: 72%; background: var(--gradient); border-radius: 6px; box-shadow: 0 0 12px rgba(139,92,246,0.4); }
+  .xp-card .levels { display: flex; justify-content: space-between; margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .xp-card .levels .now { color: var(--purple); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb"><a href="#">Workers</a> › Jamal</div>
+
+    <div class="hero">
+      <div class="hero-banner">
+        <div class="hero-banner-top">
+          <span class="tag">Support</span>
+          <div class="right-tags">
+            <span class="status-pill"><span class="dot"></span>ACTIVE NOW</span>
+          </div>
+        </div>
+        <div class="hero-banner-bottom">
+          <div class="hero-portrait"><div class="inner">JM</div></div>
+          <div class="hero-banner-level"><div class="l">LEVEL</div><div class="n">12</div></div>
+        </div>
+      </div>
+      <div class="hero-body">
+        <h1>Jamal</h1>
+        <div class="role">L2 Support Specialist · cohort v3.2 · serial #001</div>
+        <div class="meta-row">
+          <span>Hired <strong>12 Sept 2025</strong></span>
+          <span>·</span>
+          <span><strong>8 months</strong> tenure</span>
+          <span>·</span>
+          <span><strong>1,247</strong> career actions</span>
+          <span>·</span>
+          <span>Last seen <strong>2s ago</strong></span>
+        </div>
+        <div class="hero-actions">
+          <button class="btn primary">⚙ Configure skills</button>
+          <button class="btn">⏸ Pause</button>
+          <button class="btn">▷ Replay last session</button>
+          <button class="btn">⤓ Export ledger</button>
+          <button class="btn danger" style="margin-left:auto">Retire</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card grad"><div class="lbl">Today · actions</div><div class="val">4</div><div class="delta">+1 vs yest.</div></div>
+      <div class="stat-card"><div class="lbl">Resolve rate</div><div class="val">94%</div><div class="delta">↑ 2pt this wk</div></div>
+      <div class="stat-card"><div class="lbl">Cost / action</div><div class="val">$.003</div><div class="delta">↓ 5% this wk</div></div>
+      <div class="stat-card"><div class="lbl">Avg latency</div><div class="val">1.8s</div><div class="delta">stable</div></div>
+    </div>
+
+    <div class="main-grid">
+
+      <div>
+        <div class="panel">
+          <div class="panel-h"><h2>Recent activity · today</h2><a class="more" href="#">View full ledger →</a></div>
+
+          <div class="activity-row">
+            <div class="ts"><strong>10:42</strong>2s ago</div>
+            <div class="what">Resolved ticket <strong>SUP-29382</strong> using KB <strong>SK-413</strong><div class="sub">Customer sentiment: resolved · 1.8s · $0.004</div></div>
+            <span class="status"><span class="d"></span>Succeeded</span>
+          </div>
+          <div class="activity-row">
+            <div class="ts"><strong>10:18</strong>24m ago</div>
+            <div class="what">Replied to <strong>SUP-29381</strong> with status update<div class="sub">3 sent · 1 received · $0.002</div></div>
+            <span class="status"><span class="d"></span>Succeeded</span>
+          </div>
+          <div class="activity-row">
+            <div class="ts"><strong>09:47</strong>55m ago</div>
+            <div class="what">Escalated <strong>SUP-29355</strong> to <strong>@lead-support</strong><div class="sub">Sentiment: frustrated · waited 4h12m · $0.001</div></div>
+            <span class="status"><span class="d"></span>Succeeded</span>
+          </div>
+          <div class="activity-row">
+            <div class="ts"><strong>09:14</strong>1h ago</div>
+            <div class="what">Issued refund $89 on <strong>SUP-29378</strong> (approved by you)<div class="sub">Duplicate charge confirmed · $0.005</div></div>
+            <span class="status"><span class="d"></span>Succeeded</span>
+          </div>
+        </div>
+
+        <div class="xp-card">
+          <h3>Promotion progress</h3>
+          <div class="sub">Jamal is 72% of the way to L3. Promote them once they pass 100% to unlock <strong>refund.issue</strong> and <strong>survey.send</strong>.</div>
+          <div class="xp-bar"><div class="fill"></div></div>
+          <div class="levels"><span>L1</span><span>L2</span><span class="now">CURRENT · 72%</span><span>L3</span><span>L4</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="panel-h"><h2>Skills · 5 of 7 active</h2><a class="more" href="#">Manage →</a></div>
+          <div class="skills-list">
+            <div class="skill-row">
+              <div class="av">Z</div>
+              <div class="info"><div class="name">zendesk.read</div><div class="desc">Read tickets &amp; conversations</div></div>
+              <span class="pill">✓</span>
+            </div>
+            <div class="skill-row">
+              <div class="av">Z</div>
+              <div class="info"><div class="name">zendesk.reply</div><div class="desc">Draft &amp; send replies</div></div>
+              <span class="pill">✓</span>
+            </div>
+            <div class="skill-row">
+              <div class="av" style="background:linear-gradient(135deg,var(--teal),var(--cyan))">K</div>
+              <div class="info"><div class="name">kb.search</div><div class="desc">Search knowledge base</div></div>
+              <span class="pill">✓</span>
+            </div>
+            <div class="skill-row">
+              <div class="av" style="background:linear-gradient(135deg,var(--pink),var(--coral))">S</div>
+              <div class="info"><div class="name">slack.dm</div><div class="desc">DM team members</div></div>
+              <span class="pill">✓</span>
+            </div>
+            <div class="skill-row">
+              <div class="av" style="background:linear-gradient(135deg,var(--coral),var(--yellow))">P</div>
+              <div class="info"><div class="name">policy.tone</div><div class="desc">Apply tone guidelines</div></div>
+              <span class="pill">✓</span>
+            </div>
+            <div class="skill-row locked">
+              <div class="av">R</div>
+              <div class="info"><div class="name">refund.issue</div><div class="desc">Issue refunds up to $200</div></div>
+              <span class="pill">🔒 L3</span>
+            </div>
+            <div class="skill-row locked">
+              <div class="av">S</div>
+              <div class="info"><div class="name">survey.send</div><div class="desc">Send CSAT survey</div></div>
+              <span class="pill">🔒 L3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audit — SKYCOT (BC1 · Table With Hashes)</title>
+<!-- Design language: BC1 — Linear/Notion data-table density × visible SHA-256 trust signal.
+     C's bulk-select, sortable columns, ⌘K search, dense rows — kept entirely.
+     Plus a Hash column (mono, truncated, click-to-copy) and a chain-verify banner at top.
+     "Linear meets Etherscan." Power-user friendly AND compliance-ready. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --ink-5: #D4D4D8;
+    --paper: #FAFAF9;
+    --paper-2: #F4F4F5;
+    --paper-3: #FAFAFA;
+    --line: #E4E4E7;
+    --line-2: #D4D4D8;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .side {
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    padding: 20px 14px;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 6px 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .brand .mark {
+    width: 26px; height: 26px; border-radius: 6px;
+    background: var(--gradient);
+  }
+  .brand .name {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+  }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; border-radius: 6px;
+    color: var(--ink-2);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .nav a:hover { background: var(--paper-2); }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav a .ico { width: 14px; opacity: 0.7; }
+  .nav a .badge {
+    margin-left: auto; font-size: 11px;
+    padding: 1px 6px; border-radius: 8px;
+    background: var(--paper-2); color: var(--ink-3);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .nav .group {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-4); padding: 14px 10px 4px;
+  }
+
+  /* Main */
+  .main { padding: 22px 26px 60px; max-width: 1500px; }
+
+  /* Verify banner */
+  .verify-banner {
+    background: linear-gradient(135deg, rgba(20,184,166,0.06), rgba(8,145,178,0.06));
+    border: 1px solid rgba(20,184,166,0.25);
+    border-radius: 10px;
+    padding: 12px 18px;
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 18px;
+    font-size: 12.5px;
+  }
+  .verify-banner .check {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal), var(--cyan));
+    color: white; display: grid; place-items: center;
+    font-size: 14px; font-weight: 700;
+  }
+  .verify-banner .txt { color: var(--ink); }
+  .verify-banner .txt strong { font-weight: 600; }
+  .verify-banner .h {
+    font-family: 'JetBrains Mono', monospace; color: var(--ink-2); font-size: 11.5px;
+  }
+  .verify-banner .right { margin-left: auto; display: flex; gap: 8px; }
+  .v-link {
+    color: var(--purple); text-decoration: none; font-weight: 500; font-size: 12.5px;
+  }
+
+  /* Header */
+  .page-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .page-h h1 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 22px; font-weight: 400; letter-spacing: 0.02em;
+    margin: 0;
+  }
+  .page-h .sub {
+    font-size: 12px; color: var(--ink-3);
+  }
+  .page-actions { display: flex; gap: 6px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 11px; border-radius: 6px;
+    font-size: 12.5px; font-weight: 500;
+    border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .btn.primary {
+    background: var(--gradient); color: white; border: none;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    margin: 16px 0 8px;
+  }
+  .filters { display: flex; gap: 4px; flex: 1; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px; border-radius: 5px;
+    border: 1px solid var(--line-2); background: var(--bg);
+    font-size: 12px; color: var(--ink-2); font-weight: 500;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--ink-4); }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+  .chip .ct { color: var(--ink-3); font-weight: 400; }
+  .search {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 12px; border-radius: 6px;
+    border: 1px solid var(--line-2); background: var(--bg);
+    color: var(--ink-3); font-size: 12px;
+    width: 240px;
+  }
+  .search .kbd {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    padding: 1px 5px; border-radius: 3px;
+    background: var(--paper-2); color: var(--ink-3);
+    margin-left: auto;
+  }
+  .group-by, .sort-by {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 5px;
+    color: var(--ink-3); font-size: 12px; font-weight: 500;
+    cursor: pointer;
+  }
+  .group-by:hover, .sort-by:hover { background: var(--paper-2); color: var(--ink); }
+
+  /* Bulk select bar (visible when rows selected) */
+  .bulk-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px; border-radius: 6px;
+    background: rgba(139,92,246,0.08);
+    border: 1px solid rgba(139,92,246,0.25);
+    font-size: 12.5px;
+    margin-bottom: 8px;
+  }
+  .bulk-bar .ct { font-weight: 600; color: var(--purple); }
+  .bulk-bar .ba {
+    margin-left: auto; display: flex; gap: 6px;
+  }
+  .bulk-bar .ba button {
+    padding: 4px 9px; border-radius: 5px; font-size: 12px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--ink-2);
+    cursor: pointer;
+  }
+
+  /* Table */
+  .table-wrap {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead {
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    text-align: left; padding: 8px 12px;
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 600;
+    white-space: nowrap;
+    user-select: none; cursor: pointer;
+    border-bottom: 1px solid var(--line);
+  }
+  th .sort-ico { display: inline-block; color: var(--ink-4); margin-left: 4px; font-size: 9px; }
+  th.active { color: var(--ink); }
+  th.active .sort-ico { color: var(--purple); }
+  th.check { width: 32px; padding: 8px 4px 8px 12px; }
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+    color: var(--ink-2);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--paper-3); }
+  tr.selected td { background: rgba(139,92,246,0.04); }
+  tr.warn td { background: rgba(252,211,77,0.04); }
+  tr.warn:hover td { background: rgba(252,211,77,0.08); }
+  tr.bad td { background: rgba(255,107,107,0.04); }
+  tr.bad:hover td { background: rgba(255,107,107,0.08); }
+
+  .cbx {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1.5px solid var(--line-2); background: var(--bg);
+    display: inline-block; vertical-align: middle;
+    cursor: pointer;
+  }
+  .cbx.on {
+    background: var(--purple); border-color: var(--purple);
+    position: relative;
+  }
+  .cbx.on::after {
+    content: '✓'; color: white; font-size: 10px; font-weight: 700;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+
+  .ts {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--ink-3); white-space: nowrap;
+  }
+  .ts .t { color: var(--ink-2); font-weight: 500; }
+  .av {
+    width: 22px; height: 22px; border-radius: 5px;
+    display: inline-grid; place-items: center; vertical-align: middle;
+    background: var(--gradient); color: white;
+    font-family: 'Audiowide', sans-serif; font-size: 9px; letter-spacing: 0.04em;
+    margin-right: 8px;
+  }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .who { font-weight: 600; color: var(--ink); }
+  .role { color: var(--ink-3); font-size: 11.5px; }
+
+  .kind {
+    display: inline-block;
+    padding: 1px 6px; border-radius: 3px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    white-space: nowrap;
+  }
+  .kind.dispatch { color: var(--purple); background: rgba(139,92,246,0.10); }
+  .kind.result { color: #0F766E; background: rgba(20,184,166,0.10); }
+  .kind.approval { color: #92400E; background: rgba(252,211,77,0.18); }
+  .kind.refuse { color: #B91C1C; background: rgba(255,107,107,0.12); }
+
+  .hash-cell {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 6px; border-radius: 4px;
+    background: var(--paper-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .hash-cell:hover { background: var(--line); }
+  .hash-cell .copy { color: var(--ink-4); font-size: 11px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pill .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .pill.ok { background: rgba(20,184,166,0.10); color: #0F766E; }
+  .pill.ok .dot { background: var(--teal); }
+  .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; }
+  .pill.warn .dot { background: var(--yellow); }
+  .pill.bad { background: rgba(255,107,107,0.12); color: #B91C1C; }
+  .pill.bad .dot { background: var(--coral); }
+
+  .cost {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink-2); white-space: nowrap;
+    text-align: right;
+  }
+  .cost.zero { color: var(--ink-4); }
+
+  /* Statusbar footer */
+  .status-bar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 7px 14px;
+    background: var(--paper-2);
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3);
+  }
+  .status-bar .ok { color: #0F766E; font-weight: 600; }
+  .status-bar .right {
+    margin-left: auto; display: flex; gap: 4px;
+  }
+  .status-bar .right button {
+    background: none; border: none; color: var(--ink-3); font-family: inherit; font-size: 11px;
+    cursor: pointer; padding: 2px 6px; border-radius: 3px;
+  }
+  .status-bar .right button:hover { background: var(--bg); }
+
+  .foot {
+    margin-top: 18px; text-align: center;
+    font-size: 11.5px; color: var(--ink-4);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <div class="mark"></div>
+      <div class="name">SKYCOT</div>
+    </div>
+    <nav class="nav">
+      <a href="#"><span class="ico">⌂</span> Home</a>
+      <a href="#"><span class="ico">✉</span> Inbox <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#"><span class="ico">◐</span> Team</a>
+      <a href="#"><span class="ico">⚙</span> Workers</a>
+      <a class="active" href="#"><span class="ico">⊟</span> Audit</a>
+      <a href="#"><span class="ico">▣</span> Skills</a>
+      <a href="#"><span class="ico">◫</span> Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#"><span class="ico">$</span> Billing</a>
+      <a href="#"><span class="ico">⚒</span> Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="verify-banner">
+      <div class="check">✓</div>
+      <div class="txt">
+        <strong>Chain verified · 1,247 rows · 0 breaks.</strong>
+        Hash head <span class="h">812d499b…0ab7</span> · last verify 2s ago
+      </div>
+      <div class="right">
+        <a href="#" class="v-link">Re-verify ↻</a>
+        <a href="#" class="v-link">Download proof ⤓</a>
+      </div>
+    </div>
+
+    <div class="page-h">
+      <div>
+        <h1>Audit</h1>
+        <div class="sub">Every action your AI teammates took — sortable, filterable, cryptographically signed</div>
+      </div>
+      <div class="page-actions">
+        <button class="btn">⊟ Columns</button>
+        <button class="btn">⤓ Export CSV</button>
+        <button class="btn primary">▷ Replay session</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters">
+        <span class="chip on">All <span class="ct">17</span></span>
+        <span class="chip">Pending you <span class="ct">7</span></span>
+        <span class="chip">Refused <span class="ct">1</span></span>
+        <span class="chip">tool.result</span>
+        <span class="chip">approval.ask</span>
+        <span class="chip">policy.refuse</span>
+        <span class="chip">+ Add filter</span>
+      </div>
+      <div class="group-by">Group by ▾</div>
+      <div class="sort-by">Sort: time ↓</div>
+      <div class="search">⌕ Search worker, kind, hash, ticket… <span class="kbd">⌘K</span></div>
+    </div>
+
+    <div class="bulk-bar">
+      <span class="ct">2 rows selected</span>
+      <span style="color:var(--ink-3)">· hash chain coherent · spend $0.016 · 2 succeeded</span>
+      <div class="ba">
+        <button>↗ Replay both</button>
+        <button>⤓ Export proof</button>
+        <button>▷ Open in detail view</button>
+        <button>✕ Clear</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="check"><span class="cbx"></span></th>
+            <th class="active">Time <span class="sort-ico">▼</span></th>
+            <th>Worker</th>
+            <th>Action</th>
+            <th>Kind</th>
+            <th>Hash</th>
+            <th>Status</th>
+            <th style="text-align:right">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="selected">
+            <td><span class="cbx on"></span></td>
+            <td><div class="ts"><span class="t">10:42</span> · 2026-05-18</div></td>
+            <td><span class="av">JM</span><span class="who">Jamal</span> <span class="role">Support</span></td>
+            <td>Resolved SUP-29382 using KB SK-413</td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-cell">7f3a91c2…b8e6 <span class="copy">⎘</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.004</td>
+          </tr>
+          <tr class="selected">
+            <td><span class="cbx on"></span></td>
+            <td><div class="ts"><span class="t">10:38</span> · 2026-05-18</div></td>
+            <td><span class="av s">SL</span><span class="who">Sara</span> <span class="role">Invoice ops</span></td>
+            <td>Extracted line items from INV-2024-08741 (12 lines · $48,290)</td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-cell">a1b9c3e4…f209 <span class="copy">⎘</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.012</td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">10:31</span> · 2026-05-18</div></td>
+            <td><span class="av p">PR</span><span class="who">Priya</span> <span class="role">Recruiting</span></td>
+            <td>Screened Diego Alvarez vs JD-2024-08 (score 8.2)</td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-cell">e8d2447a…1c33 <span class="copy">⎘</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.014</td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">10:24</span> · 2026-05-18</div></td>
+            <td><span class="av n">NM</span><span class="who">Nori</span> <span class="role">Quote ops</span></td>
+            <td>Validated QT-2024-7283 against pricing rules</td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-cell">3c5f8e09…d447 <span class="copy">⎘</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.008</td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">10:18</span> · 2026-05-18</div></td>
+            <td><span class="av m">MA</span><span class="who">Mariah</span> <span class="role">Sales ops</span></td>
+            <td>Drafted RFP for Tomás Industries (1,240 words · 4 sections)</td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-cell">b2a7c193…ee01 <span class="copy">⎘</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.021</td>
+          </tr>
+          <tr class="warn">
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">10:11</span> · 2026-05-18</div></td>
+            <td><span class="av n">NM</span><span class="who">Nori</span> <span class="role">Quote ops</span></td>
+            <td>Flagged 32% discount on QT-2024-7283 — exceeds 25% threshold</td>
+            <td><span class="kind approval">approval.ask</span></td>
+            <td><span class="hash-cell">9d142a8c…7b15 <span class="copy">⎘</span></span></td>
+            <td><span class="pill warn"><span class="dot"></span>Pending you</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+          <tr class="bad">
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">10:04</span> · 2026-05-18</div></td>
+            <td><span class="av s">SL</span><span class="who">Sara</span> <span class="role">Invoice ops</span></td>
+            <td>Refused duplicate invoice INV-2024-08739 (policy: no-duplicate-30d)</td>
+            <td><span class="kind refuse">policy.refuse</span></td>
+            <td><span class="hash-cell">f08c1973…aab2 <span class="copy">⎘</span></span></td>
+            <td><span class="pill bad"><span class="dot"></span>Refused</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+          <tr class="warn">
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">09:58</span> · 2026-05-18</div></td>
+            <td><span class="av p">PR</span><span class="who">Priya</span> <span class="role">Recruiting</span></td>
+            <td>Drafted rejection email to Sara Lin (awaiting approval before send)</td>
+            <td><span class="kind approval">approval.ask</span></td>
+            <td><span class="hash-cell">5a73e2c8…9f44 <span class="copy">⎘</span></span></td>
+            <td><span class="pill warn"><span class="dot"></span>Pending you</span></td>
+            <td class="cost">$0.009</td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">09:52</span> · 2026-05-18</div></td>
+            <td><span class="av m">MA</span><span class="who">Mariah</span> <span class="role">Sales ops</span></td>
+            <td>Scheduled Q3 renewal review with Acme Tech (2026-08-12 14:00)</td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-cell">cc40b8a7…03d1 <span class="copy">⎘</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="ts"><span class="t">09:47</span> · 2026-05-18</div></td>
+            <td><span class="av">JM</span><span class="who">Jamal</span> <span class="role">Support</span></td>
+            <td>Escalated SUP-29355 to @lead-support (sentiment: frustrated)</td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-cell">812d499b…0ab7 <span class="copy">⎘</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="status-bar">
+        <span><span class="ok">●</span> Chain OK</span>
+        <span>· 0 breaks</span>
+        <span>· algorithm: sha-256</span>
+        <span>· 17 today / 1,247 total · spend $0.094</span>
+        <div class="right">
+          <button>← Prev</button>
+          <button>1</button>
+          <button>2</button>
+          <button>3</button>
+          <button>… 125</button>
+          <button>Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">— SKYCOT audit subsystem v1.0 · SOC 2 Type II eligible · GDPR Article 30 compliant —</div>
+  </main>
+</div>
+</body>
+</html>

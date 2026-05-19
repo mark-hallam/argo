@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cohorts — SKYCOT (D3 · Tabs + Magazine Tiles)</title>
+<!-- Design language: D3 — D's header + tabs (unchanged), then a magazine-style asymmetric layout:
+     one big tall "lead" tile on the left, two stacked tiles on the right top,
+     four smaller tiles in a row below. Editorial / Bloomberg-feature feel. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --purple-deep: #6d28d9; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --soft-purple: #f3e8ff; --soft-pink: #fce7f3;
+    --ink: #1e1b4b; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #fafaff;
+    --line: #ece9f5; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; position: relative; }
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px; background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  .app { position: relative; z-index: 1; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; font-weight: 400; letter-spacing: 0.10em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 40px 80px; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { margin-bottom: 24px; }
+  .page-h h1 { font-family: 'Audiowide', 'Inter', sans-serif; font-size: 40px; font-weight: 400; letter-spacing: 0; line-height: 1.1; margin: 0; }
+  .page-h h1 strong { font-weight: 400; background: var(--gradient-3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+
+  /* — DEPT TABS — */
+  .cat-tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 28px; }
+  .cat-tab { padding: 18px 16px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); cursor: pointer; text-align: center; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+  .cat-tab:hover { transform: translateY(-2px); border-color: var(--line-2); }
+  .cat-tab.on { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(139,92,246,0.08), 0 8px 20px -6px rgba(139,92,246,0.20); background: linear-gradient(180deg, rgba(139,92,246,0.04), rgba(139,92,246,0.02)); }
+  .cat-tab .ico { width: 36px; height: 36px; border-radius: 10px; margin: 0 auto 8px; background: var(--paper-2); display: grid; place-items: center; font-size: 18px; }
+  .cat-tab.on .ico { background: var(--gradient); }
+  .cat-tab .name { font-size: 13px; font-weight: 600; letter-spacing: -0.005em; }
+  .cat-tab .ct { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); margin-top: 2px; font-weight: 600; }
+  .cat-tab.on .ct { color: var(--purple); }
+
+  /* — CATEGORY HEADER — */
+  .cat-section-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 12px; border-bottom: 2px solid var(--ink);
+  }
+  .cat-section-h h2 { margin: 0; font-size: 28px; font-weight: 200; letter-spacing: -0.025em; }
+  .cat-section-h h2 strong { font-weight: 700; }
+  .cat-section-h .meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+  .cat-section-h .meta strong { color: var(--ink); }
+
+  /* — MAGAZINE GRID — */
+  /* Row 1: lead (left, 2x tall) + two stacked tiles (right) */
+  .row-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .row-1 .right-col { display: flex; flex-direction: column; gap: 14px; }
+
+  /* Row 2: 4 equal tiles */
+  .row-2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+  /* Generic tile */
+  .tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 16px; padding: 22px;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    cursor: pointer; display: flex; flex-direction: column;
+    position: relative;
+  }
+  .tile:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.08); }
+
+  .tile .badge {
+    position: absolute; top: 16px; right: 16px;
+    padding: 3px 9px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .badge.new { background: rgba(20,184,166,0.12); color: #0F766E; }
+  .badge.trending { background: rgba(252,211,77,0.18); color: #92400E; }
+  .badge.featured { background: var(--gradient); color: white; }
+
+  .tile .av {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: grid; place-items: center; color: white;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+    margin-bottom: 14px;
+  }
+  .tile .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .tile .av.ar { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .tile .av.ex { background: linear-gradient(135deg, var(--coral), var(--purple)); }
+  .tile .av.fc { background: linear-gradient(135deg, var(--teal), var(--pink)); }
+  .tile .av.cs { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .tile .av.pr { background: linear-gradient(135deg, var(--purple), var(--coral)); }
+
+  .tile .kicker { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; color: var(--ink-3); margin-bottom: 6px; }
+  .tile h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
+  .tile .desc { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 14px; flex: 1; }
+
+  .tile .stat-row { display: flex; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line); margin-bottom: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .tile .stat-row strong { color: var(--ink); font-weight: 700; font-size: 12px; }
+
+  .tile .foot-row { display: flex; align-items: center; justify-content: space-between; }
+  .tile .rating { display: inline-flex; align-items: center; gap: 4px; }
+  .tile .rating .stars { color: var(--yellow); font-size: 12px; }
+  .tile .rating .n { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700; color: var(--ink); }
+  .tile .hire-btn { padding: 6px 13px; border-radius: 7px; background: var(--gradient); color: white; font-size: 12px; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 10px -2px rgba(139,92,246,0.4); }
+
+  /* LEAD tile (left of row 1) — bigger, more dramatic */
+  .tile.lead {
+    background: linear-gradient(135deg, rgba(236,72,153,0.06), rgba(255,107,107,0.06));
+    border: 1px solid rgba(236,72,153,0.18);
+    padding: 32px;
+  }
+  .tile.lead .av { width: 80px; height: 80px; border-radius: 20px; font-size: 24px; margin-bottom: 22px; }
+  .tile.lead h3 { font-size: 36px; font-weight: 200; letter-spacing: -0.025em; line-height: 1.05; margin-bottom: 14px; }
+  .tile.lead h3 strong { font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .tile.lead .desc { font-size: 15.5px; line-height: 1.55; max-width: 480px; margin-bottom: 24px; }
+  .tile.lead .stat-row { gap: 24px; font-size: 12px; padding-top: 18px; }
+  .tile.lead .stat-row strong { font-size: 18px; }
+  .tile.lead .stat-row .grad strong { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .tile.lead .hire-btn { padding: 11px 22px; font-size: 14px; }
+
+  /* WIDE tile (row 2 last tile if mod 3 etc) */
+  .tile.compact {
+    padding: 18px;
+  }
+  .tile.compact .av { width: 40px; height: 40px; font-size: 12px; margin-bottom: 12px; }
+  .tile.compact h3 { font-size: 15px; }
+  .tile.compact .desc { font-size: 12.5px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a class="active" href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <h1>Browse cohorts <strong>by department</strong></h1>
+      <p>24 starter cohorts across six departments. Pick a category to browse.</p>
+    </div>
+
+    <!-- KEPT FROM D — dept tabs -->
+    <div class="cat-tabs">
+      <div class="cat-tab"><div class="ico">🎧</div><div class="name">Support</div><div class="ct">5 COHORTS</div></div>
+      <div class="cat-tab on"><div class="ico" style="background:transparent;">💰</div><div class="name">Finance &amp; Ops</div><div class="ct">7 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">📊</div><div class="name">Sales</div><div class="ct">4 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">👥</div><div class="name">People &amp; HR</div><div class="ct">3 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">🔧</div><div class="name">IT &amp; Dev-ex</div><div class="ct">3 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">⚖</div><div class="name">Legal</div><div class="ct">2 COHORTS</div></div>
+    </div>
+
+    <div class="cat-section-h">
+      <h2><strong>Finance &amp; Ops</strong> · 7 cohorts</h2>
+      <div class="meta"><strong>1,089</strong> ACTIVE HIRES · MOST TRUSTED CATEGORY ON SKYCOT</div>
+    </div>
+
+    <!-- ROW 1: lead + 2 stacked -->
+    <div class="row-1">
+
+      <div class="tile lead">
+        <span class="badge featured">★ FEATURED</span>
+        <div class="av s">SL</div>
+        <div class="kicker">★ MOST-HIRED IN FINANCE</div>
+        <h3>L3 <strong>Invoice Operations</strong></h3>
+        <p class="desc">Extracts line items, validates against POs, codes to GL accounts, flags duplicates with 99.6% accuracy. The cohort that lets a finance team feel ten people bigger without hiring a single new human.</p>
+        <div class="stat-row">
+          <span class="grad">Teams <strong>612</strong></span>
+          <span>Rating <strong>★ 4.9</strong></span>
+          <span>Cost <strong>$0.008</strong>/act</span>
+          <span>Skills <strong>9</strong></span>
+        </div>
+        <div class="foot-row">
+          <span style="font-size:12.5px;color:var(--ink-3)">v2.8 · updated 2 weeks ago</span>
+          <button class="hire-btn">Hire L3 Invoice Operations →</button>
+        </div>
+      </div>
+
+      <div class="right-col">
+
+        <div class="tile">
+          <span class="badge new">NEW</span>
+          <div class="av ar">AR</div>
+          <div class="kicker">JUST RELEASED</div>
+          <h3>L2 AR Collector</h3>
+          <p class="desc">Chases overdue receivables. Drafts reminder emails. Escalates the awkward ones.</p>
+          <div class="stat-row"><span>Teams <strong>312</strong></span><span>★ <strong>4.8</strong></span><span><strong>$0.020</strong>/act</span></div>
+          <div class="foot-row"><span class="rating"><span class="stars">★★★★★</span></span><button class="hire-btn">Hire →</button></div>
+        </div>
+
+        <div class="tile">
+          <span class="badge trending">★ TRENDING</span>
+          <div class="av fc">FC</div>
+          <div class="kicker">UP 23% THIS WEEK</div>
+          <h3>L3 Financial Closer</h3>
+          <p class="desc">Runs the month-end close checklist. Reconciles GL accounts, drafts JEs, files variance reports.</p>
+          <div class="stat-row"><span>Teams <strong>152</strong></span><span>★ <strong>4.8</strong></span><span><strong>$0.025</strong>/act</span></div>
+          <div class="foot-row"><span class="rating"><span class="stars">★★★★★</span></span><button class="hire-btn">Hire →</button></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ROW 2: 4 compact tiles -->
+    <div class="row-2">
+
+      <div class="tile compact">
+        <div class="av ex">EX</div>
+        <h3>L2 Expense Auditor</h3>
+        <p class="desc">Reviews Concur / Expensify submissions against policy. Flags out-of-policy spend.</p>
+        <div class="stat-row"><span>Teams <strong>187</strong></span><span>★ <strong>4.5</strong></span></div>
+        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">$0.009/act</span><button class="hire-btn">Hire →</button></div>
+      </div>
+
+      <div class="tile compact">
+        <div class="av pr">PR</div>
+        <h3>L3 Procurement Reviewer</h3>
+        <p class="desc">Validates POs against vendor master, checks budget, drafts requisitions.</p>
+        <div class="stat-row"><span>Teams <strong>98</strong></span><span>★ <strong>4.6</strong></span></div>
+        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">$0.013/act</span><button class="hire-btn">Hire →</button></div>
+      </div>
+
+      <div class="tile compact">
+        <div class="av cs">CF</div>
+        <h3>L2 Cash Forecaster</h3>
+        <p class="desc">Builds rolling 13-week cash forecasts. Surfaces liquidity risk weekly.</p>
+        <div class="stat-row"><span>Teams <strong>67</strong></span><span>★ <strong>4.4</strong></span></div>
+        <div class="foot-row"><span style="font-size:11px;color:var(--ink-3);font-family:monospace">$0.011/act</span><button class="hire-btn">Hire →</button></div>
+      </div>
+
+      <div class="tile compact" style="background: transparent; border: 2px dashed var(--line-2); display: grid; place-items: center; cursor: pointer;">
+        <div style="text-align: center;">
+          <div style="font-size: 28px; color: var(--ink-3); margin-bottom: 6px; font-weight: 200;">+</div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--ink);">Build custom</div>
+          <div style="font-size: 11.5px; color: var(--ink-3); margin-top: 2px;">Finance cohort · ~5min</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

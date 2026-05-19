@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audit — SKYCOT (B2 · Dark Terminal)</title>
+<!-- Design language: B2 — DARK TERMINAL.
+     Security analyst workstation. SIEM (Security Information & Event Management) feel.
+     Mono is the primary type. Status as colored kind-prefix. Visible parent_hash → self_hash chain.
+     Brand gradient is used sparingly as accents — the room is dark and serious. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --bg: #0A0A0F;
+    --bg-2: #111118;
+    --bg-3: #16161F;
+    --bg-4: #1E1E2A;
+    --line: #2A2A38;
+    --line-2: #3A3A4A;
+    --ink: #E4E4E7;
+    --ink-2: #A1A1AA;
+    --ink-3: #71717A;
+    --ink-4: #52525B;
+    --green: #4ADE80;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .audiowide { font-family: 'Audiowide', sans-serif; letter-spacing: 0.04em; }
+  .inter { font-family: 'Inter', system-ui, sans-serif; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .side {
+    background: var(--bg-2);
+    border-right: 1px solid var(--line);
+    padding: 20px 14px;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 6px 20px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 12px;
+  }
+  .brand .mark {
+    width: 26px; height: 26px; border-radius: 6px;
+    background: var(--gradient);
+    box-shadow: 0 0 18px rgba(139,92,246,0.45);
+  }
+  .brand .name {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+  }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 6px;
+    color: var(--ink-2);
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .nav a:hover { background: var(--bg-3); color: var(--ink); }
+  .nav a.active {
+    background: var(--bg-3);
+    color: var(--ink);
+    border-left: 2px solid var(--purple);
+    padding-left: 8px;
+  }
+  .nav a .ico { width: 14px; opacity: 0.7; }
+  .nav a .badge {
+    margin-left: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; padding: 1px 6px; border-radius: 4px;
+    background: var(--bg-4); color: var(--yellow);
+  }
+  .nav .group {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-4); padding: 14px 10px 4px;
+  }
+  .side-foot {
+    position: absolute; left: 14px; right: 14px; bottom: 14px;
+    padding: 10px 12px; background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3);
+  }
+  .side-foot .ok { color: var(--green); }
+  .side-foot .hash { color: var(--ink-2); font-size: 10.5px; word-break: break-all; }
+
+  /* Main */
+  .main { padding: 24px 32px 80px; max-width: 1400px; }
+  .crumb {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-4);
+    margin-bottom: 4px;
+  }
+  .crumb .sep { color: var(--ink-4); margin: 0 4px; }
+  .crumb .here { color: var(--ink-2); }
+  .head-row {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .head-row h1 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 26px; font-weight: 400; letter-spacing: 0.02em;
+    margin: 0; color: var(--ink);
+  }
+  .head-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--ink-3);
+  }
+  .head-sub .ok { color: var(--green); }
+  .actions { display: flex; gap: 8px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 500;
+    background: var(--bg-3); color: var(--ink);
+    border: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--line-2); }
+  .btn.primary {
+    background: var(--gradient); color: white; border: none;
+    box-shadow: 0 4px 14px rgba(139,92,246,0.35);
+  }
+
+  /* KPIs */
+  .kpis {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 10px; margin: 24px 0 24px;
+  }
+  .kpi {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .kpi .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-4);
+  }
+  .kpi .val {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 22px; letter-spacing: 0.02em;
+    margin-top: 4px; color: var(--ink);
+  }
+  .kpi .val.grad {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+  .kpi .val.warn { color: var(--yellow); }
+  .kpi .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-3); margin-top: 2px;
+  }
+
+  /* Verify status bar */
+  .verify-bar {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    border-radius: 6px;
+    padding: 10px 16px;
+    display: flex; gap: 18px; align-items: center;
+    margin-bottom: 18px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  }
+  .verify-bar .ok { color: var(--green); font-weight: 700; }
+  .verify-bar .lbl { color: var(--ink-3); }
+  .verify-bar .val { color: var(--ink-2); }
+  .verify-bar .hash { color: var(--ink); }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .filters { display: flex; gap: 5px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-2);
+  }
+  .chip.on { background: rgba(139,92,246,0.15); border-color: var(--purple); color: var(--purple); }
+  .search {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 10px; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--bg-2);
+    color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  }
+  .kbd {
+    font-size: 10px; padding: 1px 5px; border-radius: 3px;
+    background: var(--bg-4); color: var(--ink-2);
+  }
+
+  /* Audit rows */
+  .log {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden;
+  }
+  .log-head {
+    display: grid;
+    grid-template-columns: 70px 60px 1fr 110px 90px;
+    gap: 14px;
+    padding: 8px 16px;
+    background: var(--bg-3);
+    border-bottom: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-4); font-weight: 700;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 70px 60px 1fr 110px 90px;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    align-items: start;
+    position: relative;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--bg-3); }
+  .ts {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-3);
+  }
+  .ts .t { color: var(--ink); font-weight: 500; display: block; }
+  .ts .d { font-size: 10px; }
+  .kind-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700; padding: 3px 6px;
+    border-radius: 3px; letter-spacing: 0.05em;
+    background: var(--bg-4); color: var(--ink-2);
+    text-transform: uppercase;
+    text-align: center;
+    display: inline-block;
+  }
+  .kind-pill.dispatch { color: var(--purple); }
+  .kind-pill.result { color: var(--green); background: rgba(74,222,128,0.10); }
+  .kind-pill.approval { color: var(--yellow); background: rgba(252,211,77,0.12); }
+  .kind-pill.refuse { color: var(--coral); background: rgba(255,107,107,0.12); }
+  .body .who {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600; color: var(--ink); font-size: 13.5px;
+  }
+  .body .who .role { color: var(--ink-3); font-weight: 400; font-size: 12px; }
+  .body .what {
+    font-family: 'Inter', sans-serif;
+    color: var(--ink-2); font-size: 13px; margin-top: 3px;
+  }
+  .body .what strong { color: var(--ink); font-weight: 500; }
+  .body .chain {
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-4);
+    display: grid; gap: 2px;
+  }
+  .body .chain .line { display: flex; gap: 8px; align-items: center; }
+  .body .chain .lbl { color: var(--ink-4); width: 64px; }
+  .body .chain .h { color: var(--ink-2); }
+  .body .chain .h.this { color: var(--ink); }
+  .cost {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink-2); text-align: right;
+  }
+  .cost.zero { color: var(--ink-4); }
+  .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    text-align: right;
+  }
+  .status.ok { color: var(--green); }
+  .status.warn { color: var(--yellow); }
+  .status.bad { color: var(--coral); }
+  .status .arrow { opacity: 0.5; margin-left: 4px; }
+
+  /* Chain connector — vertical line on left to indicate chain */
+  .chain-spine {
+    position: absolute;
+    left: 16px; top: 18px; bottom: -8px; width: 1px;
+    background: var(--line);
+    z-index: 0;
+  }
+  .row:last-child .chain-spine { display: none; }
+  .row.warn { background: rgba(252,211,77,0.03); }
+  .row.bad { background: rgba(255,107,107,0.03); }
+
+  /* Verify footer */
+  .verify-foot {
+    margin-top: 24px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px 26px;
+  }
+  .verify-foot h3 {
+    margin: 0 0 8px;
+    font-family: 'Audiowide', sans-serif;
+    font-size: 14px; font-weight: 400; letter-spacing: 0.04em;
+    color: var(--green);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .verify-foot h3 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .verify-foot pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    margin: 0;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .verify-foot .actions { margin-top: 14px; display: flex; gap: 8px; }
+  .verify-foot pre .ok { color: var(--green); }
+  .verify-foot pre .k { color: var(--purple); }
+  .verify-foot pre .v { color: var(--ink); }
+  .verify-foot pre .hash { color: var(--cyan); }
+
+  .stamp {
+    margin-top: 22px; text-align: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-4);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <div class="mark"></div>
+      <div class="name">SKYCOT</div>
+    </div>
+    <nav class="nav">
+      <a href="#"><span class="ico">⌂</span> <span class="inter">Home</span></a>
+      <a href="#"><span class="ico">✉</span> <span class="inter">Inbox</span> <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#"><span class="ico">◐</span> <span class="inter">Team</span></a>
+      <a href="#"><span class="ico">⚙</span> <span class="inter">Workers</span></a>
+      <a class="active" href="#"><span class="ico">⊟</span> <span class="inter">Audit</span></a>
+      <a href="#"><span class="ico">▣</span> <span class="inter">Skills</span></a>
+      <a href="#"><span class="ico">◫</span> <span class="inter">Cohorts</span></a>
+      <div class="group">Account</div>
+      <a href="#"><span class="ico">$</span> <span class="inter">Billing</span></a>
+      <a href="#"><span class="ico">⚒</span> <span class="inter">Settings</span></a>
+    </nav>
+    <div class="side-foot">
+      <div><span class="ok">●</span> chain.verify OK</div>
+      <div style="color:var(--ink-3);margin-top:4px">head:</div>
+      <div class="hash">812d499b3f1a7c40&hellip;0ab7</div>
+      <div style="color:var(--ink-3);margin-top:6px">rows: 1247 · breaks: 0</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">~ <span class="sep">/</span> workspace <span class="sep">/</span> acme-corp <span class="sep">/</span> <span class="here">audit</span></div>
+    <div class="head-row">
+      <div>
+        <h1>audit_log</h1>
+        <div class="head-sub">tenant=acme-corp · period=last_24h · rows=17 · <span class="ok">chain.verify=OK</span></div>
+      </div>
+      <div class="actions">
+        <button class="btn">↻ verify chain</button>
+        <button class="btn">⤓ export SOC 2</button>
+        <button class="btn primary">▷ replay session</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="label">events_today</div><div class="val grad">17</div><div class="sub">+4 vs yesterday</div></div>
+      <div class="kpi"><div class="label">pending_approval</div><div class="val warn">7</div><div class="sub">oldest: 38m</div></div>
+      <div class="kpi"><div class="label">spend_today</div><div class="val">$0.094</div><div class="sub">avg=$0.0055</div></div>
+      <div class="kpi"><div class="label">policy_refuse</div><div class="val">1</div><div class="sub">duplicate.invoice</div></div>
+      <div class="kpi"><div class="label">chain_integrity</div><div class="val grad">100%</div><div class="sub" style="color:var(--green)">0 breaks · sig OK</div></div>
+    </div>
+
+    <div class="verify-bar">
+      <span class="ok">● CHAIN OK</span>
+      <span><span class="lbl">algo:</span> <span class="val">sha-256</span></span>
+      <span><span class="lbl">head:</span> <span class="hash">812d499b…0ab7</span></span>
+      <span><span class="lbl">rows:</span> <span class="val">1,247</span></span>
+      <span><span class="lbl">breaks:</span> <span class="val">0</span></span>
+      <span><span class="lbl">last verify:</span> <span class="val">2s ago</span></span>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters">
+        <span class="chip on">ALL</span>
+        <span class="chip">PENDING (7)</span>
+        <span class="chip">REFUSED (1)</span>
+        <span class="chip">tool.dispatch</span>
+        <span class="chip">tool.result</span>
+        <span class="chip">approval.ask</span>
+        <span class="chip">policy.refuse</span>
+      </div>
+      <div class="search">⌕ grep events… <span class="kbd">⌘K</span></div>
+    </div>
+
+    <div class="log">
+      <div class="log-head">
+        <div>time</div><div>kind</div><div>event</div><div>status</div><div>cost</div>
+      </div>
+
+      <div class="row">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">10:42</span><span class="d">+0:00</span></div>
+        <div><span class="kind-pill result">tool.result</span></div>
+        <div class="body">
+          <div class="who">Jamal <span class="role">// support_agent_v3</span></div>
+          <div class="what">Resolved ticket <strong>SUP-29382</strong> using KB article <strong>SK-413</strong> · sentiment=resolved</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">d4c81a9f1c20af3b…2e4a</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">7f3a91c20b8e688a…b8e6 ✓</span></div>
+          </div>
+        </div>
+        <div class="status ok">SUCCEEDED<span class="arrow">→</span></div>
+        <div class="cost">$0.004</div>
+      </div>
+
+      <div class="row">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">10:38</span><span class="d">−0:04</span></div>
+        <div><span class="kind-pill result">tool.result</span></div>
+        <div class="body">
+          <div class="who">Sara <span class="role">// invoice_ops_v2</span></div>
+          <div class="what">Extracted line items from <strong>INV-2024-08741</strong> · 12 lines · total=$48,290.00 · variance=0.02%</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">7f3a91c20b8e688a…b8e6</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">a1b9c3e4d529f072…f209 ✓</span></div>
+          </div>
+        </div>
+        <div class="status ok">SUCCEEDED<span class="arrow">→</span></div>
+        <div class="cost">$0.012</div>
+      </div>
+
+      <div class="row">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">10:31</span><span class="d">−0:11</span></div>
+        <div><span class="kind-pill result">tool.result</span></div>
+        <div class="body">
+          <div class="who">Priya <span class="role">// recruiting_screener</span></div>
+          <div class="what">Screened candidate <strong>Diego Alvarez</strong> against <strong>JD-2024-08</strong> · match_score=8.2/10</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">a1b9c3e4d529f072…f209</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">e8d2447a6614c019…1c33 ✓</span></div>
+          </div>
+        </div>
+        <div class="status ok">SUCCEEDED<span class="arrow">→</span></div>
+        <div class="cost">$0.014</div>
+      </div>
+
+      <div class="row">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">10:24</span><span class="d">−0:18</span></div>
+        <div><span class="kind-pill result">tool.result</span></div>
+        <div class="body">
+          <div class="who">Nori <span class="role">// quote_validator</span></div>
+          <div class="what">Validated <strong>QT-2024-7283</strong> against pricing rules · within tolerance</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">e8d2447a6614c019…1c33</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">3c5f8e09a72de144…d447 ✓</span></div>
+          </div>
+        </div>
+        <div class="status ok">SUCCEEDED<span class="arrow">→</span></div>
+        <div class="cost">$0.008</div>
+      </div>
+
+      <div class="row">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">10:18</span><span class="d">−0:24</span></div>
+        <div><span class="kind-pill result">tool.result</span></div>
+        <div class="body">
+          <div class="who">Mariah <span class="role">// sales_drafter</span></div>
+          <div class="what">Drafted RFP response for <strong>Tomás Industries</strong> · 1,240 words · 4 sections · model=gpt-4o</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">3c5f8e09a72de144…d447</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">b2a7c193e441f8d6…ee01 ✓</span></div>
+          </div>
+        </div>
+        <div class="status ok">SUCCEEDED<span class="arrow">→</span></div>
+        <div class="cost">$0.021</div>
+      </div>
+
+      <div class="row warn">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">10:11</span><span class="d">−0:31</span></div>
+        <div><span class="kind-pill approval">approval.ask</span></div>
+        <div class="body">
+          <div class="who">Nori <span class="role">// quote_validator</span></div>
+          <div class="what">Flagged <strong>32% discount</strong> on QT-2024-7283 · threshold=25% · escalating to operator</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">b2a7c193e441f8d6…ee01</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">9d142a8c80f6e1bd…7b15 ✓</span></div>
+          </div>
+        </div>
+        <div class="status warn">PENDING<span class="arrow">→</span></div>
+        <div class="cost zero">—</div>
+      </div>
+
+      <div class="row bad">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">10:04</span><span class="d">−0:38</span></div>
+        <div><span class="kind-pill refuse">policy.refuse</span></div>
+        <div class="body">
+          <div class="who">Sara <span class="role">// invoice_ops_v2</span></div>
+          <div class="what">Refused duplicate invoice <strong>INV-2024-08739</strong> · rule=no_duplicate_invoice_30d · reason=hash_match_INV-2024-08712</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">9d142a8c80f6e1bd…7b15</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">f08c1973aacd55b1…aab2 ✓</span></div>
+          </div>
+        </div>
+        <div class="status bad">REFUSED<span class="arrow">→</span></div>
+        <div class="cost zero">—</div>
+      </div>
+
+      <div class="row warn">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">09:58</span><span class="d">−0:44</span></div>
+        <div><span class="kind-pill approval">approval.ask</span></div>
+        <div class="body">
+          <div class="who">Priya <span class="role">// recruiting_screener</span></div>
+          <div class="what">Drafted rejection email to <strong>Sara Lin</strong> · awaiting operator approval before send</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">f08c1973aacd55b1…aab2</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">5a73e2c80a4c1b2f…9f44 ✓</span></div>
+          </div>
+        </div>
+        <div class="status warn">PENDING<span class="arrow">→</span></div>
+        <div class="cost">$0.009</div>
+      </div>
+
+      <div class="row">
+        <div class="chain-spine"></div>
+        <div class="ts"><span class="t">09:52</span><span class="d">−0:50</span></div>
+        <div><span class="kind-pill result">tool.result</span></div>
+        <div class="body">
+          <div class="who">Mariah <span class="role">// sales_drafter</span></div>
+          <div class="what">Scheduled <strong>Q3 renewal review</strong> with Acme Tech · 2026-08-12T14:00+11:00</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">5a73e2c80a4c1b2f…9f44</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">cc40b8a7710fde2c…03d1 ✓</span></div>
+          </div>
+        </div>
+        <div class="status ok">SUCCEEDED<span class="arrow">→</span></div>
+        <div class="cost zero">—</div>
+      </div>
+
+      <div class="row">
+        <div class="ts"><span class="t">09:47</span><span class="d">−0:55</span></div>
+        <div><span class="kind-pill result">tool.result</span></div>
+        <div class="body">
+          <div class="who">Jamal <span class="role">// support_agent_v3</span></div>
+          <div class="what">Escalated <strong>SUP-29355</strong> to <strong>@lead-support</strong> · sentiment=frustrated · waited=4h12m</div>
+          <div class="chain">
+            <div class="line"><span class="lbl">parent:</span><span class="h">cc40b8a7710fde2c…03d1</span></div>
+            <div class="line"><span class="lbl">self:</span><span class="h this">812d499b3f1a7c40…0ab7 ✓ (chain head)</span></div>
+          </div>
+        </div>
+        <div class="status ok">SUCCEEDED<span class="arrow">→</span></div>
+        <div class="cost zero">—</div>
+      </div>
+    </div>
+
+    <div class="verify-foot">
+      <h3><span class="dot"></span> chain.verify() · pass</h3>
+<pre><span class="k">$</span> <span class="v">argo audit verify --tenant=acme-corp --from=2026-05-18T00:00 --to=now</span>
+
+<span class="ok">[OK]</span>   algorithm    : <span class="v">sha-256</span>
+<span class="ok">[OK]</span>   rows         : <span class="v">1,247</span>  parent_hash links verified
+<span class="ok">[OK]</span>   chain_head   : <span class="hash">812d499b3f1a7c40e9b1c2d3a4f567890123456789abcdef0123456789abcd0ab7</span>
+<span class="ok">[OK]</span>   breaks       : <span class="v">0</span>  · no missing links · no out-of-order timestamps
+<span class="ok">[OK]</span>   signatures   : <span class="v">all valid</span> · tenant_key fingerprint <span class="hash">a8:34:c9…</span>
+<span class="ok">[OK]</span>   replay       : <span class="v">deterministic</span>  · same inputs ⇒ same outputs
+
+<span class="k">→</span> <span class="v">Chain is intact and tamper-evident. SOC 2 Type II eligible. GDPR Article 30 compliant.</span></pre>
+      <div class="actions">
+        <button class="btn">⤓ download proof bundle (.json)</button>
+        <button class="btn">▷ replay any row</button>
+        <button class="btn">⊠ open in CLI</button>
+      </div>
+    </div>
+
+    <div class="stamp">— SKYCOT audit subsystem v1.0 · verified 2s ago · auto-refresh every 60s —</div>
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Onboarding · welcome — SKYCOT (C · Stripe Split)</title>
+<!-- Design language: C — STRIPE SPLIT.
+     Left half: copy + progress + primary action. Right half: visual / preview.
+     Sober, professional, enterprise. Familiar pattern (Stripe Atlas / Linear / Vercel onboarding).
+     Best for: enterprise buyers who want to feel they're using grown-up software. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; }
+
+  /* Left: copy + form */
+  .left {
+    background: var(--bg);
+    padding: 32px 56px;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .left-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .exit { font-size: 13.5px; color: var(--ink-3); text-decoration: none; }
+
+  /* Progress */
+  .progress {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 28px;
+  }
+  .progress .pos {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .progress .pos strong { color: var(--ink); }
+  .progress .track { flex: 1; height: 3px; background: var(--paper-2); border-radius: 2px; max-width: 200px; }
+  .progress .track .fill { height: 100%; width: 20%; background: var(--gradient); border-radius: 2px; }
+
+  .copy-block { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 480px; }
+  h1 {
+    font-size: 44px; font-weight: 600;
+    letter-spacing: -0.03em; line-height: 1.1;
+    margin: 0 0 18px;
+  }
+  .lead {
+    font-size: 17px; color: var(--ink-2);
+    line-height: 1.55; margin: 0 0 32px;
+  }
+  .lead strong { color: var(--ink); font-weight: 600; }
+
+  .bullets { list-style: none; padding: 0; margin: 0 0 36px; }
+  .bullets li {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 0;
+    font-size: 14.5px;
+    color: var(--ink-2);
+  }
+  .bullets li .check {
+    flex-shrink: 0;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal), var(--cyan));
+    color: white; display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    margin-top: 1px;
+  }
+  .bullets li strong { color: var(--ink); font-weight: 600; }
+
+  .cta-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 13px 22px; border-radius: 10px;
+    font-size: 14.5px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+  .btn .kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(0,0,0,0.05); }
+  .btn.primary .kbd { background: rgba(255,255,255,0.25); }
+  .meta-line { font-size: 12px; color: var(--ink-3); display: flex; gap: 16px; }
+  .meta-line .item { display: inline-flex; align-items: center; gap: 5px; }
+  .meta-line .item .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+
+  .left-foot {
+    margin-top: auto; padding-top: 28px;
+    border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3);
+    display: flex; gap: 14px;
+  }
+  .left-foot a { color: var(--ink-3); text-decoration: none; }
+  .left-foot a:hover { color: var(--ink); }
+
+  /* Right: visual */
+  .right {
+    background: linear-gradient(135deg, rgba(139,92,246,0.04), rgba(8,145,178,0.04));
+    padding: 56px 56px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .right::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle, rgba(139,92,246,0.10) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .right > * { position: relative; z-index: 1; }
+
+  /* Preview mock of workers page */
+  .preview-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--purple); font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .preview-title {
+    font-size: 22px; font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    text-align: center;
+  }
+  .preview-sub {
+    font-size: 13.5px; color: var(--ink-3);
+    text-align: center;
+    margin: 0 0 32px;
+  }
+
+  .mock-workers {
+    background: var(--bg);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.06),
+      0 24px 60px -12px rgba(139,92,246,0.20);
+    border: 1px solid var(--line);
+    max-width: 480px;
+    width: 100%;
+  }
+  .mock-h {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .mock-row {
+    display: grid; grid-template-columns: 40px 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 10px;
+    margin-bottom: 8px;
+  }
+  .mock-row.empty {
+    border: 2px dashed var(--line-2);
+    background: var(--paper);
+  }
+  .mock-row .av {
+    width: 36px; height: 36px; border-radius: 9px;
+    display: grid; place-items: center; color: white;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .mock-row .av.empty {
+    background: var(--paper-2); color: var(--ink-3); font-weight: 300; font-size: 18px;
+  }
+  .mock-row .who { font-size: 14px; font-weight: 600; }
+  .mock-row .role { font-size: 11.5px; color: var(--ink-3); }
+  .mock-row.empty .who { color: var(--ink-3); }
+  .mock-row .status {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    background: rgba(20,184,166,0.10); color: #0F766E;
+    font-size: 11px; font-weight: 700;
+  }
+  .mock-row .status .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .mock-row.empty .status { background: var(--paper-2); color: var(--ink-3); }
+  .mock-row .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .mock-row .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .mock-row .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+
+  .preview-caption {
+    margin-top: 28px;
+    font-size: 12.5px; color: var(--ink-3);
+    text-align: center; max-width: 420px;
+    line-height: 1.5;
+  }
+  .preview-caption strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="split">
+
+  <aside class="left">
+    <div class="left-top">
+      <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+      <a class="exit" href="#">Save &amp; exit →</a>
+    </div>
+
+    <div class="copy-block">
+      <div class="progress">
+        <span class="pos">Step <strong>1</strong> of 5</span>
+        <div class="track"><div class="fill"></div></div>
+      </div>
+
+      <h1>Welcome, Mark.<br/>Let's hire your first teammate.</h1>
+      <p class="lead">In <strong>under five minutes</strong>, you'll set up your workspace, link a provider, and hire an AI teammate that can start working today.</p>
+
+      <ul class="bullets">
+        <li><span class="check">✓</span><span><strong>No credit card</strong> required for setup or your first 7 days</span></li>
+        <li><span class="check">✓</span><span><strong>SOC 2 Type II</strong> and GDPR Article 30 compliant by default</span></li>
+        <li><span class="check">✓</span><span>Every action is <strong>cryptographically audited</strong> and replayable</span></li>
+      </ul>
+
+      <div class="cta-row">
+        <button class="btn primary">Get started <span class="kbd">↵</span></button>
+        <button class="btn">Watch tour (90 sec)</button>
+      </div>
+      <div class="meta-line">
+        <span class="item"><span class="dot"></span>Average setup: <strong style="color:var(--ink);font-weight:600">4 minutes</strong></span>
+        <span class="item">·</span>
+        <span class="item">2,847 companies onboarded this month</span>
+      </div>
+    </div>
+
+    <div class="left-foot">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Help</a>
+      <span style="margin-left:auto">SKYCOT · Built in Melbourne</span>
+    </div>
+  </aside>
+
+  <aside class="right">
+    <div class="preview-tag">A look at where you're heading</div>
+    <h3 class="preview-title">Your workspace, in 5 minutes</h3>
+    <p class="preview-sub">Hire AI teammates the same way you'd hire humans — by role and skill.</p>
+
+    <div class="mock-workers">
+      <div class="mock-h">Your team · 5 active</div>
+
+      <div class="mock-row">
+        <div class="av">JM</div>
+        <div><div class="who">Jamal</div><div class="role">Support · L2</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row">
+        <div class="av s">SL</div>
+        <div><div class="who">Sara</div><div class="role">Invoice ops · L3</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row">
+        <div class="av p">PR</div>
+        <div><div class="who">Priya</div><div class="role">Recruiting · L2</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row">
+        <div class="av n">NM</div>
+        <div><div class="who">Nori</div><div class="role">Quote ops · L3</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row empty">
+        <div class="av empty">+</div>
+        <div><div class="who">You'll hire this one next</div><div class="role">Step 5 of onboarding</div></div>
+        <span class="status">empty</span>
+      </div>
+    </div>
+
+    <p class="preview-caption">By step 5, you'll have chosen a role, named your teammate, and given them the skills to start. <strong>They start working as soon as you're done.</strong></p>
+  </aside>
+
+</div>
+</body>
+</html>

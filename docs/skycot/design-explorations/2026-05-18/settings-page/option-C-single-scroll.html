@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Settings — SKYCOT (C · Single Scroll + Anchor Nav)</title>
+<!-- Design language: C — Single-page scroll.
+     All settings on one long page, sticky anchor nav on the left.
+     Linear / Vercel-style settings, but everything visible at once. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 200px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  /* Anchor nav (sticky) */
+  .anchor-nav { padding: 36px 0 0 8px; position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--line); background: var(--paper); }
+  .anchor-nav h3 { margin: 0 16px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); }
+  .anchor-nav a {
+    display: block; padding: 6px 16px;
+    font-size: 13px; color: var(--ink-3); text-decoration: none; font-weight: 500;
+    border-left: 2px solid transparent;
+  }
+  .anchor-nav a:hover { color: var(--ink); }
+  .anchor-nav a.on { color: var(--purple); border-left-color: var(--purple); font-weight: 700; background: rgba(139,92,246,0.05); }
+  .anchor-nav a .ct { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-4); margin-left: 4px; }
+  .anchor-nav .group-sep { height: 1px; background: var(--line); margin: 14px 16px; }
+
+  /* Main */
+  .main { padding: 36px 56px 100px; max-width: 800px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; }
+  .page-h { padding-bottom: 22px; border-bottom: 2px solid var(--ink); margin-bottom: 38px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14px; }
+
+  /* Section */
+  .section { margin-bottom: 56px; scroll-margin-top: 20px; }
+  .section-anchor { padding: 4px 0; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--ink-3); font-weight: 700; margin-bottom: 4px; }
+  .section h2 { margin: 0 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .section .sub { font-size: 14px; color: var(--ink-2); margin: 0 0 20px; line-height: 1.55; max-width: 580px; }
+
+  /* Field row */
+  .field { padding: 16px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 200px 1fr auto; gap: 22px; align-items: center; }
+  .field:last-child { border-bottom: none; }
+  .field .label { font-size: 13.5px; font-weight: 600; }
+  .field .label .desc { display: block; font-size: 12px; color: var(--ink-3); font-weight: 400; margin-top: 2px; line-height: 1.4; }
+  .field .value { font-size: 13.5px; color: var(--ink-2); }
+  .field .value .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .field .value .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(20,184,166,0.10); color: #0F766E; }
+  .field .value .pill .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .field .value .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; }
+  .field .value .pill.warn .d { background: var(--yellow); }
+  .field .action { display: flex; gap: 6px; justify-content: flex-end; }
+  .btn { padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+  .btn.danger { color: var(--coral); border-color: var(--coral); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a class="active" href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <aside class="anchor-nav">
+    <h3>ON THIS PAGE</h3>
+    <a class="on" href="#profile">Profile</a>
+    <a href="#notifications">Notifications</a>
+    <a href="#preferences">Preferences</a>
+    <div class="group-sep"></div>
+    <a href="#workspace">Workspace</a>
+    <a href="#team">Team <span class="ct">5</span></a>
+    <a href="#branding">Branding</a>
+    <a href="#worker-defaults">Worker defaults</a>
+    <div class="group-sep"></div>
+    <a href="#integrations">Connected apps <span class="ct">8</span></a>
+    <a href="#providers">AI providers</a>
+    <a href="#api">API &amp; webhooks</a>
+    <div class="group-sep"></div>
+    <a href="#security">Security policy</a>
+    <a href="#sso">Single sign-on</a>
+    <a href="#compliance">Compliance</a>
+    <a href="#audit">Audit retention</a>
+    <div class="group-sep"></div>
+    <a href="#plan">Plan &amp; usage</a>
+    <a href="#payment">Payment</a>
+    <a href="#invoices">Invoices</a>
+    <div class="group-sep"></div>
+    <a href="#danger" style="color:var(--coral)">Danger zone</a>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <h1><strong>Settings</strong></h1>
+      <p>Acme Corp · production · Pro plan · everything visible · jump via the right-side nav</p>
+    </div>
+
+    <section class="section" id="profile">
+      <div class="section-anchor">PROFILE · YOUR ACCOUNT</div>
+      <h2>Profile</h2>
+      <p class="sub">Your name, photo, login credentials. Visible to teammates and to your AI workers when they need to address you.</p>
+
+      <div class="field">
+        <div class="label">Full name<span class="desc">Used in approvals and audit logs.</span></div>
+        <div class="value">Mark Hallam</div>
+        <div class="action"><button class="btn">Edit</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Email<span class="desc">Sign-in identifier &amp; notifications.</span></div>
+        <div class="value"><span class="mono">mark@acmecorp.com</span></div>
+        <div class="action"><button class="btn">Change</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Title<span class="desc">Shown to AI workers for tone calibration.</span></div>
+        <div class="value">CEO</div>
+        <div class="action"><button class="btn">Edit</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Time zone<span class="desc">SLAs and audit timestamps use this.</span></div>
+        <div class="value"><span class="mono">Australia/Melbourne</span> · UTC+11</div>
+        <div class="action"><button class="btn">Change</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Two-factor auth<span class="desc">Required for all admins.</span></div>
+        <div class="value"><span class="pill"><span class="d"></span>Active · Authenticator app</span></div>
+        <div class="action"><button class="btn">Manage</button></div>
+      </div>
+    </section>
+
+    <section class="section" id="team">
+      <div class="section-anchor">WORKSPACE · TEAM</div>
+      <h2>Team</h2>
+      <p class="sub">Humans who review approvals and manage AI workers. 3 of 25 seats used on your Acme Corp Pro plan.</p>
+
+      <div class="field">
+        <div class="label">Members</div>
+        <div class="value">3 humans · 1 owner · 1 admin · 1 reviewer</div>
+        <div class="action"><button class="btn primary">+ Invite teammate</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Default role<span class="desc">New invitees start with this permission.</span></div>
+        <div class="value">REVIEWER</div>
+        <div class="action"><button class="btn">Change</button></div>
+      </div>
+      <div class="field">
+        <div class="label">SSO domain<span class="desc">Auto-invite teammates with this email domain.</span></div>
+        <div class="value"><span class="mono">acmecorp.com</span></div>
+        <div class="action"><button class="btn">Edit</button></div>
+      </div>
+    </section>
+
+    <section class="section" id="integrations">
+      <div class="section-anchor">INTEGRATIONS · CONNECTED APPS</div>
+      <h2>Connected apps</h2>
+      <p class="sub">SaaS tools your AI workers can read from and write to. 8 connected, all healthy. Last sync 2 seconds ago.</p>
+
+      <div class="field">
+        <div class="label">Zendesk<span class="desc">OAuth · acme-corp.zendesk.com</span></div>
+        <div class="value"><span class="pill"><span class="d"></span>Connected · synced 2s ago</span></div>
+        <div class="action"><button class="btn">Manage</button><button class="btn danger">Disconnect</button></div>
+      </div>
+      <div class="field">
+        <div class="label">NetSuite<span class="desc">OAuth · acme.app.netsuite.com</span></div>
+        <div class="value"><span class="pill"><span class="d"></span>Connected · synced 12m ago</span></div>
+        <div class="action"><button class="btn">Manage</button><button class="btn danger">Disconnect</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Salesforce<span class="desc">OAuth · acmecorp.my.salesforce.com</span></div>
+        <div class="value"><span class="pill"><span class="d"></span>Connected · synced 1h ago</span></div>
+        <div class="action"><button class="btn">Manage</button><button class="btn danger">Disconnect</button></div>
+      </div>
+    </section>
+
+    <section class="section" id="security">
+      <div class="section-anchor">SECURITY · POLICY</div>
+      <h2>Security policy</h2>
+      <p class="sub">Authentication, session, and access rules for everyone in your workspace.</p>
+
+      <div class="field">
+        <div class="label">MFA enforcement<span class="desc">Required for all members of this workspace.</span></div>
+        <div class="value"><span class="pill"><span class="d"></span>Required for all</span></div>
+        <div class="action"><button class="btn">Change</button></div>
+      </div>
+      <div class="field">
+        <div class="label">SSO (SAML)<span class="desc">Single sign-on via your identity provider.</span></div>
+        <div class="value"><span class="pill warn"><span class="d"></span>Not configured</span></div>
+        <div class="action"><button class="btn primary">Configure</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Session length<span class="desc">How long teammates stay signed in.</span></div>
+        <div class="value">7 days</div>
+        <div class="action"><button class="btn">Change</button></div>
+      </div>
+      <div class="field">
+        <div class="label">IP allowlist<span class="desc">Restrict admin access by IP range.</span></div>
+        <div class="value">Disabled</div>
+        <div class="action"><button class="btn">Configure</button></div>
+      </div>
+    </section>
+
+    <section class="section" id="compliance">
+      <div class="section-anchor">SECURITY · COMPLIANCE</div>
+      <h2>Compliance</h2>
+      <p class="sub">SOC 2 / GDPR / HIPAA evidence and data residency. Audit ledger retention.</p>
+
+      <div class="field">
+        <div class="label">SOC 2 Type II<span class="desc">Evidence package downloadable monthly.</span></div>
+        <div class="value"><span class="pill"><span class="d"></span>Eligible · verified 3d ago</span></div>
+        <div class="action"><button class="btn">Download package</button></div>
+      </div>
+      <div class="field">
+        <div class="label">GDPR Article 30<span class="desc">Processing register.</span></div>
+        <div class="value"><span class="pill"><span class="d"></span>Ready</span></div>
+        <div class="action"><button class="btn">Export</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Data residency<span class="desc">Where your tenant data lives.</span></div>
+        <div class="value">AU-East-1 (Sydney)</div>
+        <div class="action"><button class="btn">Change</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Audit retention<span class="desc">How long we keep your audit ledger.</span></div>
+        <div class="value">7 years · 1.2 GB stored</div>
+        <div class="action"><button class="btn">Change</button></div>
+      </div>
+    </section>
+
+    <section class="section" id="plan">
+      <div class="section-anchor">BILLING · PLAN</div>
+      <h2>Plan &amp; usage</h2>
+      <p class="sub">Your current Acme Corp Pro plan and this period's usage. Renews 1 June 2026.</p>
+
+      <div class="field">
+        <div class="label">Plan<span class="desc">25 worker slots · 25 human seats · unlimited audit retention.</span></div>
+        <div class="value">Acme Corp Pro</div>
+        <div class="action"><button class="btn">Change plan</button></div>
+      </div>
+      <div class="field">
+        <div class="label">This period's spend<span class="desc">Aggregated worker action costs.</span></div>
+        <div class="value"><span class="mono">$48.20</span> of <span class="mono">$500</span> cap</div>
+        <div class="action"><button class="btn">View breakdown</button></div>
+      </div>
+      <div class="field">
+        <div class="label">Worker slots<span class="desc">5 active · 1 in training · 19 open.</span></div>
+        <div class="value">5 of 25 used</div>
+        <div class="action"><button class="btn">Manage</button></div>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+</body>
+</html>

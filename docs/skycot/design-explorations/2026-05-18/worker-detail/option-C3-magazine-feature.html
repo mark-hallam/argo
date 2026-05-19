@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Worker · Jamal — SKYCOT (C3 · Magazine Feature)</title>
+<!-- Design language: C3 — Single-column editorial magazine feature.
+     No sidebar. Long-form narrative. Massive whitespace. Each section is a chapter.
+     Quiet, premium, literary.  Personality emerges through prose, not chips. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF7; --paper-2: #F4F4F0; --bg: #FFFFFF;
+    --line: #E8E6E1; --line-2: #D8D5CE;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 16px; line-height: 1.65; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { max-width: 760px; margin: 0 auto; padding: 32px 48px 120px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 32px; }
+  .crumb a { color: var(--ink-3); text-decoration: none; }
+
+  /* Hero — minimal */
+  .hero { padding: 32px 0 48px; border-bottom: 1px solid var(--line); margin-bottom: 56px; text-align: center; }
+  .hero-portrait {
+    width: 144px; height: 144px; border-radius: 36px;
+    margin: 0 auto 28px;
+    background: var(--gradient);
+    color: white; display: grid; place-items: center;
+    font-size: 50px; font-weight: 700; letter-spacing: 0.04em;
+    box-shadow: 0 16px 40px -12px rgba(139,92,246,0.35);
+  }
+  .hero .kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .hero .kicker .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #4ADE80; margin-right: 6px; box-shadow: 0 0 6px #4ADE80; vertical-align: middle; }
+  .hero h1 { font-size: 64px; font-weight: 200; letter-spacing: -0.035em; line-height: 1.05; margin: 0 0 14px; }
+  .hero .role {
+    font-size: 17px; color: var(--ink-2); font-weight: 300;
+    margin: 0 0 28px;
+    letter-spacing: -0.01em;
+  }
+  .hero .role .grad { font-weight: 600; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .hero-stats { display: flex; gap: 36px; justify-content: center; padding-top: 28px; border-top: 1px solid var(--line); }
+  .hero-stats .qs { text-align: center; }
+  .hero-stats .qs .v { font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+  .hero-stats .qs.grad .v { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero-stats .qs .l { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-top: 2px; }
+
+  /* Section heading — chapter style */
+  .chapter-h {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .chapter-h::before { content: ''; display: block; width: 28px; height: 2px; background: var(--gradient); border-radius: 1px; }
+
+  .chapter h2 {
+    font-size: 36px; font-weight: 200;
+    letter-spacing: -0.03em; line-height: 1.15;
+    margin: 0 0 20px;
+  }
+  .chapter h2 strong { font-weight: 700; }
+  .chapter { margin-bottom: 80px; }
+
+  .chapter p {
+    font-size: 17px; color: var(--ink-2); line-height: 1.7;
+    margin: 0 0 18px;
+    max-width: 640px;
+  }
+  .chapter p strong { color: var(--ink); font-weight: 600; }
+
+  /* Drop-cap on first paragraph */
+  .chapter p.lead::first-letter {
+    font-size: 64px; font-weight: 700;
+    float: left; line-height: 0.9; margin-right: 8px; margin-top: 6px;
+    background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  /* Pull-quote */
+  .pull-quote {
+    padding: 24px 28px;
+    margin: 28px 0;
+    border-left: 4px solid var(--purple);
+    background: var(--bg);
+    border-radius: 0 12px 12px 0;
+    font-size: 19px; font-style: italic; font-weight: 300;
+    color: var(--ink); line-height: 1.5;
+    letter-spacing: -0.015em;
+  }
+  .pull-quote::before { content: '"'; color: var(--purple); font-size: 36px; line-height: 0; vertical-align: -16px; margin-right: 6px; }
+  .pull-quote .attribution {
+    display: block;
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); font-style: normal; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+
+  /* Action sub-headings */
+  .action-item {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .action-item:last-child { border-bottom: none; }
+  .action-item .ts {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--ink-3); letter-spacing: 0.06em; font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .action-item h3 {
+    margin: 0 0 8px;
+    font-size: 21px; font-weight: 600; letter-spacing: -0.015em;
+  }
+  .action-item .desc {
+    font-size: 15.5px; color: var(--ink-2); line-height: 1.6;
+    margin: 0 0 8px;
+  }
+  .action-item .desc strong { color: var(--ink); font-weight: 600; }
+  .action-item .stats {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--ink-3);
+  }
+  .action-item .stats strong { color: var(--ink); }
+
+  /* Skills grid (full width within column) */
+  .skills-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .skill-pill {
+    padding: 16px 18px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .skill-pill .ic { width: 36px; height: 36px; border-radius: 9px; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .skill-pill .ic.locked { background: var(--paper-2); color: var(--ink-3); }
+  .skill-pill .info { flex: 1; }
+  .skill-pill .name { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 600; }
+  .skill-pill .desc { font-size: 12.5px; color: var(--ink-3); }
+  .skill-pill .uses { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-3); font-weight: 700; }
+  .skill-pill .uses strong { color: var(--ink); }
+  .skill-pill.locked { opacity: 0.6; }
+
+  /* Footer actions */
+  .footer-actions {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+    display: flex; gap: 10px; justify-content: center;
+  }
+  .btn { padding: 12px 24px; border-radius: 999px; font-size: 13.5px; font-weight: 700; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 6px 20px -4px rgba(139,92,246,0.4); }
+
+  /* Final colophon */
+  .colophon {
+    margin-top: 60px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-4);
+    letter-spacing: 0.08em;
+  }
+  .colophon .sep { margin: 0 12px; color: var(--ink-4); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb"><a href="#">Workers</a> · Jamal</div>
+
+    <header class="hero">
+      <div class="hero-portrait">JM</div>
+      <div class="kicker"><span class="live-dot"></span>ACTIVE NOW · LAST ACTION 2 SECONDS AGO</div>
+      <h1>Jamal</h1>
+      <p class="role">Your <span class="grad">L2 Support Specialist</span>. Cohort <strong>support_agent_v3</strong>. Serial <strong>#001</strong>. Hired <strong>12 September 2025</strong>.</p>
+      <div class="hero-stats">
+        <div class="qs grad"><div class="v">1,247</div><div class="l">Career actions</div></div>
+        <div class="qs"><div class="v">94%</div><div class="l">Resolution rate</div></div>
+        <div class="qs"><div class="v">4.8</div><div class="l">CSAT average</div></div>
+        <div class="qs"><div class="v">8mo</div><div class="l">In service</div></div>
+      </div>
+    </header>
+
+    <section class="chapter">
+      <div class="chapter-h">CHAPTER ONE</div>
+      <h2>Who Jamal is.</h2>
+      <p class="lead">Jamal is an L2 Support Specialist. He works across Zendesk and Intercom. He reads new tickets within thirty seconds of arrival, drafts replies in your tone, escalates frustrated customers to lead-support, and refunds duplicate charges up to two hundred dollars — with your approval, every time.</p>
+      <p>He started at Acme Corp eight months ago, fresh out of the <strong>support_agent_v3</strong> cohort. In that time he has handled 1,247 tickets, kept resolution rate above ninety percent, and never once sent a tone-deaf reply. He's seventy-two percent of the way to L3, which would unlock autonomous refunds up to five hundred dollars and the ability to send post-resolution CSAT surveys.</p>
+
+      <div class="pull-quote">
+        Jamal is the teammate I never worry about. He sounds like us, escalates the right things, and customers stay happy.
+        <span class="attribution">Mark Hallam · CEO · Acme Corp</span>
+      </div>
+    </section>
+
+    <section class="chapter">
+      <div class="chapter-h">CHAPTER TWO</div>
+      <h2>What he did today.</h2>
+      <p>Four actions before you opened your laptop. Two of them resolved tickets, one escalated to your lead-support human, one issued a refund you approved at 09:13.</p>
+
+      <div class="action-item">
+        <div class="ts">10:42 · 2 SECONDS AGO</div>
+        <h3>Resolved SUP-29382 using KB SK-413</h3>
+        <p class="desc">A customer reported a login failure after a password reset. Jamal recognized the <strong>SAML race condition</strong> documented in SK-413, walked the customer through the workaround, and marked the ticket resolved. Customer sentiment closed at <strong>resolved</strong>.</p>
+        <div class="stats">latency <strong>1.8s</strong> · cost <strong>$0.004</strong> · model claude-sonnet-4-6</div>
+      </div>
+
+      <div class="action-item">
+        <div class="ts">10:18 · 24 MINUTES AGO</div>
+        <h3>Replied to SUP-29381 with a status update</h3>
+        <p class="desc">A customer asked for status on their open ticket. Jamal pulled the latest engineering update, drafted a reply that matched your team's tone, and sent it.</p>
+        <div class="stats">latency <strong>1.4s</strong> · cost <strong>$0.002</strong></div>
+      </div>
+
+      <div class="action-item">
+        <div class="ts">09:47 · 55 MINUTES AGO</div>
+        <h3>Escalated SUP-29355 to @lead-support</h3>
+        <p class="desc">A four-hour-twelve-minute thread was sliding toward frustrated. Jamal noticed the sentiment shift, routed the ticket to <strong>@lead-support</strong> over Slack, and attached his summary of the customer's three prior support tickets so the human didn't start cold.</p>
+        <div class="stats">latency <strong>2.1s</strong> · cost <strong>$0.001</strong></div>
+      </div>
+
+      <div class="action-item">
+        <div class="ts">09:14 · 1 HOUR AGO</div>
+        <h3>Refunded $89 on SUP-29378 — approved by you</h3>
+        <p class="desc">A customer reported a duplicate charge. Jamal confirmed the duplicate via Stripe history, drafted the refund request, you approved it at 09:13, and the refund issued at 09:14.</p>
+        <div class="stats">latency <strong>1.6s</strong> · cost <strong>$0.005</strong></div>
+      </div>
+    </section>
+
+    <section class="chapter">
+      <div class="chapter-h">CHAPTER THREE</div>
+      <h2>What he's good at.</h2>
+      <p>Five skills active, two locked behind L3 promotion. The number next to each is the count of times he's used it in his career.</p>
+
+      <div class="skills-grid">
+        <div class="skill-pill">
+          <div class="ic">Z</div>
+          <div class="info"><div class="name">zendesk.read</div><div class="desc">Read tickets &amp; conversations</div></div>
+          <div class="uses">★ <strong>843</strong></div>
+        </div>
+        <div class="skill-pill">
+          <div class="ic" style="background:linear-gradient(135deg,var(--purple),var(--pink))">Z</div>
+          <div class="info"><div class="name">zendesk.reply</div><div class="desc">Draft &amp; send replies</div></div>
+          <div class="uses">★ <strong>612</strong></div>
+        </div>
+        <div class="skill-pill">
+          <div class="ic" style="background:linear-gradient(135deg,var(--teal),var(--cyan))">K</div>
+          <div class="info"><div class="name">kb.search</div><div class="desc">Knowledge base lookup</div></div>
+          <div class="uses">★ <strong>489</strong></div>
+        </div>
+        <div class="skill-pill">
+          <div class="ic" style="background:linear-gradient(135deg,var(--pink),var(--coral))">S</div>
+          <div class="info"><div class="name">slack.dm</div><div class="desc">DM team members</div></div>
+          <div class="uses">★ <strong>78</strong></div>
+        </div>
+        <div class="skill-pill">
+          <div class="ic" style="background:linear-gradient(135deg,var(--coral),var(--yellow))">P</div>
+          <div class="info"><div class="name">policy.tone</div><div class="desc">Apply tone guidelines</div></div>
+          <div class="uses">★ <strong>1,247</strong></div>
+        </div>
+        <div class="skill-pill locked">
+          <div class="ic locked">R</div>
+          <div class="info"><div class="name">refund.issue</div><div class="desc">Refunds to $500 · L3 unlock</div></div>
+          <div class="uses">🔒</div>
+        </div>
+        <div class="skill-pill locked">
+          <div class="ic locked">S</div>
+          <div class="info"><div class="name">survey.send</div><div class="desc">CSAT survey · L3 unlock</div></div>
+          <div class="uses">🔒</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter">
+      <div class="chapter-h">CHAPTER FOUR</div>
+      <h2>What your team says.</h2>
+
+      <div class="pull-quote">
+        Jamal escalates to me with exactly the context I need. I trust his judgment on what's worth pulling me into.
+        <span class="attribution">Emma Liu · Lead Support · Acme Corp</span>
+      </div>
+
+      <div class="pull-quote" style="border-color: var(--teal);">
+        He's quieter than the other workers, but he's the one who keeps customers from churning. The math says 87% retention on tickets he handles.
+        <span class="attribution">Mark Hallam · CEO · Acme Corp</span>
+      </div>
+    </section>
+
+    <div class="footer-actions">
+      <button class="btn primary">⚙ Configure Jamal</button>
+      <button class="btn">💬 Message</button>
+      <button class="btn">⏸ Pause</button>
+      <button class="btn">▷ Replay last session</button>
+    </div>
+
+    <div class="colophon">
+      SKYCOT WORKER PROFILE <span class="sep">·</span> SERIAL #001 <span class="sep">·</span> AS OF 2026-05-19 10:42 AEDT
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

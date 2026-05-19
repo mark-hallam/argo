@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Onboarding · welcome — SKYCOT (B · Conversational)</title>
+<!-- Design language: B — CONVERSATIONAL AI HOST.
+     "Maya, your onboarding host" walks you through with chat bubbles.
+     Warm, human-feeling. Each step is a small back-and-forth.
+     Reinforces the "you hired teammates" brand promise from message 1. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  /* Top bar */
+  .top { padding: 22px 36px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: var(--bg); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .top .progress { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.06em; }
+  .top .progress .pips { display: flex; gap: 4px; }
+  .top .progress .pip { width: 24px; height: 4px; border-radius: 2px; background: var(--paper-2); }
+  .top .progress .pip.on { background: var(--gradient); }
+  .top .right a { color: var(--ink-3); font-size: 13.5px; text-decoration: none; }
+
+  /* Chat stage */
+  .chat {
+    max-width: 680px; margin: 0 auto;
+    padding: 48px 24px 80px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  /* Host intro */
+  .host-intro {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 24px; text-align: center;
+  }
+  .host-av {
+    width: 80px; height: 80px; border-radius: 24px;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    color: white; display: grid; place-items: center;
+    font-size: 26px; font-weight: 700; letter-spacing: 0.04em;
+    box-shadow: 0 12px 30px -8px rgba(139,92,246,0.4);
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .host-av::after {
+    content: ''; position: absolute; bottom: 4px; right: 4px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--teal); border: 3px solid var(--bg);
+    box-shadow: 0 0 8px var(--teal);
+  }
+  .host-name { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .host-role { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+  /* Message bubble */
+  .msg {
+    display: grid; grid-template-columns: 36px 1fr;
+    gap: 12px;
+  }
+  .msg .mini-av {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: var(--gradient); color: white;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .msg .body { min-width: 0; }
+  .msg .who-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .msg .who-row .who { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .msg .who-row .role { font-size: 11.5px; color: var(--ink-3); padding: 1px 7px; border-radius: 4px; background: var(--paper-2); }
+  .msg .who-row .ts { color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-left: 2px; }
+  .msg .bubble {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 14px 14px 14px 4px;
+    padding: 14px 18px;
+    font-size: 15px; line-height: 1.6;
+    color: var(--ink);
+  }
+  .msg .bubble strong { font-weight: 600; }
+  .msg .bubble + .bubble { margin-top: 6px; }
+
+  /* You (operator) reply */
+  .you-msg {
+    display: flex; justify-content: flex-end;
+    margin-top: 4px;
+  }
+  .you-bubble {
+    max-width: 420px;
+    background: var(--gradient);
+    color: white;
+    border-radius: 14px 14px 4px 14px;
+    padding: 10px 16px;
+    font-size: 14.5px; font-weight: 500;
+  }
+
+  /* Action buttons inline */
+  .actions {
+    margin-top: 12px;
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .act {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 16px; border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink);
+    font-size: 13.5px; font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+  }
+  .act:hover { transform: translateY(-1px); border-color: var(--purple); color: var(--purple); }
+  .act.primary {
+    background: var(--gradient); color: white; border: none;
+    box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4);
+  }
+  .act.primary:hover { color: white; }
+  .act .kbd { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 5px; border-radius: 3px; background: rgba(0,0,0,0.06); }
+  .act.primary .kbd { background: rgba(255,255,255,0.25); }
+
+  /* Live indicator */
+  .typing {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 10px 16px; border-radius: 14px 14px 14px 4px;
+    background: var(--paper-2);
+    width: fit-content;
+  }
+  .typing .d {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-3);
+    animation: blink 1.4s infinite;
+  }
+  .typing .d:nth-child(2) { animation-delay: 0.2s; }
+  .typing .d:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
+
+  /* Footer hint */
+  .hint {
+    margin-top: 24px; text-align: center;
+    font-size: 12px; color: var(--ink-4);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+  }
+  .hint .kbd { padding: 1px 6px; border-radius: 4px; background: var(--paper-2); color: var(--ink-2); font-weight: 600; margin: 0 3px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <div class="progress">
+    <span>STEP 1 / 5</span>
+    <div class="pips">
+      <span class="pip on"></span>
+      <span class="pip"></span>
+      <span class="pip"></span>
+      <span class="pip"></span>
+      <span class="pip"></span>
+    </div>
+  </div>
+  <div class="right"><a href="#">Save &amp; exit</a></div>
+</header>
+
+<main class="chat">
+
+  <div class="host-intro">
+    <div class="host-av">MY</div>
+    <div class="host-name">Maya</div>
+    <div class="host-role">Your onboarding host · AI</div>
+  </div>
+
+  <div class="msg">
+    <div class="mini-av">MY</div>
+    <div class="body">
+      <div class="who-row">
+        <span class="who">Maya</span>
+        <span class="role">onboarding</span>
+        <span class="ts">just now</span>
+      </div>
+      <div class="bubble">
+        Hi Mark — welcome to SKYCOT! 👋 I'm <strong>Maya</strong>, and I'll walk you through hiring your first teammate. It takes about <strong>4 minutes</strong> and you don't need a credit card yet.
+      </div>
+      <div class="bubble">
+        Quick sanity check before we begin: I'll set up a workspace, link your AI provider (or use ours), and help you pick the right kind of teammate for what your business actually needs. Sound good?
+      </div>
+      <div class="actions">
+        <button class="act primary">Yes, let's go <span class="kbd">↵</span></button>
+        <button class="act">Tell me more first</button>
+        <button class="act">I want a 90s video tour</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="you-msg">
+    <div class="you-bubble">Yes, let's go.</div>
+  </div>
+
+  <div class="msg">
+    <div class="mini-av">MY</div>
+    <div class="body">
+      <div class="who-row"><span class="who">Maya</span><span class="role">onboarding</span><span class="ts">just now</span></div>
+      <div class="bubble">
+        Perfect. Quick one: what should we call your workspace? Most people use their company name (e.g. <em>Acme Corp · production</em>). You can change this anytime.
+      </div>
+      <div class="actions">
+        <input type="text" placeholder="e.g. Acme Corp · production" style="flex:1;min-width:280px;padding:11px 14px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;color:var(--ink);outline:none;background:var(--bg);" />
+        <button class="act primary">Continue <span class="kbd">↵</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="typing">
+    <div class="d"></div>
+    <div class="d"></div>
+    <div class="d"></div>
+  </div>
+
+  <div class="hint">
+    <span class="kbd">↵</span> Continue · <span class="kbd">⌘B</span> Back · <span class="kbd">Esc</span> Save &amp; exit
+  </div>
+
+</main>
+
+</body>
+</html>

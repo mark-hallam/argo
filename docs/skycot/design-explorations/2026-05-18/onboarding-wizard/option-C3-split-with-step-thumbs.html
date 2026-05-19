@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Onboarding · welcome — SKYCOT (C3 · Split with Step Thumbnails)</title>
+<!-- Design language: C3 — split with step thumbnails on the right.
+     Left half: same as C/C1. Right half: vertical stack of mini step thumbnails
+     showing the operator the entire 5-step journey at once.
+     Best for: making the whole arc visible from minute one. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF9; --paper-2: #F4F4F4; --bg: #FFFFFF;
+    --line: #E5E5E5; --line-2: #D1D1D1;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; }
+
+  /* LEFT (same as C1) */
+  .left { background: var(--bg); padding: 36px 64px; display: flex; flex-direction: column; overflow-y: auto; }
+  .left-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 72px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .exit { font-size: 13px; color: var(--ink-3); text-decoration: none; }
+  .progress { display: flex; align-items: center; gap: 14px; margin-bottom: 32px; }
+  .progress .pos { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; }
+  .progress .pos strong { color: var(--ink); font-weight: 600; }
+  .progress .pips { display: flex; gap: 5px; }
+  .progress .pip { width: 28px; height: 3px; border-radius: 2px; background: var(--paper-2); }
+  .progress .pip.on { background: var(--gradient); }
+  .copy-block { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 460px; }
+  h1 { font-size: 48px; font-weight: 300; letter-spacing: -0.03em; line-height: 1.08; margin: 0 0 18px; }
+  h1 strong { font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { font-size: 16.5px; color: var(--ink-2); line-height: 1.55; margin: 0 0 36px; max-width: 420px; }
+  .lead strong { color: var(--ink); font-weight: 600; }
+  .bullets { list-style: none; padding: 0; margin: 0 0 36px; max-width: 400px; }
+  .bullets li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; font-size: 14px; color: var(--ink-2); }
+  .bullets li .check { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 9.5px; font-weight: 700; margin-top: 2px; }
+  .bullets li strong { color: var(--ink); font-weight: 600; }
+  .cta-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 10px; font-size: 14.5px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+  .btn .kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.06); }
+  .btn.primary .kbd { background: rgba(255,255,255,0.25); }
+  .meta-line { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 18px; }
+  .meta-line .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); margin-right: 4px; display: inline-block; }
+  .meta-line strong { color: var(--ink); font-weight: 600; }
+  .left-foot { margin-top: auto; padding-top: 28px; font-size: 11.5px; color: var(--ink-4); display: flex; gap: 14px; }
+  .left-foot a { color: var(--ink-4); text-decoration: none; }
+
+  /* RIGHT: step thumbnails */
+  .right {
+    background:
+      radial-gradient(circle at 30% 20%, rgba(139,92,246,0.05), transparent 60%),
+      radial-gradient(circle at 80% 80%, rgba(8,145,178,0.04), transparent 60%),
+      linear-gradient(180deg, #FBFAF7, #F4F4F0);
+    padding: 40px 48px;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    position: relative;
+  }
+  .right-h {
+    text-align: center; margin-bottom: 24px;
+  }
+  .right-h .eyebrow {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .right-h h3 {
+    margin: 0;
+    font-size: 22px; font-weight: 300;
+    letter-spacing: -0.02em;
+  }
+  .right-h h3 strong { font-weight: 700; }
+
+  /* Step thumbnails — stacked vertically */
+  .steps-stack {
+    flex: 1;
+    display: flex; flex-direction: column;
+    gap: 10px;
+    position: relative;
+  }
+  /* connector line */
+  .steps-stack::before {
+    content: '';
+    position: absolute;
+    left: 25px; top: 18px; bottom: 18px;
+    width: 2px;
+    background: linear-gradient(180deg, var(--purple), var(--cyan));
+    opacity: 0.25;
+    z-index: 0;
+  }
+
+  .step-thumb {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 16px;
+    align-items: flex-start;
+    position: relative;
+    z-index: 1;
+  }
+  .step-thumb .num {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    background: var(--bg); border: 2px solid var(--line);
+    color: var(--ink-3);
+  }
+  .step-thumb.now .num {
+    background: var(--gradient); color: white; border: none;
+    box-shadow: 0 4px 12px -2px rgba(139,92,246,0.4);
+  }
+  .step-thumb.done .num {
+    background: var(--teal); color: white; border: none;
+  }
+
+  .step-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  .step-thumb.now .step-card {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.08), 0 6px 20px -6px rgba(139,92,246,0.20);
+  }
+  .step-thumb.future .step-card {
+    opacity: 0.85;
+  }
+
+  .step-card .step-h {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .step-card .step-h h4 {
+    margin: 0;
+    font-size: 14px; font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  .step-card .step-h .time {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .step-card .desc {
+    font-size: 12.5px; color: var(--ink-3);
+    line-height: 1.45;
+  }
+  .step-card .desc strong { color: var(--ink); font-weight: 600; }
+
+  /* Step visual hint (icon + tag) */
+  .step-card .visual-hint {
+    margin-top: 8px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .step-card .visual-hint .pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+    padding: 2px 7px; border-radius: 4px;
+    background: var(--paper-2); color: var(--ink-2);
+  }
+  .step-card .visual-hint .pill.grad {
+    background: rgba(139,92,246,0.08); color: var(--purple);
+  }
+
+  .right-foot {
+    margin-top: 14px; text-align: center;
+    font-size: 12.5px; color: var(--ink-3);
+  }
+  .right-foot strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="split">
+
+  <aside class="left">
+    <div class="left-top">
+      <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+      <a class="exit" href="#">Save &amp; exit →</a>
+    </div>
+
+    <div class="copy-block">
+      <div class="progress">
+        <span class="pos">STEP <strong>1</strong> OF 5</span>
+        <div class="pips">
+          <span class="pip on"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span>
+        </div>
+      </div>
+
+      <h1>Welcome, Mark.<br/>Let's <strong>build your team.</strong></h1>
+      <p class="lead">Five short steps. In about <strong>four minutes</strong>, you'll have hired your first AI teammate.</p>
+
+      <ul class="bullets">
+        <li><span class="check">✓</span><span><strong>No credit card</strong> for setup or your first 7 days</span></li>
+        <li><span class="check">✓</span><span><strong>SOC 2 Type II</strong> &amp; GDPR Article 30 compliant by default</span></li>
+        <li><span class="check">✓</span><span>Every action <strong>cryptographically audited</strong> and replayable</span></li>
+      </ul>
+
+      <div class="cta-row">
+        <button class="btn primary">Get started <span class="kbd">↵</span></button>
+        <button class="btn">Watch tour (90s)</button>
+      </div>
+      <div class="meta-line">
+        <span><span class="dot"></span>Avg setup <strong>4 min</strong></span>
+        <span>·</span>
+        <span>2,847 companies onboarded this month</span>
+      </div>
+    </div>
+
+    <div class="left-foot">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Help</a>
+      <span style="margin-left:auto">SKYCOT · Built in Melbourne</span>
+    </div>
+  </aside>
+
+  <aside class="right">
+    <div class="right-h">
+      <div class="eyebrow">YOUR JOURNEY · 5 STEPS</div>
+      <h3>Here's <strong>what's ahead.</strong></h3>
+    </div>
+
+    <div class="steps-stack">
+
+      <div class="step-thumb now">
+        <div class="num">1</div>
+        <div class="step-card">
+          <div class="step-h"><h4>Welcome &amp; quick orientation</h4><span class="time">~30s</span></div>
+          <div class="desc">You're here. Just say hi and confirm a name to call your workspace.</div>
+          <div class="visual-hint"><span class="pill grad">YOU ARE HERE</span></div>
+        </div>
+      </div>
+
+      <div class="step-thumb future">
+        <div class="num">2</div>
+        <div class="step-card">
+          <div class="step-h"><h4>Set up your workspace</h4><span class="time">~45s</span></div>
+          <div class="desc">Pick a workspace name &mdash; usually your company. Invite teammates if you want, or skip.</div>
+          <div class="visual-hint"><span class="pill">workspace.name</span><span class="pill">invite (optional)</span></div>
+        </div>
+      </div>
+
+      <div class="step-thumb future">
+        <div class="num">3</div>
+        <div class="step-card">
+          <div class="step-h"><h4>Connect an AI provider</h4><span class="time">~1 min</span></div>
+          <div class="desc">Use your own Anthropic or OpenAI key, or run on <strong>SKYCOT-managed billing</strong> and we handle it.</div>
+          <div class="visual-hint"><span class="pill">anthropic</span><span class="pill">openai</span><span class="pill grad">skycot-managed</span></div>
+        </div>
+      </div>
+
+      <div class="step-thumb future">
+        <div class="num">4</div>
+        <div class="step-card">
+          <div class="step-h"><h4>Pick your first teammate's role</h4><span class="time">~1 min</span></div>
+          <div class="desc">Support · invoice ops · recruiting · quote ops · sales ops. Or browse 24 starter cohorts.</div>
+          <div class="visual-hint"><span class="pill">support</span><span class="pill">invoice</span><span class="pill">recruiting</span><span class="pill">+21 more</span></div>
+        </div>
+      </div>
+
+      <div class="step-thumb future">
+        <div class="num">5</div>
+        <div class="step-card">
+          <div class="step-h"><h4>Hire &amp; configure</h4><span class="time">~30s</span></div>
+          <div class="desc">Name them, pick their skills, set their schedule. They <strong>start working as soon as you finish.</strong></div>
+          <div class="visual-hint"><span class="pill">name</span><span class="pill">skills</span><span class="pill">schedule</span><span class="pill grad">go live</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="right-foot">
+      You can pause this and come back anytime — <strong>nothing is lost</strong>.
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

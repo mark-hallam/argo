@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sign up — SKYCOT (C · Floating Card)</title>
+<!-- Design language: C — Linear / Vercel floating card.
+     Single centered tile on a gradient background. Compact, focused, glassmorphic. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF9; --paper-2: #F4F4F4; --bg: #FFFFFF;
+    --line: #E5E5E5; --line-2: #D1D1D1;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body {
+    font-family: 'Inter', sans-serif; color: var(--ink);
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+    background:
+      radial-gradient(1200px circle at 25% 30%, rgba(139,92,246,0.18), transparent 50%),
+      radial-gradient(1000px circle at 75% 70%, rgba(8,145,178,0.15), transparent 50%),
+      radial-gradient(800px circle at 50% 50%, rgba(236,72,153,0.06), transparent 60%),
+      #F4F4F0;
+    min-height: 100vh;
+    padding: 40px 32px;
+    display: flex; flex-direction: column;
+  }
+
+  /* Top bar */
+  .top { max-width: 1200px; margin: 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--gradient); box-shadow: 0 4px 12px -2px rgba(139,92,246,0.30); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: var(--ink); }
+  .top-right { font-size: 13px; color: var(--ink-3); }
+  .top-right a { color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--line-2); }
+
+  /* Card */
+  .card-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 0; }
+  .card {
+    background: rgba(255,255,255,0.7); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 24px;
+    padding: 44px 44px 36px;
+    width: 100%; max-width: 460px;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.04),
+      0 32px 80px -16px rgba(139,92,246,0.25),
+      inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); letter-spacing: 0.20em; text-transform: uppercase; font-weight: 700;
+    margin-bottom: 16px;
+    padding: 4px 12px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line);
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+
+  h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; margin: 0 0 10px; }
+  h1 strong { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { font-size: 14.5px; color: var(--ink-3); margin: 0 0 28px; line-height: 1.5; }
+
+  .sso-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+  .sso-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color 0.1s; }
+  .sso-btn:hover { border-color: var(--line-2); }
+  .sso-btn .logo { width: 16px; height: 16px; border-radius: 3px; }
+
+  .divider { display: flex; align-items: center; gap: 14px; margin: 18px 0; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  .divider .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.16em; font-weight: 700; }
+
+  .field-block { margin-bottom: 14px; }
+  .field-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.16em; font-weight: 700; margin-bottom: 6px; }
+  .field-input { width: 100%; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 500; color: var(--ink); outline: none; }
+  .field-input:focus { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(139,92,246,0.10); }
+
+  .cta { width: 100%; padding: 13px 20px; border-radius: 10px; background: var(--gradient); color: white; border: none; font-size: 14.5px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 18px -4px rgba(139,92,246,0.45); margin-top: 8px; }
+  .legal { margin-top: 14px; font-size: 11.5px; color: var(--ink-3); line-height: 1.5; text-align: center; }
+  .legal a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+
+  .below-card { margin-top: 22px; display: flex; gap: 18px; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+  .below-card .item { display: inline-flex; align-items: center; gap: 5px; }
+  .below-card .item .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+
+  /* Footer with social proof */
+  .foot { max-width: 1200px; margin: 32px auto 0; text-align: center; }
+  .foot .copy { font-size: 12.5px; color: var(--ink-3); margin-bottom: 4px; }
+  .foot .copy strong { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <div class="top-right">Have an account? <a href="#">Sign in</a></div>
+</header>
+
+<main class="card-wrap">
+  <div class="card">
+    <div class="eyebrow"><span class="dot"></span>FREE TRIAL · 7 DAYS</div>
+    <h1>Hire your first<br/><strong>AI teammate</strong>.</h1>
+    <p class="sub">Set up your workspace in four minutes. No credit card required.</p>
+
+    <div class="sso-row">
+      <button class="sso-btn"><span class="logo" style="background:linear-gradient(135deg,#4285F4,#EA4335)"></span>Continue with Google</button>
+      <button class="sso-btn"><span class="logo" style="background:#000"></span>Continue with GitHub</button>
+      <button class="sso-btn"><span class="logo" style="background:linear-gradient(135deg,#0078D4,#005EB4)"></span>Continue with Microsoft</button>
+    </div>
+
+    <div class="divider"><span class="lbl">OR WITH EMAIL</span></div>
+
+    <div class="field-block">
+      <div class="field-label">Work email</div>
+      <input class="field-input" type="email" placeholder="you@yourcompany.com" />
+    </div>
+    <div class="field-block">
+      <div class="field-label">Full name</div>
+      <input class="field-input" type="text" placeholder="e.g. Mark Hallam" />
+    </div>
+
+    <button class="cta">Create account →</button>
+    <p class="legal">By creating an account, you agree to <a href="#">Terms</a> &amp; <a href="#">Privacy</a>.</p>
+
+    <div class="below-card">
+      <span class="item"><span class="dot"></span>NO CREDIT CARD</span>
+      <span class="item"><span class="dot"></span>SOC 2</span>
+      <span class="item"><span class="dot"></span>GDPR</span>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <p class="copy"><strong>2,847</strong> companies onboarded this month · SKYCOT is built in Melbourne</p>
+</footer>
+
+</body>
+</html>

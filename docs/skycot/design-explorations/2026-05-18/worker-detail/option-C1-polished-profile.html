@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Worker · Jamal — SKYCOT (C1 · Polished Profile)</title>
+<!-- Design language: C1 — refined LinkedIn profile.
+     Same C structural backbone. Tighter spacing. Bigger portrait. Better status visibility.
+     More confident typographic hierarchy. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F4F4F0; --paper-2: #EDEDE8; --bg: #FFFFFF;
+    --line: #E5E5E0;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 0 40px 80px; max-width: 1200px; }
+  .crumb { font-size: 12px; color: var(--ink-3); padding: 24px 0 16px; }
+  .crumb a { color: var(--ink-3); text-decoration: none; }
+
+  /* PROFILE CARD */
+  .profile-card { background: var(--bg); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; margin-bottom: 20px; }
+  .banner {
+    height: 168px;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(8,145,178,0.6), transparent 50%),
+      var(--gradient);
+    position: relative; overflow: hidden;
+  }
+
+  .profile-id { padding: 0 36px 28px; position: relative; }
+  .profile-portrait {
+    width: 144px; height: 144px; border-radius: 36px;
+    background: var(--bg); padding: 6px;
+    position: absolute; top: -72px; left: 36px;
+    box-shadow: 0 16px 36px -10px rgba(0,0,0,0.22);
+  }
+  .profile-portrait .inner {
+    width: 100%; height: 100%; border-radius: 30px;
+    background: var(--gradient); color: white;
+    display: grid; place-items: center;
+    font-size: 50px; font-weight: 700; letter-spacing: 0.04em;
+  }
+
+  .profile-status-block { position: absolute; top: 20px; right: 36px; display: flex; gap: 8px; align-items: center; }
+  .profile-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; background: rgba(255,255,255,0.20); backdrop-filter: blur(10px); color: white; font-size: 11.5px; font-weight: 700; border: 1px solid rgba(255,255,255,0.30); }
+  .profile-status .d { width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 8px #4ADE80; }
+
+  .profile-content { padding-top: 92px; }
+  .profile-name { font-size: 38px; font-weight: 700; letter-spacing: -0.025em; margin: 0 0 4px; line-height: 1.05; }
+  .profile-role { font-size: 16px; color: var(--ink-2); margin-bottom: 16px; }
+  .profile-role .grad { font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* Quick-stat strip */
+  .quick-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 18px; padding: 18px 24px; background: var(--paper); border-radius: 14px; }
+  .quick-stats .qs { padding-right: 18px; border-right: 1px solid var(--line); }
+  .quick-stats .qs:last-child { border-right: none; padding-right: 0; }
+  .quick-stats .qs .v { font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+  .quick-stats .qs.grad .v { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .quick-stats .qs .l { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-top: 2px; }
+  .quick-stats .qs .d { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #0F766E; margin-top: 2px; font-weight: 700; }
+
+  .profile-actions { display: flex; gap: 8px; margin-top: 22px; }
+  .btn { padding: 10px 20px; border-radius: 999px; font-size: 13.5px; font-weight: 700; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+  .btn.danger { color: var(--coral); border-color: var(--coral); }
+
+  /* Section */
+  .section-card { background: var(--bg); border: 1px solid var(--line); border-radius: 18px; padding: 28px 36px; margin-bottom: 20px; }
+  .section-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+  .section-h h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.015em; }
+  .section-h .ct { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.08em; }
+
+  .about-body { font-size: 15.5px; color: var(--ink-2); line-height: 1.7; }
+  .about-body strong { color: var(--ink); font-weight: 600; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before { content: ''; position: absolute; left: 10px; top: 12px; bottom: 12px; width: 2px; background: linear-gradient(180deg, var(--purple), var(--cyan)); opacity: 0.30; border-radius: 1px; }
+  .exp-item { position: relative; padding-bottom: 26px; }
+  .exp-item:last-child { padding-bottom: 0; }
+  .exp-item::before { content: ''; position: absolute; left: -28px; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 2.5px solid var(--purple); box-shadow: 0 0 0 4px var(--paper); }
+  .exp-item .role-name { font-size: 15.5px; font-weight: 700; letter-spacing: -0.005em; }
+  .exp-item .ts { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .exp-item .desc { font-size: 14px; color: var(--ink-2); line-height: 1.6; margin-top: 8px; }
+  .exp-item .desc strong { color: var(--ink); font-weight: 600; }
+  .exp-item .stats { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); margin-top: 6px; }
+  .exp-item .stats strong { color: var(--ink); }
+
+  /* Skills */
+  .skills-list { display: flex; flex-direction: column; gap: 10px; }
+  .skill-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; background: var(--paper); }
+  .skill-card .ic { width: 36px; height: 36px; border-radius: 9px; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .skill-card .ic.teal { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .skill-card .ic.pink { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .skill-card .ic.coral { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .skill-card .ic.locked { background: var(--paper-2); color: var(--ink-3); }
+  .skill-card .info { flex: 1; }
+  .skill-card .name { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 600; }
+  .skill-card .desc { font-size: 12.5px; color: var(--ink-3); }
+  .skill-card .endorsement { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-3); }
+  .skill-card .endorsement strong { color: var(--ink); font-weight: 700; }
+  .skill-card.locked { opacity: 0.6; }
+
+  /* Recommendations */
+  .rec { padding: 18px 22px; background: var(--paper); border-radius: 14px; margin-bottom: 14px; }
+  .rec:last-child { margin-bottom: 0; }
+  .rec-top { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .rec-top .av-small { width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: white; display: grid; place-items: center; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
+  .rec-top .who { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+  .rec-top .who .sub { font-weight: 400; color: var(--ink-3); font-size: 12.5px; }
+  .rec-body { font-size: 14px; color: var(--ink-2); line-height: 1.6; font-style: italic; }
+  .rec-body::before { content: '"'; color: var(--ink-4); font-size: 32px; line-height: 0; vertical-align: -16px; margin-right: 4px; }
+
+  .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb"><a href="#">Workers</a> › Jamal</div>
+
+    <div class="profile-card">
+      <div class="banner"></div>
+      <div class="profile-id">
+        <div class="profile-portrait"><div class="inner">JM</div></div>
+        <div class="profile-status-block">
+          <div class="profile-status"><span class="d"></span>ACTIVE NOW · WORKING</div>
+        </div>
+        <div class="profile-content">
+          <h1 class="profile-name">Jamal</h1>
+          <div class="profile-role"><span class="grad">L2 Support Specialist</span> · cohort support_agent_v3 · serial #001 · hired 12 Sept 2025</div>
+
+          <div class="quick-stats">
+            <div class="qs grad"><div class="v">1,247</div><div class="l">Career actions</div><div class="d">+38 this wk</div></div>
+            <div class="qs"><div class="v">94%</div><div class="l">Resolution rate</div><div class="d">↑ +2pt</div></div>
+            <div class="qs"><div class="v">4.8</div><div class="l">CSAT</div><div class="d">★ avg</div></div>
+            <div class="qs"><div class="v">8mo</div><div class="l">Tenure</div><div class="d">Active</div></div>
+          </div>
+
+          <div class="profile-actions">
+            <button class="btn primary">⚙ Configure</button>
+            <button class="btn">💬 Message</button>
+            <button class="btn">⏸ Pause</button>
+            <button class="btn">▷ Replay last session</button>
+            <button class="btn danger" style="margin-left:auto">Retire</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+
+      <div>
+        <div class="section-card">
+          <div class="section-h"><h2>About</h2></div>
+          <p class="about-body">
+            Jamal is your <strong>L2 Support Specialist</strong>, built from the <strong>support_agent_v3</strong> cohort. He resolves tickets across Zendesk and Intercom, drafts replies in your tone, escalates frustrated customers to <strong>@lead-support</strong>, and refunds duplicate charges (with your approval) up to $200.
+          </p>
+          <p class="about-body" style="margin-top:14px">
+            Over the past <strong>8 months</strong> he has handled <strong>1,247 actions</strong> with a <strong>94% resolution rate</strong> and an average latency of <strong>1.8 seconds</strong>. He's <strong>72% of the way to L3</strong> promotion, which would unlock <strong>refund.issue</strong> (autonomous up to $500) and <strong>survey.send</strong>.
+          </p>
+        </div>
+
+        <div class="section-card">
+          <div class="section-h"><h2>Activity</h2><span class="ct">Today · 4 actions · last 2s ago</span></div>
+          <div class="timeline">
+            <div class="exp-item">
+              <div class="role-name">Resolved SUP-29382 using KB SK-413</div>
+              <div class="ts">10:42 · 2s ago</div>
+              <div class="desc">Customer reported login failure after password reset. Jamal identified the <strong>SAML race condition</strong> documented in SK-413, walked the customer through the workaround, and marked resolved. Customer sentiment: resolved.</div>
+              <div class="stats">latency <strong>1.8s</strong> · cost <strong>$0.004</strong> · model claude-sonnet-4-6</div>
+            </div>
+            <div class="exp-item">
+              <div class="role-name">Replied to SUP-29381 with status update</div>
+              <div class="ts">10:18 · 24m ago</div>
+              <div class="desc">Customer asked for status on their open ticket. Jamal pulled latest engineering update and replied within tone guidelines.</div>
+              <div class="stats">latency <strong>1.4s</strong> · cost <strong>$0.002</strong></div>
+            </div>
+            <div class="exp-item">
+              <div class="role-name">Escalated SUP-29355 to @lead-support</div>
+              <div class="ts">09:47 · 55m ago</div>
+              <div class="desc">Detected escalating sentiment over a 4h12m thread and routed to <strong>@lead-support</strong> via Slack DM. Jamal attached his summary of the customer's three prior support history items.</div>
+              <div class="stats">latency <strong>2.1s</strong> · cost <strong>$0.001</strong></div>
+            </div>
+            <div class="exp-item">
+              <div class="role-name">Refunded $89 on SUP-29378 (approved by you)</div>
+              <div class="ts">09:14 · 1h ago</div>
+              <div class="desc">Customer reported duplicate charge. Jamal confirmed via Stripe history, drafted refund request, you approved at 09:13, refund issued at 09:14.</div>
+              <div class="stats">latency <strong>1.6s</strong> · cost <strong>$0.005</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-card">
+          <div class="section-h"><h2>Skills</h2><span class="ct">5 of 7 active</span></div>
+          <div class="skills-list">
+            <div class="skill-card">
+              <div class="ic">Z</div>
+              <div class="info"><div class="name">zendesk.read</div><div class="desc">Read tickets &amp; conversations</div></div>
+              <div class="endorsement">★ <strong>843</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic">Z</div>
+              <div class="info"><div class="name">zendesk.reply</div><div class="desc">Draft &amp; send replies</div></div>
+              <div class="endorsement">★ <strong>612</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic teal">K</div>
+              <div class="info"><div class="name">kb.search</div><div class="desc">Search knowledge base</div></div>
+              <div class="endorsement">★ <strong>489</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic pink">S</div>
+              <div class="info"><div class="name">slack.dm</div><div class="desc">DM team members</div></div>
+              <div class="endorsement">★ <strong>78</strong></div>
+            </div>
+            <div class="skill-card">
+              <div class="ic coral">P</div>
+              <div class="info"><div class="name">policy.tone</div><div class="desc">Apply tone guidelines</div></div>
+              <div class="endorsement">★ <strong>1,247</strong></div>
+            </div>
+            <div class="skill-card locked">
+              <div class="ic locked">R</div>
+              <div class="info"><div class="name">refund.issue</div><div class="desc">Issue refunds up to $500</div></div>
+              <div class="endorsement">🔒 L3</div>
+            </div>
+            <div class="skill-card locked">
+              <div class="ic locked">S</div>
+              <div class="info"><div class="name">survey.send</div><div class="desc">Send CSAT survey</div></div>
+              <div class="endorsement">🔒 L3</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-h"><h2>Recommendations</h2><span class="ct">2</span></div>
+          <div class="rec">
+            <div class="rec-top">
+              <div class="av-small">MH</div>
+              <div class="who">Mark Hallam<div class="sub">CEO · Acme Corp · works with Jamal daily</div></div>
+            </div>
+            <div class="rec-body">Jamal is the teammate I never worry about. He sounds like us, escalates the right things, and customers stay happy.</div>
+          </div>
+          <div class="rec">
+            <div class="rec-top">
+              <div class="av-small">EL</div>
+              <div class="who">Emma Liu<div class="sub">Lead Support · Acme Corp</div></div>
+            </div>
+            <div class="rec-body">Jamal escalates to me with exactly the context I need. I trust his judgment on what's worth pulling me into.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cohorts — SKYCOT (D · Vertical Directory)</title>
+<!-- Design language: D — Tabbed vertical directory.
+     Big category tabs at top. Each tab opens a list of cohorts in that vertical.
+     Yellow Pages / industry-directory feel. Best for buyers who know exactly what they need. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 40px 80px; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { margin-bottom: 24px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+
+  /* Vertical category tabs */
+  .cat-tabs {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .cat-tab {
+    padding: 18px 16px; border-radius: 14px;
+    background: var(--bg); border: 1px solid var(--line);
+    cursor: pointer; text-align: center;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .cat-tab:hover { transform: translateY(-2px); border-color: var(--line-2); }
+  .cat-tab.on {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.08), 0 8px 20px -6px rgba(139,92,246,0.20);
+    background: linear-gradient(180deg, rgba(139,92,246,0.04), rgba(139,92,246,0.02));
+  }
+  .cat-tab .ico {
+    width: 36px; height: 36px; border-radius: 10px;
+    margin: 0 auto 8px;
+    background: var(--paper-2); display: grid; place-items: center;
+    font-size: 18px;
+  }
+  .cat-tab.on .ico { background: var(--gradient); }
+  .cat-tab .name { font-size: 13px; font-weight: 600; letter-spacing: -0.005em; }
+  .cat-tab .ct { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); margin-top: 2px; font-weight: 600; }
+  .cat-tab.on .ct { color: var(--purple); }
+
+  /* Active category section */
+  .cat-section { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 28px 32px; }
+  .cat-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .cat-header h2 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .cat-header h2 strong { font-weight: 800; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .cat-header .meta { font-size: 13px; color: var(--ink-3); }
+  .cat-header .meta strong { color: var(--ink); font-weight: 600; }
+
+  /* Cohort rows */
+  .cohort-row {
+    display: grid;
+    grid-template-columns: 56px 1fr 200px 110px 110px;
+    gap: 18px; align-items: center;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .cohort-row:last-child { border-bottom: none; }
+  .cohort-row:hover { background: var(--paper); margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-radius: 8px; }
+
+  .cohort-av {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: grid; place-items: center; color: white;
+    font-size: 16px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .cohort-av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .cohort-av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .cohort-av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .cohort-av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .cohort-av.ar { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .cohort-av.cs { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+
+  .cohort-body .name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .cohort-body h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .cohort-body .badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    padding: 2px 6px; border-radius: 4px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .cohort-body .badge.new { background: rgba(20,184,166,0.12); color: #0F766E; }
+  .cohort-body .badge.trending { background: rgba(252,211,77,0.18); color: #92400E; }
+  .cohort-body .badge.featured { background: var(--gradient); color: white; }
+  .cohort-body .desc { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 6px; }
+  .cohort-body .skills { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+
+  .cohort-rating { display: flex; flex-direction: column; gap: 4px; }
+  .cohort-rating .stars {
+    display: inline-flex; gap: 2px;
+    font-size: 13px; color: var(--yellow);
+  }
+  .cohort-rating .num {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink-2); font-weight: 600;
+  }
+  .cohort-rating .reviews { font-size: 11px; color: var(--ink-3); }
+
+  .cohort-stats { text-align: right; font-size: 12.5px; color: var(--ink-3); }
+  .cohort-stats .big { font-size: 18px; color: var(--ink); font-weight: 700; letter-spacing: -0.015em; margin-bottom: 2px; }
+  .cohort-stats .big.grad { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .cohort-stats .label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; }
+
+  .cohort-cta {
+    display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+  }
+  .hire-btn {
+    padding: 9px 16px; border-radius: 8px;
+    background: var(--gradient); color: white;
+    font-size: 13px; font-weight: 700;
+    border: none; cursor: pointer;
+    box-shadow: 0 4px 12px -4px rgba(139,92,246,0.4);
+  }
+  .preview-link { font-size: 11.5px; color: var(--ink-3); }
+  .preview-link a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a class="active" href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <h1>Browse cohorts <strong>by department</strong></h1>
+      <p>24 starter cohorts across six departments. Pick a category to browse.</p>
+    </div>
+
+    <div class="cat-tabs">
+      <div class="cat-tab"><div class="ico">🎧</div><div class="name">Support</div><div class="ct">5 COHORTS</div></div>
+      <div class="cat-tab on"><div class="ico" style="background:transparent;">💰</div><div class="name">Finance &amp; Ops</div><div class="ct">7 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">📊</div><div class="name">Sales</div><div class="ct">4 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">👥</div><div class="name">People &amp; HR</div><div class="ct">3 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">🔧</div><div class="name">IT &amp; Dev-ex</div><div class="ct">3 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">⚖</div><div class="name">Legal</div><div class="ct">2 COHORTS</div></div>
+    </div>
+
+    <div class="cat-section">
+
+      <div class="cat-header">
+        <h2><strong>Finance &amp; Ops</strong> · 7 cohorts</h2>
+        <div class="meta">Most-hired by finance teams · <strong>1,089</strong> active hires across SKYCOT</div>
+      </div>
+
+      <div class="cohort-row">
+        <div class="cohort-av s">SL</div>
+        <div class="cohort-body">
+          <div class="name-row"><h3>L3 Invoice Operations</h3><span class="badge featured">★ FEATURED</span></div>
+          <div class="desc">Extracts line items, validates against POs, codes to GL accounts, flags duplicates.</div>
+          <div class="skills">ocr.read · netsuite.write · policy.dup · +6 skills</div>
+        </div>
+        <div class="cohort-rating">
+          <div class="stars">★★★★★</div>
+          <div class="num">4.9 / 5.0</div>
+          <div class="reviews">203 reviews</div>
+        </div>
+        <div class="cohort-stats">
+          <div class="big grad">612</div>
+          <div class="label">TEAMS</div>
+          <div style="margin-top:8px"><div class="big" style="font-size:14px">$0.008</div><div class="label">PER ACTION</div></div>
+        </div>
+        <div class="cohort-cta">
+          <button class="hire-btn">Hire →</button>
+          <div class="preview-link"><a href="#">Preview</a></div>
+        </div>
+      </div>
+
+      <div class="cohort-row">
+        <div class="cohort-av ar">AR</div>
+        <div class="cohort-body">
+          <div class="name-row"><h3>L2 AR Collector</h3><span class="badge new">NEW</span></div>
+          <div class="desc">Chases overdue receivables. Drafts reminder emails. Escalates to humans for the awkward ones.</div>
+          <div class="skills">netsuite.read · email.draft · policy.escalate · +4 skills</div>
+        </div>
+        <div class="cohort-rating">
+          <div class="stars">★★★★★</div>
+          <div class="num">4.8 / 5.0</div>
+          <div class="reviews">89 reviews</div>
+        </div>
+        <div class="cohort-stats">
+          <div class="big grad">312</div>
+          <div class="label">TEAMS</div>
+          <div style="margin-top:8px"><div class="big" style="font-size:14px">$0.020</div><div class="label">PER ACTION</div></div>
+        </div>
+        <div class="cohort-cta">
+          <button class="hire-btn">Hire →</button>
+          <div class="preview-link"><a href="#">Preview</a></div>
+        </div>
+      </div>
+
+      <div class="cohort-row">
+        <div class="cohort-av">EX</div>
+        <div class="cohort-body">
+          <div class="name-row"><h3>L2 Expense Auditor</h3></div>
+          <div class="desc">Reviews Concur / Expensify submissions against your policy. Flags out-of-policy spend before reimbursement.</div>
+          <div class="skills">concur.read · policy.spend · +3 skills</div>
+        </div>
+        <div class="cohort-rating">
+          <div class="stars">★★★★☆</div>
+          <div class="num">4.5 / 5.0</div>
+          <div class="reviews">62 reviews</div>
+        </div>
+        <div class="cohort-stats">
+          <div class="big grad">187</div>
+          <div class="label">TEAMS</div>
+          <div style="margin-top:8px"><div class="big" style="font-size:14px">$0.009</div><div class="label">PER ACTION</div></div>
+        </div>
+        <div class="cohort-cta">
+          <button class="hire-btn">Hire →</button>
+          <div class="preview-link"><a href="#">Preview</a></div>
+        </div>
+      </div>
+
+      <div class="cohort-row">
+        <div class="cohort-av">PR</div>
+        <div class="cohort-body">
+          <div class="name-row"><h3>L3 Procurement Reviewer</h3></div>
+          <div class="desc">Validates POs against vendor master, checks for budget availability, drafts requisitions.</div>
+          <div class="skills">netsuite.read · vendor.lookup · +4 skills</div>
+        </div>
+        <div class="cohort-rating">
+          <div class="stars">★★★★☆</div>
+          <div class="num">4.6 / 5.0</div>
+          <div class="reviews">41 reviews</div>
+        </div>
+        <div class="cohort-stats">
+          <div class="big grad">98</div>
+          <div class="label">TEAMS</div>
+          <div style="margin-top:8px"><div class="big" style="font-size:14px">$0.013</div><div class="label">PER ACTION</div></div>
+        </div>
+        <div class="cohort-cta">
+          <button class="hire-btn">Hire →</button>
+          <div class="preview-link"><a href="#">Preview</a></div>
+        </div>
+      </div>
+
+      <div class="cohort-row">
+        <div class="cohort-av cs">FC</div>
+        <div class="cohort-body">
+          <div class="name-row"><h3>L3 Financial Closer</h3><span class="badge trending">★ TRENDING</span></div>
+          <div class="desc">Runs the month-end close checklist. Reconciles GL accounts, drafts JEs, files variance reports.</div>
+          <div class="skills">netsuite.write · gl.reconcile · +5 skills</div>
+        </div>
+        <div class="cohort-rating">
+          <div class="stars">★★★★★</div>
+          <div class="num">4.8 / 5.0</div>
+          <div class="reviews">74 reviews</div>
+        </div>
+        <div class="cohort-stats">
+          <div class="big grad">152</div>
+          <div class="label">TEAMS</div>
+          <div style="margin-top:8px"><div class="big" style="font-size:14px">$0.025</div><div class="label">PER ACTION</div></div>
+        </div>
+        <div class="cohort-cta">
+          <button class="hire-btn">Hire →</button>
+          <div class="preview-link"><a href="#">Preview</a></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

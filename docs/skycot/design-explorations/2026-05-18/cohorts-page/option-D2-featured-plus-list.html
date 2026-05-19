@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cohorts — SKYCOT (D2 · Tabs + Featured + Compact List)</title>
+<!-- Design language: D2 — D's header + tabs (unchanged), then:
+     ONE featured cohort as a full-width hero card on top of the category section,
+     followed by the rest as a compact ranked-row list below. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 40px 80px; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { margin-bottom: 24px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+
+  /* — DEPT TABS — */
+  .cat-tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 28px; }
+  .cat-tab { padding: 18px 16px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); cursor: pointer; text-align: center; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+  .cat-tab:hover { transform: translateY(-2px); border-color: var(--line-2); }
+  .cat-tab.on { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(139,92,246,0.08), 0 8px 20px -6px rgba(139,92,246,0.20); background: linear-gradient(180deg, rgba(139,92,246,0.04), rgba(139,92,246,0.02)); }
+  .cat-tab .ico { width: 36px; height: 36px; border-radius: 10px; margin: 0 auto 8px; background: var(--paper-2); display: grid; place-items: center; font-size: 18px; }
+  .cat-tab.on .ico { background: var(--gradient); }
+  .cat-tab .name { font-size: 13px; font-weight: 600; letter-spacing: -0.005em; }
+  .cat-tab .ct { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); margin-top: 2px; font-weight: 600; }
+  .cat-tab.on .ct { color: var(--purple); }
+
+  /* — FEATURED COHORT HERO — */
+  .featured {
+    background: linear-gradient(135deg, rgba(139,92,246,0.06), rgba(8,145,178,0.05));
+    border: 1px solid rgba(139,92,246,0.20);
+    border-radius: 18px; padding: 28px 32px;
+    margin-bottom: 24px;
+    display: grid; grid-template-columns: 1fr 240px; gap: 32px; align-items: center;
+  }
+  .featured .kicker {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--purple); margin-bottom: 12px;
+  }
+  .featured .kicker .grad { background: var(--gradient); color: white; padding: 3px 9px; border-radius: 999px; }
+  .featured h2 {
+    margin: 0 0 8px;
+    font-size: 30px; font-weight: 200; letter-spacing: -0.03em; line-height: 1.1;
+  }
+  .featured h2 strong { font-weight: 700; }
+  .featured p {
+    margin: 0 0 18px; font-size: 14.5px; color: var(--ink-2); line-height: 1.55;
+    max-width: 560px;
+  }
+  .featured .stat-row {
+    display: flex; gap: 22px; padding-top: 16px; border-top: 1px solid rgba(139,92,246,0.18);
+    margin-bottom: 16px;
+  }
+  .featured .stat-row .item { display: flex; flex-direction: column; }
+  .featured .stat-row .item .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); font-weight: 700; }
+  .featured .stat-row .item .val { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; margin-top: 2px; }
+  .featured .stat-row .item .val.grad { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .featured .cta-row { display: flex; gap: 8px; }
+  .featured .hire-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 11px 20px; border-radius: 9px;
+    background: var(--gradient); color: white;
+    font-size: 14px; font-weight: 700; border: none; cursor: pointer;
+    box-shadow: 0 6px 18px -4px rgba(139,92,246,0.45);
+  }
+  .featured .preview-btn {
+    padding: 11px 18px; border-radius: 9px;
+    background: var(--bg); color: var(--ink-2);
+    border: 1px solid var(--line);
+    font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+
+  .featured-portrait {
+    width: 160px; height: 160px; border-radius: 28px;
+    background: linear-gradient(135deg, var(--pink), var(--coral));
+    color: white; display: grid; place-items: center;
+    font-size: 48px; font-weight: 700; letter-spacing: 0.04em;
+    box-shadow: 0 12px 40px -8px rgba(236,72,153,0.4);
+    margin: 0 auto;
+    position: relative; overflow: hidden;
+  }
+  .featured-portrait::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.30), transparent 60%); }
+
+  /* — COMPACT LIST — */
+  .list-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .list-h .lbl {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+  }
+  .list-h .sort {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink-2); font-weight: 600;
+    padding: 4px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line);
+    cursor: pointer;
+  }
+
+  .compact-list {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden;
+  }
+  .compact-row {
+    display: grid;
+    grid-template-columns: 28px 40px 1fr 140px 100px 110px 100px;
+    gap: 14px; align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .compact-row:last-child { border-bottom: none; }
+  .compact-row:hover { background: var(--paper); }
+
+  .compact-row .rank { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--ink-3); text-align: right; }
+  .compact-row .rank.top3 { color: var(--purple); }
+
+  .compact-row .av {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: grid; place-items: center; color: white;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .compact-row .av.ar { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .compact-row .av.ex { background: linear-gradient(135deg, var(--coral), var(--purple)); }
+  .compact-row .av.fc { background: linear-gradient(135deg, var(--teal), var(--pink)); }
+  .compact-row .av.cs { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .compact-row .av.pr { background: linear-gradient(135deg, var(--purple), var(--coral)); }
+
+  .compact-row .info .name-row { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+  .compact-row .info .name-row h3 { margin: 0; font-size: 14.5px; font-weight: 700; letter-spacing: -0.005em; }
+  .compact-row .badge { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; padding: 1px 6px; border-radius: 3px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; }
+  .compact-row .badge.new { background: rgba(20,184,166,0.12); color: #0F766E; }
+  .compact-row .badge.trending { background: rgba(252,211,77,0.18); color: #92400E; }
+  .compact-row .desc { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+
+  .compact-row .skills { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .compact-row .skills strong { color: var(--ink); }
+
+  .compact-row .rating { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .compact-row .rating .stars { color: var(--yellow); font-size: 12px; }
+  .compact-row .rating .n { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); font-weight: 700; }
+
+  .compact-row .teams { text-align: right; }
+  .compact-row .teams .v { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--ink); }
+  .compact-row .teams .l { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
+
+  .compact-row .cost { text-align: right; }
+  .compact-row .cost .v { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--ink); }
+  .compact-row .cost .l { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
+
+  .compact-row .actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .compact-row .actions button { padding: 5px 11px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+  .compact-row .actions .hire { background: var(--gradient); color: white; border: none; }
+  .compact-row .actions .preview { background: var(--bg); border: 1px solid var(--line); color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a class="active" href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <h1>Browse cohorts <strong>by department</strong></h1>
+      <p>24 starter cohorts across six departments. Pick a category to browse.</p>
+    </div>
+
+    <!-- KEPT FROM D — dept tabs -->
+    <div class="cat-tabs">
+      <div class="cat-tab"><div class="ico">🎧</div><div class="name">Support</div><div class="ct">5 COHORTS</div></div>
+      <div class="cat-tab on"><div class="ico" style="background:transparent;">💰</div><div class="name">Finance &amp; Ops</div><div class="ct">7 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">📊</div><div class="name">Sales</div><div class="ct">4 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">👥</div><div class="name">People &amp; HR</div><div class="ct">3 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">🔧</div><div class="name">IT &amp; Dev-ex</div><div class="ct">3 COHORTS</div></div>
+      <div class="cat-tab"><div class="ico">⚖</div><div class="name">Legal</div><div class="ct">2 COHORTS</div></div>
+    </div>
+
+    <!-- FEATURED COHORT -->
+    <div class="featured">
+      <div>
+        <div class="kicker"><span class="grad">★ FEATURED</span>MOST-HIRED IN FINANCE &amp; OPS</div>
+        <h2>L3 <strong>Invoice Operations</strong></h2>
+        <p>Extracts line items, validates against POs, codes to GL accounts, flags duplicates with 99.6% accuracy. The cohort that lets a finance team feel ten people bigger without hiring a single new human.</p>
+        <div class="stat-row">
+          <div class="item"><span class="lbl">Teams</span><span class="val grad">612</span></div>
+          <div class="item"><span class="lbl">Rating</span><span class="val">★ 4.9</span></div>
+          <div class="item"><span class="lbl">Cost/action</span><span class="val">$0.008</span></div>
+          <div class="item"><span class="lbl">Skills</span><span class="val">9</span></div>
+          <div class="item"><span class="lbl">Reviews</span><span class="val">203</span></div>
+        </div>
+        <div class="cta-row">
+          <button class="hire-btn">Hire L3 Invoice Operations →</button>
+          <button class="preview-btn">Preview</button>
+        </div>
+      </div>
+      <div class="featured-portrait">SL</div>
+    </div>
+
+    <!-- COMPACT LIST -->
+    <div class="list-h">
+      <span class="lbl">OTHER FINANCE &amp; OPS COHORTS · 6</span>
+      <button class="sort">Sort: ★ teams ▼</button>
+    </div>
+
+    <div class="compact-list">
+
+      <div class="compact-row">
+        <span class="rank top3">02</span>
+        <div class="av ar">AR</div>
+        <div class="info">
+          <div class="name-row"><h3>L2 AR Collector</h3><span class="badge new">NEW</span></div>
+          <div class="desc">Chases overdue receivables. Drafts reminder emails. Escalates to humans for the awkward ones.</div>
+        </div>
+        <div class="skills"><strong>7</strong> · netsuite · email · policy</div>
+        <div class="rating"><span class="stars">★★★★★</span><span class="n">4.8</span></div>
+        <div class="teams"><span class="v">312</span><span class="l">TEAMS</span></div>
+        <div class="cost"><span class="v">$0.020</span><span class="l">PER ACTION</span></div>
+        <div class="actions"><button class="preview">Preview</button><button class="hire">Hire</button></div>
+      </div>
+
+      <div class="compact-row">
+        <span class="rank top3">03</span>
+        <div class="av ex">EX</div>
+        <div class="info">
+          <div class="name-row"><h3>L2 Expense Auditor</h3></div>
+          <div class="desc">Reviews Concur / Expensify submissions against your policy. Flags out-of-policy spend before reimbursement.</div>
+        </div>
+        <div class="skills"><strong>5</strong> · concur · policy.spend</div>
+        <div class="rating"><span class="stars">★★★★☆</span><span class="n">4.5</span></div>
+        <div class="teams"><span class="v">187</span><span class="l">TEAMS</span></div>
+        <div class="cost"><span class="v">$0.009</span><span class="l">PER ACTION</span></div>
+        <div class="actions"><button class="preview">Preview</button><button class="hire">Hire</button></div>
+      </div>
+
+      <div class="compact-row">
+        <span class="rank">04</span>
+        <div class="av fc">FC</div>
+        <div class="info">
+          <div class="name-row"><h3>L3 Financial Closer</h3><span class="badge trending">★ TRENDING</span></div>
+          <div class="desc">Runs the month-end close checklist. Reconciles GL accounts, drafts JEs, files variance reports.</div>
+        </div>
+        <div class="skills"><strong>8</strong> · netsuite.write · gl.reconcile</div>
+        <div class="rating"><span class="stars">★★★★★</span><span class="n">4.8</span></div>
+        <div class="teams"><span class="v">152</span><span class="l">TEAMS</span></div>
+        <div class="cost"><span class="v">$0.025</span><span class="l">PER ACTION</span></div>
+        <div class="actions"><button class="preview">Preview</button><button class="hire">Hire</button></div>
+      </div>
+
+      <div class="compact-row">
+        <span class="rank">05</span>
+        <div class="av pr">PR</div>
+        <div class="info">
+          <div class="name-row"><h3>L3 Procurement Reviewer</h3></div>
+          <div class="desc">Validates POs against vendor master, checks for budget availability, drafts requisitions.</div>
+        </div>
+        <div class="skills"><strong>7</strong> · netsuite.read · vendor.lookup</div>
+        <div class="rating"><span class="stars">★★★★☆</span><span class="n">4.6</span></div>
+        <div class="teams"><span class="v">98</span><span class="l">TEAMS</span></div>
+        <div class="cost"><span class="v">$0.013</span><span class="l">PER ACTION</span></div>
+        <div class="actions"><button class="preview">Preview</button><button class="hire">Hire</button></div>
+      </div>
+
+      <div class="compact-row">
+        <span class="rank">06</span>
+        <div class="av cs">CF</div>
+        <div class="info">
+          <div class="name-row"><h3>L2 Cash Forecaster</h3></div>
+          <div class="desc">Builds rolling 13-week cash forecasts from AP/AR data. Surfaces liquidity risk weekly.</div>
+        </div>
+        <div class="skills"><strong>6</strong> · netsuite.read · forecast.cash</div>
+        <div class="rating"><span class="stars">★★★★☆</span><span class="n">4.4</span></div>
+        <div class="teams"><span class="v">67</span><span class="l">TEAMS</span></div>
+        <div class="cost"><span class="v">$0.011</span><span class="l">PER ACTION</span></div>
+        <div class="actions"><button class="preview">Preview</button><button class="hire">Hire</button></div>
+      </div>
+
+      <div class="compact-row">
+        <span class="rank">07</span>
+        <div class="av">TR</div>
+        <div class="info">
+          <div class="name-row"><h3>L2 Tax-Cert Refresher</h3></div>
+          <div class="desc">Tracks vendor W-9 / W-8 expirations, drafts renewal requests, syncs to AP master.</div>
+        </div>
+        <div class="skills"><strong>5</strong> · netsuite.write · email.draft</div>
+        <div class="rating"><span class="stars">★★★★☆</span><span class="n">4.3</span></div>
+        <div class="teams"><span class="v">41</span><span class="l">TEAMS</span></div>
+        <div class="cost"><span class="v">$0.008</span><span class="l">PER ACTION</span></div>
+        <div class="actions"><button class="preview">Preview</button><button class="hire">Hire</button></div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

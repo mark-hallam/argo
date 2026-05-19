@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Settings — SKYCOT (B · Dashboard Cards)</title>
+<!-- Design language: B — Dashboard cards / Notion overview.
+     Each settings category is a card showing CURRENT STATE.
+     Click a card to drill in. Best for seeing your workspace at a glance. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 32px 44px 80px; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 28px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+
+  /* Group headers */
+  .group-h { display: flex; align-items: baseline; gap: 12px; margin: 26px 0 14px; }
+  .group-h h2 { margin: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); }
+  .group-h::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  /* Card grid */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+  .card {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 22px;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    cursor: pointer; position: relative;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 6px 18px -6px rgba(0,0,0,0.06); }
+
+  .card-h-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .card .ic {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: grid; place-items: center; color: white; font-size: 18px;
+    background: var(--gradient);
+  }
+  .card.profile .ic { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.notify .ic { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .card.workspace .ic { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.team .ic { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.brand .ic { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.workers .ic { background: var(--gradient); }
+  .card.integrations .ic { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .card.providers .ic { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .card.api .ic { background: linear-gradient(135deg, #0F0F14, #3F3F46); }
+  .card.security .ic { background: linear-gradient(135deg, var(--coral), var(--pink)); }
+  .card.compliance .ic { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.audit .ic { background: linear-gradient(135deg, var(--purple), var(--cyan)); }
+  .card.billing .ic { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .card .title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+
+  .card .summary { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin-bottom: 14px; min-height: 38px; }
+  .card .state {
+    padding: 10px 12px; border-radius: 8px;
+    background: var(--paper); display: flex; flex-direction: column; gap: 4px;
+    font-size: 12.5px;
+  }
+  .card .state .row { display: flex; justify-content: space-between; align-items: center; }
+  .card .state .k { color: var(--ink-3); }
+  .card .state .v { color: var(--ink); font-weight: 600; }
+  .card .state .v.mono { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+  .card .state .v.warn { color: #92400E; }
+  .card .state .v.ok { display: inline-flex; align-items: center; gap: 5px; color: #0F766E; }
+  .card .state .v.ok::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .card .state .v.bad { color: var(--coral); }
+
+  .card .foot { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; }
+  .card .foot .updated { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .card .foot .arrow { color: var(--purple); font-weight: 700; }
+
+  /* Danger card style */
+  .card.danger { background: rgba(255,107,107,0.03); border-color: rgba(255,107,107,0.20); }
+  .card.danger .title { color: #B91C1C; }
+  .card.danger .ic { background: var(--coral); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a class="active" href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1><strong>Settings</strong></h1>
+        <p>Acme Corp · Pro plan · 5 workers · 25 seat capacity</p>
+      </div>
+    </div>
+
+    <div class="group-h"><h2>PERSONAL</h2></div>
+
+    <div class="grid">
+
+      <div class="card profile">
+        <div class="card-h-row"><div class="ic">👤</div><div class="title">Profile</div></div>
+        <div class="summary">Your name, photo, title, time zone.</div>
+        <div class="state">
+          <div class="row"><span class="k">Name</span><span class="v">Mark Hallam</span></div>
+          <div class="row"><span class="k">Email</span><span class="v mono">mark@acmecorp.com</span></div>
+          <div class="row"><span class="k">2FA</span><span class="v ok">Active</span></div>
+        </div>
+        <div class="foot"><span class="updated">Updated 3d ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card notify">
+        <div class="card-h-row"><div class="ic">🔔</div><div class="title">Notifications</div></div>
+        <div class="summary">When you get pinged about approvals, errors, escalations.</div>
+        <div class="state">
+          <div class="row"><span class="k">Email</span><span class="v">All approvals</span></div>
+          <div class="row"><span class="k">Slack</span><span class="v">Critical only</span></div>
+          <div class="row"><span class="k">Quiet hours</span><span class="v">10pm–7am AEDT</span></div>
+        </div>
+        <div class="foot"><span class="updated">Default</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card profile">
+        <div class="card-h-row"><div class="ic">🎛</div><div class="title">Preferences</div></div>
+        <div class="summary">Theme, density, default views, keyboard shortcuts.</div>
+        <div class="state">
+          <div class="row"><span class="k">Theme</span><span class="v">Light · System</span></div>
+          <div class="row"><span class="k">Density</span><span class="v">Comfortable</span></div>
+          <div class="row"><span class="k">Default page</span><span class="v">Inbox</span></div>
+        </div>
+        <div class="foot"><span class="updated">Default</span><span class="arrow">Manage →</span></div>
+      </div>
+    </div>
+
+    <div class="group-h"><h2>WORKSPACE</h2></div>
+
+    <div class="grid">
+
+      <div class="card workspace">
+        <div class="card-h-row"><div class="ic">⚒</div><div class="title">General</div></div>
+        <div class="summary">Workspace name, region, language, fiscal year.</div>
+        <div class="state">
+          <div class="row"><span class="k">Name</span><span class="v">Acme Corp · production</span></div>
+          <div class="row"><span class="k">Region</span><span class="v">Asia-Pacific (Sydney)</span></div>
+          <div class="row"><span class="k">Currency</span><span class="v mono">AUD</span></div>
+        </div>
+        <div class="foot"><span class="updated">Updated 12 Sep 2025</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card team">
+        <div class="card-h-row"><div class="ic">👥</div><div class="title">Team</div></div>
+        <div class="summary">Humans who review approvals and manage AI workers.</div>
+        <div class="state">
+          <div class="row"><span class="k">Seats used</span><span class="v">3 of 25</span></div>
+          <div class="row"><span class="k">Roles</span><span class="v">1 owner · 1 admin · 1 reviewer</span></div>
+          <div class="row"><span class="k">Pending invites</span><span class="v">0</span></div>
+        </div>
+        <div class="foot"><span class="updated">Last invite 2w ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card brand">
+        <div class="card-h-row"><div class="ic">🎨</div><div class="title">Branding</div></div>
+        <div class="summary">Workspace logo and visible colors for your AI workers.</div>
+        <div class="state">
+          <div class="row"><span class="k">Logo</span><span class="v">Acme Corp wordmark</span></div>
+          <div class="row"><span class="k">Color</span><span class="v">SKYCOT default</span></div>
+          <div class="row"><span class="k">Domain</span><span class="v mono">acme.skycot.app</span></div>
+        </div>
+        <div class="foot"><span class="updated">Default</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card workers">
+        <div class="card-h-row"><div class="ic">⚙</div><div class="title">Worker defaults</div></div>
+        <div class="summary">Tone guidelines, escalation paths, refund caps.</div>
+        <div class="state">
+          <div class="row"><span class="k">Tone</span><span class="v">warm-professional</span></div>
+          <div class="row"><span class="k">Escalation</span><span class="v">4h sentiment shift</span></div>
+          <div class="row"><span class="k">Refund cap (L2)</span><span class="v">$200</span></div>
+        </div>
+        <div class="foot"><span class="updated">Updated 1w ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+    </div>
+
+    <div class="group-h"><h2>INTEGRATIONS</h2></div>
+
+    <div class="grid">
+
+      <div class="card integrations">
+        <div class="card-h-row"><div class="ic">🔌</div><div class="title">Connected apps</div></div>
+        <div class="summary">SaaS tools your workers can read from and write to.</div>
+        <div class="state">
+          <div class="row"><span class="k">Connected</span><span class="v ok">8 apps</span></div>
+          <div class="row"><span class="k">Last sync</span><span class="v mono">2s ago</span></div>
+          <div class="row"><span class="k">Failed</span><span class="v">0</span></div>
+        </div>
+        <div class="foot"><span class="updated">All healthy</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card providers">
+        <div class="card-h-row"><div class="ic">🧠</div><div class="title">AI providers</div></div>
+        <div class="summary">Where your workers' models come from.</div>
+        <div class="state">
+          <div class="row"><span class="k">Primary</span><span class="v">SKYCOT-managed</span></div>
+          <div class="row"><span class="k">Fallback</span><span class="v">Anthropic (own key)</span></div>
+          <div class="row"><span class="k">Spend cap</span><span class="v mono">$500 / mo</span></div>
+        </div>
+        <div class="foot"><span class="updated">Updated 6w ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card api">
+        <div class="card-h-row"><div class="ic">⚡</div><div class="title">API &amp; webhooks</div></div>
+        <div class="summary">Programmatic access for your engineers.</div>
+        <div class="state">
+          <div class="row"><span class="k">API tokens</span><span class="v">2 active</span></div>
+          <div class="row"><span class="k">Webhooks</span><span class="v">3 endpoints</span></div>
+          <div class="row"><span class="k">Last call</span><span class="v mono">4m ago</span></div>
+        </div>
+        <div class="foot"><span class="updated">Updated yest.</span><span class="arrow">Manage →</span></div>
+      </div>
+
+    </div>
+
+    <div class="group-h"><h2>SECURITY &amp; COMPLIANCE</h2></div>
+
+    <div class="grid">
+
+      <div class="card security">
+        <div class="card-h-row"><div class="ic">🛡</div><div class="title">Security policy</div></div>
+        <div class="summary">SSO, MFA, IP allowlist, session length.</div>
+        <div class="state">
+          <div class="row"><span class="k">MFA</span><span class="v ok">Required</span></div>
+          <div class="row"><span class="k">SSO</span><span class="v warn">Not configured</span></div>
+          <div class="row"><span class="k">Session</span><span class="v">7 days</span></div>
+        </div>
+        <div class="foot"><span class="updated">Updated 2w ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card compliance">
+        <div class="card-h-row"><div class="ic">📜</div><div class="title">Compliance</div></div>
+        <div class="summary">SOC 2, GDPR, HIPAA · data residency.</div>
+        <div class="state">
+          <div class="row"><span class="k">SOC 2</span><span class="v ok">Type II eligible</span></div>
+          <div class="row"><span class="k">GDPR</span><span class="v ok">Article 30 ready</span></div>
+          <div class="row"><span class="k">Data residency</span><span class="v">AU-East-1</span></div>
+        </div>
+        <div class="foot"><span class="updated">Verified 3d ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card audit">
+        <div class="card-h-row"><div class="ic">⊟</div><div class="title">Audit retention</div></div>
+        <div class="summary">How long we keep your audit ledger.</div>
+        <div class="state">
+          <div class="row"><span class="k">Retention</span><span class="v">7 years</span></div>
+          <div class="row"><span class="k">Storage</span><span class="v mono">1.2 GB</span></div>
+          <div class="row"><span class="k">Chain</span><span class="v ok">100% verified</span></div>
+        </div>
+        <div class="foot"><span class="updated">Last verify 2s ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+    </div>
+
+    <div class="group-h"><h2>BILLING</h2></div>
+
+    <div class="grid">
+
+      <div class="card billing">
+        <div class="card-h-row"><div class="ic">$</div><div class="title">Plan &amp; usage</div></div>
+        <div class="summary">Your current plan and this period's usage.</div>
+        <div class="state">
+          <div class="row"><span class="k">Plan</span><span class="v">Acme Corp Pro</span></div>
+          <div class="row"><span class="k">Period spend</span><span class="v mono">$48.20 / $500</span></div>
+          <div class="row"><span class="k">Workers</span><span class="v">5 of 25 slots</span></div>
+        </div>
+        <div class="foot"><span class="updated">Renews 1 Jun 2026</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card billing">
+        <div class="card-h-row"><div class="ic">💳</div><div class="title">Payment method</div></div>
+        <div class="summary">How we charge you for SKYCOT.</div>
+        <div class="state">
+          <div class="row"><span class="k">Card</span><span class="v mono">Visa ••6411</span></div>
+          <div class="row"><span class="k">Expires</span><span class="v">07/2027</span></div>
+          <div class="row"><span class="k">Billing email</span><span class="v mono">billing@acme.com</span></div>
+        </div>
+        <div class="foot"><span class="updated">Updated 6mo ago</span><span class="arrow">Manage →</span></div>
+      </div>
+
+      <div class="card billing">
+        <div class="card-h-row"><div class="ic">🧾</div><div class="title">Invoices</div></div>
+        <div class="summary">Download monthly invoices.</div>
+        <div class="state">
+          <div class="row"><span class="k">Last invoice</span><span class="v">Apr 2026 · $51.40</span></div>
+          <div class="row"><span class="k">Status</span><span class="v ok">Paid</span></div>
+          <div class="row"><span class="k">All invoices</span><span class="v">8 since hire</span></div>
+        </div>
+        <div class="foot"><span class="updated">Auto-billed monthly</span><span class="arrow">Manage →</span></div>
+      </div>
+
+    </div>
+
+    <div class="group-h"><h2>DANGER ZONE</h2></div>
+
+    <div class="grid">
+      <div class="card danger">
+        <div class="card-h-row"><div class="ic">⚠</div><div class="title">Transfer ownership</div></div>
+        <div class="summary">Move workspace ownership to another teammate.</div>
+        <div class="foot"><span class="updated">No-op recoverable</span><span class="arrow" style="color:var(--coral)">Transfer →</span></div>
+      </div>
+      <div class="card danger">
+        <div class="card-h-row"><div class="ic">🗑</div><div class="title">Delete workspace</div></div>
+        <div class="summary">Permanently delete Acme Corp · production. Audit ledger preserved for 7y.</div>
+        <div class="foot"><span class="updated">Cannot be undone</span><span class="arrow" style="color:var(--coral)">Delete →</span></div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

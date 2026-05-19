@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Worker · Jamal — SKYCOT (D · Game Profile)</title>
+<!-- Design language: D — Game character / athlete stat sheet.
+     Big portrait, level, XP bar, achievement badges, career stats.
+     Recent "matches" = recent actions. Gamified, brand-loud max. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --bg: #0A0A12; --bg-2: #14141E; --bg-3: #1E1E2A;
+    --ink: #F4F4F5; --ink-2: #D4D4D8; --ink-3: #A1A1AA; --ink-4: #71717A;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+    --neon: #A78BFA;
+    --green: #4ADE80;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; background-image: radial-gradient(1200px circle at 80% -10%, rgba(139,92,246,0.20), transparent 50%), radial-gradient(900px circle at 10% 110%, rgba(8,145,178,0.18), transparent 50%); min-height: 100vh; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg-2); border-right: 1px solid rgba(255,255,255,0.08); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); box-shadow: 0 0 24px rgba(139,92,246,0.6); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 14px; letter-spacing: 0.08em; color: var(--ink); }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-3); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--bg-3); color: var(--ink); font-weight: 600; border-left: 2px solid var(--purple); padding-left: 8px; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 32px 40px 80px; max-width: 1320px; }
+  .crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-4); margin-bottom: 18px; letter-spacing: 0.08em; }
+  .crumb a { color: var(--ink-3); text-decoration: none; }
+
+  /* HERO */
+  .hero { display: grid; grid-template-columns: 280px 1fr; gap: 32px; margin-bottom: 32px; }
+
+  /* Portrait card */
+  .portrait-card {
+    background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(8,145,178,0.10));
+    border: 1px solid rgba(139,92,246,0.30);
+    border-radius: 24px;
+    padding: 22px;
+    text-align: center;
+    position: relative; overflow: hidden;
+    box-shadow: 0 32px 64px -16px rgba(139,92,246,0.40), inset 0 1px 0 rgba(255,255,255,0.10);
+  }
+  .portrait-card::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% -10%, rgba(167,139,250,0.30), transparent 50%); pointer-events: none; }
+  .portrait-card .level-banner {
+    font-family: 'Audiowide', sans-serif; font-size: 12px;
+    letter-spacing: 0.18em; color: var(--neon);
+    margin-bottom: 14px; position: relative; z-index: 1;
+  }
+  .portrait-card .av {
+    width: 144px; height: 144px; border-radius: 32px;
+    background: var(--gradient); color: white;
+    display: grid; place-items: center;
+    font-size: 48px; font-weight: 900; letter-spacing: 0.04em;
+    margin: 0 auto 16px;
+    box-shadow: 0 16px 40px -10px rgba(139,92,246,0.6), inset 0 -2px 8px rgba(0,0,0,0.2);
+    position: relative; z-index: 1;
+  }
+  .portrait-card h2 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 28px; letter-spacing: 0.02em;
+    margin: 0 0 4px; position: relative; z-index: 1;
+  }
+  .portrait-card .role-tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; margin-bottom: 16px; position: relative; z-index: 1; }
+
+  .portrait-card .level-num {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 80px; line-height: 0.9;
+    background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 4px; letter-spacing: -0.02em;
+    position: relative; z-index: 1;
+  }
+  .portrait-card .level-lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; position: relative; z-index: 1; }
+
+  /* XP bar */
+  .xp-block { margin-top: 18px; position: relative; z-index: 1; }
+  .xp-block .label { display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-3); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+  .xp-block .label strong { color: var(--neon); }
+  .xp-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .xp-bar .fill { height: 100%; width: 72%; background: var(--gradient); border-radius: 4px; box-shadow: 0 0 12px rgba(139,92,246,0.5); }
+  .xp-block .next { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); margin-top: 6px; }
+  .xp-block .next strong { color: var(--ink); }
+
+  /* Right side: stats + recent matches */
+  .stats-block {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-bottom: 22px;
+  }
+  .stat-tile { background: var(--bg-2); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px 18px; position: relative; }
+  .stat-tile.grad::before { content: ''; position: absolute; inset: 0; border-radius: 14px; background: linear-gradient(135deg, rgba(139,92,246,0.10), transparent 50%); pointer-events: none; }
+  .stat-tile .l { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-4); font-weight: 700; }
+  .stat-tile .v { font-family: 'Audiowide', sans-serif; font-size: 32px; letter-spacing: -0.02em; margin-top: 4px; color: var(--ink); }
+  .stat-tile.grad .v { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat-tile .delta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--green); margin-top: 4px; font-weight: 700; }
+
+  /* Achievements */
+  .achievements-card { background: var(--bg-2); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px 20px; margin-bottom: 22px; }
+  .ach-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .ach-h h3 { font-family: 'Audiowide', sans-serif; margin: 0; font-size: 14px; letter-spacing: 0.08em; }
+  .ach-h .ct { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .ach-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ach-badge { width: 64px; height: 64px; border-radius: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); display: grid; place-items: center; font-size: 26px; cursor: pointer; transition: transform 0.15s; position: relative; }
+  .ach-badge:hover { transform: scale(1.05); }
+  .ach-badge.earned { background: linear-gradient(135deg, rgba(252,211,77,0.15), rgba(255,107,107,0.10)); border-color: rgba(252,211,77,0.30); box-shadow: 0 8px 24px -8px rgba(252,211,77,0.4); }
+  .ach-badge.new::after { content: 'NEW'; position: absolute; top: -5px; right: -5px; padding: 1px 5px; border-radius: 3px; background: var(--teal); color: white; font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 800; letter-spacing: 0.06em; }
+  .ach-badge.locked { opacity: 0.3; filter: grayscale(1); }
+
+  /* Recent matches */
+  .matches-card { background: var(--bg-2); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px 20px; }
+  .matches-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .matches-h h3 { font-family: 'Audiowide', sans-serif; margin: 0; font-size: 14px; letter-spacing: 0.08em; }
+  .matches-h a { color: var(--neon); font-size: 12px; font-weight: 600; text-decoration: none; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
+
+  .match-row {
+    display: grid; grid-template-columns: 24px 80px 1fr 100px 70px;
+    gap: 14px; align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 13px;
+  }
+  .match-row:last-child { border-bottom: none; }
+  .match-row .result { width: 24px; height: 24px; border-radius: 50%; background: rgba(74,222,128,0.15); border: 2px solid var(--green); color: var(--green); display: grid; place-items: center; font-size: 11px; font-weight: 800; }
+  .match-row .result.warn { background: rgba(252,211,77,0.15); border-color: var(--yellow); color: var(--yellow); }
+  .match-row .ts { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .match-row .ts strong { color: var(--ink); display: block; }
+  .match-row .what { color: var(--ink-2); }
+  .match-row .what strong { color: var(--ink); font-weight: 600; }
+  .match-row .latency { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); text-align: right; }
+  .match-row .cost { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); text-align: right; font-weight: 700; }
+
+  /* Actions bar */
+  .actions-bar { margin-top: 18px; display: flex; gap: 8px; }
+  .btn { padding: 9px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 700; border: 1px solid rgba(255,255,255,0.12); background: var(--bg-3); color: var(--ink); cursor: pointer; font-family: 'Inter', sans-serif; letter-spacing: 0.02em; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 6px 20px -4px rgba(139,92,246,0.50); }
+  .btn.danger { color: var(--coral); border-color: rgba(255,107,107,0.30); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb"><a href="#">WORKERS</a> / JAMAL · #001</div>
+
+    <div class="hero">
+
+      <div class="portrait-card">
+        <div class="level-banner">★ ACTIVE NOW</div>
+        <div class="av">JM</div>
+        <h2>JAMAL</h2>
+        <div class="role-tag">L2 · SUPPORT · v3.2</div>
+        <div class="level-num">12</div>
+        <div class="level-lbl">LEVEL</div>
+        <div class="xp-block">
+          <div class="label"><span>XP</span><strong>72%</strong></div>
+          <div class="xp-bar"><div class="fill"></div></div>
+          <div class="next">L3 in <strong>~280 actions</strong> · unlocks refund.issue + survey.send</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="stats-block">
+          <div class="stat-tile grad"><div class="l">CAREER ACTIONS</div><div class="v">1,247</div><div class="delta">↑ +38 this wk</div></div>
+          <div class="stat-tile"><div class="l">RESOLVE %</div><div class="v">94</div><div class="delta">↑ +2pt</div></div>
+          <div class="stat-tile"><div class="l">CSAT</div><div class="v">4.8</div><div class="delta">↑ +0.1</div></div>
+          <div class="stat-tile"><div class="l">COST/ACT</div><div class="v">$.003</div><div class="delta">↓ -5%</div></div>
+        </div>
+
+        <div class="achievements-card">
+          <div class="ach-h"><h3>ACHIEVEMENTS</h3><span class="ct">8 of 24 earned · 33%</span></div>
+          <div class="ach-row">
+            <div class="ach-badge earned new">🎯</div>
+            <div class="ach-badge earned">⚡</div>
+            <div class="ach-badge earned">🛡</div>
+            <div class="ach-badge earned">💬</div>
+            <div class="ach-badge earned">🔥</div>
+            <div class="ach-badge earned">⭐</div>
+            <div class="ach-badge earned">🚀</div>
+            <div class="ach-badge earned">🎓</div>
+            <div class="ach-badge locked">🏆</div>
+            <div class="ach-badge locked">💎</div>
+            <div class="ach-badge locked">👑</div>
+            <div class="ach-badge locked">🌟</div>
+            <div class="ach-badge locked">🎖</div>
+            <div class="ach-badge locked">⚔</div>
+          </div>
+        </div>
+
+        <div class="matches-card">
+          <div class="matches-h"><h3>RECENT MATCHES · TODAY</h3><a href="#">FULL LEDGER →</a></div>
+
+          <div class="match-row">
+            <div class="result">W</div>
+            <div class="ts"><strong>10:42</strong>2s ago</div>
+            <div class="what">Resolved <strong>SUP-29382</strong> · KB SK-413</div>
+            <div class="latency">1.8s</div>
+            <div class="cost">$0.004</div>
+          </div>
+          <div class="match-row">
+            <div class="result">W</div>
+            <div class="ts"><strong>10:18</strong>24m ago</div>
+            <div class="what">Replied to <strong>SUP-29381</strong> · status update</div>
+            <div class="latency">1.4s</div>
+            <div class="cost">$0.002</div>
+          </div>
+          <div class="match-row">
+            <div class="result warn">E</div>
+            <div class="ts"><strong>09:47</strong>55m ago</div>
+            <div class="what">Escalated <strong>SUP-29355</strong> to @lead-support</div>
+            <div class="latency">2.1s</div>
+            <div class="cost">$0.001</div>
+          </div>
+          <div class="match-row">
+            <div class="result">W</div>
+            <div class="ts"><strong>09:14</strong>1h ago</div>
+            <div class="what">Refunded <strong>$89</strong> on SUP-29378</div>
+            <div class="latency">1.6s</div>
+            <div class="cost">$0.005</div>
+          </div>
+        </div>
+
+        <div class="actions-bar">
+          <button class="btn primary">⚙ CONFIGURE SKILLS</button>
+          <button class="btn">▷ REPLAY</button>
+          <button class="btn">⏸ PAUSE</button>
+          <button class="btn">⤓ EXPORT LEDGER</button>
+          <button class="btn danger" style="margin-left:auto">RETIRE</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

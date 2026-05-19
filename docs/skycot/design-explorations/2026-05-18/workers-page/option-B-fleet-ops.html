@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workers — SKYCOT (B · Fleet Ops)</title>
+<!-- Design language: B — FLEET OPS.
+     Operations-center view. Dense table, KPI strip, uptime sparklines, throughput, last-seen.
+     Looks like Datadog Hosts page or an SRE dashboard. Power-user. Functional.
+     "These are the workers I'm operating." -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --line: #E5E7EB;
+    --line-2: #D1D5DB;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 24px 32px 80px; max-width: 1500px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .page-h h1 { font-size: 28px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 600; }
+  .page-h p { color: var(--ink-3); margin: 4px 0 0; font-size: 13.5px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* KPI strip */
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 22px 0; }
+  .kpi { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 600; }
+  .kpi .val { font-size: 26px; font-weight: 300; margin-top: 4px; letter-spacing: -0.025em; }
+  .kpi.grad .val { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 500; }
+  .kpi .sub { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .kpi.warn .val { color: #92400E; }
+
+  /* Filters */
+  .filters-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .filters { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
+  .chip { padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); font-size: 12px; color: var(--ink-2); font-weight: 500; cursor: pointer; }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+  .search { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-3); font-size: 12.5px; width: 260px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Table */
+  .table-wrap { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--paper-2); border-bottom: 1px solid var(--line); }
+  th { text-align: left; padding: 9px 14px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 700; white-space: nowrap; }
+  th.r { text-align: right; }
+  td { padding: 14px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--ink-2); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--paper); }
+  tr.training td { background: rgba(252,211,77,0.04); }
+
+  .av { width: 28px; height: 28px; border-radius: 7px; display: inline-grid; place-items: center; vertical-align: middle; background: var(--gradient); color: white; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; margin-right: 9px; }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .who { font-weight: 600; color: var(--ink); }
+  .who .role { color: var(--ink-3); font-weight: 400; font-size: 12px; }
+
+  .status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+  .status .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status.active { color: #0F766E; } .status.active .dot { background: var(--teal); box-shadow: 0 0 6px rgba(20,184,166,0.5); }
+  .status.training { color: #92400E; } .status.training .dot { background: var(--yellow); }
+  .status.paused { color: var(--ink-3); } .status.paused .dot { background: var(--ink-4); }
+
+  .current { font-size: 12.5px; color: var(--ink-2); }
+  .current strong { color: var(--ink); }
+  .current .ts { color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-left: 6px; }
+
+  .num { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); font-weight: 500; text-align: right; }
+  .num .sub { color: var(--ink-3); font-size: 11px; font-weight: 400; display: block; }
+
+  /* Sparkline */
+  .spark { display: inline-block; width: 80px; height: 22px; vertical-align: middle; }
+  .spark path { fill: none; stroke: var(--teal); stroke-width: 1.5; }
+  .spark.warn path { stroke: var(--yellow); }
+  .spark.bad path { stroke: var(--coral); }
+  .uptime { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .uptime .pct { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); font-weight: 500; }
+
+  .last-seen { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); text-align: right; }
+  .last-seen.now { color: #0F766E; }
+
+  .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .row-actions button { padding: 3px 8px; border-radius: 4px; font-size: 11px; background: var(--bg); border: 1px solid var(--line); color: var(--ink-3); cursor: pointer; font-family: inherit; }
+  .row-actions button:hover { color: var(--ink); border-color: var(--ink-4); }
+
+  /* Status bar */
+  .status-bar { display: flex; gap: 14px; align-items: center; padding: 8px 16px; background: var(--paper-2); border-top: 1px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .status-bar .ok { color: #0F766E; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Fleet · <strong>5 workers</strong></h1>
+        <p>Live operational view of your AI workforce.</p>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn">⊟ Columns</button>
+        <button class="btn">⤓ Export CSV</button>
+        <button class="btn primary">+ Hire worker</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi grad"><div class="label">Total workers</div><div class="val">5</div><div class="sub">4 active · 1 training</div></div>
+      <div class="kpi"><div class="label">Active right now</div><div class="val">4</div><div class="sub">processing tasks</div></div>
+      <div class="kpi"><div class="label">Actions today</div><div class="val">17</div><div class="sub">+4 vs yesterday</div></div>
+      <div class="kpi warn"><div class="label">Awaiting you</div><div class="val">7</div><div class="sub">2 over 1h old</div></div>
+      <div class="kpi"><div class="label">Spend today</div><div class="val">$0.094</div><div class="sub">avg $0.019 per worker</div></div>
+    </div>
+
+    <div class="filters-row">
+      <div class="filters">
+        <span class="chip on">All · 5</span>
+        <span class="chip">Active · 4</span>
+        <span class="chip">Training · 1</span>
+        <span class="chip">Paused · 0</span>
+        <span class="chip">Support</span>
+        <span class="chip">Ops</span>
+        <span class="chip">Recruiting</span>
+      </div>
+      <div class="search">⌕ grep workers, role, skill…</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Status</th>
+            <th>Current task</th>
+            <th class="r">Today</th>
+            <th class="r">7-day throughput</th>
+            <th class="r">Success rate</th>
+            <th class="r">Last seen</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="av">JM</span><span class="who">Jamal <span class="role">· Support / L2</span></span></td>
+            <td><span class="status active"><span class="dot"></span>Active</span></td>
+            <td class="current">Resolved <strong>SUP-29382</strong> · KB SK-413 <span class="ts">10:42</span></td>
+            <td class="num">4<span class="sub">$0.012</span></td>
+            <td class="r"><svg class="spark" viewBox="0 0 80 22"><path d="M0,14 L10,10 L20,12 L30,8 L40,6 L50,10 L60,7 L70,4 L80,5"/></svg><br/><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">38 actions / wk</span></td>
+            <td class="r"><div class="uptime"><span class="pct">94%</span></div><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">↑ 2pts</span></td>
+            <td class="last-seen now">2s ago</td>
+            <td><div class="row-actions"><button>view</button><button>pause</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="av s">SL</span><span class="who">Sara <span class="role">· Invoice ops / L3</span></span></td>
+            <td><span class="status active"><span class="dot"></span>Active</span></td>
+            <td class="current">Extracted <strong>INV-2024-08741</strong> · 12 lines $48,290 <span class="ts">10:38</span></td>
+            <td class="num">3<span class="sub">$0.024</span></td>
+            <td class="r"><svg class="spark" viewBox="0 0 80 22"><path d="M0,12 L10,8 L20,6 L30,9 L40,5 L50,4 L60,7 L70,3 L80,5"/></svg><br/><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">52 actions / wk</span></td>
+            <td class="r"><div class="uptime"><span class="pct">99.6%</span></div><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">extract accuracy</span></td>
+            <td class="last-seen now">4s ago</td>
+            <td><div class="row-actions"><button>view</button><button>pause</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="av p">PR</span><span class="who">Priya <span class="role">· Recruiting / L2</span></span></td>
+            <td><span class="status active"><span class="dot"></span>Active</span></td>
+            <td class="current">Drafted rejection to <strong>Sara Lin</strong> · awaiting your approval <span class="ts">09:58</span></td>
+            <td class="num">5<span class="sub">$0.043</span></td>
+            <td class="r"><svg class="spark warn" viewBox="0 0 80 22"><path d="M0,8 L10,10 L20,12 L30,9 L40,11 L50,14 L60,10 L70,12 L80,13"/></svg><br/><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">28 actions / wk</span></td>
+            <td class="r"><div class="uptime"><span class="pct">87%</span></div><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">match accuracy</span></td>
+            <td class="last-seen">44m ago</td>
+            <td><div class="row-actions"><button>view</button><button>pause</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="av n">NM</span><span class="who">Nori <span class="role">· Quote ops / L3</span></span></td>
+            <td><span class="status active"><span class="dot"></span>Active</span></td>
+            <td class="current">Flagged <strong>32% discount</strong> on QT-2024-7283 · waiting on you <span class="ts">10:11</span></td>
+            <td class="num">2<span class="sub">$0.008</span></td>
+            <td class="r"><svg class="spark" viewBox="0 0 80 22"><path d="M0,10 L10,11 L20,9 L30,12 L40,10 L50,8 L60,11 L70,9 L80,10"/></svg><br/><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">19 actions / wk</span></td>
+            <td class="r"><div class="uptime"><span class="pct">100%</span></div><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">policy adherence</span></td>
+            <td class="last-seen">31m ago</td>
+            <td><div class="row-actions"><button>view</button><button>pause</button></div></td>
+          </tr>
+          <tr class="training">
+            <td><span class="av m">MA</span><span class="who">Mariah <span class="role">· Sales ops / L2</span></span></td>
+            <td><span class="status training"><span class="dot"></span>Training (62%)</span></td>
+            <td class="current">Drafted RFP for <strong>Tomás Industries</strong> · 1,240 words <span class="ts">10:18</span></td>
+            <td class="num">3<span class="sub">$0.021</span></td>
+            <td class="r"><svg class="spark warn" viewBox="0 0 80 22"><path d="M0,15 L10,13 L20,14 L30,11 L40,10 L50,12 L60,8 L70,9 L80,7"/></svg><br/><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">14 actions / wk</span></td>
+            <td class="r"><div class="uptime"><span class="pct" style="color:#92400E">82%</span></div><span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">improving</span></td>
+            <td class="last-seen">24m ago</td>
+            <td><div class="row-actions"><button>view</button><button>promote</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="status-bar">
+        <span class="ok">● Fleet healthy</span>
+        <span>· 5 workers · 4 active · 1 training · 0 paused · 0 failed</span>
+        <span style="margin-left:auto">refresh: 5s · last sync 2s ago</span>
+      </div>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

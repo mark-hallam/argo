@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workers — SKYCOT (C2 · Holographic Showcase)</title>
+<!-- Design language: C2 — HOLOGRAPHIC SHOWCASE.
+     Lean into the "wow." More gradient. Larger portraits. Dramatic depth.
+     Animated shine sweep on hover. Bigger level numbers. Most viral.
+     Best for marketing screenshots / Product Hunt. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --purple-deep: #6d28d9;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --soft-purple: #f3e8ff;
+    --soft-pink: #fce7f3;
+    --ink: #1e1b4b;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #ECECEA;
+    --paper-2: #E0E0DE;
+    --bg: #fafaff;
+    --line: #ece9f5;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; min-height: 100vh; position: relative; }
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px; background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  .app { position: relative; z-index: 1; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); box-shadow: 0 0 20px rgba(139,92,246,0.4); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; font-weight: 400; letter-spacing: 0.10em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 40px 48px 80px; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 32px; }
+  .page-h h1 {
+    font-family: 'Audiowide', 'Inter', sans-serif;
+    font-size: 48px; font-weight: 400; letter-spacing: 0;
+    line-height: 1.1;
+    margin: 0;
+    background: var(--gradient-3);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 700; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 8px 24px -6px rgba(139,92,246,0.5); }
+
+  /* Card deck */
+  .deck { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+  .card {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    padding: 0;
+    background: var(--bg);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.06),
+      0 32px 60px -16px rgba(139,92,246,0.30),
+      inset 0 0 0 2px rgba(139,92,246,0.12);
+    transition: transform 0.35s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.35s;
+  }
+  .card:hover {
+    transform: translateY(-8px) rotate(-1deg) scale(1.02);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.06),
+      0 48px 80px -16px rgba(139,92,246,0.45),
+      inset 0 0 0 2px rgba(139,92,246,0.25);
+  }
+  .card.s { box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 32px 60px -16px rgba(236,72,153,0.30), inset 0 0 0 2px rgba(236,72,153,0.15); }
+  .card.p { box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 32px 60px -16px rgba(139,92,246,0.35), inset 0 0 0 2px rgba(236,72,153,0.15); }
+  .card.n { box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 32px 60px -16px rgba(20,184,166,0.32), inset 0 0 0 2px rgba(20,184,166,0.15); }
+  .card.m { box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 32px 60px -16px rgba(255,107,107,0.32), inset 0 0 0 2px rgba(252,211,77,0.15); }
+
+  /* Holographic banner */
+  .card-banner {
+    background: var(--gradient);
+    color: white;
+    padding: 28px 24px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card.s .card-banner { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.p .card-banner { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.n .card-banner { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.m .card-banner { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  /* Animated shine */
+  .card-banner::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,0.5), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(255,255,255,0.25), transparent 50%);
+    pointer-events: none;
+  }
+  .card-banner::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.6) 50%, transparent 65%);
+    background-size: 200% 200%;
+    background-position: 200% 50%;
+    transition: background-position 1s cubic-bezier(0.2, 0, 0, 1);
+    pointer-events: none;
+  }
+  .card:hover .card-banner::after { background-position: -50% 50%; }
+
+  .banner-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    position: relative; z-index: 1;
+  }
+  .banner-tag {
+    font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    padding: 5px 12px; border-radius: 999px;
+    background: rgba(255,255,255,0.20);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .banner-level { text-align: right; position: relative; z-index: 1; }
+  .banner-level .lbl {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.18em;
+    opacity: 0.85;
+  }
+  .banner-level .n {
+    font-size: 64px; font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    margin-top: 2px;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+
+  /* Portrait sits over banner */
+  .card-portrait {
+    margin: -60px 24px 0;
+    height: 120px;
+    display: flex; align-items: flex-end;
+    position: relative; z-index: 2;
+  }
+  .card-portrait .av {
+    width: 100px; height: 100px; border-radius: 28px;
+    background: var(--bg);
+    padding: 5px;
+    box-shadow: 0 16px 40px -8px rgba(0,0,0,0.20);
+  }
+  .card-portrait .av .inner {
+    width: 100%; height: 100%; border-radius: 22px;
+    background: var(--gradient);
+    display: grid; place-items: center;
+    color: white;
+    font-size: 32px; font-weight: 800; letter-spacing: 0.02em;
+  }
+  .card.s .card-portrait .av .inner { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.p .card-portrait .av .inner { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.n .card-portrait .av .inner { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.m .card-portrait .av .inner { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .card-name {
+    padding: 16px 28px 0;
+  }
+  .card-name h2 {
+    margin: 0;
+    font-size: 32px; font-weight: 800;
+    letter-spacing: -0.025em;
+  }
+  .card-name .role {
+    color: var(--ink-3); font-size: 13px;
+    margin-top: 2px;
+    font-weight: 600;
+  }
+  .card-name .status {
+    margin-top: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(20,184,166,0.12); color: #0F766E;
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.10em;
+    border: 1px solid rgba(20,184,166,0.30);
+  }
+  .card-name .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+  .card-name .status.training { background: rgba(252,211,77,0.18); color: #92400E; border-color: rgba(252,211,77,0.30); }
+  .card-name .status.training .dot { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+
+  /* Stats — bold, grid-quad */
+  .card-stats {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    margin: 22px 24px 0;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .stat-cell {
+    padding: 14px 16px;
+    background: var(--bg);
+    position: relative;
+  }
+  .stat-cell:nth-child(1), .stat-cell:nth-child(2) { border-bottom: 1px solid var(--line); }
+  .stat-cell:nth-child(1), .stat-cell:nth-child(3) { border-right: 1px solid var(--line); }
+  .stat-cell .stat-lbl {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--ink-3); font-weight: 800;
+  }
+  .stat-cell .stat-val {
+    font-size: 28px; font-weight: 900;
+    letter-spacing: -0.025em;
+    margin-top: 2px;
+    color: var(--ink);
+  }
+  .stat-cell.grad .stat-val {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+
+  /* Abilities */
+  .card-abilities {
+    padding: 20px 24px 0;
+  }
+  .ability-lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--ink-3); font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    padding: 4px 9px; border-radius: 999px;
+    background: rgba(139,92,246,0.08);
+    color: var(--purple);
+    border: 1px solid rgba(139,92,246,0.15);
+  }
+  .pill.gold {
+    background: linear-gradient(135deg, rgba(252,211,77,0.18), rgba(255,107,107,0.10));
+    color: #92400E;
+    border-color: rgba(252,211,77,0.30);
+  }
+
+  .card-foot {
+    padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-foot .id {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .card-foot .manage {
+    font-size: 12px; font-weight: 800;
+    color: var(--purple); text-decoration: none;
+    text-transform: uppercase; letter-spacing: 0.10em;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace · Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Your roster</h1>
+        <p>Five teammates working alongside you. Hover any card.</p>
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn">⊟ Table</button><button class="btn primary">+ New hire</button></div>
+    </div>
+
+    <div class="deck">
+
+      <div class="card">
+        <div class="card-banner">
+          <div class="banner-top">
+            <span class="banner-tag">Support</span>
+            <div class="banner-level"><div class="lbl">LEVEL</div><div class="n">12</div></div>
+          </div>
+        </div>
+        <div class="card-portrait"><div class="av"><div class="inner">JM</div></div></div>
+        <div class="card-name">
+          <h2>Jamal</h2>
+          <div class="role">L2 Support Specialist</div>
+          <div class="status"><span class="dot"></span>Active</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="stat-lbl">Actions / wk</div><div class="stat-val">38</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Resolve %</div><div class="stat-val">94</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Cost / act</div><div class="stat-val">.003</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Tenure</div><div class="stat-val">8mo</div></div>
+        </div>
+        <div class="card-abilities">
+          <div class="ability-lbl">Abilities</div>
+          <div class="pills">
+            <span class="pill">zendesk.read</span>
+            <span class="pill">zendesk.reply</span>
+            <span class="pill">kb.search</span>
+            <span class="pill">slack.dm</span>
+            <span class="pill">+3</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="id">#001 · JAMAL</span>
+          <a class="manage" href="#">MANAGE →</a>
+        </div>
+      </div>
+
+      <div class="card s">
+        <div class="card-banner">
+          <div class="banner-top">
+            <span class="banner-tag">Invoice Ops</span>
+            <div class="banner-level"><div class="lbl">LEVEL</div><div class="n">18</div></div>
+          </div>
+        </div>
+        <div class="card-portrait"><div class="av"><div class="inner">SL</div></div></div>
+        <div class="card-name">
+          <h2>Sara</h2>
+          <div class="role">L3 Invoice Operations</div>
+          <div class="status"><span class="dot"></span>Active</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="stat-lbl">Actions / wk</div><div class="stat-val">52</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Extract %</div><div class="stat-val">99.6</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Cost / act</div><div class="stat-val">.008</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Tenure</div><div class="stat-val">7mo</div></div>
+        </div>
+        <div class="card-abilities">
+          <div class="ability-lbl">Abilities</div>
+          <div class="pills">
+            <span class="pill">ocr.read</span>
+            <span class="pill">netsuite.write</span>
+            <span class="pill">policy.dup</span>
+            <span class="pill">+4</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="id">#002 · SARA</span>
+          <a class="manage" href="#">MANAGE →</a>
+        </div>
+      </div>
+
+      <div class="card p">
+        <div class="card-banner">
+          <div class="banner-top">
+            <span class="banner-tag">Recruiting</span>
+            <div class="banner-level"><div class="lbl">LEVEL</div><div class="n">9</div></div>
+          </div>
+        </div>
+        <div class="card-portrait"><div class="av"><div class="inner">PR</div></div></div>
+        <div class="card-name">
+          <h2>Priya</h2>
+          <div class="role">L2 Recruiting Screener</div>
+          <div class="status"><span class="dot"></span>Active</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="stat-lbl">Actions / wk</div><div class="stat-val">28</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Match %</div><div class="stat-val">87</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Cost / act</div><div class="stat-val">.014</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Tenure</div><div class="stat-val">7mo</div></div>
+        </div>
+        <div class="card-abilities">
+          <div class="ability-lbl">Abilities</div>
+          <div class="pills">
+            <span class="pill">greenhouse.read</span>
+            <span class="pill">jd.match</span>
+            <span class="pill">email.draft</span>
+            <span class="pill">+3</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="id">#003 · PRIYA</span>
+          <a class="manage" href="#">MANAGE →</a>
+        </div>
+      </div>
+
+      <div class="card n">
+        <div class="card-banner">
+          <div class="banner-top">
+            <span class="banner-tag">Quote Ops</span>
+            <div class="banner-level"><div class="lbl">LEVEL</div><div class="n">15</div></div>
+          </div>
+        </div>
+        <div class="card-portrait"><div class="av"><div class="inner">NM</div></div></div>
+        <div class="card-name">
+          <h2>Nori</h2>
+          <div class="role">L3 Quote Operations</div>
+          <div class="status"><span class="dot"></span>Active</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="stat-lbl">Actions / wk</div><div class="stat-val">19</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Policy %</div><div class="stat-val">100</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Cost / act</div><div class="stat-val">.005</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Tenure</div><div class="stat-val">6mo</div></div>
+        </div>
+        <div class="card-abilities">
+          <div class="ability-lbl">Abilities</div>
+          <div class="pills">
+            <span class="pill">salesforce.read</span>
+            <span class="pill">pricing.val</span>
+            <span class="pill">policy.disc</span>
+            <span class="pill">+2</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="id">#004 · NORI</span>
+          <a class="manage" href="#">MANAGE →</a>
+        </div>
+      </div>
+
+      <div class="card m">
+        <div class="card-banner">
+          <div class="banner-top">
+            <span class="banner-tag">Sales Ops</span>
+            <div class="banner-level"><div class="lbl">LEVEL</div><div class="n">5</div></div>
+          </div>
+        </div>
+        <div class="card-portrait"><div class="av"><div class="inner">MA</div></div></div>
+        <div class="card-name">
+          <h2>Mariah</h2>
+          <div class="role">L2 Sales Operations</div>
+          <div class="status training"><span class="dot"></span>Training · 62%</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="stat-lbl">Actions / wk</div><div class="stat-val">14</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Approval %</div><div class="stat-val">82</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Cost / act</div><div class="stat-val">.018</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Tenure</div><div class="stat-val">1mo</div></div>
+        </div>
+        <div class="card-abilities">
+          <div class="ability-lbl">Abilities</div>
+          <div class="pills">
+            <span class="pill gold">salesforce.write</span>
+            <span class="pill gold">rfp.draft</span>
+            <span class="pill">gcal.sched</span>
+            <span class="pill">+5</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="id">#005 · MARIAH</span>
+          <a class="manage" href="#">MANAGE →</a>
+        </div>
+      </div>
+
+      <div class="card" style="background: rgba(255,255,255,0.4); backdrop-filter: blur(8px); box-shadow: none; border: 2px dashed rgba(139,92,246,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 540px;">
+        <div style="text-align: center; padding: 32px;">
+          <div style="width: 80px; height: 80px; border-radius: 22px; background: rgba(139,92,246,0.10); display: grid; place-items: center; margin: 0 auto 18px; font-size: 32px; font-weight: 300; color: var(--purple);">+</div>
+          <div style="font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em;">Empty slot</div>
+          <div style="font-size: 13px; color: var(--ink-3); margin-top: 6px;">Hire your next teammate</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audit — SKYCOT (BC3 · SOC 2 Console)</title>
+<!-- Design language: BC3 — SOC 2 Console.
+     A polished compliance product. Hero verify card at top (B), KPI strip, dense table (C).
+     Per-row mini hash-chain breadcrumb (B), expandable rows for deep-dive.
+     Looks like a real shipping SaaS product (think Drata, Vanta, Tugboat Logic) — ready for an actual SOC 2 audit walkthrough.
+     The most "buyer-ready" of the three hybrids. Warmth + density + cryptographic credibility. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --line: #E5E7EB;
+    --line-2: #D1D5DB;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+    --gradient-mute: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(8,145,178,0.08));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .side {
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    padding: 20px 14px;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 6px 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 15px; letter-spacing: 0.06em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 6px;
+    color: var(--ink-2); text-decoration: none;
+    font-weight: 500; font-size: 13px;
+  }
+  .nav a:hover { background: var(--paper-2); }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav a .badge {
+    margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    padding: 1px 5px; border-radius: 3px;
+    background: var(--paper-2); color: var(--ink-3);
+  }
+  .nav .group {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-4); padding: 14px 10px 4px;
+  }
+
+  /* Main */
+  .main { padding: 28px 36px 80px; max-width: 1440px; }
+
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .page-h h1 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 28px; font-weight: 400; letter-spacing: 0.02em;
+    margin: 0;
+  }
+  .page-h p { color: var(--ink-3); margin: 4px 0 0; font-size: 13.5px; }
+  .page-actions { display: flex; gap: 8px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 7px;
+    font-size: 13px; font-weight: 500;
+    border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Hero verify card */
+  .verify-hero {
+    margin-top: 24px;
+    background: linear-gradient(135deg, #ECFDF5 0%, #F0F9FF 100%);
+    border: 1px solid rgba(20,184,166,0.25);
+    border-radius: 16px;
+    padding: 22px 26px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 26px; align-items: center;
+  }
+  .verify-hero .check {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal), var(--cyan));
+    color: white; display: grid; place-items: center;
+    font-size: 28px; font-weight: 700;
+    box-shadow: 0 6px 20px rgba(20,184,166,0.25);
+  }
+  .verify-hero h3 {
+    margin: 0 0 4px;
+    font-family: 'Audiowide', sans-serif;
+    font-size: 18px; font-weight: 400; letter-spacing: 0.04em;
+    color: #0F766E;
+  }
+  .verify-hero p {
+    margin: 0; font-size: 13.5px; color: var(--ink-2);
+  }
+  .verify-hero .stats {
+    display: flex; gap: 18px;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--ink-3);
+  }
+  .verify-hero .stats .k { color: var(--ink-4); }
+  .verify-hero .stats .v { color: var(--ink); font-weight: 500; }
+  .verify-hero .actions { display: flex; flex-direction: column; gap: 6px; }
+
+  /* KPIs */
+  .kpis {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 12px; margin: 18px 0 24px;
+  }
+  .kpi {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .kpi .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .kpi .val {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 24px; letter-spacing: 0.02em;
+    margin-top: 4px;
+  }
+  .kpi.grad .val { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .kpi.warn .val { color: #92400E; }
+  .kpi .sub { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .kpi .trend { display: inline-flex; gap: 4px; align-items: center; }
+  .kpi .trend.up { color: #0F766E; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 10px;
+  }
+  .filters { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--line-2); background: var(--bg);
+    font-size: 12px; color: var(--ink-2); font-weight: 500;
+    cursor: pointer;
+  }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+  .search {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 7px;
+    border: 1px solid var(--line-2); background: var(--bg);
+    color: var(--ink-3); font-size: 12.5px;
+    width: 260px;
+  }
+  .search .kbd {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    padding: 1px 5px; border-radius: 3px;
+    background: var(--paper-2);
+    margin-left: auto;
+  }
+
+  /* Table */
+  .table-wrap {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--paper-2); border-bottom: 1px solid var(--line); }
+  th {
+    text-align: left; padding: 10px 14px;
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 700;
+    white-space: nowrap; user-select: none;
+    border-bottom: 1px solid var(--line);
+  }
+  th.check { width: 36px; padding-left: 16px; padding-right: 0; }
+  th .sort { color: var(--ink-4); margin-left: 4px; font-size: 9px; }
+  th.active { color: var(--ink); }
+  th.active .sort { color: var(--purple); }
+
+  tr.row td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+    color: var(--ink-2);
+  }
+  tr.row:last-of-type td { border-bottom: none; }
+  tr.row:hover td { background: var(--paper); }
+  tr.row.active td { background: rgba(139,92,246,0.04); }
+  tr.row.warn td { background: rgba(252,211,77,0.04); }
+  tr.row.bad td { background: rgba(255,107,107,0.04); }
+
+  /* Expanded chain row beneath table row */
+  tr.chain td {
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    padding: 0;
+  }
+  tr.chain .chain-strip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px 8px 56px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3);
+    border-left: 3px solid var(--purple);
+  }
+  tr.chain .chain-strip .h { color: var(--ink-2); }
+  tr.chain .chain-strip .arrow { color: var(--purple); font-size: 13px; }
+  tr.chain .chain-strip .lbl { color: var(--ink-4); }
+  tr.chain .chain-strip .v-tag {
+    margin-left: auto;
+    color: #0F766E; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+    display: inline-flex; gap: 5px; align-items: center;
+  }
+  tr.chain .chain-strip .v-tag .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+
+  .cbx {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1.5px solid var(--line-2); background: var(--bg);
+    display: inline-block; vertical-align: middle;
+  }
+  .cbx.on {
+    background: var(--purple); border-color: var(--purple); position: relative;
+  }
+  .cbx.on::after { content: '✓'; color: white; font-size: 10px; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+  .ts {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); white-space: nowrap;
+  }
+  .ts .t { color: var(--ink); font-weight: 500; }
+  .av {
+    width: 26px; height: 26px; border-radius: 6px;
+    display: inline-grid; place-items: center; vertical-align: middle;
+    background: var(--gradient); color: white;
+    font-family: 'Audiowide', sans-serif; font-size: 10px; letter-spacing: 0.04em;
+    margin-right: 8px;
+  }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .who { font-weight: 600; color: var(--ink); }
+  .role { color: var(--ink-3); font-size: 11.5px; display: block; margin-left: 34px; }
+
+  .kind {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    white-space: nowrap;
+  }
+  .kind.result { color: #0F766E; background: rgba(20,184,166,0.10); }
+  .kind.approval { color: #92400E; background: rgba(252,211,77,0.18); }
+  .kind.refuse { color: #B91C1C; background: rgba(255,107,107,0.12); }
+
+  .hash-mini {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3);
+  }
+  .hash-mini .ok { color: var(--teal); font-weight: 700; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .pill.ok { background: rgba(20,184,166,0.10); color: #0F766E; } .pill.ok .dot { background: var(--teal); }
+  .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; } .pill.warn .dot { background: var(--yellow); }
+  .pill.bad { background: rgba(255,107,107,0.12); color: #B91C1C; } .pill.bad .dot { background: var(--coral); }
+
+  .cost {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-2); text-align: right;
+  }
+  .cost.zero { color: var(--ink-4); }
+
+  .expand-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 5px;
+    color: var(--ink-3); cursor: pointer;
+    font-size: 11px;
+  }
+  .expand-btn:hover { background: var(--paper-2); color: var(--ink); }
+  .expand-btn.open { color: var(--purple); background: rgba(139,92,246,0.08); transform: rotate(90deg); }
+
+  /* Status bar */
+  .status-bar {
+    display: flex; gap: 16px; align-items: center;
+    padding: 8px 16px;
+    background: var(--paper-2);
+    border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3);
+  }
+  .status-bar .ok {
+    display: inline-flex; gap: 5px; align-items: center;
+    color: #0F766E; font-weight: 600;
+  }
+  .status-bar .ok .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+  .status-bar .right { margin-left: auto; display: flex; gap: 4px; }
+  .status-bar .right button {
+    padding: 3px 8px; border-radius: 4px;
+    background: none; border: 1px solid transparent;
+    color: var(--ink-3); font-size: 11.5px; cursor: pointer;
+  }
+  .status-bar .right button.on { background: var(--bg); border-color: var(--line); color: var(--ink); }
+  .status-bar .right button:hover { color: var(--ink); }
+
+  .compliance-foot {
+    margin-top: 22px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 12.5px; color: var(--ink-2);
+  }
+  .compliance-foot .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 4px;
+    background: var(--paper-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-2); font-weight: 600;
+  }
+  .compliance-foot .right { margin-left: auto; display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <div class="mark"></div>
+      <div class="name">SKYCOT</div>
+    </div>
+    <nav class="nav">
+      <a href="#">Home</a>
+      <a href="#">Inbox <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">Team</a>
+      <a href="#">Workers</a>
+      <a class="active" href="#">Audit</a>
+      <a href="#">Skills</a>
+      <a href="#">Cohorts</a>
+      <div class="group">Compliance</div>
+      <a href="#">SOC 2 reports</a>
+      <a href="#">GDPR exports</a>
+      <a href="#">Retention policy</a>
+      <div class="group">Account</div>
+      <a href="#">Billing</a>
+      <a href="#">Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp › Audit log</div>
+    <div class="page-h">
+      <div>
+        <h1>Audit log</h1>
+        <p>Every action your AI teammates took, cryptographically signed and tamper-evident.</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn">⊟ Columns</button>
+        <button class="btn">⤓ Export CSV</button>
+        <button class="btn primary">⤓ Download SOC 2 report</button>
+      </div>
+    </div>
+
+    <div class="verify-hero">
+      <div class="check">✓</div>
+      <div>
+        <h3>Audit chain verified · 1,247 rows · 0 breaks</h3>
+        <p>Each row signs the SHA-256 hash of the row before it — tamper any row, and every row after it breaks. Last verified 2s ago.</p>
+        <div class="stats">
+          <span><span class="k">algorithm:</span> <span class="v">sha-256</span></span>
+          <span><span class="k">chain head:</span> <span class="v">812d499b…0ab7</span></span>
+          <span><span class="k">genesis:</span> <span class="v">2025-09-12</span></span>
+          <span><span class="k">replay:</span> <span class="v">deterministic</span></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn primary">↻ Re-verify now</button>
+        <button class="btn">⤓ Download proof bundle</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi grad"><div class="label">Actions today</div><div class="val">17</div><div class="sub"><span class="trend up">↑ 4 vs yesterday</span></div></div>
+      <div class="kpi warn"><div class="label">Pending you</div><div class="val">7</div><div class="sub">2 over 1h old</div></div>
+      <div class="kpi"><div class="label">Spend today</div><div class="val">$0.094</div><div class="sub">avg $0.0055 / action</div></div>
+      <div class="kpi"><div class="label">Policy refusals</div><div class="val">1</div><div class="sub">duplicate-invoice rule</div></div>
+      <div class="kpi grad"><div class="label">Chain integrity</div><div class="val">100%</div><div class="sub">0 breaks · sig OK</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters">
+        <span class="chip on">All · 17</span>
+        <span class="chip">Pending you · 7</span>
+        <span class="chip">Refused · 1</span>
+        <span class="chip">tool.result</span>
+        <span class="chip">approval.ask</span>
+        <span class="chip">policy.refuse</span>
+        <span class="chip">+ Add filter</span>
+      </div>
+      <div class="search">⌕ Search worker, kind, hash, ticket… <span class="kbd">⌘K</span></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="check"><span class="cbx"></span></th>
+            <th></th>
+            <th class="active">Time <span class="sort">▼</span></th>
+            <th>Worker &amp; action</th>
+            <th>Kind</th>
+            <th>Hash · chain</th>
+            <th>Status</th>
+            <th style="text-align:right">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">10:42</span><br/>2026-05-18</span></td>
+            <td><div><span class="av">JM</span><span class="who">Jamal</span></div><div class="role">Support · resolved SUP-29382 with KB SK-413</div></td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-mini">7f3a91c2…b8e6 <span class="ok">✓</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.004</td>
+          </tr>
+
+          <tr class="row">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">10:38</span><br/>2026-05-18</span></td>
+            <td><div><span class="av s">SL</span><span class="who">Sara</span></div><div class="role">Invoice ops · extracted INV-2024-08741 (12 lines · $48,290)</div></td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-mini">a1b9c3e4…f209 <span class="ok">✓</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.012</td>
+          </tr>
+
+          <tr class="row">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">10:31</span><br/>2026-05-18</span></td>
+            <td><div><span class="av p">PR</span><span class="who">Priya</span></div><div class="role">Recruiting · screened Diego Alvarez (match 8.2/10)</div></td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-mini">e8d2447a…1c33 <span class="ok">✓</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.014</td>
+          </tr>
+
+          <tr class="row">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">10:24</span><br/>2026-05-18</span></td>
+            <td><div><span class="av n">NM</span><span class="who">Nori</span></div><div class="role">Quote ops · validated QT-2024-7283 against pricing rules</div></td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-mini">3c5f8e09…d447 <span class="ok">✓</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.008</td>
+          </tr>
+
+          <tr class="row">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">10:18</span><br/>2026-05-18</span></td>
+            <td><div><span class="av m">MA</span><span class="who">Mariah</span></div><div class="role">Sales · drafted RFP for Tomás Industries (1,240 words)</div></td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-mini">b2a7c193…ee01 <span class="ok">✓</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost">$0.021</td>
+          </tr>
+
+          <tr class="row active warn">
+            <td><span class="cbx on"></span></td>
+            <td><span class="expand-btn open">▶</span></td>
+            <td><span class="ts"><span class="t">10:11</span><br/>2026-05-18</span></td>
+            <td><div><span class="av n">NM</span><span class="who">Nori</span></div><div class="role">Quote ops · flagged 32% discount on QT-2024-7283 — exceeds 25% threshold</div></td>
+            <td><span class="kind approval">approval.ask</span></td>
+            <td><span class="hash-mini">9d142a8c…7b15 <span class="ok">✓</span></span></td>
+            <td><span class="pill warn"><span class="dot"></span>Pending you</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+          <tr class="chain">
+            <td colspan="8">
+              <div class="chain-strip">
+                <span class="lbl">parent:</span>
+                <span class="h">b2a7c193e441f8d6…ee01</span>
+                <span class="arrow">→</span>
+                <span class="lbl">this row:</span>
+                <span class="h">9d142a8c80f6e1bd…7b15</span>
+                <span class="arrow">→</span>
+                <span class="lbl">next:</span>
+                <span class="h">f08c1973aacd55b1…aab2</span>
+                <span class="v-tag"><span class="dot"></span>chain verified · sig OK · replay deterministic</span>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="row bad">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">10:04</span><br/>2026-05-18</span></td>
+            <td><div><span class="av s">SL</span><span class="who">Sara</span></div><div class="role">Invoice ops · refused duplicate INV-2024-08739 (policy: no-duplicate-30d)</div></td>
+            <td><span class="kind refuse">policy.refuse</span></td>
+            <td><span class="hash-mini">f08c1973…aab2 <span class="ok">✓</span></span></td>
+            <td><span class="pill bad"><span class="dot"></span>Refused</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+
+          <tr class="row warn">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">09:58</span><br/>2026-05-18</span></td>
+            <td><div><span class="av p">PR</span><span class="who">Priya</span></div><div class="role">Recruiting · drafted rejection email to Sara Lin (awaiting send approval)</div></td>
+            <td><span class="kind approval">approval.ask</span></td>
+            <td><span class="hash-mini">5a73e2c8…9f44 <span class="ok">✓</span></span></td>
+            <td><span class="pill warn"><span class="dot"></span>Pending you</span></td>
+            <td class="cost">$0.009</td>
+          </tr>
+
+          <tr class="row">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">09:52</span><br/>2026-05-18</span></td>
+            <td><div><span class="av m">MA</span><span class="who">Mariah</span></div><div class="role">Sales · scheduled Q3 renewal review with Acme Tech (2026-08-12)</div></td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-mini">cc40b8a7…03d1 <span class="ok">✓</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+
+          <tr class="row">
+            <td><span class="cbx"></span></td>
+            <td><span class="expand-btn">▶</span></td>
+            <td><span class="ts"><span class="t">09:47</span><br/>2026-05-18</span></td>
+            <td><div><span class="av">JM</span><span class="who">Jamal</span></div><div class="role">Support · escalated SUP-29355 to @lead-support (sentiment: frustrated)</div></td>
+            <td><span class="kind result">tool.result</span></td>
+            <td><span class="hash-mini">812d499b…0ab7 <span class="ok">✓</span></span></td>
+            <td><span class="pill ok"><span class="dot"></span>Succeeded</span></td>
+            <td class="cost zero">—</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="status-bar">
+        <span class="ok"><span class="dot"></span>Chain OK</span>
+        <span>· 1,247 rows · 0 breaks</span>
+        <span>· spend $0.094 today</span>
+        <span>· avg latency 2.4s</span>
+        <div class="right">
+          <button>← Prev</button>
+          <button class="on">1</button>
+          <button>2</button>
+          <button>3</button>
+          <button>…</button>
+          <button>125</button>
+          <button>Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="compliance-foot">
+      <span class="badge">SOC 2 TYPE II</span>
+      <span class="badge">GDPR ART. 30</span>
+      <span class="badge">HIPAA</span>
+      <span>This audit log is your system-of-record for compliance reviews. Replay any session deterministically.</span>
+      <div class="right">
+        <button class="btn">▷ Replay any session</button>
+        <button class="btn">⚒ Configure retention policy</button>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

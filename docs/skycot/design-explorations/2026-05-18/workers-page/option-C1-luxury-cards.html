@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workers — SKYCOT (C1 · Luxury Edition)</title>
+<!-- Design language: C1 — LUXURY CARD EDITION.
+     Mont Blanc / Rolex catalog feel. Subtle gradients on a near-ivory ground.
+     More whitespace, embossed feel, monochrome metal accents.
+     Reads as "premium collectibles" not "trading game." Enterprise-trustworthy. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #1C1C1F;
+    --ink-2: #4A4A4F;
+    --ink-3: #86868B;
+    --ink-4: #B0B0B5;
+    --paper: #F7F5F0;
+    --paper-2: #EFECE5;
+    --bg: #FFFFFF;
+    --line: #E0DCD3;
+    --line-2: #D1CCC0;
+    --gold: #B89968;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 48px 56px 80px; max-width: 1280px; }
+  .crumb { font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 48px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+  .page-h h1 { font-size: 36px; font-weight: 300; letter-spacing: -0.03em; margin: 0; }
+  .page-h h1 .roman { color: var(--gold); font-weight: 400; margin-right: 10px; }
+  .page-h p { color: var(--ink-3); margin: 8px 0 0; font-size: 14.5px; max-width: 480px; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 4px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--ink); background: var(--bg); color: var(--ink); cursor: pointer; letter-spacing: 0.04em; text-transform: uppercase; }
+  .btn:hover { background: var(--ink); color: var(--bg); }
+
+  /* Card grid */
+  .deck { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+
+  .card {
+    position: relative;
+    background: var(--bg);
+    border-radius: 4px;
+    padding: 0;
+    box-shadow:
+      0 1px 1px rgba(0,0,0,0.04),
+      0 24px 48px -16px rgba(28,28,31,0.15);
+    transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.4s;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 1px 1px rgba(0,0,0,0.04),
+      0 36px 64px -16px rgba(28,28,31,0.20);
+  }
+
+  /* Top: a quiet band of color */
+  .card-band {
+    height: 4px;
+    background: var(--gradient);
+  }
+  .card.s .card-band { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.p .card-band { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.n .card-band { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.m .card-band { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .card-edition {
+    padding: 18px 28px 0;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .card-edition .ed {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3); letter-spacing: 0.14em;
+  }
+  .card-edition .ed strong { color: var(--ink); font-weight: 700; }
+  .card-edition .seal {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    display: grid; place-items: center;
+    font-size: 10px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+  }
+
+  .card-portrait {
+    padding: 32px 28px 0;
+    text-align: center;
+  }
+  .card-portrait .av {
+    width: 88px; height: 88px; border-radius: 50%;
+    margin: 0 auto;
+    background: var(--gradient);
+    color: white;
+    display: grid; place-items: center;
+    font-size: 28px; font-weight: 600; letter-spacing: 0.02em;
+    box-shadow: inset 0 -2px 8px rgba(0,0,0,0.15);
+  }
+  .card.s .card-portrait .av { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.p .card-portrait .av { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.n .card-portrait .av { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.m .card-portrait .av { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .card-name {
+    text-align: center; padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .card-name h2 {
+    margin: 0;
+    font-size: 30px; font-weight: 300;
+    letter-spacing: -0.025em;
+  }
+  .card-name .role {
+    color: var(--ink-3); font-size: 12.5px;
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .card-name .status {
+    margin-top: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-2);
+  }
+  .card-name .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px rgba(20,184,166,0.4); }
+  .card-name .status.training .dot { background: var(--yellow); box-shadow: 0 0 6px rgba(252,211,77,0.4); }
+
+  /* Stats — sequential, not grid. Like a watch spec sheet. */
+  .card-specs {
+    padding: 20px 28px;
+  }
+  .spec-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--line);
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-row .k {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3); font-weight: 500;
+  }
+  .spec-row .v {
+    font-size: 16px; font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .spec-row .v.mono { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; }
+
+  .card-craft {
+    padding: 18px 28px;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    letter-spacing: 0.02em;
+  }
+  .card-craft .lbl {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-4); font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .card-craft .abilities {
+    color: var(--ink-2); font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    line-height: 1.7;
+  }
+
+  .card-foot {
+    padding: 16px 28px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--line);
+  }
+  .card-foot .signed {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); letter-spacing: 0.04em;
+  }
+  .card-foot .manage {
+    font-size: 11px; font-weight: 700;
+    color: var(--ink); text-decoration: none;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 2px;
+  }
+  .card-foot .manage:hover { color: var(--gold); border-color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a class="active" href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace · Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1><span class="roman">V</span>The Collection</h1>
+        <p>Five teammates · four in active service · one in training. Each card is a serialized record of a worker hired into your team.</p>
+      </div>
+      <button class="btn">+ New Edition</button>
+    </div>
+
+    <div class="deck">
+
+      <div class="card">
+        <div class="card-band"></div>
+        <div class="card-edition">
+          <div class="ed">EDITION <strong>№ 001</strong> · LVL XII</div>
+          <div class="seal">S</div>
+        </div>
+        <div class="card-portrait"><div class="av">JM</div></div>
+        <div class="card-name">
+          <h2>Jamal</h2>
+          <div class="role">Support Specialist · L2</div>
+          <div class="status"><span class="dot"></span>In Service</div>
+        </div>
+        <div class="card-specs">
+          <div class="spec-row"><span class="k">Throughput / wk</span><span class="v">38</span></div>
+          <div class="spec-row"><span class="k">Resolution Rate</span><span class="v">94%</span></div>
+          <div class="spec-row"><span class="k">Cost · Action</span><span class="v mono">$0.003</span></div>
+          <div class="spec-row"><span class="k">In Service Since</span><span class="v">Sept · 2025</span></div>
+        </div>
+        <div class="card-craft">
+          <div class="lbl">Abilities</div>
+          <div class="abilities">zendesk.read · zendesk.reply<br/>kb.search · slack.dm · +3</div>
+        </div>
+        <div class="card-foot">
+          <span class="signed">SKYCOT · serial 001 / 12</span>
+          <a class="manage" href="#">Manage</a>
+        </div>
+      </div>
+
+      <div class="card s">
+        <div class="card-band"></div>
+        <div class="card-edition">
+          <div class="ed">EDITION <strong>№ 002</strong> · LVL XVIII</div>
+          <div class="seal">S</div>
+        </div>
+        <div class="card-portrait"><div class="av">SL</div></div>
+        <div class="card-name">
+          <h2>Sara</h2>
+          <div class="role">Invoice Operations · L3</div>
+          <div class="status"><span class="dot"></span>In Service</div>
+        </div>
+        <div class="card-specs">
+          <div class="spec-row"><span class="k">Throughput / wk</span><span class="v">52</span></div>
+          <div class="spec-row"><span class="k">Extract Accuracy</span><span class="v">99.6%</span></div>
+          <div class="spec-row"><span class="k">Cost · Action</span><span class="v mono">$0.008</span></div>
+          <div class="spec-row"><span class="k">In Service Since</span><span class="v">Sept · 2025</span></div>
+        </div>
+        <div class="card-craft">
+          <div class="lbl">Abilities</div>
+          <div class="abilities">ocr.read · netsuite.write<br/>policy.dup_check · +4</div>
+        </div>
+        <div class="card-foot">
+          <span class="signed">SKYCOT · serial 002 / 12</span>
+          <a class="manage" href="#">Manage</a>
+        </div>
+      </div>
+
+      <div class="card p">
+        <div class="card-band"></div>
+        <div class="card-edition">
+          <div class="ed">EDITION <strong>№ 003</strong> · LVL IX</div>
+          <div class="seal">S</div>
+        </div>
+        <div class="card-portrait"><div class="av">PR</div></div>
+        <div class="card-name">
+          <h2>Priya</h2>
+          <div class="role">Recruiting Screener · L2</div>
+          <div class="status"><span class="dot"></span>In Service</div>
+        </div>
+        <div class="card-specs">
+          <div class="spec-row"><span class="k">Throughput / wk</span><span class="v">28</span></div>
+          <div class="spec-row"><span class="k">Match Accuracy</span><span class="v">87%</span></div>
+          <div class="spec-row"><span class="k">Cost · Action</span><span class="v mono">$0.014</span></div>
+          <div class="spec-row"><span class="k">In Service Since</span><span class="v">Oct · 2025</span></div>
+        </div>
+        <div class="card-craft">
+          <div class="lbl">Abilities</div>
+          <div class="abilities">greenhouse.read · jd.match<br/>email.draft · +3</div>
+        </div>
+        <div class="card-foot">
+          <span class="signed">SKYCOT · serial 003 / 12</span>
+          <a class="manage" href="#">Manage</a>
+        </div>
+      </div>
+
+      <div class="card n">
+        <div class="card-band"></div>
+        <div class="card-edition">
+          <div class="ed">EDITION <strong>№ 004</strong> · LVL XV</div>
+          <div class="seal">S</div>
+        </div>
+        <div class="card-portrait"><div class="av">NM</div></div>
+        <div class="card-name">
+          <h2>Nori</h2>
+          <div class="role">Quote Operations · L3</div>
+          <div class="status"><span class="dot"></span>In Service</div>
+        </div>
+        <div class="card-specs">
+          <div class="spec-row"><span class="k">Throughput / wk</span><span class="v">19</span></div>
+          <div class="spec-row"><span class="k">Policy Adherence</span><span class="v">100%</span></div>
+          <div class="spec-row"><span class="k">Cost · Action</span><span class="v mono">$0.005</span></div>
+          <div class="spec-row"><span class="k">In Service Since</span><span class="v">Nov · 2025</span></div>
+        </div>
+        <div class="card-craft">
+          <div class="lbl">Abilities</div>
+          <div class="abilities">salesforce.read · pricing.validate<br/>policy.discount · +2</div>
+        </div>
+        <div class="card-foot">
+          <span class="signed">SKYCOT · serial 004 / 12</span>
+          <a class="manage" href="#">Manage</a>
+        </div>
+      </div>
+
+      <div class="card m">
+        <div class="card-band"></div>
+        <div class="card-edition">
+          <div class="ed">EDITION <strong>№ 005</strong> · LVL V</div>
+          <div class="seal">T</div>
+        </div>
+        <div class="card-portrait"><div class="av">MA</div></div>
+        <div class="card-name">
+          <h2>Mariah</h2>
+          <div class="role">Sales Operations · L2</div>
+          <div class="status training"><span class="dot"></span>In Training</div>
+        </div>
+        <div class="card-specs">
+          <div class="spec-row"><span class="k">Throughput / wk</span><span class="v">14</span></div>
+          <div class="spec-row"><span class="k">Approval Rate</span><span class="v">82%</span></div>
+          <div class="spec-row"><span class="k">Cost · Action</span><span class="v mono">$0.018</span></div>
+          <div class="spec-row"><span class="k">Hired</span><span class="v">Apr · 2026</span></div>
+        </div>
+        <div class="card-craft">
+          <div class="lbl">Abilities</div>
+          <div class="abilities">salesforce.write · rfp.draft<br/>gcal.schedule · +5</div>
+        </div>
+        <div class="card-foot">
+          <span class="signed">SKYCOT · serial 005 / 12</span>
+          <a class="manage" href="#">Manage</a>
+        </div>
+      </div>
+
+      <div class="card" style="background: transparent; box-shadow: none; border: 1px dashed var(--line-2); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 500px;">
+        <div style="text-align: center; padding: 32px;">
+          <div style="width: 60px; height: 60px; border-radius: 50%; background: var(--bg); border: 1px solid var(--line); display: grid; place-items: center; margin: 0 auto 18px; font-size: 22px; font-weight: 200; color: var(--ink-3);">+</div>
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); margin-bottom: 6px;">Edition <strong style="color:var(--ink)">№ 006</strong></div>
+          <div style="font-size: 14px; color: var(--ink); font-weight: 500;">Awaiting commission</div>
+          <a href="#" style="display:inline-block;margin-top:18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--ink);border-bottom:1px solid var(--ink);padding-bottom:2px;text-decoration:none;">Commission a teammate</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

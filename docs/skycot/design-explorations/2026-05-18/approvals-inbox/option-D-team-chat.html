@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Approvals — SKYCOT (D · Team Chat Feed)</title>
+<!-- Design language: D — TEAM CHAT FEED.
+     Each pending item is a "message from your worker." Slack / Teams feel.
+     Conversational, warm. Extends "team" metaphor from Workers page.
+     Inline reply buttons. Most humanizing approach. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 220px 1fr 280px; height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 5px; background: var(--gradient); }
+  .brand .name { font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .badge { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--paper-2); color: var(--ink-2); font-family: 'JetBrains Mono', monospace; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+  .nav .team-list { padding: 0 10px; }
+  .team-mate { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12.5px; color: var(--ink-3); }
+  .team-mate .av-tiny {
+    width: 18px; height: 18px; border-radius: 4px;
+    display: grid; place-items: center; color: white;
+    font-size: 8px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .team-mate .av-tiny.jm { background: var(--gradient); }
+  .team-mate .av-tiny.sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .team-mate .av-tiny.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .team-mate .av-tiny.nm { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .team-mate .av-tiny.ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .team-mate .name { color: var(--ink-2); font-weight: 500; }
+  .team-mate .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); margin-left: auto; }
+
+  .feed { display: flex; flex-direction: column; overflow: hidden; background: var(--paper); }
+  .feed-h { padding: 16px 28px; border-bottom: 1px solid var(--line); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+  .feed-h h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
+  .feed-h h1 strong { font-weight: 700; }
+  .feed-h .meta { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+  .feed-h .meta strong { color: var(--ink); font-weight: 600; }
+  .feed-h .btn { padding: 6px 12px; border-radius: 6px; font-size: 12.5px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; font-weight: 500; }
+
+  .feed-scroll { flex: 1; overflow-y: auto; padding: 24px 32px 40px; }
+
+  .day-marker {
+    text-align: center;
+    margin: 18px 0 14px;
+    color: var(--ink-3); font-size: 11px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .day-marker::before, .day-marker::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+
+  .msg {
+    display: grid; grid-template-columns: 40px 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .msg .av {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: grid; place-items: center; color: white;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .msg .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .msg .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .msg .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .msg .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .msg .body .who-row {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 4px;
+  }
+  .msg .body .who { font-weight: 700; color: var(--ink); font-size: 14px; }
+  .msg .body .role { color: var(--ink-3); font-size: 12px; font-weight: 500; padding: 1px 7px; border-radius: 4px; background: var(--paper-2); }
+  .msg .body .ts { color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-left: 4px; }
+  .msg .body .ai-tag { color: var(--ink-3); font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 3px; background: rgba(139,92,246,0.10); color: var(--purple); letter-spacing: 0.04em; }
+
+  .msg .body .text {
+    font-size: 14.5px; color: var(--ink);
+    line-height: 1.55;
+  }
+  .msg .body .text strong { font-weight: 600; }
+  .msg .body .text .mono { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink-2); background: var(--paper-2); padding: 1px 5px; border-radius: 3px; }
+
+  .msg .body .card {
+    margin-top: 10px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--yellow);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .msg .body .card.urgent { border-left-color: var(--coral); }
+  .msg .body .card.ok { border-left-color: var(--teal); }
+  .msg .body .card .card-h { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .msg .body .card .card-h .ico { font-size: 14px; }
+  .msg .body .card .card-meta { font-size: 12px; color: var(--ink-3); }
+  .msg .body .card .card-meta strong { color: var(--ink); font-weight: 600; }
+
+  .msg .body .actions {
+    margin-top: 10px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .reply-btn {
+    padding: 7px 14px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .reply-btn.approve { background: var(--teal); color: white; border-color: var(--teal); box-shadow: 0 4px 12px -4px rgba(20,184,166,0.4); }
+  .reply-btn.reject { color: var(--coral); border-color: var(--coral); }
+
+  .msg .body .thread {
+    margin-top: 8px;
+    padding-left: 14px;
+    border-left: 2px solid var(--line);
+    font-size: 12.5px; color: var(--ink-3);
+  }
+  .msg .body .thread .reply-count {
+    font-weight: 600; color: var(--purple); cursor: pointer;
+  }
+
+  /* Compose footer */
+  .compose {
+    padding: 12px 32px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    display: flex; gap: 10px;
+    align-items: center;
+  }
+  .compose input {
+    flex: 1; padding: 10px 14px;
+    border: 1px solid var(--line); border-radius: 8px;
+    font-family: inherit; font-size: 13.5px;
+    color: var(--ink); outline: none;
+    background: var(--paper);
+  }
+  .compose input::placeholder { color: var(--ink-3); }
+  .compose .send-btn {
+    padding: 10px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    background: var(--gradient); color: white;
+    border: none; cursor: pointer;
+  }
+
+  /* Right pane: pending summary */
+  .right { background: var(--bg); border-left: 1px solid var(--line); padding: 20px 18px; overflow-y: auto; }
+  .right h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+  .right .sub { color: var(--ink-3); font-size: 12px; margin-bottom: 16px; }
+  .pending-list { display: flex; flex-direction: column; gap: 8px; }
+  .pending-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 8px;
+    background: var(--paper); cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .pending-item:hover { border-color: var(--line); }
+  .pending-item.urgent { background: rgba(255,107,107,0.06); border-color: rgba(255,107,107,0.20); }
+  .pending-item .av-tiny {
+    width: 22px; height: 22px; border-radius: 5px;
+    display: grid; place-items: center; color: white;
+    font-size: 9px; font-weight: 700;
+  }
+  .pending-item .av-tiny.jm { background: var(--gradient); }
+  .pending-item .av-tiny.sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .pending-item .av-tiny.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .pending-item .av-tiny.nm { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .pending-item .av-tiny.ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .pending-item .info { flex: 1; min-width: 0; }
+  .pending-item .info .who { font-size: 12px; font-weight: 600; }
+  .pending-item .info .sub { font-size: 11px; color: var(--ink-3); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pending-item .ts { font-size: 10.5px; color: var(--ink-3); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a class="active" href="#">✉ Approvals <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Your team</div>
+      <div class="team-list">
+        <div class="team-mate"><div class="av-tiny jm">JM</div><span class="name">Jamal</span><div class="dot"></div></div>
+        <div class="team-mate"><div class="av-tiny sl">SL</div><span class="name">Sara</span><div class="dot"></div></div>
+        <div class="team-mate"><div class="av-tiny pr">PR</div><span class="name">Priya</span><div class="dot"></div></div>
+        <div class="team-mate"><div class="av-tiny nm">NM</div><span class="name">Nori</span><div class="dot"></div></div>
+        <div class="team-mate"><div class="av-tiny ma">MA</div><span class="name">Mariah</span><div class="dot" style="background:var(--yellow)"></div></div>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="feed">
+    <div class="feed-h">
+      <div>
+        <h1># <strong>approvals</strong></h1>
+        <div class="meta">Your team needs your input on <strong>7 things</strong> · 2 over SLA</div>
+      </div>
+      <button class="btn">⊟ Switch to list</button>
+    </div>
+
+    <div class="feed-scroll">
+
+      <div class="day-marker">Today · Monday</div>
+
+      <div class="msg">
+        <div class="av n">NM</div>
+        <div class="body">
+          <div class="who-row">
+            <span class="who">Nori</span>
+            <span class="role">Quote ops</span>
+            <span class="ai-tag">AI</span>
+            <span class="ts">10:11</span>
+          </div>
+          <div class="text">Hey Mark — I'd love your call on a discount before I send <strong>QT-2024-7283</strong> to Tomás Industries. They're asking for <strong>32%</strong>, which is above your 25% threshold. Quarter-end push.</div>
+          <div class="card urgent">
+            <div class="card-h"><span class="ico">📋</span>QT-2024-7283 · Tomás Industries</div>
+            <div class="card-meta">List price <strong>$48,290</strong> · 32% off → <strong>$32,837</strong> · margin still positive · close target <strong>Friday</strong></div>
+          </div>
+          <div class="actions">
+            <button class="reply-btn approve">✓ Approve 32%</button>
+            <button class="reply-btn">↺ Counter at 25%</button>
+            <button class="reply-btn reject">✕ Hold the line</button>
+            <button class="reply-btn">💬 Discuss</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="av p">PR</div>
+        <div class="body">
+          <div class="who-row">
+            <span class="who">Priya</span>
+            <span class="role">Recruiting</span>
+            <span class="ai-tag">AI</span>
+            <span class="ts">09:58</span>
+          </div>
+          <div class="text">I've drafted a rejection email for <strong>Sara Lin</strong> — she applied for Senior Engineer but is short on the seniority + distributed-systems requirements. Outbound policy needs your nod before I send.</div>
+          <div class="card urgent">
+            <div class="card-h"><span class="ico">✉</span>Rejection draft · Sara Lin</div>
+            <div class="card-meta">Tone <strong>warm-professional</strong> · references upcoming L3 role · waiting <strong>44m</strong> · SLA <strong>35m</strong> left</div>
+          </div>
+          <div class="actions">
+            <button class="reply-btn approve">✓ Approve &amp; send</button>
+            <button class="reply-btn">⟲ Edit first</button>
+            <button class="reply-btn reject">✕ Hold</button>
+            <button class="reply-btn">👁 Preview email</button>
+          </div>
+          <div class="thread">
+            <span class="reply-count">2 replies in thread</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="av m">MA</div>
+        <div class="body">
+          <div class="who-row">
+            <span class="who">Mariah</span>
+            <span class="role">Sales ops</span>
+            <span class="ai-tag">AI</span>
+            <span class="ts">10:18</span>
+          </div>
+          <div class="text">RFP response for <strong>Tomás Industries</strong> is ready — 1,240 words, 4 sections. We aligned on the outline last Tuesday. Want to give it a read before I send to Carlos?</div>
+          <div class="card">
+            <div class="card-h"><span class="ico">📄</span>RFP draft · Tomás Industries</div>
+            <div class="card-meta">Overview <strong>·</strong> technical approach <strong>·</strong> security &amp; compliance <strong>·</strong> pricing → <strong>Carlos Velez (CTO)</strong></div>
+          </div>
+          <div class="actions">
+            <button class="reply-btn approve">✓ Send</button>
+            <button class="reply-btn">👁 Review first</button>
+            <button class="reply-btn">⟲ Edit</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="av s">SL</div>
+        <div class="body">
+          <div class="who-row">
+            <span class="who">Sara</span>
+            <span class="role">Invoice ops</span>
+            <span class="ai-tag">AI</span>
+            <span class="ts">09:22</span>
+          </div>
+          <div class="text">Quick GL question on <strong>INV-2024-08741</strong>. The vendor is mapped to <span class="mono">6300-Marketing</span> but the invoice line items match <span class="mono">6420-Software-SaaS</span> — confidence 92% it should move. Override?</div>
+          <div class="card">
+            <div class="card-h"><span class="ico">🧾</span>INV-2024-08741 · $48,290 · GL coding</div>
+            <div class="card-meta">Suggested override <span class="mono">6300</span> → <span class="mono">6420</span> · matches your past 11 vendors</div>
+          </div>
+          <div class="actions">
+            <button class="reply-btn approve">✓ Override to 6420</button>
+            <button class="reply-btn">↺ Keep 6300</button>
+            <button class="reply-btn">💬 Discuss</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="day-marker">Yesterday</div>
+
+      <div class="msg">
+        <div class="av">JM</div>
+        <div class="body">
+          <div class="who-row">
+            <span class="who">Jamal</span>
+            <span class="role">Support</span>
+            <span class="ai-tag">AI</span>
+            <span class="ts">Yesterday 16:44</span>
+          </div>
+          <div class="text">Quick FYI — I escalated <strong>SUP-29355</strong> to <strong>@lead-support</strong> yesterday, they've since resolved it. Want to make sure you've seen Maya's follow-up note before I mark this closed.</div>
+          <div class="card ok">
+            <div class="card-h"><span class="ico">✓</span>SUP-29355 · resolved by lead-support</div>
+            <div class="card-meta">Customer reply received · sentiment <strong>positive</strong> · awaiting closeout confirmation</div>
+          </div>
+          <div class="actions">
+            <button class="reply-btn approve">✓ Confirm seen</button>
+            <button class="reply-btn">👁 Open thread</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="compose">
+      <input type="text" placeholder="Reply to your team or @ a specific worker…" />
+      <button class="send-btn">Send</button>
+    </div>
+  </main>
+
+  <aside class="right">
+    <h3>Still pending</h3>
+    <div class="sub">Scroll above to respond · ordered by SLA</div>
+    <div class="pending-list">
+      <div class="pending-item urgent"><div class="av-tiny pr">PR</div><div class="info"><div class="who">Priya · 35m left</div><div class="sub">Sara Lin rejection</div></div></div>
+      <div class="pending-item urgent"><div class="av-tiny nm">NM</div><div class="info"><div class="who">Nori · 1h 22m</div><div class="sub">32% discount</div></div></div>
+      <div class="pending-item"><div class="av-tiny ma">MA</div><div class="info"><div class="who">Mariah · 3h</div><div class="sub">RFP Tomás</div></div></div>
+      <div class="pending-item"><div class="av-tiny sl">SL</div><div class="info"><div class="who">Sara · 4h</div><div class="sub">GL override</div></div></div>
+      <div class="pending-item"><div class="av-tiny pr">PR</div><div class="info"><div class="who">Priya · 5h</div><div class="sub">Interview slot</div></div></div>
+      <div class="pending-item"><div class="av-tiny nm">NM</div><div class="info"><div class="who">Nori · 6h</div><div class="sub">Net 60 terms</div></div></div>
+      <div class="pending-item"><div class="av-tiny jm">JM</div><div class="info"><div class="who">Jamal · 18h</div><div class="sub">Escalation closeout</div></div></div>
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

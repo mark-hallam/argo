@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Settings — SKYCOT (E · Command Palette)</title>
+<!-- Design language: E — Search-first / command palette.
+     Big search bar above + suggested setting actions. Type to filter all settings instantly.
+     "Type to find any setting" — fastest navigation for power users.
+     Below: recently-changed + commonly-used setting cards. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 48px 48px 80px; max-width: 1200px; margin: 0 auto; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; text-align: center; }
+  .page-h { text-align: center; margin-bottom: 36px; }
+  .page-h h1 { font-size: 44px; font-weight: 200; letter-spacing: -0.035em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 16px; }
+
+  /* HERO SEARCH */
+  .hero-search-block { max-width: 720px; margin: 0 auto 40px; }
+  .hero-search {
+    background: var(--bg); border: 1.5px solid var(--line); border-radius: 18px;
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 12px 32px -12px rgba(139,92,246,0.15);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .hero-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(139,92,246,0.10), 0 16px 40px -12px rgba(139,92,246,0.25); }
+  .hero-search .ico {
+    width: 32px; height: 32px; border-radius: 9px;
+    display: grid; place-items: center;
+    background: var(--gradient); color: white; font-size: 16px;
+    box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4);
+    flex-shrink: 0;
+  }
+  .hero-search input { flex: 1; border: none; outline: none; background: transparent; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 400; color: var(--ink); letter-spacing: -0.01em; }
+  .hero-search input::placeholder { color: var(--ink-3); font-weight: 400; }
+  .hero-search .kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 5px 9px; border-radius: 6px; background: var(--paper-2); color: var(--ink-2); font-weight: 700; }
+
+  .suggested { display: flex; align-items: center; gap: 10px; margin-top: 16px; justify-content: center; flex-wrap: wrap; }
+  .suggested .lbl { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+  .suggested .pill {
+    padding: 5px 12px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink-2); font-weight: 600; cursor: pointer;
+  }
+  .suggested .pill:hover { border-color: var(--purple); color: var(--purple); }
+
+  /* QUICK ACCESS GRID */
+  .section-h { margin: 36px 0 16px; display: flex; align-items: baseline; justify-content: space-between; }
+  .section-h h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .section-h .ct { font-size: 12.5px; color: var(--ink-3); }
+
+  .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .quick-card {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px;
+    cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .quick-card:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 6px 16px -6px rgba(0,0,0,0.06); }
+  .quick-card .ic { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: white; font-size: 16px; background: var(--gradient); flex-shrink: 0; }
+  .quick-card.profile .ic { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .quick-card.team .ic { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .quick-card.integrations .ic { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .quick-card.security .ic { background: linear-gradient(135deg, var(--coral), var(--pink)); }
+  .quick-card.billing .ic { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .quick-card.audit .ic { background: linear-gradient(135deg, var(--purple), var(--cyan)); }
+  .quick-card.compliance .ic { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .quick-card.danger .ic { background: var(--coral); }
+  .quick-card .text .name { font-size: 13.5px; font-weight: 700; letter-spacing: -0.005em; }
+  .quick-card .text .sub { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+
+  /* RECENT CHANGES */
+  .recent-list { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .recent-row { display: grid; grid-template-columns: 28px 1fr 120px auto; gap: 14px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--line); }
+  .recent-row:last-child { border-bottom: none; }
+  .recent-row .marker { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); margin: 0 auto; }
+  .recent-row .desc { font-size: 13px; color: var(--ink-2); }
+  .recent-row .desc strong { color: var(--ink); font-weight: 600; }
+  .recent-row .ts { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); }
+  .recent-row .by { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-2); text-align: right; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a class="active" href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <h1>What do you want to <strong>change</strong>?</h1>
+      <p>Type the setting you're looking for, or pick from below.</p>
+    </div>
+
+    <div class="hero-search-block">
+      <div class="hero-search">
+        <div class="ico">⌕</div>
+        <input type="text" placeholder="e.g. invite teammate, change time zone, SOC 2 report, refund cap…" />
+        <span class="kbd">⌘ K</span>
+      </div>
+      <div class="suggested">
+        <span class="lbl">TRY:</span>
+        <span class="pill">invite teammate</span>
+        <span class="pill">change tone policy</span>
+        <span class="pill">connect Salesforce</span>
+        <span class="pill">SOC 2 report</span>
+        <span class="pill">refund cap</span>
+        <span class="pill">2FA settings</span>
+      </div>
+    </div>
+
+    <div class="section-h">
+      <h2>Quick access</h2>
+      <span class="ct">12 most-used</span>
+    </div>
+
+    <div class="quick-grid">
+      <div class="quick-card profile">
+        <div class="ic">👤</div>
+        <div class="text"><div class="name">Profile</div><div class="sub">Name, email, 2FA</div></div>
+      </div>
+      <div class="quick-card team">
+        <div class="ic">👥</div>
+        <div class="text"><div class="name">Team</div><div class="sub">3 of 25 seats · invite</div></div>
+      </div>
+      <div class="quick-card integrations">
+        <div class="ic">🔌</div>
+        <div class="text"><div class="name">Connected apps</div><div class="sub">8 active · all healthy</div></div>
+      </div>
+      <div class="quick-card security">
+        <div class="ic">🛡</div>
+        <div class="text"><div class="name">Security policy</div><div class="sub">MFA enforced · SSO off</div></div>
+      </div>
+      <div class="quick-card compliance">
+        <div class="ic">📜</div>
+        <div class="text"><div class="name">Compliance</div><div class="sub">SOC 2 · GDPR · HIPAA</div></div>
+      </div>
+      <div class="quick-card audit">
+        <div class="ic">⊟</div>
+        <div class="text"><div class="name">Audit retention</div><div class="sub">7 years · 1.2 GB</div></div>
+      </div>
+      <div class="quick-card billing">
+        <div class="ic">$</div>
+        <div class="text"><div class="name">Plan &amp; usage</div><div class="sub">Pro · $48 / $500 cap</div></div>
+      </div>
+      <div class="quick-card billing">
+        <div class="ic">💳</div>
+        <div class="text"><div class="name">Payment</div><div class="sub">Visa ••6411 · valid</div></div>
+      </div>
+      <div class="quick-card integrations">
+        <div class="ic">🧠</div>
+        <div class="text"><div class="name">AI providers</div><div class="sub">SKYCOT-managed</div></div>
+      </div>
+      <div class="quick-card profile">
+        <div class="ic">⚙</div>
+        <div class="text"><div class="name">Worker defaults</div><div class="sub">tone · escalation · caps</div></div>
+      </div>
+      <div class="quick-card integrations">
+        <div class="ic">⚡</div>
+        <div class="text"><div class="name">API tokens</div><div class="sub">2 active · 3 webhooks</div></div>
+      </div>
+      <div class="quick-card danger">
+        <div class="ic">⚠</div>
+        <div class="text"><div class="name">Danger zone</div><div class="sub">Transfer · Delete</div></div>
+      </div>
+    </div>
+
+    <div class="section-h">
+      <h2>Recently changed</h2>
+      <a href="#" style="color: var(--purple); font-size: 12.5px; font-weight: 600; text-decoration: none;">View audit log →</a>
+    </div>
+
+    <div class="recent-list">
+      <div class="recent-row">
+        <div class="marker"></div>
+        <div class="desc">Changed <strong>refund cap</strong> from $100 to <strong>$200</strong> for L2 Support workers</div>
+        <div class="ts">2 days ago</div>
+        <div class="by">Mark Hallam</div>
+      </div>
+      <div class="recent-row">
+        <div class="marker"></div>
+        <div class="desc">Invited <strong>James Tan</strong> (james@acmecorp.com) as <strong>REVIEWER</strong></div>
+        <div class="ts">2 weeks ago</div>
+        <div class="by">Mark Hallam</div>
+      </div>
+      <div class="recent-row">
+        <div class="marker"></div>
+        <div class="desc">Connected <strong>NetSuite</strong> via OAuth</div>
+        <div class="ts">6 weeks ago</div>
+        <div class="by">Emma Liu</div>
+      </div>
+      <div class="recent-row">
+        <div class="marker"></div>
+        <div class="desc">Enabled <strong>MFA enforcement</strong> for all workspace members</div>
+        <div class="ts">3 months ago</div>
+        <div class="by">Mark Hallam</div>
+      </div>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

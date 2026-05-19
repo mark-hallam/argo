@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Approvals — SKYCOT (A · Email Inbox)</title>
+<!-- Design language: A — EMAIL INBOX.
+     Gmail / Superhuman / Linear-inbox feel. Two-pane: list on left, full detail on right.
+     Familiar pattern, low cognitive load, enterprise-trustworthy.
+     Keyboard shortcuts (j/k/e/r/x), bulk actions, threading. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 220px 380px 1fr; height: 100vh; }
+
+  /* Sidebar */
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 18px 12px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 16px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 5px; background: var(--gradient); }
+  .brand .name { font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 5px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 12.5px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav a .badge { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 1px 6px; border-radius: 4px; background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); font-weight: 600; }
+  .nav a.active .badge { background: var(--gradient); color: white; border: none; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 12px 9px 4px; }
+
+  /* List pane */
+  .list-pane { background: var(--bg); border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+  .list-head { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+  .list-head h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
+  .list-head .ct { color: var(--ink-3); font-size: 13px; }
+
+  .list-toolbar { padding: 8px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 5px; }
+  .list-toolbar .chip {
+    padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line-2);
+    background: var(--bg); font-size: 11.5px; color: var(--ink-2); font-weight: 500;
+  }
+  .list-toolbar .chip.on { background: var(--paper-2); color: var(--ink); }
+  .list-toolbar .search {
+    margin-left: auto; display: flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 4px;
+    background: var(--paper-2); color: var(--ink-3); font-size: 11.5px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .list-scroll { flex: 1; overflow-y: auto; }
+  .item {
+    display: grid; grid-template-columns: 28px 1fr;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    position: relative;
+  }
+  .item:hover { background: var(--paper); }
+  .item.active { background: rgba(139,92,246,0.06); }
+  .item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--gradient); }
+  .item.urgent { border-left: 3px solid var(--coral); padding-left: 13px; }
+
+  .item .av {
+    width: 26px; height: 26px; border-radius: 7px;
+    display: grid; place-items: center; color: white;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .item .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .item .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .item .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .item .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .item .body .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .item .body .from { font-weight: 600; color: var(--ink); font-size: 13px; }
+  .item .body .from .role { color: var(--ink-3); font-weight: 400; font-size: 12px; }
+  .item .body .time { color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; flex-shrink: 0; }
+  .item .body .subject { font-size: 13.5px; font-weight: 500; color: var(--ink); margin-top: 2px; letter-spacing: -0.005em; }
+  .item.active .body .subject { font-weight: 600; }
+  .item .body .preview { font-size: 12px; color: var(--ink-3); margin-top: 2px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+  .item .body .tags { margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; }
+  .tag { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; padding: 1px 6px; border-radius: 3px; background: var(--paper-2); color: var(--ink-3); font-weight: 500; letter-spacing: 0.04em; }
+  .tag.warn { background: rgba(252,211,77,0.18); color: #92400E; font-weight: 600; }
+  .tag.bad { background: rgba(255,107,107,0.12); color: #B91C1C; font-weight: 600; }
+  .tag.sla { background: rgba(255,107,107,0.18); color: #B91C1C; font-weight: 700; }
+
+  /* Detail pane */
+  .detail { background: var(--paper); display: flex; flex-direction: column; overflow: hidden; }
+  .d-head { background: var(--bg); padding: 22px 32px 18px; border-bottom: 1px solid var(--line); }
+  .d-head .from-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .d-head .av-lg { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: white; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .d-head .who h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .d-head .who .meta { font-size: 12px; color: var(--ink-3); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .d-head .sla { margin-left: auto; padding: 4px 10px; border-radius: 999px; background: rgba(252,211,77,0.18); color: #92400E; font-size: 11px; font-weight: 700; }
+  .d-head h1 { margin: 0; font-size: 24px; font-weight: 300; letter-spacing: -0.025em; }
+  .d-head h1 strong { font-weight: 600; }
+  .d-head .sub { margin-top: 6px; color: var(--ink-3); font-size: 13.5px; }
+
+  .d-actions { padding: 12px 32px; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; gap: 8px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.approve { background: var(--teal); color: white; border-color: var(--teal); box-shadow: 0 4px 12px -4px rgba(20,184,166,0.4); }
+  .btn.reject { color: var(--coral); border-color: var(--coral); }
+  .btn .kbd { margin-left: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 5px; border-radius: 3px; background: rgba(255,255,255,0.25); color: inherit; opacity: 0.8; }
+  .btn.approve .kbd { background: rgba(255,255,255,0.25); }
+  .btn:not(.approve):not(.reject) .kbd { background: var(--paper-2); color: var(--ink-3); }
+
+  .d-body { flex: 1; overflow-y: auto; padding: 28px 32px 60px; }
+  .d-section { margin-bottom: 28px; }
+  .d-section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .v-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(139,92,246,0.10); color: var(--purple); font-family: 'Inter', sans-serif; font-size: 10.5px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+  .summary { font-size: 14.5px; line-height: 1.65; color: var(--ink); }
+  .summary strong { font-weight: 600; }
+
+  .reason-card { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 8px; }
+  .reason-card .reason-h { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .reason-card .reason-body { font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+  .reason-card .reason-body strong { color: var(--ink); font-weight: 600; }
+
+  .meta-row { display: grid; grid-template-columns: 130px 1fr; gap: 6px 16px; font-size: 13px; }
+  .meta-row .k { color: var(--ink-3); text-transform: uppercase; font-size: 11px; letter-spacing: 0.08em; font-weight: 700; padding-top: 2px; }
+  .meta-row .v { color: var(--ink); font-weight: 500; }
+  .meta-row .v .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-2); }
+  .meta-row .v .badge { display: inline-block; background: rgba(252,211,77,0.22); color: #92400E; padding: 1px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; margin-left: 4px; }
+
+  .email-preview { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+  .email-preview p { margin: 0 0 10px; }
+  .email-preview p:last-child { margin-bottom: 0; }
+  .email-preview .header { padding-bottom: 12px; border-bottom: 1px solid var(--line); margin-bottom: 14px; font-size: 12px; color: var(--ink-3); }
+  .email-preview .header .h-row { margin-bottom: 2px; }
+  .email-preview .header .h-row .k { color: var(--ink-3); text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.08em; font-weight: 700; margin-right: 8px; }
+  .email-preview .header .h-row .v { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a class="active" href="#">✉ Approvals <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <section class="list-pane">
+    <div class="list-head">
+      <h1>Approvals</h1>
+      <span class="ct">7 pending · 2 over SLA</span>
+    </div>
+    <div class="list-toolbar">
+      <span class="chip on">All · 7</span>
+      <span class="chip">Urgent · 2</span>
+      <span class="chip">Outbound</span>
+      <span class="chip">Policy</span>
+      <div class="search">⌕ search… ⌘K</div>
+    </div>
+    <div class="list-scroll">
+
+      <div class="item urgent">
+        <div class="av n">NM</div>
+        <div class="body">
+          <div class="top"><span class="from">Nori <span class="role">Quote ops</span></span><span class="time">10:11</span></div>
+          <div class="subject">32% discount on QT-2024-7283 — exceeds 25%</div>
+          <div class="preview">Tomás Industries requested an additional cut to close before quarter-end. Discount exceeds your pricing policy.</div>
+          <div class="tags"><span class="tag warn">approval.ask</span><span class="tag">$48k quote</span><span class="tag sla">SLA 1h 22m</span></div>
+        </div>
+      </div>
+
+      <div class="item active urgent">
+        <div class="av p">PR</div>
+        <div class="body">
+          <div class="top"><span class="from">Priya <span class="role">Recruiting</span></span><span class="time">09:58</span></div>
+          <div class="subject">Rejection email to Sara Lin — awaiting send</div>
+          <div class="preview">Dear Sara, Thank you for your interest in the Senior Engineer role at Acme Corp. After careful consideration of your background…</div>
+          <div class="tags"><span class="tag warn">approval.ask</span><span class="tag">outbound email</span><span class="tag sla">SLA 35m</span></div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="av m">MA</div>
+        <div class="body">
+          <div class="top"><span class="from">Mariah <span class="role">Sales ops</span></span><span class="time">10:18</span></div>
+          <div class="subject">RFP response for Tomás Industries — send-to-customer</div>
+          <div class="preview">Drafted 1,240-word RFP across 4 sections covering technical approach, security, pricing, and timeline. Reviewed once by you on the outline last week.</div>
+          <div class="tags"><span class="tag warn">approval.ask</span><span class="tag">RFP · 1240 words</span></div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="av s">SL</div>
+        <div class="body">
+          <div class="top"><span class="from">Sara <span class="role">Invoice ops</span></span><span class="time">09:22</span></div>
+          <div class="subject">GL account override on INV-2024-08741</div>
+          <div class="preview">Vendor mapped to 6300-Marketing but description matches 6420-Software-SaaS. Recommending reassignment with confidence 92%.</div>
+          <div class="tags"><span class="tag warn">approval.ask</span><span class="tag">override</span></div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="av p">PR</div>
+        <div class="body">
+          <div class="top"><span class="from">Priya <span class="role">Recruiting</span></span><span class="time">08:54</span></div>
+          <div class="subject">Interview slot proposed to Diego Alvarez · Wed 14:00</div>
+          <div class="preview">Sent calendar invite for technical interview · Diego available · panel: 3 engineers · 90 min.</div>
+          <div class="tags"><span class="tag warn">approval.ask</span><span class="tag">interview</span></div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="av n">NM</div>
+        <div class="body">
+          <div class="top"><span class="from">Nori <span class="role">Quote ops</span></span><span class="time">08:31</span></div>
+          <div class="subject">Quote terms exception on QT-2024-7299 — Net 60</div>
+          <div class="preview">Customer requested Net 60 payment terms · your default is Net 30 · finance prefers Net 30.</div>
+          <div class="tags"><span class="tag warn">approval.ask</span><span class="tag">terms · Net 60</span></div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="av">JM</div>
+        <div class="body">
+          <div class="top"><span class="from">Jamal <span class="role">Support</span></span><span class="time">Yesterday</span></div>
+          <div class="subject">Escalation to @lead-support on SUP-29355 — closeout</div>
+          <div class="preview">Already escalated and resolved by lead. Confirming you've seen the customer follow-up message.</div>
+          <div class="tags"><span class="tag warn">approval.ask</span><span class="tag">closeout</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <main class="detail">
+    <div class="d-head">
+      <div class="from-row">
+        <div class="av-lg" style="background:linear-gradient(135deg, var(--purple), var(--pink))">PR</div>
+        <div class="who">
+          <h2>Priya</h2>
+          <div class="meta">Recruiting · L2 · 09:58 · 44m ago</div>
+        </div>
+        <div class="sla">⚠ SLA: 35 minutes left</div>
+      </div>
+      <h1>Rejection email to <strong>Sara Lin</strong> — awaiting send</h1>
+      <div class="sub">Priya drafted a rejection email after concluding Sara doesn't match the Senior Engineer JD. Outbound-communication policy requires your approval before sending.</div>
+    </div>
+
+    <div class="d-actions">
+      <button class="btn approve">✓ Approve &amp; send<span class="kbd">A</span></button>
+      <button class="btn">⟲ Edit before send<span class="kbd">E</span></button>
+      <button class="btn reject">✕ Reject draft<span class="kbd">R</span></button>
+      <button class="btn">💬 Discuss with Priya<span class="kbd">D</span></button>
+      <button class="btn">⏰ Snooze<span class="kbd">S</span></button>
+    </div>
+
+    <div class="d-body">
+
+      <div class="d-section">
+        <div class="d-section-h">Why Priya proposes this <span class="v-tag">match score: 6.1 / 10</span></div>
+        <div class="reason-card">
+          <div class="reason-h">Insufficient seniority + missing domain</div>
+          <div class="reason-body">
+            Sara has <strong>3 years</strong> total engineering experience; the JD requires <strong>5+ years</strong> at senior level. She also lists no experience with <strong>distributed systems</strong> — a hard requirement called out in JD-2024-08 line 14.
+            <br/><br/>
+            Strengths: <strong>strong Rust + systems programming</strong>, MIT graduate, contributions to two open-source projects. Priya recommends keeping her in your talent pool for the L3 Engineer role opening in Q4.
+          </div>
+        </div>
+      </div>
+
+      <div class="d-section">
+        <div class="d-section-h">Email preview <span class="v-tag">draft · not sent</span></div>
+        <div class="email-preview">
+          <div class="header">
+            <div class="h-row"><span class="k">From</span><span class="v">careers@acmecorp.com</span></div>
+            <div class="h-row"><span class="k">To</span><span class="v">sara.lin@example.com</span></div>
+            <div class="h-row"><span class="k">Subject</span><span class="v">Acme Corp — Senior Engineer application update</span></div>
+          </div>
+          <p>Hi Sara,</p>
+          <p>Thank you so much for your interest in the Senior Engineer role at Acme Corp, and for the time you put into your application.</p>
+          <p>After careful review of your background, we're not moving forward with your application for this particular role — primarily because the position requires depth in distributed systems and a level of seniority that's just above where you are right now.</p>
+          <p>That said, your Rust and systems work was genuinely impressive, and we'd love to stay in touch about a new L3 Engineer role we expect to post in Q4 that would be a much closer fit.</p>
+          <p>Wishing you all the best,<br/>Acme Corp Talent Team</p>
+        </div>
+      </div>
+
+      <div class="d-section">
+        <div class="d-section-h">Context</div>
+        <div class="meta-row">
+          <div class="k">Triggered by</div><div class="v">Sara Lin applied via Greenhouse · 14h ago</div>
+          <div class="k">Policy</div><div class="v"><span class="mono">outbound.communication.requires_signoff</span> <span class="badge">REQUIRED</span></div>
+          <div class="k">Tone</div><div class="v">Warm-professional · matches your past 12 rejection emails</div>
+          <div class="k">SLA</div><div class="v">2 hours from draft · expires <span class="mono">10:58</span></div>
+          <div class="k">Cost</div><div class="v"><span class="mono">$0.009</span> draft · <span class="mono">$0.001</span> send</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

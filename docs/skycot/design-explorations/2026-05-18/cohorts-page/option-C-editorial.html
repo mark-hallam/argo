@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cohorts — SKYCOT (C · Editorial Magazine)</title>
+<!-- Design language: C — Editorial / magazine layout.
+     Featured cohort as a big editorial hero. Categorized sections.
+     Bold typography. Narrative copy. Most premium feel. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF7; --paper-2: #F4F4F0; --bg: #FFFFFF;
+    --line: #E8E6E1; --line-2: #D8D5CE;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 48px 56px 100px; max-width: 1240px; }
+
+  /* Magazine masthead */
+  .masthead {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 24px; border-bottom: 2px solid var(--ink);
+    margin-bottom: 48px;
+  }
+  .masthead .title { font-size: 52px; font-weight: 200; letter-spacing: -0.04em; }
+  .masthead .title strong { font-weight: 700; }
+  .masthead .meta { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+  .masthead .meta div { margin-bottom: 4px; }
+  .masthead .meta strong { color: var(--ink); }
+
+  /* Featured cover story */
+  .cover-story {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 48px;
+    margin-bottom: 64px;
+    padding-bottom: 48px; border-bottom: 1px solid var(--line);
+  }
+  .cover-story .kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
+    color: var(--ink-3); margin-bottom: 14px;
+  }
+  .cover-story .kicker .star { color: var(--coral); }
+  .cover-story h2 { margin: 0 0 18px; font-size: 56px; font-weight: 200; line-height: 1.05; letter-spacing: -0.035em; }
+  .cover-story h2 strong { font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .cover-story .dek { font-size: 19px; font-weight: 300; color: var(--ink-2); line-height: 1.5; margin: 0 0 28px; max-width: 540px; }
+  .cover-story .dek strong { color: var(--ink); font-weight: 500; }
+  .cover-story .specs { display: flex; gap: 28px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .cover-story .specs .item { font-size: 12px; color: var(--ink-3); }
+  .cover-story .specs .item .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--ink-3); margin-bottom: 4px; }
+  .cover-story .specs .item .val { font-size: 17px; font-weight: 600; color: var(--ink); letter-spacing: -0.015em; }
+  .cover-story .hire-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 22px; border-radius: 10px;
+    background: var(--gradient); color: white;
+    font-size: 14.5px; font-weight: 700;
+    border: none; cursor: pointer;
+    margin-top: 28px;
+    box-shadow: 0 6px 20px -4px rgba(139,92,246,0.4);
+  }
+  .cover-story-portrait {
+    width: 100%; aspect-ratio: 1;
+    background: linear-gradient(135deg, var(--yellow), var(--teal));
+    border-radius: 24px;
+    display: grid; place-items: center;
+    font-size: 96px; font-weight: 700; color: white; letter-spacing: 0.04em;
+    box-shadow: 0 24px 60px -16px rgba(20,184,166,0.4);
+    position: relative; overflow: hidden;
+  }
+  .cover-story-portrait::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.30), transparent 60%); }
+
+  /* Section heading */
+  .section-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--line);
+  }
+  .section-h h2 { margin: 0; font-size: 28px; font-weight: 200; letter-spacing: -0.03em; }
+  .section-h h2 strong { font-weight: 700; }
+  .section-h .by-line { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+
+  /* Article grid */
+  .articles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-bottom: 72px; }
+  .article { cursor: pointer; }
+  .article-portrait {
+    width: 100%; aspect-ratio: 4 / 3;
+    border-radius: 16px; margin-bottom: 18px;
+    display: grid; place-items: center;
+    font-size: 54px; font-weight: 700; color: white; letter-spacing: 0.04em;
+    transition: transform 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .article-portrait::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.25), transparent 60%); }
+  .article:hover .article-portrait { transform: translateY(-2px); }
+  .article-portrait.jm { background: var(--gradient); }
+  .article-portrait.sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .article-portrait.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .article-portrait.nm { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .article-portrait.ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .article-portrait.cs { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+
+  .article .kicker { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: var(--ink-3); margin-bottom: 6px; }
+  .article h3 { margin: 0 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+  .article .blurb { font-size: 14px; color: var(--ink-2); line-height: 1.55; margin: 0 0 14px; }
+  .article .meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); display: flex; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .article .meta strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a class="active" href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <div class="masthead">
+      <div class="title">The <strong>cohort</strong> review</div>
+      <div class="meta">
+        <div>VOL III · ISSUE V</div>
+        <div><strong>24</strong> COHORTS · MAY 2026</div>
+      </div>
+    </div>
+
+    <div class="cover-story">
+      <div>
+        <div class="kicker"><span class="star">★</span> COVER STORY · NEW THIS MONTH</div>
+        <h2>Meet AR Collector,<br/>the cohort <strong>finance teams<br/>can't stop hiring.</strong></h2>
+        <p class="dek">Chases down receivables before they age out. Reads your AP queue. Drafts polite-but-firm reminder emails. Escalates the awkward ones to humans. <strong>312 finance teams</strong> have hired this cohort since launch — and the average team recovers a one-time onboarding cost in about <strong>nine days</strong>.</p>
+        <div class="specs">
+          <div class="item"><div class="lbl">Cost / action</div><div class="val">$0.020</div></div>
+          <div class="item"><div class="lbl">Teams</div><div class="val">312</div></div>
+          <div class="item"><div class="lbl">Rating</div><div class="val">★ 4.8</div></div>
+          <div class="item"><div class="lbl">Skills</div><div class="val">7</div></div>
+        </div>
+        <button class="hire-btn">Hire AR Collector →</button>
+      </div>
+      <div class="cover-story-portrait">AR</div>
+    </div>
+
+    <div class="section-h">
+      <h2>The <strong>popular five</strong></h2>
+      <div class="by-line">CURATED BY YOUR INDUSTRY</div>
+    </div>
+
+    <div class="articles">
+
+      <article class="article">
+        <div class="article-portrait jm">JM</div>
+        <div class="kicker">SUPPORT · L2</div>
+        <h3>Support Specialist</h3>
+        <p class="blurb">Resolves tickets, suggests KB articles, escalates when sentiment turns sour. The most-hired cohort across SKYCOT, and the one customers describe as "the teammate who never has a bad day."</p>
+        <div class="meta">
+          <span><strong>$0.004</strong>/action</span>
+          <span><strong>847</strong> teams</span>
+          <span>★ <strong>4.8</strong></span>
+        </div>
+      </article>
+
+      <article class="article">
+        <div class="article-portrait sl">SL</div>
+        <div class="kicker">FINANCE · OPS · L3</div>
+        <h3>Invoice Operations</h3>
+        <p class="blurb">Extracts line items, validates against POs, codes to GL, flags duplicates with 99.6% accuracy. Built for the AP queue that used to take a human three days a week — and now takes one hour.</p>
+        <div class="meta">
+          <span><strong>$0.008</strong>/action</span>
+          <span><strong>612</strong> teams</span>
+          <span>★ <strong>4.9</strong></span>
+        </div>
+      </article>
+
+      <article class="article">
+        <div class="article-portrait pr">PR</div>
+        <div class="kicker">RECRUITING · L2</div>
+        <h3>Recruiting Screener</h3>
+        <p class="blurb">Reads inbound applications, scores against your job description, drafts polite rejections and interview invites. Treats the candidate as a human — your brand stays intact even when the answer is no.</p>
+        <div class="meta">
+          <span><strong>$0.014</strong>/action</span>
+          <span><strong>489</strong> teams</span>
+          <span>★ <strong>4.6</strong></span>
+        </div>
+      </article>
+
+      <article class="article">
+        <div class="article-portrait nm">NM</div>
+        <div class="kicker">SALES · OPS · L3</div>
+        <h3>Quote Operations</h3>
+        <p class="blurb">Validates pricing rules, flags discount exceptions, escalates only the ones that matter. Lives quietly in your Salesforce until it sees a 32% discount on a quote that should never have one.</p>
+        <div class="meta">
+          <span><strong>$0.005</strong>/action</span>
+          <span><strong>318</strong> teams</span>
+          <span>★ <strong>4.8</strong></span>
+        </div>
+      </article>
+
+      <article class="article">
+        <div class="article-portrait ma">MA</div>
+        <div class="kicker">SALES · L2</div>
+        <h3>Sales Operations</h3>
+        <p class="blurb">Drafts RFP responses overnight. Schedules renewal reviews. Keeps the CRM clean while your AEs sleep. The cohort that lets a sales team feel ten people bigger without hiring a single new human.</p>
+        <div class="meta">
+          <span><strong>$0.018</strong>/action</span>
+          <span><strong>274</strong> teams</span>
+          <span>★ <strong>4.5</strong></span>
+        </div>
+      </article>
+
+      <article class="article">
+        <div class="article-portrait cs">CS</div>
+        <div class="kicker">CUSTOMER SUCCESS · NEW</div>
+        <h3>CS Responder</h3>
+        <p class="blurb">Replies to CSAT surveys, schedules QBRs, flags churn risk before it becomes a fire. Twelve weeks old. Already in 87 customer-success orgs, and growing fast.</p>
+        <div class="meta">
+          <span><strong>$0.011</strong>/action</span>
+          <span><strong>87</strong> teams</span>
+          <span>★ <strong>4.7</strong></span>
+        </div>
+      </article>
+
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

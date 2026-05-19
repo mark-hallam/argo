@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Onboarding · welcome — SKYCOT (D · Notion Friendly)</title>
+<!-- Design language: D — NOTION-FRIENDLY EMPTY-STATE.
+     Lots of whitespace, illustrative emoji-style icons, casual conversational copy.
+     "Hey! Let's get you set up." Warm and approachable. Plays into the friendly D3 marketing landing. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF7; --paper-2: #F4F4F0; --bg: #FFFFFF;
+    --line: #E8E6E1; --line-2: #D8D5CE;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .top { padding: 24px 36px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .top .progress { display: flex; gap: 4px; align-items: center; }
+  .top .progress .lbl { font-size: 12.5px; color: var(--ink-3); margin-right: 10px; }
+  .top .progress .pip { width: 28px; height: 6px; border-radius: 3px; background: var(--paper-2); }
+  .top .progress .pip.on { background: var(--gradient); }
+  .top .right a { color: var(--ink-3); font-size: 13.5px; text-decoration: none; }
+
+  /* Stage */
+  .stage {
+    max-width: 700px; margin: 0 auto;
+    padding: 80px 32px 100px;
+    text-align: center;
+  }
+
+  /* Friendly emoji block */
+  .emoji-block {
+    font-size: 96px; line-height: 1; margin-bottom: 24px;
+    filter: drop-shadow(0 12px 24px rgba(139,92,246,0.20));
+  }
+  /* Wave hand SVG fallback */
+  .wave {
+    width: 120px; height: 120px;
+    margin: 0 auto 24px;
+    background: linear-gradient(135deg, var(--yellow), var(--coral));
+    border-radius: 36px;
+    display: grid; place-items: center;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.04),
+      0 12px 32px -8px rgba(255,107,107,0.35);
+    transform: rotate(-6deg);
+    position: relative;
+  }
+  .wave::after {
+    content: '👋'; font-size: 64px;
+  }
+
+  h1 {
+    font-size: 48px; font-weight: 700;
+    letter-spacing: -0.03em; line-height: 1.1;
+    margin: 0 0 14px;
+  }
+  h1 .accent {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+
+  .sub {
+    font-size: 18px; color: var(--ink-2);
+    line-height: 1.55; margin: 0 0 40px;
+    max-width: 540px; margin-left: auto; margin-right: auto;
+  }
+  .sub strong { color: var(--ink); font-weight: 600; }
+
+  /* What-you'll-do checklist */
+  .checklist {
+    margin: 0 auto 40px;
+    max-width: 480px;
+    text-align: left;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px 26px;
+  }
+  .checklist .ttl {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3); font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .checklist .step {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 8px 0;
+    font-size: 14.5px;
+    color: var(--ink-2);
+  }
+  .checklist .step .num {
+    flex-shrink: 0;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--paper); border: 1px solid var(--line);
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700;
+    color: var(--ink-3);
+  }
+  .checklist .step.now .num {
+    background: var(--gradient); color: white; border: none;
+    box-shadow: 0 4px 10px -2px rgba(139,92,246,0.35);
+  }
+  .checklist .step.now span { color: var(--ink); font-weight: 600; }
+  .checklist .step .est { margin-left: auto; color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+
+  .cta-row { display: flex; gap: 12px; justify-content: center; margin-bottom: 20px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 13px 24px; border-radius: 12px;
+    font-size: 15px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 6px 18px -4px rgba(139,92,246,0.4); }
+  .btn .kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(0,0,0,0.06); }
+  .btn.primary .kbd { background: rgba(255,255,255,0.25); }
+
+  .meta {
+    margin-top: 12px;
+    font-size: 13px; color: var(--ink-3);
+  }
+  .meta strong { color: var(--ink); font-weight: 600; }
+
+  /* Floating confetti decoration */
+  .decor {
+    position: fixed; pointer-events: none; z-index: -1;
+  }
+  .decor.d1 { top: 12%; left: 8%; font-size: 32px; opacity: 0.5; transform: rotate(-12deg); }
+  .decor.d2 { top: 18%; right: 10%; font-size: 28px; opacity: 0.4; transform: rotate(18deg); }
+  .decor.d3 { bottom: 18%; left: 12%; font-size: 24px; opacity: 0.4; transform: rotate(-22deg); }
+  .decor.d4 { bottom: 14%; right: 8%; font-size: 30px; opacity: 0.5; transform: rotate(12deg); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <div class="progress">
+    <span class="lbl">1 of 5</span>
+    <span class="pip on"></span>
+    <span class="pip"></span>
+    <span class="pip"></span>
+    <span class="pip"></span>
+    <span class="pip"></span>
+  </div>
+  <div class="right"><a href="#">Save &amp; exit</a></div>
+</header>
+
+<div class="decor d1">✨</div>
+<div class="decor d2">🪄</div>
+<div class="decor d3">⚡</div>
+<div class="decor d4">🌟</div>
+
+<main class="stage">
+  <div class="wave"></div>
+
+  <h1>Hey Mark! Let's<br/>set this up <span class="accent">together</span>.</h1>
+
+  <p class="sub">In about <strong>4 minutes</strong>, you'll have your first AI teammate hired and working. We'll keep it simple — promise.</p>
+
+  <div class="checklist">
+    <div class="ttl">Here's what we'll do</div>
+    <div class="step now"><div class="num">1</div><span>Say hi 👋 and pick a workspace name</span><span class="est">~1 min</span></div>
+    <div class="step"><div class="num">2</div><span>Set up your team's home base</span><span class="est">~30s</span></div>
+    <div class="step"><div class="num">3</div><span>Connect your AI provider (or use ours)</span><span class="est">~1 min</span></div>
+    <div class="step"><div class="num">4</div><span>Pick a job your team needs help with</span><span class="est">~1 min</span></div>
+    <div class="step"><div class="num">5</div><span>Hire your first teammate &amp; start them up 🎉</span><span class="est">~30s</span></div>
+  </div>
+
+  <div class="cta-row">
+    <button class="btn primary">Sounds good, let's go <span class="kbd">↵</span></button>
+    <button class="btn">Watch the 90-sec tour</button>
+  </div>
+
+  <div class="meta">
+    <strong>No credit card</strong> required · <strong>2,847</strong> companies started this month
+  </div>
+</main>
+
+</body>
+</html>

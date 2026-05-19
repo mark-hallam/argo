@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Settings — SKYCOT (D1 · Top Tabs + Search)</title>
+<!-- Design language: D1 — D top tabs with a prominent search bar above.
+     Same hero-search pattern as Skills A1: gradient icon + 16px input + ⌘K hint + count + suggested chips. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 0; max-width: 100%; }
+  .head { padding: 28px 40px 0; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { margin-bottom: 22px; }
+  .page-h h1 { font-size: 30px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14px; }
+
+  /* HERO SEARCH (new in D1) */
+  .search-block { padding: 0 40px 18px; max-width: 1320px; }
+  .hero-search {
+    background: var(--bg); border: 1.5px solid var(--line); border-radius: 14px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 8px 20px -10px rgba(139,92,246,0.10);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .hero-search:hover { border-color: rgba(139,92,246,0.30); }
+  .hero-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(139,92,246,0.10), 0 12px 28px -10px rgba(139,92,246,0.25); }
+  .hero-search .search-ico {
+    width: 26px; height: 26px; border-radius: 7px;
+    display: grid; place-items: center;
+    background: var(--gradient); color: white; font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px -4px rgba(139,92,246,0.4);
+  }
+  .hero-search input { flex: 1; border: none; outline: none; background: transparent; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 400; color: var(--ink); letter-spacing: -0.005em; min-width: 0; }
+  .hero-search input::placeholder { color: var(--ink-3); font-weight: 400; }
+  .hero-search .meta-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .hero-search .count-pill { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); font-weight: 700; letter-spacing: 0.06em; }
+  .hero-search .count-pill strong { color: var(--ink); }
+  .hero-search .kbd { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 5px; background: var(--paper-2); color: var(--ink-2); font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; }
+
+  .suggested-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 0 4px; }
+  .suggested-row .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-3); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; flex-shrink: 0; }
+  .suggested-row .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .suggested-row .suggest {
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-2); font-weight: 600; cursor: pointer;
+  }
+  .suggested-row .suggest:hover { border-color: var(--purple); color: var(--purple); }
+
+  /* TOP TABS (preserved from D) */
+  .top-tabs {
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding: 0 40px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tabs-inner { max-width: 1320px; display: flex; gap: 2px; overflow-x: auto; }
+  .top-tabs a {
+    padding: 14px 16px; font-size: 13.5px; font-weight: 600;
+    color: var(--ink-3); text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .top-tabs a:hover { color: var(--ink); }
+  .top-tabs a.on { color: var(--ink); border-bottom-color: var(--purple); font-weight: 700; }
+  .top-tabs a .ct { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); }
+  .top-tabs a.on .ct { color: var(--purple); }
+  .top-tabs a .ico { font-size: 14px; }
+
+  /* Sub-tabs */
+  .sub-tabs { background: var(--paper-2); border-bottom: 1px solid var(--line); padding: 10px 40px; }
+  .sub-tabs-inner { max-width: 1320px; display: flex; gap: 4px; }
+  .sub-tabs a { padding: 5px 11px; border-radius: 6px; font-size: 12.5px; font-weight: 500; color: var(--ink-3); text-decoration: none; }
+  .sub-tabs a:hover { color: var(--ink); }
+  .sub-tabs a.on { background: var(--bg); color: var(--ink); font-weight: 600; }
+
+  /* Content */
+  .content { padding: 32px 40px 80px; max-width: 1320px; }
+  .content-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; }
+
+  .card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 22px 26px; margin-bottom: 16px; }
+  .card-h { padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .card-h h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .card-h p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3); }
+
+  .field { padding: 12px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 180px 1fr auto; gap: 18px; align-items: center; }
+  .field:last-child { border-bottom: none; }
+  .field .label { font-size: 13px; font-weight: 600; }
+  .field .label .desc { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 400; margin-top: 2px; }
+  .field .value { font-size: 13px; color: var(--ink-2); }
+  .field .value .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .field .value .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(20,184,166,0.10); color: #0F766E; }
+  .field .value .pill .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .field .value .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; }
+  .field .value .pill.warn .d { background: var(--yellow); }
+  .field .action button { padding: 6px 11px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+
+  .aside-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+  .aside-card h3 { margin: 0 0 8px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); }
+  .aside-card .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .aside-card .stat-row:last-child { border-bottom: none; }
+  .aside-card .stat-row .k { color: var(--ink-3); }
+  .aside-card .stat-row .v { color: var(--ink); font-weight: 600; }
+  .aside-card .stat-row .v.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .aside-card .stat-row .v.ok { color: #0F766E; display: inline-flex; gap: 4px; align-items: center; }
+  .aside-card .stat-row .v.ok::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a class="active" href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div class="crumb">Workspace › Acme Corp</div>
+      <div class="page-h">
+        <h1><strong>Settings</strong></h1>
+        <p>Acme Corp · production · Pro plan</p>
+      </div>
+    </div>
+
+    <!-- HERO SEARCH (new in D1) -->
+    <div class="search-block">
+      <div class="hero-search">
+        <div class="search-ico">⌕</div>
+        <input type="text" placeholder="Search settings · try &lsquo;invite teammate&rsquo;, &lsquo;refund cap&rsquo;, &lsquo;SOC 2 report&rsquo;, &lsquo;2FA&rsquo;…" />
+        <div class="meta-right">
+          <span class="count-pill"><strong>52</strong> SETTINGS</span>
+          <span class="kbd">⌘ K</span>
+        </div>
+      </div>
+      <div class="suggested-row">
+        <span class="lbl">TRY:</span>
+        <div class="pills">
+          <span class="suggest">invite teammate</span>
+          <span class="suggest">tone policy</span>
+          <span class="suggest">connect Salesforce</span>
+          <span class="suggest">SOC 2 report</span>
+          <span class="suggest">refund cap</span>
+          <span class="suggest">2FA settings</span>
+          <span class="suggest">audit retention</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP TABS (preserved from D) -->
+    <div class="top-tabs">
+      <div class="tabs-inner">
+        <a class="on" href="#"><span class="ico">👤</span>Personal</a>
+        <a href="#"><span class="ico">⚒</span>Workspace</a>
+        <a href="#"><span class="ico">🔌</span>Integrations <span class="ct">8</span></a>
+        <a href="#"><span class="ico">🛡</span>Security</a>
+        <a href="#"><span class="ico">📜</span>Compliance</a>
+        <a href="#"><span class="ico">$</span>Billing</a>
+        <a href="#"><span class="ico">⚡</span>API</a>
+        <a href="#" style="color: var(--coral); margin-left: auto;"><span class="ico">⚠</span>Danger zone</a>
+      </div>
+    </div>
+
+    <div class="sub-tabs">
+      <div class="sub-tabs-inner">
+        <a class="on" href="#">Profile</a>
+        <a href="#">Notifications</a>
+        <a href="#">Preferences</a>
+        <a href="#">Sign-in &amp; security</a>
+        <a href="#">Active sessions</a>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="content-grid">
+
+        <div>
+          <div class="card">
+            <div class="card-h"><h2>About you</h2><p>How teammates and AI workers know you.</p></div>
+            <div class="field">
+              <div class="label">Full name<span class="desc">Used in approvals and audit logs.</span></div>
+              <div class="value">Mark Hallam</div>
+              <div class="action"><button>Edit</button></div>
+            </div>
+            <div class="field">
+              <div class="label">Email<span class="desc">Sign-in identifier &amp; notifications.</span></div>
+              <div class="value"><span class="mono">mark@acmecorp.com</span></div>
+              <div class="action"><button>Change</button></div>
+            </div>
+            <div class="field">
+              <div class="label">Title<span class="desc">Shown to AI workers for tone.</span></div>
+              <div class="value">CEO</div>
+              <div class="action"><button>Edit</button></div>
+            </div>
+            <div class="field">
+              <div class="label">Time zone<span class="desc">SLAs &amp; audit timestamps.</span></div>
+              <div class="value"><span class="mono">Australia/Melbourne</span> · UTC+11</div>
+              <div class="action"><button>Change</button></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h2>Sign-in &amp; security</h2><p>How you authenticate. Affects all SKYCOT sessions.</p></div>
+            <div class="field">
+              <div class="label">Password<span class="desc">Last changed 12 weeks ago.</span></div>
+              <div class="value">••••••••••••</div>
+              <div class="action"><button>Change</button></div>
+            </div>
+            <div class="field">
+              <div class="label">Two-factor auth<span class="desc">Required for all admins.</span></div>
+              <div class="value"><span class="pill"><span class="d"></span>Active</span></div>
+              <div class="action"><button>Manage</button></div>
+            </div>
+            <div class="field">
+              <div class="label">Recovery codes<span class="desc">Used if you lose your 2FA device.</span></div>
+              <div class="value">8 of 10 unused</div>
+              <div class="action"><button>Regenerate</button></div>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="aside-card">
+            <h3>Account summary</h3>
+            <div class="stat-row"><span class="k">Workspace</span><span class="v">Acme Corp</span></div>
+            <div class="stat-row"><span class="k">Plan</span><span class="v">Pro</span></div>
+            <div class="stat-row"><span class="k">Member since</span><span class="v mono">12 Sep 2025</span></div>
+            <div class="stat-row"><span class="k">Role</span><span class="v">Owner</span></div>
+            <div class="stat-row"><span class="k">2FA</span><span class="v ok">Active</span></div>
+            <div class="stat-row"><span class="k">Last sign-in</span><span class="v mono">2s ago</span></div>
+          </div>
+
+          <div class="aside-card">
+            <h3>Activity</h3>
+            <div class="stat-row"><span class="k">Approvals today</span><span class="v">7 reviewed</span></div>
+            <div class="stat-row"><span class="k">Avg decision</span><span class="v mono">14m</span></div>
+            <div class="stat-row"><span class="k">Approve rate</span><span class="v">92%</span></div>
+          </div>
+
+          <div class="aside-card">
+            <h3>Need help?</h3>
+            <p style="font-size:12.5px;color:var(--ink-3);margin:0 0 10px;line-height:1.55;">SKYCOT support responds within 4h on business days.</p>
+            <button style="width:100%;padding:8px;border-radius:6px;background:var(--gradient);color:white;border:none;font-size:12.5px;font-weight:600;cursor:pointer">💬 Contact support</button>
+          </div>
+        </aside>
+
+      </div>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

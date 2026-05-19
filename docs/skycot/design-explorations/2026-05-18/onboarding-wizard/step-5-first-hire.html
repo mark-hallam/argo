@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Onboarding · step 5 / first hire — SKYCOT</title>
+<!-- Step 5 of 5 — Configure first hire. F1 editorial-center language. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --purple-deep: #6d28d9; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --soft-purple: #f3e8ff; --soft-pink: #fce7f3;
+    --ink: #1e1b4b; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF9; --paper-2: #F4F4F4; --bg: #fafaff;
+    --line: #ece9f5; --line-2: #D1D1D1;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body {
+    font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink);
+    font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+    min-height: 100vh; position: relative;
+  }
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px; background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  .top, .stage { position: relative; z-index: 1; }
+  .top { padding: 22px 48px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 10; }
+  .brand { display: flex; align-items: center; gap: 12px; justify-self: start; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--gradient); box-shadow: 0 4px 12px -2px rgba(139,92,246,0.30); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; letter-spacing: 0.08em; }
+  .steps-indicator { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; }
+  .steps-indicator .pos { color: var(--ink); font-weight: 700; }
+  .pips { display: flex; gap: 4px; margin: 0 12px; }
+  .pip { width: 24px; height: 3px; border-radius: 2px; background: var(--paper-2); }
+  .pip.on { background: var(--gradient); box-shadow: 0 0 8px rgba(139,92,246,0.45); }
+  .pip.done { background: var(--teal); opacity: 0.5; }
+  .top-right { justify-self: end; display: flex; align-items: center; gap: 16px; }
+  .top-right .exit { font-size: 13px; color: var(--ink-3); text-decoration: none; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
+  .top-right .help-btn { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); font-size: 12px; font-weight: 500; cursor: pointer; }
+
+  .stage { max-width: 960px; margin: 0 auto; padding: 64px 48px 80px; text-align: center; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.20em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 24px;
+    padding: 5px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg);
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+  .eyebrow .grad { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; }
+
+  h1 { font-family: 'Audiowide', 'Inter', sans-serif; font-size: 52px; line-height: 1.05; font-weight: 400; letter-spacing: 0; margin: 0 0 18px; color: var(--ink); }
+  h1 strong { font-weight: 400; background: var(--gradient-3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { font-size: 17px; font-weight: 300; color: var(--ink-2); max-width: 560px; margin: 0 auto 48px; line-height: 1.5; }
+  .sub strong { color: var(--ink); font-weight: 500; }
+
+  /* Hire form layout */
+  .hire-form {
+    display: grid; grid-template-columns: 320px 1fr;
+    gap: 24px;
+    max-width: 880px; margin: 0 auto;
+    text-align: left;
+  }
+
+  /* Left: avatar preview */
+  .preview-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px 24px;
+    text-align: center;
+    box-shadow: 0 12px 36px -12px rgba(139,92,246,0.20);
+  }
+  .preview-card .preview-h {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-3);
+    margin-bottom: 18px;
+  }
+  .preview-av {
+    width: 100px; height: 100px; border-radius: 24px;
+    margin: 0 auto 16px;
+    background: var(--gradient);
+    color: white;
+    display: grid; place-items: center;
+    font-size: 32px; font-weight: 700; letter-spacing: 0.04em;
+    box-shadow: 0 12px 32px -8px rgba(139,92,246,0.4);
+  }
+  .preview-card .who {
+    font-size: 22px; font-weight: 600; letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .preview-card .role {
+    font-size: 13px; color: var(--ink-3);
+    margin-bottom: 16px;
+  }
+  .preview-card .level {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 11px; border-radius: 999px;
+    background: rgba(139,92,246,0.10); color: var(--purple);
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .preview-card .stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    padding-top: 16px; border-top: 1px solid var(--line);
+  }
+  .preview-card .stat .l { font-size: 9.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; }
+  .preview-card .stat .v { font-size: 17px; font-weight: 700; color: var(--ink); margin-top: 2px; letter-spacing: -0.02em; }
+  .preview-card .stat.grad .v { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* Right: form */
+  .form-area { display: flex; flex-direction: column; gap: 20px; }
+  .field { }
+  .field-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.16em; font-weight: 700; margin-bottom: 8px; }
+  .field-input { width: 100%; padding: 14px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 500; color: var(--ink); letter-spacing: -0.005em; outline: none; }
+  .field-input:focus { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(139,92,246,0.08); }
+  .field-hint { margin-top: 6px; font-size: 12px; color: var(--ink-3); }
+
+  /* Skill checkboxes */
+  .skills-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .skill-item {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg);
+    cursor: pointer; transition: border-color 0.1s;
+  }
+  .skill-item:hover { border-color: var(--line-2); }
+  .skill-item.on { border-color: var(--purple); background: rgba(139,92,246,0.04); }
+  .skill-item .cbx {
+    width: 16px; height: 16px; border-radius: 4px;
+    border: 1.5px solid var(--line-2); background: var(--bg);
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .skill-item.on .cbx { background: var(--gradient); border: none; color: white; display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+  .skill-item.on .cbx::after { content: '✓'; }
+  .skill-item .skill-body { flex: 1; min-width: 0; }
+  .skill-item .skill-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--ink); }
+  .skill-item .skill-desc { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+
+  /* Schedule pills */
+  .schedule-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sched-pill {
+    padding: 10px 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+  }
+  .sched-pill:hover { border-color: var(--line-2); }
+  .sched-pill.on {
+    background: var(--gradient); color: white; border: none;
+    box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4);
+  }
+  .sched-pill .est { display: block; font-size: 11px; font-weight: 500; opacity: 0.8; margin-top: 1px; }
+  .sched-pill.on .est { opacity: 0.85; }
+
+  /* Cost preview */
+  .cost-preview {
+    margin-top: 8px;
+    padding: 16px 18px; border-radius: 12px;
+    background: var(--paper); border: 1px solid var(--line);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .cost-preview .ico { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--teal), var(--cyan)); color: white; display: grid; place-items: center; font-size: 16px; }
+  .cost-preview .body { flex: 1; }
+  .cost-preview .title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .cost-preview .meta { font-size: 12px; color: var(--ink-3); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .cost-preview .meta strong { color: var(--ink); font-weight: 600; }
+
+  /* CTA row */
+  .cta-row { margin-top: 40px; display: flex; gap: 10px; justify-content: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 16px 32px; border-radius: 12px; font-size: 16px; font-weight: 700; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 8px 28px -6px rgba(139,92,246,0.5); }
+  .btn.back { color: var(--ink-3); border: none; background: none; padding: 16px 14px; font-weight: 600; font-size: 14.5px; }
+  .btn .kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(0,0,0,0.06); }
+  .btn.primary .kbd { background: rgba(255,255,255,0.25); }
+
+  .below-cta { margin-top: 16px; font-size: 12.5px; color: var(--ink-3); }
+  .below-cta strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <div class="steps-indicator">
+    <span>STEP</span><span class="pos">05</span><span>OF</span><span>05</span>
+    <div class="pips"><span class="pip done"></span><span class="pip done"></span><span class="pip done"></span><span class="pip done"></span><span class="pip on"></span></div>
+    <span>HIRE</span>
+  </div>
+  <div class="top-right"><button class="help-btn">Help</button><a class="exit" href="#">SAVE &amp; EXIT</a></div>
+</header>
+
+<main class="stage">
+  <div class="eyebrow"><span class="dot"></span><span class="grad">STEP 5 · FINAL</span> · MEET YOUR FIRST TEAMMATE</div>
+
+  <h1>Meet <strong>your first<br/>teammate</strong>.</h1>
+
+  <p class="sub">Give them a name and a starting skill set. They'll start work the moment you finish.</p>
+
+  <div class="hire-form">
+
+    <aside class="preview-card">
+      <div class="preview-h">PREVIEW</div>
+      <div class="preview-av">JM</div>
+      <div class="who">Jamal</div>
+      <div class="role">Support specialist · L1</div>
+      <div class="level">★ NEW HIRE</div>
+      <div class="stats">
+        <div class="stat grad"><div class="l">Skills</div><div class="v">5</div></div>
+        <div class="stat"><div class="l">Cost / action</div><div class="v">$.004</div></div>
+        <div class="stat"><div class="l">Schedule</div><div class="v">24/7</div></div>
+        <div class="stat"><div class="l">Status</div><div class="v" style="color:#0F766E">Ready</div></div>
+      </div>
+    </aside>
+
+    <div class="form-area">
+
+      <div class="field">
+        <div class="field-label">Their name</div>
+        <input class="field-input" type="text" value="Jamal" autofocus />
+        <div class="field-hint">Pick something memorable. You'll see this name in approvals, the audit log, every dashboard.</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Starter skills · 5 of 7 selected</div>
+        <div class="skills-grid">
+          <div class="skill-item on">
+            <div class="cbx"></div>
+            <div class="skill-body"><div class="skill-name">zendesk.read</div><div class="skill-desc">Read tickets &amp; conversations</div></div>
+          </div>
+          <div class="skill-item on">
+            <div class="cbx"></div>
+            <div class="skill-body"><div class="skill-name">zendesk.reply</div><div class="skill-desc">Draft &amp; send replies (with approval)</div></div>
+          </div>
+          <div class="skill-item on">
+            <div class="cbx"></div>
+            <div class="skill-body"><div class="skill-name">kb.search</div><div class="skill-desc">Search knowledge-base articles</div></div>
+          </div>
+          <div class="skill-item on">
+            <div class="cbx"></div>
+            <div class="skill-body"><div class="skill-name">slack.dm</div><div class="skill-desc">DM team members for escalation</div></div>
+          </div>
+          <div class="skill-item on">
+            <div class="cbx"></div>
+            <div class="skill-body"><div class="skill-name">policy.tone</div><div class="skill-desc">Apply your tone guidelines</div></div>
+          </div>
+          <div class="skill-item">
+            <div class="cbx"></div>
+            <div class="skill-body"><div class="skill-name">refund.issue</div><div class="skill-desc">Issue refunds up to $200 (requires approval)</div></div>
+          </div>
+          <div class="skill-item">
+            <div class="cbx"></div>
+            <div class="skill-body"><div class="skill-name">survey.send</div><div class="skill-desc">Send post-resolution CSAT survey</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">When should they work?</div>
+        <div class="schedule-pills">
+          <div class="sched-pill on">Always on<span class="est">24/7 · 7 days</span></div>
+          <div class="sched-pill">Business hours<span class="est">9am–6pm AEDT</span></div>
+          <div class="sched-pill">Weekdays only<span class="est">Mon–Fri · 9–6</span></div>
+          <div class="sched-pill">Custom<span class="est">configure later</span></div>
+        </div>
+      </div>
+
+      <div class="cost-preview">
+        <div class="ico">$</div>
+        <div class="body">
+          <div class="title">Estimated cost · first month</div>
+          <div class="meta">~ <strong>$8–14</strong> based on similar Support teammates · pay only for actions performed · no minimums</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="cta-row">
+    <button class="btn back">← Back</button>
+    <button class="btn primary">🎉 Hire Jamal &amp; start them up <span class="kbd">↵</span></button>
+  </div>
+
+  <div class="below-cta">
+    Jamal will be working within <strong>seconds</strong> of you clicking the button. You can pause or change anything at any time.
+  </div>
+</main>
+
+</body>
+</html>

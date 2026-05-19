@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Skills — SKYCOT (A1 · Prominent Search)</title>
+<!-- Design language: A1 — same as A marketplace catalog, with a prominent HERO search bar
+     sitting between the page header and the featured banner. Larger placeholder, ⌘K hint,
+     suggested-search chips below it. Everything else identical to A. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --purple-deep: #6d28d9; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --soft-purple: #f3e8ff; --soft-pink: #fce7f3;
+    --ink: #1e1b4b; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #fafaff;
+    --line: #ece9f5; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; position: relative; }
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px; background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  .app { position: relative; z-index: 1; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; font-weight: 400; letter-spacing: 0.10em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 40px 80px; max-width: 1400px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+  .page-h h1 { font-family: 'Audiowide', 'Inter', sans-serif; font-size: 44px; font-weight: 400; letter-spacing: 0; line-height: 1.1; margin: 0; }
+  .page-h h1 strong { font-weight: 400; background: var(--gradient-3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+  .btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* ─── HERO SEARCH BAR (new in A1) ─── */
+  .hero-search-block {
+    margin-bottom: 28px;
+  }
+  .hero-search {
+    position: relative;
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 8px 24px -12px rgba(139,92,246,0.10);
+  }
+  .hero-search:hover {
+    border-color: rgba(139,92,246,0.30);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 12px 32px -12px rgba(139,92,246,0.20);
+  }
+  .hero-search:focus-within {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 4px rgba(139,92,246,0.10), 0 12px 32px -12px rgba(139,92,246,0.25);
+  }
+
+  .hero-search .search-ico {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: grid; place-items: center;
+    background: var(--gradient); color: white;
+    font-size: 14px; font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px -4px rgba(139,92,246,0.4);
+  }
+
+  .hero-search input {
+    flex: 1;
+    border: none; outline: none; background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    min-width: 0;
+  }
+  .hero-search input::placeholder {
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+
+  .hero-search .meta-right {
+    display: flex; align-items: center; gap: 14px;
+    flex-shrink: 0;
+  }
+  .hero-search .count-pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .hero-search .count-pill strong { color: var(--ink); }
+  .hero-search .kbd {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 9px; border-radius: 6px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  /* Suggested searches strip */
+  .suggested-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 14px;
+    padding: 0 6px;
+  }
+  .suggested-row .lbl {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3); font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .suggested-row .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .suggested-row .suggest {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--ink-2); font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.1s, color 0.1s, background 0.1s;
+  }
+  .suggested-row .suggest:hover {
+    border-color: var(--purple);
+    color: var(--purple);
+    background: rgba(139,92,246,0.04);
+  }
+  .suggested-row .suggest .ico {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--ink-4);
+  }
+  .suggested-row .suggest.hot .ico { background: var(--coral); }
+  .suggested-row .suggest.new .ico { background: var(--teal); }
+  /* ────────────────────────────────── */
+
+  /* Featured banner */
+  .featured-banner {
+    background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(8,145,178,0.06));
+    border: 1px solid rgba(139,92,246,0.18);
+    border-radius: 18px; padding: 28px 32px;
+    display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+    margin-bottom: 28px;
+  }
+  .featured-banner .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; background: var(--gradient); color: white; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 12px; }
+  .featured-banner h2 { margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .featured-banner h2 .mono { font-family: 'JetBrains Mono', monospace; font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .featured-banner p { margin: 0; font-size: 14.5px; color: var(--ink-2); line-height: 1.55; max-width: 600px; }
+  .featured-banner .featured-stats { display: flex; gap: 18px; margin-top: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-3); }
+  .featured-banner .featured-stats strong { color: var(--ink); font-weight: 700; }
+  .featured-banner-icon { width: 96px; height: 96px; border-radius: 22px; background: linear-gradient(135deg, var(--coral), var(--yellow)); color: white; display: grid; place-items: center; font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; box-shadow: 0 12px 32px -8px rgba(255,107,107,0.4); }
+
+  /* Filter chips (now without the inline search) */
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  .chip { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); font-size: 12.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+  .chip .ct { color: var(--ink-3); font-weight: 400; margin-left: 4px; }
+
+  .section-h { display: flex; align-items: baseline; justify-content: space-between; margin: 24px 0 14px; }
+  .section-h h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
+  .section-h .more { color: var(--purple); font-size: 13px; font-weight: 600; text-decoration: none; }
+
+  /* Skill grid */
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .skill-card { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 18px; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; cursor: pointer; position: relative; }
+  .skill-card:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 6px 16px -6px rgba(0,0,0,0.08); }
+  .skill-card .badge { position: absolute; top: 12px; right: 12px; padding: 2px 7px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .skill-card .badge.installed { background: rgba(20,184,166,0.12); color: #0F766E; }
+  .skill-card .badge.popular { background: rgba(252,211,77,0.18); color: #92400E; }
+  .skill-card .badge.new { background: var(--gradient); color: white; }
+  .skill-card .ic { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; color: white; font-size: 18px; margin-bottom: 12px; background: var(--gradient); }
+  .skill-card .ic.zen { background: linear-gradient(135deg, #03363D, #5EAB73); font-size: 14px; }
+  .skill-card .ic.ns { background: linear-gradient(135deg, #1D364A, #4CA9DB); }
+  .skill-card .ic.sf { background: linear-gradient(135deg, #00A1E0, #1798c1); }
+  .skill-card .ic.slack { background: linear-gradient(135deg, #4A154B, #ECB22E); }
+  .skill-card .ic.policy { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .skill-card .ic.email { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .skill-card .ic.gcal { background: linear-gradient(135deg, #4285F4, #34A853); }
+  .skill-card .ic.kb { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .skill-card .ic.docusign { background: linear-gradient(135deg, #FFCC22, #FF6F00); }
+  .skill-card .ic.ocr { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .skill-card .ic.bhr { background: linear-gradient(135deg, #74C146, #228B22); }
+  .skill-card .name { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 4px; }
+  .skill-card .desc { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; margin-bottom: 10px; min-height: 36px; }
+  .skill-card .meta { border-top: 1px solid var(--line); padding-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); display: flex; gap: 10px; }
+  .skill-card .meta strong { color: var(--ink); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a class="active" href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Browse <strong>skills</strong></h1>
+        <p>43 skills across 6 categories. Install once, share across your team.</p>
+      </div>
+      <button class="btn primary">+ Build custom skill</button>
+    </div>
+
+    <!-- HERO SEARCH (the prominent moment) -->
+    <div class="hero-search-block">
+      <div class="hero-search">
+        <div class="search-ico">⌕</div>
+        <input type="text" placeholder="Search 43 skills · try &lsquo;salesforce&rsquo;, &lsquo;refund&rsquo;, &lsquo;policy&rsquo;, or any integration…" />
+        <div class="meta-right">
+          <span class="count-pill"><strong>43</strong> SKILLS</span>
+          <span class="kbd">⌘ K</span>
+        </div>
+      </div>
+
+      <div class="suggested-row">
+        <span class="lbl">TRY:</span>
+        <div class="pills">
+          <span class="suggest hot"><span class="ico"></span>salesforce</span>
+          <span class="suggest new"><span class="ico"></span>refund</span>
+          <span class="suggest"><span class="ico"></span>zendesk</span>
+          <span class="suggest"><span class="ico"></span>approve</span>
+          <span class="suggest hot"><span class="ico"></span>discount</span>
+          <span class="suggest new"><span class="ico"></span>ocr</span>
+          <span class="suggest"><span class="ico"></span>email.draft</span>
+          <span class="suggest"><span class="ico"></span>netsuite</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="featured-banner">
+      <div>
+        <span class="badge">⚡ FEATURED · NEW THIS MONTH</span>
+        <h2><span class="mono">salesforce.opportunity.create</span></h2>
+        <p>Auto-creates Salesforce opportunities from inbound demo bookings. Pre-fills account, contact, owner, amount, close date. <strong>4× faster pipeline hygiene</strong> than manual entry.</p>
+        <div class="featured-stats">
+          <span>Installed by <strong>312</strong> teams</span>
+          <span>·</span>
+          <span><strong>$0.006</strong> / call</span>
+          <span>·</span>
+          <span><strong>★ 4.9</strong> (62 reviews)</span>
+        </div>
+      </div>
+      <div class="featured-banner-icon">SF</div>
+    </div>
+
+    <div class="filters">
+      <span class="chip on">All <span class="ct">43</span></span>
+      <span class="chip">Installed <span class="ct">12</span></span>
+      <span class="chip">Tickets &amp; CS <span class="ct">8</span></span>
+      <span class="chip">CRM &amp; Sales <span class="ct">11</span></span>
+      <span class="chip">Finance &amp; Ops <span class="ct">9</span></span>
+      <span class="chip">Comms <span class="ct">6</span></span>
+      <span class="chip">Files &amp; Docs <span class="ct">5</span></span>
+      <span class="chip">Policy &amp; Tone <span class="ct">4</span></span>
+    </div>
+
+    <div class="section-h">
+      <h2>Installed in your workspace</h2>
+      <a class="more" href="#">View all 12 →</a>
+    </div>
+
+    <div class="grid">
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic zen">ZD</div>
+        <div class="name">zendesk.read</div>
+        <div class="desc">Read tickets, conversations, attachments from Zendesk.</div>
+        <div class="meta"><span>Used by <strong>3</strong> workers</span><span>· <strong>843</strong> calls/wk</span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic zen">ZD</div>
+        <div class="name">zendesk.reply</div>
+        <div class="desc">Draft &amp; send replies on Zendesk tickets. Honors tone policy.</div>
+        <div class="meta"><span>Used by <strong>1</strong> worker</span><span>· <strong>612</strong> calls/wk</span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic ns">NS</div>
+        <div class="name">netsuite.write</div>
+        <div class="desc">Create / update invoices, vendors, GL entries in NetSuite.</div>
+        <div class="meta"><span>Used by <strong>1</strong> worker</span><span>· <strong>312</strong> calls/wk</span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic policy">PT</div>
+        <div class="name">policy.tone</div>
+        <div class="desc">Apply your team's tone guidelines to drafts before send.</div>
+        <div class="meta"><span>Used by <strong>5</strong> workers</span><span>· <strong>1,247</strong> calls/wk</span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic kb">KB</div>
+        <div class="name">kb.search</div>
+        <div class="desc">Search your knowledge base for relevant articles.</div>
+        <div class="meta"><span>Used by <strong>3</strong> workers</span><span>· <strong>489</strong> calls/wk</span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic slack">SL</div>
+        <div class="name">slack.dm</div>
+        <div class="desc">Send Slack DMs to teammates or specific channels.</div>
+        <div class="meta"><span>Used by <strong>4</strong> workers</span><span>· <strong>78</strong> calls/wk</span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic email">EM</div>
+        <div class="name">email.draft</div>
+        <div class="desc">Draft emails (rejection, outreach, follow-up) in your tone.</div>
+        <div class="meta"><span>Used by <strong>3</strong> workers</span><span>· <strong>284</strong> calls/wk</span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge installed">INSTALLED</span>
+        <div class="ic gcal">GC</div>
+        <div class="name">gcal.schedule</div>
+        <div class="desc">Schedule events / interviews on Google Calendar.</div>
+        <div class="meta"><span>Used by <strong>2</strong> workers</span><span>· <strong>47</strong> calls/wk</span></div>
+      </div>
+
+    </div>
+
+    <div class="section-h">
+      <h2>Available to install</h2>
+      <a class="more" href="#">Browse all 31 →</a>
+    </div>
+
+    <div class="grid">
+
+      <div class="skill-card">
+        <span class="badge new">NEW</span>
+        <div class="ic sf">SF</div>
+        <div class="name">salesforce.opportunity.create</div>
+        <div class="desc">Auto-create Salesforce opportunities from inbound demos.</div>
+        <div class="meta"><span><strong>312</strong> teams</span><span>· <strong>★ 4.9</strong></span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge popular">★ POPULAR</span>
+        <div class="ic sf">SF</div>
+        <div class="name">salesforce.opportunity.update</div>
+        <div class="desc">Update Salesforce opportunity stage, amount, close-date.</div>
+        <div class="meta"><span><strong>847</strong> teams</span><span>· <strong>★ 4.8</strong></span></div>
+      </div>
+
+      <div class="skill-card">
+        <div class="ic ns">NS</div>
+        <div class="name">netsuite.read</div>
+        <div class="desc">Read invoices, customers, vendors, GL data from NetSuite.</div>
+        <div class="meta"><span><strong>489</strong> teams</span><span>· <strong>★ 4.7</strong></span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge new">NEW</span>
+        <div class="ic ocr">OCR</div>
+        <div class="name">ocr.read</div>
+        <div class="desc">Extract text, line items, tables from PDF / image documents.</div>
+        <div class="meta"><span><strong>612</strong> teams</span><span>· <strong>★ 4.6</strong></span></div>
+      </div>
+
+      <div class="skill-card">
+        <div class="ic docusign">DS</div>
+        <div class="name">docusign.send</div>
+        <div class="desc">Send documents for e-signature via DocuSign.</div>
+        <div class="meta"><span><strong>234</strong> teams</span><span>· <strong>★ 4.5</strong></span></div>
+      </div>
+
+      <div class="skill-card">
+        <div class="ic bhr">BH</div>
+        <div class="name">bamboohr.read</div>
+        <div class="desc">Read employee records, PTO, org structure from BambooHR.</div>
+        <div class="meta"><span><strong>156</strong> teams</span><span>· <strong>★ 4.6</strong></span></div>
+      </div>
+
+      <div class="skill-card">
+        <span class="badge popular">★ POPULAR</span>
+        <div class="ic policy">PD</div>
+        <div class="name">policy.discount</div>
+        <div class="desc">Validate proposed discounts against pricing policy.</div>
+        <div class="meta"><span><strong>318</strong> teams</span><span>· <strong>★ 4.8</strong></span></div>
+      </div>
+
+      <div class="skill-card">
+        <div class="ic policy">PR</div>
+        <div class="name">policy.review</div>
+        <div class="desc">Review contracts against playbook. Flags risky clauses.</div>
+        <div class="meta"><span><strong>234</strong> teams</span><span>· <strong>★ 4.6</strong></span></div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

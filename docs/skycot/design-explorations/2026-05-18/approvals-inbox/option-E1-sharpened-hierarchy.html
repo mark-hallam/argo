@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Approvals — SKYCOT (E1 · Sharpened Hierarchy)</title>
+<!-- Design language: E1 — Sharpened hierarchy.
+     Same E structural backbone but cleaner. 4 severity tiers (Critical / Urgent / Elevated / Normal).
+     Crisper typographic separation. Section headers carry the tier name + count + time pressure.
+     Per-row layout simpler — same info, more breathing room. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+
+    /* Severity colors */
+    --critical: #DC2626;
+    --critical-bg: rgba(220,38,38,0.04);
+    --urgent: var(--coral);
+    --urgent-bg: rgba(255,107,107,0.04);
+    --elevated: var(--yellow);
+    --elevated-bg: rgba(252,211,77,0.04);
+    --normal: var(--ink-3);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .badge { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--paper-2); color: var(--ink-2); font-family: 'JetBrains Mono', monospace; }
+  .nav a.active .badge { background: var(--gradient); color: white; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 36px 80px; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 8px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 600; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Top summary band — quieter than option E's KPI strip */
+  .summary {
+    margin: 24px 0 36px;
+    padding: 16px 22px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px;
+    display: flex; gap: 32px; align-items: center;
+  }
+  .summary .stat { display: flex; flex-direction: column; }
+  .summary .stat .lbl {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .summary .stat .val {
+    font-size: 22px; font-weight: 300; letter-spacing: -0.025em;
+    margin-top: 2px;
+  }
+  .summary .stat.bad .val { color: var(--critical); font-weight: 600; }
+  .summary .stat.warn .val { color: #92400E; font-weight: 500; }
+  .summary .stat.grad .val { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 500; }
+  .summary .stat .sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+  .summary .sep { width: 1px; height: 40px; background: var(--line); }
+
+  /* Severity tier section */
+  .tier { margin-bottom: 36px; }
+  .tier-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 22px;
+    border-radius: 12px 12px 0 0;
+    border: 1px solid var(--line);
+    border-bottom: none;
+  }
+  .tier-header.critical { background: var(--critical-bg); border-color: rgba(220,38,38,0.20); }
+  .tier-header.urgent { background: var(--urgent-bg); border-color: rgba(255,107,107,0.18); }
+  .tier-header.elevated { background: var(--elevated-bg); border-color: rgba(252,211,77,0.18); }
+  .tier-header.normal { background: var(--bg); }
+  .tier-h-bar {
+    width: 4px; height: 36px; border-radius: 2px;
+  }
+  .tier-header.critical .tier-h-bar { background: var(--critical); box-shadow: 0 0 14px var(--critical); }
+  .tier-header.urgent .tier-h-bar { background: var(--urgent); box-shadow: 0 0 12px var(--urgent); }
+  .tier-header.elevated .tier-h-bar { background: var(--elevated); box-shadow: 0 0 12px var(--elevated); }
+  .tier-header.normal .tier-h-bar { background: var(--normal); }
+  .tier-h-title {
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.14em;
+  }
+  .tier-header.critical .tier-h-title { color: var(--critical); }
+  .tier-header.urgent .tier-h-title { color: #B91C1C; }
+  .tier-header.elevated .tier-h-title { color: #92400E; }
+  .tier-header.normal .tier-h-title { color: var(--ink-2); }
+  .tier-h-desc {
+    font-size: 12.5px; color: var(--ink-3);
+    margin-top: 1px;
+  }
+  .tier-h-ct {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--ink); font-weight: 700;
+    padding: 4px 11px; border-radius: 6px; background: var(--bg);
+    border: 1px solid var(--line);
+  }
+
+  .tier-body {
+    border: 1px solid var(--line);
+    border-radius: 0 0 12px 12px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* Row */
+  .row {
+    display: grid;
+    grid-template-columns: 40px 1fr 170px 110px 110px 220px;
+    gap: 16px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+    transition: background 0.1s;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--paper); }
+
+  .row .av {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: grid; place-items: center; color: white;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .row .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .row .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .row .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .row .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .row .who-block .subject {
+    font-size: 14.5px; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.005em; line-height: 1.35;
+  }
+  .row .who-block .meta {
+    font-size: 12px; color: var(--ink-3);
+    margin-top: 3px;
+  }
+  .row .who-block .meta .who { color: var(--ink-2); font-weight: 600; }
+  .row .who-block .meta .kind {
+    margin-left: 8px;
+    padding: 1px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    background: var(--paper-2); color: var(--ink-2);
+  }
+
+  /* SLA progress */
+  .row .sla {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .row .sla .bar {
+    height: 5px; border-radius: 3px;
+    background: var(--paper-2); overflow: hidden;
+  }
+  .row .sla .bar .fill { height: 100%; border-radius: 3px; }
+  .row .sla.crit .bar .fill { background: var(--critical); width: 92%; }
+  .row .sla.warn .bar .fill { background: var(--coral); width: 70%; }
+  .row .sla.ok .bar .fill { background: var(--yellow); width: 40%; }
+  .row .sla.low .bar .fill { background: var(--teal); width: 18%; }
+  .row .sla .txt {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink-2); font-weight: 600;
+  }
+  .row .sla.crit .txt { color: var(--critical); }
+
+  .row .risk {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    color: var(--ink); font-weight: 600;
+  }
+  .row .risk .lbl { display: block; font-family: 'Inter', sans-serif; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 600; margin-bottom: 2px; }
+  .row .risk.zero { color: var(--ink-4); }
+
+  .row .conf {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .row .conf .donut {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    position: relative;
+  }
+  .row .conf .donut.high { background: conic-gradient(var(--teal) 0 92%, var(--paper-2) 92% 100%); }
+  .row .conf .donut.mid { background: conic-gradient(var(--yellow) 0 70%, var(--paper-2) 70% 100%); }
+  .row .conf .donut.low { background: conic-gradient(var(--coral) 0 45%, var(--paper-2) 45% 100%); }
+  .row .conf .donut .inner {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg); position: absolute; top: 4px; left: 4px;
+  }
+  .row .conf .num {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink); font-weight: 700;
+  }
+  .row .conf .num .l { display: block; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 600; color: var(--ink-3); }
+
+  .row .actions { display: flex; gap: 5px; justify-content: flex-end; }
+  .mini-btn {
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 12px; font-weight: 600;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink-2); cursor: pointer;
+    white-space: nowrap;
+  }
+  .mini-btn.approve { background: var(--teal); color: white; border-color: var(--teal); box-shadow: 0 2px 8px -2px rgba(20,184,166,0.4); }
+  .mini-btn.reject { color: var(--coral); border-color: var(--coral); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a class="active" href="#">✉ Approvals <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Approvals <strong>by urgency</strong></h1>
+        <p>7 pending · ranked by SLA and risk · most-pressing at top</p>
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn">⊟ List view</button><button class="btn primary">+ Bulk approve</button></div>
+    </div>
+
+    <div class="summary">
+      <div class="stat bad"><div class="lbl">Over SLA</div><div class="val">1</div><div class="sub">35m to escalation</div></div>
+      <div class="sep"></div>
+      <div class="stat warn"><div class="lbl">Approaching SLA</div><div class="val">1</div><div class="sub">1h 22m left</div></div>
+      <div class="sep"></div>
+      <div class="stat"><div class="lbl">$ at risk</div><div class="val">$109,527</div><div class="sub">across 3 decisions</div></div>
+      <div class="sep"></div>
+      <div class="stat grad"><div class="lbl">Decisions today</div><div class="val">12</div><div class="sub">92% approve · 14m avg</div></div>
+    </div>
+
+    <!-- CRITICAL tier -->
+    <div class="tier">
+      <div class="tier-header critical">
+        <div class="tier-h-bar"></div>
+        <div>
+          <div class="tier-h-title">Critical · Over SLA</div>
+          <div class="tier-h-desc">Will auto-escalate to senior reviewer if not decided</div>
+        </div>
+        <div class="tier-h-ct">1</div>
+      </div>
+      <div class="tier-body">
+
+        <div class="row">
+          <div class="av p">PR</div>
+          <div class="who-block">
+            <div class="subject">Send rejection email to Sara Lin</div>
+            <div class="meta"><span class="who">Priya</span> · Recruiting · <span class="kind">outbound.send</span></div>
+          </div>
+          <div class="sla crit">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">⚠ 35m past due</div>
+          </div>
+          <div class="risk zero"><span class="lbl">at risk</span>—</div>
+          <div class="conf">
+            <div class="donut high"><div class="inner"></div></div>
+            <div class="num">92%<span class="l">confidence</span></div>
+          </div>
+          <div class="actions">
+            <button class="mini-btn approve">✓ Send</button>
+            <button class="mini-btn">Edit</button>
+            <button class="mini-btn reject">Reject</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- URGENT tier -->
+    <div class="tier">
+      <div class="tier-header urgent">
+        <div class="tier-h-bar"></div>
+        <div>
+          <div class="tier-h-title">Urgent · Approaching SLA</div>
+          <div class="tier-h-desc">Less than 2 hours remaining</div>
+        </div>
+        <div class="tier-h-ct">1</div>
+      </div>
+      <div class="tier-body">
+
+        <div class="row">
+          <div class="av n">NM</div>
+          <div class="who-block">
+            <div class="subject">Approve 32% discount on QT-2024-7283</div>
+            <div class="meta"><span class="who">Nori</span> · Quote ops · Tomás Industries · <span class="kind">policy.discount</span></div>
+          </div>
+          <div class="sla warn">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">1h 22m left</div>
+          </div>
+          <div class="risk"><span class="lbl">at risk</span>$48,290</div>
+          <div class="conf">
+            <div class="donut mid"><div class="inner"></div></div>
+            <div class="num">70%<span class="l">confidence</span></div>
+          </div>
+          <div class="actions">
+            <button class="mini-btn approve">✓ Approve</button>
+            <button class="mini-btn">Counter</button>
+            <button class="mini-btn reject">Reject</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ELEVATED tier -->
+    <div class="tier">
+      <div class="tier-header elevated">
+        <div class="tier-h-bar"></div>
+        <div>
+          <div class="tier-h-title">Elevated · Within SLA</div>
+          <div class="tier-h-desc">Standard pending — decide within today</div>
+        </div>
+        <div class="tier-h-ct">4</div>
+      </div>
+      <div class="tier-body">
+
+        <div class="row">
+          <div class="av m">MA</div>
+          <div class="who-block">
+            <div class="subject">Send RFP response to Tomás Industries</div>
+            <div class="meta"><span class="who">Mariah</span> · Sales ops · 1,240 words · <span class="kind">outbound.send</span></div>
+          </div>
+          <div class="sla ok"><div class="bar"><div class="fill"></div></div><div class="txt">3h 12m left</div></div>
+          <div class="risk"><span class="lbl">at risk</span>$32,837</div>
+          <div class="conf"><div class="donut high"><div class="inner"></div></div><div class="num">88%<span class="l">confidence</span></div></div>
+          <div class="actions"><button class="mini-btn approve">✓ Send</button><button class="mini-btn">Review</button></div>
+        </div>
+
+        <div class="row">
+          <div class="av s">SL</div>
+          <div class="who-block">
+            <div class="subject">Override GL coding on INV-2024-08741 (6300 → 6420)</div>
+            <div class="meta"><span class="who">Sara</span> · Invoice ops · matches past 11 vendors · <span class="kind">override</span></div>
+          </div>
+          <div class="sla ok"><div class="bar"><div class="fill"></div></div><div class="txt">4h 28m left</div></div>
+          <div class="risk zero"><span class="lbl">at risk</span>—</div>
+          <div class="conf"><div class="donut high"><div class="inner"></div></div><div class="num">92%<span class="l">confidence</span></div></div>
+          <div class="actions"><button class="mini-btn approve">✓ Override</button><button class="mini-btn">Keep</button></div>
+        </div>
+
+        <div class="row">
+          <div class="av p">PR</div>
+          <div class="who-block">
+            <div class="subject">Confirm interview slot for Diego Alvarez · Wed 14:00</div>
+            <div class="meta"><span class="who">Priya</span> · Recruiting · 90-min technical · 3 panel · <span class="kind">schedule</span></div>
+          </div>
+          <div class="sla ok"><div class="bar"><div class="fill"></div></div><div class="txt">5h 06m left</div></div>
+          <div class="risk zero"><span class="lbl">at risk</span>—</div>
+          <div class="conf"><div class="donut high"><div class="inner"></div></div><div class="num">94%<span class="l">confidence</span></div></div>
+          <div class="actions"><button class="mini-btn approve">✓ Confirm</button><button class="mini-btn">Reschedule</button></div>
+        </div>
+
+        <div class="row">
+          <div class="av n">NM</div>
+          <div class="who-block">
+            <div class="subject">Approve Net 60 terms exception on QT-2024-7299</div>
+            <div class="meta"><span class="who">Nori</span> · Quote ops · default Net 30 · finance prefers Net 30 · <span class="kind">policy.terms</span></div>
+          </div>
+          <div class="sla ok"><div class="bar"><div class="fill"></div></div><div class="txt">6h 41m left</div></div>
+          <div class="risk"><span class="lbl">at risk</span>$28,400</div>
+          <div class="conf"><div class="donut low"><div class="inner"></div></div><div class="num">45%<span class="l">confidence</span></div></div>
+          <div class="actions"><button class="mini-btn approve">✓ Approve</button><button class="mini-btn reject">Reject</button></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- NORMAL tier -->
+    <div class="tier">
+      <div class="tier-header normal">
+        <div class="tier-h-bar"></div>
+        <div>
+          <div class="tier-h-title">Normal · Routine</div>
+          <div class="tier-h-desc">FYI / closeouts / low-stakes confirmations</div>
+        </div>
+        <div class="tier-h-ct">1</div>
+      </div>
+      <div class="tier-body">
+
+        <div class="row">
+          <div class="av">JM</div>
+          <div class="who-block">
+            <div class="subject">Confirm closeout of SUP-29355 escalation</div>
+            <div class="meta"><span class="who">Jamal</span> · Support · resolved by lead-support · <span class="kind">closeout</span></div>
+          </div>
+          <div class="sla low"><div class="bar"><div class="fill"></div></div><div class="txt">18h waiting</div></div>
+          <div class="risk zero"><span class="lbl">at risk</span>—</div>
+          <div class="conf"><div class="donut high"><div class="inner"></div></div><div class="num">99%<span class="l">confidence</span></div></div>
+          <div class="actions"><button class="mini-btn approve">✓ Confirm seen</button></div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

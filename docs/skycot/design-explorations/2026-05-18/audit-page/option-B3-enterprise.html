@@ -1,0 +1,1014 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audit — SKYCOT</title>
+<!-- Design language: B3 original (light block-explorer) tuned for ENTERPRISE.
+     Fonts swapped: Inter throughout (no Audiowide). Inter weight 300 for editorial display numbers,
+     500/600 for headings, 400 for body. JetBrains Mono kept for hashes.
+     "View block →" opens a centered pop-out modal (shown open here on block #1242). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --purple-deep: #6d28d9;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --soft-purple: #f3e8ff;
+    --soft-pink: #fce7f3;
+    --ink: #1e1b4b;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #F9FAFB;
+    --paper-2: #F3F4F6;
+    --line: #ece9f5;
+    --line-2: #D1D5DB;
+    --bg: #fafaff;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+    position: relative;
+  }
+  body::before {
+    content: ""; position: fixed; top: -20%; right: -10%;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+  body::after {
+    content: ""; position: fixed; bottom: -30%; left: -10%;
+    width: 800px; height: 800px;
+    background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+  .app, .topbar, .modal-backdrop { position: relative; z-index: 1; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0; }
+
+  /* Top bar */
+  .topbar {
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 32px;
+    display: flex; align-items: center; gap: 24px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 16px; font-weight: 400; letter-spacing: 0.10em;
+  }
+  .topnav { display: flex; gap: 4px; }
+  .topnav a {
+    padding: 6px 12px; border-radius: 6px;
+    color: var(--ink-2); text-decoration: none;
+    font-size: 13.5px; font-weight: 500;
+  }
+  .topnav a.active { background: var(--paper-2); color: var(--ink); }
+  .topnav a:hover { color: var(--ink); }
+  .search-big {
+    flex: 1; max-width: 520px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; border-radius: 8px;
+    background: var(--paper); border: 1px solid var(--line);
+    color: var(--ink-3); font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .search-big .kbd {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    padding: 2px 6px; border-radius: 4px;
+    background: var(--paper-2); color: var(--ink-3);
+  }
+  .right-side { display: flex; gap: 10px; align-items: center; }
+  .right-side .ws {
+    padding: 6px 12px; border-radius: 6px; background: var(--paper-2);
+    font-size: 13px; font-weight: 500;
+  }
+  .right-side .av {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--gradient); color: white;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 28px 32px 80px; }
+
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; letter-spacing: 0.02em; }
+  .crumb a { color: var(--ink-3); text-decoration: none; }
+  .page-h h1 {
+    font-family: 'Audiowide', 'Inter', sans-serif;
+    font-size: 36px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.1;
+    margin: 0;
+    color: var(--ink);
+  }
+  .page-h h1 strong {
+    font-weight: 400;
+    background: var(--gradient-3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+
+  /* Chain hero strip */
+  .chain-hero {
+    margin-top: 22px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(8,145,178,0.05));
+    border: 1px solid rgba(139,92,246,0.18);
+    border-radius: 14px;
+    padding: 20px 24px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 22px; align-items: center;
+  }
+  .chain-hero .left-h { display: flex; align-items: center; gap: 14px; }
+  .chain-hero .check {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal), var(--cyan));
+    color: white; display: grid; place-items: center;
+    font-size: 20px; font-weight: 500;
+    box-shadow: 0 8px 24px -8px rgba(20,184,166,0.4);
+  }
+  .chain-hero .title-blob h3 {
+    margin: 0;
+    font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+    color: #0F766E;
+  }
+  .chain-hero .title-blob p { margin: 2px 0 0; font-size: 13px; color: var(--ink-3); }
+  .chain-hero .mid { display: flex; gap: 28px; }
+  .chain-hero .stat .lbl {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .chain-hero .stat .val {
+    font-size: 18px; font-weight: 500;
+    color: var(--ink); margin-top: 4px;
+    letter-spacing: -0.01em;
+  }
+  .chain-hero .stat .val.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 500;
+  }
+  .chain-hero .stat .val.gradient {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    font-weight: 600;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2);
+    cursor: pointer;
+    letter-spacing: -0.005em;
+  }
+  .btn:hover { border-color: var(--ink-4); }
+  .btn.primary {
+    background: var(--gradient); color: white; border: none;
+    box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4);
+  }
+
+  /* KPIs */
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin: 22px 0;
+  }
+  .kpi {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .kpi .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .kpi .val {
+    font-size: 28px;
+    font-weight: 300;
+    margin-top: 6px;
+    letter-spacing: -0.025em;
+  }
+  .kpi.warn .val { color: #92400E; }
+  .kpi.grad .val {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    font-weight: 500;
+  }
+  .kpi .sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+  /* Section heading */
+  .section-h {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 28px 0 14px;
+  }
+  .section-h h2 {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+    margin: 0; color: var(--ink-2);
+    text-transform: uppercase;
+  }
+  .section-h .tabs { display: flex; gap: 4px; }
+  .section-h .tabs a {
+    padding: 5px 11px; border-radius: 6px;
+    font-size: 12.5px; color: var(--ink-3); text-decoration: none;
+    font-weight: 500;
+  }
+  .section-h .tabs a.on { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+
+  /* Blocks list */
+  .blocks {
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .blocks::before {
+    content: ''; position: absolute;
+    left: 36px; top: 32px; bottom: 32px; width: 2px;
+    background: linear-gradient(180deg, var(--purple), var(--cyan));
+    opacity: 0.25;
+    z-index: 0;
+  }
+  .block {
+    display: grid; grid-template-columns: 72px 1fr; gap: 14px;
+    position: relative; z-index: 1; margin-bottom: 14px;
+  }
+  .block .num-col { text-align: right; padding-top: 16px; }
+  .block .blk-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--bg); border: 2px solid var(--purple);
+    color: var(--purple);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    margin-right: 18px;
+  }
+  .block.warn .blk-num { border-color: var(--yellow); color: #92400E; background: #FFFBEB; }
+  .block.bad .blk-num { border-color: var(--coral); color: #B91C1C; background: #FEF2F2; }
+
+  .block-card {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 20px;
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  .block-card:hover {
+    border-color: var(--line-2);
+    box-shadow: 0 2px 10px -2px rgba(0,0,0,0.04);
+  }
+  .block.warn .block-card { border-left: 3px solid var(--yellow); }
+  .block.bad .block-card { border-left: 3px solid var(--coral); }
+
+  .block-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+  .block-top-l { display: flex; align-items: center; gap: 12px; }
+  .av {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: grid; place-items: center; color: white;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    background: var(--gradient);
+  }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .who {
+    font-weight: 600; color: var(--ink);
+    font-size: 14px; letter-spacing: -0.005em;
+  }
+  .who .role { color: var(--ink-3); font-weight: 400; font-size: 12.5px; }
+  .meta { font-size: 12.5px; color: var(--ink-3); }
+  .meta .ts { font-family: 'JetBrains Mono', monospace; color: var(--ink-2); font-size: 12px; }
+  .meta .kind {
+    margin-left: 12px;
+    padding: 2px 7px; border-radius: 4px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .pill.ok { background: rgba(20,184,166,0.10); color: #0F766E; } .pill.ok .dot { background: var(--teal); }
+  .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; } .pill.warn .dot { background: var(--yellow); }
+  .pill.bad { background: rgba(255,107,107,0.12); color: #B91C1C; } .pill.bad .dot { background: var(--coral); }
+
+  .block-body {
+    font-size: 14px; color: var(--ink-2); margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .block-body strong { color: var(--ink); font-weight: 600; }
+
+  /* Hash chain */
+  .hash-chain {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 10px; align-items: center;
+    padding: 10px 12px;
+    background: var(--paper);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .hash-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .hash-cell .lbl {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-family: 'Inter', sans-serif; font-weight: 600;
+  }
+  .hash-cell .h {
+    color: var(--ink-2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 500;
+  }
+  .hash-cell.self .h { color: var(--ink); font-weight: 600; }
+  .hash-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--gradient); color: white;
+    font-size: 14px; font-weight: 700;
+    box-shadow: 0 4px 12px -4px rgba(139,92,246,0.5);
+  }
+  .block-foot {
+    margin-top: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px;
+  }
+  .block-foot .left { display: flex; gap: 14px; color: var(--ink-3); }
+  .block-foot .left .cost { font-family: 'JetBrains Mono', monospace; color: var(--ink-2); font-size: 12px; }
+  .block-foot .view {
+    display: inline-flex; gap: 5px; align-items: center;
+    color: var(--purple); text-decoration: none; font-weight: 600; font-size: 13px;
+    cursor: pointer;
+  }
+  .block-foot .view:hover { color: var(--cyan); }
+
+  .pend-actions { margin-top: 10px; display: flex; gap: 8px; }
+  .pend-actions button {
+    padding: 7px 14px; border-radius: 7px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px; font-weight: 600;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink-2); cursor: pointer;
+    letter-spacing: -0.005em;
+  }
+  .pend-actions .approve {
+    background: var(--teal); color: white; border-color: var(--teal);
+    box-shadow: 0 4px 12px -4px rgba(20,184,166,0.4);
+  }
+  .pend-actions .reject { color: var(--coral); border-color: var(--coral); }
+
+  /* Pager */
+  .pager {
+    margin-top: 22px; display: flex; align-items: center; justify-content: space-between;
+    color: var(--ink-3); font-size: 12.5px;
+  }
+  .pager .right { display: flex; gap: 6px; }
+  .pager .right button {
+    padding: 6px 11px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink-2);
+    font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 500;
+    cursor: pointer;
+  }
+  .pager .right button.on { background: var(--gradient); color: white; border: none; }
+
+  .stamp {
+    margin-top: 30px; text-align: center;
+    font-size: 11.5px; color: var(--ink-4); letter-spacing: 0.04em;
+  }
+
+  /* — Pop-out modal — */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(24,24,27,0.45);
+    backdrop-filter: blur(6px);
+    display: grid; place-items: center;
+    padding: 40px;
+    animation: fade-in 0.2s ease-out;
+  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .modal {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    width: 100%; max-width: 720px;
+    max-height: calc(100vh - 80px);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    box-shadow:
+      0 24px 60px -12px rgba(0,0,0,0.25),
+      0 8px 24px -8px rgba(139,92,246,0.15);
+    animation: pop-in 0.25s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .modal-head {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.04), rgba(8,145,178,0.04));
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .modal-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    color: var(--purple);
+    background: rgba(139,92,246,0.08);
+    padding: 4px 9px; border-radius: 5px;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  .modal-head h2 {
+    margin: 0;
+    font-size: 22px; font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .modal-head .sub {
+    margin-top: 4px;
+    font-size: 14px; color: var(--ink-3);
+    line-height: 1.5;
+  }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink-3);
+    font-size: 14px; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .modal-close:hover { background: var(--paper-2); color: var(--ink); }
+
+  .modal-actions {
+    margin-top: 14px;
+    display: flex; gap: 8px;
+  }
+  .modal-actions .btn { padding: 8px 14px; font-size: 13px; }
+  .modal-actions .btn.approve {
+    background: var(--teal); color: white; border-color: var(--teal);
+    box-shadow: 0 4px 12px -4px rgba(20,184,166,0.4);
+  }
+  .modal-actions .btn.reject { color: var(--coral); border-color: var(--coral); }
+
+  .modal-body {
+    flex: 1; overflow-y: auto;
+    padding: 22px 24px;
+  }
+  .section { margin-bottom: 24px; }
+  .section:last-child { margin-bottom: 0; }
+  .section-label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3);
+    margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .v-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    background: rgba(20,184,166,0.10); color: #0F766E;
+    font-size: 10.5px; font-weight: 600;
+    text-transform: none; letter-spacing: 0;
+  }
+  .v-tag .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .v-tag.violet {
+    background: rgba(139,92,246,0.10); color: var(--purple);
+  }
+  .v-tag.violet .dot { background: var(--purple); }
+
+  .modal .chain-detail {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .chain-row {
+    display: grid; grid-template-columns: 76px 1fr; gap: 12px;
+    align-items: center;
+    padding: 8px 10px; border-radius: 6px;
+  }
+  .chain-row.this {
+    background: rgba(139,92,246,0.07);
+  }
+  .chain-row .lbl {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 700;
+  }
+  .chain-row .h {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink); overflow-wrap: anywhere;
+    font-weight: 500;
+  }
+  .chain-row.this .h { color: var(--purple); font-weight: 600; }
+  .chain-row.this .lbl { color: var(--purple); }
+  .chain-arrow { text-align: center; color: var(--ink-4); font-family: monospace; font-size: 11px; margin: 2px 0; letter-spacing: 0.1em; }
+
+  .meta-grid {
+    display: grid; grid-template-columns: 120px 1fr; gap: 8px 16px;
+    font-size: 13.5px;
+  }
+  .meta-grid .k {
+    color: var(--ink-3);
+    text-transform: uppercase; font-size: 11px; letter-spacing: 0.08em;
+    padding-top: 3px; font-weight: 600;
+  }
+  .meta-grid .v {
+    color: var(--ink); font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .meta-grid .v .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+  .meta-grid .v .badge {
+    display: inline-block;
+    background: rgba(252,211,77,0.22); color: #92400E;
+    padding: 2px 7px; border-radius: 4px;
+    font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-left: 4px;
+  }
+
+  pre.json {
+    background: #0F0F14; color: #E4E4E7;
+    border-radius: 10px;
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    line-height: 1.65;
+    overflow-x: auto;
+    margin: 0;
+    font-weight: 500;
+  }
+  pre.json .k { color: #A78BFA; }
+  pre.json .s { color: #5EEAD4; }
+  pre.json .n { color: #FCD34D; }
+  pre.json .c { color: #71717A; }
+
+  .modal-foot {
+    padding: 14px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--paper);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; color: var(--ink-3);
+  }
+  .modal-foot .left { display: flex; gap: 12px; align-items: center; }
+  .modal-foot .left .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .modal-foot .right { display: flex; gap: 6px; }
+
+  /* Background page slightly muted when modal is open */
+  body.modal-open .wrap { filter: blur(2px); }
+</style>
+</head>
+<body class="modal-open">
+
+<header class="topbar">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <nav class="topnav">
+    <a href="#">Home</a>
+    <a href="#">Workers</a>
+    <a href="#">Team</a>
+    <a class="active" href="#">Audit</a>
+    <a href="#">Skills</a>
+    <a href="#">Cohorts</a>
+  </nav>
+  <div class="search-big">⌕ search by block #, worker, hash, ticket…<span class="kbd">⌘K</span></div>
+  <div class="right-side"><span class="ws">Acme Corp · prod</span><div class="av">MH</div></div>
+</header>
+
+<main class="wrap">
+  <div class="crumb"><a href="#">Audit</a> · Chain explorer</div>
+  <div class="page-h">
+    <h1>Block <strong>#1,247</strong> · chain head</h1>
+    <p>The last ten blocks in the Acme Corp audit chain. Each block is hash-linked to the one before it — tamper any block and every block after it breaks.</p>
+  </div>
+
+  <div class="chain-hero">
+    <div class="left-h">
+      <div class="check">✓</div>
+      <div class="title-blob">
+        <h3>Chain verified · 1,247 blocks · 0 breaks</h3>
+        <p>SHA-256 hash chain · last verify 2 seconds ago · replay deterministic</p>
+      </div>
+    </div>
+    <div class="mid">
+      <div class="stat"><div class="lbl">Latest block</div><div class="val gradient">#1,247</div></div>
+      <div class="stat"><div class="lbl">Chain head</div><div class="val mono">812d499b…0ab7</div></div>
+      <div class="stat"><div class="lbl">Breaks</div><div class="val" style="color:var(--teal)">0</div></div>
+      <div class="stat"><div class="lbl">Genesis</div><div class="val mono">000a1b2c…0001</div></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn">⤓ Proof bundle</button>
+      <button class="btn primary">↻ Re-verify</button>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi grad"><div class="label">Blocks today</div><div class="val">17</div><div class="sub">+4 vs yesterday</div></div>
+    <div class="kpi warn"><div class="label">Pending you</div><div class="val">7</div><div class="sub">2 over 1h old</div></div>
+    <div class="kpi"><div class="label">Spend today</div><div class="val">$0.094</div><div class="sub">avg $0.0055 / block</div></div>
+    <div class="kpi"><div class="label">Refused (policy)</div><div class="val">1</div><div class="sub">duplicate-invoice rule</div></div>
+  </div>
+
+  <div class="section-h">
+    <h2>Recent blocks</h2>
+    <div class="tabs">
+      <a class="on" href="#">All · 17</a>
+      <a href="#">Pending · 7</a>
+      <a href="#">Refused · 1</a>
+      <a href="#">approval.ask</a>
+      <a href="#">policy.refuse</a>
+    </div>
+  </div>
+
+  <div class="blocks">
+
+    <div class="block">
+      <div class="num-col"><div class="blk-num">1247</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av">JM</div>
+            <div>
+              <div class="who">Jamal <span class="role">· Support</span></div>
+              <div class="meta"><span class="ts">10:42:18 · 2026-05-18</span><span class="kind">tool.result</span></div>
+            </div>
+          </div>
+          <div><span class="pill ok"><span class="dot"></span>Succeeded</span></div>
+        </div>
+        <div class="block-body">Resolved ticket <strong>SUP-29382</strong> using KB article <strong>SK-413</strong>. Customer sentiment: resolved.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1246)</span><span class="h">d4c81a9f1c20af3b8a91…2e4a</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1247)</span><span class="h">7f3a91c20b8e688a1d44…b8e6</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span class="cost">$0.004</span><span>· claude-sonnet-4-6 · 1.8s</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="num-col"><div class="blk-num">1246</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av s">SL</div>
+            <div>
+              <div class="who">Sara <span class="role">· Invoice ops</span></div>
+              <div class="meta"><span class="ts">10:38:02 · 2026-05-18</span><span class="kind">tool.result</span></div>
+            </div>
+          </div>
+          <div><span class="pill ok"><span class="dot"></span>Succeeded</span></div>
+        </div>
+        <div class="block-body">Extracted line items from <strong>INV-2024-08741</strong> — 12 lines totalling $48,290.00.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1245)</span><span class="h">7f3a91c20b8e688a1d44…b8e6</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1246)</span><span class="h">a1b9c3e4d529f0721a8c…f209</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span class="cost">$0.012</span><span>· gpt-4o · 3.1s</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="num-col"><div class="blk-num">1245</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av p">PR</div>
+            <div>
+              <div class="who">Priya <span class="role">· Recruiting</span></div>
+              <div class="meta"><span class="ts">10:31:55 · 2026-05-18</span><span class="kind">tool.result</span></div>
+            </div>
+          </div>
+          <div><span class="pill ok"><span class="dot"></span>Succeeded</span></div>
+        </div>
+        <div class="block-body">Screened candidate <strong>Diego Alvarez</strong> against <strong>JD-2024-08</strong>. Match score 8.2/10.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1244)</span><span class="h">a1b9c3e4d529f0721a8c…f209</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1245)</span><span class="h">e8d2447a6614c019b3df…1c33</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span class="cost">$0.014</span><span>· claude-opus-4-7 · 4.2s</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="num-col"><div class="blk-num">1244</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av n">NM</div>
+            <div>
+              <div class="who">Nori <span class="role">· Quote ops</span></div>
+              <div class="meta"><span class="ts">10:24:31 · 2026-05-18</span><span class="kind">tool.result</span></div>
+            </div>
+          </div>
+          <div><span class="pill ok"><span class="dot"></span>Succeeded</span></div>
+        </div>
+        <div class="block-body">Validated <strong>QT-2024-7283</strong> against pricing rules. Within tolerance.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1243)</span><span class="h">e8d2447a6614c019b3df…1c33</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1244)</span><span class="h">3c5f8e09a72de1448e0d…d447</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span class="cost">$0.008</span><span>· claude-sonnet-4-6 · 2.0s</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="num-col"><div class="blk-num">1243</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av m">MA</div>
+            <div>
+              <div class="who">Mariah <span class="role">· Sales ops</span></div>
+              <div class="meta"><span class="ts">10:18:08 · 2026-05-18</span><span class="kind">tool.result</span></div>
+            </div>
+          </div>
+          <div><span class="pill ok"><span class="dot"></span>Succeeded</span></div>
+        </div>
+        <div class="block-body">Drafted RFP response for <strong>Tomás Industries</strong>. 1,240 words across 4 sections (overview, technical, security &amp; compliance, pricing).</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1242)</span><span class="h">3c5f8e09a72de1448e0d…d447</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1243)</span><span class="h">b2a7c193e441f8d62905…ee01</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span class="cost">$0.021</span><span>· claude-opus-4-7 · 9.8s</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="block warn">
+      <div class="num-col"><div class="blk-num">1242</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av n">NM</div>
+            <div>
+              <div class="who">Nori <span class="role">· Quote ops</span></div>
+              <div class="meta"><span class="ts">10:11:42 · 2026-05-18</span><span class="kind">approval.ask</span></div>
+            </div>
+          </div>
+          <div><span class="pill warn"><span class="dot"></span>Pending you</span></div>
+        </div>
+        <div class="block-body">Flagged <strong>32% discount</strong> on QT-2024-7283 — exceeds the 25% threshold from your pricing policy. Escalating for your review before the quote is sent.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1241)</span><span class="h">b2a7c193e441f8d62905…ee01</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1242)</span><span class="h">9d142a8c80f6e1bd9a44…7b15</span></div>
+        </div>
+        <div class="pend-actions">
+          <button class="approve">Approve discount</button>
+          <button class="reject">Reject &amp; refer back</button>
+          <button>Discuss with Nori</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="block bad">
+      <div class="num-col"><div class="blk-num">1241</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av s">SL</div>
+            <div>
+              <div class="who">Sara <span class="role">· Invoice ops</span></div>
+              <div class="meta"><span class="ts">10:04:17 · 2026-05-18</span><span class="kind">policy.refuse</span></div>
+            </div>
+          </div>
+          <div><span class="pill bad"><span class="dot"></span>Refused</span></div>
+        </div>
+        <div class="block-body">Refused duplicate invoice <strong>INV-2024-08739</strong>. Matches hash of invoice INV-2024-08712 processed 11 days ago. Policy: <code>no_duplicate_invoice_30d</code>.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1240)</span><span class="h">9d142a8c80f6e1bd9a44…7b15</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1241)</span><span class="h">f08c1973aacd55b14a8e…aab2</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span>Refusal is itself audited and explainable.</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="block warn">
+      <div class="num-col"><div class="blk-num">1240</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av p">PR</div>
+            <div>
+              <div class="who">Priya <span class="role">· Recruiting</span></div>
+              <div class="meta"><span class="ts">09:58:09 · 2026-05-18</span><span class="kind">approval.ask</span></div>
+            </div>
+          </div>
+          <div><span class="pill warn"><span class="dot"></span>Pending you</span></div>
+        </div>
+        <div class="block-body">Drafted rejection email to <strong>Sara Lin</strong>. Tone: warm-professional. Outbound communication policy requires human signoff.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1239)</span><span class="h">f08c1973aacd55b14a8e…aab2</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1240)</span><span class="h">5a73e2c80a4c1b2f55c2…9f44</span></div>
+        </div>
+        <div class="pend-actions">
+          <button class="approve">Approve &amp; send</button>
+          <button class="reject">Reject draft</button>
+          <button>Edit before send</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="num-col"><div class="blk-num">1239</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av m">MA</div>
+            <div>
+              <div class="who">Mariah <span class="role">· Sales ops</span></div>
+              <div class="meta"><span class="ts">09:52:48 · 2026-05-18</span><span class="kind">tool.result</span></div>
+            </div>
+          </div>
+          <div><span class="pill ok"><span class="dot"></span>Succeeded</span></div>
+        </div>
+        <div class="block-body">Scheduled <strong>Q3 renewal review</strong> with Acme Tech on 2026-08-12 at 14:00 AEDT.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1238)</span><span class="h">5a73e2c80a4c1b2f55c2…9f44</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1239)</span><span class="h">cc40b8a7710fde2cd4c1…03d1</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span class="cost">$0.000</span><span>· gcal.create_event</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="num-col"><div class="blk-num">1238</div></div>
+      <div class="block-card">
+        <div class="block-top">
+          <div class="block-top-l">
+            <div class="av">JM</div>
+            <div>
+              <div class="who">Jamal <span class="role">· Support</span></div>
+              <div class="meta"><span class="ts">09:47:33 · 2026-05-18</span><span class="kind">tool.result</span></div>
+            </div>
+          </div>
+          <div><span class="pill ok"><span class="dot"></span>Succeeded</span></div>
+        </div>
+        <div class="block-body">Escalated <strong>SUP-29355</strong> to <strong>@lead-support</strong>. Sentiment: frustrated. Waited 4h12m.</div>
+        <div class="hash-chain">
+          <div class="hash-cell"><span class="lbl">Parent (#1237)</span><span class="h">cc40b8a7710fde2cd4c1…03d1</span></div>
+          <div class="hash-arrow">→</div>
+          <div class="hash-cell self"><span class="lbl">This block (#1238)</span><span class="h">812d499b3f1a7c40e9b1…0ab7</span></div>
+        </div>
+        <div class="block-foot">
+          <div class="left"><span class="cost">$0.000</span><span>· slack.dm</span></div>
+          <a href="#" class="view">View block →</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="pager">
+    <div>Showing 10 of 1,247 blocks · genesis 2025-09-12 · head 2026-05-18 10:42</div>
+    <div class="right">
+      <button>← Older</button>
+      <button class="on">1</button>
+      <button>2</button>
+      <button>3</button>
+      <button>…</button>
+      <button>125</button>
+      <button>Newer →</button>
+    </div>
+  </div>
+
+  <div class="stamp">SKYCOT audit subsystem v1.0 · SOC 2 Type II eligible · GDPR Article 30 compliant</div>
+</main>
+
+<!-- — Pop-out modal (shown open here on Block #1,242) — -->
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <button class="modal-close">✕</button>
+      <div class="modal-tag">Block #1,242</div>
+      <h2>Discount approval requested</h2>
+      <div class="sub">Nori flagged a 32% discount on QT-2024-7283 — exceeds your 25% threshold. Awaiting your decision before the quote goes to Tomás Industries.</div>
+      <div class="modal-actions">
+        <button class="btn approve">✓ Approve discount</button>
+        <button class="btn reject">✕ Reject &amp; refer back</button>
+        <button class="btn">💬 Discuss with Nori</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+
+      <div class="section">
+        <div class="section-label">Hash chain <span class="v-tag"><span class="dot"></span>verified · signature OK</span></div>
+        <div class="chain-detail">
+          <div class="chain-row">
+            <div class="lbl">Parent</div>
+            <div class="h">b2a7c193e441f8d62905a7c8e1d4f0b6a392c1e8d4f7a5b3c2e6d1f8a4b9c7d5…ee01</div>
+          </div>
+          <div class="chain-arrow">↓ sha-256 ↓</div>
+          <div class="chain-row this">
+            <div class="lbl">This block</div>
+            <div class="h">9d142a8c80f6e1bd9a44e7c1d2f3a6b8c5e4d7a1f8b9c2e6d3a4f5b7c8e9d0a1…7b15</div>
+          </div>
+          <div class="chain-arrow">↓ chained into ↓</div>
+          <div class="chain-row">
+            <div class="lbl">Next</div>
+            <div class="h">f08c1973aacd55b14a8e9c1d4f2a5b8c3e7d6a4f1b9c8e5d2a6f3b4c7e8d1a5…aab2</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Metadata</div>
+        <div class="meta-grid">
+          <div class="k">Tenant</div><div class="v">acme-corp</div>
+          <div class="k">Worker</div><div class="v">Nori <span class="mono">// quote_validator_v3</span></div>
+          <div class="k">Triggered by</div><div class="v">QT-2024-7283 created in Salesforce, 8 minutes earlier</div>
+          <div class="k">Model</div><div class="v"><span class="mono">claude-sonnet-4-6</span></div>
+          <div class="k">Latency</div><div class="v"><span class="mono">2.0s</span> · 1,847 in / 230 out tokens</div>
+          <div class="k">Policy hit</div><div class="v"><span class="mono">discount.max=25%</span> <span class="badge">VIOLATION · WARN</span></div>
+          <div class="k">SLA expires</div><div class="v"><span class="mono">2026-05-18T12:11:42Z</span> (in 1h 22m)</div>
+          <div class="k">Replay</div><div class="v"><span class="mono">deterministic</span> · verified 10:12</div>
+          <div class="k">Skill chain</div><div class="v"><span class="mono">crm.fetch_quote → pricing.discount_review → audit.escalate</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Event body <span class="v-tag violet"><span class="dot"></span>decrypted in-tenant</span></div>
+<pre class="json">{
+  <span class="k">"kind"</span>: <span class="s">"approval.ask"</span>,
+  <span class="k">"reason"</span>: <span class="s">"discount_exceeds_threshold"</span>,
+  <span class="k">"target"</span>: {
+    <span class="k">"quote_id"</span>: <span class="s">"QT-2024-7283"</span>,
+    <span class="k">"customer"</span>: <span class="s">"Tomás Industries"</span>,
+    <span class="k">"list_price"</span>: <span class="n">48290.00</span>,
+    <span class="k">"discount_pct"</span>: <span class="n">32.0</span>,
+    <span class="k">"discounted_total"</span>: <span class="n">32837.20</span>
+  },
+  <span class="k">"policy"</span>: {
+    <span class="k">"rule"</span>: <span class="s">"discount.max"</span>,
+    <span class="k">"threshold"</span>: <span class="n">25.0</span>,
+    <span class="k">"action_on_violation"</span>: <span class="s">"escalate"</span>
+  },
+  <span class="k">"requires_approval_from"</span>: <span class="s">"role:sales_leader"</span>,
+  <span class="k">"sla_expires_at"</span>: <span class="s">"2026-05-18T12:11:42Z"</span>
+}</pre>
+      </div>
+
+    </div>
+
+    <div class="modal-foot">
+      <div class="left">
+        <span>Block <span class="mono">#1,242</span></span>
+        <span>·</span>
+        <span>SHA-256 verified ✓</span>
+      </div>
+      <div class="right">
+        <button class="btn">⤓ Export proof</button>
+        <button class="btn">▷ Replay this block</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Skills — SKYCOT (C · Integration Directory)</title>
+<!-- Design language: C — Zapier-style integration directory.
+     Skills organized by SaaS integration. Each integration is a section with its skills nested.
+     Best for buyers who think "I need to connect Zendesk" not "I need zendesk.read". -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 32px 40px 80px; max-width: 1280px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; }
+  .page-h h1 { font-size: 32px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+  .btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Integration grid - choose an integration first */
+  .integration-grid {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    gap: 10px; margin-bottom: 28px;
+  }
+  .integration-tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center; cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .integration-tile:hover { transform: translateY(-1px); border-color: var(--line-2); }
+  .integration-tile.on {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.08);
+    background: rgba(139,92,246,0.03);
+  }
+  .integration-tile .logo {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: grid; place-items: center; color: white;
+    font-size: 12px; font-weight: 700;
+    margin: 0 auto 6px;
+  }
+  .integration-tile .logo.zen { background: linear-gradient(135deg, #03363D, #5EAB73); }
+  .integration-tile .logo.ns { background: linear-gradient(135deg, #1D364A, #4CA9DB); }
+  .integration-tile .logo.sf { background: linear-gradient(135deg, #00A1E0, #1798c1); }
+  .integration-tile .logo.slack { background: linear-gradient(135deg, #4A154B, #ECB22E); }
+  .integration-tile .logo.gcal { background: linear-gradient(135deg, #4285F4, #34A853); }
+  .integration-tile .logo.bhr { background: linear-gradient(135deg, #74C146, #228B22); }
+  .integration-tile .logo.docusign { background: linear-gradient(135deg, #FFCC22, #FF6F00); }
+  .integration-tile .logo.gmail { background: linear-gradient(135deg, #EA4335, #FBBC04); }
+
+  .integration-tile .name { font-size: 12px; font-weight: 700; letter-spacing: -0.005em; }
+  .integration-tile .ct { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+  .integration-tile.on .ct { color: var(--purple); }
+  .integration-tile .status-dot { display: block; width: 5px; height: 5px; border-radius: 50%; background: var(--teal); margin: 4px auto 0; }
+  .integration-tile.disconnected .status-dot { background: var(--ink-4); }
+
+  /* Selected integration section */
+  .integration-section { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 28px 32px; }
+  .integration-h { display: flex; align-items: center; gap: 16px; padding-bottom: 22px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  .integration-h .logo-big {
+    width: 56px; height: 56px; border-radius: 14px;
+    background: linear-gradient(135deg, #03363D, #5EAB73); color: white;
+    display: grid; place-items: center; font-size: 18px; font-weight: 700;
+  }
+  .integration-h h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .integration-h .meta { font-size: 13px; color: var(--ink-3); margin-top: 2px; }
+  .integration-h .meta strong { color: var(--ink); font-weight: 600; }
+  .integration-h .conn-status { margin-left: auto; }
+  .integration-h .conn-status .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; background: rgba(20,184,166,0.10); color: #0F766E; font-size: 12px; font-weight: 700; }
+  .integration-h .conn-status .pill .d { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+
+  /* Skill row within integration */
+  .skill-row {
+    display: grid; grid-template-columns: 1fr 200px 100px 130px;
+    gap: 18px; align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .skill-row:last-child { border-bottom: none; }
+  .skill-row .info .name { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .skill-row .info .name .install-badge {
+    margin-left: 8px;
+    padding: 1px 7px; border-radius: 4px;
+    background: rgba(20,184,166,0.10); color: #0F766E;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .skill-row .info .desc { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+  .skill-row .perms { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .skill-row .perms .pill { padding: 2px 6px; border-radius: 3px; background: var(--paper-2); color: var(--ink-2); margin-right: 3px; }
+  .skill-row .cost { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: var(--ink); text-align: right; }
+  .skill-row .cost .sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-3); font-weight: 500; display: block; }
+  .skill-row .actions { display: flex; gap: 5px; justify-content: flex-end; }
+  .skill-row .actions button { padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .skill-row .actions .primary { background: var(--gradient); color: white; border: none; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a class="active" href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Skills by <strong>integration</strong></h1>
+        <p>43 skills across 14 integrations. Connect the apps you already use.</p>
+      </div>
+      <button class="btn primary">+ Add new integration</button>
+    </div>
+
+    <div class="integration-grid">
+      <div class="integration-tile on"><div class="logo zen">ZD</div><div class="name">Zendesk</div><div class="ct">3 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile"><div class="logo ns">NS</div><div class="name">NetSuite</div><div class="ct">5 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile"><div class="logo sf">SF</div><div class="name">Salesforce</div><div class="ct">7 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile"><div class="logo slack">SL</div><div class="name">Slack</div><div class="ct">3 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile"><div class="logo gmail">GM</div><div class="name">Gmail</div><div class="ct">4 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile"><div class="logo gcal">GC</div><div class="name">Calendar</div><div class="ct">2 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile disconnected"><div class="logo docusign">DS</div><div class="name">DocuSign</div><div class="ct">3 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile disconnected"><div class="logo bhr">BH</div><div class="name">BambooHR</div><div class="ct">2 SKILLS</div><span class="status-dot"></span></div>
+      <div class="integration-tile disconnected"><div class="logo" style="background:var(--paper-2);color:var(--ink-3);font-weight:300;font-size:18px">+</div><div class="name">Add more</div><div class="ct">6 MORE</div></div>
+    </div>
+
+    <div class="integration-section">
+      <div class="integration-h">
+        <div class="logo-big">ZD</div>
+        <div>
+          <h2>Zendesk</h2>
+          <div class="meta">Connected via <strong>OAuth</strong> · 3 skills · 1,455 calls / 7 days · last sync <strong>2s ago</strong></div>
+        </div>
+        <div class="conn-status">
+          <span class="pill"><span class="d"></span>Connected</span>
+        </div>
+      </div>
+
+      <div class="skill-row">
+        <div class="info">
+          <div class="name">zendesk.read <span class="install-badge">INSTALLED</span></div>
+          <div class="desc">Read tickets, conversations, attachments, and customer history from Zendesk.</div>
+        </div>
+        <div class="perms">
+          <span class="pill">tickets.read</span>
+          <span class="pill">users.read</span>
+        </div>
+        <div class="cost">$0.003<span class="sub">/ call</span></div>
+        <div class="actions"><button>Configure</button></div>
+      </div>
+
+      <div class="skill-row">
+        <div class="info">
+          <div class="name">zendesk.reply <span class="install-badge">INSTALLED</span></div>
+          <div class="desc">Draft and send replies on Zendesk tickets. Outbound comms require approval per policy.</div>
+        </div>
+        <div class="perms">
+          <span class="pill">tickets.write</span>
+          <span class="pill">outbound</span>
+        </div>
+        <div class="cost">$0.004<span class="sub">/ call</span></div>
+        <div class="actions"><button>Configure</button></div>
+      </div>
+
+      <div class="skill-row">
+        <div class="info">
+          <div class="name">zendesk.escalate</div>
+          <div class="desc">Reassign a ticket to a different agent group or escalate priority based on policy.</div>
+        </div>
+        <div class="perms">
+          <span class="pill">tickets.assign</span>
+          <span class="pill">priority.write</span>
+        </div>
+        <div class="cost">$0.002<span class="sub">/ call</span></div>
+        <div class="actions"><button class="primary">Install</button></div>
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

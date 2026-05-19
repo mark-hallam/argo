@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Approvals — SKYCOT (E · Ops Dashboard)</title>
+<!-- Design language: E — OPS DASHBOARD.
+     KPI strip at top: oldest pending, SLA breaches, total $$$ at risk, decision rate.
+     Severity-ranked queue below. Sub-rows: SLA bars, $ at risk, confidence.
+     Power-user / ops director view. Best for someone overseeing many approvals. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --purple-deep: #6d28d9; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --soft-purple: #f3e8ff; --soft-pink: #fce7f3;
+    --ink: #1e1b4b; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #fafaff;
+    --line: #ece9f5; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; position: relative; }
+  body::before { content: ""; position: fixed; top: -20%; right: -10%; width: 700px; height: 700px; background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  body::after { content: ""; position: fixed; bottom: -30%; left: -10%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%); z-index: 0; pointer-events: none; }
+  .app { position: relative; z-index: 1; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 16px; font-weight: 400; letter-spacing: 0.10em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .badge { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--paper-2); color: var(--ink-2); font-family: 'JetBrains Mono', monospace; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 36px 80px; max-width: 1500px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; }
+  .page-h h1 { font-family: 'Audiowide', 'Inter', sans-serif; font-size: 36px; font-weight: 400; letter-spacing: 0; line-height: 1.1; margin: 0; }
+  .page-h h1 strong { font-weight: 400; background: var(--gradient-3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* KPI strip */
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+  .kpi { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .kpi .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 600; }
+  .kpi .val { font-size: 28px; font-weight: 300; letter-spacing: -0.025em; margin-top: 4px; }
+  .kpi.warn .val { color: #92400E; font-weight: 500; }
+  .kpi.bad .val { color: var(--coral); font-weight: 500; }
+  .kpi.grad .val { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 500; }
+  .kpi .sub { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+  .kpi .sub strong { color: var(--ink); font-weight: 600; }
+
+  /* Severity ranks */
+  .row-severity { margin-top: 20px; }
+  .severity-h { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; }
+  .severity-h.urgent { color: var(--coral); }
+  .severity-h.elevated { color: #92400E; }
+  .severity-h.normal { color: var(--ink-3); }
+  .severity-h .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .severity-h.urgent .dot { background: var(--coral); box-shadow: 0 0 6px var(--coral); }
+  .severity-h.elevated .dot { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .severity-h.normal .dot { background: var(--ink-3); }
+  .severity-h .ct { font-family: 'JetBrains Mono', monospace; color: var(--ink-3); font-weight: 600; }
+
+  /* Approval rows */
+  .table { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
+  .row {
+    display: grid;
+    grid-template-columns: 36px 1fr 160px 100px 110px 140px 200px;
+    gap: 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--paper); }
+  .row.urgent { background: rgba(255,107,107,0.03); border-left: 3px solid var(--coral); padding-left: 15px; }
+  .row.elevated { background: rgba(252,211,77,0.03); border-left: 3px solid var(--yellow); padding-left: 15px; }
+  .row.normal {}
+
+  .row .av {
+    width: 30px; height: 30px; border-radius: 7px;
+    display: grid; place-items: center; color: white;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+  }
+  .row .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .row .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .row .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .row .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .row .subject {
+    font-size: 13.5px; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .row .subject .who { color: var(--ink-3); font-weight: 400; font-size: 12px; }
+  .row .subject .sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; font-weight: 400; }
+
+  .row .sla-cell { font-size: 12px; }
+  .row .sla-cell .bar {
+    height: 4px; background: var(--paper-2); border-radius: 2px;
+    overflow: hidden; margin-bottom: 4px;
+  }
+  .row .sla-cell .bar .fill {
+    height: 100%; border-radius: 2px;
+  }
+  .row .sla-cell.crit .bar .fill { background: var(--coral); width: 90%; }
+  .row .sla-cell.warn .bar .fill { background: var(--yellow); width: 60%; }
+  .row .sla-cell.ok .bar .fill { background: var(--teal); width: 25%; }
+  .row .sla-cell .txt { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); }
+  .row .sla-cell.crit .txt { color: var(--coral); font-weight: 700; }
+
+  .row .risk { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: var(--ink); font-weight: 600; text-align: right; }
+  .row .risk.zero { color: var(--ink-4); }
+
+  .row .conf { display: flex; align-items: center; gap: 6px; }
+  .row .conf .donut { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+  .row .conf .donut.high { background: conic-gradient(var(--teal) 0 92%, var(--paper-2) 92% 100%); }
+  .row .conf .donut.mid { background: conic-gradient(var(--yellow) 0 70%, var(--paper-2) 70% 100%); }
+  .row .conf .donut.low { background: conic-gradient(var(--coral) 0 45%, var(--paper-2) 45% 100%); }
+  .row .conf .donut .inner {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--bg); margin: 4px;
+  }
+  .row .conf .pct { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink); font-weight: 600; }
+  .row .conf .pct .l { font-size: 10px; color: var(--ink-3); font-weight: 500; display: block; }
+
+  .row .kind {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    padding: 2px 7px; border-radius: 4px;
+    background: var(--paper-2); color: var(--ink-2);
+    text-align: center;
+  }
+  .row .kind.warn { background: rgba(252,211,77,0.18); color: #92400E; }
+  .row .kind.refuse { background: rgba(255,107,107,0.12); color: #B91C1C; }
+
+  .row .actions { display: flex; gap: 4px; }
+  .mini-btn {
+    padding: 5px 10px; border-radius: 5px;
+    font-size: 11px; font-weight: 600;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink-3); cursor: pointer;
+    white-space: nowrap;
+  }
+  .mini-btn.approve { background: var(--teal); color: white; border-color: var(--teal); }
+  .mini-btn.reject { color: var(--coral); border-color: var(--coral); }
+
+  /* Approval rate chart */
+  .stats-band {
+    margin-top: 24px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px 22px;
+    display: grid; grid-template-columns: 1fr 240px 240px 240px;
+    gap: 24px; align-items: center;
+  }
+  .stats-band .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 600; }
+  .stats-band .big { font-size: 22px; font-weight: 300; letter-spacing: -0.02em; margin-top: 4px; }
+  .stats-band .row-stat { display: flex; gap: 16px; align-items: center; }
+  .stats-band .ring { width: 64px; height: 64px; border-radius: 50%; background: conic-gradient(var(--teal) 0 78%, var(--coral) 78% 92%, var(--paper-2) 92% 100%); position: relative; }
+  .stats-band .ring .inner { width: 48px; height: 48px; border-radius: 50%; background: var(--bg); margin: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a class="active" href="#">✉ Approvals <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Approvals <strong>command</strong></h1>
+        <p>Severity-ranked queue · daily decision throughput</p>
+      </div>
+      <div style="display:flex;gap:8px;"><button class="btn">⊟ List view</button><button class="btn">⤓ Export</button><button class="btn primary">+ Bulk approve</button></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi bad"><div class="lbl">Over SLA</div><div class="val">2</div><div class="sub">Sara Lin email · 32% discount</div></div>
+      <div class="kpi warn"><div class="lbl">Oldest pending</div><div class="val">18h</div><div class="sub">Jamal · SUP closeout</div></div>
+      <div class="kpi"><div class="lbl">$ at risk</div><div class="val">$81,127</div><div class="sub">across 3 pending decisions</div></div>
+      <div class="kpi grad"><div class="lbl">Decisions today</div><div class="val">12</div><div class="sub"><strong>92%</strong> approve rate</div></div>
+      <div class="kpi"><div class="lbl">Avg time-to-decide</div><div class="val">14m</div><div class="sub">↓ 3m vs last week</div></div>
+    </div>
+
+    <div class="row-severity">
+      <div class="severity-h urgent"><span class="dot"></span>Urgent · over SLA <span class="ct">· 2</span></div>
+      <div class="table">
+
+        <div class="row urgent">
+          <div class="av p">PR</div>
+          <div class="subject">Rejection email to Sara Lin<div class="sub">Priya · Recruiting · awaiting send 44m</div></div>
+          <div class="sla-cell crit">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">⚠ 35m left</div>
+          </div>
+          <div class="risk zero">—</div>
+          <div class="conf">
+            <div class="donut high"><div class="inner"></div></div>
+            <div class="pct">92%<span class="l">conf</span></div>
+          </div>
+          <div><span class="kind warn">outbound.send</span></div>
+          <div class="actions">
+            <button class="mini-btn approve">Approve</button>
+            <button class="mini-btn">Edit</button>
+            <button class="mini-btn reject">Reject</button>
+          </div>
+        </div>
+
+        <div class="row urgent">
+          <div class="av n">NM</div>
+          <div class="subject">32% discount on QT-2024-7283<div class="sub">Nori · Quote · Tomás Industries · exceeds 25% threshold</div></div>
+          <div class="sla-cell crit">
+            <div class="bar"><div class="fill" style="width:60%;background:var(--coral)"></div></div>
+            <div class="txt">⚠ 1h 22m left</div>
+          </div>
+          <div class="risk">$48,290</div>
+          <div class="conf">
+            <div class="donut mid"><div class="inner"></div></div>
+            <div class="pct">70%<span class="l">conf</span></div>
+          </div>
+          <div><span class="kind warn">policy.discount</span></div>
+          <div class="actions">
+            <button class="mini-btn approve">Approve</button>
+            <button class="mini-btn">Counter</button>
+            <button class="mini-btn reject">Reject</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="row-severity">
+      <div class="severity-h elevated"><span class="dot"></span>Elevated · within SLA <span class="ct">· 4</span></div>
+      <div class="table">
+
+        <div class="row elevated">
+          <div class="av m">MA</div>
+          <div class="subject">RFP for Tomás Industries · send-to-customer<div class="sub">Mariah · Sales · 1,240 words · 4 sections · reviewed outline Tuesday</div></div>
+          <div class="sla-cell warn">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">3h 12m left</div>
+          </div>
+          <div class="risk">$32,837</div>
+          <div class="conf">
+            <div class="donut high"><div class="inner"></div></div>
+            <div class="pct">88%<span class="l">conf</span></div>
+          </div>
+          <div><span class="kind warn">outbound.send</span></div>
+          <div class="actions">
+            <button class="mini-btn approve">Approve</button>
+            <button class="mini-btn">Review</button>
+          </div>
+        </div>
+
+        <div class="row elevated">
+          <div class="av s">SL</div>
+          <div class="subject">GL override on INV-2024-08741 (6300 → 6420)<div class="sub">Sara · Invoice · vendor mapping mismatch · matches past 11 vendors</div></div>
+          <div class="sla-cell warn">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">4h 28m left</div>
+          </div>
+          <div class="risk zero">—</div>
+          <div class="conf">
+            <div class="donut high"><div class="inner"></div></div>
+            <div class="pct">92%<span class="l">conf</span></div>
+          </div>
+          <div><span class="kind warn">override</span></div>
+          <div class="actions">
+            <button class="mini-btn approve">Approve</button>
+            <button class="mini-btn">Keep</button>
+          </div>
+        </div>
+
+        <div class="row elevated">
+          <div class="av p">PR</div>
+          <div class="subject">Interview slot · Diego Alvarez · Wed 14:00<div class="sub">Priya · Recruiting · 90 min technical · 3-engineer panel</div></div>
+          <div class="sla-cell warn">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">5h 06m left</div>
+          </div>
+          <div class="risk zero">—</div>
+          <div class="conf">
+            <div class="donut high"><div class="inner"></div></div>
+            <div class="pct">94%<span class="l">conf</span></div>
+          </div>
+          <div><span class="kind warn">schedule</span></div>
+          <div class="actions">
+            <button class="mini-btn approve">Approve</button>
+            <button class="mini-btn">Reschedule</button>
+          </div>
+        </div>
+
+        <div class="row elevated">
+          <div class="av n">NM</div>
+          <div class="subject">QT-2024-7299 Net 60 terms exception<div class="sub">Nori · Quote · customer requested · default Net 30 · finance prefers Net 30</div></div>
+          <div class="sla-cell warn">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">6h 41m left</div>
+          </div>
+          <div class="risk">$28,400</div>
+          <div class="conf">
+            <div class="donut low"><div class="inner"></div></div>
+            <div class="pct">45%<span class="l">conf</span></div>
+          </div>
+          <div><span class="kind warn">policy.terms</span></div>
+          <div class="actions">
+            <button class="mini-btn approve">Approve</button>
+            <button class="mini-btn reject">Reject</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="row-severity">
+      <div class="severity-h normal"><span class="dot"></span>Normal <span class="ct">· 1</span></div>
+      <div class="table">
+
+        <div class="row normal">
+          <div class="av">JM</div>
+          <div class="subject">SUP-29355 escalation closeout<div class="sub">Jamal · Support · resolved by lead-support · confirm customer message seen</div></div>
+          <div class="sla-cell ok">
+            <div class="bar"><div class="fill"></div></div>
+            <div class="txt">18h since</div>
+          </div>
+          <div class="risk zero">—</div>
+          <div class="conf">
+            <div class="donut high"><div class="inner"></div></div>
+            <div class="pct">99%<span class="l">conf</span></div>
+          </div>
+          <div><span class="kind">closeout</span></div>
+          <div class="actions">
+            <button class="mini-btn approve">Confirm seen</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="stats-band">
+      <div>
+        <div class="lbl">7-day approval rate</div>
+        <div class="big">92%</div>
+        <div style="font-size:11.5px;color:var(--ink-3);margin-top:4px">↑ 4pts vs prior week</div>
+      </div>
+      <div class="row-stat">
+        <div class="ring"><div class="inner">78%</div></div>
+        <div>
+          <div class="lbl">Distribution</div>
+          <div style="font-size:11.5px;color:var(--ink-3);margin-top:4px"><span style="color:#0F766E;font-weight:600">78%</span> approved<br/><span style="color:var(--coral);font-weight:600">14%</span> rejected<br/><span style="color:var(--ink-3);font-weight:600">8%</span> snoozed</div>
+        </div>
+      </div>
+      <div>
+        <div class="lbl">Avg time-to-decide</div>
+        <div class="big">14m</div>
+        <div style="font-size:11.5px;color:var(--ink-3);margin-top:4px">SLA target 2h · doing well</div>
+      </div>
+      <div>
+        <div class="lbl">Override rate</div>
+        <div class="big">8%</div>
+        <div style="font-size:11.5px;color:var(--ink-3);margin-top:4px">workers learn from your decisions</div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

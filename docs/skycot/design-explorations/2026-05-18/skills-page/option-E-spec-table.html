@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Skills — SKYCOT (E · Spec Sheet Table)</title>
+<!-- Design language: E — Engineering spec sheet table.
+     Dense data table with full metadata. Sort, filter, compare. SRE / Datadog feel. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 24px 32px 80px; max-width: 1500px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .page-h h1 { font-size: 28px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 4px 0 0; font-size: 13.5px; }
+  .btn { padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Compact KPI strip */
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  .kpis .m { padding: 0 10px; border-right: 1px solid var(--line); }
+  .kpis .m:last-child { border-right: none; }
+  .kpis .m .l { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; }
+  .kpis .m .v { font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--ink); font-weight: 700; margin-top: 2px; }
+  .kpis .m.grad .v { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .chip { padding: 4px 11px; border-radius: 4px; border: 1px solid var(--line-2); background: var(--bg); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); font-weight: 600; cursor: pointer; }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+  .search { margin-left: auto; padding: 5px 10px; border-radius: 5px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-3); font-size: 12px; width: 240px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Table */
+  .table-wrap { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead { background: var(--paper-2); border-bottom: 1px solid var(--line); }
+  th { text-align: left; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 700; white-space: nowrap; cursor: pointer; }
+  th.r { text-align: right; }
+  th .sort { color: var(--ink-4); font-size: 9px; margin-left: 4px; }
+  th.active { color: var(--ink); }
+  th.active .sort { color: var(--purple); }
+  th.check { width: 30px; padding: 8px 4px 8px 12px; }
+
+  td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--ink-2); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--paper); }
+  tr.installed td { background: rgba(20,184,166,0.03); }
+
+  .cbx { width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid var(--line-2); background: var(--bg); display: inline-block; vertical-align: middle; }
+  .cbx.on { background: var(--purple); border-color: var(--purple); position: relative; }
+  .cbx.on::after { content: '✓'; color: white; font-size: 9px; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+  .name-cell { display: flex; align-items: center; gap: 8px; }
+  .name-cell .ic { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: white; font-size: 9.5px; font-weight: 700; }
+  .name-cell .ic.zen { background: linear-gradient(135deg, #03363D, #5EAB73); }
+  .name-cell .ic.ns { background: linear-gradient(135deg, #1D364A, #4CA9DB); }
+  .name-cell .ic.sf { background: linear-gradient(135deg, #00A1E0, #1798c1); }
+  .name-cell .ic.slack { background: linear-gradient(135deg, #4A154B, #ECB22E); }
+  .name-cell .ic.policy { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .name-cell .ic.email { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .name-cell .ic.gcal { background: linear-gradient(135deg, #4285F4, #34A853); }
+  .name-cell .ic.kb { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .name-cell .ic.docusign { background: linear-gradient(135deg, #FFCC22, #FF6F00); }
+  .name-cell .ic.ocr { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .name-cell .name { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; }
+  .name-cell .desc { font-size: 11px; color: var(--ink-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+
+  .pill { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 1px 6px; border-radius: 3px; background: var(--paper-2); color: var(--ink-2); display: inline-block; margin-right: 3px; }
+  .pill.installed { background: rgba(20,184,166,0.12); color: #0F766E; }
+  .pill.new { background: var(--gradient); color: white; }
+  .pill.popular { background: rgba(252,211,77,0.18); color: #92400E; }
+
+  .integration-cell { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); }
+
+  .workers-cell { display: flex; align-items: center; gap: -3px; }
+  .workers-cell .av { width: 18px; height: 18px; border-radius: 4px; display: grid; place-items: center; color: white; font-size: 7.5px; font-weight: 700; border: 1.5px solid var(--bg); margin-left: -5px; }
+  .workers-cell .av:first-child { margin-left: 0; }
+  .workers-cell .av.jm { background: var(--gradient); }
+  .workers-cell .av.sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .workers-cell .av.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .workers-cell .av.nm { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .workers-cell .av.ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .workers-cell .ct { margin-left: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+
+  .calls-cell { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); font-weight: 700; text-align: right; }
+  .calls-cell .spark { display: inline-block; margin-left: 6px; width: 36px; height: 14px; vertical-align: middle; }
+  .calls-cell .spark path { fill: none; stroke: var(--teal); stroke-width: 1.5; }
+
+  .cost-cell { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); font-weight: 700; text-align: right; }
+
+  .latency-cell { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); text-align: right; }
+
+  .rating-cell { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); font-weight: 700; }
+  .rating-cell .stars { color: var(--yellow); font-size: 11px; margin-right: 3px; }
+
+  .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .row-actions button { padding: 4px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; }
+  .row-actions .install { background: var(--gradient); color: white; border: none; }
+  .row-actions .configure { background: var(--bg); border: 1px solid var(--line); color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a class="active" href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Skills <strong>spec sheet</strong></h1>
+        <p>43 skills · sortable · filterable · side-by-side comparable</p>
+      </div>
+      <div style="display:flex;gap:6px"><button class="btn">⊟ Columns</button><button class="btn">⤓ Export CSV</button><button class="btn primary">+ Build custom</button></div>
+    </div>
+
+    <div class="kpis">
+      <div class="m grad"><div class="l">total skills</div><div class="v">43</div></div>
+      <div class="m"><div class="l">installed</div><div class="v">12</div></div>
+      <div class="m"><div class="l">calls / 7d</div><div class="v">3,847</div></div>
+      <div class="m"><div class="l">cost / 7d</div><div class="v">$2.41</div></div>
+      <div class="m"><div class="l">avg latency</div><div class="v">240ms</div></div>
+      <div class="m"><div class="l">integrations</div><div class="v">8</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <span class="chip on">ALL · 43</span>
+      <span class="chip">INSTALLED · 12</span>
+      <span class="chip">NEW · 4</span>
+      <span class="chip">TICKETS</span>
+      <span class="chip">CRM</span>
+      <span class="chip">FINANCE</span>
+      <span class="chip">COMMS</span>
+      <span class="chip">POLICY</span>
+      <div class="search">⌕ grep skills, integrations…</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="check"><span class="cbx"></span></th>
+            <th class="active">Skill <span class="sort">▼</span></th>
+            <th>Category</th>
+            <th>Integration</th>
+            <th>Used by</th>
+            <th class="r">Calls / 7d</th>
+            <th class="r">$/call</th>
+            <th class="r">Latency</th>
+            <th>Rating</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="installed">
+            <td><span class="cbx on"></span></td>
+            <td><div class="name-cell"><div class="ic policy">PT</div><div><div class="name">policy.tone</div><div class="desc">Apply tone guidelines to drafts</div></div></div></td>
+            <td><span class="pill">policy</span></td>
+            <td class="integration-cell">skycot-core</td>
+            <td><div class="workers-cell"><div class="av jm">JM</div><div class="av sl">SL</div><div class="av pr">PR</div><div class="av nm">NM</div><div class="av ma">MA</div><span class="ct">5</span></div></td>
+            <td class="calls-cell">1,492 <svg class="spark" viewBox="0 0 36 14"><path d="M0,10 L6,9 L12,8 L18,6 L24,7 L30,4 L36,3"/></svg></td>
+            <td class="cost-cell">$0.001</td>
+            <td class="latency-cell">180ms</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.9</td>
+            <td><span class="pill installed">INSTALLED</span></td>
+            <td><div class="row-actions"><button class="configure">Configure</button></div></td>
+          </tr>
+          <tr class="installed">
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic zen">ZD</div><div><div class="name">zendesk.read</div><div class="desc">Read tickets, conversations, attachments</div></div></div></td>
+            <td><span class="pill">tickets</span></td>
+            <td class="integration-cell">zendesk · OAuth</td>
+            <td><div class="workers-cell"><div class="av jm">JM</div><div class="av pr">PR</div><div class="av ma">MA</div><span class="ct">3</span></div></td>
+            <td class="calls-cell">843 <svg class="spark" viewBox="0 0 36 14"><path d="M0,8 L6,9 L12,7 L18,8 L24,6 L30,7 L36,8"/></svg></td>
+            <td class="cost-cell">$0.003</td>
+            <td class="latency-cell">320ms</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.8</td>
+            <td><span class="pill installed">INSTALLED</span></td>
+            <td><div class="row-actions"><button class="configure">Configure</button></div></td>
+          </tr>
+          <tr class="installed">
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic zen">ZD</div><div><div class="name">zendesk.reply</div><div class="desc">Draft &amp; send replies on Zendesk tickets</div></div></div></td>
+            <td><span class="pill">tickets</span></td>
+            <td class="integration-cell">zendesk · OAuth</td>
+            <td><div class="workers-cell"><div class="av jm">JM</div><span class="ct">1</span></div></td>
+            <td class="calls-cell">612 <svg class="spark" viewBox="0 0 36 14"><path d="M0,11 L6,10 L12,8 L18,7 L24,6 L30,4 L36,3"/></svg></td>
+            <td class="cost-cell">$0.004</td>
+            <td class="latency-cell">450ms</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.7</td>
+            <td><span class="pill installed">INSTALLED</span></td>
+            <td><div class="row-actions"><button class="configure">Configure</button></div></td>
+          </tr>
+          <tr class="installed">
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic kb">KB</div><div><div class="name">kb.search</div><div class="desc">Search knowledge base articles</div></div></div></td>
+            <td><span class="pill">tickets</span></td>
+            <td class="integration-cell">skycot-core</td>
+            <td><div class="workers-cell"><div class="av jm">JM</div><div class="av pr">PR</div><div class="av ma">MA</div><span class="ct">3</span></div></td>
+            <td class="calls-cell">489 <svg class="spark" viewBox="0 0 36 14"><path d="M0,9 L6,8 L12,7 L18,8 L24,6 L30,7 L36,6"/></svg></td>
+            <td class="cost-cell">$0.002</td>
+            <td class="latency-cell">120ms</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.6</td>
+            <td><span class="pill installed">INSTALLED</span></td>
+            <td><div class="row-actions"><button class="configure">Configure</button></div></td>
+          </tr>
+          <tr class="installed">
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic ns">NS</div><div><div class="name">netsuite.write</div><div class="desc">Create / update invoices, vendors, GL</div></div></div></td>
+            <td><span class="pill">finance</span></td>
+            <td class="integration-cell">netsuite · OAuth</td>
+            <td><div class="workers-cell"><div class="av sl">SL</div><span class="ct">1</span></div></td>
+            <td class="calls-cell">312 <svg class="spark" viewBox="0 0 36 14"><path d="M0,7 L6,8 L12,7 L18,9 L24,7 L30,8 L36,7"/></svg></td>
+            <td class="cost-cell">$0.005</td>
+            <td class="latency-cell">680ms</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.7</td>
+            <td><span class="pill installed">INSTALLED</span></td>
+            <td><div class="row-actions"><button class="configure">Configure</button></div></td>
+          </tr>
+          <tr class="installed">
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic email">EM</div><div><div class="name">email.draft</div><div class="desc">Draft emails (rejection, outreach, follow-up)</div></div></div></td>
+            <td><span class="pill">comms</span></td>
+            <td class="integration-cell">gmail · OAuth</td>
+            <td><div class="workers-cell"><div class="av pr">PR</div><div class="av ma">MA</div><div class="av nm">NM</div><span class="ct">3</span></div></td>
+            <td class="calls-cell">284 <svg class="spark" viewBox="0 0 36 14"><path d="M0,10 L6,9 L12,7 L18,8 L24,6 L30,4 L36,3"/></svg></td>
+            <td class="cost-cell">$0.002</td>
+            <td class="latency-cell">220ms</td>
+            <td class="rating-cell"><span class="stars">★★★★☆</span>4.5</td>
+            <td><span class="pill installed">INSTALLED</span></td>
+            <td><div class="row-actions"><button class="configure">Configure</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic sf">SF</div><div><div class="name">salesforce.opportunity.create</div><div class="desc">Auto-create opps from inbound demos</div></div></div></td>
+            <td><span class="pill">crm</span></td>
+            <td class="integration-cell">salesforce · OAuth</td>
+            <td><div class="workers-cell"><span class="ct" style="margin-left:0">—</span></div></td>
+            <td class="calls-cell">—</td>
+            <td class="cost-cell">$0.006</td>
+            <td class="latency-cell">~500ms</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.9</td>
+            <td><span class="pill new">NEW</span></td>
+            <td><div class="row-actions"><button class="install">Install</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic sf">SF</div><div><div class="name">salesforce.opportunity.update</div><div class="desc">Update Salesforce opp stage, amount, close</div></div></div></td>
+            <td><span class="pill">crm</span></td>
+            <td class="integration-cell">salesforce · OAuth</td>
+            <td><div class="workers-cell"><span class="ct" style="margin-left:0">—</span></div></td>
+            <td class="calls-cell">—</td>
+            <td class="cost-cell">$0.005</td>
+            <td class="latency-cell">~450ms</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.8</td>
+            <td><span class="pill popular">★ POPULAR</span></td>
+            <td><div class="row-actions"><button class="install">Install</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic ocr">OCR</div><div><div class="name">ocr.read</div><div class="desc">Extract text, line items, tables from PDF</div></div></div></td>
+            <td><span class="pill">files</span></td>
+            <td class="integration-cell">skycot-core</td>
+            <td><div class="workers-cell"><span class="ct" style="margin-left:0">—</span></div></td>
+            <td class="calls-cell">—</td>
+            <td class="cost-cell">$0.007</td>
+            <td class="latency-cell">~1.2s</td>
+            <td class="rating-cell"><span class="stars">★★★★★</span>4.6</td>
+            <td><span class="pill new">NEW</span></td>
+            <td><div class="row-actions"><button class="install">Install</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="cbx"></span></td>
+            <td><div class="name-cell"><div class="ic docusign">DS</div><div><div class="name">docusign.send</div><div class="desc">Send docs for e-signature</div></div></div></td>
+            <td><span class="pill">files</span></td>
+            <td class="integration-cell">docusign · OAuth</td>
+            <td><div class="workers-cell"><span class="ct" style="margin-left:0">—</span></div></td>
+            <td class="calls-cell">—</td>
+            <td class="cost-cell">$0.012</td>
+            <td class="latency-cell">~800ms</td>
+            <td class="rating-cell"><span class="stars">★★★★☆</span>4.5</td>
+            <td><span class="pill">available</span></td>
+            <td><div class="row-actions"><button class="install">Install</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audit — SKYCOT (B3a · Compact Explorer)</title>
+<!-- Design language: B3a — Compact block-explorer.
+     Same Etherscan-style "each row is a block" grammar as B3, but DENSER.
+     Each block is half the height. Fewer details visible per row.
+     Hero strip kept thin. Less gradient throughout. Spine subtler.
+     Best for daily power-use — more rows visible at once. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #FAFAF9;
+    --paper-2: #F4F4F5;
+    --line: #E4E4E7;
+    --line-2: #D4D4D8;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+
+  .topbar {
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding: 12px 28px; display: flex; align-items: center; gap: 22px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; }
+  .brand .mark { width: 24px; height: 24px; border-radius: 5px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 14px; letter-spacing: 0.06em; }
+  .topnav { display: flex; gap: 2px; }
+  .topnav a { padding: 5px 11px; border-radius: 5px; color: var(--ink-2); text-decoration: none; font-size: 13px; font-weight: 500; }
+  .topnav a.active { background: var(--paper-2); color: var(--ink); }
+  .search-big {
+    flex: 1; max-width: 460px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px; border-radius: 6px;
+    background: var(--paper); border: 1px solid var(--line);
+    color: var(--ink-3); font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .search-big .kbd { margin-left: auto; padding: 1px 5px; border-radius: 3px; background: var(--paper-2); font-size: 10.5px; }
+  .right-side { display: flex; gap: 10px; align-items: center; }
+  .right-side .ws { padding: 4px 10px; border-radius: 5px; background: var(--paper-2); font-size: 12px; font-weight: 500; }
+  .right-side .av {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--gradient); color: white;
+    display: grid; place-items: center; font-family: 'Audiowide', sans-serif; font-size: 10.5px;
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 22px 28px 60px; }
+  .crumb { font-size: 11.5px; color: var(--ink-3); margin-bottom: 4px; }
+  .page-h {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .page-h h1 { font-family: 'Audiowide', sans-serif; font-size: 22px; font-weight: 400; letter-spacing: 0.02em; margin: 0; }
+  .page-h p { color: var(--ink-3); margin: 2px 0 0; font-size: 12.5px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px;
+    font-size: 12.5px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer;
+  }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Thin chain hero strip */
+  .chain-strip-hero {
+    margin-top: 16px;
+    background: linear-gradient(135deg, rgba(20,184,166,0.05), rgba(8,145,178,0.05));
+    border: 1px solid rgba(20,184,166,0.20);
+    border-radius: 9px;
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 18px;
+    font-size: 12px;
+  }
+  .chain-strip-hero .ok { color: #0F766E; font-weight: 700; display: inline-flex; gap: 5px; align-items: center; }
+  .chain-strip-hero .ok .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+  .chain-strip-hero .stat { color: var(--ink-3); }
+  .chain-strip-hero .stat .v { color: var(--ink); font-weight: 500; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .chain-strip-hero .right { margin-left: auto; display: flex; gap: 12px; }
+  .chain-strip-hero a { color: var(--purple); text-decoration: none; font-weight: 500; font-size: 12px; }
+
+  /* Tabs + tools */
+  .section-h {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 18px 0 10px;
+  }
+  .tabs { display: flex; gap: 2px; }
+  .tabs a { padding: 4px 10px; border-radius: 5px; font-size: 12px; color: var(--ink-3); text-decoration: none; }
+  .tabs a.on { background: var(--paper-2); color: var(--ink); font-weight: 500; }
+  .tools { display: flex; gap: 6px; align-items: center; }
+  .tools .chip { padding: 3px 9px; border-radius: 5px; border: 1px solid var(--line-2); background: var(--bg); font-size: 11.5px; color: var(--ink-2); }
+  .tools .chip.on { color: var(--purple); border-color: var(--purple); }
+  .tools .sort {
+    padding: 3px 9px; border-radius: 5px; font-size: 11.5px; color: var(--ink-3);
+    display: inline-flex; gap: 4px; cursor: pointer;
+  }
+
+  /* Compact block list */
+  .blocks {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden;
+    position: relative;
+  }
+  /* spine inside the gutter */
+  .blocks::before {
+    content: ''; position: absolute;
+    left: 50px; top: 20px; bottom: 20px; width: 1px;
+    background: var(--line-2);
+    z-index: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 64px 22px 86px 1fr 100px 80px 70px 80px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 16px 8px 12px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+    z-index: 1;
+    font-size: 12.5px;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--paper); }
+  .row.warn { background: rgba(252,211,77,0.04); }
+  .row.warn:hover { background: rgba(252,211,77,0.07); }
+  .row.bad { background: rgba(255,107,107,0.04); }
+  .row.bad:hover { background: rgba(255,107,107,0.07); }
+
+  .blk-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--purple);
+    color: var(--purple);
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .row.warn .blk-num { border-color: var(--yellow); color: #92400E; background: #FFFBEB; }
+  .row.bad .blk-num { border-color: var(--coral); color: #B91C1C; background: #FEF2F2; }
+
+  .ts { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  .ts .t { color: var(--ink); font-weight: 500; }
+
+  .av {
+    width: 22px; height: 22px; border-radius: 5px;
+    display: grid; place-items: center;
+    background: var(--gradient); color: white;
+    font-family: 'Audiowide', sans-serif; font-size: 9px; letter-spacing: 0.04em;
+  }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .who-cell { display: flex; align-items: center; gap: 6px; }
+  .who-cell .who { font-weight: 600; color: var(--ink); }
+  .who-cell .role { color: var(--ink-3); font-size: 11px; }
+
+  .action { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .action strong { color: var(--ink); font-weight: 500; }
+
+  .kind {
+    display: inline-block; padding: 1px 6px; border-radius: 3px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+  .kind.result { color: #0F766E; background: rgba(20,184,166,0.10); }
+  .kind.approval { color: #92400E; background: rgba(252,211,77,0.18); }
+  .kind.refuse { color: #B91C1C; background: rgba(255,107,107,0.12); }
+
+  .hash-mini {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .hash-mini .arrow {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--gradient); color: white;
+    font-size: 9px; font-weight: 700;
+  }
+  .hash-mini .parent { color: var(--ink-4); font-size: 10px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pill .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .pill.ok { background: rgba(20,184,166,0.10); color: #0F766E; } .pill.ok .dot { background: var(--teal); }
+  .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; } .pill.warn .dot { background: var(--yellow); }
+  .pill.bad { background: rgba(255,107,107,0.12); color: #B91C1C; } .pill.bad .dot { background: var(--coral); }
+
+  .cost { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+  .cost.zero { color: var(--ink-4); }
+
+  /* Status bar */
+  .status-bar {
+    display: flex; gap: 14px; align-items: center;
+    padding: 6px 14px;
+    background: var(--paper-2);
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3);
+  }
+  .status-bar .ok { color: #0F766E; font-weight: 700; }
+  .status-bar .right { margin-left: auto; display: flex; gap: 2px; }
+  .status-bar .right button {
+    background: none; border: none; color: var(--ink-3); font-family: inherit; font-size: 10.5px;
+    cursor: pointer; padding: 2px 6px; border-radius: 3px;
+  }
+  .status-bar .right button.on { background: var(--bg); border: 1px solid var(--line); color: var(--ink); }
+
+  .foot { margin-top: 20px; font-size: 11px; color: var(--ink-4); text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+  <nav class="topnav">
+    <a href="#">Home</a><a href="#">Workers</a><a href="#">Team</a><a class="active" href="#">Audit</a><a href="#">Skills</a><a href="#">Cohorts</a>
+  </nav>
+  <div class="search-big">⌕ search by block #, worker, hash, ticket… <span class="kbd">⌘K</span></div>
+  <div class="right-side"><span class="ws">Acme Corp · prod</span><div class="av">MH</div></div>
+</header>
+
+<main class="wrap">
+  <div class="crumb">Audit › Chain explorer · last 10 blocks</div>
+  <div class="page-h">
+    <div>
+      <h1>Block #1,247 · chain head</h1>
+      <p>Compact view · click any block to expand · ⌘↑/↓ to navigate</p>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn">⊟ Columns</button>
+      <button class="btn">⤓ Export</button>
+      <button class="btn primary">▷ Replay</button>
+    </div>
+  </div>
+
+  <div class="chain-strip-hero">
+    <span class="ok"><span class="dot"></span>Chain verified</span>
+    <span class="stat">latest: <span class="v">#1,247</span></span>
+    <span class="stat">head: <span class="v">812d499b…0ab7</span></span>
+    <span class="stat">blocks today: <span class="v">17</span></span>
+    <span class="stat">breaks: <span class="v" style="color:var(--teal)">0</span></span>
+    <span class="stat">genesis: <span class="v">2025-09-12</span></span>
+    <div class="right">
+      <a href="#">Re-verify ↻</a>
+      <a href="#">Download proof ⤓</a>
+    </div>
+  </div>
+
+  <div class="section-h">
+    <div class="tabs">
+      <a class="on" href="#">All · 17</a>
+      <a href="#">Pending · 7</a>
+      <a href="#">Refused · 1</a>
+      <a href="#">approval.ask</a>
+      <a href="#">policy.refuse</a>
+    </div>
+    <div class="tools">
+      <span class="chip on">Today</span>
+      <span class="chip">7d</span>
+      <span class="chip">30d</span>
+      <span class="sort">Time ↓</span>
+    </div>
+  </div>
+
+  <div class="blocks">
+
+    <div class="row">
+      <div><span class="blk-num">1247</span></div>
+      <div><span class="av">JM</span></div>
+      <div><div class="ts"><span class="t">10:42</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Jamal</strong> resolved <strong>SUP-29382</strong> using KB <strong>SK-413</strong></div>
+      <div><span class="kind result">tool.result</span></div>
+      <div><span class="hash-mini">7f3a91c2…b8e6</span></div>
+      <div><span class="pill ok"><span class="dot"></span>OK</span></div>
+      <div class="cost">$0.004</div>
+    </div>
+
+    <div class="row">
+      <div><span class="blk-num">1246</span></div>
+      <div><span class="av s">SL</span></div>
+      <div><div class="ts"><span class="t">10:38</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Sara</strong> extracted <strong>INV-2024-08741</strong> line items · 12 lines · $48,290</div>
+      <div><span class="kind result">tool.result</span></div>
+      <div><span class="hash-mini">a1b9c3e4…f209</span></div>
+      <div><span class="pill ok"><span class="dot"></span>OK</span></div>
+      <div class="cost">$0.012</div>
+    </div>
+
+    <div class="row">
+      <div><span class="blk-num">1245</span></div>
+      <div><span class="av p">PR</span></div>
+      <div><div class="ts"><span class="t">10:31</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Priya</strong> screened <strong>Diego Alvarez</strong> vs JD-2024-08 · score 8.2</div>
+      <div><span class="kind result">tool.result</span></div>
+      <div><span class="hash-mini">e8d2447a…1c33</span></div>
+      <div><span class="pill ok"><span class="dot"></span>OK</span></div>
+      <div class="cost">$0.014</div>
+    </div>
+
+    <div class="row">
+      <div><span class="blk-num">1244</span></div>
+      <div><span class="av n">NM</span></div>
+      <div><div class="ts"><span class="t">10:24</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Nori</strong> validated <strong>QT-2024-7283</strong> against pricing rules</div>
+      <div><span class="kind result">tool.result</span></div>
+      <div><span class="hash-mini">3c5f8e09…d447</span></div>
+      <div><span class="pill ok"><span class="dot"></span>OK</span></div>
+      <div class="cost">$0.008</div>
+    </div>
+
+    <div class="row">
+      <div><span class="blk-num">1243</span></div>
+      <div><span class="av m">MA</span></div>
+      <div><div class="ts"><span class="t">10:18</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Mariah</strong> drafted RFP for <strong>Tomás Industries</strong> · 1,240 words</div>
+      <div><span class="kind result">tool.result</span></div>
+      <div><span class="hash-mini">b2a7c193…ee01</span></div>
+      <div><span class="pill ok"><span class="dot"></span>OK</span></div>
+      <div class="cost">$0.021</div>
+    </div>
+
+    <div class="row warn">
+      <div><span class="blk-num">1242</span></div>
+      <div><span class="av n">NM</span></div>
+      <div><div class="ts"><span class="t">10:11</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Nori</strong> flagged <strong>32% discount</strong> on QT-2024-7283 · exceeds 25% threshold</div>
+      <div><span class="kind approval">approval.ask</span></div>
+      <div><span class="hash-mini">9d142a8c…7b15</span></div>
+      <div><span class="pill warn"><span class="dot"></span>Pending</span></div>
+      <div class="cost zero">—</div>
+    </div>
+
+    <div class="row bad">
+      <div><span class="blk-num">1241</span></div>
+      <div><span class="av s">SL</span></div>
+      <div><div class="ts"><span class="t">10:04</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Sara</strong> refused duplicate invoice <strong>INV-2024-08739</strong> · no-duplicate-30d</div>
+      <div><span class="kind refuse">policy.refuse</span></div>
+      <div><span class="hash-mini">f08c1973…aab2</span></div>
+      <div><span class="pill bad"><span class="dot"></span>Refused</span></div>
+      <div class="cost zero">—</div>
+    </div>
+
+    <div class="row warn">
+      <div><span class="blk-num">1240</span></div>
+      <div><span class="av p">PR</span></div>
+      <div><div class="ts"><span class="t">09:58</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Priya</strong> drafted rejection email to <strong>Sara Lin</strong> · awaiting send approval</div>
+      <div><span class="kind approval">approval.ask</span></div>
+      <div><span class="hash-mini">5a73e2c8…9f44</span></div>
+      <div><span class="pill warn"><span class="dot"></span>Pending</span></div>
+      <div class="cost">$0.009</div>
+    </div>
+
+    <div class="row">
+      <div><span class="blk-num">1239</span></div>
+      <div><span class="av m">MA</span></div>
+      <div><div class="ts"><span class="t">09:52</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Mariah</strong> scheduled Q3 renewal review with <strong>Acme Tech</strong> · 2026-08-12</div>
+      <div><span class="kind result">tool.result</span></div>
+      <div><span class="hash-mini">cc40b8a7…03d1</span></div>
+      <div><span class="pill ok"><span class="dot"></span>OK</span></div>
+      <div class="cost zero">—</div>
+    </div>
+
+    <div class="row">
+      <div><span class="blk-num">1238</span></div>
+      <div><span class="av">JM</span></div>
+      <div><div class="ts"><span class="t">09:47</span></div><div class="ts" style="font-size:10px">2026-05-18</div></div>
+      <div class="action"><strong>Jamal</strong> escalated <strong>SUP-29355</strong> to @lead-support · frustrated</div>
+      <div><span class="kind result">tool.result</span></div>
+      <div><span class="hash-mini">812d499b…0ab7</span></div>
+      <div><span class="pill ok"><span class="dot"></span>OK</span></div>
+      <div class="cost zero">—</div>
+    </div>
+
+    <div class="status-bar">
+      <span class="ok">● Chain OK</span>
+      <span>· 1,247 blocks · 0 breaks · sha-256</span>
+      <span>· today: 17 blocks · $0.094 · avg 2.4s</span>
+      <div class="right">
+        <button>← Prev</button>
+        <button class="on">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>…</button>
+        <button>125</button>
+        <button>Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">— SKYCOT audit subsystem v1.0 · chain explorer (compact) · SOC 2 Type II eligible —</div>
+</main>
+
+</body>
+</html>

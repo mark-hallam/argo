@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cohorts — SKYCOT (A · Marketplace Gallery)</title>
+<!-- Design language: A — Notion / Apple App Store template gallery.
+     Featured carousel at top + category filters + grid of cohort cards.
+     Familiar pattern. Low cognitive load. Easy to browse. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 40px 80px; max-width: 1400px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+  .page-h h1 { font-size: 36px; font-weight: 300; letter-spacing: -0.03em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* Featured hero */
+  .featured {
+    background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(8,145,178,0.06));
+    border: 1px solid rgba(139,92,246,0.18);
+    border-radius: 18px; padding: 32px 36px;
+    display: grid; grid-template-columns: 1fr 240px; gap: 32px; align-items: center;
+    margin-bottom: 32px;
+  }
+  .featured .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 999px;
+    background: var(--gradient); color: white;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .featured h2 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+  .featured p { margin: 0 0 16px; font-size: 14.5px; color: var(--ink-2); line-height: 1.55; max-width: 540px; }
+  .featured .meta { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-3); }
+  .featured .meta strong { color: var(--ink); font-weight: 600; }
+  .featured-av {
+    width: 144px; height: 144px; border-radius: 28px;
+    background: linear-gradient(135deg, var(--coral), var(--yellow));
+    color: white; display: grid; place-items: center;
+    font-size: 44px; font-weight: 700; letter-spacing: 0.04em;
+    margin: 0 auto;
+    box-shadow: 0 12px 36px -8px rgba(255,107,107,0.4);
+  }
+
+  /* Category filters */
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .chip { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); font-size: 12.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+  .chip .ct { color: var(--ink-3); font-weight: 400; margin-left: 4px; }
+
+  .section-h { display: flex; align-items: baseline; justify-content: space-between; margin: 28px 0 14px; }
+  .section-h h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
+  .section-h .more { color: var(--purple); font-size: 13px; font-weight: 600; text-decoration: none; }
+
+  /* Cohort grid */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 16px; padding: 22px;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+    position: relative;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 8px 20px -8px rgba(0,0,0,0.08); }
+
+  .card-top { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+  .card-av {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: grid; place-items: center; color: white;
+    font-size: 17px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+    flex-shrink: 0;
+  }
+  .card-av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card-av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card-av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card-av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .card-av.ar { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .card-av.cs { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .card-av.hr { background: linear-gradient(135deg, var(--pink), var(--purple)); }
+  .card-av.it { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .card-av.lg { background: linear-gradient(135deg, var(--coral), var(--pink)); }
+
+  .card-id { flex: 1; min-width: 0; }
+  .card-id .role-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700;
+    color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .card-id h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .card-id .level { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+
+  .card-badge {
+    position: absolute; top: 16px; right: 16px;
+    padding: 3px 8px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .card-badge.new { background: rgba(20,184,166,0.12); color: #0F766E; }
+  .card-badge.trending { background: rgba(252,211,77,0.18); color: #92400E; }
+  .card-badge.featured { background: var(--gradient); color: white; }
+
+  .card-desc { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 14px; }
+  .card-skills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+  .skill { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; background: var(--paper-2); color: var(--ink-2); font-weight: 500; }
+
+  .card-foot {
+    border-top: 1px solid var(--line); padding-top: 12px;
+    display: flex; gap: 14px; align-items: center;
+    font-size: 11.5px; color: var(--ink-3);
+  }
+  .card-foot strong { color: var(--ink); font-weight: 600; }
+  .card-foot .right { margin-left: auto; }
+  .card-foot .hire-btn { padding: 4px 10px; border-radius: 6px; background: var(--gradient); color: white; font-size: 11px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a class="active" href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Hire a <strong>new teammate</strong></h1>
+        <p>24 starter cohorts. Hire in one click — they'll join your team in seconds.</p>
+      </div>
+      <button class="btn primary">+ Build a custom cohort</button>
+    </div>
+
+    <div class="featured">
+      <div>
+        <span class="badge">⚡ FEATURED · MAY 2026</span>
+        <h2>AR Collector</h2>
+        <p>Chase down receivables before they age out. Reads your AP queue, drafts polite-but-firm reminder emails, escalates to humans when needed. Designed for finance teams who hate awkward conversations.</p>
+        <div class="meta">
+          <span><strong>~$0.020</strong> / action</span>
+          <span>·</span>
+          <span><strong>312</strong> teams</span>
+          <span>·</span>
+          <span><strong>★ 4.8</strong> (89 reviews)</span>
+        </div>
+      </div>
+      <div class="featured-av">AR</div>
+    </div>
+
+    <div class="filters">
+      <span class="chip on">All · 24</span>
+      <span class="chip">Support <span class="ct">5</span></span>
+      <span class="chip">Finance &amp; Ops <span class="ct">7</span></span>
+      <span class="chip">Sales <span class="ct">4</span></span>
+      <span class="chip">Recruiting &amp; HR <span class="ct">3</span></span>
+      <span class="chip">IT &amp; Dev-ex <span class="ct">3</span></span>
+      <span class="chip">Legal <span class="ct">2</span></span>
+    </div>
+
+    <div class="section-h">
+      <h2>Popular this month</h2>
+      <a class="more" href="#">View all →</a>
+    </div>
+
+    <div class="grid">
+
+      <div class="card">
+        <span class="card-badge trending">★ TRENDING</span>
+        <div class="card-top">
+          <div class="card-av">JM</div>
+          <div class="card-id">
+            <div class="role-tag">SUPPORT</div>
+            <h3>L2 Support Specialist</h3>
+            <div class="level">7 skills · cohort v3.2</div>
+          </div>
+        </div>
+        <div class="card-desc">Resolves tickets, suggests KB articles, escalates when sentiment turns sour.</div>
+        <div class="card-skills">
+          <span class="skill">zendesk.read</span>
+          <span class="skill">zendesk.reply</span>
+          <span class="skill">kb.search</span>
+          <span class="skill">+4</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.004</strong>/action</span>
+          <span>· <strong>847</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="card-badge featured">★ FEATURED</span>
+        <div class="card-top">
+          <div class="card-av s">SL</div>
+          <div class="card-id">
+            <div class="role-tag">FINANCE · OPS</div>
+            <h3>L3 Invoice Operations</h3>
+            <div class="level">9 skills · cohort v2.8</div>
+          </div>
+        </div>
+        <div class="card-desc">Extracts line items, validates against POs, codes to GL, flags duplicates.</div>
+        <div class="card-skills">
+          <span class="skill">ocr.read</span>
+          <span class="skill">netsuite.write</span>
+          <span class="skill">policy.dup</span>
+          <span class="skill">+6</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.008</strong>/action</span>
+          <span>· <strong>612</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-av p">PR</div>
+          <div class="card-id">
+            <div class="role-tag">RECRUITING</div>
+            <h3>L2 Recruiting Screener</h3>
+            <div class="level">6 skills · cohort v2.1</div>
+          </div>
+        </div>
+        <div class="card-desc">Screens candidates against JDs, drafts outreach, schedules interviews.</div>
+        <div class="card-skills">
+          <span class="skill">greenhouse.read</span>
+          <span class="skill">jd.match</span>
+          <span class="skill">email.draft</span>
+          <span class="skill">+3</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.014</strong>/action</span>
+          <span>· <strong>489</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-av n">NM</div>
+          <div class="card-id">
+            <div class="role-tag">SALES · OPS</div>
+            <h3>L3 Quote Operations</h3>
+            <div class="level">5 skills · cohort v3.0</div>
+          </div>
+        </div>
+        <div class="card-desc">Validates pricing rules, flags discount exceptions, escalates to sales leader.</div>
+        <div class="card-skills">
+          <span class="skill">salesforce.read</span>
+          <span class="skill">pricing.val</span>
+          <span class="skill">policy.disc</span>
+          <span class="skill">+2</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.005</strong>/action</span>
+          <span>· <strong>318</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-av m">MA</div>
+          <div class="card-id">
+            <div class="role-tag">SALES</div>
+            <h3>L2 Sales Operations</h3>
+            <div class="level">8 skills · cohort v2.5</div>
+          </div>
+        </div>
+        <div class="card-desc">Drafts RFP responses, schedules renewal reviews, maintains CRM hygiene.</div>
+        <div class="card-skills">
+          <span class="skill">salesforce.write</span>
+          <span class="skill">rfp.draft</span>
+          <span class="skill">+6</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.018</strong>/action</span>
+          <span>· <strong>274</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="card-badge new">NEW</span>
+        <div class="card-top">
+          <div class="card-av cs">CS</div>
+          <div class="card-id">
+            <div class="role-tag">SUPPORT · SUCCESS</div>
+            <h3>L2 Customer Success Responder</h3>
+            <div class="level">6 skills · cohort v1.0</div>
+          </div>
+        </div>
+        <div class="card-desc">Replies to CSAT surveys, schedules QBRs, flags churn risk before it escalates.</div>
+        <div class="card-skills">
+          <span class="skill">hubspot.read</span>
+          <span class="skill">email.draft</span>
+          <span class="skill">gcal.sched</span>
+          <span class="skill">+3</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.011</strong>/action</span>
+          <span>· <strong>87</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="section-h">
+      <h2>New this month</h2>
+      <a class="more" href="#">View all →</a>
+    </div>
+
+    <div class="grid">
+
+      <div class="card">
+        <span class="card-badge new">NEW</span>
+        <div class="card-top">
+          <div class="card-av ar">AR</div>
+          <div class="card-id">
+            <div class="role-tag">FINANCE · OPS</div>
+            <h3>L2 AR Collector</h3>
+            <div class="level">7 skills · cohort v1.2</div>
+          </div>
+        </div>
+        <div class="card-desc">Chases overdue receivables. Drafts reminder emails. Escalates to humans.</div>
+        <div class="card-skills">
+          <span class="skill">netsuite.read</span>
+          <span class="skill">email.draft</span>
+          <span class="skill">policy.escalate</span>
+          <span class="skill">+4</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.020</strong>/action</span>
+          <span>· <strong>312</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="card-badge new">NEW</span>
+        <div class="card-top">
+          <div class="card-av hr">HR</div>
+          <div class="card-id">
+            <div class="role-tag">PEOPLE · HR</div>
+            <h3>L2 People-Ops Generalist</h3>
+            <div class="level">8 skills · cohort v1.1</div>
+          </div>
+        </div>
+        <div class="card-desc">Handles offer letters, onboarding tickets, PTO requests, policy questions.</div>
+        <div class="card-skills">
+          <span class="skill">bamboohr.read</span>
+          <span class="skill">docusign.send</span>
+          <span class="skill">+6</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.015</strong>/action</span>
+          <span>· <strong>156</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="card-badge new">NEW</span>
+        <div class="card-top">
+          <div class="card-av it">IT</div>
+          <div class="card-id">
+            <div class="role-tag">IT · DEV-EX</div>
+            <h3>L2 IT Helpdesk</h3>
+            <div class="level">6 skills · cohort v1.0</div>
+          </div>
+        </div>
+        <div class="card-desc">Password resets, SaaS access requests, laptop provisioning tickets.</div>
+        <div class="card-skills">
+          <span class="skill">okta.write</span>
+          <span class="skill">jamf.read</span>
+          <span class="skill">+4</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.007</strong>/action</span>
+          <span>· <strong>198</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <div class="card-av lg">LG</div>
+          <div class="card-id">
+            <div class="role-tag">LEGAL</div>
+            <h3>L3 Contract Reviewer</h3>
+            <div class="level">6 skills · cohort v2.0</div>
+          </div>
+        </div>
+        <div class="card-desc">Reviews NDAs and standard contracts against your playbook. Flags risky clauses.</div>
+        <div class="card-skills">
+          <span class="skill">pdf.read</span>
+          <span class="skill">policy.review</span>
+          <span class="skill">+4</span>
+        </div>
+        <div class="card-foot">
+          <span><strong>$0.024</strong>/action</span>
+          <span>· <strong>234</strong> teams</span>
+          <span class="right"><button class="hire-btn">Hire →</button></span>
+        </div>
+      </div>
+
+      <div class="card" style="background: transparent; border: 2px dashed var(--line-2); display: grid; place-items: center; min-height: 220px;">
+        <div style="text-align: center;">
+          <div style="font-size: 28px; font-weight: 300; color: var(--ink-3); margin-bottom: 6px;">+</div>
+          <div style="font-size: 14px; font-weight: 600; color: var(--ink);">Build a custom cohort</div>
+          <div style="font-size: 12px; color: var(--ink-3); margin-top: 4px;">Start from scratch · 5 min</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

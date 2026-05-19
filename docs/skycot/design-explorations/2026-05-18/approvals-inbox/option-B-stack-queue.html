@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Approvals — SKYCOT (B · Stack Queue)</title>
+<!-- Design language: B — STACK QUEUE.
+     One pending item at a time, big focused card in center. "1 of 7."
+     Approve / Reject / Edit / Snooze big buttons. Tinder-card / Linear-focus feel.
+     Forces single-task focus. Best when operator wants to clear the queue in one go. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F4F4F0; --paper-2: #EDEDE8; --bg: #FFFFFF;
+    --line: #E5E5E0;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; background-image: radial-gradient(1200px circle at 50% -20%, rgba(139,92,246,0.08), transparent 50%); min-height: 100vh; }
+
+  .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 5px; background: var(--gradient); }
+  .brand .name { font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .badge { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--paper-2); color: var(--ink-2); font-family: 'JetBrains Mono', monospace; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .stage { padding: 32px 40px; display: flex; flex-direction: column; align-items: center; }
+
+  /* Top progress */
+  .progress {
+    width: 100%; max-width: 720px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .progress .h h1 { margin: 0; font-size: 22px; font-weight: 300; letter-spacing: -0.025em; }
+  .progress .h h1 strong { font-weight: 600; }
+  .progress .h p { color: var(--ink-3); margin: 4px 0 0; font-size: 13px; }
+  .progress .pos {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--ink-3); display: flex; gap: 6px; align-items: center;
+  }
+  .progress .pos .n { color: var(--ink); font-weight: 600; font-size: 18px; }
+
+  .track {
+    width: 100%; max-width: 720px;
+    height: 4px; background: var(--paper-2); border-radius: 2px;
+    margin-bottom: 36px;
+    overflow: hidden;
+  }
+  .track .fill {
+    height: 100%; width: 28.5%; /* 2 of 7 */
+    background: var(--gradient);
+    border-radius: 2px;
+  }
+  .track .seg {
+    /* multiple bullets to show position */
+    display: flex; gap: 4px; height: 100%; align-items: stretch;
+  }
+
+  /* Stack of cards */
+  .stack {
+    position: relative;
+    width: 100%; max-width: 720px;
+    height: 540px;
+  }
+  .card {
+    position: absolute; left: 0; right: 0; top: 0;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 0;
+    box-shadow: 0 32px 64px -24px rgba(0,0,0,0.10);
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.3s;
+  }
+  /* Stacked cards behind */
+  .card.s2 { top: 18px; transform: scale(0.96); opacity: 0.6; z-index: 0; }
+  .card.s3 { top: 36px; transform: scale(0.92); opacity: 0.3; z-index: -1; }
+
+  .card-top {
+    background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(8,145,178,0.05));
+    border-bottom: 1px solid var(--line);
+    padding: 22px 28px;
+    display: flex; align-items: center; gap: 14px;
+    border-radius: 24px 24px 0 0;
+  }
+  .card-top .av { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: white; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card-top .who h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+  .card-top .who .role { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .card-top .sla { margin-left: auto; padding: 5px 12px; border-radius: 999px; background: rgba(252,211,77,0.18); color: #92400E; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+  .card-top .sla.urgent { background: rgba(255,107,107,0.15); color: #B91C1C; }
+
+  .card-body { padding: 32px 36px 24px; }
+
+  .card-eyebrow { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); font-weight: 700; margin-bottom: 8px; }
+
+  .card-h1 {
+    font-size: 32px; font-weight: 300;
+    letter-spacing: -0.03em;
+    margin: 0 0 12px;
+    line-height: 1.2;
+  }
+  .card-h1 strong { font-weight: 600; }
+  .card-h1 .grad { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; }
+
+  .card-sub { font-size: 15px; color: var(--ink-2); line-height: 1.6; margin: 0 0 24px; }
+  .card-sub strong { color: var(--ink); font-weight: 600; }
+
+  .card-detail {
+    background: var(--paper);
+    border-radius: 12px;
+    padding: 16px 18px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+  .card-detail .row { display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; }
+  .card-detail .row .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 700; padding-top: 2px; }
+  .card-detail .row .v { color: var(--ink); font-weight: 500; font-size: 13.5px; }
+  .card-detail .row .v .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink-2); }
+
+  .card-actions {
+    padding: 18px 28px;
+    border-top: 1px solid var(--line);
+    display: flex; gap: 8px;
+    background: var(--paper);
+    border-radius: 0 0 24px 24px;
+  }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; transition: transform 0.1s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn .kbd { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 1px 6px; border-radius: 4px; background: rgba(0,0,0,0.06); color: inherit; opacity: 0.8; margin-left: 6px; }
+  .btn.approve { background: linear-gradient(135deg, var(--teal), var(--cyan)); color: white; border: none; flex: 1; box-shadow: 0 6px 18px -6px rgba(20,184,166,0.5); }
+  .btn.approve .kbd { background: rgba(255,255,255,0.25); }
+  .btn.reject { color: var(--coral); border-color: var(--coral); }
+  .btn.edit, .btn.discuss, .btn.snooze { color: var(--ink-2); }
+
+  /* Mini queue */
+  .queue {
+    margin-top: 24px;
+    width: 100%; max-width: 720px;
+    display: flex; gap: 8px;
+    overflow-x: auto;
+  }
+  .q-pill {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-size: 11.5px; color: var(--ink-3);
+  }
+  .q-pill.on { border-color: var(--purple); color: var(--purple); font-weight: 600; }
+  .q-pill .av-tiny { width: 18px; height: 18px; border-radius: 4px; display: inline-grid; place-items: center; color: white; font-size: 8px; font-weight: 700; }
+  .q-pill .av-tiny.av-jm { background: var(--gradient); }
+  .q-pill .av-tiny.av-sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .q-pill .av-tiny.av-pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .q-pill .av-tiny.av-nm { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .q-pill .av-tiny.av-ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+
+  .shortcut-hint { margin-top: 18px; text-align: center; font-size: 11.5px; color: var(--ink-4); font-family: 'JetBrains Mono', monospace; }
+  .shortcut-hint .kbd { padding: 1px 5px; border-radius: 3px; background: var(--paper-2); color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a class="active" href="#">✉ Approvals <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="stage">
+    <div class="progress">
+      <div class="h">
+        <h1>Approval <strong>queue</strong></h1>
+        <p>Clear them one at a time · keyboard <span style="font-family:monospace;background:var(--paper-2);padding:1px 5px;border-radius:3px;color:var(--ink-2)">A</span> approve · <span style="font-family:monospace;background:var(--paper-2);padding:1px 5px;border-radius:3px;color:var(--ink-2)">R</span> reject · <span style="font-family:monospace;background:var(--paper-2);padding:1px 5px;border-radius:3px;color:var(--ink-2)">→</span> next</p>
+      </div>
+      <div class="pos"><span class="n">2</span>of 7</div>
+    </div>
+
+    <div class="track"><div class="fill"></div></div>
+
+    <div class="stack">
+      <!-- Stacked behind cards (visual depth) -->
+      <div class="card s3"></div>
+      <div class="card s2"></div>
+
+      <!-- Active card -->
+      <div class="card">
+        <div class="card-top">
+          <div class="av" style="background:linear-gradient(135deg, var(--purple), var(--pink))">PR</div>
+          <div class="who">
+            <h3>Priya</h3>
+            <div class="role">Recruiting Screener · L2</div>
+          </div>
+          <div class="sla urgent">⚠ SLA · 35 min left</div>
+        </div>
+
+        <div class="card-body">
+          <div class="card-eyebrow">Outbound email · awaiting send</div>
+          <h2 class="card-h1">Send the rejection email to <span class="grad">Sara Lin</span>?</h2>
+          <p class="card-sub">Priya drafted this after determining Sara doesn't match the Senior Engineer JD — <strong>3 years vs the 5+ required</strong>, and <strong>no distributed-systems experience</strong>. Outbound-communication policy needs your approval before sending.</p>
+
+          <div class="card-detail">
+            <div class="row">
+              <div class="k">Recipient</div><div class="v">Sara Lin · <span class="mono">sara.lin@example.com</span></div>
+              <div class="k">Tone</div><div class="v">Warm-professional · matches your last 12 rejections</div>
+              <div class="k">Includes</div><div class="v">Reference to upcoming L3 Engineer Q4 opening</div>
+              <div class="k">Cost</div><div class="v"><span class="mono">$0.001</span> to send · <span class="mono">$0.009</span> already spent on the draft</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="btn approve">✓ Approve &amp; send<span class="kbd">A</span></button>
+          <button class="btn edit">⟲ Edit<span class="kbd">E</span></button>
+          <button class="btn reject">✕ Reject<span class="kbd">R</span></button>
+          <button class="btn discuss">💬 Discuss<span class="kbd">D</span></button>
+          <button class="btn snooze">⏰ Snooze<span class="kbd">S</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue">
+      <span class="q-pill"><span class="av-tiny av-nm">NM</span>Nori · discount 32%</span>
+      <span class="q-pill on"><span class="av-tiny av-pr">PR</span>Priya · reject email <strong>(now)</strong></span>
+      <span class="q-pill"><span class="av-tiny av-ma">MA</span>Mariah · RFP send</span>
+      <span class="q-pill"><span class="av-tiny av-sl">SL</span>Sara · GL override</span>
+      <span class="q-pill"><span class="av-tiny av-pr">PR</span>Priya · interview slot</span>
+      <span class="q-pill"><span class="av-tiny av-nm">NM</span>Nori · Net 60</span>
+      <span class="q-pill"><span class="av-tiny av-jm">JM</span>Jamal · closeout</span>
+    </div>
+
+    <div class="shortcut-hint">
+      <span class="kbd">↑</span> <span class="kbd">↓</span> to jog · <span class="kbd">esc</span> to exit queue
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

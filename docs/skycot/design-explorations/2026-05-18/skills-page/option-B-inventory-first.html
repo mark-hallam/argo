@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Skills — SKYCOT (B · Inventory First)</title>
+<!-- Design language: B — Inventory first.
+     YOUR installed skills front and center as a detailed inventory.
+     Browse-more section below. Daily-use pragmatism over marketplace browsing. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 28px 36px 80px; max-width: 1400px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .page-h h1 { font-size: 30px; font-weight: 300; letter-spacing: -0.025em; margin: 0; }
+  .page-h h1 strong { font-weight: 700; }
+  .page-h p { color: var(--ink-3); margin: 4px 0 0; font-size: 13.5px; }
+  .btn { padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  /* KPI strip */
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 22px 0; }
+  .kpi { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .kpi .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 600; }
+  .kpi .val { font-size: 26px; font-weight: 300; margin-top: 4px; letter-spacing: -0.025em; }
+  .kpi.grad .val { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 600; }
+  .kpi .sub { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Tab bar */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+  .tabs a { padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--ink-3); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs a.on { color: var(--ink); border-bottom-color: var(--purple); }
+  .tabs a .ct { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); margin-left: 4px; }
+  .tabs a.on .ct { color: var(--purple); }
+
+  /* Inventory toolbar */
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+  .filter-chips { display: flex; gap: 4px; flex: 1; }
+  .chip { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); font-size: 11.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.05); }
+  .search { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-3); font-size: 12px; width: 220px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Inventory table */
+  .inventory { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .inv-row {
+    display: grid;
+    grid-template-columns: 42px 1fr 200px 120px 100px 110px 120px;
+    gap: 14px; align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .inv-row:last-child { border-bottom: none; }
+  .inv-row:hover { background: var(--paper); }
+  .inv-row.header {
+    background: var(--paper-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-3); font-weight: 700;
+    padding: 8px 16px;
+  }
+  .inv-row.header > div { padding: 0; }
+
+  .skill-ic { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; color: white; font-size: 13px; font-weight: 700; }
+  .skill-ic.zen { background: linear-gradient(135deg, #03363D, #5EAB73); }
+  .skill-ic.ns { background: linear-gradient(135deg, #1D364A, #4CA9DB); }
+  .skill-ic.sf { background: linear-gradient(135deg, #00A1E0, #1798c1); }
+  .skill-ic.slack { background: linear-gradient(135deg, #4A154B, #ECB22E); }
+  .skill-ic.policy { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .skill-ic.email { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .skill-ic.gcal { background: linear-gradient(135deg, #4285F4, #34A853); }
+  .skill-ic.kb { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+
+  .skill-name { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 700; }
+  .skill-desc { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .workers-cell { display: flex; align-items: center; gap: -4px; }
+  .worker-av {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: grid; place-items: center; color: white;
+    font-size: 9px; font-weight: 700;
+    border: 2px solid var(--bg);
+    margin-left: -8px;
+  }
+  .worker-av:first-child { margin-left: 0; }
+  .worker-av.jm { background: var(--gradient); }
+  .worker-av.sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .worker-av.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .worker-av.nm { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .worker-av.ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .workers-cell .ct { margin-left: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+
+  .usage-cell { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); font-weight: 700; text-align: right; }
+  .usage-cell .sub { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); font-weight: 500; display: block; }
+
+  .cost-cell { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink); font-weight: 600; text-align: right; }
+
+  .status-cell .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(20,184,166,0.10); color: #0F766E; font-size: 11px; font-weight: 700; }
+  .status-cell .pill .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+
+  .actions-cell { display: flex; gap: 5px; justify-content: flex-end; }
+  .actions-cell button { padding: 4px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+
+  /* Marketplace teaser */
+  .marketplace-teaser {
+    margin-top: 28px; padding: 22px 26px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(8,145,178,0.04));
+    border: 1px solid rgba(139,92,246,0.15);
+    border-radius: 14px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .marketplace-teaser .icon { width: 48px; height: 48px; border-radius: 12px; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 22px; }
+  .marketplace-teaser .copy { flex: 1; }
+  .marketplace-teaser h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .marketplace-teaser p { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); }
+  .marketplace-teaser p strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a class="active" href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Your <strong>skills inventory</strong></h1>
+        <p>12 installed · used by 5 workers · 17 calls today</p>
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn">⤓ Export</button><button class="btn primary">+ Install from marketplace</button></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi grad"><div class="lbl">Installed</div><div class="val">12</div><div class="sub">+1 this week</div></div>
+      <div class="kpi"><div class="lbl">Calls / 7d</div><div class="val">847</div><div class="sub">+12% vs prior wk</div></div>
+      <div class="kpi"><div class="lbl">Cost / 7d</div><div class="val">$2.41</div><div class="sub">avg $0.003/call</div></div>
+      <div class="kpi"><div class="lbl">Most used</div><div class="val" style="font-size:18px;letter-spacing:-0.015em;font-weight:700">policy.tone</div><div class="sub">1,247 calls/wk</div></div>
+      <div class="kpi"><div class="lbl">Workers using</div><div class="val">5</div><div class="sub">all active</div></div>
+    </div>
+
+    <div class="tabs">
+      <a class="on" href="#">Installed <span class="ct">12</span></a>
+      <a href="#">Marketplace <span class="ct">31</span></a>
+      <a href="#">Custom <span class="ct">2</span></a>
+      <a href="#">Deprecated <span class="ct">1</span></a>
+    </div>
+
+    <div class="toolbar">
+      <div class="filter-chips">
+        <span class="chip on">All · 12</span>
+        <span class="chip">Tickets · 3</span>
+        <span class="chip">CRM · 2</span>
+        <span class="chip">Finance · 2</span>
+        <span class="chip">Comms · 2</span>
+        <span class="chip">Policy · 2</span>
+        <span class="chip">Files · 1</span>
+      </div>
+      <div class="search">⌕ search installed…</div>
+    </div>
+
+    <div class="inventory">
+
+      <div class="inv-row header">
+        <div></div>
+        <div>Skill</div>
+        <div>Used by</div>
+        <div style="text-align:right">Calls / 7d</div>
+        <div style="text-align:right">$ / call</div>
+        <div>Status</div>
+        <div></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic policy">PT</div>
+        <div><div class="skill-name">policy.tone</div><div class="skill-desc">Apply your team's tone guidelines to drafts before send</div></div>
+        <div class="workers-cell">
+          <div class="worker-av jm">JM</div>
+          <div class="worker-av sl">SL</div>
+          <div class="worker-av pr">PR</div>
+          <div class="worker-av nm">NM</div>
+          <div class="worker-av ma">MA</div>
+          <span class="ct">5 workers</span>
+        </div>
+        <div class="usage-cell">1,247<span class="sub">+8% vs prior</span></div>
+        <div class="cost-cell">$0.001</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic zen">ZD</div>
+        <div><div class="skill-name">zendesk.read</div><div class="skill-desc">Read tickets, conversations, attachments from Zendesk</div></div>
+        <div class="workers-cell">
+          <div class="worker-av jm">JM</div>
+          <div class="worker-av pr">PR</div>
+          <div class="worker-av ma">MA</div>
+          <span class="ct">3 workers</span>
+        </div>
+        <div class="usage-cell">843<span class="sub">stable</span></div>
+        <div class="cost-cell">$0.003</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic zen">ZD</div>
+        <div><div class="skill-name">zendesk.reply</div><div class="skill-desc">Draft &amp; send replies on Zendesk tickets (with approval)</div></div>
+        <div class="workers-cell">
+          <div class="worker-av jm">JM</div>
+          <span class="ct">1 worker</span>
+        </div>
+        <div class="usage-cell">612<span class="sub">+12% vs prior</span></div>
+        <div class="cost-cell">$0.004</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic kb">KB</div>
+        <div><div class="skill-name">kb.search</div><div class="skill-desc">Search your knowledge base for relevant articles</div></div>
+        <div class="workers-cell">
+          <div class="worker-av jm">JM</div>
+          <div class="worker-av pr">PR</div>
+          <div class="worker-av ma">MA</div>
+          <span class="ct">3 workers</span>
+        </div>
+        <div class="usage-cell">489<span class="sub">+4%</span></div>
+        <div class="cost-cell">$0.002</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic ns">NS</div>
+        <div><div class="skill-name">netsuite.write</div><div class="skill-desc">Create / update invoices, vendors, GL entries in NetSuite</div></div>
+        <div class="workers-cell">
+          <div class="worker-av sl">SL</div>
+          <span class="ct">1 worker</span>
+        </div>
+        <div class="usage-cell">312<span class="sub">+2%</span></div>
+        <div class="cost-cell">$0.005</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic email">EM</div>
+        <div><div class="skill-name">email.draft</div><div class="skill-desc">Draft emails (rejection, outreach, follow-up) in your tone</div></div>
+        <div class="workers-cell">
+          <div class="worker-av pr">PR</div>
+          <div class="worker-av ma">MA</div>
+          <div class="worker-av nm">NM</div>
+          <span class="ct">3 workers</span>
+        </div>
+        <div class="usage-cell">284<span class="sub">+18% vs prior</span></div>
+        <div class="cost-cell">$0.002</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic slack">SL</div>
+        <div><div class="skill-name">slack.dm</div><div class="skill-desc">Send Slack DMs to teammates or specific channels</div></div>
+        <div class="workers-cell">
+          <div class="worker-av jm">JM</div>
+          <div class="worker-av sl">SL</div>
+          <div class="worker-av pr">PR</div>
+          <div class="worker-av ma">MA</div>
+          <span class="ct">4 workers</span>
+        </div>
+        <div class="usage-cell">78<span class="sub">+0%</span></div>
+        <div class="cost-cell">$0.000</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic gcal">GC</div>
+        <div><div class="skill-name">gcal.schedule</div><div class="skill-desc">Schedule events / interviews on Google Calendar</div></div>
+        <div class="workers-cell">
+          <div class="worker-av pr">PR</div>
+          <div class="worker-av ma">MA</div>
+          <span class="ct">2 workers</span>
+        </div>
+        <div class="usage-cell">47<span class="sub">+22%</span></div>
+        <div class="cost-cell">$0.000</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+      <div class="inv-row">
+        <div class="skill-ic sf">SF</div>
+        <div><div class="skill-name">salesforce.read</div><div class="skill-desc">Read accounts, opps, contacts, quotes from Salesforce</div></div>
+        <div class="workers-cell">
+          <div class="worker-av nm">NM</div>
+          <div class="worker-av ma">MA</div>
+          <span class="ct">2 workers</span>
+        </div>
+        <div class="usage-cell">68<span class="sub">+8%</span></div>
+        <div class="cost-cell">$0.003</div>
+        <div class="status-cell"><span class="pill"><span class="d"></span>Active</span></div>
+        <div class="actions-cell"><button>Configure</button></div>
+      </div>
+
+    </div>
+
+    <div class="marketplace-teaser">
+      <div class="icon">▣</div>
+      <div class="copy">
+        <h3>31 more skills available in the marketplace</h3>
+        <p>Including <strong>salesforce.opportunity.create</strong> (new), <strong>ocr.read</strong>, <strong>docusign.send</strong>, <strong>bamboohr.read</strong>, and 27 more.</p>
+      </div>
+      <button class="btn primary">Browse marketplace →</button>
+    </div>
+
+  </main>
+
+</div>
+</body>
+</html>

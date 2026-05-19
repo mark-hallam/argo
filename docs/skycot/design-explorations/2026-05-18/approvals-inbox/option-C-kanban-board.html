@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Approvals — SKYCOT (C · Kanban Board)</title>
+<!-- Design language: C — KANBAN TRIAGE BOARD.
+     Columns: New / Reviewing / Snoozed / Approved (today) / Rejected (today).
+     Drag-and-drop cards between columns. Manager / triage view.
+     Good for someone handling many approvals in parallel. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 220px 1fr; height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 5px; background: var(--gradient); }
+  .brand .name { font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .badge { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--paper-2); color: var(--ink-2); font-family: 'JetBrains Mono', monospace; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .head { padding: 18px 28px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; background: var(--bg); }
+  .head h1 { margin: 0; font-size: 24px; font-weight: 300; letter-spacing: -0.025em; }
+  .head h1 strong { font-weight: 600; }
+  .head .sub { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+  .head .right { display: flex; gap: 8px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  .board {
+    flex: 1; overflow-x: auto; overflow-y: hidden;
+    padding: 24px 28px;
+    display: flex; gap: 16px;
+    background: var(--paper);
+  }
+  .col {
+    width: 320px; min-width: 320px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .col-h {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .col-h .name {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-2);
+  }
+  .col-h .name .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .col-h .name.new .dot { background: var(--purple); }
+  .col-h .name.reviewing .dot { background: var(--yellow); }
+  .col-h .name.snoozed .dot { background: var(--ink-4); }
+  .col-h .name.approved .dot { background: var(--teal); }
+  .col-h .name.rejected .dot { background: var(--coral); }
+  .col-h .ct {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); font-weight: 600;
+    padding: 1px 7px; border-radius: 4px; background: var(--paper-2);
+  }
+
+  .col-body {
+    flex: 1; overflow-y: auto;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .k-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: grab;
+    transition: transform 0.1s, border-color 0.1s, box-shadow 0.1s;
+  }
+  .k-card:hover { transform: translateY(-1px); border-color: var(--line-2); box-shadow: 0 4px 12px -4px rgba(0,0,0,0.06); }
+  .k-card.urgent { border-left: 3px solid var(--coral); }
+  .k-card.warn { border-left: 3px solid var(--yellow); }
+  .k-card.ok { border-left: 3px solid var(--teal); }
+
+  .k-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .k-top .av {
+    width: 22px; height: 22px; border-radius: 5px;
+    display: grid; place-items: center; color: white;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .k-top .av.jm { background: var(--gradient); }
+  .k-top .av.sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .k-top .av.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .k-top .av.nm { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .k-top .av.ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .k-top .who { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+  .k-top .who .role { color: var(--ink-3); font-weight: 400; font-size: 11.5px; }
+  .k-top .ts { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-3); }
+
+  .k-subject { font-size: 13.5px; font-weight: 600; color: var(--ink); margin-bottom: 4px; letter-spacing: -0.005em; line-height: 1.35; }
+  .k-preview { font-size: 12px; color: var(--ink-3); line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+  .k-tags { margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .tag { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; padding: 1px 6px; border-radius: 3px; background: var(--paper-2); color: var(--ink-3); font-weight: 500; letter-spacing: 0.04em; }
+  .tag.sla { background: rgba(255,107,107,0.15); color: #B91C1C; font-weight: 700; }
+
+  .k-foot { margin-top: 8px; display: flex; gap: 4px; }
+  .mini-btn {
+    padding: 3px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--bg);
+    color: var(--ink-3); cursor: pointer;
+  }
+  .mini-btn.approve { background: var(--teal); color: white; border-color: var(--teal); }
+  .mini-btn.reject { color: var(--coral); border-color: var(--coral); }
+
+  /* Empty col message */
+  .empty {
+    padding: 28px 16px; text-align: center;
+    font-size: 12px; color: var(--ink-4);
+    border: 1.5px dashed var(--line); border-radius: 10px;
+    margin: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a class="active" href="#">✉ Approvals <span class="badge">7</span></a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div>
+        <h1>Approvals <strong>board</strong></h1>
+        <div class="sub">Drag cards between columns · 7 pending · 2 over SLA</div>
+      </div>
+      <div class="right">
+        <button class="btn">⊟ Switch to list</button>
+        <button class="btn">⚒ Customize columns</button>
+        <button class="btn primary">+ Bulk approve</button>
+      </div>
+    </div>
+
+    <div class="board">
+
+      <div class="col">
+        <div class="col-h">
+          <div class="name new"><span class="dot"></span>New</div>
+          <span class="ct">5</span>
+        </div>
+        <div class="col-body">
+
+          <div class="k-card urgent">
+            <div class="k-top">
+              <div class="av nm">NM</div>
+              <div class="who">Nori <span class="role">· Quote</span></div>
+              <div class="ts">10:11</div>
+            </div>
+            <div class="k-subject">32% discount on QT-2024-7283</div>
+            <div class="k-preview">Tomás Industries requested an additional cut to close before quarter-end. Exceeds 25% threshold.</div>
+            <div class="k-tags"><span class="tag">approval.ask</span><span class="tag">$48k</span><span class="tag sla">SLA 1h 22m</span></div>
+            <div class="k-foot">
+              <button class="mini-btn approve">Approve</button>
+              <button class="mini-btn reject">Reject</button>
+              <button class="mini-btn">Discuss</button>
+            </div>
+          </div>
+
+          <div class="k-card warn">
+            <div class="k-top">
+              <div class="av ma">MA</div>
+              <div class="who">Mariah <span class="role">· Sales</span></div>
+              <div class="ts">10:18</div>
+            </div>
+            <div class="k-subject">RFP for Tomás Industries · send</div>
+            <div class="k-preview">1,240 words across 4 sections. Outline previously reviewed by you on Tuesday.</div>
+            <div class="k-tags"><span class="tag">approval.ask</span><span class="tag">RFP</span></div>
+            <div class="k-foot">
+              <button class="mini-btn approve">Approve</button>
+              <button class="mini-btn reject">Reject</button>
+            </div>
+          </div>
+
+          <div class="k-card warn">
+            <div class="k-top">
+              <div class="av sl">SL</div>
+              <div class="who">Sara <span class="role">· Invoice</span></div>
+              <div class="ts">09:22</div>
+            </div>
+            <div class="k-subject">GL account override on INV-2024-08741</div>
+            <div class="k-preview">Vendor mapped to 6300-Marketing but description matches 6420-Software-SaaS · confidence 92%.</div>
+            <div class="k-tags"><span class="tag">approval.ask</span><span class="tag">override</span></div>
+            <div class="k-foot">
+              <button class="mini-btn approve">Approve</button>
+              <button class="mini-btn reject">Reject</button>
+            </div>
+          </div>
+
+          <div class="k-card warn">
+            <div class="k-top">
+              <div class="av pr">PR</div>
+              <div class="who">Priya <span class="role">· Recruiting</span></div>
+              <div class="ts">08:54</div>
+            </div>
+            <div class="k-subject">Interview slot · Diego Alvarez · Wed 14:00</div>
+            <div class="k-preview">Sent calendar invite for technical interview · 90 min · 3-engineer panel.</div>
+            <div class="k-tags"><span class="tag">approval.ask</span><span class="tag">interview</span></div>
+            <div class="k-foot">
+              <button class="mini-btn approve">Approve</button>
+              <button class="mini-btn reject">Reject</button>
+            </div>
+          </div>
+
+          <div class="k-card warn">
+            <div class="k-top">
+              <div class="av nm">NM</div>
+              <div class="who">Nori <span class="role">· Quote</span></div>
+              <div class="ts">08:31</div>
+            </div>
+            <div class="k-subject">QT-2024-7299 Net 60 terms exception</div>
+            <div class="k-preview">Customer requested Net 60 · default Net 30 · finance prefers Net 30.</div>
+            <div class="k-tags"><span class="tag">approval.ask</span><span class="tag">terms</span></div>
+            <div class="k-foot">
+              <button class="mini-btn approve">Approve</button>
+              <button class="mini-btn reject">Reject</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="col-h">
+          <div class="name reviewing"><span class="dot"></span>Reviewing</div>
+          <span class="ct">2</span>
+        </div>
+        <div class="col-body">
+
+          <div class="k-card urgent">
+            <div class="k-top">
+              <div class="av pr">PR</div>
+              <div class="who">Priya <span class="role">· Recruiting</span></div>
+              <div class="ts">09:58</div>
+            </div>
+            <div class="k-subject">Rejection email to Sara Lin</div>
+            <div class="k-preview">Drafted after concluding Sara doesn't match the JD — 3y vs 5y required, missing distributed-systems experience.</div>
+            <div class="k-tags"><span class="tag">approval.ask</span><span class="tag">outbound</span><span class="tag sla">SLA 35m</span></div>
+            <div class="k-foot">
+              <button class="mini-btn approve">Approve &amp; send</button>
+              <button class="mini-btn">Edit</button>
+              <button class="mini-btn reject">Reject</button>
+            </div>
+          </div>
+
+          <div class="k-card">
+            <div class="k-top">
+              <div class="av jm">JM</div>
+              <div class="who">Jamal <span class="role">· Support</span></div>
+              <div class="ts">Yesterday</div>
+            </div>
+            <div class="k-subject">SUP-29355 escalation closeout</div>
+            <div class="k-preview">Lead support resolved · confirming you've seen the customer follow-up.</div>
+            <div class="k-tags"><span class="tag">closeout</span></div>
+            <div class="k-foot">
+              <button class="mini-btn approve">Confirm seen</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="col-h">
+          <div class="name snoozed"><span class="dot"></span>Snoozed</div>
+          <span class="ct">0</span>
+        </div>
+        <div class="col-body">
+          <div class="empty">No snoozed approvals</div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="col-h">
+          <div class="name approved"><span class="dot"></span>Approved · today</div>
+          <span class="ct">12</span>
+        </div>
+        <div class="col-body">
+
+          <div class="k-card ok">
+            <div class="k-top">
+              <div class="av nm">NM</div>
+              <div class="who">Nori <span class="role">· Quote</span></div>
+              <div class="ts">10:05</div>
+            </div>
+            <div class="k-subject">QT-2024-7281 ·  approved standard discount</div>
+            <div class="k-preview">15% discount within policy · auto-sent to customer.</div>
+            <div class="k-tags"><span class="tag">approved</span></div>
+          </div>
+
+          <div class="k-card ok">
+            <div class="k-top">
+              <div class="av jm">JM</div>
+              <div class="who">Jamal <span class="role">· Support</span></div>
+              <div class="ts">09:14</div>
+            </div>
+            <div class="k-subject">SUP-29378 · refund $89 approved</div>
+            <div class="k-preview">Customer reported duplicate charge · refund issued.</div>
+            <div class="k-tags"><span class="tag">approved</span></div>
+          </div>
+
+          <div class="k-card ok">
+            <div class="k-top">
+              <div class="av sl">SL</div>
+              <div class="who">Sara <span class="role">· Invoice</span></div>
+              <div class="ts">08:42</div>
+            </div>
+            <div class="k-subject">INV-2024-08739 · GL coding confirmed</div>
+            <div class="k-preview">No override · standard mapping accepted.</div>
+            <div class="k-tags"><span class="tag">approved</span></div>
+          </div>
+
+          <div class="empty" style="margin-top: 4px;">+9 more · view all approved today →</div>
+
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="col-h">
+          <div class="name rejected"><span class="dot"></span>Rejected · today</div>
+          <span class="ct">1</span>
+        </div>
+        <div class="col-body">
+
+          <div class="k-card">
+            <div class="k-top">
+              <div class="av ma">MA</div>
+              <div class="who">Mariah <span class="role">· Sales</span></div>
+              <div class="ts">07:58</div>
+            </div>
+            <div class="k-subject">Outbound to Acme Tech CEO</div>
+            <div class="k-preview">Too casual for first contact · referred back to Mariah to redraft.</div>
+            <div class="k-tags"><span class="tag">rejected</span><span class="tag">redraft</span></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

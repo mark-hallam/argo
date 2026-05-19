@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cohorts — SKYCOT (B · Trading Card Deck)</title>
+<!-- Design language: B — Extends Workers C2 holographic.
+     Cohorts as collectible cards in a gradient-glow grid. Viral, brand-loud max.
+     "Discover your next teammate." Each card has gradient banner, level, stats grid, abilities. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #ECECEA; --paper-2: #E0E0DE; --bg: #FFFFFF;
+    --line: #D4D4D0;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased; letter-spacing: -0.005em;
+    background-image: radial-gradient(1200px circle at 50% -20%, rgba(139,92,246,0.12), transparent 50%);
+    min-height: 100vh;
+  }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  .main { padding: 32px 40px 80px; max-width: 1320px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .page-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
+  .page-h h1 { font-size: 44px; font-weight: 900; letter-spacing: -0.035em; margin: 0; background: linear-gradient(135deg, var(--ink), var(--purple)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14.5px; }
+  .btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 6px 18px -4px rgba(139,92,246,0.4); }
+
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+  .chip { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+  .chip.on { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.08); }
+
+  /* Deck */
+  .deck { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+
+  .card {
+    position: relative; background: var(--bg);
+    border-radius: 22px; overflow: hidden; padding: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 24px 50px -12px rgba(139,92,246,0.20), inset 0 0 0 1px rgba(139,92,246,0.10);
+    transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s;
+    cursor: pointer;
+  }
+  .card:hover { transform: translateY(-6px) rotate(-0.5deg); box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 36px 64px -16px rgba(139,92,246,0.30), inset 0 0 0 1px rgba(139,92,246,0.20); }
+  .card.s { box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 24px 50px -12px rgba(236,72,153,0.22), inset 0 0 0 1px rgba(236,72,153,0.10); }
+  .card.p { box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 24px 50px -12px rgba(139,92,246,0.25), inset 0 0 0 1px rgba(236,72,153,0.10); }
+  .card.n { box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 24px 50px -12px rgba(20,184,166,0.22), inset 0 0 0 1px rgba(20,184,166,0.10); }
+  .card.m { box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 24px 50px -12px rgba(255,107,107,0.22), inset 0 0 0 1px rgba(252,211,77,0.10); }
+
+  .card-top {
+    background: var(--gradient); color: white;
+    padding: 14px 18px 60px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    position: relative; overflow: hidden;
+  }
+  .card.s .card-top { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.p .card-top { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.n .card-top { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.m .card-top { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .card.ar .card-top { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .card.cs .card-top { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .card.hr .card-top { background: linear-gradient(135deg, var(--pink), var(--purple)); }
+  .card.it .card-top { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .card.lg .card-top { background: linear-gradient(135deg, var(--coral), var(--pink)); }
+  .card-top::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 80% -20%, rgba(255,255,255,0.30), transparent 50%); pointer-events: none; }
+
+  .card-top .tag {
+    font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(255,255,255,0.20); backdrop-filter: blur(8px);
+  }
+  .card-top .new-badge {
+    font-size: 9px; font-weight: 800; letter-spacing: 0.16em;
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.25);
+    margin-left: 5px;
+  }
+
+  .card-portrait {
+    margin: -36px auto 0; width: 80px; height: 80px;
+    border-radius: 22px; background: var(--bg); padding: 4px;
+    box-shadow: 0 8px 24px -6px rgba(139,92,246,0.4);
+    position: relative; z-index: 1;
+  }
+  .card-portrait .inner {
+    width: 100%; height: 100%; border-radius: 18px;
+    background: var(--gradient); display: grid; place-items: center;
+    color: white; font-size: 24px; font-weight: 800; letter-spacing: 0.04em;
+  }
+  .card.s .card-portrait .inner { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .card.p .card-portrait .inner { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .card.n .card-portrait .inner { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .card.m .card-portrait .inner { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .card.ar .card-portrait .inner { background: linear-gradient(135deg, var(--yellow), var(--teal)); }
+  .card.cs .card-portrait .inner { background: linear-gradient(135deg, var(--cyan), var(--purple)); }
+  .card.hr .card-portrait .inner { background: linear-gradient(135deg, var(--pink), var(--purple)); }
+  .card.it .card-portrait .inner { background: linear-gradient(135deg, var(--teal), var(--purple)); }
+  .card.lg .card-portrait .inner { background: linear-gradient(135deg, var(--coral), var(--pink)); }
+
+  .card-name { text-align: center; padding: 12px 18px 0; }
+  .card-name h3 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+  .card-name .level { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); font-weight: 600; margin-top: 2px; }
+
+  .card-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; margin: 16px 18px 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .stat-cell { padding: 9px 12px; background: var(--bg); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .stat-cell:nth-child(2n) { border-right: none; }
+  .stat-cell:nth-last-child(-n+2) { border-bottom: none; }
+  .stat-cell .l { font-size: 9px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); font-weight: 700; }
+  .stat-cell .v { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; margin-top: 1px; }
+  .stat-cell.grad .v { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .card-abil { padding: 12px 18px; }
+  .card-abil .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--ink-3); font-weight: 800; margin-bottom: 5px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pill { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: rgba(139,92,246,0.08); color: var(--purple); border: 1px solid rgba(139,92,246,0.15); }
+
+  .card-foot {
+    padding: 12px 18px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .card-foot .price { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--ink); }
+  .card-foot .hire {
+    padding: 6px 14px; border-radius: 8px;
+    background: var(--gradient); color: white;
+    font-size: 12px; font-weight: 800; border: none; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a class="active" href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Workspace › Acme Corp</div>
+    <div class="page-h">
+      <div>
+        <h1>Discover your next teammate</h1>
+        <p>24 starter cohorts · hire in one click. Collect them all.</p>
+      </div>
+      <button class="btn primary">+ Build custom</button>
+    </div>
+
+    <div class="filters">
+      <span class="chip on">All · 24</span>
+      <span class="chip">Support · 5</span>
+      <span class="chip">Finance · 7</span>
+      <span class="chip">Sales · 4</span>
+      <span class="chip">HR · 3</span>
+      <span class="chip">IT · 3</span>
+      <span class="chip">Legal · 2</span>
+    </div>
+
+    <div class="deck">
+
+      <div class="card">
+        <div class="card-top"><span class="tag">SUPPORT</span><span class="tag" style="background:rgba(252,211,77,0.30);color:var(--ink)">★ TRENDING</span></div>
+        <div class="card-portrait"><div class="inner">JM</div></div>
+        <div class="card-name"><h3>L2 Support</h3><div class="level">cohort v3.2 · 7 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">847</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.8</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.004</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L3</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">zendesk.read</span><span class="pill">zendesk.reply</span><span class="pill">kb.search</span><span class="pill">+4</span></div></div>
+        <div class="card-foot"><span class="price">$0.004 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card s">
+        <div class="card-top"><span class="tag">FINANCE · OPS</span><span class="tag" style="background:rgba(139,92,246,0.30);color:white">★ FEATURED</span></div>
+        <div class="card-portrait"><div class="inner">SL</div></div>
+        <div class="card-name"><h3>L3 Invoice Ops</h3><div class="level">cohort v2.8 · 9 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">612</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.9</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.008</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L4</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">ocr.read</span><span class="pill">netsuite.write</span><span class="pill">policy.dup</span><span class="pill">+6</span></div></div>
+        <div class="card-foot"><span class="price">$0.008 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card p">
+        <div class="card-top"><span class="tag">RECRUITING</span></div>
+        <div class="card-portrait"><div class="inner">PR</div></div>
+        <div class="card-name"><h3>L2 Recruiting</h3><div class="level">cohort v2.1 · 6 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">489</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.6</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.014</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L3</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">greenhouse.read</span><span class="pill">jd.match</span><span class="pill">email.draft</span><span class="pill">+3</span></div></div>
+        <div class="card-foot"><span class="price">$0.014 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card n">
+        <div class="card-top"><span class="tag">SALES · OPS</span></div>
+        <div class="card-portrait"><div class="inner">NM</div></div>
+        <div class="card-name"><h3>L3 Quote Ops</h3><div class="level">cohort v3.0 · 5 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">318</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.8</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.005</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L4</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">salesforce.read</span><span class="pill">pricing.val</span><span class="pill">+3</span></div></div>
+        <div class="card-foot"><span class="price">$0.005 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card m">
+        <div class="card-top"><span class="tag">SALES</span></div>
+        <div class="card-portrait"><div class="inner">MA</div></div>
+        <div class="card-name"><h3>L2 Sales Ops</h3><div class="level">cohort v2.5 · 8 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">274</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.5</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.018</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L3</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">salesforce.write</span><span class="pill">rfp.draft</span><span class="pill">+6</span></div></div>
+        <div class="card-foot"><span class="price">$0.018 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card ar">
+        <div class="card-top"><span class="tag">FINANCE · OPS</span><span class="tag" style="background:rgba(20,184,166,0.30);color:white">NEW</span></div>
+        <div class="card-portrait"><div class="inner">AR</div></div>
+        <div class="card-name"><h3>L2 AR Collector</h3><div class="level">cohort v1.2 · 7 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">312</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.8</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.020</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L3</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">netsuite.read</span><span class="pill">email.draft</span><span class="pill">+5</span></div></div>
+        <div class="card-foot"><span class="price">$0.020 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card cs">
+        <div class="card-top"><span class="tag">CUSTOMER SUCCESS</span><span class="tag" style="background:rgba(20,184,166,0.30);color:white">NEW</span></div>
+        <div class="card-portrait"><div class="inner">CS</div></div>
+        <div class="card-name"><h3>L2 CS Responder</h3><div class="level">cohort v1.0 · 6 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">87</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.7</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.011</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L3</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">hubspot.read</span><span class="pill">email.draft</span><span class="pill">+4</span></div></div>
+        <div class="card-foot"><span class="price">$0.011 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card hr">
+        <div class="card-top"><span class="tag">PEOPLE · HR</span><span class="tag" style="background:rgba(20,184,166,0.30);color:white">NEW</span></div>
+        <div class="card-portrait"><div class="inner">HR</div></div>
+        <div class="card-name"><h3>L2 People-Ops</h3><div class="level">cohort v1.1 · 8 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">156</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.6</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.015</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L3</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">bamboohr.read</span><span class="pill">docusign.send</span><span class="pill">+6</span></div></div>
+        <div class="card-foot"><span class="price">$0.015 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+      <div class="card it">
+        <div class="card-top"><span class="tag">IT · DEV-EX</span><span class="tag" style="background:rgba(20,184,166,0.30);color:white">NEW</span></div>
+        <div class="card-portrait"><div class="inner">IT</div></div>
+        <div class="card-name"><h3>L2 IT Helpdesk</h3><div class="level">cohort v1.0 · 6 skills</div></div>
+        <div class="card-stats">
+          <div class="stat-cell grad"><div class="l">Teams</div><div class="v">198</div></div>
+          <div class="stat-cell"><div class="l">Rating</div><div class="v">4.7</div></div>
+          <div class="stat-cell"><div class="l">Cost/act</div><div class="v">.007</div></div>
+          <div class="stat-cell"><div class="l">Level cap</div><div class="v">L3</div></div>
+        </div>
+        <div class="card-abil"><div class="lbl">Abilities</div><div class="pills"><span class="pill">okta.write</span><span class="pill">jamf.read</span><span class="pill">+4</span></div></div>
+        <div class="card-foot"><span class="price">$0.007 / action</span><button class="hire">HIRE →</button></div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

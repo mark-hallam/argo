@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audit — SKYCOT (BC2 · Workbench Split-pane)</title>
+<!-- Design language: BC2 — Audit Workbench.
+     Split-pane like a SQL client (Postman / DBeaver / Datadog Logs Explorer).
+     LEFT: dense audit table (from C — sortable, filterable, ⌘K, bulk select).
+     RIGHT: when you click a row, deep-dive panel opens with full hash chain (B),
+            decrypted JSON event body, parent→self→next visualization, replay button.
+     Forensic investigator UX. Best for ops engineers and compliance teams. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --cyan: #0891B2;
+    --ink: #18181B;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --ink-4: #A1A1AA;
+    --paper: #FAFAF9;
+    --paper-2: #F4F4F5;
+    --line: #E4E4E7;
+    --line-2: #D4D4D8;
+    --bg: #FFFFFF;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow: hidden; height: 100vh; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* App grid */
+  .app { display: grid; grid-template-columns: 200px 1fr 480px; height: 100vh; }
+
+  /* Sidebar */
+  .side {
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    padding: 18px 12px;
+    overflow-y: auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 6px 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 12px;
+  }
+  .brand .mark { width: 24px; height: 24px; border-radius: 5px; background: var(--gradient); }
+  .brand .name { font-family: 'Audiowide', sans-serif; font-size: 14px; letter-spacing: 0.06em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a {
+    display: flex; align-items: center; gap: 9px;
+    padding: 6px 9px; border-radius: 5px;
+    color: var(--ink-2); text-decoration: none;
+    font-weight: 500; font-size: 12.5px;
+  }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-4); padding: 12px 9px 4px;
+  }
+
+  /* Main (center pane) */
+  .center {
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .head {
+    padding: 14px 20px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .head-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .head-row h1 {
+    margin: 0;
+    font-family: 'Audiowide', sans-serif;
+    font-size: 18px; font-weight: 400; letter-spacing: 0.04em;
+  }
+  .head-row .verify {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3);
+    display: flex; gap: 12px; align-items: center;
+  }
+  .head-row .verify .ok { color: #0F766E; font-weight: 600; }
+  .head-row .verify .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+
+  .toolbar {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 0;
+  }
+  .chip {
+    padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--line-2); background: var(--bg);
+    font-size: 11.5px; color: var(--ink-2); font-weight: 500;
+    cursor: pointer;
+  }
+  .chip.on { border-color: var(--purple); background: rgba(139,92,246,0.06); color: var(--purple); }
+  .toolbar .search {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 5px;
+    border: 1px solid var(--line-2); background: var(--paper);
+    color: var(--ink-3); font-size: 11.5px; width: 220px;
+  }
+  .toolbar .search .kbd {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    padding: 1px 5px; border-radius: 3px;
+    background: var(--paper-2);
+  }
+
+  /* Table area */
+  .table-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead {
+    background: var(--paper-2);
+    position: sticky; top: 0; z-index: 2;
+  }
+  th {
+    text-align: left; padding: 7px 10px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 600;
+    white-space: nowrap; user-select: none;
+    border-bottom: 1px solid var(--line);
+  }
+  th.check { width: 26px; padding: 7px 4px 7px 12px; }
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2); vertical-align: middle;
+  }
+  tr { cursor: pointer; }
+  tr:hover td { background: var(--paper); }
+  tr.active td {
+    background: rgba(139,92,246,0.07);
+  }
+  tr.active td:first-child {
+    border-left: 2px solid var(--purple);
+  }
+  .cbx {
+    width: 12px; height: 12px; border-radius: 2px;
+    border: 1.5px solid var(--line-2); background: var(--bg);
+    display: inline-block; vertical-align: middle;
+  }
+  .cbx.on {
+    background: var(--purple); border-color: var(--purple); position: relative;
+  }
+  .cbx.on::after { content: '✓'; color: white; font-size: 9px; font-weight: 700; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .ts {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); white-space: nowrap;
+  }
+  .ts .t { color: var(--ink); font-weight: 500; }
+  .av {
+    width: 20px; height: 20px; border-radius: 4px;
+    display: inline-grid; place-items: center; vertical-align: middle;
+    background: var(--gradient); color: white;
+    font-family: 'Audiowide', sans-serif; font-size: 8.5px; letter-spacing: 0.04em;
+    margin-right: 6px;
+  }
+  .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); }
+  .av.m { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .who { font-weight: 600; color: var(--ink); }
+  .kind {
+    display: inline-block; padding: 1px 5px; border-radius: 3px;
+    background: var(--paper-2); color: var(--ink-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+  .kind.result { color: #0F766E; background: rgba(20,184,166,0.10); }
+  .kind.approval { color: #92400E; background: rgba(252,211,77,0.18); }
+  .kind.refuse { color: #B91C1C; background: rgba(255,107,107,0.12); }
+  .hash {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 7px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 600;
+  }
+  .pill .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .pill.ok { background: rgba(20,184,166,0.10); color: #0F766E; } .pill.ok .dot { background: var(--teal); }
+  .pill.warn { background: rgba(252,211,77,0.18); color: #92400E; } .pill.warn .dot { background: var(--yellow); }
+  .pill.bad { background: rgba(255,107,107,0.12); color: #B91C1C; } .pill.bad .dot { background: var(--coral); }
+  .cost {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); text-align: right; white-space: nowrap;
+  }
+  .cost.zero { color: var(--ink-4); }
+
+  /* Status bar */
+  .status-bar {
+    display: flex; gap: 14px; align-items: center;
+    padding: 5px 14px;
+    background: var(--paper-2);
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink-3);
+  }
+  .status-bar .ok { color: #0F766E; font-weight: 700; }
+
+  /* Detail pane (right) */
+  .detail {
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .detail-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .detail-head .blk-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); margin-bottom: 4px;
+  }
+  .detail-head h2 {
+    margin: 0;
+    font-family: 'Audiowide', sans-serif;
+    font-size: 16px; font-weight: 400; letter-spacing: 0.02em;
+  }
+  .detail-head .sub {
+    margin-top: 4px;
+    font-size: 12px; color: var(--ink-3);
+  }
+  .detail-actions {
+    margin-top: 12px; display: flex; gap: 6px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 5px;
+    font-size: 11.5px; font-weight: 500;
+    border: 1px solid var(--line-2); background: var(--bg); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+  .btn.approve { background: var(--teal); color: white; border-color: var(--teal); }
+  .btn.reject { color: var(--coral); border-color: var(--coral); }
+  .detail-body {
+    flex: 1; overflow-y: auto;
+    padding: 16px 20px;
+  }
+  .section {
+    margin-bottom: 22px;
+  }
+  .section-h {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-3); font-weight: 400;
+    margin-bottom: 8px;
+  }
+  /* Chain viz */
+  .chain-viz {
+    display: flex; flex-direction: column; gap: 4px;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px;
+  }
+  .chain-row {
+    display: grid; grid-template-columns: 60px 1fr; gap: 10px;
+    align-items: center;
+    padding: 8px; border-radius: 5px;
+  }
+  .chain-row.this {
+    background: rgba(139,92,246,0.07); border: 1px solid rgba(139,92,246,0.25);
+  }
+  .chain-row .lbl {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .chain-row .h {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--ink); overflow-wrap: anywhere;
+  }
+  .chain-row.this .h { color: var(--purple); font-weight: 600; }
+  .chain-row.this .lbl { color: var(--purple); }
+  .chain-arrow {
+    text-align: center; color: var(--ink-4); font-family: monospace;
+    margin: 2px 0;
+  }
+
+  /* JSON body */
+  .json {
+    background: #0c0c14; color: #E4E4E7;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .json .k { color: #8B5CF6; }
+  .json .s { color: #14B8A6; }
+  .json .n { color: #FCD34D; }
+  .json .b { color: #EC4899; }
+
+  /* Verify badge in detail */
+  .verify-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px;
+    background: rgba(20,184,166,0.10); color: #0F766E;
+    font-size: 11px; font-weight: 600;
+  }
+  .verify-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+
+  .meta-grid {
+    display: grid; grid-template-columns: 100px 1fr; gap: 4px 14px;
+    font-size: 12px;
+  }
+  .meta-grid .k { color: var(--ink-3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; padding-top: 3px; }
+  .meta-grid .v { color: var(--ink); font-weight: 500; }
+  .meta-grid .v .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <div class="mark"></div>
+      <div class="name">SKYCOT</div>
+    </div>
+    <nav class="nav">
+      <a href="#">Home</a>
+      <a href="#">Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">Team</a>
+      <a href="#">Workers</a>
+      <a class="active" href="#">Audit</a>
+      <a href="#">Skills</a>
+      <a href="#">Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">Billing</a>
+      <a href="#">Settings</a>
+    </nav>
+  </aside>
+
+  <section class="center">
+    <div class="head">
+      <div class="head-row">
+        <h1>audit_log · acme-corp</h1>
+        <div class="verify">
+          <span class="ok"><span class="dot"></span> CHAIN OK</span>
+          <span>1,247 rows · 0 breaks · head 812d499b…0ab7</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <span class="chip on">All (17)</span>
+        <span class="chip">Pending (7)</span>
+        <span class="chip">Refused (1)</span>
+        <span class="chip">tool.result</span>
+        <span class="chip">approval.ask</span>
+        <span class="chip">policy.refuse</span>
+        <span class="chip">+ filter</span>
+        <div class="search">⌕ search worker, hash, ticket… <span class="kbd">⌘K</span></div>
+      </div>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="check"><span class="cbx"></span></th>
+            <th>Time ▼</th>
+            <th>Worker</th>
+            <th>Action</th>
+            <th>Kind</th>
+            <th>Hash</th>
+            <th>Status</th>
+            <th style="text-align:right">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">10:42</span></span></td><td><span class="av">JM</span><span class="who">Jamal</span></td><td>Resolved SUP-29382 using KB SK-413</td><td><span class="kind result">tool.result</span></td><td class="hash">7f3a91c2…b8e6</td><td><span class="pill ok"><span class="dot"></span>OK</span></td><td class="cost">$0.004</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">10:38</span></span></td><td><span class="av s">SL</span><span class="who">Sara</span></td><td>Extracted INV-2024-08741 line items (12 lines, $48,290)</td><td><span class="kind result">tool.result</span></td><td class="hash">a1b9c3e4…f209</td><td><span class="pill ok"><span class="dot"></span>OK</span></td><td class="cost">$0.012</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">10:31</span></span></td><td><span class="av p">PR</span><span class="who">Priya</span></td><td>Screened Diego Alvarez vs JD-2024-08 (8.2/10)</td><td><span class="kind result">tool.result</span></td><td class="hash">e8d2447a…1c33</td><td><span class="pill ok"><span class="dot"></span>OK</span></td><td class="cost">$0.014</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">10:24</span></span></td><td><span class="av n">NM</span><span class="who">Nori</span></td><td>Validated QT-2024-7283 vs pricing rules</td><td><span class="kind result">tool.result</span></td><td class="hash">3c5f8e09…d447</td><td><span class="pill ok"><span class="dot"></span>OK</span></td><td class="cost">$0.008</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">10:18</span></span></td><td><span class="av m">MA</span><span class="who">Mariah</span></td><td>Drafted RFP for Tomás Industries (1,240 words)</td><td><span class="kind result">tool.result</span></td><td class="hash">b2a7c193…ee01</td><td><span class="pill ok"><span class="dot"></span>OK</span></td><td class="cost">$0.021</td></tr>
+          <tr class="active"><td><span class="cbx on"></span></td><td><span class="ts"><span class="t">10:11</span></span></td><td><span class="av n">NM</span><span class="who">Nori</span></td><td>Flagged 32% discount on QT-2024-7283 — exceeds threshold</td><td><span class="kind approval">approval.ask</span></td><td class="hash">9d142a8c…7b15</td><td><span class="pill warn"><span class="dot"></span>Pending</span></td><td class="cost zero">—</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">10:04</span></span></td><td><span class="av s">SL</span><span class="who">Sara</span></td><td>Refused duplicate invoice INV-2024-08739</td><td><span class="kind refuse">policy.refuse</span></td><td class="hash">f08c1973…aab2</td><td><span class="pill bad"><span class="dot"></span>Refused</span></td><td class="cost zero">—</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">09:58</span></span></td><td><span class="av p">PR</span><span class="who">Priya</span></td><td>Drafted rejection email to Sara Lin</td><td><span class="kind approval">approval.ask</span></td><td class="hash">5a73e2c8…9f44</td><td><span class="pill warn"><span class="dot"></span>Pending</span></td><td class="cost">$0.009</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">09:52</span></span></td><td><span class="av m">MA</span><span class="who">Mariah</span></td><td>Scheduled Q3 renewal review w/ Acme Tech</td><td><span class="kind result">tool.result</span></td><td class="hash">cc40b8a7…03d1</td><td><span class="pill ok"><span class="dot"></span>OK</span></td><td class="cost zero">—</td></tr>
+          <tr><td><span class="cbx"></span></td><td><span class="ts"><span class="t">09:47</span></span></td><td><span class="av">JM</span><span class="who">Jamal</span></td><td>Escalated SUP-29355 to @lead-support</td><td><span class="kind result">tool.result</span></td><td class="hash">812d499b…0ab7</td><td><span class="pill ok"><span class="dot"></span>OK</span></td><td class="cost zero">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="status-bar">
+      <span class="ok">● CHAIN OK</span>
+      <span>· 1,247 rows · 0 breaks</span>
+      <span>· spend $0.094 today</span>
+      <span style="margin-left:auto">↑↓ navigate · ↵ open · ⌘K search</span>
+    </div>
+  </section>
+
+  <aside class="detail">
+    <div class="detail-head">
+      <div class="blk-num">block #1242 · audit_log row id 47192</div>
+      <h2>Discount approval requested</h2>
+      <div class="sub">Nori flagged a 32% discount on QT-2024-7283 — exceeds your 25% threshold</div>
+      <div class="detail-actions">
+        <button class="btn approve">✓ Approve discount</button>
+        <button class="btn reject">✕ Reject &amp; refer back</button>
+        <button class="btn">Discuss with Nori</button>
+      </div>
+    </div>
+
+    <div class="detail-body">
+
+      <div class="section">
+        <div class="section-h">Hash chain · <span class="verify-tag"><span class="dot"></span>verified</span></div>
+        <div class="chain-viz">
+          <div class="chain-row">
+            <div class="lbl">Parent</div>
+            <div class="h">b2a7c193e441f8d62905a7c8e1d4f0b6a392c1e8d4f7a5b3c2e6d1f8a4b9c7d5…ee01</div>
+          </div>
+          <div class="chain-arrow">↓ sha-256 ↓</div>
+          <div class="chain-row this">
+            <div class="lbl">Self</div>
+            <div class="h">9d142a8c80f6e1bd9a44e7c1d2f3a6b8c5e4d7a1f8b9c2e6d3a4f5b7c8e9d0a1…7b15</div>
+          </div>
+          <div class="chain-arrow">↓ chained into ↓</div>
+          <div class="chain-row">
+            <div class="lbl">Next</div>
+            <div class="h">f08c1973aacd55b14a8e9c1d4f2a5b8c3e7d6a4f1b9c8e5d2a6f3b4c7e8d1a5…aab2</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-h">Metadata</div>
+        <div class="meta-grid">
+          <div class="k">Tenant</div><div class="v">acme-corp</div>
+          <div class="k">Worker</div><div class="v">Nori · quote_validator_v3 <span class="mono">(skill: pricing.discount_review)</span></div>
+          <div class="k">Triggered by</div><div class="v">QT-2024-7283 created in Salesforce 8 min earlier</div>
+          <div class="k">Model</div><div class="v"><span class="mono">claude-sonnet-4-6</span></div>
+          <div class="k">Latency</div><div class="v"><span class="mono">2.0s</span> · tokens: 1,847 in / 230 out</div>
+          <div class="k">Policy hit</div><div class="v"><span class="mono">discount.max=25%</span> · violation severity: <strong style="color:#92400E">warn</strong></div>
+          <div class="k">Replay</div><div class="v"><span class="mono">deterministic</span> · same inputs → same outputs (verified 10:12)</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-h">Event body (decrypted)</div>
+<pre class="json">{
+  <span class="k">"kind"</span>: <span class="s">"approval.ask"</span>,
+  <span class="k">"reason"</span>: <span class="s">"discount_exceeds_threshold"</span>,
+  <span class="k">"target"</span>: {
+    <span class="k">"quote_id"</span>: <span class="s">"QT-2024-7283"</span>,
+    <span class="k">"customer"</span>: <span class="s">"Tomás Industries"</span>,
+    <span class="k">"list_price"</span>: <span class="n">48290.00</span>,
+    <span class="k">"discount_pct"</span>: <span class="n">32.0</span>,
+    <span class="k">"discounted_total"</span>: <span class="n">32837.20</span>
+  },
+  <span class="k">"policy"</span>: {
+    <span class="k">"rule"</span>: <span class="s">"discount.max"</span>,
+    <span class="k">"threshold"</span>: <span class="n">25.0</span>,
+    <span class="k">"action_on_violation"</span>: <span class="s">"escalate"</span>
+  },
+  <span class="k">"requires_approval_from"</span>: <span class="s">"role:sales_leader"</span>,
+  <span class="k">"sla_expires_at"</span>: <span class="s">"2026-05-18T12:11:42Z"</span>,
+  <span class="k">"skill_chain"</span>: [
+    <span class="s">"crm.fetch_quote"</span>,
+    <span class="s">"pricing.discount_review"</span>,
+    <span class="s">"audit.escalate"</span>
+  ]
+}</pre>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

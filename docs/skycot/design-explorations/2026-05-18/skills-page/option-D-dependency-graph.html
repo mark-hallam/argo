@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Skills — SKYCOT (D · Dependency Graph)</title>
+<!-- Design language: D — Visual skill→worker→integration graph.
+     SVG force-directed graph with workers in inner ring, skills in outer ring, integrations on edges.
+     Best for understanding "who uses what" at a glance. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr 320px; height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  /* Graph pane */
+  .graph-pane { background: var(--paper); display: flex; flex-direction: column; overflow: hidden; }
+  .head { padding: 18px 28px; border-bottom: 1px solid var(--line); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+  .head h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .head .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .tabs { display: flex; gap: 2px; }
+  .tabs a { padding: 6px 12px; border-radius: 6px; font-size: 12.5px; color: var(--ink-3); text-decoration: none; font-weight: 500; }
+  .tabs a.on { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .head .actions { display: flex; gap: 8px; }
+  .btn { padding: 6px 11px; border-radius: 7px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+
+  .graph-wrap {
+    flex: 1; position: relative; overflow: hidden;
+    background-image: radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 50%);
+  }
+  .graph-wrap::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+  }
+  svg.graph { width: 100%; height: 100%; display: block; }
+
+  .legend {
+    position: absolute; bottom: 18px; left: 18px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 14px; font-size: 11.5px; color: var(--ink-3);
+    display: flex; gap: 18px;
+  }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .item .ic { width: 14px; height: 14px; border-radius: 50%; }
+  .legend .item .ic.worker { background: var(--gradient); }
+  .legend .item .ic.skill { background: var(--bg); border: 2px solid var(--purple); }
+  .legend .item .ic.integration { background: var(--paper-2); border: 2px solid var(--ink-3); }
+
+  /* Right panel: selected detail */
+  .right { background: var(--bg); border-left: 1px solid var(--line); padding: 22px 22px; overflow-y: auto; }
+  .right-h { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .right-h .av-big { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--purple), var(--pink)); color: white; display: grid; place-items: center; font-size: 16px; font-weight: 700; }
+  .right-h h2 { margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; }
+  .right-h .role { font-size: 12px; color: var(--ink-3); }
+
+  .right-section { margin-bottom: 22px; }
+  .right-section h3 { margin: 0 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3); }
+  .right-section .desc { font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+  .right-section .desc strong { color: var(--ink); font-weight: 600; }
+
+  .connections { display: flex; flex-direction: column; gap: 8px; }
+  .conn-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: var(--paper); }
+  .conn-item .av-tiny { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: white; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+  .conn-item .av-tiny.jm { background: var(--gradient); }
+  .conn-item .av-tiny.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .conn-item .av-tiny.ma { background: linear-gradient(135deg, var(--coral), var(--yellow)); }
+  .conn-item .name { font-size: 12.5px; font-weight: 600; flex: 1; }
+  .conn-item .usage { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+
+  .meta-row { display: flex; gap: 12px; font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+  .meta-row strong { color: var(--ink); font-weight: 600; }
+  .meta-row .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+
+  .perms-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .perms-row .pill { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: var(--paper-2); color: var(--ink-2); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a class="active" href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <section class="graph-pane">
+    <div class="head">
+      <div>
+        <h1>Skill network</h1>
+        <div class="sub">5 workers · 12 skills · 8 integrations · click a node to inspect</div>
+      </div>
+      <div class="tabs">
+        <a href="#">List</a>
+        <a class="on" href="#">Graph</a>
+        <a href="#">Marketplace</a>
+      </div>
+      <div class="actions">
+        <button class="btn">⊟ Fit to screen</button>
+        <button class="btn primary">+ Install</button>
+      </div>
+    </div>
+
+    <div class="graph-wrap">
+      <svg class="graph" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="gradPurp" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#0891B2"/></linearGradient>
+          <linearGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#EC4899"/><stop offset="100%" stop-color="#FF6B6B"/></linearGradient>
+          <linearGradient id="gradTeal" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14B8A6"/><stop offset="100%" stop-color="#0891B2"/></linearGradient>
+          <linearGradient id="gradCor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="100%" stop-color="#FCD34D"/></linearGradient>
+        </defs>
+
+        <!-- Edges -->
+        <g stroke="rgba(139,92,246,0.25)" stroke-width="1.5" fill="none">
+          <line x1="400" y1="300" x2="280" y2="180"/>
+          <line x1="400" y1="300" x2="540" y2="180"/>
+          <line x1="400" y1="300" x2="180" y2="320"/>
+          <line x1="400" y1="300" x2="620" y2="320"/>
+          <line x1="400" y1="300" x2="400" y2="490"/>
+
+          <line x1="280" y1="180" x2="180" y2="90" stroke-width="2" stroke="url(#gradPurp)"/>
+          <line x1="280" y1="180" x2="380" y2="90"/>
+          <line x1="540" y1="180" x2="620" y2="90"/>
+          <line x1="180" y1="320" x2="80" y2="240"/>
+          <line x1="620" y1="320" x2="720" y2="240"/>
+          <line x1="400" y1="490" x2="280" y2="540"/>
+          <line x1="400" y1="490" x2="520" y2="540"/>
+          <line x1="280" y1="180" x2="180" y2="320" stroke-dasharray="4 3"/>
+          <line x1="540" y1="180" x2="620" y2="320" stroke-dasharray="4 3"/>
+        </g>
+
+        <!-- Center: YOU -->
+        <g>
+          <circle cx="400" cy="300" r="36" fill="white" stroke="rgba(139,92,246,0.20)" stroke-width="2"/>
+          <circle cx="400" cy="300" r="28" fill="url(#gradPurp)"/>
+          <text x="400" y="305" text-anchor="middle" font-family="Inter" font-size="11" font-weight="700" fill="white">ACME CORP</text>
+        </g>
+
+        <!-- WORKER NODES (inner ring) -->
+        <!-- Jamal -->
+        <g>
+          <circle cx="280" cy="180" r="30" fill="white" stroke="rgba(139,92,246,0.40)" stroke-width="3"/>
+          <circle cx="280" cy="180" r="24" fill="url(#gradPurp)"/>
+          <text x="280" y="186" text-anchor="middle" font-family="Inter" font-size="10" font-weight="700" fill="white">JM</text>
+          <text x="280" y="232" text-anchor="middle" font-family="Inter" font-size="12" font-weight="700" fill="var(--ink)">Jamal</text>
+          <text x="280" y="247" text-anchor="middle" font-family="Inter" font-size="10" fill="var(--ink-3)">Support · L2</text>
+        </g>
+        <!-- Sara -->
+        <g>
+          <circle cx="540" cy="180" r="30" fill="white" stroke="rgba(236,72,153,0.40)" stroke-width="2"/>
+          <circle cx="540" cy="180" r="24" fill="url(#gradPink)"/>
+          <text x="540" y="186" text-anchor="middle" font-family="Inter" font-size="10" font-weight="700" fill="white">SL</text>
+          <text x="540" y="232" text-anchor="middle" font-family="Inter" font-size="12" font-weight="700" fill="var(--ink)">Sara</text>
+          <text x="540" y="247" text-anchor="middle" font-family="Inter" font-size="10" fill="var(--ink-3)">Invoice · L3</text>
+        </g>
+        <!-- Priya -->
+        <g>
+          <circle cx="180" cy="320" r="30" fill="white" stroke="rgba(167,139,250,0.40)" stroke-width="2"/>
+          <circle cx="180" cy="320" r="24" fill="url(#gradPurp)"/>
+          <text x="180" y="326" text-anchor="middle" font-family="Inter" font-size="10" font-weight="700" fill="white">PR</text>
+          <text x="180" y="372" text-anchor="middle" font-family="Inter" font-size="12" font-weight="700" fill="var(--ink)">Priya</text>
+          <text x="180" y="387" text-anchor="middle" font-family="Inter" font-size="10" fill="var(--ink-3)">Recruiting · L2</text>
+        </g>
+        <!-- Nori -->
+        <g>
+          <circle cx="620" cy="320" r="30" fill="white" stroke="rgba(20,184,166,0.40)" stroke-width="2"/>
+          <circle cx="620" cy="320" r="24" fill="url(#gradTeal)"/>
+          <text x="620" y="326" text-anchor="middle" font-family="Inter" font-size="10" font-weight="700" fill="white">NM</text>
+          <text x="620" y="372" text-anchor="middle" font-family="Inter" font-size="12" font-weight="700" fill="var(--ink)">Nori</text>
+          <text x="620" y="387" text-anchor="middle" font-family="Inter" font-size="10" fill="var(--ink-3)">Quote · L3</text>
+        </g>
+        <!-- Mariah -->
+        <g>
+          <circle cx="400" cy="490" r="30" fill="white" stroke="rgba(255,107,107,0.40)" stroke-width="2"/>
+          <circle cx="400" cy="490" r="24" fill="url(#gradCor)"/>
+          <text x="400" y="496" text-anchor="middle" font-family="Inter" font-size="10" font-weight="700" fill="white">MA</text>
+          <text x="400" y="542" text-anchor="middle" font-family="Inter" font-size="12" font-weight="700" fill="var(--ink)">Mariah</text>
+          <text x="400" y="557" text-anchor="middle" font-family="Inter" font-size="10" fill="var(--ink-3)">Sales · L2</text>
+        </g>
+
+        <!-- SKILL NODES (outer ring) -->
+        <!-- policy.tone (active selected) -->
+        <g>
+          <circle cx="180" cy="90" r="26" fill="white" stroke="var(--purple)" stroke-width="3" filter="url(#glow)"/>
+          <text x="180" y="86" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--purple)">policy</text>
+          <text x="180" y="98" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--purple)">.tone</text>
+          <text x="180" y="135" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="var(--purple)" letter-spacing="0.08em">SELECTED</text>
+        </g>
+        <!-- zendesk.read -->
+        <g>
+          <circle cx="380" cy="90" r="22" fill="white" stroke="rgba(139,92,246,0.50)" stroke-width="2"/>
+          <text x="380" y="86" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">zendesk</text>
+          <text x="380" y="98" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">.read</text>
+        </g>
+        <!-- netsuite.write -->
+        <g>
+          <circle cx="620" cy="90" r="22" fill="white" stroke="rgba(236,72,153,0.50)" stroke-width="2"/>
+          <text x="620" y="86" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">netsuite</text>
+          <text x="620" y="98" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">.write</text>
+        </g>
+        <!-- kb.search -->
+        <g>
+          <circle cx="80" cy="240" r="22" fill="white" stroke="rgba(20,184,166,0.50)" stroke-width="2"/>
+          <text x="80" y="236" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">kb</text>
+          <text x="80" y="248" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">.search</text>
+        </g>
+        <!-- salesforce.read -->
+        <g>
+          <circle cx="720" cy="240" r="22" fill="white" stroke="rgba(20,184,166,0.50)" stroke-width="2"/>
+          <text x="720" y="236" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">salesforce</text>
+          <text x="720" y="248" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">.read</text>
+        </g>
+        <!-- email.draft -->
+        <g>
+          <circle cx="280" cy="540" r="22" fill="white" stroke="rgba(255,107,107,0.50)" stroke-width="2"/>
+          <text x="280" y="536" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">email</text>
+          <text x="280" y="548" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">.draft</text>
+        </g>
+        <!-- gcal.schedule -->
+        <g>
+          <circle cx="520" cy="540" r="22" fill="white" stroke="rgba(255,107,107,0.50)" stroke-width="2"/>
+          <text x="520" y="536" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">gcal</text>
+          <text x="520" y="548" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="700" fill="var(--ink-2)">.sched</text>
+        </g>
+      </svg>
+
+      <div class="legend">
+        <div class="item"><div class="ic worker"></div>Worker</div>
+        <div class="item"><div class="ic skill"></div>Skill</div>
+        <div class="item"><div class="ic" style="width:18px;height:2px;background:rgba(139,92,246,0.25);border-radius:0"></div>Used by</div>
+        <div class="item"><div class="ic" style="width:18px;border-top:2px dashed rgba(139,92,246,0.25);border-radius:0;background:transparent"></div>Shared between workers</div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="right">
+    <div class="right-h">
+      <div class="av-big" style="background:linear-gradient(135deg,var(--purple),var(--pink))">PT</div>
+      <div>
+        <h2>policy.tone</h2>
+        <div class="role">Active · v2.4 · installed 6mo ago</div>
+      </div>
+    </div>
+
+    <div class="right-section">
+      <h3>Description</h3>
+      <div class="desc">Applies your team's <strong>tone guidelines</strong> to drafts before send. Catches off-brand phrasing, overly casual tone, missing required elements (e.g. signature, legal footer). Falls back to <strong>warm-professional</strong> by default.</div>
+    </div>
+
+    <div class="right-section">
+      <h3>Used by · 5 workers</h3>
+      <div class="connections">
+        <div class="conn-item"><div class="av-tiny jm">JM</div><span class="name">Jamal</span><span class="usage">1,247/wk</span></div>
+        <div class="conn-item"><div class="av-tiny" style="background:linear-gradient(135deg,var(--pink),var(--coral))">SL</div><span class="name">Sara</span><span class="usage">112/wk</span></div>
+        <div class="conn-item"><div class="av-tiny pr">PR</div><span class="name">Priya</span><span class="usage">84/wk</span></div>
+        <div class="conn-item"><div class="av-tiny" style="background:linear-gradient(135deg,var(--teal),var(--cyan))">NM</div><span class="name">Nori</span><span class="usage">32/wk</span></div>
+        <div class="conn-item"><div class="av-tiny ma">MA</div><span class="name">Mariah</span><span class="usage">17/wk</span></div>
+      </div>
+    </div>
+
+    <div class="right-section">
+      <h3>Metadata</h3>
+      <div class="meta-row"><span class="lbl">Calls / 7d</span><strong>1,492</strong></div>
+      <div class="meta-row"><span class="lbl">Cost / call</span><strong>$0.001</strong></div>
+      <div class="meta-row"><span class="lbl">Avg latency</span><strong>180ms</strong></div>
+      <div class="meta-row"><span class="lbl">Source</span><strong>SKYCOT-core</strong></div>
+    </div>
+
+    <div class="right-section">
+      <h3>Permissions</h3>
+      <div class="perms-row">
+        <span class="pill">drafts.read</span>
+        <span class="pill">drafts.write</span>
+        <span class="pill">tenant.tone.read</span>
+      </div>
+    </div>
+  </aside>
+
+</div>
+</body>
+</html>

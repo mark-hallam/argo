@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Settings — SKYCOT (A · Sidebar + Detail)</title>
+<!-- Design language: A — Stripe / Linear / Notion settings.
+     Settings-internal sidebar nav (categories) + detail panel on the right.
+     Most enterprise-familiar pattern. Click a category, see its detail. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #F9FAFB; --paper-2: #F3F4F6; --bg: #FFFFFF;
+    --line: #E5E7EB; --line-2: #D1D5DB;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  .side { background: var(--bg); border-right: 1px solid var(--line); padding: 20px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 6px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+  .nav a.active { background: var(--paper-2); color: var(--ink); font-weight: 600; }
+  .nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 4px; }
+
+  /* Settings layout */
+  .settings { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* Settings sidebar */
+  .set-side { background: var(--bg); border-right: 1px solid var(--line); padding: 28px 16px; }
+  .set-side h2 { margin: 0 8px 14px; font-size: 18px; font-weight: 700; letter-spacing: -0.015em; }
+  .set-nav { display: flex; flex-direction: column; gap: 1px; }
+  .set-nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 7px;
+    color: var(--ink-2); text-decoration: none;
+    font-size: 13.5px; font-weight: 500;
+  }
+  .set-nav a:hover { background: var(--paper); }
+  .set-nav a.active {
+    background: var(--paper-2); color: var(--ink); font-weight: 600;
+    box-shadow: inset 2px 0 0 var(--purple);
+  }
+  .set-nav .group { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 16px 12px 4px; font-weight: 700; }
+  .set-nav .badge { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 1px 6px; border-radius: 3px; background: var(--paper-2); color: var(--ink-3); font-weight: 700; }
+
+  /* Detail */
+  .detail { padding: 32px 48px 80px; max-width: 920px; }
+  .crumb { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; }
+  .page-h { padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+  .page-h h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.025em; margin: 0; }
+  .page-h p { color: var(--ink-3); margin: 6px 0 0; font-size: 14px; }
+
+  /* Section */
+  .section { margin-bottom: 36px; }
+  .section-h { margin-bottom: 14px; }
+  .section-h h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .section-h p { color: var(--ink-3); margin: 4px 0 0; font-size: 13px; }
+
+  /* Field */
+  .field { padding: 14px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 220px 1fr auto; gap: 24px; align-items: center; }
+  .field:last-child { border-bottom: none; }
+  .field .label { font-size: 13.5px; font-weight: 600; }
+  .field .label .desc { display: block; font-size: 12px; color: var(--ink-3); font-weight: 400; margin-top: 2px; line-height: 1.4; }
+  .field .value { font-size: 13.5px; color: var(--ink-2); }
+  .field .value .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .field .value .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(20,184,166,0.10); color: #0F766E; }
+  .field .value .pill .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+  .field .action { display: flex; gap: 6px; justify-content: flex-end; }
+  .btn { padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; }
+  .btn.danger { color: var(--coral); border-color: var(--coral); }
+
+  /* Card sections */
+  .card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 24px 28px; margin-bottom: 14px; }
+  .card-h { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .card-h h2 { margin: 0; font-size: 15px; font-weight: 700; }
+  .card-h p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3); }
+
+  /* Team member rows */
+  .member-row { display: grid; grid-template-columns: 32px 1fr 110px auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .member-row:last-child { border-bottom: none; }
+  .member-row .av { width: 32px; height: 32px; border-radius: 8px; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+  .member-row .av.pr { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .member-row .av.sl { background: linear-gradient(135deg, var(--pink), var(--coral)); }
+  .member-row .name { font-size: 13.5px; font-weight: 600; }
+  .member-row .email { font-size: 12px; color: var(--ink-3); }
+  .member-row .role { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-2); padding: 2px 7px; border-radius: 4px; background: var(--paper-2); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+    <nav class="nav">
+      <a href="#">⌂ Home</a>
+      <a href="#">✉ Inbox</a>
+      <div class="group">Workspace</div>
+      <a href="#">◐ Team</a>
+      <a href="#">⚙ Workers</a>
+      <a href="#">⊟ Audit</a>
+      <a href="#">▣ Skills</a>
+      <a href="#">◫ Cohorts</a>
+      <div class="group">Account</div>
+      <a href="#">$ Billing</a>
+      <a class="active" href="#">⚒ Settings</a>
+    </nav>
+  </aside>
+
+  <div class="settings">
+
+    <aside class="set-side">
+      <h2>Settings</h2>
+      <nav class="set-nav">
+        <div class="group">Personal</div>
+        <a class="active" href="#">Profile</a>
+        <a href="#">Notifications</a>
+        <a href="#">Preferences</a>
+
+        <div class="group">Workspace</div>
+        <a href="#">General</a>
+        <a href="#">Team <span class="badge">5</span></a>
+        <a href="#">Branding</a>
+        <a href="#">Worker defaults</a>
+
+        <div class="group">Integrations</div>
+        <a href="#">Connected apps <span class="badge">8</span></a>
+        <a href="#">Providers</a>
+        <a href="#">Webhooks</a>
+        <a href="#">API &amp; tokens</a>
+
+        <div class="group">Security &amp; compliance</div>
+        <a href="#">Security policy</a>
+        <a href="#">Single sign-on</a>
+        <a href="#">SOC 2 / GDPR</a>
+        <a href="#">Audit retention</a>
+        <a href="#">Data residency</a>
+
+        <div class="group">Billing</div>
+        <a href="#">Plan &amp; usage</a>
+        <a href="#">Payment method</a>
+        <a href="#">Invoices</a>
+
+        <div class="group">Danger zone</div>
+        <a href="#" style="color:var(--coral)">Transfer ownership</a>
+        <a href="#" style="color:var(--coral)">Delete workspace</a>
+      </nav>
+    </aside>
+
+    <main class="detail">
+      <div class="crumb">Settings › Personal · Profile</div>
+      <div class="page-h">
+        <h1>Profile</h1>
+        <p>Your name, photo, and login credentials. Visible to your teammates and to your AI workers when they need to address you.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-h"><h2>About you</h2><p>This is how Acme Corp teammates and your AI workers will know you.</p></div>
+
+        <div class="field">
+          <div class="label">Full name<span class="desc">Used in approvals and audit logs.</span></div>
+          <div class="value"><strong style="font-weight:600">Mark Hallam</strong></div>
+          <div class="action"><button class="btn">Edit</button></div>
+        </div>
+
+        <div class="field">
+          <div class="label">Email<span class="desc">Sign-in identifier &amp; notifications go here.</span></div>
+          <div class="value"><span class="mono">mark@acmecorp.com</span></div>
+          <div class="action"><button class="btn">Change</button></div>
+        </div>
+
+        <div class="field">
+          <div class="label">Photo<span class="desc">Replaces "MH" initials in the navigation.</span></div>
+          <div class="value">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:40px;height:40px;border-radius:10px;background:var(--gradient);color:white;display:grid;place-items:center;font-size:14px;font-weight:700">MH</div><span style="color:var(--ink-3)">Using initials</span></div>
+          </div>
+          <div class="action"><button class="btn">Upload</button></div>
+        </div>
+
+        <div class="field">
+          <div class="label">Title<span class="desc">Shown to your AI workers for tone calibration.</span></div>
+          <div class="value">CEO</div>
+          <div class="action"><button class="btn">Edit</button></div>
+        </div>
+
+        <div class="field">
+          <div class="label">Time zone<span class="desc">Used for scheduling, SLAs, and audit timestamps.</span></div>
+          <div class="value"><span class="mono">Australia/Melbourne</span> · UTC+11</div>
+          <div class="action"><button class="btn">Change</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>Sign-in &amp; security</h2><p>How you authenticate. Affects all SKYCOT sessions.</p></div>
+
+        <div class="field" style="grid-template-columns: 220px 1fr auto;">
+          <div class="label">Password<span class="desc">Last changed 12 weeks ago.</span></div>
+          <div class="value">••••••••••••</div>
+          <div class="action"><button class="btn">Change password</button></div>
+        </div>
+
+        <div class="field" style="grid-template-columns: 220px 1fr auto;">
+          <div class="label">Two-factor authentication<span class="desc">Enforced for all workspace admins.</span></div>
+          <div class="value"><span class="pill"><span class="d"></span>Active · Authenticator app</span></div>
+          <div class="action"><button class="btn">Manage</button></div>
+        </div>
+
+        <div class="field" style="grid-template-columns: 220px 1fr auto;">
+          <div class="label">Active sessions<span class="desc">3 devices currently signed in.</span></div>
+          <div class="value"><span class="mono" style="color:var(--ink-3)">MacBook (Melbourne) · iPhone · Chrome (Sydney, 4d ago)</span></div>
+          <div class="action"><button class="btn danger">Sign out all</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>Workspace teammates</h2><p>People who can see and review your AI workers' actions.</p></div>
+
+        <div class="member-row">
+          <div class="av">MH</div>
+          <div><div class="name">Mark Hallam (you)</div><div class="email">mark@acmecorp.com · added 12 Sep 2025</div></div>
+          <div class="role">OWNER</div>
+          <div class="action"><button class="btn" disabled style="opacity:0.5">—</button></div>
+        </div>
+
+        <div class="member-row">
+          <div class="av pr">EL</div>
+          <div><div class="name">Emma Liu</div><div class="email">emma@acmecorp.com · last active 2h ago</div></div>
+          <div class="role">ADMIN</div>
+          <div class="action"><button class="btn">Manage</button></div>
+        </div>
+
+        <div class="member-row">
+          <div class="av sl">JT</div>
+          <div><div class="name">James Tan</div><div class="email">james@acmecorp.com · last active yesterday</div></div>
+          <div class="role">REVIEWER</div>
+          <div class="action"><button class="btn">Manage</button></div>
+        </div>
+
+        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--ink-3); font-size: 13px;">3 of 25 seats used on Acme Corp Pro plan.</span>
+          <button class="btn primary">+ Invite teammate</button>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+</div>
+</body>
+</html>

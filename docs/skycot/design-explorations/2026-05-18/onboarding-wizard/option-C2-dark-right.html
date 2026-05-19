@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Onboarding · welcome — SKYCOT (C2 · Dark Right Pane)</title>
+<!-- Design language: C2 — Light left, DARK right.
+     Left half: sober + form. Right half: dark with gradient + glow + neon Workers-page preview.
+     The dark side is the "brand moment" — gradient gets to shine in its native habitat.
+     Best for: marketing visual punch + enterprise functional left side. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #8B5CF6; --pink: #EC4899; --coral: #FF6B6B; --yellow: #FCD34D; --teal: #14B8A6; --cyan: #0891B2;
+    --ink: #18181B; --ink-2: #3F3F46; --ink-3: #71717A; --ink-4: #A1A1AA;
+    --paper: #FAFAF9; --paper-2: #F4F4F4; --bg: #FFFFFF;
+    --line: #E5E5E5; --line-2: #D1D1D1;
+    --gradient: linear-gradient(135deg, var(--purple), var(--cyan));
+
+    --dark-bg: #07070C; --dark-bg-2: #0E0E16;
+    --dark-line: rgba(255,255,255,0.10);
+    --dark-ink: #F4F4F5; --dark-ink-2: #D4D4D8; --dark-ink-3: #A1A1AA; --dark-ink-4: #71717A;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; height: 100vh; }
+
+  /* LEFT — light */
+  .left { background: var(--bg); padding: 36px 64px; display: flex; flex-direction: column; overflow-y: auto; }
+  .left-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 72px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--gradient); }
+  .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }
+  .exit { font-size: 13px; color: var(--ink-3); text-decoration: none; }
+
+  .progress { display: flex; align-items: center; gap: 14px; margin-bottom: 32px; }
+  .progress .pos { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; }
+  .progress .pos strong { color: var(--ink); font-weight: 600; }
+  .progress .pips { display: flex; gap: 5px; }
+  .progress .pip { width: 28px; height: 3px; border-radius: 2px; background: var(--paper-2); }
+  .progress .pip.on { background: var(--gradient); }
+
+  .copy-block { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 460px; }
+
+  h1 { font-size: 48px; font-weight: 300; letter-spacing: -0.03em; line-height: 1.08; margin: 0 0 18px; }
+  h1 strong { font-weight: 700; }
+  .lead { font-size: 16.5px; color: var(--ink-2); line-height: 1.55; margin: 0 0 36px; max-width: 420px; }
+  .lead strong { color: var(--ink); font-weight: 600; }
+
+  .bullets { list-style: none; padding: 0; margin: 0 0 40px; max-width: 400px; }
+  .bullets li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; font-size: 14px; color: var(--ink-2); }
+  .bullets li .check { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: var(--gradient); color: white; display: grid; place-items: center; font-size: 9.5px; font-weight: 700; margin-top: 2px; }
+  .bullets li strong { color: var(--ink); font-weight: 600; }
+
+  .cta-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 10px; font-size: 14.5px; font-weight: 600; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--gradient); color: white; border: none; box-shadow: 0 4px 14px -4px rgba(139,92,246,0.4); }
+  .btn .kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.06); }
+  .btn.primary .kbd { background: rgba(255,255,255,0.25); }
+
+  .meta-line { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 18px; }
+  .meta-line .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); margin-right: 4px; display: inline-block; }
+  .meta-line strong { color: var(--ink); font-weight: 600; }
+
+  .left-foot { margin-top: auto; padding-top: 28px; font-size: 11.5px; color: var(--ink-4); display: flex; gap: 14px; }
+  .left-foot a { color: var(--ink-4); text-decoration: none; }
+
+  /* RIGHT — DARK */
+  .right {
+    background: var(--dark-bg);
+    color: var(--dark-ink);
+    padding: 56px 64px;
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background-image:
+      radial-gradient(800px circle at 70% 20%, rgba(139,92,246,0.35), transparent 50%),
+      radial-gradient(700px circle at 20% 80%, rgba(8,145,178,0.25), transparent 50%),
+      radial-gradient(500px circle at 90% 90%, rgba(236,72,153,0.12), transparent 60%);
+  }
+  .right > * { position: relative; z-index: 1; }
+
+  .grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+  }
+
+  .preview-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.22em;
+    color: var(--dark-ink-3); font-weight: 700;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .preview-eyebrow .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px var(--teal); margin-right: 6px; }
+  .preview-eyebrow .grad { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+
+  .preview-title {
+    font-size: 28px; font-weight: 200;
+    letter-spacing: -0.025em; line-height: 1.15;
+    margin: 0 0 8px;
+    text-align: center;
+    color: var(--dark-ink);
+  }
+  .preview-title strong { font-weight: 700; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .preview-sub {
+    font-size: 14px; color: var(--dark-ink-3);
+    text-align: center; margin: 0 auto 36px;
+    max-width: 380px;
+  }
+
+  /* Mock card on dark — uses C2 holographic feel from Workers page */
+  .mock {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(20px);
+    border-radius: 18px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.2),
+      0 40px 80px -16px rgba(139,92,246,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+    max-width: 460px; width: 100%;
+    margin: 0 auto;
+  }
+  .mock .mock-h {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .mock .mock-h .title {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--dark-ink-3); text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700;
+  }
+  .mock .mock-h .ct {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--dark-ink); padding: 2px 7px; border-radius: 4px;
+    background: rgba(255,255,255,0.10); font-weight: 600;
+  }
+
+  .mock-row {
+    display: grid; grid-template-columns: 32px 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .mock-row:last-child { border-bottom: none; }
+  .mock-row .av {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: grid; place-items: center; color: white;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--gradient);
+    box-shadow: 0 0 12px rgba(139,92,246,0.3);
+  }
+  .mock-row .av.s { background: linear-gradient(135deg, var(--pink), var(--coral)); box-shadow: 0 0 12px rgba(236,72,153,0.3); }
+  .mock-row .av.p { background: linear-gradient(135deg, var(--purple), var(--pink)); }
+  .mock-row .av.n { background: linear-gradient(135deg, var(--teal), var(--cyan)); box-shadow: 0 0 12px rgba(20,184,166,0.3); }
+  .mock-row .av.empty { background: rgba(255,255,255,0.08); color: var(--dark-ink-3); font-weight: 300; font-size: 17px; box-shadow: none; border: 1px dashed rgba(255,255,255,0.18); }
+
+  .mock-row .who { font-size: 14px; font-weight: 600; color: var(--dark-ink); }
+  .mock-row .role { font-size: 11.5px; color: var(--dark-ink-3); }
+  .mock-row.empty .who { color: var(--dark-ink-3); font-weight: 500; }
+  .mock-row .status {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    background: rgba(20,184,166,0.12); color: var(--teal);
+    font-size: 11px; font-weight: 700;
+    border: 1px solid rgba(20,184,166,0.25);
+  }
+  .mock-row .status .d { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 4px var(--teal); }
+  .mock-row.empty .status { background: rgba(255,255,255,0.05); color: var(--dark-ink-3); border-color: rgba(255,255,255,0.10); }
+
+  .preview-caption {
+    margin-top: 32px;
+    font-size: 13px; color: var(--dark-ink-3);
+    text-align: center; max-width: 420px; margin-left: auto; margin-right: auto;
+    line-height: 1.55;
+  }
+  .preview-caption strong { color: var(--dark-ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="split">
+
+  <aside class="left">
+    <div class="left-top">
+      <div class="brand"><div class="mark"></div><div class="name">SKYCOT</div></div>
+      <a class="exit" href="#">Save &amp; exit →</a>
+    </div>
+
+    <div class="copy-block">
+      <div class="progress">
+        <span class="pos">STEP <strong>1</strong> OF 5</span>
+        <div class="pips">
+          <span class="pip on"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span>
+        </div>
+      </div>
+
+      <h1>Welcome, Mark.<br/>Let's <strong>build your team.</strong></h1>
+      <p class="lead">In about <strong>four minutes</strong>, you'll set up your workspace, link a provider, and hire your first AI teammate.</p>
+
+      <ul class="bullets">
+        <li><span class="check">✓</span><span><strong>No credit card</strong> for setup or your first 7 days</span></li>
+        <li><span class="check">✓</span><span><strong>SOC 2 Type II</strong> &amp; GDPR Article 30 compliant by default</span></li>
+        <li><span class="check">✓</span><span>Every action <strong>cryptographically audited</strong> and replayable</span></li>
+      </ul>
+
+      <div class="cta-row">
+        <button class="btn primary">Get started <span class="kbd">↵</span></button>
+        <button class="btn">Watch tour (90s)</button>
+      </div>
+      <div class="meta-line">
+        <span><span class="dot"></span>Avg setup <strong>4 min</strong></span>
+        <span>·</span>
+        <span>2,847 companies onboarded this month</span>
+      </div>
+    </div>
+
+    <div class="left-foot">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Help</a>
+      <span style="margin-left:auto">SKYCOT · Built in Melbourne</span>
+    </div>
+  </aside>
+
+  <aside class="right">
+    <div class="grid-bg"></div>
+
+    <div class="preview-eyebrow"><span class="dot"></span><span class="grad">YOUR ROSTER</span> · IN 5 MINUTES</div>
+    <h3 class="preview-title">Hire teammates<br/>the way you'd <strong>hire humans.</strong></h3>
+    <p class="preview-sub">By role and skill. They get to work as soon as you finish.</p>
+
+    <div class="mock">
+      <div class="mock-h">
+        <span class="title">Your team</span>
+        <span class="ct">5 ACTIVE</span>
+      </div>
+      <div class="mock-row">
+        <div class="av">JM</div>
+        <div><div class="who">Jamal</div><div class="role">Support · L2</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row">
+        <div class="av s">SL</div>
+        <div><div class="who">Sara</div><div class="role">Invoice ops · L3</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row">
+        <div class="av p">PR</div>
+        <div><div class="who">Priya</div><div class="role">Recruiting · L2</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row">
+        <div class="av n">NM</div>
+        <div><div class="who">Nori</div><div class="role">Quote ops · L3</div></div>
+        <span class="status"><span class="d"></span>Active</span>
+      </div>
+      <div class="mock-row empty">
+        <div class="av empty">+</div>
+        <div><div class="who">Hire this one next</div><div class="role">Step 5 · onboarding</div></div>
+        <span class="status">empty</span>
+      </div>
+    </div>
+
+    <p class="preview-caption">By step 5, you've chosen a role, named your teammate, given them skills.<br/><strong>They start working immediately.</strong></p>
+  </aside>
+
+</div>
+</body>
+</html>
