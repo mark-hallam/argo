@@ -88,7 +88,7 @@ impl std::fmt::Display for WorkflowDefinitionId {
 /// validates inbound values and rejects unknown variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum LifecycleState {
+pub enum WorkflowLifecycleState {
     /// Default for newly-created rows. Not promoted to head yet.
     Draft,
     /// Promoted to head via [`set_head`]. Exactly one `active` row
@@ -100,7 +100,7 @@ pub enum LifecycleState {
     Archived,
 }
 
-impl LifecycleState {
+impl WorkflowLifecycleState {
     /// String form persisted in sqlite.
     #[must_use]
     pub fn as_str(self) -> &'static str {
@@ -144,8 +144,8 @@ pub struct WorkflowDefinition {
     /// Predecessor row id, if this version was branched from an
     /// earlier one. `None` for the initial version.
     pub parent_id: Option<WorkflowDefinitionId>,
-    /// Lifecycle state — see [`LifecycleState`].
-    pub lifecycle_state: LifecycleState,
+    /// Lifecycle state — see [`WorkflowLifecycleState`].
+    pub lifecycle_state: WorkflowLifecycleState,
     /// RFC3339 / ISO-8601 timestamp the row was inserted.
     pub created_at: String,
     /// Opaque principal-serialised string; the canonical encoding is
@@ -217,7 +217,7 @@ pub async fn create(
     .bind(definition_toml)
     .bind(next_version)
     .bind(parent_id_str)
-    .bind(LifecycleState::Draft.as_str())
+    .bind(WorkflowLifecycleState::Draft.as_str())
     .bind(&created_at)
     .bind(modified_by)
     .execute(pool)
@@ -320,13 +320,12 @@ pub async fn set_head(
         .await
         .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head tx: {e}")))?;
 
-    let row = sqlx::query(
-        "SELECT tenant_id, vertical_id, name FROM workflow_definition WHERE id = ?",
-    )
-    .bind(id.as_str())
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head probe: {e}")))?;
+    let row =
+        sqlx::query("SELECT tenant_id, vertical_id, name FROM workflow_definition WHERE id = ?")
+            .bind(id.as_str())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head probe: {e}")))?;
     let row = row.ok_or_else(|| {
         ArgoError::NotFound(format!("workflow_definition: id '{}' does not exist", id.0))
     })?;
@@ -361,7 +360,7 @@ pub async fn set_head(
     .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head write: {e}")))?;
 
     sqlx::query("UPDATE workflow_definition SET lifecycle_state = ? WHERE id = ?")
-        .bind(LifecycleState::Active.as_str())
+        .bind(WorkflowLifecycleState::Active.as_str())
         .bind(id.as_str())
         .execute(&mut *tx)
         .await
@@ -384,13 +383,12 @@ pub async fn archive(pool: &Pool<Sqlite>, id: &WorkflowDefinitionId) -> ArgoResu
         .await
         .map_err(|e| ArgoError::Provider(format!("workflow_definition archive tx: {e}")))?;
 
-    let probe = sqlx::query(
-        "SELECT tenant_id, vertical_id, name FROM workflow_definition WHERE id = ?",
-    )
-    .bind(id.as_str())
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("workflow_definition archive probe: {e}")))?;
+    let probe =
+        sqlx::query("SELECT tenant_id, vertical_id, name FROM workflow_definition WHERE id = ?")
+            .bind(id.as_str())
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("workflow_definition archive probe: {e}")))?;
     let Some(row) = probe else {
         // Idempotent: archive of a missing id is a no-op.
         tx.commit()
@@ -409,7 +407,7 @@ pub async fn archive(pool: &Pool<Sqlite>, id: &WorkflowDefinitionId) -> ArgoResu
         .map_err(|e| ArgoError::Provider(format!("workflow_definition decode name: {e}")))?;
 
     sqlx::query("UPDATE workflow_definition SET lifecycle_state = ? WHERE id = ?")
-        .bind(LifecycleState::Archived.as_str())
+        .bind(WorkflowLifecycleState::Archived.as_str())
         .bind(id.as_str())
         .execute(&mut *tx)
         .await
@@ -478,7 +476,7 @@ fn decode_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<WorkflowDefinition> {
         definition_toml,
         version,
         parent_id: parent_id.map(WorkflowDefinitionId),
-        lifecycle_state: LifecycleState::parse(&lifecycle_state_str)?,
+        lifecycle_state: WorkflowLifecycleState::parse(&lifecycle_state_str)?,
         created_at,
         modified_by,
     })

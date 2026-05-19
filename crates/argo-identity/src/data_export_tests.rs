@@ -156,7 +156,9 @@ async fn audit_rows_scoped_to_principal_email() {
 async fn missing_user_surfaces_schema_error() {
     let store = fresh_store().await;
     let ghost = UserId::new();
-    let err = gather_for_user(&store, ghost, Utc::now()).await.unwrap_err();
+    let err = gather_for_user(&store, ghost, Utc::now())
+        .await
+        .unwrap_err();
     assert!(format!("{err}").contains("not found"));
 }
 

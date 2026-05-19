@@ -26,8 +26,8 @@ fn extract_entries(bytes: &[u8], compressed: bool) -> Vec<(String, Vec<u8>)> {
 #[test]
 fn bundle_round_trip_lists_sorted_entries() {
     let files = vec![
-        BundleFile::raw("audit/verify.txt", b"ok\n".to_vec()),
-        BundleFile::json("audit/chain.jsonl", br#"{"kind":"turn_start"}"#.to_vec()),
+        ReplayBundleFile::raw("audit/verify.txt", b"ok\n".to_vec()),
+        ReplayBundleFile::json("audit/chain.jsonl", br#"{"kind":"turn_start"}"#.to_vec()),
     ];
     let bytes = build_bundle(
         files,
@@ -60,7 +60,7 @@ fn bundle_round_trip_lists_sorted_entries() {
 #[test]
 fn gzip_mode_emits_gzip_magic() {
     let bytes = build_bundle(
-        vec![BundleFile::raw("README.txt", b"hi".to_vec())],
+        vec![ReplayBundleFile::raw("README.txt", b"hi".to_vec())],
         String::new(),
         BundleOptions {
             sanitize: false,
@@ -77,9 +77,9 @@ fn gzip_mode_emits_gzip_magic() {
 
 #[test]
 fn sanitize_redacts_provider_keys_and_emails() {
-    let payload = br#"{"prompt":"contact ops@example.com","key":"sk-abcdefghijklmnopqrstuvwx"}"#
-        .to_vec();
-    let files = vec![BundleFile::json("bundle/action-1.json", payload)];
+    let payload =
+        br#"{"prompt":"contact ops@example.com","key":"sk-abcdefghijklmnopqrstuvwx"}"#.to_vec();
+    let files = vec![ReplayBundleFile::json("bundle/action-1.json", payload)];
     let bytes = build_bundle(
         files,
         String::new(),
@@ -111,7 +111,7 @@ fn sanitize_redacts_provider_keys_and_emails() {
 fn checksum_changes_when_a_file_byte_flips() {
     let mk = |b: u8| {
         build_bundle(
-            vec![BundleFile::raw("a.bin", vec![b])],
+            vec![ReplayBundleFile::raw("a.bin", vec![b])],
             String::new(),
             BundleOptions {
                 sanitize: false,

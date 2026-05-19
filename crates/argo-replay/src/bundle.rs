@@ -10,8 +10,8 @@
 //! `crates/argo-cli/src/handlers/replay_export.rs` for that side.
 //!
 //! ```
-//! use argo_replay::bundle::{build_bundle, BundleFile, BundleOptions};
-//! let inputs = vec![BundleFile::json(
+//! use argo_replay::bundle::{build_bundle, ReplayBundleFile, BundleOptions};
+//! let inputs = vec![ReplayBundleFile::json(
 //!     "audit/chain.jsonl",
 //!     br#"{"kind":"turn_start"}"#.to_vec(),
 //! )];
@@ -35,7 +35,7 @@ use std::sync::OnceLock;
 /// when [`BundleOptions::sanitize`] is set; opaque (`raw`) entries
 /// pass through untouched.
 #[derive(Debug, Clone)]
-pub struct BundleFile {
+pub struct ReplayBundleFile {
     /// Path inside the tar archive (e.g. `"audit/chain.jsonl"`).
     pub path: String,
     /// File bytes.
@@ -46,7 +46,7 @@ pub struct BundleFile {
     pub is_json: bool,
 }
 
-impl BundleFile {
+impl ReplayBundleFile {
     /// New JSON entry — eligible for sanitization.
     #[must_use]
     pub fn json(path: impl Into<String>, bytes: Vec<u8>) -> Self {
@@ -99,7 +99,7 @@ pub struct BundleOptions<'a> {
 /// Returns [`ArgoError::Provider`] on tar / gzip serialization
 /// failures (these are write-to-`Vec` so failures are exceptional).
 pub fn build_bundle(
-    files: Vec<BundleFile>,
+    files: Vec<ReplayBundleFile>,
     manifest_prefix: String,
     opts: BundleOptions<'_>,
 ) -> ArgoResult<Vec<u8>> {

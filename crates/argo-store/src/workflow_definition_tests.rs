@@ -43,7 +43,7 @@ async fn create_then_get_round_trip() {
     assert_eq!(fetched.definition_toml, toml);
     assert_eq!(fetched.version, 1);
     assert_eq!(fetched.parent_id, None);
-    assert_eq!(fetched.lifecycle_state, LifecycleState::Draft);
+    assert_eq!(fetched.lifecycle_state, WorkflowLifecycleState::Draft);
     assert_eq!(fetched.modified_by, "user:alice");
     assert!(!fetched.created_at.is_empty());
 }
@@ -212,7 +212,7 @@ async fn set_head_then_get_head_returns_row() {
     assert_eq!(head.version, 2);
     assert_eq!(
         head.lifecycle_state,
-        LifecycleState::Active,
+        WorkflowLifecycleState::Active,
         "set_head promotes Draft to Active"
     );
 
@@ -228,7 +228,10 @@ async fn set_head_then_get_head_returns_row() {
 
     // Re-pointing head to v1 works.
     set_head(&pool, tenant, "ops", "flow", &v1).await.unwrap();
-    let head2 = get_head(&pool, tenant, "ops", "flow").await.unwrap().unwrap();
+    let head2 = get_head(&pool, tenant, "ops", "flow")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(head2.id, v1);
 }
 
@@ -256,7 +259,7 @@ async fn archive_flips_state_and_clears_head_when_head() {
     // Archiving a non-head row leaves the head pointer alone.
     archive(&pool, &v1).await.unwrap();
     let r1 = get(&pool, &v1).await.unwrap().unwrap();
-    assert_eq!(r1.lifecycle_state, LifecycleState::Archived);
+    assert_eq!(r1.lifecycle_state, WorkflowLifecycleState::Archived);
     let head_after_v1_archive = get_head(&pool, tenant, "ops", "flow").await.unwrap();
     assert!(
         head_after_v1_archive.is_some(),
@@ -267,7 +270,7 @@ async fn archive_flips_state_and_clears_head_when_head() {
     // transaction.
     archive(&pool, &v2).await.unwrap();
     let r2 = get(&pool, &v2).await.unwrap().unwrap();
-    assert_eq!(r2.lifecycle_state, LifecycleState::Archived);
+    assert_eq!(r2.lifecycle_state, WorkflowLifecycleState::Archived);
     let head_after_v2_archive = get_head(&pool, tenant, "ops", "flow").await.unwrap();
     assert!(
         head_after_v2_archive.is_none(),
@@ -299,8 +302,14 @@ async fn tenant_isolation_blocks_cross_tenant_reads() {
     assert_eq!(b_rows[0].id, b1);
 
     // get_head is tenant-scoped.
-    let head_a = get_head(&pool, tenant_a, "ops", "flow").await.unwrap().unwrap();
-    let head_b = get_head(&pool, tenant_b, "ops", "flow").await.unwrap().unwrap();
+    let head_a = get_head(&pool, tenant_a, "ops", "flow")
+        .await
+        .unwrap()
+        .unwrap();
+    let head_b = get_head(&pool, tenant_b, "ops", "flow")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(head_a.id, a1);
     assert_eq!(head_b.id, b1);
     assert_ne!(head_a.id, head_b.id);

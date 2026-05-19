@@ -59,7 +59,7 @@ pub const KNOWN_LIMITATIONS: &[(&str, &str)] = &[
 
 /// One file inside the tarball.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct BundleFile {
+pub struct DataExportBundleFile {
     /// Path inside the tarball, relative to the bundle root.
     pub path: String,
     /// File contents — UTF-8 JSON / JSONL.
@@ -71,7 +71,7 @@ pub struct BundleFile {
 #[derive(Debug, Clone)]
 pub struct ExportBundle {
     /// All files for the bundle, including the manifest.
-    pub files: Vec<BundleFile>,
+    pub files: Vec<DataExportBundleFile>,
     /// Total UTF-8 byte count of all files. Surfaced on the manifest
     /// and the polling-status response.
     pub total_bytes: usize,
@@ -103,19 +103,19 @@ pub async fn gather_for_user(
         user_file,
         tenants_file,
         workers_file,
-        BundleFile {
+        DataExportBundleFile {
             path: "audit/chain.jsonl".to_string(),
             contents: audit_file,
         },
-        BundleFile {
+        DataExportBundleFile {
             path: "memory/rows.jsonl".to_string(),
             contents: String::new(),
         },
-        BundleFile {
+        DataExportBundleFile {
             path: "skills/.empty".to_string(),
             contents: String::new(),
         },
-        BundleFile {
+        DataExportBundleFile {
             path: "messages/outbound.jsonl".to_string(),
             contents: outbound_file,
         },
@@ -133,7 +133,7 @@ async fn load_user(store: &SessionStore, user_id: UserId) -> ArgoResult<UserAcco
         .ok_or_else(|| ArgoError::Schema(format!("user {user_id} not found")))
 }
 
-fn render_user_file(user: &UserAccount) -> BundleFile {
+fn render_user_file(user: &UserAccount) -> DataExportBundleFile {
     let payload = json!({
         "id": user.id.0.to_string(),
         "email": user.email,
@@ -142,7 +142,7 @@ fn render_user_file(user: &UserAccount) -> BundleFile {
         "last_login_at": user.last_login_at,
         "status": user.status.as_str(),
     });
-    BundleFile {
+    DataExportBundleFile {
         path: "user_account.json".to_string(),
         contents: format!("{payload:#}\n"),
     }
@@ -151,7 +151,7 @@ fn render_user_file(user: &UserAccount) -> BundleFile {
 async fn render_tenants_file(
     store: &SessionStore,
     tenants: &[crate::user_tenant::UserTenant],
-) -> ArgoResult<BundleFile> {
+) -> ArgoResult<DataExportBundleFile> {
     let mut rows: Vec<Value> = Vec::with_capacity(tenants.len());
     for link in tenants {
         let name = lookup_tenant_display_name(store, link.tenant_id).await?;
@@ -162,9 +162,12 @@ async fn render_tenants_file(
             "joined_at": link.created_at,
         }));
     }
-    Ok(BundleFile {
+    Ok(DataExportBundleFile {
         path: "tenants.json".to_string(),
-        contents: format!("{}\n", serde_json::to_string_pretty(&rows).unwrap_or_default()),
+        contents: format!(
+            "{}\n",
+            serde_json::to_string_pretty(&rows).unwrap_or_default()
+        ),
     })
 }
 
@@ -183,7 +186,7 @@ async fn lookup_tenant_display_name(
 async fn render_workers_file(
     store: &SessionStore,
     owner_tenant_ids: &[TenantId],
-) -> ArgoResult<BundleFile> {
+) -> ArgoResult<DataExportBundleFile> {
     let mut lines = String::new();
     for tenant_id in owner_tenant_ids {
         let rows: Vec<(String, String, i64, Option<String>)> = sqlx::query_as(
@@ -206,7 +209,7 @@ async fn render_workers_file(
             lines.push('\n');
         }
     }
-    Ok(BundleFile {
+    Ok(DataExportBundleFile {
         path: "workers.jsonl".to_string(),
         contents: lines,
     })
@@ -289,7 +292,7 @@ fn render_manifest(
     tenants: &[crate::user_tenant::UserTenant],
     exported_at: DateTime<Utc>,
     body_bytes: usize,
-) -> BundleFile {
+) -> DataExportBundleFile {
     let limitations: Vec<Value> = KNOWN_LIMITATIONS
         .iter()
         .map(|(path, reason)| json!({ "path": path, "reason": reason }))
@@ -317,9 +320,12 @@ fn render_manifest(
         },
         "known_limitations": limitations,
     });
-    BundleFile {
+    DataExportBundleFile {
         path: "manifest.json".to_string(),
-        contents: format!("{}\n", serde_json::to_string_pretty(&payload).unwrap_or_default()),
+        contents: format!(
+            "{}\n",
+            serde_json::to_string_pretty(&payload).unwrap_or_default()
+        ),
     }
 }
 
@@ -353,8 +359,7 @@ pub fn parse_user_file_for_test(json: &str) -> ArgoResult<UserAccount> {
         .ok_or_else(|| ArgoError::Schema("missing status".into()))?;
     Ok(UserAccount {
         id: UserId(
-            Uuid::parse_str(id_str)
-                .map_err(|e| ArgoError::Schema(format!("uuid parse: {e}")))?,
+            Uuid::parse_str(id_str).map_err(|e| ArgoError::Schema(format!("uuid parse: {e}")))?,
         ),
         email: email.to_string(),
         display_name,
