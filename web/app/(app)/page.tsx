@@ -12,6 +12,7 @@ import {
   type BatchUiState,
 } from "@/components/skycot/BatchGroupBlock";
 import { BundleCard } from "@/components/skycot/BundleCard";
+import { TrustRatchetSection } from "@/components/skycot/TrustRatchetCard";
 import { CelebrationBanner } from "@/components/skycot/CelebrationBanner";
 import { DataSourceChip } from "@/components/skycot/DataSourceChip";
 import { FilterChipRail } from "@/components/skycot/FilterChipRail";
@@ -87,6 +88,12 @@ function ApprovalsInboxShell() {
 
   const items = approvalsQuery.data ?? [];
   const workerOptionList = useMemo(() => deriveWorkerOptions(items), [items]);
+  // ApprovalItem doesn't yet carry workerId; section renders empty
+  // until that brief lands. Inline derive keeps it allocation-cheap.
+  const trustWorkerIds = items.flatMap((a) => {
+    const id = (a as unknown as { workerId?: string }).workerId;
+    return typeof id === "string" && id ? [id] : [];
+  });
 
   const setFilters = useCallback((next: ApprovalFilters) => {
     const filterQs = serializeFilters(next);
@@ -243,6 +250,10 @@ function ApprovalsInboxShell() {
           <RequestElevatedView categories={maskedOnPage} />
         </div>
       ) : null}
+
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-3">
+        <TrustRatchetSection workerIds={trustWorkerIds} />
+      </div>
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
         {approvalsQuery.isPending ? (

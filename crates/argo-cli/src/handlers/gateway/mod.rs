@@ -160,6 +160,7 @@ mod routes_support_tickets;
 mod routes_team_list;
 mod routes_top;
 mod routes_top_sessions;
+mod routes_trust_streaks;
 mod routes_verticals;
 mod routes_verticals_doctor;
 mod routes_verticals_lint;

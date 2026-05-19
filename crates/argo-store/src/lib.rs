@@ -228,6 +228,12 @@ pub mod tenant_rate_limit;
 /// in-memory `argo_skill::trust_graph::TrustGraph` consumes a Vec
 /// of rows and materialises pairwise weights.
 pub mod trust_observation;
+/// Per-worker consecutive-approval streak rollup
+/// (Stream `mission-pm-trust-ratchet-ui`, P2 #11). Walks the
+/// `trust_streak_event` view added in v73 to surface `(tool,
+/// target_glob)` triples where the operator has granted approval
+/// N times in a row without an intervening denial or revocation.
+pub mod trust_streak;
 /// Opinionated SQLite WAL tuning profiles
 /// (Stream `mission-sqlite-wal-tuning`).
 pub mod wal_tuning;

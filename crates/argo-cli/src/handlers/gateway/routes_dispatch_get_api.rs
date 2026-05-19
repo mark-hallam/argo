@@ -133,6 +133,14 @@ pub(super) async fn dispatch_api_get(
             if tail.starts_with("evals ") || tail.starts_with("evals?") {
                 return Some(super::routes_evals::list_response(id_with_suffix, req).await);
             }
+            // mission-pm-trust-ratchet-ui — per-worker trust-streak
+            // rollup. Pinned alongside trust-grade so the `/api/v1/
+            // workers/<id>/<verb>` family stays grouped.
+            if tail.starts_with("trust-streaks ") || tail.starts_with("trust-streaks?") {
+                return Some(
+                    super::routes_trust_streaks::list_response(id_with_suffix, req, store).await,
+                );
+            }
             // J8 — /api/v1/workers/<id>/overview bundles charter,
             // duties, kpis, recent_activity for the Overview tab.
             if tail.starts_with("overview ") || tail.starts_with("overview?") {
