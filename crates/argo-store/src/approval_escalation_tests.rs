@@ -17,6 +17,7 @@ async fn seed(pool: &SqlitePool, tenant_id: TenantId, deadline_at: i64, action: 
             requested_by: "operator",
             deadline_at,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await

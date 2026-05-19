@@ -38,6 +38,14 @@ export interface ApprovalCardProps {
   consequenceIfNo: string;
   /** Why am I being asked? One sentence; expanded on demand. */
   reason?: string;
+  /**
+   * Optional executor-side draft body — PRD text, email body, document
+   * preview — surfaced in a default-collapsed `<details>` region below
+   * `detail`. Spec: `docs/skycot/ux-research/delegator.md:51-53` ("see
+   * exactly what the worker is about to do BEFORE it does it"). Long
+   * drafts (>2KB) scroll internally so the action bar stays on-screen.
+   */
+  draftContent?: string;
   /** Channel the request arrived on; surfaced as small chrome. */
   channel?: "slack" | "imessage" | "sms" | "push" | "web" | "voice" | "whatsapp";
   /** ISO timestamp of when the request landed. Surfaced as relative time. */
@@ -107,6 +115,7 @@ export function ApprovalCard({
   consequenceIfYes,
   consequenceIfNo,
   reason,
+  draftContent,
   channel,
   receivedAt,
   onDecide,
@@ -117,6 +126,7 @@ export function ApprovalCard({
   className,
 }: ApprovalCardProps) {
   const [showReason, setShowReason] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
   const [pendingDecision, setPendingDecision] = useState<ApprovalDecision | null>(null);
   const decision = controlledDecision ?? pendingDecision;
   const [undoRemaining, setUndoRemaining] = useState<number | null>(null);
@@ -192,6 +202,35 @@ export function ApprovalCard({
       <div className="px-5 py-4 text-[14px] leading-relaxed text-[var(--foreground)]">
         <RedactedText policy={redactionPolicy}>{detail}</RedactedText>
       </div>
+
+      {draftContent ? (
+        <details
+          className="mx-5 mb-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/30 text-[13px] leading-relaxed"
+          open={draftOpen}
+          onToggle={(e) => setDraftOpen((e.currentTarget as HTMLDetailsElement).open)}
+          data-testid="approval-draft"
+        >
+          <summary
+            className="cursor-pointer select-none px-4 py-2 font-medium text-[var(--foreground)] flex items-center gap-2"
+            data-testid="approval-draft-toggle"
+          >
+            <ChevronDown
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-[var(--duration-fast)]",
+                draftOpen && "rotate-180",
+              )}
+              aria-hidden
+            />
+            <span>{draftOpen ? "Hide draft" : "Show draft"}</span>
+          </summary>
+          <div
+            className="px-4 pb-3 pt-1 max-h-[30vh] overflow-y-auto whitespace-pre-wrap text-[var(--muted-foreground)]"
+            data-testid="approval-draft-body"
+          >
+            <RedactedText policy={redactionPolicy}>{draftContent}</RedactedText>
+          </div>
+        </details>
+      ) : null}
 
       <div className="mx-5 mb-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/40 px-4 py-3 text-[13px] leading-relaxed space-y-1.5">
         <div className="flex gap-2.5">

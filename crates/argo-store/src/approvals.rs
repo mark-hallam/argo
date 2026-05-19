@@ -41,6 +41,7 @@
 //!         requested_by: "operator-1",
 //!         deadline_at: 1_700_000_000,
 //!         default_decision: DefaultDecision::Deny,
+//!         draft_content: None,
 //!     },
 //! )
 //! .await?;
@@ -219,6 +220,11 @@ pub struct ApprovalRequest {
     /// Reminder/escalation sent-at micros since epoch. `None` means a
     /// pending row is still eligible for the no-reply reminder loop.
     pub escalation_sent_at: Option<i64>,
+    /// Optional executor-side preview of the draft body the approver
+    /// is about to authorise (PRD body, email body, document text).
+    /// Surfaced as a collapsible region in `ApprovalCard`. `None`
+    /// when the executor doesn't expose a draft preview yet.
+    pub draft_content: Option<String>,
 }
 
 /// Insert payload for [`create_request`]. Lets callers populate every
@@ -237,6 +243,10 @@ pub struct NewApprovalRequest<'a> {
     pub deadline_at: i64,
     /// The decision the timeout sweep applies on expiry.
     pub default_decision: DefaultDecision,
+    /// Optional executor-side draft preview attached at creation
+    /// time. Stored verbatim — redaction happens at render time via
+    /// the host's `redactionPolicy`.
+    pub draft_content: Option<&'a str>,
 }
 
 /// Insert one row with `status = Pending`. Returns the assigned id so
@@ -251,8 +261,8 @@ pub async fn create_request(pool: &SqlitePool, new: &NewApprovalRequest<'_>) -> 
     sqlx::query(
         "INSERT INTO approval_request \
          (id, action_id, tenant_id, requested_at, requested_by, deadline_at, \
-          default_decision, status) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
+          default_decision, status, draft_content) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
     )
     .bind(&id_bytes)
     .bind(&new.action_id)
@@ -261,6 +271,7 @@ pub async fn create_request(pool: &SqlitePool, new: &NewApprovalRequest<'_>) -> 
     .bind(new.requested_by)
     .bind(new.deadline_at)
     .bind(new.default_decision.as_str())
+    .bind(new.draft_content)
     .execute(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("approval insert: {e}")))?;
@@ -407,22 +418,25 @@ fn parse_id_bytes(id: &str) -> ArgoResult<Vec<u8>> {
 
 const COLUMNS: &str = "id, action_id, tenant_id, requested_at, requested_by, \
                        deadline_at, default_decision, status, decided_at, \
-                       decided_by, decision, escalation_sent_at";
+                       decided_by, decision, escalation_sent_at, draft_content";
 
 const SELECT_BY_ID: &str = "SELECT id, action_id, tenant_id, requested_at, requested_by, \
                             deadline_at, default_decision, status, decided_at, decided_by, \
-                            decision, escalation_sent_at FROM approval_request WHERE id = ?";
+                            decision, escalation_sent_at, draft_content \
+                            FROM approval_request WHERE id = ?";
 
 const SELECT_PENDING_BY_TENANT: &str =
     "SELECT id, action_id, tenant_id, requested_at, requested_by, \
-     deadline_at, default_decision, status, decided_at, decided_by, decision, escalation_sent_at \
+     deadline_at, default_decision, status, decided_at, decided_by, decision, \
+     escalation_sent_at, draft_content \
      FROM approval_request \
      WHERE tenant_id = ? AND status = 'pending' \
      ORDER BY requested_at ASC LIMIT ?";
 
 const SELECT_PENDING_NEAR_DEADLINE: &str =
     "SELECT id, action_id, tenant_id, requested_at, requested_by, \
-     deadline_at, default_decision, status, decided_at, decided_by, decision, escalation_sent_at \
+     deadline_at, default_decision, status, decided_at, decided_by, decision, \
+     escalation_sent_at, draft_content \
      FROM approval_request \
      WHERE status = 'pending' \
        AND escalation_sent_at IS NULL \
@@ -446,6 +460,7 @@ type RowTuple = (
     Option<String>, // decided_by
     Option<String>, // decision
     Option<i64>,    // escalation_sent_at
+    Option<String>, // draft_content
 );
 
 fn into_request(t: RowTuple) -> ArgoResult<ApprovalRequest> {
@@ -468,6 +483,7 @@ fn into_request(t: RowTuple) -> ArgoResult<ApprovalRequest> {
         decided_by: t.9,
         decision: t.10,
         escalation_sent_at: t.11,
+        draft_content: t.12,
     })
 }
 

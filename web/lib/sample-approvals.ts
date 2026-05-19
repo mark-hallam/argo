@@ -15,6 +15,9 @@ export interface ApprovalItem {
   consequenceIfYes: string;
   consequenceIfNo: string;
   reason?: string;
+  /** Executor-side draft body (PRD text, email body, document preview).
+   * Surfaced as a default-collapsed region inside `ApprovalCard`. */
+  draftContent?: string;
   channel: ChannelKind;
   receivedAt: string; // ISO
   decision?: ApprovalDecision | null;

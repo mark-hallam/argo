@@ -180,6 +180,7 @@ export function ApprovalDaySection({
               consequenceIfYes={unit.item.consequenceIfYes}
               consequenceIfNo={unit.item.consequenceIfNo}
               reason={unit.item.reason}
+              draftContent={unit.item.draftContent}
               channel={unit.item.channel}
               receivedAt={unit.item.receivedAt}
               decision={unit.item.decision ?? null}
@@ -231,6 +232,7 @@ function BatchGroupItem({
         consequenceIfYes={item.consequenceIfYes}
         consequenceIfNo={item.consequenceIfNo}
         reason={item.reason}
+        draftContent={item.draftContent}
         channel={item.channel}
         receivedAt={item.receivedAt}
         decision={item.decision ?? null}

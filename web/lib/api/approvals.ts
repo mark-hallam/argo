@@ -86,6 +86,7 @@ type ApprovalRowJson = {
   consequence_if_yes: string;
   consequence_if_no: string;
   reason?: string | null;
+  draft_content?: string | null;
   channel: ChannelKind;
   received_at: string;
   decision?: "approve" | "refuse" | null;
@@ -108,6 +109,7 @@ function rowToItem(row: ApprovalRowJson): ApprovalItem {
     consequenceIfYes: row.consequence_if_yes,
     consequenceIfNo: row.consequence_if_no,
     reason: row.reason ?? undefined,
+    draftContent: row.draft_content ?? undefined,
     channel: row.channel,
     receivedAt: row.received_at,
     decision: row.decision ?? null,

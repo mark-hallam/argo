@@ -341,6 +341,30 @@ fn estimated_cost_micros(decl: Option<&ActionDeclaration>) -> u64 {
         .unwrap_or(0)
 }
 
+/// Extract the executor-side draft body from an action's payload for
+/// surfacing in the approval card (Stream
+/// `mission-pm-approval-content-preview`).
+///
+/// Convention: `document_creation` and `gmail.send`-style executors
+/// emit the draft body under `payload.body` (see
+/// `worker_actions_executor_document.rs` payload shape). When the
+/// executor exposes the draft under an explicit `draft_content`
+/// field, that wins; otherwise we fall back to `body`. Returns
+/// `None` for actions whose executor hasn't declared a draft preview
+/// — the card stays glanceable in that case.
+#[must_use]
+pub(crate) fn draft_content_from_payload(payload: &serde_json::Value) -> Option<String> {
+    let obj = payload.as_object()?;
+    for key in ["draft_content", "body"] {
+        if let Some(value) = obj.get(key).and_then(serde_json::Value::as_str) {
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
 pub(crate) fn worker_id_for_action(action: &ActionRecord) -> String {
     action
         .payload

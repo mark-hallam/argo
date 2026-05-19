@@ -21,6 +21,7 @@ async fn seed(store: &SessionStore, deadline_at: i64, action_byte: u8) -> String
             requested_by: "operator",
             deadline_at,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await

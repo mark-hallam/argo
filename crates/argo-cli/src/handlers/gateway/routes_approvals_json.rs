@@ -28,6 +28,7 @@
 
 use super::routes_auth_principal::principal_id_for_audit;
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
+use crate::handlers::worker_actions_auto_approval::draft_content_from_payload;
 use crate::handlers::worker_actions_query::collect_latest_actions;
 use crate::handlers::worker_actions_transitions::{self, find_action, open_workspace_memory};
 use argo_memory::MemoryFile;
@@ -251,6 +252,9 @@ fn approval_row_json(rec: &ActionRecord) -> Value {
         .and_then(Value::as_str)
         .map(str::to_string)
         .unwrap_or_else(|| short_payload(&rec.payload));
+    let draft_content = draft_content_from_payload(&rec.payload)
+        .map(Value::String)
+        .unwrap_or(Value::Null);
     json!({
         "id": rec.action_id,
         "worker": {
@@ -263,6 +267,7 @@ fn approval_row_json(rec: &ActionRecord) -> Value {
         "consequence_if_yes": "",
         "consequence_if_no": "",
         "reason": Value::Null,
+        "draft_content": draft_content,
         "channel": "web",
         "received_at": rec.created_at,
         "decision": Value::Null,

@@ -14,6 +14,7 @@ fn payload<'a>(tenant: TenantId, deadline_at: i64) -> NewApprovalRequest<'a> {
         requested_by: "operator-1",
         deadline_at,
         default_decision: DefaultDecision::Deny,
+        draft_content: None,
     }
 }
 
@@ -55,7 +56,7 @@ async fn migrate_creates_indexes() {
 async fn down_migration_drops_table() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 70);
+    assert_eq!(store.schema_version().await.unwrap(), 71);
 
     store.migrate_down_to(43).await.unwrap();
 
@@ -70,7 +71,7 @@ async fn down_migration_drops_table() {
 
     // And re-migrating UP recreates it.
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 70);
+    assert_eq!(store.schema_version().await.unwrap(), 71);
 }
 
 #[tokio::test]
@@ -242,6 +243,7 @@ async fn expire_overdue_flips_pending_rows_past_deadline() {
             requested_by: "op",
             deadline_at: now - 1,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await
@@ -254,6 +256,7 @@ async fn expire_overdue_flips_pending_rows_past_deadline() {
             requested_by: "op",
             deadline_at: now + 1_000_000,
             default_decision: DefaultDecision::Allow,
+            draft_content: None,
         },
     )
     .await
@@ -301,6 +304,7 @@ async fn expire_overdue_records_default_decision_per_row() {
                 requested_by: "op",
                 deadline_at: now - 1,
                 default_decision: default,
+                draft_content: None,
             },
         )
         .await
@@ -340,6 +344,7 @@ async fn expire_overdue_ignores_already_decided_rows() {
             requested_by: "op",
             deadline_at: now - 1,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await
@@ -373,6 +378,7 @@ async fn expire_overdue_is_idempotent_on_second_call() {
             requested_by: "op",
             deadline_at: now - 1,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await
@@ -401,6 +407,7 @@ async fn state_machine_rejects_grant_after_expire() {
             requested_by: "op",
             deadline_at: now - 1,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await
@@ -448,4 +455,43 @@ async fn default_decision_label_round_trips() {
         DefaultDecision::from_str_lossy("garbage"),
         DefaultDecision::Deny
     );
+}
+
+#[tokio::test]
+async fn draft_content_column_round_trips_through_store() {
+    let pool = fresh_pool().await;
+    let cols: Vec<String> =
+        sqlx::query_scalar("SELECT name FROM pragma_table_info('approval_request')")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert!(cols.contains(&"draft_content".to_string()));
+
+    let tenant = TenantId::new();
+    let draft = "# Draft PRD\n\nBody the approver should read.";
+    let with_draft = create_request(
+        &pool,
+        &NewApprovalRequest {
+            draft_content: Some(draft),
+            ..payload(tenant, 1_700_000_000)
+        },
+    )
+    .await
+    .unwrap();
+    let without = create_request(&pool, &payload(tenant, 1_700_000_001))
+        .await
+        .unwrap();
+
+    let with_row = get_request(&pool, &with_draft).await.unwrap().unwrap();
+    assert_eq!(with_row.draft_content.as_deref(), Some(draft));
+    let listed: Vec<_> = list_pending(&pool, tenant, 10)
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|r| r.id == with_draft)
+        .collect();
+    assert_eq!(listed[0].draft_content.as_deref(), Some(draft));
+
+    let none_row = get_request(&pool, &without).await.unwrap().unwrap();
+    assert!(none_row.draft_content.is_none());
 }

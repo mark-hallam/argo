@@ -37,6 +37,10 @@ fn set_test_env(tmp: &std::path::Path) {
 }
 
 fn pending_record(id: &str) -> ActionRecord {
+    pending_record_with_payload(id, serde_json::json!({"summary": format!("test action {id}")}))
+}
+
+fn pending_record_with_payload(id: &str, payload: serde_json::Value) -> ActionRecord {
     ActionRecord {
         schema_key: ActionRecord::SCHEMA_KEY.into(),
         action_id: id.into(),
@@ -47,7 +51,7 @@ fn pending_record(id: &str) -> ActionRecord {
         risk_level: "high".into(),
         requires_approval: true,
         state: "pending".into(),
-        payload: serde_json::json!({"summary": format!("test action {id}")}),
+        payload,
         approved_by: None,
         approved_at: None,
         executed_at: None,
@@ -60,8 +64,11 @@ fn pending_record(id: &str) -> ActionRecord {
 }
 
 async fn seed_action(action_id: &str) {
+    seed_action_record(pending_record(action_id)).await;
+}
+
+async fn seed_action_record(rec: ActionRecord) {
     let (memory, ws) = open_workspace_memory().await.expect("open memory");
-    let rec = pending_record(action_id);
     memory
         .append_for_vertical(
             ws,
@@ -102,7 +109,41 @@ async fn list_returns_pending_items_and_envelope() {
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["id"], "act-1");
     assert!(items[0]["decision"].is_null());
+    assert!(
+        items[0]["draft_content"].is_null(),
+        "no body in payload → draft_content null"
+    );
     assert!(v.get("next_cursor").is_none(), "no cursor on single page");
+}
+
+#[tokio::test]
+async fn list_surfaces_draft_content_from_payload_body() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let rec = pending_record_with_payload(
+        "act-draft",
+        serde_json::json!({
+            "summary": "send the agenda",
+            "body": "# Q3 Roadmap\n\nDraft outline for the board sync.",
+        }),
+    );
+    seed_action_record(rec).await;
+    let (status, body) = list_response(&auth_get("/api/v1/approvals")).await;
+    assert_eq!(status, "200 OK");
+    let v = parse(&body);
+    let items = v["items"].as_array().expect("items array");
+    let row = items
+        .iter()
+        .find(|r| r["id"] == "act-draft")
+        .expect("seeded row present");
+    assert!(
+        row["draft_content"]
+            .as_str()
+            .is_some_and(|s| s.contains("Q3 Roadmap")),
+        "draft_content should mirror payload.body, got {:?}",
+        row["draft_content"]
+    );
 }
 
 #[tokio::test]

@@ -155,6 +155,7 @@ export function BatchCarousel({
             consequenceIfYes={current.consequenceIfYes}
             consequenceIfNo={current.consequenceIfNo}
             reason={current.reason}
+            draftContent={current.draftContent}
             channel={current.channel}
             receivedAt={current.receivedAt}
             decision={decisionsById[current.id] ?? null}

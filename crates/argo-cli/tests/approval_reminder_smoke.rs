@@ -36,6 +36,7 @@ async fn seed(store: &SessionStore, tenant: TenantId, deadline_at: i64, byte: u8
             requested_by: "operator",
             deadline_at,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await

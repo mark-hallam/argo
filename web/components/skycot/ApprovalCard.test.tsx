@@ -103,4 +103,46 @@ describe("ApprovalCard", () => {
     expect(masked).toHaveAttribute("title", REDACTED_TOOLTIP_COPY);
     expect(masked).toHaveAttribute("data-redacted", "email");
   });
+
+  it("renders nothing for the draft region when draftContent is absent", () => {
+    renderCard({ draftContent: undefined });
+    expect(screen.queryByTestId("approval-draft")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("approval-draft-toggle")).not.toBeInTheDocument();
+  });
+
+  it("renders the draft collapsed by default with a Show draft label", () => {
+    renderCard({
+      draftContent: "# Q3 Roadmap\n\nThe full draft body the approver should read.",
+    });
+    const details = screen.getByTestId("approval-draft");
+    expect(details).toBeInTheDocument();
+    expect(details).not.toHaveAttribute("open");
+    expect(screen.getByTestId("approval-draft-toggle")).toHaveTextContent(/Show draft/i);
+  });
+
+  it("flips the toggle label to Hide draft when expanded", async () => {
+    const user = userEvent.setup();
+    renderCard({
+      draftContent: "Body of the draft that the approver should read before saying yes.",
+    });
+    const toggle = screen.getByTestId("approval-draft-toggle");
+    expect(toggle).toHaveTextContent(/Show draft/i);
+    await user.click(toggle);
+    expect(toggle).toHaveTextContent(/Hide draft/i);
+    expect(screen.getByTestId("approval-draft-body")).toBeInTheDocument();
+  });
+
+  it("redacts draftContent under POLICY_MASK_ALL the same way detail is redacted", () => {
+    renderCard({
+      draftContent: "Reply-to sam@acmeco.com about +64 21 555 0123",
+      redactionPolicy: POLICY_MASK_ALL,
+    });
+    // Body content lives inside the <details>; jsdom renders the
+    // <summary> + body regardless of `open` so the sentinels are
+    // queryable in the DOM tree even before the user clicks.
+    expect(screen.queryByText(/sam@acmeco\.com/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\+64 21 555 0123/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("[EMAIL]").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("[PHONE]").length).toBeGreaterThanOrEqual(1);
+  });
 });

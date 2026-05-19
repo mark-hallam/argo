@@ -17,6 +17,7 @@ async fn seed(store: &SessionStore, action_id: Vec<u8>, deadline_at: i64) -> Str
             requested_by: "operator",
             deadline_at,
             default_decision: DefaultDecision::Deny,
+            draft_content: None,
         },
     )
     .await
