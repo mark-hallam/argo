@@ -1,79 +1,111 @@
-# mission-claim-3-runtime-wiring-v1x — wire argo-routing::TieredRouter into agent loop (v1.x post-launch)
+# mission-claim-3-runtime-wiring-v1x — wire argo-routing::TieredRouter into turn.rs (v1.x post-launch)
 
-**Owner**: claude. **Sizing hint**: cross-crate integration + E2E fallback test.
-**Depends on**: existing `argo-routing` crate + 9 provider manifests (all already shipped).
-**Authored against**: origin/main `bc3841a4` on `2026-05-18`.
+**Owner**: claude. **Sizing hint**: cross-crate integration + migration + E2E test.
+**Depends on**: existing `argo-routing` crate + `RoutingPolicy::Tiered` config type in `argo-types` (both already shipped).
+**Authored against**: origin/main `ff02a823` on `2026-05-19`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-claim-3-runtime-wiring-v1x`.
-**Source**: 2026-05-18 audit P1 finding #1 — `argo-routing` crate exists but is NOT WIRED into the agent loop. Only consumer is the `argo route inspect|bench` CLI. Adaptive/cost-tier routing is paper-only.
+**Source**: 2026-05-18 audit P1 finding #1 — `argo-routing` crate exists but is NOT WIRED into the agent loop. Only consumer is the `argo route inspect|bench` CLI. Tier-aware model selection is paper-only.
 
-**Operator decision (2026-05-18)**: "ship it" — accept claim 3 PAPER → PROVEN as v1.x scope. Public launch will not claim "automatic provider fallback"; this brief lands the runtime wiring as a v1.1 follow-up.
+**Operator decision (2026-05-18)**: "ship it" — accept claim 3 PAPER → PROVEN-by-half (tier-routing only) as v1.x scope. Inter-provider fallback is a separate brief.
 
-## Mission alignment
+## REWRITTEN 2026-05-19 by conductor
 
-- **🎯 Mission claim 3** — "TOML provider manifests with cost-tier routing + fallback." The launch pitch currently must avoid claiming automatic fallback; this brief unblocks that pitch.
-- **Reliability** (CLAUDE.md priority #1) — provider outage during a customer session = stuck bot. Fallback is the fix.
-- **Commercial usability** (#5) — multi-LLM market; cost-tier control is a sales lever.
+**Why rewritten**: The 2026-05-18 brief was BLOCKED by a claude worker with 5 structural drifts vs actual code (verified in BUILD_STATUS row). Key reality the worker surfaced:
+
+1. **Actual TieredRouter API**: `TieredRouter::new(Arc<dyn Transport>)` + `async fn route(&self, ctx: &RoutingContext<'_>) -> ArgoResult<RoutingDecision>` (`crates/argo-routing/src/tiered.rs:60,80`). There is no `from_manifests` constructor or `select()` method.
+2. **Actual integration point**: provider/manifest load happens in `argo-agent-runner::turn::run_turn_with_events_inner` at `turn.rs:193` via `load_manifest(cwd, &session.provider)` — NOT in `dispatch.rs` (which is tool dispatch).
+3. **TieredRouter scope**: it's a *tier classifier* that picks a model within a session's chosen provider — NOT inter-provider fallback. Its `fallback_to_default_on_error` flag fires on classifier errors and falls back to the session's default model.
+4. **Schema gap**: `SessionHeader` has `provider: String` + `model: String` but no `routing_policy` column. Tier routing needs a policy to read.
+5. **No shared test stub for `Transport`**: there are private `LoopForeverTransport` / `MockTransport` / `RecordingTransport` inside individual `#[cfg(test)]` modules; nothing reusable.
+
+The rewrite **narrows scope** to the worker's structurally-correct (a) suggestion: wire `TieredRouter::route()` at `turn.rs:193` for tier-aware model selection within a single provider, gated by a new `session.routing_policy` column. **Inter-provider fallback is explicitly out of scope** and will be authored as a sibling brief `mission-provider-fallback-on-error-v1x` when the swarm picks it up.
+
+This closes the cost-tier half of mission claim 3. The fallback half stays paper for v1.0 launch (operator-locked decision per 2026-05-18).
 
 ## Scope
 
-P1 v1.x. Wire `argo-routing::TieredRouter` into `argo-agent-runner::dispatch` as the provider-selection chokepoint. Land an E2E cross-provider fallback test.
+P1 v1.x. Wire `TieredRouter::route()` into the per-turn provider-selection sequence in `turn.rs`. Sessions that opt into a `RoutingPolicy::Tiered` policy will get model selection routed through the tier classifier; sessions with no routing policy (the v1.0 default) behave exactly as today.
 
 ### What lands here
 
-1. **Route selection in dispatch**:
-   - `crates/argo-agent-runner/src/dispatch.rs` currently picks providers from a fixed chain.
-   - Replace with: `let provider = TieredRouter::from_manifests(&manifests).select(&request_ctx)?;`
-   - The router consults manifest tier metadata (cost-per-token + latency-budget + capability-match) + a runtime health-check (recent error rate).
-2. **Fallback-on-error**:
-   - `TieredRouter` has a `fallback_to_default_on_error` flag (already implemented at `crates/argo-routing/src/tiered.rs:107`).
-   - Wire dispatch's error-path: on provider error → re-select with the failed provider excluded → retry.
-   - Cap fallback attempts at 3 to avoid cascading failures.
-3. **Observability**:
-   - Emit `ProviderRouted { tier, provider, fallback_count }` audit rows so customers can verify what's being routed where.
-4. **E2E test**:
-   - `crates/argo-cli/tests/provider_fallback_smoke.rs` (NEW): drive a session through dispatch with a stub-fail provider in tier-1 → assert fallback to tier-2 provider → assert success.
-5. **Cost-tier acceptance test**:
-   - Configure 2 stub providers in tier-1 + tier-3 with different cost-per-token. Drive a "high-priority" session → assert tier-1 selected. Drive a "batch" session → assert tier-3 selected.
+1. **Migration 117**: `ALTER TABLE session ADD COLUMN routing_policy TEXT NULL` — JSON-serialized `RoutingPolicy`. NULL means "no policy; use session.model directly" (back-compat for every existing session).
+2. **`SessionHeader` + `SessionHeaderRow` field**: `pub routing_policy: Option<RoutingPolicy>`. Read on session load; serialize/deserialize via serde_json against the existing `argo_types::RoutingPolicy` enum.
+3. **`SessionStore::set_routing_policy(&self, session_id, policy: Option<RoutingPolicy>) -> Result<()>`**: writer for the new column.
+4. **Wire into `turn.rs:193`**: after `load_manifest(...)` and before `let pricing = price_for(&manifest, &session.model);` —
+   - If `session.routing_policy` is `Some(RoutingPolicy::Tiered(tiered))`: build a classifier `Transport` via `build_transport_for_model(&manifest, &tiered.classifier_model)` (helper extracted from existing `build_transport`), construct `TieredRouter::new(Arc::new(classifier_transport))`, build a `RoutingContext` from the current turn state (session_id, turn number, messages, user message, tools, deadline, policy=session.routing_policy), call `router.route(&ctx).await?`, override the model for this turn with `decision.model`.
+   - If `routing_policy` is `None` or `RoutingPolicy::Default`: behaviour identical to today (just use `session.model`).
+   - Persist the resulting `RoutingDecision` via the existing `AuditKind::RoutingDecision` variant (already in `argo-audit::event`); attribute it to this session+turn.
+5. **Integration test**: `crates/argo-agent-runner/tests/tiered_routing_smoke.rs` (NEW) — drives a fake-tenant session with a stub classifier transport that always classifies as `"complex"`; asserts the dispatched model matches the `complex` tier's model, NOT the session's default model.
+6. **Operator doc**: `docs/skycot/operator/tiered-routing.md` (NEW) — how to set a tiered policy on a session via `argo session set-routing-policy --tiered ...` (CLI command added in this brief; thin wrapper over `SessionStore::set_routing_policy`) + interpretation of `RoutingDecision` audit rows.
 
-LOC: ~600.
+LOC budget: ~600 (≈250 prod migration+store+turn-wire + ≈200 test+stub Transport + ≈150 CLI+docs).
 
 ## Files you may touch
 
+- `crates/argo-store/migrations/117__session_routing_policy.sql` (NEW). ≤10 LOC.
+- `crates/argo-store/src/migrations/v117.rs` (NEW). ≤20 LOC.
+- `crates/argo-store/src/migrations/registry.rs` — register slot 117 in the right per-domain sibling. ≤5 modified LOC.
+- `crates/argo-store/src/models.rs` — add `routing_policy: Option<RoutingPolicy>` to `SessionHeader` + `SessionHeaderRow`; update `From<SessionHeaderRow> for SessionHeader` to decode the JSON. ≤30 modified LOC.
+- `crates/argo-store/src/store_session.rs` (or wherever `SessionStore::load_session_header` lives — verify) — read the new column on load. ≤20 modified LOC.
+- `crates/argo-store/src/store_session_routing.rs` (NEW) — `SessionStore::set_routing_policy(&self, session_id, policy: Option<RoutingPolicy>) -> ArgoResult<()>` + 2 unit tests (set then read; set-None clears). ≤80 LOC.
 - `crates/argo-agent-runner/Cargo.toml` — add `argo-routing` workspace dep. ≤4 modified LOC.
-- `crates/argo-agent-runner/src/dispatch.rs` — wire `TieredRouter` at the provider-selection chokepoint. ≤120 modified LOC.
-- `crates/argo-agent-runner/src/dispatch_fallback.rs` (NEW or extend) — fallback-on-error loop. ≤150 LOC.
-- `crates/argo-audit/src/event.rs` — add `ProviderRouted` variant. ≤20 modified LOC.
-- `crates/argo-cli/tests/provider_fallback_smoke.rs` (NEW). ≤180 LOC.
-- `crates/argo-cli/tests/provider_cost_tier_smoke.rs` (NEW). ≤120 LOC.
-- `docs/skycot/operator/provider-routing.md` (NEW or extend) — operator runbook for tuning tiers + interpreting `ProviderRouted` audit rows. ≤80 LOC.
+- `crates/argo-agent-runner/src/turn.rs` — wire `TieredRouter::route()` after `load_manifest`, before `price_for`. Branch on `session.routing_policy.as_ref()`. ≤80 modified LOC.
+- `crates/argo-agent-runner/src/turn_routing.rs` (NEW) — helper module containing `build_classifier_transport(&manifest, &model_id) -> ArgoResult<Box<dyn Transport>>` + `build_routing_context_from_turn(...)`. ≤120 LOC. Extracted to keep `turn.rs` under 500 LOC.
+- `crates/argo-agent-runner/tests/tiered_routing_smoke.rs` (NEW) — E2E. Define a `TestClassifierTransport` impl inline; assert decision matches tier. ≤180 LOC.
+- `crates/argo-cli/src/cli_session_cmds.rs` (or new sibling) — add `SessionCmd::SetRoutingPolicy { id, tiered: Option<...>, default: Option<String>, none: bool }` variant. ≤40 modified LOC.
+- `crates/argo-cli/src/handlers/session_routing.rs` (NEW) — handler that parses the CLI args, builds a `RoutingPolicy`, calls `SessionStore::set_routing_policy`. ≤80 LOC.
+- `docs/skycot/operator/tiered-routing.md` (NEW). ≤100 LOC.
 
 ## Files you must NOT touch
 
 - `argo-routing` crate internals — pure consumer.
 - Provider manifest TOMLs (`manifests/providers/*.toml`) — read-only consumer.
-- `argo route inspect|bench` CLI — read-only adjacent.
+- `argo-agent-runner::dispatch.rs` — tool dispatch surface, not provider selection. The original brief mistakenly named this; it is NOT the wiring point.
+- `Transport` trait or any provider transport impl — pure consumer.
+- Inter-provider fallback logic — out of scope; future brief `mission-provider-fallback-on-error-v1x` will own it.
 
 ## Acceptance criteria
 
-- [ ] Agent loop dispatches via `TieredRouter`, not a fixed chain.
-- [ ] On primary-provider error: fallback kicks in, retry succeeds, dispatch completes.
-- [ ] `ProviderRouted` audit row emitted on every provider pick.
-- [ ] `crates/argo-cli/tests/provider_fallback_smoke.rs` passes — assert tier-2 selected when tier-1 stub-fails.
-- [ ] `crates/argo-cli/tests/provider_cost_tier_smoke.rs` passes — assert tier-1 selected for high-priority, tier-3 for batch.
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean.
-- [ ] Operator runbook documents tuning + observability.
-- [ ] BUILD_STATUS.md row updated.
+- [ ] Migration 117 runs cleanly forward (`cargo test -p argo-store migration_upgrade`).
+- [ ] `SessionHeader::routing_policy` serialises round-trip; NULL → None is back-compat.
+- [ ] `SessionStore::set_routing_policy(session, Some(Tiered{...}))` then re-load returns the same policy.
+- [ ] `SessionStore::set_routing_policy(session, None)` clears the policy.
+- [ ] In `turn.rs::run_turn_with_events_inner`, when `session.routing_policy` is `Some(RoutingPolicy::Tiered)`, `TieredRouter::route()` is consulted and its `RoutingDecision.model` overrides the model used for this turn.
+- [ ] When `routing_policy` is `None`, dispatch behaviour is byte-identical to today (verified by snapshot test against `turn_tests`).
+- [ ] `AuditKind::RoutingDecision` audit row is emitted on every routed turn, carrying session_id, turn number, tier, selected model, and elapsed_ms.
+- [ ] `crates/argo-agent-runner/tests/tiered_routing_smoke.rs` passes — stub classifier returns "complex" → assert model = tier-3 model.
+- [ ] `argo session set-routing-policy <session-id> --tiered ...` CLI sets the policy; `argo session set-routing-policy <session-id> --none` clears it.
+- [ ] `cargo clippy -p argo-store -p argo-agent-runner -p argo-cli --all-targets -- -D warnings` clean.
+- [ ] `bash scripts/workspace-clippy-fast-fail.sh` clean.
+- [ ] Every modified file < 500 LOC.
+- [ ] `docs/skycot/operator/tiered-routing.md` documents the policy shape, the CLI, and the audit row.
+- [ ] BUILD_STATUS.md row updated with PR number on IN_REVIEW.
 
 ## Branch + PR
 
 - Branch: `mission-claim-3-runtime-wiring-v1x`
-- Title: `feat(agent-runner): wire TieredRouter into dispatch + fallback-on-error (mission-claim-3-runtime-wiring-v1x) — claim-3 PAPER → PROVEN`
-- Worker verification: workspace clippy + tests + manual smoke with 2 stub providers.
+- Title: `feat(agent-runner): wire TieredRouter::route() into turn.rs + session.routing_policy column (mission-claim-3-runtime-wiring-v1x) — claim-3 cost-tier half PROVEN`
+
+## Notes for the implementer
+
+- The narrowing decision: the original brief tried to land tier-routing AND inter-provider fallback in one PR. That conflated two distinct concerns (one in argo-routing's scope, one orthogonal to it) and reproduced the "no parallel abstractions" anti-pattern flagged in `docs/skycot/DRIFT_PREVENTION.md`. This rewrite handles tier-routing only. Provider-fallback-on-error is a future sibling brief (`mission-provider-fallback-on-error-v1x`) when the swarm picks it up — the design space there is "extend a transport wrapper / supervisor" not "wire another router". Do not blend the two even if it feels close.
+- `build_classifier_transport` is a small helper because the classifier_model lives at `RoutingPolicy::Tiered.classifier_model` and may differ from `session.model`. Reuse the existing `build_transport` body if possible (parameterise it by model id rather than duplicating).
+- The integration test uses an inline `TestClassifierTransport` — DO NOT introduce a workspace-shared stub Transport in this brief. That's a separate refactor (workers have flagged the gap; let the next person needing it author the refactor).
+- `RoutingDecision` audit row should NOT carry the user message content. Just session_id, turn, tier, model, elapsed_ms. The classifier's *input* (the user message) is already in `Message` rows; don't duplicate.
+- If `argo-routing` is not yet a dep of `argo-agent-runner` (verify with `grep argo-routing crates/argo-agent-runner/Cargo.toml`): add it. That's a known forward-only add per the original audit.
+- Schema migration 117 adds a nullable column — back-compat. Old sessions read as `routing_policy = None`. No data migration needed.
 
 ## Hidden constraints
 
-- **No change to provider manifest TOML schema.** All routing intelligence is in the Rust side; manifests stay declarative.
-- **Fallback cap at 3 attempts.** Prevents cascading retries from masking systemic outages.
-- **Cost-tier acceptance test uses stub providers.** Don't burn real API tokens in CI.
-- **`ProviderRouted` audit row must NOT contain user content.** Just routing metadata (tier + provider + fallback count). Customer data stays in `ToolResult` payloads.
-- **Closes claim-3 PAPER status.** When this lands + tests pass + audit row visible, claim 3 is runtime-PROVEN.
+- **No change to provider manifest TOML schema.** Tier metadata that's needed lives in `RoutingPolicy::Tiered` (which is config, not manifest).
+- **No inter-provider fallback in this brief.** The brief explicitly does NOT introduce a `Transport`-wrapping fallback supervisor, a `fallback_chain` config, or any "try provider B if A errors" logic. Those land in `mission-provider-fallback-on-error-v1x`.
+- **`AuditKind::RoutingDecision` already exists** (verified in `crates/argo-audit/src/event.rs`). Don't add a new variant — emit the existing one.
+- **`turn.rs` is near LOC ceiling.** If `turn.rs` is at >480 LOC, extract the routing call into the new `turn_routing.rs` sibling (already in may-touch). Don't push `turn.rs` past 500.
+- **Closes the cost-tier half of mission claim 3.** When this lands + smoke test passes + audit row visible, claim 3's cost-tier story is PROVEN. The fallback story remains PAPER until `mission-provider-fallback-on-error-v1x` lands.
+
+## Out of scope
+
+- Inter-provider fallback on `Transport::complete` error (future sibling: `mission-provider-fallback-on-error-v1x`).
+- Cost-tier priority routing (e.g. "use tier-1 for $$$ customers, tier-3 for batch") — that's a different `RoutingPolicy` variant; if needed for a customer, author a follow-up brief.
+- Workspace-shared `Transport` test stub (cross-cutting refactor; let the next person to need it author it).
+- A `argo route check <session>` debug CLI — useful but not load-bearing for claim 3.
