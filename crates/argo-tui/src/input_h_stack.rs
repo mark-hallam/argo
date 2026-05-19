@@ -93,6 +93,7 @@ mod tests {
             ended_at: None,
             vertical_id: None,
             worker_id: None,
+            routing_policy: None,
         }
     }
 

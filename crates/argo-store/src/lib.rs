@@ -138,6 +138,7 @@ pub mod scim_user;
 mod session_meta;
 mod session_query;
 mod session_store;
+mod store_session_routing;
 /// Per-skill operator flags (Stream
 /// `mission-forge-operator-feedback-eval-signal`, MISSION_BACKLOG
 /// Section 3 Claim 4 #85). Generic flag store consulted by the

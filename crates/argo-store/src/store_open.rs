@@ -235,3 +235,28 @@ pub(crate) async fn ensure_session_worker_id_column(pool: &Pool<Sqlite>) -> Stor
     .map_err(|e| ArgoError::Io(format!("create idx_session_worker: {e}")))?;
     Ok(())
 }
+
+/// PRAGMA-detect-then-ALTER for `session.routing_policy` (Stream
+/// `mission-claim-3-runtime-wiring-v1x`). Same lazy-bootstrap pattern
+/// as [`ensure_session_worker_id_column`]: the structured migration
+/// runner caps at v70, so post-v70 column adds happen here. The
+/// column stores a serialized `argo_types::RoutingPolicy` (JSON);
+/// NULL means "no policy, use session.model directly".
+pub(crate) async fn ensure_session_routing_policy_column(pool: &Pool<Sqlite>) -> StoreResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(session)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("session table info: {e}")))?;
+    let has_column = rows.iter().any(|row| {
+        use sqlx::Row;
+        let name: String = row.get("name");
+        name == "routing_policy"
+    });
+    if !has_column {
+        sqlx::query("ALTER TABLE session ADD COLUMN routing_policy TEXT")
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("add session.routing_policy: {e}")))?;
+    }
+    Ok(())
+}

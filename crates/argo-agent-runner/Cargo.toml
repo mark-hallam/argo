@@ -16,6 +16,7 @@ argo-mcp = { path = "../argo-mcp" }
 argo-memory = { path = "../argo-memory" }
 argo-orchestrator = { path = "../argo-orchestrator" }
 argo-provider = { path = "../argo-provider" }
+argo-routing = { path = "../argo-routing" }
 argo-runtime = { path = "../argo-runtime" }
 argo-skill = { path = "../argo-skill" }
 argo-store = { path = "../argo-store" }

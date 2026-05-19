@@ -253,6 +253,7 @@ mod session_messages_rollups;
 mod session_orchestrator;
 pub mod session_replay;
 mod session_resolve;
+pub mod session_routing;
 mod session_search;
 mod session_show;
 mod session_skills;

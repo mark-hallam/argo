@@ -1,6 +1,7 @@
 //! Read-side row models and conversions.
 use argo_types::{
-    ArgoError, ProviderModel, RoutingDecision, RoutingDecisionId, SessionId, TenantId, WorkspaceId,
+    ArgoError, ProviderModel, RoutingDecision, RoutingDecisionId, RoutingPolicy, SessionId,
+    TenantId, WorkspaceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -101,6 +102,12 @@ pub struct SessionHeader {
     /// Optional worker identity that started or owns the session.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worker_id: Option<WorkerId>,
+    /// Optional routing policy that overrides `model` selection
+    /// per-turn (Stream `mission-claim-3-runtime-wiring-v1x`).
+    /// `None` means the agent loop uses `model` directly; `Some`
+    /// engages the tier router in `argo-agent-runner::turn_routing`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routing_policy: Option<RoutingPolicy>,
 }
 
 /// Raw row shape used internally by sqlx.
@@ -116,6 +123,7 @@ pub(crate) struct SessionHeaderRow {
     pub ended_at: Option<i64>,
     pub vertical_id: Option<String>,
     pub worker_id: Option<Vec<u8>>,
+    pub routing_policy: Option<String>,
 }
 
 pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
@@ -291,6 +299,12 @@ impl TryFrom<SessionHeaderRow> for SessionHeader {
     type Error = ArgoError;
 
     fn try_from(r: SessionHeaderRow) -> Result<Self, Self::Error> {
+        let routing_policy = r
+            .routing_policy
+            .as_deref()
+            .map(serde_json::from_str::<RoutingPolicy>)
+            .transpose()
+            .map_err(|e| ArgoError::Schema(format!("session.routing_policy decode: {e}")))?;
         Ok(Self {
             id: SessionId(uuid_from_blob(&r.id)),
             tenant_id: TenantId(uuid_from_blob(&r.tenant_id)),
@@ -306,6 +320,7 @@ impl TryFrom<SessionHeaderRow> for SessionHeader {
                 .worker_id
                 .map(|blob| WorkerId::from_blob(&blob))
                 .transpose()?,
+            routing_policy,
         })
     }
 }

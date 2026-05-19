@@ -41,6 +41,7 @@ fn render_manifest_prefix_includes_metadata() {
         ended_at: None,
         vertical_id: None,
         worker_id: None,
+        routing_policy: None,
     };
     let prefix = render_manifest_prefix(&header, &[], false);
     assert!(prefix.contains("session_id ="));
@@ -64,6 +65,7 @@ fn render_manifest_prefix_sanitizes_title_when_requested() {
         ended_at: None,
         vertical_id: None,
         worker_id: None,
+        routing_policy: None,
     };
     let prefix = render_manifest_prefix(&header, &[], true);
     assert!(!prefix.contains("ops@example.com"));

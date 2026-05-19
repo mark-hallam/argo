@@ -316,6 +316,67 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Configure the per-turn routing policy on a session
+    /// (`mission-claim-3-runtime-wiring-v1x`). With `--tiered` the
+    /// agent loop consults `argo-routing::TieredRouter` before each
+    /// turn and picks `simple` / `medium` / `complex` based on the
+    /// classifier's verdict. With `--none` the policy is cleared and
+    /// the session falls back to its default model.
+    #[command(after_help = "Examples:\n  \
+        argo session set-routing-policy <id> --tiered \\\n    \
+          --classifier-provider openai --classifier-model gpt-4o-mini \\\n    \
+          --simple-provider openai --simple-model gpt-4o-mini \\\n    \
+          --medium-provider openai --medium-model gpt-4o \\\n    \
+          --complex-provider anthropic --complex-model claude-sonnet-4-6\n  \
+        argo session set-routing-policy <id> --none")]
+    SetRoutingPolicy {
+        /// Session id to update.
+        id: String,
+        /// Engage `RoutingPolicy::Tiered` on this session.
+        #[arg(long, conflicts_with = "none", requires = "classifier_model")]
+        tiered: bool,
+        /// Clear the session's routing policy. Tier routing is
+        /// disabled; the agent loop returns to using
+        /// `session.model` directly.
+        #[arg(long, conflicts_with = "tiered")]
+        none: bool,
+        /// Classifier provider id (must match a manifest under
+        /// `manifests/providers/`).
+        #[arg(long)]
+        classifier_provider: Option<String>,
+        /// Classifier model id (cheap classifier model, e.g.
+        /// `gpt-4o-mini`).
+        #[arg(long)]
+        classifier_model: Option<String>,
+        /// Provider for the `simple` tier.
+        #[arg(long)]
+        simple_provider: Option<String>,
+        /// Model for the `simple` tier.
+        #[arg(long)]
+        simple_model: Option<String>,
+        /// Provider for the `medium` tier.
+        #[arg(long)]
+        medium_provider: Option<String>,
+        /// Model for the `medium` tier.
+        #[arg(long)]
+        medium_model: Option<String>,
+        /// Provider for the `complex` tier.
+        #[arg(long)]
+        complex_provider: Option<String>,
+        /// Model for the `complex` tier.
+        #[arg(long)]
+        complex_model: Option<String>,
+        /// Wall-clock cap for the classifier round trip (ms).
+        #[arg(long, default_value_t = 500)]
+        classify_threshold_ms: u64,
+        /// Fall back to `session.model` if the classifier errors
+        /// out (otherwise the turn fails).
+        #[arg(long, default_value_t = true)]
+        fallback_to_default_on_error: bool,
+        /// JSON-mode output for scripting.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `ForgeCmd` + `ForgeRunsCmd` live in `cli_forge_cmds.rs` —

@@ -158,6 +158,7 @@ impl SessionStore {
     pub async fn migrate(&self) -> StoreResult<()> {
         migrations::run(&self.pool).await?;
         store_open::ensure_session_worker_id_column(&self.pool).await?;
+        store_open::ensure_session_routing_policy_column(&self.pool).await?;
         Ok(())
     }
 

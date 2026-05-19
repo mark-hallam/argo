@@ -243,6 +243,36 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             threshold,
             json,
         } => super::session_capability_gaps::run(&session_id, since_minutes, threshold, json).await,
+        SessionCmd::SetRoutingPolicy {
+            id,
+            tiered,
+            none,
+            classifier_provider,
+            classifier_model,
+            simple_provider,
+            simple_model,
+            medium_provider,
+            medium_model,
+            complex_provider,
+            complex_model,
+            classify_threshold_ms,
+            fallback_to_default_on_error,
+            json,
+        } => {
+            let args = super::session_routing::TierArgs {
+                classifier_provider: classifier_provider.as_deref(),
+                classifier_model: classifier_model.as_deref(),
+                simple_provider: simple_provider.as_deref(),
+                simple_model: simple_model.as_deref(),
+                medium_provider: medium_provider.as_deref(),
+                medium_model: medium_model.as_deref(),
+                complex_provider: complex_provider.as_deref(),
+                complex_model: complex_model.as_deref(),
+                classify_threshold_ms,
+                fallback_to_default_on_error,
+            };
+            super::session_routing::run(&id, tiered, none, args, json).await
+        }
     }
 }
 

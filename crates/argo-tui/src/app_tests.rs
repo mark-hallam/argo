@@ -17,6 +17,7 @@ fn fake_session(title: &str) -> SessionHeader {
         ended_at: None,
         vertical_id: None,
         worker_id: None,
+        routing_policy: None,
     }
 }
 

@@ -191,8 +191,21 @@ async fn run_turn_with_events_inner(
     }
 
     let manifest = load_manifest(cwd, &session.provider)?;
-    let pricing = price_for(&manifest, &session.model);
     let provider_id = manifest.provider.id.clone();
+    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
+    // mission-claim-3-runtime-wiring-v1x: consult the tier router
+    // *before* picking the model for this turn. Sessions with no
+    // routing_policy or a non-tier policy (the v1.0 default) skip
+    // this entirely; sessions opting into `RoutingPolicy::Tiered`
+    // get their model overridden to the tier's `chosen_provider_model`.
+    let routing_decision =
+        crate::turn_routing::maybe_route_turn(store, &session, manifest.clone(), user, &audit)
+            .await?;
+    let effective_model: String = routing_decision
+        .as_ref()
+        .map(|d| d.chosen_provider_model.model.clone())
+        .unwrap_or_else(|| session.model.clone());
+    let pricing = price_for(&manifest, &effective_model);
     let transport: Box<dyn Transport> = build_transport(manifest).await?;
 
     // Vertical lookup: when the session is bound, load the
@@ -211,7 +224,6 @@ async fn run_turn_with_events_inner(
     // matching dispatch so subsequent calls re-block.
     let session_grants = build_session_grant_state(store, session_id).await;
 
-    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     // Pre-turn budget gate (mission-delegation-budget-tree): if a
     // running subtask is bound to this session and its declared
     // budget is exhausted, abort cleanly with `BudgetExhausted`
@@ -220,7 +232,7 @@ async fn run_turn_with_events_inner(
     crate::turn_budget::check_pre_turn_budget(store, session_id, &audit).await?;
     let turn_start = build_turn_start_payload(
         &session.provider,
-        &session.model,
+        &effective_model,
         session.vertical_id.as_deref(),
     );
     audit
@@ -235,7 +247,7 @@ async fn run_turn_with_events_inner(
     let spend_ctx = SpendCtx {
         tenant_id: session.tenant_id,
         provider: provider_id.as_str(),
-        model: session.model.as_str(),
+        model: effective_model.as_str(),
         pricing,
     };
     // mission-skill-select-variant-runtime-wire: per-turn invocation
@@ -249,7 +261,7 @@ async fn run_turn_with_events_inner(
         transport.as_ref(),
         cwd,
         session_id,
-        &session.model,
+        &effective_model,
         &audit,
         &spend_ctx,
         max_rounds,

@@ -270,6 +270,7 @@ dependencies = [
  "argo-memory",
  "argo-orchestrator",
  "argo-provider",
+ "argo-routing",
  "argo-runtime",
  "argo-skill",
  "argo-store",

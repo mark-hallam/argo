@@ -48,6 +48,12 @@ mod turn;
 /// Per-turn hook into the subtask budget tree (Stream
 /// `mission-delegation-budget-tree`).
 pub mod turn_budget;
+/// Tier-routing wiring for the per-turn agent loop (Stream
+/// `mission-claim-3-runtime-wiring-v1x`). Pure consumer of
+/// `argo-routing`; exposed so integration tests can exercise the
+/// routing-decision path against a stub classifier `Transport`
+/// without needing a live provider manifest.
+pub mod turn_routing;
 mod turn_vertical;
 mod turn_vertical_grants;
 
