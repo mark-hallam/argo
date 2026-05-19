@@ -215,6 +215,9 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
+        SkillCmd::Reeval(args) => {
+            super::skill_reeval::run(&skills, args.skill.as_deref(), args.all, args.json).await
+        }
         SkillCmd::Update {
             name,
             min_trust_grade,

@@ -10,6 +10,7 @@ pub use super::cli_subcommands_skill_pack::SkillPackCmd;
 pub use super::cli_subcommands_skill_publish::{SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd};
 pub use super::cli_subcommands_skill_quality::{
     SkillQualityCmd, SkillQualityListCmd, SkillQualityRecomputeCmd, SkillQualityTrendCmd,
+    SkillReevalCmd,
 };
 pub use super::cli_subcommands_skill_ratings::{SkillRateCmd, SkillRatingsCmd, SkillSetFlagCmd};
 
@@ -364,6 +365,9 @@ pub enum SkillCmd {
     /// per-skill toggles piggyback on the same surface.
     SetFlag(SkillSetFlagCmd),
     QualityRecompute(SkillQualityRecomputeCmd),
+    /// Re-run declared eval suites for active skills and flag
+    /// regressions for operator review.
+    Reeval(SkillReevalCmd),
     /// Record a publisher-side `skill_version_migration` row
     /// linking `--from` to `--to`. Tenant workspaces with the
     /// `--from` version installed will see this when they run

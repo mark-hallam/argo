@@ -259,7 +259,8 @@ impl SkillStore {
     ///
     /// - `Draft` → `PendingReview`
     /// - `PendingReview` → `Active` | `Rejected`
-    /// - `Active` → `Archived`
+    /// - `Active` → `Archived` | `Flagged`
+    /// - `Flagged` → `Active` | `Archived`
     ///
     /// Rejects every other transition with `ArgoError::Schema`.
     pub async fn transition_lifecycle(
@@ -324,6 +325,9 @@ fn is_legal_transition(from: LifecycleState, to: LifecycleState) -> bool {
             | (PendingReview, Active)
             | (PendingReview, Rejected)
             | (Active, Archived)
+            | (Active, Flagged)
+            | (Flagged, Active)
+            | (Flagged, Archived)
     )
 }
 

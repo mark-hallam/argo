@@ -287,6 +287,7 @@ pub mod skill_quality_recompute;
 pub mod skill_quality_trend;
 pub mod skill_rate;
 pub mod skill_ratings;
+pub mod skill_reeval;
 pub mod skill_refine;
 pub mod skill_review;
 mod skill_review_candidates;

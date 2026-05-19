@@ -74,3 +74,17 @@ pub struct SkillQualityRecomputeCmd {
     #[arg(long)]
     pub dry_run: bool,
 }
+
+#[derive(Args, Debug)]
+pub struct SkillReevalCmd {
+    /// Re-evaluate one skill. Accepts either the active skill name or
+    /// the skill id UUID.
+    #[arg(long, conflicts_with = "all", required_unless_present = "all")]
+    pub skill: Option<String>,
+    /// Re-evaluate every active skill with a non-empty eval suite.
+    #[arg(long, conflicts_with = "skill")]
+    pub all: bool,
+    /// Emit a JSON report envelope.
+    #[arg(long)]
+    pub json: bool,
+}

@@ -124,6 +124,7 @@ pub struct Skill {
 /// - `PendingReview` → `Active` (human approves)
 /// - `PendingReview` → `Rejected` (human refuses)
 /// - `Active` → `Archived` (rollback / supersede)
+/// - `Active` → `Flagged` (scheduled re-eval regression)
 ///
 /// Lookup methods that gate the agent's runtime view of
 /// available skills (e.g.
@@ -138,6 +139,9 @@ pub enum LifecycleState {
     PendingReview,
     /// Approved by a human; visible + usable.
     Active,
+    /// Previously active, but hidden pending operator review after
+    /// scheduled re-evaluation detected a regression.
+    Flagged,
     /// Refused by a human; never loaded again.
     Rejected,
     /// Was active but rolled back / superseded; preserved for
@@ -154,6 +158,7 @@ impl LifecycleState {
             Self::Draft => "draft",
             Self::PendingReview => "pending_review",
             Self::Active => "active",
+            Self::Flagged => "flagged",
             Self::Rejected => "rejected",
             Self::Archived => "archived",
         }
@@ -167,6 +172,7 @@ impl LifecycleState {
             "draft" => Some(Self::Draft),
             "pending_review" => Some(Self::PendingReview),
             "active" => Some(Self::Active),
+            "flagged" => Some(Self::Flagged),
             "rejected" => Some(Self::Rejected),
             "archived" => Some(Self::Archived),
             _ => None,

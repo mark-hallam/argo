@@ -113,6 +113,10 @@ pub enum AuditKind {
     /// row by an operator. Payload carries `name`, from/to
     /// versions, skill ids, and optional reason.
     SkillRolledBack,
+    /// A scheduled skill re-evaluation detected an eval pass-rate
+    /// regression and flagged the skill for operator review. Payload:
+    /// `{skill_id, previous_pass_rate, current_pass_rate, eval_run_id}`.
+    SkillRegressionDetected,
     /// One inbound HTTP request to the gateway. Recorded after the
     /// route runs so the payload can carry response status +
     /// wall-clock duration alongside method, path (query string
@@ -256,6 +260,7 @@ impl AuditKind {
             Self::SkillRejected => "skill.rejected",
             Self::SkillCandidatePromoted => "skill.candidate.promoted",
             Self::SkillRolledBack => "skill.rollback",
+            Self::SkillRegressionDetected => "skill.regression_detected",
             Self::HttpRequest => "http.request",
             Self::WorkerOomRestart => "worker.oom_restart",
             Self::WorkerFreezeBlocked => "worker_freeze_blocked",
@@ -304,6 +309,7 @@ impl AuditKind {
             "skill.rejected" => Self::SkillRejected,
             "skill.candidate.promoted" => Self::SkillCandidatePromoted,
             "skill.rollback" => Self::SkillRolledBack,
+            "skill.regression_detected" => Self::SkillRegressionDetected,
             "http.request" => Self::HttpRequest,
             "worker.oom_restart" => Self::WorkerOomRestart,
             "worker_freeze_blocked" => Self::WorkerFreezeBlocked,
@@ -352,6 +358,7 @@ impl AuditKind {
             Self::SkillRejected,
             Self::SkillCandidatePromoted,
             Self::SkillRolledBack,
+            Self::SkillRegressionDetected,
             Self::HttpRequest,
             Self::WorkerOomRestart,
             Self::WorkerFreezeBlocked,
