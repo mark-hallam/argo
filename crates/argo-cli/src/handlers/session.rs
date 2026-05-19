@@ -7,130 +7,166 @@ pub use super::session_orchestrator::run_handoff;
 
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
-        SessionCmd::Start {
-            tenant,
-            title,
-            worker,
-            json,
-        } => {
-            super::session_orchestrator::start_orchestrator_session(
-                tenant.as_deref(),
-                &title,
-                worker.as_deref(),
-                json,
-            )
-            .await
-        }
-        SessionCmd::List {
-            tenant,
-            limit,
-            json,
-            format,
-            since_minutes,
-            older_than_minutes,
-            spent_min,
-            spent_max,
-            provider,
-            model,
-            status,
-            title_contains,
-            sort_by,
-            vertical,
-        } => {
-            if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
-                return super::session_orchestrator::list_orchestrator_sessions(
-                    tenant.as_deref(),
-                    &status,
-                    limit,
-                    json,
-                )
-                .await;
-            }
-            list_sessions(
-                limit,
-                json,
-                &format,
-                since_minutes,
-                older_than_minutes,
-                spent_min,
-                spent_max,
-                provider,
-                model,
-                status,
-                title_contains,
-                sort_by,
-                vertical,
-            )
-            .await
-        }
-        SessionCmd::Show {
-            id,
-            tenant,
-            json,
-            format,
-        } => {
-            if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
-                return super::session_orchestrator::show_orchestrator_session(
-                    tenant.as_deref(),
-                    &id,
-                    json,
-                )
-                .await;
-            }
-            super::session_show::show_session(&id, json, &format).await
-        }
+        SessionCmd::Start { .. } => dispatch_start(cmd).await,
+        SessionCmd::List { .. } => dispatch_list(cmd).await,
+        SessionCmd::Show { .. } => dispatch_show(cmd).await,
         SessionCmd::Transcript { id, json } => super::session_transcript::run(&id, json).await,
-        SessionCmd::Count {
-            status,
-            since_minutes,
-            older_than_minutes,
-            provider,
-            model,
-            title_contains,
-            spent_min,
-            spent_max,
-            json,
-        } => {
-            count_sessions(
-                status,
-                since_minutes,
-                older_than_minutes,
-                provider,
-                model,
-                title_contains,
-                spent_min,
-                spent_max,
-                json,
-            )
-            .await
-        }
+        SessionCmd::Count { .. } => dispatch_count(cmd).await,
         SessionCmd::Watch { id } => super::session_watch::run(&id).await,
-        SessionCmd::Messages {
-            id,
-            json,
-            format,
+        SessionCmd::Messages { .. } => dispatch_messages(cmd).await,
+        other => dispatch_skill_or_lifecycle(other).await,
+    }
+}
+
+async fn dispatch_start(cmd: SessionCmd) -> ArgoResult<()> {
+    let SessionCmd::Start {
+        tenant,
+        title,
+        worker,
+        json,
+    } = cmd
+    else {
+        unreachable!("dispatch_start expects SessionCmd::Start");
+    };
+    super::session_orchestrator::start_orchestrator_session(
+        tenant.as_deref(),
+        &title,
+        worker.as_deref(),
+        json,
+    )
+    .await
+}
+
+async fn dispatch_list(cmd: SessionCmd) -> ArgoResult<()> {
+    let SessionCmd::List {
+        tenant,
+        limit,
+        json,
+        format,
+        since_minutes,
+        older_than_minutes,
+        spent_min,
+        spent_max,
+        provider,
+        model,
+        status,
+        title_contains,
+        sort_by,
+        vertical,
+    } = cmd
+    else {
+        unreachable!("dispatch_list expects SessionCmd::List");
+    };
+    if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
+        return super::session_orchestrator::list_orchestrator_sessions(
+            tenant.as_deref(),
+            &status,
             limit,
-            tail,
-            role,
-            since_minutes,
-            seq_min,
-            seq_max,
-            content_contains,
-        } => {
-            super::session_messages::run(
-                &id,
-                json,
-                &format,
-                limit,
-                tail,
-                role.as_deref(),
-                since_minutes,
-                seq_min,
-                seq_max,
-                content_contains.as_deref(),
-            )
-            .await
-        }
+            json,
+        )
+        .await;
+    }
+    list_sessions(
+        limit,
+        json,
+        &format,
+        since_minutes,
+        older_than_minutes,
+        spent_min,
+        spent_max,
+        provider,
+        model,
+        status,
+        title_contains,
+        sort_by,
+        vertical,
+    )
+    .await
+}
+
+async fn dispatch_show(cmd: SessionCmd) -> ArgoResult<()> {
+    let SessionCmd::Show {
+        id,
+        tenant,
+        json,
+        format,
+    } = cmd
+    else {
+        unreachable!("dispatch_show expects SessionCmd::Show");
+    };
+    if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
+        return super::session_orchestrator::show_orchestrator_session(
+            tenant.as_deref(),
+            &id,
+            json,
+        )
+        .await;
+    }
+    super::session_show::show_session(&id, json, &format).await
+}
+
+async fn dispatch_count(cmd: SessionCmd) -> ArgoResult<()> {
+    let SessionCmd::Count {
+        status,
+        since_minutes,
+        older_than_minutes,
+        provider,
+        model,
+        title_contains,
+        spent_min,
+        spent_max,
+        json,
+    } = cmd
+    else {
+        unreachable!("dispatch_count expects SessionCmd::Count");
+    };
+    count_sessions(
+        status,
+        since_minutes,
+        older_than_minutes,
+        provider,
+        model,
+        title_contains,
+        spent_min,
+        spent_max,
+        json,
+    )
+    .await
+}
+
+async fn dispatch_messages(cmd: SessionCmd) -> ArgoResult<()> {
+    let SessionCmd::Messages {
+        id,
+        json,
+        format,
+        limit,
+        tail,
+        role,
+        since_minutes,
+        seq_min,
+        seq_max,
+        content_contains,
+    } = cmd
+    else {
+        unreachable!("dispatch_messages expects SessionCmd::Messages");
+    };
+    super::session_messages::run(
+        &id,
+        json,
+        &format,
+        limit,
+        tail,
+        role.as_deref(),
+        since_minutes,
+        seq_min,
+        seq_max,
+        content_contains.as_deref(),
+    )
+    .await
+}
+
+async fn dispatch_skill_or_lifecycle(cmd: SessionCmd) -> ArgoResult<()> {
+    match cmd {
         SessionCmd::AttachSkill { id, skill } => super::session_skills::attach(&id, &skill).await,
         SessionCmd::DetachSkill { id, skill } => super::session_skills::detach(&id, &skill).await,
         SessionCmd::Skills { id } => super::session_skills::list(&id).await,
@@ -191,6 +227,12 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             super::session_clone_branch::stats_session(&id, json).await
         }
         SessionCmd::Turns { id, json } => super::session_turns::run(&id, json).await,
+        other => dispatch_rollups_and_approvals(other).await,
+    }
+}
+
+async fn dispatch_rollups_and_approvals(cmd: SessionCmd) -> ArgoResult<()> {
+    match cmd {
         SessionCmd::ByDay { days, json } => super::session_by_day::run(days, json).await,
         SessionCmd::ByProvider {
             since_minutes,
@@ -243,37 +285,45 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             threshold,
             json,
         } => super::session_capability_gaps::run(&session_id, since_minutes, threshold, json).await,
-        SessionCmd::SetRoutingPolicy {
-            id,
-            tiered,
-            none,
-            classifier_provider,
-            classifier_model,
-            simple_provider,
-            simple_model,
-            medium_provider,
-            medium_model,
-            complex_provider,
-            complex_model,
-            classify_threshold_ms,
-            fallback_to_default_on_error,
-            json,
-        } => {
-            let args = super::session_routing::TierArgs {
-                classifier_provider: classifier_provider.as_deref(),
-                classifier_model: classifier_model.as_deref(),
-                simple_provider: simple_provider.as_deref(),
-                simple_model: simple_model.as_deref(),
-                medium_provider: medium_provider.as_deref(),
-                medium_model: medium_model.as_deref(),
-                complex_provider: complex_provider.as_deref(),
-                complex_model: complex_model.as_deref(),
-                classify_threshold_ms,
-                fallback_to_default_on_error,
-            };
-            super::session_routing::run(&id, tiered, none, args, json).await
-        }
+        SessionCmd::SetRoutingPolicy { .. } => dispatch_set_routing_policy(cmd).await,
+        // Variants handled in earlier dispatchers; falling through is a bug.
+        _ => unreachable!("session subcommand dispatched in earlier helper"),
     }
+}
+
+async fn dispatch_set_routing_policy(cmd: SessionCmd) -> ArgoResult<()> {
+    let SessionCmd::SetRoutingPolicy {
+        id,
+        tiered,
+        none,
+        classifier_provider,
+        classifier_model,
+        simple_provider,
+        simple_model,
+        medium_provider,
+        medium_model,
+        complex_provider,
+        complex_model,
+        classify_threshold_ms,
+        fallback_to_default_on_error,
+        json,
+    } = cmd
+    else {
+        unreachable!("dispatch_set_routing_policy expects SessionCmd::SetRoutingPolicy");
+    };
+    let args = super::session_routing::TierArgs {
+        classifier_provider: classifier_provider.as_deref(),
+        classifier_model: classifier_model.as_deref(),
+        simple_provider: simple_provider.as_deref(),
+        simple_model: simple_model.as_deref(),
+        medium_provider: medium_provider.as_deref(),
+        medium_model: medium_model.as_deref(),
+        complex_provider: complex_provider.as_deref(),
+        complex_model: complex_model.as_deref(),
+        classify_threshold_ms,
+        fallback_to_default_on_error,
+    };
+    super::session_routing::run(&id, tiered, none, args, json).await
 }
 
 use super::session_diff::diff_sessions;

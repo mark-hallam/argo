@@ -1,18 +1,12 @@
 //! `argo audit` — chain inspection / verification / export.
 use crate::cli::AuditQueryCmd as AuditCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::{verify_all, verify_session};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult};
 use std::sync::Arc;
 
 pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let db = db_path(&home);
-    let store = Arc::new(SessionStore::open(&db).await?);
-    store.migrate().await?;
+    let store = open_legacy_store().await?;
     match cmd {
         AuditCmd::Verify {
             from: _,
@@ -20,100 +14,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             session,
             json,
             format,
-        } => {
-            let scope = session.clone();
-            let report = match session {
-                Some(raw) => {
-                    let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
-                        ArgoError::Schema(format!("invalid session id '{raw}': {e}"))
-                    })?;
-                    verify_session(&store, SessionId(id)).await?
-                }
-                None => verify_all(&store).await?,
-            };
-            let pick = if json { "json" } else { format.as_str() };
-            match pick {
-                "json" => {
-                    let breaks_arr: Vec<_> = report
-                        .breaks
-                        .iter()
-                        .map(|b| {
-                            serde_json::json!({
-                                "seq": b.seq,
-                                "kind": b.kind,
-                                "reason": b.reason,
-                            })
-                        })
-                        .collect();
-                    let payload = serde_json::json!({
-                        "ok": report.ok,
-                        "rows": report.rows,
-                        "kinds": report.kind_counts.len(),
-                        "breaks": breaks_arr,
-                    });
-                    let serialized = serde_json::to_string(&payload)
-                        .map_err(|e| ArgoError::Provider(format!("serialize verify: {e}")))?;
-                    println!("{serialized}");
-                }
-                "markdown" => {
-                    println!("# Audit verify");
-                    println!();
-                    if let Some(s) = &scope {
-                        println!("- **Scope**: session `{s}`");
-                    } else {
-                        println!("- **Scope**: all sessions");
-                    }
-                    println!(
-                        "- **Status**: {}",
-                        if report.ok { "OK ✓" } else { "**BROKEN**" }
-                    );
-                    println!("- **Rows**: {}", report.rows);
-                    println!("- **Kinds**: {}", report.kind_counts.len());
-                    println!("- **Breaks**: {}", report.breaks.len());
-                    if !report.breaks.is_empty() {
-                        println!();
-                        println!("## Break detail");
-                        println!();
-                        println!("| seq | kind | reason |");
-                        println!("| ---: | --- | --- |");
-                        for b in &report.breaks {
-                            let reason = b.reason.replace('|', "\\|");
-                            println!("| {} | `{}` | {reason} |", b.seq, b.kind);
-                        }
-                    }
-                }
-                "text" => {
-                    if report.ok {
-                        println!(
-                            "audit chain ok: {} rows verified across {} kinds",
-                            report.rows,
-                            report.kind_counts.len()
-                        );
-                    } else {
-                        println!(
-                            "audit chain broken: {} break(s) detected across {} rows",
-                            report.breaks.len(),
-                            report.rows
-                        );
-                        for b in &report.breaks {
-                            println!("  seq {} kind={} ({})", b.seq, b.kind, b.reason);
-                        }
-                    }
-                }
-                other => {
-                    return Err(ArgoError::Provider(format!(
-                        "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
-                    )));
-                }
-            }
-            if report.ok {
-                Ok(())
-            } else {
-                Err(ArgoError::Provider(
-                    "audit chain verification failed".into(),
-                ))
-            }
-        }
+        } => super::audit_verify::run(&store, session, json, format).await,
         AuditCmd::VerifyChain { json } => super::audit_verify_chain::run(&store, json).await,
         AuditCmd::Show {
             tail,
@@ -163,38 +64,97 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             )
             .await
         }
-        AuditCmd::Export {
+        other => dispatch_export_or_aggregate(&store, other).await,
+    }
+}
+
+async fn dispatch_export_or_aggregate(
+    store: &Arc<SessionStore>,
+    cmd: AuditCmd,
+) -> ArgoResult<()> {
+    match cmd {
+        AuditCmd::Export { .. } => dispatch_export(store, cmd).await,
+        AuditCmd::Report { .. } => dispatch_report(store, cmd).await,
+        AuditCmd::Archive {
+            retention_days,
+            prune,
+            hard_keep_days,
+            archive_dir,
+            json,
+        } => {
+            super::audit_archive::run_archive(
+                retention_days,
+                prune,
+                hard_keep_days,
+                archive_dir.as_deref(),
+                json,
+            )
+            .await
+        }
+        AuditCmd::ListArchives { archive_dir, json } => {
+            super::audit_archive::run_list(archive_dir.as_deref(), json).await
+        }
+        AuditCmd::VerifyArchive {
+            bundle_id,
+            archive_dir,
+            json,
+        } => super::audit_archive::run_verify(&bundle_id, archive_dir.as_deref(), json).await,
+        other => dispatch_rollups(other).await,
+    }
+}
+
+async fn dispatch_export(store: &Arc<SessionStore>, cmd: AuditCmd) -> ArgoResult<()> {
+    let AuditCmd::Export {
+        format,
+        bundle_out,
+        since,
+        until,
+        worker_id,
+        tenant,
+        session,
+        since_minutes,
+        gdpr_redact_emails,
+        json,
+        kinds,
+    } = cmd
+    else {
+        unreachable!("dispatch_export expects AuditCmd::Export");
+    };
+    super::audit_export::run(
+        store,
+        super::audit_export::ExportArgs {
             format,
             bundle_out,
-            since,
-            until,
             worker_id,
             tenant,
             session,
+            since,
+            until,
             since_minutes,
             gdpr_redact_emails,
             json,
             kinds,
-        } => {
-            super::audit_export::run(
-                &store,
-                super::audit_export::ExportArgs {
-                    format,
-                    bundle_out,
-                    worker_id,
-                    tenant,
-                    session,
-                    since,
-                    until,
-                    since_minutes,
-                    gdpr_redact_emails,
-                    json,
-                    kinds,
-                },
-            )
-            .await
-        }
-        AuditCmd::Report {
+        },
+    )
+    .await
+}
+
+async fn dispatch_report(store: &Arc<SessionStore>, cmd: AuditCmd) -> ArgoResult<()> {
+    let AuditCmd::Report {
+        format,
+        output,
+        since,
+        until,
+        worker_id,
+        tenant,
+        json,
+    } = cmd
+    else {
+        unreachable!("dispatch_report expects AuditCmd::Report");
+    };
+    super::audit_report::run(
+        store,
+        super::audit_report::ReportArgs {
             format,
             output,
             since,
@@ -202,21 +162,13 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             worker_id,
             tenant,
             json,
-        } => {
-            super::audit_report::run(
-                &store,
-                super::audit_report::ReportArgs {
-                    format,
-                    output,
-                    since,
-                    until,
-                    worker_id,
-                    tenant,
-                    json,
-                },
-            )
-            .await
-        }
+        },
+    )
+    .await
+}
+
+async fn dispatch_rollups(cmd: AuditCmd) -> ArgoResult<()> {
+    match cmd {
         AuditCmd::Breaks { json } => print_breaks(json).await,
         AuditCmd::Count {
             kind,
@@ -253,31 +205,21 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             until,
             format,
         } => super::audit_replay::run(&session_id, from_seq, until.as_deref(), &format).await,
-        AuditCmd::Archive {
-            retention_days,
-            prune,
-            hard_keep_days,
-            archive_dir,
-            json,
-        } => {
-            super::audit_archive::run_archive(
-                retention_days,
-                prune,
-                hard_keep_days,
-                archive_dir.as_deref(),
-                json,
-            )
-            .await
-        }
-        AuditCmd::ListArchives { archive_dir, json } => {
-            super::audit_archive::run_list(archive_dir.as_deref(), json).await
-        }
-        AuditCmd::VerifyArchive {
-            bundle_id,
-            archive_dir,
-            json,
-        } => super::audit_archive::run_verify(&bundle_id, archive_dir.as_deref(), json).await,
+        // The verify/show/query/export/report/archive arms are handled
+        // in `run` and `dispatch_export_or_aggregate`; if a new
+        // variant lands without a dispatch wiring this guard fires.
+        _ => unreachable!("audit subcommand dispatched in earlier helper"),
     }
+}
+
+async fn open_legacy_store() -> ArgoResult<Arc<SessionStore>> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let db = db_path(&home);
+    let store = Arc::new(SessionStore::open(&db).await?);
+    store.migrate().await?;
+    Ok(store)
 }
 
 use super::audit_count::{print_breaks, print_count};

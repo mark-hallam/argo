@@ -91,274 +91,322 @@ fn seed_vocabulary(
     archetype: Archetype,
 ) -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
     match archetype {
-        Archetype::SalesSdr => vec![
-            (
-                "research_account",
-                ActionRiskLevel::Low,
-                false,
-                "Research a target account",
-            ),
-            (
-                "draft_outbound_email",
-                ActionRiskLevel::Medium,
-                false,
-                "Draft a cold outbound email",
-            ),
-            (
-                "send_outbound_email",
-                ActionRiskLevel::High,
-                true,
-                "Send the drafted email",
-            ),
-            (
-                "log_call_outcome",
-                ActionRiskLevel::Low,
-                false,
-                "Log a call's outcome",
-            ),
-        ],
-        Archetype::CustomerSupportAgent => vec![
-            (
-                "triage_ticket",
-                ActionRiskLevel::Low,
-                false,
-                "Classify an incoming ticket",
-            ),
-            (
-                "draft_response",
-                ActionRiskLevel::Medium,
-                false,
-                "Draft a customer response",
-            ),
-            (
-                "send_response",
-                ActionRiskLevel::High,
-                true,
-                "Send the drafted response",
-            ),
-            (
-                "escalate_ticket",
-                ActionRiskLevel::Medium,
-                true,
-                "Escalate to a human",
-            ),
-        ],
-        Archetype::MarketingIntern => vec![
-            (
-                "research_topic",
-                ActionRiskLevel::Low,
-                false,
-                "Research a campaign topic",
-            ),
-            (
-                "draft_campaign",
-                ActionRiskLevel::Medium,
-                false,
-                "Draft a campaign brief",
-            ),
-            (
-                "post_campaign",
-                ActionRiskLevel::High,
-                true,
-                "Publish the campaign",
-            ),
-            (
-                "send_followup",
-                ActionRiskLevel::High,
-                true,
-                "Send a follow-up message",
-            ),
-        ],
-        Archetype::RecruiterScreener => vec![
-            (
-                "review_resume",
-                ActionRiskLevel::Low,
-                false,
-                "Review a candidate resume",
-            ),
-            (
-                "draft_screening_questions",
-                ActionRiskLevel::Low,
-                false,
-                "Draft screening questions",
-            ),
-            (
-                "message_candidate",
-                ActionRiskLevel::High,
-                true,
-                "Message a candidate",
-            ),
-            (
-                "schedule_interview",
-                ActionRiskLevel::Medium,
-                true,
-                "Schedule an interview",
-            ),
-        ],
-        Archetype::OpsOnCall => vec![
-            (
-                "ack_incident",
-                ActionRiskLevel::Low,
-                false,
-                "Acknowledge an incident",
-            ),
-            (
-                "draft_status_update",
-                ActionRiskLevel::Medium,
-                false,
-                "Draft a status update",
-            ),
-            (
-                "post_status_update",
-                ActionRiskLevel::High,
-                true,
-                "Post the status update",
-            ),
-            (
-                "page_secondary",
-                ActionRiskLevel::High,
-                true,
-                "Page the secondary on-call",
-            ),
-        ],
-        Archetype::ResearchAnalyst => vec![
-            (
-                "collect_sources",
-                ActionRiskLevel::Low,
-                false,
-                "Collect research sources",
-            ),
-            (
-                "draft_summary",
-                ActionRiskLevel::Low,
-                false,
-                "Draft a research summary",
-            ),
-            (
-                "share_summary",
-                ActionRiskLevel::Medium,
-                true,
-                "Share the summary",
-            ),
-        ],
-        Archetype::CalendarCoordinator => vec![
-            (
-                "propose_times",
-                ActionRiskLevel::Low,
-                false,
-                "Propose meeting times",
-            ),
-            (
-                "send_invite",
-                ActionRiskLevel::High,
-                true,
-                "Send a meeting invite",
-            ),
-            (
-                "delete_event",
-                ActionRiskLevel::High,
-                true,
-                "Delete an event",
-            ),
-        ],
-        Archetype::SocialMediaDrafter => vec![
-            (
-                "draft_post",
-                ActionRiskLevel::Low,
-                false,
-                "Draft a social post",
-            ),
-            ("post_post", ActionRiskLevel::High, true, "Publish the post"),
-            (
-                "delete_post",
-                ActionRiskLevel::High,
-                true,
-                "Delete a published post",
-            ),
-        ],
-        Archetype::LeadResearcher => vec![
-            (
-                "enrich_lead",
-                ActionRiskLevel::Low,
-                false,
-                "Enrich a lead record",
-            ),
-            ("score_lead", ActionRiskLevel::Low, false, "Score a lead"),
-            (
-                "share_lead_list",
-                ActionRiskLevel::Medium,
-                true,
-                "Share a lead list",
-            ),
-        ],
-        Archetype::BookkeepingAssistant => vec![
-            (
-                "classify_expense",
-                ActionRiskLevel::Low,
-                false,
-                "Classify an expense",
-            ),
-            (
-                "draft_invoice",
-                ActionRiskLevel::Medium,
-                false,
-                "Draft an invoice",
-            ),
-            (
-                "send_invoice",
-                ActionRiskLevel::High,
-                true,
-                "Send the invoice",
-            ),
-            ("pay_bill", ActionRiskLevel::High, true, "Pay a bill"),
-        ],
-        Archetype::ProjectPm => vec![
-            (
-                "update_status",
-                ActionRiskLevel::Low,
-                false,
-                "Update task status",
-            ),
-            (
-                "draft_standup",
-                ActionRiskLevel::Low,
-                false,
-                "Draft a standup post",
-            ),
-            (
-                "post_standup",
-                ActionRiskLevel::Medium,
-                true,
-                "Post the standup",
-            ),
-        ],
-        Archetype::GtmEngineer => vec![
-            (
-                "research_market",
-                ActionRiskLevel::Low,
-                false,
-                "Research a target market",
-            ),
-            (
-                "draft_listing",
-                ActionRiskLevel::Medium,
-                false,
-                "Draft a marketplace listing",
-            ),
-            (
-                "post_listing",
-                ActionRiskLevel::High,
-                true,
-                "Publish the listing",
-            ),
-            (
-                "send_followup",
-                ActionRiskLevel::High,
-                true,
-                "Send a follow-up message",
-            ),
-        ],
+        Archetype::SalesSdr => seed_sales_sdr(),
+        Archetype::CustomerSupportAgent => seed_customer_support_agent(),
+        Archetype::MarketingIntern => seed_marketing_intern(),
+        Archetype::RecruiterScreener => seed_recruiter_screener(),
+        Archetype::OpsOnCall => seed_ops_on_call(),
+        Archetype::ResearchAnalyst => seed_research_analyst(),
+        Archetype::CalendarCoordinator => seed_calendar_coordinator(),
+        Archetype::SocialMediaDrafter => seed_social_media_drafter(),
+        Archetype::LeadResearcher => seed_lead_researcher(),
+        Archetype::BookkeepingAssistant => seed_bookkeeping_assistant(),
+        Archetype::ProjectPm => seed_project_pm(),
+        Archetype::GtmEngineer => seed_gtm_engineer(),
     }
+}
+
+fn seed_sales_sdr() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "research_account",
+            ActionRiskLevel::Low,
+            false,
+            "Research a target account",
+        ),
+        (
+            "draft_outbound_email",
+            ActionRiskLevel::Medium,
+            false,
+            "Draft a cold outbound email",
+        ),
+        (
+            "send_outbound_email",
+            ActionRiskLevel::High,
+            true,
+            "Send the drafted email",
+        ),
+        (
+            "log_call_outcome",
+            ActionRiskLevel::Low,
+            false,
+            "Log a call's outcome",
+        ),
+    ]
+}
+
+fn seed_customer_support_agent() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "triage_ticket",
+            ActionRiskLevel::Low,
+            false,
+            "Classify an incoming ticket",
+        ),
+        (
+            "draft_response",
+            ActionRiskLevel::Medium,
+            false,
+            "Draft a customer response",
+        ),
+        (
+            "send_response",
+            ActionRiskLevel::High,
+            true,
+            "Send the drafted response",
+        ),
+        (
+            "escalate_ticket",
+            ActionRiskLevel::Medium,
+            true,
+            "Escalate to a human",
+        ),
+    ]
+}
+
+fn seed_marketing_intern() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "research_topic",
+            ActionRiskLevel::Low,
+            false,
+            "Research a campaign topic",
+        ),
+        (
+            "draft_campaign",
+            ActionRiskLevel::Medium,
+            false,
+            "Draft a campaign brief",
+        ),
+        (
+            "post_campaign",
+            ActionRiskLevel::High,
+            true,
+            "Publish the campaign",
+        ),
+        (
+            "send_followup",
+            ActionRiskLevel::High,
+            true,
+            "Send a follow-up message",
+        ),
+    ]
+}
+
+fn seed_recruiter_screener() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "review_resume",
+            ActionRiskLevel::Low,
+            false,
+            "Review a candidate resume",
+        ),
+        (
+            "draft_screening_questions",
+            ActionRiskLevel::Low,
+            false,
+            "Draft screening questions",
+        ),
+        (
+            "message_candidate",
+            ActionRiskLevel::High,
+            true,
+            "Message a candidate",
+        ),
+        (
+            "schedule_interview",
+            ActionRiskLevel::Medium,
+            true,
+            "Schedule an interview",
+        ),
+    ]
+}
+
+fn seed_ops_on_call() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "ack_incident",
+            ActionRiskLevel::Low,
+            false,
+            "Acknowledge an incident",
+        ),
+        (
+            "draft_status_update",
+            ActionRiskLevel::Medium,
+            false,
+            "Draft a status update",
+        ),
+        (
+            "post_status_update",
+            ActionRiskLevel::High,
+            true,
+            "Post the status update",
+        ),
+        (
+            "page_secondary",
+            ActionRiskLevel::High,
+            true,
+            "Page the secondary on-call",
+        ),
+    ]
+}
+
+fn seed_research_analyst() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "collect_sources",
+            ActionRiskLevel::Low,
+            false,
+            "Collect research sources",
+        ),
+        (
+            "draft_summary",
+            ActionRiskLevel::Low,
+            false,
+            "Draft a research summary",
+        ),
+        (
+            "share_summary",
+            ActionRiskLevel::Medium,
+            true,
+            "Share the summary",
+        ),
+    ]
+}
+
+fn seed_calendar_coordinator() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "propose_times",
+            ActionRiskLevel::Low,
+            false,
+            "Propose meeting times",
+        ),
+        (
+            "send_invite",
+            ActionRiskLevel::High,
+            true,
+            "Send a meeting invite",
+        ),
+        (
+            "delete_event",
+            ActionRiskLevel::High,
+            true,
+            "Delete an event",
+        ),
+    ]
+}
+
+fn seed_social_media_drafter() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "draft_post",
+            ActionRiskLevel::Low,
+            false,
+            "Draft a social post",
+        ),
+        ("post_post", ActionRiskLevel::High, true, "Publish the post"),
+        (
+            "delete_post",
+            ActionRiskLevel::High,
+            true,
+            "Delete a published post",
+        ),
+    ]
+}
+
+fn seed_lead_researcher() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "enrich_lead",
+            ActionRiskLevel::Low,
+            false,
+            "Enrich a lead record",
+        ),
+        ("score_lead", ActionRiskLevel::Low, false, "Score a lead"),
+        (
+            "share_lead_list",
+            ActionRiskLevel::Medium,
+            true,
+            "Share a lead list",
+        ),
+    ]
+}
+
+fn seed_bookkeeping_assistant() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "classify_expense",
+            ActionRiskLevel::Low,
+            false,
+            "Classify an expense",
+        ),
+        (
+            "draft_invoice",
+            ActionRiskLevel::Medium,
+            false,
+            "Draft an invoice",
+        ),
+        (
+            "send_invoice",
+            ActionRiskLevel::High,
+            true,
+            "Send the invoice",
+        ),
+        ("pay_bill", ActionRiskLevel::High, true, "Pay a bill"),
+    ]
+}
+
+fn seed_project_pm() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "update_status",
+            ActionRiskLevel::Low,
+            false,
+            "Update task status",
+        ),
+        (
+            "draft_standup",
+            ActionRiskLevel::Low,
+            false,
+            "Draft a standup post",
+        ),
+        (
+            "post_standup",
+            ActionRiskLevel::Medium,
+            true,
+            "Post the standup",
+        ),
+    ]
+}
+
+fn seed_gtm_engineer() -> Vec<(&'static str, ActionRiskLevel, bool, &'static str)> {
+    vec![
+        (
+            "research_market",
+            ActionRiskLevel::Low,
+            false,
+            "Research a target market",
+        ),
+        (
+            "draft_listing",
+            ActionRiskLevel::Medium,
+            false,
+            "Draft a marketplace listing",
+        ),
+        (
+            "post_listing",
+            ActionRiskLevel::High,
+            true,
+            "Publish the listing",
+        ),
+        (
+            "send_followup",
+            ActionRiskLevel::High,
+            true,
+            "Send a follow-up message",
+        ),
+    ]
 }
 
 #[cfg(test)]

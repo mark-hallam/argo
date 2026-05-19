@@ -29,6 +29,11 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         }
         other => other,
     };
+    let (store, skills) = open_skill_stores().await?;
+    dispatch_inventory_or_quality(&store, &skills, cmd).await
+}
+
+async fn open_skill_stores() -> ArgoResult<(Arc<SessionStore>, SkillStore)> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
@@ -36,6 +41,14 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     let store = Arc::new(SessionStore::open(&db).await?);
     store.migrate().await?;
     let skills = SkillStore::new(Arc::clone(&store));
+    Ok((store, skills))
+}
+
+async fn dispatch_inventory_or_quality(
+    store: &Arc<SessionStore>,
+    skills: &SkillStore,
+    cmd: SkillCmd,
+) -> ArgoResult<()> {
     match cmd {
         SkillCmd::List {
             json,
@@ -49,7 +62,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             quality_min,
         } => {
             super::skill_list::list(
-                &skills,
+                skills,
                 json,
                 &format,
                 &sort_by,
@@ -65,36 +78,48 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::Count {
             include_superseded,
             json,
-        } => count(&skills, include_superseded, json).await,
-        SkillCmd::View { name, json } => super::skill_view::view(&skills, &name, json).await,
+        } => count(skills, include_superseded, json).await,
+        SkillCmd::View { name, json } => super::skill_view::view(skills, &name, json).await,
         SkillCmd::Explain {
             name,
             history_depth,
             json,
-        } => super::skill_explain::run(&skills, &name, history_depth, json).await,
+        } => super::skill_explain::run(skills, &name, history_depth, json).await,
         SkillCmd::Verify { name, all } => {
             if all {
-                super::skill_verify::verify_all(&skills).await
+                super::skill_verify::verify_all(skills).await
             } else {
                 let n = name.unwrap_or_default();
-                super::skill_verify::verify_hash(&skills, &n).await
+                super::skill_verify::verify_hash(skills, &n).await
             }
         }
-        SkillCmd::Install { source } => install(&skills, &source).await,
+        SkillCmd::Install { source } => install(skills, &source).await,
         SkillCmd::DistillNow { worker, json } => {
             super::skill_distill_now::run_cli(&worker, json).await
         }
+        SkillCmd::Lock { name } => set_lock(skills, &name, Lock::UserProtected).await,
+        SkillCmd::Unlock { name } => set_lock(skills, &name, Lock::None).await,
+        other => dispatch_io_or_catalog(store, skills, other).await,
+    }
+}
+
+async fn dispatch_io_or_catalog(
+    store: &Arc<SessionStore>,
+    skills: &SkillStore,
+    cmd: SkillCmd,
+) -> ArgoResult<()> {
+    match cmd {
         SkillCmd::Export { name, out, json } => {
-            super::skill_export::export_one(&skills, &name, &out, json).await
+            super::skill_export::export_one(skills, &name, &out, json).await
         }
         SkillCmd::ExportAll {
             out,
             vertical,
             json,
-        } => super::skill_export_all::run(&skills, &out, vertical.as_deref(), json).await,
+        } => super::skill_export_all::run(skills, &out, vertical.as_deref(), json).await,
         SkillCmd::Import(cmd) => {
             super::skill_import::import_artifact(
-                &skills,
+                skills,
                 &cmd.path,
                 cmd.name.as_deref(),
                 cmd.workspace.as_deref(),
@@ -103,13 +128,11 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SkillCmd::Lock { name } => set_lock(&skills, &name, Lock::UserProtected).await,
-        SkillCmd::Unlock { name } => set_lock(&skills, &name, Lock::None).await,
         SkillCmd::Refine {
             name,
             hint,
             new_version,
-        } => super::skill_refine::refine(&skills, &name, &hint, new_version.as_deref()).await,
+        } => super::skill_refine::refine(skills, &name, &hint, new_version.as_deref()).await,
         SkillCmd::Rollback {
             name,
             to,
@@ -117,12 +140,22 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             reason,
             json,
         } => {
-            super::skill_rollback::run(&skills, &name, &to, dry_run, reason.as_deref(), json).await
+            super::skill_rollback::run(skills, &name, &to, dry_run, reason.as_deref(), json).await
         }
-        SkillCmd::Review { cmd } => super::skill_review::run(&skills, cmd).await,
+        other => dispatch_catalog_or_publish(store, skills, other).await,
+    }
+}
+
+async fn dispatch_catalog_or_publish(
+    store: &Arc<SessionStore>,
+    skills: &SkillStore,
+    cmd: SkillCmd,
+) -> ArgoResult<()> {
+    match cmd {
+        SkillCmd::Review { cmd } => super::skill_review::run(skills, cmd).await,
         SkillCmd::Catalog(cmd) => {
             super::skill_catalog::run(
-                &skills,
+                skills,
                 super::skill_catalog::CatalogFilters {
                     vertical: cmd.vertical.as_deref(),
                     tag: cmd.tag.as_deref(),
@@ -145,7 +178,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SkillCmd::Publish(args) => super::skill_publish::run(&skills, args).await,
+        SkillCmd::Publish(args) => super::skill_publish::run(skills, args).await,
         SkillCmd::Unpublish(args) => super::skill_unpublish::run(args),
         SkillCmd::Tags(args) => super::skill_tags::run(args),
         SkillCmd::Runs {
@@ -168,7 +201,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SkillCmd::Conflicts { cmd } => super::skill_conflicts::run(&skills, cmd).await,
+        SkillCmd::Conflicts { cmd } => super::skill_conflicts::run(skills, cmd).await,
         SkillCmd::Create {
             name,
             description,
@@ -177,7 +210,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             new_version,
         } => {
             super::skill_create::create(
-                &skills,
+                skills,
                 &name,
                 description.as_deref(),
                 body.as_deref(),
@@ -186,6 +219,16 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
+        other => dispatch_ab_quality_signing(store, skills, other).await,
+    }
+}
+
+async fn dispatch_ab_quality_signing(
+    store: &Arc<SessionStore>,
+    skills: &SkillStore,
+    cmd: SkillCmd,
+) -> ArgoResult<()> {
+    match cmd {
         SkillCmd::Versions(args) => super::skill_ab::versions(args).await,
         SkillCmd::AbTest(args) => super::skill_ab::ab_test(args).await,
         SkillCmd::AbStatus(args) => super::skill_ab::ab_status(args).await,
@@ -216,13 +259,23 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             .await
         }
         SkillCmd::Reeval(args) => {
-            super::skill_reeval::run(&skills, args.skill.as_deref(), args.all, args.json).await
+            super::skill_reeval::run(skills, args.skill.as_deref(), args.all, args.json).await
         }
+        other => dispatch_rate_signing_migration(store, skills, other).await,
+    }
+}
+
+async fn dispatch_rate_signing_migration(
+    store: &Arc<SessionStore>,
+    skills: &SkillStore,
+    cmd: SkillCmd,
+) -> ArgoResult<()> {
+    match cmd {
         SkillCmd::Update {
             name,
             min_trust_grade,
             json,
-        } => super::skill_update::run(&skills, &name, min_trust_grade.as_deref(), json).await,
+        } => super::skill_update::run(skills, &name, min_trust_grade.as_deref(), json).await,
         SkillCmd::Rate(cmd) => {
             super::skill_rate::run(
                 &cmd.name,
@@ -245,7 +298,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
+        SkillCmd::Sign(args) => super::skill_sign::run(skills, args).await,
         SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),
         SkillCmd::Keygen(args) => super::skill_keygen::run(args),
         SkillCmd::Migrate(args) => {
@@ -266,10 +319,12 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::ListMigrations(args) => super::skill_list_migrations::run(args.json).await,
         SkillCmd::Ir { cmd } => match cmd {
             SkillIrCmd::Backfill { dry_run, json } => {
-                super::skill_ir_backfill::run(&skills, Arc::clone(&store), dry_run, json).await
+                super::skill_ir_backfill::run(skills, Arc::clone(store), dry_run, json).await
             }
         },
-        SkillCmd::Pack { .. } => Ok(()), // handled in pre-match above
+        SkillCmd::Pack { .. } => Ok(()), // handled in pre-match in `run`
+        // Variants handled in earlier dispatchers; falling through is a bug.
+        _ => unreachable!("skill subcommand dispatched in earlier helper"),
     }
 }
 
