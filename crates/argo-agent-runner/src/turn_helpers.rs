@@ -179,6 +179,7 @@ pub(super) async fn run_turn_with_tools(
     )
     .await?;
     let mut last_outcome = None;
+    let mut freeze_cache: Option<Option<argo_store::FreezeRecord>> = None;
     for round in 0..max_rounds {
         let req = build_round_request(store, &ctx, audit, session_id, model).await?;
         let outcome = run_one_round(
@@ -189,6 +190,10 @@ pub(super) async fn run_turn_with_tools(
             return Ok(finalize_turn(outcome));
         }
         for call in &outcome.tool_calls {
+            super::turn_helpers_freeze::pre_dispatch_or_block(
+                store, audit, session_id, spend.tenant_id, worker_id, &call.name, &mut freeze_cache,
+            )
+            .await?;
             dispatch_one_tool_call(
                 &ctx,
                 store,

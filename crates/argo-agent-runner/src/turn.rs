@@ -183,6 +183,23 @@ async fn run_turn_with_events_inner(
         }
     }
 
+    // mission-pm-kill-switch-2-runner: pre-turn freeze gate. Refuses
+    // to start a turn for a frozen worker before any provider work or
+    // audit emission. No-op when the session has no `worker_id`.
+    if let Some(wid) = session.worker_id {
+        if let Some(rec) = argo_store::worker_freeze::is_frozen(
+            store.pool(),
+            &session.tenant_id.to_string(),
+            &wid.to_string(),
+        )
+        .await?
+        {
+            return Err(ArgoError::Invariant(turn_helpers_freeze::freeze_message(
+                &rec,
+            )));
+        }
+    }
+
     if let Some(text) = user {
         let content = serde_json::json!([{"type": "text", "text": text}]);
         store
@@ -419,6 +436,9 @@ mod turn_helpers;
 #[path = "turn_helpers_context.rs"]
 mod turn_helpers_context;
 
+#[path = "turn_helpers_freeze.rs"]
+mod turn_helpers_freeze;
+
 #[path = "turn_helpers_overlay.rs"]
 mod turn_helpers_overlay;
 
@@ -462,3 +482,7 @@ mod tests;
 #[cfg(test)]
 #[path = "turn_tests_max_rounds.rs"]
 mod tests_max_rounds;
+
+#[cfg(test)]
+#[path = "turn_tests_freeze.rs"]
+mod tests_freeze;
