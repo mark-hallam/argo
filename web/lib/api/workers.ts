@@ -158,6 +158,76 @@ function isStubFallbackEligible(err: unknown): boolean {
   return isMissingOrUnreachable(err);
 }
 
+export interface FreezeRecord {
+  worker_id: string;
+  frozen_at: string;
+  frozen_by: string;
+  reason: string;
+}
+
+export interface UnfreezeResult {
+  worker_id: string;
+  unfrozen: boolean;
+  unfrozen_by: string;
+}
+
+/**
+ * Freeze a worker via the Next.js proxy route. The proxy forwards
+ * the session bearer token to `POST /api/v1/workers/<id>/freeze` on
+ * the gateway; gateway enforces `worker.freeze` capability.
+ */
+export async function freezeWorker(
+  workerId: string,
+  reason: string,
+): Promise<FreezeRecord> {
+  return postProxy<FreezeRecord>(`/api/workers/${encodeURIComponent(workerId)}/freeze`, {
+    reason,
+  });
+}
+
+/**
+ * Unfreeze a worker via the Next.js proxy route. Single-click — the
+ * safe direction; the gateway accepts an empty body.
+ */
+export async function unfreezeWorker(workerId: string): Promise<UnfreezeResult> {
+  return postProxy<UnfreezeResult>(
+    `/api/workers/${encodeURIComponent(workerId)}/unfreeze`,
+    undefined,
+  );
+}
+
+async function postProxy<T>(path: string, body: unknown): Promise<T> {
+  const init: RequestInit = {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    cache: "no-store",
+  };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  const res = await fetch(path, init);
+  const text = await res.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      /* leave parsed null */
+    }
+  }
+  if (!res.ok) {
+    const envelope =
+      parsed && typeof parsed === "object" && "error" in parsed
+        ? (parsed as { error?: { code?: string; message?: string } }).error
+        : undefined;
+    throw new ApiError(
+      res.status,
+      envelope?.message ?? res.statusText ?? `HTTP ${res.status}`,
+      envelope?.code,
+      parsed ?? text,
+    );
+  }
+  return parsed as T;
+}
+
 export async function hireWorker(req: HireWorkerRequest): Promise<HireWorkerResult> {
   if (isAuthBypassed()) {
     return { workerId: stubWorkerId(), success: true };
