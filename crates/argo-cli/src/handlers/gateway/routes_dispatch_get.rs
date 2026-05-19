@@ -27,5 +27,12 @@ pub(super) async fn dispatch_get(
     {
         return Some(resp);
     }
+    // mission-pm-workflow-edit-api — workflow-definition CRUD reads
+    // under `/api/v1/verticals/{vertical_id}/workflows/...`. The
+    // dispatcher recognises all four GET shapes (list / head / versions
+    // index / per-version fetch); see `routes_workflows::dispatch_get`.
+    if let Some(resp) = super::routes_workflows::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     None
 }

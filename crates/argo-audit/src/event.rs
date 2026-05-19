@@ -230,6 +230,25 @@ pub enum AuditKind {
     /// "store_unavailable"`), and `source_ip`. Pre-authentication, so
     /// emitted under the [`crate::ANONYMOUS_AUDIT_TENANT_ID`] bucket.
     AuthFailed,
+    /// A new workflow-definition version was created via
+    /// `POST /api/v1/verticals/{vertical_id}/workflows/{name}`
+    /// (`mission-pm-workflow-edit-api`). Payload carries `actor`,
+    /// `tenant_id`, `vertical_id`, `name`, and `version_id`.
+    WorkflowDefinitionCreated,
+    /// The workflow-definition head pointer for `(tenant, vertical,
+    /// name)` was moved to a new version via
+    /// `PUT /api/v1/verticals/{vertical_id}/workflows/{name}/head`
+    /// (`mission-pm-workflow-edit-api`). Payload carries `actor`,
+    /// `tenant_id`, `vertical_id`, `name`, and `version_id`.
+    WorkflowHeadChanged,
+    /// A workflow-definition version was archived (lifecycle_state
+    /// flipped to `archived`) via
+    /// `DELETE /api/v1/verticals/{vertical_id}/workflows/{name}/versions/{id}`
+    /// (`mission-pm-workflow-edit-api`). Payload carries `actor`,
+    /// `tenant_id`, `vertical_id`, `name`, and `version_id`. When the
+    /// archived version was the current head, the head pointer is
+    /// cleared in the same DB transaction.
+    WorkflowVersionArchived,
 }
 
 impl AuditKind {
@@ -277,6 +296,9 @@ impl AuditKind {
             Self::DynamicCapabilityGranted => "dynamic_capability_granted",
             Self::AuthSucceeded => "auth.succeeded",
             Self::AuthFailed => "auth.failed",
+            Self::WorkflowDefinitionCreated => "workflow_definition_created",
+            Self::WorkflowHeadChanged => "workflow_head_changed",
+            Self::WorkflowVersionArchived => "workflow_version_archived",
         }
     }
 
@@ -326,6 +348,9 @@ impl AuditKind {
             "dynamic_capability_granted" => Self::DynamicCapabilityGranted,
             "auth.succeeded" => Self::AuthSucceeded,
             "auth.failed" => Self::AuthFailed,
+            "workflow_definition_created" => Self::WorkflowDefinitionCreated,
+            "workflow_head_changed" => Self::WorkflowHeadChanged,
+            "workflow_version_archived" => Self::WorkflowVersionArchived,
             _ => return None,
         })
     }
@@ -375,6 +400,9 @@ impl AuditKind {
             Self::DynamicCapabilityGranted,
             Self::AuthSucceeded,
             Self::AuthFailed,
+            Self::WorkflowDefinitionCreated,
+            Self::WorkflowHeadChanged,
+            Self::WorkflowVersionArchived,
         ];
         v.sort_by_key(|k| k.label());
         v

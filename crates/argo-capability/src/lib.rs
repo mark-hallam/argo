@@ -43,6 +43,47 @@ pub fn audit_view_cross_tenant_capability() -> Capability {
     }
 }
 
+/// Capability name for the workflow-definition edit gateway routes
+/// (Stream `mission-pm-workflow-edit-api`). Required by every mutating
+/// route under `/api/v1/verticals/{vertical_id}/workflows/...` (POST
+/// create-version, PUT head, DELETE archive-version). Default-role
+/// presets in [`default_roles_for_workspace`] grant this to `owner`
+/// and `admin`; `user` and `guest` see 403 on mutating calls.
+///
+/// Modeled as a [`Capability::ToolDispatch`] glob to reuse the
+/// existing role-config plumbing without a schema change, matching
+/// the [`AUDIT_VIEW_CROSS_TENANT`] precedent.
+pub const WORKFLOW_EDIT: &str = "workflow.edit";
+
+/// Capability name for the workflow-definition read gateway routes
+/// (Stream `mission-pm-workflow-edit-api`). Required by every GET
+/// under `/api/v1/verticals/{vertical_id}/workflows/...`. Default-role
+/// presets grant this to all four roles (`owner` / `admin` / `user` /
+/// `guest`) so any authenticated principal can browse definitions.
+pub const WORKFLOW_READ: &str = "workflow.read";
+
+/// Convenience constructor for the [`WORKFLOW_EDIT`] capability value.
+/// Use this in role definitions and [`CapabilityEngine::check`] calls
+/// instead of constructing the stringly-typed
+/// [`Capability::ToolDispatch`] inline.
+#[must_use]
+pub fn workflow_edit_capability() -> Capability {
+    Capability::ToolDispatch {
+        tool_name_glob: WORKFLOW_EDIT.to_string(),
+    }
+}
+
+/// Convenience constructor for the [`WORKFLOW_READ`] capability value.
+/// Use this in role definitions and [`CapabilityEngine::check`] calls
+/// instead of constructing the stringly-typed
+/// [`Capability::ToolDispatch`] inline.
+#[must_use]
+pub fn workflow_read_capability() -> Capability {
+    Capability::ToolDispatch {
+        tool_name_glob: WORKFLOW_READ.to_string(),
+    }
+}
+
 /// The capability + RBAC engine.
 ///
 /// Roles are named capability sets with optional single-inheritance.
@@ -337,6 +378,9 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                 Capability::ToolDispatch {
                     tool_name_glob: "send_message".into(),
                 },
+                Capability::ToolDispatch {
+                    tool_name_glob: WORKFLOW_READ.into(),
+                },
                 Capability::MessageSend {
                     channel: "slack".into(),
                     recipient_scope: "*".into(),
@@ -360,6 +404,9 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                 },
                 Capability::ToolDispatch {
                     tool_name_glob: "clarify".into(),
+                },
+                Capability::ToolDispatch {
+                    tool_name_glob: WORKFLOW_READ.into(),
                 },
             ]),
         },

@@ -143,6 +143,13 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_dispatch_post_paths::dispatch_session_path(req, store).await {
         return Some(resp);
     }
+    // mission-pm-workflow-edit-api — workflow-definition CRUD
+    // mutations under `/api/v1/verticals/{vertical_id}/workflows/...`.
+    // Covers POST (create version), PUT (set head), DELETE (archive
+    // version). See `routes_workflows::dispatch_mutate`.
+    if let Some(resp) = super::routes_workflows::dispatch_mutate(req, store).await {
+        return Some(resp);
+    }
     None
 }
 
