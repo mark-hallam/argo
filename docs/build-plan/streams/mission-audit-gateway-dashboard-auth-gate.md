@@ -6,6 +6,15 @@
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-audit-gateway-dashboard-auth-gate`.
 **Source**: 2026-05-19 codex read-only architecture audit P0-2, validated by claude `VALIDATION.md` (CONFIRMED on `ff02a823`).
 
+## AMENDED 2026-05-19 by conductor (post-BLOCK)
+
+Original brief was BLOCKED 2026-05-19 by codex pre-implementation: loopback-only acceptance requires TCP peer IP threading through `boot_router.rs` (outside may-touch). Conductor narrowed scope:
+
+- **Dropped**: `dashboard_bind_loopback_only` config field + dashboard.rs loopback-only enforcement. Defer to v1.x sibling brief `mission-audit-dashboard-loopback-only` if/when needed.
+- **Kept**: the primary security fix — move dashboard mounts AFTER `check_bearer_auth` so dashboards inherit the bearer-auth gate.
+
+The kept core change is the high-value security closure. The loopback-only fallback was nice-to-have for dev environments but required surface beyond may-touch.
+
 ## Scope
 
 The legacy server-rendered gateway dashboards are mounted **before** the bearer-auth gate. `crates/argo-cli/src/handlers/gateway/routes.rs:102-108` dispatches the dashboard + fleet-dashboard handlers, and `routes.rs:124-127` only runs `check_bearer_auth` afterwards. When `ARGO_GATEWAY_BEARER_TOKEN` is unset (dev default per `routes_auth.rs:31-36`), the dashboards are reachable by anyone with network access to the gateway port. When set, the dashboards have already been matched and served before bearer-auth runs.
@@ -23,9 +32,7 @@ This brief reorders the routing so dashboard mount points run **after** bearer-a
 ## Files you may touch
 
 - `crates/argo-cli/src/handlers/gateway/routes.rs` — move the dashboard dispatch block (currently lines 102-108) to AFTER the bearer-auth gate (currently line 124-127). Delete the comment at lines 93-101 that justified the pre-auth mount.
-- `crates/argo-config/src/sections.rs` (or a new `sections_gateway.rs` if `[gateway]` doesn't exist yet) — add `dashboard_bind_loopback_only: bool` to the `[gateway]` config section. Default `false` for back-compat.
-- `crates/argo-cli/src/handlers/gateway/dashboard.rs` — at `dispatch` entry, if `config.gateway.dashboard_bind_loopback_only` is `true` and the request's TCP peer IP is not `127.0.0.1` / `::1`, return `403 Forbidden` with body `dashboard restricted to loopback`. Mirror whatever peer-IP-extraction pattern already exists in the gateway maintenance gate (do not reinvent).
-- `crates/argo-cli/tests/gateway_dashboard_auth_smoke.rs` (NEW, follows existing `cross_tenant_skill_discovery_negative.rs` shape) — three test cases: (1) `ARGO_GATEWAY_BEARER_TOKEN` set + no header → `401`; (2) bearer token set + correct header → `200`; (3) `dashboard_bind_loopback_only=true` + simulated non-loopback peer → `403`.
+- `crates/argo-cli/tests/gateway_dashboard_auth_smoke.rs` (NEW, follows existing `cross_tenant_skill_discovery_negative.rs` shape) — three test cases: (1) `ARGO_GATEWAY_BEARER_TOKEN` set + no header → `401`; (2) bearer token set + correct header → `200`.
 
 ## Files you must NOT touch
 

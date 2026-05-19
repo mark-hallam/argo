@@ -6,6 +6,10 @@
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-audit-bearer-fail-closed-prod`.
 **Source**: 2026-05-19 codex audit P1-3, validated by claude `VALIDATION.md` (CONFIRMED — `routes_auth.rs:31-36` returns `None` when `ARGO_GATEWAY_BEARER_TOKEN` is unset, no production-mode guard).
 
+## AMENDED 2026-05-19 by conductor (post-BLOCK)
+
+Original brief was BLOCKED 2026-05-19 by codex pre-implementation: the `argo gateway bootstrap rotate` CLI surface requires `cli_gateway_cmds.rs` for the `GatewayCmd::Bootstrap` subcommand and `handlers/gateway/mod.rs` for module registration — both omitted from may-touch. Conductor added them. Token-rotation handler stays in `bootstrap_token.rs` (already in may-touch); the additions are the thin CLI wrapper + module dispatch wire-up.
+
 ## Scope
 
 When `ARGO_GATEWAY_BEARER_TOKEN` is unset or empty, `check_bearer_auth` in `crates/argo-cli/src/handlers/gateway/routes_auth.rs:31-36` returns `None` (auth passes). This is the dev default. There is **no startup check** that catches a production deployment with an unset token — the gateway will silently boot fail-open on a non-loopback bind.
@@ -26,6 +30,8 @@ This brief: (a) detects "production mode" (any non-loopback bind, or explicit `A
 - `crates/argo-cli/src/handlers/gateway/routes_auth_production_mode.rs` (NEW) — `pub fn is_production_mode() -> bool`. True if any of: `ARGO_GATEWAY_PROFILE=production`, `ARGO_GATEWAY_BIND` is set and parses to a non-loopback address, or `ARGO_GATEWAY_BIND` is unset and the default bind in `routes.rs` is non-loopback. Single source of truth; called from boot + auth.
 - `crates/argo-cli/src/handlers/gateway/boot.rs` — at startup, call `is_production_mode()`; if true and `ARGO_GATEWAY_BEARER_TOKEN` is unset, log `ERROR` + return `Err(ArgoError::Config("ARGO_GATEWAY_BEARER_TOKEN required when binding non-loopback or ARGO_GATEWAY_PROFILE=production"))`. Boot fails closed; no silent fall-through.
 - `crates/argo-cli/src/handlers/gateway/bootstrap_token.rs` (NEW) — `pub fn ensure_bootstrap_token() -> ArgoResult<String>` reads / writes `~/.argo/.bootstrap-token` (0600 perms on Unix). `pub fn check_bootstrap_token(req) -> Option<Response>` validates `X-Argo-Bootstrap` header against the file; mismatch returns `401`. Token rotation: `argo gateway bootstrap rotate` regenerates it.
+- `crates/argo-cli/src/cli_gateway_cmds.rs` — add a `GatewayCmd::Bootstrap { sub: GatewayBootstrapCmd }` arm + a sibling `GatewayBootstrapCmd::Rotate` variant. ≤ 20 modified LOC.
+- `crates/argo-cli/src/handlers/gateway/mod.rs` — register the new `bootstrap_token` handler module + dispatch `GatewayBootstrapCmd::Rotate` to `bootstrap_token::ensure_bootstrap_token` (regenerating). ≤ 15 modified LOC.
 - `crates/argo-cli/src/handlers/gateway/routes.rs` — for wizard paths, call `check_bootstrap_token` before falling through to bearer auth. Once bearer token is configured + wizard has been completed (sentinel file `~/.argo/.wizard-done`), wizard routes return `410 Gone`.
 - `crates/argo-cli/tests/gateway_fail_closed_prod_smoke.rs` (NEW) — four cases: (1) `ARGO_GATEWAY_PROFILE=production` + bearer unset → boot returns `Err` with helpful message; (2) wizard route without bootstrap token in production → 401; (3) wizard route with bootstrap token → 200; (4) wizard route after `wizard-done` sentinel → 410.
 

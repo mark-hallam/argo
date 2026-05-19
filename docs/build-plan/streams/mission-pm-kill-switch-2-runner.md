@@ -6,6 +6,10 @@
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-pm-kill-switch-2-runner`.
 **Source**: skycot-pm-worker REPORT.md §6.2 + §11 P2 #12. Split slice 2/5 of parent `mission-pm-kill-switch` (BLOCKED 2026-05-19 — incomplete may-touch).
 
+## AMENDED 2026-05-19 by conductor (post-BLOCK)
+
+Original brief was BLOCKED 2026-05-19 by codex pre-worktree claim guard: `turn_helpers.rs` is 484 LOC on current main; the brief's ≤30 LOC addition would push it to 514, over the HARD RULE 6 500-LOC ceiling. Conductor added `turn_helpers_freeze.rs` (NEW sibling) to may-touch and narrowed the turn_helpers.rs addition to ≤10 LOC (single helper call). Helper logic lives in the new sibling. Mirrors the LOC-ceiling sibling pattern used elsewhere in argo-agent-runner.
+
 ## Scope
 
 The runner half of the worker-freeze primitive. Calls `worker_freeze::is_frozen(worker_id)` from two places:
@@ -24,7 +28,8 @@ Cache the result of `is_frozen` once per turn — do not re-query the DB on ever
 ## Files you may touch
 
 - `crates/argo-agent-runner/src/turn.rs` — narrowly scoped: before the turn loop starts, call `is_frozen(worker_id)`. If `Some(rec)`, return `ArgoError::Invariant("worker frozen: ...")` with the message format documented in Notes. ≤ 20 LOC of additions.
-- `crates/argo-agent-runner/src/turn_helpers.rs` — narrowly scoped: in the dispatch loop, before invoking the next tool call, check the cached `is_frozen` result. If frozen, write a `WorkerFreezeBlocked` audit row and short-circuit the loop with the same error type. ≤ 30 LOC of additions including the per-turn cache.
+- `crates/argo-agent-runner/src/turn_helpers.rs` — narrowly scoped: in the dispatch loop, before invoking the next tool call, call a single helper from `turn_helpers_freeze.rs`. Goal is ≤ 10 LOC of additions here (the cache + check logic lives in the sibling). turn_helpers.rs is at 484 LOC on current main; do not push it over 500.
+- `crates/argo-agent-runner/src/turn_helpers_freeze.rs` (NEW sibling) — per-turn cache struct + `check_or_cache(store, worker_id) -> Result<Option<FreezeRecord>, ArgoError>` helper + `emit_blocked_audit(audit, worker_id, reason)` helper. ≤ 80 LOC. Mirrors the LOC-ceiling sibling pattern used by `turn_helpers_context.rs` / `turn_memory.rs` + the post-MERGE pattern from kill-switch slice 1's worker.
 - `crates/argo-agent-runner/src/dispatch.rs` — if there is a sibling dispatch entry point, mirror the pre-dispatch check there. ≤ 15 LOC if needed; may be unnecessary if all dispatches funnel through `turn_helpers.rs`.
 - `crates/argo-agent-runner/src/turn_tests.rs` — add 2 tests: (a) frozen worker cannot start a turn (error message matches the documented format); (b) freeze applied mid-turn-loop blocks the next dispatch and emits the audit row.
 - `crates/argo-agent-runner/src/dispatch_tests.rs` — add 1 test: pre-dispatch check refuses tool calls for a frozen worker.
