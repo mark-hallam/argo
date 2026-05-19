@@ -73,6 +73,8 @@ mod store_available_tests;
 #[cfg(test)]
 mod store_trust_tests;
 #[cfg(test)]
+mod store_worker_overlay_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_lifecycle;

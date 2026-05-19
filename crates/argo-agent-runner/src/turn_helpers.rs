@@ -12,6 +12,7 @@
 //! No public API changes — `run_turn_with_tools` is `pub(super)`
 //! and only `turn::run_turn_with_events` calls it.
 use super::turn_helpers_context::prepare_context_messages;
+use super::turn_helpers_overlay::{append_worker_overlays_as_workspace, merge_worker_overlays};
 use super::turn_skills_runtime::PendingAbOutcome;
 use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
 use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_tenant, provider_schemas_filtered};
@@ -28,7 +29,7 @@ use argo_skill::{
     LayeredLookup, Skill, SkillRelevanceConfig, SkillRelevanceSelector, SkillSelectionContext,
     SkillStore,
 };
-use argo_store::SessionStore;
+use argo_store::{SessionStore, WorkerId};
 use argo_types::{ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult};
 use std::path::Path;
 use std::path::PathBuf;
@@ -39,9 +40,17 @@ pub(super) async fn load_prompt_skills(
     workspace: &SkillStore,
     session_id: SessionId,
     vertical_id: Option<&str>,
+    worker_id: Option<WorkerId>,
 ) -> ArgoResult<Vec<Skill>> {
     let library = open_skill_library().await?;
-    load_prompt_skills_with_library(workspace, session_id, vertical_id, library.as_ref()).await
+    load_prompt_skills_with_library(
+        workspace,
+        session_id,
+        vertical_id,
+        library.as_ref(),
+        worker_id,
+    )
+    .await
 }
 
 pub(super) async fn load_prompt_skills_with_library(
@@ -49,6 +58,7 @@ pub(super) async fn load_prompt_skills_with_library(
     session_id: SessionId,
     vertical_id: Option<&str>,
     library: Option<&SkillStore>,
+    worker_id: Option<WorkerId>,
 ) -> ArgoResult<Vec<Skill>> {
     let attached = workspace.skills_for_session(session_id).await?;
     if !attached.is_empty() {
@@ -58,12 +68,14 @@ pub(super) async fn load_prompt_skills_with_library(
     let Some(library) = library else {
         return match vertical_id {
             Some(vid) => workspace.list_skills_for_vertical(vid).await,
-            None => workspace.list_active().await,
+            None => merge_worker_overlays(workspace, workspace.list_active().await?, worker_id)
+                .await,
         };
     };
 
     let lookup = LayeredLookup::with_library(workspace, library);
-    let rows = lookup.list_for_action("low").await?;
+    let mut rows = lookup.list_for_action("low").await?;
+    append_worker_overlays_as_workspace(workspace, &mut rows, worker_id).await?;
     let selector = SkillRelevanceSelector::new(load_skill_relevance_config()?);
     let vertical_tag;
     let task_tags: &[&str] = match vertical_id {

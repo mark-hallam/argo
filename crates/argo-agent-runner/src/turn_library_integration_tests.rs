@@ -63,7 +63,7 @@ async fn published_library_skill_reaches_prompt_without_private_library_leak() {
         .unwrap();
 
     let active =
-        turn_helpers::load_prompt_skills_with_library(&workspace, sid, None, Some(&library))
+        turn_helpers::load_prompt_skills_with_library(&workspace, sid, None, Some(&library), None)
             .await
             .unwrap();
     let prompt = turn_helpers::render_skill_prompt(active);

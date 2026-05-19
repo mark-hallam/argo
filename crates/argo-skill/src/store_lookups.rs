@@ -11,6 +11,7 @@
 //! `crate::store::RawSkill` keep compiling.
 use crate::skill::{Skill, SkillFrontmatter};
 use crate::store::SkillStore;
+use argo_store::WorkerId;
 use argo_types::{ArgoError, ArgoResult, Lock, SessionId, SkillId};
 use chrono::{TimeZone, Utc};
 use uuid::Uuid;
@@ -87,6 +88,34 @@ impl SkillStore {
         .fetch_all(self.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("skill list_all: {e}")))?;
+        rows.into_iter().map(Skill::try_from).collect()
+    }
+
+    /// Active overlay skills attached to `worker_id` via `worker_skill`.
+    ///
+    /// Joins `worker_skill` × `skill` (× `skill_lock`), filtered to
+    /// `lifecycle_state = 'active'` and `superseded_by IS NULL`. Returns
+    /// an empty vec when no overlays exist for the worker; the agent
+    /// runner merges the result into the system prompt alongside the
+    /// workspace + library skills surfaced by [`LayeredLookup`].
+    ///
+    /// [`LayeredLookup`]: crate::LayeredLookup
+    pub async fn list_for_worker(&self, worker_id: WorkerId) -> ArgoResult<Vec<Skill>> {
+        let rows = sqlx::query_as::<_, RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
+             FROM worker_skill ws \
+             JOIN skill s ON s.id = ws.skill_id \
+             LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             WHERE ws.worker_id = ? AND s.lifecycle_state = 'active' \
+             AND s.superseded_by IS NULL \
+             ORDER BY s.name ASC",
+        )
+        .bind(worker_id.to_string())
+        .fetch_all(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_for_worker: {e}")))?;
         rows.into_iter().map(Skill::try_from).collect()
     }
 

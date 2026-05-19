@@ -373,7 +373,8 @@ async fn build_system_prompt_with_ab(
     invocation_id: &str,
 ) -> ArgoResult<(Option<String>, Vec<turn_skills_runtime::PendingAbOutcome>)> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
-    let mut active = turn_helpers::load_prompt_skills(&skills, session_id, vertical_id).await?;
+    let mut active =
+        turn_helpers::load_prompt_skills(&skills, session_id, vertical_id, worker_id).await?;
     turn_canary::apply_canary_routing(store, &skills, session_id, tenant_id, &mut active).await?;
     let (active, pending) =
         turn_skills_runtime::resolve_variants_for_turn(store, invocation_id, active).await;
@@ -405,6 +406,9 @@ mod turn_helpers;
 
 #[path = "turn_helpers_context.rs"]
 mod turn_helpers_context;
+
+#[path = "turn_helpers_overlay.rs"]
+mod turn_helpers_overlay;
 
 #[path = "turn_canary.rs"]
 mod turn_canary;
