@@ -8,7 +8,15 @@ repository.workspace = true
 description = "Argo — capability + RBAC engine"
 
 [dependencies]
+argo-audit = { path = "../argo-audit" }
 argo-types = { path = "../argo-types" }
 parking_lot = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+argo-store = { path = "../argo-store" }
+sqlx = { workspace = true }

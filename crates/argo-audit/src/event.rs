@@ -197,6 +197,15 @@ pub enum AuditKind {
     /// `requested_at`. One row per accepted request; rate-limit
     /// rejections (HTTP 429) do not emit.
     DataExportRequested,
+    /// A principal's role binding changed in the capability engine.
+    /// Payload carries `principal`, `role_or_capability`, `actor`,
+    /// `at`, and `action` (`bind` or `unbind`).
+    RoleBindingChanged,
+    /// A principal's dynamic capability grants changed in the
+    /// capability engine. Payload carries `principal`,
+    /// `role_or_capability`, `actor`, `at`, and `action` (`grant` or
+    /// `revoke`).
+    DynamicCapabilityGranted,
     /// A magic-link `POST /api/v1/auth/verify` exchange succeeded
     /// (mission-magic-link-audit-followup-2026-05-18, audit P1 #5).
     /// Payload carries `method` (`"magic_link"`), `user_id`,
@@ -253,6 +262,8 @@ impl AuditKind {
             Self::GatewayInsecureBind => "gateway_insecure_bind",
             Self::TenantProvisioned => "tenant.provisioned",
             Self::DataExportRequested => "data_export.requested",
+            Self::RoleBindingChanged => "role_binding_changed",
+            Self::DynamicCapabilityGranted => "dynamic_capability_granted",
             Self::AuthSucceeded => "auth.succeeded",
             Self::AuthFailed => "auth.failed",
         }
@@ -298,6 +309,8 @@ impl AuditKind {
             "gateway_insecure_bind" => Self::GatewayInsecureBind,
             "tenant.provisioned" => Self::TenantProvisioned,
             "data_export.requested" => Self::DataExportRequested,
+            "role_binding_changed" => Self::RoleBindingChanged,
+            "dynamic_capability_granted" => Self::DynamicCapabilityGranted,
             "auth.succeeded" => Self::AuthSucceeded,
             "auth.failed" => Self::AuthFailed,
             _ => return None,
@@ -343,6 +356,8 @@ impl AuditKind {
             Self::GatewayInsecureBind,
             Self::TenantProvisioned,
             Self::DataExportRequested,
+            Self::RoleBindingChanged,
+            Self::DynamicCapabilityGranted,
             Self::AuthSucceeded,
             Self::AuthFailed,
         ];

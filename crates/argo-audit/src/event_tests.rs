@@ -11,6 +11,11 @@ fn label_round_trip_for_every_kind() {
 }
 
 #[test]
+fn all_kind_count_tracks_declared_variants() {
+    assert_eq!(AuditKind::all().len(), 38);
+}
+
+#[test]
 fn unknown_label_yields_none() {
     assert!(AuditKind::from_label("not_a_kind").is_none());
 }
@@ -151,6 +156,27 @@ fn data_export_requested_round_trips_and_listed() {
     assert_eq!(kind.label(), "data_export.requested");
     let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
     assert!(labels.contains(&"data_export.requested"));
+}
+
+#[test]
+fn capability_mutation_kinds_round_trip_and_serde_as_snake_case() {
+    for (label, kind) in [
+        ("role_binding_changed", AuditKind::RoleBindingChanged),
+        (
+            "dynamic_capability_granted",
+            AuditKind::DynamicCapabilityGranted,
+        ),
+    ] {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+        assert_eq!(
+            serde_json::to_string(&kind).unwrap(),
+            format!("\"{label}\"")
+        );
+    }
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"role_binding_changed"));
+    assert!(labels.contains(&"dynamic_capability_granted"));
 }
 
 #[test]

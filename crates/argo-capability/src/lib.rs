@@ -7,10 +7,14 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+use argo_audit::AuditSink;
 use argo_types::{ArgoError, ArgoResult, Capability, CapabilityRole, CapabilitySet, Principal};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+mod audit_emit;
 
 /// Capability name for the cross-tenant audit-feed override probe
 /// (Stream `mission-enterprise-cross-tenant-audit`). When a request
@@ -72,6 +76,7 @@ pub struct CapabilityEngine {
     bindings: RwLock<HashMap<Principal, String>>,
     /// Dynamic per-principal grants (e.g., user-approved one-shot grants).
     dynamic: RwLock<HashMap<Principal, Vec<Capability>>>,
+    audit_sink: Option<Arc<AuditSink>>,
 }
 
 impl CapabilityEngine {
@@ -82,6 +87,7 @@ impl CapabilityEngine {
             roles: RwLock::new(HashMap::new()),
             bindings: RwLock::new(HashMap::new()),
             dynamic: RwLock::new(HashMap::new()),
+            audit_sink: None,
         }
     }
 
@@ -127,16 +133,12 @@ impl CapabilityEngine {
 
     /// Bind a principal to a role.
     pub fn bind(&self, principal: Principal, role_name: String) -> ArgoResult<()> {
-        if !self.roles.read().contains_key(&role_name) {
-            return Err(ArgoError::Schema(format!("unknown role: {role_name}")));
-        }
-        self.bindings.write().insert(principal, role_name);
-        Ok(())
+        self.bind_with_actor(principal, role_name, None)
     }
 
     /// Remove a principal's role binding.
     pub fn revoke_binding(&self, principal: &Principal) {
-        self.bindings.write().remove(principal);
+        self.unbind(principal, None);
     }
 
     /// Resolve a principal's effective capabilities (role + dynamic grants).
@@ -172,12 +174,7 @@ impl CapabilityEngine {
 
     /// Grant a dynamic capability to a principal (e.g., from user approval).
     pub fn grant_dynamic(&self, principal: Principal, cap: Capability) {
-        self.dynamic.write().entry(principal).or_default().push(cap);
-    }
-
-    /// Drop all dynamic grants for a principal.
-    pub fn clear_dynamic(&self, principal: &Principal) {
-        self.dynamic.write().remove(principal);
+        self.grant_dynamic_with_actor(principal, cap, None);
     }
 }
 
