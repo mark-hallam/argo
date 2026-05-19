@@ -560,6 +560,70 @@ unblocks a mission claim.
 
 ---
 
+## SECTION 10 — PM Teammate Track (skycot-pm-worker investigation)
+
+Sourced 2026-05-19 from `argo-investigations/skycot-pm-worker/REPORT.md`
++ `VALIDATION.md` (10/10 headline findings confirmed against origin/main
+`80ffa124`). Three priority tiers — P0 unlocks the "PM teammate" trust
+story, P1 closes the workflow-lifecycle loop, P2 unlocks the
+industry-leader claim.
+
+### P0 — trust unlocks (must land before "PM teammate" ships)
+
+281. Surface per-worker learned skill overlays in the agent prompt
+     — close the learning-reuse loop so cron promotions show up at
+     the next session. Highest-leverage fix.
+     `[BRIEF: mission-pm-skill-overlay-load]`
+282. Render approval content preview in ApprovalCard — operators
+     today see "approve this draft?" with no body.
+     `[BRIEF: mission-pm-approval-content-preview]`
+283. Per-target glob on session-scoped capability grants — restrict
+     "this worker, this kind" to "and only this target".
+     `[BRIEF: mission-pm-approval-target-scope]`
+284. Emit `AuditKind::RoleBindingChanged` + `DynamicCapabilityGranted`
+     events when bindings/grants mutate — capability surface today
+     mutates silently.
+     `[BRIEF: mission-pm-capability-audit-events]`
+
+### P1 — workflow lifecycle (required for "dynamic + editable" claim)
+
+285. `workflow_definition` table + versioned CRUD primitive. The
+     foundation row that unblocks edit-api, rollback-cli, canvas-diff,
+     and conversational-responsibility.
+     `[BRIEF: mission-pm-workflow-persistence-schema]` CONTRACT
+286. Gateway routes `GET/PATCH/POST /workflows/:id` over the
+     persistence-schema table.
+     `[BRIEF: mission-pm-workflow-edit-api]`
+287. `argo workflow list/show/versions/rollback/diff/archive` CLI
+     surface — operator-facing recovery path.
+     `[BRIEF: mission-pm-workflow-rollback-cli]`
+288. Finish the `skill_invoke` step kind in the vertical workflow
+     runner (Phase 5 was scaffolded then paused).
+     `[BRIEF: mission-pm-vertical-workflow-skill-invoke]`
+
+### P2 — industry-leader claim unlocks
+
+289. Workflow version diff view in the canvas UI (read-only
+     side-by-side render of two `workflow_definition` versions).
+     `[BRIEF: mission-pm-skill-canvas-diff]`
+290. Chat surface to propose a new workflow / new responsibility in
+     plain English; agent drafts a workflow_definition patch for
+     operator approval. Closes the "add a duty by asking" loop.
+     `[BRIEF: mission-pm-conversational-responsibility]`
+291. Trust-streak rollup in approvals dashboard + "promote to auto"
+     card after N successful approvals in a row.
+     `[BRIEF: mission-pm-trust-ratchet-ui]`
+292. Worker freeze/unfreeze primitive (`argo worker freeze <id>` +
+     UI control). Safety primitive operators need before trusting
+     auto-promoted workers.
+     `[BRIEF: mission-pm-kill-switch]`
+293. Weekly skill re-evaluation cron that re-runs eval seeds against
+     currently-promoted overlay skills and flags regressions for
+     operator review.
+     `[BRIEF: mission-pm-scheduled-skill-reeval]`
+
+---
+
 ## Sequencing — recommended phases
 
 Per the deep-research analysis (paraphrased):
