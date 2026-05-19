@@ -28,6 +28,7 @@
 use super::body_from_request;
 use super::email_outbound::{self, OutboundMessage};
 use super::rate_limit_ip::{self, RateLimitIpCheckResult};
+use argo_audit::{AuditKind, AuditSink, ANONYMOUS_AUDIT_TENANT_ID};
 use argo_config::EmailOutboundConfig;
 use argo_email_templates::MagicLinkEmail;
 use argo_identity::user::UserAccount;
@@ -38,17 +39,26 @@ use argo_store::SessionStore;
 use argo_types::ArgoResult;
 use base64::Engine;
 use chrono::Utc;
+use dashmap::DashMap;
 use jsonwebtoken::{EncodingKey, Header};
 use rand_core::{OsRng, RngCore};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 const JWT_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 const SESSION_COOKIE_NAME: &str = "__Host-session";
+
+/// Sliding-window verify rate limit: 60 attempts/IP/minute. Separate
+/// bucket from [`super::rate_limit_ip::signup_limiter`] so signup
+/// throttling (5/hour) does not bleed into verify throttling.
+const VERIFY_RATE_LIMIT_PER_MIN: usize = 60;
+const VERIFY_RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
 
 #[cfg(test)]
 #[path = "auth_magic_link_tests.rs"]
@@ -176,38 +186,70 @@ pub(super) async fn verify_outcome(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> VerifyOutcome {
+    let source_ip = signup_source_ip(req);
     let Some(s) = store else {
         return err_outcome("500 Internal Server Error", "store_unavailable");
     };
+    if !verify_rate_limit_check(source_ip, Instant::now()) {
+        emit_auth_failed(s, "rate_limited", source_ip).await;
+        return VerifyOutcome {
+            status: "429 Too Many Requests",
+            body: json!({
+                "error": "rate_limited",
+                "scope": "verify",
+                "retry_after_secs": VERIFY_RATE_LIMIT_WINDOW.as_secs(),
+            })
+            .to_string(),
+            set_cookie: None,
+        };
+    }
     let parsed: VerifyBody = match serde_json::from_str(body_from_request(req)) {
         Ok(v) => v,
-        Err(e) => return err_outcome("400 Bad Request", &format!("invalid body: {e}")),
+        Err(e) => {
+            emit_auth_failed(s, "missing", source_ip).await;
+            return err_outcome("400 Bad Request", &format!("invalid body: {e}"));
+        }
     };
     let token = parsed.token.trim();
     if token.is_empty() {
+        emit_auth_failed(s, "missing", source_ip).await;
         return err_outcome("400 Bad Request", "token is required");
     }
     let now = Utc::now().timestamp();
     let email = match user_account::consume_magic_link(s.pool(), &sha256_hex(token), now).await {
         Ok(ConsumedToken::Ok { email }) => email,
-        Ok(ConsumedToken::Expired) => return err_outcome("401 Unauthorized", "expired"),
-        Ok(ConsumedToken::AlreadyUsed) => return err_outcome("401 Unauthorized", "already_used"),
-        Ok(ConsumedToken::NotFound) => return err_outcome("401 Unauthorized", "invalid"),
+        Ok(ConsumedToken::Expired) => {
+            emit_auth_failed(s, "expired", source_ip).await;
+            return err_outcome("401 Unauthorized", "expired");
+        }
+        Ok(ConsumedToken::AlreadyUsed) => {
+            emit_auth_failed(s, "already_used", source_ip).await;
+            return err_outcome("401 Unauthorized", "already_used");
+        }
+        Ok(ConsumedToken::NotFound) => {
+            emit_auth_failed(s, "invalid", source_ip).await;
+            return err_outcome("401 Unauthorized", "invalid");
+        }
         Err(e) => return err_outcome("500 Internal Server Error", &format!("store: {e}")),
     };
     let user = match upsert_user(s, &email).await {
         Ok(u) => u,
         Err(e) => return err_outcome("500 Internal Server Error", &format!("user: {e}")),
     };
+    // `list_tenants_for_user` returns ORDER BY created_at DESC; the
+    // first element is the NEWEST link. `.pop()` previously returned
+    // the OLDEST (the last DESC row) which bound the JWT to the wrong
+    // tenant for multi-tenant users. (Audit P1 #3.)
     let tenant_id = match list_tenants_for_user(s, user.id).await {
-        Ok(mut tenants) => tenants.pop().map(|t| t.tenant_id.to_string()),
+        Ok(tenants) => tenants.into_iter().next().map(|t| t.tenant_id.to_string()),
         Err(e) => return err_outcome("500 Internal Server Error", &format!("tenant: {e}")),
     };
     let jwt = match mint_jwt(&user.id.to_string(), &email, tenant_id.as_deref(), now) {
         Ok(t) => t,
         Err(msg) => return err_outcome("500 Internal Server Error", &msg),
     };
-    let body = serde_json::json!({
+    emit_auth_succeeded(s, &user.id.to_string(), tenant_id.as_deref(), source_ip).await;
+    let body = json!({
         "needs_onboarding": tenant_id.is_none(),
         "tenant_id": tenant_id,
     });
@@ -374,4 +416,69 @@ fn signup_source_ip(req: &str) -> IpAddr {
 
 fn error_resp(status: &'static str, msg: &str) -> (&'static str, String) {
     (status, serde_json::json!({ "error": msg }).to_string())
+}
+
+/// Sliding-window /verify rate-limit map. Process-global so every
+/// connection-handling task sees the same counters. Deliberately
+/// distinct from [`super::rate_limit_ip::signup_limiter`] — verify
+/// is a 60/min knob, signup is 5/hour, sharing would conflate the
+/// two policies.
+fn verify_buckets() -> &'static DashMap<IpAddr, Vec<Instant>> {
+    static INSTANCE: OnceLock<DashMap<IpAddr, Vec<Instant>>> = OnceLock::new();
+    INSTANCE.get_or_init(DashMap::new)
+}
+
+/// Returns `true` when the request fits inside the 60/min budget for
+/// `ip`, `false` when the 61st attempt within a rolling 60s window
+/// must be rejected.
+fn verify_rate_limit_check(ip: IpAddr, now: Instant) -> bool {
+    let mut entry = verify_buckets().entry(ip).or_default();
+    entry.retain(|t| now.saturating_duration_since(*t) < VERIFY_RATE_LIMIT_WINDOW);
+    if entry.len() >= VERIFY_RATE_LIMIT_PER_MIN {
+        return false;
+    }
+    entry.push(now);
+    true
+}
+
+async fn emit_auth_failed(store: &Arc<SessionStore>, reason: &str, source_ip: IpAddr) {
+    let payload = json!({
+        "method": "magic_link",
+        "reason": reason,
+        "source_ip": source_ip.to_string(),
+    });
+    write_audit(store, ANONYMOUS_AUDIT_TENANT_ID, AuditKind::AuthFailed, payload).await;
+}
+
+async fn emit_auth_succeeded(
+    store: &Arc<SessionStore>,
+    user_id: &str,
+    tenant_id: Option<&str>,
+    source_ip: IpAddr,
+) {
+    let payload = json!({
+        "method": "magic_link",
+        "user_id": user_id,
+        "tenant_id": tenant_id,
+        "source_ip": source_ip.to_string(),
+    });
+    write_audit(
+        store,
+        tenant_id.unwrap_or(ANONYMOUS_AUDIT_TENANT_ID),
+        AuditKind::AuthSucceeded,
+        payload,
+    )
+    .await;
+}
+
+async fn write_audit(
+    store: &Arc<SessionStore>,
+    tenant_id: &str,
+    kind: AuditKind,
+    payload: serde_json::Value,
+) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    if let Err(e) = sink.write(None, kind, payload, None).await {
+        tracing::warn!(target: "gateway::auth_magic_link", error = %e, kind = ?kind, "auth audit write failed");
+    }
 }

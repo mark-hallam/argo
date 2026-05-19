@@ -197,6 +197,21 @@ pub enum AuditKind {
     /// `requested_at`. One row per accepted request; rate-limit
     /// rejections (HTTP 429) do not emit.
     DataExportRequested,
+    /// A magic-link `POST /api/v1/auth/verify` exchange succeeded
+    /// (mission-magic-link-audit-followup-2026-05-18, audit P1 #5).
+    /// Payload carries `method` (`"magic_link"`), `user_id`,
+    /// `tenant_id` (may be null when the user has not yet onboarded a
+    /// workspace), and `source_ip`. Distinct from [`Self::HttpRequest`]
+    /// so the auth-funnel rollup can categorise success/failure
+    /// without parsing payloads.
+    AuthSucceeded,
+    /// A magic-link `POST /api/v1/auth/verify` exchange failed
+    /// (mission-magic-link-audit-followup-2026-05-18, audit P1 #5).
+    /// Payload carries `method` (`"magic_link"`), `reason`
+    /// (`"missing"|"invalid"|"expired"|"already_used"|"rate_limited"|
+    /// "store_unavailable"`), and `source_ip`. Pre-authentication, so
+    /// emitted under the [`crate::ANONYMOUS_AUDIT_TENANT_ID`] bucket.
+    AuthFailed,
 }
 
 impl AuditKind {
@@ -238,6 +253,8 @@ impl AuditKind {
             Self::GatewayInsecureBind => "gateway_insecure_bind",
             Self::TenantProvisioned => "tenant.provisioned",
             Self::DataExportRequested => "data_export.requested",
+            Self::AuthSucceeded => "auth.succeeded",
+            Self::AuthFailed => "auth.failed",
         }
     }
 
@@ -281,6 +298,8 @@ impl AuditKind {
             "gateway_insecure_bind" => Self::GatewayInsecureBind,
             "tenant.provisioned" => Self::TenantProvisioned,
             "data_export.requested" => Self::DataExportRequested,
+            "auth.succeeded" => Self::AuthSucceeded,
+            "auth.failed" => Self::AuthFailed,
             _ => return None,
         })
     }
@@ -324,6 +343,8 @@ impl AuditKind {
             Self::GatewayInsecureBind,
             Self::TenantProvisioned,
             Self::DataExportRequested,
+            Self::AuthSucceeded,
+            Self::AuthFailed,
         ];
         v.sort_by_key(|k| k.label());
         v
