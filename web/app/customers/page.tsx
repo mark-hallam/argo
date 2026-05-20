@@ -2,152 +2,18 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { SEED_CUSTOMERS } from "@/lib/content/customers";
 
 /**
- * Public customers page — `/customers`, exempt from auth middleware.
+ * Public customers index — `/customers`, exempt from auth middleware.
  *
- * Brand-loud-marketing register matching `/landing` and `/pricing`.
- * 9-card customer grid + final "want to be featured?" CTA band.
+ * Brand-loud register matching `/landing` and `/pricing`. 6-card grid +
+ * "want to be featured?" CTA band. Each card links to a per-customer
+ * detail page at `/customers/[slug]`.
  *
- * NOTE: placeholder customers; the v1 ship is pre-launch and these
- * companies are not real SKYCOT customers yet. The brief explicitly
- * asks for believable-but-generic names. Replace with real logos and
- * quotes as we onboard our first design partners.
+ * NOTE: placeholder customers — every story carries `dataPending: true`
+ * for trivial bulk-replace when real design-partner content lands.
  */
-
-interface Customer {
-  name: string;
-  initials: string;
-  color: string;
-  industry: string;
-  size: string;
-  quote: string;
-  worker: string;
-  hours: string;
-  actions: string;
-  since: string;
-  vertical: string;
-}
-
-const CUSTOMERS: Customer[] = [
-  {
-    name: "Northwind Commerce",
-    initials: "NC",
-    color: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-    industry: "E-commerce",
-    size: "120 employees",
-    quote: "Mariah replied to 12,400 buyers our human team didn't have to. She knows when to escalate and when to just ship the answer.",
-    worker: "Mariah",
-    hours: "640",
-    actions: "12,400",
-    since: "Jan 2026",
-    vertical: "Customer Support",
-  },
-  {
-    name: "Acmeco Retail",
-    initials: "CR",
-    color: "linear-gradient(135deg, #ec4899, #ff6b6b)",
-    industry: "Retail",
-    size: "45 stores · 380 staff",
-    quote: "We hired Patrick to chase status across 12 store openings. He filed daily reports we used to spend two days a week writing.",
-    worker: "Patrick",
-    hours: "320",
-    actions: "8,100",
-    since: "Feb 2026",
-    vertical: "Project Ops",
-  },
-  {
-    name: "Skyline Engineering",
-    initials: "SE",
-    color: "linear-gradient(135deg, #0891b2, #14b8a6)",
-    industry: "AEC / Construction",
-    size: "240 employees",
-    quote: "Nori drafts our weekly client updates. We review, she sends. Saves the senior engineers a full afternoon each week.",
-    worker: "Nori",
-    hours: "180",
-    actions: "1,920",
-    since: "Mar 2026",
-    vertical: "Status Reporting",
-  },
-  {
-    name: "Apex Recruiting",
-    initials: "AR",
-    color: "linear-gradient(135deg, #8b5cf6, #14b8a6)",
-    industry: "Talent / HR Tech",
-    size: "32 employees",
-    quote: "Priya screens 200 candidates a week and flags the 8 we should actually talk to. The trust ratchet means she only escalates the close calls now.",
-    worker: "Priya",
-    hours: "410",
-    actions: "9,600",
-    since: "Dec 2025",
-    vertical: "Recruiting",
-  },
-  {
-    name: "Beacon Health Ops",
-    initials: "BH",
-    color: "linear-gradient(135deg, #ec4899, #14b8a6)",
-    industry: "Healthcare",
-    size: "1,200 employees",
-    quote: "HIPAA-compliant out of the box. Jamal handles patient-portal tickets — every action audit-logged, every approval traced. Our compliance team finally relaxed.",
-    worker: "Jamal",
-    hours: "890",
-    actions: "16,200",
-    since: "Nov 2025",
-    vertical: "Patient Support",
-  },
-  {
-    name: "Maple Finance",
-    initials: "MF",
-    color: "linear-gradient(135deg, #ff6b6b, #8b5cf6)",
-    industry: "Financial Services",
-    size: "85 employees · AFSL holder",
-    quote: "AFSL compliance was the deal-breaker. SKYCOT was the only platform that shipped with the audit chain regulators actually want.",
-    worker: "Tobias",
-    hours: "260",
-    actions: "4,800",
-    since: "Feb 2026",
-    vertical: "Compliance Ops",
-  },
-  {
-    name: "Polaris Marketing",
-    initials: "PM",
-    color: "linear-gradient(135deg, #14b8a6, #8b5cf6)",
-    industry: "Agency / Marketing",
-    size: "60 employees · 40 clients",
-    quote: "Peta coordinates 14 client engagements at once. She remembers what every project needs and chases the right person without ever forgetting.",
-    worker: "Peta",
-    hours: "520",
-    actions: "11,300",
-    since: "Jan 2026",
-    vertical: "Project Coordination",
-  },
-  {
-    name: "Zenith Support",
-    initials: "ZS",
-    color: "linear-gradient(135deg, #ec4899, #8b5cf6)",
-    industry: "B2B SaaS",
-    size: "180 employees",
-    quote: "Median first-response went from 4 hours to 4 minutes. Jamal handles 78% of tickets without escalation — the audit trail means we know exactly when he gets it right.",
-    worker: "Jamal",
-    hours: "1,120",
-    actions: "23,400",
-    since: "Oct 2025",
-    vertical: "Customer Support",
-  },
-  {
-    name: "Harbour Legal",
-    initials: "HL",
-    color: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-    industry: "Legal Services",
-    size: "28 partners",
-    quote: "Approval-first is the only way we'd put an AI on client-facing work. Every action gates through a partner. The audit log is depositioned-ready.",
-    worker: "Nori",
-    hours: "210",
-    actions: "3,400",
-    since: "Mar 2026",
-    vertical: "Document Review",
-  },
-];
 
 export default function CustomersPage() {
   return (
@@ -275,15 +141,9 @@ export default function CustomersPage() {
           margin: 0 auto;
         }
         @media (max-width: 700px) {
-          .cus-hero {
-            padding: 40px 24px 24px;
-          }
-          .cus-top {
-            padding: 16px 24px;
-          }
-          .cus-nav {
-            display: none;
-          }
+          .cus-hero { padding: 40px 24px 24px; }
+          .cus-top { padding: 16px 24px; }
+          .cus-nav { display: none; }
         }
         .cus-eyebrow {
           display: inline-flex;
@@ -331,9 +191,7 @@ export default function CustomersPage() {
           max-width: 600px;
         }
         @media (max-width: 700px) {
-          .cus-h1 {
-            font-size: 36px;
-          }
+          .cus-h1 { font-size: 36px; }
         }
         .cus-grid {
           display: grid;
@@ -344,16 +202,10 @@ export default function CustomersPage() {
           padding: 0 64px;
         }
         @media (max-width: 980px) {
-          .cus-grid {
-            grid-template-columns: repeat(2, 1fr);
-            padding: 0 32px;
-          }
+          .cus-grid { grid-template-columns: repeat(2, 1fr); padding: 0 32px; }
         }
         @media (max-width: 640px) {
-          .cus-grid {
-            grid-template-columns: 1fr;
-            padding: 0 24px;
-          }
+          .cus-grid { grid-template-columns: 1fr; padding: 0 24px; }
         }
         .cus-card {
           background: white;
@@ -364,6 +216,8 @@ export default function CustomersPage() {
           flex-direction: column;
           gap: 16px;
           transition: all 0.18s;
+          text-decoration: none;
+          color: inherit;
         }
         .cus-card:hover {
           transform: translateY(-3px);
@@ -402,9 +256,24 @@ export default function CustomersPage() {
           text-transform: uppercase;
           margin-top: 4px;
         }
-        .cus-quote {
-          font-size: 14.5px;
+        .cus-kpi-line {
+          font-size: 14px;
+          font-weight: 600;
           color: var(--ink);
+          line-height: 1.4;
+          margin: 0;
+        }
+        .cus-kpi-line strong {
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .cus-quote {
+          font-size: 14px;
+          color: var(--ink-2);
           line-height: 1.55;
           margin: 0;
           font-style: italic;
@@ -412,39 +281,20 @@ export default function CustomersPage() {
           border-left: 3px solid;
           border-image: linear-gradient(180deg, #8b5cf6, #ec4899) 1;
         }
-        .cus-kpis {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 8px;
-          padding-top: 6px;
-          border-top: 1px solid var(--line);
-        }
-        .cus-kpi {
-          text-align: center;
-        }
-        .cus-kpi-val {
-          font-family: "Audiowide", sans-serif;
-          font-size: 18px;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          line-height: 1.1;
-        }
-        .cus-kpi-lbl {
+        .cus-quote-author {
           font-family: "JetBrains Mono", monospace;
-          font-size: 9.5px;
-          letter-spacing: 0.14em;
+          font-size: 10.5px;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
           color: var(--ink-3);
-          margin-top: 4px;
           font-weight: 600;
         }
         .cus-card-foot {
           display: flex;
           gap: 8px;
           align-items: center;
-          padding-top: 6px;
+          justify-content: space-between;
+          padding-top: 12px;
           border-top: 1px solid var(--line);
         }
         .cus-vertical-chip {
@@ -458,6 +308,14 @@ export default function CustomersPage() {
           color: var(--purple);
           font-weight: 700;
         }
+        .cus-card-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--purple);
+        }
         .cus-final {
           margin: 80px 64px;
           padding: 72px 56px;
@@ -469,10 +327,7 @@ export default function CustomersPage() {
           overflow: hidden;
         }
         @media (max-width: 700px) {
-          .cus-final {
-            margin: 48px 12px;
-            padding: 48px 24px;
-          }
+          .cus-final { margin: 48px 12px; padding: 48px 24px; }
         }
         .cus-final::before {
           content: "";
@@ -569,51 +424,49 @@ export default function CustomersPage() {
             CUSTOMERS
           </div>
           <h1 className="cus-h1">
-            Teams shipping with <strong>SKYCOT</strong>.
+            Companies running on <strong>SKYCOT</strong>.
           </h1>
           <p className="cus-sub">
-            300+ teams. From solo founders to Fortune 500. Hear how they&apos;re using their teammates.
+            From sales teams of 12 to ops teams of 1,200, SKYCOT is the AI-teammates platform for serious businesses.
           </p>
         </section>
 
         <div className="cus-grid">
-          {CUSTOMERS.map((c) => (
-            <article key={c.name} className="cus-card">
+          {SEED_CUSTOMERS.map((c) => (
+            <Link
+              key={c.slug}
+              href={`/customers/${c.slug}`}
+              className="cus-card"
+              data-pending-real-quote={c.dataPending ? "true" : undefined}
+            >
               <div className="cus-card-head">
-                <div className="cus-card-logo" style={{ background: c.color }}>
-                  {c.initials}
+                <div className="cus-card-logo" style={{ background: c.logoGradient }}>
+                  {c.logoInitials}
                 </div>
                 <div>
                   <h3 className="cus-card-name">{c.name}</h3>
                   <div className="cus-card-meta">{c.industry} · {c.size}</div>
                 </div>
               </div>
-              <blockquote className="cus-quote">&ldquo;{c.quote}&rdquo;</blockquote>
-              <div className="cus-kpis">
-                <div className="cus-kpi">
-                  <div className="cus-kpi-val">{c.hours}</div>
-                  <div className="cus-kpi-lbl">Hrs/mo saved</div>
-                </div>
-                <div className="cus-kpi">
-                  <div className="cus-kpi-val">{c.actions}</div>
-                  <div className="cus-kpi-lbl">Actions/mo</div>
-                </div>
-                <div className="cus-kpi">
-                  <div className="cus-kpi-val" style={{ fontSize: 13.5 }}>{c.since}</div>
-                  <div className="cus-kpi-lbl">Since</div>
-                </div>
-              </div>
+              <p className="cus-kpi-line">
+                <strong>{c.cardKpi}</strong>
+              </p>
+              <blockquote className="cus-quote">&ldquo;{c.cardQuote}&rdquo;</blockquote>
+              <div className="cus-quote-author">{c.cardQuoteAuthor}</div>
               <div className="cus-card-foot">
                 <span className="cus-vertical-chip">{c.vertical}</span>
+                <span className="cus-card-cta">
+                  Read story <ArrowRight size={14} />
+                </span>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
 
         <section className="cus-final">
-          <h2>Want to be featured?</h2>
+          <h2>Get featured here.</h2>
           <p>We&apos;re onboarding design partners every week. Tell us what you&apos;d hire SKYCOT for and we&apos;ll show you how.</p>
-          <a href="mailto:hello@skycot.com" className="cus-final-cta">
+          <a href="mailto:hello@skycot.com?subject=SKYCOT%20design%20partner" className="cus-final-cta">
             Email hello@skycot.com <ArrowRight size={16} />
           </a>
         </section>
