@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { GitBranch, ArrowRight, Plus, Search, FileCode2, Clock } from "lucide-react";
+import { GitBranch, ArrowRight, Plus, Search, FileCode2, Clock, Sparkles } from "lucide-react";
 
 /**
  * Workflows index — `/workflows` brand-loud catalog view.
@@ -236,6 +236,27 @@ export default function WorkflowsPage() {
           text-decoration: none;
           box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.4);
         }
+        .workflows-templates-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 9px 14px;
+          border-radius: 10px;
+          background: white;
+          color: #8b5cf6;
+          font-family: "Inter", sans-serif;
+          font-size: 13.5px;
+          font-weight: 600;
+          border: 1px solid #ece9f5;
+          cursor: pointer;
+          text-decoration: none;
+          transition: all 0.14s;
+        }
+        .workflows-templates-cta:hover {
+          border-color: rgba(139, 92, 246, 0.4);
+          color: #ec4899;
+          transform: translateY(-1px);
+        }
         .workflows-try-row {
           display: flex;
           flex-wrap: wrap;
@@ -435,6 +456,14 @@ export default function WorkflowsPage() {
             data-testid="workflows-search"
           />
           <span className="workflows-count-pill">{SEED_WORKFLOWS.length} workflows</span>
+          <Link
+            href="/workflows/templates"
+            className="workflows-templates-cta"
+            data-testid="workflows-templates-cta"
+          >
+            <Sparkles size={13} />
+            Browse 50+ templates
+          </Link>
           <button type="button" className="workflows-propose" data-testid="workflows-propose">
             <Plus size={14} />
             Propose new
