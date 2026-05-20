@@ -115,6 +115,12 @@ const SEEDS: Seed[] = [
   [JAMAL, "resolved 47 tickets in weekly batch (success rate 96%)", "batch_resolved", "autonomous", 16 * D],
   [NORI, "Q1 commission report finalized + sent to Finance", "report_exported", "succeeded", 38 * D, { approver: CFO }],
   [NORI, "annual quote-policy review — 4 rules updated", "policy_updated", "succeeded", 90 * D, { approver: OPERATOR, cls: "internal" }],
+
+  // Cohort-scope events — surfaces /settings/members access changes
+  // and runtime denials in the standard audit feed.
+  [PRIYA, "Access changed: cohort scope set to [Sales · Established] for Diego Alvarez", "access_changed", "succeeded", 35 * M, { approver: OPERATOR, cls: "confidential" }],
+  [SAM, "Cohort-scope-denied: Diego Alvarez tried to access Sam (AP Specialist)", "cohort_scope_denied", "refused", 1 * H + 50 * M, { cls: "internal" }],
+  [JAMAL, "Access changed: cohort scope set to [Support · Trusted, Support · Developing] for Theo Park", "access_changed", "succeeded", 1 * D + 3 * H, { approver: OPERATOR, cls: "confidential" }],
 ];
 
 function buildRows(seeds: Seed[]): AuditRow[] {
