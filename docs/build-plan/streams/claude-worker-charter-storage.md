@@ -44,7 +44,7 @@ managing them.
    handling set/get/clear; markdown render via existing helpers.
 5. **NEW** `crates/argo-cli/src/handlers/worker_charter_tests.rs` (~150 LOC)
    covering all three subcommands + size enforcement.
-6. **Modify** `crates/argo-cli/src/cli.rs` — narrowly: 1 enum variant
+6. **Modify** `crates/argo-cli/src/cli_command_enum.rs` — narrowly: 1 enum variant
    under the existing `Worker` subcommand. EXHAUSTIVE-MATCH note:
    if any `match` over Worker subcommands exists in handlers/mod.rs,
    add the new arm there too.
@@ -57,7 +57,7 @@ managing them.
 - `crates/argo-cli/src/handlers/worker_charter.rs` (NEW, ≤ 250 LOC)
 - `crates/argo-cli/src/handlers/worker_charter_tests.rs` (NEW, ≤ 200 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod line + match arm if needed)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 enum variant; cli.rs is at 500 LOC, may need a 2-line trim elsewhere or split if not — STOP and surface if it grows)
+- `crates/argo-cli/src/cli_command_enum.rs` (BLANKET CLI ALLOWLIST — 1 enum variant; cli.rs is at 500 LOC, may need a 2-line trim elsewhere or split if not — STOP and surface if it grows)
 - `crates/argo-cli/tests/worker_charter_smoke.rs` (NEW) — 1 round-trip integration test
 
 ## Files you must NOT touch

@@ -43,7 +43,7 @@ v9 — `idx_skill_vertical_id`). We just expose it on the CLI search.
 
 - BLANKET CLI ALLOWLIST applies.
 - `crates/argo-cli/src/handlers/skill_search.rs` (extend).
-- `crates/argo-cli/src/cli.rs` — narrowly: add flags to `SkillSearch` clap variant.
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: add flags to `SkillSearch` clap variant.
 - `crates/argo-store/src/skill_query.rs` (NEW, ≤ 250 LOC).
 - `crates/argo-store/src/lib.rs` — narrowly: 1 `pub mod skill_query;` line.
 - `crates/argo-cli/tests/skill_search_vertical.rs` (NEW, ≤ 200 LOC).

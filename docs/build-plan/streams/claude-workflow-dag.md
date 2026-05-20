@@ -39,7 +39,7 @@ declarative workflow.
   (NEW)
 - `crates/argo-cli/src/handlers/workflow_*.rs` (4 NEW)
 - `crates/argo-cli/src/cli_workflow_cmds.rs` (NEW)
-- `crates/argo-cli/src/cli.rs` — narrowly: register
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: register
   `Workflow` command
 - `Cargo.toml` workspace — narrowly: add `argo-workflow`
   member

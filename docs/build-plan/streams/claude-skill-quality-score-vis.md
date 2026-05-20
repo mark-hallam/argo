@@ -40,7 +40,7 @@ running review cycles have to hop between commands.
 - `crates/argo-cli/src/handlers/gateway/routes_skills_quality.rs` (NEW, ≤ 250 LOC).
 - `crates/argo-cli/src/handlers/gateway/routes_skills.rs` — narrowly: 1 dispatch arm.
 - `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly: 1 `mod` line.
-- `crates/argo-cli/src/cli.rs` — narrowly: add `SkillQuality` variant.
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: add `SkillQuality` variant.
 - `crates/argo-cli/tests/skill_quality_view.rs` (NEW, ≤ 250 LOC).
 
 ## Files you must NOT touch

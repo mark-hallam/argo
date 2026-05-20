@@ -28,7 +28,7 @@ Universal `--json` flag per CLI convention.
 - `crates/argo-cli/src/handlers/skill_review.rs` — the brief
   H-auto-approval explicitly listed this as may-touch;
   EXTEND, do not replace if it already exists
-- `crates/argo-cli/src/cli.rs` — narrowly: register the new
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: register the new
   subcommand arm
 - `crates/argo-cli/src/main.rs` — narrowly: dispatch
 

@@ -46,7 +46,7 @@ do NOT document it prominently — it's an escape hatch only.
   path
 - `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly:
   invoke `run_startup_checks()` before `Server::bind`
-- `crates/argo-cli/src/cli.rs` — narrowly: the
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: the
   `--skip-startup-check` flag on the gateway start subcommand
 - `crates/argo-cli/tests/startup_check_e2e.rs` (NEW) — 5 tests:
   all-pass path, store unreachable, schema-mismatch, no

@@ -41,7 +41,7 @@ claim.
 - `crates/argo-skill/src/deps.rs` (NEW, ≤ 320 LOC).
 - `crates/argo-skill/src/lib.rs` — narrowly: 1 `pub mod deps;` line + re-export.
 - `crates/argo-cli/src/handlers/skill_deps.rs` (NEW, ≤ 280 LOC).
-- `crates/argo-cli/src/cli.rs` — narrowly: add `SkillDeps` variant.
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: add `SkillDeps` variant.
 - `crates/argo-cli/tests/skill_deps_graph.rs` (NEW, ≤ 250 LOC).
 
 ## Files you must NOT touch

@@ -37,7 +37,7 @@ keep the file under 500 LOC).
   json render
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: register the
   new handler
-- `crates/argo-cli/src/cli.rs` — narrowly: add `Costs::Anomalies`
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: add `Costs::Anomalies`
   variant under the existing `Costs` subcommand enum
 - `crates/argo-cli/src/main.rs` — narrowly: dispatch to handler
 - `crates/argo-cli/tests/help_smoke.rs` — narrowly: add the new

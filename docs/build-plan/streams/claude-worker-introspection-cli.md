@@ -33,7 +33,7 @@ relevant fact.
 2. **NEW** `crates/argo-cli/src/handlers/worker_show_tests.rs` (~250 LOC) —
    golden-file markdown render test, JSON shape test, missing-charter
    test, missing-duties test, missing-sessions test, deleted-worker test.
-3. **Modify** `crates/argo-cli/src/cli.rs` — 1 new
+3. **Modify** `crates/argo-cli/src/cli_command_enum.rs` — 1 new
    `Worker::Show { id: WorkerId, json: bool }` variant.
    EXHAUSTIVE-MATCH note: handlers/mod.rs dispatch arm.
 4. **NEW** `crates/argo-cli/tests/worker_show_smoke.rs` (~150 LOC) —
@@ -45,7 +45,7 @@ relevant fact.
 - `crates/argo-cli/src/handlers/worker_show.rs` (NEW, ≤ 380 LOC — at risk; split if it grows)
 - `crates/argo-cli/src/handlers/worker_show_tests.rs` (NEW, ≤ 300 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + dispatch arm)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 enum variant)
+- `crates/argo-cli/src/cli_command_enum.rs` (BLANKET CLI ALLOWLIST — 1 enum variant)
 - `crates/argo-cli/tests/worker_show_smoke.rs` (NEW)
 - `crates/argo-cli/tests/fixtures/worker_show_golden.md` (NEW) — golden render
 

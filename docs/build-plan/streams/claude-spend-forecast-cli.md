@@ -20,7 +20,7 @@ where rate = sum(spend in lookback) / lookback_seconds.
    - `compute_forecast(spend: &[SpendRow], now: DateTime<Utc>, horizon: Horizon, lookback: Duration) -> Forecast`
    - Output: actual-so-far, projected-additional, projected-total,
      confidence-band (±20% as a flat heuristic for v1, documented as such)
-2. **Modify** `crates/argo-cli/src/cli.rs`:
+2. **Modify** `crates/argo-cli/src/cli_command_enum.rs`:
    - Add `Forecast { horizon, lookback, format }` variant under `Costs`
 3. **Modify** `crates/argo-cli/src/main.rs`:
    - Dispatch arm calling `costs_forecast::run`
@@ -37,7 +37,7 @@ where rate = sum(spend in lookback) / lookback_seconds.
     - lookback longer than available data clamps to available
     - leap year EOM is correct (Feb 29)
     - JSON format round-trips
-- `crates/argo-cli/src/cli.rs` — narrow: 1 subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrow: 1 subcommand
 - `crates/argo-cli/src/main.rs` — narrow: 1 dispatch arm
 
 ## Files you must NOT touch

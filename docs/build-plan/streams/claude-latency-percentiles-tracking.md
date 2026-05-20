@@ -28,7 +28,7 @@ In-process for v1; persisted to a small `latency_buckets` row per
 3. **Modify** `crates/argo-cli/src/handlers/worker_actions_executor.rs`:
    - Wrap each `dispatch` call with `Instant::now()` + `tracker.record(kind, dur)`
 4. **Modify** gateway boot — spawn 60s flush task.
-5. **Modify** `crates/argo-cli/src/cli.rs` + `main.rs` — `argo latency` subcommand.
+5. **Modify** `crates/argo-cli/src/cli_command_enum.rs` + `main.rs` — `argo latency` subcommand.
 
 ## Files you may touch
 
@@ -47,7 +47,7 @@ In-process for v1; persisted to a small `latency_buckets` row per
 - `crates/argo-cli/src/handlers/worker_actions_executor.rs` — narrow:
   wrap dispatch with timing
 - `crates/argo-store/src/lib.rs` — narrow: 1 pub mod line
-- `crates/argo-cli/src/cli.rs` — narrow: 1 subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrow: 1 subcommand
 - `crates/argo-cli/src/main.rs` — narrow: 1 dispatch arm
 
 ## Files you must NOT touch

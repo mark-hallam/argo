@@ -18,7 +18,7 @@ the vertical is loadable.
 - `Cargo.toml`
 - `crates/argo-cli/src/handlers/genesis.rs` (NEW handler for
   `argo genesis create`)
-- `crates/argo-cli/src/cli.rs` (register the subcommand)
+- `crates/argo-cli/src/cli_command_enum.rs` (register the subcommand)
 
 ## Files you must NOT touch
 - `argo-vertical/**` (only USES the existing loader)

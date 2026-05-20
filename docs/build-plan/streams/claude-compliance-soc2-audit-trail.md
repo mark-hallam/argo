@@ -71,7 +71,7 @@ CLI surface only. JSON output shape:
   - markdown format renders without panic and includes all categories
   - csv format has stable column order
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
-- `crates/argo-cli/src/cli.rs` — narrowly: `Compliance::Soc2` subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: `Compliance::Soc2` subcommand
 - `crates/argo-cli/src/main.rs` — narrowly: 1 dispatch arm
 - `crates/argo-cli/tests/compliance_soc2_smoke.rs` (NEW, ≤ 200 LOC) —
   1 integration test seeding mixed events and asserting category aggregates

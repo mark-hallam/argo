@@ -25,7 +25,7 @@ This is NOT a new implementation. Recovery procedure:
 5. `git rebase origin/main`
 6. Resolve conflicts STRICTLY within the original brief's may-touch list.
    Conflicts likely in:
-   - `crates/argo-cli/src/cli.rs` (now post-#914 split — variant ordering may differ)
+   - `crates/argo-cli/src/cli_command_enum.rs` (now post-#914 split — variant ordering may differ)
    - `crates/argo-cli/src/handlers/mod.rs` (mod declarations — both #914 and other landings added new modules; keep both)
    - `crates/argo-store/src/lib.rs` (now post-#915 split — `pub use` lines may need merging into the new sibling files)
 7. `cargo build && cargo clippy --workspace --all-targets -- -D warnings && cargo test -p argo-cli --bin argo recover && cargo test -p argo-store --lib`

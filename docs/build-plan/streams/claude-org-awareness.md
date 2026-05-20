@@ -48,7 +48,7 @@ person automatically.
   exists for the worker
 - `crates/argo-cli/src/handlers/org_*.rs` (4 NEW)
 - `crates/argo-cli/src/cli_org_cmds.rs` (NEW)
-- `crates/argo-cli/src/cli.rs` — narrowly: register `Org`
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: register `Org`
   command
 
 ## Acceptance criteria

@@ -24,7 +24,7 @@ search first; do not duplicate.)
    - Markdown render: indented bullet list, one line per span,
      `name (kind, dur=12.3ms, status=ok)`
    - JSON render: nested `{ span, children: [...] }`
-2. **Modify** `crates/argo-cli/src/cli.rs`:
+2. **Modify** `crates/argo-cli/src/cli_command_enum.rs`:
    - Add `Trace` enum + `Explore { session, format, path }` variant
 3. **Modify** `crates/argo-cli/src/main.rs`:
    - Dispatch arm calling `trace_explore::run`
@@ -41,7 +41,7 @@ search first; do not duplicate.)
     - multi-root (orphans) renders flat
     - circular parent (defensive) does not infinite-loop
     - JSON format round-trips through `serde_json`
-- `crates/argo-cli/src/cli.rs` — narrow: 1 subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrow: 1 subcommand
 - `crates/argo-cli/src/main.rs` — narrow: 1 dispatch arm
 - `crates/argo-cli/src/handlers/mod.rs` — narrow: 1 pub mod line
 - `crates/argo-cli/tests/trace_explore_smoke.rs` (NEW) — 1 integration test

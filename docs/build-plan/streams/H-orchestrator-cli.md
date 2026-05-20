@@ -28,7 +28,7 @@ Universal `--json` per existing CLI convention.
   subcommand definitions for session + handoff)
 - `crates/argo-cli/src/handlers/session.rs` (NEW — handler
   bodies that call `OrchestratorStore`)
-- `crates/argo-cli/src/cli.rs` — narrowly scoped: register
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly scoped: register
   the two new subcommand families. Add ONLY the `Session(...)`
   and `Handoff(...)` arms; do NOT modify other arms.
 - `crates/argo-cli/src/main.rs` — narrowly scoped: dispatch

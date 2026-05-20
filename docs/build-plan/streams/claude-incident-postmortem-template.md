@@ -28,7 +28,7 @@ postmortems too.
    - Slug = lowercased, dashed, max 60 chars from summary
    - Filename = `YYYY-MM-DD-<slug>.md`
    - Refuses to overwrite an existing file (suggests `--force`)
-3. **Modify** `crates/argo-cli/src/cli.rs`:
+3. **Modify** `crates/argo-cli/src/cli_command_enum.rs`:
    - Add `Incident` enum + `New { from, out_dir, force }` variant
 4. **Modify** `crates/argo-cli/src/main.rs`: 1 dispatch arm.
 
@@ -45,7 +45,7 @@ postmortems too.
   - existing file with `--force` → overwrites
   - non-interactive path bypasses stdin
   - timeline list survives round-trip
-- `crates/argo-cli/src/cli.rs` — narrow: 1 subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrow: 1 subcommand
 - `crates/argo-cli/src/main.rs` — narrow: 1 dispatch arm
 
 ## Files you must NOT touch

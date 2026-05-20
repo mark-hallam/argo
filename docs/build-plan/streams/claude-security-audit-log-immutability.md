@@ -65,7 +65,7 @@ argo audit verify-chain --format json
 - `crates/argo-store/migrations/<new>.sql` (NEW)
 - `crates/argo-cli/src/handlers/audit_verify.rs` (NEW, ≤ 150 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
-- `crates/argo-cli/src/cli.rs` — narrowly: 1 subcommand variant
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: 1 subcommand variant
 - `crates/argo-cli/src/main.rs` — narrowly: 1 dispatch arm
 - `crates/argo-cli/Cargo.toml` — only if a new dep is needed (sha2 already used)
 

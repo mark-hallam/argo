@@ -43,7 +43,7 @@ memory-schema-builder) can then refine the scaffold via `genesis revise`.
   - existing vertical name → ArgoError::Validation (no overwrite)
 - `crates/argo-cli/tests/fixtures/import_langchain_sample.py` (NEW, ≤ 30 LOC) — minimal langchain-style file
 - `crates/argo-cli/tests/fixtures/import_markdown_sample.md` (NEW, ≤ 20 LOC)
-- `crates/argo-cli/src/cli.rs` (narrowly: add Import subcommand)
+- `crates/argo-cli/src/cli_command_enum.rs` (narrowly: add Import subcommand)
 - `crates/argo-cli/src/handlers/mod.rs` (narrowly: 1 pub mod line)
 - `crates/argo-cli/tests/genesis_import_smoke.rs` (NEW, ≤ 180 LOC) —
   end-to-end: import a fixture markdown into a tempdir, assert

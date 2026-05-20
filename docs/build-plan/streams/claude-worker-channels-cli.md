@@ -37,7 +37,7 @@ worker. Three subcommands, no schema change.
    - add: happy, idempotent dup, cap-exceeded
    - remove: happy, missing-id error
    - list: empty, populated, JSON shape
-3. **Modify** `crates/argo-cli/src/cli.rs` — 1 sub-enum
+3. **Modify** `crates/argo-cli/src/cli_command_enum.rs` — 1 sub-enum
    `WorkerChannels { Add { id, spec }, Remove { id, channel_id }, List { id, json } }`.
    EXHAUSTIVE-MATCH note: handlers/mod.rs dispatch.
 4. **NEW** `crates/argo-cli/tests/worker_channels_smoke.rs` (~120 LOC) —
@@ -48,7 +48,7 @@ worker. Three subcommands, no schema change.
 - `crates/argo-cli/src/handlers/worker_channels.rs` (NEW, ≤ 320 LOC)
 - `crates/argo-cli/src/handlers/worker_channels_tests.rs` (NEW, ≤ 280 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + dispatch arm)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 sub-enum)
+- `crates/argo-cli/src/cli_command_enum.rs` (BLANKET CLI ALLOWLIST — 1 sub-enum)
 - `crates/argo-cli/tests/worker_channels_smoke.rs` (NEW)
 
 ## Files you must NOT touch

@@ -18,7 +18,7 @@ Universal `--json` per existing CLI convention.
 ## Files you may touch
 - `crates/argo-cli/src/cli_budget_cmds.rs` (NEW)
 - `crates/argo-cli/src/handlers/budget.rs` (NEW)
-- `crates/argo-cli/src/cli.rs` — narrowly scoped: register
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly scoped: register
   the `Budget(...)` arm. ONE arm, no other edits.
 - `crates/argo-cli/src/main.rs` — narrowly scoped: dispatch
   the new arm. ~5 lines.

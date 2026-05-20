@@ -154,7 +154,16 @@ export async function submitDecision({
       source: "live",
     };
   } catch (err) {
-    if (isMissingOrUnreachable(err)) {
+    // LAUNCH-BLOCKER FIX (Wave-8 error-recovery audit 2026-05-21):
+    // previous code returned `ok: true, source: "mock-offline"` on
+    // ANY network failure including production. Result: user clicks
+    // Approve, sees the green tick, BUT THE GATEWAY NEVER RECORDED
+    // THE DECISION. Audit-trail integrity hole — every "approve"
+    // we fail to send is missing from the chain. In strict prod we
+    // now propagate the error so the optimistic mutation rolls back
+    // + user sees the error toast. Dev/preview keep the mock
+    // fallback so demos with no gateway still work.
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       return { ok: true, approvalId, decision, source: "mock-offline" };
     }
     throw err;
@@ -171,9 +180,18 @@ export async function submitUndo(approvalId: string): Promise<UndoResult> {
     );
     return { ok: true, approvalId: res.approval_id ?? approvalId, source: "live" };
   } catch (err) {
-    if (isMissingOrUnreachable(err)) {
+    // Same launch-blocker fix as submitDecision — never silently
+    // succeed in strict production on a gateway-unreachable error.
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       return { ok: true, approvalId, source: "mock-offline" };
     }
     throw err;
   }
+}
+
+function isStrictProduction(): boolean {
+  return (
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PUBLIC_ENV === "production"
+  );
 }

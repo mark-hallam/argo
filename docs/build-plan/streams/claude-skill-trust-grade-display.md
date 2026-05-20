@@ -40,7 +40,7 @@ must be visible.
 - BLANKET CLI ALLOWLIST applies.
 - `crates/argo-cli/src/handlers/skill_list.rs` (extend).
 - `crates/argo-cli/src/handlers/skill_view.rs` (extend).
-- `crates/argo-cli/src/cli.rs` — narrowly: add `--sort trust` value if not present.
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: add `--sort trust` value if not present.
 - `crates/argo-cli/tests/skill_trust_display.rs` (NEW, ≤ 200 LOC).
 
 ## Files you must NOT touch

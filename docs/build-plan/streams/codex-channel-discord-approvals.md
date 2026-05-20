@@ -41,7 +41,7 @@ Mirror this pattern for Discord. Discord's bot REST is well-documented (interact
 - `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly: 1 `mod routes_channels_discord;` line
 - `crates/argo-cli/src/handlers/doctor_channels.rs` — narrowly: 1 check arm for Discord (mirror existing slack check)
 - `crates/argo-channels/tests/discord_smoke.rs` (NEW, ≤ 200 LOC) — round-trip integration: send a fake approval → read decision back via mock HTTP
-- Per BLANKET CLI ALLOWLIST: `crates/argo-cli/src/cli.rs`, `crates/argo-cli/src/main.rs`, `crates/argo-cli/src/handlers/mod.rs` allowed for any small wiring
+- Per BLANKET CLI ALLOWLIST: `crates/argo-cli/src/cli_command_enum.rs`, `crates/argo-cli/src/main.rs`, `crates/argo-cli/src/handlers/mod.rs` allowed for any small wiring
 
 ## Files you must NOT touch
 

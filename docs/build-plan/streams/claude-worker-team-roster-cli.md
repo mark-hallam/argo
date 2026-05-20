@@ -52,7 +52,7 @@ individual workers.
 - `crates/argo-store/src/team_roster.rs` (NEW)
 - `crates/argo-store/src/lib.rs` — narrowly: pub mod
 - `crates/argo-cli/src/handlers/team_roster.rs` (NEW)
-- `crates/argo-cli/src/cli.rs` — narrowly: `Team` top-level subcmd
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: `Team` top-level subcmd
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
 
 ## Files you must NOT touch

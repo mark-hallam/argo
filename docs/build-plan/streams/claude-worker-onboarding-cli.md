@@ -40,7 +40,7 @@ loudly. No update-on-collision.
    covering: happy path, missing required field, oversize charter,
    too many channels, invalid vertical_id, channel-add failure mid-flight
    (must rollback or surface partial state cleanly).
-3. **Modify** `crates/argo-cli/src/cli.rs` — narrowly: 1 new
+3. **Modify** `crates/argo-cli/src/cli_command_enum.rs` — narrowly: 1 new
    `Worker::Onboard { persona_spec: PathBuf, id: Option<WorkerId> }`
    variant. EXHAUSTIVE-MATCH note: handlers/mod.rs dispatch arm.
 4. **NEW** `crates/argo-cli/tests/worker_onboard_smoke.rs` (~120 LOC)
@@ -54,7 +54,7 @@ loudly. No update-on-collision.
 - `crates/argo-cli/src/handlers/worker_onboard.rs` (NEW, ≤ 320 LOC)
 - `crates/argo-cli/src/handlers/worker_onboard_tests.rs` (NEW, ≤ 250 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + 1 dispatch arm)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 enum variant; cli.rs is 49 LOC post-#968 split, plenty of headroom)
+- `crates/argo-cli/src/cli_command_enum.rs` (BLANKET CLI ALLOWLIST — 1 enum variant)
 - `crates/argo-cli/src/cli_command_enum.rs` (post-#968: this is where the `Command` enum body lives now — variant additions go here)
 - `crates/argo-cli/src/cli_worker_cmds.rs` (post-cli-split: WorkerCmd variants live here — add `Onboard` variant)
 - `crates/argo-cli/src/handlers/worker_actions.rs` (worker dispatch lives here — add 1 dispatch arm for the Onboard variant)

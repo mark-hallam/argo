@@ -77,7 +77,7 @@ TOTAL:       393 rows (dry run — no changes)
   landing first; if not yet, this brief inlines its own copy and the export
   brief refactors to share)
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: 2 pub mod lines
-- `crates/argo-cli/src/cli.rs` — narrowly: `Compliance::Delete` subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: `Compliance::Delete` subcommand
 - `crates/argo-cli/src/main.rs` — narrowly: 1 dispatch arm
 - `crates/argo-cli/tests/compliance_delete_smoke.rs` (NEW, ≤ 200 LOC) —
   1 integration test that seeds 2 tenants, deletes one, asserts isolation +

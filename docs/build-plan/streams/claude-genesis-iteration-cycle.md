@@ -39,7 +39,7 @@ Mirrors mission claim 3 (iteration loop).
   - --dry-run does not modify any file on disk
   - missing vertical → ArgoError::NotFound
   - locked sections (`[KEEP]…[/KEEP]`) survive prompt revision
-- `crates/argo-cli/src/cli.rs` (narrowly: add Revise subcommand)
+- `crates/argo-cli/src/cli_command_enum.rs` (narrowly: add Revise subcommand)
 - `crates/argo-cli/src/handlers/mod.rs` (narrowly: 1 pub mod line)
 - `crates/argo-cli/tests/genesis_revise_smoke.rs` (NEW, ≤ 180 LOC) —
   end-to-end: scaffold a fake vertical in a tempdir, run revise --target prompt --dry-run, assert diff is non-empty

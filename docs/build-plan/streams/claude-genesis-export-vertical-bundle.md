@@ -41,7 +41,7 @@ it lives in a follow-up brief paired with verification logic.
   - missing vertical → ArgoError::NotFound
   - existing output path → ArgoError::Validation (no overwrite without --force)
   - --include-skills=false omits skills/
-- `crates/argo-cli/src/cli.rs` (narrowly: add Export subcommand)
+- `crates/argo-cli/src/cli_command_enum.rs` (narrowly: add Export subcommand)
 - `crates/argo-cli/src/handlers/mod.rs` (narrowly: 1 pub mod line)
 - `crates/argo-cli/tests/genesis_export_smoke.rs` (NEW, ≤ 180 LOC) —
   end-to-end: scaffold a fake vertical in a tempdir, run export,

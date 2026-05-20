@@ -72,7 +72,7 @@ in `worker_actions_auto_approval.rs`.
   narrowly: add `template` / `extends` field handling at config
   load only (do not change rule evaluation)
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: pub mod line
-- `crates/argo-cli/src/cli.rs` / `main.rs` — narrowly: subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` / `main.rs` — narrowly: subcommand
   wiring (BLANKET CLI ALLOWLIST)
 
 ## Files you must NOT touch

@@ -61,7 +61,7 @@ off **at all** for this kind of situation?"
 - BLANKET CLI ALLOWLIST applies
 - EXHAUSTIVE-MATCH amendment applies
 - `crates/argo-cli/src/handlers/handoff_policy.rs` (NEW)
-- `crates/argo-cli/src/cli.rs` — narrowly: `Handoff { Policy { Show,
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: `Handoff { Policy { Show,
   Validate } }` (or extend existing handoff section)
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
 - `crates/argo-orchestrator/src/handoff.rs` — narrowly: 1 hook call,

@@ -68,7 +68,7 @@ command that materializes it into the underlying store.
 - BLANKET CLI ALLOWLIST applies
 - EXHAUSTIVE-MATCH amendment applies
 - `crates/argo-cli/src/handlers/contract.rs` (NEW)
-- `crates/argo-cli/src/cli.rs` — narrowly: `Contract` top-level subcmd
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: `Contract` top-level subcmd
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
 - `docs/skycot/contracts/ar-clerk.contract.toml` (NEW)
 - `docs/skycot/contracts/recruiter-screener.contract.toml` (NEW)

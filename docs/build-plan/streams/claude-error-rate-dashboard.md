@@ -26,7 +26,7 @@ Optional `--since <date>` clips the window.
      - `provider_error_breakdown(store, since) -> Vec<ProviderErrorRow>`
    - Compare against the immediately-preceding equal-length window for
      `p_change_vs_prev_window` (positive % = getting worse)
-2. **Modify** `crates/argo-cli/src/cli.rs`:
+2. **Modify** `crates/argo-cli/src/cli_command_enum.rs`:
    - Add `Dashboard { since, group_by, format }` variant under `Errors`
 3. **Modify** `crates/argo-cli/src/main.rs`: 1 dispatch arm.
 
@@ -43,7 +43,7 @@ Optional `--since <date>` clips the window.
     - `--since` clips correctly
     - prev-window comparison: improving → negative %
     - prev-window comparison: regressing → positive %
-- `crates/argo-cli/src/cli.rs` — narrow: 1 subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrow: 1 subcommand
 - `crates/argo-cli/src/main.rs` — narrow: 1 dispatch arm
 
 ## Files you must NOT touch

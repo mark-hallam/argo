@@ -27,7 +27,7 @@ Subcommand:
 - `crates/argo-cli/src/cli_action_cmds.rs` — narrowly: add
   `Replay { ... }` subcommand
 - `crates/argo-cli/src/handlers/action_replay.rs` (NEW)
-- `crates/argo-cli/src/cli.rs` — narrowly: register the
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: register the
   Replay arm
 - `crates/argo-cli/src/main.rs` — narrowly: dispatch
 

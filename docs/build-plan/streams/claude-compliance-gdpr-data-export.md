@@ -72,7 +72,7 @@ intentionally append-only).
   - audit row appended on success
   - missing tenant id → exit non-zero with clear error
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
-- `crates/argo-cli/src/cli.rs` — narrowly: `Compliance::Export` subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: `Compliance::Export` subcommand
 - `crates/argo-cli/src/main.rs` — narrowly: 1 dispatch arm
 - `crates/argo-cli/tests/compliance_export_smoke.rs` (NEW, ≤ 200 LOC) —
   1 integration test that seeds 2 tenants and asserts isolation

@@ -48,8 +48,8 @@ const TILES = [
     href: "/settings/security",
     icon: <Lock size={20} />,
     title: "Security",
-    blurb: "Sessions, audit log retention, encryption-at-rest, SSO (v1.x).",
-    coming: true,
+    blurb: "Sessions, SSO (Google / Microsoft / Okta SAML), audit log retention, encryption-at-rest.",
+    coming: false,
   },
   {
     href: "/settings/providers",

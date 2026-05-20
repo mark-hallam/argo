@@ -41,7 +41,7 @@ This brief adds the column, threads it through the gateway POST `/sessions` rout
 - `crates/argo-store/Cargo.toml` — narrowly: add `argo-identity` to deps if not already there
 - `crates/argo-cli/src/handlers/gateway/routes_post_sessions.rs` — narrowly: parse worker_id from request body
 - `crates/argo-cli/src/handlers/sessions/*` — narrowly: add `--worker` flag handling (per BLANKET CLI ALLOWLIST)
-- `crates/argo-cli/src/cli.rs` — narrowly: add `--worker <id-or-name>` arg to SessionStart variant (per BLANKET CLI ALLOWLIST)
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: add `--worker <id-or-name>` arg to SessionStart variant (per BLANKET CLI ALLOWLIST)
 - `crates/argo-cli/tests/session_worker_id_smoke.rs` (NEW, ≤ 200 LOC) — gateway POST + GET round-trip + CLI smoke
 - `crates/argo-store/src/session_worker_id_tests.rs` (NEW, ≤ 200 LOC, sibling-pattern via `#[cfg(test)] #[path = "..."] mod tests;`) — 6 unit tests:
   - insert with worker_id → select returns same worker_id

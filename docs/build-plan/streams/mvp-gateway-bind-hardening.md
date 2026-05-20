@@ -22,7 +22,7 @@ running behind a reverse proxy can opt in deliberately.
 
 1. **Add `--insecure-bind` boolean flag** to the gateway start
    subcommand (look at how existing booleans like `--profile-startup`
-   are wired in `crates/argo-cli/src/cli.rs` / handler dispatch).
+   are wired in `crates/argo-cli/src/cli_command_enum.rs` / handler dispatch).
 2. **Inside `start()` in `crates/argo-cli/src/handlers/gateway/boot.rs`**
    (currently 427 LOC, ~70 LOC headroom):
    - After `let addr = format!("{bind}:{port}");`, parse `bind` as
@@ -47,7 +47,7 @@ running behind a reverse proxy can opt in deliberately.
 
 ## Files you may touch
 
-- `crates/argo-cli/src/cli.rs` (narrowly: 1 new boolean flag on the
+- `crates/argo-cli/src/cli_command_enum.rs` (narrowly: 1 new boolean flag on the
   gateway start subcommand)
 - `crates/argo-cli/src/handlers/gateway/boot.rs` (parse bind, conditional)
 - `crates/argo-cli/src/handlers/gateway/boot_tests.rs` (NEW, only if

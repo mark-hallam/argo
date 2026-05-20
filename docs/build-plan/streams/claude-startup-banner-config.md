@@ -34,7 +34,7 @@ Today none of this is possible without forking. This brief makes the banner conf
 - `crates/argo-cli/src/handlers/gateway/start_banner_config.rs` (NEW, ≤ 200 LOC)
 - `crates/argo-cli/src/handlers/gateway/start.rs` — narrowly: 1-line render-call swap
 - `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly: `mod start_banner_config;`
-- `crates/argo-cli/src/cli.rs` (or per-family clap module) — narrowly: add `--quiet` field
+- `crates/argo-cli/src/cli_command_enum.rs` (or per-family clap module) — narrowly: add `--quiet` field
 - `crates/argo-cli/tests/banner_smoke.rs` (NEW, ≤ 200 LOC) — 5 tests:
   - Default banner output unchanged byte-for-byte
   - `ARGO_BANNER_QUIET=1` → empty output

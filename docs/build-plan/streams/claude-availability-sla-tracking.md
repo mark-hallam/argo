@@ -24,7 +24,7 @@ slots are excluded from the denominator (no traffic = no signal).
    - `compute_sla(store: &Store, now: DateTime<Utc>, window: Duration) -> SlaReport`
    - `SlaReport { up_minutes, down_minutes, observed_minutes, uptime_pct, target_pct, error_budget_remaining_minutes }`
    - Output: markdown summary + a small ASCII heatmap of last 24h by hour
-2. **Modify** `crates/argo-cli/src/cli.rs`:
+2. **Modify** `crates/argo-cli/src/cli_command_enum.rs`:
    - Add `Sla { target, window, format }` variant under `Doctor`
 3. **Modify** `crates/argo-cli/src/main.rs`: 1 dispatch arm.
 
@@ -40,7 +40,7 @@ slots are excluded from the denominator (no traffic = no signal).
   - rolling 30d window clipping
   - heatmap renders 24 cells
   - JSON round-trip
-- `crates/argo-cli/src/cli.rs` — narrow: 1 subcommand
+- `crates/argo-cli/src/cli_command_enum.rs` — narrow: 1 subcommand
 - `crates/argo-cli/src/main.rs` — narrow: 1 dispatch arm
 
 ## Files you must NOT touch
