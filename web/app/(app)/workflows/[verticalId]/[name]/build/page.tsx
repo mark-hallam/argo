@@ -688,7 +688,7 @@ function BuilderInner({
     setTimeout(() => {
       toast.message("Preview build — draft not persisted", {
         id: dismissId,
-        description: "Live wire ships in PR #1882. Canvas changes will land then.",
+        description: "Live AI editing rolls out next. Canvas updates land then.",
       });
       setProposing(false);
       setPromptText("");
@@ -697,21 +697,19 @@ function BuilderInner({
 
   function handleTestRun() {
     // Honest demo stub — wave-6 action-fires audit flagged the prior
-    // "All 5 steps passed" toast as a buyer-catchable lie (no test
-    // actually ran). Real test-runner ships via web-workflows-test-run
-    // (separate brief).
+    // "All 5 steps passed" toast as a buyer-catchable lie. Wave-13
+    // audit asked to drop the "v1.x" / internal-PR-ref leaks; this
+    // copy stays neutral while keeping the not-yet-wired honesty.
     toast.message("Test run — preview build", {
-      description: "Real run streams from the gateway in v1.x. Not wired in this preview build.",
+      description: "Real run streams from the gateway in an upcoming release.",
     });
   }
 
   function handleSaveAndPublish() {
-    // Honest demo stub — wave-6 action-fires audit flagged the prior
-    // "Workflow is live for the tenant" toast as a buyer-catchable lie
-    // (no persistence). Real publish wires via the gateway workflow-PUT
-    // endpoint (sibling brief).
+    // Honest demo stub — wave-6 audit. Wave-13 cleaned up the leaked
+    // version identifiers; copy is now neutral.
     toast.message("Saved as draft — preview build", {
-      description: "Publish to tenant ships in v1.x. Draft is in-memory only here.",
+      description: "Tenant-wide publish lands in an upcoming release.",
     });
   }
 
