@@ -497,6 +497,28 @@ export default function MarketingLandingPage() {
           right: 12%;
           font-size: 12.5px;
         }
+        /* Wave-9 window-resize fix (2026-05-21): the wave-6 fix
+           clamped bubbles min-width: 220px which keeps them readable,
+           but at the intermediate viewport range (700–890px) bubbles
+           still overlap the centre logo. Stack vertically (2 cols,
+           non-overlapping rows) at this band; full grid at 891px+. */
+        @media (max-width: 890px) {
+          .land-art-bubble {
+            min-width: 0 !important;
+            max-width: 44% !important;
+            font-size: 11.5px !important;
+            padding: 10px 14px !important;
+          }
+          .land-art-bubble-1 { top: 4%; left: 4%; }
+          .land-art-bubble-2 { top: 4%; right: 4%; }
+          .land-art-bubble-3 { bottom: 4%; left: 4%; }
+          .land-art-bubble-4 { bottom: 4%; right: 4%; }
+        }
+        @media (max-width: 540px) {
+          .land-hero-art {
+            display: none;
+          }
+        }
         .land-section-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
