@@ -99,6 +99,11 @@ export interface WorkerActivity {
   status: WorkerActivityStatus;
   costUsd?: number;
   costBreakdown?: WorkerActivityCostBreakdown;
+  /** Optional per-row audit-chain hash. Surfaced by `ActivityRow` as
+   *  a truncated Etherscan-style cell when present; absence hides the
+   *  cell (the per-worker feed currently omits it — the cross-worker
+   *  audit feed populates it via the AuditDayGroup adapter). */
+  hash?: string;
 }
 
 export interface WorkerActivityFilters {

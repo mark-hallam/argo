@@ -6,6 +6,7 @@ import { ArrowRight, Check, Copy } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/lib/ui/use-toast";
 import type { WorkerActivity, WorkerActivityStatus } from "@/lib/api/worker-activity";
 
 /**
@@ -36,7 +37,7 @@ export function ActivityRow({ activity, hideWorker, className }: ActivityRowProp
       role="listitem"
       data-testid={`activity-row-${activity.id}`}
       className={cn(
-        "group grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2.5",
+        "group grid grid-cols-[auto_auto_1fr_auto_auto_auto] items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2.5",
         "text-sm transition-colors duration-[var(--duration-fast)]",
         "hover:border-[var(--primary)]/40 hover:bg-[var(--accent)]/30",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--background)]",
@@ -77,6 +78,12 @@ export function ActivityRow({ activity, hideWorker, className }: ActivityRowProp
           <CostChip costUsd={activity.costUsd} breakdown={activity.costBreakdown} />
         ) : null}
       </div>
+
+      {activity.hash ? (
+        <HashCell hash={activity.hash} actionId={activity.id} />
+      ) : (
+        <span aria-hidden />
+      )}
 
       <ArrowRight
         aria-hidden
@@ -143,6 +150,59 @@ function CostChip({ costUsd, breakdown }: CostChipProps) {
       ${costUsd.toFixed(3)}
     </span>
   );
+}
+
+interface HashCellProps {
+  hash: string;
+  actionId: string;
+}
+
+/** Per-row chain-hash cell — surfaces the "forensic-grade audit chain
+ *  on every action" claim on the feed (Etherscan parity). Renders a
+ *  truncated `0xabc1…2345` form by default; hover tooltip + aria-label
+ *  expose the full value to assistive tech. Click copies the FULL hash
+ *  to the clipboard and fires a brief Sonner toast. Stops nav so the
+ *  click doesn't drill into `/audit/action/<id>`. */
+function HashCell({ hash, actionId }: HashCellProps) {
+  const [copied, setCopied] = useState(false);
+  const { success } = useToast();
+  const display = formatHashForDisplay(hash);
+  return (
+    <button
+      type="button"
+      data-testid={`activity-row-hash-${actionId}`}
+      data-hash={hash}
+      aria-label={`Audit chain hash ${hash}, click to copy`}
+      title={copied ? "Copied" : `${hash} — Click to copy`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void copyToClipboard(hash).then((ok) => {
+          if (!ok) return;
+          setCopied(true);
+          success("Hash copied", { description: hash });
+          window.setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      className="inline-flex items-center gap-1 font-mono text-[11px] tabular-nums text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+    >
+      <span>{display}</span>
+      {copied ? (
+        <Check className="size-3 text-[var(--success-foreground,var(--foreground))]" />
+      ) : (
+        <Copy className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
+      )}
+    </button>
+  );
+}
+
+/** Etherscan-style truncation: `0x` prefix + first 4 + ellipsis +
+ *  last 4 hex chars. Short hashes (<10 chars) render unchanged so
+ *  test fixtures with stub values stay readable. */
+export function formatHashForDisplay(hash: string): string {
+  const body = hash.startsWith("0x") ? hash.slice(2) : hash;
+  if (body.length <= 10) return `0x${body}`;
+  return `0x${body.slice(0, 4)}…${body.slice(-4)}`;
 }
 
 async function copyToClipboard(value: string): Promise<boolean> {

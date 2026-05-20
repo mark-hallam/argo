@@ -93,7 +93,13 @@ export type DataClassification =
 /** One audit row in the cross-worker timeline. Plain English `verb`
  *  may carry PII — defense-in-depth via `<RedactedText>` lands in
  *  E1-e; the ActivityRow primitive inlines a byte-identical sentinel
- *  pass for now. */
+ *  pass for now.
+ *
+ *  `hash` is the per-row chain hash that the ActivityRow primitive
+ *  surfaces Etherscan-style (truncated `0xabc1…2345` cell with
+ *  click-to-copy). Optional during v1 because the gateway endpoint
+ *  may not yet return it — the seed-fallback in `sample-audit.ts`
+ *  populates it deterministically so the demo reproduces run-to-run. */
 export interface AuditRow {
   id: string;
   timestamp: string;
@@ -109,6 +115,7 @@ export interface AuditRow {
   channel?: ChannelKind;
   cost?: { usd: number };
   dataClassification?: DataClassification;
+  hash?: string;
 }
 
 /** Opaque cursor token — server-authoritative. Null → no more pages. */

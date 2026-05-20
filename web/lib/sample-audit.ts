@@ -126,9 +126,11 @@ const SEEDS: Seed[] = [
 function buildRows(seeds: Seed[]): AuditRow[] {
   return seeds.map((s, i) => {
     const [worker, verb, actionType, status, agoMs, extra] = s;
+    const id = `act_${worker.id.replace("wkr_", "")}_${i.toString().padStart(3, "0")}`;
+    const timestamp = new Date(NOW - agoMs).toISOString();
     return {
-      id: `act_${worker.id.replace("wkr_", "")}_${i.toString().padStart(3, "0")}`,
-      timestamp: new Date(NOW - agoMs).toISOString(),
+      id,
+      timestamp,
       worker,
       actionType,
       verb,
@@ -137,8 +139,36 @@ function buildRows(seeds: Seed[]): AuditRow[] {
       channel: extra?.channel,
       cost: extra?.cost !== undefined ? { usd: extra.cost } : undefined,
       dataClassification: extra?.cls,
+      hash: rowHash(`${worker.id}|${verb}|${timestamp}`),
     };
   });
+}
+
+/** Deterministic 64-hex digest seeded by `worker.id|verb|timestamp`.
+ *  Synchronous so the seed array stays array-typed (callers iterate it
+ *  directly); `crypto.subtle.digest` would force a Promise and reshape
+ *  every consumer. Eight independent FNV-1a passes with distinct
+ *  offsets produce 8×32 bits = 64 hex chars — matches the visual
+ *  length of a SHA-256 digest so the demo MP4 reads as forensic-grade.
+ *  Run-to-run identical for fixed input. Not a cryptographic hash;
+ *  the real chain hash arrives from the gateway in production. */
+function rowHash(seed: string): string {
+  const OFFSETS: readonly number[] = [
+    0x811c9dc5, 0x9e3779b1, 0x85ebca6b, 0xc2b2ae35,
+    0x27d4eb2f, 0x165667b1, 0xd3a2646c, 0xfd7046c5,
+  ];
+  return OFFSETS.map((offset) =>
+    fnv1a(seed, offset, 0x01000193).toString(16).padStart(8, "0"),
+  ).join("");
+}
+
+function fnv1a(input: string, offset: number, prime: number): number {
+  let h = offset >>> 0;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, prime);
+  }
+  return h >>> 0;
 }
 
 export const SAMPLE_AUDIT_ROWS: AuditRow[] = buildRows(SEEDS).sort(

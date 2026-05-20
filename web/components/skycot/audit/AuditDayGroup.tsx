@@ -70,7 +70,9 @@ function initials(name: string): string {
 /** Adapt an AuditRow to the locked WorkerActivity shape that
  *  ActivityRow consumes. actionType isn't rendered by ActivityRow,
  *  so we stub it as `message_sent` — the raw value lives on
- *  `data-action-type` on the wrapper for downstream consumers. */
+ *  `data-action-type` on the wrapper for downstream consumers. The
+ *  per-row chain hash threads through verbatim so ActivityRow can
+ *  render the Etherscan-style truncated cell. */
 function toActivity(row: AuditRow): WorkerActivity {
   return {
     id: row.id,
@@ -82,6 +84,7 @@ function toActivity(row: AuditRow): WorkerActivity {
     actionType: "message_sent",
     status: STATUS_MAP[row.status],
     costUsd: row.cost?.usd,
+    hash: row.hash,
   };
 }
 
