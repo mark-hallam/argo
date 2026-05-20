@@ -136,6 +136,7 @@ pub async fn run_collect(
         let s_started = Instant::now();
         let outcome = run_one_step(
             step,
+            &workflow.workflow.name,
             &registry_t,
             &engine,
             &principal,
@@ -249,6 +250,9 @@ fn print_text(name: &str, vertical_id: &str, results: &[StepResult], total_ms: u
 
 #[path = "vertical_workflow_step.rs"]
 mod step;
+
+#[path = "vertical_workflow_skill_step.rs"]
+mod skill_step;
 
 #[cfg(test)]
 #[path = "vertical_workflow_tests.rs"]

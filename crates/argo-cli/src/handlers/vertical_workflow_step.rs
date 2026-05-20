@@ -24,9 +24,21 @@ use uuid::Uuid;
 /// so `argo audit show --session <id>` shows workflow activity
 /// alongside agent turns.
 pub(super) struct WorkflowAuditCtx {
-    audit: AuditSink,
-    session_id: SessionId,
-    tenant_id: TenantId,
+    pub(super) audit: AuditSink,
+    pub(super) session_id: SessionId,
+    pub(super) tenant_id: TenantId,
+}
+
+/// Best-effort audit emission shared with sibling step-kind
+/// runners (e.g. `skill_step::run_skill_invoke_step`). A failed
+/// audit write must not abort the workflow; the chain verifier
+/// flags any breaks at read time.
+pub(super) async fn emit_workflow_audit(
+    audit_ctx: Option<&WorkflowAuditCtx>,
+    kind: AuditKind,
+    payload: serde_json::Value,
+) {
+    emit_audit(audit_ctx, kind, payload).await;
 }
 
 pub(super) struct StepOutcome {
@@ -34,14 +46,17 @@ pub(super) struct StepOutcome {
     pub(super) message: String,
 }
 
-// 8 args is intentional here — workflow steps need access to
-// the registry, engine, principal, cwd, both ACL sets, and the
-// audit ctx. Bundling them into a struct would just push the
-// same arity into a struct definition without removing the
-// coupling, so we accept the lint locally.
+// 9 args is intentional here — workflow steps need access to
+// the registry, engine, principal, cwd, both ACL sets, the audit
+// ctx, and (since mission-pm-vertical-workflow-skill-invoke) the
+// workflow name for the `WorkflowStepStarted`/`Completed` audit
+// payloads. Bundling them into a struct would just push the same
+// arity into a struct definition without removing the coupling,
+// so we accept the lint locally.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run_one_step(
     step: &WorkflowStep,
+    workflow_name: &str,
     registry: &ToolRegistry,
     engine: &CapabilityEngine,
     principal: &Principal,
@@ -64,13 +79,9 @@ pub(super) async fn run_one_step(
             )
             .await
         }
-        "skill_invoke" => StepOutcome {
-            status: "deferred_no_llm".into(),
-            message: format!(
-                "skill_invoke '{}' deferred — needs the agent runner's LLM transport (PR #659 ships tool_call only)",
-                step.skill.as_deref().unwrap_or("")
-            ),
-        },
+        "skill_invoke" => {
+            super::skill_step::run_skill_invoke_step(step, workflow_name, cwd, audit_ctx).await
+        }
         "prompt" => StepOutcome {
             status: "deferred_no_llm".into(),
             message: "prompt step deferred — needs the agent runner's LLM transport (PR #659 ships tool_call only)".into(),

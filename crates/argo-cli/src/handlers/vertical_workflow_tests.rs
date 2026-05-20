@@ -35,6 +35,7 @@ async fn step_outcome_for_unknown_kind_fails() {
     let principal = local_test_principal();
     let outcome = run_one_step(
         &step,
+        "wf",
         &registry,
         &engine,
         &principal,
@@ -49,7 +50,49 @@ async fn step_outcome_for_unknown_kind_fails() {
 }
 
 #[tokio::test]
-async fn skill_invoke_step_is_deferred() {
+async fn skill_invoke_step_missing_skill_field_fails() {
+    // A `skill_invoke` step without a `skill` field can't be
+    // routed to a real skill — surface `failed` with a clear
+    // message instead of feeding "" through the lookup path.
+    let step = WorkflowStep {
+        name: "noop".into(),
+        kind: "skill_invoke".into(),
+        depends_on: vec![],
+        skill: None,
+        prompt: None,
+        tool: None,
+        args: None,
+    };
+    let dir = std::env::current_dir().unwrap();
+    let registry = ToolRegistry::new();
+    let engine = CapabilityEngine::with_defaults();
+    let principal = local_test_principal();
+    let outcome = run_one_step(
+        &step,
+        "wf",
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &empty_set(),
+        None,
+    )
+    .await;
+    assert_eq!(outcome.status, "failed");
+    assert!(
+        outcome.message.contains("missing `skill`"),
+        "got: {}",
+        outcome.message
+    );
+}
+
+#[tokio::test]
+async fn skill_invoke_step_without_session_fails() {
+    // No `audit_ctx` (i.e., no `--session` bound) — the helper
+    // has nowhere to mint an agent-runner invocation from.
+    // Surface a clear failure rather than mint an ephemeral
+    // session; the natural entry point is `argo vertical run`.
     let step = WorkflowStep {
         name: "scan".into(),
         kind: "skill_invoke".into(),
@@ -65,6 +108,7 @@ async fn skill_invoke_step_is_deferred() {
     let principal = local_test_principal();
     let outcome = run_one_step(
         &step,
+        "wf",
         &registry,
         &engine,
         &principal,
@@ -74,8 +118,12 @@ async fn skill_invoke_step_is_deferred() {
         None,
     )
     .await;
-    assert_eq!(outcome.status, "deferred_no_llm");
-    assert!(outcome.message.contains("identify_invariant_violations"));
+    assert_eq!(outcome.status, "failed");
+    assert!(
+        outcome.message.contains("session"),
+        "got: {}",
+        outcome.message
+    );
 }
 
 #[tokio::test]
@@ -95,6 +143,7 @@ async fn prompt_step_is_deferred() {
     let principal = local_test_principal();
     let outcome = run_one_step(
         &step,
+        "wf",
         &registry,
         &engine,
         &principal,
@@ -129,6 +178,7 @@ async fn tool_call_step_in_deny_list_is_blocked_before_dispatch() {
     denied.insert("file_write".into());
     let outcome = run_one_step(
         &step,
+        "wf",
         &registry,
         &engine,
         &principal,
@@ -163,6 +213,7 @@ async fn tool_call_step_in_approval_list_pauses_with_escalation_status() {
     needs_approval.insert("delegate_task".into());
     let outcome = run_one_step(
         &step,
+        "wf",
         &registry,
         &engine,
         &principal,
@@ -211,6 +262,7 @@ async fn tool_call_step_denied_wins_over_approval_when_both_listed() {
     needs_approval.insert("file_write".into());
     let outcome = run_one_step(
         &step,
+        "wf",
         &registry,
         &engine,
         &principal,
@@ -240,6 +292,7 @@ async fn tool_call_step_missing_tool_field_fails() {
     let principal = local_test_principal();
     let outcome = run_one_step(
         &step,
+        "wf",
         &registry,
         &engine,
         &principal,

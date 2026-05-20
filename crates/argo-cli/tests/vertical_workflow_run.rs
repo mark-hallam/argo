@@ -137,7 +137,13 @@ fn cli_workflow_blocks_denied_tool_with_deny_status_and_non_zero_exit() {
 }
 
 #[test]
-fn cli_workflow_marks_skill_invoke_and_prompt_as_deferred() {
+fn cli_workflow_marks_prompt_step_as_deferred() {
+    // `prompt` steps still report `deferred_no_llm` — wiring
+    // them needs user-message injection semantics + cross-step
+    // conversation continuity, which is out of scope for
+    // mission-pm-vertical-workflow-skill-invoke. `skill_invoke`
+    // step coverage moved to `vertical_workflow_skill_invoke_smoke.rs`
+    // once that step kind lit up end-to-end.
     let home = tempfile::tempdir().unwrap();
     let verticals = tempfile::tempdir().unwrap();
     write_minimal_vertical(
@@ -145,7 +151,6 @@ fn cli_workflow_marks_skill_invoke_and_prompt_as_deferred() {
         "todo",
         "schema_version = \"1\"\n\
          [workflow]\nname = \"mixed\"\n\
-         [[step]]\nname = \"a\"\nkind = \"skill_invoke\"\nskill = \"identify_invariant_violations\"\n\
          [[step]]\nname = \"b\"\nkind = \"prompt\"\nprompt = \"what is 2+2?\"\n",
     );
 
@@ -155,9 +160,8 @@ fn cli_workflow_marks_skill_invoke_and_prompt_as_deferred() {
         .args(["vertical", "workflow", "todo", "mixed", "--json"])
         .output()
         .expect("spawn");
-    // Deferred steps are NOT failures — workflow exits 0, both
-    // statuses are `deferred_no_llm`. This is the contract the
-    // operator can rely on while #660+ wire the LLM transport.
+    // Deferred prompt steps are NOT failures — workflow exits 0
+    // with `deferred_no_llm`.
     assert!(
         out.status.success(),
         "stderr: {}",
@@ -167,9 +171,9 @@ fn cli_workflow_marks_skill_invoke_and_prompt_as_deferred() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(v["ok"], true);
     let steps = v["steps"].as_array().unwrap();
-    assert_eq!(steps.len(), 2);
+    assert_eq!(steps.len(), 1);
+    assert_eq!(steps[0]["kind"], "prompt");
     assert_eq!(steps[0]["status"], "deferred_no_llm");
-    assert_eq!(steps[1]["status"], "deferred_no_llm");
 }
 
 #[test]

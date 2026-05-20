@@ -249,6 +249,22 @@ pub enum AuditKind {
     /// archived version was the current head, the head pointer is
     /// cleared in the same DB transaction.
     WorkflowVersionArchived,
+    /// A vertical-workflow step began execution
+    /// (mission-pm-vertical-workflow-skill-invoke, P1 #8). Payload
+    /// carries `workflow_name`, `step_name`, and (for `skill_invoke`
+    /// steps) `skill_name`. Pairs with [`Self::WorkflowStepCompleted`]
+    /// so `argo audit show --session <id>` shows workflow-step
+    /// boundaries alongside agent turns.
+    WorkflowStepStarted,
+    /// A vertical-workflow step finished execution
+    /// (mission-pm-vertical-workflow-skill-invoke, P1 #8). Payload
+    /// carries `workflow_name`, `step_name`, `status`, and (for
+    /// `skill_invoke` steps) `skill_name` plus `final_text_sha`
+    /// (sha-256 of the assistant's final-content text, hex-encoded)
+    /// so forensic readers can correlate the step output with the
+    /// agent turn's persisted assistant message without re-storing
+    /// the body in the audit row.
+    WorkflowStepCompleted,
 }
 
 impl AuditKind {
@@ -299,6 +315,8 @@ impl AuditKind {
             Self::WorkflowDefinitionCreated => "workflow_definition_created",
             Self::WorkflowHeadChanged => "workflow_head_changed",
             Self::WorkflowVersionArchived => "workflow_version_archived",
+            Self::WorkflowStepStarted => "workflow.step.started",
+            Self::WorkflowStepCompleted => "workflow.step.completed",
         }
     }
 
@@ -351,6 +369,8 @@ impl AuditKind {
             "workflow_definition_created" => Self::WorkflowDefinitionCreated,
             "workflow_head_changed" => Self::WorkflowHeadChanged,
             "workflow_version_archived" => Self::WorkflowVersionArchived,
+            "workflow.step.started" => Self::WorkflowStepStarted,
+            "workflow.step.completed" => Self::WorkflowStepCompleted,
             _ => return None,
         })
     }
@@ -403,6 +423,8 @@ impl AuditKind {
             Self::WorkflowDefinitionCreated,
             Self::WorkflowHeadChanged,
             Self::WorkflowVersionArchived,
+            Self::WorkflowStepStarted,
+            Self::WorkflowStepCompleted,
         ];
         v.sort_by_key(|k| k.label());
         v

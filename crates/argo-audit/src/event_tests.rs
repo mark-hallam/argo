@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 43);
+    assert_eq!(AuditKind::all().len(), 45);
 }
 
 #[test]
@@ -39,6 +39,20 @@ fn workflow_definition_kinds_round_trip_and_listed() {
     assert!(labels.contains(&"workflow_definition_created"));
     assert!(labels.contains(&"workflow_head_changed"));
     assert!(labels.contains(&"workflow_version_archived"));
+}
+
+#[test]
+fn workflow_step_kinds_round_trip_and_listed() {
+    for (label, kind) in [
+        ("workflow.step.started", AuditKind::WorkflowStepStarted),
+        ("workflow.step.completed", AuditKind::WorkflowStepCompleted),
+    ] {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+    }
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"workflow.step.started"));
+    assert!(labels.contains(&"workflow.step.completed"));
 }
 
 #[test]
