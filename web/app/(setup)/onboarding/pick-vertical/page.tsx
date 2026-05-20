@@ -4,8 +4,16 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { apiPost, ApiError } from "@/lib/api/client";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { OnboardingShell } from "../_OnboardingShell";
+
+interface InstallVerticalResponse {
+  installed: boolean;
+  vertical_id: string;
+  workflows_added: number;
+  skills_added: number;
+}
 
 interface VerticalCard {
   id: string;
@@ -72,43 +80,23 @@ export default function OnboardingPickVerticalPage() {
     setBusy(true);
     setVertical(verticalId);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_GATEWAY_URL ?? ""}/api/v1/onboarding/install-vertical`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ vertical_id: verticalId }),
-        },
+      // web-gateway-endpoints-onboarding-batch: the gateway endpoint now
+      // exists, so use the canonical `apiPost` client (bearer auth +
+      // typed error envelope). Errors block the redirect so the operator
+      // can retry instead of hard-sticking on /first-hire's 404.
+      await apiPost<InstallVerticalResponse, { vertical_id: string }>(
+        "/api/v1/onboarding/install-vertical",
+        { vertical_id: verticalId },
       );
-      // Wave-11 fix (2026-05-21): the prior code silently treated 404
-      // as success, so users moved on with their choice un-installed
-      // and then hard-stuck on the next 404 at /first-hire. Now we
-      // tolerate 404 in non-strict-prod (the endpoint isn't shipped
-      // yet — sibling brief `web-gateway-endpoints-onboarding-batch`)
-      // but log a console warning so devs see the gap. In strict prod
-      // 404 propagates → user sees the error message and can retry.
-      const inStrictProd =
-        process.env.NODE_ENV === "production" &&
-        process.env.NEXT_PUBLIC_ENV === "production";
-      if (!res.ok) {
-        if (res.status === 404 && !inStrictProd) {
-          // Dev/preview: the gateway endpoint isn't deployed yet.
-          // Choice is persisted client-side via setVertical(); move on.
-          console.warn(
-            "[onboarding] /api/v1/onboarding/install-vertical not deployed; choice saved client-side.",
-          );
-        } else {
-          throw new Error(`gateway returned HTTP ${res.status}`);
-        }
-      }
       router.push("/onboarding/first-hire");
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? `${e.message}. We saved your choice — you can retry on the next step.`
-          : "Install failed; choice saved locally.",
-      );
-      router.push("/onboarding/first-hire");
+      const message =
+        e instanceof ApiError
+          ? `${e.message} (HTTP ${e.status}). Choice saved locally — retry the step.`
+          : e instanceof Error
+            ? `${e.message}. Choice saved locally — retry the step.`
+            : "Install failed; choice saved locally.";
+      setError(message);
     } finally {
       setBusy(false);
     }

@@ -37,6 +37,8 @@ mod metrics_actions;
 mod metrics_json;
 mod metrics_text;
 mod onboarding_provision;
+mod routes_onboarding;
+mod routes_onboarding_helpers;
 mod peer;
 mod print_routes;
 mod proxy_guard;

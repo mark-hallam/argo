@@ -208,6 +208,24 @@ async fn api_v1_dispatch(
     {
         return Some(super::onboarding_provision::provision_response(req, store).await);
     }
+    // web-gateway-endpoints-onboarding-batch — the three steps that
+    // sit after `/provision` in the onboarding flow. All share the
+    // same human-principal + workspace-resolution shape.
+    if req.starts_with("POST /api/v1/onboarding/provider-key ")
+        || req.starts_with("POST /api/v1/onboarding/provider-key?")
+    {
+        return Some(super::routes_onboarding::provider_key_response(req, store).await);
+    }
+    if req.starts_with("POST /api/v1/onboarding/install-vertical ")
+        || req.starts_with("POST /api/v1/onboarding/install-vertical?")
+    {
+        return Some(super::routes_onboarding::install_vertical_response(req, store).await);
+    }
+    if req.starts_with("POST /api/v1/onboarding/first-hire ")
+        || req.starts_with("POST /api/v1/onboarding/first-hire?")
+    {
+        return Some(super::routes_onboarding::first_hire_response(req, store).await);
+    }
     // mission-data-export-customer-flow — customer-facing GDPR/CCPA
     // Article 15 export. Scoped to the X-Argo-Principal human caller.
     if let Some(resp) = super::routes_me_export::dispatch(req, store).await {

@@ -299,6 +299,12 @@ pub mod workflow_checkpoint;
 /// lands.
 pub mod workflow_definition;
 mod workspace;
+/// Per-workspace provider-key + installed-vertical bookkeeping
+/// (Stream `web-gateway-endpoints-onboarding-batch`). Backs the
+/// three onboarding endpoints (`/provider-key`, `/install-vertical`,
+/// `/first-hire`) — provider-key blobs are encrypted by the gateway
+/// handler before reaching this module.
+pub mod workspace_keys;
 /// Magic-link token storage backing the gateway self-serve signup
 /// flow (Stream `claude-magic-link-auth-backend`). The user/tenant
 /// substrate (`user_account`, `user_tenant`) ships separately via
