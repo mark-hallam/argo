@@ -61,6 +61,7 @@ function AppNav() {
             {item.label}
           </NavItem>
         ))}
+        <SingleBinaryFooterChip />
         <WorkspaceFooter />
       </div>
     </>
@@ -115,6 +116,35 @@ function Brand() {
         </span>
       </a>
     </>
+  );
+}
+
+/**
+ * Single-binary footer chip — surfaces the mission pillar that's
+ * invisible on 9 of 12 in-product surfaces per the wave-6 +
+ * wave-10 mission audits. SKYCOT ships as ONE binary you can
+ * self-host on a Mac mini or any Linux box — that's the SaaS-vs-
+ * self-host moat. The chip is the cheapest possible reminder
+ * that the buyer's data never has to leave their infrastructure.
+ *
+ * Renders as a small JetBrains-Mono pill below the workspace
+ * switcher in the sidebar footer. Click → /pricing#self-host.
+ */
+function SingleBinaryFooterChip() {
+  return (
+    <a
+      href="/pricing#self-host"
+      title="SKYCOT ships as one binary you can self-host. Click for details."
+      className="mt-2 mx-2 flex items-center gap-2 rounded-[999px] border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-[10.5px] uppercase tracking-[0.14em] font-semibold text-[var(--muted-foreground)] hover:border-[var(--brand-primary)] hover:text-[var(--foreground)] transition-colors duration-[var(--duration-fast)]"
+      style={{ fontFamily: "'JetBrains Mono', monospace" }}
+    >
+      <span
+        aria-hidden
+        className="inline-block size-1.5 rounded-full"
+        style={{ background: "linear-gradient(135deg, #8b5cf6, #ec4899)" }}
+      />
+      Self-hosted · single binary
+    </a>
   );
 }
 
