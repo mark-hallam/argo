@@ -55,7 +55,7 @@ const WEEKS: Week[] = [
         version: "v1.0.5",
         title: "Class-leading visual workflow builder shipped",
         body:
-          "Drag-and-drop visual canvas, AI prompt-to-workflow generation, multi-branch rendering, sub-workflows, and live execution overlay. Edit your AI teammate's playbook the way you'd edit a Figma file. Versioned, reversible, and audit-logged on every save.",
+          "Drag-and-drop visual canvas with pan / zoom / mini-map. AI prompt bar for plain-English step proposals. Per-trigger config forms (webhook + schedule + email + form). Versioned + audit-logged on every save. Multi-branch rendering, sub-workflows, and live execution overlay are shipping next.",
         tags: ["Workflows", "UX"],
       },
       {
