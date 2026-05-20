@@ -69,20 +69,52 @@ function AppNav() {
 
 function Brand() {
   return (
-    <a href="/" className="flex items-center gap-2.5 group">
-      <span
-        aria-hidden
-        className="grid size-8 place-items-center rounded-[var(--radius-md)] bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold text-sm shadow-sm"
-      >
-        S
-      </span>
-      <span className="flex flex-col leading-tight">
-        <span className="text-sm font-semibold text-[var(--foreground)]">SKYCOT</span>
-        <span className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
-          AI teammates
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet"
+      />
+      <a href="/" className="flex items-center gap-2.5 group" style={{ textDecoration: "none" }}>
+        <span
+          aria-hidden
+          style={{
+            display: "block",
+            width: 28,
+            height: 28,
+            borderRadius: 7,
+            background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+            boxShadow: "0 4px 12px -2px rgba(139,92,246,0.30)",
+          }}
+        />
+        <span className="flex flex-col leading-tight">
+          <span
+            style={{
+              fontFamily: "'Audiowide', sans-serif",
+              fontSize: 14,
+              letterSpacing: "0.08em",
+              color: "var(--foreground)",
+            }}
+          >
+            SKYCOT
+          </span>
+          <span
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 9.5,
+              textTransform: "uppercase",
+              letterSpacing: "0.16em",
+              color: "var(--muted-foreground)",
+              fontWeight: 600,
+              marginTop: 2,
+            }}
+          >
+            AI teammates
+          </span>
         </span>
-      </span>
-    </a>
+      </a>
+    </>
   );
 }
 
