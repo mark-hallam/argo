@@ -5,7 +5,7 @@
 //! routing gates, accept loop) and is called in order from `start`.
 //! No behavior change versus the inline form.
 
-use super::boot::{open_store, AbortOnDrop};
+use super::boot::{open_store, set_learning_registry, AbortOnDrop};
 use super::boot_helpers::StartupPhases;
 use super::boot_router::{self, ConnectionCtx};
 use super::boot_spawns::{
@@ -152,7 +152,7 @@ pub(super) struct BgGuards {
     _cu_screenshot_sweep: Option<AbortOnDrop>,
     _audit_watchdog: Option<AbortOnDrop>,
     _forge_cron: Option<AbortOnDrop>,
-    _skill_learning_crons: Option<AbortOnDrop>,
+    _skill_learning_registry: Option<Arc<argo_skill::WorkerLearningRegistry>>,
     _siem_dispatcher: Option<AbortOnDrop>,
     _mcp_health: Option<HealthCheckGuard>,
     _worker_supervisor: Arc<WorkerSupervisor>,
@@ -174,7 +174,7 @@ pub(super) fn spawn_bg_tasks(
         _audit_watchdog: bg_store.map(|s| spawn_audit_watchdog(Arc::clone(s))),
         _forge_cron: bg_store
             .map(|s| AbortOnDrop::new(spawn_forge_cron(Arc::clone(s), ForgeCronConfig::from_env()))),
-        _skill_learning_crons: bg_store.and_then(|s| spawn_skill_learning(s, cfg)),
+        _skill_learning_registry: bg_store.and_then(|s| spawn_skill_learning(s, cfg)),
         _siem_dispatcher: bg_store.and_then(|s| {
             let cfg = ArgoConfig::load(&cwd_for_store.join("argo.toml")).unwrap_or_default();
             spawn_siem_from_config(Arc::clone(s), &cfg.siem)
@@ -184,43 +184,109 @@ pub(super) fn spawn_bg_tasks(
     }
 }
 
-#[rustfmt::skip]
-fn spawn_skill_learning(s: &Arc<SessionStore>, cfg: &ArgoConfig) -> Option<AbortOnDrop> {
+/// Boot-time entry point for the per-worker skill-learning cron. When
+/// `[skill_learning].enabled = true` (default), constructs a
+/// [`argo_skill::WorkerLearningRegistry`], installs it as the
+/// process-global so per-request worker-hire handlers can enroll
+/// post-boot workers, then asynchronously enumerates existing
+/// (non-archived) workers and enrolls each one through the registry.
+/// Returns the registry for `BgGuards` to retain — dropping it on
+/// shutdown aborts every per-worker tokio task it spawned.
+///
+/// Pre-`mission-audit-skill-learning-dynamic-enroll`, this function
+/// spawned crons inline through `argo_skill::spawn_per_worker_learning_cron`
+/// and held the handles in a single `AbortOnDrop`. Post-brief, the
+/// registry is the single source of truth for "which workers have a
+/// learning handle" and is shared between the boot enumerator and
+/// the hire HTTP path.
+fn spawn_skill_learning(
+    s: &Arc<SessionStore>,
+    cfg: &ArgoConfig,
+) -> Option<Arc<argo_skill::WorkerLearningRegistry>> {
     let learning_cfg = cfg.skill_learning.clone();
-    if !learning_cfg.enabled { eprintln!("argo gateway: skill learning cron disabled by config"); return None; }
-    let store = Arc::clone(s);
-    Some(AbortOnDrop::new(tokio::spawn(async move {
-        let tenant_filter = match learning_cfg.tenant_filter.as_deref().map(uuid::Uuid::parse_str).transpose() {
-            Ok(v) => v.map(TenantId),
-            Err(e) => { eprintln!("argo gateway: invalid [skill_learning].tenant_filter ({e}); skipping cron"); return; }
-        };
-        let rows = match tenant_filter {
-            Some(t) => sqlx::query_as::<_, (String, String)>(
-                "SELECT id, tenant_id FROM worker WHERE tenant_id = ? AND archived_at IS NULL",
-            ).bind(t.to_string()).fetch_all(store.pool()).await,
-            None => sqlx::query_as::<_, (String, String)>(
-                "SELECT id, tenant_id FROM worker WHERE archived_at IS NULL",
-            ).fetch_all(store.pool()).await,
-        };
-        let rows = match rows { Ok(rows) => rows, Err(e) => {
-            tracing::warn!(target: "gateway::skill_learning", error = %e, "list workers failed; cron disabled"); return;
-        }};
-        let skills = Arc::new(argo_skill::SkillStore::new(Arc::clone(&store)));
-        let interval = Duration::from_secs(learning_cfg.interval_secs.max(1));
-        let mut handles = Vec::new();
-        for (worker_raw, tenant_raw) in rows {
-            let (Ok(worker), Ok(tenant)) =
-                (worker_raw.parse::<argo_store::WorkerId>(), uuid::Uuid::parse_str(&tenant_raw))
-            else { continue };
-            let tick_cfg = argo_skill::PerWorkerLearningConfig { tenant_id: Some(TenantId(tenant)), ..Default::default() };
-            handles.push(AbortOnDrop::new(argo_skill::spawn_per_worker_learning_cron(
-                worker, Arc::clone(&skills), tick_cfg, interval,
-            )));
+    if !learning_cfg.enabled {
+        eprintln!("argo gateway: skill learning cron disabled by config");
+        return None;
+    }
+    let tenant_filter = match learning_cfg
+        .tenant_filter
+        .as_deref()
+        .map(uuid::Uuid::parse_str)
+        .transpose()
+    {
+        Ok(v) => v.map(TenantId),
+        Err(e) => {
+            eprintln!("argo gateway: invalid [skill_learning].tenant_filter ({e}); skipping cron");
+            return None;
         }
-        eprintln!("argo gateway: skill learning cron enabled (workers={}, interval={}s)", handles.len(), interval.as_secs());
-        std::future::pending::<()>().await;
-        drop(handles);
-    })))
+    };
+    let skills = Arc::new(argo_skill::SkillStore::new(Arc::clone(s)));
+    let interval = Duration::from_secs(learning_cfg.interval_secs.max(1));
+    let registry = Arc::new(argo_skill::WorkerLearningRegistry::new(
+        skills,
+        argo_skill::PerWorkerLearningConfig::default(),
+        interval,
+    ));
+    set_learning_registry(Arc::clone(&registry));
+    tokio::spawn(enroll_boot_workers(
+        Arc::clone(s),
+        Arc::clone(&registry),
+        tenant_filter,
+        interval,
+    ));
+    Some(registry)
+}
+
+async fn enroll_boot_workers(
+    store: Arc<SessionStore>,
+    registry: Arc<argo_skill::WorkerLearningRegistry>,
+    tenant_filter: Option<TenantId>,
+    interval: Duration,
+) {
+    let rows = match tenant_filter {
+        Some(t) => {
+            sqlx::query_as::<_, (String, String)>(
+                "SELECT id, tenant_id FROM worker WHERE tenant_id = ? AND archived_at IS NULL",
+            )
+            .bind(t.to_string())
+            .fetch_all(store.pool())
+            .await
+        }
+        None => {
+            sqlx::query_as::<_, (String, String)>(
+                "SELECT id, tenant_id FROM worker WHERE archived_at IS NULL",
+            )
+            .fetch_all(store.pool())
+            .await
+        }
+    };
+    let rows = match rows {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::warn!(
+                target: "gateway::skill_learning",
+                error = %e,
+                "list workers failed; boot enrollment skipped",
+            );
+            return;
+        }
+    };
+    let mut enrolled = 0_usize;
+    for (worker_raw, tenant_raw) in rows {
+        let (Ok(worker), Ok(tenant)) = (
+            worker_raw.parse::<argo_store::WorkerId>(),
+            uuid::Uuid::parse_str(&tenant_raw),
+        ) else {
+            continue;
+        };
+        if registry.enroll(worker, TenantId(tenant)) {
+            enrolled += 1;
+        }
+    }
+    eprintln!(
+        "argo gateway: skill learning cron enabled (workers={enrolled}, interval={}s)",
+        interval.as_secs()
+    );
 }
 
 /// PID file management: refuse to start if a live process already

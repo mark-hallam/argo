@@ -67,7 +67,7 @@ pub use prompt::compose_system_prompt;
 pub use roster::{Roster, RosterId, RosterStore};
 pub use roster_policy_override::RosterPolicyOverride;
 pub use roster_store::RosterAssignment;
-pub use store::IdentityStore;
+pub use store::{IdentityStore, LearningEnrollFn};
 pub use store_hire::{ApprovalPolicyChoice, HireDraft, HireDutyDraft};
 pub use tenant::{Tenant, TenantStatus};
 pub use tenant_provision::{provision_for_user, ProvisionOutcome, ProvisionRequest};

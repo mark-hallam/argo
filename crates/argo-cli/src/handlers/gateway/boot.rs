@@ -3,10 +3,12 @@
 //! that file under the 500-LOC ceiling.
 
 use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_skill::WorkerLearningRegistry;
 use argo_store::SessionStore;
 use argo_telemetry::span_context::{enter_context, LogContext};
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
+use std::sync::{Arc, OnceLock};
 use tokio::task::JoinHandle;
 
 #[cfg(test)]
@@ -14,6 +16,37 @@ use super::boot_helpers::check_bind_loopback;
 use super::boot_router::ConnectionCtx;
 use super::lifecycle::{pid_is_alive, signal_term};
 use super::shutdown::ShutdownController;
+
+/// Process-global per-worker skill-learning registry, populated by
+/// [`super::boot_serve::spawn_bg_tasks`] when `[skill_learning].enabled`
+/// is true. Per-request worker-hire handlers read this to attach an
+/// enrollment hook to [`argo_identity::IdentityStore`] so newly-hired
+/// workers join the learning cron without waiting for a gateway
+/// restart (Stream `mission-audit-skill-learning-dynamic-enroll`).
+///
+/// `OnceLock` semantics fit the lifecycle: boot installs at most one
+/// registry, request paths read it, process exit drops it. Tests must
+/// not call [`set_learning_registry`] — they construct registries
+/// directly and pass them through `IdentityStore::with_learning_enroll`
+/// to avoid leaking state across the parallel test runner.
+static LEARNING_REGISTRY: OnceLock<Arc<WorkerLearningRegistry>> = OnceLock::new();
+
+/// Install the process-global per-worker learning registry. Called
+/// once during gateway boot; subsequent calls are silently ignored
+/// (the first install wins).
+pub(super) fn set_learning_registry(registry: Arc<WorkerLearningRegistry>) {
+    let _ = LEARNING_REGISTRY.set(registry);
+}
+
+/// Borrow the process-global per-worker learning registry, if the
+/// gateway has installed one. Request paths (e.g. the hire HTTP
+/// handler) call this and attach the closure to
+/// [`argo_identity::IdentityStore::with_learning_enroll`] so the
+/// freshly-committed worker is enrolled in the cron.
+#[must_use]
+pub fn learning_registry() -> Option<Arc<WorkerLearningRegistry>> {
+    LEARNING_REGISTRY.get().cloned()
+}
 
 pub(super) struct AbortOnDrop {
     handle: JoinHandle<()>,

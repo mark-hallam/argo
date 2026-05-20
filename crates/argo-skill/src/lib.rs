@@ -41,6 +41,7 @@ pub mod pack_lint;
 mod pack_lint_checks;
 mod parse;
 pub mod per_worker_learning_cron;
+pub mod per_worker_learning_registry;
 pub mod publish;
 pub mod quality;
 pub mod regression;
@@ -132,6 +133,7 @@ pub use per_worker_learning_cron::{
     per_worker_learning_tick, per_worker_learning_tick_with_config, spawn_per_worker_learning_cron,
     PerWorkerLearningConfig, PerWorkerLearningReport,
 };
+pub use per_worker_learning_registry::{enroll_worker, WorkerLearningRegistry};
 pub use publish::{
     list_mock_skill_tags, mock_registry_root, publish_mock_skill, unpublish_mock_skill_tag,
     SkillPublishRecord, SkillPublishSource, SkillTag, SkillUnpublishRecord,

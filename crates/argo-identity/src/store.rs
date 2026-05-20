@@ -10,7 +10,22 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::Utc;
 use sqlx::Row;
+use std::sync::Arc;
 use uuid::Uuid;
+
+/// Hook invoked from [`IdentityStore::create_worker`] after a worker
+/// row is committed, used to enroll the new worker in the per-worker
+/// skill-learning cron registry (Stream
+/// `mission-audit-skill-learning-dynamic-enroll`).
+///
+/// `argo-identity` owns the type alias to keep the hook decoupled from
+/// `argo-skill`. The gateway-boot wiring binds an
+/// `Arc<argo_skill::WorkerLearningRegistry>` into a closure of this
+/// shape and attaches it via
+/// [`IdentityStore::with_learning_enroll`]; tests + CLI paths that
+/// construct an [`IdentityStore`] without learning context leave the
+/// field unset (no enrollment fires).
+pub type LearningEnrollFn = Arc<dyn Fn(WorkerId, TenantId) + Send + Sync>;
 
 /// SQLite-backed persistence for worker identities.
 ///
@@ -30,6 +45,7 @@ use uuid::Uuid;
 /// ```
 pub struct IdentityStore<'a> {
     pub(crate) store: &'a SessionStore,
+    learning_enroll: Option<LearningEnrollFn>,
 }
 
 impl<'a> IdentityStore<'a> {
@@ -45,7 +61,27 @@ impl<'a> IdentityStore<'a> {
     /// ```
     #[must_use]
     pub fn new(store: &'a SessionStore) -> Self {
-        Self { store }
+        Self {
+            store,
+            learning_enroll: None,
+        }
+    }
+
+    /// Attach a per-worker skill-learning enrollment hook. The hook
+    /// fires from [`Self::create_worker`] after the worker row is
+    /// committed (Stream
+    /// `mission-audit-skill-learning-dynamic-enroll`).
+    ///
+    /// Idempotency and double-spawn protection live inside the hook
+    /// itself (`argo_skill::WorkerLearningRegistry::enroll`), so the
+    /// caller is free to wire the same registry into many
+    /// `IdentityStore` instances. Test paths that do not wire a
+    /// registry simply never call `with_learning_enroll`, and
+    /// `create_worker` skips the enrollment step.
+    #[must_use]
+    pub fn with_learning_enroll(mut self, enroll: LearningEnrollFn) -> Self {
+        self.learning_enroll = Some(enroll);
+        self
     }
 
     /// Create identity tables if they are missing.
@@ -177,6 +213,9 @@ impl<'a> IdentityStore<'a> {
         tx.commit()
             .await
             .map_err(|e| ArgoError::Provider(format!("identity commit: {e}")))?;
+        if let Some(enroll) = self.learning_enroll.as_ref() {
+            enroll(worker.id, worker.tenant_id);
+        }
         Ok(())
     }
 

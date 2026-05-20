@@ -25,11 +25,13 @@
 //!   `mission-enterprise-tenant-worker-quota` for the real limit.
 
 use super::body_from_request;
+use super::boot::learning_registry;
 use super::routes_auth_principal::principal_id_for_audit;
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{HireDraft, IdentityStore, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
+use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -98,7 +100,7 @@ pub(super) async fn hire_response(
         }
     }
 
-    let identities = IdentityStore::new(store);
+    let identities = attach_learning_enroll(IdentityStore::new(store));
     let new_id = match identities
         .create_worker_from_draft(&draft, tenant_id, &principal_id)
         .await
@@ -130,6 +132,22 @@ pub(super) async fn hire_response(
         })
         .to_string(),
     )
+}
+
+/// Attach the per-worker skill-learning registry to a freshly-built
+/// [`IdentityStore`] if the gateway boot path installed one. New
+/// workers committed through this `IdentityStore` are enrolled in
+/// the per-worker learning cron synchronously after the worker row
+/// commits (Stream `mission-audit-skill-learning-dynamic-enroll`).
+/// When the gateway runs with `[skill_learning].enabled = false`,
+/// `learning_registry()` returns `None` and this is a no-op.
+fn attach_learning_enroll(identities: IdentityStore<'_>) -> IdentityStore<'_> {
+    match learning_registry() {
+        Some(registry) => identities.with_learning_enroll(Arc::new(move |worker_id, tenant_id| {
+            registry.enroll(worker_id, tenant_id);
+        })),
+        None => identities,
+    }
 }
 
 async fn resolve_tenant_principal(
