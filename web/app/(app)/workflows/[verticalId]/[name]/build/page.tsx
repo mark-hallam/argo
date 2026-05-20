@@ -13,7 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -33,6 +33,11 @@ import { getTemplate } from "@/lib/workflow-templates";
 
 import TriggerConfigDrawer from "@/components/workflows/triggers/TriggerConfigDrawer";
 import type { TriggerConfig, TriggerKind } from "@/components/workflows/triggers/types";
+import { WorkflowBuilderSkeleton } from "@/components/skycot/workflows/WorkflowBuilderSkeleton";
+import {
+  WorkflowBuilderEmptyState,
+  WorkflowBuilderErrorState,
+} from "@/components/skycot/workflows/WorkflowEdgeStates";
 
 /**
  * Class-leading visual workflow builder — `/workflows/<v>/<name>/build`.
@@ -256,7 +261,7 @@ export default function WorkflowBuilderPage({
   params: Promise<{ verticalId: string; name: string }>;
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 48, color: "var(--muted-foreground)" }}>Loading builder…</div>}>
+    <Suspense fallback={<WorkflowBuilderSkeleton />}>
       <BuilderInner params={params} />
     </Suspense>
   );
@@ -268,8 +273,16 @@ function BuilderInner({
   params: Promise<{ verticalId: string; name: string }>;
 }) {
   const { verticalId, name } = use(params);
+  const router = useRouter();
+  const pathname = usePathname() ?? `/workflows/${verticalId}/${name}/build`;
   const searchParams = useSearchParams();
   const templateId = searchParams.get("from_template");
+  // `?state=loading|error|empty` is the gateway-fetch-state simulator
+  // (real fetch wires in via PR #1860 routes follow-up). It exists so
+  // tests + dev/screenshot flows can land each branch without standing
+  // up a flaky backend. Empty also fires naturally when the live
+  // workflow has zero steps.
+  const stateFlag = searchParams.get("state");
   const workflow = useMemo<WorkflowSpec | undefined>(() => {
     if (templateId) {
       const tpl = getTemplate(templateId);
@@ -287,6 +300,13 @@ function BuilderInner({
     return SEED_WORKFLOWS[`${verticalId}/${name}`];
   }, [templateId, verticalId, name]);
   const initial = useMemo(() => (workflow ? stepsToFlow(workflow.steps) : { nodes: [], edges: [] }), [workflow]);
+
+  const resetState = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("state");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [router, pathname, searchParams]);
 
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [promptText, setPromptText] = useState("");
@@ -320,11 +340,31 @@ function BuilderInner({
 
   const nodeTypes = useMemo(() => ({ skycot: SkycotStepNode }), []);
 
+  if (stateFlag === "loading") {
+    return <WorkflowBuilderSkeleton />;
+  }
+
+  if (stateFlag === "error") {
+    return <WorkflowBuilderErrorState onRetry={resetState} />;
+  }
+
   if (!workflow) {
     return (
       <div style={{ padding: 48, textAlign: "center", color: "var(--muted-foreground)" }}>
         Workflow not found. Try one from <Link href="/workflows" style={{ color: "#8b5cf6" }}>the catalog</Link>.
       </div>
+    );
+  }
+
+  if (workflow.steps.length === 0 || stateFlag === "empty") {
+    return (
+      <WorkflowBuilderEmptyState
+        onAddStep={() => {
+          toast.info("Add-step palette opens in the live builder", {
+            description: "Connect the gateway to add real steps.",
+          });
+        }}
+      />
     );
   }
 

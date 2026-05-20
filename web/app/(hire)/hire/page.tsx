@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo } from "react";
 import { WizardEditorialShell } from "@/components/auth/WizardEditorialShell";
+import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
+import { WizardErrorState } from "@/components/auth/WizardErrorState";
 import { Step1Land } from "@/components/skycot/hire/Step1Land";
 import { findExampleRoleById } from "@/lib/hire/examples";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
@@ -22,7 +24,7 @@ import { useStep1 } from "@/lib/hire/use-step1";
  */
 export default function HireLandingPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<WizardSkeleton step={1} />}>
       <HireLandingContent />
     </Suspense>
   );
@@ -67,6 +69,20 @@ function HireLandingContent() {
       draft.state?.problem ||
       (draft.state?.answers && Object.keys(draft.state.answers).length > 0),
   );
+
+  if (draft.isLoading) {
+    return <WizardSkeleton step={1} />;
+  }
+
+  if (draft.error) {
+    return (
+      <WizardErrorState
+        variant="draft-hydration"
+        errorMessage={draft.error.message}
+        onReset={() => void draft.clear()}
+      />
+    );
+  }
 
   return (
     <WizardEditorialShell

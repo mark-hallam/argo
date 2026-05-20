@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { use } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, use, useCallback } from "react";
 import {
   ArrowLeft,
   GitBranch,
@@ -13,6 +14,8 @@ import {
   Sparkles,
   Database,
 } from "lucide-react";
+import { WorkflowViewerSkeleton } from "@/components/skycot/workflows/WorkflowViewerSkeleton";
+import { WorkflowViewerErrorState } from "@/components/skycot/workflows/WorkflowEdgeStates";
 
 /**
  * Visual workflow detail viewer — `/workflows/<v>/<name>`.
@@ -428,9 +431,43 @@ export default function WorkflowDetailPage({
 }: {
   params: Promise<{ verticalId: string; name: string }>;
 }) {
+  return (
+    <Suspense fallback={<WorkflowViewerSkeleton />}>
+      <ViewerInner params={params} />
+    </Suspense>
+  );
+}
+
+function ViewerInner({
+  params,
+}: {
+  params: Promise<{ verticalId: string; name: string }>;
+}) {
   const { verticalId, name } = use(params);
+  const router = useRouter();
+  const pathname = usePathname() ?? `/workflows/${verticalId}/${name}`;
+  const searchParams = useSearchParams();
+  // Gateway-fetch-state simulator. See sibling /build page for the
+  // rationale: real fetch lands in a follow-up PR; this lets each
+  // branch be reached via URL flag for tests + screenshots.
+  const stateFlag = searchParams?.get("state") ?? null;
   const key = `${verticalId}/${name}`;
   const workflow = SEED_WORKFLOWS[key];
+
+  const resetState = useCallback(() => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("state");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [router, pathname, searchParams]);
+
+  if (stateFlag === "loading") {
+    return <WorkflowViewerSkeleton />;
+  }
+
+  if (stateFlag === "error") {
+    return <WorkflowViewerErrorState onRetry={resetState} />;
+  }
 
   if (!workflow) {
     return (

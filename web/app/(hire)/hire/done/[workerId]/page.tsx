@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useEffect, useState } from "react";
 import { WizardEditorialShell } from "@/components/auth/WizardEditorialShell";
+import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
+import { WizardErrorState } from "@/components/auth/WizardErrorState";
 import { CelebrationOverlay } from "@/components/skycot/hire/CelebrationOverlay";
 import { setCelebration } from "@/lib/hire/celebration-storage";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
@@ -32,7 +34,7 @@ export default function HireDonePage({
 }) {
   const { workerId } = use(params);
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<WizardSkeleton step={6} />}>
       <HireDoneContent workerId={workerId} />
     </Suspense>
   );
@@ -48,6 +50,7 @@ function HireDoneContent({ workerId }: { workerId: string }) {
 
   useEffect(() => {
     if (draft.isLoading) return;
+    if (draft.error) return;
     const name =
       draft.state?.workerDraft?.suggestedName ??
       nameFromQuery ??
@@ -61,7 +64,24 @@ function HireDoneContent({ workerId }: { workerId: string }) {
     }, REDIRECT_MS);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workerId, isInert, draft.isLoading]);
+  }, [workerId, isInert, draft.isLoading, draft.error]);
+
+  if (draft.isLoading) {
+    return <WizardSkeleton step={6} />;
+  }
+
+  if (draft.error) {
+    return (
+      <WizardErrorState
+        variant="worker-fetch"
+        errorMessage={draft.error.message}
+        onReset={() => {
+          void draft.clear();
+          router.replace("/team");
+        }}
+      />
+    );
+  }
 
   return (
     <WizardEditorialShell

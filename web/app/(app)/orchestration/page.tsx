@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { Loader2 } from "lucide-react";
 import { QueueTable } from "@/components/skycot/orch/QueueTable";
 import { SlaCard } from "@/components/skycot/orch/SlaCard";
+import { OrchestrationEmptyState } from "@/components/skycot/workflows/WorkflowEdgeStates";
 import { useToast } from "@/lib/ui/use-toast";
 import {
   EMPTY_ORCHESTRATION_FILTERS,
@@ -81,7 +82,8 @@ export default function OrchestrationPage() {
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6 lg:px-8" data-testid="orchestration-page">
         {error ? <ErrorState message={error} /> : null}
         {!data && !error ? <LoadingState /> : null}
-        {data ? (
+        {data && runs.length === 0 ? <OrchestrationEmptyState /> : null}
+        {data && runs.length > 0 ? (
           <>
             <SlaCard summary={summary} />
             <div className="overflow-x-auto">

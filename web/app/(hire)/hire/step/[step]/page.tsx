@@ -3,6 +3,8 @@
 import { notFound, useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { WizardEditorialShell, type WizardStep } from "@/components/auth/WizardEditorialShell";
+import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
+import { WizardErrorState } from "@/components/auth/WizardErrorState";
 import { Step2Listen } from "@/components/skycot/hire/Step2Listen";
 import { Step3Drafting } from "@/components/skycot/hire/Step3Drafting";
 import { Step4Introduce } from "@/components/skycot/hire/Step4Introduce";
@@ -261,6 +263,23 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
 
   const activeStep: Step = step;
   const copy = STEP_COPY[activeStep];
+
+  if (draft.isLoading) {
+    return <WizardSkeleton step={activeStep as WizardStep} />;
+  }
+
+  if (draft.error) {
+    return (
+      <WizardErrorState
+        variant="draft-hydration"
+        errorMessage={draft.error.message}
+        onReset={() => {
+          void draft.clear();
+          router.replace("/hire");
+        }}
+      />
+    );
+  }
 
   function goNext() {
     if (activeStep === 2) {
