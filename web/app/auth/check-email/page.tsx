@@ -2,14 +2,33 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/Button";
 import { useSignup } from "@/lib/auth/use-signup";
+import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
 
+/**
+ * Check-email page — locked editorial-A design (2026-05-18 design lock).
+ *
+ * Post-signup confirmation. User has been told to check their inbox.
+ * Includes a "Resend the link" affordance to handle the most common
+ * support ticket (didn't get the email).
+ */
 export default function CheckEmailPage() {
   return (
-    <Suspense fallback={<Scaffold>Loading…</Scaffold>}>
+    <Suspense fallback={<CheckEmailScaffold>Loading…</CheckEmailScaffold>}>
       <CheckEmailInner />
     </Suspense>
+  );
+}
+
+function CheckEmailScaffold({ children }: { children?: React.ReactNode }) {
+  return (
+    <AuthEditorialShell
+      topRightLabel="Wrong email?"
+      topRightHref="/auth/signup"
+      topRightCta="Try again"
+    >
+      {children}
+    </AuthEditorialShell>
   );
 }
 
@@ -29,50 +48,58 @@ function CheckEmailInner() {
   const resendError = state.kind === "error" ? state.message : null;
 
   return (
-    <Scaffold>
-      <h1 className="text-lg font-semibold text-[var(--foreground)]">Check your inbox</h1>
-      <p className="text-sm text-[var(--muted-foreground)]">
-        We sent a magic sign-in link
-        {email ? <> to <span className="text-[var(--foreground)] font-medium">{email}</span></> : null}
-        . It expires in 15 minutes.
-      </p>
-      <div className="space-y-2">
-        <Button
-          type="button"
-          variant="secondary"
-          size="md"
-          className="w-full"
-          loading={pending}
-          disabled={pending || !email}
-          onClick={onResend}
-          data-testid="check-email-resend"
-        >
-          {pending ? "Sending…" : "Resend the link"}
-        </Button>
-        {resentAt ? (
-          <p role="status" className="text-xs text-[var(--muted-foreground)]" data-testid="check-email-resent">
-            Sent again just now.
-          </p>
-        ) : null}
-        {resendError ? (
-          <p role="alert" className="text-xs text-[var(--destructive)]" data-testid="check-email-error">
-            {resendError}
-          </p>
-        ) : null}
+    <CheckEmailScaffold>
+      <div className="eyebrow">
+        <span className="eyebrow-dot" />
+        MAGIC LINK SENT
       </div>
-    </Scaffold>
-  );
-}
 
-function Scaffold({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
-      <div
-        className="w-full max-w-sm space-y-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm"
-        data-testid="check-email-card"
+      <h1 className="hero hero-small">
+        Check your
+        <br />
+        <strong>inbox</strong>.
+      </h1>
+
+      <p className="sub">
+        We&apos;ve emailed a one-tap sign-in link
+        {email ? (
+          <>
+            {" "}to <span className="emphasis">{email}</span>
+          </>
+        ) : null}
+        . It expires in <span className="emphasis">15 minutes</span>.
+      </p>
+
+      <button
+        type="button"
+        className="cta cta-secondary"
+        disabled={pending || !email}
+        onClick={onResend}
+        data-testid="check-email-resend"
       >
-        {children}
+        {pending ? "Sending…" : "Resend the link"}
+      </button>
+
+      {resentAt ? (
+        <p role="status" className="below-form" data-testid="check-email-resent">
+          ✓ Sent again just now.
+        </p>
+      ) : null}
+      {resendError ? (
+        <p
+          role="alert"
+          className="form-error"
+          style={{ marginTop: 12, textAlign: "center" }}
+          data-testid="check-email-error"
+        >
+          {resendError}
+        </p>
+      ) : null}
+
+      <div className="trouble">
+        Didn&apos;t get the email? Check spam, or{" "}
+        <a href="mailto:support@skycot.com">contact support</a>.
       </div>
-    </main>
+    </CheckEmailScaffold>
   );
 }

@@ -1,119 +1,108 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/Button";
+import Link from "next/link";
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useSignup } from "@/lib/auth/use-signup";
+import { AuthEditorialShell, AuthSsoButtons } from "@/components/auth/AuthEditorialShell";
 
+/**
+ * Signin page — locked editorial-A design (2026-05-18 design lock).
+ *
+ * Returning customers re-request a magic link by email. Same backend
+ * flow as signup (gateway is idempotent on (email, tenant) — new
+ * workspaces are created on first send; existing workspaces match).
+ * Distinction is in copy + the "WELCOME BACK" eyebrow.
+ *
+ * The bearer-token developer auth path lives at `/auth/dev` (separate
+ * surface). Customers never see "bearer token" terminology.
+ */
 export default function SignInPage() {
-  return (
-    <Suspense fallback={<SignInScaffold />}>
-      <SignInForm />
-    </Suspense>
-  );
-}
-
-function SignInForm() {
   const router = useRouter();
-  const search = useSearchParams();
-  const from = search?.get("from") ?? "/";
-  const [token, setToken] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const { state, submit } = useSignup();
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    if (state.kind === "sent") {
+      router.replace(`/auth/check-email?email=${encodeURIComponent(state.email)}`);
+    }
+  }, [state, router]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setPending(true);
-    try {
-      const result = await signIn("gateway-bearer", {
-        token,
-        redirect: false,
-      });
-      if (!result || result.error) {
-        setError("That token wasn't accepted by the gateway. Check it and try again.");
-        return;
-      }
-      router.replace(from);
-      router.refresh();
-    } catch {
-      setError("Couldn't reach the gateway. Confirm it's running and try again.");
-    } finally {
-      setPending(false);
-    }
+    await submit({ email });
   }
 
+  const pending = state.kind === "submitting";
+  const error = state.kind === "error" ? state.message : null;
+
   return (
-    <SignInScaffold>
-      <form className="space-y-4" onSubmit={onSubmit}>
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-            Bearer token
-          </span>
+    <AuthEditorialShell
+      topRightLabel="New to SKYCOT?"
+      topRightHref="/auth/signup"
+      topRightCta="Create an account"
+    >
+      <div className="eyebrow">
+        <span className="eyebrow-dot" />
+        WELCOME BACK
+      </div>
+
+      <h1 className="hero">
+        Sign in to
+        <br />
+        <strong>SKYCOT</strong>.
+      </h1>
+
+      <p className="sub">Pick how you want to sign in. We&apos;ll get you back to your team in a moment.</p>
+
+      <AuthSsoButtons />
+
+      <div className="divider">
+        <span className="divider-lbl">OR WITH EMAIL</span>
+      </div>
+
+      <form onSubmit={onSubmit} noValidate data-testid="signin-form">
+        <div className="field-block">
+          <div className="field-label">Work email</div>
           <input
-            type="password"
-            autoComplete="off"
+            type="email"
+            name="email"
+            autoComplete="email"
             required
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="Paste your gateway bearer token"
-            className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)] text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            data-testid="signin-token"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={state.kind === "error" || undefined}
+            aria-describedby={error ? "signin-error" : undefined}
+            placeholder="you@yourcompany.com"
+            className="field-input"
+            data-testid="signin-email"
+            autoFocus
           />
-        </label>
+        </div>
         {error ? (
-          <p role="alert" className="text-sm text-[var(--destructive)]">
+          <p id="signin-error" role="alert" className="form-error">
             {error}
           </p>
         ) : null}
-        <Button
+        <button
           type="submit"
-          variant="primary"
-          size="md"
-          className="w-full"
-          disabled={pending || token.trim().length === 0}
+          className="cta"
+          disabled={pending || email.trim().length === 0}
           data-testid="signin-submit"
         >
-          {pending ? (
-            <>
-              <Loader2 className="size-4 animate-spin" /> Signing in…
-            </>
-          ) : (
-            "Sign in"
-          )}
-        </Button>
+          {pending ? "Sending sign-in link…" : "Send sign-in link"}
+          {pending ? null : <span className="kbd">↵</span>}
+        </button>
       </form>
-    </SignInScaffold>
-  );
-}
 
-function SignInScaffold({ children }: { children?: React.ReactNode }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
-      <div className="w-full max-w-sm space-y-6 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <span
-            aria-hidden
-            className="grid size-8 place-items-center rounded-[var(--radius-md)] bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold text-sm shadow-sm"
-          >
-            S
-          </span>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold text-[var(--foreground)]">SKYCOT</span>
-            <span className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
-              AI teammates
-            </span>
-          </div>
-        </div>
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-[var(--foreground)]">Sign in to SKYCOT</h1>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            Use the bearer token issued by your gateway operator.
-          </p>
-        </div>
-        {children}
+      <p className="below-form">
+        We&apos;ll email you a one-tap sign-in link. No password to remember.
+      </p>
+
+      <div className="trouble">
+        Trouble signing in? <Link href="/support">Get help</Link> or{" "}
+        <a href="mailto:support@skycot.com">contact support</a>
       </div>
-    </div>
+    </AuthEditorialShell>
   );
 }

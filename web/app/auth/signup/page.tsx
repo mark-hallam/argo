@@ -1,11 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
 import { useSignup } from "@/lib/auth/use-signup";
+import { AuthEditorialShell, AuthSsoButtons } from "@/components/auth/AuthEditorialShell";
 
+/**
+ * Signup page — locked editorial-A design (2026-05-18 design lock).
+ *
+ * Customer-facing magic-link entry. Three SSO buttons are rendered as
+ * "v1.x" coming-soon placeholders so enterprise prospects see the
+ * roadmap without us having to wire OAuth providers in v1.0.
+ */
 export default function SignupPage() {
   const router = useRouter();
   const { state, submit } = useSignup();
@@ -26,62 +32,71 @@ export default function SignupPage() {
   const error = state.kind === "error" ? state.message : null;
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
-      <div className="w-full max-w-sm space-y-6 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-[var(--foreground)]">
-            Create your SKYCOT workspace
-          </h1>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            We&apos;ll email you a sign-in link. No password.
-          </p>
-        </div>
-        <form className="space-y-4" onSubmit={onSubmit} noValidate data-testid="signup-form">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-              Work email
-            </span>
-            <input
-              type="email"
-              name="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={state.kind === "error" || undefined}
-              aria-describedby={error ? "signup-error" : undefined}
-              placeholder="you@company.com"
-              className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)] text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              data-testid="signup-email"
-            />
-          </label>
-          {error ? (
-            <p id="signup-error" role="alert" className="text-sm text-[var(--destructive)]">
-              {error}
-            </p>
-          ) : null}
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            className="w-full"
-            loading={pending}
-            disabled={pending || email.trim().length === 0}
-            data-testid="signup-submit"
-          >
-            {pending ? "Sending magic link…" : "Send magic link"}
-          </Button>
-        </form>
-        <p className="text-xs text-[var(--muted-foreground)] text-center">
-          Already have an account?{" "}
-          <Link
-            href="/auth/signin"
-            className="text-[var(--primary)] underline-offset-4 hover:underline"
-          >
-            Sign in
-          </Link>
-        </p>
+    <AuthEditorialShell
+      topRightLabel="Already have an account?"
+      topRightHref="/auth/signin"
+      topRightCta="Sign in"
+    >
+      <div className="eyebrow">
+        <span className="eyebrow-dot" />
+        START YOUR FREE TRIAL
       </div>
-    </main>
+
+      <h1 className="hero">
+        Hire your first
+        <br />
+        <strong>AI teammate</strong>.
+      </h1>
+
+      <p className="sub">
+        In <span className="emphasis">four minutes</span>, you&apos;ll set up your workspace,
+        link a provider, and have a teammate working alongside you.{" "}
+        <span className="emphasis">No credit card</span> required.
+      </p>
+
+      <AuthSsoButtons />
+
+      <div className="divider">
+        <span className="divider-lbl">OR WITH EMAIL</span>
+      </div>
+
+      <form onSubmit={onSubmit} noValidate data-testid="signup-form">
+        <div className="field-block">
+          <div className="field-label">Work email</div>
+          <input
+            type="email"
+            name="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={state.kind === "error" || undefined}
+            aria-describedby={error ? "signup-error" : undefined}
+            placeholder="you@yourcompany.com"
+            className="field-input"
+            data-testid="signup-email"
+            autoFocus
+          />
+        </div>
+        {error ? (
+          <p id="signup-error" role="alert" className="form-error">
+            {error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          className="cta"
+          disabled={pending || email.trim().length === 0}
+          data-testid="signup-submit"
+        >
+          {pending ? "Sending magic link…" : "Send magic link"}
+          {pending ? null : <span className="kbd">↵</span>}
+        </button>
+      </form>
+
+      <p className="below-form">
+        We&apos;ll email you a one-tap sign-in link. No password to remember.
+      </p>
+    </AuthEditorialShell>
   );
 }
