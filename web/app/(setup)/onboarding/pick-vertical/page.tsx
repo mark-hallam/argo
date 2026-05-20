@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
+import { OnboardingShell } from "../_OnboardingShell";
 
 interface VerticalCard {
   id: string;
@@ -96,71 +97,81 @@ export default function OnboardingPickVerticalPage() {
   }
 
   return (
-    <section className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header className="space-y-2 text-center">
-        <p className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-          Step 4 of 5
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Pick a starting template</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          We install the skills, memory schema, and approval gates. You can swap or extend later.
-        </p>
-      </header>
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="onboarding-vertical-grid">
-        {VERTICALS.map((v) => {
-          const isSelected = selected === v.id;
-          return (
-            <li key={v.id}>
-              <button
-                type="button"
-                onClick={() => onChoose(v.id)}
-                disabled={busy}
-                aria-pressed={isSelected}
-                data-testid={`vertical-${v.id}`}
-                className={`flex h-full w-full flex-col gap-2 rounded-[var(--radius-md)] border p-4 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-wait ${
-                  isSelected
-                    ? "border-[var(--primary)] bg-[var(--primary)]/5 ring-1 ring-[var(--primary)]"
-                    : "border-[var(--border)] bg-[var(--card)]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold">{v.displayName}</span>
-                  {isSelected ? (
-                    <Check className="size-4 text-[var(--primary)]" aria-hidden />
-                  ) : null}
-                </div>
-                <p className="text-sm text-[var(--muted-foreground)]">{v.summary}</p>
-                <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
-                  {v.skillCount} skills
-                </p>
-                <ul className="mt-1 space-y-0.5 text-xs text-[var(--muted-foreground)]">
-                  {v.sampleDuties.map((d) => (
-                    <li key={d}>• {d}</li>
-                  ))}
-                </ul>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {error ? (
-        <p
-          className="rounded-[var(--radius-sm)] border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-3 py-2 text-xs text-[var(--warning-foreground)]"
-          data-testid="onboarding-vertical-error"
+    <OnboardingShell
+      step={4}
+      stepLabel="VERTICAL"
+      eyebrow="STEP FOUR"
+      heroSegments={[
+        { text: "Pick a " },
+        { text: "starting template.", accent: true },
+      ]}
+      sub={
+        <>
+          We install the <strong>skills, memory schema, and approval gates</strong>. You can swap or
+          extend later.
+        </>
+      }
+    >
+      <section className="mx-auto flex max-w-3xl flex-col gap-6">
+        <ul
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+          data-testid="onboarding-vertical-grid"
         >
-          {error}
-        </p>
-      ) : null}
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => router.push("/onboarding/connect-provider")}
-          data-testid="onboarding-vertical-back"
-        >
-          Back
-        </Button>
-      </div>
-    </section>
+          {VERTICALS.map((v) => {
+            const isSelected = selected === v.id;
+            return (
+              <li key={v.id}>
+                <button
+                  type="button"
+                  onClick={() => onChoose(v.id)}
+                  disabled={busy}
+                  aria-pressed={isSelected}
+                  data-testid={`vertical-${v.id}`}
+                  className={`flex h-full w-full flex-col gap-2 rounded-[12px] border p-4 text-left transition-colors hover:border-[#8b5cf6]/40 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 disabled:cursor-wait ${
+                    isSelected
+                      ? "border-[#8b5cf6] bg-white shadow-[0_8px_24px_-12px_rgba(139,92,246,0.35)] ring-1 ring-[#8b5cf6]"
+                      : "border-[#ece9f5] bg-white/70"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-semibold text-[#1e1b4b]">{v.displayName}</span>
+                    {isSelected ? (
+                      <Check className="size-4 text-[#8b5cf6]" aria-hidden />
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-[#3f3f46]">{v.summary}</p>
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717a]">
+                    {v.skillCount} skills
+                  </p>
+                  <ul className="mt-1 space-y-0.5 text-xs text-[#3f3f46]">
+                    {v.sampleDuties.map((d) => (
+                      <li key={d}>• {d}</li>
+                    ))}
+                  </ul>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {error ? (
+          <p
+            className="rounded-[8px] border border-[#fcd34d]/40 bg-[#fcd34d]/10 px-3 py-2 text-xs text-[#854d0e]"
+            data-testid="onboarding-vertical-error"
+          >
+            {error}
+          </p>
+        ) : null}
+        <div className="flex items-center justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.push("/onboarding/connect-provider")}
+            data-testid="onboarding-vertical-back"
+          >
+            Back
+          </Button>
+        </div>
+      </section>
+    </OnboardingShell>
   );
 }
