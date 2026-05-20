@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { AuthProvider } from "@/components/skycot/AuthProvider";
 import { CommandPaletteProvider } from "@/components/skycot/CommandPaletteProvider";
 import { QueryProvider } from "@/components/skycot/QueryProvider";
@@ -21,8 +23,21 @@ const mono = JetBrains_Mono({
   weight: ["400", "500", "600"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#8B5CF6",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://skycot.com"),
+  manifest: "/manifest.webmanifest",
+  applicationName: "SKYCOT",
+  appleWebApp: {
+    capable: true,
+    title: "SKYCOT",
+    statusBarStyle: "black-translucent",
+  },
   title: {
     default: "SKYCOT — Hire your first AI teammate",
     template: "%s · SKYCOT",
@@ -78,7 +93,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ThemeProvider>
               <CommandPaletteProvider>
                 <ErrorReportingInit />
+                <ServiceWorkerRegister />
                 {children}
+                <InstallPrompt />
               </CommandPaletteProvider>
             </ThemeProvider>
           </QueryProvider>
