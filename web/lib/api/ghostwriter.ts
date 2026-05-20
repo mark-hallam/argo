@@ -4,7 +4,7 @@
  * Backs the `/workers/<id>/skills/new` prompt-entry surface.
  * Mirrors the mock-fallback contract used by `skill-ir.ts`:
  *
- *   - `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → return a mock IR instantly.
+ *   - `ARGO_GATEWAY_AUTH_BYPASS=1` → return a mock IR instantly.
  *   - 404 / network error in dev → mock IR so the UI is still testable.
  *   - Strict production (`NODE_ENV === 'production'` AND
  *     `NEXT_PUBLIC_ENV === 'production'`) propagates all errors.
@@ -47,7 +47,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

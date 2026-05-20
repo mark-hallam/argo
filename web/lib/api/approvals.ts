@@ -21,7 +21,7 @@
  *   `source = "mock-offline"`.
  * - `TypeError` from `fetch` (connection refused / DNS failure) →
  *   same fallback.
- * - `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → skip all fetches, return
+ * - `ARGO_GATEWAY_AUTH_BYPASS=1` → skip all fetches, return
  *   mock, `source = "mock-auth-bypass"`.
  * - Any other `ApiError` (4xx/5xx) propagates and surfaces as the
  *   inbox's error state.
@@ -70,7 +70,7 @@ export type UndoResult = {
  * mutating `process.env`.
  */
 export function authBypassEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1";
+  return process.env.ARGO_GATEWAY_AUTH_BYPASS === "1";
 }
 
 function isMissingOrUnreachable(err: unknown): boolean {

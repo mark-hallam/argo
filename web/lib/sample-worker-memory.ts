@@ -2,7 +2,7 @@
  * Mock memory payloads for the 6 detailed sample workers
  * (`sample-workers-detail.ts`). Used when the gateway endpoint
  * `/api/v1/workers/<id>/memory` 404s in dev, when
- * `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1`, or when running the Memory
+ * `ARGO_GATEWAY_AUTH_BYPASS=1`, or when running the Memory
  * tab e2e against a worker whose backend endpoints haven't shipped.
  *
  * Enterprise-shaped: facts read like real policy / customer / vendor

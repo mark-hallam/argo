@@ -2,7 +2,7 @@
  * Mock overview payloads for the 6 detailed sample workers from
  * `sample-workers-detail.ts`. Used when the gateway endpoint
  * `/api/v1/workers/<id>/overview` returns 404 in dev (or when
- * `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1`).
+ * `ARGO_GATEWAY_AUTH_BYPASS=1`).
  *
  * Enterprise-flavored framing per the brief:
  *   - Charter speaks team-first ("Mariah helps the Procurement team")

@@ -4,7 +4,7 @@
  * Backs the L4 read-only canvas viewer. Mirrors the mock-fallback
  * contract used by `worker-skills.ts` / `worker-overview.ts`:
  *
- *   - `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → mock immediately.
+ *   - `ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately.
  *   - 404 / network error in dev → bundled sample IR.
  *   - Strict production (`NODE_ENV === 'production'` AND
  *     `NEXT_PUBLIC_ENV === 'production'`) propagates all errors.
@@ -64,7 +64,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

@@ -11,7 +11,7 @@
  *  - `deleteFact(workerId, factId)` → DELETE.
  *
  * Mirrors the 404→mock-fallback contract shared by `worker-overview`
- * and `worker-activity`: `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` short-
+ * and `worker-activity`: `ARGO_GATEWAY_AUTH_BYPASS=1` short-
  * circuits straight to the bundled sample, dev tolerates 404 /
  * network errors and falls back, and strict production (`NODE_ENV
  * === 'production'` AND `NEXT_PUBLIC_ENV === 'production'`)
@@ -112,7 +112,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

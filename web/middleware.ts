@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Auth gate. Unauth users hitting any non-`/auth/*` route are
  * redirected to `/auth/signin?from=<original-path>`.
  *
- * Dev bypass: setting `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` short-
+ * Dev bypass: setting `ARGO_GATEWAY_AUTH_BYPASS=1` short-
  * circuits the redirect, mirroring the gateway's
  * `ARGO_GATEWAY_AUTH_BYPASS=1` precedent. Hard-disabled in
  * production builds — the env var is ignored when
@@ -30,7 +30,7 @@ export function middleware(req: NextRequest) {
 
   if (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   ) {
     return NextResponse.next();
   }

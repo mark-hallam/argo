@@ -1,7 +1,7 @@
 /**
  * Bundled sample Skill IR — feeds the L4 canvas viewer when the
  * gateway endpoint (L4-gw) hasn't merged yet, when a 404 fires in
- * dev, or when the SPA runs with `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1`.
+ * dev, or when the SPA runs with `ARGO_GATEWAY_AUTH_BYPASS=1`.
  *
  * The "Recruiter screening" sample exercises all 9 NodeKinds so the
  * viewer's per-kind visual + annotations panel can be eyeballed

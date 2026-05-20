@@ -138,7 +138,7 @@ flow (see `crates/argo-cli/src/handlers/gateway/` for the server side).
 
 ### Dev auth bypass
 
-Set `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` in `.env.local` to skip
+Set `ARGO_GATEWAY_AUTH_BYPASS=1` in `.env.local` to skip
 the middleware redirect during local development. This mirrors
 the gateway's `ARGO_GATEWAY_AUTH_BYPASS=1` precedent. The flag is
 hard-disabled in production builds — the middleware checks
@@ -151,7 +151,7 @@ Copy `.env.example` → `.env.local` and fill in:
 | Var | Required | Notes |
 |---|---|---|
 | `NEXT_PUBLIC_GATEWAY_URL` | yes | Gateway base URL. |
-| `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS` | dev only | `1` to bypass middleware. Ignored in prod. |
+| `ARGO_GATEWAY_AUTH_BYPASS` | dev only | `1` to bypass middleware. Ignored in prod. |
 | `NEXTAUTH_SECRET` | yes | 32-byte secret (`openssl rand -base64 32`). |
 | `NEXTAUTH_URL` | yes | Public URL of the SPA. |
 

@@ -10,7 +10,7 @@ import { expect, test } from "@playwright/test";
  * dashboard URL.
  *
  * The webServer in `playwright.config.ts` boots `pnpm dev` with
- * `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` so the page hits the bundled
+ * `ARGO_GATEWAY_AUTH_BYPASS=1` so the page hits the bundled
  * mock data deterministically.
  */
 test("renders cross-system jump link on drill-in and opens new tab", async ({

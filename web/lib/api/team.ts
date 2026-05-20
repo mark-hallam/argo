@@ -11,7 +11,7 @@
  * Acceptance contract (mirrors `lib/api/approvals.ts`):
  * - `fetchTeam` returns `Worker[]`.
  * - 404 from the gateway → mock fallback (`dataSource = "mock-offline"`).
- * - `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → mock immediately, no
+ * - `ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately, no
  *   network call.
  * - Production builds (`NODE_ENV === 'production'` AND
  *   `NEXT_PUBLIC_ENV === 'production'`): no mock fallback. 404 and
@@ -42,7 +42,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

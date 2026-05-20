@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
  * Approvals inbox — mock-fallback smoke (E1-a).
  *
  * The webServer in `playwright.config.ts` boots `pnpm dev` with
- * `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` and `NEXT_PUBLIC_GATEWAY_URL`
+ * `ARGO_GATEWAY_AUTH_BYPASS=1` and `NEXT_PUBLIC_GATEWAY_URL`
  * pointing at a closed port. Both knobs route the page into the
  * bundled mock dataset (auth-bypass short-circuits the data fetch,
  * and even if it didn't the gateway is unreachable) — that is the

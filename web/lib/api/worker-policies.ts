@@ -1,7 +1,7 @@
 /**
  * Per-worker approval-policy API client
  * (mission-approval-policy-ui). Mirrors `worker-settings.ts`'s
- * mock-fallback contract (`NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` →
+ * mock-fallback contract (`ARGO_GATEWAY_AUTH_BYPASS=1` →
  * mock immediately; 404/network in dev → mock; strict production
  * propagates).
  */
@@ -82,7 +82,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

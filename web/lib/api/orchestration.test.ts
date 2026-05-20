@@ -40,7 +40,7 @@ describe("lib/api/orchestration", () => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
-    delete process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS;
+    delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
   });
 
   afterEach(() => {

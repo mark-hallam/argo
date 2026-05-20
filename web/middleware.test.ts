@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { middleware } from "./middleware";
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
-const ORIGINAL_BYPASS = process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS;
+const ORIGINAL_BYPASS = process.env.ARGO_GATEWAY_AUTH_BYPASS;
 
 function makeRequest(url: string, { withSession }: { withSession?: boolean } = {}) {
   const req = new NextRequest(new URL(url, "http://localhost:3000"));
@@ -20,8 +20,8 @@ function restoreEnv() {
     writable: true,
     value: ORIGINAL_NODE_ENV,
   });
-  if (ORIGINAL_BYPASS === undefined) delete process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS;
-  else process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS = ORIGINAL_BYPASS;
+  if (ORIGINAL_BYPASS === undefined) delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+  else process.env.ARGO_GATEWAY_AUTH_BYPASS = ORIGINAL_BYPASS;
 }
 
 describe("middleware", () => {
@@ -32,7 +32,7 @@ describe("middleware", () => {
       writable: true,
       value: "test",
     });
-    delete process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS;
+    delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -53,7 +53,7 @@ describe("middleware", () => {
   });
 
   it("lets requests through when bypass flag is set in non-prod", () => {
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS = "1";
+    process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
     const res = middleware(makeRequest("http://localhost:3000/"));
     expect(res.headers.get("location")).toBeNull();
   });
@@ -65,7 +65,7 @@ describe("middleware", () => {
       writable: true,
       value: "production",
     });
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS = "1";
+    process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
     const res = middleware(makeRequest("http://localhost:3000/"));
     expect(res.status).toBe(307);
   });

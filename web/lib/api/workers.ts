@@ -30,7 +30,7 @@
  * - 404 from the gateway → mock success in dev, propagates in prod.
  * - NetworkError (gateway unreachable) → mock success in dev,
  *   propagates in prod.
- * - `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → mock success immediately,
+ * - `ARGO_GATEWAY_AUTH_BYPASS=1` → mock success immediately,
  *   no network call.
  * - Strict production (`NODE_ENV === 'production'` AND
  *   `NEXT_PUBLIC_ENV === 'production'`): every error propagates so it
@@ -70,7 +70,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

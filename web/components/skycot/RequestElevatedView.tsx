@@ -27,7 +27,7 @@ export interface RequestElevatedViewProps {
   surface?: string;
   /**
    * Override the POST hook (tests). Defaults to a small wrapper over
-   * the typed gateway client; if `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1`,
+   * the typed gateway client; if `ARGO_GATEWAY_AUTH_BYPASS=1`,
    * the request is swallowed locally with a console.info instead of
    * hitting a non-existent gateway endpoint.
    */
@@ -35,7 +35,7 @@ export interface RequestElevatedViewProps {
 }
 
 async function defaultRequest(body: ElevatedViewAuditBody): Promise<void> {
-  if (process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1") {
+  if (process.env.ARGO_GATEWAY_AUTH_BYPASS === "1") {
     if (typeof console !== "undefined") {
       console.info("[skycot/audit] elevated-view-request (bypass)", body);
     }

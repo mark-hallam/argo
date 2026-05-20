@@ -93,7 +93,7 @@ function isMissingOrUnreachable(err: unknown): boolean {
 }
 
 function authBypassEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1";
+  return process.env.ARGO_GATEWAY_AUTH_BYPASS === "1";
 }
 
 export async function fetchApprovalBundles(): Promise<ApprovalBundle[]> {

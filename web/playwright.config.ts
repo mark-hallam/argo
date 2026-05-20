@@ -47,7 +47,7 @@ export default defineConfig({
           url: "http://localhost:3000",
           reuseExistingServer: !process.env.CI,
           env: {
-            NEXT_PUBLIC_GATEWAY_AUTH_BYPASS: "1",
+            ARGO_GATEWAY_AUTH_BYPASS: "1",
             NEXT_PUBLIC_GATEWAY_URL: "http://127.0.0.1:1",
           },
           timeout: 120_000,

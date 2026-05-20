@@ -80,16 +80,6 @@ const SEED_WORKFLOWS = [
     risk: "autonomous",
   },
   {
-    name: "approve_refund",
-    vertical: "support",
-    description: "Verify refund eligibility, check ledger, route high-value to manager.",
-    steps: 5,
-    versions: 2,
-    lastEdited: "3 hours ago",
-    lastEditor: "Jamal",
-    risk: "approval-required",
-  },
-  {
     name: "exit_interview_synth",
     vertical: "people-ops",
     description: "Quarterly synthesis of exit-interview transcripts into a retention report.",

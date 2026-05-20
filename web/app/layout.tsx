@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/skycot/AuthProvider";
+import { CommandPaletteProvider } from "@/components/skycot/CommandPaletteProvider";
 import { QueryProvider } from "@/components/skycot/QueryProvider";
 import { ThemeProvider } from "@/components/skycot/ThemeProvider";
 import { ErrorReportingInit } from "@/lib/error-reporting/init";
@@ -75,8 +76,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <QueryProvider>
             <ThemeProvider>
-              <ErrorReportingInit />
-              {children}
+              <CommandPaletteProvider>
+                <ErrorReportingInit />
+                {children}
+              </CommandPaletteProvider>
             </ThemeProvider>
           </QueryProvider>
         </AuthProvider>

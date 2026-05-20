@@ -5,7 +5,7 @@
  * backend brief `mission-gateway-elevated-view-request-endpoint`
  * implements the server side. v1 behavior here:
  *
- *  - In bypass / dev mode (NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1) the
+ *  - In bypass / dev mode (ARGO_GATEWAY_AUTH_BYPASS=1) the
  *    request is swallowed locally with a console.info; the client
  *    immediately issues a mock grant.
  *  - In a regular env, we attempt the POST. If the gateway returns
@@ -46,7 +46,7 @@ export interface ElevatedViewRequestResponse {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

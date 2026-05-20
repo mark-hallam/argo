@@ -7,11 +7,14 @@ function gatewayBase(): string {
   return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
 }
 
-function clientIp(req: NextRequest): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]?.trim() ?? "";
-  return req.headers.get("x-real-ip") ?? "";
-}
+// SECURITY (P0 fix, 2026-05-20): We do NOT forward `X-Forwarded-For` from the
+// client to the gateway. The previous behaviour pulled the header from the
+// incoming request and re-sent it as the apparent rate-limit key, which let an
+// attacker rotate `X-Forwarded-For` per request to email-bomb arbitrary
+// addresses through the magic-link signup endpoint. The gateway rate-limits
+// by the email + the connecting peer instead, which is what the audit asked
+// for. Do not re-introduce header forwarding without per-email throttling
+// landing in the gateway first. See docs/skycot/audit/security/2026-05-20.
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -41,8 +44,6 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
       Accept: "application/json",
     };
-    const ip = clientIp(req);
-    if (ip) (headers as Record<string, string>)["X-Forwarded-For"] = ip;
 
     const upstream = await fetch(`${gatewayBase()}/api/v1/auth/signup`, {
       method: "POST",

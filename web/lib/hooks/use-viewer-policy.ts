@@ -23,7 +23,7 @@ import {
  * Resolve the viewer's effective `ViewerPolicy` for an audit surface.
  *
  * Resolution order:
- *  1. `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → `VIEWER_POLICY_OPERATOR`
+ *  1. `ARGO_GATEWAY_AUTH_BYPASS=1` → `VIEWER_POLICY_OPERATOR`
  *     (dev / Storybook bypass — matches the rest of the app).
  *  2. Session carries `unredacted-view` → full operator policy.
  *  3. Session role + per-permission grants from `permissions[]` →
@@ -97,7 +97,7 @@ function applyGrants(
 }
 
 function authBypassEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1";
+  return process.env.ARGO_GATEWAY_AUTH_BYPASS === "1";
 }
 
 function normalizeRole(raw: string | undefined): ViewerRole {

@@ -30,14 +30,14 @@ declare module "next-auth" {
 }
 
 function authBypassEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1";
+  return process.env.ARGO_GATEWAY_AUTH_BYPASS === "1";
 }
 
 /**
  * Resolve the viewer's effective redaction policy.
  *
  * v1 resolution order:
- *  1. `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → `POLICY_SHOW_ALL`
+ *  1. `ARGO_GATEWAY_AUTH_BYPASS=1` → `POLICY_SHOW_ALL`
  *     (dev/test trusts the operator; matches the rest of the app's
  *     bypass treatment in `lib/api/*`).
  *  2. Session carries `unredacted-view` in `permissions` →
