@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Hire your first AI teammate",
   description:
-    "Don't buy another tool. Hire a teammate. AI workers that live in Slack, ask before they act, earn trust over time, and ship a full audit trail.",
+    "Don't buy another tool. Hire a teammate. AI teammates that live in Slack, ask before they act, earn trust over time, and ship a full audit trail.",
   openGraph: {
     title: "Hire your first AI teammate — SKYCOT",
     description:

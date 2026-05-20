@@ -393,7 +393,7 @@ export function AuthEditorialShell({
           {children}
           {showTrustFoot ? (
             <div className="foot">
-              <span className="foot-item"><span className="foot-dot" />SOC 2 TYPE II</span>
+              <span className="foot-item"><span className="foot-dot" />SOC 2-READY AUDIT TRAIL</span>
               <span className="foot-item"><span className="foot-dot" />GDPR</span>
               <span className="foot-item"><span className="foot-dot" />SSO READY</span>
             </div>

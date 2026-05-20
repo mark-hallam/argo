@@ -55,7 +55,7 @@ const WEEKS: Week[] = [
         version: "v1.0.5",
         title: "Class-leading visual workflow builder shipped",
         body:
-          "Drag-and-drop React Flow canvas, AI prompt-to-workflow generation, multi-branch rendering, sub-workflows, and live execution overlay. Edit your AI worker's playbook the way you'd edit a Figma file. Versioned, reversible, and audit-logged on every save.",
+          "Drag-and-drop visual canvas, AI prompt-to-workflow generation, multi-branch rendering, sub-workflows, and live execution overlay. Edit your AI teammate's playbook the way you'd edit a Figma file. Versioned, reversible, and audit-logged on every save.",
         tags: ["Workflows", "UX"],
       },
       {
@@ -63,7 +63,7 @@ const WEEKS: Week[] = [
         version: "v1.0.4",
         title: "Team & roles UX live",
         body:
-          "Member management with four roles (Owner, Admin, Operator, Viewer), invite modal with copy-link affordance, and pending-invite tracking. Capability-based RBAC is now visible end-to-end — what each role can do is right there on the row.",
+          "Member management with four roles (Owner, Admin, Operator, Viewer), invite modal with copy-link affordance, and pending-invite tracking. Per-action role permissions are now visible end-to-end — what each role can do is right there on the row.",
         tags: ["UX", "Security"],
       },
       {

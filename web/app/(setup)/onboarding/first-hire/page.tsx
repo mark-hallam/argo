@@ -44,7 +44,11 @@ export default function OnboardingFirstHirePage() {
         verticalId,
       });
       reset();
-      router.push(`/team/${res.workerId}`);
+      // Hire-complete redirect: /workers/<id> is the canonical worker
+      // profile route (per (app)/workers/[workerId]/...). Previous code
+      // pushed /team/<id> which doesn't exist and 404'd new users at
+      // the end of onboarding.
+      router.push(`/workers/${res.workerId}`);
     } catch (e) {
       setError(
         e instanceof Error

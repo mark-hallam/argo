@@ -415,7 +415,7 @@ export function WizardEditorialShell({
           </span>
           <span className="wiz-foot-item">
             <span className="wiz-foot-dot" aria-hidden>●</span>
-            SOC 2 TYPE II
+            SOC 2-READY AUDIT TRAIL
           </span>
           <span className="wiz-foot-item">
             <span className="wiz-foot-dot" aria-hidden>●</span>

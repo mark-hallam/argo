@@ -63,7 +63,7 @@ const SEED_WORKFLOWS = [
   {
     name: "qualify_lead",
     vertical: "sales",
-    description: "BANT-style qualification + calendar-link insertion + CRM update.",
+    description: "Budget / Authority / Need / Timeline qualification + calendar-link insertion + CRM update.",
     steps: 7,
     versions: 4,
     lastEdited: "3 days ago",

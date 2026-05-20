@@ -63,7 +63,7 @@ const CATEGORIES: DocCategory[] = [
     slug: "audit",
     icon: <Shield size={26} />,
     title: "Audit & Compliance",
-    blurb: "Forensic-grade audit chain on every action. Capability-based RBAC, tenant isolation, SOC 2 evidence, kill-switch ops.",
+    blurb: "Forensic-grade audit chain on every action. Per-action role permissions, workspace isolation, SOC 2-ready evidence, kill-switch ops.",
     count: "9 guides",
   },
   {
@@ -614,7 +614,7 @@ export default function DocsHubPage() {
             <Link href="/changelog">Changelog</Link>
           </nav>
           <Link href="/auth/signup" className="dh-cta-pill">
-            Hire your first worker
+            Hire your first teammate
           </Link>
         </header>
 

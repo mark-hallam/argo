@@ -25,7 +25,7 @@ const FEATURES = [
     icon: <Users2 size={22} />,
     title: "Named teammates, not tools",
     blurb:
-      "Each AI worker has a name, a personality, and a job. They show up in Slack like a colleague.",
+      "Each AI teammate has a name, a personality, and a job. They show up in Slack like a colleague.",
   },
   {
     icon: <Shield size={22} />,
@@ -37,7 +37,7 @@ const FEATURES = [
     icon: <MessageSquareText size={22} />,
     title: "Edit workflows in chat",
     blurb:
-      "Describe the change in plain English. Your teammate proposes the new TOML, you approve, it ships.",
+      "Describe the change in plain English. Your teammate proposes the diff, you approve, it ships.",
   },
   {
     icon: <GitBranch size={22} />,
@@ -55,7 +55,7 @@ const FEATURES = [
     icon: <Check size={22} />,
     title: "Audit-first, enterprise-grade",
     blurb:
-      "Forensic-grade audit chain on every action. Capability-based RBAC. Encryption-at-rest by default.",
+      "Forensic-grade audit chain on every action. Per-action role permissions. Encryption-at-rest by default.",
   },
 ];
 
@@ -802,7 +802,7 @@ export default function MarketingLandingPage() {
               Sign in
             </Link>
             <Link href="/auth/signup" className="land-cta-pill">
-              Hire your first worker
+              Hire your first teammate
             </Link>
           </div>
         </header>
@@ -821,13 +821,13 @@ export default function MarketingLandingPage() {
               (Seriously.)
             </h1>
             <p className="land-hero-sub">
-              SKYCOT compiles plain-English job descriptions into AI workers that live in Slack,
+              SKYCOT compiles plain-English job descriptions into AI teammates that live in Slack,
               learn from your feedback, and ask for approval before they act. Audit-first,
               single-binary, enterprise-grade.
             </p>
             <div className="land-hero-actions">
               <Link href="/auth/signup" className="land-btn-primary">
-                Hire your first worker <ArrowRight size={16} />
+                Hire your first teammate <ArrowRight size={16} />
               </Link>
               <a href="#how" className="land-btn-secondary">
                 Watch a 90-second demo
@@ -840,15 +840,15 @@ export default function MarketingLandingPage() {
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                SOC 2 TYPE II
+                SOC 2-READY AUDIT TRAIL
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                ISO 27001
+                ISO 27001 CONTROLS SUPPORTED
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                GDPR · HIPAA · AFSL
+                GDPR · HIPAA WORKFLOWS
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
@@ -1034,7 +1034,7 @@ export default function MarketingLandingPage() {
             Your first teammate is <strong>four minutes away</strong>.
           </h2>
           <Link href="/auth/signup" className="land-btn-primary">
-            Hire your first worker <ArrowRight size={16} />
+            Hire your first teammate <ArrowRight size={16} />
           </Link>
         </section>
 

@@ -96,13 +96,13 @@ interface MatrixRow {
 }
 
 const MATRIX: MatrixRow[] = [
-  { label: "SOC 2 Type II", free: true, pro: true, enterprise: true },
-  { label: "GDPR", free: true, pro: true, enterprise: true },
-  { label: "HIPAA", free: false, pro: true, enterprise: true },
-  { label: "ISO 27001", free: false, pro: true, enterprise: true },
-  { label: "AFSL (Australian Financial Services)", free: false, pro: false, enterprise: true },
+  { label: "SOC 2-ready audit trail", free: true, pro: true, enterprise: true },
+  { label: "GDPR workflow tools", free: true, pro: true, enterprise: true },
+  { label: "HIPAA-aligned redaction", free: false, pro: true, enterprise: true },
+  { label: "ISO 27001 controls supported", free: false, pro: true, enterprise: true },
+  { label: "Hash-chain + immutable log (regulator-ready)", free: false, pro: false, enterprise: true },
   { label: "Encryption-at-rest (SQLCipher)", free: true, pro: true, enterprise: true },
-  { label: "Capability-based RBAC", free: true, pro: true, enterprise: true },
+  { label: "Per-action role permissions", free: true, pro: true, enterprise: true },
   { label: "Forensic audit chain", free: true, pro: true, enterprise: true },
   { label: "Sub-workflows + delegation", free: false, pro: true, enterprise: true },
   { label: "Custom verticals + prompt packs", free: false, pro: false, enterprise: true },
@@ -130,7 +130,7 @@ const FAQ: FaqItem[] = [
   },
   {
     q: "Is data shared between tenants?",
-    a: "No. Multi-tenancy is a core architectural invariant, not a feature flag. Every primitive (audit row, skill execution, MCP call, memory key) is keyed by tenant_id and CI guards enforce it. Tenant isolation is the load-bearing security guarantee.",
+    a: "No. Each customer workspace is fully isolated — every audit entry, skill run, integration call, and memory key carries the workspace stamp, and our automated checks block any code that could leak across the boundary. Tenant isolation is the load-bearing security guarantee.",
   },
   {
     q: "Can I self-host SKYCOT?",
@@ -690,7 +690,7 @@ export default function PricingPage() {
           </nav>
           <div className="pri-top-right">
             <Link href="/auth/signin" className="pri-signin">Sign in</Link>
-            <Link href="/auth/signup" className="pri-cta-pill">Hire your first worker</Link>
+            <Link href="/auth/signup" className="pri-cta-pill">Hire your first teammate</Link>
           </div>
         </header>
 

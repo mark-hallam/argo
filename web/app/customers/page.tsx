@@ -559,7 +559,7 @@ export default function CustomersPage() {
           </nav>
           <div className="cus-top-right">
             <Link href="/auth/signin" className="cus-signin">Sign in</Link>
-            <Link href="/auth/signup" className="cus-cta-pill">Hire your first worker</Link>
+            <Link href="/auth/signup" className="cus-cta-pill">Hire your first teammate</Link>
           </div>
         </header>
 

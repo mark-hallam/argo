@@ -93,7 +93,7 @@ const DIMENSIONS: Dimension[] = [
   },
   {
     group: "Enterprise-ready",
-    question: "Capability-based RBAC across every action?",
+    question: "Per-action role permissions across every step?",
     scores: { SKYCOT: "yes", Zapier: "partial", n8n: "partial", "Crew.ai": "no", Lindy: "no" },
   },
   {
