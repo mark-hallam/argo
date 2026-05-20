@@ -227,6 +227,8 @@ function ApprovalsInboxShell() {
     <>
       <CelebrationBanner />
 
+      <ApprovalsHero pendingCount={pendingCount} />
+
       <PageHeader
         query={query}
         setQuery={setQuery}
@@ -495,5 +497,206 @@ function EmptyState({ query, hasFilters, onClearAll }: { query: string; hasFilte
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Approvals hero — E ops-dashboard brand-loud banner.
+ *
+ * Mirrors the TeamHero language: gradient banner with shine, Audiowide
+ * hero, JetBrains Mono eyebrow + KPI labels. Tuned to "decisions need
+ * your attention now" instead of "your workforce is alive".
+ *
+ * Static stats derived from the loaded approvals (pendingCount,
+ * resolved-this-week placeholder); live ops aggregations land in a
+ * follow-up brief.
+ */
+function ApprovalsHero({ pendingCount }: { pendingCount: number }) {
+  const resolvedThisWeek = 42; // Placeholder until real aggregation lands.
+  const avgResponse = "8m"; // Placeholder.
+
+  let title: string;
+  let sub: string;
+  if (pendingCount === 0) {
+    title = "Inbox zero.";
+    sub = "Nothing waiting on you right now. Your AI teammates have it handled.";
+  } else if (pendingCount === 1) {
+    title = "1 decision needs you.";
+    sub = "One teammate is waiting on your yes or no. The rest are working.";
+  } else {
+    title = `${pendingCount} decisions need you.`;
+    sub = "Your AI teammates have batched these for your review. One tap each.";
+  }
+
+  return (
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+      />
+      <style jsx global>{`
+        .approvals-hero {
+          position: relative;
+          margin: 24px 16px 0;
+          padding: 28px 32px;
+          border-radius: 18px;
+          background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #ff6b6b 100%);
+          color: white;
+          overflow: hidden;
+          box-shadow: 0 16px 40px -16px rgba(139, 92, 246, 0.45);
+        }
+        .approvals-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            115deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.18) 50%,
+            transparent 70%
+          );
+          transform: translateX(-100%);
+          animation: approvals-hero-shine 5.5s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes approvals-hero-shine {
+          0%, 80%, 100% {
+            transform: translateX(-100%);
+          }
+          90% {
+            transform: translateX(100%);
+          }
+        }
+        .approvals-hero-grid {
+          position: relative;
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 32px;
+          flex-wrap: wrap;
+        }
+        .approvals-hero-left {
+          flex: 1;
+          min-width: 260px;
+        }
+        .approvals-hero-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 10.5px;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.85);
+          padding: 4px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.16);
+          backdrop-filter: blur(8px);
+          margin-bottom: 14px;
+        }
+        .approvals-hero-eyebrow-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #fef9c3;
+          box-shadow: 0 0 6px rgba(254, 249, 195, 0.9);
+          animation: approvals-hero-pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes approvals-hero-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.45; }
+        }
+        .approvals-hero-title {
+          font-family: "Audiowide", "Inter", sans-serif;
+          font-size: 36px;
+          line-height: 1.05;
+          font-weight: 400;
+          letter-spacing: 0.005em;
+          margin: 0;
+          color: white;
+        }
+        .approvals-hero-sub {
+          margin-top: 8px;
+          font-size: 14px;
+          font-weight: 400;
+          color: rgba(255, 255, 255, 0.85);
+          max-width: 460px;
+        }
+        .approvals-hero-kpis {
+          display: flex;
+          gap: 28px;
+        }
+        .approvals-kpi {
+          text-align: right;
+        }
+        .approvals-kpi-label {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 10px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.75);
+          margin-bottom: 4px;
+        }
+        .approvals-kpi-value {
+          font-family: "Inter", sans-serif;
+          font-size: 36px;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          color: white;
+          line-height: 1;
+        }
+        @media (max-width: 720px) {
+          .approvals-hero {
+            margin: 16px 12px 0;
+            padding: 22px 22px;
+          }
+          .approvals-hero-title {
+            font-size: 28px;
+          }
+          .approvals-hero-kpis {
+            gap: 18px;
+            width: 100%;
+            justify-content: flex-start;
+            margin-top: 16px;
+          }
+          .approvals-kpi {
+            text-align: left;
+          }
+          .approvals-kpi-value {
+            font-size: 28px;
+          }
+        }
+      `}</style>
+      <div className="approvals-hero">
+        <div className="approvals-hero-grid">
+          <div className="approvals-hero-left">
+            <div className="approvals-hero-eyebrow">
+              <span className="approvals-hero-eyebrow-dot" />
+              APPROVALS · LIVE
+            </div>
+            <h1 className="approvals-hero-title">{title}</h1>
+            <p className="approvals-hero-sub">{sub}</p>
+          </div>
+          <div className="approvals-hero-kpis">
+            <div className="approvals-kpi">
+              <div className="approvals-kpi-label">Waiting</div>
+              <div className="approvals-kpi-value">{pendingCount}</div>
+            </div>
+            <div className="approvals-kpi">
+              <div className="approvals-kpi-label">Resolved/wk</div>
+              <div className="approvals-kpi-value">{resolvedThisWeek}</div>
+            </div>
+            <div className="approvals-kpi">
+              <div className="approvals-kpi-label">Avg response</div>
+              <div className="approvals-kpi-value">{avgResponse}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
