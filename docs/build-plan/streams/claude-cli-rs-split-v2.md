@@ -1,5 +1,7 @@
 # claude-cli-rs-split-v2 — move Command enum body into a single sibling (rewrite v3)
 
+> **🚫 SUPERSEDED 2026-05-21 by operator stale-content sweep.** The split has already happened: the `Command` enum body lives in `crates/argo-cli/src/cli_command_enum.rs` (456 LOC) and `crates/argo-cli/src/cli.rs` is now 279 LOC with `pub use cli_command_enum::Command;` re-exports. **Do NOT claim this brief.** No ledger row was ever inserted; this banner exists to stop any worker who reads the file from acting on the now-stale premise. The file kept on disk for traceability only.
+
 **Owner**: claude. **Depends on**: nothing. **Phase A architectural-prep.**
 
 > **REWRITE NOTE (tick379 by conductor)**: a prior version of this brief

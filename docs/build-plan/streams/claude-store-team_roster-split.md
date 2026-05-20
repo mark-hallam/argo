@@ -1,5 +1,7 @@
 # claude-store-team_roster-split — split argo-store/src/team_roster.rs below 500-LOC ceiling
 
+> **🚫 SUPERSEDED 2026-05-21 by operator stale-content sweep.** The premise is stale — `crates/argo-store/src/team_roster.rs` is now **273 LOC** (well under the 500-LOC hard ceiling and the brief's <400 target). The file has been reduced organically since this brief was authored against `cd34d607` on 2026-05-10. **Do NOT claim this brief.** No ledger row was ever inserted; this banner exists to stop any worker who reads the file from acting on its now-incorrect premise. The file kept on disk for traceability only.
+
 **Owner**: claude. **Depends on**: nothing. **Tier 1 split-prep — pure refactor.**
 
 **Authored against**: origin/main cd34d607 on 2026-05-10.
