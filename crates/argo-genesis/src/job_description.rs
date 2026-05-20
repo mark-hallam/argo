@@ -28,16 +28,21 @@
 //! - URL: reqwest GET, 30s timeout, 5MB body cap, decoded as
 //!   UTF-8.
 //! - Text: identity.
-//! - Charter synthesis: identity-fn stub. When
-//!   `mission-genesis-llm-classifier` lands and a `ProviderClient`
-//!   is wired through, this becomes a single-pass LLM call.
+//! - Charter synthesis: pluggable via the [`Synthesizer`] trait —
+//!   default [`StubSynthesizer`] preserves the v0 identity behavior
+//!   (`mission = raw JD`); `LlmSynthesizer` (added by
+//!   `mission-audit-genesis-jd-llm-summarizer`) compresses messy /
+//!   multi-role JDs into a structured [`WorkerCharter`] via a
+//!   provider call.
 
 use crate::archetype::Archetype;
+use crate::charter::WorkerCharter;
 use crate::error::GenesisError;
 use crate::eval_seed::{
     generate as generate_eval_seeds, suggested_actions_from_manifest, EvalSeed,
 };
 use crate::pipeline::{plan_with, GenesisConfig, GenesisPlan};
+use crate::synthesizer::{StubSynthesizer, Synthesizer};
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::VerticalManifest;
 use std::path::{Path, PathBuf};
@@ -67,10 +72,17 @@ pub enum JobDescInput {
 /// `argo genesis from-charter` if they want to edit).
 #[derive(Debug, Clone)]
 pub struct GenesisDraft {
-    /// The charter that was passed to the Genesis pipeline. In v1
-    /// this is byte-identical to the extracted text; once the LLM
-    /// classifier brief lands it becomes a single-pass synthesis.
+    /// The charter mission that was passed to the Genesis pipeline.
+    /// Under the default stub synthesizer this is byte-identical to
+    /// the extracted JD text; under [`crate::synthesizer::LlmSynthesizer`]
+    /// it is the model-synthesized `mission` paragraph from
+    /// [`WorkerCharter`].
     pub synthesized_charter: String,
+    /// Structured charter — present under any [`Synthesizer`] impl.
+    /// Under [`crate::synthesizer::StubSynthesizer`] only the
+    /// `mission` field is populated; the LLM path fills the rest.
+    /// Field added by `mission-audit-genesis-jd-llm-summarizer`.
+    pub worker_charter: WorkerCharter,
     /// Resolved archetype.
     pub archetype: Archetype,
     /// Full manifest, ready to write to disk.
@@ -96,6 +108,24 @@ pub struct GenesisDraft {
 /// failures (reqwest transport, malformed PDF bytes, archetype
 /// classification, etc).
 pub async fn genesis_from_job_description(input: JobDescInput) -> ArgoResult<GenesisDraft> {
+    let synth = StubSynthesizer::new();
+    genesis_from_job_description_with(input, &synth).await
+}
+
+/// Like [`genesis_from_job_description`] but lets the caller pick a
+/// non-default [`Synthesizer`]. Used by the operator wiring once the
+/// `[genesis] jd_synthesizer = "llm"` config flag selects
+/// [`crate::synthesizer::LlmSynthesizer`]; tests inject a mock.
+///
+/// # Errors
+/// Same shape as [`genesis_from_job_description`]; additionally
+/// propagates any [`ArgoError`] returned by the synthesizer (e.g.
+/// [`ArgoError::Schema`] for charter-validation failures under
+/// [`crate::synthesizer::LlmSynthesizer`]).
+pub async fn genesis_from_job_description_with(
+    input: JobDescInput,
+    synth: &dyn Synthesizer,
+) -> ArgoResult<GenesisDraft> {
     let raw = match input {
         JobDescInput::Pdf(path) => extract_pdf_text(&path)?,
         JobDescInput::Text(t) => t,
@@ -104,7 +134,12 @@ pub async fn genesis_from_job_description(input: JobDescInput) -> ArgoResult<Gen
     if raw.trim().is_empty() {
         return Err(image_only_or_empty_error());
     }
-    let synthesized_charter = synthesize_charter(&raw);
+    let worker_charter = synth.synthesize(&raw).await?;
+    let synthesized_charter = worker_charter.mission.clone();
+    // The pipeline classifier still needs *some* text to work with —
+    // under the stub synthesizer that's the raw JD; under the LLM
+    // synthesizer it's the compressed mission paragraph (much shorter,
+    // and the archetype keywords are usually preserved).
     let plan = plan_with(
         &synthesized_charter,
         DEFAULT_PERSONA,
@@ -116,6 +151,7 @@ pub async fn genesis_from_job_description(input: JobDescInput) -> ArgoResult<Gen
     let eval_seed = derive_eval_seed(&plan)?;
     Ok(GenesisDraft {
         synthesized_charter,
+        worker_charter,
         archetype: plan.archetype,
         manifest: plan.manifest,
         eval_seed,
@@ -166,14 +202,6 @@ async fn fetch_url(url: &str) -> ArgoResult<String> {
     }
     String::from_utf8(bytes.to_vec())
         .map_err(|e| ArgoError::Schema(format!("url body not utf-8 ({url}): {e}")))
-}
-
-/// v1 stub: pass the extracted text through unchanged. Once
-/// `mission-genesis-llm-classifier` lands and exposes a wired
-/// `ProviderClient`, this becomes a single-pass call asking the
-/// model to compress the JD into ≤500 words of charter.
-fn synthesize_charter(raw: &str) -> String {
-    raw.to_string()
 }
 
 fn derive_eval_seed(plan: &GenesisPlan) -> Result<Vec<EvalSeed>, ArgoError> {

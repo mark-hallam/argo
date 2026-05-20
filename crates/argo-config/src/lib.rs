@@ -81,11 +81,12 @@ pub use sections::{
     AnomalyConfig, AuditConfig, AuthConfig, BudgetConfig, ChannelsConfig, CodeExecutorConfig,
     CoreConfig, DelegateConfig, DocumentCsvConfig, DocumentGsuiteConfig, ForgeConfig,
     GatewayBehindProxyConfig, GatewayConfig, GatewayRequestAuditConfig,
-    GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig,
-    ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig,
-    RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, SiemConfig,
-    SkillLearningConfig, SkillLibraryConfig, SkillLibraryRelevanceConfig, SsoConfig, SsoOidcTenant,
-    SsoSamlTenant, StorageConfig, StorageTenantConfig, TeamsTomlConfig, TelemetryConfig,
+    GatewaySecurityHeadersConfig, GenesisJdConfig, IpAllowlistConfig, JudgeConfig, LoopConfig,
+    MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
+    RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
+    SecurityHipaaConfig, SiemConfig, SkillLearningConfig, SkillLibraryConfig,
+    SkillLibraryRelevanceConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, StorageConfig,
+    StorageTenantConfig, TeamsTomlConfig, TelemetryConfig,
     TelemetryPrometheusCardinalityCapConfig, TelemetryPrometheusConfig, TenantConfig,
     VoiceTomlConfig, WebInboxTomlConfig, DEFAULT_CODE_EXECUTOR_PROFILE,
 };
@@ -229,6 +230,10 @@ pub struct ArgoConfig {
     pub runtime: RuntimeConfig,
     /// `[anomaly]` — session-level worker anomaly detection.
     pub anomaly: AnomalyConfig,
+    /// `[genesis]` — Genesis pipeline knobs (currently the
+    /// `jd_synthesizer` selector for the JD-to-charter path).
+    /// Added by `mission-audit-genesis-jd-llm-summarizer`.
+    pub genesis: GenesisJdConfig,
     /// `[sso]` — Single Sign-On at the gateway edge.
     pub sso: SsoConfig,
     /// `[planner]` — planner bias knobs

@@ -122,6 +122,77 @@ impl Default for SkillLibraryRelevanceConfig {
     }
 }
 
+/// `[genesis]` — Genesis pipeline knobs.
+///
+/// Currently the only knob is [`Self::jd_synthesizer`] — selects the
+/// JD-to-charter synthesizer used by
+/// `argo_genesis::genesis_from_job_description_with`. `"stub"` (the
+/// shipped default) preserves the v0 identity behaviour so a fresh
+/// install behaves byte-identically to pre-`mission-audit-genesis-jd-llm-summarizer`.
+/// `"llm"` activates the provider-backed synthesizer.
+///
+/// Renamed from a hypothetical `GenesisConfig` to `GenesisJdConfig`
+/// because `argo_genesis` already exports a `GenesisConfig` type for
+/// the pipeline (see `argo_genesis::pipeline::GenesisConfig`); two
+/// `GenesisConfig`s would clash in any crate that imports both.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct GenesisJdConfig {
+    /// JD synthesizer selector. Valid values: `"stub"`, `"llm"`.
+    /// Any other value is treated as `"stub"` by the consumer so a
+    /// typo never breaks onboarding.
+    pub jd_synthesizer: String,
+}
+
+impl Default for GenesisJdConfig {
+    fn default() -> Self {
+        Self {
+            jd_synthesizer: "stub".to_string(),
+        }
+    }
+}
+
+impl GenesisJdConfig {
+    /// `true` when the operator opted into the LLM-backed synthesizer.
+    /// Anything other than the literal `"llm"` (case-insensitive,
+    /// trimmed) is treated as `"stub"` — see [`Self::jd_synthesizer`].
+    #[must_use]
+    pub fn is_llm(&self) -> bool {
+        self.jd_synthesizer.trim().eq_ignore_ascii_case("llm")
+    }
+}
+
+#[cfg(test)]
+mod genesis_jd_config_tests {
+    use super::*;
+
+    #[test]
+    fn genesis_default_is_stub() {
+        let cfg = GenesisJdConfig::default();
+        assert_eq!(cfg.jd_synthesizer, "stub");
+        assert!(!cfg.is_llm());
+    }
+
+    #[test]
+    fn genesis_toml_parses_llm() {
+        let cfg = crate::ArgoConfig::from_toml("[genesis]\njd_synthesizer = \"llm\"\n").unwrap();
+        assert!(cfg.genesis.is_llm());
+    }
+
+    #[test]
+    fn genesis_toml_default_is_stub() {
+        let cfg = crate::ArgoConfig::from_toml("").unwrap();
+        assert_eq!(cfg.genesis.jd_synthesizer, "stub");
+        assert!(!cfg.genesis.is_llm());
+    }
+
+    #[test]
+    fn genesis_unknown_value_treated_as_stub() {
+        let cfg = crate::ArgoConfig::from_toml("[genesis]\njd_synthesizer = \"banana\"\n").unwrap();
+        assert!(!cfg.genesis.is_llm());
+    }
+}
+
 /// `[anomaly]` — session-level worker anomaly detector. Defaults are
 /// observe-only; `auto_pause = true` opts into stopping the work loop
 /// when the runtime score crosses `threshold`.

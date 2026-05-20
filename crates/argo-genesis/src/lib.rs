@@ -39,6 +39,7 @@ pub mod action_suggest;
 pub mod archetype;
 pub mod archetype_meta;
 pub mod broad_role;
+pub mod charter;
 pub mod charter_dialogue;
 pub mod conflict;
 pub mod error;
@@ -54,6 +55,7 @@ pub mod prompt_writer;
 pub mod quality;
 pub mod refine;
 pub mod safety_judge;
+pub mod synthesizer;
 pub mod templates;
 pub mod worker_config;
 
@@ -65,6 +67,10 @@ pub use broad_role::{
     genesis_broad_role, plan_or_broad, should_use_broad_role, BroadRoleClient, BroadRoleDraft,
     GenesisOutcome, BROAD_ROLE_CONFIDENCE_THRESHOLD, BROAD_SENTINEL,
 };
+pub use charter::{
+    CharterValidationError, WorkerCharter, MAX_RESPONSIBILITIES, MAX_TOOLS_HINT,
+    MIN_RESPONSIBILITIES,
+};
 pub use charter_dialogue::{
     dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, Question, QUESTIONS,
 };
@@ -73,7 +79,9 @@ pub use error::GenesisError;
 pub use genesis_judge::{
     build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
 };
-pub use job_description::{genesis_from_job_description, GenesisDraft, JobDescInput};
+pub use job_description::{
+    genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
+};
 pub use pipeline::{
     plan, plan_from_seed_vertical, plan_from_seed_vertical_in_default_root, plan_with,
     plan_with_quality, seeded_from, write_vertical, write_vertical_with_overlap, GenesisConfig,
@@ -87,6 +95,10 @@ pub use refine::{
     refine_plan, refine_plan_with_cap, AnthropicCaller, RefineConfig, RefinementResponse,
 };
 pub use safety_judge::{judge as run_safety_judge, SENSITIVE_VERBS};
+pub use synthesizer::{
+    preprocess as preprocess_jd, synthesize_or_stub, LlmSynthesizer, StubSynthesizer, Synthesizer,
+    MAX_PROMPT_INPUT_BYTES,
+};
 pub use templates::{
     load_all as load_templates, match_template, merge_with_overrides, GeneratedVertical,
     TemplateMeta, TemplateSeed, VerticalTemplate,
