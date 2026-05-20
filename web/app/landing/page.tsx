@@ -443,6 +443,13 @@ export default function MarketingLandingPage() {
           color: var(--ink);
           box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.18);
           font-weight: 500;
+          /* Wave-6 e2e fix (2026-05-21): bubbles were collapsing to
+             ~90px wide and breaking text vertically — and overlapping
+             the SKYCOT logo in the hero centre. Pin min-width + max
+             so the text stays on 1-2 lines and the bubbles clear the
+             centre logo with breathing room. */
+          min-width: 220px;
+          max-width: 280px;
         }
         .land-art-bubble::before {
           content: "";

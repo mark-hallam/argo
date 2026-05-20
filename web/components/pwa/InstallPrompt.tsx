@@ -41,6 +41,14 @@ export function InstallPrompt(): React.ReactElement | null {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Wave-6 demo-record fix (2026-05-21): operator can suppress the
+    // install banner during MP4 recording via env var without having
+    // to dismiss it manually each session. Set
+    // NEXT_PUBLIC_HIDE_PWA_PROMPT=1 in .env.local before `npm run dev`
+    // to ensure the bottom-right "Install SKYCOT" banner never
+    // appears in screen captures. Inverse default (banner on) is
+    // the production behavior.
+    if (process.env.NEXT_PUBLIC_HIDE_PWA_PROMPT === "1") return;
     if (dismissIsActive()) return;
     // Already installed (matchMedia is true once the page is launched standalone).
     if (window.matchMedia?.("(display-mode: standalone)").matches) return;

@@ -474,7 +474,13 @@ export default function WorkflowsPage() {
             <Sparkles size={13} />
             Browse 50+ templates
           </Link>
-          <button type="button" className="workflows-propose" data-testid="workflows-propose">
+          <button
+            type="button"
+            className="workflows-propose"
+            data-testid="workflows-propose"
+            onClick={() => setQuery("")}
+            title="Open the visual builder from any workflow card to propose a new step in plain English"
+          >
             <Plus size={14} />
             Propose new
           </button>
@@ -483,7 +489,12 @@ export default function WorkflowsPage() {
         <div className="workflows-try-row">
           <span className="workflows-try-label">TRY</span>
           {TRY_CHIPS.map((chip) => (
-            <button key={chip} type="button" className="workflows-try-chip">
+            <button
+              key={chip}
+              type="button"
+              className="workflows-try-chip"
+              onClick={() => setQuery(chip)}
+            >
               {chip}
             </button>
           ))}

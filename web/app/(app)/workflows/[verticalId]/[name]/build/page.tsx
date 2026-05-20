@@ -320,17 +320,19 @@ function BuilderInner({
     if (!promptText.trim()) return;
     setProposing(true);
     const prompt = promptText;
-    // Stub: real wire-up POSTs to /api/workflows/propose with the workflow + nl change.
-    // Streams back assistant response + diffs nodes/edges. Until the live wire
-    // (PR #1882 rebase pending) ships, surface visible feedback so the demo
-    // operator sees the action firing — sonner toast with the prompt echo.
-    const dismissId = toast.loading(`Proposing: "${prompt}"`, {
-      description: "Drafting workflow change…",
+    // Honest demo stub — wave-6 action-fires audit (2026-05-21) called
+    // out the prior `setTimeout` toast for over-claiming success on a
+    // canvas that doesn't actually change. The real Propose live-wire
+    // lands via brief `web-workflow-builder-ai-prompt-wired` (#1882 +
+    // batch-1 sibling). Until then, surface the action without claiming
+    // completion of work that didn't happen.
+    const dismissId = toast.loading(`Drafting: "${prompt}"`, {
+      description: "Live AI workflow editing — wired in the next deploy.",
     });
     setTimeout(() => {
-      toast.success("Proposal ready for review", {
+      toast.message("Preview build — draft not persisted", {
         id: dismissId,
-        description: "1 step change proposed. Approve to apply to the canvas.",
+        description: "Live wire ships in PR #1882. Canvas changes will land then.",
       });
       setProposing(false);
       setPromptText("");
@@ -338,24 +340,23 @@ function BuilderInner({
   }
 
   function handleTestRun() {
-    toast.info("Test run started", {
-      description: `Streaming events from the gateway…`,
+    // Honest demo stub — wave-6 action-fires audit flagged the prior
+    // "All 5 steps passed" toast as a buyer-catchable lie (no test
+    // actually ran). Real test-runner ships via web-workflows-test-run
+    // (separate brief).
+    toast.message("Test run — preview build", {
+      description: "Real run streams from the gateway in v1.x. Not wired in this preview build.",
     });
-    setTimeout(() => {
-      toast.success("Test run complete", {
-        description: "All 5 steps passed. No errors.",
-      });
-    }, 1600);
   }
 
   function handleSaveAndPublish() {
-    toast.loading("Saving + publishing v3…", { id: "save-publish" });
-    setTimeout(() => {
-      toast.success("Published v3", {
-        id: "save-publish",
-        description: "Workflow is live for the tenant.",
-      });
-    }, 900);
+    // Honest demo stub — wave-6 action-fires audit flagged the prior
+    // "Workflow is live for the tenant" toast as a buyer-catchable lie
+    // (no persistence). Real publish wires via the gateway workflow-PUT
+    // endpoint (sibling brief).
+    toast.message("Saved as draft — preview build", {
+      description: "Publish to tenant ships in v1.x. Draft is in-memory only here.",
+    });
   }
 
   return (
