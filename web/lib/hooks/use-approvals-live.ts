@@ -34,7 +34,7 @@ import type { ApprovalItem, ChannelKind } from "@/lib/sample-approvals";
 import type { WireApprovalCreatedPayload } from "@/lib/api/types";
 
 const APPROVALS_KEY = ["approvals"] as const;
-const DEFAULT_GATEWAY = "http://127.0.0.1:8787";
+const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const KNOWN_CHANNELS: ReadonlySet<string> = new Set<ChannelKind>([
   "slack",
   "imessage",

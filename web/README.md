@@ -103,7 +103,7 @@ console's "Configure theme" surface in Track E.
 ## Connecting to the gateway
 
 The dev server expects the SKYCOT gateway at
-`NEXT_PUBLIC_GATEWAY_URL` (defaults to `http://127.0.0.1:8787`).
+`NEXT_PUBLIC_GATEWAY_URL` (defaults to `http://127.0.0.1:7400`).
 Start the gateway in another tab:
 
 ```bash

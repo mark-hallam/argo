@@ -48,7 +48,7 @@ async function loadConfig(fetcher: Fetcher): Promise<ErrorReportingConfig | null
   const base =
     process.env.NEXT_PUBLIC_GATEWAY_URL ??
     process.env.NEXT_PUBLIC_API_URL ??
-    "http://127.0.0.1:8787";
+    "http://127.0.0.1:7400";
   try {
     const res = await fetcher(`${base}/api/v1/meta/error-reporting`, {
       credentials: "omit",

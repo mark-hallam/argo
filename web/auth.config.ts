@@ -27,7 +27,7 @@ export const authConfig = {
         if (!token) return null;
 
         const gatewayUrl =
-          process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:8787";
+          process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:7400";
 
         try {
           const res = await fetch(`${gatewayUrl}/healthz`, {

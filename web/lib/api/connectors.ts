@@ -79,12 +79,12 @@ export async function disconnectConnector(
 
 /**
  * Resolve the base URL for the gateway's OAuth / CU connect endpoints.
- * Mirrors the convention in `lib/api/client.ts` (env override → 8787
+ * Mirrors the convention in `lib/api/client.ts` (env override → 7400
  * fallback) but kept local so consumers don't reach into the client
  * internals for a URL builder.
  */
 export function gatewayBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:8787";
+  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:7400";
 }
 
 /**

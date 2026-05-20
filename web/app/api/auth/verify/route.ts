@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifySchema } from "@/lib/auth/signup-schema";
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:8787";
+const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 
 function gatewayBase(): string {
   return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;

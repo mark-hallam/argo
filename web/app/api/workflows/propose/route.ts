@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:8787";
+const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const SKILL_NAME = "propose_workflow_from_plain_english";
 const MAX_INPUT_CHARS = 4000;
 const STREAM_CHUNK_DELAY_MS = 28;

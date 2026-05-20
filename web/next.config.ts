@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const gatewayUrl =
   process.env.NEXT_PUBLIC_GATEWAY_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
-  "http://127.0.0.1:8787";
+  "http://127.0.0.1:7400";
 
 const config: NextConfig = {
   output: "standalone",

@@ -24,7 +24,7 @@
 import { useEffect, useState } from "react";
 import { ManagedWebSocket, type WebSocketStatus } from "@/lib/api/websocket";
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:8787";
+const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 
 /** UI-facing connection state surfaced by the overlay. */
 export type SkillTraceStatus = "connecting" | "live" | "polling" | "offline";

@@ -28,7 +28,7 @@ export function resolveEnv(): E2eEnv {
     mode,
     marketingUrl: process.env.E2E_MARKETING_URL ?? (mode === "deploy-smoke" ? "https://skycot.com" : "http://localhost:3001"),
     spaUrl: process.env.E2E_SPA_URL ?? (mode === "deploy-smoke" ? "https://app.skycot.com" : "http://localhost:3000"),
-    gatewayUrl: process.env.E2E_GATEWAY_URL ?? (mode === "deploy-smoke" ? "https://api.skycot.com" : "http://127.0.0.1:8787"),
+    gatewayUrl: process.env.E2E_GATEWAY_URL ?? (mode === "deploy-smoke" ? "https://api.skycot.com" : "http://127.0.0.1:7400"),
     tenantProvisionReady: process.env.E2E_TENANT_PROVISION_READY === "1",
     magicLinkTimeoutMs: Number(process.env.E2E_MAGIC_LINK_TIMEOUT_MS ?? 60_000),
   };

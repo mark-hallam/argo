@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DEFAULT_GATEWAY = "http://127.0.0.1:8787";
+const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const SUBJECT_PREVIEW_CHARS = 120;
 
 function err(code: string, message: string, status: number) {
