@@ -714,9 +714,12 @@ export default function WorkflowDetailPage({
           <h1 className="wfd-name">{workflow.name}</h1>
           <p className="wfd-desc">{workflow.description}</p>
           <div className="wfd-actions">
-            <button type="button" className="wfd-btn wfd-btn-primary">
-              <Pencil size={13} /> Edit in chat
-            </button>
+            <Link
+              href={`/workflows/${workflow.vertical}/${workflow.name}/build`}
+              className="wfd-btn wfd-btn-primary"
+            >
+              <Pencil size={13} /> Open builder
+            </Link>
             <Link
               href={`/verticals/${workflow.vertical}/workflows/${workflow.name}`}
               className="wfd-btn"
