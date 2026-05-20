@@ -154,7 +154,14 @@ export function useDeleteWorker(workerId: string) {
   });
 }
 
-/** Convenience bundle for the page-level component. */
+/**
+ * Convenience bundle for the page-level component.
+ *
+ * Each `onUpdate*` returns a Promise so the section components can
+ * `await` the mutation, fire a "Saved" toast on resolve, and surface
+ * an inline error on reject. The sibling `isSaving*` booleans gate
+ * the Save button's disable-while-submitting state.
+ */
 export function useSettingsActions(workerId: string) {
   const channels = useUpdateChannels(workerId);
   const quiet = useUpdateQuietHours(workerId);
@@ -165,19 +172,27 @@ export function useSettingsActions(workerId: string) {
   const del = useDeleteWorker(workerId);
 
   const onUpdateChannels = useCallback(
-    (next: ChannelsConfig) => channels.mutate(next),
+    async (next: ChannelsConfig) => {
+      await channels.mutateAsync(next);
+    },
     [channels],
   );
   const onUpdateQuietHours = useCallback(
-    (next: QuietHoursConfig) => quiet.mutate(next),
+    async (next: QuietHoursConfig) => {
+      await quiet.mutateAsync(next);
+    },
     [quiet],
   );
   const onUpdateBudget = useCallback(
-    (next: Pick<BudgetConfig, "dailyCapUsd" | "monthlyCapUsd">) => budget.mutate(next),
+    async (next: Pick<BudgetConfig, "dailyCapUsd" | "monthlyCapUsd">) => {
+      await budget.mutateAsync(next);
+    },
     [budget],
   );
   const onUpdateAutonomy = useCallback(
-    (next: AutonomyConfig) => autonomy.mutate(next),
+    async (next: AutonomyConfig) => {
+      await autonomy.mutateAsync(next);
+    },
     [autonomy],
   );
   const onPause = useCallback(() => pause.mutate(), [pause]);
@@ -192,5 +207,9 @@ export function useSettingsActions(workerId: string) {
     onPause,
     onArchive,
     onDelete,
+    isSavingChannels: channels.isPending,
+    isSavingQuietHours: quiet.isPending,
+    isSavingBudget: budget.isPending,
+    isSavingAutonomy: autonomy.isPending,
   };
 }

@@ -71,23 +71,31 @@ export default function WorkerSettingsPage() {
         value={settings.channels}
         workerName={workerName}
         onSave={actions.onUpdateChannels}
+        isSaving={actions.isSavingChannels}
       />
       <QuietHoursSection
         value={settings.quietHours}
         workerName={workerName}
         onSave={actions.onUpdateQuietHours}
+        isSaving={actions.isSavingQuietHours}
       />
-      <BudgetSection value={settings.budget} onSave={actions.onUpdateBudget} />
+      <BudgetSection
+        value={settings.budget}
+        onSave={actions.onUpdateBudget}
+        isSaving={actions.isSavingBudget}
+      />
       <AutonomySection
         value={settings.autonomy}
         workerName={workerName}
         onSave={actions.onUpdateAutonomy}
+        isSaving={actions.isSavingAutonomy}
       />
       <ApprovalPolicySection
         workerName={workerName}
         rows={policiesQuery.data?.rows ?? []}
         readOnly={isPaused || policiesQuery.data?.readOnly === true}
         onSubmit={policyActions.onUpdatePolicy}
+        isSaving={policyActions.isUpdating}
       />
       {permissions.canViewSettings ? (
         <AdvancedSection workerId={workerId} advanced={settings.advanced} />

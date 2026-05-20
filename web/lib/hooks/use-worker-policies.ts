@@ -83,7 +83,9 @@ export function useUpdateWorkerPolicy(workerId: string) {
 export function usePolicyActions(workerId: string) {
   const update = useUpdateWorkerPolicy(workerId);
   const onUpdatePolicy = useCallback(
-    (vars: UpdatePolicyVars) => update.mutate(vars),
+    async (vars: UpdatePolicyVars) => {
+      await update.mutateAsync(vars);
+    },
     [update],
   );
   return { onUpdatePolicy, isUpdating: update.isPending };

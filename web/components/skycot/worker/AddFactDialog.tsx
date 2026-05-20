@@ -1,19 +1,18 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
+import { useZodForm } from "@/lib/forms/use-zod-form";
+import { useToast } from "@/lib/ui/use-toast";
+import { addFactFormSchema } from "./schemas";
 import { cn } from "@/lib/utils";
 
 /**
  * Add-a-fact dialog. Modal with a free-text textarea (≥ 4 rows)
- * plus Save / Cancel. Hands the trimmed text back through
- * `onSave(text)`; the parent decides whether to commit
- * synchronously (mock) or async (gateway POST).
- *
- * Reuses `@radix-ui/react-dialog` directly — same primitive that
- * the workspace's `AlertDialog` wraps — so we stay inside the
- * already-installed dependency set.
+ * plus Save / Cancel. RHF + Zod handles validation; the form
+ * disables Save while the parent's mutation is in flight to block
+ * double-submit.
  */
 
 export interface AddFactDialogProps {
@@ -32,16 +31,18 @@ export function AddFactDialog({
   workerName,
   onSave,
 }: AddFactDialogProps) {
-  const [draft, setDraft] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
+  const form = useZodForm(addFactFormSchema, {
+    defaultValues: { text: "" },
+  });
+  const { register, handleSubmit, reset, formState, watch } = form;
+  const draft = watch("text");
+  const saveDisabled = formState.isSubmitting || draft.trim().length === 0;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setDraft("");
-      setSubmitting(false);
-    }
-  }, [open]);
+    if (!open) reset({ text: "" });
+  }, [open, reset]);
 
   useEffect(() => {
     if (open && textareaRef.current) {
@@ -49,19 +50,20 @@ export function AddFactDialog({
     }
   }, [open]);
 
-  const handleSave = async () => {
-    const text = draft.trim();
-    if (!text || submitting) return;
+  const submit = handleSubmit(async (values) => {
     try {
-      setSubmitting(true);
-      await onSave(text);
+      await onSave(values.text);
+      toast.success("Fact saved");
+      reset({ text: "" });
       onOpenChange(false);
-    } finally {
-      setSubmitting(false);
+    } catch (err) {
+      toast.error("Couldn't save fact", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
-  };
+  });
 
-  const disabled = draft.trim().length === 0 || submitting;
+  const { ref: rhfRef, ...rhfRest } = register("text");
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -88,40 +90,61 @@ export function AddFactDialog({
             Plain English. She&apos;ll apply it next time the situation comes up.
           </DialogPrimitive.Description>
 
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={5}
-            data-testid="add-fact-textarea"
-            aria-label="New fact text"
-            placeholder="e.g. Refunds under $50 auto-approve. Above $50 ask Marta."
-            className={cn(
-              "mt-4 w-full resize-none rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)]",
-              "px-3 py-2 text-sm leading-relaxed text-[var(--foreground)]",
-              "focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
-            )}
-          />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submit();
+            }}
+            noValidate
+          >
+            <textarea
+              ref={(el) => {
+                rhfRef(el);
+                textareaRef.current = el;
+              }}
+              rows={5}
+              data-testid="add-fact-textarea"
+              aria-label="New fact text"
+              aria-invalid={Boolean(formState.errors.text)}
+              placeholder="e.g. Refunds under $50 auto-approve. Above $50 ask Marta."
+              className={cn(
+                "mt-4 w-full resize-none rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)]",
+                "px-3 py-2 text-sm leading-relaxed text-[var(--foreground)]",
+                "focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+              )}
+              {...rhfRest}
+            />
+            {formState.errors.text ? (
+              <p
+                role="alert"
+                data-testid="add-fact-error"
+                className="mt-2 text-xs text-[var(--destructive)]"
+              >
+                {formState.errors.text.message}
+              </p>
+            ) : null}
 
-          <div className="mt-6 flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              data-testid="add-fact-cancel"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              data-testid="add-fact-save"
-              onClick={handleSave}
-              disabled={disabled}
-              loading={submitting}
-            >
-              Save
-            </Button>
-          </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                data-testid="add-fact-cancel"
+                onClick={() => onOpenChange(false)}
+                disabled={formState.isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                data-testid="add-fact-save"
+                disabled={saveDisabled}
+                loading={formState.isSubmitting}
+              >
+                Save
+              </Button>
+            </div>
+          </form>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

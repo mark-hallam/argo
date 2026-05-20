@@ -32,7 +32,8 @@ export interface ApprovalPolicySectionProps {
     actionType: string;
     policy: ApprovalPolicy;
     operatorNote: string;
-  }) => void;
+  }) => Promise<void>;
+  isSaving?: boolean;
 }
 
 export function ApprovalPolicySection({
@@ -40,6 +41,7 @@ export function ApprovalPolicySection({
   rows,
   readOnly,
   onSubmit,
+  isSaving = false,
 }: ApprovalPolicySectionProps) {
   const [editing, setEditing] = useState<WorkerPolicyRow | null>(null);
 
@@ -121,11 +123,12 @@ export function ApprovalPolicySection({
       <ApprovalPolicyEditModal
         open={editing !== null}
         row={editing}
+        isSaving={isSaving}
         onOpenChange={(open) => {
           if (!open) setEditing(null);
         }}
-        onSubmit={(vars) => {
-          onSubmit(vars);
+        onSubmit={async (vars) => {
+          await onSubmit(vars);
           setEditing(null);
         }}
       />

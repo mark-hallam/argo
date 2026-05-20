@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { useZodForm } from "@/lib/forms/use-zod-form";
+import { useToast } from "@/lib/ui/use-toast";
 import {
   budgetPercent,
   budgetTone,
   type BudgetConfig,
 } from "@/lib/api/worker-settings";
+import { budgetFormSchema } from "./schemas";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,10 +19,6 @@ import { cn } from "@/lib/utils";
  * `mission-enterprise-budget-hierarchical-caps` promotes this to
  * tenant → department → team → worker, with the tighter ceiling
  * winning.
- *
- * Bar color: muted < 50%, default 50-80%, warning 80-95%,
- * destructive ≥ 95%. At ≥ 100% the worker hard-pauses until the
- * cap is raised or the next day rolls over.
  */
 
 const TONE_BG: Record<ReturnType<typeof budgetTone>, string> = {
@@ -31,32 +30,52 @@ const TONE_BG: Record<ReturnType<typeof budgetTone>, string> = {
 
 export interface BudgetSectionProps {
   value: BudgetConfig;
-  onSave: (next: Pick<BudgetConfig, "dailyCapUsd" | "monthlyCapUsd">) => void;
+  onSave: (next: Pick<BudgetConfig, "dailyCapUsd" | "monthlyCapUsd">) => Promise<void>;
+  isSaving?: boolean;
 }
 
-export function BudgetSection({ value, onSave }: BudgetSectionProps) {
-  const [daily, setDaily] = useState(String(value.dailyCapUsd));
-  const [monthly, setMonthly] = useState(String(value.monthlyCapUsd));
+export function BudgetSection({ value, onSave, isSaving = false }: BudgetSectionProps) {
+  const toast = useToast();
+  const form = useZodForm(budgetFormSchema, {
+    defaultValues: {
+      dailyCapUsd: String(value.dailyCapUsd),
+      monthlyCapUsd: String(value.monthlyCapUsd),
+    },
+  });
+  const { register, handleSubmit, reset, formState } = form;
 
   useEffect(() => {
-    setDaily(String(value.dailyCapUsd));
-    setMonthly(String(value.monthlyCapUsd));
-  }, [value.dailyCapUsd, value.monthlyCapUsd]);
-
-  const dailyNum = Number.parseFloat(daily);
-  const monthlyNum = Number.parseFloat(monthly);
-  const validDaily = Number.isFinite(dailyNum) && dailyNum > 0;
-  const validMonthly = Number.isFinite(monthlyNum) && monthlyNum > 0;
-  const valid = validDaily && validMonthly;
-  const isDirty =
-    valid &&
-    (dailyNum !== value.dailyCapUsd || monthlyNum !== value.monthlyCapUsd);
+    reset({
+      dailyCapUsd: String(value.dailyCapUsd),
+      monthlyCapUsd: String(value.monthlyCapUsd),
+    });
+  }, [value.dailyCapUsd, value.monthlyCapUsd, reset]);
 
   const dailyPct = budgetPercent(value.usedTodayUsd, value.dailyCapUsd);
   const monthlyPct = budgetPercent(value.usedMonthUsd, value.monthlyCapUsd);
   const dailyTone = budgetTone(dailyPct);
   const monthlyTone = budgetTone(monthlyPct);
   const dailyPaused = dailyPct >= 100;
+
+  const submit = handleSubmit(async (values) => {
+    try {
+      await onSave({
+        dailyCapUsd: values.dailyCapUsd,
+        monthlyCapUsd: values.monthlyCapUsd,
+      });
+      toast.success("Budget saved");
+      reset({
+        dailyCapUsd: String(values.dailyCapUsd),
+        monthlyCapUsd: String(values.monthlyCapUsd),
+      });
+    } catch (err) {
+      toast.error("Couldn't save budget", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  });
+
+  const submitDisabled = !formState.isDirty || formState.isSubmitting || isSaving;
 
   return (
     <Card data-testid="card-settings-budget">
@@ -98,60 +117,85 @@ export function BudgetSection({ value, onSave }: BudgetSectionProps) {
           cap={value.monthlyCapUsd}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          <label className="flex flex-col gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            Daily cap (USD)
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={daily}
-              onChange={(e) => setDaily(e.target.value)}
-              data-testid="budget-daily-input"
-              aria-invalid={!validDaily}
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            Monthly cap (USD)
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={monthly}
-              onChange={(e) => setMonthly(e.target.value)}
-              data-testid="budget-monthly-input"
-              aria-invalid={!validMonthly}
-              className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
-            />
-          </label>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!isDirty}
-            onClick={() => {
-              setDaily(String(value.dailyCapUsd));
-              setMonthly(String(value.monthlyCapUsd));
-            }}
-            data-testid="budget-cancel"
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!isDirty}
-            onClick={() => {
-              if (!valid) return;
-              onSave({ dailyCapUsd: dailyNum, monthlyCapUsd: monthlyNum });
-            }}
-            data-testid="budget-save"
-          >
-            Save
-          </Button>
-        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+          noValidate
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <label className="flex flex-col gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+              Daily cap (USD)
+              <input
+                type="number"
+                min={0}
+                step={1}
+                data-testid="budget-daily-input"
+                aria-invalid={Boolean(formState.errors.dailyCapUsd)}
+                className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
+                {...register("dailyCapUsd")}
+              />
+              {formState.errors.dailyCapUsd ? (
+                <span
+                  role="alert"
+                  data-testid="budget-error-daily"
+                  className="text-[11px] text-[var(--destructive)]"
+                >
+                  {formState.errors.dailyCapUsd.message}
+                </span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+              Monthly cap (USD)
+              <input
+                type="number"
+                min={0}
+                step={1}
+                data-testid="budget-monthly-input"
+                aria-invalid={Boolean(formState.errors.monthlyCapUsd)}
+                className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--foreground)]"
+                {...register("monthlyCapUsd")}
+              />
+              {formState.errors.monthlyCapUsd ? (
+                <span
+                  role="alert"
+                  data-testid="budget-error-monthly"
+                  className="text-[11px] text-[var(--destructive)]"
+                >
+                  {formState.errors.monthlyCapUsd.message}
+                </span>
+              ) : null}
+            </label>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={!formState.isDirty || formState.isSubmitting || isSaving}
+              onClick={() =>
+                reset({
+                  dailyCapUsd: String(value.dailyCapUsd),
+                  monthlyCapUsd: String(value.monthlyCapUsd),
+                })
+              }
+              data-testid="budget-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={submitDisabled}
+              loading={formState.isSubmitting || isSaving}
+              data-testid="budget-save"
+            >
+              Save
+            </Button>
+          </div>
+        </form>
       </CardBody>
     </Card>
   );
