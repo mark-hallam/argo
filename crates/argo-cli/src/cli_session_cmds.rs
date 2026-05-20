@@ -292,6 +292,12 @@ pub enum SessionCmd {
         note: Option<String>,
         #[arg(long)]
         once: bool,
+        /// Optional glob narrowing the grant to dispatches whose
+        /// `target` payload matches. Same matcher as
+        /// `Capability::ToolDispatch`. Without this flag the
+        /// grant remains session-global (v7/v8 behaviour).
+        #[arg(long)]
+        target: Option<String>,
         #[arg(long)]
         json: bool,
     },

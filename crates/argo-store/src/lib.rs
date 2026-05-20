@@ -319,7 +319,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 74;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 75;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

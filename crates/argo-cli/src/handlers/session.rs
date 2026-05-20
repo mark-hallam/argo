@@ -267,9 +267,18 @@ async fn dispatch_rollups_and_approvals(cmd: SessionCmd) -> ArgoResult<()> {
             tool,
             note,
             once,
+            target,
             json,
         } => {
-            super::session_approval::approve(&session_id, &tool, note.as_deref(), once, json).await
+            super::session_approval::approve(
+                &session_id,
+                &tool,
+                note.as_deref(),
+                once,
+                target.as_deref(),
+                json,
+            )
+            .await
         }
         SessionCmd::RevokeApproval {
             session_id,

@@ -27,19 +27,23 @@ async fn open_store() -> ArgoResult<Arc<SessionStore>> {
     Ok(Arc::new(pool))
 }
 
-fn parse_session_id(s: &str) -> ArgoResult<SessionId> {
+pub(super) fn parse_session_id(s: &str) -> ArgoResult<SessionId> {
     let u = Uuid::parse_str(s)
         .map_err(|e| ArgoError::Schema(format!("invalid session id '{s}': {e}")))?;
     Ok(SessionId(u))
 }
 
 /// `argo session approve <session-id> --tool <name> [--note
-/// "<text>"] [--once]`.
+/// "<text>"] [--once] [--target <glob>]`. `target_glob` narrows
+/// the grant to dispatches whose `target` payload matches the
+/// glob; `None` keeps the v7/v8 session-global behaviour
+/// (mission-pm-approval-target-scope).
 pub async fn approve(
     session_id_str: &str,
     tool: &str,
     note: Option<&str>,
     once: bool,
+    target_glob: Option<&str>,
     json: bool,
 ) -> ArgoResult<()> {
     let sid = parse_session_id(session_id_str)?;
@@ -52,7 +56,7 @@ pub async fn approve(
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no session with id '{session_id_str}'")))?;
     let grant_id = store
-        .add_session_grant(sid, tool, "cli", note, once)
+        .add_session_grant(sid, tool, "cli", note, once, target_glob)
         .await?;
 
     // Audit row so the chain shows the operator's intent. The
@@ -66,6 +70,7 @@ pub async fn approve(
         "source": "cli",
         "note": note,
         "one_shot": once,
+        "target_glob": target_glob,
     });
     audit
         .write(Some(sid), AuditKind::ApprovalGranted, payload, None)
@@ -80,16 +85,23 @@ pub async fn approve(
                 "session_id": session_id_str,
                 "tool": tool,
                 "one_shot": once,
+                "target_glob": target_glob,
             }))
             .unwrap_or_default()
         );
     } else {
         let suffix = if once { " (one-shot)" } else { "" };
+        let scope = match target_glob {
+            Some(g) => format!(" — target '{g}'"),
+            None => String::new(),
+        };
         println!(
-            "approved tool '{tool}' for session '{session_id_str}'{suffix} (grant {grant_id})"
+            "approved tool '{tool}' for session '{session_id_str}'{suffix}{scope} (grant {grant_id})"
         );
         if once {
-            println!("  → next dispatch of '{tool}' goes through; subsequent calls re-block");
+            println!(
+                "  → next matching dispatch of '{tool}' goes through; subsequent calls re-block"
+            );
         } else {
             println!("  → next turn against this session will let '{tool}' dispatch");
         }
@@ -195,3 +207,7 @@ pub async fn revoke_approval(session_id_str: &str, tool: &str, json: bool) -> Ar
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "session_approval_tests.rs"]
+mod tests;

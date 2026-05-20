@@ -62,8 +62,12 @@ pub(super) async fn session_approve_response(
         Err(e) => return server_error(&format!("get_session: {e}")),
     };
 
+    // Per-target scope (`target_glob`) is not yet exposed on the
+    // gateway body — `None` preserves the v7/v8 session-global
+    // behaviour. A follow-up brief lifts it through the JSON body
+    // alongside the existing `tool`/`note`/`one_shot` fields.
     let grant_id = match store
-        .add_session_grant(sid, tool, "gateway", note, one_shot)
+        .add_session_grant(sid, tool, "gateway", note, one_shot, None)
         .await
     {
         Ok(id) => id,

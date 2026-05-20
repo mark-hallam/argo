@@ -26,6 +26,12 @@ sha2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+# Per-target glob matching on session grants
+# (mission-pm-approval-target-scope). Same library `argo-types`
+# uses for `Capability::ToolDispatch::tool_name_glob`, so an
+# operator who pins a grant's `target_glob` gets the same matching
+# semantics they already know from capability glob policies.
+globset = { workspace = true }
 
 # BYOK (mission-byok-enterprise-tenants) — cloud-KMS unwrap of the
 # wrapped data-encryption-key (DEK). All three providers speak

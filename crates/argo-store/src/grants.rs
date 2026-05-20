@@ -10,10 +10,11 @@
 //! the agent runner reads grants at every TurnStart and lets the
 //! grant override the block for that exact tool name.
 //!
-//! Today grants are persistent (stay until the session ends or
-//! the operator revokes — which is `--yes` based, like uninstall).
-//! A future PR can add one-shot semantics if we want to require
-//! re-approval per dispatch.
+//! `target_glob` (mission-pm-approval-target-scope) narrows a
+//! grant from "any call to <tool>" to "calls whose `target`
+//! payload matches this glob". `NULL` keeps the v7/v8 behaviour
+//! (session-global grant). The consume-side check lives in
+//! [`SessionStore::find_session_grant_for_dispatch`].
 use crate::SessionStore;
 use crate::StoreResult;
 use argo_types::{ArgoError, SessionId};
@@ -44,6 +45,13 @@ pub struct SessionGrant {
     /// `None` when the grant is still active. Always `None`
     /// for non-one-shot grants — they never consume.
     pub consumed_at_secs: Option<i64>,
+    /// Optional payload-target scope. `None` keeps the v7/v8
+    /// behaviour (the grant applies to any dispatch of
+    /// `tool_name`). `Some(glob)` restricts the grant to
+    /// dispatches whose `target` argument satisfies the glob via
+    /// the same matcher `Capability::ToolDispatch::tool_name_glob`
+    /// uses.
+    pub target_glob: Option<String>,
 }
 
 impl SessionStore {
@@ -59,6 +67,12 @@ impl SessionStore {
     /// the first matching dispatch — useful for "let it through
     /// just this once" approvals where the operator doesn't want
     /// the grant to persist across the whole session.
+    ///
+    /// `target_glob=Some(glob)` (mission-pm-approval-target-scope)
+    /// narrows the grant from "any call to tool" to "calls whose
+    /// `target` payload matches `glob`" via the existing globset
+    /// matcher. `target_glob=None` preserves v7/v8 back-compat —
+    /// the grant matches any target.
     pub async fn add_session_grant(
         &self,
         sid: SessionId,
@@ -66,14 +80,15 @@ impl SessionStore {
         source: &str,
         notes: Option<&str>,
         one_shot: bool,
+        target_glob: Option<&str>,
     ) -> StoreResult<Uuid> {
         let id = Uuid::now_v7();
         let now = chrono::Utc::now().timestamp();
         let one_shot_int: i32 = if one_shot { 1 } else { 0 };
         sqlx::query(
             "INSERT INTO session_grant
-                (id, session_id, tool_name, granted_at, source, notes, is_one_shot)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (id, session_id, tool_name, granted_at, source, notes, is_one_shot, target_glob)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id.as_bytes().as_slice())
         .bind(sid.0.as_bytes().as_slice())
@@ -82,6 +97,7 @@ impl SessionStore {
         .bind(source)
         .bind(notes)
         .bind(one_shot_int)
+        .bind(target_glob)
         .execute(self.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("add_session_grant: {e}")))?;
@@ -158,6 +174,97 @@ impl SessionStore {
         Ok(Some(id))
     }
 
+    /// Find the active grant that authorises a dispatch of
+    /// `(session, tool, target)` (mission-pm-approval-target-scope).
+    ///
+    /// Resolution rules:
+    /// - Grants with `target_glob = NULL` match any `target` (the
+    ///   v7/v8 back-compat behaviour).
+    /// - Grants with `target_glob = Some(g)` match only when
+    ///   `target` is `Some(t)` and the globset matcher reports
+    ///   `g` covers `t`.
+    /// - **Most-specific wins.** When both a targeted grant and a
+    ///   session-global grant could apply, the targeted grant is
+    ///   returned — an operator who narrowed a grant doesn't want
+    ///   a leftover session-wide grant to mask it.
+    ///
+    /// Errors:
+    /// - `ArgoError::Provider("approval grant target mismatch")`
+    ///   when targeted grant(s) exist for `(session, tool)` but
+    ///   none of them satisfy the inbound `target` (or `target`
+    ///   is `None`) AND no session-global grant is in place.
+    ///   This makes the audit trail distinguish "no grant" from
+    ///   "your grant doesn't cover this target".
+    ///
+    /// Returns `Ok(None)` when no grant exists for `(session,
+    /// tool)` at all — the gate stays in effect.
+    pub async fn find_session_grant_for_dispatch(
+        &self,
+        sid: SessionId,
+        tool_name: &str,
+        target: Option<&str>,
+    ) -> StoreResult<Option<SessionGrant>> {
+        let grants = self.list_session_grants(sid).await?;
+        let tool_grants: Vec<SessionGrant> = grants
+            .into_iter()
+            .filter(|g| g.tool_name == tool_name)
+            .collect();
+        if tool_grants.is_empty() {
+            return Ok(None);
+        }
+        // Partition by whether the grant declares a target_glob.
+        // Targeted grants are checked first (most-specific wins);
+        // session-global grants act as a fallback.
+        let mut targeted: Vec<&SessionGrant> = Vec::new();
+        let mut global: Vec<&SessionGrant> = Vec::new();
+        for g in &tool_grants {
+            if g.target_glob.is_some() {
+                targeted.push(g);
+            } else {
+                global.push(g);
+            }
+        }
+        // Try targeted matches first. Among matching targeted
+        // grants, prefer the longer glob string (a rough but
+        // honest specificity metric — "Q3-2026-*" beats "Q3-*"
+        // for "Q3-2026-L42"). Ties fall to the newest grant,
+        // which `list_session_grants` already orders first.
+        let mut targeted_match: Option<&SessionGrant> = None;
+        let mut targeted_score: usize = 0;
+        for g in &targeted {
+            let Some(glob) = g.target_glob.as_deref() else {
+                continue;
+            };
+            let Some(t) = target else {
+                continue;
+            };
+            if !glob_covers(glob, t) {
+                continue;
+            }
+            let score = glob.len();
+            if targeted_match.is_none() || score > targeted_score {
+                targeted_match = Some(g);
+                targeted_score = score;
+            }
+        }
+        if let Some(g) = targeted_match {
+            return Ok(Some(g.clone()));
+        }
+        // No targeted grant matched. Fall back to a session-
+        // global grant if one exists (preserves back-compat for
+        // sessions that still issue plain `argo session approve`).
+        if let Some(g) = global.first() {
+            return Ok(Some((*g).clone()));
+        }
+        // Targeted grants exist for the tool but none matched,
+        // and no session-global fallback is in place. Make the
+        // mismatch explicit so the audit chain shows "approval
+        // grant exists but did not cover this target".
+        Err(ArgoError::Provider(
+            "approval grant target mismatch".to_string(),
+        ))
+    }
+
     /// Revoke all grants for a (session, tool_name) pair.
     /// Returns the number of rows deleted. Used by the planned
     /// `argo session revoke-approval` command (follow-up PR).
@@ -185,12 +292,12 @@ async fn list_session_grants_inner(
     // include_consumed=true returns everything (active +
     // consumed) for the audit timeline view.
     let sql = if include_consumed {
-        "SELECT id, session_id, tool_name, granted_at, source, notes, is_one_shot, consumed_at
+        "SELECT id, session_id, tool_name, granted_at, source, notes, is_one_shot, consumed_at, target_glob
          FROM session_grant
          WHERE session_id = ?
          ORDER BY granted_at DESC, id DESC"
     } else {
-        "SELECT id, session_id, tool_name, granted_at, source, notes, is_one_shot, consumed_at
+        "SELECT id, session_id, tool_name, granted_at, source, notes, is_one_shot, consumed_at, target_glob
          FROM session_grant
          WHERE session_id = ? AND consumed_at IS NULL
          ORDER BY granted_at DESC, id DESC"
@@ -206,6 +313,7 @@ async fn list_session_grants_inner(
             Option<String>,
             i64,
             Option<i64>,
+            Option<String>,
         ),
     >(sql)
     .bind(sid.0.as_bytes().as_slice())
@@ -213,7 +321,18 @@ async fn list_session_grants_inner(
     .await
     .map_err(|e| ArgoError::Provider(format!("list_session_grants: {e}")))?;
     let mut out = Vec::with_capacity(rows.len());
-    for (id_b, _sid_b, tool_name, granted_at, source, notes, is_one_shot, consumed_at) in rows {
+    for (
+        id_b,
+        _sid_b,
+        tool_name,
+        granted_at,
+        source,
+        notes,
+        is_one_shot,
+        consumed_at,
+        target_glob,
+    ) in rows
+    {
         let id = Uuid::from_slice(&id_b)
             .map_err(|e| ArgoError::Provider(format!("parse grant id: {e}")))?;
         out.push(SessionGrant {
@@ -225,9 +344,27 @@ async fn list_session_grants_inner(
             notes,
             is_one_shot: is_one_shot != 0,
             consumed_at_secs: consumed_at,
+            target_glob,
         });
     }
     Ok(out)
+}
+
+/// Glob-match `requested` against `grant_glob` using the same
+/// `globset` library `argo-types::Capability::ToolDispatch` uses
+/// for its `tool_name_glob`. Kept private so the only entry point
+/// into the matcher is
+/// [`SessionStore::find_session_grant_for_dispatch`] — the brief
+/// limits us to the grant layer and we don't want callers
+/// reinventing the consume-side semantics.
+fn glob_covers(grant_glob: &str, requested: &str) -> bool {
+    if grant_glob == requested {
+        return true;
+    }
+    let Ok(glob) = globset::Glob::new(grant_glob) else {
+        return false;
+    };
+    glob.compile_matcher().is_match(requested)
 }
 
 #[cfg(test)]
