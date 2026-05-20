@@ -24,7 +24,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/customers") ||
     pathname.startsWith("/compare") ||
     pathname.startsWith("/changelog") ||
-    pathname.startsWith("/docs")
+    pathname.startsWith("/docs") ||
+    pathname.startsWith("/for/")
   ) {
     return NextResponse.next();
   }

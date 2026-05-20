@@ -205,6 +205,7 @@ export default function MarketingLandingPage() {
           gap: 28px;
           font-size: 14px;
           font-weight: 500;
+          align-items: center;
         }
         .land-nav a {
           color: var(--ink-2);
@@ -212,6 +213,62 @@ export default function MarketingLandingPage() {
         }
         .land-nav a:hover {
           color: var(--purple);
+        }
+        .land-for-wrap {
+          position: relative;
+        }
+        .land-for-trigger {
+          background: none;
+          border: none;
+          padding: 0;
+          font: inherit;
+          color: var(--ink-2);
+          cursor: pointer;
+          display: inline-flex;
+          gap: 6px;
+          align-items: center;
+        }
+        .land-for-trigger:hover {
+          color: var(--purple);
+        }
+        .land-for-wrap:hover .land-for-menu,
+        .land-for-wrap:focus-within .land-for-menu {
+          display: grid;
+        }
+        .land-for-menu {
+          display: none;
+          position: absolute;
+          top: calc(100% + 12px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: white;
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          padding: 10px;
+          min-width: 280px;
+          grid-template-columns: 1fr;
+          gap: 4px;
+          box-shadow: 0 18px 40px -16px rgba(30, 27, 75, 0.18);
+          z-index: 50;
+        }
+        .land-for-item {
+          padding: 10px 12px;
+          border-radius: 10px;
+          text-decoration: none;
+          color: var(--ink);
+        }
+        .land-for-item:hover {
+          background: rgba(139, 92, 246, 0.06);
+        }
+        .land-for-item-label {
+          font-weight: 600;
+          font-size: 14px;
+          margin: 0;
+        }
+        .land-for-item-tag {
+          margin: 2px 0 0;
+          font-size: 12.5px;
+          color: var(--ink-3);
         }
         .land-top-right {
           display: flex;
@@ -793,6 +850,26 @@ export default function MarketingLandingPage() {
           <nav className="land-nav">
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
+            <span className="land-for-wrap">
+              <button className="land-for-trigger" type="button" aria-haspopup="true">
+                For <ArrowRight size={12} style={{ transform: "rotate(90deg)" }} />
+              </button>
+              <div className="land-for-menu" role="menu">
+                {[
+                  { slug: "sales", label: "Sales", tagline: "Qualify leads, book demos." },
+                  { slug: "recruiting", label: "Recruiting", tagline: "Screen, schedule, reference." },
+                  { slug: "support", label: "Support", tagline: "Triage tickets, draft replies." },
+                  { slug: "finance", label: "Finance", tagline: "Extract, reconcile, flag." },
+                  { slug: "marketing", label: "Marketing", tagline: "Brand QA, enrich, digest." },
+                  { slug: "ops", label: "Ops", tagline: "Status, sync, audit." },
+                ].map((v) => (
+                  <Link key={v.slug} href={`/for/${v.slug}`} className="land-for-item" role="menuitem">
+                    <p className="land-for-item-label">{v.label}</p>
+                    <p className="land-for-item-tag">{v.tagline}</p>
+                  </Link>
+                ))}
+              </div>
+            </span>
             <Link href="/compare">Compare</Link>
             <Link href="/customers">Customers</Link>
             <Link href="/pricing">Pricing</Link>
