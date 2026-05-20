@@ -183,6 +183,11 @@ pub enum AuditKind {
     /// sweeper's first emit so the brief that wires it can
     /// reference a first-class kind from day one.
     ApprovalExpiredByTimeout,
+    /// The gateway service-token-binding sweeper deleted expired
+    /// token-to-principal rows. Payload carries `count`,
+    /// `swept_at_iso`, and `cutoff_iso`. One row per non-zero sweep,
+    /// not per deleted binding.
+    ServiceTokenBindingExpired,
     /// Gateway refused a tenant-scoped request because the serving
     /// deployment region did not match that tenant's configured
     /// data-residency region.
@@ -304,6 +309,7 @@ impl AuditKind {
             Self::RetroFinalized => "retro.finalized",
             Self::SecurityKeyRotated => "security.key_rotated",
             Self::ApprovalExpiredByTimeout => "approval.expired_by_timeout",
+            Self::ServiceTokenBindingExpired => "service_token_binding.expired",
             Self::CrossRegionBlocked => "security.cross_region_blocked",
             Self::GatewayInsecureBind => "gateway_insecure_bind",
             Self::TenantProvisioned => "tenant.provisioned",
@@ -358,6 +364,7 @@ impl AuditKind {
             "retro.finalized" => Self::RetroFinalized,
             "security.key_rotated" => Self::SecurityKeyRotated,
             "approval.expired_by_timeout" => Self::ApprovalExpiredByTimeout,
+            "service_token_binding.expired" => Self::ServiceTokenBindingExpired,
             "security.cross_region_blocked" => Self::CrossRegionBlocked,
             "gateway_insecure_bind" => Self::GatewayInsecureBind,
             "tenant.provisioned" => Self::TenantProvisioned,
@@ -412,6 +419,7 @@ impl AuditKind {
             Self::RetroFinalized,
             Self::SecurityKeyRotated,
             Self::ApprovalExpiredByTimeout,
+            Self::ServiceTokenBindingExpired,
             Self::CrossRegionBlocked,
             Self::GatewayInsecureBind,
             Self::TenantProvisioned,

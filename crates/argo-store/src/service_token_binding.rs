@@ -152,6 +152,18 @@ pub async fn delete_binding(pool: &SqlitePool, token_hash: &str) -> ArgoResult<b
     Ok(res.rows_affected() > 0)
 }
 
+/// Delete bindings whose `created_at` is older than `cutoff_iso`.
+/// Returns the number of rows deleted.
+pub async fn delete_stale_before(pool: &SqlitePool, cutoff_iso: &str) -> ArgoResult<u64> {
+    ensure_schema(pool).await?;
+    let res = sqlx::query("DELETE FROM service_token_binding WHERE created_at < ?")
+        .bind(cutoff_iso)
+        .execute(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("service_token_binding stale delete: {e}")))?;
+    Ok(res.rows_affected())
+}
+
 /// List every binding row newest-first by `created_at`. The raw
 /// token / full hash columns are projected so the caller can choose
 /// what to render; the CLI surface masks the hash to a leading
@@ -245,6 +257,55 @@ mod tests {
             .unwrap();
         assert!(delete_binding(&p, "doomed").await.unwrap());
         assert!(!delete_binding(&p, "doomed").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn delete_stale_before_removes_only_older_rows() {
+        let p = pool().await;
+        insert_binding(
+            &p,
+            "old",
+            "human:a",
+            "t1",
+            None,
+            "2026-05-18T00:00:00+00:00",
+        )
+        .await
+        .unwrap();
+        insert_binding(
+            &p,
+            "cutoff",
+            "human:b",
+            "t1",
+            None,
+            "2026-05-19T00:00:00+00:00",
+        )
+        .await
+        .unwrap();
+        insert_binding(
+            &p,
+            "fresh",
+            "human:c",
+            "t1",
+            None,
+            "2026-05-20T00:00:00+00:00",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            delete_stale_before(&p, "2026-05-19T00:00:00+00:00")
+                .await
+                .unwrap(),
+            1
+        );
+        let hashes: Vec<String> = list_bindings(&p)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|row| row.token_hash)
+            .collect();
+        assert_eq!(hashes, vec!["fresh".to_string(), "cutoff".to_string()]);
     }
 
     #[tokio::test]

@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 45);
+    assert_eq!(AuditKind::all().len(), 46);
 }
 
 #[test]
@@ -195,6 +195,18 @@ fn approval_expired_by_timeout_round_trips_and_listed() {
     assert_eq!(kind.label(), "approval.expired_by_timeout");
     let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
     assert!(labels.contains(&"approval.expired_by_timeout"));
+}
+
+#[test]
+fn service_token_binding_expired_round_trips_and_listed() {
+    let kind = AuditKind::ServiceTokenBindingExpired;
+    assert_eq!(
+        AuditKind::from_label("service_token_binding.expired"),
+        Some(kind)
+    );
+    assert_eq!(kind.label(), "service_token_binding.expired");
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"service_token_binding.expired"));
 }
 
 #[test]

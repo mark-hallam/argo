@@ -21,7 +21,7 @@ use super::shutdown::{self, ShutdownController};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
 use super::startup_check::{run_startup_checks, validate_bind_safety, STARTUP_CHECK_EXIT};
-use super::{approval_expiry_sweeper, metrics, sweepers};
+use super::{approval_expiry_sweeper, metrics, service_token_binding_sweeper, sweepers};
 use argo_config::ArgoConfig;
 use argo_forge::{spawn_forge_cron, ForgeCronConfig};
 use argo_store::SessionStore;
@@ -146,6 +146,7 @@ async fn open_serving_store(
 pub(super) struct BgGuards {
     _sweeper: Option<JoinHandle<()>>,
     _approval_expiry: Option<JoinHandle<()>>,
+    _service_token_binding_sweeper: Option<JoinHandle<()>>,
     _approval_reminder: Option<AbortOnDrop>,
     _duty_scheduler: Option<AbortOnDrop>,
     _alerts_loop: Option<AbortOnDrop>,
@@ -167,6 +168,9 @@ pub(super) fn spawn_bg_tasks(
         _sweeper: bg_store.and_then(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s))),
         _approval_expiry: bg_store
             .and_then(|s| approval_expiry_sweeper::spawn_approval_expiry_sweeper(Arc::clone(s))),
+        _service_token_binding_sweeper: bg_store.and_then(|s| {
+            service_token_binding_sweeper::spawn_service_token_binding_sweeper(Arc::clone(s))
+        }),
         _approval_reminder: bg_store.map(|s| spawn_approval_reminder(Arc::clone(s))),
         _duty_scheduler: bg_store.map(|s| spawn_gateway_duty_scheduler(Arc::clone(s))),
         _alerts_loop: bg_store.map(|s| spawn_alerts_loop(Arc::clone(s))),
