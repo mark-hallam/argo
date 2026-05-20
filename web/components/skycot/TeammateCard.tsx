@@ -115,7 +115,10 @@ export function TeammateCard({
   const [confirm, setConfirm] = useState<"pause" | "resume" | null>(null);
 
   const cardTestId = testId ?? `teammate-${worker.id}`;
-  const profileHref = `/workers/${worker.id}`;
+  // Direct-link to /overview rather than /workers/<id> (which is a
+  // server-side redirect to /overview). Saves a redirect flicker on
+  // every TeammateCard click — wave-12 audit finding.
+  const profileHref = `/workers/${worker.id}/overview`;
   const tone = STATUS_TONES[worker.status];
   const statusLabel = STATUS_LABELS[worker.status];
   const level = levelFor(worker);
