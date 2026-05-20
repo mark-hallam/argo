@@ -173,6 +173,86 @@ fn build_pragma_key(hex: &str) -> StoreResult<String> {
     ))
 }
 
+/// Fail-closed startup gate for at-rest encryption in production /
+/// enterprise mode (`mission-audit-sqlcipher-enterprise-default`).
+///
+/// Returns `Ok(())` in dev mode (`production == false`) so existing
+/// local-dev behavior is unchanged. In production mode, returns
+/// `Err(ArgoError::Schema(..))` unless BOTH:
+///
+/// 1. the binary was built with the `sqlcipher` Cargo feature (see
+///    [`encryption::sqlcipher_linked`]), AND
+/// 2. `key_source` is set to something other than `none` (empty or
+///    `"none"` — case-insensitive — both count as "unset").
+///
+/// The error message lists both possible causes and how to fix each,
+/// so the operator sees the full diagnosis without needing to consult
+/// the runbook.
+///
+/// # Caller
+///
+/// The gateway boot path calls this immediately after parsing the
+/// effective `argo.toml`, before any store is opened. The check is
+/// pure (just two predicates) so it stays cheap and side-effect-free;
+/// the production-mode flag and `key_source` string are computed by
+/// the caller from `is_production_mode()` + `cfg.security.encryption.
+/// key_source`. Keeping the function primitive-typed avoids pulling
+/// argo-config into argo-store (the circular-dep guard noted at the
+/// top of this module).
+///
+/// # Errors
+///
+/// Returns [`ArgoError::Schema`] when running in production mode
+/// without SQLCipher OR with `key_source = "none"`. Schema maps to
+/// HTTP 400 per the workspace variant contract — a misconfigured
+/// deployment is a caller-side data error, not a downstream failure.
+/// (The brief originally cited `ArgoError::Config`, which does not
+/// exist; `Schema` is the canonical caller-config-error variant per
+/// `crates/argo-types/src/error.rs` and the precedent set by
+/// `mission-audit-bearer-fail-closed-prod`.)
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::store_open::enforce_enterprise_encryption;
+/// // Dev mode is always permissive — current behavior preserved.
+/// assert!(enforce_enterprise_encryption(false, "none").is_ok());
+/// assert!(enforce_enterprise_encryption(false, "").is_ok());
+/// // Production + key configured ⇒ outcome depends on the compile-
+/// // time `sqlcipher` feature; the two-gate semantics round-trip:
+/// let prod_with_key_ok =
+///     enforce_enterprise_encryption(true, "env:ARGO_DB_KEY").is_ok();
+/// assert_eq!(
+///     prod_with_key_ok,
+///     argo_store::encryption::sqlcipher_linked(),
+/// );
+/// // Production + key_source=none ⇒ always Err regardless of feature.
+/// assert!(enforce_enterprise_encryption(true, "none").is_err());
+/// assert!(enforce_enterprise_encryption(true, "NONE").is_err());
+/// assert!(enforce_enterprise_encryption(true, "  ").is_err());
+/// ```
+///
+/// # Errors
+/// See above — returns [`ArgoError::Schema`] in production mode when
+/// the feature is missing OR the key source is unset.
+pub fn enforce_enterprise_encryption(production: bool, key_source: &str) -> StoreResult<()> {
+    if !production {
+        return Ok(());
+    }
+    let feature_enabled = encryption::sqlcipher_linked();
+    let trimmed = key_source.trim();
+    let key_set = !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("none");
+    if feature_enabled && key_set {
+        return Ok(());
+    }
+    Err(ArgoError::Schema(format!(
+        "enterprise mode requires SQLCipher: rebuild with \
+         --features bundled-sqlcipher AND set security.key_source != \
+         \"none\" (got: feature_enabled={feature_enabled}, \
+         key_source={key_source})"
+    )))
+}
+
 /// Resolve `SKYCOT_DB_KEY_BASE64` into a 64-char lowercase hex string,
 /// or `None` when the env var is unset/empty. A set-but-malformed value
 /// is a hard error — silent fallback to unencrypted would be a

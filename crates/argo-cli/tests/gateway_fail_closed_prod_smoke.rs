@@ -70,9 +70,20 @@ fn spawn_gateway(
     port: u16,
     max_requests: u32,
 ) -> (Child, common::listener_signal::StderrDrain) {
+    // NOTE (`mission-audit-sqlcipher-enterprise-default`): the wizard
+    // bootstrap-token gate is orthogonal to production mode (the
+    // `X-Argo-Bootstrap` check fires in either profile), so this test
+    // runs the gateway in dev mode. Production-mode rejection of a
+    // stock (non-SQLCipher) build is covered by
+    // `production_profile_without_bearer_fails_before_listen` plus
+    // the unit tests in `argo-store::store_open_enterprise_tests`.
+    // Setting `ARGO_GATEWAY_PROFILE=production` here would deadlock
+    // against the new fail-closed encryption gate (stock build +
+    // production mode = refuse to boot, even with a real env key).
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
-        .env("ARGO_GATEWAY_PROFILE", "production")
+        .env_remove("ARGO_GATEWAY_PROFILE")
+        .env_remove("ARGO_GATEWAY_BIND")
         .env("ARGO_GATEWAY_BEARER_TOKEN", "prod-token")
         .env("SKYCOT_DB_KEY_BASE64", SMOKE_DB_KEY_B64)
         .current_dir(home)

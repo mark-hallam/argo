@@ -182,7 +182,17 @@ pub mod spend_anomaly;
 /// Section 7 #225).
 pub mod spend_ceiling;
 mod stats;
-mod store_open;
+/// `SessionStore::open*` bodies + the production-mode encryption
+/// startup gate (`mission-audit-sqlcipher-enterprise-default`).
+/// Surface kept narrow: only [`store_open::enforce_enterprise_encryption`]
+/// and [`store_open::DB_KEY_ENV`] are `pub`; the rest stays
+/// `pub(crate)` so the public crate surface still routes through
+/// the [`SessionStore`] constructors.
+pub mod store_open;
+
+#[cfg(test)]
+#[path = "store_open_enterprise_tests.rs"]
+mod store_open_enterprise_tests;
 /// Persistent subtask ledger — durable record of Planner-emitted
 /// decompositions (Stream `claude-subtask-ledger-store`).
 pub mod subtask;

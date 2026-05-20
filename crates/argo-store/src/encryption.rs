@@ -456,6 +456,27 @@ pub async fn apply_encryption_pragma(pool: &Pool<Sqlite>, hex_key: &str) -> Resu
     Ok(())
 }
 
+/// Whether this binary was compiled with the `sqlcipher` Cargo
+/// feature — the operator-facing toggle that signals SQLCipher's
+/// `PRAGMA key` is load-bearing on the linked SQLite driver. Stock
+/// builds return `false`; enterprise builds (`--features
+/// bundled-sqlcipher`, which implies `sqlcipher`) return `true`.
+///
+/// Single source of truth for the compile-time flag — callers asking
+/// "is this a SQLCipher-linked binary?" go through this helper rather
+/// than re-spelling `cfg!(feature = "sqlcipher")`.
+///
+/// # Examples
+///
+/// ```
+/// use argo_store::encryption::sqlcipher_linked;
+/// assert_eq!(sqlcipher_linked(), cfg!(feature = "sqlcipher"));
+/// ```
+#[must_use]
+pub const fn sqlcipher_linked() -> bool {
+    cfg!(feature = "sqlcipher")
+}
+
 /// Rotate the encryption key in place via `PRAGMA rekey`. Caller is
 /// responsible for having already applied the old key (via
 /// [`apply_encryption_pragma`]) before invoking this.

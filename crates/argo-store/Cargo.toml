@@ -55,18 +55,22 @@ base64 = "0.22"
 # every connection sqlx opens.
 libsqlite3-sys = { workspace = true, optional = true }
 
-# Marker feature for at-rest encryption (Stream
-# `mission-encryption-at-rest-sqlcipher`). Enabling it alone does
-# NOT swap the linked SQLite driver — the stock sqlx 0.8 driver is
-# pure-Rust and ignores `PRAGMA key`. The feature is the operator-
-# facing toggle that downstream builds (FIPS / SQLCipher Commercial)
-# can wire to a libsqlite3-sys-with-SQLCipher fork. See
-# `docs/skycot/RUNBOOK.md` § "At-rest encryption".
+# `sqlcipher` — enables SQLCipher PRAGMA enforcement
+# (`mission-encryption-at-rest-sqlcipher`,
+# `mission-audit-sqlcipher-enterprise-default`). Operator-facing
+# marker that downstream builds (FIPS / SQLCipher Commercial) flip;
+# `encryption::sqlcipher_linked()` reads it as the single source of
+# truth, and the production-mode startup gate
+# (`store_open::enforce_enterprise_encryption`) refuses to boot in
+# enterprise mode unless this feature is set AND a real key source
+# is configured. Enabling it alone does NOT swap the linked SQLite
+# driver — the stock sqlx 0.8 driver is pure-Rust and ignores
+# `PRAGMA key`. See `docs/skycot/RUNBOOK.md` § "At-rest encryption".
 #
 # `bundled-sqlcipher` (mission-sqlcipher-1-libsqlite3-patch) is the
-# build-time companion that actually links the SQLCipher engine via
-# libsqlite3-sys' bundled C source + vendored OpenSSL. It implies
-# `sqlcipher` so the marker stays consistent. Default unencrypted
+# full bundled build — links the SQLCipher engine via libsqlite3-sys'
+# bundled C source + vendored OpenSSL, and implies `sqlcipher` so the
+# PRAGMA-enforcement gate stays consistent. Default unencrypted
 # builds remain unchanged; existing unencrypted-DB paths keep
 # working when the feature is enabled (SQLCipher reads a database
 # with no `PRAGMA key` as plaintext).
