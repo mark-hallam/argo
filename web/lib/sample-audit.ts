@@ -24,6 +24,7 @@ const M = 60_000;
 const H = 60 * M;
 const D = 24 * H;
 
+const WORKSPACE = { id: "sys_workspace", name: "Workspace" };
 const PRIYA = { id: "wkr_01J0PRIYA", name: "Priya" };
 const SAM = { id: "wkr_01J0SAM", name: "Sam" };
 const MARIAH = { id: "wkr_01J0MARIAH", name: "Mariah" };
@@ -101,6 +102,11 @@ const SEEDS: Seed[] = [
   [RIO, "paused by operator (see worker profile)", "worker_paused", "succeeded", 5 * D + 2 * H, { approver: OPERATOR }],
   [RIO, "wrote buyer-prefs memory for the Pereira family", "memory_written", "autonomous", 6 * D + 8 * H],
   [RIO, "refused to disclose seller's reservation price", "policy_refusal", "refused", 8 * D, { cls: "restricted" }],
+
+  // API-key lifecycle — workspace-level events from /settings/api-keys
+  [WORKSPACE, "API key created: 'CI pipeline'", "api_key_created", "succeeded", 14 * D, { approver: OPERATOR, cls: "internal" }],
+  [WORKSPACE, "API key created: 'Data warehouse sync'", "api_key_created", "succeeded", 47 * D, { approver: OPERATOR, cls: "internal" }],
+  [WORKSPACE, "API key revoked: 'Legacy migration tool'", "api_key_revoked", "succeeded", 30 * D, { approver: OPERATOR, cls: "internal" }],
 
   // Older log entries — push beyond 7 days to exercise pagination
   [PRIYA, "closed JD-2024-07 with hire (Sara Lin → backup pool)", "role_closed", "succeeded", 10 * D + 4 * H],

@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Bell, Lock, Key, Download, Plug, Receipt, Users } from "lucide-react";
+import {
+  Building2,
+  Bell,
+  Lock,
+  Key,
+  KeyRound,
+  Download,
+  Plug,
+  Receipt,
+  Users,
+} from "lucide-react";
 
 /**
  * Settings landing — locked D top-tabs design (2026-05-19 memory).
@@ -47,6 +57,13 @@ const TILES = [
     title: "Provider keys",
     blurb: "Anthropic, OpenAI, custom providers. Per-worker overrides.",
     coming: true,
+  },
+  {
+    href: "/settings/api-keys",
+    icon: <KeyRound size={20} />,
+    title: "API keys",
+    blurb: "Long-lived tokens for service accounts, CI, and integrations.",
+    coming: false,
   },
   {
     href: "/settings/connectors",
