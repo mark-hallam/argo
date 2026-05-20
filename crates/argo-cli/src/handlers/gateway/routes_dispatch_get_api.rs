@@ -176,6 +176,31 @@ pub(super) async fn dispatch_api_get(
                     super::routes_worker_settings::get_settings(id_with_suffix, req, store).await,
                 );
             }
+            // web-gateway-endpoints-worker-skills-batch — three-section
+            // Skills tab bundle + the per-skill history endpoint. The
+            // bare `skills` arm must come AFTER the longer `skills/<sid>/
+            // history` arm so the more-specific path wins prefix-match.
+            if tail.starts_with("skills/") {
+                let after = tail.trim_start_matches("skills/");
+                if let Some((sid, rest_after)) = after.split_once('/') {
+                    if rest_after.starts_with("history ") || rest_after.starts_with("history?") {
+                        return Some(
+                            super::routes_worker_skills::history_response(
+                                id_with_suffix,
+                                sid,
+                                req,
+                                store,
+                            )
+                            .await,
+                        );
+                    }
+                }
+            }
+            if tail.starts_with("skills ") || tail.starts_with("skills?") {
+                return Some(
+                    super::routes_worker_skills::list_response(id_with_suffix, req, store).await,
+                );
+            }
         }
         // J7 — bare /api/v1/workers/<id> for the worker profile page.
         // Matches only when the path has no further slash before the

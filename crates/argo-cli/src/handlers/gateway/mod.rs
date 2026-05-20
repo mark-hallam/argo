@@ -184,6 +184,8 @@ mod routes_worker_memory;
 mod routes_worker_overview;
 mod routes_worker_policies;
 mod routes_worker_settings;
+mod routes_worker_skills;
+mod routes_worker_skills_helpers;
 mod routes_worker_trust_grade;
 mod routes_workers_hire;
 mod routes_workflows;

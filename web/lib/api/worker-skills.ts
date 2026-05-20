@@ -176,7 +176,8 @@ export async function enableSkill(
   workerId: string,
   skillId: string,
 ): Promise<SkillMutationResult> {
-  const source = await mutate(workerId, `/skills`, { skillId }, "post");
+  // Gateway accepts `skill_id` (web-gateway-endpoints-worker-skills-batch).
+  const source = await mutate(workerId, `/skills`, { skill_id: skillId }, "post");
   return { id: skillId, source };
 }
 
@@ -189,9 +190,12 @@ export async function promoteLearned(
   workerId: string,
   patternId: string,
 ): Promise<SkillMutationResult> {
+  // Gateway route is `/skills/<sid>/promote` per
+  // web-gateway-endpoints-worker-skills-batch. The `patternId` here is
+  // the skill id once the learned-pattern surface lands a real source.
   const source = await mutate(
     workerId,
-    `/skills/learned/${encodeURIComponent(patternId)}/promote`,
+    `/skills/${encodeURIComponent(patternId)}/promote`,
     {},
     "post",
   );

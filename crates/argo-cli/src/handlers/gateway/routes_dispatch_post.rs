@@ -260,6 +260,14 @@ async fn domain_dispatchers(
     if let Some(resp) = super::routes_dispatch_post_memory::dispatch_memory(req, store).await {
         return Some(resp);
     }
+    // web-gateway-endpoints-worker-skills-batch — POST/DELETE for the
+    // per-worker Skills tab (add / remove / promote). Sibling
+    // dispatcher lives on the handler module rather than a separate
+    // `_skills` file so the URL pattern stays one hop away from its
+    // handler set.
+    if let Some(resp) = super::routes_worker_skills::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     if let Some(resp) = super::routes_dispatch_post_retros::dispatch_retros(req, store).await {
         return Some(resp);
     }
