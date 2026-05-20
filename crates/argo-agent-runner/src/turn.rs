@@ -11,19 +11,21 @@
 //! it arrives but otherwise runs the same multi-round loop.
 //!
 //! The inner tool-dispatch loop (`run_turn_with_tools`) lives in
-//! the sibling `turn_helpers.rs` so this file stays under the
-//! 500-LOC ceiling (HARD RULE 6); see also the
-//! `claude-agent-runner-turn-split` brief.
-use crate::helpers::{emit_event, price_for, RunEventSink, SpendCtx};
-use crate::transport::{build_transport, load_manifest};
-use crate::turn_vertical::{
-    build_session_grant_state, build_turn_start_payload, build_vertical_approval_set,
-    build_vertical_deny_set, resolve_vertical_for_session,
-};
-use argo_audit::{AuditKind, AuditSink};
-use argo_provider::{ProviderManifest, Transport};
+//! the sibling `turn_helpers.rs`. The orchestration body for
+//! `run_turn_with_events_inner` lives in `turn_run_loop.rs`, the
+//! context-window sizing policy in `turn_context_policy.rs`, and
+//! system-prompt composition in `turn_system_prompt.rs`, all so
+//! this file stays under the 500-LOC ceiling (HARD RULE 6); see
+//! also the `claude-agent-runner-turn-split` and
+//! `codex-loc-budget-followup-wave3` briefs.
+use crate::helpers::RunEventSink;
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, MessageRole, SessionId, TenantId};
+// `TenantId` is unused in this parent file post-split, but the
+// `turn_tests` sibling does `use super::*` and needs it in scope.
+#[cfg(test)]
+#[allow(unused_imports)]
+use argo_types::TenantId;
+use argo_types::{ArgoResult, SessionId};
 use std::path::Path;
 use std::sync::Arc;
 use tracing::Instrument;
@@ -151,283 +153,11 @@ pub async fn run_turn_with_events(
         tenant_id = tracing::field::Empty,
         worker_id = tracing::field::Empty,
     );
-    run_turn_with_events_inner(store, cwd, session_id, user, stream, max_rounds, events)
-        .instrument(span)
-        .await
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn run_turn_with_events_inner(
-    store: &Arc<SessionStore>,
-    cwd: &Path,
-    session_id: SessionId,
-    user: Option<&str>,
-    stream: bool,
-    max_rounds: usize,
-    events: Option<&RunEventSink>,
-) -> ArgoResult<TurnResult> {
-    let session = store
-        .get_session(session_id)
-        .await?
-        .ok_or_else(|| ArgoError::Provider(format!("no session {}", session_id.0)))?;
-    let span = tracing::Span::current();
-    span.record("tenant_id", tracing::field::display(&session.tenant_id.0));
-    if let Some(w) = session.worker_id {
-        span.record("worker_id", tracing::field::display(&w.0));
-        // mission-prompt-cache-affinity-wire-mints: keep the
-        // affinity registry warm so the next turn under the same
-        // `(tenant, worker)` pair reuses this session id inside the
-        // prompt-cache TTL window. No-op when no registry is wired.
-        if let Some(affinity) = store.prompt_cache_affinity() {
-            affinity.record(session.tenant_id, &w.to_string(), session_id);
-        }
-    }
-
-    // mission-pm-kill-switch-2-runner: pre-turn freeze gate. Refuses
-    // to start a turn for a frozen worker before any provider work or
-    // audit emission. No-op when the session has no `worker_id`.
-    if let Some(wid) = session.worker_id {
-        if let Some(rec) = argo_store::worker_freeze::is_frozen(
-            store.pool(),
-            &session.tenant_id.to_string(),
-            &wid.to_string(),
-        )
-        .await?
-        {
-            return Err(ArgoError::Invariant(turn_helpers_freeze::freeze_message(
-                &rec,
-            )));
-        }
-    }
-
-    if let Some(text) = user {
-        let content = serde_json::json!([{"type": "text", "text": text}]);
-        store
-            .append_message(session_id, MessageRole::User, &content.to_string())
-            .await?;
-    }
-
-    let manifest = load_manifest(cwd, &session.provider)?;
-    let provider_id = manifest.provider.id.clone();
-    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
-    // mission-claim-3-runtime-wiring-v1x: consult the tier router
-    // *before* picking the model for this turn. Sessions with no
-    // routing_policy or a non-tier policy (the v1.0 default) skip
-    // this entirely; sessions opting into `RoutingPolicy::Tiered`
-    // get their model overridden to the tier's `chosen_provider_model`.
-    let routing_decision =
-        crate::turn_routing::maybe_route_turn(store, &session, manifest.clone(), user, &audit)
-            .await?;
-    let effective_model: String = routing_decision
-        .as_ref()
-        .map(|d| d.chosen_provider_model.model.clone())
-        .unwrap_or_else(|| session.model.clone());
-    let pricing = price_for(&manifest, &effective_model);
-    let transport: Box<dyn Transport> = build_transport(manifest).await?;
-
-    // Vertical lookup: when the session is bound, load the
-    // declared role/system_prompt + carry the slug into the audit
-    // payload so /audit/by-vertical rollups become possible (#654).
-    // Also build the deny-set the dispatcher will consult per-call
-    // (#655). Per-vertical load errors degrade gracefully — the
-    // turn still runs; the prompt just falls back to skill-derived.
-    let vertical_ctx = resolve_vertical_for_session(session.vertical_id.as_deref());
-    let vertical_deny = build_vertical_deny_set(session.vertical_id.as_deref());
-    let vertical_approval = build_vertical_approval_set(session.vertical_id.as_deref());
-    // Operator-issued approvals from `argo session approve`
-    // (#664) + one-shot grant tracking (#667). The approval gate
-    // lets these through even when the vertical's manifest would
-    // have blocked them; one-shot grants are consumed on first
-    // matching dispatch so subsequent calls re-block.
-    let session_grants = build_session_grant_state(store, session_id).await;
-
-    // Pre-turn budget gate (mission-delegation-budget-tree): if a
-    // running subtask is bound to this session and its declared
-    // budget is exhausted, abort cleanly with `BudgetExhausted`
-    // before any provider work fires. Unbounded sessions (no
-    // running subtask, or NULL budget) fall through unchanged.
-    crate::turn_budget::check_pre_turn_budget(store, session_id, &audit).await?;
-    let turn_start = build_turn_start_payload(
-        &session.provider,
-        &effective_model,
-        session.vertical_id.as_deref(),
-    );
-    audit
-        .write(
-            Some(session_id),
-            AuditKind::TurnStart,
-            turn_start.clone(),
-            None,
-        )
-        .await?;
-    emit_event(events, "TurnStart", turn_start);
-    let spend_ctx = SpendCtx {
-        tenant_id: session.tenant_id,
-        provider: provider_id.as_str(),
-        model: effective_model.as_str(),
-        pricing,
-    };
-    // mission-skill-select-variant-runtime-wire: per-turn invocation
-    // id seeds `argo_skill::select_variant` and dedups
-    // `record_outcome` writes on `(run_id, invocation_id)`. Uuidv7
-    // is unique per turn even within the same session.
-    let invocation_id = Uuid::now_v7().to_string();
-    let mut pending_ab_outcomes: Vec<turn_skills_runtime::PendingAbOutcome> = Vec::new();
-    let result = turn_helpers::run_turn_with_tools(
-        store,
-        transport.as_ref(),
-        cwd,
-        session_id,
-        &effective_model,
-        &audit,
-        &spend_ctx,
-        max_rounds,
-        stream,
-        events,
-        vertical_ctx.as_deref(),
-        session.vertical_id.as_deref(),
-        &vertical_deny,
-        &vertical_approval,
-        session_grants,
-        session.worker_id,
-        &invocation_id,
-        &mut pending_ab_outcomes,
+    turn_run_loop::run_turn_with_events_inner(
+        store, cwd, session_id, user, stream, max_rounds, events,
     )
-    .await;
-    let succeeded = result.is_ok();
-    // Side-channel: never fail the turn for A/B outcome IO.
-    turn_skills_runtime::record_pending_outcomes(store, &pending_ab_outcomes, succeeded, None)
-        .await;
-    let kind = if succeeded {
-        AuditKind::TurnEnd
-    } else {
-        AuditKind::Halt
-    };
-    let kind_label = if succeeded { "TurnEnd" } else { "Halt" };
-    let _ = audit
-        .write(Some(session_id), kind, serde_json::json!({}), None)
-        .await;
-    emit_event(events, kind_label, serde_json::json!({}));
-    result
-}
-
-fn model_context_window(manifest: &ProviderManifest, model: &str) -> usize {
-    let resolved = manifest.resolve_model_id(model);
-    manifest
-        .models
-        .iter()
-        .find(|m| m.id == resolved)
-        .and_then(|m| m.context_window)
-        .map_or(0, |n| n as usize)
-}
-
-fn load_context_compress_config(cwd: &Path) -> ArgoResult<argo_config::ContextCompressConfig> {
-    let mut config = argo_config::load_from(cwd)?.runtime.context_compress;
-    let local = [cwd.join(".skycot/argo.toml"), cwd.join("argo.toml")]
-        .into_iter()
-        .find(|path| path.exists());
-    if let Some(path) = local {
-        config = argo_config::ArgoConfig::load(&path)?
-            .runtime
-            .context_compress;
-    }
-    Ok(config)
-}
-
-struct ContextWindowPolicy {
-    window_tokens: usize,
-    compression: argo_runtime::context_compress::CompressionConfig,
-}
-
-impl ContextWindowPolicy {
-    fn disabled() -> Self {
-        Self::from_config(argo_config::ContextCompressConfig::default(), 0)
-    }
-
-    fn from_config(config: argo_config::ContextCompressConfig, window_tokens: usize) -> Self {
-        Self {
-            window_tokens,
-            compression: argo_runtime::context_compress::CompressionConfig {
-                enabled: config.enabled,
-                trigger_pct: config.trigger_pct,
-                keep_last_turns: config.keep_last_turns as usize,
-                summary_max_tokens: config.summary_max_tokens as usize,
-            },
-        }
-    }
-}
-
-/// Concatenate skill bodies into a single system-prompt string
-/// that's passed on every round of the turn. Returns `None` when
-/// nothing is in scope (the provider transport then sends no
-/// `system` block at all).
-///
-/// Resolution order:
-/// 1. If `session_skill` rows exist for `session_id`, use *only*
-///    those skills (per-session curation, #279).
-/// 2. Otherwise, when `vertical_id` is bound (#679 — Rule 6),
-///    fall back to skills scoped to that vertical
-///    (`SkillStore::list_skills_for_vertical`). Cross-vertical
-///    skill bleed-through is blocked at this layer.
-/// 3. Otherwise (unbound legacy session), fall back to every
-///    active row in the workspace.
-#[cfg(test)]
-async fn build_system_prompt(
-    store: &Arc<SessionStore>,
-    session_id: SessionId,
-    vertical_id: Option<&str>,
-    tenant_id: TenantId,
-    worker_id: Option<argo_store::WorkerId>,
-) -> ArgoResult<Option<String>> {
-    let (prompt, _pending) =
-        build_system_prompt_with_ab(store, session_id, vertical_id, tenant_id, worker_id, "")
-            .await?;
-    Ok(prompt)
-}
-
-/// Compose the system prompt AND resolve A/B variants in one pass.
-///
-/// Behaves like [`build_system_prompt`] but additionally returns the
-/// pending A/B outcomes that the caller must record after the turn
-/// settles. `invocation_id` is the SHA-256 seed for
-/// `argo_skill::select_variant`; pass an empty string when the
-/// caller does NOT care about A/B selection (the variant choice
-/// falls back to "keep all rows" because no run can match).
-async fn build_system_prompt_with_ab(
-    store: &Arc<SessionStore>,
-    session_id: SessionId,
-    vertical_id: Option<&str>,
-    tenant_id: TenantId,
-    worker_id: Option<argo_store::WorkerId>,
-    invocation_id: &str,
-) -> ArgoResult<(Option<String>, Vec<turn_skills_runtime::PendingAbOutcome>)> {
-    let skills = argo_skill::SkillStore::new(Arc::clone(store));
-    let mut active =
-        turn_helpers::load_prompt_skills(&skills, session_id, vertical_id, worker_id).await?;
-    turn_canary::apply_canary_routing(store, &skills, session_id, tenant_id, &mut active).await?;
-    let (active, pending) =
-        turn_skills_runtime::resolve_variants_for_turn(store, invocation_id, active).await;
-    turn_skills_migration::emit_pending_migration_hints(store, &active).await;
-    let mut out = turn_helpers::render_skill_prompt(active);
-    // mission-skill-session-boot-wire: render the trust-gated
-    // "Available skills" block (name + version + description only,
-    // no body) once per session boot, between the active workspace
-    // skills and the memory composition. Empty list / lookup error
-    // → omit; session boot never fails.
-    if let Some(block) =
-        turn_skills::compose_available_skills_block(store, tenant_id, worker_id).await
-    {
-        turn_skills::inject_skills_block(&mut out, &block);
-    }
-    let memory = turn_memory::compose_prompt_memory(store, tenant_id, worker_id).await;
-    if !memory.is_empty() {
-        if !out.is_empty() {
-            out.push('\n');
-        }
-        out.push_str(&memory);
-    }
-    let prompt = if out.is_empty() { None } else { Some(out) };
-    Ok((prompt, pending))
+    .instrument(span)
+    .await
 }
 
 #[path = "turn_helpers.rs"]
@@ -474,6 +204,25 @@ mod turn_planner_tests;
 
 #[path = "turn_skills_migration.rs"]
 mod turn_skills_migration;
+
+#[path = "turn_context_policy.rs"]
+mod turn_context_policy;
+
+#[path = "turn_system_prompt.rs"]
+mod turn_system_prompt;
+
+#[path = "turn_run_loop.rs"]
+mod turn_run_loop;
+
+// Re-exports so the post-split sibling modules (turn_helpers_run,
+// turn_helpers_context, turn_tests) continue to access these
+// through `super::*` without code changes.
+pub(crate) use turn_context_policy::{
+    load_context_compress_config, model_context_window, ContextWindowPolicy,
+};
+pub(crate) use turn_system_prompt::build_system_prompt_with_ab;
+#[cfg(test)]
+pub(crate) use turn_system_prompt::build_system_prompt;
 
 #[cfg(test)]
 #[path = "turn_tests.rs"]
