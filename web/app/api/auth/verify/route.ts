@@ -54,14 +54,15 @@ export async function POST(req: NextRequest) {
     needs_onboarding: payload.needs_onboarding ?? true,
     tenant_id: payload.tenant_id ?? null,
   });
-  // Gateway mints `Set-Cookie: __Host-session=...; HttpOnly; Secure;
-  // SameSite=Lax; Path=/; Max-Age=...` directly
-  // (mission-magic-link-v1x-hardening). Forward it untouched so the
-  // SPA never sees the JWT and the cookie attributes have a single
-  // source of truth.
-  const upstreamCookie = upstream.headers.get("set-cookie");
-  if (upstreamCookie) {
-    res.headers.set("set-cookie", upstreamCookie);
+  // Gateway mints two `Set-Cookie` headers — `__Host-session`
+  // (HttpOnly, the JWT) and `__Host-csrf` (NOT HttpOnly, the CSRF
+  // token = JWT `jti`). Forward both untouched via `getSetCookie()`
+  // because `headers.get("set-cookie")` returns only the first
+  // value and joining set-cookie headers with `, ` is unsafe
+  // (cookie values can contain commas). (Stream
+  // `claude-rebase-pr-1835-cookies`.)
+  for (const cookie of upstream.headers.getSetCookie()) {
+    res.headers.append("set-cookie", cookie);
   }
   return res;
 }

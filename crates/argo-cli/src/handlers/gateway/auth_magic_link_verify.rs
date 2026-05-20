@@ -1,6 +1,6 @@
 use super::{
     emit_auth_failed, emit_auth_succeeded, mint_jwt, sha256_hex, signup_source_ip,
-    verify_rate_limit_check, SessionStore, VERIFY_RATE_LIMIT_WINDOW,
+    verify_rate_limit_check, SessionStore, JWT_TTL_SECS, VERIFY_RATE_LIMIT_WINDOW,
 };
 use argo_identity::user::UserAccount;
 use argo_identity::user_store::{get_user_by_email, insert_user, update_last_login};
@@ -15,8 +15,8 @@ use std::time::Instant;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-const JWT_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 const SESSION_COOKIE_NAME: &str = "__Host-session";
+const CSRF_COOKIE_NAME: &str = "__Host-csrf";
 
 #[derive(Debug, Deserialize)]
 struct VerifyBody {
@@ -112,14 +112,14 @@ pub(crate) async fn verify_outcome(req: &str, store: Option<&Arc<SessionStore>>)
         },
         Err(e) => return err_outcome("500 Internal Server Error", &format!("tenant: {e}")),
     };
-    let jwt = match mint_jwt(
+    let (jwt, jti) = match mint_jwt(
         &user.id.to_string(),
         &email,
         tenant_id.as_deref(),
         role.as_deref(),
         now,
     ) {
-        Ok(t) => t,
+        Ok(pair) => pair,
         Err(msg) => return err_outcome("500 Internal Server Error", &msg),
     };
     emit_auth_succeeded(s, &user.id.to_string(), tenant_id.as_deref(), source_ip).await;
@@ -127,11 +127,18 @@ pub(crate) async fn verify_outcome(req: &str, store: Option<&Arc<SessionStore>>)
         "needs_onboarding": tenant_id.is_none(),
         "tenant_id": tenant_id,
     });
+    // Two `Set-Cookie` headers in one wire response: the session JWT
+    // (HttpOnly so JS can't read it) and the CSRF token (NOT
+    // HttpOnly so the SPA can echo it in `X-CSRF-Token`). The
+    // double-submit pattern in `middleware_csrf` compares the
+    // cookie value to the header value. Emitted as one
+    // `\r\nSet-Cookie: `-separated string so the stream writer
+    // emits two header lines without needing a `Vec<String>`.
     VerifyOutcome {
         status: "200 OK",
         body: body.to_string(),
         set_cookie: Some(format!(
-            "{SESSION_COOKIE_NAME}={jwt}; Max-Age={JWT_TTL_SECS}; Path=/; HttpOnly; Secure; SameSite=Lax"
+            "{SESSION_COOKIE_NAME}={jwt}; Max-Age={JWT_TTL_SECS}; Path=/; HttpOnly; Secure; SameSite=Lax\r\nSet-Cookie: {CSRF_COOKIE_NAME}={jti}; Max-Age={JWT_TTL_SECS}; Path=/; Secure; SameSite=Lax"
         )),
     }
 }

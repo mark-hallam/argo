@@ -49,7 +49,7 @@ pub(super) use auth_audit::{
 pub(super) use auth_delivery::{deliver_magic_link, looks_like_email};
 pub(super) use auth_signup::signup_response;
 pub(crate) use auth_token::jwt_secret;
-pub(super) use auth_token::{mint_jwt, mint_token, sha256_hex};
+pub(super) use auth_token::{mint_jwt, mint_token, sha256_hex, JWT_TTL_SECS};
 pub(super) use auth_verify::serve_verify_stream;
 #[cfg(test)]
 pub(super) use auth_verify::verify_outcome;

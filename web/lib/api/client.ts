@@ -12,8 +12,10 @@
  */
 
 import { ApiError, type ApiErrorEnvelope } from "./types";
+import { resolveCsrfToken } from "@/lib/auth/csrf-token";
 
 const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
+const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 
 function gatewayBase(): string {
   return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
@@ -70,6 +72,16 @@ async function request<T>(method: string, path: string, init: ApiRequestInit = {
   if (json !== undefined) finalHeaders.set("Content-Type", "application/json");
   if (token) finalHeaders.set("Authorization", `Bearer ${token}`);
   finalHeaders.set("Accept", "application/json");
+  // CSRF double-submit (Stream claude-rebase-pr-1835-cookies). The
+  // gateway's `middleware_csrf` enforces the header on every
+  // cookie-authenticated mutating request; attaching it
+  // unconditionally on mutating verbs is a no-op for bearer-auth
+  // requests (no `__Host-session` cookie → gate skips) but covers
+  // the cookie-auth surface without further client-side changes.
+  if (MUTATING_METHODS.has(method.toUpperCase()) && !finalHeaders.has("X-CSRF-Token")) {
+    const csrf = await resolveCsrfToken();
+    if (csrf) finalHeaders.set("X-CSRF-Token", csrf);
+  }
 
   const url = path.startsWith("http") ? path : `${gatewayBase()}${path}`;
   const res = await fetch(url, {

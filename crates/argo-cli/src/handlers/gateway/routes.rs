@@ -66,6 +66,18 @@ async fn dispatch_route_inner(
     // this future and decrements on any return path (including panic
     // unwind). The drain loop blocks on this counter.
     let _guard = shutdown.request_guard();
+    // Origin allow-list + CSRF double-submit
+    // (Stream `claude-rebase-pr-1835-cookies`). Origin-check runs
+    // ahead of the auth-magic-link branch so a foreign-origin POST
+    // to `/api/v1/auth/signup` is rejected before a magic-link is
+    // minted. CSRF skips the anonymous auth endpoints (no session
+    // cookie yet).
+    if let Some(resp) = super::middleware_origin_check::check_origin(req) {
+        return resp;
+    }
+    if let Some(resp) = super::middleware_csrf::check_csrf(req) {
+        return resp;
+    }
     // Peer mesh runs ahead of the operator-facing bearer gate: it
     // carries its own ARGO_PEER_SECRET-bearer check, distinct from
     // ARGO_GATEWAY_BEARER_TOKEN. Routing /peer/* through the operator
@@ -88,6 +100,12 @@ async fn dispatch_route_inner(
     // owns its own TcpStream to emit `Set-Cookie: __Host-session=...`
     // (mission-magic-link-v1x-hardening).
     if let Some(resp) = super::auth_magic_link::dispatch(req, store).await {
+        return resp;
+    }
+    // CSRF token-fetch surface — same-origin XHR endpoint that
+    // mirrors the `__Host-csrf` cookie value back as JSON. Anonymous
+    // (no bearer gate) so the SPA can call it on first-load.
+    if let Some(resp) = super::routes_auth_csrf::dispatch(req).await {
         return resp;
     }
     // Skill marketplace browsing stays anonymous so prospects can

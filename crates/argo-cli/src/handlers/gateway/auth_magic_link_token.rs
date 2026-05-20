@@ -5,7 +5,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::sync::OnceLock;
 
-const JWT_TTL_SECS: i64 = 7 * 24 * 60 * 60;
+pub(crate) const JWT_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 
 pub(crate) fn mint_token() -> String {
     let mut bytes = [0u8; 32];
@@ -28,31 +28,42 @@ struct Claims<'a> {
     /// role (`guest`); the role-gate never trusts a missing claim.
     #[serde(skip_serializing_if = "Option::is_none")]
     role: Option<&'a str>,
+    /// JWT ID — uuid v7 minted per JWT. Doubles as the `__Host-csrf`
+    /// cookie value (double-submit CSRF pattern). Sibling brief
+    /// `mission-revocation-with-verify-middleware-v1x` keys the
+    /// `revoked_tokens` table on this claim.
+    jti: &'a str,
     iat: i64,
     exp: i64,
 }
 
+/// Mint a new HS256 session JWT. Returns `(jwt, jti)` so the caller
+/// can plumb the jti into the `__Host-csrf` cookie value as well as
+/// the JWT itself.
 pub(crate) fn mint_jwt(
     user_id: &str,
     email: &str,
     tenant_id: Option<&str>,
     role: Option<&str>,
     now: i64,
-) -> Result<String, String> {
+) -> Result<(String, String), String> {
     let key = EncodingKey::from_secret(&jwt_secret());
-    jsonwebtoken::encode(
+    let jti = uuid::Uuid::now_v7().to_string();
+    let token = jsonwebtoken::encode(
         &Header::new(jsonwebtoken::Algorithm::HS256),
         &Claims {
             sub: user_id,
             email,
             tnt: tenant_id,
             role,
+            jti: &jti,
             iat: now,
             exp: now + JWT_TTL_SECS,
         },
         &key,
     )
-    .map_err(|e| format!("jwt encode: {e}"))
+    .map_err(|e| format!("jwt encode: {e}"))?;
+    Ok((token, jti))
 }
 
 /// Production sets `SKYCOT_AUTH_JWT_SECRET`; dev runs mint an

@@ -16,7 +16,7 @@ fn fresh_secret() {
 fn round_trip_claims() {
     fresh_secret();
     let now = chrono::Utc::now().timestamp();
-    let jwt = mint_jwt(
+    let (jwt, _jti) = mint_jwt(
         "user-1",
         "alice@example.com",
         Some("tenant-1"),
@@ -35,7 +35,7 @@ fn round_trip_claims() {
 fn rejects_tampered_payload() {
     fresh_secret();
     let now = chrono::Utc::now().timestamp();
-    let jwt = mint_jwt("u", "e", Some("t"), Some("guest"), now).expect("mint");
+    let (jwt, _jti) = mint_jwt("u", "e", Some("t"), Some("guest"), now).expect("mint");
     let mut parts: Vec<&str> = jwt.splitn(3, '.').collect();
     // Replace payload with an "owner" claim — signature should fail.
     parts[1] =
@@ -113,7 +113,7 @@ fn session_cookie_picks_correct_pair() {
 fn extract_session_claims_prefers_bearer_then_cookie() {
     fresh_secret();
     let now = chrono::Utc::now().timestamp();
-    let jwt = mint_jwt("u", "e", Some("t"), Some("admin"), now).expect("mint");
+    let (jwt, _jti) = mint_jwt("u", "e", Some("t"), Some("admin"), now).expect("mint");
     // Bearer wins.
     let req = format!(
         "GET / HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer {jwt}\r\nCookie: __Host-session=garbage\r\n\r\n"

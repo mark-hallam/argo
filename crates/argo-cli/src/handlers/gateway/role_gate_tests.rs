@@ -52,7 +52,7 @@ fn unlock_production_mode() {
 
 fn req_with_jwt(role: Option<&str>, extra_headers: &str) -> String {
     let now = chrono::Utc::now().timestamp();
-    let jwt = mint_jwt("user-1", "guest@example.com", Some("tenant-a"), role, now)
+    let (jwt, _jti) = mint_jwt("user-1", "guest@example.com", Some("tenant-a"), role, now)
         .expect("mint");
     format!(
         "POST /api/v1/workers HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer {jwt}\r\n{extra_headers}\r\n",
@@ -196,7 +196,7 @@ fn jwt_role_claim_round_trips_through_decoder() {
     let _g = env_lock();
     set_test_secret();
     let now = chrono::Utc::now().timestamp();
-    let jwt = mint_jwt(
+    let (jwt, _jti) = mint_jwt(
         "user-2",
         "alice@acme.com",
         Some("tenant-x"),
