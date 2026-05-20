@@ -2,29 +2,23 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo } from "react";
-import { HireShell } from "@/components/skycot/HireShell";
+import { WizardEditorialShell } from "@/components/auth/WizardEditorialShell";
 import { Step1Land } from "@/components/skycot/hire/Step1Land";
 import { findExampleRoleById } from "@/lib/hire/examples";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
 import { useStep1 } from "@/lib/hire/use-step1";
 
 /**
- * Step 1 — Land. Real free-text input + examples popover (E2-b),
- * with optional `?example=<id>` pre-fill from the team empty state
- * (E3-e). When the param is present and the saved draft has no
- * problem text yet, the matching `EXAMPLE_ROLES` description seeds
- * the textarea so Continue activates immediately. Editing the seeded
- * text remains unrestricted.
+ * Step 1 — Land. The wizard entry page. Real free-text input + examples
+ * popover (E2-b), with optional `?example=<id>` pre-fill from the team
+ * empty state (E3-e). On mount we hydrate the draft store; if the user
+ * has progressed past step 1 within the 7-day TTL we route forward to
+ * wherever they left off.
  *
- * On mount we hydrate the draft store; if the user has progressed past
- * step 1 in a previous session and the draft is still within its 7-day
- * TTL, we route forward to wherever they left off so they don't
- * re-do work. Otherwise we render Step1Land seeded from any existing
- * `draft.state.problem` so the user's prior input survives a reload.
- *
- * Submit (Continue or Cmd/Ctrl+Enter) writes
- * `{ step: 2, problem: <value> }` to the draft store and routes to
- * `/hire/step/2`. No server call yet — Genesis-lite lives in E2-c.
+ * Visual treatment is locked F1 editorial-center (2026-05-19): hosted
+ * inside `WizardEditorialShell` with the Audiowide "Build your AI
+ * workforce." hero. Step 1's existing form chrome (textarea, examples
+ * popover, validation hint) lives inside the shell's body slot.
  */
 export default function HireLandingPage() {
   return (
@@ -75,14 +69,28 @@ function HireLandingContent() {
   );
 
   return (
-    <HireShell
+    <WizardEditorialShell
       step={1}
+      stepLabel="WELCOME"
+      eyebrow="WELCOME TO SKYCOT"
+      heroSegments={[
+        { text: "Build your" },
+        { text: " " },
+        { text: "AI workforce.", accent: true },
+      ]}
+      sub={
+        <>
+          In <strong>four minutes</strong>, you&apos;ll have hired your first AI teammate
+          — and they&apos;ll start work as soon as you finish.
+        </>
+      }
       unsavedHire={hasBody}
       continueDisabled={!step1.canSubmit}
       onContinue={step1.attemptSubmit}
       onDiscard={() => void draft.clear()}
+      continueLabel="Continue"
     >
       <Step1Land step1={step1} />
-    </HireShell>
+    </WizardEditorialShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useEffect, useState } from "react";
-import { HireShell } from "@/components/skycot/HireShell";
+import { WizardEditorialShell } from "@/components/auth/WizardEditorialShell";
 import { CelebrationOverlay } from "@/components/skycot/hire/CelebrationOverlay";
 import { setCelebration } from "@/lib/hire/celebration-storage";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
@@ -12,8 +12,9 @@ const REDIRECT_MS = 1500;
 /**
  * Step 6 — celebration handoff. Stamps a CelebrationEntry into local
  * storage so the approvals inbox can surface the banner on the next
- * mount, renders a 1.5s mid-screen celebration overlay, clears the
- * hire draft, then redirects to `/`.
+ * mount, renders the F1 editorial-center wizard shell with a
+ * celebration hero ("You just hired your **first teammate.**"),
+ * clears the hire draft, then redirects to `/`.
  *
  * `?inert=1` (set by Step 5's "Skip for now") makes the banner show
  * the inert variant ("X is hired but needs tools to start working").
@@ -21,8 +22,8 @@ const REDIRECT_MS = 1500;
  * tab — the URL is the single carrier of identity in that case.
  *
  * 1.5s is locked by the brief — longer feels like a delay, not a
- * celebration. The overlay carries `workerName` so the visual matches
- * the worker the user just hired.
+ * celebration. The overlay still carries `workerName` so the inner
+ * card matches the worker the user just hired.
  */
 export default function HireDonePage({
   params,
@@ -63,8 +64,24 @@ function HireDoneContent({ workerId }: { workerId: string }) {
   }, [workerId, isInert, draft.isLoading]);
 
   return (
-    <HireShell step={6}>
+    <WizardEditorialShell
+      step={6}
+      stepLabel="ALL HIRED"
+      eyebrow="WELCOME ABOARD"
+      heroSegments={[
+        { text: "You just hired your" },
+        { text: " " },
+        { text: "first teammate.", accent: true },
+      ]}
+      sub={
+        <>
+          Heading to your inbox in a moment — {resolvedName} is already on the way to
+          their first action.
+        </>
+      }
+      hideFooter
+    >
       <CelebrationOverlay workerName={resolvedName} />
-    </HireShell>
+    </WizardEditorialShell>
   );
 }

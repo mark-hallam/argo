@@ -2,7 +2,7 @@
 
 import { notFound, useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
-import { HireShell } from "@/components/skycot/HireShell";
+import { WizardEditorialShell, type WizardStep } from "@/components/auth/WizardEditorialShell";
 import { Step2Listen } from "@/components/skycot/hire/Step2Listen";
 import { Step3Drafting } from "@/components/skycot/hire/Step3Drafting";
 import { Step4Introduce } from "@/components/skycot/hire/Step4Introduce";
@@ -36,13 +36,72 @@ function readAnswersFromDraft(
   return out;
 }
 
+interface StepCopy {
+  label: string;
+  eyebrow: string;
+  hero: { text: string; accent?: boolean }[];
+  sub?: React.ReactNode;
+}
+
+const STEP_COPY: Record<Step, StepCopy> = {
+  2: {
+    label: "LISTEN",
+    eyebrow: "TELL US MORE",
+    hero: [{ text: "A few" }, { text: " " }, { text: "questions.", accent: true }],
+    sub: (
+      <>
+        We&apos;ll use these to shape your teammate&apos;s charter — what they own and
+        how they decide.
+      </>
+    ),
+  },
+  3: {
+    label: "DRAFTING",
+    eyebrow: "WORKING ON IT",
+    hero: [{ text: "Crafting your" }, { text: " " }, { text: "teammate.", accent: true }],
+    sub: (
+      <>
+        Drafting the charter, picking duties, and writing a few example replies.{" "}
+        <strong>This takes about ten seconds.</strong>
+      </>
+    ),
+  },
+  4: {
+    label: "INTRODUCE",
+    eyebrow: "MEET THE TEAM",
+    hero: [
+      { text: "Meet your" },
+      { text: " " },
+      { text: "first teammate.", accent: true },
+    ],
+    sub: (
+      <>
+        Read their charter, scan a few example replies, then{" "}
+        <strong>hire them</strong> — or adjust anything that&apos;s not quite right.
+      </>
+    ),
+  },
+  5: {
+    label: "CONNECT",
+    eyebrow: "ONE LAST STEP",
+    hero: [{ text: "Connect a" }, { text: " " }, { text: "channel.", accent: true }],
+    sub: (
+      <>
+        Pick where you&apos;ll hand them work — email, Slack, or a shared inbox.{" "}
+        <strong>You can always add more later.</strong>
+      </>
+    ),
+  },
+};
+
 /**
  * Dynamic `/hire/step/[step]` page. Validates the step segment is
  * 2..5; invalid values trigger Next's 404 boundary. Step 1 lives at
- * `/hire`, Step 6 lives at `/hire/done/[workerId]`. Step 2 (Listen)
- * renders the real Genesis-lite flow (E2-c); Step 3 (Drafting)
- * renders the worker-draft transition (E2-d); 4-5 stay placeholders
- * until their respective briefs land.
+ * `/hire`, Step 6 lives at `/hire/done/[workerId]`. Visuals are the
+ * locked F1 editorial-center (2026-05-19) hosted in
+ * `WizardEditorialShell`; per-step Audiowide hero, eyebrow, and sub
+ * copy are driven by `STEP_COPY`. Onboarding logic (provider key,
+ * worker spawn, hire commit) is unchanged.
  */
 export default function HireStepPage({ params }: { params: Promise<{ step: string }> }) {
   const { step: rawStep } = use(params);
@@ -201,6 +260,7 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
   }
 
   const activeStep: Step = step;
+  const copy = STEP_COPY[activeStep];
 
   function goNext() {
     if (activeStep === 2) {
@@ -230,9 +290,10 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
       (draft.state?.answers && Object.keys(draft.state.answers).length > 0),
   );
 
+  // Steps 3-5 manage their own internal CTAs (drafting animation,
+  // Hire/Adjust, Connect/Skip), so the shell's footer is hidden.
+  const hideFooter = activeStep === 3 || activeStep === 4 || activeStep === 5;
   const continueDisabled = activeStep === 2 ? !step2Snapshot.canContinue : true;
-  const hideFooter =
-    activeStep === 3 || activeStep === 4 || activeStep === 5;
 
   let stepContent: React.ReactNode;
   if (activeStep === 2) {
@@ -277,24 +338,24 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
       />
     );
   } else {
-    stepContent = (
-      <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-20 px-6 text-center space-y-3">
-        <h1 className="text-xl font-semibold text-[var(--foreground)]">Hire a teammate</h1>
-      </div>
-    );
+    stepContent = null;
   }
 
   return (
-    <HireShell
-      step={activeStep}
+    <WizardEditorialShell
+      step={activeStep as WizardStep}
+      stepLabel={copy.label}
+      eyebrow={copy.eyebrow}
+      heroSegments={copy.hero}
+      sub={copy.sub}
       unsavedHire={hasBody}
       continueDisabled={continueDisabled}
       onBack={goBack}
-      onContinue={goNext}
+      onContinue={hideFooter ? undefined : goNext}
       onDiscard={() => void draft.clear()}
       hideFooter={hideFooter}
     >
       {stepContent}
-    </HireShell>
+    </WizardEditorialShell>
   );
 }
