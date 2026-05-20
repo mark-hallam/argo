@@ -43,7 +43,7 @@ function defaultChain(skillId: string, skillVersion: string): DecisionStep[] {
 }
 
 const PRIYA_001: AuditDetail = {
-  id: "act_priya_001",
+  id: "act_01J0PRIYA_001",
   timestamp: isoMinutesAgo(8),
   worker: PRIYA,
   actionType: "candidate_screened",
@@ -54,7 +54,7 @@ const PRIYA_001: AuditDetail = {
   inputs: {
     triggerKind: "message",
     triggerSummary: "Application received from Diego Alvarez via Greenhouse webhook.",
-    predecessor: { id: "act_priya_000", verb: "received Greenhouse webhook for JD-2024-08" },
+    predecessor: { id: "act_01J0PRIYA_000", verb: "received Greenhouse webhook for JD-2024-08" },
   },
   decisionChain: [
     { n: 1, title: "Memory loaded", body: "must-have skills · candidate-prefs (cached) [hash 4f3a…]", details: { hashes: ["4f3a9c", "b21d77"] } },
@@ -77,12 +77,12 @@ const PRIYA_001: AuditDetail = {
     kind: "json",
     body: { score: 0.93, mustHaves: { matched: 6, total: 6 }, recommendation: "advance" },
     delivery: { sentAt: isoMinutesAgo(8), receivedAt: isoMinutesAgo(8), downstreamId: "gh_ev_4f1c" },
-    followUp: { id: "act_priya_002", verb: "booked Thursday 10:30 interview with Diego Alvarez" },
+    followUp: { id: "act_01J0PRIYA_002", verb: "booked Thursday 10:30 interview with Diego Alvarez" },
   },
 };
 
 const SAM_001: AuditDetail = {
-  id: "act_sam_001",
+  id: "act_01J0SAM_001",
   timestamp: isoMinutesAgo(6),
   worker: SAM,
   actionType: "invoice_processed",
@@ -92,7 +92,7 @@ const SAM_001: AuditDetail = {
   dataClassification: "confidential",
   inputs: {
     triggerKind: "message",
-    triggerSummary: "PDF invoice INV-2024-08741 received via accounts@acmeco.com.",
+    triggerSummary: "PDF invoice INV-2024-08741 received via accounts@skycot.com.",
   },
   decisionChain: [
     { n: 1, title: "Memory loaded", body: "vendor catalog · PO map (cached) [hash 7e2f…]" },
@@ -115,12 +115,12 @@ const SAM_001: AuditDetail = {
     kind: "json",
     body: { invoiceId: "INV-2024-08741", lineItems: 14, totalUsd: 14250, poMatch: "PO-2024-1132" },
     delivery: { sentAt: isoMinutesAgo(6), downstreamId: "netsuite_iv_8741" },
-    followUp: { id: "act_sam_002", verb: "queued $14,250 for CFO approval (INV-2024-08741)" },
+    followUp: { id: "act_01J0SAM_002", verb: "queued $14,250 for CFO approval (INV-2024-08741)" },
   },
 };
 
 const MARIAH_001: AuditDetail = {
-  id: "act_mariah_001",
+  id: "act_01J0MARIAH_001",
   timestamp: isoMinutesAgo(14),
   worker: MARIAH,
   actionType: "rfp_drafted",
@@ -131,7 +131,7 @@ const MARIAH_001: AuditDetail = {
   inputs: {
     triggerKind: "dependent_action",
     triggerSummary: "RFP cycle 2024-Q3 stage transition: research-complete → drafting.",
-    predecessor: { id: "act_mariah_000", verb: "completed RFP research for Tomás Industries" },
+    predecessor: { id: "act_01J0MARIAH_000", verb: "completed RFP research for Tomás Industries" },
   },
   decisionChain: [
     { n: 1, title: "Memory loaded", body: "tone profile · prior RFP wins (cached) [hash 9c8d…]" },
@@ -152,13 +152,13 @@ const MARIAH_001: AuditDetail = {
   },
   output: {
     kind: "text",
-    body: "Re: RFP-2024-Q3-Tomás\n\nThank you for the opportunity to respond. Our differentiators:\n  • Migration path proven across 12 enterprise rollouts.\n  • Tracking dashboard at https://app.linear.app/acmeco/issue/RFP-184\n  • SLA 99.95% with cred to 99.99% by Q1.\n\nFull pricing in attached schedule.\n",
+    body: "Re: RFP-2024-Q3-Tomás\n\nThank you for the opportunity to respond. Our differentiators:\n  • Migration path proven across 12 enterprise rollouts.\n  • Tracking dashboard at https://app.linear.app/skycot/issue/RFP-184\n  • SLA 99.95% with cred to 99.99% by Q1.\n\nFull pricing in attached schedule.\n",
     delivery: { sentAt: isoMinutesAgo(14), downstreamId: "drive_doc_aabb22" },
   },
 };
 
 const JAMAL_001: AuditDetail = {
-  id: "act_jamal_001",
+  id: "act_01J0JAMAL_001",
   timestamp: isoMinutesAgo(4),
   worker: JAMAL,
   actionType: "ticket_resolved",
@@ -188,13 +188,13 @@ const JAMAL_001: AuditDetail = {
   },
   output: {
     kind: "text",
-    body: "Hi Maria — your order is on track for Thursday delivery. Tracking: https://github.com/acmeco/ops/issues/2912 covers the carrier coordination. KB article: https://help.acmeco.com/SK-413.\n\nThanks,\nJamal",
+    body: "Hi Maria — your order is on track for Thursday delivery. Tracking: https://github.com/skycot/ops/issues/2912 covers the carrier coordination. KB article: https://help.skycot.com/SK-413.\n\nThanks,\nJamal",
     delivery: { sentAt: isoMinutesAgo(4), receivedAt: isoMinutesAgo(3), downstreamId: "zd_msg_29382" },
   },
 };
 
 const NORI_001: AuditDetail = {
-  id: "act_nori_001",
+  id: "act_01J0NORI_001",
   timestamp: isoMinutesAgo(11),
   worker: NORI,
   actionType: "quote_validated",

@@ -1064,18 +1064,18 @@ export default function MarketingLandingPage() {
             <a href="https://github.com/mark-hallam/skycot-packs" style={{ color: "inherit", textDecoration: "none" }}>
               GitHub
             </a>
-            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+            <Link href="/docs" style={{ color: "inherit", textDecoration: "none" }}>
               Docs
-            </a>
-            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+            </Link>
+            <Link href="/privacy" style={{ color: "inherit", textDecoration: "none" }}>
               Privacy
-            </a>
-            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+            </Link>
+            <Link href="/terms" style={{ color: "inherit", textDecoration: "none" }}>
               Terms
-            </a>
-            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+            </Link>
+            <Link href="/security" style={{ color: "inherit", textDecoration: "none" }}>
               Security
-            </a>
+            </Link>
             <a href="mailto:hello@skycot.com" style={{ color: "inherit", textDecoration: "none" }}>
               Contact
             </a>

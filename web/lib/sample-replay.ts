@@ -121,11 +121,11 @@ const FAILED: ReplayOutcome = {
 };
 
 const TABLE: Record<string, ReplayOutcome> = {
-  act_priya_001: PRIYA_001,
-  act_sam_001: SAM_001,
-  act_mariah_001: MARIAH_001,
-  act_jamal_001: JAMAL_001,
-  act_nori_001: NORI_001,
+  act_01J0PRIYA_001: PRIYA_001,
+  act_01J0SAM_001: SAM_001,
+  act_01J0MARIAH_001: MARIAH_001,
+  act_01J0JAMAL_001: JAMAL_001,
+  act_01J0NORI_001: NORI_001,
   [REPLAY_DECOMMISSIONED_ACTION_ID]: DECOMMISSIONED,
   [REPLAY_LEAK_ACTION_ID]: LEAK,
   [REPLAY_FAILED_ACTION_ID]: FAILED,
