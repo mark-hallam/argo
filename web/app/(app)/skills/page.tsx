@@ -1,16 +1,20 @@
 "use client";
 
-import { Search, Sparkles, TrendingUp, Wrench, Briefcase, Mail } from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { Briefcase, Mail, Search, Sparkles, TrendingUp, Wrench } from "lucide-react";
+import type { ReactNode } from "react";
+import { useSkills } from "@/lib/hooks/use-skills";
+import type { SkillRow } from "@/lib/api/skills";
 
 /**
  * Skills marketplace landing — locked A1 marketplace design language.
  *
- * Brand-loud-marketplace register per the 2026-05-19 design lock memory:
- * hero search bar with suggested-search chips, 28px gradient icon at the
- * head, ⌘K hint, count pill, "try" chips, then a featured-skills grid.
- *
- * V1 of this page renders a curated set of seed skills. Live skills
- * marketplace integration arrives in a follow-up wire-up brief.
+ * Brand-loud-marketplace register per the 2026-05-19 design lock memory.
+ * Hero search + "try" chips + featured-skills grid. v1 ships the curated
+ * "TRY" chip set; cards now read from the live gateway skill registry
+ * (`useSkills` → `/skills` envelope) with a seed-fallback when the
+ * gateway is empty or unreachable in dev.
  */
 
 const TRY_CHIPS = [
@@ -22,64 +26,43 @@ const TRY_CHIPS = [
   "lead enrichment",
 ];
 
-const FEATURED = [
-  {
-    id: "approval.route",
-    title: "Approval routing",
-    blurb: "Route approvals to the right human based on risk, dollar, and seniority rules.",
-    cohort: "Support",
-    workers: 4,
-    runs: "12.4k",
-    icon: <Sparkles size={20} />,
-  },
-  {
-    id: "invoice.extract",
-    title: "Invoice extraction",
-    blurb: "Pull structured line items from PDF or scanned invoices with vendor reconciliation.",
-    cohort: "Finance",
-    workers: 7,
-    runs: "38.1k",
-    icon: <Wrench size={20} />,
-  },
-  {
-    id: "candidate.screen",
-    title: "Candidate screening",
-    blurb: "First-pass candidate screen against a JD with skill-match scoring and red-flag flags.",
-    cohort: "People Ops",
-    workers: 3,
-    runs: "6.7k",
-    icon: <Briefcase size={20} />,
-  },
-  {
-    id: "deal.qualify",
-    title: "Deal qualification",
-    blurb: "BANT-style outbound qualification, calendar-link insertion, CRM update on accept.",
-    cohort: "Sales",
-    workers: 5,
-    runs: "21.3k",
-    icon: <TrendingUp size={20} />,
-  },
-  {
-    id: "support.triage",
-    title: "Support triage",
-    blurb: "Classify tickets, deflect with KB articles, escalate the rest with full context bundle.",
-    cohort: "Support",
-    workers: 9,
-    runs: "84.2k",
-    icon: <Mail size={20} />,
-  },
-  {
-    id: "lead.enrich",
-    title: "Lead enrichment",
-    blurb: "Append firmographic + technographic context to inbound leads from public sources.",
-    cohort: "Marketing",
-    workers: 2,
-    runs: "5.0k",
-    icon: <TrendingUp size={20} />,
-  },
+const ICON_ROTATION: ReactNode[] = [
+  <Sparkles size={20} key="sparkles" />,
+  <Wrench size={20} key="wrench" />,
+  <Briefcase size={20} key="briefcase" />,
+  <TrendingUp size={20} key="trending" />,
+  <Mail size={20} key="mail" />,
 ];
 
+/** Title-case a skill name like `approval.route` → "Approval route". */
+function prettifySkillName(name: string): string {
+  const cleaned = name.replace(/[._-]+/g, " ").trim();
+  if (cleaned.length === 0) return name;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+/** Map a skill row to the cohort badge shown on the card. */
+function cohortLabel(skill: SkillRow): string {
+  const head = skill.name.split(/[.:]/)[0] ?? skill.name;
+  return prettifySkillName(head);
+}
+
 export default function SkillsPage() {
+  const { data, isLoading, isError, error } = useSkills();
+  const skills = useMemo(() => data?.skills ?? [], [data?.skills]);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length === 0) return skills;
+    return skills.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q) ||
+        s.layer.toLowerCase().includes(q),
+    );
+  }, [skills, query]);
+
   return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -243,6 +226,9 @@ export default function SkillsPage() {
           transition: all 0.18s;
           position: relative;
           overflow: hidden;
+          display: block;
+          color: inherit;
+          text-decoration: none;
         }
         .skill-card:hover {
           border-color: rgba(139, 92, 246, 0.4);
@@ -306,6 +292,19 @@ export default function SkillsPage() {
           font-weight: 700;
           margin-bottom: 14px;
         }
+        .state-panel {
+          border: 1px dashed var(--border, #ece9f5);
+          border-radius: 14px;
+          padding: 32px;
+          text-align: center;
+          color: var(--muted-foreground, #71717a);
+          background: var(--background, #fafaff);
+        }
+        .state-panel-error {
+          border-color: rgba(220, 38, 38, 0.35);
+          color: #991b1b;
+          background: rgba(254, 226, 226, 0.45);
+        }
       `}</style>
       <div className="skills-stage">
         <div className="skills-eyebrow">
@@ -334,15 +333,25 @@ export default function SkillsPage() {
             placeholder="Search skills, cohorts, or workers…"
             aria-label="Search the skill marketplace"
             data-testid="skills-search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
           />
-          <span className="count-pill">{FEATURED.length} featured · 132 total</span>
+          <span className="count-pill" data-testid="skills-count">
+            {skills.length} skills · {filtered.length} shown
+          </span>
           <span className="search-kbd">⌘K</span>
         </div>
 
         <div className="try-row">
           <span className="try-label">TRY</span>
           {TRY_CHIPS.map((chip) => (
-            <button type="button" key={chip} className="try-chip" tabIndex={0}>
+            <button
+              type="button"
+              key={chip}
+              className="try-chip"
+              tabIndex={0}
+              onClick={() => setQuery(chip)}
+            >
               {chip}
             </button>
           ))}
@@ -350,21 +359,53 @@ export default function SkillsPage() {
 
         <div className="section-label">FEATURED SKILLS</div>
 
-        <div className="featured-grid">
-          {FEATURED.map((skill) => (
-            <div key={skill.id} className="skill-card">
-              <div className="skill-icon">{skill.icon}</div>
-              <h3 className="skill-title">{skill.title}</h3>
-              <p className="skill-blurb">{skill.blurb}</p>
-              <div className="skill-meta">
-                <span className="skill-meta-item skill-cohort">{skill.cohort}</span>
-                <span className="skill-meta-item">{skill.workers} workers</span>
-                <span className="skill-meta-item">{skill.runs} runs</span>
-              </div>
-              <div className="skill-id">{skill.id}</div>
-            </div>
-          ))}
-        </div>
+        {isLoading && (
+          <div className="state-panel" data-testid="skills-loading">
+            Loading skills from the marketplace…
+          </div>
+        )}
+
+        {isError && !isLoading && (
+          <div
+            className="state-panel state-panel-error"
+            data-testid="skills-error"
+            role="alert"
+          >
+            Couldn’t reach the skill registry
+            {error instanceof Error ? `: ${error.message}` : "."}
+          </div>
+        )}
+
+        {!isLoading && !isError && filtered.length === 0 && (
+          <div className="state-panel" data-testid="skills-empty">
+            No skills match “{query}”. Try a different search or clear the filter.
+          </div>
+        )}
+
+        {!isLoading && !isError && filtered.length > 0 && (
+          <div className="featured-grid">
+            {filtered.map((skill, idx) => (
+              <Link
+                key={skill.id}
+                href={`/skills/${encodeURIComponent(skill.name)}`}
+                className="skill-card"
+                data-testid="skill-card"
+              >
+                <div className="skill-icon">
+                  {ICON_ROTATION[idx % ICON_ROTATION.length]}
+                </div>
+                <h3 className="skill-title">{prettifySkillName(skill.name)}</h3>
+                <p className="skill-blurb">{skill.description}</p>
+                <div className="skill-meta">
+                  <span className="skill-meta-item skill-cohort">{cohortLabel(skill)}</span>
+                  <span className="skill-meta-item">v{skill.version}</span>
+                  <span className="skill-meta-item">{skill.layer}</span>
+                </div>
+                <div className="skill-id">{skill.name}</div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
