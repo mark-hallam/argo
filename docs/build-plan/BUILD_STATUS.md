@@ -85,20 +85,8 @@
 > Fresh sessions: read PRODUCT_ROADMAP.md before picking up any
 > UI / UX / persona / journey row.
 >
-> **🧭 LIVE DIRECTIVES (2026-05-12):**
-> - **ACTIVE** — `conductor-prompt-deployment-path-v3.md`: overrides
->   PROTOCOL_LOOP_PROMPT step-8 normal replenishment until §5 stop
->   conditions met (7-box deployable-end-to-end gate).
-> - **QUEUED (succeed v3)** — `conductor-prompt-post-v3-directives.md`
->   carries two paste-ready successor directives:
->     - **BLOCK 1 — SKILL-CANVAS-v1**: operator paste when v3 §5 met.
->       Drives Track L (17 briefs L1-L17 per `streams/L0-skill-canvas-track-overview.md`).
->       Phase 1 (L1-L6 MERGED) triggers CANVAS-PHASE-1-MERGED handoff.
->     - **BLOCK 2 — ENTERPRISE-PARITY-v1**: operator paste on
->       CANVAS-PHASE-1-MERGED signal. Drives Track M (19 active + 1
->       deferred per `streams/M0-enterprise-parity-track-overview.md`).
->       Runs PARALLEL to Track L Tiers 3-5; doesn't pause L.
->       **Operator prereq**: `github.com/mark-hallam/skycot-packs` repo created.
+> **🧭 LIVE DIRECTIVES:**
+> - **HISTORICAL (rescinded 2026-05-21 by operator)** — `conductor-prompt-deployment-path-v3.md` (2026-05-12) and its two queued successors (`conductor-prompt-post-v3-directives.md` BLOCK 1 SKILL-CANVAS-v1 + BLOCK 2 ENTERPRISE-PARITY-v1). All three are superseded by the post-25-audit / PRODUCT_ROADMAP web-* work that has been the swarm's actual workload since 2026-05-12. Track L (Skill-Canvas) is 14 MERGED / 4 DROPPED, Track M (Enterprise-Parity) is 18 MERGED / 1 BLOCKED (paddleocr operator-decisional) / 1 DROPPED. Files retained on disk for traceability only; conductors should **NOT** read these as active overrides. Normal PROTOCOL_LOOP_PROMPT step-8 replenishment applies (idea sources in priority order: MISSION_BACKLOG[NEW] → PRODUCT_ROADMAP tracks → recent PR-body deferrals → git log -100).
 > - **ACTIONED** — `conductor-advisory-{E0-E1,E2-E5,F-reconciliation,G-J}.md`:
 >   rows inserted into this ledger; retained for traceability only.
 > - **PRIMER**: fresh sessions read `docs/build-plan/RESUME.md` first.
