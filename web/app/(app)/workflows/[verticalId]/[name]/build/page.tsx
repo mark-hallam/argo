@@ -31,6 +31,9 @@ import {
 } from "lucide-react";
 import { getTemplate } from "@/lib/workflow-templates";
 
+import TriggerConfigDrawer from "@/components/workflows/triggers/TriggerConfigDrawer";
+import type { TriggerConfig, TriggerKind } from "@/components/workflows/triggers/types";
+
 /**
  * Class-leading visual workflow builder — `/workflows/<v>/<name>/build`.
  *
@@ -68,6 +71,9 @@ interface WorkflowStep {
   approvalGate?: { reason: string; channel: string };
   inputs?: string[];
   outputs?: string[];
+  // When kind === "trigger", `triggerKind` discriminates the tailored
+  // config form rendered in the drawer. Defaults to "manual" if absent.
+  triggerKind?: TriggerKind;
 }
 
 interface WorkflowSpec {
@@ -87,7 +93,7 @@ const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
     version: "v3",
     risk: "approval-required",
     steps: [
-      { id: "s1", kind: "trigger", name: "Seller submits inventory", description: "Slack/email/web inbox with photos + price + condition.", inputs: ["photos[]", "price", "condition"] },
+      { id: "s1", kind: "trigger", triggerKind: "form", name: "Seller submits inventory", description: "Slack/email/web inbox with photos + price + condition.", inputs: ["photos[]", "price", "condition"] },
       { id: "s2", kind: "skill_invoke", name: "Validate inventory", description: "Checks price vs market, runs OCR for category hints.", outputs: ["validation_report"] },
       { id: "s3", kind: "decision", name: "Branch on validation", description: "Below floor → manager review. Otherwise continue." },
       { id: "s4", kind: "skill_invoke", name: "Generate listing copy", description: "60-word description + 3 highlights + photos.", outputs: ["listing.title", "listing.body"] },
@@ -102,7 +108,7 @@ const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
     version: "v4",
     risk: "approval-required",
     steps: [
-      { id: "s1", kind: "trigger", name: "Lead from web / paid / referral", description: "HubSpot/Salesforce webhook fires." },
+      { id: "s1", kind: "trigger", triggerKind: "webhook", name: "Lead from web / paid / referral", description: "HubSpot/Salesforce webhook fires." },
       { id: "s2", kind: "skill_invoke", name: "Enrich + BANT score", description: "Firmographic + technographic data; 0-100 BANT score." },
       { id: "s3", kind: "decision", name: "Branch on BANT score", description: "≥75 = demo. 50-74 = nurture. <50 = decline." },
       { id: "s4", kind: "approval", name: "AE approves outreach", description: "Slack DM with qual summary + one-tap approve.", approvalGate: { reason: "Outreach to enterprise needs AE signoff.", channel: "Slack" } },
@@ -285,10 +291,20 @@ function BuilderInner({
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [promptText, setPromptText] = useState("");
   const [proposing, setProposing] = useState(false);
+  const [triggerConfigOpen, setTriggerConfigOpen] = useState(false);
+  // One config per step id. Persisted client-side for v1; wired to the
+  // gateway step-config save path in a follow-up brief.
+  const [triggerConfigs, setTriggerConfigs] = useState<Record<string, TriggerConfig>>({});
+  const workflowId = `${verticalId}/${name}`;
 
   const onNodeClick = useCallback((_e: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
+    setTriggerConfigOpen(false);
   }, []);
+
+  const selectedStep = selectedNode ? (selectedNode.data as SkyNodeData).step : null;
+  const selectedIsTrigger = selectedStep?.kind === "trigger";
+  const selectedTriggerKind: TriggerKind = selectedStep?.triggerKind ?? "manual";
 
   const nodeTypes = useMemo(() => ({ skycot: SkycotStepNode }), []);
 
@@ -697,6 +713,8 @@ function BuilderInner({
               ) : null}
               <button
                 type="button"
+                data-testid="builder-edit-step"
+                onClick={() => setTriggerConfigOpen(true)}
                 style={{
                   marginTop: 12,
                   width: "100%",
@@ -714,9 +732,23 @@ function BuilderInner({
                   justifyContent: "center",
                 }}
               >
-                <SettingsIcon size={13} /> Edit step
+                <SettingsIcon size={13} />
+                {selectedIsTrigger ? "Configure trigger" : "Edit step"}
               </button>
             </aside>
+          ) : null}
+          {selectedIsTrigger && triggerConfigOpen && selectedStep ? (
+            <TriggerConfigDrawer
+              triggerKind={selectedTriggerKind}
+              workflowId={workflowId}
+              workspaceTimezone="Australia/Melbourne"
+              config={triggerConfigs[selectedStep.id] ?? null}
+              onChange={(next) =>
+                setTriggerConfigs((prev) => ({ ...prev, [selectedStep.id]: next }))
+              }
+              onClose={() => setTriggerConfigOpen(false)}
+              onSave={() => setTriggerConfigOpen(false)}
+            />
           ) : null}
         </div>
       </div>
