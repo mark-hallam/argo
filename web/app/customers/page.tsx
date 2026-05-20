@@ -137,7 +137,7 @@ const CUSTOMERS: Customer[] = [
   {
     name: "Harbour Legal",
     initials: "HL",
-    color: "linear-gradient(135deg, #0891b2, #8b5cf6)",
+    color: "linear-gradient(135deg, #8b5cf6, #ec4899)",
     industry: "Legal Services",
     size: "28 partners",
     quote: "Approval-first is the only way we'd put an AI on client-facing work. Every action gates through a partner. The audit log is depositioned-ready.",

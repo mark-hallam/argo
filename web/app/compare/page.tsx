@@ -252,10 +252,16 @@ export default function ComparePage() {
           background: white;
           border: 1px solid var(--border, #ece9f5);
           border-radius: 14px;
-          overflow: hidden;
+          /* Mobile-scroll wrap (a11y + responsive — wave 2): keep the
+             5-column matrix scrollable horizontally instead of
+             collapsing the layout below ~720px. The wrap clips the
+             corners but the inner table can scroll. */
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .compare-table {
           width: 100%;
+          min-width: 720px;
           border-collapse: collapse;
           font-family: "Inter", sans-serif;
         }

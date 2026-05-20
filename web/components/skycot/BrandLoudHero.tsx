@@ -92,6 +92,20 @@ export function BrandLoudHero({
             transform: translateX(100%);
           }
         }
+        /* A11y: respect prefers-reduced-motion (WCAG 2.3.3). The shimmer
+           sweep + pulsing eyebrow dot run on every brand-loud hero page
+           (/, /team, /cohorts). Users who set this OS preference get a
+           static brand-loud hero instead of an infinite animation. */
+        @media (prefers-reduced-motion: reduce) {
+          .skycot-brandloud-shine {
+            animation: none !important;
+            transform: translateX(-100%) !important;
+            opacity: 0 !important;
+          }
+          .skycot-brandloud-eyebrow-dot.is-pulse {
+            animation: none !important;
+          }
+        }
         .skycot-brandloud-grid {
           position: relative;
           display: flex;

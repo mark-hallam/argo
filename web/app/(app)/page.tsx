@@ -387,9 +387,9 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, fil
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
                 Approvals
-              </h3>
+              </h1>
               <StatusPill tone="info" size="sm">
                 {pendingCount} waiting
               </StatusPill>
@@ -449,6 +449,7 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, fil
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by worker, action, or detail..."
+            aria-label="Search approvals by worker, action, or detail"
             className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--card)]/60 text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent transition-shadow"
           />
         </div>

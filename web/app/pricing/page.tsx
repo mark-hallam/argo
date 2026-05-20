@@ -489,13 +489,21 @@ export default function PricingPage() {
           letter-spacing: 0;
           line-height: 1.1;
         }
-        .pri-matrix {
-          width: 100%;
-          border-collapse: collapse;
+        .pri-matrix-wrap {
           background: white;
           border-radius: 14px;
-          overflow: hidden;
           border: 1px solid var(--line);
+          /* Mobile-scroll wrap (responsive — wave 2): 4-column matrix
+             has fixed 130px cells; below ~580px it overflows. Wrap
+             scrolls horizontally instead of squashing. */
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .pri-matrix {
+          width: 100%;
+          min-width: 580px;
+          border-collapse: collapse;
+          background: white;
         }
         .pri-matrix th,
         .pri-matrix td {
@@ -732,6 +740,7 @@ export default function PricingPage() {
         <section className="pri-section">
           <p className="pri-section-label">FEATURE MATRIX</p>
           <h2 className="pri-section-title">Compare every line.</h2>
+          <div className="pri-matrix-wrap">
           <table className="pri-matrix">
             <thead>
               <tr>
@@ -752,6 +761,7 @@ export default function PricingPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
 
         <section className="pri-section">
