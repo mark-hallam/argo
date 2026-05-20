@@ -3,6 +3,7 @@
 import { use } from "react";
 import { WorkerOverviewContent } from "@/components/skycot/worker/WorkerOverviewContent";
 import { RecentChangesPanel } from "@/components/skycot/worker/RecentChangesPanel";
+import { WorkerPersonalityCard } from "@/components/skycot/worker/WorkerPersonalityCard";
 
 /**
  * Overview tab — the default sub-route under `/workers/<id>`.
@@ -22,6 +23,7 @@ export default function WorkerOverviewPage({
   const { workerId } = use(params);
   return (
     <div className="space-y-4">
+      <WorkerPersonalityCard workerId={workerId} />
       <WorkerOverviewContent workerId={workerId} />
       <RecentChangesPanel workerId={workerId} />
     </div>
