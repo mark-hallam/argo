@@ -125,15 +125,14 @@ async fn dispatch_post_inner(
     if let Some(resp) = top_level_dispatch(req, store).await {
         return Some(resp);
     }
-    if let Some(resp) =
-        super::routes_dispatch_post_paths::dispatch_simple_admin(req, store).await
-    {
+    if let Some(resp) = super::routes_dispatch_post_paths::dispatch_simple_admin(req, store).await {
         return Some(resp);
     }
     if let Some(resp) = super::routes_dispatch_post_paths::dispatch_forge(req, store).await {
         return Some(resp);
     }
-    if let Some(resp) = super::routes_dispatch_post_paths::dispatch_session_end_all(req, store).await
+    if let Some(resp) =
+        super::routes_dispatch_post_paths::dispatch_session_end_all(req, store).await
     {
         return Some(resp);
     }

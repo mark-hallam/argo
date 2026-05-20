@@ -24,13 +24,19 @@
 
 use crate::archetype::{Archetype, ClassificationResult, ProviderClient};
 use crate::error::GenesisError;
-use crate::genesis_judge::{
-    judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
-};
-use crate::pipeline::{assemble_plan, validate_persona, GenesisConfig, GenesisPlan};
 use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+
+#[path = "broad_role_parse.rs"]
+mod broad_role_parse;
+#[path = "broad_role_plan.rs"]
+mod broad_role_plan;
+
+pub(crate) use broad_role_parse::{
+    first_balanced_object, parse_broad_role_response, parse_confidence_response,
+};
+pub use broad_role_plan::{plan_or_broad, GenesisOutcome};
 
 /// Sentinel slug stamped on every broad-role draft. Distinct from
 /// every `Archetype::slug()` so downstream `match` arms can treat
@@ -128,25 +134,6 @@ pub fn build_confidence_classifier_prompt(charter: &str) -> String {
     )
 }
 
-fn parse_confidence_response(raw: &str) -> ClassificationResult {
-    let mut parts = raw.split_whitespace();
-    let slug = parts.next().unwrap_or("");
-    let confidence: f32 = parts
-        .next()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(0.0)
-        .clamp(0.0, 1.0);
-    let archetype = if slug.eq_ignore_ascii_case("none") || slug.is_empty() {
-        None
-    } else {
-        Archetype::from_slug(slug)
-    };
-    ClassificationResult {
-        archetype,
-        confidence,
-    }
-}
-
 /// LLM-driven classifier that returns a [`ClassificationResult`]
 /// instead of unwrapping to a single `Archetype`. Sibling of
 /// [`crate::classify_llm`]; the two coexist so the legacy
@@ -227,255 +214,6 @@ pub async fn genesis_broad_role(
         success_metrics: parsed.success_metrics,
         onboarding_script: parsed.onboarding_script,
     })
-}
-
-#[derive(Debug)]
-struct ParsedBroadRole {
-    persona_description: String,
-    action_vocabulary: Vec<String>,
-    success_metrics: Vec<String>,
-    onboarding_script: String,
-}
-
-fn parse_broad_role_response(raw: &str) -> ArgoResult<ParsedBroadRole> {
-    let json_text = first_balanced_object(raw)
-        .ok_or_else(|| ArgoError::Provider("broad-role response: no JSON object".into()))?;
-    let value: serde_json::Value = serde_json::from_str(json_text)
-        .map_err(|e| ArgoError::Provider(format!("broad-role JSON parse: {e}")))?;
-    let persona_description = json_string(&value, "persona_description");
-    let action_vocabulary = json_string_array(&value, "action_vocabulary");
-    let success_metrics = json_string_array(&value, "success_metrics");
-    let onboarding_script = json_string(&value, "onboarding_script");
-    if persona_description.is_empty() || action_vocabulary.is_empty() {
-        return Err(ArgoError::Provider(
-            "broad-role response missing persona_description or action_vocabulary".into(),
-        ));
-    }
-    Ok(ParsedBroadRole {
-        persona_description,
-        action_vocabulary,
-        success_metrics,
-        onboarding_script,
-    })
-}
-
-fn json_string(value: &serde_json::Value, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .trim()
-        .to_string()
-}
-
-fn json_string_array(value: &serde_json::Value, key: &str) -> Vec<String> {
-    value
-        .get(key)
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|s| s.as_str().map(str::trim))
-                .filter(|s| !s.is_empty())
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Extract the first balanced top-level JSON object from `s`. Robust
-/// to leading/trailing prose and to `}` characters embedded in
-/// quoted string values. Shared with [`crate::archetype`]'s
-/// confidence parser.
-pub(crate) fn first_balanced_object(s: &str) -> Option<&str> {
-    let start = s.find('{')?;
-    let bytes = s.as_bytes();
-    let mut depth: i32 = 0;
-    let mut in_str = false;
-    let mut escape = false;
-    for (i, &b) in bytes.iter().enumerate().skip(start) {
-        if in_str {
-            if escape {
-                escape = false;
-            } else if b == b'\\' {
-                escape = true;
-            } else if b == b'"' {
-                in_str = false;
-            }
-            continue;
-        }
-        match b {
-            b'"' => in_str = true,
-            b'{' => depth += 1,
-            b'}' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(&s[start..=i]);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-/// Output of [`plan_or_broad`] — either an archetype-path plan (the
-/// legacy [`crate::plan`] shape) or a broader-generation draft. The
-/// enum is the single integration seam between the two routes so
-/// callers (the CLI handler, in particular) can branch once at the
-/// end rather than threading two parallel paths.
-///
-/// Both variants are boxed to keep the enum's stack footprint small —
-/// `GenesisPlan` carries a fully-assembled `VerticalManifest` and is
-/// substantially larger than `BroadRoleDraft`.
-#[derive(Debug, Clone)]
-pub enum GenesisOutcome {
-    Plan(Box<GenesisPlan>),
-    Broad(Box<BroadRoleDraft>),
-}
-
-impl GenesisOutcome {
-    /// `"broad"` for broad-role drafts, else the archetype slug.
-    #[must_use]
-    pub fn archetype_slug(&self) -> String {
-        match self {
-            Self::Plan(p) => p.archetype.slug().to_string(),
-            Self::Broad(d) => d.archetype_slug().to_string(),
-        }
-    }
-
-    fn judge_input(&self) -> JudgeInput<'_> {
-        match self {
-            Self::Plan(p) => JudgeInput {
-                charter: &p.charter,
-                persona_description: &p.persona,
-                action_vocabulary: p
-                    .manifest
-                    .actions
-                    .as_ref()
-                    .map(|a| a.actions.keys().cloned().collect())
-                    .unwrap_or_default(),
-            },
-            Self::Broad(d) => JudgeInput::from_broad(d),
-        }
-    }
-
-    fn apply_disclaimer(&mut self, reason: &str) {
-        match self {
-            Self::Plan(p) => {
-                p.charter = format!("[DISCLAIMER: {reason}] {}", p.charter);
-            }
-            Self::Broad(d) => d.prepend_persona_disclaimer(reason),
-        }
-    }
-}
-
-/// Confidence-aware Genesis entry. When the LLM classifier signals
-/// low confidence (below [`BROAD_ROLE_CONFIDENCE_THRESHOLD`]) AND
-/// `allow_broad_role` is set, routes to [`genesis_broad_role`]
-/// instead of forcing the closest archetype. The safety judge runs
-/// at the tail of either path; `Block` → error, `AllowWithDisclaimer`
-/// mutates the draft.
-///
-/// # Errors
-///
-/// - Empty charter / invalid persona / broad-role provider failure.
-/// - Low-confidence without `allow_broad_role` → explicit error
-///   mentioning the flag.
-/// - `GenesisJudgeVerdict::Block` → `GenesisError::Validation`.
-#[allow(clippy::too_many_arguments)]
-pub async fn plan_or_broad(
-    charter: &str,
-    persona: &str,
-    config: &GenesisConfig,
-    llm: Option<&dyn ProviderClient>,
-    broad: Option<&dyn BroadRoleClient>,
-    judge: Option<&dyn GenesisJudgeClient>,
-    allow_broad_role: bool,
-) -> Result<GenesisOutcome, GenesisError> {
-    validate_persona(persona)?;
-    let classification = resolve_classification(charter, config, llm).await;
-    let mut outcome = if should_use_broad_role(&classification) {
-        build_broad_outcome(charter, persona, broad, allow_broad_role).await?
-    } else {
-        let archetype = classification
-            .archetype
-            .ok_or_else(|| GenesisError::UnknownArchetype {
-                available: Archetype::ALL
-                    .iter()
-                    .map(|a| a.label())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            })?;
-        GenesisOutcome::Plan(Box::new(assemble_plan(charter, persona, archetype)?))
-    };
-    if let Some(judge_client) = judge {
-        apply_judge(&mut outcome, judge_client).await?;
-    }
-    Ok(outcome)
-}
-
-async fn resolve_classification(
-    charter: &str,
-    config: &GenesisConfig,
-    llm: Option<&dyn ProviderClient>,
-) -> ClassificationResult {
-    match (config.use_llm_classifier, llm) {
-        (true, Some(client)) => classify_llm_with_confidence(charter, client)
-            .await
-            .unwrap_or_else(|_| ClassificationResult::keyword_fallback(charter)),
-        _ => ClassificationResult::keyword_fallback(charter),
-    }
-}
-
-async fn build_broad_outcome(
-    charter: &str,
-    persona: &str,
-    broad: Option<&dyn BroadRoleClient>,
-    allow_broad_role: bool,
-) -> Result<GenesisOutcome, GenesisError> {
-    if !allow_broad_role {
-        return Err(GenesisError::Validation {
-            stage: "archetype.classify",
-            detail: "no archetype confident match; use --allow-broad-role to enable \
-                     LLM-driven broader generation"
-                .into(),
-        });
-    }
-    let client = broad.ok_or_else(|| GenesisError::Validation {
-        stage: "broad_role.client",
-        detail: "broad-role generation requires a BroadRoleClient".into(),
-    })?;
-    let draft = genesis_broad_role(charter, persona, client)
-        .await
-        .map_err(|e| GenesisError::Validation {
-            stage: "broad_role.synthesize",
-            detail: e.to_string(),
-        })?;
-    Ok(GenesisOutcome::Broad(Box::new(draft)))
-}
-
-async fn apply_judge(
-    outcome: &mut GenesisOutcome,
-    judge_client: &dyn GenesisJudgeClient,
-) -> Result<(), GenesisError> {
-    let input = outcome.judge_input();
-    let verdict = judge_genesis_draft(&input, judge_client)
-        .await
-        .map_err(|e| GenesisError::Validation {
-            stage: "safety_judge",
-            detail: e.to_string(),
-        })?;
-    match verdict {
-        GenesisJudgeVerdict::Block { reason } => Err(GenesisError::Validation {
-            stage: "safety_judge",
-            detail: format!("judge blocked draft: {reason}"),
-        }),
-        GenesisJudgeVerdict::AllowWithDisclaimer { reason } => {
-            outcome.apply_disclaimer(&reason);
-            Ok(())
-        }
-        GenesisJudgeVerdict::Allow => Ok(()),
-    }
 }
 
 #[cfg(test)]

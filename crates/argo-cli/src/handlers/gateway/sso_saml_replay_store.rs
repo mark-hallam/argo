@@ -1,7 +1,7 @@
 //! Transient SAML AuthnRequest replay guard.
 
-use super::sso_session::{self, SessionPayload};
 use crate::handlers::gateway::routes_channels;
+use crate::handlers::gateway::sso_session::{self, SessionPayload};
 use argo_store::SessionStore;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;

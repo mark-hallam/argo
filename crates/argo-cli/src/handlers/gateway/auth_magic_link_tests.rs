@@ -64,9 +64,7 @@ async fn signup_rejects_malformed_json() {
 
 #[tokio::test]
 async fn signup_rate_limit_uses_shared_signup_bucket() {
-    use super::rate_limit_ip::{
-        signup_limiter, RateLimitIpCheckResult, SIGNUP_BUCKET_CAPACITY,
-    };
+    use super::rate_limit_ip::{signup_limiter, RateLimitIpCheckResult, SIGNUP_BUCKET_CAPACITY};
     use std::net::{IpAddr, Ipv4Addr};
     use std::time::Instant;
     // Drive the shared limiter directly so the test isn't racy on
@@ -241,7 +239,9 @@ fn is_verify_request_matches_only_verify() {
     assert!(!is_verify_request(
         "POST /api/v1/auth/signup HTTP/1.1\r\n\r\n"
     ));
-    assert!(!is_verify_request("GET /api/v1/auth/verify HTTP/1.1\r\n\r\n"));
+    assert!(!is_verify_request(
+        "GET /api/v1/auth/verify HTTP/1.1\r\n\r\n"
+    ));
 }
 
 #[test]

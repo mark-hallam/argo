@@ -9,16 +9,21 @@
 //! modules in the crate (e.g. `store_vertical`) can keep referencing
 //! `crate::store::RawSkill`.
 use crate::parse::parse_skill_md;
-use crate::skill::{PrincipalOverride, Skill, SkillFrontmatter};
+use crate::skill::{PrincipalOverride, Skill};
 use crate::trust::TrustGrade;
 use argo_store::skill_provenance::{record_provenance, NewSkillProvenance, SkillProvenanceKind};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, Lock, SessionId, SkillId};
 use chrono::Utc;
-use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
+#[path = "store_trust_grade.rs"]
+mod store_trust_grade;
+#[path = "store_write.rs"]
+mod store_write;
+
 pub(crate) use crate::store_lookups::RawSkill;
+pub(crate) use store_trust_grade::{trust_grade_as_u8, trust_grade_from_u8};
 
 /// Content-addressed skill store with append-only history + locks.
 ///
@@ -332,149 +337,5 @@ impl SkillStore {
     #[must_use]
     pub fn store_arc(&self) -> Arc<argo_store::SessionStore> {
         Arc::clone(&self.store)
-    }
-
-    pub(crate) async fn insert_row(
-        &self,
-        frontmatter: SkillFrontmatter,
-        body: String,
-        learned_in: Option<SessionId>,
-        vertical_id: Option<&str>,
-    ) -> ArgoResult<Skill> {
-        // Bare install path → Active for backward compat.
-        // The agent-proposed lifecycle path uses
-        // `insert_row_with_state` directly via `propose_for_review`.
-        self.insert_row_with_state(
-            frontmatter,
-            body,
-            learned_in,
-            vertical_id,
-            crate::skill::LifecycleState::Active,
-        )
-        .await
-    }
-
-    pub(crate) async fn insert_row_with_state(
-        &self,
-        mut frontmatter: SkillFrontmatter,
-        body: String,
-        learned_in: Option<SessionId>,
-        vertical_id: Option<&str>,
-        state: crate::skill::LifecycleState,
-    ) -> ArgoResult<Skill> {
-        let id = SkillId::new();
-        let created_at = Utc::now();
-        let hash = sha256(&body);
-        frontmatter.lock = Lock::None;
-        let learned_in_string = learned_in.map(|s| s.0.to_string());
-        let frontmatter_json = serde_json::to_string(&frontmatter)
-            .map_err(|e| ArgoError::Schema(format!("frontmatter serialize: {e}")))?;
-        sqlx::query(
-            "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, \
-             learned_in, created_at, vertical_id, lifecycle_state) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(id.0.as_bytes().as_slice())
-        .bind(&frontmatter.name)
-        .bind(&frontmatter.version)
-        .bind(&body)
-        .bind(&frontmatter_json)
-        .bind(&frontmatter.provenance.source)
-        .bind(hash.as_slice())
-        .bind(learned_in.map(|s| s.0.as_bytes().to_vec()))
-        .bind(created_at.timestamp_micros())
-        .bind(vertical_id)
-        .bind(state.label())
-        .execute(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("skill install: {e}")))?;
-        record_provenance(
-            self.store.pool(),
-            NewSkillProvenance {
-                skill_name: &frontmatter.name,
-                skill_version: &frontmatter.version,
-                kind: provenance_kind(&frontmatter.provenance.source),
-                actor: actor_for_source(&frontmatter.provenance.source),
-                parent_id: learned_in_string.as_deref(),
-                change_reason: Some("skill row inserted"),
-                breaking_change: false,
-            },
-        )
-        .await?;
-        Ok(Skill {
-            id,
-            frontmatter,
-            body,
-            hash,
-            learned_in,
-            superseded_by: None,
-            created_at,
-            vertical_id: vertical_id.map(str::to_string),
-            lifecycle_state: state,
-        })
-    }
-}
-
-fn provenance_kind(source: &str) -> SkillProvenanceKind {
-    if source == "builtin" || source.starts_with("bundle:") {
-        SkillProvenanceKind::Bootstrap
-    } else if source == "forge" {
-        SkillProvenanceKind::ForgePromoted
-    } else if source == "user" || source == "cli-create" || source.starts_with("refined-from-") {
-        SkillProvenanceKind::OperatorAuthored
-    } else if source == "learned" || source.starts_with("learned:") {
-        SkillProvenanceKind::DreamsDerived
-    } else {
-        SkillProvenanceKind::Imported
-    }
-}
-
-fn actor_for_source(source: &str) -> Option<&'static str> {
-    if source == "user" || source == "cli-create" || source.starts_with("refined-from-") {
-        Some("operator")
-    } else if source == "forge" {
-        Some("forge")
-    } else {
-        None
-    }
-}
-
-fn sha256(body: &str) -> [u8; 32] {
-    let mut h = Sha256::new();
-    h.update(body.as_bytes());
-    let out = h.finalize();
-    let mut buf = [0u8; 32];
-    buf.copy_from_slice(&out);
-    buf
-}
-
-/// Forward conversion from a [`TrustGrade`] to its numeric
-/// discriminant for storage in `skill.min_trust_grade`.
-/// Matches the enum's declared variant order: Builtin=0,
-/// PublishedVerified=1, Tenant=2, PublishedCommunity=3,
-/// LearnedUnreviewed=4. Lives here (not on `TrustGrade` itself)
-/// because the brief's may-touch list pins `trust.rs` as
-/// reuse-only.
-pub(crate) fn trust_grade_as_u8(grade: TrustGrade) -> u8 {
-    match grade {
-        TrustGrade::Builtin => 0,
-        TrustGrade::PublishedVerified => 1,
-        TrustGrade::Tenant => 2,
-        TrustGrade::PublishedCommunity => 3,
-        TrustGrade::LearnedUnreviewed => 4,
-    }
-}
-
-/// Reverse conversion. Returns `None` for unknown discriminants —
-/// callers translate that into a schema error so a corrupted row
-/// fails loudly rather than silently mapping to a default grade.
-pub(crate) fn trust_grade_from_u8(byte: u8) -> Option<TrustGrade> {
-    match byte {
-        0 => Some(TrustGrade::Builtin),
-        1 => Some(TrustGrade::PublishedVerified),
-        2 => Some(TrustGrade::Tenant),
-        3 => Some(TrustGrade::PublishedCommunity),
-        4 => Some(TrustGrade::LearnedUnreviewed),
-        _ => None,
     }
 }

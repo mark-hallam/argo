@@ -146,7 +146,8 @@ pub(super) async fn dispatch_forge(
     if req.starts_with("POST /forge/optimize ") || req.starts_with("POST /forge/optimize?") {
         if let Some(s) = store {
             if let Some(resp) =
-                super::routes_dispatch_post::check_quota_or_reject(s, QuotaActionKind::ForgeRuns).await
+                super::routes_dispatch_post::check_quota_or_reject(s, QuotaActionKind::ForgeRuns)
+                    .await
             {
                 return Some(resp);
             }

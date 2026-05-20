@@ -183,12 +183,11 @@ async fn approval_asked_audit_row_written_per_successful_dispatch() {
     let notification = build_notification(&action);
     emit_approval_asked(&audit, &action, &notification, "slack", "#approvals").await;
     audit.flush_pending().await.unwrap();
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT kind, payload_json FROM audit_record WHERE kind = 'approval.asked'",
-    )
-    .fetch_all(store.pool())
-    .await
-    .unwrap();
+    let rows: Vec<(String, String)> =
+        sqlx::query_as("SELECT kind, payload_json FROM audit_record WHERE kind = 'approval.asked'")
+            .fetch_all(store.pool())
+            .await
+            .unwrap();
     assert_eq!(rows.len(), 1, "expected exactly one approval.asked row");
     let payload: serde_json::Value = serde_json::from_str(&rows[0].1).unwrap();
     assert_eq!(payload["action_id"], "act-emit-1");
@@ -198,7 +197,10 @@ async fn approval_asked_audit_row_written_per_successful_dispatch() {
     assert_eq!(payload["tenant_id"], "acme");
     // Round-trip the label through the AuditKind enum so a future
     // typo in `label()` would surface here.
-    assert_eq!(AuditKind::from_label("approval.asked"), Some(AuditKind::ApprovalAsked));
+    assert_eq!(
+        AuditKind::from_label("approval.asked"),
+        Some(AuditKind::ApprovalAsked)
+    );
 }
 
 #[tokio::test]
