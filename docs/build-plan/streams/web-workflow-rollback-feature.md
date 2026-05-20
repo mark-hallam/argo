@@ -40,6 +40,7 @@ the marketing copy ("Rollback shipping next") can revert to "One-tap rollback."
 - `crates/argo-store/src/workflow_definition.rs` (the rollback op)
 - New: `crates/argo-cli/src/handlers/gateway/routes_workflows_rollback.rs`
 - `crates/argo-cli/src/handlers/gateway/routes.rs`
+- **`crates/argo-audit/src/kind.rs`** — add `AuditKind::WorkflowRolledBack` (Wave-14 amendment 2026-05-21: without this, rollback audit rows emit indistinguishably as `WorkflowHeadChanged` and retroactive labeling becomes impossible. Add a new variant + serializer.)
 - `web/app/(app)/workflows/[verticalId]/[name]/page.tsx` (viewer)
 - New: `web/components/skycot/workflows/RollbackConfirmModal.tsx`
 - New: `web/lib/api/workflow-rollback.ts`
