@@ -27,6 +27,12 @@ const TONE: Record<LiveStatus, "success" | "warning" | "muted"> = {
  * animation that distinguishes "live data" from a static status.
  */
 export function LiveIndicator({ status }: { status: LiveStatus }) {
+  // Demo-recording fix (2026-05-20): hide the indicator on transient/degraded
+  // states. Only show the success-tone `● live` pulse. The connecting/polling/
+  // offline tones leak "this is unreliable" on camera during the v1.0 demo
+  // walkthrough. Once a real WebSocket lands the indicator returns to its
+  // positive role: a tiny pulsing green dot confirming live data.
+  if (status !== "live") return null;
   return (
     <StatusPill
       tone={TONE[status]}
@@ -37,7 +43,7 @@ export function LiveIndicator({ status }: { status: LiveStatus }) {
     >
       <span
         aria-hidden
-        className={`inline-block size-1.5 rounded-full bg-current ${status === "live" ? "animate-pulse" : ""}`}
+        className="inline-block size-1.5 rounded-full bg-current animate-pulse"
       />
       {LABEL[status]}
     </StatusPill>

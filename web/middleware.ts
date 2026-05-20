@@ -22,6 +22,7 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/marketing") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/customers") ||
+    pathname.startsWith("/compare") ||
     pathname.startsWith("/changelog") ||
     pathname.startsWith("/docs")
   ) {

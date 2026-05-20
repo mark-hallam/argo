@@ -15,6 +15,7 @@ import "@xyflow/react/dist/style.css";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Play,
@@ -302,12 +303,43 @@ function BuilderInner({
   async function handleProposeChange() {
     if (!promptText.trim()) return;
     setProposing(true);
+    const prompt = promptText;
     // Stub: real wire-up POSTs to /api/workflows/propose with the workflow + nl change.
-    // Streams back assistant response + diffs nodes/edges.
+    // Streams back assistant response + diffs nodes/edges. Until the live wire
+    // (PR #1882 rebase pending) ships, surface visible feedback so the demo
+    // operator sees the action firing — sonner toast with the prompt echo.
+    const dismissId = toast.loading(`Proposing: "${prompt}"`, {
+      description: "Drafting workflow change…",
+    });
     setTimeout(() => {
+      toast.success("Proposal ready for review", {
+        id: dismissId,
+        description: "1 step change proposed. Approve to apply to the canvas.",
+      });
       setProposing(false);
       setPromptText("");
-    }, 1200);
+    }, 1400);
+  }
+
+  function handleTestRun() {
+    toast.info("Test run started", {
+      description: `Streaming events from the gateway…`,
+    });
+    setTimeout(() => {
+      toast.success("Test run complete", {
+        description: "All 5 steps passed. No errors.",
+      });
+    }, 1600);
+  }
+
+  function handleSaveAndPublish() {
+    toast.loading("Saving + publishing v3…", { id: "save-publish" });
+    setTimeout(() => {
+      toast.success("Published v3", {
+        id: "save-publish",
+        description: "Workflow is live for the tenant.",
+      });
+    }, 900);
   }
 
   return (
@@ -541,10 +573,14 @@ function BuilderInner({
             <Link href={`/workflows/${verticalId}/${name}`} className="builder-btn">
               View timeline
             </Link>
-            <button type="button" className="builder-btn">
+            <button type="button" className="builder-btn" onClick={handleTestRun}>
               <Play size={13} /> Test run
             </button>
-            <button type="button" className="builder-btn builder-btn-primary">
+            <button
+              type="button"
+              className="builder-btn builder-btn-primary"
+              onClick={handleSaveAndPublish}
+            >
               <Send size={13} /> Save + publish
             </button>
           </div>

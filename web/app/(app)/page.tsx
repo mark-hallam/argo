@@ -379,6 +379,7 @@ interface PageHeaderProps {
 }
 
 function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, filters, workerOptions, onToggle, onClearAll }: PageHeaderProps) {
+  const router = useRouter();
   const activeCount = activeFilterCount(filters);
   return (
     <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
@@ -428,7 +429,13 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, fil
               </Button>
             </FilterPopover>
             <NotificationsBellTrigger />
-            <Button variant="primary" size="md" className="shadow-sm" aria-label="Hire teammate">
+            <Button
+              variant="primary"
+              size="md"
+              className="shadow-sm"
+              aria-label="Hire teammate"
+              onClick={() => router.push("/hire")}
+            >
               <Plus />
               <span className="hidden sm:inline">Hire teammate</span>
             </Button>

@@ -10,7 +10,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { ChevronDown, Plus, Search, X } from "lucide-react";
+import { AlertCircle, ChevronDown, Plus, RotateCw, Search, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { TeamEmptyState } from "@/components/skycot/TeamEmptyState";
@@ -168,6 +168,8 @@ function TeamPageContent() {
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
         {teamQuery.isPending ? (
           <LoadingGrid />
+        ) : teamQuery.isError ? (
+          <TeamErrorState onRetry={() => teamQuery.refetch()} />
         ) : total === 0 ? (
           <TeamEmptyState />
         ) : filtered.length === 0 ? (
@@ -325,6 +327,36 @@ function LoadingGrid() {
         <TeammateCardSkeleton key={i} data-testid={`teammate-loading-${i}`} />
       ))}
     </TeammateGrid>
+  );
+}
+
+function TeamErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      data-testid="team-error-state"
+      className="rounded-[var(--radius-lg)] border border-[var(--destructive)]/30 bg-[var(--destructive)]/5 py-12 px-6 text-center space-y-4 max-w-md mx-auto"
+    >
+      <div className="mx-auto grid size-12 place-items-center rounded-full bg-[var(--destructive)]/10 text-[var(--destructive)]">
+        <AlertCircle aria-hidden />
+      </div>
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold text-[var(--foreground)]">
+          Couldn&apos;t load your team
+        </h2>
+        <p className="text-sm text-[var(--muted-foreground)]">
+          The gateway didn&apos;t respond. Try again, or check the gateway is running on
+          port 7400.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-medium hover:bg-[var(--accent)]"
+      >
+        <RotateCw className="size-3.5" />
+        Try again
+      </button>
+    </div>
   );
 }
 

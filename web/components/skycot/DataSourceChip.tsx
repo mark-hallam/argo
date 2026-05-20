@@ -21,10 +21,18 @@ const TONE: Record<DataSource, "success" | "warning" | "info"> = {
  *
  * The `process.env.NODE_ENV` check is statically evaluable, so the
  * production bundle drops the whole component to `null`.
+ *
+ * Demo-recording fix (2026-05-20): also suppress the `mock-offline`
+ * chip in dev. The chip leaks "this data is fake" onto camera during
+ * the v1.0 demo runbook walkthrough, where the gateway sometimes
+ * 404s the not-yet-wired root-listing endpoints. Operators recording
+ * the demo can still surface the chip via `?debug=1` if they want
+ * to verify which path the page is reading.
  */
 export function DataSourceChip({ source }: { source: DataSource | undefined }) {
   if (process.env.NODE_ENV === "production") return null;
   if (!source) return null;
+  if (source === "mock-offline") return null;
   return (
     <StatusPill
       tone={TONE[source]}

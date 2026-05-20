@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GitBranch, ArrowRight, Plus, Search, FileCode2, Clock, Sparkles } from "lucide-react";
 
@@ -114,6 +115,19 @@ const RISK_COLOR: Record<string, string> = {
 };
 
 export default function WorkflowsPage() {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return SEED_WORKFLOWS;
+    return SEED_WORKFLOWS.filter(
+      (wf) =>
+        wf.name.toLowerCase().includes(q) ||
+        wf.vertical.toLowerCase().includes(q) ||
+        wf.description.toLowerCase().includes(q),
+    );
+  }, [query]);
+
   return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -444,8 +458,14 @@ export default function WorkflowsPage() {
             placeholder="Search workflows by name, vertical, or step…"
             aria-label="Search workflows"
             data-testid="workflows-search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
           />
-          <span className="workflows-count-pill">{SEED_WORKFLOWS.length} workflows</span>
+          <span className="workflows-count-pill">
+            {filtered.length === SEED_WORKFLOWS.length
+              ? `${SEED_WORKFLOWS.length} workflows`
+              : `${filtered.length} of ${SEED_WORKFLOWS.length}`}
+          </span>
           <Link
             href="/workflows/templates"
             className="workflows-templates-cta"
