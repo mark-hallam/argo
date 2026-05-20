@@ -194,7 +194,7 @@ describe("First-hire step", () => {
       "Maya, marketing intern who drafts blog posts",
     );
     await user.click(screen.getByTestId("onboarding-first-hire-submit"));
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/team/wkr_maya_1"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/workers/wkr_maya_1"));
   });
 
   it("blocks submit when no vertical has been chosen", async () => {

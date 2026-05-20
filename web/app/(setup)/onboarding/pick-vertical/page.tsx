@@ -80,8 +80,26 @@ export default function OnboardingPickVerticalPage() {
           body: JSON.stringify({ vertical_id: verticalId }),
         },
       );
-      if (!res.ok && res.status !== 404) {
-        throw new Error(`gateway returned HTTP ${res.status}`);
+      // Wave-11 fix (2026-05-21): the prior code silently treated 404
+      // as success, so users moved on with their choice un-installed
+      // and then hard-stuck on the next 404 at /first-hire. Now we
+      // tolerate 404 in non-strict-prod (the endpoint isn't shipped
+      // yet — sibling brief `web-gateway-endpoints-onboarding-batch`)
+      // but log a console warning so devs see the gap. In strict prod
+      // 404 propagates → user sees the error message and can retry.
+      const inStrictProd =
+        process.env.NODE_ENV === "production" &&
+        process.env.NEXT_PUBLIC_ENV === "production";
+      if (!res.ok) {
+        if (res.status === 404 && !inStrictProd) {
+          // Dev/preview: the gateway endpoint isn't deployed yet.
+          // Choice is persisted client-side via setVertical(); move on.
+          console.warn(
+            "[onboarding] /api/v1/onboarding/install-vertical not deployed; choice saved client-side.",
+          );
+        } else {
+          throw new Error(`gateway returned HTTP ${res.status}`);
+        }
       }
       router.push("/onboarding/first-hire");
     } catch (e) {

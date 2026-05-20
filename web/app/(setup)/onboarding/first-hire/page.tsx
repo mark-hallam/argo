@@ -51,10 +51,15 @@ export default function OnboardingFirstHirePage() {
       // the end of onboarding.
       router.push(`/workers/${res.workerId}`);
     } catch (e) {
+      // Wave-11 fix (2026-05-21): prior copy claimed "we'll create
+      // your worker in the background — try again or skip to your
+      // team" but there's no background job and no Skip button. Be
+      // honest: the call failed; user retries. Real success path
+      // ships via web-gateway-endpoints-onboarding-batch.
       setError(
         e instanceof Error
-          ? `${e.message}. We'll create your worker in the background — try again or skip to your team.`
-          : "Genesis call failed. Try again.",
+          ? `${e.message}. Try again, or come back once the gateway is up.`
+          : "Couldn't reach the gateway. Try again in a moment.",
       );
     }
   }
