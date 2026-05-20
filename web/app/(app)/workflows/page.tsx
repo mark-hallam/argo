@@ -495,7 +495,7 @@ export default function WorkflowsPage() {
         </div>
 
         <div className="workflows-grid">
-          {SEED_WORKFLOWS.map((wf) => (
+          {filtered.map((wf) => (
             <Link
               key={`${wf.vertical}/${wf.name}`}
               href={`/workflows/${wf.vertical}/${wf.name}`}

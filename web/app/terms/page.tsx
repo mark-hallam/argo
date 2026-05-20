@@ -8,6 +8,13 @@ import Link from "next/link";
  */
 export default function TermsPage() {
   return (
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet"
+      />
     <main
       style={{
         maxWidth: 720,
@@ -106,5 +113,6 @@ export default function TermsPage() {
         .
       </p>
     </main>
+    </>
   );
 }

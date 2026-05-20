@@ -228,7 +228,7 @@ function ApprovalsInboxShell() {
     <>
       <CelebrationBanner />
 
-      <ApprovalsHero pendingCount={pendingCount} />
+      <ApprovalsHero pendingCount={pendingCount} isPending={approvalsQuery.isPending} />
 
       <PageHeader
         query={query}
@@ -332,12 +332,14 @@ function ApprovalsInboxShell() {
           </>
         )}
 
-        <footer className="pt-8 mt-12 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>SKYCOT preview — design system Track C. Switch theme to test white-label:</span>
-            <ThemePicker />
-          </div>
-        </footer>
+        {process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SHOW_DEV_TOOLBAR === "1" ? (
+          <footer className="pt-8 mt-12 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>SKYCOT preview — design system Track C. Switch theme to test white-label:</span>
+              <ThemePicker />
+            </div>
+          </footer>
+        ) : null}
       </div>
 
     </>
@@ -517,13 +519,21 @@ function EmptyState({ query, hasFilters, onClearAll }: { query: string; hasFilte
  * "your workforce is alive". Resolved-this-week and avg response are
  * placeholders until live ops aggregations land in a follow-up.
  */
-function ApprovalsHero({ pendingCount }: { pendingCount: number }) {
+function ApprovalsHero({ pendingCount, isPending }: { pendingCount: number; isPending: boolean }) {
   const resolvedThisWeek = 42; // Placeholder until real aggregation lands.
   const avgResponse = "8m"; // Placeholder.
 
   let title: string;
   let sub: string;
-  if (pendingCount === 0) {
+  if (isPending) {
+    // Demo-record fix: while the approvals query is in flight the
+    // computed pendingCount is 0, which used to render "Inbox zero"
+    // for 3-4 seconds — a damning flash on camera while the voiceover
+    // says "7 decisions need you." Render a soft loading line until
+    // real data arrives.
+    title = "Pulling your inbox…";
+    sub = "Counting the decisions waiting on you.";
+  } else if (pendingCount === 0) {
     title = "Inbox zero.";
     sub = "Nothing waiting on you right now. Your AI teammates have it handled.";
   } else if (pendingCount === 1) {

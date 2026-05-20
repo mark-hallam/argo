@@ -55,8 +55,16 @@ export const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
  * space is the boundary — by design, `+64 21 555 0123` should
  * match. Final post-filter on digit count (≥7) is enforced in
  * `redact.ts` because the regex alone counts dashes/spaces.
+ *
+ * 2026-05-20 fix: added `(?<![A-Z-])` look-behind to prevent the
+ * regex eating year-formatted IDs like `INV-2024-08741` and
+ * `QT-2024-7283`. These were leaking as `INV-[PHONE]` / `QT-[PHONE]`
+ * in the /audit demo feed. The look-behind requires the digit run
+ * is NOT preceded by an uppercase letter or a dash (i.e. not
+ * already inside a structured-ID-with-prefix pattern). Standalone
+ * phone numbers (` +64 21 555 0123`, `(555) 123-4567`) still match.
  */
-export const PHONE_RE = /\+?[\d(][\d\s()-]{6,18}\d/g;
+export const PHONE_RE = /(?<![A-Z-])\+?[\d(][\d\s()-]{6,18}\d/g;
 
 /**
  * Credit-card-ish digit sequences (13-19 digits, optionally
