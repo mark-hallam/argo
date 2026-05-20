@@ -87,6 +87,14 @@ pub(super) async fn start(
     skip_startup_check: bool,
     bind_non_loopback: bool,
 ) -> ArgoResult<()> {
+    if super::routes_auth_production_mode::is_production_mode_for_bind(bind)
+        && super::routes_auth::production_bearer_missing_for_boot()
+    {
+        let msg = super::routes_auth::production_bearer_missing_message();
+        tracing::error!("{msg}");
+        return Err(ArgoError::Schema(msg));
+    }
+    let _ = super::bootstrap_token::ensure_bootstrap_token()?;
     // Boot-time context: tenant_id resolves per-request inside the
     // route handlers — this entry covers everything that emits before
     // a request is parsed (banner, startup checks, bg spawns) with

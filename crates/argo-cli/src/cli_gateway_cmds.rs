@@ -57,6 +57,11 @@ pub enum GatewayCmd {
         insecure_bind: bool,
     },
     Stop,
+    /// Manage the first-run setup wizard bootstrap token.
+    Bootstrap {
+        #[command(subcommand)]
+        cmd: GatewayBootstrapCmd,
+    },
     /// One-line status: running PID + listening address.
     Status {
         /// Output as a JSON object `{running, pid?, addr?}`.
@@ -145,4 +150,11 @@ pub enum GatewayAuditCmd {
         #[arg(long)]
         json: bool,
     },
+}
+
+/// `argo gateway bootstrap ...` subcommands.
+#[derive(Subcommand, Debug)]
+pub enum GatewayBootstrapCmd {
+    /// Regenerate `$ARGO_HOME/.bootstrap-token` and audit the rotation.
+    Rotate,
 }

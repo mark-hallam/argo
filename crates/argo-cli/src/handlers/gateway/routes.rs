@@ -117,6 +117,21 @@ async fn dispatch_route_inner(
             return resp;
         }
     }
+    if super::bootstrap_token::is_wizard_request(req) {
+        if req.starts_with("OPTIONS ") {
+            return super::bootstrap_token::wizard_options_response();
+        }
+        if let Some(resp) = super::bootstrap_token::check_bootstrap_token(req) {
+            return resp;
+        }
+        if let Some(resp) = dispatch_get(req, store).await {
+            return resp;
+        }
+        if let Some(resp) = dispatch_post(req, store).await {
+            return resp;
+        }
+        return ("404 Not Found", "{\"error\":\"not found\"}".to_string());
+    }
     // Bearer-token gate on every non-allowlisted GET. POST has its own
     // gate inside `dispatch_post` (#946); allowlist members (`/`,
     // `/health[/...]`, `/version`, `/routes`) stay anonymous so liveness

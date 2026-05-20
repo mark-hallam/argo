@@ -18,6 +18,7 @@ mod boot_router;
 mod boot_spawns;
 mod boot_telemetry;
 mod boot_telemetry_admin;
+mod bootstrap_token;
 mod dashboard;
 mod dashboard_fleet;
 mod email_outbound;
@@ -59,6 +60,7 @@ mod routes_audit_session;
 mod routes_audit_stream;
 mod routes_auth;
 mod routes_auth_principal;
+mod routes_auth_production_mode;
 pub(crate) mod routes_catalog;
 mod routes_channels;
 mod routes_channels_discord;
@@ -200,6 +202,7 @@ mod ws_inbox_events;
 mod ws_skill_trace;
 mod ws_upgrade;
 
+use crate::cli::cli_gateway_cmds::GatewayBootstrapCmd;
 use crate::cli::GatewayCmd;
 use argo_config::ArgoConfig;
 use argo_types::{ArgoError, ArgoResult};
@@ -259,6 +262,9 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             .await
         }
         GatewayCmd::Stop => boot::stop().await,
+        GatewayCmd::Bootstrap { cmd } => match cmd {
+            GatewayBootstrapCmd::Rotate => bootstrap_token::rotate_command().await,
+        },
         GatewayCmd::Routes {
             json,
             format,

@@ -8,11 +8,19 @@
 //!
 //! Mirrors `ARGO_GATEWAY_BEARER_TOKEN` precedent landed by #946.
 
+use super::routes_auth_production_mode::{
+    bearer_token_configured, is_production_mode, BEARER_TOKEN_ENV,
+};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static LAST_DEV_BYPASS_WARN_SECS: AtomicU64 = AtomicU64::new(0);
+
 /// Bearer-token gate applied before dispatch.
 ///
 /// Returns `None` (auth passes) when any of:
-/// - `gateway.auth_bypass = true` is set (integration-test escape hatch),
-/// - `ARGO_GATEWAY_BEARER_TOKEN` is unset/empty (dev default), or
+/// - `gateway.auth_bypass = true` is set in non-production mode
+///   (integration-test escape hatch),
+/// - `ARGO_GATEWAY_BEARER_TOKEN` is unset/empty in dev mode, or
 /// - the request carries a matching `Authorization: Bearer <token>` header.
 ///
 /// Returns `Some(401, body)` otherwise. Body is a small JSON envelope so
@@ -27,12 +35,24 @@
 /// assert!(check_bearer_auth("GET /sessions HTTP/1.1\r\n\r\n").is_none());
 /// ```
 pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
-    if argo_config::load().unwrap_or_default().gateway.auth_bypass {
+    let production = is_production_mode();
+    if argo_config::load().unwrap_or_default().gateway.auth_bypass && !production {
+        warn_dev_bypass();
         return None;
     }
     let expected = match argo_config::cred::get("ARGO_GATEWAY_BEARER_TOKEN") {
-        Ok(t) if !t.is_empty() => t,
-        _ => return None,
+        Ok(t) if !t.trim().is_empty() => t,
+        _ if production => {
+            return Some((
+                "401 Unauthorized",
+                r#"{"error":"unauthorized","reason":"gateway-bearer-token-required-in-production"}"#
+                    .to_string(),
+            ));
+        }
+        _ => {
+            warn_dev_bypass();
+            return None;
+        }
     };
     if presented_bearer(req).as_deref() == Some(expected.as_str()) {
         None
@@ -85,16 +105,39 @@ pub(super) fn is_public_get(req: &str) -> bool {
             | "/routes"
             | "/openmetrics"
     );
-    // The setup wizard is reachable before the operator has a bearer
-    // token configured; the handler itself only exposes first-run state.
-    if path.starts_with("/api/v1/wizard") {
-        return true;
-    }
     // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
     // bearer credential (`ARGO_SCIM_BEARER_TOKEN`); the dedicated
     // `scim_auth` gate inside the SCIM dispatcher enforces it. Treat
     // the path as "public" here so the operator-facing gate skips it.
     exact || path.starts_with("/scim/v2/")
+}
+
+pub(super) fn production_bearer_missing_message() -> String {
+    format!(
+        "{BEARER_TOKEN_ENV} required when binding non-loopback or \
+         ARGO_GATEWAY_PROFILE=production; see docs/skycot/operator/security.md"
+    )
+}
+
+pub(super) fn production_bearer_missing_for_boot() -> bool {
+    !bearer_token_configured()
+}
+
+fn warn_dev_bypass() {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let last = LAST_DEV_BYPASS_WARN_SECS.load(Ordering::Relaxed);
+    if now.saturating_sub(last) < 60 {
+        return;
+    }
+    if LAST_DEV_BYPASS_WARN_SECS
+        .compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed)
+        .is_ok()
+    {
+        tracing::warn!("auth bypass: bearer token unset, dev mode only");
+    }
 }
 
 fn presented_bearer(req: &str) -> Option<String> {
