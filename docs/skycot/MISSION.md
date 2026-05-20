@@ -1,5 +1,7 @@
 # SKYCOT mission
 
+> **Project rename — Argo → Skycot.** The project will rename from Argo to **Skycot** (domain: skycot.com). Continue using `argo` everywhere for now in code, binaries, crates, env vars, `~/.argo/`, `argo.toml`, and existing identifiers. Do not start renaming proactively. The user-facing product name is Skycot; the developer-facing binary stays `argo` until a coordinated rename pass. This matches the canonical statement in [`CLAUDE.md`](../../CLAUDE.md) §"Project rename".
+
 The persistent ground-truth of what we are building. Every agent
 working on this repo (Claude, Codex, future agent families) reads
 this file before doing anything. Architecture decisions, PR
