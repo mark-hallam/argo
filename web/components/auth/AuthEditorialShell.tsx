@@ -220,6 +220,13 @@ export function AuthEditorialShell({
           width: 18px;
           height: 18px;
           border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sso-btn .logo svg {
+          width: 18px;
+          height: 18px;
         }
         .sso-btn .coming-soon {
           position: absolute;
@@ -228,6 +235,27 @@ export function AuthEditorialShell({
           font-size: 9.5px;
           color: var(--ink-3);
           letter-spacing: 0.08em;
+        }
+        .sso-btn-active {
+          cursor: pointer;
+          opacity: 1;
+          transition: border-color 0.15s, box-shadow 0.15s, transform 0.05s;
+        }
+        .sso-btn-active:hover {
+          border-color: var(--purple);
+          box-shadow: 0 4px 14px -6px rgba(139, 92, 246, 0.4);
+        }
+        .sso-btn-active:active {
+          transform: translateY(1px);
+        }
+        .sso-btn-active:disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+        }
+        .sso-btn-highlight {
+          border-color: var(--purple);
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(236, 72, 153, 0.06));
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
         }
         .divider {
           display: flex;
@@ -404,29 +432,3 @@ export function AuthEditorialShell({
   );
 }
 
-/**
- * SSO placeholder buttons — visible but disabled. Signals v1.x roadmap
- * without wiring OAuth providers in v1.0. Used inside the editorial
- * shell on signup + signin pages.
- */
-export function AuthSsoButtons() {
-  return (
-    <div className="sso-row">
-      <button type="button" className="sso-btn" disabled aria-disabled>
-        <span className="logo" style={{ background: "linear-gradient(135deg,#4285F4,#EA4335)" }} />
-        Continue with Google
-        <span className="coming-soon">v1.x</span>
-      </button>
-      <button type="button" className="sso-btn" disabled aria-disabled>
-        <span className="logo" style={{ background: "#000" }} />
-        Continue with GitHub
-        <span className="coming-soon">v1.x</span>
-      </button>
-      <button type="button" className="sso-btn" disabled aria-disabled>
-        <span className="logo" style={{ background: "linear-gradient(135deg,#0078D4,#005EB4)" }} />
-        Continue with Microsoft
-        <span className="coming-soon">v1.x</span>
-      </button>
-    </div>
-  );
-}

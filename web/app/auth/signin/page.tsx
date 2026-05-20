@@ -4,23 +4,44 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useSignup } from "@/lib/auth/use-signup";
-import { AuthEditorialShell, AuthSsoButtons } from "@/components/auth/AuthEditorialShell";
+import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
+import { SsoButtons } from "@/components/auth/SsoButtons";
+import {
+  discoverSso,
+  startOAuth,
+  type OAuthProvider,
+  type SsoDiscoveryResult,
+} from "@/lib/api/sso";
 
 /**
  * Signin page — locked editorial-A design (2026-05-18 design lock).
  *
- * Returning customers re-request a magic link by email. Same backend
- * flow as signup (gateway is idempotent on (email, tenant) — new
- * workspaces are created on first send; existing workspaces match).
- * Distinction is in copy + the "WELCOME BACK" eyebrow.
+ * Flow:
+ *  1. Three SSO buttons (Google / GitHub / Microsoft) start OAuth.
+ *  2. Email + Continue triggers an SSO-discovery probe:
+ *     - SAML enforced for this email's workspace → "Sign in with SSO"
+ *       replaces the magic-link button and routes to the IdP.
+ *     - OAuth-only workspace → highlight the matching SSO button and
+ *       offer a one-tap "Continue with <Provider>" CTA.
+ *     - No SSO → fall through to the standard magic-link flow.
  *
  * The bearer-token developer auth path lives at `/auth/dev` (separate
  * surface). Customers never see "bearer token" terminology.
  */
+
+type SsoBranch =
+  | { kind: "idle" }
+  | { kind: "probing" }
+  | { kind: "match-saml"; startUrl: string }
+  | { kind: "match-oauth"; provider: OAuthProvider }
+  | { kind: "match-magic" };
+
 export default function SignInPage() {
   const router = useRouter();
   const { state, submit } = useSignup();
   const [email, setEmail] = useState("");
+  const [sso, setSso] = useState<SsoBranch>({ kind: "idle" });
+  const [probeError, setProbeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (state.kind === "sent") {
@@ -30,11 +51,38 @@ export default function SignInPage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await submit({ email });
+    const trimmed = email.trim();
+    if (trimmed.length === 0) return;
+
+    setProbeError(null);
+    setSso({ kind: "probing" });
+    let result: SsoDiscoveryResult;
+    try {
+      result = await discoverSso(trimmed);
+    } catch {
+      // Discovery is a soft probe — on failure, fall through to magic-link.
+      result = { mode: "magic_link" };
+    }
+
+    if (result.mode === "saml" && result.ssoStartUrl) {
+      setSso({ kind: "match-saml", startUrl: result.ssoStartUrl });
+      if (typeof window !== "undefined") {
+        window.location.href = result.ssoStartUrl;
+      }
+      return;
+    }
+    if (result.mode === "oauth" && result.provider) {
+      setSso({ kind: "match-oauth", provider: result.provider });
+      return;
+    }
+    setSso({ kind: "match-magic" });
+    await submit({ email: trimmed });
   }
 
-  const pending = state.kind === "submitting";
-  const error = state.kind === "error" ? state.message : null;
+  const pending = state.kind === "submitting" || sso.kind === "probing";
+  const formError =
+    state.kind === "error" ? state.message : probeError ?? null;
+  const highlightProvider = sso.kind === "match-oauth" ? sso.provider : undefined;
 
   return (
     <AuthEditorialShell
@@ -55,7 +103,13 @@ export default function SignInPage() {
 
       <p className="sub">Pick how you want to sign in. We&apos;ll get you back to your team in a moment.</p>
 
-      <AuthSsoButtons />
+      <SsoButtons highlight={highlightProvider} />
+
+      {sso.kind === "match-saml" ? (
+        <p className="below-form" data-testid="sso-saml-redirect">
+          Your workspace uses SAML single sign-on. Redirecting to your identity provider…
+        </p>
+      ) : null}
 
       <div className="divider">
         <span className="divider-lbl">OR WITH EMAIL</span>
@@ -70,29 +124,44 @@ export default function SignInPage() {
             autoComplete="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (sso.kind !== "idle") setSso({ kind: "idle" });
+            }}
             aria-invalid={state.kind === "error" || undefined}
-            aria-describedby={error ? "signin-error" : undefined}
+            aria-describedby={formError ? "signin-error" : undefined}
             placeholder="you@yourcompany.com"
             className="field-input"
             data-testid="signin-email"
             autoFocus
           />
         </div>
-        {error ? (
+        {formError ? (
           <p id="signin-error" role="alert" className="form-error">
-            {error}
+            {formError}
           </p>
         ) : null}
-        <button
-          type="submit"
-          className="cta"
-          disabled={pending || email.trim().length === 0}
-          data-testid="signin-submit"
-        >
-          {pending ? "Sending sign-in link…" : "Send sign-in link"}
-          {pending ? null : <span className="kbd">↵</span>}
-        </button>
+        {sso.kind === "match-oauth" ? (
+          <button
+            type="button"
+            className="cta"
+            onClick={() => startOAuth(sso.provider)}
+            data-testid="signin-sso-cta"
+          >
+            Continue with {providerLabel(sso.provider)}
+            <span className="kbd">↵</span>
+          </button>
+        ) : (
+          <button
+            type="submit"
+            className="cta"
+            disabled={pending || email.trim().length === 0}
+            data-testid="signin-submit"
+          >
+            {pending ? "Checking…" : "Continue"}
+            {pending ? null : <span className="kbd">↵</span>}
+          </button>
+        )}
       </form>
 
       <p className="below-form">
@@ -105,4 +174,15 @@ export default function SignInPage() {
       </div>
     </AuthEditorialShell>
   );
+}
+
+function providerLabel(p: OAuthProvider): string {
+  switch (p) {
+    case "google":
+      return "Google";
+    case "github":
+      return "GitHub";
+    case "microsoft":
+      return "Microsoft";
+  }
 }

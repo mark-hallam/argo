@@ -3,14 +3,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useSignup } from "@/lib/auth/use-signup";
-import { AuthEditorialShell, AuthSsoButtons } from "@/components/auth/AuthEditorialShell";
+import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
+import { SsoButtons } from "@/components/auth/SsoButtons";
 
 /**
  * Signup page — locked editorial-A design (2026-05-18 design lock).
  *
- * Customer-facing magic-link entry. Three SSO buttons are rendered as
- * "v1.x" coming-soon placeholders so enterprise prospects see the
- * roadmap without us having to wire OAuth providers in v1.0.
+ * Customer-facing entry. Three SSO buttons (Google / GitHub / Microsoft)
+ * start the OAuth authorization-code flow; magic-link is the email
+ * fallback for anyone without an SSO provider.
  */
 export default function SignupPage() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function SignupPage() {
         <span className="emphasis">No credit card</span> required.
       </p>
 
-      <AuthSsoButtons />
+      <SsoButtons />
 
       <div className="divider">
         <span className="divider-lbl">OR WITH EMAIL</span>
