@@ -235,6 +235,12 @@ async fn api_v1_dispatch(
     {
         return Some(resp);
     }
+    // web-gateway-endpoints-notifications-batch — bell-popover backing
+    // API. Routes `POST /api/v1/notifications/<id>/dismiss` and
+    // `POST /api/v1/notifications/dismiss-all`.
+    if let Some(resp) = super::routes_notifications::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     None
 }
 

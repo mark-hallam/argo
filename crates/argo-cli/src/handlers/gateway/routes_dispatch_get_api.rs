@@ -68,6 +68,12 @@ pub(super) async fn dispatch_api_get(
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
         return Some(super::routes_team_list::list_response(req, store).await);
     }
+    // web-gateway-endpoints-notifications-batch — bell-popover backing
+    // API. The `unread-count` sub-path is matched first inside the
+    // sub-dispatcher so the more-specific prefix wins.
+    if let Some(resp) = super::routes_notifications::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     // claude-pricing-plans-config — pricing tier + monthly usage view.
     if req.starts_with("GET /api/v1/tenant/usage ")
         || req.starts_with("GET /api/v1/tenant/usage?")

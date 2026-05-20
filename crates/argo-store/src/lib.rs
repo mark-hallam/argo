@@ -99,6 +99,9 @@ mod migrations;
 mod models;
 /// Per-tenant SQLite pool registry for data-residency routing.
 pub mod multi_tenant_pool;
+/// System-level workspace notifications backing the bell-popover
+/// gateway API (stream `web-gateway-endpoints-notifications-batch`).
+pub mod notifications;
 /// Per-operator risk-level overrides for the action classification
 /// pipeline (Stream `mission-operator-specific-risk-overrides`,
 /// MISSION_BACKLOG Section 3 Claim 6 #122). Stores one row per
@@ -335,7 +338,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 75;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 76;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

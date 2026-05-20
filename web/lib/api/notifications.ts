@@ -1,14 +1,16 @@
 /**
  * Notifications API client.
  *
- * Routes through the typed `lib/api/client.ts` wrapper. Gateway
- * endpoints land later (planned brief `J*-gateway-notifications-json-api`);
- * until then every call here will 404 and fall back to the bundled
- * mock dataset so the bell-popover demo keeps working in dev without
- * a running gateway.
+ * Routes through the typed `lib/api/client.ts` wrapper. The list +
+ * dismiss endpoints landed via `web-gateway-endpoints-notifications-batch`;
+ * `markAsRead`/`markAllAsRead` are still 404 until a follow-up brief
+ * lands them server-side. The 404 + NetworkError fallbacks below keep
+ * the bell-popover demo working in dev without a gateway running.
  *
  * Acceptance contract:
- * - `fetchNotifications` returns `NotificationItem[]`.
+ * - `fetchNotifications` returns `NotificationItem[]` (the gateway
+ *   ships an envelope `{ items, has_more, cursor }`; this wrapper
+ *   unwraps `items` for the existing callsites).
  * - `markAsRead`, `markAllAsRead`, `dismissNotification` return
  *   success envelopes.
  * - On 404 from the gateway (route not yet implemented), fall back
@@ -21,6 +23,12 @@ import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_NOTIFICATIONS, type NotificationItem } from "@/lib/sample-notifications";
 
+interface NotificationsEnvelope {
+  items: NotificationItem[];
+  has_more: boolean;
+  cursor: number | null;
+}
+
 function isMissingOrUnreachable(err: unknown): boolean {
   if (err instanceof ApiError) return err.status === 404;
   return err instanceof TypeError;
@@ -28,7 +36,8 @@ function isMissingOrUnreachable(err: unknown): boolean {
 
 export async function fetchNotifications(): Promise<NotificationItem[]> {
   try {
-    return await apiGet<NotificationItem[]>("/api/v1/notifications");
+    const envelope = await apiGet<NotificationsEnvelope>("/api/v1/notifications");
+    return envelope.items;
   } catch (err) {
     if (isMissingOrUnreachable(err)) {
       await new Promise((r) => setTimeout(r, 100));
