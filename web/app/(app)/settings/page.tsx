@@ -25,7 +25,7 @@ const TILES = [
     icon: <Users size={20} />,
     title: "Team & roles",
     blurb: "Invite teammates, manage roles (owner / admin / user / guest).",
-    coming: true,
+    coming: false,
   },
   {
     href: "/settings/notifications",
