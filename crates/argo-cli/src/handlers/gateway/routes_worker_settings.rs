@@ -59,3 +59,7 @@ pub(super) use read::{
 #[cfg(test)]
 #[path = "routes_worker_settings_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_worker_settings_patch_alias_tests.rs"]
+mod patch_alias_tests;

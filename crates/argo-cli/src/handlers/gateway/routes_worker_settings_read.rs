@@ -65,12 +65,16 @@ pub(crate) async fn patch_channels(
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let all: Vec<String> = match body.get("channels").and_then(Value::as_array) {
+    let all: Vec<String> = match body
+        .get("channels")
+        .or_else(|| body.get("enabled"))
+        .and_then(Value::as_array)
+    {
         Some(arr) => arr
             .iter()
             .filter_map(|v| v.as_str().map(str::to_string))
             .collect(),
-        None => return bad_request("missing 'channels' array"),
+        None => return bad_request("missing 'channels' (or 'enabled') array"),
     };
     let primary = match body.get("primary").and_then(Value::as_str) {
         Some(p) if !p.is_empty() => p.to_string(),
@@ -112,10 +116,12 @@ pub(crate) async fn patch_quiet_hours(
     };
     let start = require_string(&body, "start").map(str::to_string);
     let end = require_string(&body, "end").map(str::to_string);
-    let tz = require_string(&body, "tz").map(str::to_string);
+    let tz = require_string(&body, "tz")
+        .or_else(|| require_string(&body, "timezone"))
+        .map(str::to_string);
     let (start, end, tz) = match (start, end, tz) {
         (Some(s), Some(e), Some(t)) => (s, e, t),
-        _ => return bad_request("body must include 'start', 'end', 'tz'"),
+        _ => return bad_request("body must include 'start', 'end', and 'tz' (or 'timezone')"),
     };
     let payload = json!({ "start": start, "end": end, "tz": tz });
     emit_audit(
@@ -148,11 +154,22 @@ pub(crate) async fn patch_budget(
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let daily = body.get("daily_usd").and_then(Value::as_f64);
-    let monthly = body.get("monthly_usd").and_then(Value::as_f64);
+    let daily = body
+        .get("daily_usd")
+        .or_else(|| body.get("dailyCapUsd"))
+        .and_then(Value::as_f64);
+    let monthly = body
+        .get("monthly_usd")
+        .or_else(|| body.get("monthlyCapUsd"))
+        .and_then(Value::as_f64);
     let (daily, monthly) = match (daily, monthly) {
         (Some(d), Some(m)) if d >= 0.0 && m >= 0.0 => (d, m),
-        _ => return bad_request("body must include non-negative 'daily_usd' and 'monthly_usd'"),
+        _ => {
+            return bad_request(
+                "body must include non-negative daily and monthly USD amounts \
+                 ('daily_usd'/'monthly_usd' or 'dailyCapUsd'/'monthlyCapUsd')",
+            )
+        }
     };
     let payload = json!({ "daily_usd": daily, "monthly_usd": monthly });
     emit_audit(

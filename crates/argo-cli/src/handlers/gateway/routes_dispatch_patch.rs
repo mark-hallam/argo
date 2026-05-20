@@ -32,16 +32,16 @@ pub(super) async fn dispatch_patch(
     let parts: Vec<&str> = head_no_query.split('/').collect();
     let worker_id = parts[0];
     match parts.as_slice() {
-        [_, "channels"] => {
+        [_, "channels"] | [_, "settings", "channels"] => {
             Some(super::routes_worker_settings::patch_channels(worker_id, req, store).await)
         }
-        [_, "quiet-hours"] => {
+        [_, "quiet-hours"] | [_, "settings", "quiet-hours"] => {
             Some(super::routes_worker_settings::patch_quiet_hours(worker_id, req, store).await)
         }
-        [_, "budget"] => {
+        [_, "budget"] | [_, "settings", "budget"] => {
             Some(super::routes_worker_settings::patch_budget(worker_id, req, store).await)
         }
-        [_, "autonomy"] => {
+        [_, "autonomy"] | [_, "settings", "autonomy"] => {
             Some(super::routes_worker_settings::patch_autonomy(worker_id, req, store).await)
         }
         [_, "policies", action_type] => Some(
