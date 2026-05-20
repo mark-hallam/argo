@@ -19,7 +19,11 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname.startsWith("/landing") ||
-    pathname.startsWith("/marketing")
+    pathname.startsWith("/marketing") ||
+    pathname.startsWith("/pricing") ||
+    pathname.startsWith("/customers") ||
+    pathname.startsWith("/changelog") ||
+    pathname.startsWith("/docs")
   ) {
     return NextResponse.next();
   }
