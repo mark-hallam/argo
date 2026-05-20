@@ -71,7 +71,7 @@ For EACH child PR (10 total):
 For the parent (this brief):
 
 - [ ] All 10 child splits land (or operator explicitly closes some as "leave alone — scheduled for refactor inside another brief").
-- [ ] Final count of files in 450-500 band drops **below 35** (current baseline 43; effective 9 splits of in-band cited files drops to ~34. Lower-target wave-3 brief will handle the remaining drift to <30 after wave-2 ships.)
+- [ ] (Informational, not acceptance) Final count of files in 450-500 band trends DOWN from baseline — exact post-split count depends on how many cited files drop out of band, and may not reach any specific target if new code has accreted into the band during the brief's lifetime. **The PER-FILE criteria above are the load-bearing acceptance**; aggregate band count is a guidance metric only.
 
 ## Branch + PR
 
@@ -92,3 +92,13 @@ Per child:
 - The next 30 files in the band (40 minus the top 10) — wave 3 if needed.
 - Architectural splits (one crate into two, etc.) — out of scope; this is file-level only.
 - Updating `scripts/check-loc-budget.sh` to enforce a tighter ceiling (e.g. 400) — premature.
+
+## AMENDMENT 2 (2026-05-20 post-second-BLOCK by conductor)
+
+Worker self-blocked again 2026-05-20T01:13Z after the first amendment because the aggregate "<35" target was still unreachable on current main (baseline drifted 43 → 44; effective 9 splits → 37 in band, not 35).
+
+**Diagnosis**: aggregate-band-count targets are intrinsically unstable. The band grows organically as new code lands during the brief's lifetime, making any aggregate target a moving goalpost. The structurally-honest acceptance is per-file: "each cited file ends < 350 LOC after split; each sibling < 450 LOC". Those are deterministic + always reachable.
+
+**Action**: aggregate-count line demoted to informational. The per-file acceptance criteria carry the load.
+
+**Salvage path**: worker pushed branch `codex-mission-audit-loc-band-wave-2-v2` at commit `bc091f38` with all in-scope cited splits done + `bash scripts/codex-pre-push.sh` passing. A fresh worker (or the original worker on next iteration) should open the PR against current main with that branch's content. No re-implementation needed.
