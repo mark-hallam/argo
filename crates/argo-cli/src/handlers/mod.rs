@@ -148,6 +148,7 @@ mod forge_subject;
 pub mod gateway;
 pub mod gateway_audit;
 pub mod gateway_probe;
+pub mod gateway_token_bind;
 pub mod genesis;
 pub mod genesis_export;
 pub mod genesis_from_vertical;

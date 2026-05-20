@@ -273,6 +273,7 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             limit,
         } => print_routes::print_routes(json, &format, method.as_deref(), grep.as_deref(), limit),
         GatewayCmd::Audit { cmd } => super::gateway_audit::run(cmd).await,
+        GatewayCmd::Token { cmd } => super::gateway_token_bind::run(cmd).await,
         GatewayCmd::Probe {
             kind,
             host,

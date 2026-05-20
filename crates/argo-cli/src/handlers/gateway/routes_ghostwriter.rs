@@ -19,7 +19,9 @@
 //! `AuditKind::HttpRequest` with `event_type = "skill.ghostwriter.drafted"`.
 
 use super::body_from_request;
-use super::routes_auth_principal::principal_id_for_audit;
+use super::routes_auth::{
+    authenticate_request, enforce_header_match, AuthCheckOutcome, AuthenticatedPrincipal,
+};
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_skill::ir::{
@@ -34,7 +36,6 @@ use std::time::Duration;
 use uuid::Uuid;
 
 const HEADER_TENANT_ID: &str = "x-argo-tenant-id";
-const DEFAULT_WORKSPACE_TENANT_FALLBACK: &str = "00000000-0000-0000-0000-000000000000";
 const GHOSTWRITER_CALL_TIMEOUT: Duration = Duration::from_secs(45);
 const MIN_PROMPT_LEN: usize = 15;
 const DRAFT_VERSION: &str = "1.0.0";
@@ -49,8 +50,8 @@ pub(super) async fn draft_from_prompt_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let tenant = match resolve_tenant(req) {
-        Ok(t) => t,
+    let (auth, tenant) = match authorize(req, store).await {
+        Ok(p) => p,
         Err(resp) => return resp,
     };
     let prompt = match parse_prompt(req) {
@@ -81,7 +82,7 @@ pub(super) async fn draft_from_prompt_response(
     if let Err(e) = ir_store.put(tenant, skill_id, DRAFT_VERSION, &graph).await {
         return server_error(&format!("skill_ir put: {e}"));
     }
-    emit_audit(store, req, tenant, skill_id, &hash, prompt.len()).await;
+    emit_audit(store, &auth.principal, tenant, skill_id, &hash, prompt.len()).await;
     let body = json!({
         "skillId": skill_id.to_string(),
         "tenantId": tenant.to_string(),
@@ -117,9 +118,25 @@ fn parse_prompt(req: &str) -> Result<String, (&'static str, String)> {
     Ok(prompt.to_string())
 }
 
-fn resolve_tenant(req: &str) -> Result<TenantId, (&'static str, String)> {
-    let raw = header_value(req, HEADER_TENANT_ID)
-        .unwrap_or_else(|| DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string());
+async fn authorize(
+    req: &str,
+    store: &Arc<SessionStore>,
+) -> Result<(AuthenticatedPrincipal, TenantId), (&'static str, String)> {
+    let auth = match authenticate_request(req, Some(store)).await {
+        AuthCheckOutcome::Pass(a) => a,
+        AuthCheckOutcome::Reject(resp) => return Err(resp),
+    };
+    enforce_header_match(req, &auth)?;
+    let tenant = resolve_tenant(req, &auth)?;
+    Ok((auth, tenant))
+}
+
+fn resolve_tenant(
+    req: &str,
+    auth: &AuthenticatedPrincipal,
+) -> Result<TenantId, (&'static str, String)> {
+    let raw =
+        header_value(req, HEADER_TENANT_ID).unwrap_or_else(|| auth.tenant_id.to_string());
     Uuid::parse_str(&raw)
         .map(TenantId)
         .map_err(|e| bad_request(&format!("invalid tenant id '{raw}': {e}")))
@@ -139,7 +156,7 @@ fn header_value(req: &str, name_lower: &str) -> Option<String> {
 
 async fn emit_audit(
     store: &Arc<SessionStore>,
-    req: &str,
+    principal_id: &str,
     tenant: TenantId,
     skill_id: SkillId,
     ir_hash: &str,
@@ -159,7 +176,7 @@ async fn emit_audit(
             None,
             AuditKind::HttpRequest,
             payload,
-            principal_id_for_audit(req),
+            Some(principal_id.to_string()),
         )
         .await
     {
@@ -243,10 +260,17 @@ mod tests {
     }
 
     #[test]
-    fn resolve_tenant_falls_back_to_workspace_default() {
+    fn resolve_tenant_falls_back_to_authenticated_tenant() {
+        use super::super::routes_auth::{AuthSource, AuthenticatedPrincipal};
         let req = "POST /x HTTP/1.1\r\nHost: x\r\n\r\n";
-        let t = resolve_tenant(req).unwrap();
-        assert_eq!(t.to_string(), DEFAULT_WORKSPACE_TENANT_FALLBACK);
+        let tenant_id = TenantId::new();
+        let auth = AuthenticatedPrincipal {
+            principal: "service:test".into(),
+            tenant_id,
+            source: AuthSource::TokenSyntheticPrincipal,
+        };
+        let t = resolve_tenant(req, &auth).unwrap();
+        assert_eq!(t, tenant_id);
     }
 
     #[tokio::test]

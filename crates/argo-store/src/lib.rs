@@ -135,6 +135,12 @@ pub mod retro;
 /// chain can still resolve tenant + `userName` for a deprovisioned
 /// user.
 pub mod scim_user;
+/// Gateway service-token bindings — anchor a bearer token to a
+/// `(principal_id, tenant_id)` pair so the gateway derives principal
+/// + tenant from the authenticated credential and rejects mismatched
+/// `X-Argo-Principal` / `X-Argo-Tenant-Id` headers (Mission
+/// `mission-audit-principal-tenant-from-token`, P0).
+pub mod service_token_binding;
 mod session_meta;
 mod session_query;
 mod session_store;

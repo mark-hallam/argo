@@ -21,7 +21,7 @@
 //! `event_type` of `skill.ir.viewed` / `skill.ir.versions.viewed`.
 
 use super::body_from_request;
-use super::routes_auth_principal::principal_id_for_audit;
+use super::routes_auth::{authenticate_request, enforce_header_match, AuthCheckOutcome, AuthenticatedPrincipal};
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_skill::ir::{
@@ -36,7 +36,6 @@ use uuid::Uuid;
 
 const HEADER_TENANT_ID: &str = "x-argo-tenant-id";
 const HEADER_CROSS_TENANT: &str = "x-argo-audit-cross-tenant";
-const DEFAULT_WORKSPACE_TENANT_FALLBACK: &str = "00000000-0000-0000-0000-000000000000";
 
 /// Dispatcher hook for `GET /api/v1/skills/<id>/ir[...]`. Returns
 /// `None` when the request shape doesn't match either of this
@@ -83,8 +82,8 @@ async fn import_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let tenant = match resolve_tenant(req, query) {
-        Ok(t) => t,
+    let (auth, tenant) = match authorize(req, query, store).await {
+        Ok(p) => p,
         Err(resp) => return resp,
     };
     let skill_id = match parse_skill_id(skill_id_raw) {
@@ -106,7 +105,7 @@ async fn import_response(
     };
     emit_audit(
         store,
-        req,
+        &auth.principal,
         "skill.ir.imported",
         tenant,
         skill_id,
@@ -139,8 +138,8 @@ async fn save_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let tenant = match resolve_tenant(req, query) {
-        Ok(t) => t,
+    let (auth, tenant) = match authorize(req, query, store).await {
+        Ok(p) => p,
         Err(resp) => return resp,
     };
     let skill_id = match parse_skill_id(skill_id_raw) {
@@ -157,7 +156,7 @@ async fn save_response(
     };
     emit_audit(
         store,
-        req,
+        &auth.principal,
         "skill.ir.saved",
         tenant,
         skill_id,
@@ -189,8 +188,8 @@ async fn ir_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let tenant = match resolve_tenant(req, query) {
-        Ok(t) => t,
+    let (auth, tenant) = match authorize(req, query, store).await {
+        Ok(p) => p,
         Err(resp) => return resp,
     };
     let skill_id = match parse_skill_id(skill_id_raw) {
@@ -221,7 +220,7 @@ async fn ir_response(
     };
     emit_audit(
         store,
-        req,
+        &auth.principal,
         "skill.ir.viewed",
         tenant,
         skill_id,
@@ -247,8 +246,8 @@ async fn export_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let tenant = match resolve_tenant(req, query) {
-        Ok(t) => t,
+    let (auth, tenant) = match authorize(req, query, store).await {
+        Ok(p) => p,
         Err(resp) => return resp,
     };
     let skill_id = match parse_skill_id(skill_id_raw) {
@@ -275,7 +274,7 @@ async fn export_response(
     };
     emit_audit(
         store,
-        req,
+        &auth.principal,
         "skill.ir.exported",
         tenant,
         skill_id,
@@ -294,8 +293,8 @@ async fn versions_response(
     let Some(store) = store else {
         return store_unavailable();
     };
-    let tenant = match resolve_tenant(req, query) {
-        Ok(t) => t,
+    let (auth, tenant) = match authorize(req, query, store).await {
+        Ok(p) => p,
         Err(resp) => return resp,
     };
     let skill_id = match parse_skill_id(skill_id_raw) {
@@ -329,7 +328,7 @@ async fn versions_response(
     }
     emit_audit(
         store,
-        req,
+        &auth.principal,
         "skill.ir.versions.viewed",
         tenant,
         skill_id,
@@ -344,9 +343,32 @@ async fn versions_response(
     ("200 OK", body.to_string())
 }
 
-fn resolve_tenant(req: &str, query: &str) -> Result<TenantId, (&'static str, String)> {
-    let header_tenant = header_value(req, HEADER_TENANT_ID)
-        .unwrap_or_else(|| DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string());
+/// Authenticate the request, enforce that any caller-supplied
+/// principal/tenant headers match the authenticated credential, then
+/// resolve the tenant the handler should run against. Bundles the
+/// three gates so each route handler can express auth + tenant in a
+/// single call.
+async fn authorize(
+    req: &str,
+    query: &str,
+    store: &Arc<SessionStore>,
+) -> Result<(AuthenticatedPrincipal, TenantId), (&'static str, String)> {
+    let auth = match authenticate_request(req, Some(store)).await {
+        AuthCheckOutcome::Pass(a) => a,
+        AuthCheckOutcome::Reject(resp) => return Err(resp),
+    };
+    enforce_header_match(req, &auth)?;
+    let tenant = resolve_tenant(req, query, &auth)?;
+    Ok((auth, tenant))
+}
+
+fn resolve_tenant(
+    req: &str,
+    query: &str,
+    auth: &AuthenticatedPrincipal,
+) -> Result<TenantId, (&'static str, String)> {
+    let header_tenant =
+        header_value(req, HEADER_TENANT_ID).unwrap_or_else(|| auth.tenant_id.to_string());
     let cross_cap = header_value(req, HEADER_CROSS_TENANT)
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
@@ -418,7 +440,7 @@ fn parse_import_bundle(req: &str) -> Result<SkillIrBundle, (&'static str, String
 
 async fn emit_audit(
     store: &Arc<SessionStore>,
-    req: &str,
+    principal_id: &str,
     event_type: &'static str,
     tenant: TenantId,
     skill_id: SkillId,
@@ -436,7 +458,7 @@ async fn emit_audit(
             None,
             AuditKind::HttpRequest,
             payload,
-            principal_id_for_audit(req),
+            Some(principal_id.to_string()),
         )
         .await
     {

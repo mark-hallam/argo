@@ -98,6 +98,15 @@ pub enum GatewayCmd {
         #[command(subcommand)]
         cmd: GatewayAuditCmd,
     },
+    /// Manage `service_token_binding` rows — anchor bearer tokens to
+    /// a `(principal, tenant)` pair so the gateway can derive the
+    /// authenticated principal from the credential rather than from
+    /// caller-supplied headers
+    /// (`mission-audit-principal-tenant-from-token`).
+    Token {
+        #[command(subcommand)]
+        cmd: GatewayTokenCmd,
+    },
     /// Hit one of the K8s-style gateway probe endpoints (#630)
     /// and return exit 0 on success, 1 on failure. Useful for
     /// shell scripts / CI gates / boot-up health checks that
@@ -116,6 +125,46 @@ pub enum GatewayCmd {
         #[arg(long, default_value_t = 7400)]
         port: u16,
         /// Output as a JSON object instead of human text.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// `argo gateway token ...` subcommands
+/// (`mission-audit-principal-tenant-from-token`).
+#[derive(Subcommand, Debug)]
+pub enum GatewayTokenCmd {
+    /// Bind a bearer token to a `(principal, tenant)` pair. The
+    /// token is hashed with SHA-256 before persistence; the raw
+    /// value is never written to the DB. The token MUST be passed
+    /// via `--token-file <path>` or the `ARGO_GATEWAY_BIND_TOKEN`
+    /// env var — never on argv directly.
+    Bind {
+        /// Path to a file whose first line is the raw bearer token.
+        /// Mutually exclusive with `ARGO_GATEWAY_BIND_TOKEN`.
+        #[arg(long = "token-file")]
+        token_file: Option<std::path::PathBuf>,
+        /// Principal identity to stamp on requests using this
+        /// token (e.g. `worker:<uuid>`, `human:<email>`,
+        /// `system:<name>`).
+        #[arg(long)]
+        principal: String,
+        /// Tenant id (UUID) the token operates under.
+        #[arg(long)]
+        tenant: String,
+        /// Optional operator-facing label (e.g. `"ci-runner"`).
+        #[arg(long)]
+        label: Option<String>,
+    },
+    /// Remove a binding by its raw token (hashed for lookup).
+    Unbind {
+        #[arg(long = "token-file")]
+        token_file: Option<std::path::PathBuf>,
+    },
+    /// List every bound token (fingerprint + principal + tenant +
+    /// label + created-at). The raw token / full hash are never
+    /// printed.
+    List {
         #[arg(long)]
         json: bool,
     },
