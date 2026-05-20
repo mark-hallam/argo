@@ -160,8 +160,8 @@ Plus 5 mission-X-UI briefs MERGED: trust-grade-ui, skill-cohort-ui, retro-review
 
 **Swarm-deliverable gates**:
 
-- [ ] **🔴 SHIP-BLOCKER: `claude-skill-library-worker-load-wire` MERGED** (workers load marketplace skills at runtime; success scenario #2 works)
-- [ ] **🔴 P0: `claude-migration-slot-dedup-and-validator` MERGED** (11 argo-store slot collisions; operational risk)
+- [x] **🔴 SHIP-BLOCKER: `claude-skill-library-worker-load-wire` MERGED** (workers load marketplace skills at runtime; success scenario #2 works) — shipped via #1682 (cross-tenant negative test #1702); `LayeredLookup::with_library` wired at `crates/argo-agent-runner/src/turn_helpers.rs:65`
+- [x] **🔴 P0: `claude-migration-slot-dedup-and-validator` MERGED** (11 argo-store slot collisions; operational risk) — shipped post #1735; `scripts/check-migration-slots.sh` runs in CI; `duplicate_slot_validator::validate_no_duplicate_slots()` at boot
 - [ ] All 5 MISSION.md success scenarios pass smoke test
 - [ ] `scripts/smoke-skycot.sh` passes
 - [ ] All Track L briefs MERGED (L1-L17 + L4-gw) — 18 briefs total; **7 done + L6 awaiting rebase** as of 2026-05-15 evening (L1-L5 ✅ + L4-gw ✅ + L9 ✅; L6 PR #1632 DIRTY → `claude-rebase-pr-1632`). 10 Phase 2-4 briefs cascade-unblock when L6 lands.

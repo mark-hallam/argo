@@ -1,5 +1,8 @@
 # RESUME — fresh-session entry point
 
+Last sweep: 2026-05-20 (mission-audit-docs-drift-sweep). The conductor
+warns on every tick when this date is more than 14 days stale.
+
 A new agent picking up SKYCOT (Argo) work reads this page first.
 
 ## What this repo is doing right now
@@ -97,7 +100,8 @@ The following are historical / superseded. Read only for context:
   (currently ≤25, raised by operator 2026-05-10).
 - "What's the v1.0 ship gate?" → demo .mp4 + extended smoke per
   BUILD_STATUS.md header.
-- "Is codex active?" → no, offline 2026-05-09. Skip codex side.
+- "Is codex active?" → yes, came back online 2026-05-14 (see line 12
+  above). Use the codex queue and pool normally.
 - "Is brief X stale?" → run `bash scripts/check-brief-freshness.sh
   <brief-id>` before claiming.
 - "Where do I report what I shipped?" → BUILD_STATUS.md row flip +
