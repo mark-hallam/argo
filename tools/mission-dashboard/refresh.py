@@ -590,39 +590,95 @@ ADVISORY_STATUS_RE = re.compile(
 
 
 def parse_conductor_advisories() -> list[dict]:
-    """Return list of {filename, title, status, date} sorted by filename.
+    """Return list of {filename, title, status, date, kind} sorted by filename.
 
-    Looks at the first ~40 lines of each conductor-advisory-*.md under
-    docs/build-plan/ for the STATUS banner. Files missing the banner still
-    appear with status="UNKNOWN" so the operator knows the advisory exists
-    but hasn't been parsed."""
-    advisories: list[dict] = []
+    Scans both conductor-advisory-*.md AND conductor-prompt-*.md under
+    docs/build-plan/. Advisories carry their own STATUS banner. Prompt
+    files get their status from the BUILD_STATUS.md header's LIVE
+    DIRECTIVES block (which is where the operator declares whether each
+    directive is ACTIVE / HISTORICAL / QUEUED). This makes the dashboard
+    surface rescinded prompts so operators don't read stale directives
+    as active overrides."""
+    out: list[dict] = []
     plan_dir = ROOT / "docs/build-plan"
     if not plan_dir.is_dir():
-        return advisories
-    for p in sorted(plan_dir.glob("conductor-advisory-*.md")):
-        try:
-            with p.open("r", encoding="utf-8", errors="ignore") as f:
-                head = "".join(next(f, "") for _ in range(40))
-        except OSError:
-            continue
-        title = ""
-        for line in head.splitlines():
-            if line.startswith("# "):
-                title = line[2:].strip()
-                break
-        m = ADVISORY_STATUS_RE.search(head)
-        if m:
-            status, date = m.group(1).strip(), m.group(2)
-        else:
-            status, date = "UNKNOWN", ""
-        advisories.append({
-            "filename": p.name,
-            "title": title or p.stem,
-            "status": status,
-            "date": date,
-        })
-    return advisories
+        return out
+
+    # Step 1: pull statuses for prompt files from BUILD_STATUS header.
+    # The LIVE DIRECTIVES block uses the pattern:
+    #   - **HISTORICAL (rescinded YYYY-MM-DD ...)** — text mentioning files
+    #     in any number of backticked references throughout the paragraph
+    #     until the next "- **TAG**" boundary.
+    # Strategy: split the header text on `- **TAG**` boundaries; within each
+    # chunk, any backticked conductor-*.md file gets that chunk's tag.
+    prompt_status: dict[str, tuple[str, str]] = {}
+    try:
+        ledger_text = LEDGER.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        ledger_text = ""
+    boundary_re = re.compile(
+        r"-\s*\*\*([A-Z][A-Z]+)(?:\s*\(([^)]*)\))?[^*]*\*\*",
+        re.MULTILINE,
+    )
+    file_re = re.compile(r"`(conductor-[a-z][a-z0-9.-]+\.md)`")
+    date_in_paren_re = re.compile(r"(\d{4}-\d{2}-\d{2})")
+    # Find boundary positions: list of (start, end_of_match, tag, date)
+    boundaries = []
+    for m in boundary_re.finditer(ledger_text):
+        tag = m.group(1).strip()
+        date_str = ""
+        if m.group(2):
+            dm = date_in_paren_re.search(m.group(2))
+            if dm:
+                date_str = dm.group(1)
+        boundaries.append((m.start(), m.end(), tag, date_str))
+    # For each boundary, the "chunk" runs to the next boundary's start.
+    for i, (start, end_match, tag, date_str) in enumerate(boundaries):
+        chunk_end = boundaries[i + 1][0] if i + 1 < len(boundaries) else len(ledger_text)
+        chunk = ledger_text[end_match:chunk_end]
+        for fn in file_re.findall(chunk):
+            # Don't overwrite if file already mapped by an earlier (more
+            # specific) boundary; first-tag-wins keeps semantics stable.
+            if fn not in prompt_status:
+                prompt_status[fn] = (tag, date_str)
+
+    # Step 2: walk both file globs.
+    globs = [("conductor-advisory-*.md", "advisory"),
+             ("conductor-prompt-*.md", "prompt")]
+    for pattern, kind in globs:
+        for p in sorted(plan_dir.glob(pattern)):
+            try:
+                with p.open("r", encoding="utf-8", errors="ignore") as f:
+                    head = "".join(next(f, "") for _ in range(40))
+            except OSError:
+                continue
+            title = ""
+            for line in head.splitlines():
+                if line.startswith("# "):
+                    title = line[2:].strip()
+                    break
+            # Prefer the BUILD_STATUS header's authoritative tag for prompts
+            # (operator declares HISTORICAL there even when the file body
+            # still talks about being live). Advisories prefer their own
+            # STATUS banner since it's more granular.
+            if kind == "prompt" and p.name in prompt_status:
+                status, date = prompt_status[p.name]
+            else:
+                m = ADVISORY_STATUS_RE.search(head)
+                if m:
+                    status, date = m.group(1).strip(), m.group(2)
+                elif p.name in prompt_status:
+                    status, date = prompt_status[p.name]
+                else:
+                    status, date = "UNKNOWN", ""
+            out.append({
+                "filename": p.name,
+                "title": title or p.stem,
+                "status": status,
+                "date": date,
+                "kind": kind,
+            })
+    return out
 
 
 # ─── Archive ledger (pre-2026Q2 merged baseline) ────────────────────────────
@@ -1399,69 +1455,161 @@ HTML_TEMPLATE = r"""<!doctype html>
 <head>
 <meta charset="utf-8">
 <title>SKYCOT mission dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* SKYCOT brand-restrained theme (per docs/skycot/brand/SKYCOT_BRAND_GUIDELINES.md v1.0)
+     — Audiowide wordmark + page title; Inter for body/UI; JetBrains Mono for data.
+     Light page #fafaff with purple+pink radial blobs as ambient brand.
+     Brand gradient (purple→pink) is reserved for: wordmark mark, hero h1 strong,
+     drift/blocked alarm chrome, primary CTA.  Semantic colors stay functional. */
   :root {
-    --bg: #0f1115;
-    --panel: #161a22;
-    --panel-2: #1c2230;
-    --hairline: #262d3d;
-    --hairline-2: #323b51;
-    --ink: #e6e9ef;
-    --ink-2: #b8bfcc;
-    --ink-3: #7a8294;
-    --mute: #525a6b;
-    --accent: #34d399;
-    --accent-soft: rgba(52, 211, 153, 0.15);
-    --warn: #f59e0b;
-    --weak: #ef4444;
-    --info: #60a5fa;
-    --done: #059669;
-    --in-review: #10b981;
-    --in-flight: #2563eb;
-    --queued: #9ca3af;
-    --blocked: #dc2626;
-    --briefed: #6366f1;
-    --partial: #d97706;
-    --deferred: #a3a3a3;
-    --not-started: #6b7280;
+    /* Brand palette */
+    --purple: #8B5CF6;
+    --purple-deep: #6d28d9;
+    --pink: #EC4899;
+    --coral: #FF6B6B;
+    --yellow: #FCD34D;
+    --teal: #14B8A6;
+    --soft-purple: #f3e8ff;
+    --soft-pink: #fce7f3;
+    --gradient: linear-gradient(135deg, var(--purple), var(--pink));
+    --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+
+    /* Surface */
+    --bg: #fafaff;
+    --panel: #ffffff;
+    --panel-2: #f7f5fc;
+    --hairline: #ece9f5;
+    --hairline-2: #d8d3ed;
+
+    /* Ink — purple-tinted, not neutral */
+    --ink: #1e1b4b;
+    --ink-2: #3F3F46;
+    --ink-3: #71717A;
+    --mute: #A1A1AA;
+
+    /* Accents bind to brand purple; legacy `--accent` kept for backwards compat */
+    --accent: var(--purple);
+    --accent-soft: rgba(139, 92, 246, 0.10);
+
+    /* Semantic — brand-aligned warm-palette versions */
+    --warn: #92400E;
+    --warn-bg: rgba(252, 211, 77, 0.18);
+    --weak: #B91C1C;
+    --weak-bg: rgba(255, 107, 107, 0.12);
+    --info: var(--purple);
+
+    /* Ledger-state colours (kept functional, harmonised with palette) */
+    --done: #0F766E;          /* deep teal */
+    --in-review: #14B8A6;
+    --in-flight: var(--purple);
+    --queued: #71717A;
+    --blocked: #B91C1C;
+    --briefed: var(--purple-deep);
+    --partial: #92400E;
+    --deferred: #A1A1AA;
+    --not-started: #A1A1AA;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; background: var(--bg); color: var(--ink);
-    font: 14px/1.5 -apple-system, "Inter Tight", "Segoe UI", system-ui, sans-serif;
+    font: 14px/1.5 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
     letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
   }
-  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.92em; }
-  .wrap { max-width: 1400px; margin: 0 auto; padding: 24px 28px 64px; }
+  body::before {
+    content: ""; position: fixed; top: -20%; right: -10%;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+  body::after {
+    content: ""; position: fixed; bottom: -30%; left: -10%;
+    width: 800px; height: 800px;
+    background: radial-gradient(circle, rgba(236,72,153,0.10) 0%, transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+  .mono, .mono * { font-family: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.92em; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 24px 28px 64px; position: relative; z-index: 1; }
 
-  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--hairline); margin-bottom: 24px; }
-  header .title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
-  header .sub { color: var(--ink-3); font-size: 12px; margin-top: 4px; }
+  /* Brand lockup (mark + wordmark) — shown in the header */
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .brand .mark {
+    width: 30px; height: 30px; border-radius: 7px; background: var(--gradient);
+    box-shadow: 0 4px 14px -2px rgba(139, 92, 246, 0.30);
+  }
+  .brand .name {
+    font-family: 'Audiowide', sans-serif; font-size: 16px; font-weight: 400;
+    letter-spacing: 0.10em; color: var(--ink);
+  }
+  .brand .version-pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--purple-deep);
+    padding: 4px 11px; border-radius: 999px;
+    background: linear-gradient(135deg, var(--soft-purple), var(--soft-pink));
+  }
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--hairline); margin-bottom: 24px; }
+  header .title {
+    font-family: 'Audiowide', sans-serif; font-size: 36px; font-weight: 400;
+    color: var(--ink); letter-spacing: 0; line-height: 1.15;
+  }
+  header .title strong {
+    font-weight: 400;
+    background: var(--gradient-3);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .sub { color: var(--ink-3); font-size: 12px; margin-top: 8px; max-width: 720px; line-height: 1.5; }
   header .right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-  header .when { color: var(--ink-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  header .when { color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.10em; }
   header button {
-    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent);
-    padding: 6px 14px; border-radius: 6px; font: inherit; font-size: 12px; cursor: pointer;
-    transition: background 0.15s;
+    background: var(--gradient); color: white; border: none;
+    padding: 9px 18px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.35);
   }
-  header button:hover { background: rgba(52, 211, 153, 0.25); }
-  header button.copied { background: var(--accent); color: var(--bg); }
+  header button:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -4px rgba(139, 92, 246, 0.45); }
+  header button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  header button.copied { background: var(--teal); }
 
-  .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
-  .card { background: var(--panel); border: 1px solid var(--hairline); border-radius: 10px; padding: 16px; }
-  .card .label { color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
-  .card .value { font-size: 32px; font-weight: 600; color: var(--ink); margin-top: 6px; letter-spacing: -0.02em; }
-  .card .delta { color: var(--ink-3); font-size: 11px; margin-top: 4px; }
-  .card.accent .value { color: var(--accent); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--hairline); border-radius: 12px;
+    padding: 16px; box-shadow: 0 1px 3px rgba(30, 27, 75, 0.04);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(30, 27, 75, 0.08); }
+  .card .label { color: var(--ink-3); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.12em; font-size: 10px; font-weight: 600; }
+  .card .value { font-family: 'Audiowide', sans-serif; font-size: 30px; font-weight: 400; color: var(--ink); margin-top: 8px; letter-spacing: 0; line-height: 1; }
+  .card .delta { color: var(--ink-3); font-size: 11px; margin-top: 6px; line-height: 1.4; }
+  .card.accent .value {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .card.warn { background: var(--warn-bg); border-color: rgba(252, 211, 77, 0.40); }
   .card.warn .value { color: var(--warn); }
+  .card.weak { background: var(--weak-bg); border-color: rgba(255, 107, 107, 0.30); }
   .card.weak .value { color: var(--weak); }
 
   .grid { display: grid; gap: 16px; margin-bottom: 16px; }
   .grid.two { grid-template-columns: 1.4fr 1fr; }
   .grid.three { grid-template-columns: repeat(3, 1fr); }
-  .panel { background: var(--panel); border: 1px solid var(--hairline); border-radius: 10px; padding: 18px; }
-  .panel h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin: 0 0 14px; }
-  .panel h2 .right { float: right; color: var(--ink-3); text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 12px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--hairline); border-radius: 12px;
+    padding: 20px; box-shadow: 0 1px 3px rgba(30, 27, 75, 0.04);
+  }
+  .panel h2 {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--purple-deep);
+    margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--hairline);
+  }
+  .panel h2 .right {
+    float: right; color: var(--ink-3); text-transform: none; letter-spacing: 0;
+    font-weight: 400; font-size: 11px; font-family: 'Inter', sans-serif;
+  }
 
   /* progress bars */
   .progress-row { display: grid; grid-template-columns: 220px 1fr 64px; gap: 12px; align-items: center; margin-bottom: 8px; }
@@ -1482,7 +1630,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   .donut-wrap li { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 12px; color: var(--ink-2); border-bottom: 1px solid var(--hairline); }
   .donut-wrap li:last-child { border: none; }
   .donut-wrap li .lab { display: flex; align-items: center; gap: 10px; }
-  .donut-wrap li .lab .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+  .donut-wrap li .lab .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(30,27,75,0.10); flex-shrink: 0; }
   .donut-wrap li .v { color: var(--ink); font-variant-numeric: tabular-nums; }
 
   /* burn-up */
@@ -1531,9 +1679,10 @@ HTML_TEMPLATE = r"""<!doctype html>
   }
 
   /* conductor advisory tracker panel */
-  .adv-list { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, monospace; font-size: 11px; }
-  .adv-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 7px 8px; border-bottom: 1px solid var(--hairline); align-items: center; border-radius: 4px; }
-  .adv-list li:hover { background: rgba(255,255,255,0.03); }
+  .adv-list { list-style: none; padding: 0; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .adv-list li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; padding: 7px 8px; border-bottom: 1px solid var(--hairline); align-items: center; border-radius: 4px; }
+  .adv-list .adv-kind { padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+  .adv-list li:hover { background: rgba(30,27,75,0.04); }
   .adv-list li:last-child { border-bottom: none; }
   .adv-list .adv-file { color: var(--ink); }
   .adv-list .adv-file small { display: block; color: var(--ink-3); font-size: 10px; margin-top: 1px; font-family: inherit; }
@@ -1588,7 +1737,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   .phase-drawer .dr-sec-head .dr-count { color: var(--ink-3); font-weight: normal; }
   .phase-drawer .dr-list { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, monospace; font-size: 11px; }
   .phase-drawer .dr-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 4px 8px; border-radius: 4px; }
-  .phase-drawer .dr-list li:hover { background: rgba(255,255,255,0.03); }
+  .phase-drawer .dr-list li:hover { background: rgba(30,27,75,0.04); }
   .phase-drawer .dr-list .dr-brief { color: var(--ink); }
   .phase-drawer .dr-list .dr-owner { color: var(--ink-3); }
   .phase-drawer .dr-list .dr-pr { color: var(--accent); min-width: 56px; text-align: right; }
@@ -1613,7 +1762,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   /* Tier M v1.0 ship-gate panel */
   .tm-list { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, monospace; font-size: 11px; }
   .tm-list li { display: grid; grid-template-columns: 100px 1fr auto auto auto; gap: 12px; padding: 7px 8px; border-bottom: 1px solid var(--hairline); align-items: center; border-radius: 4px; }
-  .tm-list li:hover { background: rgba(255,255,255,0.03); }
+  .tm-list li:hover { background: rgba(30,27,75,0.04); }
   .tm-list li:last-child { border-bottom: none; }
   .tm-list .tm-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; text-align: center; }
   .tm-list .tm-brief { color: var(--ink); }
@@ -1656,7 +1805,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   #ledger-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: ui-monospace, monospace; }
   #ledger-table th { text-align: left; color: var(--ink-3); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 8px; border-bottom: 1px solid var(--hairline-2); }
   #ledger-table td { padding: 5px 8px; border-bottom: 1px solid var(--hairline); }
-  #ledger-table tr:hover td { background: rgba(255,255,255,0.03); }
+  #ledger-table tr:hover td { background: rgba(30,27,75,0.04); }
   #ledger-table .lstate-pill { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
   #ledger-table .lphase { color: var(--ink-2); width: 50px; }
   #ledger-table .lbrief { color: var(--ink); }
@@ -1693,8 +1842,13 @@ HTML_TEMPLATE = r"""<!doctype html>
 
 <header>
   <div>
-    <div class="title">SKYCOT mission dashboard</div>
-    <div class="sub">Primary source: docs/build-plan/BUILD_STATUS.md (live ledger, conductor-maintained) · MISSION_BACKLOG.md 280-item view shown as secondary lens<span id="stale-note" class="ledger-stale" style="display:none"></span></div>
+    <div class="brand">
+      <div class="mark" aria-hidden="true"></div>
+      <div class="name">SKYCOT</div>
+      <div class="version-pill">Mission Dashboard</div>
+    </div>
+    <div class="title">Build status · <strong>live ledger</strong></div>
+    <div class="sub">Primary source: <span class="mono">docs/build-plan/BUILD_STATUS.md</span> (live ledger, conductor-maintained) · <span class="mono">MISSION_BACKLOG.md</span> 280-item view shown as secondary lens<span id="stale-note" class="ledger-stale" style="display:none"></span></div>
     <div id="freshness-note" class="ledger-stale" style="display:none;margin-top:4px;"></div>
   </div>
   <div class="right">
@@ -2055,9 +2209,18 @@ const cardsHTML = [
       ? "items shipped via PR but ledger says TODO/CLAIMED · protocol target: 0"
       : "ledger is in sync with git ✓",
     cls: ledgerDrift > 0 ? "weak" : "accent" },
-  { label: "In flight or review",
+  // Open PRs = IN_REVIEW rows. Operator's PR-review-automation hard rule
+  // (BUILD_STATUS header 2026-05-10): if >5, spawn a triage agent. Surface
+  // as a hero card so the threshold breach is impossible to miss.
+  { label: "Open PRs",
+    value: fmt(lc.IN_REVIEW || 0),
+    delta: (lc.IN_REVIEW || 0) > 5
+      ? "exceeds operator threshold (>5) · review agent should spawn"
+      : "within operator threshold (≤5)",
+    cls: (lc.IN_REVIEW || 0) > 5 ? "warn" : "" },
+  { label: "Active workload",
     value: fmt(ledgerActive),
-    delta: (lc.CLAIMED || 0) + " claimed · " + (lc.IN_REVIEW || 0) + " in review" },
+    delta: (lc.CLAIMED || 0) + " claimed · " + (lc.IN_REVIEW || 0) + " in review · " + (lc.TODO || 0) + " todo" },
   { label: "Blocked (live ledger)",
     value: fmt(ledgerBlockedTotal),
     delta: ledgerBlockedTotal > 0
@@ -2066,8 +2229,8 @@ const cardsHTML = [
           .sort((a,b) => (b[1].counts.BLOCKED||0) - (a[1].counts.BLOCKED||0))
           .map(([p, info]) => `${p}: ${info.counts.BLOCKED}`)
           .join(" · ") || "needs unblock"
-      : "all clear",
-    cls: ledgerBlockedTotal > 0 ? "weak" : "" },
+      : "all clear ✓",
+    cls: ledgerBlockedTotal > 0 ? "weak" : "accent" },
 ].map(c => `<div class="card ${c.cls||''}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="delta">${c.delta}</div></div>`).join("");
 $("#cards").innerHTML = cardsHTML;
 
@@ -2470,19 +2633,36 @@ function stackBar(counts, total, palette) {
     draftBit;
 })();
 
-// ── conductor advisories tracker ──
+// ── conductor advisories + prompts tracker ──
 (() => {
   const advisories = DATA.conductor_advisories || [];
   if (!advisories.length) return;
   const panel = document.getElementById("advisory-panel");
   const list = document.getElementById("advisory-list");
   if (!panel || !list) return;
-  // ACTIONED → green; anything else (UNKNOWN, OPEN, DRAFT, ...) → warn.
-  const statusColor = (s) => s === "ACTIONED" ? "var(--accent)" : "var(--warn)";
-  const html = advisories.map(a => {
+  // Status palette:
+  //   ACTIONED  → teal (done, retained for traceability)
+  //   HISTORICAL → ink-3 grey + strikethrough (rescinded by operator)
+  //   ACTIVE/QUEUED → purple (live directive)
+  //   anything else → warn
+  const statusColor = (s) => {
+    if (s === "ACTIONED") return "var(--done)";
+    if (s === "HISTORICAL") return "var(--mute)";
+    if (s === "ACTIVE" || s === "QUEUED") return "var(--purple)";
+    return "var(--warn)";
+  };
+  const kindBadge = (kind) => kind === "prompt"
+    ? `<span class="adv-kind" style="background:rgba(139,92,246,0.10);color:var(--purple-deep);border:1px solid rgba(139,92,246,0.30)">prompt</span>`
+    : `<span class="adv-kind" style="background:rgba(20,184,166,0.10);color:var(--done);border:1px solid rgba(20,184,166,0.30)">advisory</span>`;
+  // Sort: ACTIVE/QUEUED first, then ACTIONED, then HISTORICAL/UNKNOWN
+  const rank = (s) => ({ACTIVE:0,QUEUED:1,ACTIONED:2,UNKNOWN:3,HISTORICAL:4})[s] ?? 5;
+  const sorted = [...advisories].sort((a,b) => rank(a.status) - rank(b.status) || a.filename.localeCompare(b.filename));
+  const html = sorted.map(a => {
     const sc = statusColor(a.status);
-    return `<li>
+    const strike = a.status === "HISTORICAL" ? "text-decoration: line-through; opacity: 0.6;" : "";
+    return `<li style="${strike}">
       <span class="adv-file">${escapeHtml(a.filename)}<small>${escapeHtml(a.title)}</small></span>
+      ${kindBadge(a.kind || "advisory")}
       <span class="adv-status" style="background:${sc}1a;color:${sc};border:1px solid ${sc}66;">${escapeHtml(a.status)}</span>
       <span class="adv-date">${escapeHtml(a.date || "—")}</span>
     </li>`;
@@ -2490,8 +2670,10 @@ function stackBar(counts, total, palette) {
   list.innerHTML = html;
   const note = document.getElementById("advisory-note");
   if (note) {
-    const actioned = advisories.filter(a => a.status === "ACTIONED").length;
-    note.textContent = `${actioned}/${advisories.length} ACTIONED · docs/build-plan/conductor-advisory-*.md`;
+    const buckets = {};
+    advisories.forEach(a => { buckets[a.status] = (buckets[a.status] || 0) + 1; });
+    const parts = Object.entries(buckets).sort((a,b) => rank(a[0]) - rank(b[0])).map(([s,n]) => `${n} ${s}`);
+    note.textContent = parts.join(" · ") + " · docs/build-plan/conductor-{advisory,prompt}-*.md";
   }
   panel.style.display = "block";
 })();
