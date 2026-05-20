@@ -20,6 +20,7 @@ const TAB_BRIEFS: Record<WorkerTabId, string> = {
   memory: "E4-d",
   skills: "E4-e",
   trust: "mission-trust-grade-ui",
+  escalation: "web-worker-detail-escalation-and-trust-chart",
   settings: "E4-f",
 };
 
