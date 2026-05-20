@@ -28,6 +28,8 @@ import {
   Send,
   X,
   Plus,
+  Repeat,
+  Clock,
 } from "lucide-react";
 import { getTemplate } from "@/lib/workflow-templates";
 
@@ -66,7 +68,28 @@ import {
  * Replit competitive gap.
  */
 
-type StepKind = "trigger" | "skill_invoke" | "approval" | "tool_call" | "notify" | "decision" | "data";
+type StepKind =
+  | "trigger"
+  | "skill_invoke"
+  | "approval"
+  | "tool_call"
+  | "notify"
+  | "decision"
+  | "data"
+  | "loop"
+  | "wait";
+
+interface LoopConfig {
+  items_path: string;
+  item_var_name: string;
+  max_iterations: number;
+}
+
+interface WaitConfig {
+  duration_seconds?: number;
+  until_iso?: string;
+  until_field?: string;
+}
 
 interface WorkflowStep {
   id: string;
@@ -79,6 +102,10 @@ interface WorkflowStep {
   // When kind === "trigger", `triggerKind` discriminates the tailored
   // config form rendered in the drawer. Defaults to "manual" if absent.
   triggerKind?: TriggerKind;
+  loopConfig?: LoopConfig;
+  // Inline loop body — rendered indented with a dashed return edge.
+  body?: WorkflowStep[];
+  waitConfig?: WaitConfig;
 }
 
 interface WorkflowSpec {
@@ -120,6 +147,31 @@ const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
       { id: "s5", kind: "tool_call", name: "Send outreach + calendar link", description: "Gmail/Outlook + Calendly slot + CRM update." },
     ],
   },
+  "support/qa_audit": {
+    name: "qa_audit",
+    vertical: "support",
+    description: "Daily QA pass over yesterday's tickets — score each, wait between provider calls, summarise to Slack.",
+    version: "v1",
+    risk: "autonomous",
+    steps: [
+      { id: "s1", kind: "trigger", name: "Nightly cron at 02:00 UTC", description: "Daily quality-audit run kicks off after support shift ends.", outputs: ["window.start", "window.end"] },
+      { id: "s2", kind: "skill_invoke", name: "Fetch yesterday's tickets", description: "Pulls closed tickets from Zendesk for the audit window.", outputs: ["tickets[]"] },
+      {
+        id: "s3",
+        kind: "loop",
+        name: "For each ticket",
+        description: "Iterate audit work over every ticket in the window.",
+        loopConfig: { items_path: "$.tickets", item_var_name: "ticket", max_iterations: 500 },
+        body: [
+          { id: "s3a", kind: "skill_invoke", name: "Score ticket quality", description: "Tone, resolution, escalation timing, customer effort." },
+          { id: "s3b", kind: "decision", name: "Below quality floor?", description: "Score < 60 → flag for coaching review." },
+          { id: "s3c", kind: "wait", name: "Throttle provider", description: "Avoid rate-limit on the LLM.", waitConfig: { duration_seconds: 2 } },
+        ],
+      },
+      { id: "s4", kind: "wait", name: "Hold for shift handover", description: "Defer summary until the next on-duty manager is online.", waitConfig: { until_field: "$.next_shift_start" } },
+      { id: "s5", kind: "notify", name: "Post summary to Slack", description: "QA scorecard + flagged tickets posted to #support-coaching." },
+    ],
+  },
 };
 
 const STEP_KIND_META: Record<StepKind, { icon: React.ReactNode; color: string; label: string }> = {
@@ -130,7 +182,31 @@ const STEP_KIND_META: Record<StepKind, { icon: React.ReactNode; color: string; l
   notify:       { icon: <MessageSquare size={14} />,color: "#ec4899", label: "Notify" },
   decision:     { icon: <GitBranch size={14} />,    color: "#6366f1", label: "Decision" },
   data:         { icon: <Database size={14} />,     color: "#71717a", label: "Data" },
+  loop:         { icon: <Repeat size={14} />,       color: "#6366f1", label: "Loop" },
+  wait:         { icon: <Clock size={14} />,        color: "#6366f1", label: "Wait" },
 };
+
+function formatWaitSummary(cfg: WaitConfig | undefined): string {
+  if (!cfg) return "Wait";
+  if (cfg.duration_seconds != null) {
+    const s = cfg.duration_seconds;
+    if (s < 60) return `Wait ${s}s`;
+    if (s < 3600) return `Wait ${Math.round(s / 60)}m`;
+    return `Wait ${Math.round(s / 3600)}h`;
+  }
+  if (cfg.until_iso) {
+    // Render "Wait until 14:00 UTC" if it parses as a time of day; otherwise fall back to raw value.
+    const d = new Date(cfg.until_iso);
+    if (!Number.isNaN(d.getTime())) {
+      const hh = String(d.getUTCHours()).padStart(2, "0");
+      const mm = String(d.getUTCMinutes()).padStart(2, "0");
+      return `Wait until ${hh}:${mm} UTC`;
+    }
+    return `Wait until ${cfg.until_iso}`;
+  }
+  if (cfg.until_field) return `Wait until ${cfg.until_field}`;
+  return "Wait";
+}
 
 interface SkyNodeData extends Record<string, unknown> {
   step: WorkflowStep;
@@ -139,6 +215,8 @@ interface SkyNodeData extends Record<string, unknown> {
 function SkycotStepNode({ data, selected }: NodeProps) {
   const step = (data as SkyNodeData).step;
   const meta = STEP_KIND_META[step.kind];
+  const isLoop = step.kind === "loop";
+  const isWait = step.kind === "wait";
   return (
     <div
       style={{
@@ -197,7 +275,27 @@ function SkycotStepNode({ data, selected }: NodeProps) {
         </div>
       </div>
       <div style={{ padding: "12px 16px" }}>
-        <div style={{ fontSize: 12.5, color: "#3f3f46", lineHeight: 1.45 }}>{step.description}</div>
+        <div style={{ fontSize: 12.5, color: "#3f3f46", lineHeight: 1.45 }}>
+          {isWait ? formatWaitSummary(step.waitConfig) : step.description}
+        </div>
+        {isLoop && step.loopConfig ? (
+          <div
+            style={{
+              marginTop: 8,
+              padding: "8px 10px",
+              borderRadius: 6,
+              background: "rgba(99,102,241,0.08)",
+              border: "1px dashed rgba(99,102,241,0.4)",
+              fontFamily: "JetBrains Mono, monospace",
+              fontSize: 10.5,
+              color: "#3730a3",
+              lineHeight: 1.5,
+            }}
+          >
+            <div>for each <strong>{step.loopConfig.item_var_name}</strong> in {step.loopConfig.items_path}</div>
+            <div style={{ opacity: 0.7, fontSize: 9.5, marginTop: 2 }}>max {step.loopConfig.max_iterations} iterations</div>
+          </div>
+        ) : null}
         {step.approvalGate ? (
           <div
             style={{
@@ -234,25 +332,230 @@ function SkycotStepNode({ data, selected }: NodeProps) {
         ) : null}
       </div>
       <Handle type="source" position={Position.Bottom} style={{ background: "#8b5cf6", border: "none", width: 8, height: 8 }} />
+      {isLoop ? (
+        <div
+          style={{
+            position: "absolute",
+            bottom: -22,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontFamily: "JetBrains Mono, monospace",
+            fontSize: 9,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            fontWeight: 700,
+            color: "#6366f1",
+            background: "white",
+            padding: "2px 8px",
+            borderRadius: 999,
+            border: "1px dashed rgba(99,102,241,0.4)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          for each item ↻
+        </div>
+      ) : null}
     </div>
   );
 }
 
+const ROW_GAP = 200;
+const COL_BASE = 100;
+const COL_INDENT = 90;
+
+// Flatten the (possibly nested) step list into React Flow nodes + edges.
+// Loop steps render their `body` indented one column beneath the header
+// with a dashed return edge from the last body step back to the header.
 function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = steps.map((step, i) => ({
-    id: step.id,
-    type: "skycot",
-    position: { x: 100, y: 60 + i * 200 },
-    data: { step },
-  }));
-  const edges: Edge[] = steps.slice(0, -1).map((step, i) => ({
-    id: `e-${step.id}-${steps[i + 1].id}`,
-    source: step.id,
-    target: steps[i + 1].id,
-    animated: true,
-    style: { stroke: "#8b5cf6", strokeWidth: 2 },
-  }));
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+  let y = 60;
+
+  const linkSolid = (from: string, to: string) => {
+    edges.push({
+      id: `e-${from}-${to}`,
+      source: from,
+      target: to,
+      animated: true,
+      style: { stroke: "#8b5cf6", strokeWidth: 2 },
+    });
+  };
+
+  const linkReturn = (from: string, to: string) => {
+    edges.push({
+      id: `r-${from}-${to}`,
+      source: from,
+      target: to,
+      animated: false,
+      style: { stroke: "#6366f1", strokeWidth: 1.5, strokeDasharray: "6 5" },
+      label: "↻ loop back",
+      labelStyle: {
+        fontFamily: "JetBrains Mono, monospace",
+        fontSize: 9,
+        fill: "#6366f1",
+        letterSpacing: "0.08em",
+      },
+      labelBgStyle: { fill: "white" },
+      labelBgPadding: [4, 6],
+      labelBgBorderRadius: 4,
+    });
+  };
+
+  const emit = (step: WorkflowStep, x: number) => {
+    nodes.push({
+      id: step.id,
+      type: "skycot",
+      position: { x, y },
+      data: { step },
+    });
+    y += ROW_GAP;
+  };
+
+  let prevId: string | null = null;
+  for (const step of steps) {
+    emit(step, COL_BASE);
+    if (prevId) linkSolid(prevId, step.id);
+    prevId = step.id;
+
+    if (step.kind === "loop" && step.body && step.body.length > 0) {
+      let lastBodyId = step.id;
+      for (const child of step.body) {
+        emit(child, COL_BASE + COL_INDENT);
+        linkSolid(lastBodyId, child.id);
+        lastBodyId = child.id;
+      }
+      // Last body step wires back to the loop header with a dashed return edge.
+      linkReturn(lastBodyId, step.id);
+    }
+  }
+
   return { nodes, edges };
+}
+
+interface PaletteGroup {
+  label: string;
+  kinds: StepKind[];
+}
+
+const PALETTE_GROUPS: PaletteGroup[] = [
+  { label: "Sources", kinds: ["trigger"] },
+  { label: "Action", kinds: ["skill_invoke", "tool_call", "notify"] },
+  { label: "Logic", kinds: ["decision", "loop", "wait"] },
+  { label: "Governance", kinds: ["approval"] },
+  { label: "Data", kinds: ["data"] },
+];
+
+function AddStepPalette({ onClose }: { onClose: () => void }) {
+  // Per the brief, the palette is a stub: insertion wiring lands in the
+  // node-palette-sidebar brief. We render the visible Logic group so
+  // operators can see Loop + Wait alongside Decision before that brief
+  // lands.
+  return (
+    <div
+      role="dialog"
+      aria-label="Add step palette"
+      style={{
+        position: "absolute",
+        right: 24,
+        bottom: 80,
+        zIndex: 11,
+        width: 280,
+        background: "white",
+        border: "1px solid #ece9f5",
+        borderRadius: 12,
+        boxShadow: "0 18px 40px -10px rgba(30, 27, 75, 0.25)",
+        padding: 12,
+        fontFamily: "Inter, sans-serif",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span
+          style={{
+            fontFamily: "JetBrains Mono, monospace",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            fontWeight: 700,
+            color: "#71717a",
+          }}
+        >
+          Add step
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close palette"
+          style={{ background: "transparent", border: "none", cursor: "pointer", color: "#71717a", padding: 2, borderRadius: 4 }}
+        >
+          <X size={14} />
+        </button>
+      </div>
+      {PALETTE_GROUPS.map((group) => (
+        <div key={group.label} style={{ marginBottom: 10 }}>
+          <div
+            style={{
+              fontFamily: "JetBrains Mono, monospace",
+              fontSize: 9.5,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              color: "#a1a1aa",
+              padding: "4px 4px",
+            }}
+          >
+            {group.label}
+          </div>
+          {group.kinds.map((kind) => {
+            const meta = STEP_KIND_META[kind];
+            return (
+              <button
+                key={kind}
+                type="button"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  width: "100%",
+                  padding: "8px 8px",
+                  borderRadius: 8,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  color: "#1e1b4b",
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = `${meta.color}14`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <span
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    background: meta.color,
+                    color: "white",
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {meta.icon}
+                </span>
+                <span>{meta.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function WorkflowBuilderPage({
@@ -316,6 +619,7 @@ function BuilderInner({
   // gateway step-config save path in a follow-up brief.
   const [triggerConfigs, setTriggerConfigs] = useState<Record<string, TriggerConfig>>({});
   const workflowId = `${verticalId}/${name}`;
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const onNodeClick = useCallback((_e: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
@@ -710,9 +1014,15 @@ function BuilderInner({
                 position="bottom-right"
               />
             </ReactFlow>
-            <button type="button" className="builder-add-step">
+            <button
+              type="button"
+              className="builder-add-step"
+              onClick={() => setPaletteOpen((v) => !v)}
+              aria-expanded={paletteOpen}
+            >
               <Plus size={15} /> Add step
             </button>
+            {paletteOpen ? <AddStepPalette onClose={() => setPaletteOpen(false)} /> : null}
           </div>
           {selectedNode ? (
             <aside className="builder-panel">
