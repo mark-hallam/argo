@@ -13,7 +13,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import Link from "next/link";
-import { use, useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, use, useCallback, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Play,
@@ -27,6 +28,7 @@ import {
   X,
   Plus,
 } from "lucide-react";
+import { getTemplate } from "@/lib/workflow-templates";
 
 /**
  * Class-leading visual workflow builder — `/workflows/<v>/<name>/build`.
@@ -246,9 +248,37 @@ export default function WorkflowBuilderPage({
 }: {
   params: Promise<{ verticalId: string; name: string }>;
 }) {
+  return (
+    <Suspense fallback={<div style={{ padding: 48, color: "var(--muted-foreground)" }}>Loading builder…</div>}>
+      <BuilderInner params={params} />
+    </Suspense>
+  );
+}
+
+function BuilderInner({
+  params,
+}: {
+  params: Promise<{ verticalId: string; name: string }>;
+}) {
   const { verticalId, name } = use(params);
-  const key = `${verticalId}/${name}`;
-  const workflow = SEED_WORKFLOWS[key];
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get("from_template");
+  const workflow = useMemo<WorkflowSpec | undefined>(() => {
+    if (templateId) {
+      const tpl = getTemplate(templateId);
+      if (tpl) {
+        return {
+          name: tpl.name,
+          vertical: tpl.vertical,
+          description: tpl.description,
+          version: "draft",
+          risk: tpl.risk,
+          steps: tpl.steps,
+        };
+      }
+    }
+    return SEED_WORKFLOWS[`${verticalId}/${name}`];
+  }, [templateId, verticalId, name]);
   const initial = useMemo(() => (workflow ? stepsToFlow(workflow.steps) : { nodes: [], edges: [] }), [workflow]);
 
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
