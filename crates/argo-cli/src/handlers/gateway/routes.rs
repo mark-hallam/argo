@@ -90,23 +90,6 @@ async fn dispatch_route_inner(
     if let Some(resp) = super::auth_magic_link::dispatch(req, store).await {
         return resp;
     }
-    // Web dashboard MVP (`claude-web-dashboard-mvp`). Mounted ahead
-    // of the bearer-token gate so the operator UX works in a browser
-    // without provisioning a per-tab token; mutating actions still
-    // route through `/inbox/approve|reject`, which carry their own
-    // operator-token gate.
-    // Fleet view (`claude-dashboard-fleet-view-html`) is its own
-    // handler so it stays decoupled from the single-session
-    // dashboard module. Mounted ahead of the bearer-token gate for
-    // the same operator-UX reason as the dashboard MVP.
-    if super::dashboard_fleet::is_fleet(req) {
-        return super::dashboard_fleet::handle(store).await;
-    }
-    if super::routes_dashboard::is_dashboard(req) {
-        if let Some(resp) = super::routes_dashboard::dispatch(req, store).await {
-            return resp;
-        }
-    }
     // Skill marketplace browsing stays anonymous so prospects can
     // inspect the catalog. Marketplace install POSTs are mutating
     // actions, so the marketplace dispatcher handles them only after
@@ -138,6 +121,21 @@ async fn dispatch_route_inner(
     // probes + load balancers + catalog-discovery keep working.
     if req.starts_with("GET ") && !is_public_get(req) {
         if let Some(resp) = check_bearer_auth(req) {
+            return resp;
+        }
+    }
+    // Legacy server-rendered dashboards (`claude-web-dashboard-mvp`
+    // + `claude-dashboard-fleet-view-html`). Mounted AFTER the
+    // bearer-auth gate so spend ledger, audit records, pending
+    // approvals, sessions, and worker IDs are never reachable
+    // without a valid `Authorization: Bearer <token>` when
+    // `ARGO_GATEWAY_BEARER_TOKEN` is configured
+    // (mission-audit-gateway-dashboard-auth-gate).
+    if super::dashboard_fleet::is_fleet(req) {
+        return super::dashboard_fleet::handle(store).await;
+    }
+    if super::routes_dashboard::is_dashboard(req) {
+        if let Some(resp) = super::routes_dashboard::dispatch(req, store).await {
             return resp;
         }
     }
