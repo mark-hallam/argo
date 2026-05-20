@@ -345,7 +345,17 @@ fn await_listening(stderr: ChildStderr) -> Result<thread::JoinHandle<()>, ()> {
             }
         }
     });
-    match rx.recv_timeout(Duration::from_secs(15)) {
+    // 60s rather than 15s: under smoke-harness load (parallel cargo
+    // test runs + workspace cargo-cache contention + SQLCipher init +
+    // migration boots), the gateway "listening on" log can take well
+    // over 15s to fire even though the gateway IS booting correctly.
+    // Reproduced 2026-05-20: this test passes in isolation in ~8s but
+    // fails reliably under `scripts/smoke-skycot.sh` with a 15s deadline.
+    // The upstream `common::listener_signal::await_listener_signal`
+    // uses an env-configurable deadline; this local copy diverges only
+    // in return type (`JoinHandle<()>` vs `StderrDrain`), so we mirror
+    // its more generous default here.
+    match rx.recv_timeout(Duration::from_secs(60)) {
         Ok(true) => Ok(handle),
         _ => Err(()),
     }
