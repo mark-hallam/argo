@@ -174,18 +174,24 @@ pub(crate) fn extract_links_schema() -> McpToolSchema {
 pub(crate) fn wait_for_schema() -> McpToolSchema {
     McpToolSchema {
         name: "wait_for".into(),
-        description: "Poll for a CSS selector to appear via CDP \
-            Runtime.evaluate (200ms cadence) until truthy or timeout. \
-            Network-idle waiting is not yet wired."
+        description: "Wait for either a CSS selector or network-idle. \
+            `mode=selector` polls Runtime.evaluate every 200ms. \
+            `mode=network_idle` watches CDP Network events and resolves \
+            after quiet_period_ms with zero in-flight requests."
             .into(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
+                "mode":       { "type": "string", "enum": ["selector", "network_idle"], "default": "selector" },
                 "selector":   { "type": "string" },
+                "quiet_period_ms": {
+                    "type": "integer",
+                    "description": "Network-idle quiet period. Defaults to 500ms.",
+                    "default": 500
+                },
                 "timeout_ms": { "type": "integer", "default": 30000 },
                 "port":       { "type": "integer", "default": 9222 }
-            },
-            "required": ["selector"]
+            }
         }),
     }
 }

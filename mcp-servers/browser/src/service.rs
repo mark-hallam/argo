@@ -5,8 +5,9 @@
 //!
 //! All 14 are wired against the user's running Chrome via raw CDP
 //! (HTTP `/json*` + WebSocket `Runtime.evaluate` / `Page.*` /
-//! `Network.*`). Browserbase / BrowserUse cloud backends are still
-//! opt-in via server.toml and not wired today.
+//! `Network.*`). Browserbase / BrowserUse remain DEFERRED-v1.x as
+//! server.toml-selected backends; selecting either logs a WARN and
+//! falls back to local CDP.
 use argo_mcp::{
     CallToolParams, CallToolResult, McpContent, McpResult, McpServerService, McpToolSchema,
     ServerInfo,
@@ -42,6 +43,7 @@ pub struct BrowserService;
 #[async_trait]
 impl McpServerService for BrowserService {
     fn server_info(&self) -> ServerInfo {
+        warn_cloud_backend_fallback_once();
         ServerInfo {
             name: "argo-mcp-browser".into(),
             version: env!("CARGO_PKG_VERSION").into(),
@@ -49,6 +51,7 @@ impl McpServerService for BrowserService {
     }
 
     fn list_tools(&self) -> Vec<McpToolSchema> {
+        warn_cloud_backend_fallback_once();
         use crate::schemas::*;
         use crate::schemas_session::*;
         vec![
@@ -89,6 +92,7 @@ impl McpServerService for BrowserService {
     }
 
     async fn call_tool(&self, params: CallToolParams) -> McpResult<CallToolResult> {
+        warn_cloud_backend_fallback_once();
         if params.name.as_str() == "list_tabs" {
             return Ok(crate::cdp::list_tabs(&params.arguments).await);
         }
@@ -207,6 +211,51 @@ impl McpServerService for BrowserService {
     }
 }
 
+fn warn_cloud_backend_fallback_once() {
+    static WARN_ONCE: std::sync::Once = std::sync::Once::new();
+    WARN_ONCE.call_once(|| {
+        if let Some(backend) = selected_cloud_backend_from_config() {
+            eprintln!(
+                "WARN argo-mcp-browser: Cloud backend {backend} selected but not wired in v1 - \
+                 falling back to local CDP. Track v1.x for cloud support."
+            );
+        }
+    });
+}
+
+fn selected_cloud_backend_from_config() -> Option<String> {
+    let path = std::env::var_os("ARGO_MCP_BROWSER_SERVER_TOML")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("server.toml"));
+    let body = std::fs::read_to_string(path).ok()?;
+    selected_cloud_backend_from_toml(&body)
+}
+
+fn selected_cloud_backend_from_toml(body: &str) -> Option<String> {
+    for raw in body.lines() {
+        let line = raw.split('#').next().unwrap_or("").trim();
+        let Some(rest) = line.strip_prefix("backend") else {
+            continue;
+        };
+        let Some(value) = rest.trim_start().strip_prefix('=') else {
+            continue;
+        };
+        let normalized = value
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'')
+            .to_ascii_lowercase()
+            .replace('-', "_");
+        if normalized == "browserbase" {
+            return Some(normalized);
+        }
+        if normalized == "browseruse" || normalized == "browser_use" {
+            return Some("browseruse".to_string());
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,6 +298,22 @@ mod tests {
             McpContent::Text { text } => assert!(text.contains("unknown tool")),
             _ => panic!("expected text"),
         }
+    }
+
+    #[test]
+    fn cloud_backend_config_detects_deferred_backends() {
+        assert_eq!(
+            selected_cloud_backend_from_toml("[browser]\nbackend = \"browserbase\"\n"),
+            Some("browserbase".to_string())
+        );
+        assert_eq!(
+            selected_cloud_backend_from_toml("backend = 'browser-use' # comment\n"),
+            Some("browseruse".to_string())
+        );
+        assert_eq!(
+            selected_cloud_backend_from_toml("backend = \"local\""),
+            None
+        );
     }
 
     #[tokio::test]
