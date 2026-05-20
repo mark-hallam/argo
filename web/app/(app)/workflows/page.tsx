@@ -79,6 +79,36 @@ const SEED_WORKFLOWS = [
     lastEditor: "Jamal",
     risk: "autonomous",
   },
+  {
+    name: "approve_refund",
+    vertical: "support",
+    description: "Verify refund eligibility, check ledger, route high-value to manager.",
+    steps: 5,
+    versions: 2,
+    lastEdited: "3 hours ago",
+    lastEditor: "Jamal",
+    risk: "approval-required",
+  },
+  {
+    name: "exit_interview_synth",
+    vertical: "people-ops",
+    description: "Quarterly synthesis of exit-interview transcripts into a retention report.",
+    steps: 3,
+    versions: 2,
+    lastEdited: "yesterday",
+    lastEditor: "Priya",
+    risk: "approval-required",
+  },
+  {
+    name: "draft_status_report",
+    vertical: "marketing",
+    description: "Weekly client status report — campaign perf + content shipped + next-week asks.",
+    steps: 4,
+    versions: 3,
+    lastEdited: "12 minutes ago",
+    lastEditor: "Nori",
+    risk: "approval-required",
+  },
 ];
 
 const TRY_CHIPS = ["approval flows", "data extraction", "outbound qualification", "escalation"];

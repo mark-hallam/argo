@@ -680,7 +680,11 @@ export default function MarketingLandingPage() {
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                GDPR ARTICLE 30
+                ISO 27001
+              </span>
+              <span className="land-trust-item">
+                <span className="land-trust-dot" />
+                GDPR · HIPAA · AFSL
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
@@ -740,6 +744,61 @@ export default function MarketingLandingPage() {
           </div>
         </section>
 
+        {/* Integration logos */}
+        <section className="land-section">
+          <p className="land-section-label">CONNECTS TO YOUR STACK</p>
+          <h2 className="land-section-title">
+            Already where your <strong>work happens</strong>.
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 14,
+              maxWidth: 900,
+              margin: "0 auto",
+            }}
+          >
+            {[
+              "Slack",
+              "Gmail",
+              "Outlook",
+              "Zendesk",
+              "Intercom",
+              "Salesforce",
+              "HubSpot",
+              "QuickBooks",
+              "Xero",
+              "NetSuite",
+              "Greenhouse",
+              "Lever",
+              "Workday",
+              "Notion",
+              "Linear",
+              "GitHub",
+              "Stripe",
+              "Shopify",
+            ].map((name) => (
+              <div
+                key={name}
+                style={{
+                  padding: "16px 18px",
+                  border: "1px solid var(--line, #ece9f5)",
+                  borderRadius: 12,
+                  background: "white",
+                  textAlign: "center",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  color: "var(--ink, #1e1b4b)",
+                }}
+              >
+                {name}
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Compare teaser band */}
         <section className="land-compare-band">
           <h2>How do we stack up vs Zapier, n8n, Crew.ai, Lindy?</h2>
@@ -762,8 +821,45 @@ export default function MarketingLandingPage() {
           </Link>
         </section>
 
-        <footer className="land-foot">
-          SKYCOT · MADE IN MELBOURNE · skycot.com
+        <footer
+          className="land-foot"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 18,
+            alignItems: "center",
+            padding: "32px 64px",
+          }}
+        >
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
+            <a href="/landing" style={{ color: "inherit", textDecoration: "none" }}>
+              SKYCOT
+            </a>
+            <Link href="/compare" style={{ color: "inherit", textDecoration: "none" }}>
+              Compare
+            </Link>
+            <a href="https://github.com/mark-hallam/skycot-packs" style={{ color: "inherit", textDecoration: "none" }}>
+              GitHub
+            </a>
+            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+              Docs
+            </a>
+            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+              Privacy
+            </a>
+            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+              Terms
+            </a>
+            <a href="#" style={{ color: "inherit", textDecoration: "none" }}>
+              Security
+            </a>
+            <a href="mailto:hello@skycot.com" style={{ color: "inherit", textDecoration: "none" }}>
+              Contact
+            </a>
+          </div>
+          <div>
+            © 2026 SKYCOT · Made in Melbourne · skycot.com
+          </div>
         </footer>
       </div>
     </>
