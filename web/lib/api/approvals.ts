@@ -29,6 +29,7 @@
 
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import type { Severity } from "@/components/skycot/approvals/SeverityPill";
 import {
   SAMPLE_APPROVALS,
   type ApprovalItem,
@@ -90,6 +91,16 @@ type ApprovalRowJson = {
   channel: ChannelKind;
   received_at: string;
   decision?: "approve" | "refuse" | null;
+
+  // Ops-dashboard fields. All optional so older gateway envelopes
+  // (pre this brief) keep deserialising; the UI falls back to default
+  // severity "p2" and hides the $-at-risk / confidence / SLA chrome
+  // when the row omits them.
+  severity?: Severity | null;
+  dollar_at_risk?: number | null;
+  currency?: string | null;
+  confidence?: number | null;
+  sla_expires_at?: string | null;
 };
 
 type ApprovalsListJson = {
@@ -113,6 +124,11 @@ function rowToItem(row: ApprovalRowJson): ApprovalItem {
     channel: row.channel,
     receivedAt: row.received_at,
     decision: row.decision ?? null,
+    severity: row.severity ?? undefined,
+    dollarAtRisk: row.dollar_at_risk ?? undefined,
+    currency: row.currency ?? undefined,
+    confidence: row.confidence ?? undefined,
+    slaExpiresAt: row.sla_expires_at ?? undefined,
   };
 }
 

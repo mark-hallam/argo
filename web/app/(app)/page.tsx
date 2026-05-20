@@ -11,7 +11,6 @@ import {
   IDLE_BATCH_UI,
   type BatchUiState,
 } from "@/components/skycot/BatchGroupBlock";
-import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { BundleCard } from "@/components/skycot/BundleCard";
 import { TrustRatchetSection } from "@/components/skycot/TrustRatchetCard";
 import { CelebrationBanner } from "@/components/skycot/CelebrationBanner";
@@ -22,9 +21,14 @@ import { LiveIndicator } from "@/components/skycot/LiveIndicator";
 import { NotificationsBell } from "@/components/skycot/NotificationsBell";
 import { RequestElevatedView } from "@/components/skycot/RequestElevatedView";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
+import { computeKpiCells, KpiStrip } from "@/components/skycot/approvals/KpiStrip";
 import { useUnreadNotificationCount } from "@/lib/hooks/use-notifications";
 import { useRedactionPolicy } from "@/lib/hooks/use-redaction-policy";
-import { groupApprovals as groupByDay, type ApprovalItem } from "@/lib/sample-approvals";
+import {
+  groupApprovals as groupByDay,
+  sortBySeverityThenSla,
+  type ApprovalItem,
+} from "@/lib/sample-approvals";
 import type { ApprovalGroup } from "@/lib/similarity/group-approvals";
 import {
   useApprovals,
@@ -120,11 +124,15 @@ function ApprovalsInboxShell() {
   const filteredByFilters = useMemo(() => applyFilters(items, filters), [items, filters]);
 
   const filteredByAll = useMemo<ApprovalItem[]>(() => {
-    if (!query.trim()) return filteredByFilters;
-    const q = query.trim().toLowerCase();
-    return filteredByFilters.filter((a) =>
-      [a.worker.name, a.verb, a.detail].some((s) => s.toLowerCase().includes(q)),
-    );
+    const matched = !query.trim()
+      ? filteredByFilters
+      : (() => {
+          const q = query.trim().toLowerCase();
+          return filteredByFilters.filter((a) =>
+            [a.worker.name, a.verb, a.detail].some((s) => s.toLowerCase().includes(q)),
+          );
+        })();
+    return sortBySeverityThenSla(matched);
   }, [filteredByFilters, query]);
 
   const dayGroups = useMemo(() => groupByDay(filteredByAll), [filteredByAll]);
@@ -135,6 +143,10 @@ function ApprovalsInboxShell() {
   }, [items]);
 
   const pendingCount = filteredByAll.filter((a) => a.decision == null).length;
+  const kpiCells = useMemo(
+    () => computeKpiCells(filteredByAll, pendingCount),
+    [filteredByAll, pendingCount],
+  );
 
   // Pre-scan visible cards to know whether to surface the elevated-view
   // CTA, and what categories to record on the audit POST. Cheap; the
@@ -228,8 +240,6 @@ function ApprovalsInboxShell() {
     <>
       <CelebrationBanner />
 
-      <ApprovalsHero pendingCount={pendingCount} isPending={approvalsQuery.isPending} />
-
       <PageHeader
         query={query}
         setQuery={setQuery}
@@ -247,6 +257,17 @@ function ApprovalsInboxShell() {
         onClearDimension={handleClearDimension}
         onClearAll={handleClearAll}
       />
+
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-4">
+        <KpiStrip
+          cells={kpiCells}
+          rate={{
+            headline: "78%",
+            slices: { approved: 0.78, refused: 0.14, expired: 0.08 },
+            animate: true,
+          }}
+        />
+      </div>
 
       {maskedOnPage.length > 0 ? (
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-3">
@@ -511,53 +532,3 @@ function EmptyState({ query, hasFilters, onClearAll }: { query: string; hasFilte
   );
 }
 
-/**
- * Approvals hero — E ops-dashboard brand-loud banner.
- *
- * Wraps the shared `<BrandLoudHero>` with the approvals-specific copy
- * and KPIs. Tuned to "decisions need your attention now" instead of
- * "your workforce is alive". Resolved-this-week and avg response are
- * placeholders until live ops aggregations land in a follow-up.
- */
-function ApprovalsHero({ pendingCount, isPending }: { pendingCount: number; isPending: boolean }) {
-  const resolvedThisWeek = 42; // Placeholder until real aggregation lands.
-  const avgResponse = "8m"; // Placeholder.
-
-  let title: string;
-  let sub: string;
-  if (isPending) {
-    // Demo-record fix: while the approvals query is in flight the
-    // computed pendingCount is 0, which used to render "Inbox zero"
-    // for 3-4 seconds — a damning flash on camera while the voiceover
-    // says "7 decisions need you." Render a soft loading line until
-    // real data arrives.
-    title = "Pulling your inbox…";
-    sub = "Counting the decisions waiting on you.";
-  } else if (pendingCount === 0) {
-    title = "Inbox zero.";
-    sub = "Nothing waiting on you right now. Your AI teammates have it handled.";
-  } else if (pendingCount === 1) {
-    title = "1 decision needs you.";
-    sub = "One teammate is waiting on your yes or no. The rest are working.";
-  } else {
-    title = `${pendingCount} decisions need you.`;
-    sub = "Your AI teammates have batched these for your review. One tap each.";
-  }
-
-  return (
-    <BrandLoudHero
-      eyebrowDotColor="#fef9c3"
-      eyebrowLabel="APPROVALS · LIVE"
-      pulseDot
-      title={title}
-      sub={sub}
-      subMaxWidth={460}
-      shineDurationS={5.5}
-      kpis={[
-        { label: "Waiting", value: String(pendingCount) },
-        { label: "Resolved/wk", value: String(resolvedThisWeek) },
-        { label: "Avg response", value: avgResponse },
-      ]}
-    />
-  );
-}

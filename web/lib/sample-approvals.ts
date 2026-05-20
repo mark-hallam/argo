@@ -4,6 +4,7 @@
  */
 
 import type { ApprovalDecision } from "@/components/skycot/ApprovalCard";
+import type { Severity } from "@/components/skycot/approvals/SeverityPill";
 
 export type ChannelKind = "slack" | "imessage" | "sms" | "push" | "web" | "voice" | "whatsapp";
 
@@ -21,6 +22,22 @@ export interface ApprovalItem {
   channel: ChannelKind;
   receivedAt: string; // ISO
   decision?: ApprovalDecision | null;
+
+  /**
+   * Three-tier severity. P0 = over SLA / requires immediate eyes,
+   * P1 = elevated, P2 = normal. Drives both the per-card pill and the
+   * inbox-level sort (severity desc → SLA asc).
+   * Optional + defaults to "p2" so older gateway envelopes keep working.
+   */
+  severity?: Severity;
+  /** Dollar impact of the proposed action. Omit / null for non-money actions. */
+  dollarAtRisk?: number | null;
+  /** Currency code for `dollarAtRisk`. Defaults to USD. */
+  currency?: string;
+  /** Worker's stated confidence in the proposed action, in [0, 1]. */
+  confidence?: number;
+  /** ISO timestamp when the approval times out / breaches SLA. */
+  slaExpiresAt?: string;
 }
 
 /**
@@ -58,6 +75,9 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     reason: "You said 'always check counter-offers' on May 4.",
     channel: "slack",
     receivedAt: new Date(now - 2 * minute).toISOString(),
+    severity: "p2",
+    confidence: 0.92,
+    slaExpiresAt: new Date(now + 22 * hour).toISOString(),
   },
   {
     id: "ap_01H9Z6",
@@ -70,6 +90,9 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     reason: "Senior-role candidates require human confirm per your hiring policy.",
     channel: "imessage",
     receivedAt: new Date(now - 14 * minute).toISOString(),
+    severity: "p1",
+    confidence: 0.94,
+    slaExpiresAt: new Date(now + 5 * hour).toISOString(),
   },
   {
     id: "ap_01H9Z5",
@@ -82,6 +105,10 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     reason: "Refunds over $100 require explicit approval.",
     channel: "web",
     receivedAt: new Date(now - 42 * minute).toISOString(),
+    severity: "p1",
+    dollarAtRisk: 163,
+    confidence: 0.88,
+    slaExpiresAt: new Date(now + 3 * hour).toISOString(),
   },
   {
     id: "ap_01H9Z4",
@@ -94,6 +121,10 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     reason: "Counter-offers below 90% of asking always need your OK.",
     channel: "push",
     receivedAt: new Date(now - 1 * hour - 18 * minute).toISOString(),
+    severity: "p2",
+    dollarAtRisk: 85,
+    confidence: 0.7,
+    slaExpiresAt: new Date(now + 6 * hour + 41 * minute).toISOString(),
   },
   {
     id: "ap_01H9Z3",
@@ -106,6 +137,10 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     reason: "All-customer broadcasts always require your sign-off.",
     channel: "slack",
     receivedAt: new Date(now - 3 * hour - 22 * minute).toISOString(),
+    severity: "p1",
+    dollarAtRisk: 32837,
+    confidence: 0.88,
+    slaExpiresAt: new Date(now + 3 * hour + 12 * minute).toISOString(),
   },
   {
     id: "ap_01H9Z2",
@@ -118,6 +153,9 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     reason: "On-call pages require approval outside business hours.",
     channel: "sms",
     receivedAt: new Date(now - 5 * hour).toISOString(),
+    severity: "p0",
+    confidence: 0.74,
+    slaExpiresAt: new Date(now + 35 * minute).toISOString(),
   },
   {
     id: "ap_01H9Z1",
@@ -130,8 +168,56 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     reason: "Rejection emails always require your eyes — these are sensitive.",
     channel: "imessage",
     receivedAt: new Date(now - 22 * hour).toISOString(),
+    severity: "p0",
+    confidence: 0.92,
+    slaExpiresAt: new Date(now - 1 * hour).toISOString(),
+  },
+  {
+    id: "ap_01H9Z0",
+    worker: { name: "Nori" },
+    verb: "wants to apply a 32% discount on QT-2024-7283",
+    detail:
+      "Tomás Industries renewal quote. Standard policy caps discount at 25%; sales lead has flagged this customer as strategic.",
+    consequenceIfYes: "quote re-issued at 32% off; revenue impact $48,290.",
+    consequenceIfNo: "I'll counter at the 25% policy ceiling and note the strategic flag.",
+    reason: "Discounts above 25% always need your sign-off per the policy doc.",
+    channel: "web",
+    receivedAt: new Date(now - 2 * hour - 12 * minute).toISOString(),
+    severity: "p0",
+    dollarAtRisk: 48290,
+    confidence: 0.7,
+    slaExpiresAt: new Date(now + 1 * hour + 22 * minute).toISOString(),
   },
 ];
+
+const SEVERITY_RANK: Record<NonNullable<ApprovalItem["severity"]>, number> = {
+  p0: 0,
+  p1: 1,
+  p2: 2,
+};
+
+/**
+ * Severity-desc → SLA-asc sort prescribed by the E-ops-dashboard
+ * design lock. Items without `severity` fall to the bottom (treated as
+ * P2); items without `slaExpiresAt` rank after items that have one
+ * within the same severity bucket. Stable on receivedAt as a final
+ * tie-breaker so the order is deterministic between renders.
+ */
+export function sortBySeverityThenSla(items: ApprovalItem[]): ApprovalItem[] {
+  return [...items].sort((a, b) => {
+    const sa = SEVERITY_RANK[a.severity ?? "p2"];
+    const sb = SEVERITY_RANK[b.severity ?? "p2"];
+    if (sa !== sb) return sa - sb;
+
+    const ea = a.slaExpiresAt ? new Date(a.slaExpiresAt).getTime() : Number.POSITIVE_INFINITY;
+    const eb = b.slaExpiresAt ? new Date(b.slaExpiresAt).getTime() : Number.POSITIVE_INFINITY;
+    if (ea !== eb) return ea - eb;
+
+    const ra = new Date(a.receivedAt).getTime();
+    const rb = new Date(b.receivedAt).getTime();
+    return ra - rb;
+  });
+}
 
 /**
  * Group approvals by "today" / "yesterday" / "earlier this week" / older.

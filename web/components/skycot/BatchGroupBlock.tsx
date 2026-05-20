@@ -185,6 +185,11 @@ export function ApprovalDaySection({
               receivedAt={unit.item.receivedAt}
               decision={unit.item.decision ?? null}
               redactionPolicy={redactionPolicy}
+              severity={unit.item.severity}
+              dollarAtRisk={unit.item.dollarAtRisk}
+              currency={unit.item.currency}
+              confidence={unit.item.confidence}
+              slaExpiresAt={unit.item.slaExpiresAt}
               onDecide={(d) => onDecide(unit.item.id, d)}
               onUndo={() => onUndo(unit.item.id)}
             />
@@ -237,6 +242,11 @@ function BatchGroupItem({
         receivedAt={item.receivedAt}
         decision={item.decision ?? null}
         redactionPolicy={redactionPolicy}
+        severity={item.severity}
+        dollarAtRisk={item.dollarAtRisk}
+        currency={item.currency}
+        confidence={item.confidence}
+        slaExpiresAt={item.slaExpiresAt}
         onDecide={(d) => onDecide(item.id, d)}
         onUndo={() => onUndo(item.id)}
       />

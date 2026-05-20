@@ -160,6 +160,11 @@ export function BatchCarousel({
             receivedAt={current.receivedAt}
             decision={decisionsById[current.id] ?? null}
             redactionPolicy={redactionPolicy}
+            severity={current.severity}
+            dollarAtRisk={current.dollarAtRisk}
+            currency={current.currency}
+            confidence={current.confidence}
+            slaExpiresAt={current.slaExpiresAt}
             onDecide={(d) => {
               onDecide(current.id, d);
               // Auto-advance to the next un-decided card.

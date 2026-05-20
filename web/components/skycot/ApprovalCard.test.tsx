@@ -145,4 +145,32 @@ describe("ApprovalCard", () => {
     expect(screen.getAllByText("[EMAIL]").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("[PHONE]").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("renders the severity pill when severity is provided", () => {
+    renderCard({ severity: "p0" });
+    expect(screen.getByTestId("severity-pill-p0")).toBeInTheDocument();
+  });
+
+  it("hides the severity pill when omitted (backward-compat)", () => {
+    renderCard({});
+    expect(screen.queryByTestId("severity-pill-p0")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("severity-pill-p1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("severity-pill-p2")).not.toBeInTheDocument();
+  });
+
+  it("renders the metrics row when any ops-dashboard signal is set", () => {
+    renderCard({ confidence: 0.85 });
+    expect(screen.getByTestId("approval-metrics")).toBeInTheDocument();
+    expect(screen.getByTestId("confidence-donut")).toBeInTheDocument();
+  });
+
+  it("renders $ at risk when dollarAtRisk is non-zero", () => {
+    renderCard({ dollarAtRisk: 1500 });
+    expect(screen.getByTestId("dollar-at-risk")).toHaveTextContent("$1,500");
+  });
+
+  it("omits the metrics row when no signals are present (legacy cards stay clean)", () => {
+    renderCard({});
+    expect(screen.queryByTestId("approval-metrics")).not.toBeInTheDocument();
+  });
 });

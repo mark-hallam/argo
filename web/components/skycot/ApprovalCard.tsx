@@ -6,6 +6,10 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { RedactedText } from "@/components/skycot/RedactedText";
+import { ConfidenceDonut } from "@/components/skycot/approvals/ConfidenceDonut";
+import { DollarAtRisk } from "@/components/skycot/approvals/DollarAtRisk";
+import { SeverityPill, type Severity } from "@/components/skycot/approvals/SeverityPill";
+import { SLABar } from "@/components/skycot/approvals/SLABar";
 import { POLICY_SHOW_ALL, type RedactionPolicy } from "@/lib/redaction/redact";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +71,22 @@ export interface ApprovalCardProps {
    * Defense-in-depth — see `lib/redaction/redact.ts`.
    */
   redactionPolicy?: RedactionPolicy;
+
+  /**
+   * Three-tier severity classification rendered as a pill at the top
+   * of the card. Drives the destructive / warning / muted accent
+   * row-tint via the `data-severity` attribute. Omit to hide the pill
+   * (Phase A backward-compat — older fixtures don't carry severity).
+   */
+  severity?: Severity;
+  /** Dollar amount at risk if the action runs. Omit / null for non-money actions. */
+  dollarAtRisk?: number | null;
+  /** ISO 4217 currency code. Defaults to USD. */
+  currency?: string;
+  /** Worker self-reported confidence in the proposed action, in [0, 1]. */
+  confidence?: number;
+  /** ISO timestamp when the approval times out. Drives the SLA bar. */
+  slaExpiresAt?: string;
   className?: string;
 }
 
@@ -123,6 +143,11 @@ export function ApprovalCard({
   undoWindowMs = 30_000,
   decision: controlledDecision,
   redactionPolicy = POLICY_SHOW_ALL,
+  severity,
+  dollarAtRisk,
+  currency,
+  confidence,
+  slaExpiresAt,
   className,
 }: ApprovalCardProps) {
   const [showReason, setShowReason] = useState(false);
@@ -170,21 +195,38 @@ export function ApprovalCard({
     }
   }
 
+  const accentCls =
+    severity === "p0"
+      ? "border-l-4 border-l-[var(--destructive)]"
+      : severity === "p1"
+        ? "border-l-4 border-l-[var(--warning)]"
+        : "";
+
+  const showMetrics =
+    slaExpiresAt != null ||
+    (dollarAtRisk != null && dollarAtRisk !== 0) ||
+    confidence != null;
+
   return (
     <Card
       className={cn(
         "w-full overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-[var(--duration-base)]",
+        accentCls,
         className,
       )}
       role="region"
       aria-label={`Approval request from ${worker.name}`}
+      data-severity={severity}
     >
       <div className="flex items-start gap-3 px-5 pt-5">
         <Avatar alt={worker.name} src={worker.avatarUrl} size="md" status="waiting" />
         <div className="flex-1 min-w-0 pt-0.5">
-          <div className="text-[15px] leading-snug">
-            <span className="font-semibold text-[var(--foreground)]">{worker.name}</span>{" "}
-            <span className="text-[var(--muted-foreground)]">{verb}</span>
+          <div className="flex items-start justify-between gap-2">
+            <div className="text-[15px] leading-snug min-w-0">
+              <span className="font-semibold text-[var(--foreground)]">{worker.name}</span>{" "}
+              <span className="text-[var(--muted-foreground)]">{verb}</span>
+            </div>
+            {severity ? <SeverityPill severity={severity} className="shrink-0" /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--muted-foreground)]">
             {channel ? (
@@ -246,6 +288,30 @@ export function ApprovalCard({
           </span>
         </div>
       </div>
+
+      {showMetrics ? (
+        <div
+          className="mx-5 mb-4 flex flex-wrap items-center gap-x-5 gap-y-2"
+          data-testid="approval-metrics"
+        >
+          {slaExpiresAt ? (
+            <div className="min-w-[140px] flex-1">
+              <SLABar expiresAt={slaExpiresAt} />
+            </div>
+          ) : null}
+          {dollarAtRisk != null && dollarAtRisk !== 0 ? (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--muted-foreground)] font-semibold">
+                $ at risk
+              </span>
+              <DollarAtRisk amount={dollarAtRisk} currency={currency ?? "USD"} />
+            </div>
+          ) : null}
+          {confidence != null ? (
+            <ConfidenceDonut value={confidence} animate />
+          ) : null}
+        </div>
+      ) : null}
 
       {decision == null ? (
         <div className="flex items-center gap-2 px-5 pb-5">
