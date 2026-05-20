@@ -385,9 +385,9 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, fil
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+              <h3 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
                 Approvals
-              </h1>
+              </h3>
               <StatusPill tone="info" size="sm">
                 {pendingCount} waiting
               </StatusPill>

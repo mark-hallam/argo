@@ -29,9 +29,9 @@ export default function CohortsPage() {
       <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+            <h3 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
               Cohorts
-            </h1>
+            </h3>
             <p
               className="text-sm text-[var(--muted-foreground)]"
               data-testid="cohorts-subtitle"
