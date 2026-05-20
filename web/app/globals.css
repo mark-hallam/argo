@@ -102,12 +102,23 @@
    -------------------------------------------------------------- */
 :root,
 [data-theme="skycot-light"] {
-  /* Brand identity — locked. See docs/skycot/brand/DESIGN_TOKENS.md. */
-  --brand-primary:            oklch(0.55 0.18 256);   /* deep indigo */
-  --brand-primary-foreground: oklch(0.99 0.005 256);
+  /* Brand identity — locked 2026-04 brand style guide.
+     Primary chrome = SKYCOT purple #8B5CF6 (used as solid for buttons,
+     focus rings, active states). The purple→pink gradient
+     (#8B5CF6 → #EC4899) is `--brand-gradient` for hero treatments,
+     NOT as the default solid color. Foreground ink is deep navy #1e1b4b
+     for body copy contrast on warm-light surfaces. */
+  --brand-primary:            #8b5cf6;                 /* SKYCOT purple */
+  --brand-primary-foreground: #ffffff;
+  --brand-pink:               #ec4899;
+  --brand-coral:              #ff6b6b;
+  --brand-teal:               #14b8a6;
+  --brand-ink:                #1e1b4b;
+  --brand-gradient:           linear-gradient(135deg, #8b5cf6, #ec4899);
+  --brand-gradient-3:         linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
 
-  --background:            oklch(0.99 0.005 248);  /* near-white, slight cool */
-  --foreground:            oklch(0.18 0.020 248);  /* near-black, slight cool */
+  --background:            #fafaff;                    /* warm near-white */
+  --foreground:            var(--brand-ink);           /* deep navy ink */
 
   --card:                  oklch(1.00 0.000 0);
   --card-foreground:       oklch(0.18 0.020 248);
