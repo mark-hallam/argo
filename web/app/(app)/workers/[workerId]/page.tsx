@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Ban } from "lucide-react";
 import { auth } from "@/auth";
 import { FreezeButton } from "./FreezeButton";
@@ -80,25 +80,19 @@ export default async function WorkerIndexPage({
   const freezeState = await fetchFreezeState(workerId, session?.gatewayToken);
   const isFrozen = freezeState !== null;
 
-  return (
-    <div className="space-y-4">
-      {freezeState ? <FreezeBanner state={freezeState} /> : null}
-      {canFreeze ? (
-        <div className="flex justify-end">
-          <FreezeButton workerId={workerId} isFrozen={isFrozen} />
-        </div>
-      ) : null}
-      <p className="text-center text-sm text-[var(--muted-foreground)]">
-        <Link
-          href={`/workers/${workerId}/overview`}
-          className="text-[var(--primary)] underline-offset-4 hover:underline"
-          data-testid="worker-go-to-overview"
-        >
-          Open overview →
-        </Link>
-      </p>
-    </div>
-  );
+  // Demo audit fix: /workers/[id] landing was rendering a placeholder
+  // 'Open overview →' link instead of the actual Overview content.
+  // Auto-redirect to the overview tab so the demo lands directly on
+  // the personality + KPI surface that's the real value of the worker
+  // profile.
+  //
+  // Suppress signature-references via void to silence the unused-vars
+  // lint without removing the freeze plumbing (kept for the future
+  // freeze-banner-in-layout brief).
+  void freezeState;
+  void isFrozen;
+  void canFreeze;
+  redirect(`/workers/${workerId}/overview`);
 }
 
 function FreezeBanner({ state }: { state: FreezeState }) {
