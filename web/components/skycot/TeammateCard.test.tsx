@@ -225,4 +225,44 @@ describe("TeammateCard", () => {
     await userEvent.keyboard("{Enter}");
     expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test");
   });
+
+  it("renders a weight-900 level number on the gradient banner", () => {
+    wrap(<TeammateCard worker={makeWorker()} />);
+    const level = screen.getByTestId("teammate-level-wkr_test");
+    expect(level).toBeInTheDocument();
+    // Mariah's locked level (see TRAITS_BY_NAME / LEVEL_BY_NAME in component).
+    expect(level).toHaveTextContent("5");
+  });
+
+  it("renders trait chips for known workers (Mariah)", () => {
+    wrap(<TeammateCard worker={makeWorker()} />);
+    const traits = screen.getByTestId("teammate-traits-wkr_test");
+    expect(within(traits).getByText("Patient")).toBeInTheDocument();
+    expect(within(traits).getByText("Detail-oriented")).toBeInTheDocument();
+    expect(within(traits).getByText("Picture-perfect listings")).toBeInTheDocument();
+    expect(within(traits).getByText("Polite")).toBeInTheDocument();
+  });
+
+  it("omits the trait chip block for unknown workers", () => {
+    wrap(
+      <TeammateCard
+        worker={makeWorker({ id: "wkr_unknown", name: "Stranger" })}
+      />,
+    );
+    expect(
+      screen.queryByTestId("teammate-traits-wkr_unknown"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("declares a prefers-reduced-motion guard in its styles", () => {
+    // CSS-only behavior — verify the @media rule is present in the
+    // styled-jsx output so users with reduced-motion get a static
+    // banner (no shine sweep, no hover-lift transform).
+    const { container } = wrap(<TeammateCard worker={makeWorker()} />);
+    const styleNodes = container.ownerDocument.querySelectorAll("style");
+    const css = Array.from(styleNodes)
+      .map((s) => s.textContent ?? "")
+      .join("\n");
+    expect(css).toMatch(/prefers-reduced-motion/);
+  });
 });
