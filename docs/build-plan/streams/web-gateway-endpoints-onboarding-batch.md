@@ -21,7 +21,7 @@ the hand-rolled fetch at `web/app/(setup)/onboarding/pick-vertical/page.tsx:74`.
 
 ## Endpoints to implement
 
-1. `POST /api/v1/onboarding/provider-key` — body `{ provider: "anthropic" | "openai" | ..., api_key: string }`. Stores encrypted key in workspace config. Returns `{ stored: true, masked_key }`.
+1. `POST /api/v1/onboarding/provider-key` — body `{ provider: "anthropic" | "openai" | "google" | "azure" | ..., api_key: string }`. Stores encrypted key in workspace config. Returns `{ validated: true, masked_key, test_cost, test_tokens }`. **Contract-drift note (Wave-11 audit 2026-05-21):** the existing web client `web/lib/onboarding/use-provider-key.ts:20-24` expects `{ validated, test_cost, test_tokens }`. Match that shape. The server should perform a low-cost test call (e.g. 1-token completion) to validate the key + report cost/tokens of the validation call back to the UI. Also: when implementing the picker, source provider logos from https://svgl.app/ (operator directive — see `feedback_logos_from_svgl_app.md`) — Anthropic + OpenAI + Google + Azure at minimum.
 2. `POST /api/v1/onboarding/install-vertical` — body `{ vertical_id: string }`. Installs vertical template + seeds workflows + skills for that vertical. Returns `{ installed: true, workflows_added: N, skills_added: M }`.
 3. `POST /api/v1/onboarding/first-hire` — body `{ description: string, vertical_id: string }`. Spawns the first worker for the workspace. Returns `{ worker_id: string, name: string }`.
 
