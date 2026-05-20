@@ -32,19 +32,17 @@
 //!   pause/resume/archive arms). The two new arms go alongside those
 //!   for pattern consistency.
 
+use super::role_gate::{enforce_role, resolve_role, Action};
 use super::routes_auth_principal::principal_id_for_audit;
 use super::{body_from_request, store_unavailable};
 use argo_audit::{AuditKind, AuditSink};
-use argo_capability::CapabilityEngine;
+use argo_identity::user_tenant::UserTenantRole;
 use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_store::worker_freeze::{self as freeze_store, FreezeRecord};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, Capability, Principal, TenantId};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::{json, Value};
 use std::sync::Arc;
-
-const ROLE_HEADER: &str = "X-Argo-Role";
-const DEFAULT_ROLE: &str = "user";
 
 /// `POST /api/v1/workers/<id>/freeze`. Body shape: `{ "reason": <str> }`.
 pub(super) async fn post_freeze(
@@ -167,23 +165,12 @@ async fn enforce_worker_freeze(
     worker: &Worker,
     req: &str,
 ) -> Result<(), (&'static str, String)> {
-    let role = header_value(req, ROLE_HEADER)
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| DEFAULT_ROLE.to_string());
-    let principal = local_actor_principal(req);
-    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let engine = CapabilityEngine::with_workspace_defaults(&cwd);
-    if engine.bind(principal.clone(), role.clone()).is_err() {
-        emit_rbac_deny(store, req, worker, &role).await;
-        return Err(forbidden("role lacks worker.freeze capability"));
-    }
-    if engine
-        .check(&principal, &Capability::WorkerFreeze)
-        .is_err()
-    {
-        emit_rbac_deny(store, req, worker, &role).await;
-        return Err(forbidden("role lacks worker.freeze capability"));
+    if let Some(resp) = enforce_role(req, Action::WorkerFreeze) {
+        let role_label = resolve_role(req)
+            .unwrap_or(UserTenantRole::Guest)
+            .as_str();
+        emit_rbac_deny(store, req, worker, role_label).await;
+        return Err(resp);
     }
     Ok(())
 }
@@ -207,24 +194,8 @@ fn parse_reason(req: &str) -> Result<String, (&'static str, String)> {
     Ok(trimmed.to_string())
 }
 
-fn local_actor_principal(req: &str) -> Principal {
-    Principal::Local {
-        os_user: actor_label(req),
-    }
-}
-
 fn actor_label(req: &str) -> String {
     principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string())
-}
-
-fn header_value(req: &str, name: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (k, v) = line.split_once(':')?;
-        k.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
-    })
 }
 
 async fn emit_success(
@@ -299,10 +270,6 @@ fn bad_request(message: &str) -> (&'static str, String) {
 
 fn not_found(message: &str) -> (&'static str, String) {
     error_envelope("404 Not Found", "not_found", message)
-}
-
-fn forbidden(message: &str) -> (&'static str, String) {
-    error_envelope("403 Forbidden", "forbidden", message)
 }
 
 fn server_error(message: &str) -> (&'static str, String) {

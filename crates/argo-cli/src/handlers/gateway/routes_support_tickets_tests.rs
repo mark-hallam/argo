@@ -21,7 +21,7 @@ async fn mem_store() -> Arc<SessionStore> {
 
 fn admin_post(path: &str, body: &str) -> String {
     format!(
-        "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Role: operator\r\nX-Argo-Principal: human:op@example.com\r\nContent-Length: {}\r\n\r\n{body}",
+        "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Role: admin\r\nX-Argo-Principal: human:op@example.com\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()
     )
 }
@@ -35,7 +35,7 @@ fn anon_post(path: &str, body: &str) -> String {
 
 fn admin_get(path: &str) -> String {
     format!(
-        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Role: operator\r\nX-Argo-Principal: human:op@example.com\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Role: admin\r\nX-Argo-Principal: human:op@example.com\r\n\r\n"
     )
 }
 
@@ -47,7 +47,7 @@ fn non_admin_get(path: &str) -> String {
 
 fn admin_patch(path: &str, body: &str) -> String {
     format!(
-        "PATCH {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Role: operator\r\nX-Argo-Principal: human:op@example.com\r\nContent-Length: {}\r\n\r\n{body}",
+        "PATCH {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Role: admin\r\nX-Argo-Principal: human:op@example.com\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()
     )
 }

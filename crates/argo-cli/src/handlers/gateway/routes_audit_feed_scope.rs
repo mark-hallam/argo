@@ -1,12 +1,12 @@
 //! Tenant-scope helpers for `GET /api/v1/audit`.
 
+use super::role_gate::{enforce_role, Action};
 use super::routes_audit_feed::FeedParams;
 use argo_audit::ExportedRow;
 use serde_json::Value;
 
 const DEFAULT_WORKSPACE_TENANT_FALLBACK: &str = "ws-default";
 const HEADER_WORKSPACE_TENANT: &str = "x-argo-tenant-id";
-const HEADER_CROSS_TENANT_CAP: &str = "x-argo-audit-cross-tenant";
 
 /// Tenant-scoping decision for one request.
 #[derive(Debug, Clone)]
@@ -20,9 +20,12 @@ pub(super) struct TenantScope {
 pub(super) fn resolve_tenant_scope(req: &str, params: &FeedParams) -> TenantScope {
     let workspace_tenant = header_value(req, HEADER_WORKSPACE_TENANT)
         .unwrap_or_else(|| DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string());
-    let cap_granted = header_value(req, HEADER_CROSS_TENANT_CAP)
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
+    // Cross-tenant audit is gated by the [`Action::AuditCrossTenant`]
+    // capability (owner-only). The legacy `X-Argo-Audit-Cross-Tenant`
+    // header trust path is gone — `enforce_role` derives the role
+    // from the verified session JWT and ignores any role-stamping
+    // headers in production. See wave-3 RBAC audit finding #5.
+    let cap_granted = enforce_role(req, Action::AuditCrossTenant).is_none();
     match params.as_tenant.as_deref() {
         Some(other) if cap_granted => TenantScope {
             effective: other.to_string(),

@@ -372,8 +372,9 @@ async fn post_archive_sets_archived_at_and_audits() {
 
 #[tokio::test]
 async fn delete_without_operator_role_returns_403() {
+    // Canonical taxonomy: hard-delete is owner-only.
     let (env, worker) = setup_with_worker("Maya").await;
-    let req = delete_req(&worker.id, Some("delegator"), Some("Maya"));
+    let req = delete_req(&worker.id, Some("user"), Some("Maya"));
     let (status, body) =
         delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "403 Forbidden");
@@ -383,12 +384,12 @@ async fn delete_without_operator_role_returns_403() {
 #[tokio::test]
 async fn delete_without_matching_confirm_header_returns_400() {
     let (env, worker) = setup_with_worker("Maya").await;
-    let req = delete_req(&worker.id, Some("operator"), None);
+    let req = delete_req(&worker.id, Some("owner"), None);
     let (status, body) =
         delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "400 Bad Request");
     assert_eq!(parse(&body)["error"]["code"], "confirmation_mismatch");
-    let req = delete_req(&worker.id, Some("operator"), Some("maya"));
+    let req = delete_req(&worker.id, Some("owner"), Some("maya"));
     let (status, _) = delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "400 Bad Request");
 }
@@ -396,7 +397,7 @@ async fn delete_without_matching_confirm_header_returns_400() {
 #[tokio::test]
 async fn delete_with_operator_and_confirm_succeeds_and_cascades() {
     let (env, worker) = setup_with_worker("Maya").await;
-    let req = delete_req(&worker.id, Some("operator"), Some("Maya"));
+    let req = delete_req(&worker.id, Some("owner"), Some("Maya"));
     let (status, _) = delete_worker_endpoint(&worker.id.to_string(), &req, Some(&env.store)).await;
     assert_eq!(status, "204 No Content");
     let remaining: Option<String> = sqlx::query_scalar("SELECT id FROM worker WHERE id = ?")

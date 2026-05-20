@@ -22,6 +22,12 @@ struct Claims<'a> {
     sub: &'a str,
     email: &'a str,
     tnt: Option<&'a str>,
+    /// Role the user holds in `tnt` — `'owner' | 'admin' | 'user' | 'guest'`.
+    /// `None` when the user has no membership row yet (pre-onboarding).
+    /// Gateway capability checks default `None` to the most-restrictive
+    /// role (`guest`); the role-gate never trusts a missing claim.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    role: Option<&'a str>,
     iat: i64,
     exp: i64,
 }
@@ -30,6 +36,7 @@ pub(crate) fn mint_jwt(
     user_id: &str,
     email: &str,
     tenant_id: Option<&str>,
+    role: Option<&str>,
     now: i64,
 ) -> Result<String, String> {
     let key = EncodingKey::from_secret(&jwt_secret());
@@ -39,6 +46,7 @@ pub(crate) fn mint_jwt(
             sub: user_id,
             email,
             tnt: tenant_id,
+            role,
             iat: now,
             exp: now + JWT_TTL_SECS,
         },
@@ -49,8 +57,10 @@ pub(crate) fn mint_jwt(
 
 /// Production sets `SKYCOT_AUTH_JWT_SECRET`; dev runs mint an
 /// ephemeral per-process secret so the loop works without explicit
-/// config.
-fn jwt_secret() -> Vec<u8> {
+/// config. The gateway role-gate reads the same secret via
+/// [`super::session_jwt`] so verify-side checks share one source of
+/// truth.
+pub(crate) fn jwt_secret() -> Vec<u8> {
     if let Ok(s) = std::env::var("SKYCOT_AUTH_JWT_SECRET") {
         if !s.is_empty() {
             return s.into_bytes();

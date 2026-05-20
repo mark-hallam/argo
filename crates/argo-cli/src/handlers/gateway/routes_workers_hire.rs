@@ -26,6 +26,7 @@
 
 use super::body_from_request;
 use super::boot::learning_registry;
+use super::role_gate::{enforce_role, Action};
 use super::routes_auth_principal::principal_id_for_audit;
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{HireDraft, IdentityStore, WorkerId};
@@ -51,6 +52,9 @@ pub(super) async fn hire_response(
     req: &str,
     store: Option<&std::sync::Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerHire) {
+        return deny;
+    }
     let body = body_from_request(req);
     let parsed: Value = match serde_json::from_str(body) {
         Ok(v) => v,

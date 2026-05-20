@@ -31,10 +31,12 @@
 //!
 //! Payload shape: `{ actor, tenant_id, vertical_id, name, version_id }`.
 
+use super::role_gate::{enforce_role, resolve_role, Action};
 use super::routes_workflows_handlers as hh;
 use argo_capability::{
     workflow_edit_capability, workflow_read_capability, CapabilityEngine,
 };
+use argo_identity::user_tenant::UserTenantRole;
 use argo_store::SessionStore;
 use argo_types::{Capability, Principal, TenantId};
 use serde_json::json;
@@ -42,8 +44,6 @@ use std::sync::Arc;
 
 const PREFIX: &str = "/api/v1/verticals/";
 const PRINCIPAL_HEADER: &str = "X-Argo-Principal";
-const ROLE_HEADER: &str = "X-Argo-Role";
-const DEFAULT_ROLE: &str = "guest";
 
 /// GET dispatcher. Returns `Some` for any path under
 /// `/api/v1/verticals/{id}/workflows[...]`; `None` lets the parent
@@ -118,6 +118,9 @@ async fn handle_mutate(
     req: &str,
     store: &Arc<SessionStore>,
 ) -> (&'static str, String) {
+    if let Some(resp) = enforce_role(req, Action::WorkflowEdit) {
+        return resp;
+    }
     let (principal, role) = match resolve_principal(req) {
         Ok(p) => p,
         Err(resp) => return resp,
@@ -222,12 +225,18 @@ fn resolve_principal(req: &str) -> Result<(Principal, &'static str), (&'static s
         adapter: kind,
         identity,
     };
-    let role = match header_value(req, ROLE_HEADER).as_deref() {
-        Some("owner") => "owner",
-        Some("admin") => "admin",
-        Some("user") => "user",
-        Some("guest") => "guest",
-        _ => DEFAULT_ROLE,
+    // Role comes from the verified session JWT
+    // (see [`super::role_gate::resolve_role`]). When no JWT is
+    // present, fall back to `guest` so the capability engine never
+    // sees a missing role — `WORKFLOW_READ` is granted to guest, so
+    // anonymous read paths still work for unauthenticated dev /
+    // marketing surfaces. Mutating paths are gated by the
+    // [`Action::WorkflowEdit`] check in [`handle_mutate`].
+    let role = match resolve_role(req).unwrap_or(UserTenantRole::Guest) {
+        UserTenantRole::Owner => "owner",
+        UserTenantRole::Admin => "admin",
+        UserTenantRole::User => "user",
+        UserTenantRole::Guest => "guest",
     };
     Ok((principal, role))
 }

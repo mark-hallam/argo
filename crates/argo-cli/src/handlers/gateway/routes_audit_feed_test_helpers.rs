@@ -125,12 +125,19 @@ pub(super) async fn seed_row_for_tenant(store: &Arc<SessionStore>, tenant_id: &s
 }
 
 pub(super) fn get_with_tenant(path: &str, tenant: &str) -> String {
-    format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n")
+    // `X-Argo-Role: user` proves the role-gate denies cross-tenant
+    // for non-owners. The previous shape relied on header absence
+    // implying "no cap"; the role-gate's dev-default is Owner, so
+    // the explicit non-owner role is what now signals intent.
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\nX-Argo-Role: user\r\n\r\n"
+    )
 }
 
 pub(super) fn get_with_tenant_and_cap(path: &str, tenant: &str) -> String {
+    // `X-Argo-Role: owner` mirrors the in-prod path where a JWT
+    // role-claim of owner unlocks `Action::AuditCrossTenant`.
     format!(
-        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\
-         X-Argo-Audit-Cross-Tenant: 1\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\nX-Argo-Role: owner\r\n\r\n"
     )
 }

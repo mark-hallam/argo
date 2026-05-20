@@ -26,6 +26,7 @@
 //! workspace). Per-tenant filtering across a multi-tenant gateway
 //! is closed by `mission-enterprise-approvals-rbac`.
 
+use super::role_gate::{enforce_role, Action as RbacAction};
 use super::routes_auth_principal::principal_id_for_audit;
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_auto_approval::draft_content_from_payload;
@@ -132,6 +133,9 @@ struct DecideBody {
 /// with the *same* decision returns 200; with a *different* decision
 /// returns 409.
 pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, RbacAction::ApprovalDecide) {
+        return deny;
+    }
     let body = super::body_from_request(req);
     let Ok(parsed): Result<DecideBody, _> = serde_json::from_str(body) else {
         return bad_request("invalid JSON body");
@@ -188,7 +192,10 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
 /// `POST /api/v1/approvals/<id>/undo` — reverse the decision when
 /// within the [`UNDO_WINDOW_SECS`] window. Outside the window the
 /// transition is terminal, so the API returns `410 Gone`.
-pub(super) async fn undo_response(approval_id: &str, _req: &str) -> (&'static str, String) {
+pub(super) async fn undo_response(approval_id: &str, req: &str) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, RbacAction::ApprovalUndo) {
+        return deny;
+    }
     let (memory, ws) = match open_workspace_memory().await {
         Ok(p) => p,
         Err(e) => return server_error(&format!("open workspace: {e}")),

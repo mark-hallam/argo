@@ -14,6 +14,7 @@
 //!   (Stripe, Slack, GitHub, Linear, generic URL substring matches).
 
 use super::rate_limit;
+use super::role_gate::{enforce_role, Action};
 use super::routes_audit_detail_render::{build_detail, payload_str};
 use super::routes_auth_principal::principal_id_for_audit;
 use super::store_unavailable;
@@ -29,6 +30,9 @@ pub(super) async fn detail_response(
     action_id: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::AuditDetailRead) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavailable();
     };

@@ -2,11 +2,11 @@
 //! `POST /pause`, `POST /resume`, `POST /archive`, and `DELETE /`.
 //! See the parent module for the v1-posture rationale.
 
-use super::super::routes_worker_detail::PrincipalRole;
+use super::super::role_gate::{enforce_role, Action};
 use super::helpers::{
-    emit_audit, error_envelope, fetch_archived_at, forbidden, header_value, load_worker_by_id,
-    parse_role_header, parse_worker_id, preflight, resolve_tenant, server_error, store_unavail,
-    CONFIRM_HEADER, RECOVERABLE_DAYS,
+    emit_audit, error_envelope, fetch_archived_at, header_value, load_worker_by_id,
+    parse_worker_id, preflight, resolve_tenant, server_error, store_unavail, CONFIRM_HEADER,
+    RECOVERABLE_DAYS,
 };
 use argo_identity::{IdentityStore, WorkerId};
 use argo_store::SessionStore;
@@ -20,6 +20,9 @@ pub(crate) async fn post_pause(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerLifecycle) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };
@@ -36,6 +39,9 @@ pub(crate) async fn post_resume(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerLifecycle) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };
@@ -75,6 +81,9 @@ pub(crate) async fn post_archive(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerArchive) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };
@@ -103,6 +112,9 @@ pub(crate) async fn delete_worker_endpoint(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerHardDelete) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };
@@ -118,10 +130,6 @@ pub(crate) async fn delete_worker_endpoint(
         Ok(w) => w,
         Err(resp) => return resp,
     };
-    let role = parse_role_header(req).unwrap_or(PrincipalRole::Delegator);
-    if role != PrincipalRole::Operator {
-        return forbidden("delete requires operator role");
-    }
     let confirm = header_value(req, CONFIRM_HEADER).unwrap_or_default();
     if confirm != worker.persona.name {
         return error_envelope(

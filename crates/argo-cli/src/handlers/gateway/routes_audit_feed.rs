@@ -42,6 +42,7 @@
 //! [`redact_text`] over a fixed set of string fields.
 
 use super::rate_limit;
+use super::role_gate::{enforce_role, Action};
 use super::routes_audit_feed_indexed::fetch_raw_rows;
 use super::routes_audit_feed_scope::{resolve_tenant_scope, row_in_tenant_scope};
 use super::routes_auth_principal::principal_id_for_audit;
@@ -65,6 +66,9 @@ pub(super) async fn list_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::AuditFeedRead) {
+        return deny;
+    }
     let Some(store) = store else {
         return super::store_unavailable();
     };

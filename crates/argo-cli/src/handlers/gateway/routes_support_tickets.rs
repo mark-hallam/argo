@@ -36,8 +36,6 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use uuid::Uuid;
 
-const ROLE_HEADER: &str = "X-Argo-Role";
-
 /// `POST /api/v1/support/tickets` — internal create (no admin gate;
 /// Next.js proxy forwards the unauthenticated contact-form payload
 /// here). Body: `{ user_email, subject, body, tenant_id?, priority? }`.
@@ -316,32 +314,13 @@ fn reply_to_json(row: &SupportReplyRow) -> Value {
 }
 
 /// Return `Some(resp)` to short-circuit dispatch with 403 when the
-/// caller's `X-Argo-Role` is not `operator`. `None` ⇒ caller is
-/// authorized. Treats absent header as "non-admin" so the gate fails
-/// closed.
+/// caller's verified session-JWT role lacks the support-tickets
+/// capability. Falls back to the legacy `X-Argo-Role` header trust
+/// path only in dev mode (see [`super::role_gate`] for the trust
+/// policy). `None` ⇒ caller is authorized. Failure mode is fail-closed:
+/// missing JWT → effective role guest → 403.
 fn require_admin(req: &str) -> Option<(&'static str, String)> {
-    if is_admin(req) {
-        None
-    } else {
-        Some(forbidden(
-            "admin role required for /api/v1/support endpoints",
-        ))
-    }
-}
-
-fn is_admin(req: &str) -> bool {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers
-        .lines()
-        .skip(1)
-        .find_map(|line| {
-            let (name, value) = line.split_once(':')?;
-            name.eq_ignore_ascii_case(ROLE_HEADER)
-                .then(|| value.trim().to_ascii_lowercase())
-        })
-        .is_some_and(|role| matches!(role.as_str(), "operator" | "owner" | "admin"))
+    super::role_gate::enforce_role(req, super::role_gate::Action::SupportTickets)
 }
 
 fn query_param(req: &str, key: &str) -> Option<String> {
@@ -356,10 +335,6 @@ fn query_param(req: &str, key: &str) -> Option<String> {
 
 fn bad_request(message: &str) -> (&'static str, String) {
     error_envelope("400 Bad Request", "bad_request", message)
-}
-
-fn forbidden(message: &str) -> (&'static str, String) {
-    error_envelope("403 Forbidden", "forbidden", message)
 }
 
 fn not_found(id: &str) -> (&'static str, String) {

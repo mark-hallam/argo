@@ -8,6 +8,7 @@
 //! workspace cwd, matching the convention used by the J11 worker
 //! settings handlers + `usage_endpoint`.
 
+use super::role_gate::{enforce_role, Action};
 use argo_billing::{
     checkout::{create_checkout_session, CheckoutInput},
     portal::{create_portal_session, PortalInput},
@@ -30,6 +31,9 @@ pub(super) async fn checkout_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::BillingView) {
+        return deny;
+    }
     let store = match store {
         Some(s) => s,
         None => return super::store_unavailable(),
@@ -72,6 +76,9 @@ pub(super) async fn portal_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::BillingView) {
+        return deny;
+    }
     let store = match store {
         Some(s) => s,
         None => return super::store_unavailable(),

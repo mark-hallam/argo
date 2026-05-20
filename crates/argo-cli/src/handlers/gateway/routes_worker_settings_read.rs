@@ -6,6 +6,7 @@
 //! echo the new shape back to the caller. See the parent module for
 //! v1-posture rationale.
 
+use super::super::role_gate::{enforce_role, Action};
 use super::super::routes_worker_detail::PrincipalRole;
 use super::helpers::{
     bad_request, emit_audit, enforce_archive_410, load_worker_by_id, parse_body, parse_role_header,
@@ -50,6 +51,9 @@ pub(crate) async fn patch_channels(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerSettingsPatch) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };
@@ -92,6 +96,9 @@ pub(crate) async fn patch_quiet_hours(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerSettingsPatch) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };
@@ -127,6 +134,9 @@ pub(crate) async fn patch_budget(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerSettingsPatch) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };
@@ -161,6 +171,9 @@ pub(crate) async fn patch_autonomy(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::WorkerSettingsPatch) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavail();
     };

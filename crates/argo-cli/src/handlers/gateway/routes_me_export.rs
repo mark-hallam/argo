@@ -73,6 +73,10 @@ async fn request_export_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = super::role_gate::enforce_role(req, super::role_gate::Action::DataExport)
+    {
+        return deny;
+    }
     let store = match store {
         Some(s) => s,
         None => return store_unavailable(),

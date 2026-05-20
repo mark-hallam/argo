@@ -105,11 +105,20 @@ pub(crate) async fn verify_outcome(req: &str, store: Option<&Arc<SessionStore>>)
         Ok(u) => u,
         Err(e) => return err_outcome("500 Internal Server Error", &format!("user: {e}")),
     };
-    let tenant_id = match list_tenants_for_user(s, user.id).await {
-        Ok(tenants) => tenants.into_iter().next().map(|t| t.tenant_id.to_string()),
+    let (tenant_id, role) = match list_tenants_for_user(s, user.id).await {
+        Ok(tenants) => match tenants.into_iter().next() {
+            Some(t) => (Some(t.tenant_id.to_string()), Some(t.role.as_str().to_string())),
+            None => (None, None),
+        },
         Err(e) => return err_outcome("500 Internal Server Error", &format!("tenant: {e}")),
     };
-    let jwt = match mint_jwt(&user.id.to_string(), &email, tenant_id.as_deref(), now) {
+    let jwt = match mint_jwt(
+        &user.id.to_string(),
+        &email,
+        tenant_id.as_deref(),
+        role.as_deref(),
+        now,
+    ) {
         Ok(t) => t,
         Err(msg) => return err_outcome("500 Internal Server Error", &msg),
     };
