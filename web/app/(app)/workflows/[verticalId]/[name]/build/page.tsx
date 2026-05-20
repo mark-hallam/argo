@@ -302,6 +302,18 @@ function BuilderInner({
     setTriggerConfigOpen(false);
   }, []);
 
+  // A11y: keyboard users tab to a node and press Enter or Space to open
+  // the side panel. Mirrors the mouse-click behavior. WCAG 2.1.1 fix
+  // (Wave-7 keyboard-nav audit — the workflow builder was the worst
+  // offender, only mouse could open node config).
+  const onNodeKeyDown = useCallback((e: React.KeyboardEvent, node: Node) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setSelectedNode(node);
+      setTriggerConfigOpen(false);
+    }
+  }, []);
+
   const selectedStep = selectedNode ? (selectedNode.data as SkyNodeData).step : null;
   const selectedIsTrigger = selectedStep?.kind === "trigger";
   const selectedTriggerKind: TriggerKind = selectedStep?.triggerKind ?? "manual";

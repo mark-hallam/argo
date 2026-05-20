@@ -474,16 +474,15 @@ export default function WorkflowsPage() {
             <Sparkles size={13} />
             Browse 50+ templates
           </Link>
-          <button
-            type="button"
+          <Link
+            href="/workflows/templates"
             className="workflows-propose"
             data-testid="workflows-propose"
-            onClick={() => setQuery("")}
-            title="Open the visual builder from any workflow card to propose a new step in plain English"
+            title="Start a new workflow from one of 50+ templates"
           >
             <Plus size={14} />
             Propose new
-          </button>
+          </Link>
         </div>
 
         <div className="workflows-try-row">
@@ -501,9 +500,62 @@ export default function WorkflowsPage() {
         </div>
 
         <div className="workflows-section-label">
-          <span>ALL WORKFLOWS</span>
+          <span>{query.trim() ? `MATCHING "${query.trim()}"` : "ALL WORKFLOWS"}</span>
           <span>NEWEST FIRST</span>
         </div>
+
+        {filtered.length === 0 ? (
+          <div
+            data-testid="workflows-empty"
+            style={{
+              gridColumn: "1 / -1",
+              padding: "48px 24px",
+              textAlign: "center",
+              border: "1px dashed var(--border, #ece9f5)",
+              borderRadius: "16px",
+              color: "var(--muted-foreground, #71717a)",
+            }}
+          >
+            <p style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground, #1e1b4b)", margin: "0 0 6px" }}>
+              No workflows match &ldquo;{query.trim()}&rdquo;.
+            </p>
+            <p style={{ fontSize: 14, margin: "0 0 16px" }}>
+              Try a different query or browse the 50+ templates.
+            </p>
+            <div style={{ display: "inline-flex", gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border, #ece9f5)",
+                  background: "white",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--foreground, #1e1b4b)",
+                }}
+              >
+                Clear search
+              </button>
+              <Link
+                href="/workflows/templates"
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+                  color: "white",
+                  textDecoration: "none",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Browse templates →
+              </Link>
+            </div>
+          </div>
+        ) : null}
 
         <div className="workflows-grid">
           {filtered.map((wf) => (
