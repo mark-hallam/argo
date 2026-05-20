@@ -59,6 +59,42 @@ const FEATURES = [
   },
 ];
 
+const LOGOS = [
+  "Northwind Commerce",
+  "Acmeco Retail",
+  "Skyline Engineering",
+  "Apex Recruiting",
+  "Beacon Health Ops",
+  "Maple Finance",
+  "Polaris Marketing",
+  "Zenith Support",
+  "Harbour Legal",
+  "Meridian Logistics",
+  "Atlas Manufacturing",
+  "Lumen Education",
+];
+
+const TESTIMONIALS = [
+  {
+    quote: "Mariah replied to 12,400 buyers our human team didn't have to. She knows when to escalate.",
+    name: "Daniela Reyes",
+    role: "Head of CX",
+    company: "Northwind Commerce",
+  },
+  {
+    quote: "Approval-first was the deal-breaker. Every action audit-logged, every decision traced. Our compliance team finally relaxed.",
+    name: "Marcus Lin",
+    role: "Chief Compliance Officer",
+    company: "Beacon Health Ops",
+  },
+  {
+    quote: "Patrick chases status across 14 client engagements at once. He remembers what every project needs.",
+    name: "Aisha Patel",
+    role: "Operations Director",
+    company: "Polaris Marketing",
+  },
+];
+
 const HOW = [
   {
     n: "01",
@@ -523,6 +559,133 @@ export default function MarketingLandingPage() {
           margin: 0;
           max-width: 420px;
         }
+        .land-social {
+          padding: 32px 0 72px;
+          max-width: 1320px;
+          margin: 0 auto;
+          overflow: hidden;
+        }
+        .land-social-strip {
+          display: flex;
+          gap: 14px;
+          padding: 6px 64px 28px;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .land-social-strip::-webkit-scrollbar {
+          display: none;
+        }
+        @media (max-width: 700px) {
+          .land-social-strip {
+            padding: 6px 24px 24px;
+          }
+        }
+        .land-social-card {
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 18px;
+          background: white;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 12px;
+          color: var(--ink);
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+        }
+        .land-social-logo {
+          width: 26px;
+          height: 26px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          color: white;
+          display: grid;
+          place-items: center;
+          font-family: "Audiowide", sans-serif;
+          font-size: 11px;
+          letter-spacing: 0.02em;
+        }
+        .land-quote-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 18px;
+          padding: 0 64px;
+          max-width: 1240px;
+          margin: 36px auto 0;
+        }
+        @media (max-width: 900px) {
+          .land-quote-grid {
+            grid-template-columns: 1fr;
+            padding: 0 24px;
+          }
+        }
+        .land-quote-card {
+          background: white;
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          padding: 26px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          transition: all 0.18s;
+        }
+        .land-quote-card:hover {
+          border-color: rgba(139, 92, 246, 0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 14px 28px -12px rgba(139, 92, 246, 0.18);
+        }
+        .land-quote-mark {
+          font-family: "Audiowide", sans-serif;
+          font-size: 36px;
+          line-height: 1;
+          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .land-quote-text {
+          font-size: 15px;
+          color: var(--ink);
+          line-height: 1.55;
+          margin: 0;
+          font-weight: 400;
+        }
+        .land-quote-byline {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          padding-top: 14px;
+          border-top: 1px solid var(--line);
+        }
+        .land-quote-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          color: white;
+          display: grid;
+          place-items: center;
+          font-family: "Audiowide", sans-serif;
+          font-size: 13px;
+          flex-shrink: 0;
+        }
+        .land-quote-name {
+          font-weight: 700;
+          font-size: 13.5px;
+          color: var(--ink);
+          margin: 0;
+        }
+        .land-quote-role {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 10.5px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--ink-3);
+          margin-top: 2px;
+        }
         .land-compare-band {
           margin: 32px 64px 0;
           padding: 56px 48px;
@@ -631,7 +794,8 @@ export default function MarketingLandingPage() {
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
             <Link href="/compare">Compare</Link>
-            <a href="#contact">Pricing</a>
+            <Link href="/customers">Customers</Link>
+            <Link href="/pricing">Pricing</Link>
           </nav>
           <div className="land-top-right">
             <Link href="/auth/signin" className="land-signin">
@@ -744,6 +908,59 @@ export default function MarketingLandingPage() {
           </div>
         </section>
 
+        {/* Social proof — logos + testimonials */}
+        <section className="land-social">
+          <p className="land-section-label">TRUSTED BY TEAMS LIKE YOURS</p>
+          <h2 className="land-section-title" style={{ marginBottom: 28 }}>
+            Already shipping with <strong>SKYCOT</strong>.
+          </h2>
+          <div className="land-social-strip">
+            {[...LOGOS, ...LOGOS].map((logo, i) => (
+              <div key={`${logo}-${i}`} className="land-social-card">
+                <span className="land-social-logo">{logo.split(" ").map((w) => w[0]).join("").slice(0, 2)}</span>
+                <span>{logo}</span>
+              </div>
+            ))}
+          </div>
+          <div className="land-quote-grid">
+            {TESTIMONIALS.map((t) => (
+              <article key={t.name} className="land-quote-card">
+                <div className="land-quote-mark">&ldquo;</div>
+                <p className="land-quote-text">{t.quote}</p>
+                <div className="land-quote-byline">
+                  <div className="land-quote-avatar">
+                    {t.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="land-quote-name">{t.name}</div>
+                    <div className="land-quote-role">{t.role} · {t.company}</div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: 36 }}>
+            <Link
+              href="/customers"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "12px 22px",
+                borderRadius: 12,
+                background: "white",
+                border: "1px solid var(--line, #ece9f5)",
+                color: "var(--ink, #1e1b4b)",
+                fontSize: 14.5,
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+            >
+              See all customers <ArrowRight size={15} />
+            </Link>
+          </div>
+        </section>
+
         {/* Integration logos */}
         <section className="land-section">
           <p className="land-section-label">CONNECTS TO YOUR STACK</p>
@@ -837,6 +1054,12 @@ export default function MarketingLandingPage() {
             </a>
             <Link href="/compare" style={{ color: "inherit", textDecoration: "none" }}>
               Compare
+            </Link>
+            <Link href="/customers" style={{ color: "inherit", textDecoration: "none" }}>
+              Customers
+            </Link>
+            <Link href="/pricing" style={{ color: "inherit", textDecoration: "none" }}>
+              Pricing
             </Link>
             <a href="https://github.com/mark-hallam/skycot-packs" style={{ color: "inherit", textDecoration: "none" }}>
               GitHub
