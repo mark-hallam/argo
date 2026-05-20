@@ -12,6 +12,7 @@ import {
 } from "react";
 import { ChevronDown, Plus, Search, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
+import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { TeamEmptyState } from "@/components/skycot/TeamEmptyState";
 import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
@@ -381,11 +382,9 @@ function ClearAllButton({ onClick }: { onClick: () => void }) {
 /**
  * Team hero — C2 holographic-showcase brand-loud banner.
  *
- * Renders above the filter/list header. Provides the "your AI workforce
- * is alive" register the locked C2 design memory calls for: gradient
- * banner, Audiowide hero, weight-900 stat numbers, animated shine across
- * the gradient. Three derived KPIs (active, weekly actions, hours saved)
- * are surfaced; richer aggregations land in a follow-up.
+ * Wraps the shared `<BrandLoudHero>` with the team-specific copy and
+ * KPIs. Empty / single / multi states drive the headline; the dot
+ * pulses to convey "your AI workforce is alive".
  */
 function TeamHero({
   total,
@@ -398,187 +397,34 @@ function TeamHero({
   weeklyActions: number;
   hoursSaved: number;
 }) {
+  const title =
+    total === 0
+      ? "Hire your first teammate."
+      : total === 1
+        ? "Your first teammate is working."
+        : `${total} teammates, one team.`;
+  const sub =
+    total === 0
+      ? "No teammates yet. Pick a vertical and they'll be in your Slack in four minutes."
+      : `${working} working right now · ${weeklyActions.toLocaleString()} actions this week · saving you ~${hoursSaved} hours.`;
   return (
-    <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
-      <style jsx global>{`
-        .team-hero {
-          position: relative;
-          margin: 24px 16px 0;
-          padding: 28px 32px;
-          border-radius: 18px;
-          background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #ff6b6b 100%);
-          color: white;
-          overflow: hidden;
-          box-shadow: 0 16px 40px -16px rgba(139, 92, 246, 0.45);
-        }
-        .team-hero::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            115deg,
-            transparent 30%,
-            rgba(255, 255, 255, 0.18) 50%,
-            transparent 70%
-          );
-          transform: translateX(-100%);
-          animation: team-hero-shine 4.5s ease-in-out infinite;
-          pointer-events: none;
-        }
-        @keyframes team-hero-shine {
-          0%, 80%, 100% {
-            transform: translateX(-100%);
-          }
-          90% {
-            transform: translateX(100%);
-          }
-        }
-        .team-hero-grid {
-          position: relative;
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 32px;
-          flex-wrap: wrap;
-        }
-        .team-hero-left {
-          flex: 1;
-          min-width: 260px;
-        }
-        .team-hero-eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-family: "JetBrains Mono", monospace;
-          font-size: 10.5px;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          font-weight: 700;
-          color: rgba(255, 255, 255, 0.85);
-          padding: 4px 12px;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.16);
-          backdrop-filter: blur(8px);
-          margin-bottom: 14px;
-        }
-        .team-hero-eyebrow-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #f0fdf4;
-          box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
-          animation: team-hero-pulse 1.6s ease-in-out infinite;
-        }
-        @keyframes team-hero-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.45; }
-        }
-        .team-hero-title {
-          font-family: "Audiowide", "Inter", sans-serif;
-          font-size: 36px;
-          line-height: 1.05;
-          font-weight: 400;
-          letter-spacing: 0.005em;
-          margin: 0;
-          color: white;
-        }
-        .team-hero-sub {
-          margin-top: 8px;
-          font-size: 14px;
-          font-weight: 400;
-          color: rgba(255, 255, 255, 0.85);
-          max-width: 420px;
-        }
-        .team-hero-kpis {
-          display: flex;
-          gap: 28px;
-        }
-        .team-kpi {
-          text-align: right;
-        }
-        .team-kpi-label {
-          font-family: "JetBrains Mono", monospace;
-          font-size: 10px;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.75);
-          margin-bottom: 4px;
-        }
-        .team-kpi-value {
-          font-family: "Inter", sans-serif;
-          font-size: 36px;
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: white;
-          line-height: 1;
-        }
-        @media (max-width: 720px) {
-          .team-hero {
-            margin: 16px 12px 0;
-            padding: 22px 22px;
-          }
-          .team-hero-title {
-            font-size: 28px;
-          }
-          .team-hero-kpis {
-            gap: 18px;
-            width: 100%;
-            justify-content: flex-start;
-            margin-top: 16px;
-          }
-          .team-kpi {
-            text-align: left;
-          }
-          .team-kpi-value {
-            font-size: 28px;
-          }
-        }
-      `}</style>
-      <div className="team-hero">
-        <div className="team-hero-grid">
-          <div className="team-hero-left">
-            <div className="team-hero-eyebrow">
-              <span className="team-hero-eyebrow-dot" />
-              YOUR AI WORKFORCE · LIVE
-            </div>
-            <h1 className="team-hero-title">
-              {total === 0
-                ? "Hire your first teammate."
-                : total === 1
-                  ? "Your first teammate is working."
-                  : `${total} teammates, one team.`}
-            </h1>
-            <p className="team-hero-sub">
-              {total === 0
-                ? "No teammates yet. Pick a vertical and they'll be in your Slack in four minutes."
-                : `${working} working right now · ${weeklyActions.toLocaleString()} actions this week · saving you ~${hoursSaved} hours.`}
-            </p>
-          </div>
-          {total > 0 ? (
-            <div className="team-hero-kpis">
-              <div className="team-kpi">
-                <div className="team-kpi-label">Working</div>
-                <div className="team-kpi-value">{working}</div>
-              </div>
-              <div className="team-kpi">
-                <div className="team-kpi-label">Actions/wk</div>
-                <div className="team-kpi-value">{weeklyActions.toLocaleString()}</div>
-              </div>
-              <div className="team-kpi">
-                <div className="team-kpi-label">Hours saved</div>
-                <div className="team-kpi-value">{hoursSaved}</div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </>
+    <BrandLoudHero
+      eyebrowDotColor="#f0fdf4"
+      eyebrowLabel="YOUR AI WORKFORCE · LIVE"
+      pulseDot
+      title={title}
+      sub={sub}
+      subMaxWidth={420}
+      shineDurationS={4.5}
+      kpis={
+        total > 0
+          ? [
+              { label: "Working", value: String(working) },
+              { label: "Actions/wk", value: weeklyActions.toLocaleString() },
+              { label: "Hours saved", value: String(hoursSaved) },
+            ]
+          : undefined
+      }
+    />
   );
 }

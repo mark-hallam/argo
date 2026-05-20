@@ -96,7 +96,7 @@ describe("CohortsPage", () => {
     });
     render(<CohortsPage />);
     expect(screen.getByTestId("cohort-grid")).toBeInTheDocument();
-    expect(screen.getByText(/2 cohorts/i)).toBeInTheDocument();
+    expect(screen.getByTestId("cohorts-subtitle")).toHaveTextContent(/2 cohorts/i);
     expect(screen.getAllByTestId(/^cohort-card-/).length).toBe(2);
     expect(screen.queryByTestId("drawer-open")).not.toBeInTheDocument();
     await userEvent.click(screen.getByTestId("cohort-card-support::trusted"));

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { CohortCard } from "@/components/skycot/CohortCard";
 import { CohortDetailDrawer } from "@/components/skycot/CohortDetailDrawer";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -105,9 +106,11 @@ function LoadingGrid() {
 /**
  * Cohorts hero — D3 magazine-tiles brand-loud banner.
  *
- * Same gradient-hero language as TeamHero + ApprovalsHero. The locked
- * D3 magazine-tiles design lives in the cohort grid below; the hero
- * gives the page its "Bloomberg-feature editorial" register.
+ * Wraps the shared `<BrandLoudHero>` with the cohorts-specific copy
+ * and KPIs. The locked D3 magazine-tiles design lives in the cohort
+ * grid below; the hero gives the page its "Bloomberg-feature
+ * editorial" register. The eyebrow dot does not pulse — cohorts read
+ * as a stable taxonomy rather than a live feed.
  */
 function CohortsHero({ total, members, skills }: { total: number; members: number; skills: number }) {
   let title: string;
@@ -123,171 +126,23 @@ function CohortsHero({ total, members, skills }: { total: number; members: numbe
     sub = "Each cohort earns its trust grade by shipping consistently. Promotions happen automatically.";
   }
   return (
-    <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
-      <style jsx global>{`
-        .cohorts-hero {
-          position: relative;
-          margin: 24px 16px 0;
-          padding: 28px 32px;
-          border-radius: 18px;
-          background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #ff6b6b 100%);
-          color: white;
-          overflow: hidden;
-          box-shadow: 0 16px 40px -16px rgba(139, 92, 246, 0.45);
-        }
-        .cohorts-hero::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            115deg,
-            transparent 30%,
-            rgba(255, 255, 255, 0.18) 50%,
-            transparent 70%
-          );
-          transform: translateX(-100%);
-          animation: cohorts-hero-shine 6s ease-in-out infinite;
-          pointer-events: none;
-        }
-        @keyframes cohorts-hero-shine {
-          0%, 80%, 100% {
-            transform: translateX(-100%);
-          }
-          90% {
-            transform: translateX(100%);
-          }
-        }
-        .cohorts-hero-grid {
-          position: relative;
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 32px;
-          flex-wrap: wrap;
-        }
-        .cohorts-hero-left {
-          flex: 1;
-          min-width: 260px;
-        }
-        .cohorts-hero-eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-family: "JetBrains Mono", monospace;
-          font-size: 10.5px;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          font-weight: 700;
-          color: rgba(255, 255, 255, 0.85);
-          padding: 4px 12px;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.16);
-          backdrop-filter: blur(8px);
-          margin-bottom: 14px;
-        }
-        .cohorts-hero-eyebrow-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #ddd6fe;
-        }
-        .cohorts-hero-title {
-          font-family: "Audiowide", "Inter", sans-serif;
-          font-size: 36px;
-          line-height: 1.05;
-          font-weight: 400;
-          letter-spacing: 0.005em;
-          margin: 0;
-          color: white;
-        }
-        .cohorts-hero-sub {
-          margin-top: 8px;
-          font-size: 14px;
-          font-weight: 400;
-          color: rgba(255, 255, 255, 0.85);
-          max-width: 480px;
-        }
-        .cohorts-hero-kpis {
-          display: flex;
-          gap: 28px;
-        }
-        .cohorts-kpi {
-          text-align: right;
-        }
-        .cohorts-kpi-label {
-          font-family: "JetBrains Mono", monospace;
-          font-size: 10px;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.75);
-          margin-bottom: 4px;
-        }
-        .cohorts-kpi-value {
-          font-family: "Inter", sans-serif;
-          font-size: 36px;
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: white;
-          line-height: 1;
-        }
-        @media (max-width: 720px) {
-          .cohorts-hero {
-            margin: 16px 12px 0;
-            padding: 22px 22px;
-          }
-          .cohorts-hero-title {
-            font-size: 28px;
-          }
-          .cohorts-hero-kpis {
-            gap: 18px;
-            width: 100%;
-            justify-content: flex-start;
-            margin-top: 16px;
-          }
-          .cohorts-kpi {
-            text-align: left;
-          }
-          .cohorts-kpi-value {
-            font-size: 28px;
-          }
-        }
-      `}</style>
-      <div className="cohorts-hero">
-        <div className="cohorts-hero-grid">
-          <div className="cohorts-hero-left">
-            <div className="cohorts-hero-eyebrow">
-              <span className="cohorts-hero-eyebrow-dot" />
-              COHORTS
-            </div>
-            <h1 className="cohorts-hero-title">{title}</h1>
-            <p className="cohorts-hero-sub">{sub}</p>
-          </div>
-          {total > 0 ? (
-            <div className="cohorts-hero-kpis">
-              <div className="cohorts-kpi">
-                <div className="cohorts-kpi-label">Cohorts</div>
-                <div className="cohorts-kpi-value">{total}</div>
-              </div>
-              <div className="cohorts-kpi">
-                <div className="cohorts-kpi-label">Members</div>
-                <div className="cohorts-kpi-value">{members}</div>
-              </div>
-              <div className="cohorts-kpi">
-                <div className="cohorts-kpi-label">Skills</div>
-                <div className="cohorts-kpi-value">{skills}</div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </>
+    <BrandLoudHero
+      eyebrowDotColor="#ddd6fe"
+      eyebrowLabel="COHORTS"
+      title={title}
+      sub={sub}
+      subMaxWidth={480}
+      shineDurationS={6}
+      kpis={
+        total > 0
+          ? [
+              { label: "Cohorts", value: String(total) },
+              { label: "Members", value: String(members) },
+              { label: "Skills", value: String(skills) },
+            ]
+          : undefined
+      }
+    />
   );
 }
 
