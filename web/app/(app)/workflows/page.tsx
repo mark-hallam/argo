@@ -429,7 +429,7 @@ export default function WorkflowsPage() {
           {SEED_WORKFLOWS.map((wf) => (
             <Link
               key={`${wf.vertical}/${wf.name}`}
-              href={`/verticals/${wf.vertical}/workflows/${wf.name}`}
+              href={`/workflows/${wf.vertical}/${wf.name}`}
               className="workflow-card"
             >
               <div className="workflow-card-top">
