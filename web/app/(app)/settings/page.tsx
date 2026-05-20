@@ -136,6 +136,7 @@ export default function SettingsLandingPage() {
         .settings-tile:hover {
           border-color: rgba(139, 92, 246, 0.4);
           box-shadow: 0 6px 12px -4px rgba(139, 92, 246, 0.1);
+          transform: translateY(-2px);
         }
         .settings-tile-coming {
           opacity: 0.72;
@@ -144,6 +145,7 @@ export default function SettingsLandingPage() {
         .settings-tile-coming:hover {
           border-color: var(--border, #ece9f5);
           box-shadow: none;
+          transform: none;
         }
         .settings-tile-icon {
           width: 36px;
@@ -232,13 +234,13 @@ function Tile({
 
   if (coming) {
     return (
-      <div className="tile coming" aria-disabled>
+      <div className="settings-tile settings-tile-coming" aria-disabled>
         {content}
       </div>
     );
   }
   return (
-    <Link href={href} className="tile">
+    <Link href={href} className="settings-tile">
       {content}
     </Link>
   );
