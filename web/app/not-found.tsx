@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ErrorShell } from "@/components/error/ErrorShell";
 import { buttonVariants } from "@/components/ui/Button";

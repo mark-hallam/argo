@@ -1,12 +1,9 @@
+"use client";
+
 import { ErrorShell } from "@/components/error/ErrorShell";
 import { buttonVariants } from "@/components/ui/Button";
 
 const STATUS_URL = "https://status.skycot.com";
-
-export const metadata = {
-  title: "Maintenance",
-  description: "SKYCOT is briefly offline for planned maintenance.",
-};
 
 export default function MaintenancePage() {
   const eta = process.env.NEXT_PUBLIC_MAINTENANCE_ETA;
