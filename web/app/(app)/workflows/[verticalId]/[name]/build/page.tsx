@@ -91,6 +91,13 @@ interface WaitConfig {
   until_field?: string;
 }
 
+interface DecisionBranch {
+  trueLabel: string;
+  falseLabel: string;
+  falseSteps: WorkflowStep[];
+  joinAt?: string;
+}
+
 interface WorkflowStep {
   id: string;
   kind: StepKind;
@@ -99,13 +106,12 @@ interface WorkflowStep {
   approvalGate?: { reason: string; channel: string };
   inputs?: string[];
   outputs?: string[];
-  // When kind === "trigger", `triggerKind` discriminates the tailored
-  // config form rendered in the drawer. Defaults to "manual" if absent.
   triggerKind?: TriggerKind;
   loopConfig?: LoopConfig;
   // Inline loop body — rendered indented with a dashed return edge.
   body?: WorkflowStep[];
   waitConfig?: WaitConfig;
+  branch?: DecisionBranch;
 }
 
 interface WorkflowSpec {
@@ -127,7 +133,20 @@ const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
     steps: [
       { id: "s1", kind: "trigger", triggerKind: "form", name: "Seller submits inventory", description: "Slack/email/web inbox with photos + price + condition.", inputs: ["photos[]", "price", "condition"] },
       { id: "s2", kind: "skill_invoke", name: "Validate inventory", description: "Checks price vs market, runs OCR for category hints.", outputs: ["validation_report"] },
-      { id: "s3", kind: "decision", name: "Branch on validation", description: "Below floor → manager review. Otherwise continue." },
+      {
+        id: "s3",
+        kind: "decision",
+        name: "Branch on validation",
+        description: "Below floor → manager review. Otherwise continue.",
+        branch: {
+          trueLabel: "passes",
+          falseLabel: "below floor",
+          joinAt: "s4",
+          falseSteps: [
+            { id: "s3b1", kind: "approval", name: "Manager reviews exception", description: "Floor-price exception requires manager OK before listing copy is drafted.", approvalGate: { reason: "Pricing exceptions need manager signoff.", channel: "Slack" } },
+          ],
+        },
+      },
       { id: "s4", kind: "skill_invoke", name: "Generate listing copy", description: "60-word description + 3 highlights + photos.", outputs: ["listing.title", "listing.body"] },
       { id: "s5", kind: "approval", name: "Seller approves", description: "One-tap approve / request edits via Slack.", approvalGate: { reason: "Posting public listings needs seller signoff.", channel: "Slack" } },
       { id: "s6", kind: "tool_call", name: "Post to Marketplace", description: "BrowserExecutor opens FB, fills form, submits.", outputs: ["listing.url"] },
@@ -142,7 +161,19 @@ const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
     steps: [
       { id: "s1", kind: "trigger", triggerKind: "webhook", name: "Lead from web / paid / referral", description: "HubSpot/Salesforce webhook fires." },
       { id: "s2", kind: "skill_invoke", name: "Enrich + BANT score", description: "Firmographic + technographic data; 0-100 BANT score." },
-      { id: "s3", kind: "decision", name: "Branch on BANT score", description: "≥75 = demo. 50-74 = nurture. <50 = decline." },
+      {
+        id: "s3",
+        kind: "decision",
+        name: "Branch on BANT score",
+        description: "≥75 = demo. 50-74 = nurture. <50 = decline.",
+        branch: {
+          trueLabel: "≥75 demo-ready",
+          falseLabel: "<75 nurture",
+          falseSteps: [
+            { id: "s3b1", kind: "skill_invoke", name: "Drip nurture sequence", description: "Add lead to 8-week BANT nurture cadence; re-score on engagement.", outputs: ["nurture.cadence_id"] },
+          ],
+        },
+      },
       { id: "s4", kind: "approval", name: "AE approves outreach", description: "Slack DM with qual summary + one-tap approve.", approvalGate: { reason: "Outreach to enterprise needs AE signoff.", channel: "Slack" } },
       { id: "s5", kind: "tool_call", name: "Send outreach + calendar link", description: "Gmail/Outlook + Calendly slot + CRM update." },
     ],
@@ -217,6 +248,7 @@ function SkycotStepNode({ data, selected }: NodeProps) {
   const meta = STEP_KIND_META[step.kind];
   const isLoop = step.kind === "loop";
   const isWait = step.kind === "wait";
+  const isDecision = step.kind === "decision" && !!step.branch;
   return (
     <div
       style={{
@@ -227,9 +259,10 @@ function SkycotStepNode({ data, selected }: NodeProps) {
         boxShadow: selected
           ? "0 12px 30px -8px rgba(139, 92, 246, 0.45)"
           : "0 6px 16px -8px rgba(0, 0, 0, 0.15)",
-        overflow: "hidden",
+        overflow: "visible",
         fontFamily: "Inter, sans-serif",
         cursor: "grab",
+        position: "relative",
       }}
     >
       <Handle type="target" position={Position.Top} style={{ background: "#8b5cf6", border: "none", width: 8, height: 8 }} />
@@ -331,7 +364,42 @@ function SkycotStepNode({ data, selected }: NodeProps) {
           </div>
         ) : null}
       </div>
-      <Handle type="source" position={Position.Bottom} style={{ background: "#8b5cf6", border: "none", width: 8, height: 8 }} />
+      {isDecision ? (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: "8px 14px 10px",
+            borderTop: "1px dashed rgba(0,0,0,0.08)",
+            fontFamily: "JetBrains Mono, monospace",
+            fontSize: 9.5,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            fontWeight: 700,
+          }}
+        >
+          <span style={{ color: "#8b5cf6" }}>↓ {step.branch!.trueLabel}</span>
+          <span style={{ color: "#f59e0b" }}>{step.branch!.falseLabel} →</span>
+        </div>
+      ) : null}
+      {isDecision ? (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="true"
+          style={{ background: "#8b5cf6", border: "none", width: 10, height: 10, left: "30%" }}
+        />
+      ) : (
+        <Handle type="source" position={Position.Bottom} style={{ background: "#8b5cf6", border: "none", width: 8, height: 8 }} />
+      )}
+      {isDecision ? (
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="false"
+          style={{ background: "#f59e0b", border: "none", width: 10, height: 10, top: "50%" }}
+        />
+      ) : null}
       {isLoop ? (
         <div
           style={{
@@ -360,47 +428,30 @@ function SkycotStepNode({ data, selected }: NodeProps) {
   );
 }
 
-const ROW_GAP = 200;
-const COL_BASE = 100;
-const COL_INDENT = 90;
+const TRUE_EDGE_STYLE = { stroke: "#8b5cf6", strokeWidth: 2 } as const;
+const FALSE_EDGE_STYLE = { stroke: "#f59e0b", strokeWidth: 2 } as const;
+const JOIN_EDGE_STYLE = { stroke: "#f59e0b", strokeWidth: 2, strokeDasharray: "5 4" } as const;
+const LOOP_RETURN_EDGE_STYLE = { stroke: "#6366f1", strokeWidth: 1.5, strokeDasharray: "6 5" } as const;
+const COL_MAIN_X = 100;
+const COL_LOOP_INDENT_X = 190;
+const COL_BRANCH_X = 460;
+const ROW_HEIGHT = 200;
+const ROW_START_Y = 60;
 
-// Flatten the (possibly nested) step list into React Flow nodes + edges.
-// Loop steps render their `body` indented one column beneath the header
-// with a dashed return edge from the last body step back to the header.
+// Layout the workflow into React Flow nodes + edges. Three kinds of step
+// expand into extra geometry:
+//   • Loop steps with a `body` render the inner steps indented one column
+//     beneath the loop header, with a dashed indigo return edge from the
+//     last body step back to the header.
+//   • Decision steps with a `branch` keep the "true" path running down the
+//     main column and place `falseSteps` in a parallel branch column to
+//     the right, joined by amber edges.
+//   • A `branch.joinAt` re-merges the false path back into the main column
+//     via a dashed amber "rejoin" edge to the target node.
 function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
-  let y = 60;
-
-  const linkSolid = (from: string, to: string) => {
-    edges.push({
-      id: `e-${from}-${to}`,
-      source: from,
-      target: to,
-      animated: true,
-      style: { stroke: "#8b5cf6", strokeWidth: 2 },
-    });
-  };
-
-  const linkReturn = (from: string, to: string) => {
-    edges.push({
-      id: `r-${from}-${to}`,
-      source: from,
-      target: to,
-      animated: false,
-      style: { stroke: "#6366f1", strokeWidth: 1.5, strokeDasharray: "6 5" },
-      label: "↻ loop back",
-      labelStyle: {
-        fontFamily: "JetBrains Mono, monospace",
-        fontSize: 9,
-        fill: "#6366f1",
-        letterSpacing: "0.08em",
-      },
-      labelBgStyle: { fill: "white" },
-      labelBgPadding: [4, 6],
-      labelBgBorderRadius: 4,
-    });
-  };
+  let y = ROW_START_Y;
 
   const emit = (step: WorkflowStep, x: number) => {
     nodes.push({
@@ -409,24 +460,111 @@ function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge[] } {
       position: { x, y },
       data: { step },
     });
-    y += ROW_GAP;
+    y += ROW_HEIGHT;
   };
 
-  let prevId: string | null = null;
+  // First pass: emit main-column steps + inline loop bodies, and the
+  // forward main-column edges. Track each main step's y so the second
+  // pass can position decision-branch nodes relative to the decision.
+  const mainStepY = new Map<string, number>();
+  let prevMainId: string | null = null;
+  let prevMainStep: WorkflowStep | null = null;
+
   for (const step of steps) {
-    emit(step, COL_BASE);
-    if (prevId) linkSolid(prevId, step.id);
-    prevId = step.id;
+    mainStepY.set(step.id, y);
+    emit(step, COL_MAIN_X);
+
+    if (prevMainId && prevMainStep) {
+      const fromDecision = prevMainStep.kind === "decision" && !!prevMainStep.branch;
+      edges.push({
+        id: `e-${prevMainId}-${step.id}`,
+        source: prevMainId,
+        target: step.id,
+        sourceHandle: fromDecision ? "true" : undefined,
+        animated: true,
+        style: TRUE_EDGE_STYLE,
+        label: fromDecision ? prevMainStep.branch!.trueLabel : undefined,
+        labelStyle: fromDecision
+          ? { fontFamily: "JetBrains Mono, monospace", fontSize: 10, fill: "#8b5cf6", fontWeight: 700 }
+          : undefined,
+        labelBgStyle: fromDecision ? { fill: "white", fillOpacity: 0.92 } : undefined,
+      });
+    }
+    prevMainId = step.id;
+    prevMainStep = step;
 
     if (step.kind === "loop" && step.body && step.body.length > 0) {
       let lastBodyId = step.id;
       for (const child of step.body) {
-        emit(child, COL_BASE + COL_INDENT);
-        linkSolid(lastBodyId, child.id);
+        emit(child, COL_LOOP_INDENT_X);
+        edges.push({
+          id: `e-${lastBodyId}-${child.id}`,
+          source: lastBodyId,
+          target: child.id,
+          animated: true,
+          style: TRUE_EDGE_STYLE,
+        });
         lastBodyId = child.id;
       }
-      // Last body step wires back to the loop header with a dashed return edge.
-      linkReturn(lastBodyId, step.id);
+      edges.push({
+        id: `r-${lastBodyId}-${step.id}`,
+        source: lastBodyId,
+        target: step.id,
+        animated: false,
+        style: LOOP_RETURN_EDGE_STYLE,
+        label: "↻ loop back",
+        labelStyle: {
+          fontFamily: "JetBrains Mono, monospace",
+          fontSize: 9,
+          fill: "#6366f1",
+          letterSpacing: "0.08em",
+        },
+        labelBgStyle: { fill: "white" },
+        labelBgPadding: [4, 6],
+        labelBgBorderRadius: 4,
+      });
+    }
+  }
+
+  // Second pass: render decision-branch falseSteps in the branch column.
+  for (const step of steps) {
+    if (step.kind !== "decision" || !step.branch || step.branch.falseSteps.length === 0) continue;
+    const branch = step.branch;
+    const baseY = mainStepY.get(step.id) ?? ROW_START_Y;
+    branch.falseSteps.forEach((bStep, j) => {
+      nodes.push({
+        id: bStep.id,
+        type: "skycot",
+        position: { x: COL_BRANCH_X, y: baseY + (j + 1) * ROW_HEIGHT },
+        data: { step: bStep },
+      });
+      const sourceId = j === 0 ? step.id : branch.falseSteps[j - 1].id;
+      edges.push({
+        id: `e-${sourceId}-${bStep.id}`,
+        source: sourceId,
+        target: bStep.id,
+        sourceHandle: j === 0 ? "false" : undefined,
+        animated: true,
+        style: FALSE_EDGE_STYLE,
+        label: j === 0 ? branch.falseLabel : undefined,
+        labelStyle: j === 0
+          ? { fontFamily: "JetBrains Mono, monospace", fontSize: 10, fill: "#b45309", fontWeight: 700 }
+          : undefined,
+        labelBgStyle: j === 0 ? { fill: "white", fillOpacity: 0.92 } : undefined,
+      });
+    });
+    if (branch.joinAt) {
+      const last = branch.falseSteps[branch.falseSteps.length - 1];
+      edges.push({
+        id: `e-${last.id}-${branch.joinAt}-join`,
+        source: last.id,
+        target: branch.joinAt,
+        animated: true,
+        style: JOIN_EDGE_STYLE,
+        label: "rejoin",
+        labelStyle: { fontFamily: "JetBrains Mono, monospace", fontSize: 9.5, fill: "#b45309", fontWeight: 700 },
+        labelBgStyle: { fill: "white", fillOpacity: 0.92 },
+      });
     }
   }
 
