@@ -5,6 +5,7 @@ import {
   WizardEditorialShell,
   type WizardStep,
 } from "@/components/auth/WizardEditorialShell";
+import { OnboardingFormStyles } from "@/components/skycot/onboarding/OnboardingFormStyles";
 
 /**
  * Thin onboarding-side adapter around the locked F1 editorial-center
@@ -52,6 +53,7 @@ export function OnboardingShell({
       sub={sub}
       hideFooter
     >
+      <OnboardingFormStyles />
       {children}
     </WizardEditorialShell>
   );

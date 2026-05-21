@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { Loader2 } from "lucide-react";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProvision } from "@/lib/onboarding/use-provision";
 import { OnboardingShell } from "../_OnboardingShell";
@@ -49,74 +49,84 @@ export default function OnboardingWorkspacePage() {
     <OnboardingShell
       step={2}
       stepLabel="WORKSPACE"
-      eyebrow="STEP TWO"
+      eyebrow="STEP TWO · WORKSPACE"
       heroSegments={[
         { text: "Name your " },
         { text: "workspace.", accent: true },
       ]}
       sub={
         <>
-          Workers live in workspaces. <strong>You can rename them later.</strong>
+          Workers live in workspaces. <strong>You can rename them later</strong> &mdash;
+          this is just so we can stop calling it &quot;your workspace.&quot;
         </>
       }
     >
-      <section className="mx-auto flex max-w-xl flex-col gap-6">
-        <form
-          className="flex flex-col gap-4 rounded-[12px] border border-[#ece9f5] bg-white/80 p-6 shadow-sm"
-          onSubmit={onSubmit}
-          data-testid="onboarding-workspace-form"
-        >
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-[#1e1b4b]">Workspace name</span>
-            <input
-              className="h-10 w-full rounded-[8px] border border-[#d1d1d1] bg-white px-3 text-sm text-[#1e1b4b] outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/30"
-              data-testid="workspace-name"
-              type="text"
-              value={workspaceName}
-              onChange={(e) => setWorkspaceName(e.target.value)}
-              placeholder="Acme Growth"
-              autoComplete="off"
-              aria-label="Workspace name"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-[#1e1b4b]">Company name</span>
-            <input
-              className="h-10 w-full rounded-[8px] border border-[#d1d1d1] bg-white px-3 text-sm text-[#1e1b4b] outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/30"
-              data-testid="company-name"
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="Acme Inc."
-              autoComplete="organization"
-              aria-label="Company name"
-            />
-          </label>
-          {error ? (
-            <p className="text-sm text-[#dc2626]" data-testid="onboarding-workspace-error">
-              {error}
-            </p>
-          ) : null}
-          <div className="flex items-center justify-between pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => router.push("/onboarding/welcome")}
-              data-testid="onboarding-workspace-back"
-            >
-              Back
-            </Button>
-            <Button
-              type="submit"
-              disabled={!canSubmit}
-              loading={submitting}
-              data-testid="onboarding-workspace-submit"
-            >
-              Continue
-            </Button>
-          </div>
-        </form>
-      </section>
+      <form
+        className="ob-form-card"
+        onSubmit={onSubmit}
+        data-testid="onboarding-workspace-form"
+        noValidate
+      >
+        <label className="ob-field">
+          <span className="ob-field-label">Workspace name</span>
+          <input
+            className="ob-field-input"
+            data-testid="workspace-name"
+            type="text"
+            value={workspaceName}
+            onChange={(e) => setWorkspaceName(e.target.value)}
+            placeholder="Acme Growth"
+            autoComplete="off"
+            aria-label="Workspace name"
+            autoFocus
+          />
+          <p className="ob-field-hint">
+            Tip: <strong>add an environment suffix</strong> like &quot;· production&quot; or
+            &quot;· staging&quot; if you&apos;ll have multiple workspaces.
+          </p>
+        </label>
+        <label className="ob-field">
+          <span className="ob-field-label">Company name</span>
+          <input
+            className="ob-field-input"
+            data-testid="company-name"
+            type="text"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="Acme Inc."
+            autoComplete="organization"
+            aria-label="Company name"
+          />
+        </label>
+        {error ? (
+          <p className="ob-form-error" data-testid="onboarding-workspace-error">
+            {error}
+          </p>
+        ) : null}
+        <div className="ob-cta-row is-split">
+          <button
+            type="button"
+            className="ob-cta-back"
+            onClick={() => router.push("/onboarding/welcome")}
+            data-testid="onboarding-workspace-back"
+          >
+            ← Back
+          </button>
+          <button
+            type="submit"
+            className="ob-cta"
+            disabled={!canSubmit}
+            aria-busy={submitting || undefined}
+            data-testid="onboarding-workspace-submit"
+          >
+            {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            Continue
+            <span className="ob-cta-kbd" aria-hidden>
+              ↵
+            </span>
+          </button>
+        </div>
+      </form>
     </OnboardingShell>
   );
 }

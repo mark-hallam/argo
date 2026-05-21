@@ -1,9 +1,8 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useFirstHire } from "@/lib/onboarding/use-first-hire";
 import { OnboardingShell } from "../_OnboardingShell";
@@ -71,66 +70,74 @@ export default function OnboardingFirstHirePage() {
     <OnboardingShell
       step={5}
       stepLabel="FIRST HIRE"
-      eyebrow="STEP FIVE"
+      eyebrow="STEP FIVE · FINAL"
       heroSegments={[
         { text: "Describe your " },
         { text: "first worker.", accent: true },
       ]}
       sub={
         <>
-          Plain English is fine. Give them a <strong>name, a role, and what they should do this week</strong>.
+          Plain English is fine. Give them a{" "}
+          <strong>name, a role, and what they should do this week</strong>.
         </>
       }
     >
-      <section className="mx-auto flex max-w-2xl flex-col gap-6">
-        <form
-          className="flex flex-col gap-4 rounded-[12px] border border-[#ece9f5] bg-white/80 p-6 shadow-sm"
-          onSubmit={onSubmit}
-          data-testid="onboarding-first-hire-form"
-        >
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-[#1e1b4b]">Tell us about them</span>
-            <textarea
-              className="min-h-32 w-full rounded-[8px] border border-[#d1d1d1] bg-white p-3 text-sm text-[#1e1b4b] outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/30"
-              data-testid="first-hire-prompt"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={EXAMPLE_PROMPT}
-              aria-label="First hire description"
-            />
-            <p className="text-xs text-[#52525b]">
-              Example: <em>{EXAMPLE_PROMPT}</em>
-            </p>
-          </label>
-          {error ? (
-            <p
-              className="text-sm text-[#dc2626]"
-              data-testid="onboarding-first-hire-error"
-            >
-              {error}
-            </p>
-          ) : null}
-          <div className="flex items-center justify-between pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => router.push("/onboarding/pick-vertical")}
-              data-testid="onboarding-first-hire-back"
-            >
-              Back
-            </Button>
-            <Button
-              type="submit"
-              disabled={!canSubmit}
-              loading={submitting}
-              data-testid="onboarding-first-hire-submit"
-            >
-              <Sparkles aria-hidden />
-              Hire them
-            </Button>
-          </div>
-        </form>
-      </section>
+      <form
+        className="ob-form-card"
+        onSubmit={onSubmit}
+        data-testid="onboarding-first-hire-form"
+        noValidate
+        style={{ maxWidth: 640 }}
+      >
+        <label className="ob-field">
+          <span className="ob-field-label">Tell us about them</span>
+          <textarea
+            className="ob-field-textarea"
+            data-testid="first-hire-prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={EXAMPLE_PROMPT}
+            aria-label="First hire description"
+            rows={5}
+            autoFocus
+          />
+          <p className="ob-field-hint">
+            Example: <em>{EXAMPLE_PROMPT}</em>
+          </p>
+        </label>
+        {error ? (
+          <p className="ob-form-error" data-testid="onboarding-first-hire-error">
+            {error}
+          </p>
+        ) : null}
+        <div className="ob-cta-row is-split">
+          <button
+            type="button"
+            className="ob-cta-back"
+            onClick={() => router.push("/onboarding/pick-vertical")}
+            data-testid="onboarding-first-hire-back"
+          >
+            ← Back
+          </button>
+          <button
+            type="submit"
+            className="ob-cta"
+            disabled={!canSubmit}
+            aria-busy={submitting || undefined}
+            data-testid="onboarding-first-hire-submit"
+          >
+            {submitting ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="size-4" aria-hidden />
+            )}
+            Hire them
+            <span className="ob-cta-kbd" aria-hidden>
+              ↵
+            </span>
+          </button>
+        </div>
+      </form>
     </OnboardingShell>
   );
 }
