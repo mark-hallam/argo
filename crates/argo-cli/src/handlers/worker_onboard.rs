@@ -86,7 +86,8 @@ pub async fn run(
 ) -> ArgoResult<()> {
     let raw = std::fs::read_to_string(persona_spec)
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", persona_spec.display())))?;
-    let spec = parse_spec_str(&raw)?;
+    let spec = parse_spec_str(&raw)
+        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", persona_spec.display())))?;
     let worker_id = id.map(parse_worker_id).transpose()?;
     let (store, tenant_id) = open_workspace_store().await?;
     let out = create_from_spec(&store, tenant_id, spec, worker_id, role_name).await?;

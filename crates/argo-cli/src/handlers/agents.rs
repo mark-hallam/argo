@@ -42,8 +42,8 @@ fn list_agents(json: bool, format: &str) -> ArgoResult<()> {
     }
     let body = std::fs::read_to_string(&toml_path)
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", toml_path.display())))?;
-    let value: toml::Value =
-        toml::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse argo.toml: {e}")))?;
+    let value: toml::Value = toml::from_str(&body)
+        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", toml_path.display())))?;
     let Some(agents_table) = value.get("agents").and_then(|v| v.as_table()) else {
         match pick {
             "json" => println!("[]"),
@@ -210,7 +210,8 @@ fn workspace_toml() -> ArgoResult<(std::path::PathBuf, std::path::PathBuf)> {
 fn parse_argo_toml(toml_path: &std::path::Path) -> ArgoResult<toml::Value> {
     let body = std::fs::read_to_string(toml_path)
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", toml_path.display())))?;
-    toml::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse argo.toml: {e}")))
+    toml::from_str(&body)
+        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", toml_path.display())))
 }
 
 fn ensure_table<'a>(
@@ -237,4 +238,27 @@ fn write_argo_toml(toml_path: &std::path::Path, doc: &toml::Value) -> ArgoResult
         .map_err(|e| ArgoError::Provider(format!("serialize argo.toml: {e}")))?;
     std::fs::write(toml_path, serialized)
         .map_err(|e| ArgoError::Io(format!("write {}: {e}", toml_path.display())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `parse_argo_toml` must surface the absolute file path on a
+    /// parse error so the operator can see which `argo.toml` failed
+    /// — useful when running `argo agents` from a non-default cwd or
+    /// against a workspace template they haven't touched in a while.
+    #[test]
+    fn parse_argo_toml_includes_file_path_on_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let toml_path = dir.path().join("argo.toml");
+        std::fs::write(&toml_path, "this is = not [valid").unwrap();
+        let err = parse_argo_toml(&toml_path).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains(&toml_path.display().to_string()),
+            "expected error to include {} — got {msg}",
+            toml_path.display()
+        );
+    }
 }

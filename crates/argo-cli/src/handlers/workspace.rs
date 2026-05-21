@@ -164,7 +164,7 @@ fn verify(cwd: &std::path::Path) -> ArgoResult<()> {
     let value: toml::Value = match toml::from_str(&body) {
         Ok(v) => v,
         Err(e) => {
-            problems.push(format!("argo.toml parse error: {e}"));
+            problems.push(format!("parse {}: {e}", toml_path.display()));
             toml::Value::Table(toml::map::Map::new())
         }
     };

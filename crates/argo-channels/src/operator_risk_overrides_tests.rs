@@ -278,3 +278,23 @@ entries = [
         Some(&RiskLevel::Low),
     );
 }
+
+/// A malformed `risk_overrides.toml` must surface the absolute path
+/// so the operator knows which override file is broken.
+#[tokio::test]
+async fn malformed_toml_error_includes_file_path() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("risk_overrides.toml");
+    std::fs::write(&path, "this is = not [valid").expect("write");
+    let source = TomlOperatorRiskOverridesSource::new(path.clone());
+    let err = source
+        .for_operator(&op("alice"))
+        .await
+        .expect_err("malformed TOML must surface as an error");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains(&path.display().to_string()),
+        "expected error to include {} — got {msg}",
+        path.display()
+    );
+}

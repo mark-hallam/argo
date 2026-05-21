@@ -26,7 +26,8 @@ pub async fn run(args: Args) -> ArgoResult<()> {
     let path = PathBuf::from(&args.config);
     let text = std::fs::read_to_string(&path)
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
-    let cfg = ImageGenConfig::from_toml_str(&text).map_err(ArgoError::Provider)?;
+    let cfg = ImageGenConfig::from_toml_str_at(&text, &path.display().to_string())
+        .map_err(ArgoError::Provider)?;
     let backend: Arc<dyn ImageBackend> = match cfg.backend {
         ImageGenBackendKind::Openai | ImageGenBackendKind::StableDiffusion => {
             let key = std::env::var("OPENAI_API_KEY").unwrap_or_default();

@@ -58,10 +58,18 @@ impl ImageGenConfig {
     /// error if the section is missing — the server refuses to start
     /// without explicit config.
     pub fn from_toml_str(text: &str) -> Result<Self, String> {
-        let root: McpRoot = toml::from_str(text).map_err(|e| format!("parse argo.toml: {e}"))?;
+        Self::from_toml_str_at(text, "argo.toml")
+    }
+
+    /// Same as [`from_toml_str`] but threads the on-disk path into
+    /// error messages so the operator can see *which* file failed
+    /// when `--config <path>` points at a non-default location.
+    pub fn from_toml_str_at(text: &str, source: &str) -> Result<Self, String> {
+        let root: McpRoot =
+            toml::from_str(text).map_err(|e| format!("parse {source}: {e}"))?;
         root.mcp
             .and_then(|m| m.image_gen)
-            .ok_or_else(|| "argo.toml missing [mcp.image_gen]".into())
+            .ok_or_else(|| format!("{source} missing [mcp.image_gen]"))
     }
 }
 
@@ -100,5 +108,32 @@ mod tests {
         "#;
         let c = ImageGenConfig::from_toml_str(toml).unwrap();
         assert!(matches!(c.backend, ImageGenBackendKind::StableDiffusion));
+    }
+
+    /// `from_toml_str_at` must include the supplied source path in
+    /// every error so operators see the path they passed at `--config`.
+    #[test]
+    fn from_toml_str_at_includes_source_in_parse_error() {
+        let bad = "this is = not [valid";
+        let err =
+            ImageGenConfig::from_toml_str_at(bad, "/etc/argo/custom.toml").unwrap_err();
+        assert!(
+            err.contains("/etc/argo/custom.toml"),
+            "expected path in parse error — got {err}"
+        );
+    }
+
+    /// `from_toml_str_at` must include the supplied source path when
+    /// the required `[mcp.image_gen]` section is absent.
+    #[test]
+    fn from_toml_str_at_includes_source_when_section_missing() {
+        let err =
+            ImageGenConfig::from_toml_str_at("[core]\nhome = \"~/.argo\"", "custom.toml")
+                .unwrap_err();
+        assert!(
+            err.contains("custom.toml"),
+            "expected path in missing-section error — got {err}"
+        );
+        assert!(err.contains("missing [mcp.image_gen]"));
     }
 }

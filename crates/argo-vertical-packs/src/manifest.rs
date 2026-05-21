@@ -87,11 +87,16 @@ impl PackManifest {
     }
 
     /// Load and validate `pack.toml` from a pack root directory.
+    /// Errors include the absolute file path so the operator can
+    /// see *which* pack.toml failed.
     pub fn load(root: &Path) -> ArgoResult<Self> {
         let path = root.join("pack.toml");
         let body = std::fs::read_to_string(&path)
             .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
-        Self::parse(&body)
+        let manifest: Self = toml::from_str(&body)
+            .map_err(|e| ArgoError::Schema(format!("parse {}: {e}", path.display())))?;
+        manifest.validate()?;
+        Ok(manifest)
     }
 
     /// Validate identity fields and relative vertical paths.
@@ -186,5 +191,26 @@ mod tests {
     fn renders_fetch_templates() {
         let out = render_template("{name}/{version}/{asset}", "ap", "1.2.3", "ap.tgz");
         assert_eq!(out, "ap/1.2.3/ap.tgz");
+    }
+
+    /// `PackManifest::load` reads `pack.toml` from a pack root and must
+    /// surface the absolute path on parse failure so the operator can
+    /// see which pack manifest is broken when several are installed.
+    #[test]
+    fn load_includes_file_path_when_required_field_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let pack_toml = tmp.path().join("pack.toml");
+        std::fs::write(&pack_toml, "[pack]\nname='x'\n").unwrap();
+        let err = PackManifest::load(tmp.path()).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains(&pack_toml.display().to_string()),
+            "expected error to include {} — got {msg}",
+            pack_toml.display()
+        );
+        assert!(
+            msg.contains("version"),
+            "expected error to name the missing field 'version' — got {msg}"
+        );
     }
 }

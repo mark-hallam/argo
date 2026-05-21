@@ -29,7 +29,7 @@ async fn main() -> Result<(), String> {
     }
     let text = std::fs::read_to_string(&config_path)
         .map_err(|e| format!("read {}: {e}", config_path.display()))?;
-    let cfg = ImageGenConfig::from_toml_str(&text)?;
+    let cfg = ImageGenConfig::from_toml_str_at(&text, &config_path.display().to_string())?;
     let backend: Arc<dyn ImageBackend> = match cfg.backend {
         ImageGenBackendKind::Openai | ImageGenBackendKind::StableDiffusion => {
             let key = std::env::var("OPENAI_API_KEY").unwrap_or_default();

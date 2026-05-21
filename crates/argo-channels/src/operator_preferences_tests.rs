@@ -311,3 +311,23 @@ fn operator_preferences_omitted_blocks_dont_crash() {
     let map: HashMap<OperatorId, OperatorPreferences> = HashMap::new();
     let _src = InMemoryPreferencesSource::with_map(map);
 }
+
+/// Malformed `argo.toml` preferences block must surface the absolute
+/// path so the operator can see which file is broken.
+#[tokio::test]
+async fn malformed_preferences_toml_error_includes_file_path() {
+    let tmp = tempdir().expect("tempdir");
+    let path = tmp.path().join("argo.toml");
+    std::fs::write(&path, "this is = not [valid").expect("write");
+    let source = TomlPreferencesSource::new(&path);
+    let err = source
+        .for_operator(&op("alice"))
+        .await
+        .expect_err("malformed TOML must surface as an error");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains(&path.display().to_string()),
+        "expected error to include {} — got {msg}",
+        path.display()
+    );
+}

@@ -68,8 +68,9 @@ impl TomlPreferencesSource {
                 self.path.display()
             ))
         })?;
-        let parsed: TomlFileShape = toml::from_str(&body)
-            .map_err(|e| ChannelError::Parse(format!("preferences TOML: {e}")))?;
+        let parsed: TomlFileShape = toml::from_str(&body).map_err(|e| {
+            ChannelError::Parse(format!("parse {}: {e}", self.path.display()))
+        })?;
         let operators = parsed.into_operators()?;
         let mut guard = self.cache.lock();
         guard.mtime = Some(mtime);

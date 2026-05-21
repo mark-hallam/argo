@@ -29,6 +29,22 @@ tag_policy = "alphabetical_last"
     assert_eq!(defaulted.max_catalog_items, DEFAULT_MAX_CATALOG_ITEMS);
 }
 
+/// Loading a malformed `marketplace.toml` from disk must surface the
+/// on-disk path so the operator knows which file is broken.
+#[test]
+fn load_or_default_includes_file_path_on_parse_error() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("marketplace.toml");
+    std::fs::write(&path, "this is = not [valid").expect("write");
+    let err = MarketplaceConfig::load_or_default(&path).unwrap_err();
+    let msg = format!("{err}");
+    assert!(
+        msg.contains(&path.display().to_string()),
+        "expected error to include {} — got {msg}",
+        path.display()
+    );
+}
+
 #[tokio::test]
 async fn list_all_follows_catalog_link_pages() {
     let (base, server) = spawn_registry(3).await;

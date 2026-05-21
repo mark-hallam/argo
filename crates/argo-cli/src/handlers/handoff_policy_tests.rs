@@ -290,3 +290,26 @@ policy = "yeet_to_orbit"
     .await;
     assert!(missing.is_err());
 }
+
+/// `HandoffPolicy::load_from_workspace` must surface the absolute
+/// path of `.skycot/handoff-policy.toml` when it fails to parse, so
+/// the operator can see which workspace's policy is broken without
+/// hunting through their multi-pack setup.
+#[test]
+fn load_from_workspace_includes_file_path_on_parse_error() {
+    use std::fs;
+
+    let dir = tempfile::tempdir().unwrap();
+    let policy_dir = dir.path().join(".skycot");
+    fs::create_dir_all(&policy_dir).unwrap();
+    let policy_path = policy_dir.join("handoff-policy.toml");
+    // Schema error: `policy` field is required for every rule.
+    fs::write(&policy_path, "[[rules]]\n").unwrap();
+    let err = HandoffPolicy::load_from_workspace(dir.path()).unwrap_err();
+    let msg = format!("{err}");
+    assert!(
+        msg.contains(&policy_path.display().to_string()),
+        "expected error to include {} — got {msg}",
+        policy_path.display()
+    );
+}

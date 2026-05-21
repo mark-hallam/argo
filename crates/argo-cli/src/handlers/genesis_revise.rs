@@ -95,7 +95,7 @@ pub fn handle_revise(args: GenesisReviseArgs) -> ArgoResult<()> {
         ))
     })?;
     let mut manifest: VerticalManifest = toml::from_str(&manifest_text)
-        .map_err(|e| ArgoError::Schema(format!("vertical.toml parse failed: {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("parse {}: {e}", manifest_path.display())))?;
     let charter = charter_from_manifest(&manifest);
 
     let mut writes: Vec<PendingWrite> = Vec::new();

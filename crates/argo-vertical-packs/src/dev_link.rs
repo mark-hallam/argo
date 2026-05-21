@@ -66,7 +66,8 @@ impl DevLinkStore {
         }
         let body = std::fs::read_to_string(&self.path)
             .map_err(|e| ArgoError::Io(format!("read {}: {e}", self.path.display())))?;
-        toml::from_str(&body).map_err(|e| ArgoError::Schema(format!("dev-links.toml: {e}")))
+        toml::from_str(&body)
+            .map_err(|e| ArgoError::Schema(format!("parse {}: {e}", self.path.display())))
     }
 
     fn save(&self, links: &DevLinks) -> ArgoResult<()> {
@@ -98,5 +99,22 @@ mod tests {
         assert_eq!(store.resolve("x").unwrap().unwrap(), pack.path());
         assert!(store.remove("x").unwrap());
         assert!(store.resolve("x").unwrap().is_none());
+    }
+
+    /// Malformed `dev-links.toml` must surface the on-disk path so
+    /// the operator can see which override file is broken.
+    #[test]
+    fn load_includes_file_path_on_parse_error() {
+        let cache = tempfile::tempdir().unwrap();
+        let dev_links_path = cache.path().join("dev-links.toml");
+        std::fs::write(&dev_links_path, "this is = not [valid").unwrap();
+        let store = DevLinkStore::new(cache.path());
+        let err = store.resolve("x").unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains(&dev_links_path.display().to_string()),
+            "expected error to include {} — got {msg}",
+            dev_links_path.display()
+        );
     }
 }

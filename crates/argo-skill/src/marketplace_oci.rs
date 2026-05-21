@@ -104,11 +104,11 @@ impl MarketplaceConfig {
         }
         let text = std::fs::read_to_string(path)
             .map_err(|e| MarketplaceError::Config(format!("read {}: {e}", path.display())))?;
-        Self::parse_toml(&text)
+        toml::from_str(&text)
+            .map_err(|e| MarketplaceError::Config(format!("parse {}: {e}", path.display())))
     }
 
-    /// Parse a TOML body into a config; used by tests and
-    /// [`load_or_default`].
+    /// Parse a TOML body into a config; used by tests.
     pub fn parse_toml(body: &str) -> Result<Self, MarketplaceError> {
         toml::from_str(body).map_err(|e| MarketplaceError::Config(format!("parse: {e}")))
     }

@@ -133,6 +133,7 @@ impl HandoffPolicy {
         let body = std::fs::read_to_string(&path)
             .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         Self::from_toml(&body)
+            .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))
     }
 
     /// First-match-wins evaluation. Returns the matched rule's

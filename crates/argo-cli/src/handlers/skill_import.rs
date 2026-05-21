@@ -211,12 +211,12 @@ fn read_portable(path: &str, raw: &str) -> ArgoResult<(SkillFrontmatter, String)
     {
         Some("json") => {
             let portable: PortableSkill = serde_json::from_str(raw)
-                .map_err(|e| ArgoError::Provider(format!("parse skill json: {e}")))?;
+                .map_err(|e| ArgoError::Provider(format!("parse {path}: {e}")))?;
             Ok((portable.frontmatter, portable.body))
         }
         Some("toml") => {
             let portable: PortableSkill = toml::from_str(raw)
-                .map_err(|e| ArgoError::Provider(format!("parse skill toml: {e}")))?;
+                .map_err(|e| ArgoError::Provider(format!("parse {path}: {e}")))?;
             Ok((portable.frontmatter, portable.body))
         }
         _ => parse_skill_md(raw),
