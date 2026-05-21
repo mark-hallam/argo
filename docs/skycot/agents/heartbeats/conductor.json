@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T06:51:00Z",
+  "last_run_utc": "2026-05-21T07:05:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-20",
-  "run_notes": "tick 20: 4 NEW PRs (all 3 builder-unblock briefs + dark-mode PR-B); 2 new replenishment briefs (genesis-fallback-audit-kind + prepared-statement-audit)"
+  "session_label": "anthropic-claude-code-conductor-tick-21-resume",
+  "run_notes": "tick 21 (operator resume): queue fully drained 0/0 by workers — 25 CLAIMED + 6 IN_REVIEW. Wave-A finally moving. 2 MERGED (#1962 audit-kind, #1963 approvals-403-toast). 5 new replenishment briefs"
 }
