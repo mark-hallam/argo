@@ -28,7 +28,7 @@ export function WorkflowBuilderSkeleton({
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        background: "#fafaff",
+        background: "var(--background)",
       }}
     >
       <div
@@ -61,7 +61,7 @@ export function WorkflowBuilderSkeleton({
           alignItems: "center",
         }}
       >
-        <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg, #8b5cf6, #ec4899)", opacity: 0.5 }} className="animate-pulse" />
+        <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg, var(--primary), var(--gradient-end))", opacity: 0.5 }} className="animate-pulse" />
         <div style={{ flex: 1, height: 38, borderRadius: 9, background: "white", border: "1px solid #ece9f5" }} className="animate-pulse" />
         <div style={{ width: 100, height: 38, borderRadius: 9, background: "linear-gradient(135deg, #d8c7f7, #f5c5d8)" }} className="animate-pulse" />
       </div>
@@ -71,7 +71,7 @@ export function WorkflowBuilderSkeleton({
           style={{
             flex: 1,
             backgroundImage:
-              "radial-gradient(circle, #d4d4d8 1px, transparent 1px)",
+              "radial-gradient(circle, var(--border) 1px, transparent 1px)",
             backgroundSize: "20px 20px",
             position: "relative",
             padding: 60,

@@ -16,7 +16,7 @@ const LABEL = {
   letterSpacing: "0.16em",
   textTransform: "uppercase" as const,
   fontWeight: 700,
-  color: "#52525b",
+  color: "var(--muted-foreground)",
   marginBottom: 6,
 } as const;
 
@@ -28,7 +28,7 @@ const INPUT = {
   background: "white",
   fontFamily: "Inter, sans-serif",
   fontSize: 14,
-  color: "#1e1b4b",
+  color: "var(--foreground)",
   outline: "none",
   boxSizing: "border-box" as const,
 } as const;
@@ -42,7 +42,7 @@ const ERROR_TEXT = {
 const HINT_TEXT = {
   marginTop: 6,
   fontSize: 12,
-  color: "#52525b",
+  color: "var(--muted-foreground)",
 } as const;
 
 interface FieldShellProps {
@@ -86,7 +86,7 @@ export function TextField({ id, label, value, onChange, placeholder, type = "tex
         readOnly={readOnly}
         placeholder={placeholder}
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
-        style={{ ...INPUT, background: readOnly ? "#fafaff" : "white" }}
+        style={{ ...INPUT, background: readOnly ? "var(--background)" : "white" }}
       />
     </FieldShell>
   );
@@ -167,7 +167,7 @@ export function ToggleField({ id, label, checked, onChange, hint }: ToggleFieldP
         style={{ marginTop: 4, width: 16, height: 16, cursor: "pointer" }}
       />
       <div style={{ flex: 1 }}>
-        <label htmlFor={id} style={{ fontFamily: "Inter, sans-serif", fontSize: 13.5, color: "#1e1b4b", fontWeight: 600 }}>
+        <label htmlFor={id} style={{ fontFamily: "Inter, sans-serif", fontSize: 13.5, color: "var(--foreground)", fontWeight: 600 }}>
           {label}
         </label>
         {hint ? <div style={HINT_TEXT}>{hint}</div> : null}
@@ -202,7 +202,7 @@ export function PillButton({ id, active, onClick, children, tone = "default" }: 
       style={{
         padding: "6px 12px",
         borderRadius: 999,
-        border: active ? "1px solid #8b5cf6" : "1px solid #ece9f5",
+        border: active ? "1px solid var(--primary)" : "1px solid #ece9f5",
         background: dangerActive ? "#fee2e2" : active ? "rgba(139,92,246,0.1)" : "white",
         color: dangerActive ? "#b91c1c" : active ? "#5b21b6" : "#3f3f46",
         fontFamily: "Inter, sans-serif",
@@ -233,7 +233,7 @@ export function PrimaryButton({ onClick, children, disabled, testId }: PrimaryBu
       style={{
         padding: "9px 16px",
         borderRadius: 9,
-        background: disabled ? "#d4d4d8" : "linear-gradient(135deg, #8b5cf6, #ec4899)",
+        background: disabled ? "var(--border)" : "linear-gradient(135deg, var(--primary), var(--gradient-end))",
         color: "white",
         border: "none",
         fontFamily: "Inter, sans-serif",
@@ -266,7 +266,7 @@ export function SecondaryButton({ onClick, children, disabled, testId }: Seconda
         padding: "9px 14px",
         borderRadius: 9,
         background: "white",
-        color: "#1e1b4b",
+        color: "var(--foreground)",
         border: "1px solid #ece9f5",
         fontFamily: "Inter, sans-serif",
         fontSize: 13,

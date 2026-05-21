@@ -25,10 +25,10 @@ export default function GlobalError({
     }
   }, [error]);
 
-  const bg = "linear-gradient(135deg, #fafaff 0%, #f4f0fa 100%)";
-  const ink = "#1e1b4b";
-  const muted = "#52525b";
-  const gradient = "linear-gradient(135deg, #8b5cf6, #ec4899)";
+  const bg = "linear-gradient(135deg, var(--background) 0%, #f4f0fa 100%)";
+  const ink = "var(--foreground)";
+  const muted = "var(--muted-foreground)";
+  const gradient = "linear-gradient(135deg, var(--primary), var(--gradient-end))";
 
   return (
     <html lang="en">
@@ -108,7 +108,7 @@ export default function GlobalError({
             Still stuck?{" "}
             <a
               href="mailto:support@skycot.com"
-              style={{ color: "#8b5cf6", textDecoration: "none" }}
+              style={{ color: "var(--primary)", textDecoration: "none" }}
             >
               support@skycot.com
             </a>

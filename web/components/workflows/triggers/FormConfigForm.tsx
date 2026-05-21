@@ -95,7 +95,7 @@ export default function FormConfigForm({ config, onChange }: Props) {
             readOnly
             value={url}
             data-testid="form-url"
-            style={{ ...triggerStyles.input, background: "#fafaff", fontFamily: "JetBrains Mono, monospace", fontSize: 12.5 }}
+            style={{ ...triggerStyles.input, background: "var(--background)", fontFamily: "JetBrains Mono, monospace", fontSize: 12.5 }}
           />
           <SecondaryButton onClick={handleCopyUrl} testId="form-url-copy">
             {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
@@ -142,7 +142,7 @@ export default function FormConfigForm({ config, onChange }: Props) {
             borderRadius: 9,
             background: "rgba(139,92,246,0.08)",
             color: "#5b21b6",
-            border: "1px dashed #8b5cf6",
+            border: "1px dashed var(--primary)",
             fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",
@@ -193,7 +193,7 @@ function FieldRow({ field, isFirst, isLast, onChange, onRemove, onMoveUp, onMove
         marginBottom: 10,
         borderRadius: 10,
         border: "1px solid #ece9f5",
-        background: "#fafaff",
+        background: "var(--background)",
       }}
     >
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>

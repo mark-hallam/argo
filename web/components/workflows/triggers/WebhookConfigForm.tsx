@@ -91,7 +91,7 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
             readOnly
             value={url}
             data-testid="webhook-url"
-            style={{ ...triggerStyles.input, background: "#fafaff", fontFamily: "JetBrains Mono, monospace", fontSize: 12.5 }}
+            style={{ ...triggerStyles.input, background: "var(--background)", fontFamily: "JetBrains Mono, monospace", fontSize: 12.5 }}
           />
           <SecondaryButton onClick={handleCopy} testId="webhook-copy">
             {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
@@ -110,7 +110,7 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
           <button
             type="button"
             onClick={() => setConfirmRotate(false)}
-            style={{ marginLeft: 8, padding: "9px 14px", background: "transparent", border: "none", color: "#52525b", fontSize: 13, cursor: "pointer" }}
+            style={{ marginLeft: 8, padding: "9px 14px", background: "transparent", border: "none", color: "var(--muted-foreground)", fontSize: 13, cursor: "pointer" }}
           >
             Cancel
           </button>
@@ -143,8 +143,8 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
               marginTop: 10,
               padding: "10px 12px",
               borderRadius: 8,
-              background: "#1e1b4b",
-              color: "#fafaff",
+              background: "var(--foreground)",
+              color: "var(--background)",
               fontFamily: "JetBrains Mono, monospace",
               fontSize: 11.5,
               whiteSpace: "pre-wrap",
@@ -163,11 +163,11 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
             margin: 0,
             padding: "10px 12px",
             borderRadius: 8,
-            background: "#fafaff",
+            background: "var(--background)",
             border: "1px solid #ece9f5",
             fontFamily: "JetBrains Mono, monospace",
             fontSize: 11.5,
-            color: "#1e1b4b",
+            color: "var(--foreground)",
             whiteSpace: "pre-wrap",
           }}
         >

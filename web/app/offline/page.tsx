@@ -43,7 +43,7 @@ export default function OfflinePage() {
             justify-content: center;
             padding: 32px 24px;
             font-family: "Inter", sans-serif;
-            color: #1e1b4b;
+            color: var(--foreground);
             overflow: hidden;
             background: #fef7f0;
           }
@@ -79,7 +79,7 @@ export default function OfflinePage() {
             height: 56px;
             margin: 0 auto 20px;
             border-radius: 14px;
-            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            background: linear-gradient(135deg, var(--primary), var(--gradient-end));
             box-shadow: 0 12px 30px -8px rgba(139, 92, 246, 0.5);
           }
           .offline-eyebrow {
@@ -94,7 +94,7 @@ export default function OfflinePage() {
             font-size: clamp(40px, 8vw, 64px);
             line-height: 1.05;
             margin: 0 0 18px;
-            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            background: linear-gradient(135deg, var(--primary), var(--gradient-end));
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -112,7 +112,7 @@ export default function OfflinePage() {
             padding: 11px 22px;
             border-radius: 999px;
             border: 0;
-            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            background: linear-gradient(135deg, var(--primary), var(--gradient-end));
             color: white;
             font-family: "Inter", sans-serif;
             font-size: 15px;

@@ -129,6 +129,12 @@
   --primary:               var(--brand-primary);
   --primary-foreground:    var(--brand-primary-foreground);
 
+  /* `--primary` is the gradient START (SKYCOT purple). `--gradient-end`
+     is the matching sibling token (brand pink) — per-tenant themes can
+     swap it to that tenant's secondary brand color. Inline gradients
+     should use `linear-gradient(135deg, var(--primary), var(--gradient-end))`. */
+  --gradient-end:          #ec4899;
+
   --secondary:             oklch(0.96 0.010 248);
   --secondary-foreground:  oklch(0.25 0.020 248);
 
@@ -182,6 +188,9 @@
 
   --primary:               var(--brand-primary);
   --primary-foreground:    var(--brand-primary-foreground);
+
+  /* Lifted pink for dark-mode contrast — same role as `--primary` lift. */
+  --gradient-end:          #f472b6;
 
   --secondary:             oklch(0.26 0.020 248);
   --secondary-foreground:  oklch(0.96 0.010 248);

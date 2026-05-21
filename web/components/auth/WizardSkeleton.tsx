@@ -36,7 +36,7 @@ export function WizardSkeleton({
       className={className}
       style={{
         minHeight: "100vh",
-        background: "#fafaff",
+        background: "var(--background)",
         position: "relative",
         fontFamily: "Inter, sans-serif",
       }}
@@ -59,7 +59,7 @@ export function WizardSkeleton({
               width: 28,
               height: 28,
               borderRadius: 7,
-              background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+              background: "linear-gradient(135deg, var(--primary), var(--gradient-end))",
               opacity: 0.6,
             }}
           />
@@ -82,7 +82,7 @@ export function WizardSkeleton({
                     height: 3,
                     borderRadius: 2,
                     background: filled
-                      ? "linear-gradient(135deg, #8b5cf6, #ec4899)"
+                      ? "linear-gradient(135deg, var(--primary), var(--gradient-end))"
                       : "#f4f4f4",
                   }}
                 />

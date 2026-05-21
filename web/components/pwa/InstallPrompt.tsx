@@ -161,12 +161,12 @@ export function InstallPrompt(): React.ReactElement | null {
         }
         .skycot-install-banner__title {
           font-weight: 700;
-          color: #1e1b4b;
+          color: var(--foreground);
           font-size: 14px;
         }
         .skycot-install-banner__subtitle {
           font-size: 12px;
-          color: #52525b;
+          color: var(--muted-foreground);
           margin-top: 2px;
         }
         .skycot-install-banner__actions {
@@ -185,10 +185,10 @@ export function InstallPrompt(): React.ReactElement | null {
         }
         .skycot-install-banner__btn--ghost {
           background: transparent;
-          color: #52525b;
+          color: var(--muted-foreground);
         }
         .skycot-install-banner__btn--primary {
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--primary), var(--gradient-end));
           color: white;
           box-shadow: 0 6px 16px -4px rgba(139, 92, 246, 0.45);
         }
