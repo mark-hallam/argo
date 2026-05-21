@@ -47,13 +47,16 @@ export const MEMBERS_PAGE_STYLES = `
     gap: 8px;
     padding: 11px 18px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    background: #1e1b4b;
     color: white;
+    font-family: "Inter", sans-serif;
     font-weight: 600;
     font-size: 14px;
-    border: none;
+    border: 1px solid #1e1b4b;
     cursor: pointer;
-    box-shadow: 0 6px 16px -4px rgba(139, 92, 246, 0.4);
+  }
+  .members-invite-btn:hover {
+    background: #2d2660;
   }
   .members-role-tiers {
     display: grid;
@@ -346,12 +349,16 @@ export const MEMBERS_PAGE_STYLES = `
   .invite-send {
     padding: 11px 22px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    background: #1e1b4b;
     color: white;
-    border: none;
+    border: 1px solid #1e1b4b;
+    font-family: "Inter", sans-serif;
     font-weight: 700;
     font-size: 14px;
     cursor: pointer;
+  }
+  .invite-send:hover {
+    background: #2d2660;
   }
   .invite-send:disabled {
     opacity: 0.5;

@@ -231,7 +231,7 @@ export default function MarketingLandingPage() {
               <strong style={{ color: "#ec4899" }}>Priya</strong>: 8 candidates screened today.
             </div>
             <div className="land-art-bubble land-art-bubble-3">
-              <strong style={{ color: "#0891b2" }}>Jamal</strong>: 12 tickets resolved, median reply 4m.
+              <strong style={{ color: "#8b5cf6" }}>Jamal</strong>: 12 tickets resolved, median reply 4m.
             </div>
             <div className="land-art-bubble land-art-bubble-4">
               <strong style={{ color: "#14b8a6" }}>Nori</strong>: Q2 update draft ready for review.
