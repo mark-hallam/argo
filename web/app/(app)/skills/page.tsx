@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Briefcase, Mail, Search, Sparkles, TrendingUp, Wrench } from "lucide-react";
 import type { ReactNode } from "react";
-import { useSkills } from "@/lib/hooks/use-skills";
+import { useSkills, useSkillsLearnedThisMonth } from "@/lib/hooks/use-skills";
 import type { SkillRow } from "@/lib/api/skills";
 
 /**
@@ -50,19 +50,30 @@ function cohortLabel(skill: SkillRow): string {
 
 export default function SkillsPage() {
   const { data, isLoading, isError, error } = useSkills();
+  const learnedQuery = useSkillsLearnedThisMonth();
   const skills = useMemo(() => data?.skills ?? [], [data?.skills]);
   const [query, setQuery] = useState("");
+  const [learnedOnly, setLearnedOnly] = useState(false);
+
+  const learnedIdSet = useMemo(() => {
+    const ids = learnedQuery.data?.learned.skill_ids ?? [];
+    return new Set(ids);
+  }, [learnedQuery.data?.learned.skill_ids]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (q.length === 0) return skills;
-    return skills.filter(
+    let rows = skills;
+    if (learnedOnly) {
+      rows = rows.filter((s) => learnedIdSet.has(s.id));
+    }
+    if (q.length === 0) return rows;
+    return rows.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         s.layer.toLowerCase().includes(q),
     );
-  }, [skills, query]);
+  }, [skills, query, learnedOnly, learnedIdSet]);
 
   return (
     <>
@@ -121,6 +132,16 @@ export default function SkillsPage() {
               {chip}
             </button>
           ))}
+          <button
+            type="button"
+            className={`try-chip${learnedOnly ? " is-active" : ""}`}
+            tabIndex={0}
+            data-testid="skills-filter-learned-this-month"
+            aria-pressed={learnedOnly}
+            onClick={() => setLearnedOnly((v) => !v)}
+          >
+            Skills my workers learned this month
+          </button>
         </div>
 
         <div className="section-label">FEATURED SKILLS</div>

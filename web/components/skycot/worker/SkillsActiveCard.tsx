@@ -10,6 +10,7 @@ import {
   TrustBadge,
 } from "@/components/skycot/worker/SkillRow";
 import type { ActiveSkill } from "@/lib/api/worker-skills";
+import { formatLearnedAgo } from "@/lib/format-learned-ago";
 
 /**
  * Active skills section — skills currently bound to the worker. Each
@@ -69,6 +70,15 @@ export function SkillsActiveCard({
                       >
                         used {skill.usageCount7d}× last 7d
                       </span>
+                      {formatLearnedAgo(skill.learnedAt) ? (
+                        <span
+                          data-testid={`skill-learned-${skill.id}`}
+                          className="inline-flex shrink-0 items-center rounded-full bg-[var(--accent)]/15 px-2 py-0.5 text-xs font-medium text-[var(--accent-foreground)]"
+                          title={`Learned this skill at ${skill.learnedAt}`}
+                        >
+                          {formatLearnedAgo(skill.learnedAt)}
+                        </span>
+                      ) : null}
                     </>
                   }
                   actions={

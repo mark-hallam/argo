@@ -152,3 +152,100 @@ export async function fetchSkills(): Promise<FetchSkillsResult> {
     throw err;
   }
 }
+
+/**
+ * Worker (in the current workspace tenant) using a skill, paired with
+ * the timestamp she learned it. Backs the "Workers using this skill"
+ * section on the skill-detail page and the learning-loop chip.
+ */
+export interface SkillUsageWorker {
+  worker_id: string;
+  name: string;
+  learned_at: string;
+}
+
+export interface SkillUsage {
+  skill_id: string;
+  skill_name: string;
+  /** Canonical `argo_skill::trust::TrustGrade` discriminant. */
+  trust_grade: string;
+  /** Anonymized "Authored by SKYCOT" / "Authored by your org". */
+  author_label: string;
+  workers_using: SkillUsageWorker[];
+  workers_using_count: number;
+  /** Distinct workers across all tenants — aggregate only, no identities. */
+  adoption_count: number;
+}
+
+export type SkillUsageSource = "gateway" | "mock-offline" | "mock-bypass";
+
+export interface FetchSkillUsageResult {
+  usage: SkillUsage;
+  source: SkillUsageSource;
+}
+
+function seedUsage(name: string): SkillUsage {
+  return {
+    skill_id: name,
+    skill_name: name,
+    trust_grade: "published_verified",
+    author_label: "Authored by SKYCOT",
+    workers_using: [],
+    workers_using_count: 0,
+    adoption_count: 0,
+  };
+}
+
+/** GET `/skills/<name>/usage` — provenance + workers-using + adoption. */
+export async function fetchSkillUsage(
+  skillName: string,
+): Promise<FetchSkillUsageResult> {
+  if (isAuthBypassed()) {
+    return { usage: seedUsage(skillName), source: "mock-bypass" };
+  }
+  try {
+    const usage = await apiGet<SkillUsage>(
+      `/skills/${encodeURIComponent(skillName)}/usage`,
+    );
+    return { usage, source: "gateway" };
+  } catch (err) {
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      return { usage: seedUsage(skillName), source: "mock-offline" };
+    }
+    throw err;
+  }
+}
+
+/** Response envelope for `/skills/learned-this-month`. */
+export interface LearnedThisMonth {
+  /** RFC3339 cutoff the server picked (first-of-month UTC). */
+  since: string;
+  count: number;
+  skill_ids: string[];
+}
+
+export interface FetchLearnedThisMonthResult {
+  learned: LearnedThisMonth;
+  source: SkillUsageSource;
+}
+
+/** GET `/skills/learned-this-month` — drives the marketplace filter chip. */
+export async function fetchLearnedThisMonth(): Promise<FetchLearnedThisMonthResult> {
+  const empty: LearnedThisMonth = {
+    since: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString(),
+    count: 0,
+    skill_ids: [],
+  };
+  if (isAuthBypassed()) {
+    return { learned: empty, source: "mock-bypass" };
+  }
+  try {
+    const learned = await apiGet<LearnedThisMonth>("/skills/learned-this-month");
+    return { learned, source: "gateway" };
+  } catch (err) {
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      return { learned: empty, source: "mock-offline" };
+    }
+    throw err;
+  }
+}

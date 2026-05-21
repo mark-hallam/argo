@@ -278,4 +278,41 @@ describe("WorkerSkillsPage", () => {
     expect(announcement).toHaveTextContent(/Skill source viewer/);
     expect(screen.getByTestId("skills-toast")).toHaveTextContent(/sk-screen/);
   });
+
+  it("renders the learning-loop chip on Active rows that carry a learnedAt", () => {
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    useSkillsMock.mockReturnValue(
+      skillsState({
+        data: {
+          skills: makeSkills({
+            active: [
+              {
+                id: "sk-screen",
+                name: "senior-eng-screening",
+                version: "v3.0.0",
+                trustScore: 94,
+                usageCount7d: 128,
+                learnedAt: twoWeeksAgo,
+              },
+              {
+                // No learnedAt — should NOT render a chip.
+                id: "sk-noloop",
+                name: "pre-v1-skill",
+                version: "v2.0.0",
+                trustScore: 85,
+                usageCount7d: 12,
+              },
+            ],
+          }),
+          source: "mock-offline",
+        },
+      }),
+    );
+    render(<WorkerSkillsPage />);
+    const chip = screen.getByTestId("skill-learned-sk-screen");
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveTextContent(/Learned/);
+    expect(chip).toHaveTextContent(/2 weeks ago|week ago/);
+    expect(screen.queryByTestId("skill-learned-sk-noloop")).toBeNull();
+  });
 });

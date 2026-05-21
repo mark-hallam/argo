@@ -128,6 +128,14 @@
   border-color: #8b5cf6;
   color: #8b5cf6;
 }
+.try-chip.is-active {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: white;
+  border-color: transparent;
+}
+.try-chip.is-active:hover {
+  color: white;
+}
 .featured-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

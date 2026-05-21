@@ -111,11 +111,14 @@ pub(super) fn trust_score(min_trust_grade: Option<u8>) -> u32 {
 /// `web/lib/api/worker-skills.ts::ActiveSkill`. `proficiency` is the
 /// 1..5 ladder stored alongside `worker_skill`; `usage_count_7d` is a
 /// v1 zero placeholder (the trailing audit-payload-LIKE query is a
-/// follow-up brief).
+/// follow-up brief). `learned_at` is the `worker_skill.created_at`
+/// timestamp the learning-loop chip ("Learned 2 weeks ago") renders
+/// against — `None` when the worker pre-dates the v1 capture.
 pub(super) fn active_skill_json(
     skill: &Skill,
     proficiency: i64,
     min_trust: Option<u8>,
+    learned_at: Option<&str>,
 ) -> Value {
     json!({
         "id": skill.id.0.to_string(),
@@ -124,6 +127,7 @@ pub(super) fn active_skill_json(
         "trustScore": trust_score(min_trust),
         "usageCount7d": 0,
         "proficiency": proficiency,
+        "learnedAt": learned_at,
     })
 }
 

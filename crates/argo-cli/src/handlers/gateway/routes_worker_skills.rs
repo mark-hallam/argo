@@ -66,6 +66,11 @@ pub(super) async fn list_response(
         Ok(v) => v.into_iter().collect(),
         Err(e) => return helpers::server_error(&format!("proficiency lookup: {e}")),
     };
+    let learned_at_map: HashMap<String, String> =
+        match identity.skills_learned_for_worker(worker_id).await {
+            Ok(v) => v.into_iter().collect(),
+            Err(e) => return helpers::server_error(&format!("learned_at lookup: {e}")),
+        };
     let active_ids: HashSet<String> = match active_skill_ids(store, worker_id).await {
         Ok(s) => s,
         Err(e) => return helpers::server_error(&format!("active ids: {e}")),
@@ -93,7 +98,13 @@ pub(super) async fn list_response(
                 .get(&id_str)
                 .copied()
                 .unwrap_or(helpers::DEFAULT_PROFICIENCY);
-            active_json.push(helpers::active_skill_json(&skill, prof, min));
+            let learned_at = learned_at_map.get(&id_str).cloned();
+            active_json.push(helpers::active_skill_json(
+                &skill,
+                prof,
+                min,
+                learned_at.as_deref(),
+            ));
         } else {
             library_json.push(helpers::library_skill_json(&skill, min));
         }

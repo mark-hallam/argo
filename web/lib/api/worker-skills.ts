@@ -39,6 +39,12 @@ export interface ActiveSkill {
   trustScore: number;
   /** 7-day usage count for the trailing-window pill. */
   usageCount7d: number;
+  /**
+   * When the worker acquired this skill (`worker_skill.created_at` —
+   * see `mission-skill-discovery-marketplace-surface`). Renders the
+   * "Learned N weeks ago" learning-loop chip; absent for pre-v1 rows.
+   */
+  learnedAt?: string | null;
 }
 
 export interface LibrarySkill {

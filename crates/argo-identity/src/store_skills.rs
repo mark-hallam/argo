@@ -104,4 +104,105 @@ impl IdentityStore<'_> {
             })
             .collect())
     }
+
+    /// `(skill_id, learned_at_iso)` pairs for `worker_id`. `learned_at`
+    /// is `worker_skill.created_at` — the table doesn't carry a
+    /// separate `acquired_at` column (mission-skill-discovery brief
+    /// accepts `created_at` as the learning-loop timestamp).
+    pub async fn skills_learned_for_worker(
+        &self,
+        worker_id: WorkerId,
+    ) -> ArgoResult<Vec<(String, String)>> {
+        self.ensure_schema().await?;
+        let rows = sqlx::query(
+            "SELECT skill_id, created_at FROM worker_skill
+             WHERE worker_id = ? ORDER BY skill_id ASC",
+        )
+        .bind(worker_id.to_string())
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skills_learned_for_worker: {e}")))?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                (
+                    row.get::<String, _>("skill_id"),
+                    row.get::<String, _>("created_at"),
+                )
+            })
+            .collect())
+    }
+
+    /// Workers in `tenant_id` associated with `skill_id` paired with
+    /// their `worker_skill.created_at` ("learned at") timestamps. Used
+    /// by the skill-discovery marketplace surface to render the
+    /// "Workers using this skill" section with "Learned N weeks ago"
+    /// chips.
+    pub async fn workers_with_skill_learned_at(
+        &self,
+        tenant_id: TenantId,
+        skill_id: &str,
+    ) -> ArgoResult<Vec<(Worker, String)>> {
+        self.ensure_schema().await?;
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            "SELECT w.id, ws.created_at FROM worker w
+             JOIN worker_skill ws ON ws.worker_id = w.id
+             WHERE w.tenant_id = ? AND ws.skill_id = ?
+             ORDER BY ws.created_at DESC, w.id ASC",
+        )
+        .bind(tenant_id.to_string())
+        .bind(skill_id)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("workers_with_skill_learned_at: {e}")))?;
+
+        let mut out = Vec::with_capacity(rows.len());
+        for (id, created_at) in rows {
+            let worker_id = parse_worker_id(&id)?;
+            if let Some(worker) = self.get_worker(tenant_id, worker_id).await? {
+                out.push((worker, created_at));
+            }
+        }
+        Ok(out)
+    }
+
+    /// Total count of workers (across **all** tenants) associated with
+    /// `skill_id`. The brief deliberately surfaces only an aggregate so
+    /// no cross-tenant identity leaks; the integer alone is the
+    /// "marketplace adoption" signal.
+    pub async fn count_workers_with_skill_global(&self, skill_id: &str) -> ArgoResult<i64> {
+        self.ensure_schema().await?;
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(DISTINCT worker_id) FROM worker_skill WHERE skill_id = ?",
+        )
+        .bind(skill_id)
+        .fetch_one(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("count_workers_with_skill_global: {e}")))?;
+        Ok(count)
+    }
+
+    /// Skill ids the workers in `tenant_id` have learned since
+    /// `since_iso` (RFC3339 UTC). Backs the marketplace "Skills my
+    /// workers learned this month" filter — the gateway picks the
+    /// cutoff (first-of-month UTC) and this read returns the set.
+    pub async fn skill_ids_learned_since(
+        &self,
+        tenant_id: TenantId,
+        since_iso: &str,
+    ) -> ArgoResult<Vec<String>> {
+        self.ensure_schema().await?;
+        let rows: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT ws.skill_id FROM worker_skill ws
+             JOIN worker w ON w.id = ws.worker_id
+             WHERE w.tenant_id = ? AND ws.created_at >= ?
+             ORDER BY ws.skill_id ASC",
+        )
+        .bind(tenant_id.to_string())
+        .bind(since_iso)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill_ids_learned_since: {e}")))?;
+        Ok(rows)
+    }
 }

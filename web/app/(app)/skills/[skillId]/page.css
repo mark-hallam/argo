@@ -1,8 +1,7 @@
 .stub-stage {
-  padding: 96px 32px;
-  max-width: 720px;
+  padding: 64px 32px 96px;
+  max-width: 880px;
   margin: 0 auto;
-  text-align: center;
 }
 .stub-eyebrow {
   display: inline-flex;
@@ -63,4 +62,99 @@
 }
 .stub-back:hover {
   text-decoration: underline;
+}
+
+/* Skill-discovery marketplace surface — provenance + workers-using. */
+.usage-card {
+  margin-top: 24px;
+  border: 1px solid var(--border, #ece9f5);
+  border-radius: 14px;
+  background: var(--card, #ffffff);
+  padding: 24px;
+}
+.usage-card + .usage-card {
+  margin-top: 16px;
+}
+.usage-card-title {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--foreground, #1e1b4b);
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+.usage-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.usage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--muted, #f4f3ff);
+  color: var(--muted-foreground, #3f3f46);
+  border: 1px solid var(--border, #ece9f5);
+}
+.usage-chip-trust {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(236, 72, 153, 0.12));
+  color: #6d28d9;
+  border-color: rgba(139, 92, 246, 0.32);
+}
+.usage-chip-author {
+  background: rgba(8, 145, 178, 0.08);
+  color: #0e7490;
+  border-color: rgba(8, 145, 178, 0.24);
+}
+.usage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.usage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--background, #fafaff);
+  border: 1px solid var(--border, #ece9f5);
+}
+.usage-row-name {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground, #1e1b4b);
+}
+.usage-row-learned {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: var(--muted-foreground, #52525b);
+}
+.usage-empty {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: var(--muted-foreground, #52525b);
+}
+.usage-adoption {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--muted-foreground, #3f3f46);
+  margin-top: 8px;
+}
+.usage-adoption strong {
+  color: var(--foreground, #1e1b4b);
+  font-weight: 700;
 }

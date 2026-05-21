@@ -1,13 +1,23 @@
-//! `GET /skills?risk=...` + `GET /skills/<name>` — layered
-//! skill lookup routes for the worker runtime and review UI.
+//! `GET /skills?risk=...` + `GET /skills/<name>` + `GET /skills/<name>/usage`
+//! — layered skill lookup routes for the worker runtime, review UI,
+//! and the skill-discovery marketplace surface (mission-skill-discovery).
+use argo_identity::IdentityStore;
 use argo_skill::{LayeredLookup, LayeredSkill, SkillStore, TrustGrade};
 use argo_store::SessionStore;
+use chrono::Datelike;
+use serde_json::Value;
 use std::sync::Arc;
 
 pub(super) async fn dispatch_route(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    if req.starts_with("GET /skills/learned-this-month ")
+        || req.starts_with("GET /skills/learned-this-month?")
+    {
+        return Some(skills_learned_this_month_response(store).await);
+    }
+
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let risk = super::routes_query::parse_query_kv(tail, "risk");
@@ -16,14 +26,23 @@ pub(super) async fn dispatch_route(
 
     let rest = req.strip_prefix("GET /skills/")?;
     let (name_with_query, _) = rest.split_once(' ')?;
-    let name = name_with_query
+    let name_no_query = name_with_query
         .split_once('?')
         .map(|(name, _)| name)
         .unwrap_or(name_with_query);
-    if name == "count" || name.contains('/') {
+
+    // /skills/<name>/usage — provenance + workers-using + adoption count.
+    if let Some(name) = name_no_query.strip_suffix("/usage") {
+        if name.is_empty() || name.contains('/') {
+            return None;
+        }
+        return Some(skill_usage_response(store, name).await);
+    }
+
+    if name_no_query == "count" || name_no_query.contains('/') {
         return None;
     }
-    Some(skill_show_response(store, name).await)
+    Some(skill_show_response(store, name_no_query).await)
 }
 
 async fn skills_list_response(
@@ -48,6 +67,188 @@ async fn skill_show_response(
     let skills = SkillStore::new(Arc::clone(store));
     let lookup = LayeredLookup::workspace_only(&skills);
     show_response_for_lookup(&lookup, name).await
+}
+
+/// `GET /skills/<name>/usage` — workers in the current tenant using the
+/// skill (with `learned_at`), the global adoption count (integer only —
+/// no cross-tenant identity leaks), an anonymized "Authored by ..."
+/// label, and the canonical `trust_grade`. Backs the
+/// mission-skill-discovery marketplace surface.
+async fn skill_usage_response(
+    store: Option<&Arc<SessionStore>>,
+    name: &str,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let skills = SkillStore::new(Arc::clone(store));
+    let active = match skills.find_active_by_name(name).await {
+        Ok(Some(s)) => s,
+        Ok(None) => {
+            return (
+                "404 Not Found",
+                json_error(&format!("no active skill named '{name}'")),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json_error(&format!("skill lookup: {e}")),
+            );
+        }
+    };
+
+    let tenant = match resolve_workspace_tenant(store).await {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json_error(&format!("resolve tenant: {e}")),
+            );
+        }
+    };
+
+    let identity = IdentityStore::new(store);
+    let skill_id_str = active.id.0.to_string();
+
+    let workers_in_tenant = match identity
+        .workers_with_skill_learned_at(tenant, &skill_id_str)
+        .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json_error(&format!("workers_with_skill: {e}")),
+            );
+        }
+    };
+
+    let adoption_count = match identity.count_workers_with_skill_global(&skill_id_str).await {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json_error(&format!("adoption count: {e}")),
+            );
+        }
+    };
+
+    let workers_json: Vec<Value> = workers_in_tenant
+        .iter()
+        .map(|(worker, learned_at)| {
+            serde_json::json!({
+                "worker_id": worker.id.to_string(),
+                "name": worker.persona.name,
+                "learned_at": learned_at,
+            })
+        })
+        .collect();
+
+    let author_label = author_label_for_source(&active.frontmatter.provenance.source);
+    let payload = serde_json::json!({
+        "skill_id": skill_id_str,
+        "skill_name": active.frontmatter.name,
+        "trust_grade": TrustGrade::from_source(&active.frontmatter.provenance.source),
+        "author_label": author_label,
+        "workers_using": workers_json,
+        "workers_using_count": workers_in_tenant.len(),
+        "adoption_count": adoption_count,
+    });
+    (
+        "200 OK",
+        serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+/// `GET /skills/learned-this-month` — skill ids the workers in the
+/// current tenant have learned since the first-of-month (UTC). Backs
+/// the marketplace's "Skills my workers learned this month" filter
+/// chip; the response is `{ since, count, skill_ids }` so the web
+/// client can intersect with the existing `/skills` registry list.
+async fn skills_learned_this_month_response(
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let tenant = match resolve_workspace_tenant(store).await {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json_error(&format!("resolve tenant: {e}")),
+            );
+        }
+    };
+    let since = month_start_iso(chrono::Utc::now());
+    let identity = IdentityStore::new(store);
+    match identity.skill_ids_learned_since(tenant, &since).await {
+        Ok(ids) => {
+            let payload = serde_json::json!({
+                "since": since,
+                "count": ids.len(),
+                "skill_ids": ids,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            json_error(&format!("learned_since: {e}")),
+        ),
+    }
+}
+
+/// First-of-month (UTC) for `now` as an RFC3339 string. Pure helper so
+/// the test below can pin the boundary without touching wall clock.
+fn month_start_iso(now: chrono::DateTime<chrono::Utc>) -> String {
+    let naive = now.date_naive();
+    let first_date = chrono::NaiveDate::from_ymd_opt(naive.year(), naive.month(), 1).unwrap_or(naive);
+    // `and_hms_opt(0,0,0)` is infallible for any valid `NaiveDate`, so an
+    // `unwrap` here would clippy-fire under `deny(unwrap_used)`. Fall
+    // back to `naive_date.and_time(MIN)` instead to keep the lint happy.
+    let first = first_date.and_time(chrono::NaiveTime::MIN);
+    chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(first, chrono::Utc).to_rfc3339()
+}
+
+/// Resolve the workspace-bound tenant for read-only usage queries.
+/// Mirrors `routes_cohorts::resolve_workspace_tenant`; kept local so the
+/// crate stays under HARD RULE 6's 500-LOC per-file ceiling.
+async fn resolve_workspace_tenant(
+    store: &SessionStore,
+) -> argo_types::ArgoResult<argo_types::TenantId> {
+    let cwd = std::env::current_dir()
+        .map_err(|e| argo_types::ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _) = store.ensure_workspace(name, &root).await?;
+    Ok(tenant)
+}
+
+/// Map a skill's `provenance.source` to the operator-facing
+/// authorship label. Plain-language per the brief: "Authored by
+/// SKYCOT" for shipped-in / marketplace-published skills, "Authored
+/// by your org" otherwise. Anonymized — no per-tenant identity is
+/// surfaced.
+fn author_label_for_source(source: &str) -> &'static str {
+    // Builtins, vertical-packs, and verified-marketplace skills are
+    // SKYCOT-authored. Community / learned / workspace skills came
+    // from inside the operator's own org.
+    if source == "builtin"
+        || source == "verticals"
+        || source.starts_with("published:verified:market")
+        || source.starts_with("published:community:market")
+    {
+        "Authored by SKYCOT"
+    } else {
+        "Authored by your org"
+    }
 }
 
 async fn list_response_for_lookup(
@@ -133,125 +334,5 @@ fn json_error(msg: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    async fn session_store() -> Arc<SessionStore> {
-        let store = SessionStore::open(":memory:").await.expect("store");
-        store.migrate().await.expect("migrate");
-        Arc::new(store)
-    }
-
-    async fn skill_store() -> SkillStore {
-        SkillStore::new(session_store().await)
-    }
-
-    async fn install(store: &SkillStore, name: &str, source: &str) {
-        store
-            .install(&skill_md(name, source), None)
-            .await
-            .expect("install skill");
-    }
-
-    fn skill_md(name: &str, source: &str) -> String {
-        format!(
-            "---\n\
-             name: {name}\n\
-             version: \"0.1.0\"\n\
-             description: {name} description\n\
-             provenance:\n  \
-             source: {source}\n  \
-             hash: sha256-deadbeef\n\
-             ---\n\
-             body of {name}\n"
-        )
-    }
-
-    #[tokio::test]
-    async fn dispatch_lists_workspace_skills_with_risk_filter_and_shape() {
-        let session = session_store().await;
-        let skills = SkillStore::new(Arc::clone(&session));
-        install(&skills, "workspace-verified", "published:verified:team").await;
-        install(&skills, "workspace-learned", "learned").await;
-
-        let (status, body) =
-            dispatch_route("GET /skills?risk=high HTTP/1.1\r\n\r\n", Some(&session))
-                .await
-                .expect("route");
-        assert_eq!(status, "200 OK");
-        let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
-        assert_eq!(parsed["risk"], "high");
-        assert_eq!(parsed["risk_defaulted"], false);
-        let rows = parsed["skills"].as_array().expect("skills");
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0]["name"], "workspace-verified");
-        assert_eq!(rows[0]["layer"], "workspace");
-        assert_eq!(rows[0]["trust_grade"], "published_verified");
-
-        let (status, body) = dispatch_route(
-            "GET /skills/workspace-verified HTTP/1.1\r\n\r\n",
-            Some(&session),
-        )
-        .await
-        .expect("route");
-        assert_eq!(status, "200 OK");
-        let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
-        assert_eq!(parsed["name"], "workspace-verified");
-        assert_eq!(parsed["layer"], "workspace");
-    }
-
-    #[tokio::test]
-    async fn layered_lookup_adds_library_fallback_and_workspace_override() {
-        let workspace = skill_store().await;
-        let library = skill_store().await;
-        install(&workspace, "shared", "published:community:team").await;
-        install(&library, "shared", "published:verified:market").await;
-        install(&library, "library-only", "published:verified:market").await;
-
-        let lookup = LayeredLookup::with_library(&workspace, &library);
-        let (status, body) = list_response_for_lookup(&lookup, None).await;
-        assert_eq!(status, "200 OK");
-        let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
-        assert_eq!(parsed["risk"], "medium");
-        assert_eq!(parsed["risk_defaulted"], true);
-        let rows = parsed["skills"].as_array().expect("skills");
-        assert_eq!(rows.len(), 2);
-        let shared = rows
-            .iter()
-            .find(|row| row["name"] == "shared")
-            .expect("shared row");
-        assert_eq!(shared["layer"], "workspace");
-        let library_only = rows
-            .iter()
-            .find(|row| row["name"] == "library-only")
-            .expect("library row");
-        assert_eq!(library_only["layer"], "library");
-
-        let (status, body) = show_response_for_lookup(&lookup, "library-only").await;
-        assert_eq!(status, "200 OK");
-        let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
-        assert_eq!(parsed["name"], "library-only");
-        assert_eq!(parsed["layer"], "library");
-    }
-
-    #[tokio::test]
-    async fn invalid_risk_returns_400() {
-        let workspace = skill_store().await;
-        let lookup = LayeredLookup::workspace_only(&workspace);
-        let (status, body) = list_response_for_lookup(&lookup, Some("urgent")).await;
-        assert_eq!(status, "400 Bad Request");
-        assert!(body.contains("invalid risk 'urgent'"));
-    }
-
-    #[tokio::test]
-    async fn non_layered_skill_routes_fall_through() {
-        assert!(dispatch_route("GET /skills/count HTTP/1.1\r\n\r\n", None)
-            .await
-            .is_none());
-        assert!(
-            dispatch_route("GET /skills/example/versions HTTP/1.1\r\n\r\n", None)
-                .await
-                .is_none()
-        );
-    }
-}
+#[path = "routes_skills_tests.rs"]
+mod tests;

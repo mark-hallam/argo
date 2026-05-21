@@ -27,8 +27,13 @@ function active(
   version: string,
   trustScore: number,
   usageCount7d: number,
+  learnedDaysAgo?: number,
 ): ActiveSkill {
-  return { id, name, version, trustScore, usageCount7d };
+  const learnedAt =
+    typeof learnedDaysAgo === "number"
+      ? new Date(Date.now() - learnedDaysAgo * 24 * 60 * 60 * 1000).toISOString()
+      : undefined;
+  return { id, name, version, trustScore, usageCount7d, learnedAt };
 }
 
 function library(
@@ -53,9 +58,9 @@ function learned(
 
 const PRIYA: WorkerSkills = {
   active: [
-    active("sk-priya-screen", "senior-eng-screening", "v3.1.0", 94, 128),
-    active("sk-priya-slot", "interview-slot-proposer", "v2.0.4", 87, 42),
-    active("sk-priya-reject", "warm-rejection-drafter", "v4.2.1", 91, 31),
+    active("sk-priya-screen", "senior-eng-screening", "v3.1.0", 94, 128, 21),
+    active("sk-priya-slot", "interview-slot-proposer", "v2.0.4", 87, 42, 9),
+    active("sk-priya-reject", "warm-rejection-drafter", "v4.2.1", 91, 31, 4),
   ],
   library: [
     library("sk-priya-comp", "compensation-research", "v2.0.0", 88, "workspace"),
