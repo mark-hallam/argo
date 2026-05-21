@@ -42,18 +42,22 @@ pub enum DeepLinkIntent {
 }
 
 /// Why a URL could not be turned into a [`DeepLinkIntent`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DeepLinkError {
     /// Empty input, or input that does not contain a `<scheme>://`
     /// separator.
+    #[error("malformed deep link: missing `<scheme>://` separator")]
     Malformed,
     /// Scheme was something other than `argo`. The captured scheme
     /// is included so the caller can log the unexpected value.
+    #[error("wrong scheme '{0}': expected `argo`")]
     WrongScheme(String),
     /// A recognised verb was missing its required path tail (for
     /// example, `argo://approve` with no action id).
+    #[error("missing path tail for verb '{0}'")]
     MissingPath(String),
     /// The first path segment is not a recognised verb.
+    #[error("unknown action '{0}'")]
     UnknownAction(String),
 }
 

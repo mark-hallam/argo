@@ -112,6 +112,12 @@ tokio = { workspace = true }
 tokio-util = "0.7"
 toml = { workspace = true }
 tracing = { workspace = true }
+# Used by handler-local error enums (`IpAllowlistError`,
+# `DeepLinkError`) so they derive `std::error::Error` + `Display`
+# uniformly with the rest of the workspace's `thiserror`-based
+# error types instead of carrying hand-rolled impls
+# (codex-handler-error-types-thiserror-uniformity).
+thiserror = { workspace = true }
 flate2 = "1"
 tar = "0.4"
 # `argo cu replay --gif` decodes per-step PNG screenshots and

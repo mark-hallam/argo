@@ -72,9 +72,10 @@ pub(super) enum Cidr {
 /// Construction-time error returned when an operator-supplied CIDR
 /// entry cannot be parsed. Causes the gate to refuse to start; a
 /// permissive default would silently widen the allowlist.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum IpAllowlistError {
     /// One `cidrs` entry was not a valid `<addr>/<prefix>` form.
+    #[error("invalid CIDR '{entry}': {reason}")]
     InvalidCidr {
         /// The raw entry as it appeared in TOML.
         entry: String,
@@ -82,18 +83,6 @@ pub enum IpAllowlistError {
         reason: &'static str,
     },
 }
-
-impl std::fmt::Display for IpAllowlistError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidCidr { entry, reason } => {
-                write!(f, "invalid CIDR '{entry}': {reason}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for IpAllowlistError {}
 
 impl Cidr {
     /// Parse `<ip>/<prefix>` into a typed CIDR. Rejects malformed
