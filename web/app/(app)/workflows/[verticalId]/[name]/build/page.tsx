@@ -3,6 +3,7 @@ import "./page.css";
 
 import "@xyflow/react/dist/style.css";
 import type { Connection, Edge, IsValidConnection, Node } from "@xyflow/react";
+import { Copy, Settings as SettingsIcon, Trash2, Unlink } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
@@ -12,6 +13,10 @@ import { UnsavedBanner } from "@/components/skycot/builder/UnsavedBanner";
 import TriggerConfigDrawer from "@/components/workflows/triggers/TriggerConfigDrawer";
 import type { TriggerConfig, TriggerKind } from "@/components/workflows/triggers/types";
 import { WorkflowBuilderSkeleton } from "@/components/skycot/workflows/WorkflowBuilderSkeleton";
+import {
+  WorkflowContextMenu,
+  type ContextMenuItem,
+} from "@/components/skycot/workflows/WorkflowContextMenu";
 import {
   WorkflowBuilderEmptyState,
   WorkflowBuilderErrorState,
@@ -31,6 +36,17 @@ import {
 import { stepsToFlow } from "./layout";
 import { SEED_WORKFLOWS } from "./seed-workflows";
 import { STEP_KIND_META, type SkyNodeData, type StepKind, type WorkflowSpec } from "./types";
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  nodeId: string | null;
+  edgeId: string | null;
+}
+
+function nodeStep(node: Node | undefined): SkyNodeData["step"] | undefined {
+  return (node?.data as SkyNodeData | undefined)?.step;
+}
 
 /**
  * Class-leading visual workflow builder — `/workflows/<v>/<name>/build`.
@@ -126,6 +142,7 @@ function BuilderInner({
   const [promptText, setPromptText] = useState("");
   const [proposing, setProposing] = useState(false);
   const [triggerConfigOpen, setTriggerConfigOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   // One config per step id. Persisted client-side for v1; wired to the
   // gateway step-config save path in a follow-up brief.
   const [triggerConfigs, setTriggerConfigs] = useState<Record<string, TriggerConfig>>({});
@@ -135,6 +152,148 @@ function BuilderInner({
     setSelectedNode(node);
     setTriggerConfigOpen(false);
   }, []);
+
+  // ReactFlow optimistically removes the node before this fires; for
+  // single-node deletes we surface an "Undo" toast that re-adds via
+  // builder.addNode (the controlled-state hook is idempotent on id).
+  const onNodesDelete = useCallback(
+    (deleted: Node[]) => {
+      const triggers = deleted.filter((n) => nodeStep(n)?.kind === "trigger");
+      const deletable = deleted.filter((n) => nodeStep(n)?.kind !== "trigger");
+
+      if (triggers.length > 0) {
+        toast.error("Trigger steps can't be deleted", {
+          description: "Change the trigger kind from the side panel instead.",
+        });
+        for (const t of triggers) builder.addNode(t);
+      }
+      if (deletable.length === 0) return;
+
+      // Single delete → instant + undoable.
+      if (deletable.length === 1) {
+        const only = deletable[0];
+        builder.removeNode(only.id);
+        if (selectedNode?.id === only.id) setSelectedNode(null);
+        toast.success("Step deleted", {
+          action: {
+            label: "Undo",
+            onClick: () => builder.addNode(only),
+          },
+        });
+        return;
+      }
+
+      // Bulk delete → confirm via window.confirm (cheap, no modal dep).
+      const confirmed = typeof window !== "undefined"
+        ? window.confirm(
+            `Delete ${deletable.length} steps? This also removes edges connecting them.`,
+          )
+        : true;
+      if (!confirmed) {
+        for (const n of deletable) builder.addNode(n);
+        return;
+      }
+      for (const n of deletable) builder.removeNode(n.id);
+      if (selectedNode && deletable.some((n) => n.id === selectedNode.id)) {
+        setSelectedNode(null);
+      }
+      toast.success(`${deletable.length} steps deleted`);
+    },
+    [builder, selectedNode],
+  );
+
+  const onEdgesDelete = useCallback(
+    (deleted: Edge[]) => {
+      for (const edge of deleted) builder.removeEdge(edge.id);
+    },
+    [builder],
+  );
+
+  const duplicateNode = useCallback(
+    (nodeId: string) => {
+      const original = builder.nodes.find((n) => n.id === nodeId);
+      if (!original) return;
+      const step = nodeStep(original);
+      if (step?.kind === "trigger") {
+        toast.error("Trigger steps can't be duplicated", {
+          description: "Only one trigger per workflow.",
+        });
+        return;
+      }
+      if (!step) return;
+      const suffix = typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID().slice(0, 8)
+        : Math.random().toString(36).slice(2, 10);
+      const newId = `step-${suffix}`;
+      const duplicated: Node = {
+        ...original,
+        id: newId,
+        position: { x: original.position.x + 60, y: original.position.y + 60 },
+        data: { step: { ...step, id: newId, name: `${step.name} (copy)` } },
+        selected: false,
+      };
+      builder.addNode(duplicated);
+      toast.success("Step duplicated");
+    },
+    [builder],
+  );
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id, edgeId: null });
+  }, []);
+
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null, edgeId: edge.id });
+  }, []);
+
+  const onPaneClick = useCallback(() => setContextMenu(null), []);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
+    if (!contextMenu) return [];
+    if (contextMenu.nodeId) {
+      const node = builder.nodes.find((n) => n.id === contextMenu.nodeId);
+      if (!node) return [];
+      const isTrigger = nodeStep(node)?.kind === "trigger";
+      return [
+        {
+          label: "Configure",
+          Icon: SettingsIcon,
+          onClick: () => {
+            setSelectedNode(node);
+            setTriggerConfigOpen(false);
+          },
+        },
+        {
+          label: "Duplicate",
+          Icon: Copy,
+          onClick: () => duplicateNode(node.id),
+          disabled: isTrigger,
+        },
+        {
+          label: "Delete",
+          Icon: Trash2,
+          onClick: () => onNodesDelete([node]),
+          destructive: true,
+          disabled: isTrigger,
+        },
+      ];
+    }
+    if (contextMenu.edgeId) {
+      const edgeId = contextMenu.edgeId;
+      return [
+        {
+          label: "Disconnect",
+          Icon: Unlink,
+          onClick: () => builder.removeEdge(edgeId),
+          destructive: true,
+        },
+      ];
+    }
+    return [];
+  }, [contextMenu, builder, duplicateNode, onNodesDelete]);
 
   const selectedStep = selectedNode ? (selectedNode.data as SkyNodeData).step : null;
   const selectedIsTrigger = selectedStep?.kind === "trigger";
@@ -295,7 +454,20 @@ function BuilderInner({
             isValidConnection={isValidConnection}
             onNodeClick={onNodeClick}
             onSelectStepKind={handleAddStep}
+            onNodesDelete={onNodesDelete}
+            onEdgesDelete={onEdgesDelete}
+            onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
+            onPaneClick={onPaneClick}
           />
+          {contextMenu && contextMenuItems.length > 0 ? (
+            <WorkflowContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              items={contextMenuItems}
+              onClose={closeContextMenu}
+            />
+          ) : null}
           {selectedStep ? (
             <BuilderInspector
               step={selectedStep}

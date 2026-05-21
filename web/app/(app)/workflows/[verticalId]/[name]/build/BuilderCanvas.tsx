@@ -27,6 +27,11 @@ interface Props {
   isValidConnection?: IsValidConnection<Edge>;
   onNodeClick: (event: React.MouseEvent, node: Node) => void;
   onSelectStepKind: (kind: StepKind) => void;
+  onNodesDelete?: (deleted: Node[]) => void;
+  onEdgesDelete?: (deleted: Edge[]) => void;
+  onNodeContextMenu?: (event: React.MouseEvent, node: Node) => void;
+  onEdgeContextMenu?: (event: React.MouseEvent, edge: Edge) => void;
+  onPaneClick?: () => void;
 }
 
 export function BuilderCanvas({
@@ -38,6 +43,11 @@ export function BuilderCanvas({
   isValidConnection,
   onNodeClick,
   onSelectStepKind,
+  onNodesDelete,
+  onEdgesDelete,
+  onNodeContextMenu,
+  onEdgeContextMenu,
+  onPaneClick,
 }: Props) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const nodeTypes = useMemo(() => ({ skycot: SkycotStepNode }), []);
@@ -53,6 +63,12 @@ export function BuilderCanvas({
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
+        onNodesDelete={onNodesDelete}
+        onEdgesDelete={onEdgesDelete}
+        onNodeContextMenu={onNodeContextMenu}
+        onEdgeContextMenu={onEdgeContextMenu}
+        onPaneClick={onPaneClick}
+        deleteKeyCode={["Backspace", "Delete"]}
         fitView
         fitViewOptions={{ padding: 0.18 }}
         attributionPosition="bottom-right"
