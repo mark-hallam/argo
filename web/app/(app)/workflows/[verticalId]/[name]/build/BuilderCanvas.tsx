@@ -14,11 +14,18 @@ import {
   type OnNodesDelete,
 } from "@xyflow/react";
 import { Keyboard, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { SkycotStepNode } from "./BuilderCanvasNode";
 import { AddStepPalette } from "./BuilderNodePalette";
-import { STEP_KIND_META, type SkyNodeData, type StepKind } from "./types";
+import { SubWorkflowNode } from "./SubWorkflowNode";
+import { SubWorkflowPicker } from "./SubWorkflowPicker";
+import {
+  STEP_KIND_META,
+  type SkyNodeData,
+  type StepKind,
+  type SubWorkflowRef,
+} from "./types";
 
 interface Props {
   nodes: Node[];
@@ -28,7 +35,11 @@ interface Props {
   onConnect: OnConnect;
   isValidConnection?: IsValidConnection<Edge>;
   onNodeClick: (event: React.MouseEvent, node: Node) => void;
-  onSelectStepKind: (kind: StepKind) => void;
+  onSelectStepKind: (kind: StepKind, subWorkflow?: SubWorkflowRef) => void;
+  // Excluded from sub-workflow picker results so a workflow can't pick
+  // itself as its own sub-workflow.
+  currentVerticalId: string;
+  currentName: string;
   onNodesDelete?: OnNodesDelete;
   onEdgesDelete?: (deleted: Edge[]) => void;
   onNodeContextMenu?: (event: React.MouseEvent, node: Node) => void;
@@ -51,6 +62,8 @@ export function BuilderCanvas({
   isValidConnection,
   onNodeClick,
   onSelectStepKind,
+  currentVerticalId,
+  currentName,
   onNodesDelete,
   onEdgesDelete,
   onNodeContextMenu,
@@ -61,7 +74,31 @@ export function BuilderCanvas({
   onShowShortcuts,
 }: Props) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const nodeTypes = useMemo(() => ({ skycot: SkycotStepNode }), []);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const nodeTypes = useMemo(
+    () => ({ skycot: SkycotStepNode, subWorkflow: SubWorkflowNode }),
+    [],
+  );
+
+  const handlePaletteSelect = useCallback(
+    (kind: StepKind) => {
+      if (kind === "sub_workflow") {
+        setPickerOpen(true);
+        setPaletteOpen(false);
+        return;
+      }
+      onSelectStepKind(kind);
+    },
+    [onSelectStepKind],
+  );
+
+  const handlePickerPick = useCallback(
+    (ref: SubWorkflowRef) => {
+      setPickerOpen(false);
+      onSelectStepKind("sub_workflow", ref);
+    },
+    [onSelectStepKind],
+  );
 
   return (
     <div className="builder-canvas">
@@ -95,6 +132,11 @@ export function BuilderCanvas({
             const step = (n.data as SkyNodeData | undefined)?.step;
             return step ? STEP_KIND_META[step.kind].color : "#8b5cf6";
           }}
+          nodeStrokeColor={(n) => {
+            const step = (n.data as SkyNodeData | undefined)?.step;
+            return step?.kind === "sub_workflow" ? "#1e1b4b" : "transparent";
+          }}
+          nodeStrokeWidth={3}
           maskColor="rgba(250,250,255,0.7)"
           pannable
           zoomable
@@ -124,8 +166,16 @@ export function BuilderCanvas({
       ) : null}
       {paletteOpen ? (
         <AddStepPalette
-          onSelect={onSelectStepKind}
+          onSelect={handlePaletteSelect}
           onClose={() => setPaletteOpen(false)}
+        />
+      ) : null}
+      {pickerOpen ? (
+        <SubWorkflowPicker
+          currentVerticalId={currentVerticalId}
+          currentName={currentName}
+          onPick={handlePickerPick}
+          onClose={() => setPickerOpen(false)}
         />
       ) : null}
     </div>

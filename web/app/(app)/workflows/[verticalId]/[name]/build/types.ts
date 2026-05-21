@@ -2,6 +2,7 @@ import {
   Clock,
   Database,
   GitBranch,
+  Layers,
   MessageSquare,
   Play,
   Repeat,
@@ -20,7 +21,19 @@ export type StepKind =
   | "decision"
   | "data"
   | "loop"
-  | "wait";
+  | "wait"
+  | "sub_workflow";
+
+// Reference to another workflow invoked as a single composable unit.
+// `stepCount` is captured at link-time so the SubWorkflowNode can render
+// "6 steps" without resolving the target — the live builder refreshes
+// it when the target spec changes.
+export interface SubWorkflowRef {
+  verticalId: string;
+  name: string;
+  displayName: string;
+  stepCount: number;
+}
 
 export interface LoopConfig {
   items_path: string;
@@ -55,6 +68,7 @@ export interface WorkflowStep {
   body?: WorkflowStep[];
   waitConfig?: WaitConfig;
   branch?: DecisionBranch;
+  subWorkflow?: SubWorkflowRef;
 }
 
 export interface WorkflowSpec {
@@ -80,6 +94,7 @@ export const STEP_KIND_META: Record<StepKind, { icon: ReactNode; color: string; 
   data:         { icon: createElement(Database, { size: 14 }),      color: "#52525b", label: "Data" },
   loop:         { icon: createElement(Repeat, { size: 14 }),        color: "#6366f1", label: "Loop" },
   wait:         { icon: createElement(Clock, { size: 14 }),         color: "#6366f1", label: "Wait" },
+  sub_workflow: { icon: createElement(Layers, { size: 14 }),        color: "#0891b2", label: "Sub-workflow" },
 };
 
 export const TRUE_EDGE_STYLE = { stroke: "#8b5cf6", strokeWidth: 2 } as const;
@@ -102,6 +117,7 @@ export const PALETTE_GROUPS: PaletteGroup[] = [
   { label: "Sources", kinds: ["trigger"] },
   { label: "Action", kinds: ["skill_invoke", "tool_call", "notify"] },
   { label: "Logic", kinds: ["decision", "loop", "wait"] },
+  { label: "Composition", kinds: ["sub_workflow"] },
   { label: "Governance", kinds: ["approval"] },
   { label: "Data", kinds: ["data"] },
 ];

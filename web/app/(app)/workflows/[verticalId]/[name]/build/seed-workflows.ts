@@ -55,6 +55,41 @@ export const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
       { id: "s5", kind: "tool_call", name: "Send outreach + calendar link", description: "Gmail/Outlook + Calendly slot + CRM update." },
     ],
   },
+  "gtm-engineer/full_listing_flow": {
+    name: "full_listing_flow",
+    vertical: "gtm-engineer",
+    description: "End-to-end listing pipeline composed from existing sub-workflows.",
+    version: "v1",
+    risk: "approval-required",
+    steps: [
+      { id: "s1", kind: "trigger", triggerKind: "form", name: "Seller submits inventory", description: "Same intake form as post_listing." },
+      {
+        id: "s2",
+        kind: "sub_workflow",
+        name: "Call post_listing",
+        description: "Invokes gtm-engineer/post_listing (6 steps).",
+        subWorkflow: {
+          verticalId: "gtm-engineer",
+          name: "post_listing",
+          displayName: "post listing",
+          stepCount: 6,
+        },
+      },
+      {
+        id: "s3",
+        kind: "sub_workflow",
+        name: "Call qualify_lead",
+        description: "Invokes sales/qualify_lead (5 steps) on the seller as a follow-up lead.",
+        subWorkflow: {
+          verticalId: "sales",
+          name: "qualify_lead",
+          displayName: "qualify lead",
+          stepCount: 5,
+        },
+      },
+      { id: "s4", kind: "notify", name: "Notify ops", description: "Post the resulting listing URL + lead status to #ops." },
+    ],
+  },
   "support/qa_audit": {
     name: "qa_audit",
     vertical: "support",

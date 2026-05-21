@@ -50,6 +50,7 @@ import {
   STEP_KIND_META,
   type SkyNodeData,
   type StepKind,
+  type SubWorkflowRef,
   type WorkflowSpec,
   type WorkflowStep,
 } from "./types";
@@ -522,12 +523,14 @@ function BuilderInner({
   );
 
   const handleAddStep = useCallback(
-    (kind: StepKind) => {
+    (kind: StepKind, subWorkflow?: SubWorkflowRef) => {
       const suffix = crypto.randomUUID().slice(0, 8);
-      const node = newStepNode(kind, builder.nodes, suffix);
+      const node = newStepNode(kind, builder.nodes, suffix, subWorkflow);
       builder.addNode(node);
       toast.success(`${STEP_KIND_META[kind].label} added — drag to position.`, {
-        description: STEP_KIND_DEFAULTS[kind].description,
+        description: subWorkflow
+          ? `Calls ${subWorkflow.verticalId}/${subWorkflow.name}.`
+          : STEP_KIND_DEFAULTS[kind].description,
       });
     },
     [builder],
@@ -600,6 +603,8 @@ function BuilderInner({
             isValidConnection={isValidConnection}
             onNodeClick={onNodeClick}
             onSelectStepKind={handleAddStep}
+            currentVerticalId={verticalId}
+            currentName={name}
             onNodesDelete={onNodesDelete}
             onEdgesDelete={onEdgesDelete}
             onNodeContextMenu={onNodeContextMenu}

@@ -74,6 +74,9 @@ export function AddStepPalette({ onSelect, onClose }: AddStepPaletteProps) {
           </div>
           {group.kinds.map((kind) => {
             const meta = STEP_KIND_META[kind];
+            // Sub-workflow opens a picker, so its palette label invites
+            // that action rather than asserting an immediate insertion.
+            const label = kind === "sub_workflow" ? "Call sub-workflow…" : meta.label;
             return (
               <button
                 key={kind}
@@ -81,7 +84,9 @@ export function AddStepPalette({ onSelect, onClose }: AddStepPaletteProps) {
                 data-testid={`palette-kind-${kind}`}
                 onClick={() => {
                   onSelect(kind);
-                  onClose();
+                  // Picker is opened by the parent for sub_workflow;
+                  // it closes the palette there to avoid races.
+                  if (kind !== "sub_workflow") onClose();
                 }}
                 style={{
                   display: "flex",
@@ -119,7 +124,7 @@ export function AddStepPalette({ onSelect, onClose }: AddStepPaletteProps) {
                 >
                   {meta.icon}
                 </span>
-                <span>{meta.label}</span>
+                <span>{label}</span>
               </button>
             );
           })}

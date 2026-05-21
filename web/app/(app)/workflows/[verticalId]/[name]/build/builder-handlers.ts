@@ -1,6 +1,6 @@
 import type { Connection, Edge, Node } from "@xyflow/react";
 
-import type { SkyNodeData, StepKind, WorkflowStep } from "./types";
+import type { SkyNodeData, StepKind, SubWorkflowRef, WorkflowStep } from "./types";
 
 // Pure helpers for the visual builder's connect + add-step handlers.
 // Kept React-free so the validation rules can be unit-tested without
@@ -73,6 +73,7 @@ export const STEP_KIND_DEFAULTS: Record<StepKind, { name: string; description: s
   data:         { name: "Data step",     description: "Read or transform data" },
   loop:         { name: "Loop",          description: "Iterate over a list" },
   wait:         { name: "Wait",          description: "Pause for a duration" },
+  sub_workflow: { name: "Sub-workflow",  description: "Invoke another workflow as a single step" },
 };
 
 export function newStepPosition(nodes: Node[]): { x: number; y: number } {
@@ -82,17 +83,25 @@ export function newStepPosition(nodes: Node[]): { x: number; y: number } {
     : { x: 200, y: 200 };
 }
 
-export function newStepNode(kind: StepKind, nodes: Node[], idSuffix: string): Node {
+export function newStepNode(
+  kind: StepKind,
+  nodes: Node[],
+  idSuffix: string,
+  subWorkflow?: SubWorkflowRef,
+): Node {
   const defaults = STEP_KIND_DEFAULTS[kind];
   const step: WorkflowStep = {
     id: `step-${idSuffix}`,
     kind,
-    name: defaults.name,
-    description: defaults.description,
+    name: subWorkflow ? `Call ${subWorkflow.displayName}` : defaults.name,
+    description: subWorkflow
+      ? `Invokes ${subWorkflow.verticalId}/${subWorkflow.name} (${subWorkflow.stepCount} step${subWorkflow.stepCount === 1 ? "" : "s"}).`
+      : defaults.description,
+    subWorkflow,
   };
   return {
     id: step.id,
-    type: "skycot",
+    type: kind === "sub_workflow" ? "subWorkflow" : "skycot",
     position: newStepPosition(nodes),
     data: { step },
   };

@@ -53,7 +53,7 @@ export function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge
   const emit = (step: WorkflowStep, x: number) => {
     nodes.push({
       id: step.id,
-      type: "skycot",
+      type: step.kind === "sub_workflow" ? "subWorkflow" : "skycot",
       position: { x, y },
       data: { step },
     });
@@ -131,7 +131,7 @@ export function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge
     branch.falseSteps.forEach((bStep, j) => {
       nodes.push({
         id: bStep.id,
-        type: "skycot",
+        type: bStep.kind === "sub_workflow" ? "subWorkflow" : "skycot",
         position: { x: COL_BRANCH_X, y: baseY + (j + 1) * ROW_HEIGHT },
         data: { step: bStep },
       });
