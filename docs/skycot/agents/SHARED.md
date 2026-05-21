@@ -30,3 +30,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-21T13:43:00Z [conductor] tick-27 — 13 new claims! Wave-15 P0 substrate FINALLY moving (#1987 hire-schema-mirror + 6 more P0s claimed). +3 small replenishment briefs (test-run-persist, rollback-diff-view, prod-handler-sweep).
 2026-05-22T00:18:00Z [conductor] tick-28 — swarm-healthy report. 0 new commits since #1987 merged. 14 CLAIMED vs 1 local worktree (operator's other machine running the rest, OR ghost claims). Watching for resolution next tick.
 2026-05-21T20:14:59Z [marketing] Friday founder-reflection — drafted LinkedIn-personal + X-personal (anchor: PR #1983 cross-tenant negative-test sweep + tick-26 P1 follow-up brief)
+2026-05-21T20:36:00Z [conductor] tick-32 post-overnight sweep — operator confirmed workers closed. 13 zombie CLAIMED → TODO + 5 stale DIRTY PRs closed (#1970/#1972/#1973/#1976/#1978). Queue clean for next worker spin-up.

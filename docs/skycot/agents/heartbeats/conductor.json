@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T00:18:00Z",
+  "last_run_utc": "2026-05-21T20:36:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-28",
-  "run_notes": "Tick 28: swarm-healthy report. 0 new commits in 35min, 5 DIRTY PRs unchanged (2-3h old, fix-requests still unaddressed), 14 CLAIMED but only 1 worktree visible locally. Either deep-impl phase OR claim-burst ghost pattern returning. Monitoring next tick for resolution."
+  "session_label": "anthropic-claude-code-conductor-tick-32",
+  "run_notes": "Tick 32 (post-overnight resume): operator confirmed workers closed. Swept 13 zombie CLAIMED → TODO + closed 5 stale DIRTY PRs (#1970/#1972/#1973/#1976/#1978). Marketing cron fired at 06:15. Auditor stale (missed 11:30 UTC slot during machine sleep)."
 }
