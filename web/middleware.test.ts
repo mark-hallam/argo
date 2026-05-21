@@ -74,4 +74,22 @@ describe("middleware", () => {
     const res = middleware(makeRequest("http://localhost:3000/auth/signin"));
     expect(res.headers.get("location")).toBeNull();
   });
+
+  it.each(["/opengraph-image", "/icon", "/apple-icon"])(
+    "lets the metadata route %s through unauthenticated",
+    (path) => {
+      const res = middleware(makeRequest(`http://localhost:3000${path}`));
+      expect(res.headers.get("location")).toBeNull();
+    },
+  );
+
+  it.each([
+    "/landing/opengraph-image",
+    "/pricing/opengraph-image",
+    "/compare/opengraph-image",
+    "/customers/opengraph-image",
+  ])("lets per-page metadata route %s through unauthenticated", (path) => {
+    const res = middleware(makeRequest(`http://localhost:3000${path}`));
+    expect(res.headers.get("location")).toBeNull();
+  });
 });

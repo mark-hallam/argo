@@ -25,7 +25,10 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/compare") ||
     pathname.startsWith("/changelog") ||
     pathname.startsWith("/docs") ||
-    pathname.startsWith("/for/")
+    pathname.startsWith("/for/") ||
+    pathname === "/opengraph-image" ||
+    pathname === "/icon" ||
+    pathname === "/apple-icon"
   ) {
     return NextResponse.next();
   }
