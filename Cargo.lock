@@ -1507,6 +1507,7 @@ dependencies = [
 name = "argo-skill"
 version = "0.0.1"
 dependencies = [
+ "argo-audit",
  "argo-eval",
  "argo-judge",
  "argo-store",

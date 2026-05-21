@@ -10,6 +10,7 @@ description = "Argo — skill store with frontmatter parsing + locks (§14.2)"
 [dependencies]
 argo-types = { path = "../argo-types" }
 argo-store = { path = "../argo-store" }
+argo-audit = { path = "../argo-audit" }
 argo-judge = { path = "../argo-judge" }
 argo-eval = { path = "../argo-eval" }
 argo-vertical-packs = { path = "../argo-vertical-packs" }

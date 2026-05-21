@@ -10,6 +10,7 @@
 use crate::eval_runner::{run_evals, ActualOutcome, EvalExecutor};
 use crate::skill::Skill;
 use crate::store::{RawSkill, SkillStore};
+use argo_audit::AuditKind;
 use argo_types::{ArgoError, ArgoResult, SkillId};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -18,7 +19,7 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 use uuid::Uuid;
 
-const AUDIT_KIND: &str = "skill.regression_detected";
+const AUDIT_KIND: &str = AuditKind::SkillRegressionDetected.label();
 const ACTION_TYPE: &str = "SKILL_REEVAL";
 const ENSURE_SQL: &str = include_str!("../../argo-store/migrations/121__skill_reeval_history.sql");
 
