@@ -216,3 +216,31 @@ async fn freeze_for_nonexistent_worker_returns_404() {
     assert_eq!(status, "404 Not Found", "body: {resp}");
     assert_eq!(parse(&resp)["error"]["code"], "not_found");
 }
+
+#[tokio::test]
+async fn freeze_cross_tenant_worker_returns_404() {
+    // Mission-claim-6 procurement-grade test: tenant_b cannot freeze
+    // tenant_a's worker. The handler scopes `get_worker(tenant, id)`
+    // so a cross-tenant id is indistinguishable from a non-existent id
+    // (and that's the safer posture — no existence leak).
+    let (env, _own_worker) = setup_with_worker("Maya").await;
+    let other_tenant = TenantId::new();
+    let alien = add_worker(&env.store, other_tenant, "Alien").await;
+    let body = r#"{"reason":"x-tenant freeze attempt"}"#;
+    let req = freeze_req(&alien.id, Some("owner"), body);
+    let (status, resp) = post_freeze(&alien.id.to_string(), &req, Some(&env.store)).await;
+    assert_eq!(status, "404 Not Found", "body: {resp}");
+    assert_eq!(parse(&resp)["error"]["code"], "not_found");
+}
+
+#[tokio::test]
+async fn unfreeze_cross_tenant_worker_returns_404() {
+    // Same isolation guarantee for the inverse operation.
+    let (env, _own_worker) = setup_with_worker("Maya").await;
+    let other_tenant = TenantId::new();
+    let alien = add_worker(&env.store, other_tenant, "Alien").await;
+    let req = unfreeze_req(&alien.id, Some("owner"));
+    let (status, resp) = post_unfreeze(&alien.id.to_string(), &req, Some(&env.store)).await;
+    assert_eq!(status, "404 Not Found", "body: {resp}");
+    assert_eq!(parse(&resp)["error"]["code"], "not_found");
+}

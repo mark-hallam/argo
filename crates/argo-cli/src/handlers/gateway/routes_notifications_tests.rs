@@ -306,6 +306,69 @@ async fn dismiss_one_rejects_malformed_id() {
 }
 
 #[tokio::test]
+async fn cross_tenant_row_invisible_in_list_and_count() {
+    // Mission-claim-6 procurement-grade test: a notification seeded
+    // under tenant_b must not appear in tenant_a's list or count.
+    // The handler resolves tenant from cwd → ensure_workspace, so we
+    // hand-seed an alien `TenantId` and confirm only the caller's
+    // workspace tenant rows surface.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let own_tenant = workspace_tenant(&store).await;
+    let alien_tenant = TenantId::new();
+    seed(&store, own_tenant, "nt_own", Some("human:alice"), 100).await;
+    seed(&store, alien_tenant, "nt_alien", Some("human:alice"), 200).await;
+
+    let list = req_get("/api/v1/notifications", Some("human:alice"));
+    let (status, body) = dispatch_get_unwrap(&list, &store).await;
+    assert_eq!(status, "200 OK");
+    let v: Value = serde_json::from_str(&body).unwrap();
+    let ids: Vec<&str> = v["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|i| i["id"].as_str())
+        .collect();
+    assert_eq!(ids, vec!["nt_own"], "tenant_b row leaked into tenant_a list");
+
+    let count = req_get("/api/v1/notifications/unread-count", Some("human:alice"));
+    let (_, body) = dispatch_get_unwrap(&count, &store).await;
+    let v: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(v["unread"], 1, "tenant_b row leaked into tenant_a count");
+}
+
+#[tokio::test]
+async fn cross_tenant_dismiss_does_not_touch_alien_row() {
+    // Same isolation for the mutating path: dismissing an id that
+    // only exists under tenant_b returns the idempotent ok-envelope
+    // (the WHERE clause matches zero rows) but leaves tenant_b's row
+    // untouched.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let _own = workspace_tenant(&store).await;
+    let alien_tenant = TenantId::new();
+    seed(&store, alien_tenant, "nt_alien", Some("human:alice"), 100).await;
+
+    let r = req_post("/api/v1/notifications/nt_alien/dismiss", Some("human:alice"));
+    let (status, _) = dispatch_post_unwrap(&r, &store).await;
+    assert_eq!(status, "200 OK"); // idempotent contract — no-op for cross-tenant
+
+    // Verify the alien row is still pending by querying its tenant directly.
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM notifications WHERE tenant_id = ? AND dismissed_at IS NULL",
+    )
+    .bind(alien_tenant.to_string())
+    .fetch_one(store.pool())
+    .await
+    .expect("count");
+    assert_eq!(count, 1, "cross-tenant dismiss leaked through");
+}
+
+#[tokio::test]
 async fn handlers_return_503_when_store_missing() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");

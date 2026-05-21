@@ -225,3 +225,37 @@ async fn show_response_503_when_store_absent() {
     let (status, _body) = show_response(&bogus, &show_req(&bogus), None).await;
     assert_eq!(status, "503 Service Unavailable");
 }
+
+#[tokio::test]
+async fn show_response_cross_tenant_worker_returns_404() {
+    // Mission-claim-6 procurement-grade test: tenant_b cannot read
+    // tenant_a's worker trust-grade. The handler scopes
+    // `get_worker(tenant, id)`, so a worker that exists only on a
+    // different tenant looks like a non-existent worker — no leak.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    // Seed the local workspace tenant so resolve_workspace_tenant succeeds.
+    let cwd = std::env::current_dir().unwrap();
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let _ = store.ensure_workspace(name, &root).await.unwrap();
+    // Drop a worker onto a separate (alien) tenant.
+    let other_tenant = TenantId::new();
+    let identities = IdentityStore::new(&store);
+    let alien = fresh_worker(other_tenant);
+    identities.create_worker(&alien).await.unwrap();
+    identities
+        .set_worker_trust_grade(other_tenant, alien.id, 3)
+        .await
+        .unwrap();
+    let id = alien.id.to_string();
+    let (status, body) = show_response(&id, &show_req(&id), Some(&store)).await;
+    assert_eq!(status, "404 Not Found", "body: {body}");
+    let v: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(v["error"]["code"], "not_found");
+}
