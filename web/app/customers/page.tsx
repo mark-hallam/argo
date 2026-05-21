@@ -33,7 +33,7 @@ export default function CustomersPage() {
           --cyan: #0891b2;
           --ink: #1e1b4b;
           --ink-2: #3f3f46;
-          --ink-3: #71717a;
+          --ink-3: #52525b;
           --bg: #fafaff;
           --line: #ece9f5;
           font-family: "Inter", sans-serif;

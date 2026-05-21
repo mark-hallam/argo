@@ -41,7 +41,7 @@ const STEP_KIND_META: Record<
   tool_call: { icon: <Database size={14} />, color: "#0891b2", label: "Tool call" },
   notify: { icon: <MessageSquare size={14} />, color: "#ec4899", label: "Notify" },
   decision: { icon: <GitBranch size={14} />, color: "#6366f1", label: "Decision" },
-  data: { icon: <Database size={14} />, color: "#71717a", label: "Data" },
+  data: { icon: <Database size={14} />, color: "#52525b", label: "Data" },
 };
 
 export default function TemplateDetailPage({
@@ -87,7 +87,7 @@ export default function TemplateDetailPage({
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.18em;
           text-transform: uppercase;
           font-weight: 700;
@@ -134,7 +134,7 @@ export default function TemplateDetailPage({
         .tpldetail-steps-pill {
           font-family: "JetBrains Mono", monospace;
           font-size: 10px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.12em;
           text-transform: uppercase;
           font-weight: 700;
@@ -192,7 +192,7 @@ export default function TemplateDetailPage({
         .tpldetail-section-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.18em;
           text-transform: uppercase;
           font-weight: 700;
@@ -214,7 +214,7 @@ export default function TemplateDetailPage({
         .tpldetail-step-index {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.08em;
           font-weight: 700;
           padding-top: 4px;
@@ -261,7 +261,7 @@ export default function TemplateDetailPage({
           gap: 8px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.04em;
         }
         .tpldetail-gate {

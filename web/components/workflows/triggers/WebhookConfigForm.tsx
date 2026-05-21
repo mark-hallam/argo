@@ -110,7 +110,7 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
           <button
             type="button"
             onClick={() => setConfirmRotate(false)}
-            style={{ marginLeft: 8, padding: "9px 14px", background: "transparent", border: "none", color: "#71717a", fontSize: 13, cursor: "pointer" }}
+            style={{ marginLeft: 8, padding: "9px 14px", background: "transparent", border: "none", color: "#52525b", fontSize: 13, cursor: "pointer" }}
           >
             Cancel
           </button>

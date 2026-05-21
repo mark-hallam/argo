@@ -36,7 +36,7 @@ export default function OnboardingWelcomePage() {
             className="rounded-[12px] border border-[#ece9f5] bg-white/70 p-4 shadow-sm"
             data-testid="onboarding-pillar-audit-first"
           >
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#71717a]">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#52525b]">
               Audit-first
             </p>
             <p className="mt-1.5 text-sm text-[#1e1b4b]">
@@ -47,7 +47,7 @@ export default function OnboardingWelcomePage() {
             className="rounded-[12px] border border-[#ece9f5] bg-white/70 p-4 shadow-sm"
             data-testid="onboarding-pillar-single-binary"
           >
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#71717a]">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#52525b]">
               Single-binary
             </p>
             <p className="mt-1.5 text-sm text-[#1e1b4b]">
@@ -58,7 +58,7 @@ export default function OnboardingWelcomePage() {
             className="rounded-[12px] border border-[#ece9f5] bg-white/70 p-4 shadow-sm"
             data-testid="onboarding-pillar-enterprise-grade"
           >
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#71717a]">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#52525b]">
               Enterprise-grade
             </p>
             <p className="mt-1.5 text-sm text-[#1e1b4b]">

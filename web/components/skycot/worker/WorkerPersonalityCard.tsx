@@ -148,7 +148,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;

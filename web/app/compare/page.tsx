@@ -164,7 +164,7 @@ export default function ComparePage() {
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.2em;
           text-transform: uppercase;
           font-weight: 700;
@@ -239,7 +239,7 @@ export default function ComparePage() {
           letter-spacing: 0.14em;
           text-transform: uppercase;
           font-weight: 600;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           margin: 0 0 8px;
         }
         .compare-position-blurb {
@@ -283,7 +283,7 @@ export default function ComparePage() {
           letter-spacing: 0.18em;
           text-transform: uppercase;
           font-weight: 700;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           background: var(--background, #fafaff);
           border-bottom: 1px solid var(--border, #ece9f5);
         }
@@ -306,7 +306,7 @@ export default function ComparePage() {
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           padding-top: 18px;
           padding-bottom: 10px;
           border-top: 1px solid var(--border, #ece9f5);
@@ -321,7 +321,7 @@ export default function ComparePage() {
         }
         .compare-caption {
           font-size: 12px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           margin-top: 4px;
           font-weight: 400;
           line-height: 1.45;

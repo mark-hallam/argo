@@ -83,7 +83,7 @@ export default function SkillsPage() {
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.2em;
           text-transform: uppercase;
           font-weight: 700;
@@ -154,7 +154,7 @@ export default function SkillsPage() {
           background: transparent;
         }
         .search-input::placeholder {
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
         }
         .search-kbd {
           font-family: "JetBrains Mono", monospace;
@@ -163,12 +163,12 @@ export default function SkillsPage() {
           border-radius: 6px;
           background: var(--background, #fafaff);
           border: 1px solid var(--border, #ece9f5);
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
         }
         .count-pill {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.08em;
         }
         .try-row {
@@ -181,7 +181,7 @@ export default function SkillsPage() {
         .try-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -263,7 +263,7 @@ export default function SkillsPage() {
           gap: 14px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.06em;
           text-transform: uppercase;
           font-weight: 600;
@@ -286,7 +286,7 @@ export default function SkillsPage() {
         .section-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -297,7 +297,7 @@ export default function SkillsPage() {
           border-radius: 14px;
           padding: 32px;
           text-align: center;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           background: var(--background, #fafaff);
         }
         .state-panel-error {

@@ -36,7 +36,7 @@ export default function SkillDetailStubPage({
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.2em;
           text-transform: uppercase;
           font-weight: 700;
@@ -69,7 +69,7 @@ export default function SkillDetailStubPage({
         .stub-skill-id {
           font-family: "JetBrains Mono", monospace;
           font-size: 13px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           padding: 10px 16px;
           border-radius: 8px;
           background: var(--background, #fafaff);

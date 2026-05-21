@@ -113,7 +113,7 @@ const WORKERS: PaletteItem[] = [
     href: "/workers/wkr_01J0NORI",
     initials: "NO",
     badge: "idle",
-    badgeColor: "#71717a",
+    badgeColor: "#52525b",
     keywords: ["marketing", "comms", "announcements"],
   },
   {
@@ -364,7 +364,7 @@ const MEMBERS: PaletteItem[] = [
     href: "/settings/members",
     initials: "NW",
     badge: "guest",
-    badgeColor: "#71717a",
+    badgeColor: "#52525b",
     keywords: ["guest", "auditor", "naomi@auditor.gov"],
   },
   {
@@ -706,7 +706,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
           font-weight: 600;
-          color: #71717a;
+          color: #52525b;
           background: #f4f4f5;
           border: 1px solid #ece9f5;
           padding: 3px 7px;
@@ -726,7 +726,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .cmdk-group-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: #71717a;
+          color: #52525b;
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -780,7 +780,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         }
         .cmdk-row-subtitle {
           font-size: 12px;
-          color: #71717a;
+          color: #52525b;
           line-height: 1.4;
           margin-top: 2px;
           white-space: nowrap;
@@ -816,7 +816,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         }
         .cmdk-enter {
           opacity: 0;
-          color: #71717a;
+          color: #52525b;
           transition: opacity 120ms ease;
         }
         .cmdk-row[data-active="true"] .cmdk-enter {
@@ -825,7 +825,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .cmdk-empty {
           padding: 36px 16px 32px;
           text-align: center;
-          color: #71717a;
+          color: #52525b;
           font-size: 13.5px;
         }
         .cmdk-empty-title {
@@ -845,7 +845,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           background: #fafaff;
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: #71717a;
+          color: #52525b;
           letter-spacing: 0.06em;
         }
         .cmdk-footer-hints {

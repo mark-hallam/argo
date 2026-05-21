@@ -51,7 +51,7 @@ export function EscalationMatrix({
         .em-label {
           font-family: ui-monospace, "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -73,7 +73,7 @@ export function EscalationMatrix({
           font-size: 10.5px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           font-weight: 700;
           padding: 0 8px 8px;
           border-bottom: 1px solid var(--border, #ece9f5);
@@ -109,7 +109,7 @@ export function EscalationMatrix({
         .em-channel {
           margin-top: 4px;
           font-size: 11.5px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
         }
         .em-arrow {
           color: #c4b5fd;

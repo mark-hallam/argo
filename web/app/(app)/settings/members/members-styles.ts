@@ -22,7 +22,7 @@ export const MEMBERS_PAGE_STYLES = `
   .members-eyebrow {
     font-family: "JetBrains Mono", monospace;
     font-size: 11px;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     font-weight: 700;
@@ -99,7 +99,7 @@ export const MEMBERS_PAGE_STYLES = `
   }
   .role-tier-can {
     font-size: 12px;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     line-height: 1.5;
     margin: 0;
     padding-left: 14px;
@@ -125,7 +125,7 @@ export const MEMBERS_PAGE_STYLES = `
     letter-spacing: 0.16em;
     text-transform: uppercase;
     font-weight: 700;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     background: var(--background, #fafaff);
     border-bottom: 1px solid var(--border, #ece9f5);
   }
@@ -158,7 +158,7 @@ export const MEMBERS_PAGE_STYLES = `
   }
   .member-email {
     font-size: 12.5px;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
   }
   .member-role-pill {
     display: inline-flex;
@@ -193,7 +193,7 @@ export const MEMBERS_PAGE_STYLES = `
   .member-row-actions {
     background: transparent;
     border: none;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     cursor: pointer;
     padding: 6px;
     border-radius: 6px;
@@ -231,7 +231,7 @@ export const MEMBERS_PAGE_STYLES = `
     font-family: "JetBrains Mono", monospace;
     font-size: 10.5px;
     font-weight: 700;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     background: transparent;
     border: 1px dashed var(--border, #ece9f5);
     border-radius: 6px;
@@ -286,7 +286,7 @@ export const MEMBERS_PAGE_STYLES = `
   .invite-label {
     font-family: "JetBrains Mono", monospace;
     font-size: 10.5px;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     font-weight: 700;
@@ -321,7 +321,7 @@ export const MEMBERS_PAGE_STYLES = `
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
   }
   .invite-role-pill.selected {
     border-color: #8b5cf6;
@@ -387,7 +387,7 @@ export const MEMBERS_PAGE_STYLES = `
   .scope-toggle-hint {
     font-size: 11px;
     font-weight: 500;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     margin-top: 4px;
     display: block;
     letter-spacing: 0;
@@ -413,7 +413,7 @@ export const MEMBERS_PAGE_STYLES = `
     background: white;
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -426,12 +426,12 @@ export const MEMBERS_PAGE_STYLES = `
   }
   .scope-cohort-empty {
     font-size: 12.5px;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     padding: 4px;
   }
   .scope-helper {
     font-size: 12.5px;
-    color: var(--muted-foreground, #71717a);
+    color: var(--muted-foreground, #52525b);
     margin: 0 0 18px;
     line-height: 1.45;
   }

@@ -16,7 +16,7 @@ const LABEL = {
   letterSpacing: "0.16em",
   textTransform: "uppercase" as const,
   fontWeight: 700,
-  color: "#71717a",
+  color: "#52525b",
   marginBottom: 6,
 } as const;
 
@@ -42,7 +42,7 @@ const ERROR_TEXT = {
 const HINT_TEXT = {
   marginTop: 6,
   fontSize: 12,
-  color: "#71717a",
+  color: "#52525b",
 } as const;
 
 interface FieldShellProps {

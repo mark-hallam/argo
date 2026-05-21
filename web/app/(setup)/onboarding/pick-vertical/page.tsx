@@ -146,7 +146,7 @@ export default function OnboardingPickVerticalPage() {
                     ) : null}
                   </div>
                   <p className="text-sm text-[#3f3f46]">{v.summary}</p>
-                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#71717a]">
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#52525b]">
                     {v.skillCount} skills
                   </p>
                   <ul className="mt-1 space-y-0.5 text-xs text-[#3f3f46]">

@@ -148,7 +148,7 @@ export default function WorkflowsPage() {
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.2em;
           text-transform: uppercase;
           font-weight: 700;
@@ -221,7 +221,7 @@ export default function WorkflowsPage() {
         .workflows-count-pill {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.08em;
         }
         .workflows-propose {
@@ -272,7 +272,7 @@ export default function WorkflowsPage() {
         .workflows-try-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -291,7 +291,7 @@ export default function WorkflowsPage() {
         .workflows-section-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -398,7 +398,7 @@ export default function WorkflowsPage() {
         .workflow-step-count {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.04em;
           font-weight: 600;
         }
@@ -407,7 +407,7 @@ export default function WorkflowsPage() {
           gap: 14px;
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.04em;
           text-transform: uppercase;
           font-weight: 600;
@@ -513,7 +513,7 @@ export default function WorkflowsPage() {
               textAlign: "center",
               border: "1px dashed var(--border, #ece9f5)",
               borderRadius: "16px",
-              color: "var(--muted-foreground, #71717a)",
+              color: "var(--muted-foreground, #52525b)",
             }}
           >
             <p style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground, #1e1b4b)", margin: "0 0 6px" }}>
@@ -568,7 +568,7 @@ export default function WorkflowsPage() {
                 <span className="workflow-card-vertical">{wf.vertical}</span>
                 <span
                   className="workflow-card-risk"
-                  style={{ background: RISK_COLOR[wf.risk] ?? "#71717a" }}
+                  style={{ background: RISK_COLOR[wf.risk] ?? "#52525b" }}
                 >
                   {RISK_LABEL[wf.risk] ?? wf.risk}
                 </span>

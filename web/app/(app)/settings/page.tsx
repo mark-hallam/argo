@@ -109,7 +109,7 @@ export default function SettingsLandingPage() {
         .eyebrow {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -197,7 +197,7 @@ export default function SettingsLandingPage() {
         .settings-coming-soon {
           font-family: "JetBrains Mono", monospace;
           font-size: 9.5px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.08em;
           background: var(--background, #fafaff);
           border: 1px solid var(--border, #ece9f5);

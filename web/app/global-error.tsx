@@ -27,7 +27,7 @@ export default function GlobalError({
 
   const bg = "linear-gradient(135deg, #fafaff 0%, #f4f0fa 100%)";
   const ink = "#1e1b4b";
-  const muted = "#71717a";
+  const muted = "#52525b";
   const gradient = "linear-gradient(135deg, #8b5cf6, #ec4899)";
 
   return (

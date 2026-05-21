@@ -50,7 +50,7 @@ export function AuthEditorialShell({
           --teal: #14b8a6;
           --ink: #1e1b4b;
           --ink-2: #3f3f46;
-          --ink-3: #71717a;
+          --ink-3: #52525b;
           --ink-4: #a1a1aa;
           --bg: #fafaff;
           --line: #ece9f5;

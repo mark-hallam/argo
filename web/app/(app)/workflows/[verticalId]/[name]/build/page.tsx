@@ -181,7 +181,7 @@ const STEP_KIND_META: Record<StepKind, { icon: React.ReactNode; color: string; l
   tool_call:    { icon: <Database size={14} />,     color: "#0891b2", label: "Tool call" },
   notify:       { icon: <MessageSquare size={14} />,color: "#ec4899", label: "Notify" },
   decision:     { icon: <GitBranch size={14} />,    color: "#6366f1", label: "Decision" },
-  data:         { icon: <Database size={14} />,     color: "#71717a", label: "Data" },
+  data:         { icon: <Database size={14} />,     color: "#52525b", label: "Data" },
   loop:         { icon: <Repeat size={14} />,       color: "#6366f1", label: "Loop" },
   wait:         { icon: <Clock size={14} />,        color: "#6366f1", label: "Wait" },
 };
@@ -322,7 +322,7 @@ function SkycotStepNode({ data, selected }: NodeProps) {
               flexWrap: "wrap",
               fontFamily: "JetBrains Mono, monospace",
               fontSize: 9,
-              color: "#71717a",
+              color: "#52525b",
               letterSpacing: "0.04em",
             }}
           >
@@ -477,7 +477,7 @@ function AddStepPalette({ onClose }: { onClose: () => void }) {
             letterSpacing: "0.14em",
             textTransform: "uppercase",
             fontWeight: 700,
-            color: "#71717a",
+            color: "#52525b",
           }}
         >
           Add step
@@ -486,7 +486,7 @@ function AddStepPalette({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={onClose}
           aria-label="Close palette"
-          style={{ background: "transparent", border: "none", cursor: "pointer", color: "#71717a", padding: 2, borderRadius: 4 }}
+          style={{ background: "transparent", border: "none", cursor: "pointer", color: "#52525b", padding: 2, borderRadius: 4 }}
         >
           <X size={14} />
         </button>
@@ -743,7 +743,7 @@ function BuilderInner({
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: #71717a;
+          color: #52525b;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           font-weight: 700;
@@ -768,7 +768,7 @@ function BuilderInner({
         .builder-version {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: #71717a;
+          color: #52525b;
         }
         .builder-actions {
           margin-left: auto;
@@ -843,7 +843,7 @@ function BuilderInner({
         .builder-prompt-suggest {
           font-family: "JetBrains Mono", monospace;
           font-size: 10px;
-          color: #71717a;
+          color: #52525b;
           letter-spacing: 0.1em;
           padding: 4px 10px;
           border-radius: 999px;
@@ -881,13 +881,13 @@ function BuilderInner({
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
-          color: #71717a;
+          color: #52525b;
         }
         .builder-panel-close {
           background: transparent;
           border: none;
           cursor: pointer;
-          color: #71717a;
+          color: #52525b;
           padding: 4px;
           border-radius: 6px;
         }
@@ -908,7 +908,7 @@ function BuilderInner({
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
-          color: #71717a;
+          color: #52525b;
           margin-bottom: 6px;
         }
         .builder-add-step {

@@ -21,7 +21,7 @@ export function ApiKeysStyles() {
       .ak-eyebrow {
         font-family: "JetBrains Mono", monospace;
         font-size: 11px;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
         letter-spacing: 0.16em;
         text-transform: uppercase;
         font-weight: 700;
@@ -77,7 +77,7 @@ export function ApiKeysStyles() {
         letter-spacing: 0.16em;
         text-transform: uppercase;
         font-weight: 700;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
         background: var(--background, #fafaff);
         border-bottom: 1px solid var(--border, #ece9f5);
       }
@@ -120,7 +120,7 @@ export function ApiKeysStyles() {
       }
       .ak-row-time {
         font-size: 12.5px;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
       }
       .ak-row-expires-warn {
         color: #b45309;
@@ -244,7 +244,7 @@ export function ApiKeysStyles() {
         right: 14px;
         background: transparent;
         border: none;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
         cursor: pointer;
         padding: 6px;
         border-radius: 6px;
@@ -267,13 +267,13 @@ export function ApiKeysStyles() {
       }
       .ak-modal-meta {
         font-size: 12.5px;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
         margin: 8px 0 18px;
       }
       .ak-label {
         font-family: "JetBrains Mono", monospace;
         font-size: 10.5px;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
         letter-spacing: 0.16em;
         text-transform: uppercase;
         font-weight: 700;
@@ -317,7 +317,7 @@ export function ApiKeysStyles() {
         font-size: 10px;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
         margin-bottom: 6px;
         font-weight: 700;
       }
@@ -369,7 +369,7 @@ export function ApiKeysStyles() {
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
         letter-spacing: 0.06em;
-        color: var(--muted-foreground, #71717a);
+        color: var(--muted-foreground, #52525b);
       }
       .ak-expiry-row {
         display: flex;

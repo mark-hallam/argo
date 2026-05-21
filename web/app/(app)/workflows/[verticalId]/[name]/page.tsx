@@ -423,7 +423,7 @@ const STEP_KIND_META: Record<
   tool_call: { icon: <Database size={14} />, color: "#0891b2", label: "Tool call" },
   notify: { icon: <MessageSquare size={14} />, color: "#ec4899", label: "Notify" },
   decision: { icon: <GitBranch size={14} />, color: "#6366f1", label: "Decision" },
-  data: { icon: <Database size={14} />, color: "#71717a", label: "Data" },
+  data: { icon: <Database size={14} />, color: "#52525b", label: "Data" },
 };
 
 export default function WorkflowDetailPage({
@@ -497,7 +497,7 @@ function ViewerInner({
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.12em;
           text-transform: uppercase;
           font-weight: 700;
@@ -553,7 +553,7 @@ function ViewerInner({
           margin-left: auto;
           font-family: "JetBrains Mono", monospace;
           font-size: 12px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.06em;
           font-weight: 600;
         }
@@ -600,7 +600,7 @@ function ViewerInner({
         .wfd-section-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -672,7 +672,7 @@ function ViewerInner({
           margin-left: auto;
           background: transparent;
           border: none;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           cursor: pointer;
           padding: 4px;
           border-radius: 6px;
@@ -696,7 +696,7 @@ function ViewerInner({
           margin-top: 10px;
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.04em;
           font-weight: 600;
         }
@@ -844,7 +844,7 @@ function ViewerInner({
             flexWrap: "wrap",
             fontFamily: "Inter, sans-serif",
             fontSize: 13,
-            color: "var(--muted-foreground, #71717a)",
+            color: "var(--muted-foreground, #52525b)",
           }}
         >
           <div>

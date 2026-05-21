@@ -33,7 +33,7 @@ const STEP_KIND_META: Record<TemplateStepKind, { icon: React.ReactNode; color: s
   tool_call: { icon: <Database size={14} />, color: "#0891b2", label: "Tool call" },
   notify: { icon: <MessageSquare size={14} />, color: "#ec4899", label: "Notify" },
   decision: { icon: <GitBranch size={14} />, color: "#6366f1", label: "Decision" },
-  data: { icon: <Database size={14} />, color: "#71717a", label: "Data" },
+  data: { icon: <Database size={14} />, color: "#52525b", label: "Data" },
 };
 
 export default function CustomerStoryPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -62,7 +62,7 @@ export default function CustomerStoryPage({ params }: { params: Promise<{ slug: 
           --teal: #14b8a6;
           --ink: #1e1b4b;
           --ink-2: #3f3f46;
-          --ink-3: #71717a;
+          --ink-3: #52525b;
           --bg: #fafaff;
           --line: #ece9f5;
           font-family: "Inter", sans-serif;

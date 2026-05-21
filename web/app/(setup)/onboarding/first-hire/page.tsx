@@ -98,7 +98,7 @@ export default function OnboardingFirstHirePage() {
               placeholder={EXAMPLE_PROMPT}
               aria-label="First hire description"
             />
-            <p className="text-xs text-[#71717a]">
+            <p className="text-xs text-[#52525b]">
               Example: <em>{EXAMPLE_PROMPT}</em>
             </p>
           </label>

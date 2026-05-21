@@ -33,7 +33,7 @@ export default function TermsPage() {
           fontSize: 11,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: "#71717a",
+          color: "#52525b",
           margin: "0 0 18px",
         }}
       >
@@ -101,7 +101,7 @@ export default function TermsPage() {
         </li>
       </ul>
 
-      <p style={{ marginTop: 48, fontSize: 14, color: "#71717a" }}>
+      <p style={{ marginTop: 48, fontSize: 14, color: "#52525b" }}>
         Full terms under legal review. Questions?{" "}
         <a href="mailto:legal@skycot.com" style={{ color: "#8b5cf6" }}>
           legal@skycot.com

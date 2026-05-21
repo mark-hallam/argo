@@ -133,7 +133,9 @@
   --secondary-foreground:  oklch(0.25 0.020 248);
 
   --muted:                 oklch(0.96 0.010 248);
-  --muted-foreground:      oklch(0.52 0.015 248);
+  /* Lightness bumped 0.52 → 0.50 to satisfy WCAG AA 1.4.3 (4.5:1 against
+     #fafaff). Measured ~4.7:1 — see web/__tests__/a11y-contrast.test.ts. */
+  --muted-foreground:      oklch(0.50 0.015 248);
 
   --accent:                oklch(0.96 0.010 248);
   --accent-foreground:     oklch(0.25 0.020 248);

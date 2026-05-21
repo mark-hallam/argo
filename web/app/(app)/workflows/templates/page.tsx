@@ -76,7 +76,7 @@ export default function WorkflowTemplatesPage() {
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.18em;
           text-transform: uppercase;
           font-weight: 700;
@@ -90,7 +90,7 @@ export default function WorkflowTemplatesPage() {
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.2em;
           text-transform: uppercase;
           font-weight: 700;
@@ -155,7 +155,7 @@ export default function WorkflowTemplatesPage() {
         .templates-count-pill {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.08em;
         }
         .templates-filter-bar {
@@ -168,7 +168,7 @@ export default function WorkflowTemplatesPage() {
         .templates-filter-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 10px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.18em;
           text-transform: uppercase;
           font-weight: 700;
@@ -193,7 +193,7 @@ export default function WorkflowTemplatesPage() {
         .templates-section-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -302,7 +302,7 @@ export default function WorkflowTemplatesPage() {
         .template-step-count {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.04em;
           font-weight: 600;
         }
@@ -322,7 +322,7 @@ export default function WorkflowTemplatesPage() {
         .templates-empty {
           padding: 64px 20px;
           text-align: center;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           background: white;
           border: 1px dashed var(--border, #ece9f5);
           border-radius: 14px;

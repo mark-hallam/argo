@@ -46,7 +46,7 @@ export function MemberRow({ member, onEdit }: MemberRowProps) {
               : "Active"}
         </span>
       </div>
-      <div style={{ fontSize: 12.5, color: "var(--muted-foreground, #71717a)" }}>
+      <div style={{ fontSize: 12.5, color: "var(--muted-foreground, #52525b)" }}>
         {member.lastSeen}
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>

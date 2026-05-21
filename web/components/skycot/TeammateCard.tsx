@@ -357,7 +357,7 @@ export function TeammateCard({
         }
         .holo-role {
           margin-top: 4px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           font-size: 13px;
           font-weight: 600;
         }
@@ -371,7 +371,7 @@ export function TeammateCard({
           font-size: 9.5px;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           font-weight: 800;
           margin-bottom: 8px;
         }
@@ -400,7 +400,7 @@ export function TeammateCard({
           font-size: 9.5px;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           font-weight: 800;
           margin-bottom: 4px;
         }
@@ -421,11 +421,11 @@ export function TeammateCard({
         }
         .holo-bullet::before {
           content: "•";
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
         }
         .holo-tomorrow {
           font-size: 12px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
         }
         .holo-tomorrow-lbl {
           font-weight: 700;

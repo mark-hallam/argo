@@ -101,7 +101,7 @@ export default function TriggerConfigDrawer({
               letterSpacing: "0.16em",
               textTransform: "uppercase",
               fontWeight: 700,
-              color: "#71717a",
+              color: "#52525b",
             }}
           >
             TRIGGER CONFIG
@@ -126,7 +126,7 @@ export default function TriggerConfigDrawer({
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            color: "#71717a",
+            color: "#52525b",
             padding: 6,
             borderRadius: 6,
           }}

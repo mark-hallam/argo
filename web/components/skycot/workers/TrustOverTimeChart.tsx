@@ -156,7 +156,7 @@ export function TrustOverTimeChart({
         }
         .toc-meta {
           font-size: 11.5px;
-          color: var(--muted-foreground, #71717a);
+          color: var(--muted-foreground, #52525b);
           letter-spacing: 0.04em;
         }
         .toc-svg-wrap {
@@ -191,7 +191,7 @@ export function TrustOverTimeChart({
         .toc-axis line {
           font-family: ui-sans-serif, system-ui, sans-serif;
           font-size: 10.5px;
-          fill: var(--muted-foreground, #71717a);
+          fill: var(--muted-foreground, #52525b);
           stroke: var(--border, #ece9f5);
         }
         .toc-tooltip {
