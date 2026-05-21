@@ -42,10 +42,24 @@ type TrustQueryShape = {
   refetch: () => void;
 };
 const useTrustMock = vi.fn<() => TrustQueryShape>();
+const useRecomputeMock = vi.fn(() => ({
+  mutate: vi.fn(),
+  isPending: false,
+  isSuccess: false,
+  isError: false,
+  data: undefined,
+  error: null,
+}));
 vi.mock("@/lib/hooks/use-worker-trust", () => ({
   useWorkerTrustGrade: () => useTrustMock(),
+  useRecomputeWorkerTrustGrade: () => useRecomputeMock(),
   workerTrustGradeQueryKey: () => ["worker-trust-grade"],
 }));
+
+vi.mock("@/lib/hooks/use-viewer-policy", async () => {
+  const { VIEWER_POLICY_DELEGATOR } = await import("@/lib/redaction/types");
+  return { useViewerPolicy: () => VIEWER_POLICY_DELEGATOR };
+});
 
 import WorkerTrustPage from "@/app/(app)/workers/[workerId]/trust/page";
 
