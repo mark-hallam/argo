@@ -26,7 +26,7 @@
 //! workspace). Per-tenant filtering across a multi-tenant gateway
 //! is closed by `mission-enterprise-approvals-rbac`.
 
-use super::role_gate::{enforce_role, Action as RbacAction};
+use super::role_gate::{enforce_role, resolve_role, Action as RbacAction};
 use super::routes_auth_principal::principal_id_for_audit;
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_auto_approval::draft_content_from_payload;
@@ -171,17 +171,27 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
             current_decision.as_deref().unwrap_or(current_state),
         );
     }
+    // RBAC procurement audit (mission-rbac-approvals-decide-role-gate):
+    // stamp the decider's resolved role into the audit memory row.
+    // `enforce_role` already short-circuited Guest above, so the only
+    // roles reaching this point are owner/admin/user (or unknown in
+    // dev-open mode). The role rides as a JSON-encoded note string —
+    // the existing `decision_from_record` parser below handles both
+    // the new structured form and the legacy `"decision:refuse"`
+    // prefix so older memory rows keep round-tripping.
+    let decider_role = resolve_role(req)
+        .map(|r| r.as_str().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
     let result = if decision == "approve" {
-        worker_actions_transitions::approve(&memory, ws, approval_id, &actor, None).await
+        let note = serde_json::json!({"decider_role": decider_role}).to_string();
+        worker_actions_transitions::approve(&memory, ws, approval_id, &actor, Some(&note)).await
     } else {
-        worker_actions_transitions::cancel(
-            &memory,
-            ws,
-            approval_id,
-            &actor,
-            Some("decision:refuse"),
-        )
-        .await
+        let note = serde_json::json!({
+            "decision": "refuse",
+            "decider_role": decider_role,
+        })
+        .to_string();
+        worker_actions_transitions::cancel(&memory, ws, approval_id, &actor, Some(&note)).await
     };
     match result {
         Ok(_) => ok_decide(approval_id, decision),
@@ -299,10 +309,53 @@ fn decision_from_record(rec: &ActionRecord) -> Option<String> {
             .as_ref()
             .and_then(|r| r.pointer("/cancellation/note"))
             .and_then(Value::as_str)
-            .filter(|n| n.starts_with("decision:refuse"))
-            .map(|_| "refuse".to_string()),
+            .and_then(|n| {
+                // Structured form (post-RBAC-role-gate brief): JSON
+                // string with `"decision":"refuse"` and the
+                // `decider_role` claim.
+                if let Ok(v) = serde_json::from_str::<Value>(n) {
+                    if v.get("decision").and_then(Value::as_str) == Some("refuse") {
+                        return Some("refuse".to_string());
+                    }
+                }
+                // Legacy form: plain `"decision:refuse"` prefix.
+                n.starts_with("decision:refuse")
+                    .then(|| "refuse".to_string())
+            }),
         _ => None,
     }
+}
+
+/// Extract the recorded decider role from an action's audit memory row.
+///
+/// Returns `None` for legacy rows that pre-date the
+/// `mission-rbac-approvals-decide-role-gate` audit stamp (where the
+/// `approval_note` / `cancellation.note` field carried only a
+/// free-form string). New rows carry a JSON-encoded note containing
+/// `decider_role`; this helper deserialises that field for the
+/// audit-feed and SPA caller layers.
+#[cfg(test)]
+pub(super) fn decider_role_from_record(rec: &ActionRecord) -> Option<String> {
+    let note = match rec.state.as_str() {
+        s if s == ActionState::Approved.as_str() => rec
+            .result
+            .as_ref()
+            .and_then(|r| r.get("approval_note"))
+            .and_then(Value::as_str)?,
+        s if s == ActionState::Cancelled.as_str() => rec
+            .result
+            .as_ref()
+            .and_then(|r| r.pointer("/cancellation/note"))
+            .and_then(Value::as_str)?,
+        _ => return None,
+    };
+    serde_json::from_str::<Value>(note)
+        .ok()
+        .and_then(|v| {
+            v.get("decider_role")
+                .and_then(Value::as_str)
+                .map(String::from)
+        })
 }
 
 fn parse_limit(tail: &str) -> Result<usize, (&'static str, String)> {
@@ -400,3 +453,7 @@ fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static 
 #[cfg(test)]
 #[path = "routes_approvals_json_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_approvals_role_gate_tests.rs"]
+mod role_gate_tests;

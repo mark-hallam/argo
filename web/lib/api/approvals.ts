@@ -79,6 +79,44 @@ function isMissingOrUnreachable(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
+function isForbiddenError(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status === 403;
+}
+
+/**
+ * Surface the gateway's role-gate denial (403) as a sonner toast.
+ *
+ * The gateway role-gate (mission-rbac-approvals-decide-role-gate)
+ * returns 403 for any caller below the `user` floor (or below `owner`
+ * for some sister actions). The previous code returned `ok: true`
+ * silently when the network "looked unreachable", which masked role
+ * denials in dev/preview and corrupted the audit trail. We now show
+ * the operator the real reason — they need an `admin` or `owner` to
+ * intervene, the action is NOT recorded as decided.
+ *
+ * Sonner is a browser-only singleton; calling it from a server
+ * component would throw. The dynamic import + browser-env guard keeps
+ * the function safe to call from any layer.
+ */
+function toastForbidden(scope: "approve" | "undo"): void {
+  if (typeof window === "undefined") return;
+  const title =
+    scope === "approve"
+      ? "You don't have permission to approve"
+      : "You don't have permission to undo this decision";
+  const description =
+    scope === "approve"
+      ? "Only owners, admins, and approvers can decide approvals. Ask an admin to grant you the role."
+      : "Only owners, admins, and approvers can undo within 30 seconds.";
+  // Sonner's `toast` is a static singleton imported lazily so SSR
+  // bundles can dead-code the toast surface.
+  void import("sonner")
+    .then((m) => m.toast.error(title, { description }))
+    .catch(() => {
+      /* sonner not installed / failed to load — silent fallback */
+    });
+}
+
 type ApprovalRowJson = {
   id: string;
   worker: { id?: string; name: string; avatar_url?: string | null };
@@ -170,6 +208,15 @@ export async function submitDecision({
       source: "live",
     };
   } catch (err) {
+    // RBAC role-gate (mission-rbac-approvals-decide-role-gate): a
+    // 403 from the gateway means the caller's role is below the
+    // `user` floor for `/decide`. Surface a toast so the operator
+    // sees the real reason — the previous mock-offline fallback
+    // masked this as a silent success and corrupted the audit trail.
+    if (isForbiddenError(err)) {
+      toastForbidden("approve");
+      throw err;
+    }
     // LAUNCH-BLOCKER FIX (Wave-8 error-recovery audit 2026-05-21):
     // previous code returned `ok: true, source: "mock-offline"` on
     // ANY network failure including production. Result: user clicks
@@ -196,6 +243,10 @@ export async function submitUndo(approvalId: string): Promise<UndoResult> {
     );
     return { ok: true, approvalId: res.approval_id ?? approvalId, source: "live" };
   } catch (err) {
+    if (isForbiddenError(err)) {
+      toastForbidden("undo");
+      throw err;
+    }
     // Same launch-blocker fix as submitDecision — never silently
     // succeed in strict production on a gateway-unreachable error.
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
