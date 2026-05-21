@@ -5,16 +5,18 @@
  * once the sibling `mission-gateway-team-list-endpoint` brief
  * lands.
  *
+ * Persona spine (name + role + vertical + headline + traits) is
+ * sourced from `sample-personas.ts` so /team agrees with /audit and
+ * /workers/<id>/overview. Status, lastActiveAt and
+ * pendingApprovalCount are runtime-ish and remain inline here.
+ *
  * Same fixed-timestamp pattern as `sample-approvals.ts`: anchor
  * every `lastActiveAt` to a stable floor-of-minute so SSR and CSR
  * render identical strings and don't trip a hydration mismatch.
- *
- * Six teammates, matching the five persona archetypes from the
- * personas doc + one inert (paused) worker to exercise that branch
- * of the status filter.
  */
 
-import type { Worker } from "@/lib/types/worker";
+import { getSamplePersona, SAMPLE_PERSONA_IDS } from "@/lib/sample-personas";
+import type { Worker, WorkerStatus } from "@/lib/types/worker";
 
 function stableNow(): number {
   const d = new Date();
@@ -26,70 +28,56 @@ const now = stableNow();
 const minute = 60_000;
 const hour = 60 * minute;
 
-export const SAMPLE_TEAM: Worker[] = [
-  {
-    id: "wkr_01J0MARIAH",
-    name: "Mariah",
-    role: { tagline: "lists and re-prices items for sale", vertical: "marketplace" },
+interface RuntimeOverlay {
+  status: WorkerStatus;
+  lastActiveAt: string;
+  pendingApprovalCount?: number;
+}
+
+const RUNTIME_OVERLAY: Record<string, RuntimeOverlay> = {
+  wkr_01J0MARIAH: {
     status: "waiting",
-    headline: {
-      bullets: ["3 listings live", "2 buyers waiting on you"],
-      tomorrow: "morning re-price sweep at 06:30",
-    },
     lastActiveAt: new Date(now - 2 * minute).toISOString(),
     pendingApprovalCount: 2,
   },
-  {
-    id: "wkr_01J0PRIYA",
-    name: "Priya",
-    role: { tagline: "screens candidates and books interviews", vertical: "recruiting" },
+  wkr_01J0PRIYA: {
     status: "waiting",
-    headline: {
-      bullets: ["8 candidates screened today", "1 interview pending your slot"],
-      tomorrow: "next-day shortlist review",
-    },
     lastActiveAt: new Date(now - 14 * minute).toISOString(),
     pendingApprovalCount: 1,
   },
-  {
-    id: "wkr_01J0JAMAL",
-    name: "Jamal",
-    role: { tagline: "handles customer support tickets", vertical: "support" },
+  wkr_01J0JAMAL: {
     status: "working",
-    headline: {
-      bullets: ["12 tickets resolved", "median reply 4m"],
-    },
     lastActiveAt: new Date(now - 32 * minute).toISOString(),
   },
-  {
-    id: "wkr_01J0NORI",
-    name: "Nori",
-    role: { tagline: "drafts product comms and announcements", vertical: "marketing" },
+  wkr_01J0NORI: {
     status: "idle",
-    headline: {
-      bullets: ["last campaign: 12,400 reached"],
-      tomorrow: "Q2 product update draft at 09:00",
-    },
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
-  {
-    id: "wkr_01J0SAM",
-    name: "Sam",
-    role: { tagline: "watches the on-call queue", vertical: "ops" },
+  wkr_01J0SAM: {
     status: "blocked",
-    headline: {
-      bullets: ["needs PagerDuty re-link"],
-    },
     lastActiveAt: new Date(now - 5 * hour).toISOString(),
   },
-  {
-    id: "wkr_01J0RIO",
-    name: "Rio",
-    role: { tagline: "books showings for the listing agent", vertical: "real-estate" },
+  wkr_01J0RIO: {
     status: "paused",
-    headline: {
-      bullets: ["paused by you on May 7"],
-    },
     lastActiveAt: new Date(now - 22 * hour).toISOString(),
   },
-];
+};
+
+function buildWorker(id: string): Worker {
+  const persona = getSamplePersona(id);
+  const overlay = RUNTIME_OVERLAY[id];
+  if (!overlay) {
+    throw new Error(`Missing sample-team runtime overlay for ${id}`);
+  }
+  return {
+    id: persona.id,
+    name: persona.name,
+    role: { tagline: persona.role.tagline, vertical: persona.role.vertical },
+    status: overlay.status,
+    headline: persona.headline,
+    lastActiveAt: overlay.lastActiveAt,
+    pendingApprovalCount: overlay.pendingApprovalCount,
+  };
+}
+
+export const SAMPLE_TEAM: Worker[] = SAMPLE_PERSONA_IDS.map(buildWorker);

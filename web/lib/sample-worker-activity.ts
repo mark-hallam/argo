@@ -6,10 +6,13 @@
  *
  * Each entry is enterprise-shaped per the E4-a sample workers
  * (Mariah/Priya/Sam/Jamal/Nori) — verbs read like real audit lines
- * rather than placeholder lorem. Time-stamps anchor to a stable
+ * rather than placeholder lorem. Verbs match the worker's
+ * canonical role in `sample-personas.ts` so the activity tab
+ * agrees with /team and /audit. Time-stamps anchor to a stable
  * floor-to-minute boundary so SSR/CSR strings match (same trick
  * as `sample-notifications.ts`).
  */
+import { getSamplePersona } from "@/lib/sample-personas";
 import type {
   WorkerActivity,
   WorkerActivityActionType,
@@ -99,26 +102,26 @@ const PRIYA: Seed[] = [
 
 const SAM: Seed[] = [
   {
-    verb: "extracted line items from invoice INV-2024-08741",
+    verb: "triaged alert 'api-latency-p99' against runbook",
     actionType: "message_sent",
     status: "succeeded",
     agoMs: 22 * MINUTE,
     costUsd: 0.006,
   },
   {
-    verb: "flagged duplicate invoice INV-2024-08739",
+    verb: "suppressed flapping alert 'cache-evict-rate'",
     actionType: "refusal_issued",
     status: "refused",
     agoMs: 1 * HOUR + 15 * MINUTE,
   },
   {
-    verb: "queued invoice for Controller approval ($14,250)",
+    verb: "queued runbook restart (edge-cdn) for SRE approval",
     actionType: "approval_asked",
     status: "pending",
     agoMs: 3 * HOUR,
   },
   {
-    verb: "failed to parse PDF — falling back to OCR",
+    verb: "failed to fetch Grafana dashboard — falling back to logs",
     actionType: "message_sent",
     status: "failed",
     agoMs: 1 * DAY + 2 * HOUR,
@@ -127,20 +130,20 @@ const SAM: Seed[] = [
 
 const MARIAH: Seed[] = [
   {
-    verb: "drafted RFP response summary for vendor Tomás Industries",
+    verb: "drafted listing copy for 'Eames lounge chair'",
     actionType: "draft_queued",
     status: "succeeded",
     agoMs: 38 * MINUTE,
     costUsd: 0.021,
   },
   {
-    verb: "scheduled renewal review with Acme Tech",
+    verb: "scheduled re-price sweep for stale inventory",
     actionType: "message_sent",
     status: "succeeded",
     agoMs: 4 * HOUR,
   },
   {
-    verb: "refused to disclose contract terms to external counterparty",
+    verb: "refused to use stock imagery on a live listing",
     actionType: "refusal_issued",
     status: "refused",
     agoMs: 2 * DAY + 4 * HOUR,
@@ -165,27 +168,27 @@ const JAMAL: Seed[] = [
 
 const NORI: Seed[] = [
   {
-    verb: "validated quote QT-2024-7283 against pricing rules",
+    verb: "tone-checked 'Q2 product update' draft against brand voice",
     actionType: "message_sent",
     status: "succeeded",
     agoMs: 1 * HOUR + 4 * MINUTE,
     costUsd: 0.008,
   },
   {
-    verb: "flagged discount request for Deal Desk",
+    verb: "flagged 'AI hype' wording for brand-lead review",
     actionType: "approval_asked",
     status: "pending",
     agoMs: 3 * HOUR,
   },
 ];
 
-function build(workerId: string, workerName: string, seeds: Seed[]): WorkerActivity[] {
-  const initials = workerName.slice(0, 2).toUpperCase();
+function build(workerId: string, seeds: Seed[]): WorkerActivity[] {
+  const persona = getSamplePersona(workerId);
   return seeds.map((seed, i) => ({
     id: `act_${workerId}_${i.toString().padStart(3, "0")}`,
-    workerId,
-    workerName,
-    workerInitials: initials,
+    workerId: persona.id,
+    workerName: persona.name,
+    workerInitials: persona.initials,
     timestamp: new Date(NOW - seed.agoMs).toISOString(),
     verb: seed.verb,
     actionType: seed.actionType,
@@ -196,11 +199,11 @@ function build(workerId: string, workerName: string, seeds: Seed[]): WorkerActiv
 }
 
 export const SAMPLE_WORKER_ACTIVITY: Record<string, WorkerActivity[]> = {
-  wkr_01J0PRIYA: build("wkr_01J0PRIYA", "Priya", PRIYA),
-  wkr_01J0SAM: build("wkr_01J0SAM", "Sam", SAM),
-  wkr_01J0MARIAH: build("wkr_01J0MARIAH", "Mariah", MARIAH),
-  wkr_01J0JAMAL: build("wkr_01J0JAMAL", "Jamal", JAMAL),
-  wkr_01J0NORI: build("wkr_01J0NORI", "Nori", NORI),
+  wkr_01J0PRIYA: build("wkr_01J0PRIYA", PRIYA),
+  wkr_01J0SAM: build("wkr_01J0SAM", SAM),
+  wkr_01J0MARIAH: build("wkr_01J0MARIAH", MARIAH),
+  wkr_01J0JAMAL: build("wkr_01J0JAMAL", JAMAL),
+  wkr_01J0NORI: build("wkr_01J0NORI", NORI),
 };
 
 /** Look up the canonical sample feed for a worker id (newest first). */

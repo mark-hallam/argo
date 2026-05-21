@@ -1,0 +1,122 @@
+import { describe, expect, it } from "vitest";
+import { SAMPLE_AUDIT_ROWS } from "./sample-audit";
+import {
+  SAMPLE_PERSONAS,
+  SAMPLE_PERSONA_IDS,
+  getSamplePersona,
+} from "./sample-personas";
+import { SAMPLE_TEAM } from "./sample-team";
+import { SAMPLE_WORKER_ACTIVITY } from "./sample-worker-activity";
+import { findSampleWorkerOverview } from "./sample-worker-overview";
+
+/**
+ * Wave-4 data-integrity guard. The three workers that previously
+ * split (Sam = ops on /team but AP Specialist in /audit; Mariah =
+ * marketplace on /team but Vendor Manager in /audit; Nori =
+ * marketing on /team but RevOps in /audit) must now agree.
+ *
+ * The shared spine is `sample-personas.ts`; every other sample file
+ * reads from it. These tests assert that the spine flows through to
+ * /team and /workers/<id>/* surfaces and that the audit-row verbs
+ * read as the worker's canonical role rather than the old split
+ * persona.
+ */
+
+const ROLE_KEYWORDS: Record<string, string[]> = {
+  wkr_01J0PRIYA: ["candidate", "interview", "JD", "shortlist"],
+  wkr_01J0MARIAH: ["listing", "buyer", "re-price", "inventory"],
+  wkr_01J0JAMAL: ["ticket", "refund", "KB", "support"],
+  wkr_01J0NORI: ["draft", "brand", "newsletter", "post", "voice"],
+  wkr_01J0SAM: ["alert", "runbook", "incident", "on-call"],
+  wkr_01J0RIO: ["showing", "agent", "buyer", "listing"],
+};
+
+const FORBIDDEN_OLD_VERBS: Record<string, string[]> = {
+  wkr_01J0SAM: ["invoice", "INV-2024", "reconciliation"],
+  wkr_01J0MARIAH: ["RFP", "vendor quote", "renewal review"],
+  wkr_01J0NORI: ["pricing rules", "salesforce", "deal-stage", "commission"],
+};
+
+describe("sample-personas as the canonical persona spine", () => {
+  it("exposes one entry per id in the canonical id list", () => {
+    expect(new Set(SAMPLE_PERSONA_IDS).size).toBe(SAMPLE_PERSONA_IDS.length);
+    expect(new Set(Object.keys(SAMPLE_PERSONAS))).toEqual(
+      new Set(SAMPLE_PERSONA_IDS),
+    );
+  });
+
+  it("matches /team — every Worker row reads role + name from canonical", () => {
+    for (const persona of Object.values(SAMPLE_PERSONAS)) {
+      const teamRow = SAMPLE_TEAM.find((w) => w.id === persona.id);
+      expect(teamRow, `missing /team row for ${persona.id}`).toBeDefined();
+      expect(teamRow!.name).toBe(persona.name);
+      expect(teamRow!.role.tagline).toBe(persona.role.tagline);
+      expect(teamRow!.role.vertical).toBe(persona.role.vertical);
+    }
+  });
+
+  it("matches /workers/<id>/overview — every overview names the worker correctly", () => {
+    for (const persona of Object.values(SAMPLE_PERSONAS)) {
+      const overview = findSampleWorkerOverview(persona.id);
+      expect(overview, `missing overview for ${persona.id}`).toBeDefined();
+      expect(
+        overview!.charter,
+        `overview charter for ${persona.id} should mention ${persona.name}`,
+      ).toContain(persona.name);
+    }
+  });
+
+  it("matches /audit — at least one row per worker, and verbs read as the canonical role", () => {
+    for (const id of Object.keys(ROLE_KEYWORDS)) {
+      const persona = getSamplePersona(id);
+      const rows = SAMPLE_AUDIT_ROWS.filter((r) => r.worker.id === id);
+      expect(rows.length, `no audit rows for ${id}`).toBeGreaterThan(0);
+      const verbsBlob = rows.map((r) => r.verb).join(" ").toLowerCase();
+      const keywords = ROLE_KEYWORDS[id].map((k) => k.toLowerCase());
+      const hit = keywords.some((k) => verbsBlob.includes(k));
+      expect(
+        hit,
+        `audit verbs for ${persona.name} should include at least one of [${keywords.join(", ")}] but were: ${verbsBlob.slice(0, 200)}`,
+      ).toBe(true);
+    }
+  });
+
+  it("matches /audit — worker.name in every row equals canonical name", () => {
+    for (const row of SAMPLE_AUDIT_ROWS) {
+      const persona = SAMPLE_PERSONAS[row.worker.id];
+      if (!persona) continue; // workspace + non-persona rows are out of scope
+      expect(row.worker.name).toBe(persona.name);
+    }
+  });
+
+  it("audit verbs no longer carry the split-persona vocabulary (Sam/Mariah/Nori)", () => {
+    for (const [id, forbidden] of Object.entries(FORBIDDEN_OLD_VERBS)) {
+      const rows = SAMPLE_AUDIT_ROWS.filter((r) => r.worker.id === id);
+      const verbsBlob = rows.map((r) => r.verb).join(" ").toLowerCase();
+      for (const term of forbidden) {
+        expect(
+          verbsBlob.includes(term.toLowerCase()),
+          `audit verbs for ${id} should no longer mention "${term}" — that was the old split-persona role`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("matches /workers/<id>/activity — worker name + verbs read as canonical role", () => {
+    for (const id of Object.keys(ROLE_KEYWORDS)) {
+      const rows = SAMPLE_WORKER_ACTIVITY[id];
+      if (!rows) continue; // not every persona has an activity feed
+      const persona = getSamplePersona(id);
+      for (const row of rows) {
+        expect(row.workerName).toBe(persona.name);
+      }
+      const verbsBlob = rows.map((r) => r.verb).join(" ").toLowerCase();
+      const keywords = ROLE_KEYWORDS[id].map((k) => k.toLowerCase());
+      const hit = keywords.some((k) => verbsBlob.includes(k));
+      expect(
+        hit,
+        `activity verbs for ${persona.name} should include one of [${keywords.join(", ")}]`,
+      ).toBe(true);
+    }
+  });
+});

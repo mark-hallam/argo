@@ -12,10 +12,13 @@
  *   - Recent activity rows link to `/audit/action/<id>` so the audit
  *     drill-in (E5) is the canonical action-detail surface.
  *
- * Each entry pairs with a `Worker` row by id; one inert entry (Rio)
- * exercises the paused-worker render path with reduced activity.
+ * Persona names + role taglines come from `sample-personas.ts` so
+ * the worker shown here matches /team and /audit. Each entry pairs
+ * with a `Worker` row by id; one inert entry (Rio) exercises the
+ * paused-worker render path with reduced activity.
  */
 
+import { SAMPLE_PERSONAS } from "@/lib/sample-personas";
 import type {
   WorkerActivityRow,
   WorkerDuty,
@@ -207,3 +210,15 @@ export function findSampleWorkerOverview(id: string): WorkerOverview | undefined
 }
 
 export const SAMPLE_WORKER_OVERVIEW_IDS = Object.keys(OVERVIEWS_BY_ID);
+
+/* Compile-time guard: the overview IDs and canonical persona IDs
+ * must agree, so the role rendered on /team matches the worker on
+ * /workers/<id>/overview. Throws at module load if they diverge. */
+const overviewIdSet = new Set(SAMPLE_WORKER_OVERVIEW_IDS);
+for (const id of Object.keys(SAMPLE_PERSONAS)) {
+  if (!overviewIdSet.has(id)) {
+    throw new Error(
+      `sample-worker-overview missing entry for canonical persona ${id}`,
+    );
+  }
+}
