@@ -37,3 +37,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-22T07:46:00Z [conductor] new personal-site agent infra created — charter + drafts/ + heartbeat + durable cron (06:30 Mon-Fri Melbourne); first sample draft (Projects entry about wave-15 P0 #1987 close); next fire Monday 06:38.
 2026-05-21T23:24:00Z [conductor] tick-35 — massive 15-PR wave (#1988-#2002). Auditor cron fired 07:42 (orientation update visible). PR-review spawned. Persistent P0 from auditor: spin up workplace-knowledge-substrate (3rd consecutive escalation).
 2026-05-22T09:38:00Z+1000 [conductor] tick-36 — codex queue replenished (3 follow-up briefs leveraging #1988/#1990 + CLAUDE.md invariant audits). All 4 agents alive.
+2026-05-22T09:58:00Z+1000 [conductor] tick-37 — #2003 (wave-15 P0 save-button) in review; 2 workers self-BLOCKED publish-button + concurrent-edit-banner on phase-1 dep (correct discipline).

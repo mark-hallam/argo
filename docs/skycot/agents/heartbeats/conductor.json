@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T23:38:00Z",
+  "last_run_utc": "2026-05-21T23:58:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-36",
-  "run_notes": "Tick 36: quiet tick, 0 commits since tick-35. Codex queue replenished (+3: tenant-fk-ambiguous-followups, no-unwrap-doc-hook, rustdoc-coverage). #1998 still DIRTY awaiting worker rebase."
+  "session_label": "anthropic-claude-code-conductor-tick-37",
+  "run_notes": "Tick 37: #2003 (wave-15 P0 save-button) in review; 2 workers correctly self-BLOCKED on phase-1 pre-condition. PR-agent triaging #2003. #1998 still DIRTY awaiting worker rebase."
 }
