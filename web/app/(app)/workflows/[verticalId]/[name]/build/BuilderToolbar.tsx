@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, Loader2, Play, RotateCcw, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Play, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import type { WorkflowSpec } from "./types";
@@ -11,6 +11,7 @@ interface Props {
   verticalId: string;
   name: string;
   dirty: boolean;
+  saving?: boolean;
   promptText: string;
   proposing: boolean;
   onPromptTextChange: (next: string) => void;
@@ -27,6 +28,7 @@ export function BuilderToolbar({
   verticalId,
   name,
   dirty,
+  saving = false,
   promptText,
   proposing,
   onPromptTextChange,
@@ -77,11 +79,20 @@ export function BuilderToolbar({
             type="button"
             className="builder-btn builder-btn-primary"
             onClick={onSaveAndPublish}
-            disabled={!dirty}
+            disabled={!dirty || saving}
             data-testid="builder-save"
             data-dirty={dirty ? "true" : "false"}
+            data-saving={saving ? "true" : "false"}
           >
-            <Send size={13} /> Save + publish
+            {saving ? (
+              <>
+                <Loader2 size={13} className="builder-spin" /> Saving…
+              </>
+            ) : (
+              <>
+                <Save size={13} /> Save as draft
+              </>
+            )}
           </button>
         </div>
       </header>

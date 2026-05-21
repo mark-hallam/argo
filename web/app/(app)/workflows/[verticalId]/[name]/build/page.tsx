@@ -34,6 +34,7 @@ import { useBuilderAnnotations } from "@/lib/hooks/use-builder-annotations";
 import { useBuilderHistory, type BuilderSnapshot } from "@/lib/hooks/use-builder-history";
 import { useBuilderKeyboard } from "@/lib/hooks/use-builder-keyboard";
 import { useWorkflowBuilderState } from "@/lib/hooks/use-workflow-builder-state";
+import { useWorkflowSavePublish } from "@/lib/hooks/use-workflow-save-publish";
 import { getTemplate } from "@/lib/workflow-templates";
 
 import { BuilderAiProposal } from "./BuilderAiProposal";
@@ -51,6 +52,7 @@ import {
 import { stepsToFlow } from "./layout";
 import { RunOverlay } from "./RunOverlay";
 import { SEED_WORKFLOWS } from "./seed-workflows";
+import { encodeStepsToToml } from "./step-encoder";
 import {
   STEP_KIND_META,
   type SkyNodeData,
@@ -589,13 +591,31 @@ function BuilderInner({
     testRun.start();
   }, [testRun, stepInputs.length, pinnedStepNames]);
 
-  const handleSaveAndPublish = useCallback(() => {
-    // Honest demo stub — wave-6 audit. Wave-13 cleaned up the leaked
-    // version identifiers; copy is now neutral.
-    toast.message("Saved as draft — preview build", {
-      description: "Tenant-wide publish lands in an upcoming release.",
+  const savePublish = useWorkflowSavePublish();
+  const performSaveDraft = useCallback(async (): Promise<void> => {
+    if (!workflow) return;
+    const definitionToml = encodeStepsToToml(currentSteps, {
+      workflowName: workflow.name,
+      workflowDescription: workflow.description,
     });
-  }, []);
+    const result = await savePublish.saveDraft({
+      vertical_id: verticalId,
+      name,
+      definition_toml: definitionToml,
+    });
+    toast.success(`Saved (v${result.version})`);
+  }, [savePublish, currentSteps, workflow, verticalId, name]);
+  const handleSaveAndPublish = useCallback(() => {
+    performSaveDraft().catch((err) => {
+      const message = err instanceof Error && err.message
+        ? err.message
+        : "Network error";
+      toast.error("Couldn't save workflow", {
+        description: message,
+        action: { label: "Retry", onClick: () => { void performSaveDraft(); } },
+      });
+    });
+  }, [performSaveDraft]);
 
   const handleDiscard = useCallback(() => {
     builder.reset(initial.nodes, initial.edges);
@@ -690,6 +710,7 @@ function BuilderInner({
           verticalId={verticalId}
           name={name}
           dirty={builder.dirty}
+          saving={savePublish.isSaving}
           promptText={promptText}
           proposing={activeProposalPrompt !== null}
           onPromptTextChange={setPromptText}
