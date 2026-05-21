@@ -8,8 +8,8 @@
 //! persistence and the signed-URL flow.
 //!
 //! The tar.gz layout is identical to [`crate::archive`]:
-//! `audit.ndjson` + `chain_metadata.json`. Operators can run
-//! `tar -tzf` and `jq` against an exported bundle without `argo`.
+//! `audit.ndjson` + `chain_metadata.json` + `verify.sh`. Operators
+//! can unpack an exported bundle and run `./verify.sh` without `argo`.
 
 use crate::csv::{write_audit_csv_header, write_audit_csv_row};
 use crate::export::ExportedRow;
@@ -20,6 +20,100 @@ use flate2::{write::GzEncoder, Compression};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::Write;
+
+const ZERO_CHAIN_HEAD: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+const VERIFY_SH: &str = r#"#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+
+python3 - <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+ZERO = "0" * 64
+
+def fail(message, code=1):
+    print(f"verify.sh: {message}", file=sys.stderr)
+    sys.exit(code)
+
+def load_json(path):
+    try:
+        return json.loads(Path(path).read_text())
+    except FileNotFoundError:
+        fail(f"{path} missing", 2)
+    except json.JSONDecodeError as exc:
+        fail(f"{path} invalid JSON: {exc}", 2)
+
+def hash_bytes(value, name, line_no):
+    if not isinstance(value, str):
+        fail(f"line {line_no}: missing {name}")
+    try:
+        decoded = bytes.fromhex(value)
+    except ValueError:
+        fail(f"line {line_no}: invalid {name} hex")
+    if len(decoded) != 32:
+        fail(f"line {line_no}: {name} must be 32 bytes")
+    return decoded
+
+metadata = load_json("chain_metadata.json")
+expected_head = metadata.get("head_hash")
+if not isinstance(expected_head, str) or len(expected_head) != 64:
+    fail("chain_metadata.json missing head_hash", 2)
+
+audit_path = Path("audit.ndjson")
+try:
+    audit_bytes = audit_path.read_bytes()
+except FileNotFoundError:
+    fail("audit.ndjson missing", 2)
+
+expected_sha = metadata.get("audit_ndjson_sha256")
+if isinstance(expected_sha, str) and expected_sha:
+    actual_sha = hashlib.sha256(audit_bytes).hexdigest()
+    if actual_sha != expected_sha:
+        fail(f"audit.ndjson sha256 mismatch (actual={actual_sha} expected={expected_sha})")
+
+parent = bytes.fromhex(ZERO)
+row_count = 0
+for raw in audit_bytes.splitlines():
+    if not raw.strip():
+        continue
+    row_count += 1
+    try:
+        row = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        fail(f"line {row_count}: invalid JSON: {exc}")
+    row_parent = hash_bytes(row.get("parent_hash"), "parent_hash", row_count)
+    if row_parent != parent:
+        fail(f"line {row_count}: parent_hash does not match previous self_hash")
+    kind = row.get("kind")
+    if not isinstance(kind, str):
+        fail(f"line {row_count}: missing kind")
+    payload_json = json.dumps(
+        row.get("payload"),
+        separators=(",", ":"),
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    recomputed = hashlib.sha256(parent + kind.encode() + b"\0" + payload_json.encode()).digest()
+    self_hash = hash_bytes(row.get("self_hash"), "self_hash", row_count)
+    if recomputed != self_hash:
+        fail(f"line {row_count}: self_hash does not match recomputed chain hash")
+    parent = self_hash
+
+expected_count = metadata.get("row_count")
+if isinstance(expected_count, int) and expected_count != row_count:
+    fail(f"row_count mismatch (actual={row_count} expected={expected_count})")
+
+recomputed_head = parent.hex()
+if recomputed_head != expected_head:
+    fail(f"chain head mismatch (recomputed={recomputed_head} expected={expected_head})")
+
+print(f"chain OK (head={expected_head})")
+PY
+"#;
 
 /// Wire selector for the bundle format. Lowercase variants are
 /// accepted on the wire; [`BundleFormat::parse`] also accepts a few
@@ -189,10 +283,14 @@ fn build_csv(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
 
 fn build_tarball(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
     let ndjson = build_ndjson(rows)?;
+    let head_hash = rows
+        .last()
+        .map_or(ZERO_CHAIN_HEAD, |row| row.self_hash.as_str());
     let metadata = serde_json::to_vec_pretty(&serde_json::json!({
         "generator": "argo audit export",
         "generator_version": env!("CARGO_PKG_VERSION"),
         "row_count": rows.len(),
+        "head_hash": head_hash,
         "audit_ndjson_sha256": sha256_hex(&ndjson),
     }))
     .map_err(|e| ArgoError::Schema(format!("metadata serialize: {e}")))?;
@@ -201,6 +299,7 @@ fn build_tarball(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
         let mut tar_b = tar::Builder::new(&mut gz);
         append_tar(&mut tar_b, "audit.ndjson", &ndjson)?;
         append_tar(&mut tar_b, "chain_metadata.json", &metadata)?;
+        append_tar_mode(&mut tar_b, "verify.sh", VERIFY_SH.as_bytes(), 0o755)?;
         tar_b
             .finish()
             .map_err(|e| ArgoError::Provider(format!("tar finish: {e}")))?;
@@ -210,9 +309,18 @@ fn build_tarball(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
 }
 
 fn append_tar<W: Write>(b: &mut tar::Builder<W>, name: &str, body: &[u8]) -> ArgoResult<()> {
+    append_tar_mode(b, name, body, 0o644)
+}
+
+fn append_tar_mode<W: Write>(
+    b: &mut tar::Builder<W>,
+    name: &str,
+    body: &[u8],
+    mode: u32,
+) -> ArgoResult<()> {
     let mut header = tar::Header::new_gnu();
     header.set_size(body.len() as u64);
-    header.set_mode(0o644);
+    header.set_mode(mode);
     header.set_mtime(0);
     header.set_cksum();
     b.append_data(&mut header, name, body)

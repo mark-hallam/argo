@@ -8,7 +8,12 @@ use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::{json, Value};
+use std::fs;
+use std::process::Command;
 use std::sync::Arc;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 async fn mem_store() -> Arc<SessionStore> {
     let s = SessionStore::open(":memory:").await.expect("open mem db");
@@ -264,4 +269,73 @@ async fn export_tar_format_writes_gzip_magic() {
         .decode(dl_body["b64"].as_str().unwrap())
         .unwrap();
     assert_eq!(&bytes[..2], &[0x1f, 0x8b], "gzip magic");
+}
+
+#[tokio::test]
+async fn exported_bundle_contains_verify_script_executes_clean() {
+    let dir = unique_export_dir("export-tar-verify");
+    let unpack_dir = dir.join("unpacked");
+    fs::create_dir_all(&unpack_dir).unwrap();
+    let store = mem_store().await;
+    seed(&store, 3).await;
+    let resp = export_response(
+        &post("/api/v1/audit/export", json!({"format": "tar"})),
+        Some(&store),
+    )
+    .await;
+    assert!(
+        resp.0.starts_with("201"),
+        "status: {} body: {}",
+        resp.0,
+        resp.1
+    );
+    let body = parse(&resp);
+    let url = body["download_url"].as_str().unwrap();
+    let dl = super::try_dispatch_get(&get(url), Some(&store))
+        .await
+        .unwrap();
+    let dl_body = parse(&dl);
+    let bytes = general_purpose::STANDARD
+        .decode(dl_body["b64"].as_str().unwrap())
+        .unwrap();
+    let bundle_path = dir.join("bundle.tar.gz");
+    fs::write(&bundle_path, bytes).unwrap();
+
+    let tar_status = Command::new("tar")
+        .arg("-xzf")
+        .arg(&bundle_path)
+        .arg("-C")
+        .arg(&unpack_dir)
+        .status()
+        .unwrap();
+    assert!(tar_status.success(), "tar extraction failed: {tar_status}");
+
+    let verify_path = unpack_dir.join("verify.sh");
+    assert!(verify_path.exists(), "verify.sh missing from export tar");
+    #[cfg(unix)]
+    assert_eq!(
+        fs::metadata(&verify_path).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+    let chmod_status = Command::new("chmod")
+        .arg("+x")
+        .arg(&verify_path)
+        .status()
+        .unwrap();
+    assert!(chmod_status.success(), "chmod failed: {chmod_status}");
+    let output = Command::new(&verify_path)
+        .current_dir(&unpack_dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "verify.sh failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("chain OK"),
+        "stdout={}",
+        String::from_utf8_lossy(&output.stdout)
+    );
 }
