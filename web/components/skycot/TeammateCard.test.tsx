@@ -203,18 +203,18 @@ describe("TeammateCard", () => {
     });
   });
 
-  it("clicking the card body routes to /workers/<id>", async () => {
+  it("clicking the card body routes to /workers/<id>/overview", async () => {
     const user = userEvent.setup();
     wrap(<TeammateCard worker={makeWorker()} />);
     await user.click(screen.getByTestId("teammate-wkr_test"));
-    expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test");
+    expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test/overview");
   });
 
-  it("clicking the Open profile button routes to /workers/<id> once", async () => {
+  it("clicking the Open profile button routes to /workers/<id>/overview once", async () => {
     const user = userEvent.setup();
     wrap(<TeammateCard worker={makeWorker()} />);
     await user.click(screen.getByTestId("teammate-open-profile-wkr_test"));
-    expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test");
+    expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test/overview");
     expect(pushMock).toHaveBeenCalledTimes(1);
   });
 
@@ -223,7 +223,7 @@ describe("TeammateCard", () => {
     const card = screen.getByTestId("teammate-wkr_test");
     act(() => card.focus());
     await userEvent.keyboard("{Enter}");
-    expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test");
+    expect(pushMock).toHaveBeenCalledWith("/workers/wkr_test/overview");
   });
 
   it("renders a weight-900 level number on the gradient banner", () => {

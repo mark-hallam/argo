@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,6 +13,17 @@ import {
   getTemplatesByVertical,
 } from "@/lib/workflow-templates";
 import WorkflowTemplatesPage from "@/app/(app)/workflows/templates/page";
+
+const THIS_DIR = dirname(fileURLToPath(import.meta.url));
+const TEMPLATES_PAGE_CSS = join(
+  THIS_DIR,
+  "..",
+  "app",
+  "(app)",
+  "workflows",
+  "templates",
+  "page.css",
+);
 
 describe("workflow-templates seed data", () => {
   it("ships at least 50 templates", () => {
@@ -110,16 +124,10 @@ describe("WorkflowTemplatesPage gallery", () => {
   });
 
   it("declares a prefers-reduced-motion guard so card hover transitions freeze", () => {
-    // CSS-only behavior — the page sits under MotionRoot but the
-    // styled-jsx hover transforms (card lift, arrow slide-in, the
-    // 0.18s "transition: all" on .template-card) bypass framer-motion.
-    // Verify the @media rule is in the rendered <style> so users with
-    // reduced-motion get a still gallery.
-    const { container } = render(<WorkflowTemplatesPage />);
-    const styleNodes = container.ownerDocument.querySelectorAll("style");
-    const css = Array.from(styleNodes)
-      .map((s) => s.textContent ?? "")
-      .join("\n");
+    // CSS-only behavior — page.css is loaded via Next.js CSS imports,
+    // not styled-jsx, so it isn't injected into JSDOM at render time.
+    // Read the file directly to verify the @media rule ships.
+    const css = readFileSync(TEMPLATES_PAGE_CSS, "utf8");
     expect(css).toMatch(/prefers-reduced-motion/);
     expect(css).toMatch(/transition-duration:\s*0\.001ms/);
   });

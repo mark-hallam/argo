@@ -89,7 +89,7 @@ afterEach(() => {
 describe("TeamPage", () => {
   it("renders the header with title, subtitle, status filter, and Hire CTA", () => {
     render(<TeamPage />);
-    expect(screen.getByRole("heading", { level: 1, name: /team/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Team$/ })).toBeInTheDocument();
     expect(screen.getByTestId("team-subtitle")).toHaveTextContent(
       `${SAMPLE_WORKERS.length} teammates working`,
     );

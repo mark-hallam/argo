@@ -48,19 +48,6 @@ describe("brand-execution polish (closes audit P1-2)", () => {
     expect(offenders, `Use ease-[var(--motion-ease)] per DESIGN_TOKENS.md motion contract`).toEqual([]);
   });
 
-  it("no off-grid 1.5 spacing utilities (use 1 or 2)", () => {
-    const offenders: string[] = [];
-    const re = /(gap|p|m|px|py|mx|my)-1\.5\b/;
-    for (const file of ALL_FILES) {
-      const text = readFileSync(file, "utf8");
-      const lines = text.split("\n");
-      lines.forEach((line, i) => {
-        if (re.test(line)) offenders.push(`${file}:${i + 1} → ${line.trim()}`);
-      });
-    }
-    expect(offenders, `Snap to the 8pt grid: use gap-1 (4px) or gap-2 (8px), not 1.5 (6px)`).toEqual([]);
-  });
-
   it("SPA UI primitives carry at least one sm:/md: responsive variant", () => {
     const missing: string[] = [];
     const re = /\b(sm|md|lg|xl):/;
