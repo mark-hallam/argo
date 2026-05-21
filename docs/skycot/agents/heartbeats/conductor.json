@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T23:24:00Z",
+  "last_run_utc": "2026-05-21T23:38:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-35",
-  "run_notes": "Tick 35: massive 15-PR wave (#1988-#2002) all within 1.7h. Auditor cron fired 07:42 Melbourne with new LATEST. codex_todo drained to 0; will replenish after wave clears."
+  "session_label": "anthropic-claude-code-conductor-tick-36",
+  "run_notes": "Tick 36: quiet tick, 0 commits since tick-35. Codex queue replenished (+3: tenant-fk-ambiguous-followups, no-unwrap-doc-hook, rustdoc-coverage). #1998 still DIRTY awaiting worker rebase."
 }
