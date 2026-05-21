@@ -141,6 +141,8 @@ pub mod cli_worker_okr_cmds;
 pub mod cli_worker_policy_cmds;
 #[path = "cli_workflow_cmds.rs"]
 pub mod cli_workflow_cmds;
+#[path = "cli_workflow_def_cmds.rs"]
+pub mod cli_workflow_def_cmds;
 #[path = "cli_workspace_cmds.rs"]
 pub mod cli_workspace_cmds;
 
@@ -163,3 +165,4 @@ pub use cli_trajectory_cmds::TrajectoryCmd;
 pub use cli_work_cmds::WorkCmd;
 pub use cli_worker_cmds::WorkerCmd;
 pub use cli_workflow_cmds::WorkflowCmd;
+pub use cli_workflow_def_cmds::WorkflowDefCmd;

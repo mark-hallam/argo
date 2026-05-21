@@ -1,6 +1,16 @@
 //! `argo workflow ...` subcommand enum (Stream
 //! `claude-workflow-dag`). Lives in its own file so
 //! `cli_subcommands.rs` stays under the per-file LOC budget.
+//!
+//! The `Def` arm dispatches into the workflow-DEFINITION versioning
+//! surface (Stream `mission-pm-workflow-rollback-cli`) which operates
+//! on the `workflow_definition` table (versioned TOML bodies per
+//! `(tenant, vertical, name)`). It is intentionally separated from
+//! the DAG-run subcommands above so the existing `argo workflow
+//! rollback <run-id> --to-checkpoint <seq>` semantics for run
+//! checkpoints do not collide with the new `argo workflow def
+//! rollback <vertical> <name> --to <version-id>` semantics for
+//! version pointers.
 use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
@@ -77,5 +87,12 @@ pub enum WorkflowCmd {
         /// Output as a single JSON object.
         #[arg(long)]
         json: bool,
+    },
+    /// Workflow-definition versioning surface (Stream
+    /// `mission-pm-workflow-rollback-cli`). Inspect history and roll
+    /// back the head of a `(vertical, name)` workflow definition.
+    Def {
+        #[command(subcommand)]
+        cmd: crate::cli::WorkflowDefCmd,
     },
 }

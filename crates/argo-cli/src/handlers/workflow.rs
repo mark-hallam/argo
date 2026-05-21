@@ -52,6 +52,7 @@ pub async fn run(cmd: WorkflowCmd) -> ArgoResult<()> {
             to_checkpoint,
             json,
         } => super::workflow_rollback::run(&run_id, to_checkpoint, json).await,
+        WorkflowCmd::Def { cmd } => super::workflow_def::run(cmd).await,
     }
 }
 
