@@ -77,6 +77,13 @@ const DIMENSIONS: Dimension[] = [
     scores: { SKYCOT: "yes", Zapier: "partial", n8n: "no", "Crew.ai": "no", Lindy: "no" },
   },
   {
+    group: "Safe by default",
+    question: "Can you re-verify every past action months later (cryptographic audit chain)?",
+    scores: { SKYCOT: "yes", Zapier: "no", n8n: "no", "Crew.ai": "no", Lindy: "no" },
+    caption:
+      "`argo audit verify` walks the hash chain and reproves every row's self_hash. Zapier/n8n ship a log store; Crew.ai prints to stdout; Lindy offers a SaaS audit log without cryptographic verification.",
+  },
+  {
     group: "Plain-English editing",
     question: "Can you edit a workflow by chatting in plain English?",
     scores: { SKYCOT: "yes", Zapier: "no", n8n: "no", "Crew.ai": "no", Lindy: "yes" },
@@ -85,6 +92,13 @@ const DIMENSIONS: Dimension[] = [
     group: "Plain-English editing",
     question: "Visual step timeline with approval gates inline?",
     scores: { SKYCOT: "yes", Zapier: "yes", n8n: "yes", "Crew.ai": "no", Lindy: "no" },
+  },
+  {
+    group: "Plain-English editing",
+    question: "Cross-app ⌘K palette — every worker, workflow, skill, page reachable in one keystroke?",
+    scores: { SKYCOT: "yes", Zapier: "no", n8n: "no", "Crew.ai": "no", Lindy: "no" },
+    caption:
+      "Command palette indexes the whole product surface, with category-grouped results, recents, and quick actions. Zapier has app-search; the others have nothing equivalent.",
   },
   {
     group: "Enterprise-ready",
@@ -100,6 +114,13 @@ const DIMENSIONS: Dimension[] = [
     group: "Enterprise-ready",
     question: "Encryption-at-rest with operator-controlled keys?",
     scores: { SKYCOT: "yes", Zapier: "yes", n8n: "partial", "Crew.ai": "no", Lindy: "no" },
+  },
+  {
+    group: "Enterprise-ready",
+    question: "BYOK — your own KMS key (AWS / GCP / Azure) wraps the database?",
+    scores: { SKYCOT: "yes", Zapier: "no", n8n: "partial", "Crew.ai": "no", Lindy: "no" },
+    caption:
+      "Envelope encryption via AWS KMS, GCP KMS, or Azure Key Vault. n8n is partial because you manage your own DB; Zapier/Crew.ai/Lindy are managed-only.",
   },
   {
     group: "Deploy how you want",
@@ -198,7 +219,7 @@ export default function ComparePage() {
               ))}
               <tr className="compare-footer-row">
                 <td colSpan={COMPETITORS.length + 1}>
-                  <strong>If 8+ of those rows landed for you, this is your team.</strong>
+                  <strong>If 10+ of those rows landed for you, this is your team.</strong>
                   <br />
                   <a className="compare-cta" href="/auth/signup">
                     Hire your first teammate →
