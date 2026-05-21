@@ -64,6 +64,9 @@ pub(super) fn spawn_record(
     let status_code = parse_status(status_line);
     let latency_ms = u32::try_from(draft.started.elapsed().as_millis()).unwrap_or(u32::MAX);
     let response_body_len = u32::try_from(response_body_len).unwrap_or(u32::MAX);
+    // fire-and-forget: per-request audit row writes happen after the
+    // response is sent; the caller must not block on the DB write.
+    // Errors are logged inside the task.
     tokio::spawn(async move {
         let entry = NewGatewayRequestAudit {
             request_id: draft.request_id,

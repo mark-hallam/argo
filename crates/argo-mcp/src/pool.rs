@@ -380,6 +380,9 @@ fn spawn_shutdown(client: Arc<McpClient>) {
     // detached thread that builds a tiny runtime — sufficient for a
     // best-effort `kill()` since the child is also `kill_on_drop`.
     if tokio::runtime::Handle::try_current().is_ok() {
+        // fire-and-forget: best-effort graceful kill on eviction.
+        // The child is `kill_on_drop`, so even if the shutdown
+        // future never observes completion the process still exits.
         tokio::spawn(async move {
             let _ = client.shutdown().await;
         });

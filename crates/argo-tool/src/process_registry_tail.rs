@@ -80,6 +80,9 @@ pub(super) fn spawn_pump<R: tokio::io::AsyncRead + Unpin + Send + 'static>(
     mut reader: R,
     sink: Arc<Mutex<TailBuffer>>,
 ) {
+    // fire-and-forget: pump exits cleanly on read EOF/error (child
+    // process exit). The reader is owned by the spawned task; no
+    // external code needs to observe completion or panic state.
     tokio::spawn(async move {
         let mut buf = [0u8; 4096];
         loop {

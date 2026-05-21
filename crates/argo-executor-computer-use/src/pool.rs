@@ -197,6 +197,9 @@ impl SandboxPool {
         let prewarmer = Arc::clone(prewarmer);
         let client = self.e2b.clone();
         let template = sandbox_template.to_owned();
+        // fire-and-forget: prewarm runs out-of-band of the request that
+        // triggered it; per-sandbox failures are logged inside the loop
+        // and the reservoir tolerates partial fills until the next tick.
         tokio::spawn(async move {
             for _ in 0..to_open {
                 match client.open_sandbox(&template).await {

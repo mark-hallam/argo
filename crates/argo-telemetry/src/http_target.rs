@@ -208,6 +208,10 @@ impl HttpLogTargetLayer {
     pub fn new(target: Arc<HttpLogTarget>, spawn_flusher: bool) -> Self {
         if spawn_flusher {
             let f = target.clone();
+            // fire-and-forget: the flusher loop runs for the lifetime
+            // of the process; the layer holds the `Arc<HttpLogTarget>`,
+            // so dropping the JoinHandle is intentional. `run_flusher`
+            // never returns under normal operation.
             tokio::spawn(async move { f.run_flusher().await });
         }
         Self { target }

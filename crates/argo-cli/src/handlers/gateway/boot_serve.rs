@@ -240,6 +240,9 @@ fn spawn_skill_learning(
         interval,
     ));
     set_learning_registry(Arc::clone(&registry));
+    // fire-and-forget: one-shot boot-time enrollment that walks the
+    // worker table and (re)attaches each worker to the learning
+    // registry. Per-worker errors are logged inside `enroll_boot_workers`.
     tokio::spawn(enroll_boot_workers(
         Arc::clone(s),
         Arc::clone(&registry),

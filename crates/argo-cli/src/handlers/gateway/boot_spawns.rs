@@ -59,6 +59,8 @@ pub(super) fn spawn_audit_watchdog_with_dispatch(
             "audit chain break detected"
         );
         let dispatch = Arc::clone(&dispatch);
+        // fire-and-forget: anomaly dispatch must not block the
+        // watchdog tick; dispatch errors are logged inside the task.
         tokio::spawn(async move {
             let mut context = BTreeMap::new();
             context.insert("seq".into(), b.seq.to_string());

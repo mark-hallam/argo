@@ -130,6 +130,9 @@ pub(super) fn ensure_started() {
         return;
     }
     seed_peer_snapshots(&peers);
+    // fire-and-forget: the poll loop runs for the lifetime of the
+    // gateway process; OnceLock above guarantees at most one spawn.
+    // Per-tick errors are logged inside `run_poll_loop`.
     tokio::spawn(run_poll_loop(peers));
 }
 
