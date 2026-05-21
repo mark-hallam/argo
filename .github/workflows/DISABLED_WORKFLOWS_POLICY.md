@@ -1,12 +1,14 @@
 # Disabled workflows policy
 
-**Decision date:** 2026-05-17 (operator-locked)
-**Status:** All 12 disabled workflows in this directory are **intentionally disabled for v1.0**. None are accidentally-off.
-**Audit reference:** Closes 2026-05-17 read-only audit finding #12 (`docs/skycot/audit/2026-05-17-readonly-codebase-audit.md`).
+**Decision date:** 2026-05-17 (operator-locked); extended 2026-05-21 to cover ALL workflows (including formerly-active `ci.yml` + 4 siblings).
+**Status:** **ALL workflows in this directory are now disabled** — both on disk (every `.yml` is `.yml.disabled`) AND at the GitHub repo level (Settings → Actions → "Disable actions"). Zero workflows can run.
+**Audit reference:** Closes 2026-05-17 read-only audit finding #12 (`docs/skycot/audit/2026-05-17-readonly-codebase-audit.md`). 2026-05-21 extension: operator silencing GHA failure-email storm during v1.0 build; every workflow was failing on every push (no billing = no runner minutes = guaranteed failure = 1 email per run).
 
 ## Rationale
 
-GitHub Actions billing is operator-side blocked. Admin-merge is the v1.0 strategy. Every workflow listed below is disabled with intent — not waiting for a "re-enable before GA" flip — until either (a) GHA billing is restored, (b) the operator stands up a self-hosted runner, or (c) the underlying workflow is no longer load-bearing.
+GitHub Actions billing is operator-side blocked. Admin-merge is the v1.0 strategy. Every workflow in this directory is disabled with intent — not waiting for a "re-enable before GA" flip — until either (a) GHA billing is restored, (b) the operator stands up a self-hosted runner, or (c) the underlying workflow is no longer load-bearing.
+
+**2026-05-21 supplemental:** the 5 formerly-active workflows (`ci.yml`, `deploy-smoke.yml`, `cli-reference-drift.yml`, `audit.yml`, `deny.yml`) were generating 40-60 failure emails per hour during the active merge wave. Disabled at the operator's request to restore inbox sanity. The signal these provided was zero (every run failed for billing reasons, not real bugs). Local verification gates (`scripts/conductor-pre-merge-gate.sh` + worker-side pre-push `cargo clippy`/`cargo test`) cover the verification surface during v1 dev.
 
 ## Per-workflow classification
 
@@ -24,6 +26,11 @@ GitHub Actions billing is operator-side blocked. Admin-merge is the v1.0 strateg
 | `silent-skip-nightly.yml.disabled` | **keep-disabled** (v1) | Tracks `#[ignore]` accumulation; cosmetic-quality not load-bearing. |
 | `soak.yml.disabled` | **keep-disabled** (v1) | Multi-hour soak tests; operator-triggered. v1 load-soak coverage comes via `codex-gateway-load-soak-baseline` (manual workflow_dispatch). |
 | `load-soak.yml.disabled` | **keep-disabled** (v1) | Operator-triggered via `workflow_dispatch`; expensive; not needed for routine merge gating. Added by PR #1811 (`codex-gateway-load-soak-baseline`). |
+| `ci.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | fmt + clippy + test matrix + coverage + loc-budget + prepared-statements + parallel-pub-types-enforce + audit-sink-tenant-guard. Replaced by local `scripts/conductor-pre-merge-gate.sh` + worker-side pre-push gates during v1.0 build. |
+| `deploy-smoke.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | Deployment smoke; nothing to deploy yet for v1. Will re-enable when K5 deploy-smoke-test ships. |
+| `cli-reference-drift.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | CLI reference docs drift detection; cosmetic for v1 build. Re-enable post-launch. |
+| `audit.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | Audit-chain CI checks; replaced by local audit-sink-tenant-guard in `pre-merge-gate.sh` + integration tests in `argo-audit`. |
+| `deny.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | `cargo-deny` license/vulnerability checks; valuable but operator-triggered locally during v1 build. |
 
 ## Re-enable trigger conditions
 
