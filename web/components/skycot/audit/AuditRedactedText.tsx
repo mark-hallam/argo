@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState, type ReactNode } from "react";
+import { HoverHint } from "@/components/ui/Tooltip";
 import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
 import { ALL_SENTINELS } from "@/lib/redaction/redact";
 import { APPROVER_SENTINEL, COUNTERPARTY_SENTINEL } from "@/lib/redaction/audit-rules";
@@ -92,17 +93,17 @@ function renderPart(
   const perm = CATEGORY_BY_SENTINEL[part];
   if (perm) {
     return (
-      <button
-        key={idx}
-        type="button"
-        data-redacted={categoryShort(perm)}
-        data-testid={`audit-sentinel-${perm}`}
-        onClick={() => onClick(perm)}
-        title="Click to request elevated view"
-        className="rounded-sm bg-[var(--muted)] px-1 py-[1px] font-mono text-[0.85em] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
-      >
-        {part}
-      </button>
+      <HoverHint key={idx} label="Click to request elevated view">
+        <button
+          type="button"
+          data-redacted={categoryShort(perm)}
+          data-testid={`audit-sentinel-${perm}`}
+          onClick={() => onClick(perm)}
+          className="rounded-sm bg-[var(--muted)] px-1 py-[1px] font-mono text-[0.85em] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
+        >
+          {part}
+        </button>
+      </HoverHint>
     );
   }
   return <Fragment key={idx}>{part}</Fragment>;

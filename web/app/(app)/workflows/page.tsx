@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GitBranch, ArrowRight, Plus, Search, FileCode2, Clock, Sparkles } from "lucide-react";
 import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
+import { HoverHint } from "@/components/ui/Tooltip";
 
 /**
  * Workflows index — `/workflows` brand-loud catalog view.
@@ -182,16 +183,17 @@ export default function WorkflowsPage() {
             <Sparkles size={13} />
             Browse 50+ templates
           </Link>
-          <button
-            type="button"
-            className="workflows-propose"
-            data-testid="workflows-propose"
-            title="Describe a new workflow in plain English"
-            onClick={() => setProposeOpen(true)}
-          >
-            <Plus size={14} />
-            Propose new
-          </button>
+          <HoverHint label="Describe a new workflow in plain English">
+            <button
+              type="button"
+              className="workflows-propose"
+              data-testid="workflows-propose"
+              onClick={() => setProposeOpen(true)}
+            >
+              <Plus size={14} />
+              Propose new
+            </button>
+          </HoverHint>
         </div>
 
         <div className="workflows-try-row">

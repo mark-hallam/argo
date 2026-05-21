@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
+import { HoverHint } from "@/components/ui/Tooltip";
 import {
   FOOTER_NAV_ITEMS,
   NAV_ITEMS,
@@ -132,19 +133,23 @@ function Brand() {
  */
 function SingleBinaryFooterChip() {
   return (
-    <a
-      href="/pricing#self-host"
-      title="SKYCOT ships as one binary you can self-host. Click for details."
-      className="mt-2 mx-2 flex items-center gap-2 rounded-[999px] border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-[10.5px] uppercase tracking-[0.14em] font-semibold text-[var(--muted-foreground)] hover:border-[var(--brand-primary)] hover:text-[var(--foreground)] transition-colors duration-[var(--duration-fast)]"
-      style={{ fontFamily: "'JetBrains Mono', monospace" }}
+    <HoverHint
+      label="SKYCOT ships as one binary you can self-host. Click for details."
+      side="right"
     >
-      <span
-        aria-hidden
-        className="inline-block size-1.5 rounded-full"
-        style={{ background: "linear-gradient(135deg, #8b5cf6, #ec4899)" }}
-      />
-      Self-hosted · single binary
-    </a>
+      <a
+        href="/pricing#self-host"
+        className="mt-2 mx-2 flex items-center gap-2 rounded-[999px] border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-[10.5px] uppercase tracking-[0.14em] font-semibold text-[var(--muted-foreground)] hover:border-[var(--brand-primary)] hover:text-[var(--foreground)] transition-colors duration-[var(--duration-fast)]"
+        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+      >
+        <span
+          aria-hidden
+          className="inline-block size-1.5 rounded-full"
+          style={{ background: "linear-gradient(135deg, #8b5cf6, #ec4899)" }}
+        />
+        Self-hosted · single binary
+      </a>
+    </HoverHint>
   );
 }
 

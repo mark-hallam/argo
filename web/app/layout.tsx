@@ -8,6 +8,7 @@ import { AuthProvider } from "@/components/skycot/AuthProvider";
 import { CommandPaletteProvider } from "@/components/skycot/CommandPaletteProvider";
 import { QueryProvider } from "@/components/skycot/QueryProvider";
 import { ThemeProvider } from "@/components/skycot/ThemeProvider";
+import { TooltipProvider } from "@/components/ui/Tooltip";
 import { ErrorReportingInit } from "@/lib/error-reporting/init";
 import "./globals.css";
 
@@ -99,12 +100,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <QueryProvider>
             <ThemeProvider>
-              <CommandPaletteProvider>
-                <ErrorReportingInit />
-                <ServiceWorkerRegister />
-                {children}
-                <InstallPrompt />
-              </CommandPaletteProvider>
+              <TooltipProvider delayDuration={250} skipDelayDuration={100}>
+                <CommandPaletteProvider>
+                  <ErrorReportingInit />
+                  <ServiceWorkerRegister />
+                  {children}
+                  <InstallPrompt />
+                </CommandPaletteProvider>
+              </TooltipProvider>
             </ThemeProvider>
           </QueryProvider>
         </AuthProvider>
