@@ -62,7 +62,7 @@ const config: NextConfig = {
       "base-uri 'self'",
       "form-action 'self'",
     ].join("; ");
-    return [
+    const baseHeaders = [
       {
         source: "/:path*",
         headers: [
@@ -75,6 +75,46 @@ const config: NextConfig = {
         ],
       },
     ];
+    // PERF (P3 fix, 2026-05-21 — web-perf-cache-control-marketing):
+    // production-mode Cache-Control for public marketing routes.
+    //   public               — any cache may store (browser + CDN).
+    //   s-maxage=300         — shared (CDN) caches keep for 5 minutes.
+    //   stale-while-revalidate=600 — serve stale up to 10 min while
+    //                          refetching in the background.
+    // Strategy: marketing copy changes ~daily, not per-second; 5-min
+    // edge cache is invisible to operators (CDN purge on deploy
+    // handles fresh-pull) while massively reducing origin RPS and
+    // satisfying Lighthouse "efficient cache policy".
+    // Dev-mode (NODE_ENV !== "production") falls through to Next.js
+    // defaults (no-store) so HMR / route-changes reflect immediately.
+    // Authed routes (anything not in this matcher) and /api/* keep
+    // their default no-store — correct for personalized content.
+    if (process.env.NODE_ENV === "production") {
+      const marketingPaths = [
+        "/landing/:path*",
+        "/pricing/:path*",
+        "/customers/:path*",
+        "/compare/:path*",
+        "/changelog/:path*",
+        "/docs/:path*",
+        "/privacy/:path*",
+        "/terms/:path*",
+        "/security/:path*",
+        "/for/:path*",
+      ];
+      for (const source of marketingPaths) {
+        baseHeaders.push({
+          source,
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, s-maxage=300, stale-while-revalidate=600",
+            },
+          ],
+        });
+      }
+    }
+    return baseHeaders;
   },
 };
 
