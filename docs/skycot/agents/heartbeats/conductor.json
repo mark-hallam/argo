@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T04:21:11Z",
+  "last_run_utc": "2026-05-21T06:03:39Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-15",
-  "run_notes": "tick 15: PR-review agent triaged #1931-#1946; merge wave queued (15 PRs CLEAN); auditor P0 #1 (256-CLAIMED) is a counting bug, not actioning"
+  "session_label": "anthropic-claude-code-conductor-tick-17",
+  "run_notes": "tick 17: 4 of 6 new briefs from tick-16 claimed by workers; #1952 + #1953 new PRs to triage; #1947+#1948 still DIRTY; queue claude=8 codex=4 — replenishment needed"
 }
