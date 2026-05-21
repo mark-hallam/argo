@@ -205,5 +205,27 @@
   cursor: pointer;
   box-shadow: 0 12px 30px -8px rgba(139, 92, 246, 0.5);
 }
+.builder-shortcuts-button {
+  position: absolute;
+  right: 24px;
+  bottom: 80px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: white;
+  color: #52525b;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #ece9f5;
+  cursor: pointer;
+  box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.12);
+}
+.builder-shortcuts-button:hover {
+  color: #18181b;
+  border-color: #d4d4d8;
+}
 .react-flow__panel button { background: white; }
 .react-flow__minimap { border-radius: 8px !important; border: 1px solid #ece9f5 !important; }

@@ -9,9 +9,11 @@ import {
   type Node,
   type OnConnect,
   type OnEdgesChange,
+  type OnNodeDrag,
   type OnNodesChange,
+  type OnNodesDelete,
 } from "@xyflow/react";
-import { Plus } from "lucide-react";
+import { Keyboard, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { SkycotStepNode } from "./BuilderCanvasNode";
@@ -27,12 +29,18 @@ interface Props {
   isValidConnection?: IsValidConnection<Edge>;
   onNodeClick: (event: React.MouseEvent, node: Node) => void;
   onSelectStepKind: (kind: StepKind) => void;
-  onNodesDelete?: (deleted: Node[]) => void;
+  onNodesDelete?: OnNodesDelete;
   onEdgesDelete?: (deleted: Edge[]) => void;
   onNodeContextMenu?: (event: React.MouseEvent, node: Node) => void;
   onEdgeContextMenu?: (event: React.MouseEvent, edge: Edge) => void;
   onPaneClick?: () => void;
+  onNodeDragStart?: OnNodeDrag;
+  onNodeDragStop?: OnNodeDrag;
+  onShowShortcuts?: () => void;
 }
+
+export const SNAP_GRID_SIZE = 20;
+
 
 export function BuilderCanvas({
   nodes,
@@ -48,6 +56,9 @@ export function BuilderCanvas({
   onNodeContextMenu,
   onEdgeContextMenu,
   onPaneClick,
+  onNodeDragStart,
+  onNodeDragStop,
+  onShowShortcuts,
 }: Props) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const nodeTypes = useMemo(() => ({ skycot: SkycotStepNode }), []);
@@ -68,7 +79,11 @@ export function BuilderCanvas({
         onNodeContextMenu={onNodeContextMenu}
         onEdgeContextMenu={onEdgeContextMenu}
         onPaneClick={onPaneClick}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDragStop={onNodeDragStop}
         deleteKeyCode={["Backspace", "Delete"]}
+        snapToGrid
+        snapGrid={[SNAP_GRID_SIZE, SNAP_GRID_SIZE]}
         fitView
         fitViewOptions={{ padding: 0.18 }}
         attributionPosition="bottom-right"
@@ -95,6 +110,18 @@ export function BuilderCanvas({
       >
         <Plus size={15} /> Add step
       </button>
+      {onShowShortcuts ? (
+        <button
+          type="button"
+          className="builder-shortcuts-button"
+          onClick={onShowShortcuts}
+          aria-label="Show keyboard shortcuts"
+          data-testid="builder-shortcuts-button"
+          title="Keyboard shortcuts (?)"
+        >
+          <Keyboard size={14} /> Shortcuts
+        </button>
+      ) : null}
       {paletteOpen ? (
         <AddStepPalette
           onSelect={onSelectStepKind}

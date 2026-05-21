@@ -2,14 +2,22 @@
 import "./page.css";
 
 import "@xyflow/react/dist/style.css";
-import type { Connection, Edge, IsValidConnection, Node } from "@xyflow/react";
+import {
+  ReactFlowProvider,
+  useReactFlow,
+  type Connection,
+  type Edge,
+  type IsValidConnection,
+  type Node,
+} from "@xyflow/react";
 import { Copy, Settings as SettingsIcon, Trash2, Unlink } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { UnsavedBanner } from "@/components/skycot/builder/UnsavedBanner";
+import { KeyboardShortcutsModal } from "@/components/skycot/workflows/KeyboardShortcutsModal";
 import TriggerConfigDrawer from "@/components/workflows/triggers/TriggerConfigDrawer";
 import type { TriggerConfig, TriggerKind } from "@/components/workflows/triggers/types";
 import { WorkflowBuilderSkeleton } from "@/components/skycot/workflows/WorkflowBuilderSkeleton";
@@ -21,10 +29,12 @@ import {
   WorkflowBuilderEmptyState,
   WorkflowBuilderErrorState,
 } from "@/components/skycot/workflows/WorkflowEdgeStates";
+import { useBuilderHistory, type BuilderSnapshot } from "@/lib/hooks/use-builder-history";
+import { useBuilderKeyboard } from "@/lib/hooks/use-builder-keyboard";
 import { useWorkflowBuilderState } from "@/lib/hooks/use-workflow-builder-state";
 import { getTemplate } from "@/lib/workflow-templates";
 
-import { BuilderCanvas } from "./BuilderCanvas";
+import { BuilderCanvas, SNAP_GRID_SIZE } from "./BuilderCanvas";
 import { BuilderInspector } from "./BuilderInspector";
 import { BuilderToolbar } from "./BuilderToolbar";
 import {
@@ -78,7 +88,9 @@ export default function WorkflowBuilderPage({
 }) {
   return (
     <Suspense fallback={<WorkflowBuilderSkeleton />}>
-      <BuilderInner params={params} />
+      <ReactFlowProvider>
+        <BuilderInner params={params} />
+      </ReactFlowProvider>
     </Suspense>
   );
 }
@@ -143,21 +155,67 @@ function BuilderInner({
   const [proposing, setProposing] = useState(false);
   const [triggerConfigOpen, setTriggerConfigOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // One config per step id. Persisted client-side for v1; wired to the
   // gateway step-config save path in a follow-up brief.
   const [triggerConfigs, setTriggerConfigs] = useState<Record<string, TriggerConfig>>({});
   const workflowId = `${verticalId}/${name}`;
+
+  // useReactFlow + history hook only function when the page is wrapped
+  // by <ReactFlowProvider> (see WorkflowBuilderPage above).
+  const reactFlow = useReactFlow();
+  const history = useBuilderHistory();
+  // Keep latest nodes/edges in refs so snapshot helpers — bound to
+  // keyboard handlers that read once at hook registration — always
+  // sample the current graph state.
+  const stateRef = useRef({ nodes: builder.nodes, edges: builder.edges });
+  stateRef.current = { nodes: builder.nodes, edges: builder.edges };
+  // Pre-drag snapshot, captured at onNodeDragStart so the snapshot
+  // pushed on drag-stop is the BEFORE-position graph (gotcha #4 in the
+  // brief: one snapshot per drag, captured at the source).
+  const preDragSnapshotRef = useRef<BuilderSnapshot | null>(null);
+
+  const captureSnapshot = useCallback((label: string): BuilderSnapshot => ({
+    nodes: structuredClone(stateRef.current.nodes),
+    edges: structuredClone(stateRef.current.edges),
+    label,
+    takenAt: Date.now(),
+  }), []);
 
   const onNodeClick = useCallback((_e: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setTriggerConfigOpen(false);
   }, []);
 
+  const onNodeDragStart = useCallback(() => {
+    preDragSnapshotRef.current = captureSnapshot("Move step");
+  }, [captureSnapshot]);
+
+  const onNodeDragStop = useCallback(() => {
+    const before = preDragSnapshotRef.current;
+    preDragSnapshotRef.current = null;
+    if (!before) return;
+    const movedNodes = stateRef.current.nodes;
+    const positionChanged =
+      before.nodes.length !== movedNodes.length
+      || before.nodes.some((bn, idx) => {
+        const mn = movedNodes[idx];
+        if (!mn || bn.id !== mn.id) return true;
+        return bn.position.x !== mn.position.x || bn.position.y !== mn.position.y;
+      });
+    if (positionChanged) history.push(before);
+  }, [history]);
+
   // ReactFlow optimistically removes the node before this fires; for
   // single-node deletes we surface an "Undo" toast that re-adds via
   // builder.addNode (the controlled-state hook is idempotent on id).
+  // Pushes a history snapshot for keyboard undo (Cmd+Z) too.
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
+      if (deleted.length > 0) {
+        const label = `Delete ${deleted.length} step${deleted.length === 1 ? "" : "s"}`;
+        history.push(captureSnapshot(label));
+      }
       const triggers = deleted.filter((n) => nodeStep(n)?.kind === "trigger");
       const deletable = deleted.filter((n) => nodeStep(n)?.kind !== "trigger");
 
@@ -199,7 +257,7 @@ function BuilderInner({
       }
       toast.success(`${deletable.length} steps deleted`);
     },
-    [builder, selectedNode],
+    [builder, selectedNode, captureSnapshot, history],
   );
 
   const onEdgesDelete = useCallback(
@@ -294,6 +352,72 @@ function BuilderInner({
     }
     return [];
   }, [contextMenu, builder, duplicateNode, onNodesDelete]);
+
+  const handleUndo = useCallback(() => {
+    const prev = history.undo();
+    if (!prev) return;
+    history.pushFuture({
+      nodes: structuredClone(stateRef.current.nodes),
+      edges: structuredClone(stateRef.current.edges),
+      label: prev.label,
+      takenAt: Date.now(),
+    });
+    builder.setNodes(prev.nodes);
+    builder.setEdges(prev.edges);
+    toast.message(`Undone: ${prev.label}`);
+  }, [builder, history]);
+
+  const handleRedo = useCallback(() => {
+    const next = history.redo();
+    if (!next) return;
+    history.pushPast({
+      nodes: structuredClone(stateRef.current.nodes),
+      edges: structuredClone(stateRef.current.edges),
+      label: next.label,
+      takenAt: Date.now(),
+    });
+    builder.setNodes(next.nodes);
+    builder.setEdges(next.edges);
+    toast.message(`Redone: ${next.label}`);
+  }, [builder, history]);
+
+  const handleSelectAll = useCallback(() => {
+    builder.setNodes((nds) => nds.map((n) => ({ ...n, selected: true })));
+  }, [builder]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    const selected = stateRef.current.nodes.filter((n) => n.selected);
+    if (selected.length === 0) return;
+    history.push(captureSnapshot(`Duplicate ${selected.length} step${selected.length === 1 ? "" : "s"}`));
+    const clones: Node[] = selected.map((n) => {
+      const id = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : `${n.id}-copy-${Date.now()}`;
+      return {
+        ...n,
+        id,
+        position: { x: n.position.x + SNAP_GRID_SIZE * 2, y: n.position.y + SNAP_GRID_SIZE * 2 },
+        selected: false,
+      };
+    });
+    builder.setNodes((nds) =>
+      [...nds.map((n) => ({ ...n, selected: false })), ...clones],
+    );
+  }, [builder, captureSnapshot, history]);
+
+  useBuilderKeyboard(
+    useMemo(() => ({
+      onUndo: handleUndo,
+      onRedo: handleRedo,
+      onFitView: () => reactFlow.fitView({ padding: 0.18, duration: 250 }),
+      onZoomIn: () => reactFlow.zoomIn({ duration: 150 }),
+      onZoomOut: () => reactFlow.zoomOut({ duration: 150 }),
+      onSelectAll: handleSelectAll,
+      onDuplicateSelected: handleDuplicateSelected,
+      onShowShortcuts: () => setShortcutsOpen(true),
+    }), [handleUndo, handleRedo, reactFlow, handleSelectAll, handleDuplicateSelected]),
+    true,
+  );
 
   const selectedStep = selectedNode ? (selectedNode.data as SkyNodeData).step : null;
   const selectedIsTrigger = selectedStep?.kind === "trigger";
@@ -459,6 +583,9 @@ function BuilderInner({
             onNodeContextMenu={onNodeContextMenu}
             onEdgeContextMenu={onEdgeContextMenu}
             onPaneClick={onPaneClick}
+            onNodeDragStart={onNodeDragStart}
+            onNodeDragStop={onNodeDragStop}
+            onShowShortcuts={() => setShortcutsOpen(true)}
           />
           {contextMenu && contextMenuItems.length > 0 ? (
             <WorkflowContextMenu
@@ -491,6 +618,7 @@ function BuilderInner({
           ) : null}
         </div>
       </div>
+      <KeyboardShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </>
   );
 }
