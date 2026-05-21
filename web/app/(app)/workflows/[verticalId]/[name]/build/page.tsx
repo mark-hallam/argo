@@ -15,7 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, use, useCallback, useMemo, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -33,6 +33,7 @@ import {
   Clock,
 } from "lucide-react";
 import { getTemplate } from "@/lib/workflow-templates";
+import { useWorkflowBuilderState } from "@/lib/hooks/use-workflow-builder-state";
 
 import TriggerConfigDrawer from "@/components/workflows/triggers/TriggerConfigDrawer";
 import type { TriggerConfig, TriggerKind } from "@/components/workflows/triggers/types";
@@ -742,6 +743,17 @@ function BuilderInner({
     return SEED_WORKFLOWS[`${verticalId}/${name}`];
   }, [templateId, verticalId, name]);
   const initial = useMemo(() => (workflow ? stepsToFlow(workflow.steps) : { nodes: [], edges: [] }), [workflow]);
+  const builder = useWorkflowBuilderState(initial.nodes, initial.edges);
+
+  useEffect(() => {
+    if (!builder.dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [builder.dirty]);
 
   const resetState = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -879,6 +891,9 @@ function BuilderInner({
               type="button"
               className="builder-btn builder-btn-primary"
               onClick={handleSaveAndPublish}
+              disabled={!builder.dirty}
+              data-testid="builder-save"
+              data-dirty={builder.dirty ? "true" : "false"}
             >
               <Send size={13} /> Save + publish
             </button>
@@ -919,8 +934,10 @@ function BuilderInner({
         <div className="builder-stage">
           <div className="builder-canvas">
             <ReactFlow
-              defaultNodes={initial.nodes}
-              defaultEdges={initial.edges}
+              nodes={builder.nodes}
+              edges={builder.edges}
+              onNodesChange={builder.onNodesChange}
+              onEdgesChange={builder.onEdgesChange}
               nodeTypes={nodeTypes}
               onNodeClick={onNodeClick}
               fitView
