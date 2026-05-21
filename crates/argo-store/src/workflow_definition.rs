@@ -67,7 +67,7 @@ mod workflow_definition_read;
 mod workflow_definition_write;
 
 pub use workflow_definition_read::{get, get_head, list_versions};
-pub use workflow_definition_write::{archive, create, set_head};
+pub use workflow_definition_write::{archive, create, rollback_to, set_head};
 
 /// Strongly-typed handle for a single `workflow_definition` row.
 /// Wraps a UUID so the stored TEXT id is opaque to callers; the
@@ -175,3 +175,7 @@ pub struct WorkflowDefinition {
 #[cfg(test)]
 #[path = "workflow_definition_tests.rs"]
 mod workflow_definition_tests;
+
+#[cfg(test)]
+#[path = "workflow_definition_rollback_tests.rs"]
+mod workflow_definition_rollback_tests;

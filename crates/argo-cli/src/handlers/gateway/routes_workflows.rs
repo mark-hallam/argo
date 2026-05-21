@@ -28,8 +28,11 @@
 //! * `POST /workflows/{name}` → [`argo_audit::AuditKind::WorkflowDefinitionCreated`]
 //! * `PUT  /workflows/{name}/head` → [`argo_audit::AuditKind::WorkflowHeadChanged`]
 //! * `DELETE /workflows/{name}/versions/{id}` → [`argo_audit::AuditKind::WorkflowVersionArchived`]
+//! * `POST /workflows/{name}/rollback` → [`argo_audit::AuditKind::WorkflowRolledBack`]
 //!
-//! Payload shape: `{ actor, tenant_id, vertical_id, name, version_id }`.
+//! Payload shape: `{ actor, tenant_id, vertical_id, name, version_id }`
+//! (rollback adds `rolled_back_from_version_id` + `new_version_id` +
+//! `new_version_number`).
 
 use super::role_gate::{enforce_role, resolve_role, Action};
 use super::routes_workflows_handlers as hh;
@@ -146,6 +149,9 @@ async fn handle_mutate(
             name,
             version_id,
         } => hh::archive_version(store, tenant, vertical, name, version_id, &actor).await,
+        Route::Rollback { vertical, name } => {
+            hh::rollback(store, tenant, vertical, name, body, &actor).await
+        }
         _ => not_found("unknown workflow route"),
     }
 }
@@ -169,6 +175,7 @@ enum Route<'a> {
         name: &'a str,
         version_id: &'a str,
     },
+    Rollback { vertical: &'a str, name: &'a str },
 }
 
 fn parse_route<'a>(req: &'a str, verb: &str) -> Option<Route<'a>> {
@@ -209,6 +216,7 @@ fn parse_route<'a>(req: &'a str, verb: &str) -> Option<Route<'a>> {
             version_id,
         }),
         [name, "head"] if is_put => Some(Route::SetHead { vertical, name }),
+        [name, "rollback"] if is_post => Some(Route::Rollback { vertical, name }),
         _ => None,
     }
 }
@@ -331,3 +339,7 @@ pub(super) fn internal(message: &str) -> (&'static str, String) {
         json!({"error": {"code": "internal", "message": message}}).to_string(),
     )
 }
+
+#[cfg(test)]
+#[path = "routes_workflows_tests.rs"]
+mod routes_workflows_tests;

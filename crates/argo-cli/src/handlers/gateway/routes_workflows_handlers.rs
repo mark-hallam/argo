@@ -254,6 +254,64 @@ pub(super) async fn archive_version(
     }
 }
 
+pub(super) async fn rollback(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    vertical_id: &str,
+    name: &str,
+    body: &str,
+    actor: &str,
+) -> (&'static str, String) {
+    let parsed: Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return super::routes_workflows::bad_request(&format!("parse json body: {e}")),
+    };
+    let target_id_str = match parsed.get("target_version_id").and_then(Value::as_str) {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => {
+            return super::routes_workflows::bad_request(
+                "body must contain a non-empty `target_version_id` string",
+            )
+        }
+    };
+    let target_id = WorkflowDefinitionId(target_id_str.clone());
+    match wd::rollback_to(store.pool(), tenant, vertical_id, name, &target_id, actor).await {
+        Ok((new_id, new_version)) => {
+            let payload = json!({
+                "actor": actor,
+                "tenant_id": tenant.to_string(),
+                "vertical_id": vertical_id,
+                "name": name,
+                "rolled_back_from_version_id": target_id_str,
+                "new_version_id": new_id.0,
+                "new_version_number": new_version,
+            });
+            let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+            if let Err(e) = sink
+                .write(None, AuditKind::WorkflowRolledBack, payload, Some(actor.to_string()))
+                .await
+            {
+                tracing::warn!(
+                    target: "gateway::routes_workflows",
+                    error = %e,
+                    kind = %AuditKind::WorkflowRolledBack.label(),
+                    vertical_id = %vertical_id,
+                    name = %name,
+                    "workflow rollback audit write failed",
+                );
+            }
+            let body = json!({
+                "id": new_id.0,
+                "version": new_version,
+            });
+            ("200 OK", body.to_string())
+        }
+        Err(ArgoError::NotFound(msg)) => super::routes_workflows::not_found(&msg),
+        Err(ArgoError::Invariant(msg)) => super::routes_workflows::bad_request(&msg),
+        Err(e) => super::routes_workflows::internal(&format!("rollback_to: {e}")),
+    }
+}
+
 // ── Audit + JSON helpers ────────────────────────────────────────
 
 async fn emit_audit_row(

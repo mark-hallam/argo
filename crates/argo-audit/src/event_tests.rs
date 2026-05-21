@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 58);
+    assert_eq!(AuditKind::all().len(), 59);
 }
 
 #[test]
@@ -42,6 +42,7 @@ fn workflow_definition_kinds_round_trip_and_listed() {
             "workflow_version_archived",
             AuditKind::WorkflowVersionArchived,
         ),
+        ("workflow_rolled_back", AuditKind::WorkflowRolledBack),
     ] {
         assert_eq!(AuditKind::from_label(label), Some(kind));
         assert_eq!(kind.label(), label);
@@ -54,6 +55,7 @@ fn workflow_definition_kinds_round_trip_and_listed() {
     assert!(labels.contains(&"workflow_definition_created"));
     assert!(labels.contains(&"workflow_head_changed"));
     assert!(labels.contains(&"workflow_version_archived"));
+    assert!(labels.contains(&"workflow_rolled_back"));
 }
 
 #[test]

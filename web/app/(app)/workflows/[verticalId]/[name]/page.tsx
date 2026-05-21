@@ -3,7 +3,7 @@ import "./page.css";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, use, useCallback, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   GitBranch,
@@ -18,7 +18,14 @@ import {
 import { WorkflowViewerSkeleton } from "@/components/skycot/workflows/WorkflowViewerSkeleton";
 import { WorkflowViewerErrorState } from "@/components/skycot/workflows/WorkflowEdgeStates";
 import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
+import { RollbackConfirmModal } from "@/components/skycot/workflows/RollbackConfirmModal";
+import { WorkflowVersionHistory } from "@/components/skycot/workflows/WorkflowVersionHistory";
 import { useWorkflow } from "@/lib/hooks/use-workflows";
+import {
+  listWorkflowVersions,
+  rollbackWorkflow,
+  type WorkflowVersionItem,
+} from "@/lib/api/workflow-rollback";
 import type { WorkflowStepKind } from "@/lib/sample-workflows";
 
 /**
@@ -73,6 +80,44 @@ function ViewerInner({
   const workflow = data?.workflow ?? null;
   const source = data?.source ?? null;
   const isLive = source === "gateway";
+
+  const [versions, setVersions] = useState<WorkflowVersionItem[]>([]);
+  const [rollbackTarget, setRollbackTarget] = useState<WorkflowVersionItem | null>(null);
+  const [rollbackNotice, setRollbackNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLive) {
+      setVersions([]);
+      return;
+    }
+    let cancelled = false;
+    listWorkflowVersions({ verticalId, name })
+      .then((items) => {
+        if (!cancelled) setVersions(items);
+      })
+      .catch(() => {
+        if (!cancelled) setVersions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLive, verticalId, name]);
+
+  const headVersion = versions.find((v) => v.lifecycle_state === "active") ?? null;
+
+  const handleConfirmRollback = useCallback(async () => {
+    if (!rollbackTarget) return;
+    const res = await rollbackWorkflow({
+      verticalId,
+      name,
+      targetVersionId: rollbackTarget.id,
+    });
+    setRollbackNotice(
+      `Rolled back to v${rollbackTarget.version} (now v${res.version}).`,
+    );
+    setRollbackTarget(null);
+    router.refresh();
+  }, [rollbackTarget, verticalId, name, router]);
 
   const resetState = useCallback(() => {
     const next = new URLSearchParams(searchParams?.toString() ?? "");
@@ -362,6 +407,20 @@ function ViewerInner({
             </div>
           </div>
         </div>
+        {isLive && versions.length > 0 ? (
+          <>
+            <div className="wfd-section-label">VERSION HISTORY</div>
+            <WorkflowVersionHistory
+              versions={versions}
+              headVersionId={headVersion?.id ?? null}
+              rollbackNotice={rollbackNotice}
+              onRequestRollback={(v) => {
+                setRollbackNotice(null);
+                setRollbackTarget(v);
+              }}
+            />
+          </>
+        ) : null}
       </div>
       <WorkflowProposeModal
         open={editChatOpen}
@@ -371,6 +430,17 @@ function ViewerInner({
           verticalId: workflow.vertical,
         }}
       />
+      {rollbackTarget && headVersion ? (
+        <RollbackConfirmModal
+          open={true}
+          onClose={() => setRollbackTarget(null)}
+          onConfirm={handleConfirmRollback}
+          currentVersion={headVersion.version}
+          targetVersion={rollbackTarget.version}
+          currentToml={headVersion.definition_toml}
+          targetToml={rollbackTarget.definition_toml}
+        />
+      ) : null}
     </>
   );
 }

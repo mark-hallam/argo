@@ -261,6 +261,18 @@ pub enum AuditKind {
     /// archived version was the current head, the head pointer is
     /// cleared in the same DB transaction.
     WorkflowVersionArchived,
+    /// A workflow-definition version was reverted-to via
+    /// `POST /api/v1/verticals/{vertical_id}/workflows/{name}/rollback`
+    /// (`web-workflow-rollback-feature`). Rollback is implemented as
+    /// an additive new version copied from a prior one — the new
+    /// row's `parent_id` is the rolled-back-from row's id. Payload
+    /// carries `actor`, `tenant_id`, `vertical_id`, `name`,
+    /// `rolled_back_from_version_id`, `new_version_id`, and
+    /// `new_version_number`. Pairs with [`Self::WorkflowHeadChanged`]
+    /// (the head-flip half of the rollback transaction) but is
+    /// distinguishable so audit consumers can filter rollback vs
+    /// ordinary head-promote events.
+    WorkflowRolledBack,
     /// A vertical-workflow step began execution
     /// (mission-pm-vertical-workflow-skill-invoke, P1 #8). Payload
     /// carries `workflow_name`, `step_name`, and (for `skill_invoke`
@@ -390,6 +402,7 @@ impl AuditKind {
             Self::WorkflowDefinitionCreated => "workflow_definition_created",
             Self::WorkflowHeadChanged => "workflow_head_changed",
             Self::WorkflowVersionArchived => "workflow_version_archived",
+            Self::WorkflowRolledBack => "workflow_rolled_back",
             Self::WorkflowStepStarted => "workflow.step.started",
             Self::WorkflowStepCompleted => "workflow.step.completed",
             Self::TrustGradeChanged => "trust_grade_changed",
@@ -457,6 +470,7 @@ impl AuditKind {
             "workflow_definition_created" => Self::WorkflowDefinitionCreated,
             "workflow_head_changed" => Self::WorkflowHeadChanged,
             "workflow_version_archived" => Self::WorkflowVersionArchived,
+            "workflow_rolled_back" => Self::WorkflowRolledBack,
             "workflow.step.started" => Self::WorkflowStepStarted,
             "workflow.step.completed" => Self::WorkflowStepCompleted,
             "trust_grade_changed" => Self::TrustGradeChanged,
@@ -524,6 +538,7 @@ impl AuditKind {
             Self::WorkflowDefinitionCreated,
             Self::WorkflowHeadChanged,
             Self::WorkflowVersionArchived,
+            Self::WorkflowRolledBack,
             Self::WorkflowStepStarted,
             Self::WorkflowStepCompleted,
             Self::TrustGradeChanged,

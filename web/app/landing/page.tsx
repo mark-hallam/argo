@@ -42,7 +42,7 @@ const FEATURES = [
     icon: <GitBranch size={22} />,
     title: "Versioned + reversible",
     blurb:
-      "Every workflow change versioned like code. Side-by-side diff. Rollback shipping next.",
+      "Every workflow change versioned like code. Side-by-side diff. One-tap rollback.",
   },
   {
     icon: <Sparkles size={22} />,
