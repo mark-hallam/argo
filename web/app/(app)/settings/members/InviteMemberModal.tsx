@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Controller } from "react-hook-form";
 import { Mail } from "lucide-react";
 import { CohortScopePicker } from "./CohortScopePicker";
@@ -7,11 +8,19 @@ import { ROLE_META, type MemberRole } from "./members-data";
 import { inviteMemberSchema } from "./schemas";
 import { useZodForm } from "@/lib/forms/use-zod-form";
 import { useToast } from "@/lib/ui/use-toast";
+import {
+  EXPIRY_PRESETS,
+  EXPIRY_PRESET_LABELS,
+  defaultCustomDate,
+  presetToExpiresAt,
+  type ExpiryPreset,
+} from "@/lib/members/expiry";
 
 export interface InvitePayload {
   email: string;
   role: MemberRole;
   cohortScope: string[] | null;
+  expiresAt: string | null;
 }
 
 interface InviteMemberModalProps {
@@ -25,6 +34,11 @@ interface InviteMemberModalProps {
  * + lower-cased email, role picked from the canonical 4-tier
  * ladder, optional cohort scope. Esc closes the modal (overlay
  * click + Escape both fire `handleClose`).
+ *
+ * Time-bound access (preset radio + optional custom date) is local
+ * state — the values are radio choices with safe defaults rather
+ * than free-text input, so they don't need Zod validation; the
+ * submit handler folds them into `expiresAt` for the payload.
  */
 export function InviteMemberModal({ open, onClose, onSend }: InviteMemberModalProps) {
   const toast = useToast();
@@ -33,11 +47,19 @@ export function InviteMemberModal({ open, onClose, onSend }: InviteMemberModalPr
   });
   const { register, handleSubmit, reset, formState, control, watch } = form;
   const role = watch("role");
+  const [expiryPreset, setExpiryPreset] = useState<ExpiryPreset>("never");
+  const [customDate, setCustomDate] = useState<string>(defaultCustomDate());
 
   if (!open) return null;
 
-  const handleClose = () => {
+  const resetAll = () => {
     reset({ email: "", role: "user", cohortScope: null });
+    setExpiryPreset("never");
+    setCustomDate(defaultCustomDate());
+  };
+
+  const handleClose = () => {
+    resetAll();
     onClose();
   };
 
@@ -47,11 +69,12 @@ export function InviteMemberModal({ open, onClose, onSend }: InviteMemberModalPr
         email: values.email,
         role: values.role,
         cohortScope: values.cohortScope,
+        expiresAt: presetToExpiresAt(expiryPreset, customDate),
       });
       toast.success("Invite sent", {
         description: `Magic-link emailed to ${values.email}`,
       });
-      reset({ email: "", role: "user", cohortScope: null });
+      resetAll();
       onClose();
     } catch (err) {
       toast.error("Couldn't send invite", {
@@ -141,6 +164,38 @@ export function InviteMemberModal({ open, onClose, onSend }: InviteMemberModalPr
               />
             )}
           />
+
+          <label className="invite-label">Access expires</label>
+          <div className="invite-expiry-grid" role="radiogroup" aria-label="Access expires">
+            {EXPIRY_PRESETS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                role="radio"
+                aria-checked={expiryPreset === p}
+                data-testid={`invite-expiry-${p}`}
+                className={`invite-expiry-pill ${expiryPreset === p ? "selected" : ""}`}
+                onClick={() => setExpiryPreset(p)}
+              >
+                {EXPIRY_PRESET_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          {expiryPreset === "custom" ? (
+            <input
+              type="date"
+              className="invite-expiry-date"
+              data-testid="invite-expiry-date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+              aria-label="Custom expiry date"
+            />
+          ) : null}
+          <p className="invite-expiry-helper">
+            Time-bound access is useful for auditors, external consultants, or short-term
+            contractors. The user will lose access automatically on the expiry date.
+          </p>
 
           <div className="invite-actions">
             <button

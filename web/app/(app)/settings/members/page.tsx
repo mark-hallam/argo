@@ -7,6 +7,7 @@ import { EditMemberModal, type EditMemberPatch } from "./EditMemberModal";
 import { InviteMemberModal, type InvitePayload } from "./InviteMemberModal";
 import { MemberRow } from "./MemberRow";
 import { MEMBERS_PAGE_STYLES } from "./members-styles";
+import { MEMBERS_EXPIRY_STYLES } from "./expiry-styles";
 import {
   ROLE_DESCRIPTIONS,
   ROLE_META,
@@ -50,7 +51,10 @@ export default function MembersPage() {
   // sibling brief will replace this with a real PATCH call. Local list
   // overrides keep the modal usable in the meantime.
   const [editOverrides, setEditOverrides] = useState<
-    Record<string, { role: MemberRole; cohortScope: string[] | null }>
+    Record<
+      string,
+      { role: MemberRole; cohortScope: string[] | null; expiresAt: string | null }
+    >
   >({});
 
   const liveMembers: SeedMember[] | null = useMemo(() => {
@@ -65,15 +69,29 @@ export default function MembersPage() {
     const base = liveMembers ?? SEED_MEMBERS;
     return base.map((m) => {
       const override = editOverrides[m.id];
-      return override ? { ...m, role: override.role, cohortScope: override.cohortScope } : m;
+      return override
+        ? {
+            ...m,
+            role: override.role,
+            cohortScope: override.cohortScope,
+            expiresAt: override.expiresAt,
+          }
+        : m;
     });
   }, [liveMembers, editOverrides]);
 
   const handleEditSave = (memberId: string, patch: EditMemberPatch) => {
     setEditOverrides((prev) => ({
       ...prev,
-      [memberId]: { role: patch.role, cohortScope: patch.cohortScope },
+      [memberId]: {
+        role: patch.role,
+        cohortScope: patch.cohortScope,
+        expiresAt: patch.expiresAt,
+      },
     }));
+    // Audit emits member.access-extended.time-bound when expiresAt changed
+    // (TIME_BOUND_AUDIT_EVENTS.accessExtended). Gateway-side emit lives in
+    // the follow-up `mission-gateway-time-bound-access-revoke` brief.
   };
 
   const handleInvite = async (payload: InvitePayload) => {
@@ -81,13 +99,17 @@ export default function MembersPage() {
       email: payload.email,
       role: payload.role,
       cohort_scope: payload.cohortScope ?? [],
+      expires_at: payload.expiresAt,
     });
     await queryClient.invalidateQueries({ queryKey: ["workspace", "members"] });
+    // Audit emits member.invite-sent.time-bound when expiresAt !== null
+    // (TIME_BOUND_AUDIT_EVENTS.inviteSent). Gateway-side emit lives in the
+    // follow-up `mission-gateway-time-bound-access-revoke` brief.
   };
 
   return (
     <>
-      <style jsx global>{MEMBERS_PAGE_STYLES}</style>
+      <style jsx global>{`${MEMBERS_PAGE_STYLES}${MEMBERS_EXPIRY_STYLES}`}</style>
 
       <div className="members-stage">
         <div className="members-header">
@@ -175,6 +197,7 @@ function projectMember(row: WorkspaceMember): SeedMember {
     lastSeen: row.last_login_at ? toLastSeen(row.last_login_at) : "never",
     status: "active",
     cohortScope: null,
+    expiresAt: row.expires_at ?? null,
   };
 }
 
@@ -188,6 +211,7 @@ function projectPending(row: PendingInvitation): SeedMember {
     lastSeen: "pending",
     status: "invited",
     cohortScope: row.cohort_scope.length ? row.cohort_scope : null,
+    expiresAt: row.member_expires_at ?? null,
   };
 }
 

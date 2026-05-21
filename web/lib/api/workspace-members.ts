@@ -21,6 +21,10 @@ export interface WorkspaceMember {
   role: WorkspaceMemberRole | string;
   joined_at: number;
   last_login_at: number | null;
+  /** ISO-8601 access expiry. Null for permanent staff. The gateway
+   *  nightly auto-revoke job (out-of-scope sibling brief) flips
+   *  `revoked_at = expires_at` and invalidates session cookies. */
+  expires_at?: string | null;
 }
 
 export interface PendingInvitation {
@@ -30,7 +34,12 @@ export interface PendingInvitation {
   cohort_scope: string[];
   invited_by: string;
   invited_at: number;
+  /** Invitation token expiry (24h-ish lifetime — distinct from
+   *  member-record access expiry below). */
   expires_at: number;
+  /** ISO-8601 access expiry baked into the invite. When the invitee
+   *  accepts, this carries onto the member record. Null → permanent. */
+  member_expires_at?: string | null;
 }
 
 export interface WorkspaceMembersResponse {
@@ -43,6 +52,10 @@ export interface InvitePayload {
   email: string;
   role: WorkspaceMemberRole;
   cohort_scope: string[];
+  /** Time-bound access — ISO-8601 expiry that travels with the
+   *  invite token onto the eventual member record. Null/omitted →
+   *  permanent (default for staff). */
+  expires_at?: string | null;
 }
 
 export interface InviteResult {

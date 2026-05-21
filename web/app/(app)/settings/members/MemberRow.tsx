@@ -3,6 +3,8 @@
 import { MoreVertical } from "lucide-react";
 import { CohortScopeCell } from "./CohortScopeCell";
 import { ROLE_META, type SeedMember } from "./members-data";
+import { MemberExpiryPill } from "@/components/skycot/members/MemberExpiryPill";
+import { expiryStatus } from "@/lib/members/expiry";
 
 interface MemberRowProps {
   member: SeedMember;
@@ -11,8 +13,13 @@ interface MemberRowProps {
 
 export function MemberRow({ member, onEdit }: MemberRowProps) {
   const roleMeta = ROLE_META[member.role];
+  const expired = member.expiresAt ? expiryStatus(member.expiresAt).expired : false;
   return (
-    <div className="member-row" data-testid={`member-row-${member.id}`}>
+    <div
+      className="member-row"
+      data-testid={`member-row-${member.id}`}
+      data-expired={expired || undefined}
+    >
       <div className="member-name-block">
         <div className="member-avatar">
           {member.name
@@ -24,6 +31,7 @@ export function MemberRow({ member, onEdit }: MemberRowProps) {
         <div>
           <div className="member-name">{member.name}</div>
           <div className="member-email">{member.email}</div>
+          <MemberExpiryPill expiresAt={member.expiresAt} />
         </div>
       </div>
       <div>

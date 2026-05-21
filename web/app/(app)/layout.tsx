@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/skycot/AppShell";
 import { HelpWidget } from "@/components/ui/HelpWidget";
+import { MemberExpiryBanner } from "@/components/skycot/members/MemberExpiryBanner";
 import { RouteTransition } from "@/lib/motion/primitives";
 import { MotionRoot } from "@/lib/motion/provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -24,6 +25,7 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
   return (
     <MotionRoot>
       <AppShell>
+        <MemberExpiryBanner />
         <RouteTransition>{children}</RouteTransition>
         <HelpWidget />
         <Toaster />

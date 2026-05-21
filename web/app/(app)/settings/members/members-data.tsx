@@ -28,6 +28,17 @@ export interface SeedMember {
    * renders "All cohorts" for those roles.
    */
   cohortScope: string[] | null;
+  /**
+   * Time-bound access expiry (ISO-8601). `null` for permanent staff;
+   * non-null members lose access on this date — the nightly auto-
+   * revoke gateway job flips `revoked_at = expires_at` and
+   * invalidates active session cookies (sibling brief).
+   */
+  expiresAt: string | null;
+}
+
+function inDaysIso(days: number): string {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
 export const SEED_MEMBERS: SeedMember[] = [
@@ -40,6 +51,7 @@ export const SEED_MEMBERS: SeedMember[] = [
     lastSeen: "online now",
     status: "active",
     cohortScope: null,
+    expiresAt: null,
   },
   {
     id: "mbr_olivia",
@@ -50,6 +62,7 @@ export const SEED_MEMBERS: SeedMember[] = [
     lastSeen: "12 min ago",
     status: "active",
     cohortScope: null,
+    expiresAt: null,
   },
   {
     id: "mbr_diego",
@@ -60,6 +73,7 @@ export const SEED_MEMBERS: SeedMember[] = [
     lastSeen: "2 hours ago",
     status: "active",
     cohortScope: ["sales::established"],
+    expiresAt: null,
   },
   {
     id: "mbr_theo",
@@ -70,6 +84,7 @@ export const SEED_MEMBERS: SeedMember[] = [
     lastSeen: "yesterday",
     status: "active",
     cohortScope: ["support::trusted", "support::developing"],
+    expiresAt: null,
   },
   {
     id: "mbr_naomi",
@@ -80,6 +95,7 @@ export const SEED_MEMBERS: SeedMember[] = [
     lastSeen: "3 days ago",
     status: "active",
     cohortScope: null,
+    expiresAt: inDaysIso(30),
   },
   {
     id: "mbr_aroha",
@@ -90,6 +106,29 @@ export const SEED_MEMBERS: SeedMember[] = [
     lastSeen: "never",
     status: "invited",
     cohortScope: ["marketing::unknown", "marketplace::developing"],
+    expiresAt: null,
+  },
+  {
+    id: "mbr_jordan",
+    name: "Jordan Park",
+    email: "jordan@contractor.io",
+    role: "guest",
+    joinedAt: "2026-05-15",
+    lastSeen: "1 hour ago",
+    status: "active",
+    cohortScope: null,
+    expiresAt: inDaysIso(4),
+  },
+  {
+    id: "mbr_lee",
+    name: "Lee Mura",
+    email: "lee@former-auditor.com",
+    role: "guest",
+    joinedAt: "2026-04-01",
+    lastSeen: "10 days ago",
+    status: "active",
+    cohortScope: null,
+    expiresAt: inDaysIso(-2),
   },
 ];
 
