@@ -24,3 +24,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-21T10:50:00Z [conductor] tick-22 wave — #1964 + #1965 MERGED. build/page.tsx now 656 LOC (HARD RULE 6 breach); follow-up brief web-builder-page-loc-extract-v2 queued (post-#1951 split benefit eroded by subsequent merges).
 2026-05-21T11:21:00Z [conductor] tick-23 — workers shipping fast (5 new PRs #1967-#1971 + 3 fresh claims). Codex queue replenished (+3 briefs: tenant-fk-audit, test-naming-sweep, no-unwrap-enforce).
 2026-05-21T11:25:00Z [conductor] tick-23 merge wave — 4 MERGED (#1967 rollback-cli, #1968 revocation v2, #1969 sub-workflow, #1971 run-overlay) + 1 DIRTY (#1970 sticky-notes needs sequential rebase). build/page.tsx now 687 LOC (LOC-extract-v2 brief already queued).
+2026-05-21T11:56:00Z [conductor] tick-24 — 5 new PRs (#1972-#1976) under PR-review; claude queue replenished +3 (rollback-ui-button, logout-button-wire, test-run-history-panel)
