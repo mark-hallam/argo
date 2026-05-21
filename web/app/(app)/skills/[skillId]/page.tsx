@@ -5,6 +5,7 @@ import Link from "next/link";
 import { use } from "react";
 import { useSkillUsage } from "@/lib/hooks/use-skills";
 import { formatLearnedAgo } from "@/lib/format-learned-ago";
+import { TrustGradeChip } from "@/components/skycot/skills/TrustGradeChip";
 
 /**
  * Skill detail surface — mission-skill-discovery-marketplace-surface.
@@ -24,18 +25,6 @@ import { formatLearnedAgo } from "@/lib/format-learned-ago";
  * Plain-language copy per `user_plain_language_no_jargon.md`: "Used by"
  * not "Adopted by"; "Learned" not "Acquired".
  */
-
-const TRUST_GRADE_LABELS: Record<string, string> = {
-  builtin: "Built-in",
-  published_verified: "Verified",
-  tenant: "Workspace",
-  published_community: "Community",
-  learned_unreviewed: "Learned (unreviewed)",
-};
-
-function trustGradeLabel(grade: string): string {
-  return TRUST_GRADE_LABELS[grade] ?? grade;
-}
 
 export default function SkillDetailStubPage({
   params,
@@ -76,12 +65,7 @@ export default function SkillDetailStubPage({
               >
                 {usage?.author_label ?? "Authored by your org"}
               </span>
-              <span
-                className="usage-chip usage-chip-trust"
-                data-testid="skill-trust-grade"
-              >
-                Trust · {trustGradeLabel(usage?.trust_grade ?? "tenant")}
-              </span>
+              <TrustGradeChip grade={usage?.trust_grade} />
             </div>
           )}
         </section>
