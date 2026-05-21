@@ -18,7 +18,7 @@ use super::role_gate::{enforce_role, Action};
 use super::routes_audit_detail_render::{build_detail, payload_str};
 use super::routes_auth_principal::principal_id_for_audit;
 use super::store_unavailable;
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, DEFAULT_AUDIT_TENANT_ID};
 use argo_redact::RedactionPolicy;
 use argo_store::SessionStore;
 use serde_json::{json, Value};
@@ -40,7 +40,8 @@ pub(super) async fn detail_response(
         Ok(b) if b.len() == 16 => b,
         _ => return not_found(),
     };
-    let row = match fetch_row(store, &id_bytes).await {
+    let tenant_id = request_tenant_id(req);
+    let row = match fetch_row(store, &id_bytes, &tenant_id).await {
         Ok(Some(r)) => r,
         Ok(None) => return not_found(),
         Err(e) => return server_error(&format!("audit detail fetch: {e}")),
@@ -50,9 +51,9 @@ pub(super) async fn detail_response(
     let body = json!({
         "detail": build_detail(action_id, &row, &payload, &policy),
     });
-    let tenant_id =
+    let audit_tenant =
         payload_str(&payload, "tenant_id").unwrap_or_else(|| rate_limit::extract_tenant(req));
-    emit_view_audit(store, req, &tenant_id, action_id).await;
+    emit_view_audit(store, req, &audit_tenant, action_id).await;
     ("200 OK", body.to_string())
 }
 
@@ -69,14 +70,33 @@ pub(super) struct DetailRow {
 async fn fetch_row(
     store: &Arc<SessionStore>,
     id_bytes: &[u8],
+    tenant_id: &str,
 ) -> Result<Option<DetailRow>, sqlx::Error> {
     sqlx::query_as::<_, DetailRow>(
         "SELECT id, session_id, kind, payload_json, self_hash, created_at \
-         FROM audit_record WHERE id = ? LIMIT 1",
+         FROM audit_record WHERE id = ? AND tenant_id = ? LIMIT 1",
     )
     .bind(id_bytes)
+    .bind(tenant_id)
     .fetch_optional(store.pool())
     .await
+}
+
+fn request_tenant_id(req: &str) -> String {
+    header_value(req, "x-argo-tenant-id").unwrap_or_else(|| DEFAULT_AUDIT_TENANT_ID.to_string())
+}
+
+fn header_value(req: &str, name_lower: &str) -> Option<String> {
+    let headers = req
+        .split_once("\r\n\r\n")
+        .map_or(req, |(headers, _body)| headers);
+    headers.lines().skip(1).find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.trim()
+            .eq_ignore_ascii_case(name_lower)
+            .then(|| value.trim().to_string())
+            .filter(|s| !s.is_empty())
+    })
 }
 
 async fn emit_view_audit(store: &Arc<SessionStore>, req: &str, tenant_id: &str, action_id: &str) {

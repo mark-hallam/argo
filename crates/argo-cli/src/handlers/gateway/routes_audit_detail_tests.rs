@@ -43,8 +43,27 @@ async fn seed_and_id(store: &Arc<SessionStore>, payload: Value) -> String {
     hex::encode(id)
 }
 
+async fn seed_and_id_for_tenant(store: &Arc<SessionStore>, tenant_id: &str) -> String {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    sink.write(None, AuditKind::ToolCall, rich_payload(), None)
+        .await
+        .expect("write tenant audit row");
+    sink.flush_pending().await.expect("flush tenant audit row");
+    let id: Vec<u8> = sqlx::query_scalar(
+        "SELECT id FROM audit_record WHERE kind = 'tool_call' ORDER BY seq DESC LIMIT 1",
+    )
+    .fetch_one(store.pool())
+    .await
+    .expect("read back tenant audit id");
+    hex::encode(id)
+}
+
 fn get(path: &str) -> String {
     format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n")
+}
+
+fn get_with_tenant(path: &str, tenant_id: &str) -> String {
+    format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant_id}\r\n\r\n")
 }
 
 fn parse_body(resp: &(&str, String)) -> Value {
@@ -134,6 +153,20 @@ async fn detail_returns_404_on_unknown_action_id() {
     let resp = detail_response(
         &get(&format!("/api/v1/audit/{missing}")),
         missing,
+        Some(&store),
+    )
+    .await;
+    assert_eq!(resp.0, "404 Not Found");
+    assert!(resp.1.contains("not_found"));
+}
+
+#[tokio::test]
+async fn detail_returns_404_for_cross_tenant_action_id() {
+    let store = mem_store().await;
+    let id = seed_and_id_for_tenant(&store, "tenant-a").await;
+    let resp = detail_response(
+        &get_with_tenant(&format!("/api/v1/audit/{id}"), "tenant-b"),
+        &id,
         Some(&store),
     )
     .await;

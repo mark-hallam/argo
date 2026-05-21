@@ -177,14 +177,15 @@ impl<'a> RetroStore<'a> {
         Ok(id)
     }
 
-    /// Fetch a retro by id. Returns [`RetroError::NotFound`] when no
-    /// row matches.
-    pub async fn get(&self, id: Uuid) -> Result<RetroRow, RetroError> {
+    /// Fetch a retro by tenant and id. Returns
+    /// [`RetroError::NotFound`] when no row matches.
+    pub async fn get(&self, tenant_id: &[u8], id: Uuid) -> Result<RetroRow, RetroError> {
         let row: Option<RetroSqlRow> = sqlx::query_as(
             "SELECT id, tenant_id, worker_id, window_start, window_end, \
              metrics_json, sections_json, created_at, finalized_at \
-             FROM retro WHERE id = ?",
+             FROM retro WHERE tenant_id = ? AND id = ?",
         )
+        .bind(tenant_id)
         .bind(id.as_bytes().as_slice())
         .fetch_optional(self.pool)
         .await?;
@@ -195,14 +196,17 @@ impl<'a> RetroStore<'a> {
     /// List retros for one worker, newest first.
     pub async fn list_for_worker(
         &self,
+        tenant_id: &[u8],
         worker_id: &[u8],
         limit: i64,
     ) -> Result<Vec<RetroRow>, RetroError> {
         let rows: Vec<RetroSqlRow> = sqlx::query_as(
             "SELECT id, tenant_id, worker_id, window_start, window_end, \
              metrics_json, sections_json, created_at, finalized_at \
-             FROM retro WHERE worker_id = ? ORDER BY created_at DESC LIMIT ?",
+             FROM retro WHERE tenant_id = ? AND worker_id = ? \
+             ORDER BY created_at DESC LIMIT ?",
         )
+        .bind(tenant_id)
         .bind(worker_id)
         .bind(limit)
         .fetch_all(self.pool)
@@ -253,16 +257,22 @@ impl<'a> RetroStore<'a> {
     /// Overwrite `sections_json` on a draft retro. Returns
     /// [`RetroError::NotFound`] when the id is unknown, or
     /// [`RetroError::Finalized`] when the row is locked.
-    pub async fn update_sections(&self, id: Uuid, sections: &Value) -> Result<(), RetroError> {
-        let current = self.get(id).await?;
+    pub async fn update_sections(
+        &self,
+        tenant_id: &[u8],
+        id: Uuid,
+        sections: &Value,
+    ) -> Result<(), RetroError> {
+        let current = self.get(tenant_id, id).await?;
         if current.is_finalized() {
             return Err(RetroError::Finalized);
         }
         let encoded = serde_json::to_string(sections).map_err(|e| {
             RetroError::Backend(ArgoError::Provider(format!("sections encode: {e}")))
         })?;
-        sqlx::query("UPDATE retro SET sections_json = ? WHERE id = ?")
+        sqlx::query("UPDATE retro SET sections_json = ? WHERE tenant_id = ? AND id = ?")
             .bind(encoded)
+            .bind(tenant_id)
             .bind(id.as_bytes().as_slice())
             .execute(self.pool)
             .await?;
@@ -273,13 +283,19 @@ impl<'a> RetroStore<'a> {
     /// `finalize` on an already-finalised row returns
     /// [`RetroError::Finalized`] so the gateway can return 409 and
     /// the operator notices the no-op.
-    pub async fn finalize(&self, id: Uuid, now_unix: i64) -> Result<(), RetroError> {
-        let current = self.get(id).await?;
+    pub async fn finalize(
+        &self,
+        tenant_id: &[u8],
+        id: Uuid,
+        now_unix: i64,
+    ) -> Result<(), RetroError> {
+        let current = self.get(tenant_id, id).await?;
         if current.is_finalized() {
             return Err(RetroError::Finalized);
         }
-        sqlx::query("UPDATE retro SET finalized_at = ? WHERE id = ?")
+        sqlx::query("UPDATE retro SET finalized_at = ? WHERE tenant_id = ? AND id = ?")
             .bind(now_unix)
+            .bind(tenant_id)
             .bind(id.as_bytes().as_slice())
             .execute(self.pool)
             .await?;

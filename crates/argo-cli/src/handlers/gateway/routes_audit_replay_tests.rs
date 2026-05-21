@@ -33,8 +33,32 @@ async fn seed_one(store: &Arc<SessionStore>) -> String {
     hex::encode(id)
 }
 
+async fn seed_one_for_tenant(store: &Arc<SessionStore>, tenant_id: &str) -> String {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    sink.write(
+        None,
+        AuditKind::ToolCall,
+        serde_json::json!({"tool": "echo", "args": {"text": "hello"}}),
+        Some("test-principal".to_string()),
+    )
+    .await
+    .expect("write tenant audit");
+    sink.flush_pending().await.expect("flush tenant audit");
+    let id: Vec<u8> = sqlx::query_scalar(
+        "SELECT id FROM audit_record WHERE kind = 'tool_call' ORDER BY seq DESC LIMIT 1",
+    )
+    .fetch_one(store.pool())
+    .await
+    .expect("read tenant id");
+    hex::encode(id)
+}
+
 fn post(path: &str) -> String {
     format!("POST {path} HTTP/1.1\r\nHost: x\r\n\r\n")
+}
+
+fn post_with_tenant(path: &str, tenant_id: &str) -> String {
+    format!("POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant_id}\r\n\r\n")
 }
 
 fn parse(resp: &(&str, String)) -> Value {
@@ -45,7 +69,12 @@ fn parse(resp: &(&str, String)) -> Value {
 async fn replay_intact_row_returns_same_verdict() {
     let store = mem_store().await;
     let id = seed_one(&store).await;
-    let resp = replay_response(&id, &post(&format!("/api/v1/audit/{id}/replay")), Some(&store)).await;
+    let resp = replay_response(
+        &id,
+        &post(&format!("/api/v1/audit/{id}/replay")),
+        Some(&store),
+    )
+    .await;
     assert!(resp.0.starts_with("200"), "status: {}", resp.0);
     let body = parse(&resp);
     assert_eq!(body["verdict"], "same");
@@ -73,7 +102,12 @@ async fn replay_tampered_payload_returns_differ_verdict() {
         .execute(store.pool())
         .await
         .unwrap();
-    let resp = replay_response(&id, &post(&format!("/api/v1/audit/{id}/replay")), Some(&store)).await;
+    let resp = replay_response(
+        &id,
+        &post(&format!("/api/v1/audit/{id}/replay")),
+        Some(&store),
+    )
+    .await;
     assert!(resp.0.starts_with("200"), "status: {}", resp.0);
     let body = parse(&resp);
     assert_eq!(body["verdict"], "differ");
@@ -85,7 +119,27 @@ async fn replay_tampered_payload_returns_differ_verdict() {
 async fn replay_unknown_id_returns_404() {
     let store = mem_store().await;
     let bogus = "00112233445566778899aabbccddeeff";
-    let resp = replay_response(bogus, &post(&format!("/api/v1/audit/{bogus}/replay")), Some(&store)).await;
+    let resp = replay_response(
+        bogus,
+        &post(&format!("/api/v1/audit/{bogus}/replay")),
+        Some(&store),
+    )
+    .await;
+    assert!(resp.0.starts_with("404"), "status: {}", resp.0);
+    let body = parse(&resp);
+    assert_eq!(body["error"]["code"], "not_found");
+}
+
+#[tokio::test]
+async fn replay_cross_tenant_id_returns_404() {
+    let store = mem_store().await;
+    let id = seed_one_for_tenant(&store, "tenant-a").await;
+    let resp = replay_response(
+        &id,
+        &post_with_tenant(&format!("/api/v1/audit/{id}/replay"), "tenant-b"),
+        Some(&store),
+    )
+    .await;
     assert!(resp.0.starts_with("404"), "status: {}", resp.0);
     let body = parse(&resp);
     assert_eq!(body["error"]["code"], "not_found");
@@ -94,7 +148,12 @@ async fn replay_unknown_id_returns_404() {
 #[tokio::test]
 async fn replay_malformed_id_returns_400() {
     let store = mem_store().await;
-    let resp = replay_response("not-hex", &post("/api/v1/audit/not-hex/replay"), Some(&store)).await;
+    let resp = replay_response(
+        "not-hex",
+        &post("/api/v1/audit/not-hex/replay"),
+        Some(&store),
+    )
+    .await;
     assert!(resp.0.starts_with("400"), "status: {}", resp.0);
 }
 
@@ -124,7 +183,12 @@ async fn replay_unknown_kind_returns_error_verdict() {
         .execute(store.pool())
         .await
         .unwrap();
-    let resp = replay_response(&id, &post(&format!("/api/v1/audit/{id}/replay")), Some(&store)).await;
+    let resp = replay_response(
+        &id,
+        &post(&format!("/api/v1/audit/{id}/replay")),
+        Some(&store),
+    )
+    .await;
     let body = parse(&resp);
     assert_eq!(body["verdict"], "error");
     assert_eq!(body["kind_label_known"], false);

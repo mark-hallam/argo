@@ -47,7 +47,7 @@ async fn create_then_get_roundtrip() {
         .await
         .expect("create");
 
-    let row = s.get(id).await.expect("get");
+    let row = s.get(&tenant_blob(1), id).await.expect("get");
     assert_eq!(row.id, id);
     assert_eq!(row.tenant_id, tenant_blob(1));
     assert_eq!(row.worker_id, worker_blob(1));
@@ -63,7 +63,7 @@ async fn create_then_get_roundtrip() {
 async fn get_unknown_id_returns_not_found() {
     let store = fresh_store().await;
     let s = RetroStore::new(store.pool());
-    let err = s.get(Uuid::nil()).await.unwrap_err();
+    let err = s.get(&tenant_blob(1), Uuid::nil()).await.unwrap_err();
     assert!(matches!(err, RetroError::NotFound), "got {err:?}");
 }
 
@@ -84,8 +84,16 @@ async fn list_for_worker_orders_newest_first() {
         .create(new_retro(1, 2, 1_700_000_500))
         .await
         .expect("other");
+    // Same worker in a different tenant — must NOT appear either.
+    let _other_tenant = s
+        .create(new_retro(2, 1, 1_700_000_750))
+        .await
+        .expect("other tenant");
 
-    let rows = s.list_for_worker(&worker_blob(1), 10).await.expect("list");
+    let rows = s
+        .list_for_worker(&tenant_blob(1), &worker_blob(1), 10)
+        .await
+        .expect("list");
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].id, newer, "newest first");
     assert_eq!(rows[1].id, older);
@@ -107,25 +115,72 @@ async fn update_sections_persists_then_blocks_on_finalize() {
         "what_to_change": "",
         "action_items": "",
     });
-    s.update_sections(id, &draft).await.expect("update draft");
+    s.update_sections(&tenant_blob(1), id, &draft)
+        .await
+        .expect("update draft");
 
-    let row = s.get(id).await.expect("get after update");
+    let row = s.get(&tenant_blob(1), id).await.expect("get after update");
     assert_eq!(
         row.sections_json["what_went_well"],
         "Cold-start latency stayed under target."
     );
 
-    s.finalize(id, 1_700_000_500).await.expect("finalize");
-    let locked = s.get(id).await.expect("get finalized");
+    s.finalize(&tenant_blob(1), id, 1_700_000_500)
+        .await
+        .expect("finalize");
+    let locked = s.get(&tenant_blob(1), id).await.expect("get finalized");
     assert!(locked.is_finalized());
     assert_eq!(locked.finalized_at, Some(1_700_000_500));
 
     // Subsequent edits return Finalized.
-    let err = s.update_sections(id, &draft).await.unwrap_err();
+    let err = s
+        .update_sections(&tenant_blob(1), id, &draft)
+        .await
+        .unwrap_err();
     assert!(matches!(err, RetroError::Finalized), "got {err:?}");
     // Double-finalize → Finalized too.
-    let err = s.finalize(id, 1_700_000_999).await.unwrap_err();
+    let err = s
+        .finalize(&tenant_blob(1), id, 1_700_000_999)
+        .await
+        .unwrap_err();
     assert!(matches!(err, RetroError::Finalized), "got {err:?}");
+}
+
+#[tokio::test]
+async fn update_sections_wrong_tenant_returns_not_found() {
+    let store = fresh_store().await;
+    let s = RetroStore::new(store.pool());
+    let id = s
+        .create(new_retro(1, 1, 1_700_000_000))
+        .await
+        .expect("create");
+    let draft = serde_json::json!({ "what_went_well": "tenant b edit" });
+
+    let err = s
+        .update_sections(&tenant_blob(2), id, &draft)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, RetroError::NotFound), "got {err:?}");
+    let row = s.get(&tenant_blob(1), id).await.expect("tenant a row");
+    assert_eq!(row.sections_json["what_went_well"], "");
+}
+
+#[tokio::test]
+async fn finalize_wrong_tenant_returns_not_found() {
+    let store = fresh_store().await;
+    let s = RetroStore::new(store.pool());
+    let id = s
+        .create(new_retro(1, 1, 1_700_000_000))
+        .await
+        .expect("create");
+
+    let err = s
+        .finalize(&tenant_blob(2), id, 1_700_000_500)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, RetroError::NotFound), "got {err:?}");
+    let row = s.get(&tenant_blob(1), id).await.expect("tenant a row");
+    assert!(!row.is_finalized());
 }
 
 #[tokio::test]
@@ -155,10 +210,10 @@ async fn list_all_theme_search_matches_sections() {
         "what_to_change": "",
         "action_items": "",
     });
-    s.update_sections(m, &draft_match)
+    s.update_sections(&tenant_blob(1), m, &draft_match)
         .await
         .expect("update match");
-    s.update_sections(_other, &draft_other)
+    s.update_sections(&tenant_blob(1), _other, &draft_other)
         .await
         .expect("update other");
 

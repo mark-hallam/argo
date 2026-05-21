@@ -28,6 +28,13 @@ fn post_req(path: &str, body: &str) -> String {
     )
 }
 
+fn post_req_with_tenant(path: &str, body: &str, tenant_id: &str) -> String {
+    format!(
+        "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\nX-Argo-Tenant-Id: {tenant_id}\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+}
+
 fn patch_req(path: &str, body: &str) -> String {
     format!(
         "PATCH {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\nContent-Length: {}\r\n\r\n{body}",
@@ -37,6 +44,12 @@ fn patch_req(path: &str, body: &str) -> String {
 
 fn get_req(path: &str) -> String {
     format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\n\r\n")
+}
+
+fn get_req_with_tenant(path: &str, tenant_id: &str) -> String {
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Principal: human:mark@example.com\r\nX-Argo-Tenant-Id: {tenant_id}\r\n\r\n"
+    )
 }
 
 fn fresh_worker() -> String {
@@ -233,6 +246,29 @@ async fn list_for_worker_orders_newest_first() {
         .collect();
     assert!(ids.contains(&id1.as_str()));
     assert!(ids.contains(&id2.as_str()));
+}
+
+#[tokio::test]
+async fn list_for_worker_hides_other_tenant_retros() {
+    let store = mem_store().await;
+    let worker = fresh_worker();
+    let tenant_a = "11111111-1111-7111-8111-111111111111";
+    let tenant_b = "22222222-2222-7222-8222-222222222222";
+    let path = format!("/api/v1/workers/{worker}/retros");
+    let (status, _body) = create_response(
+        &worker,
+        &post_req_with_tenant(&path, "{}", tenant_a),
+        Some(&store),
+    )
+    .await;
+    assert_eq!(status, "201 Created");
+
+    let (status, body) =
+        list_for_worker_response(&worker, &get_req_with_tenant(&path, tenant_b), Some(&store))
+            .await;
+    assert_eq!(status, "200 OK", "body: {body}");
+    let v: Value = serde_json::from_str(&body).unwrap();
+    assert!(v["retros"].as_array().unwrap().is_empty());
 }
 
 #[tokio::test]

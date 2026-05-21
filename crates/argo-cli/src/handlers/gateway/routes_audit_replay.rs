@@ -48,11 +48,13 @@ pub(super) async fn replay_response(
         Ok(b) if b.len() == 16 => b,
         _ => return bad_request("audit id must be 32-char hex (16 bytes)"),
     };
+    let tenant_id = request_tenant_id(req);
     let row = match sqlx::query_as::<_, ReplayRow>(
         "SELECT seq, session_id, kind, payload_json, parent_hash, self_hash, created_at \
-         FROM audit_record WHERE id = ? LIMIT 1",
+         FROM audit_record WHERE id = ? AND tenant_id = ? LIMIT 1",
     )
     .bind(&id_bytes)
+    .bind(&tenant_id)
     .fetch_optional(store.pool())
     .await
     {
@@ -75,7 +77,7 @@ pub(super) async fn replay_response(
         (false, _) => "error",
     };
     let diff = build_diff(verdict, &row.kind, hashes_match, kind_known);
-    emit_replay_audit(store, req, audit_id, verdict).await;
+    emit_replay_audit(store, req, &tenant_id, audit_id, verdict).await;
     let body = json!({
         "audit_id": audit_id,
         "seq": row.seq,
@@ -124,6 +126,7 @@ fn to_32(b: &[u8]) -> Option<[u8; 32]> {
 async fn emit_replay_audit(
     store: &Arc<SessionStore>,
     req: &str,
+    tenant_id: &str,
     audit_id: &str,
     verdict: &str,
 ) {
@@ -132,9 +135,7 @@ async fn emit_replay_audit(
         "replayed_audit_id": audit_id,
         "verdict": verdict,
     });
-    let tenant = resolve_tenant(store).await
-        .unwrap_or_else(|| DEFAULT_AUDIT_TENANT_ID.to_string());
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant);
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
     if let Err(e) = sink
         .write(
             None,
@@ -152,15 +153,21 @@ async fn emit_replay_audit(
     }
 }
 
-async fn resolve_tenant(store: &Arc<SessionStore>) -> Option<String> {
-    let cwd = std::env::current_dir().ok()?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
-    Some(tenant.0.to_string())
+fn request_tenant_id(req: &str) -> String {
+    header_value(req, "x-argo-tenant-id").unwrap_or_else(|| DEFAULT_AUDIT_TENANT_ID.to_string())
+}
+
+fn header_value(req: &str, name_lower: &str) -> Option<String> {
+    let headers = req
+        .split_once("\r\n\r\n")
+        .map_or(req, |(headers, _body)| headers);
+    headers.lines().skip(1).find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.trim()
+            .eq_ignore_ascii_case(name_lower)
+            .then(|| value.trim().to_string())
+            .filter(|s| !s.is_empty())
+    })
 }
 
 fn bad_request(message: &str) -> (&'static str, String) {

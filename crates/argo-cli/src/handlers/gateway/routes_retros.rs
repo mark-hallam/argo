@@ -18,15 +18,9 @@
 //!
 //! Audit side-effects: each `create` emits an
 //! `AuditKind::RetroCreated` row; `finalize` emits
-//! `AuditKind::RetroFinalized`. These were originally recorded as
-//! `AuditKind::HttpRequest` rows with a `payload.event_type` carrier
-//! because `argo-audit` was outside the may-touch list of the
-//! `mission-retro-review-ui` brief; the variants were promoted to
-//! first-class kinds in `mission-audit-kind-runtime-events`. Legacy
-//! rows on disk still carry `kind="http.request"` with
-//! `payload.event_type="retro.created"`/`"retro.finalized"` and
-//! remain chain-valid; audit-feed clients should accept either
-//! representation during the transition.
+//! `AuditKind::RetroFinalized`. Legacy rows may still carry
+//! `kind="http.request"` with `payload.event_type="retro.*"` and
+//! remain chain-valid during the transition.
 
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
@@ -47,6 +41,7 @@ use uuid::Uuid;
 /// per-tenant retro count for the foreseeable future; keeps the JSON
 /// payload bounded if the table ever grows past expectations.
 const LIST_LIMIT_MAX: i64 = 200;
+const HEADER_TENANT_ID: &str = "x-argo-tenant-id";
 
 /// `POST /api/v1/workers/<id>/retros` — create a retro covering
 /// `[window_start, window_end]`. Body keys (all optional):
@@ -79,13 +74,14 @@ pub(super) async fn create_response(
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
 
+    let tenant_blob = tenant_id.0.as_bytes().to_vec();
     let worker_blob = worker_id.0.as_bytes().to_vec();
     let metrics = aggregate_metrics(store.pool(), &worker_blob, start_unix, end_unix)
         .await
         .unwrap_or_else(|_| metrics_template());
     let now = Utc::now().timestamp();
     let new_retro = NewRetro {
-        tenant_id: tenant_id.0.as_bytes().to_vec(),
+        tenant_id: tenant_blob.clone(),
         worker_id: worker_blob,
         window_start: start_unix,
         window_end: end_unix,
@@ -110,7 +106,10 @@ pub(super) async fn create_response(
     )
     .await;
 
-    let row = match RetroStore::new(store.pool()).get(retro_id).await {
+    let row = match RetroStore::new(store.pool())
+        .get(&tenant_blob, retro_id)
+        .await
+    {
         Ok(r) => r,
         Err(e) => return server_error(&format!("readback retro: {e}")),
     };
@@ -139,8 +138,13 @@ pub(super) async fn update_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
+    let (tenant_id, _principal_id) = match resolve_tenant_principal(store, req).await {
+        Ok(pair) => pair,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
+    let tenant_blob = tenant_id.0.as_bytes().to_vec();
     match RetroStore::new(store.pool())
-        .update_sections(id, &sections)
+        .update_sections(&tenant_blob, id, &sections)
         .await
     {
         Ok(()) => {}
@@ -148,7 +152,7 @@ pub(super) async fn update_response(
         Err(RetroError::Finalized) => return conflict("retro is finalized"),
         Err(RetroError::Backend(e)) => return server_error(&format!("update retro: {e}")),
     };
-    let row = match RetroStore::new(store.pool()).get(id).await {
+    let row = match RetroStore::new(store.pool()).get(&tenant_blob, id).await {
         Ok(r) => r,
         Err(e) => return server_error(&format!("readback retro: {e}")),
     };
@@ -172,16 +176,20 @@ pub(super) async fn finalize_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
+    let (tenant_id, principal_id) = match resolve_tenant_principal(store, req).await {
+        Ok(pair) => pair,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
+    let tenant_blob = tenant_id.0.as_bytes().to_vec();
     let now = Utc::now().timestamp();
-    match RetroStore::new(store.pool()).finalize(id, now).await {
+    match RetroStore::new(store.pool())
+        .finalize(&tenant_blob, id, now)
+        .await
+    {
         Ok(()) => {}
         Err(RetroError::NotFound) => return not_found(retro_id_raw),
         Err(RetroError::Finalized) => return conflict("retro already finalized"),
         Err(RetroError::Backend(e)) => return server_error(&format!("finalize retro: {e}")),
-    };
-    let (tenant_id, principal_id) = match resolve_tenant_principal(store, req).await {
-        Ok(pair) => pair,
-        Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
     emit_audit(
         store,
@@ -194,7 +202,7 @@ pub(super) async fn finalize_response(
         }),
     )
     .await;
-    let row = match RetroStore::new(store.pool()).get(id).await {
+    let row = match RetroStore::new(store.pool()).get(&tenant_blob, id).await {
         Ok(r) => r,
         Err(e) => return server_error(&format!("readback retro: {e}")),
     };
@@ -205,7 +213,7 @@ pub(super) async fn finalize_response(
 /// newest first.
 pub(super) async fn list_for_worker_response(
     worker_id_raw: &str,
-    _req: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let worker_id = match worker_id_raw.parse::<WorkerId>() {
@@ -216,9 +224,14 @@ pub(super) async fn list_for_worker_response(
         Some(s) => s,
         None => return super::store_unavailable(),
     };
+    let (tenant_id, _principal_id) = match resolve_tenant_principal(store, req).await {
+        Ok(pair) => pair,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
+    let tenant_blob = tenant_id.0.as_bytes().to_vec();
     let worker_blob = worker_id.0.as_bytes().to_vec();
     let rows = match RetroStore::new(store.pool())
-        .list_for_worker(&worker_blob, LIST_LIMIT_MAX)
+        .list_for_worker(&tenant_blob, &worker_blob, LIST_LIMIT_MAX)
         .await
     {
         Ok(r) => r,
@@ -324,6 +337,13 @@ async fn resolve_tenant_principal(
     store: &SessionStore,
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
+    let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:retro".to_string());
+    if let Some(raw) = header_value(req, HEADER_TENANT_ID) {
+        let tenant = Uuid::parse_str(&raw)
+            .map(TenantId)
+            .map_err(|e| ArgoError::Schema(format!("invalid X-Argo-Tenant-Id: {e}")))?;
+        return Ok((tenant, principal_id));
+    }
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
@@ -331,7 +351,6 @@ async fn resolve_tenant_principal(
         .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
-    let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:retro".to_string());
     Ok((tenant, principal_id))
 }
 
@@ -391,6 +410,19 @@ fn query_param(req: &str, key: &str) -> Option<String> {
     qs.split('&').find_map(|kv| {
         let (k, v) = kv.split_once('=')?;
         (k == key).then(|| urldecode(v))
+    })
+}
+
+fn header_value(req: &str, name_lower: &str) -> Option<String> {
+    let headers = req
+        .split_once("\r\n\r\n")
+        .map_or(req, |(headers, _body)| headers);
+    headers.lines().skip(1).find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.trim()
+            .eq_ignore_ascii_case(name_lower)
+            .then(|| value.trim().to_string())
+            .filter(|s| !s.is_empty())
     })
 }
 
