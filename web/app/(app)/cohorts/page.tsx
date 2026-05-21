@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { CohortDeptTabs } from "@/components/skycot/cohorts/CohortDeptTabs";
 import { CohortMagazineGrid } from "@/components/skycot/cohorts/CohortMagazineGrid";
+import { CohortMagazineSkeleton } from "@/components/skycot/cohorts/CohortMagazineSkeleton";
 import { CohortMagazineStyles } from "@/components/skycot/cohorts/CohortMagazineStyles";
 import { groupCohortsByDepartment } from "@/components/skycot/cohorts/dept-registry";
 import { CohortDetailDrawer } from "@/components/skycot/CohortDetailDrawer";
@@ -79,7 +80,7 @@ export default function CohortsPage() {
         data-testid="cohorts-page"
       >
         {cohortsQuery.isPending ? (
-          <LoadingGrid />
+          <CohortMagazineSkeleton />
         ) : cohorts.length === 0 ? (
           <EmptyState
             data-testid="cohorts-empty"
@@ -108,22 +109,6 @@ export default function CohortsPage() {
 
       <CohortDetailDrawer cohortId={openCohortId} onClose={onClose} />
     </>
-  );
-}
-
-function LoadingGrid() {
-  return (
-    <div
-      data-testid="cohorts-loading"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-    >
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-40 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)]/40 animate-pulse"
-        />
-      ))}
-    </div>
   );
 }
 

@@ -449,6 +449,130 @@ export function CohortMagazineStyles() {
           font-weight: 700;
         }
 
+        /* ── LOADING SKELETON ──────────────────────────────────── */
+        /*
+         * Cold-load placeholders for /cohorts. Geometry mirrors the
+         * lead/stacked/compact tiles so the asymmetric layout is
+         * reserved before data hydrates — no shift when CohortMagazineGrid
+         * replaces the skeleton.
+         */
+        .skycot-cohort-skel {
+          border-radius: 16px;
+          border: 1px solid var(--skycot-cohort-line);
+          background: var(--skycot-cohort-bg);
+          padding: 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          position: relative;
+          overflow: hidden;
+        }
+        .skycot-cohort-skel-lead {
+          padding: 32px;
+          min-height: 360px;
+          background: linear-gradient(
+            135deg,
+            rgba(236, 72, 153, 0.06),
+            rgba(255, 107, 107, 0.06)
+          );
+          border: 1px solid rgba(236, 72, 153, 0.18);
+        }
+        .skycot-cohort-skel-stacked {
+          padding: 20px;
+          min-height: 170px;
+        }
+        .skycot-cohort-skel-compact {
+          padding: 18px;
+          min-height: 178px;
+        }
+        .skycot-cohort-skel-av {
+          border-radius: 12px;
+          background: var(--skycot-cohort-paper-2);
+          margin-bottom: 4px;
+        }
+        .skycot-cohort-skel-av-lead {
+          width: 80px;
+          height: 80px;
+          border-radius: 20px;
+          margin-bottom: 14px;
+        }
+        .skycot-cohort-skel-av-stacked {
+          width: 44px;
+          height: 44px;
+        }
+        .skycot-cohort-skel-av-compact {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+        }
+        .skycot-cohort-skel-line {
+          height: 10px;
+          border-radius: 6px;
+          background: var(--skycot-cohort-paper-2);
+        }
+        .skycot-cohort-skel-kicker {
+          width: 42%;
+          height: 8px;
+        }
+        .skycot-cohort-skel-title-1 {
+          width: 72%;
+          height: 22px;
+          margin-top: 2px;
+        }
+        .skycot-cohort-skel-title-2 {
+          width: 56%;
+          height: 16px;
+        }
+        .skycot-cohort-skel-desc {
+          width: 92%;
+        }
+        .skycot-cohort-skel-desc-2 {
+          width: 78%;
+        }
+        .skycot-cohort-skel-stats {
+          margin-top: auto;
+          height: 14px;
+          width: 62%;
+          border-radius: 6px;
+          background: var(--skycot-cohort-paper-2);
+          border-top: 1px solid var(--skycot-cohort-line);
+        }
+        .skycot-cohort-skel-sr {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        /* Shimmer sweep — single moving highlight band. */
+        .skycot-cohort-skel-av,
+        .skycot-cohort-skel-line,
+        .skycot-cohort-skel-stats {
+          background-image: linear-gradient(
+            90deg,
+            var(--skycot-cohort-paper-2) 0%,
+            rgba(255, 255, 255, 0.85) 50%,
+            var(--skycot-cohort-paper-2) 100%
+          );
+          background-size: 200% 100%;
+          background-repeat: no-repeat;
+          background-position: 100% 0;
+          animation: skycot-cohort-skel-shimmer 1.4s ease-in-out infinite;
+        }
+        @keyframes skycot-cohort-skel-shimmer {
+          0% {
+            background-position: 100% 0;
+          }
+          100% {
+            background-position: -100% 0;
+          }
+        }
+
         /* ── A11Y: prefers-reduced-motion ──────────────────────── */
         @media (prefers-reduced-motion: reduce) {
           .skycot-cohort-tab,
@@ -462,6 +586,13 @@ export function CohortMagazineStyles() {
           .skycot-cohort-stacked-tile:hover,
           .skycot-cohort-compact-tile:hover {
             transform: none !important;
+          }
+          .skycot-cohort-skel-av,
+          .skycot-cohort-skel-line,
+          .skycot-cohort-skel-stats {
+            animation: none !important;
+            background-image: none !important;
+            background-color: var(--skycot-cohort-paper-2) !important;
           }
         }
       `}</style>
