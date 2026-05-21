@@ -67,6 +67,14 @@ async fn pre_provision(store: &Arc<SessionStore>, email: &str) {
     );
 }
 
+async fn audit_payloads_for_kind(store: &SessionStore, kind: &str) -> Vec<String> {
+    sqlx::query_scalar("SELECT payload_json FROM audit_record WHERE kind = ? ORDER BY seq ASC")
+        .bind(kind)
+        .fetch_all(store.pool())
+        .await
+        .unwrap()
+}
+
 #[tokio::test]
 async fn provider_key_happy_path_returns_validated() {
     let _g = env_lock().await;
@@ -74,9 +82,10 @@ async fn provider_key_happy_path_returns_validated() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    let plaintext = "sk-ant-XXXXXXXXXXXXXXXXXXXXXXXX1234";
     let body = json!({
         "provider": "anthropic",
-        "api_key": "sk-ant-XXXXXXXXXXXXXXXXXXXXXXXX1234"
+        "api_key": plaintext
     })
     .to_string();
     let r = req(
@@ -96,6 +105,16 @@ async fn provider_key_happy_path_returns_validated() {
     );
     assert!(v["test_cost"].as_f64().is_some());
     assert!(v["test_tokens"].as_i64().is_some());
+    let rows = audit_payloads_for_kind(&store, "onboarding.provider_key_configured").await;
+    assert_eq!(rows.len(), 1, "expected one provider-key audit row");
+    assert!(
+        !rows[0].contains(plaintext),
+        "audit payload leaked key bytes"
+    );
+    let payload: Value = serde_json::from_str(&rows[0]).unwrap();
+    assert_eq!(payload["endpoint"], "onboarding.provider_key");
+    assert_eq!(payload["provider"], "anthropic");
+    assert_eq!(payload["masked_key"], v["masked_key"]);
 }
 
 #[tokio::test]
@@ -169,7 +188,9 @@ async fn provider_key_412_when_not_provisioned() {
     // Insert the user_account row but skip /provision so the resolver
     // is forced into the "would create" branch.
     let user = argo_identity::UserAccount::new("nobody@acme.com".into());
-    argo_identity::user_store::insert_user(&store, &user).await.unwrap();
+    argo_identity::user_store::insert_user(&store, &user)
+        .await
+        .unwrap();
     let body =
         json!({ "provider": "anthropic", "api_key": "sk-ant-XXXXXXXXXXXXXXXXXXXX" }).to_string();
     let r = req(
@@ -205,6 +226,13 @@ async fn install_vertical_happy_path_returns_counts() {
     let skills = v["skills_added"].as_i64().unwrap();
     assert!(workflows >= 1, "expected at least one workflow file");
     assert!(skills >= 1, "expected at least one skill file");
+    let rows = audit_payloads_for_kind(&store, "onboarding.vertical_installed").await;
+    assert_eq!(rows.len(), 1, "expected one vertical-install audit row");
+    let payload: Value = serde_json::from_str(&rows[0]).unwrap();
+    assert_eq!(payload["endpoint"], "onboarding.install_vertical");
+    assert_eq!(payload["vertical_id"], "gtm-engineer");
+    assert_eq!(payload["workflows_added"], workflows);
+    assert_eq!(payload["skills_added"], skills);
 }
 
 #[tokio::test]
@@ -344,12 +372,11 @@ async fn cross_tenant_provider_key_is_isolated() {
     let providers: Vec<&str> = rows.iter().map(|(p, _)| p.as_str()).collect();
     assert!(providers.contains(&"anthropic"));
     assert!(providers.contains(&"openai"));
-    let tenant_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(DISTINCT hex(tenant_id)) FROM workspace_provider_key",
-    )
-    .fetch_one(store.pool())
-    .await
-    .unwrap();
+    let tenant_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(DISTINCT hex(tenant_id)) FROM workspace_provider_key")
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
     assert_eq!(tenant_count, 2, "rows must be scoped to distinct tenants");
 }
 

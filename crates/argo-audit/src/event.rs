@@ -204,6 +204,13 @@ pub enum AuditKind {
     /// `HttpRequest` row the gateway wrapper also writes so the
     /// onboarding-funnel verifier can categorise it directly.
     TenantProvisioned,
+    /// A provider API key was validated and stored for an onboarded
+    /// workspace. Payload carries provider + masked metadata only;
+    /// raw key bytes must never be written to the audit chain.
+    ProviderKeyConfigured,
+    /// A vertical was installed into an onboarded workspace. Payload
+    /// carries the vertical identifier plus workflow/skill counts.
+    VerticalInstalled,
     /// A customer-facing GDPR/CCPA Article 15 data export was requested
     /// via `POST /api/v1/me/export` (stream
     /// `mission-data-export-customer-flow`). Payload carries
@@ -313,6 +320,8 @@ impl AuditKind {
             Self::CrossRegionBlocked => "security.cross_region_blocked",
             Self::GatewayInsecureBind => "gateway_insecure_bind",
             Self::TenantProvisioned => "tenant.provisioned",
+            Self::ProviderKeyConfigured => "onboarding.provider_key_configured",
+            Self::VerticalInstalled => "onboarding.vertical_installed",
             Self::DataExportRequested => "data_export.requested",
             Self::RoleBindingChanged => "role_binding_changed",
             Self::DynamicCapabilityGranted => "dynamic_capability_granted",
@@ -368,6 +377,8 @@ impl AuditKind {
             "security.cross_region_blocked" => Self::CrossRegionBlocked,
             "gateway_insecure_bind" => Self::GatewayInsecureBind,
             "tenant.provisioned" => Self::TenantProvisioned,
+            "onboarding.provider_key_configured" => Self::ProviderKeyConfigured,
+            "onboarding.vertical_installed" => Self::VerticalInstalled,
             "data_export.requested" => Self::DataExportRequested,
             "role_binding_changed" => Self::RoleBindingChanged,
             "dynamic_capability_granted" => Self::DynamicCapabilityGranted,
@@ -423,6 +434,8 @@ impl AuditKind {
             Self::CrossRegionBlocked,
             Self::GatewayInsecureBind,
             Self::TenantProvisioned,
+            Self::ProviderKeyConfigured,
+            Self::VerticalInstalled,
             Self::DataExportRequested,
             Self::RoleBindingChanged,
             Self::DynamicCapabilityGranted,

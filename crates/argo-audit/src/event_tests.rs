@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 46);
+    assert_eq!(AuditKind::all().len(), 48);
 }
 
 #[test]
@@ -216,6 +216,26 @@ fn tenant_provisioned_round_trips_and_listed() {
     assert_eq!(kind.label(), "tenant.provisioned");
     let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
     assert!(labels.contains(&"tenant.provisioned"));
+}
+
+#[test]
+fn onboarding_kinds_round_trip_and_listed() {
+    for (label, kind) in [
+        (
+            "onboarding.provider_key_configured",
+            AuditKind::ProviderKeyConfigured,
+        ),
+        (
+            "onboarding.vertical_installed",
+            AuditKind::VerticalInstalled,
+        ),
+    ] {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+    }
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"onboarding.provider_key_configured"));
+    assert!(labels.contains(&"onboarding.vertical_installed"));
 }
 
 #[test]

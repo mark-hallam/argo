@@ -14,7 +14,7 @@
 //!    `provision_for_user` idempotent re-call. Returns 412 if the user
 //!    hasn't provisioned yet — these endpoints sit AFTER `/provision`.
 //! 3. Do the work, scoped to that tenant + workspace.
-//! 4. Emit an audit row tagged with `AuditKind::HttpRequest`.
+//! 4. Emit an audit row for the accepted onboarding mutation.
 //!
 //! Provider keys are wrapped with `argo-credentials::age_wrap` before
 //! storage. When no `MasterKey` is configured (dev / fresh-checkout
@@ -30,22 +30,22 @@
 //! the worker on `/workers/<id>`.
 
 use super::body_from_request;
+use super::routes_auth_principal::principal_id_for_audit;
 use super::routes_onboarding_helpers::{
-    bad_request, count_skill_files, count_workflow_files, emit_audit, infer_provider, load_vertical,
-    map_workspace_error, mask_key, micros_to_usd, name_from_description, not_found,
-    principal_email, resolve_workspace, server_error, unauthorized, validate_key_shape, wrap_secret,
-    HUMAN_PRINCIPAL_PREFIX,
+    bad_request, count_skill_files, count_workflow_files, emit_audit, infer_provider,
+    load_vertical, map_workspace_error, mask_key, micros_to_usd, name_from_description, not_found,
+    principal_email, resolve_workspace, server_error, unauthorized, validate_key_shape,
+    wrap_secret, HUMAN_PRINCIPAL_PREFIX,
 };
 use super::store_unavailable;
-use argo_identity::{
-    ApprovalPolicyChoice, HireDraft, HireDutyDraft, IdentityStore,
-};
+use argo_audit::{AuditKind, AuditSink};
+use argo_identity::{ApprovalPolicyChoice, HireDraft, HireDutyDraft, IdentityStore};
 use argo_store::workspace_keys::{
     ensure_schema as ensure_workspace_keys_schema, record_vertical_install, upsert_provider_key,
     ProviderKeyRecord,
 };
 use argo_store::SessionStore;
-use argo_types::ArgoError;
+use argo_types::{ArgoError, TenantId};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -114,10 +114,11 @@ pub(super) async fn provider_key_response(
         return server_error(&format!("upsert provider key: {e}"));
     }
 
-    emit_audit(
+    emit_onboarding_audit(
         store,
         tenant,
         req,
+        AuditKind::ProviderKeyConfigured,
         "onboarding.provider_key",
         json!({
             "tenant_id": tenant.0.to_string(),
@@ -190,10 +191,11 @@ pub(super) async fn install_vertical_response(
     {
         return server_error(&format!("record install: {e}"));
     }
-    emit_audit(
+    emit_onboarding_audit(
         store,
         tenant,
         req,
+        AuditKind::VerticalInstalled,
         "onboarding.install_vertical",
         json!({
             "tenant_id": tenant.0.to_string(),
@@ -257,9 +259,7 @@ pub(super) async fn first_hire_response(
     let principal_id = format!("{HUMAN_PRINCIPAL_PREFIX}{email}");
     let draft = HireDraft {
         suggested_name: worker_name.clone(),
-        charter: format!(
-            "First hire for this workspace. Operator brief:\n\n{description}"
-        ),
+        charter: format!("First hire for this workspace. Operator brief:\n\n{description}"),
         suggested_vertical: vertical_id.clone(),
         approval_policy: ApprovalPolicyChoice {
             level: "balanced".into(),
@@ -304,6 +304,34 @@ pub(super) async fn first_hire_response(
         })
         .to_string(),
     )
+}
+
+async fn emit_onboarding_audit(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    req: &str,
+    kind: AuditKind,
+    endpoint: &str,
+    payload: Value,
+) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+    let mut body = payload;
+    if let Some(obj) = body.as_object_mut() {
+        obj.insert("endpoint".into(), Value::String(endpoint.into()));
+    }
+    if let Err(e) = sink
+        .write(None, kind, body, principal_id_for_audit(req))
+        .await
+    {
+        tracing::warn!(
+            target: "gateway::onboarding",
+            error = %e,
+            kind = %kind.label(),
+            endpoint = %endpoint,
+            tenant = %tenant,
+            "onboarding audit write failed"
+        );
+    }
 }
 
 #[cfg(test)]
