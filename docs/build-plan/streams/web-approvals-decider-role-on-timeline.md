@@ -1,37 +1,49 @@
 # web-approvals-decider-role-on-timeline
 
-**Authored against**: `origin/main` `8b216295` on `2026-05-21`.
+**Authored against**: `origin/main` `a586ab07f` on `2026-05-21`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh web-approvals-decider-role-on-timeline`.
 
 ## Summary
 
-#1956 just landed the role gate on `/api/v1/approvals/<id>/decide` and stamps `decider_role` into the audit-row payload. The `/approvals` timeline currently shows "Approved by Mark" — surface the role: "Approved by Admin Mark" (or "Approver Mark" if it's a non-admin approver-role decision).
+**REAUTHORED 2026-05-21 (tick-26)** after a previous worker self-BLOCKED with a thorough premise audit showing `/approvals` route doesn't exist, ActivityRow doesn't render approver names, and `decider_role` doesn't flow through `/api/v1/audit` feed. The reauthored scope targets the surfaces that ACTUALLY exist:
 
-Pre-condition: **#1956 MERGED ✅**.
+1. `ActionSummaryHero` at `/audit/action/<id>` (the drill-in page) currently renders "Approver: <name>" — extend to "Approver: <Role> <name>" when `decider_role` is present.
+2. `crates/argo-cli/src/handlers/gateway/routes_audit_feed.rs:241-253` projects `approver` but not `decider_role` — extend the feed extractor to surface the field.
+3. `web/lib/types/audit.ts` extends the `AuditRow` shape with optional `decider_role` (additive, backward-compat).
+
+Pre-condition: **#1956 MERGED ✅** (`decider_role` stamped into the audit-memory row).
 
 ## Acceptance
 
-- [ ] `/approvals` activity timeline shows the role label alongside the decider's name when a decision row carries `decider_role` (admin / user / owner / guest per the canonical RBAC role taxonomy).
-- [ ] Backward-compat: rows without `decider_role` (pre-#1956) render with the existing "Approved by Mark" format — no broken UI on legacy data.
-- [ ] Plain language: "Admin Mark approved this" — not "Decision: approve by Mark (role: admin)". Operator preference.
-- [ ] Locked register: `/approvals` is enterprise-restrained per `project_approvals_page_design_locked.md`. No gradient, no Audiowide. Subtle role-chip styling (muted text).
-- [ ] One unit/component test: row with `decider_role: "admin"` renders role; row without renders without.
-- [ ] No regression on the page's existing severity tiers, SLA chips, or KPI strip.
+- [ ] Gateway feed `GET /api/v1/audit` returns `decider_role` in each row's JSON when the underlying audit-memory row carries it (additive field — backward-compat with pre-#1956 rows).
+- [ ] `web/lib/types/audit.ts` `AuditRow` type extended with `decider_role?: "owner" | "admin" | "user" | "guest"`.
+- [ ] `ActionSummaryHero` (`/audit/action/<id>` drill-in) renders the role chip alongside the approver name when `decider_role` is present. Plain-language: "Admin Mark", not "Mark (admin)".
+- [ ] Backward-compat: rows without `decider_role` render existing "Approver: Mark" format unchanged.
+- [ ] Subtle role-chip styling (muted text, no gradient, no Audiowide — matches the audit page's restrained register).
+- [ ] One gateway integration test: row with `decider_role` in payload → feed JSON includes the field.
+- [ ] One component test: `ActionSummaryHero` with `decider_role: "admin"` renders the chip; row without renders without.
+- [ ] No regression on existing audit page or ActivityRow rendering.
 
 ## May touch
 
-- `web/app/(app)/approvals/page.tsx` and any owned timeline-row component
-- `web/lib/api/approvals.ts` (the type for an approval row may need extending with the new field)
+- `crates/argo-cli/src/handlers/gateway/routes_audit_feed.rs` (feed extractor)
+- `crates/argo-cli/src/handlers/gateway/routes_audit_feed_tests.rs` (extend tests)
+- `web/lib/types/audit.ts` (additive field)
+- `web/components/skycot/audit/ActionSummaryHero.tsx` (or similar — verify exact path with `rg -ln 'Approver:' web/components/`)
 - Component test files
 
 ## Must NOT touch
 
-- The server-side role gate (#1956 owns that — settled).
-- The `/api/v1/approvals/*` endpoints.
-- The approvals list filter or KPI strip.
+- The `/approvals` route — it doesn't exist yet.
+- `ActivityRow` — it's the timeline-row primitive; scope is the drill-in page only.
+- The server-side role gate (#1956 settled).
+- The audit memory row schema (extend at projection layer, not at storage).
+- The audit page's locked register (`docs/skycot/audit/...` design lock).
 
 ## Notes
 
-- Pre-flight: `rg 'decider_role' crates/` + `rg 'decider_role' web/` to find the canonical field name in the audit row JSON envelope.
-- The role taxonomy from #1956 is `owner / admin / user / guest` — verify via `crates/argo-cli/src/handlers/gateway/role_gate.rs` (the canonical source).
-- Sizing: 80–150 LOC. Demo-visible improvement to the procurement story.
+- Pre-flight: `rg -ln 'ActionSummaryHero' web/components/` to find the canonical location.
+- Pre-flight: `cat crates/argo-cli/src/handlers/gateway/routes_audit_feed.rs | grep -B2 -A5 'approver'` to see current shape.
+- Sizing: 150–300 LOC (backend additive field + frontend chip + 2 tests).
+- Previous claim BLOCKED with premise audit; this reauthor closes the gaps.
+- Demo-visible improvement to mission-claim-6 procurement story.
