@@ -21,7 +21,7 @@
 }
 .stub-title {
   font-family: var(--font-audiowide);
-  font-size: 40px;
+  font-size: clamp(26px, 5.5vw, 40px);
   line-height: 1.05;
   font-weight: 400;
   margin: 0 0 14px;

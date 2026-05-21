@@ -35,7 +35,7 @@
 }
 .templates-hero {
   font-family: var(--font-audiowide);
-  font-size: 48px;
+  font-size: clamp(28px, 6vw, 48px);
   line-height: 1.05;
   font-weight: 400;
   margin: 0 0 14px;

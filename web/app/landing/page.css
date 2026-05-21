@@ -702,7 +702,7 @@
 }
 .land-final h2 {
   font-family: var(--font-audiowide);
-  font-size: 48px;
+  font-size: clamp(28px, 6vw, 48px);
   font-weight: 400;
   margin: 0 0 18px;
   color: var(--ink);

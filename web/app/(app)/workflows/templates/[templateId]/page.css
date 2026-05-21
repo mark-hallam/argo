@@ -63,7 +63,7 @@
 }
 .tpldetail-title {
   font-family: var(--font-audiowide);
-  font-size: 38px;
+  font-size: clamp(24px, 5vw, 38px);
   line-height: 1.05;
   font-weight: 400;
   margin: 6px 0 14px;

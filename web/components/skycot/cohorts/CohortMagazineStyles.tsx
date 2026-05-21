@@ -256,7 +256,7 @@ export function CohortMagazineStyles() {
         }
         .skycot-cohort-lead-title {
           font-family: var(--font-audiowide);
-          font-size: 36px;
+          font-size: clamp(24px, 5vw, 36px);
           font-weight: 400;
           letter-spacing: -0.005em;
           line-height: 1.05;

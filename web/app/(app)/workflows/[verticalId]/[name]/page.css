@@ -71,7 +71,7 @@
 }
 .wfd-name {
   font-family: var(--font-audiowide);
-  font-size: 32px;
+  font-size: clamp(22px, 4.5vw, 32px);
   margin: 0 0 12px;
   color: var(--foreground, #1e1b4b);
   font-weight: 400;

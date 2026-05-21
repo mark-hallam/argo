@@ -60,7 +60,7 @@
 .cs-hero-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .cs-industry-chip { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; padding: 5px 12px; border-radius: 999px; background: white; border: 1px solid rgba(139, 92, 246, 0.2); color: var(--purple); }
 .cs-size-chip { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; color: var(--ink-3); }
-.cs-hero-name { font-family: var(--font-audiowide); font-size: 36px; line-height: 1.05; font-weight: 400; margin: 0 0 12px; color: var(--ink); }
+.cs-hero-name { font-family: var(--font-audiowide); font-size: clamp(26px, 5vw, 36px); line-height: 1.05; font-weight: 400; margin: 0 0 12px; color: var(--ink); }
 .cs-hero-kpi { font-size: 17px; font-weight: 600; color: var(--ink-2); line-height: 1.45; margin: 0; }
 .cs-hero-kpi strong { font-family: var(--font-audiowide); font-weight: 400; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
@@ -101,6 +101,6 @@
 @media (max-width: 700px) { .cs-final { padding: 40px 24px; } }
 .cs-final::before { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.14) 50%, transparent 70%); transform: translateX(-100%); animation: cs-shine 6s ease-in-out infinite; pointer-events: none; }
 @keyframes cs-shine { 0%, 80%, 100% { transform: translateX(-100%); } 90% { transform: translateX(100%); } }
-.cs-final h2 { font-family: var(--font-audiowide); font-size: 32px; font-weight: 400; color: white; margin: 0 0 14px; position: relative; }
+.cs-final h2 { font-family: var(--font-audiowide); font-size: clamp(24px, 4.5vw, 32px); font-weight: 400; color: white; margin: 0 0 14px; position: relative; }
 .cs-final p { font-size: 16px; color: rgba(255, 255, 255, 0.92); margin: 0 auto 24px; max-width: 520px; position: relative; }
 .cs-final-cta { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 12px; background: white; color: #8b5cf6; font-size: 15px; font-weight: 700; text-decoration: none; position: relative; }
