@@ -8,12 +8,14 @@ repository.workspace = true
 description = "Argo — cron expressions + tenant-aware scheduler (§22)"
 
 [dependencies]
+argo-audit = { path = "../argo-audit" }
 argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 fs2 = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }

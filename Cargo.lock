@@ -569,12 +569,14 @@ dependencies = [
 name = "argo-cron"
 version = "0.0.1"
 dependencies = [
+ "argo-audit",
  "argo-types",
  "async-trait",
  "chrono",
  "fs2",
  "parking_lot",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",

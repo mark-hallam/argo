@@ -25,8 +25,12 @@
 //!   "workflow": { ok, total_ms, steps:[…] }
 //! }
 //! ```
+use super::routes_auth_principal::principal_id_for_audit;
 use super::{body_from_request, store_unavailable};
+use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
+use argo_types::TenantId;
+use chrono::Utc;
 use std::sync::Arc;
 
 pub(super) async fn vertical_run_response(
@@ -101,10 +105,33 @@ pub(super) async fn vertical_run_response(
             .await
             .unwrap_or(0);
 
+    // Domain audit event (stream `web-audit-kinds-for-journey-events`)
+    // — emitted BEFORE workflow dispatch so the audit-feed pair
+    // (`VerticalRunRequested` → `VerticalRunCompleted`) survives
+    // even if the run aborts mid-flight.
+    let principal_id =
+        principal_id_for_audit(req).unwrap_or_else(|| "system:vertical-run".to_string());
+    let session_id_str = session_id.to_string();
+    emit_run_audit(
+        store,
+        tenant,
+        &principal_id,
+        AuditKind::VerticalRunRequested,
+        serde_json::json!({
+            "actor": principal_id,
+            "tenant_id": tenant.to_string(),
+            "vertical_id": vertical_id,
+            "workflow_name": workflow_name,
+            "session_id": session_id_str,
+            "trigger": "manual",
+            "requested_at": Utc::now().to_rfc3339(),
+        }),
+    )
+    .await;
+
     // Run the workflow against the new session via the #668
     // --session plumbing — every dispatched tool_call lands in
     // the audit chain.
-    let session_id_str = session_id.to_string();
     let report = match crate::handlers::vertical_workflow::run_collect(
         vertical_id,
         workflow_name,
@@ -113,8 +140,44 @@ pub(super) async fn vertical_run_response(
     .await
     {
         Ok(r) => r,
-        Err(e) => return server_error(&format!("workflow run: {e}")),
+        Err(e) => {
+            emit_run_audit(
+                store,
+                tenant,
+                &principal_id,
+                AuditKind::VerticalRunCompleted,
+                serde_json::json!({
+                    "actor": principal_id,
+                    "tenant_id": tenant.to_string(),
+                    "vertical_id": vertical_id,
+                    "workflow_name": workflow_name,
+                    "session_id": session_id_str,
+                    "outcome": "failed",
+                    "step_count": 0,
+                    "completed_at": Utc::now().to_rfc3339(),
+                }),
+            )
+            .await;
+            return server_error(&format!("workflow run: {e}"));
+        }
     };
+    emit_run_audit(
+        store,
+        tenant,
+        &principal_id,
+        AuditKind::VerticalRunCompleted,
+        serde_json::json!({
+            "actor": principal_id,
+            "tenant_id": tenant.to_string(),
+            "vertical_id": vertical_id,
+            "workflow_name": workflow_name,
+            "session_id": session_id_str,
+            "outcome": if report.ok { "succeeded" } else { "failed" },
+            "step_count": report.steps.len(),
+            "completed_at": Utc::now().to_rfc3339(),
+        }),
+    )
+    .await;
 
     let status = if report.ok {
         "201 Created"
@@ -135,6 +198,27 @@ pub(super) async fn vertical_run_response(
         }))
         .unwrap_or_default(),
     )
+}
+
+async fn emit_run_audit(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    principal_id: &str,
+    kind: AuditKind,
+    payload: serde_json::Value,
+) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    if let Err(e) = sink
+        .write(None, kind, payload, Some(principal_id.to_string()))
+        .await
+    {
+        tracing::warn!(
+            target: "gateway::verticals_run",
+            error = %e,
+            kind = ?kind,
+            "vertical-run audit write failed"
+        );
+    }
 }
 
 fn bad_request(msg: &str) -> (&'static str, String) {

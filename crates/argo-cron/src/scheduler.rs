@@ -60,6 +60,21 @@ impl Scheduler {
         runner: &dyn JobRunner,
         now: DateTime<Utc>,
     ) -> ArgoResult<TickReport> {
+        self.tick_with_audit(store, runner, now, None).await
+    }
+
+    /// Like [`Self::tick`], but also emits a [`AuditKind::CronJobFired`]
+    /// row per successful dispatch when `audit_sink` is `Some`. Stream
+    /// `web-audit-kinds-for-journey-events`. The audit write is
+    /// best-effort — a failed write logs a warning but does not roll
+    /// back the fire, since the cursor has already advanced.
+    pub async fn tick_with_audit(
+        self,
+        store: &dyn JobStore,
+        runner: &dyn JobRunner,
+        now: DateTime<Utc>,
+        audit_sink: Option<&argo_audit::AuditSink>,
+    ) -> ArgoResult<TickReport> {
         let jobs = store.list_all().await?;
         let mut report = TickReport {
             attempted: Vec::new(),
@@ -75,6 +90,29 @@ impl Scheduler {
                 Ok(()) => {
                     store.record_fire(j.id, now).await?;
                     report.fired.push(j.id);
+                    if let Some(sink) = audit_sink {
+                        let payload = serde_json::json!({
+                            "tenant_id": j.tenant_id.0.to_string(),
+                            "job_name": j.name,
+                            "schedule": j.schedule.source,
+                            "fired_at": now.to_rfc3339(),
+                            "dispatch_target": {
+                                "platform": j.target.platform,
+                                "chat": j.target.chat,
+                            },
+                        });
+                        if let Err(e) = sink
+                            .write(None, argo_audit::AuditKind::CronJobFired, payload, None)
+                            .await
+                        {
+                            tracing::warn!(
+                                target: "cron::scheduler",
+                                error = %e,
+                                job_name = %j.name,
+                                "cron_job_fired audit write failed"
+                            );
+                        }
+                    }
                 }
                 Err(_) => report.errors.push(j.id),
             }

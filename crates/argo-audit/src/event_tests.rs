@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 49);
+    assert_eq!(AuditKind::all().len(), 55);
 }
 
 #[test]
@@ -310,6 +310,32 @@ fn legacy_http_request_event_type_strings_still_parse_as_labels() {
             AuditKind::from_label(label).is_some(),
             "legacy label {label} must now parse as a first-class kind"
         );
+    }
+}
+
+#[test]
+fn journey_event_kinds_round_trip_and_listed() {
+    // Stream `web-audit-kinds-for-journey-events` — operator audit
+    // feed promotes worker-hire / vertical-run / cron rows from the
+    // generic `HttpRequest` bucket to named domain events. Mixed
+    // label style (dot for vertical/worker, underscore for cron)
+    // mirrors the existing precedent — `workflow.step.started`
+    // uses dots; `workflow_definition_created` uses underscores.
+    let kinds = [
+        ("worker.hired", AuditKind::WorkerHired),
+        ("vertical.run.requested", AuditKind::VerticalRunRequested),
+        ("vertical.run.completed", AuditKind::VerticalRunCompleted),
+        ("cron_job_created", AuditKind::CronJobCreated),
+        ("cron_job_deleted", AuditKind::CronJobDeleted),
+        ("cron_job_fired", AuditKind::CronJobFired),
+    ];
+    for (label, kind) in kinds {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+    }
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    for (label, _) in kinds {
+        assert!(labels.contains(&label), "missing {label}: {labels:?}");
     }
 }
 

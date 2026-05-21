@@ -289,6 +289,31 @@ pub enum AuditKind {
     /// escalation_score, rbac_score, quality_score, total,
     /// computed_at, worker_id }, decision: "promote" | "demote" }`.
     TrustGradeChanged,
+    /// Worker hired (`POST /workers` / `argo worker hire`). Stream
+    /// `web-audit-kinds-for-journey-events`. Payload: `{ actor,
+    /// tenant_id, worker_id, vertical_id, name, duty_count,
+    /// hired_at }`.
+    WorkerHired,
+    /// Vertical run requested (`POST /verticals/{vid}/run`). Payload:
+    /// `{ actor, tenant_id, vertical_id, workflow_name, session_id,
+    /// trigger, requested_at }`.
+    VerticalRunRequested,
+    /// Vertical run finished. Payload: `{ actor, tenant_id,
+    /// vertical_id, workflow_name, session_id,
+    /// outcome ("succeeded"|"failed"), step_count, completed_at }`.
+    VerticalRunCompleted,
+    /// Cron job created (`POST /cron` / `argo cron new`). Payload:
+    /// `{ actor, tenant_id, job_name, schedule, platform, chat,
+    /// created_at }`.
+    CronJobCreated,
+    /// Cron job deleted (`POST /cron/<name>/delete` / `argo cron
+    /// delete <name>`). Payload: `{ actor, tenant_id, job_name,
+    /// schedule, platform, chat, deleted_at, last_fired_at }`.
+    CronJobDeleted,
+    /// Cron job fired (scheduler-emitted; no actor). Payload:
+    /// `{ tenant_id, job_name, schedule, fired_at,
+    /// dispatch_target: { platform, chat } }`.
+    CronJobFired,
 }
 
 impl AuditKind {
@@ -345,6 +370,12 @@ impl AuditKind {
             Self::WorkflowStepStarted => "workflow.step.started",
             Self::WorkflowStepCompleted => "workflow.step.completed",
             Self::TrustGradeChanged => "trust_grade_changed",
+            Self::WorkerHired => "worker.hired",
+            Self::VerticalRunRequested => "vertical.run.requested",
+            Self::VerticalRunCompleted => "vertical.run.completed",
+            Self::CronJobCreated => "cron_job_created",
+            Self::CronJobDeleted => "cron_job_deleted",
+            Self::CronJobFired => "cron_job_fired",
         }
     }
 
@@ -403,6 +434,12 @@ impl AuditKind {
             "workflow.step.started" => Self::WorkflowStepStarted,
             "workflow.step.completed" => Self::WorkflowStepCompleted,
             "trust_grade_changed" => Self::TrustGradeChanged,
+            "worker.hired" => Self::WorkerHired,
+            "vertical.run.requested" => Self::VerticalRunRequested,
+            "vertical.run.completed" => Self::VerticalRunCompleted,
+            "cron_job_created" => Self::CronJobCreated,
+            "cron_job_deleted" => Self::CronJobDeleted,
+            "cron_job_fired" => Self::CronJobFired,
             _ => return None,
         })
     }
@@ -461,6 +498,12 @@ impl AuditKind {
             Self::WorkflowStepStarted,
             Self::WorkflowStepCompleted,
             Self::TrustGradeChanged,
+            Self::WorkerHired,
+            Self::VerticalRunRequested,
+            Self::VerticalRunCompleted,
+            Self::CronJobCreated,
+            Self::CronJobDeleted,
+            Self::CronJobFired,
         ];
         v.sort_by_key(|k| k.label());
         v

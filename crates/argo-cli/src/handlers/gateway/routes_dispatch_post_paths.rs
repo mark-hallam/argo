@@ -110,7 +110,7 @@ pub(super) async fn dispatch_simple_admin(
         return Some(super::routes_post_writes::install_skill_response(req, store).await);
     }
     if req.starts_with("POST /cron ") {
-        return Some(super::routes_cron::cron_create_response(req).await);
+        return Some(super::routes_cron::cron_create_response(req, store).await);
     }
     if req.starts_with("POST /workspace/init ") {
         return Some(workspace_init_response(req, store).await);
@@ -219,7 +219,7 @@ pub(super) async fn dispatch_skill_named(
     if let Some(rest) = req.strip_prefix("POST /cron/") {
         if let Some((name, tail)) = rest.split_once('/') {
             if tail.starts_with("delete ") {
-                return Some(cron_delete_response(name).await);
+                return Some(cron_delete_response(name, req, store).await);
             }
         }
     }

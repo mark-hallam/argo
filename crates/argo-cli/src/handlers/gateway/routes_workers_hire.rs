@@ -299,6 +299,36 @@ async fn emit_hire_audit(
             "hire audit write failed"
         );
     }
+    // Domain event (stream `web-audit-kinds-for-journey-events`):
+    // alongside the structural `HttpRequest` row above, emit a
+    // named `WorkerHired` row so audit consumers scanning for
+    // "who joined the workspace today?" see the hire directly
+    // instead of `HttpRequest + endpoint=workers.hire`.
+    let domain_payload = json!({
+        "actor": principal_id,
+        "tenant_id": tenant_id.to_string(),
+        "worker_id": worker_id.to_string(),
+        "vertical_id": draft.suggested_vertical,
+        "name": draft.suggested_name,
+        "duty_count": draft.duties.len(),
+        "hired_at": Utc::now().to_rfc3339(),
+    });
+    if let Err(e) = sink
+        .write(
+            None,
+            AuditKind::WorkerHired,
+            domain_payload,
+            Some(principal_id.to_string()),
+        )
+        .await
+    {
+        tracing::warn!(
+            target: "gateway::workers_hire",
+            error = %e,
+            worker_id = %worker_id,
+            "worker_hired audit write failed"
+        );
+    }
 }
 
 /// Lightweight email/phone redactor for the audit-log copy of the

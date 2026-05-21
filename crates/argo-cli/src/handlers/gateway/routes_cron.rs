@@ -5,9 +5,14 @@
 //! filesystem directory rather than the SQLite store and (b)
 //! `routes.rs` + `routes_meta.rs` are both already close to
 //! the 500-LOC ceiling.
+use super::routes_auth_principal::principal_id_for_audit;
+use argo_audit::{AuditKind, AuditSink};
 use argo_cron::{CronExpr, CronJob, CronTarget};
+use argo_store::SessionStore;
 use argo_types::TenantId;
+use chrono::Utc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// `GET /cron[?format=markdown]` — list every job in
 /// `<cwd>/cron/jobs/`. Returns a JSON array of canonical
@@ -155,7 +160,10 @@ pub(super) async fn cron_show_response(
 /// (bad schedule, missing field) or path-traversal attempts;
 /// 409 when `<name>.json` already exists (mirrors the CLI's
 /// "delete it first" behaviour).
-pub(super) async fn cron_create_response(req: &str) -> (&'static str, String) {
+pub(super) async fn cron_create_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
     let dir = match cron_dir() {
         Ok(d) => d,
         Err((status, body)) => return (status, body),
@@ -260,6 +268,20 @@ pub(super) async fn cron_create_response(req: &str) -> (&'static str, String) {
             format!("{{\"error\":\"write {}: {e}\"}}", path.display()),
         );
     }
+    emit_cron_audit(
+        store,
+        req,
+        AuditKind::CronJobCreated,
+        serde_json::json!({
+            "job_name": job.name,
+            "schedule": job.schedule.source,
+            "platform": job.target.platform,
+            "chat": job.target.chat,
+            "created_at": Utc::now().to_rfc3339(),
+        }),
+        &job.name,
+    )
+    .await;
     let resp = serde_json::json!({
         "created": true,
         "name": name,
@@ -276,7 +298,11 @@ pub(super) async fn cron_create_response(req: &str) -> (&'static str, String) {
 /// for `<name>`. Mirrors `argo cron delete <name>`. Returns
 /// 200 + `{deleted, name}` on success, 404 when no
 /// `<name>.json` exists, 400 on path-traversal segments.
-pub(super) async fn cron_delete_response(raw_name: &str) -> (&'static str, String) {
+pub(super) async fn cron_delete_response(
+    raw_name: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
     let dir = match cron_dir() {
         Ok(d) => d,
         Err((status, body)) => return (status, body),
@@ -294,11 +320,38 @@ pub(super) async fn cron_delete_response(raw_name: &str) -> (&'static str, Strin
             format!("{{\"error\":\"no cron job named '{raw_name}'\"}}"),
         );
     }
+    // Snapshot the job before remove_file so the audit payload has
+    // schedule/platform/chat/last_fired_at to record.
+    let snapshot = read_job(&path).ok();
     match std::fs::remove_file(&path) {
-        Ok(()) => (
-            "200 OK",
-            format!("{{\"deleted\":true,\"name\":\"{raw_name}\"}}"),
-        ),
+        Ok(()) => {
+            let mut payload = serde_json::json!({
+                "job_name": raw_name,
+                "deleted_at": Utc::now().to_rfc3339(),
+            });
+            if let (Some(obj), Some(job)) = (payload.as_object_mut(), snapshot) {
+                obj.insert(
+                    "schedule".into(),
+                    serde_json::Value::String(job.schedule.source.clone()),
+                );
+                obj.insert(
+                    "platform".into(),
+                    serde_json::Value::String(job.target.platform),
+                );
+                obj.insert("chat".into(), serde_json::Value::String(job.target.chat));
+                obj.insert(
+                    "last_fired_at".into(),
+                    job.last_fired_at
+                        .map(|d| serde_json::Value::String(d.to_rfc3339()))
+                        .unwrap_or(serde_json::Value::Null),
+                );
+            }
+            emit_cron_audit(store, req, AuditKind::CronJobDeleted, payload, raw_name).await;
+            (
+                "200 OK",
+                format!("{{\"deleted\":true,\"name\":\"{raw_name}\"}}"),
+            )
+        }
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"remove {}: {e}\"}}", path.display()),
@@ -327,6 +380,53 @@ fn read_job(path: &std::path::Path) -> Result<CronJob, serde_json::Value> {
             "error": format!("parse {}: {e}", path.display()),
         })
     })
+}
+
+/// Domain audit emit (stream `web-audit-kinds-for-journey-events`).
+/// Best-effort: a missing store, a non-resolvable workspace, or an
+/// audit-write error degrades to a warning trace — the cron mutation
+/// has already happened on disk and must not be rolled back.
+async fn emit_cron_audit(
+    store: Option<&Arc<SessionStore>>,
+    req: &str,
+    kind: AuditKind,
+    mut payload: serde_json::Value,
+    job_name: &str,
+) {
+    let Some(store) = store else { return };
+    let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:cron".to_string());
+    let Ok(cwd) = std::env::current_dir() else {
+        return;
+    };
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let tenant_id = match store.ensure_workspace(name, &root).await {
+        Ok((t, _ws)) => t,
+        Err(_) => return,
+    };
+    if let Some(obj) = payload.as_object_mut() {
+        obj.insert(
+            "actor".into(),
+            serde_json::Value::String(principal_id.clone()),
+        );
+        obj.insert(
+            "tenant_id".into(),
+            serde_json::Value::String(tenant_id.to_string()),
+        );
+    }
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    if let Err(e) = sink.write(None, kind, payload, Some(principal_id)).await {
+        tracing::warn!(
+            target: "gateway::cron",
+            error = %e,
+            job_name = %job_name,
+            kind = ?kind,
+            "cron audit write failed"
+        );
+    }
 }
 
 fn serialize_job(job: &CronJob) -> serde_json::Value {
