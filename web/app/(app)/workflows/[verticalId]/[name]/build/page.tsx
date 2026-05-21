@@ -29,6 +29,7 @@ import {
   WorkflowBuilderEmptyState,
   WorkflowBuilderErrorState,
 } from "@/components/skycot/workflows/WorkflowEdgeStates";
+import { MobileBuilderGate } from "@/components/skycot/workflows/MobileBuilderGate";
 import { useBuilderHistory, type BuilderSnapshot } from "@/lib/hooks/use-builder-history";
 import { useBuilderKeyboard } from "@/lib/hooks/use-builder-keyboard";
 import { useWorkflowBuilderState } from "@/lib/hooks/use-workflow-builder-state";
@@ -687,6 +688,7 @@ function BuilderInner({
         </div>
       </div>
       <KeyboardShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <MobileBuilderGate workflow={workflow} />
     </>
   );
 }

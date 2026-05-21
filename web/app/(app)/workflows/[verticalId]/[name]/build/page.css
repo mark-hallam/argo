@@ -418,3 +418,11 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Desktop-only canvas. Below 1024px we hide the builder shell and
+   show the read-only mobile gate instead. Pure CSS (not JS viewport
+   detection) so SSR renders correctly and the gate survives hydration. */
+.mobile-gate { display: none; }
+@media (max-width: 1023px) {
+  .builder-shell { display: none; }
+  .mobile-gate { display: block; }
+}
