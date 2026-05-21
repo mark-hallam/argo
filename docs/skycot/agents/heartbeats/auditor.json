@@ -1,7 +1,7 @@
 {
   "agent": "auditor",
-  "last_run_utc": "2026-05-21T09:40:06Z",
+  "last_run_utc": "2026-05-21T21:40:58Z",
   "expected_cadence_seconds": 28800,
   "session_label": "scheduled-task:skycot-auditor-3x-daily",
-  "run_notes": "wave-15 P0 #3 builder cluster fully closed (B1-B4 all MERGED); operator-release sweep flushed 24 ghost-claims; prior P0 #2 mock-offline finding was phantom (guard already in place) — corrected this run; 7 recommendations"
+  "run_notes": "T21-40 audit — 11h interval; 24 PRs MERGED (#1964-#1987) incl. wave-15 P0 substrate #1986+#1987; #1983 cross-tenant sweep surfaced real P1 data-exposure (3 follow-ups CLAIMED); 3rd-consecutive P0 ESCALATION on mission-workplace-knowledge-substrate; claude-pool 401-OAuth storm = ~43 ghost-claim demotes in 11h; orientation 81/100 (+3); 7 recommendations"
 }

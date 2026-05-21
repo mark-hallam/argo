@@ -33,3 +33,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-21T20:36:00Z [conductor] tick-32 post-overnight sweep — operator confirmed workers closed. 13 zombie CLAIMED → TODO + 5 stale DIRTY PRs closed (#1970/#1972/#1973/#1976/#1978). Queue clean for next worker spin-up.
 2026-05-22T06:55:00Z+1000 [conductor] sweep — workers 401-failed on Claude auth; ~/.claude/.oauth_refresh.lock stuck. 11 zombie claims demoted.
 2026-05-21T21:12:00Z [conductor] tick-33 — 5 real codex workers active (all fast-mode); 17 zombie 401-burst claims demoted. 0 open PRs (impl phase). Auditor stale (overnight sleep missed cron).
+2026-05-21T21:40:58Z [auditor] T21-40 audit — 24 PRs MERGED in 11h (wave-15 P0 substrate #1986+#1987); #1983 surfaced REAL P1 cross-tenant exposure (3 follow-ups CLAIMED); 🚨 ESCALATION 3rd-consecutive P0 on mission-workplace-knowledge-substrate; claude-pool 401-OAuth storm = ~43 ghost-claim demotes; orientation 81/100 (+3)
