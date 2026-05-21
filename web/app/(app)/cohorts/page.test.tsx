@@ -17,10 +17,21 @@ vi.mock("@/lib/hooks/use-cohorts", () => ({
   useCohortDetail: () => ({ data: undefined, isPending: false }),
 }));
 
-// Replace child components so the page test only asserts page-shell
-// behavior. Each test file for the children covers their own surface.
-vi.mock("@/components/skycot/CohortCard", () => ({
-  CohortCard: ({
+// Replace tile components so the page test only asserts page-shell
+// behavior (dept-tab interaction, selected cohort propagation, drawer
+// lifecycle). Each tile component has its own focused test file.
+vi.mock("@/components/skycot/cohorts/CohortLeadTile", () => ({
+  CohortLeadTile: makeTileMock("lead"),
+}));
+vi.mock("@/components/skycot/cohorts/CohortStackedTile", () => ({
+  CohortStackedTile: makeTileMock("stacked"),
+}));
+vi.mock("@/components/skycot/cohorts/CohortCompactTile", () => ({
+  CohortCompactTile: makeTileMock("compact"),
+}));
+
+function makeTileMock(variant: "lead" | "stacked" | "compact") {
+  return function MockTile({
     cohort,
     onSelect,
     selected,
@@ -28,17 +39,20 @@ vi.mock("@/components/skycot/CohortCard", () => ({
     cohort: CohortSummary;
     onSelect: (id: string) => void;
     selected?: boolean;
-  }) => (
-    <button
-      type="button"
-      data-testid={`cohort-card-${cohort.cohort_id}`}
-      data-selected={selected ? "true" : "false"}
-      onClick={() => onSelect(cohort.cohort_id)}
-    >
-      {cohort.vertical}
-    </button>
-  ),
-}));
+  }) {
+    return (
+      <button
+        type="button"
+        data-testid={`cohort-card-${cohort.cohort_id}`}
+        data-cohort-tile={variant}
+        data-selected={selected ? "true" : "false"}
+        onClick={() => onSelect(cohort.cohort_id)}
+      >
+        {cohort.vertical}
+      </button>
+    );
+  };
+}
 
 vi.mock("@/components/skycot/CohortDetailDrawer", () => ({
   CohortDetailDrawer: ({
@@ -70,13 +84,22 @@ const SUMMARIES: CohortSummary[] = [
     skill_count: 6,
   },
   {
-    cohort_id: "sales::developing",
-    vertical: "sales",
+    cohort_id: "support::developing",
+    vertical: "support",
     trust_grade_band: "developing",
     trust_grade_min: 1,
     trust_grade_max: 3,
     member_count: 2,
     skill_count: 3,
+  },
+  {
+    cohort_id: "sales::established",
+    vertical: "sales",
+    trust_grade_band: "established",
+    trust_grade_min: 4,
+    trust_grade_max: 6,
+    member_count: 3,
+    skill_count: 4,
   },
 ];
 
@@ -89,19 +112,49 @@ afterEach(() => {
 });
 
 describe("CohortsPage", () => {
-  it("renders all cohort cards and opens the drawer when a card is clicked", async () => {
+  it("renders dept tabs and the magazine grid for the first dept by default", () => {
     useCohortsMock.mockReturnValue({
       data: { cohorts: SUMMARIES, source: "mock-offline" },
       isPending: false,
     });
     render(<CohortsPage />);
     expect(screen.getByTestId("cohort-grid")).toBeInTheDocument();
-    expect(screen.getByTestId("cohorts-subtitle")).toHaveTextContent(/2 cohorts/i);
-    expect(screen.getAllByTestId(/^cohort-card-/).length).toBe(2);
+    expect(screen.getByTestId("cohorts-subtitle")).toHaveTextContent(/3 cohorts/i);
+    // Default active dept is "support" (first in registry with data).
+    expect(screen.getByTestId("cohort-dept-tab-support")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    // Both support cohorts render; sales (different dept) does not.
+    expect(screen.getByTestId("cohort-card-support::trusted")).toBeInTheDocument();
+    expect(screen.getByTestId("cohort-card-support::developing")).toBeInTheDocument();
+    expect(screen.queryByTestId("cohort-card-sales::established")).not.toBeInTheDocument();
+  });
+
+  it("opens the drawer when a tile is clicked", async () => {
+    useCohortsMock.mockReturnValue({
+      data: { cohorts: SUMMARIES, source: "mock-offline" },
+      isPending: false,
+    });
+    render(<CohortsPage />);
     expect(screen.queryByTestId("drawer-open")).not.toBeInTheDocument();
     await userEvent.click(screen.getByTestId("cohort-card-support::trusted"));
     const drawer = screen.getByTestId("drawer-open");
     expect(drawer.getAttribute("data-cohort")).toBe("support::trusted");
+  });
+
+  it("switches the visible cohorts when a different dept tab is clicked", async () => {
+    useCohortsMock.mockReturnValue({
+      data: { cohorts: SUMMARIES, source: "mock-offline" },
+      isPending: false,
+    });
+    render(<CohortsPage />);
+    // Sales dept tab is present (Sales bucket contains "sales").
+    const salesTab = screen.getByTestId("cohort-dept-tab-sales");
+    await userEvent.click(salesTab);
+    expect(salesTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("cohort-card-sales::established")).toBeInTheDocument();
+    expect(screen.queryByTestId("cohort-card-support::trusted")).not.toBeInTheDocument();
   });
 
   it("renders the empty state when the fleet has no cohorts", () => {
