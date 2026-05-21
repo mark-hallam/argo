@@ -1,8 +1,9 @@
 import "./page.css";
 
-import Link from "next/link";
 import { ArrowRight, Rss } from "lucide-react";
 import { articleSchema, JsonLd } from "@/components/seo/JsonLd";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Public changelog — `/changelog`, exempt from auth middleware.
@@ -187,27 +188,13 @@ export default function ChangelogPage() {
   return (
     <>
       <div className="cl">
-        <header className="cl-top">
-          <Link href="/landing" className="cl-brand">
-            <div className="cl-brand-mark" />
-            <div className="cl-brand-name">SKYCOT</div>
-          </Link>
-          <nav className="cl-nav">
-            <Link href="/landing#how">How it works</Link>
-            <Link href="/landing#features">Features</Link>
-            <Link href="/compare">Compare</Link>
-            <Link href="/docs">Docs</Link>
-            <Link href="/changelog">Changelog</Link>
-          </nav>
-          <div className="cl-top-right">
+        <MarketingNav
+          extras={
             <a href="/changelog/rss.xml" className="cl-rss" aria-label="RSS feed">
               <Rss size={14} /> RSS
             </a>
-            <a href="mailto:hello@skycot.com?subject=Subscribe%20me%20to%20the%20changelog" className="cl-cta-pill">
-              Get notified <ArrowRight size={14} />
-            </a>
-          </div>
-        </header>
+          }
+        />
 
         <section className="cl-hero">
           <div className="cl-hero-eyebrow">
@@ -305,29 +292,7 @@ export default function ChangelogPage() {
           </aside>
         </div>
 
-        <footer className="cl-foot">
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
-            <Link href="/landing" style={{ color: "inherit", textDecoration: "none" }}>
-              SKYCOT
-            </Link>
-            <Link href="/compare" style={{ color: "inherit", textDecoration: "none" }}>
-              Compare
-            </Link>
-            <Link href="/docs" style={{ color: "inherit", textDecoration: "none" }}>
-              Docs
-            </Link>
-            <Link href="/changelog" style={{ color: "inherit", textDecoration: "none" }}>
-              Changelog
-            </Link>
-            <a href="https://github.com/mark-hallam/skycot-packs" style={{ color: "inherit", textDecoration: "none" }}>
-              GitHub
-            </a>
-            <a href="mailto:hello@skycot.com" style={{ color: "inherit", textDecoration: "none" }}>
-              Contact
-            </a>
-          </div>
-          <div>© 2026 SKYCOT · Made in Melbourne · skycot.com</div>
-        </footer>
+        <MarketingFooter />
       </div>
     </>
   );

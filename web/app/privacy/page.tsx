@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Privacy page — v1.0 placeholder until full legal review lands.
@@ -9,6 +11,7 @@ import Link from "next/link";
 export default function PrivacyPage() {
   return (
     <>
+    <MarketingNav />
     <main
       style={{
         maxWidth: 720,
@@ -103,6 +106,7 @@ export default function PrivacyPage() {
         .
       </p>
     </main>
+    <MarketingFooter />
     </>
   );
 }

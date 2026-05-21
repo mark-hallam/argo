@@ -3,6 +3,8 @@ import "./page.css";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { SEED_CUSTOMERS } from "@/lib/content/customers";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Public customers index — `/customers`, exempt from auth middleware.
@@ -19,23 +21,7 @@ export default function CustomersPage() {
   return (
     <>
       <div className="cus">
-        <header className="cus-top">
-          <Link href="/landing" className="cus-brand">
-            <div className="cus-brand-mark" />
-            <div className="cus-brand-name">SKYCOT</div>
-          </Link>
-          <nav className="cus-nav">
-            <Link href="/landing#how">How it works</Link>
-            <Link href="/landing#features">Features</Link>
-            <Link href="/compare">Compare</Link>
-            <Link href="/customers" className="active">Customers</Link>
-            <Link href="/pricing">Pricing</Link>
-          </nav>
-          <div className="cus-top-right">
-            <Link href="/auth/signin" className="cus-signin">Sign in</Link>
-            <Link href="/auth/signup" className="cus-cta-pill">Hire your first teammate</Link>
-          </div>
-        </header>
+        <MarketingNav />
 
         <section className="cus-hero">
           <div className="cus-eyebrow">
@@ -90,17 +76,7 @@ export default function CustomersPage() {
           </a>
         </section>
 
-        <footer className="cus-foot">
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
-            <Link href="/landing">SKYCOT</Link>
-            <Link href="/compare">Compare</Link>
-            <Link href="/customers">Customers</Link>
-            <Link href="/pricing">Pricing</Link>
-            <a href="https://github.com/mark-hallam/skycot-packs">GitHub</a>
-            <a href="mailto:hello@skycot.com">Contact</a>
-          </div>
-          <div>© 2026 SKYCOT · Made in Melbourne · skycot.com</div>
-        </footer>
+        <MarketingFooter />
       </div>
     </>
   );

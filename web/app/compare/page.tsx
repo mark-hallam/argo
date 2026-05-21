@@ -1,6 +1,8 @@
 import "./page.css";
 
 import { Check, X, Minus } from "lucide-react";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Competitive positioning page — `/compare`.
@@ -167,6 +169,7 @@ export default function ComparePage() {
   const groups = groupDimensions(DIMENSIONS);
   return (
     <>
+      <MarketingNav />
       <div className="compare-stage">
         <div className="compare-eyebrow">
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#14b8a6" }} />
@@ -224,6 +227,7 @@ export default function ComparePage() {
           </table>
         </div>
       </div>
+      <MarketingFooter />
     </>
   );
 }

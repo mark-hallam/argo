@@ -4,6 +4,8 @@ import "./page.css";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Public pricing page — `/pricing`, exempt from auth middleware.
@@ -149,23 +151,7 @@ export default function PricingPage() {
   return (
     <>
       <div className="pri">
-        <header className="pri-top">
-          <Link href="/landing" className="pri-brand" style={{ textDecoration: "none", color: "inherit" }}>
-            <div className="pri-brand-mark" />
-            <div className="pri-brand-name">SKYCOT</div>
-          </Link>
-          <nav className="pri-nav">
-            <Link href="/landing#how">How it works</Link>
-            <Link href="/landing#features">Features</Link>
-            <Link href="/compare">Compare</Link>
-            <Link href="/customers">Customers</Link>
-            <Link href="/pricing" className="active">Pricing</Link>
-          </nav>
-          <div className="pri-top-right">
-            <Link href="/auth/signin" className="pri-signin">Sign in</Link>
-            <Link href="/auth/signup" className="pri-cta-pill">Hire your first teammate</Link>
-          </div>
-        </header>
+        <MarketingNav />
 
         <section className="pri-hero">
           <div className="pri-eyebrow">
@@ -266,17 +252,7 @@ export default function PricingPage() {
           </Link>
         </section>
 
-        <footer className="pri-foot">
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
-            <Link href="/landing">SKYCOT</Link>
-            <Link href="/compare">Compare</Link>
-            <Link href="/customers">Customers</Link>
-            <Link href="/pricing">Pricing</Link>
-            <a href="https://github.com/mark-hallam/skycot-packs">GitHub</a>
-            <a href="mailto:hello@skycot.com">Contact</a>
-          </div>
-          <div>© 2026 SKYCOT · Made in Melbourne · skycot.com</div>
-        </footer>
+        <MarketingFooter />
       </div>
     </>
   );

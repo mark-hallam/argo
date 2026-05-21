@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Check, Shield, MessageSquareText, Sparkles, GitBranch, Users2 } from "lucide-react";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import "./page.css";
 
 /**
@@ -125,47 +127,7 @@ export default function MarketingLandingPage() {
   return (
     <>
       <div className="land">
-        <header className="land-top">
-          <div className="land-brand">
-            <div className="land-brand-mark" />
-            <div className="land-brand-name">SKYCOT</div>
-          </div>
-          <nav className="land-nav">
-            <a href="#how">How it works</a>
-            <a href="#features">Features</a>
-            <span className="land-for-wrap">
-              <button className="land-for-trigger" type="button" aria-haspopup="true">
-                For <ArrowRight size={12} style={{ transform: "rotate(90deg)" }} />
-              </button>
-              <div className="land-for-menu" role="menu">
-                {[
-                  { slug: "sales", label: "Sales", tagline: "Qualify leads, book demos." },
-                  { slug: "recruiting", label: "Recruiting", tagline: "Screen, schedule, reference." },
-                  { slug: "support", label: "Support", tagline: "Triage tickets, draft replies." },
-                  { slug: "finance", label: "Finance", tagline: "Extract, reconcile, flag." },
-                  { slug: "marketing", label: "Marketing", tagline: "Brand QA, enrich, digest." },
-                  { slug: "ops", label: "Ops", tagline: "Status, sync, audit." },
-                ].map((v) => (
-                  <Link key={v.slug} href={`/for/${v.slug}`} className="land-for-item" role="menuitem">
-                    <p className="land-for-item-label">{v.label}</p>
-                    <p className="land-for-item-tag">{v.tagline}</p>
-                  </Link>
-                ))}
-              </div>
-            </span>
-            <Link href="/compare">Compare</Link>
-            <Link href="/customers">Customers</Link>
-            <Link href="/pricing">Pricing</Link>
-          </nav>
-          <div className="land-top-right">
-            <Link href="/auth/signin" className="land-signin">
-              Sign in
-            </Link>
-            <Link href="/auth/signup" className="land-cta-pill">
-              Hire your first teammate
-            </Link>
-          </div>
-        </header>
+        <MarketingNav current="/landing" />
 
         {/* Hero */}
         <section className="land-hero">
@@ -398,52 +360,7 @@ export default function MarketingLandingPage() {
           </Link>
         </section>
 
-        <footer
-          className="land-foot"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 18,
-            alignItems: "center",
-            padding: "32px 64px",
-          }}
-        >
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
-            <a href="/landing" style={{ color: "inherit", textDecoration: "none" }}>
-              SKYCOT
-            </a>
-            <Link href="/compare" style={{ color: "inherit", textDecoration: "none" }}>
-              Compare
-            </Link>
-            <Link href="/customers" style={{ color: "inherit", textDecoration: "none" }}>
-              Customers
-            </Link>
-            <Link href="/pricing" style={{ color: "inherit", textDecoration: "none" }}>
-              Pricing
-            </Link>
-            <a href="https://github.com/mark-hallam/skycot-packs" style={{ color: "inherit", textDecoration: "none" }}>
-              GitHub
-            </a>
-            <Link href="/docs" style={{ color: "inherit", textDecoration: "none" }}>
-              Docs
-            </Link>
-            <Link href="/privacy" style={{ color: "inherit", textDecoration: "none" }}>
-              Privacy
-            </Link>
-            <Link href="/terms" style={{ color: "inherit", textDecoration: "none" }}>
-              Terms
-            </Link>
-            <Link href="/security" style={{ color: "inherit", textDecoration: "none" }}>
-              Security
-            </Link>
-            <a href="mailto:hello@skycot.com" style={{ color: "inherit", textDecoration: "none" }}>
-              Contact
-            </a>
-          </div>
-          <div>
-            © 2026 SKYCOT · Made in Melbourne · skycot.com
-          </div>
-        </footer>
+        <MarketingFooter />
       </div>
     </>
   );

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Security page — v1.0 placeholder. Lists the actual security
@@ -9,6 +11,7 @@ import Link from "next/link";
 export default function SecurityPage() {
   return (
     <>
+    <MarketingNav />
     <main
       style={{
         maxWidth: 720,
@@ -114,6 +117,7 @@ export default function SecurityPage() {
         </Link>
       </p>
     </main>
+    <MarketingFooter />
     </>
   );
 }

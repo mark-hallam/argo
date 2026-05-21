@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Terms of service — v1.0 placeholder until full legal review lands.
@@ -9,6 +11,7 @@ import Link from "next/link";
 export default function TermsPage() {
   return (
     <>
+    <MarketingNav />
     <main
       style={{
         maxWidth: 720,
@@ -107,6 +110,7 @@ export default function TermsPage() {
         .
       </p>
     </main>
+    <MarketingFooter />
     </>
   );
 }

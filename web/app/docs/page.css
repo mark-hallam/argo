@@ -38,58 +38,9 @@
   z-index: 0;
   pointer-events: none;
 }
-.dh-top,
 .dh-stage {
   position: relative;
   z-index: 1;
-}
-.dh-top {
-  padding: 22px 64px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.dh-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  color: inherit;
-}
-.dh-brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
-}
-.dh-brand-name {
-  font-family: var(--font-audiowide);
-  font-size: 16px;
-  letter-spacing: 0.08em;
-}
-.dh-nav {
-  display: flex;
-  gap: 28px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.dh-nav a {
-  color: var(--ink-2);
-  text-decoration: none;
-}
-.dh-nav a:hover {
-  color: var(--purple);
-}
-.dh-cta-pill {
-  padding: 9px 18px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-  box-shadow: 0 6px 18px -4px rgba(139, 92, 246, 0.45);
 }
 .dh-hero {
   padding: 72px 64px 24px;
@@ -447,27 +398,4 @@
   background: rgba(255, 255, 255, 0.18);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.4);
-}
-.dh-foot {
-  padding: 56px 64px 32px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ink-3);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 600;
-  text-align: center;
-  border-top: 1px solid var(--line);
-  margin-top: 56px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  align-items: center;
-  position: relative;
-  z-index: 1;
-}
-@media (max-width: 700px) {
-  .dh-foot {
-    padding: 32px 16px;
-  }
 }

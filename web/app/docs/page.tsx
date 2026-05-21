@@ -13,6 +13,8 @@ import {
   Lightbulb,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 /**
  * Public docs hub — `/docs`, exempt from auth middleware.
@@ -120,22 +122,7 @@ export default function DocsHubPage() {
   return (
     <>
       <div className="dh">
-        <header className="dh-top">
-          <Link href="/landing" className="dh-brand">
-            <div className="dh-brand-mark" />
-            <div className="dh-brand-name">SKYCOT</div>
-          </Link>
-          <nav className="dh-nav">
-            <Link href="/landing#how">How it works</Link>
-            <Link href="/landing#features">Features</Link>
-            <Link href="/compare">Compare</Link>
-            <Link href="/docs">Docs</Link>
-            <Link href="/changelog">Changelog</Link>
-          </nav>
-          <Link href="/auth/signup" className="dh-cta-pill">
-            Hire your first teammate
-          </Link>
-        </header>
+        <MarketingNav />
 
         <section className="dh-hero">
           <div className="dh-hero-eyebrow">
@@ -215,29 +202,7 @@ export default function DocsHubPage() {
           </div>
         </section>
 
-        <footer className="dh-foot">
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
-            <Link href="/landing" style={{ color: "inherit", textDecoration: "none" }}>
-              SKYCOT
-            </Link>
-            <Link href="/compare" style={{ color: "inherit", textDecoration: "none" }}>
-              Compare
-            </Link>
-            <Link href="/docs" style={{ color: "inherit", textDecoration: "none" }}>
-              Docs
-            </Link>
-            <Link href="/changelog" style={{ color: "inherit", textDecoration: "none" }}>
-              Changelog
-            </Link>
-            <a href="https://github.com/mark-hallam/skycot-packs" style={{ color: "inherit", textDecoration: "none" }}>
-              GitHub
-            </a>
-            <a href="mailto:hello@skycot.com" style={{ color: "inherit", textDecoration: "none" }}>
-              Contact
-            </a>
-          </div>
-          <div>© 2026 SKYCOT · Made in Melbourne · skycot.com</div>
-        </footer>
+        <MarketingFooter />
       </div>
     </>
   );
