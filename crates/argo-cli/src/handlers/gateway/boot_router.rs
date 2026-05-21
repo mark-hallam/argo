@@ -181,6 +181,19 @@ async fn try_dispatch_gates(
         request_audit::spawn_record(audit.take(), ctx.store, "200 OK", 0);
         return Some(200);
     }
+    // Logout endpoint (mission-revocation-with-verify-middleware-v1x).
+    // Stream-owning so it can emit `Set-Cookie: __Host-session=; Max-Age=0`
+    // alongside the JSON body. Mounted ahead of the route-family
+    // fall-through, after auth_magic_link so a confused client that
+    // hits logout while already mid-magic-link verify still resolves
+    // the verify first. The audit row is written by the logout
+    // handler itself (`AuditKind::LogoutCalled`); the request_audit
+    // row reports the HTTP-level outcome only.
+    if super::routes_auth_logout::is_logout_request(req) {
+        let _ = super::routes_auth_logout::serve_logout_stream(req, ctx.store, stream).await;
+        request_audit::spawn_record(audit.take(), ctx.store, "200 OK", 0);
+        return Some(200);
+    }
     None
 }
 

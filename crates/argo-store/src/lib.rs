@@ -124,6 +124,12 @@ pub mod pool_config;
 pub mod queries;
 /// Recovery-cache CRUD helpers — `argo recover cache list/show/clear`.
 pub mod recovery_cache;
+/// Session-JWT revocation list backing the `middleware_session_verify`
+/// cookie-auth gate (mission-revocation-with-verify-middleware-v1x).
+/// `POST /api/v1/auth/logout` inserts the cookie's `jti` claim; the
+/// gateway middleware queries `is_revoked` on every authenticated
+/// request and 401s when present.
+pub mod revoked_tokens;
 /// Per-worker retrospective store (Stream `mission-retro-review-ui`,
 /// MISSION_BACKLOG Section 6 #209). One row per retro over a time
 /// window; aggregated metrics from `audit_record` are frozen at

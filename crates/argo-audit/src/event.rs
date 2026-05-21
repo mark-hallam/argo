@@ -328,6 +328,15 @@ pub enum AuditKind {
     /// [`Self::WorkspaceMemberInvited`] so the audit trail tells the
     /// invite/accept story end-to-end.
     WorkspaceMemberJoined,
+    /// `POST /api/v1/auth/logout` invoked
+    /// (mission-revocation-with-verify-middleware-v1x). Emitted after
+    /// the cookie JWT decode succeeds and the `jti` claim (when
+    /// present) is recorded into `revoked_tokens`. Payload:
+    /// `{ user_id, tenant_id, jti, at }`. Cookies without a `jti`
+    /// claim (pre-jti-emission cohort) still emit the audit row with
+    /// `jti: null` so the auth-funnel rollup can quantify the
+    /// drain-on-exp cohort.
+    LogoutCalled,
 }
 
 impl AuditKind {
@@ -392,6 +401,7 @@ impl AuditKind {
             Self::CronJobFired => "cron_job_fired",
             Self::WorkspaceMemberInvited => "workspace.member.invited",
             Self::WorkspaceMemberJoined => "workspace.member.joined",
+            Self::LogoutCalled => "auth.logout",
         }
     }
 
@@ -458,6 +468,7 @@ impl AuditKind {
             "cron_job_fired" => Self::CronJobFired,
             "workspace.member.invited" => Self::WorkspaceMemberInvited,
             "workspace.member.joined" => Self::WorkspaceMemberJoined,
+            "auth.logout" => Self::LogoutCalled,
             _ => return None,
         })
     }
@@ -524,6 +535,7 @@ impl AuditKind {
             Self::CronJobFired,
             Self::WorkspaceMemberInvited,
             Self::WorkspaceMemberJoined,
+            Self::LogoutCalled,
         ];
         v.sort_by_key(|k| k.label());
         v

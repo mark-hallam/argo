@@ -78,6 +78,23 @@ async fn dispatch_route_inner(
     if let Some(resp) = super::middleware_csrf::check_csrf(req) {
         return resp;
     }
+    // Cookie-JWT verify gate (mission-revocation-with-verify-middleware-v1x).
+    // Runs AFTER origin + csrf so cross-origin / CSRF-missing requests are
+    // rejected before the more expensive jsonwebtoken decode + revoked_tokens
+    // lookup. Treats a missing cookie as fall-through so the existing
+    // bearer-token gate still handles non-browser API callers. Magic-link
+    // verify (`/auth/verify`), signup (`/auth/signup`), and the WS Ed25519
+    // path are exempted upstream — `/auth/verify` and `/auth/signup` are
+    // anonymous-by-design (no session yet), and ws_upgrade owns its own
+    // Ed25519-bound auth in `boot_router::try_dispatch_gates`. The logout
+    // endpoint (`/auth/logout`) is also exempt because it owns its own
+    // decode path in `boot_router` to emit the cookie-clear `Set-Cookie`
+    // header; it MUST remain reachable even when the cookie is already
+    // in `revoked_tokens` so a confused client can still reach the
+    // cookie-clear path.
+    if let Some(resp) = check_session_cookie(req, store).await {
+        return resp;
+    }
     // Peer mesh runs ahead of the operator-facing bearer gate: it
     // carries its own ARGO_PEER_SECRET-bearer check, distinct from
     // ARGO_GATEWAY_BEARER_TOKEN. Routing /peer/* through the operator
@@ -200,6 +217,52 @@ async fn dispatch_route_inner(
         return resp;
     }
     ("404 Not Found", "{\"error\":\"not found\"}".to_string())
+}
+
+/// Apply the cookie-JWT verify gate. Returns `Some(401-resp)` when a
+/// `__Host-session` cookie is present but invalid / expired / revoked;
+/// returns `None` to let the request fall through to the bearer-token
+/// gate (also `None` when no cookie is present). Live behind the
+/// `middleware_session_verify` module — mounted ahead of the bearer
+/// gate so a revoked cookie cannot side-step into bearer auth, but
+/// fall-through preserves non-browser callers.
+///
+/// Exempt paths (per the brief):
+/// - `POST /api/v1/auth/signup` — anonymous sign-up; a returning
+///   user with a stale cookie must still be able to re-enrol.
+/// - CSRF token-fetch (`/api/v1/auth/csrf`) — anonymous so the SPA
+///   can read the double-submit token on first load.
+/// - `OPTIONS *` — CORS preflights carry no auth.
+///
+/// Magic-link verify (`/api/v1/auth/verify`) and the WS Ed25519 path
+/// are upstream in `boot_router::try_dispatch_gates`, so they never
+/// reach this gate.
+async fn check_session_cookie(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    if is_session_verify_exempt(req) {
+        return None;
+    }
+    use super::middleware_session_verify::{verify_session_cookie, SessionVerifyOutcome};
+    match verify_session_cookie(req, store).await {
+        SessionVerifyOutcome::NoCookie | SessionVerifyOutcome::Valid(_) => None,
+        SessionVerifyOutcome::Reject(reason) => Some((
+            "401 Unauthorized",
+            format!("{{\"error\":\"{reason}\"}}"),
+        )),
+    }
+}
+
+/// Anonymous-by-design endpoints that must not be 401d by the
+/// cookie-verify gate even if a stale `__Host-session` cookie is
+/// present.
+fn is_session_verify_exempt(req: &str) -> bool {
+    req.starts_with("OPTIONS ")
+        || req.starts_with("POST /api/v1/auth/signup ")
+        || req.starts_with("POST /api/v1/auth/signup?")
+        || req.starts_with("GET /api/v1/auth/csrf ")
+        || req.starts_with("GET /api/v1/auth/csrf?")
 }
 
 /// Apply the per-route, per-tenant rate limit. Returns `Some(resp)`
