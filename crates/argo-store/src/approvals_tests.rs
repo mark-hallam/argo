@@ -5,7 +5,7 @@
 //! sibling `approvals_tests_expire.rs`.
 
 use super::*;
-use crate::SessionStore;
+use crate::{SessionStore, EXPECTED_SCHEMA_VERSION};
 
 async fn fresh_pool() -> SqlitePool {
     let store = SessionStore::open(":memory:").await.expect("open store");
@@ -62,7 +62,7 @@ async fn migrate_creates_indexes() {
 async fn down_migration_drops_table() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 74);
+    assert_eq!(store.schema_version().await.unwrap(), EXPECTED_SCHEMA_VERSION);
 
     store.migrate_down_to(43).await.unwrap();
 
@@ -77,7 +77,7 @@ async fn down_migration_drops_table() {
 
     // And re-migrating UP recreates it.
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 74);
+    assert_eq!(store.schema_version().await.unwrap(), EXPECTED_SCHEMA_VERSION);
 }
 
 #[tokio::test]
