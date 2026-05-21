@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T13:43:00Z",
+  "last_run_utc": "2026-05-22T00:18:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-27",
-  "run_notes": "Tick 27: HUGE wave — 13 new claims, Wave-15 P0 substrate finally moving. #1987 (hire-schema-mirror-only) + 6 other P0 hire/workflow briefs claimed. Queue dropped to 10 claude/6 codex; replenishing."
+  "session_label": "anthropic-claude-code-conductor-tick-28",
+  "run_notes": "Tick 28: swarm-healthy report. 0 new commits in 35min, 5 DIRTY PRs unchanged (2-3h old, fix-requests still unaddressed), 14 CLAIMED but only 1 worktree visible locally. Either deep-impl phase OR claim-burst ghost pattern returning. Monitoring next tick for resolution."
 }
