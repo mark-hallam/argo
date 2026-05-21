@@ -5,6 +5,10 @@
 -- sessions and workers can finish, but default operator listings
 -- hide them and runtime triggers installed by the CLI reject new
 -- bindings.
+--
+-- SAFETY: global table because verticals are operator-installed
+-- templates (manifests + workflows + prompt packs) shared across
+-- tenants on a deployment. Lifecycle state is per-deployment.
 
 CREATE TABLE IF NOT EXISTS vertical_lifecycle (
     vertical_id TEXT PRIMARY KEY,

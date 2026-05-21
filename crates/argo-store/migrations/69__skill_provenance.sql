@@ -3,6 +3,10 @@
 --
 -- Slot 69 is reserved for this brief in BUILD_STATUS.md. Rust
 -- migration v69 owns the reversible implementation and backfill.
+--
+-- SAFETY: global table because skills are a cross-tenant marketplace
+-- catalog (see `skill` in v1.rs). Provenance attribution travels
+-- with the skill across tenant boundaries.
 
 CREATE TABLE IF NOT EXISTS skill_provenance (
     skill_name      TEXT    NOT NULL,

@@ -1,6 +1,10 @@
 -- mission-tenant-substrate-tables — magic-link user account table.
 -- Email is the verified identity column; display_name and last_login_at
 -- are nullable until first verify. Status enum: 'active' | 'disabled'.
+--
+-- SAFETY: global table — user identity registry. A user may belong to
+-- multiple tenants via `user_tenant`, so the account itself is not
+-- tenant-scoped. Per-tenant authorization lives in `user_tenant`.
 
 CREATE TABLE IF NOT EXISTS user_account (
     id              BLOB    PRIMARY KEY,

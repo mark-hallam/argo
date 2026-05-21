@@ -7,6 +7,12 @@
 -- `email` repeats the target so the verify path resolves a destination
 -- before the user_account row is created.
 --
+-- SAFETY: global table — magic-link tokens are issued and consumed
+-- pre-tenant. The token resolves to an email, which then resolves to a
+-- user_account; tenant scope is established only after sign-in via
+-- `user_tenant` membership. Per-tenant token partitioning would break
+-- multi-tenant users.
+--
 -- Slot 115: reference DDL — applied at runtime by
 -- `argo-store::user_account::ensure_schema` (same pattern as
 -- worker_presence / siem_dispatch_cursor / tenant substrate). The

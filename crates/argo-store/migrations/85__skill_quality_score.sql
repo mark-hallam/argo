@@ -1,6 +1,10 @@
 -- Stream `claude-skill-quality-judge` (V2.0) — per-skill 0..100
 -- quality score, recomputed periodically.
 --
+-- SAFETY: global table because skills are a cross-tenant marketplace
+-- catalog (see `skill` in v1.rs). Quality scores are computed against
+-- the global catalog and surfaced uniformly to every tenant.
+--
 -- One row per (skill_id, computed_at). Operators query the most
 -- recent row for the live score. The history rows back trends and
 -- regressions.

@@ -1,6 +1,12 @@
 -- Stream `mission-siem-integration` (MISSION_BACKLOG Section 7 #227) —
 -- persistent dispatcher cursor for the new `argo-siem` crate.
 --
+-- SAFETY: global table because the SIEM dispatcher is a single-
+-- deployment outbound shipper. One cursor row per (backend, endpoint)
+-- tracks `audit_record.seq` shipped across all tenants; per-tenant
+-- partitioning would multiply enterprise SIEM ingest cost without
+-- benefit (downstream SIEMs already index by `tenant_id` in payload).
+--
 -- The SIEM dispatcher tails `audit_record` ordered by `seq`, batches
 -- rows by sink-specific size limits, and ships them to a configured
 -- Splunk HEC / Elasticsearch `_bulk` / Datadog Logs endpoint. The

@@ -2,6 +2,11 @@
 -- learning). Persists polished plan templates that the Dreams API
 -- distilled from cohorts of successful Planner decompositions.
 --
+-- SAFETY: global table by design. Dreams distills templates from a
+-- cohort that may span multiple tenants; promoted templates are
+-- consulted by TemplatePlanner across every tenant on the deployment.
+-- Per-tenant namespacing would defeat the cross-tenant learning loop.
+--
 -- Lifecycle (TrustGrade ladder):
 --   * `pending`  - distilled by Dreams, not yet operator-approved.
 --   * `promoted` - operator approved via `argo plan template promote`,

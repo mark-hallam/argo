@@ -1,6 +1,10 @@
 -- mission-pm-scheduled-skill-reeval — trend history for scheduled
 -- skill eval-set re-runs.
 --
+-- SAFETY: global table because skills are a cross-tenant marketplace
+-- catalog (see `skill` in v1.rs). Re-eval runs target the global
+-- catalog by `skill_id`; results apply uniformly across tenants.
+--
 -- Slot 121 intentionally skips currently reserved 119/120 work in
 -- open PRs. The table is lazily applied by
 -- `argo_skill::scheduled_reeval_cron::ensure_schema`, matching the

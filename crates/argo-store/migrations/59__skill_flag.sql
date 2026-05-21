@@ -2,6 +2,10 @@
 -- Section 3 Claim 4 #85) — per-skill operator flags consulted by the
 -- Forge ingestion path before pulling operator feedback as eval cases.
 --
+-- SAFETY: global table because skills are a cross-tenant marketplace
+-- catalog (see `skill` in v1.rs). Flags scope per-(skill_id, flag)
+-- and apply uniformly across tenants that surface the skill.
+--
 -- The schema is intentionally generic so future per-skill flags
 -- piggyback on the same table without further migrations: one row
 -- per (skill_id, flag) pair, value as INTEGER (0/1 for booleans,
