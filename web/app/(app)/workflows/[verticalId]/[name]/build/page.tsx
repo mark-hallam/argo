@@ -34,6 +34,7 @@ import { useBuilderKeyboard } from "@/lib/hooks/use-builder-keyboard";
 import { useWorkflowBuilderState } from "@/lib/hooks/use-workflow-builder-state";
 import { getTemplate } from "@/lib/workflow-templates";
 
+import { BuilderAiProposal } from "./BuilderAiProposal";
 import { BuilderCanvas, SNAP_GRID_SIZE } from "./BuilderCanvas";
 import { BuilderInspector } from "./BuilderInspector";
 import { BuilderToolbar } from "./BuilderToolbar";
@@ -45,7 +46,13 @@ import {
 } from "./builder-handlers";
 import { stepsToFlow } from "./layout";
 import { SEED_WORKFLOWS } from "./seed-workflows";
-import { STEP_KIND_META, type SkyNodeData, type StepKind, type WorkflowSpec } from "./types";
+import {
+  STEP_KIND_META,
+  type SkyNodeData,
+  type StepKind,
+  type WorkflowSpec,
+  type WorkflowStep,
+} from "./types";
 
 interface ContextMenuState {
   x: number;
@@ -152,7 +159,9 @@ function BuilderInner({
 
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [promptText, setPromptText] = useState("");
-  const [proposing, setProposing] = useState(false);
+  // Active proposal prompt — when set, the AI proposal panel is open
+  // and streaming. Cleared on approve / reject / new propose request.
+  const [activeProposalPrompt, setActiveProposalPrompt] = useState<string | null>(null);
   const [triggerConfigOpen, setTriggerConfigOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -424,27 +433,39 @@ function BuilderInner({
   const selectedTriggerKind: TriggerKind = selectedStep?.triggerKind ?? "manual";
 
   const handleProposeChange = useCallback(() => {
-    if (!promptText.trim()) return;
-    setProposing(true);
-    const prompt = promptText;
-    // Honest demo stub — wave-6 action-fires audit (2026-05-21) called
-    // out the prior `setTimeout` toast for over-claiming success on a
-    // canvas that doesn't actually change. The real Propose live-wire
-    // lands via brief `web-workflow-builder-ai-prompt-wired` (#1882 +
-    // batch-1 sibling). Until then, surface the action without claiming
-    // completion of work that didn't happen.
-    const dismissId = toast.loading(`Drafting: "${prompt}"`, {
-      description: "Live AI workflow editing — wired in the next deploy.",
-    });
-    setTimeout(() => {
-      toast.message("Preview build — draft not persisted", {
-        id: dismissId,
-        description: "Live AI editing rolls out next. Canvas updates land then.",
-      });
-      setProposing(false);
-      setPromptText("");
-    }, 1400);
+    const prompt = promptText.trim();
+    if (!prompt) return;
+    setActiveProposalPrompt(prompt);
   }, [promptText]);
+
+  const handlePickSuggestion = useCallback((next: string) => {
+    setPromptText(next);
+    setActiveProposalPrompt(next.trim());
+  }, []);
+
+  const currentSteps = useMemo<WorkflowStep[]>(
+    () => builder.nodes.map((n) => (n.data as SkyNodeData).step),
+    [builder.nodes],
+  );
+
+  const handleProposalApprove = useCallback(
+    (steps: WorkflowStep[]) => {
+      const next = stepsToFlow(steps);
+      builder.setNodes(next.nodes);
+      builder.setEdges(next.edges);
+      setSelectedNode(null);
+      setActiveProposalPrompt(null);
+      setPromptText("");
+      toast.success("Proposal applied to canvas", {
+        description: "Review the new graph, then Save + publish to persist.",
+      });
+    },
+    [builder],
+  );
+
+  const handleProposalCancel = useCallback(() => {
+    setActiveProposalPrompt(null);
+  }, []);
 
   const handleTestRun = useCallback(() => {
     // Honest demo stub — wave-6 action-fires audit flagged the prior
@@ -555,9 +576,10 @@ function BuilderInner({
           name={name}
           dirty={builder.dirty}
           promptText={promptText}
-          proposing={proposing}
+          proposing={activeProposalPrompt !== null}
           onPromptTextChange={setPromptText}
           onProposeChange={handleProposeChange}
+          onPickSuggestion={handlePickSuggestion}
           onTestRun={handleTestRun}
           onSaveAndPublish={handleSaveAndPublish}
         />
@@ -614,6 +636,16 @@ function BuilderInner({
               }
               onClose={() => setTriggerConfigOpen(false)}
               onSave={() => setTriggerConfigOpen(false)}
+            />
+          ) : null}
+          {activeProposalPrompt !== null ? (
+            <BuilderAiProposal
+              prompt={activeProposalPrompt}
+              verticalId={verticalId}
+              workerId={`${verticalId}-${name}`}
+              currentSteps={currentSteps}
+              onApprove={handleProposalApprove}
+              onCancel={handleProposalCancel}
             />
           ) : null}
         </div>

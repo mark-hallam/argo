@@ -13,6 +13,8 @@ interface Props {
   proposing: boolean;
   onPromptTextChange: (next: string) => void;
   onProposeChange: () => void;
+  /** Pick a suggestion chip: fill the prompt AND submit immediately. */
+  onPickSuggestion: (next: string) => void;
   onTestRun: () => void;
   onSaveAndPublish: () => void;
 }
@@ -26,6 +28,7 @@ export function BuilderToolbar({
   proposing,
   onPromptTextChange,
   onProposeChange,
+  onPickSuggestion,
   onTestRun,
   onSaveAndPublish,
 }: Props) {
@@ -84,14 +87,20 @@ export function BuilderToolbar({
         <button
           type="button"
           className="builder-prompt-suggest"
-          onClick={() => onPromptTextChange("Add a step that emails the seller before posting")}
+          disabled={proposing}
+          onClick={() =>
+            onPickSuggestion("Add a step that emails the seller before posting")
+          }
         >
           Add a step
         </button>
         <button
           type="button"
           className="builder-prompt-suggest"
-          onClick={() => onPromptTextChange("Convert this to fully autonomous (no approval needed)")}
+          disabled={proposing}
+          onClick={() =>
+            onPickSuggestion("Convert this to fully autonomous (no approval needed)")
+          }
         >
           Remove gate
         </button>
