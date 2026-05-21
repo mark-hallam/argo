@@ -100,6 +100,32 @@ export interface NodeRunState {
 export interface SkyNodeData extends Record<string, unknown> {
   step: WorkflowStep;
   runState?: NodeRunState;
+  // Set true when input-data has been pinned for this step's id. Used by
+  // BuilderCanvasNode to render the inline `PINNED` chip. Projected onto
+  // nodes by `decorateWithPins()` so the chip survives node-state
+  // rebuilds without prop-drilling pin state through every component.
+  pinned?: boolean;
+}
+
+// Free-form annotation placed on the canvas. Persists with the workflow
+// document (gateway `notes[]` field is a follow-up brief — for v1 these
+// live in client session state). Rendered as a draggable yellow
+// Post-it via `StickyNoteNode`.
+export interface StickyNote {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+}
+
+// Data payload attached to ReactFlow nodes whose `type === "sticky"`.
+// Callbacks plumb edit + delete back to the annotations hook so the
+// note can be a fully self-contained component in the node registry.
+export interface SkyNoteData extends Record<string, unknown> {
+  noteId: string;
+  text: string;
+  onTextChange: (id: string, text: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export const STEP_KIND_META: Record<StepKind, { icon: ReactNode; color: string; label: string }> = {

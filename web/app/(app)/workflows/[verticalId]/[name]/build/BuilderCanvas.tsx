@@ -18,6 +18,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { SkycotStepNode } from "./BuilderCanvasNode";
 import { AddStepPalette } from "./BuilderNodePalette";
+import { StickyNoteNode } from "./StickyNoteNode";
 import { SubWorkflowNode } from "./SubWorkflowNode";
 import { SubWorkflowPicker } from "./SubWorkflowPicker";
 import {
@@ -48,6 +49,7 @@ interface Props {
   onNodeContextMenu?: (event: React.MouseEvent, node: Node) => void;
   onEdgeContextMenu?: (event: React.MouseEvent, edge: Edge) => void;
   onPaneClick?: () => void;
+  onPaneContextMenu?: (event: React.MouseEvent | MouseEvent) => void;
   onNodeDragStart?: OnNodeDrag;
   onNodeDragStop?: OnNodeDrag;
   onShowShortcuts?: () => void;
@@ -73,6 +75,7 @@ export function BuilderCanvas({
   onNodeContextMenu,
   onEdgeContextMenu,
   onPaneClick,
+  onPaneContextMenu,
   onNodeDragStart,
   onNodeDragStop,
   onShowShortcuts,
@@ -80,7 +83,11 @@ export function BuilderCanvas({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const nodeTypes = useMemo(
-    () => ({ skycot: SkycotStepNode, subWorkflow: SubWorkflowNode }),
+    () => ({
+      skycot: SkycotStepNode,
+      subWorkflow: SubWorkflowNode,
+      sticky: StickyNoteNode,
+    }),
     [],
   );
 
@@ -143,6 +150,7 @@ export function BuilderCanvas({
         onNodeContextMenu={onNodeContextMenu}
         onEdgeContextMenu={onEdgeContextMenu}
         onPaneClick={onPaneClick}
+        onPaneContextMenu={onPaneContextMenu}
         onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStop}
         deleteKeyCode={["Backspace", "Delete"]}

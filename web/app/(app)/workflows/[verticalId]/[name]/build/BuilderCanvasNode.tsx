@@ -1,6 +1,6 @@
 "use client";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Pin, XCircle } from "lucide-react";
 
 import { formatWaitSummary } from "./layout";
 import { STEP_KIND_META, type NodeRunStatus, type SkyNodeData } from "./types";
@@ -123,6 +123,30 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
             {step.name}
           </div>
         </div>
+        {sky.pinned ? (
+          <div
+            data-testid={`builder-node-pinned-${step.id}`}
+            title="Input data pinned — open the inspector to view"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "2px 7px",
+              borderRadius: 999,
+              background: "rgba(139,92,246,0.12)",
+              color: "#5b21b6",
+              border: "1px solid rgba(139,92,246,0.3)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            <Pin size={9} /> Pinned
+          </div>
+        ) : null}
       </div>
       <div style={{ padding: "12px 16px" }}>
         <div style={{ fontSize: 12.5, color: "#3f3f46", lineHeight: 1.45 }}>

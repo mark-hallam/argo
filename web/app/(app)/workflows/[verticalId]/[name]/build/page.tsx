@@ -10,7 +10,7 @@ import {
   type IsValidConnection,
   type Node,
 } from "@xyflow/react";
-import { Copy, Settings as SettingsIcon, Trash2, Unlink } from "lucide-react";
+import { Copy, Settings as SettingsIcon, StickyNote as StickyNoteIcon, Trash2, Unlink } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,6 +30,7 @@ import {
   WorkflowBuilderErrorState,
 } from "@/components/skycot/workflows/WorkflowEdgeStates";
 import { MobileBuilderGate } from "@/components/skycot/workflows/MobileBuilderGate";
+import { useBuilderAnnotations } from "@/lib/hooks/use-builder-annotations";
 import { useBuilderHistory, type BuilderSnapshot } from "@/lib/hooks/use-builder-history";
 import { useBuilderKeyboard } from "@/lib/hooks/use-builder-keyboard";
 import { useWorkflowBuilderState } from "@/lib/hooks/use-workflow-builder-state";
@@ -40,6 +41,7 @@ import { BuilderCanvas, SNAP_GRID_SIZE } from "./BuilderCanvas";
 import { BuilderInspector } from "./BuilderInspector";
 import { BuilderSidebarPalette } from "./BuilderSidebarPalette";
 import { BuilderToolbar } from "./BuilderToolbar";
+import { PinDataModal } from "./PinDataModal";
 import {
   isValidConnectionShape,
   newStepNode,
@@ -65,6 +67,10 @@ interface ContextMenuState {
   y: number;
   nodeId: string | null;
   edgeId: string | null;
+  // Flow-space coords captured at right-click on empty canvas, used as
+  // the drop position for "Add sticky note". null when the menu was
+  // opened on a node/edge.
+  paneFlow: { x: number; y: number } | null;
 }
 
 function nodeStep(node: Node | undefined): SkyNodeData["step"] | undefined {
@@ -171,9 +177,12 @@ function BuilderInner({
   const [triggerConfigOpen, setTriggerConfigOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // Step id whose Pin-data modal is currently open, or null when closed.
+  const [pinModalStepId, setPinModalStepId] = useState<string | null>(null);
   // One config per step id. Persisted client-side for v1; wired to the
   // gateway step-config save path in a follow-up brief.
   const [triggerConfigs, setTriggerConfigs] = useState<Record<string, TriggerConfig>>({});
+  const annotations = useBuilderAnnotations();
   const workflowId = `${verticalId}/${name}`;
 
   // useReactFlow + history hook only function when the page is wrapped
@@ -227,12 +236,18 @@ function BuilderInner({
   // Pushes a history snapshot for keyboard undo (Cmd+Z) too.
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
-      if (deleted.length > 0) {
-        const label = `Delete ${deleted.length} step${deleted.length === 1 ? "" : "s"}`;
-        history.push(captureSnapshot(label));
-      }
-      const triggers = deleted.filter((n) => nodeStep(n)?.kind === "trigger");
-      const deletable = deleted.filter((n) => nodeStep(n)?.kind !== "trigger");
+      // Stickies live in `annotations.notes`, not `builder.nodes`. Route
+      // their deletes through the annotations hook so the source of
+      // truth updates; otherwise the next render rebuilds the sticky.
+      const stickies = deleted.filter((n) => n.type === "sticky");
+      for (const s of stickies) annotations.deleteNote(s.id);
+
+      const steps = deleted.filter((n) => n.type !== "sticky");
+      if (steps.length === 0) return;
+      const label = `Delete ${steps.length} step${steps.length === 1 ? "" : "s"}`;
+      history.push(captureSnapshot(label));
+      const triggers = steps.filter((n) => nodeStep(n)?.kind === "trigger");
+      const deletable = steps.filter((n) => nodeStep(n)?.kind !== "trigger");
 
       if (triggers.length > 0) {
         toast.error("Trigger steps can't be deleted", {
@@ -272,7 +287,7 @@ function BuilderInner({
       }
       toast.success(`${deletable.length} steps deleted`);
     },
-    [builder, selectedNode, captureSnapshot, history],
+    [builder, selectedNode, captureSnapshot, history, annotations],
   );
 
   const onEdgesDelete = useCallback(
@@ -280,6 +295,36 @@ function BuilderInner({
       for (const edge of deleted) builder.removeEdge(edge.id);
     },
     [builder],
+  );
+
+  // Stickies live outside `builder.nodes` (their source is
+  // `annotations.notes`). React Flow doesn't know that — it fires
+  // position + remove changes for stickies alongside step nodes. Route
+  // sticky-id changes to the annotations hook and pass step-node
+  // changes through to the builder's controlled state.
+  const onNodesChange = useCallback<typeof builder.onNodesChange>(
+    (changes) => {
+      const forBuilder: typeof changes = [];
+      for (const change of changes) {
+        if (change.type === "position" && annotations.isNoteId(change.id)) {
+          if (change.position) {
+            annotations.updateNotePosition(
+              change.id,
+              change.position.x,
+              change.position.y,
+            );
+          }
+          continue;
+        }
+        if (change.type === "remove" && annotations.isNoteId(change.id)) {
+          annotations.deleteNote(change.id);
+          continue;
+        }
+        forBuilder.push(change);
+      }
+      if (forBuilder.length > 0) builder.onNodesChange(forBuilder);
+    },
+    [builder, annotations],
   );
 
   const duplicateNode = useCallback(
@@ -313,16 +358,34 @@ function BuilderInner({
 
   const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
     event.preventDefault();
-    setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id, edgeId: null });
+    setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id, edgeId: null, paneFlow: null });
   }, []);
 
   const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
     event.preventDefault();
-    setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null, edgeId: edge.id });
+    setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null, edgeId: edge.id, paneFlow: null });
   }, []);
 
   const onPaneClick = useCallback(() => setContextMenu(null), []);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const onPaneContextMenu = useCallback(
+    (event: React.MouseEvent | MouseEvent) => {
+      event.preventDefault();
+      const flow = reactFlow.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        nodeId: null,
+        edgeId: null,
+        paneFlow: flow,
+      });
+    },
+    [reactFlow],
+  );
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
     if (!contextMenu) return [];
@@ -365,8 +428,23 @@ function BuilderInner({
         },
       ];
     }
+    if (contextMenu.paneFlow) {
+      const { x, y } = contextMenu.paneFlow;
+      return [
+        {
+          label: "Add sticky note",
+          Icon: StickyNoteIcon,
+          onClick: () => {
+            annotations.addNote(x, y);
+            toast.success("Sticky note added", {
+              description: "Double-click to edit, drag to reposition.",
+            });
+          },
+        },
+      ];
+    }
     return [];
-  }, [contextMenu, builder, duplicateNode, onNodesDelete]);
+  }, [contextMenu, builder, duplicateNode, onNodesDelete, annotations]);
 
   const handleUndo = useCallback(() => {
     const prev = history.undo();
@@ -459,16 +537,24 @@ function BuilderInner({
     [currentSteps],
   );
   const testRun = useTestRun(verticalId, name, stepInputs);
-  const nodesWithRunState = useMemo(
-    () =>
+  const nodesWithRunState = useMemo(() => {
+    const decorated = annotations.decorateWithPins(
       builder.nodes.map((n) => {
         const sky = n.data as SkyNodeData;
         const next = testRun.stepStates[sky.step.id];
         if (sky.runState === next) return n;
         return { ...n, data: { ...sky, runState: next } };
       }),
-    [builder.nodes, testRun.stepStates],
-  );
+    );
+    return [...decorated, ...annotations.noteNodes];
+  }, [builder.nodes, testRun.stepStates, annotations]);
+
+  const pinnedStepNames = useMemo(() => {
+    const ids = Object.keys(annotations.pinnedData);
+    if (ids.length === 0) return [] as string[];
+    const idToName = new Map(currentSteps.map((s) => [s.id, s.name] as const));
+    return ids.map((id) => idToName.get(id) ?? id);
+  }, [annotations.pinnedData, currentSteps]);
 
   const handleProposalApprove = useCallback(
     (steps: WorkflowStep[]) => {
@@ -495,8 +581,13 @@ function BuilderInner({
       toast.error("Add a step before running a test.");
       return;
     }
+    if (pinnedStepNames.length > 0) {
+      toast.message(`Using pinned data for: ${pinnedStepNames.join(", ")}`, {
+        description: "Live inputs are overridden for the pinned steps.",
+      });
+    }
     testRun.start();
-  }, [testRun, stepInputs.length]);
+  }, [testRun, stepInputs.length, pinnedStepNames]);
 
   const handleSaveAndPublish = useCallback(() => {
     // Honest demo stub — wave-6 audit. Wave-13 cleaned up the leaked
@@ -620,7 +711,7 @@ function BuilderInner({
           <BuilderCanvas
             nodes={nodesWithRunState}
             edges={builder.edges}
-            onNodesChange={builder.onNodesChange}
+            onNodesChange={onNodesChange}
             onEdgesChange={builder.onEdgesChange}
             onConnect={onConnect}
             isValidConnection={isValidConnection}
@@ -634,6 +725,7 @@ function BuilderInner({
             onNodeContextMenu={onNodeContextMenu}
             onEdgeContextMenu={onEdgeContextMenu}
             onPaneClick={onPaneClick}
+            onPaneContextMenu={onPaneContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
             onShowShortcuts={() => setShortcutsOpen(true)}
@@ -650,10 +742,33 @@ function BuilderInner({
             <BuilderInspector
               step={selectedStep}
               isTrigger={!!selectedIsTrigger}
+              pinnedJson={annotations.pinnedData[selectedStep.id] ?? null}
               onClose={() => setSelectedNode(null)}
               onEdit={() => setTriggerConfigOpen(true)}
+              onOpenPin={() => setPinModalStepId(selectedStep.id)}
+              onClearPin={() => annotations.clearPin(selectedStep.id)}
             />
           ) : null}
+          {pinModalStepId
+            ? (() => {
+                const target = currentSteps.find((s) => s.id === pinModalStepId);
+                if (!target) return null;
+                return (
+                  <PinDataModal
+                    stepId={target.id}
+                    stepName={target.name}
+                    initialJson={annotations.pinnedData[target.id] ?? null}
+                    onSave={(json) => {
+                      annotations.savePin(target.id, json);
+                      setPinModalStepId(null);
+                      toast.success(`Pinned input for ${target.name}`);
+                    }}
+                    onClear={() => annotations.clearPin(target.id)}
+                    onClose={() => setPinModalStepId(null)}
+                  />
+                );
+              })()
+            : null}
           {selectedIsTrigger && triggerConfigOpen && selectedStep ? (
             <TriggerConfigDrawer
               triggerKind={selectedTriggerKind}

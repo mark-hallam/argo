@@ -1,16 +1,27 @@
 "use client";
-import { Settings as SettingsIcon, X } from "lucide-react";
+import { Pin, PinOff, Settings as SettingsIcon, X } from "lucide-react";
 
 import { STEP_KIND_META, type WorkflowStep } from "./types";
 
 interface Props {
   step: WorkflowStep;
   isTrigger: boolean;
+  pinnedJson: string | null;
   onClose: () => void;
   onEdit: () => void;
+  onOpenPin: () => void;
+  onClearPin: () => void;
 }
 
-export function BuilderInspector({ step, isTrigger, onClose, onEdit }: Props) {
+export function BuilderInspector({
+  step,
+  isTrigger,
+  pinnedJson,
+  onClose,
+  onEdit,
+  onOpenPin,
+  onClearPin,
+}: Props) {
   return (
     <aside className="builder-panel">
       <div className="builder-panel-head">
@@ -55,6 +66,102 @@ export function BuilderInspector({ step, isTrigger, onClose, onEdit }: Props) {
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Channel: {step.approvalGate.channel}</div>
             {step.approvalGate.reason}
           </div>
+        </div>
+      ) : null}
+      {!isTrigger ? (
+        <div className="builder-panel-section">
+          <div className="builder-panel-section-label">PIN INPUT DATA</div>
+          {pinnedJson ? (
+            <>
+              <pre
+                data-testid="builder-pinned-preview"
+                style={{
+                  margin: "0 0 8px",
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  background: "rgba(139,92,246,0.06)",
+                  border: "1px solid rgba(139,92,246,0.25)",
+                  color: "#1e1b4b",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  lineHeight: 1.4,
+                  maxHeight: 120,
+                  overflow: "auto",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {pinnedJson.length > 280 ? `${pinnedJson.slice(0, 280)}…` : pinnedJson}
+              </pre>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  data-testid="builder-pin-edit"
+                  onClick={onOpenPin}
+                  style={{
+                    flex: 1,
+                    padding: "7px 10px",
+                    borderRadius: 7,
+                    background: "white",
+                    color: "#5b21b6",
+                    border: "1px solid rgba(139,92,246,0.4)",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    gap: 6,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Pin size={12} /> Edit pin
+                </button>
+                <button
+                  type="button"
+                  data-testid="builder-pin-clear"
+                  onClick={onClearPin}
+                  style={{
+                    padding: "7px 10px",
+                    borderRadius: 7,
+                    background: "white",
+                    color: "#9f1239",
+                    border: "1px solid rgba(244,63,94,0.35)",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    gap: 6,
+                    alignItems: "center",
+                  }}
+                >
+                  <PinOff size={12} /> Unpin
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              data-testid="builder-pin-open"
+              onClick={onOpenPin}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 7,
+                background: "white",
+                color: "#5b21b6",
+                border: "1px dashed rgba(139,92,246,0.45)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+                display: "inline-flex",
+                gap: 6,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Pin size={12} /> Pin data
+            </button>
+          )}
         </div>
       ) : null}
       <button
