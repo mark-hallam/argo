@@ -2,30 +2,27 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useEffect, useState } from "react";
-import { WizardEditorialShell } from "@/components/auth/WizardEditorialShell";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { WizardErrorState } from "@/components/auth/WizardErrorState";
-import { CelebrationOverlay } from "@/components/skycot/hire/CelebrationOverlay";
+import { HireDoneCelebration } from "@/components/skycot/hire/HireDoneCelebration";
 import { setCelebration } from "@/lib/hire/celebration-storage";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
 
-const REDIRECT_MS = 1500;
-
 /**
- * Step 6 — celebration handoff. Stamps a CelebrationEntry into local
- * storage so the approvals inbox can surface the banner on the next
- * mount, renders the F1 editorial-center wizard shell with a
- * celebration hero ("You just hired your **first teammate.**"),
- * clears the hire draft, then redirects to `/`.
+ * Step 6 — viral-moment payoff. Lands the newly-hired worker on a
+ * brand-loud BrandLoudHero (`Meet ${name}.`) plus confetti burst and a
+ * welcome card with Slack + View-profile CTAs.
  *
- * `?inert=1` (set by Step 5's "Skip for now") makes the banner show
- * the inert variant ("X is hired but needs tools to start working").
- * `?name=…` is a fallback when the draft has been cleared in another
- * tab — the URL is the single carrier of identity in that case.
+ * Per the `web-hire-done-celebration-brandloud` brief the auto-redirect
+ * from the prior celebration overlay is removed — the page IS the
+ * payoff, and the user chooses where to go via the CTAs. The
+ * `setCelebration()` write into local storage is kept so the home /
+ * approvals banner still surfaces on later visits.
  *
- * 1.5s is locked by the brief — longer feels like a delay, not a
- * celebration. The overlay still carries `workerName` so the inner
- * card matches the worker the user just hired.
+ * `?inert=1` (set by Step 5's "Skip for now") still flows into the
+ * stored celebration entry so the banner can show the inert variant
+ * later. `?name=…` is the fallback identity carrier when the draft has
+ * been cleared in another tab.
  */
 export default function HireDonePage({
   params,
@@ -47,6 +44,7 @@ function HireDoneContent({ workerId }: { workerId: string }) {
   const isInert = searchParams?.get("inert") === "1";
   const nameFromQuery = searchParams?.get("name") ?? null;
   const [resolvedName, setResolvedName] = useState<string>("Your teammate");
+  const [resolvedRole, setResolvedRole] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (draft.isLoading) return;
@@ -55,14 +53,15 @@ function HireDoneContent({ workerId }: { workerId: string }) {
       draft.state?.workerDraft?.suggestedName ??
       nameFromQuery ??
       "Your teammate";
+    const role =
+      draft.state?.workerDraft?.persona?.tagline ??
+      draft.state?.workerDraft?.suggestedVertical ??
+      undefined;
     setResolvedName(name);
+    setResolvedRole(role);
 
     setCelebration(workerId, { workerName: name, inert: isInert });
     void draft.clear();
-    const handle = setTimeout(() => {
-      router.replace("/");
-    }, REDIRECT_MS);
-    return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workerId, isInert, draft.isLoading, draft.error]);
 
@@ -84,24 +83,10 @@ function HireDoneContent({ workerId }: { workerId: string }) {
   }
 
   return (
-    <WizardEditorialShell
-      step={6}
-      stepLabel="ALL HIRED"
-      eyebrow="WELCOME ABOARD"
-      heroSegments={[
-        { text: "You just hired your" },
-        { text: " " },
-        { text: "first teammate.", accent: true },
-      ]}
-      sub={
-        <>
-          Heading to your inbox in a moment — {resolvedName} is already on the way to
-          their first action.
-        </>
-      }
-      hideFooter
-    >
-      <CelebrationOverlay workerName={resolvedName} />
-    </WizardEditorialShell>
+    <HireDoneCelebration
+      workerId={workerId}
+      workerName={resolvedName}
+      role={resolvedRole}
+    />
   );
 }
