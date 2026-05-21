@@ -34,6 +34,10 @@ pub mod archive;
 pub mod csv;
 mod event;
 mod export;
+/// Evidence-bundle assembly (NDJSON / CSV / tar.gz) for the gateway
+/// `POST /api/v1/audit/export` endpoint
+/// (`web-gateway-endpoints-audit-mutations-batch`).
+pub mod export_bundle;
 /// Denormalized filter-dimension extraction shared by the write
 /// path (`sink::AuditSink::write`) and the verify-chain denorm
 /// sanity belt (`verify::verify_session`). Also re-used by the

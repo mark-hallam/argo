@@ -163,6 +163,13 @@ async fn dispatch_route_inner(
     if let Some(resp) = dispatch_get(req, store).await {
         return resp;
     }
+    // web-gateway-endpoints-audit-mutations-batch — signed
+    // evidence-bundle download. Mounted alongside the other GETs so
+    // the HMAC-signed URL returned by `POST /api/v1/audit/export`
+    // resolves without going through `dispatch_session_get`.
+    if let Some(resp) = super::routes_audit_export::try_dispatch_get(req, store).await {
+        return resp;
+    }
     if super::marketplace::is_marketplace(req) {
         if let Some(resp) = super::marketplace::dispatch(req, store).await {
             return resp;
