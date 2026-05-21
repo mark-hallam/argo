@@ -26,6 +26,12 @@ describe("error pages", () => {
     expect(screen.getByRole("link", { name: /docs/i })).toHaveAttribute("href", "/docs");
   });
 
+  it("404 page renders the brand-loud surface", () => {
+    render(<NotFound />);
+    expect(screen.getByTestId("error-shell")).toHaveAttribute("data-brand-loud", "true");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("err-brand-hero");
+  });
+
   it("500 error boundary renders reset, status, and support actions", () => {
     const reset = vi.fn();
     render(<GlobalError error={new Error("boom")} reset={reset} />);
@@ -40,6 +46,13 @@ describe("error pages", () => {
       "href",
       "mailto:support@skycot.com",
     );
+  });
+
+  it("500 error boundary renders the brand-loud surface", () => {
+    const reset = vi.fn();
+    render(<GlobalError error={new Error("boom")} reset={reset} />);
+    expect(screen.getByTestId("error-shell")).toHaveAttribute("data-brand-loud", "true");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("err-brand-hero");
   });
 
   it("maintenance page renders status link", () => {

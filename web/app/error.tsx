@@ -27,7 +27,8 @@ export default function GlobalError({
 
   return (
     <ErrorShell
-      code="500"
+      brandLoud
+      code="500 · Server error"
       variant="server-error"
       title="Something went wrong on our side."
       description="We've been notified. You can try again in a moment, or check our status page if the problem persists."
