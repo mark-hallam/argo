@@ -1,8 +1,10 @@
 "use client";
-import { ArrowLeft, Play, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Play, RotateCcw, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import type { WorkflowSpec } from "./types";
+
+type TestRunPhase = "idle" | "running" | "complete" | "failed";
 
 interface Props {
   workflow: WorkflowSpec;
@@ -17,6 +19,7 @@ interface Props {
   onPickSuggestion: (next: string) => void;
   onTestRun: () => void;
   onSaveAndPublish: () => void;
+  testRunPhase?: TestRunPhase;
 }
 
 export function BuilderToolbar({
@@ -31,7 +34,10 @@ export function BuilderToolbar({
   onPickSuggestion,
   onTestRun,
   onSaveAndPublish,
+  testRunPhase = "idle",
 }: Props) {
+  const isRunning = testRunPhase === "running";
+  const hasRun = testRunPhase === "complete" || testRunPhase === "failed";
   return (
     <>
       <header className="builder-top">
@@ -45,8 +51,27 @@ export function BuilderToolbar({
           <Link href={`/workflows/${verticalId}/${name}`} className="builder-btn">
             View timeline
           </Link>
-          <button type="button" className="builder-btn" onClick={onTestRun}>
-            <Play size={13} /> Test run
+          <button
+            type="button"
+            className="builder-btn"
+            onClick={onTestRun}
+            disabled={isRunning}
+            data-testid="builder-test-run"
+            data-run-phase={testRunPhase}
+          >
+            {isRunning ? (
+              <>
+                <Loader2 size={13} className="builder-spin" /> Running…
+              </>
+            ) : hasRun ? (
+              <>
+                <RotateCcw size={13} /> Run again
+              </>
+            ) : (
+              <>
+                <Play size={13} /> Test run
+              </>
+            )}
           </button>
           <button
             type="button"

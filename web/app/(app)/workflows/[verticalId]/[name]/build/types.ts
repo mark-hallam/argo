@@ -80,8 +80,19 @@ export interface WorkflowSpec {
   risk: "approval-required" | "autonomous";
 }
 
+export type NodeRunStatus = "pending" | "running" | "success" | "error";
+
+export interface NodeRunState {
+  status: NodeRunStatus;
+  durationMs?: number;
+  tokens?: number;
+  response?: string;
+  error?: string;
+}
+
 export interface SkyNodeData extends Record<string, unknown> {
   step: WorkflowStep;
+  runState?: NodeRunState;
 }
 
 export const STEP_KIND_META: Record<StepKind, { icon: ReactNode; color: string; label: string }> = {

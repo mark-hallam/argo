@@ -129,7 +129,12 @@ export function BuilderCanvas({
         <Controls position="bottom-left" />
         <MiniMap
           nodeColor={(n) => {
-            const step = (n.data as SkyNodeData | undefined)?.step;
+            const sky = n.data as SkyNodeData | undefined;
+            const status = sky?.runState?.status;
+            if (status === "running") return "#f59e0b";
+            if (status === "success") return "#10b981";
+            if (status === "error") return "#f43f5e";
+            const step = sky?.step;
             return step ? STEP_KIND_META[step.kind].color : "#8b5cf6";
           }}
           nodeStrokeColor={(n) => {

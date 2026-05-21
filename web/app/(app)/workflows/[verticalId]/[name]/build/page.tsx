@@ -45,6 +45,7 @@ import {
   validateConnection,
 } from "./builder-handlers";
 import { stepsToFlow } from "./layout";
+import { RunOverlay } from "./RunOverlay";
 import { SEED_WORKFLOWS } from "./seed-workflows";
 import {
   STEP_KIND_META,
@@ -54,6 +55,7 @@ import {
   type WorkflowSpec,
   type WorkflowStep,
 } from "./types";
+import { useTestRun, type StepInput } from "./useTestRun";
 
 interface ContextMenuState {
   x: number;
@@ -449,6 +451,22 @@ function BuilderInner({
     [builder.nodes],
   );
 
+  const stepInputs = useMemo<StepInput[]>(
+    () => currentSteps.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
+    [currentSteps],
+  );
+  const testRun = useTestRun(verticalId, name, stepInputs);
+  const nodesWithRunState = useMemo(
+    () =>
+      builder.nodes.map((n) => {
+        const sky = n.data as SkyNodeData;
+        const next = testRun.stepStates[sky.step.id];
+        if (sky.runState === next) return n;
+        return { ...n, data: { ...sky, runState: next } };
+      }),
+    [builder.nodes, testRun.stepStates],
+  );
+
   const handleProposalApprove = useCallback(
     (steps: WorkflowStep[]) => {
       const next = stepsToFlow(steps);
@@ -469,14 +487,13 @@ function BuilderInner({
   }, []);
 
   const handleTestRun = useCallback(() => {
-    // Honest demo stub — wave-6 action-fires audit flagged the prior
-    // "All 5 steps passed" toast as a buyer-catchable lie. Wave-13
-    // audit asked to drop the "v1.x" / internal-PR-ref leaks; this
-    // copy stays neutral while keeping the not-yet-wired honesty.
-    toast.message("Test run — preview build", {
-      description: "Real run streams from the gateway in an upcoming release.",
-    });
-  }, []);
+    if (testRun.phase === "running") return;
+    if (stepInputs.length === 0) {
+      toast.error("Add a step before running a test.");
+      return;
+    }
+    testRun.start();
+  }, [testRun, stepInputs.length]);
 
   const handleSaveAndPublish = useCallback(() => {
     // Honest demo stub — wave-6 audit. Wave-13 cleaned up the leaked
@@ -585,6 +602,7 @@ function BuilderInner({
           onPickSuggestion={handlePickSuggestion}
           onTestRun={handleTestRun}
           onSaveAndPublish={handleSaveAndPublish}
+          testRunPhase={testRun.phase}
         />
 
         <UnsavedBanner
@@ -595,7 +613,7 @@ function BuilderInner({
 
         <div className="builder-stage">
           <BuilderCanvas
-            nodes={builder.nodes}
+            nodes={nodesWithRunState}
             edges={builder.edges}
             onNodesChange={builder.onNodesChange}
             onEdgesChange={builder.onEdgesChange}
@@ -653,6 +671,14 @@ function BuilderInner({
               onCancel={handleProposalCancel}
             />
           ) : null}
+          <RunOverlay
+            phase={testRun.phase}
+            steps={stepInputs}
+            stepStates={testRun.stepStates}
+            summary={testRun.summary}
+            transportError={testRun.transportError}
+            onDismiss={testRun.reset}
+          />
         </div>
       </div>
       <KeyboardShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

@@ -1,0 +1,215 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+/**
+ * Drives the builder's "Test run" overlay.
+ *
+ * Opens an NDJSON stream against
+ * `POST /api/workflows/<vertical>/<name>/test-run` (which proxies the
+ * gateway or simulates if the gateway is offline) and folds events
+ * into per-step state + a run summary. The hook owns an
+ * AbortController so unmount / re-trigger cancels the in-flight
+ * fetch, preventing the leaked-stream class of bug called out in the
+ * brief's acceptance criteria.
+ */
+
+export type StepRunStatus = "pending" | "running" | "success" | "error";
+
+export interface StepRunState {
+  status: StepRunStatus;
+  durationMs?: number;
+  tokens?: number;
+  response?: string;
+  error?: string;
+}
+
+export interface RunSummary {
+  ok: number;
+  fail: number;
+  durationMs: number;
+  tokens?: number;
+  costUsd?: number;
+}
+
+export type RunPhase = "idle" | "running" | "complete" | "failed";
+
+export interface StepInput {
+  id: string;
+  name: string;
+  kind: string;
+}
+
+export interface UseTestRunResult {
+  phase: RunPhase;
+  stepStates: Record<string, StepRunState>;
+  summary: RunSummary | null;
+  transportError: string | null;
+  start: (failStepId?: string | null) => void;
+  reset: () => void;
+}
+
+interface RunEvent {
+  type?: string;
+  stepId?: string;
+  ok?: boolean;
+  durationMs?: number;
+  tokens?: number;
+  response?: string;
+  error?: string;
+  fail?: number;
+  costUsd?: number;
+}
+
+function emptyStates(steps: StepInput[]): Record<string, StepRunState> {
+  const out: Record<string, StepRunState> = {};
+  for (const s of steps) out[s.id] = { status: "pending" };
+  return out;
+}
+
+export function useTestRun(
+  verticalId: string,
+  name: string,
+  steps: StepInput[],
+): UseTestRunResult {
+  const [phase, setPhase] = useState<RunPhase>("idle");
+  const [stepStates, setStepStates] = useState<Record<string, StepRunState>>(
+    () => emptyStates(steps),
+  );
+  const [summary, setSummary] = useState<RunSummary | null>(null);
+  const [transportError, setTransportError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setPhase("idle");
+    setStepStates(emptyStates(steps));
+    setSummary(null);
+    setTransportError(null);
+  }, [steps]);
+
+  const applyEvent = useCallback((evt: RunEvent) => {
+    if (!mountedRef.current) return;
+    if (evt.type === "step:start" && evt.stepId) {
+      setStepStates((prev) => ({
+        ...prev,
+        [evt.stepId!]: { ...prev[evt.stepId!], status: "running" },
+      }));
+      return;
+    }
+    if (evt.type === "step:end" && evt.stepId) {
+      setStepStates((prev) => ({
+        ...prev,
+        [evt.stepId!]: {
+          status: evt.ok ? "success" : "error",
+          durationMs: evt.durationMs,
+          tokens: evt.tokens,
+          response: evt.response,
+          error: evt.error,
+        },
+      }));
+      return;
+    }
+    if (evt.type === "run:summary") {
+      const ok = typeof evt.ok === "number" ? (evt.ok as number) : 0;
+      const fail = typeof evt.fail === "number" ? evt.fail : 0;
+      setSummary({
+        ok,
+        fail,
+        durationMs: evt.durationMs ?? 0,
+        tokens: evt.tokens,
+        costUsd: evt.costUsd,
+      });
+      setPhase(fail > 0 ? "failed" : "complete");
+    }
+  }, []);
+
+  const start = useCallback(
+    (failStepId: string | null = null) => {
+      if (steps.length === 0) return;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setPhase("running");
+      setStepStates(emptyStates(steps));
+      setSummary(null);
+      setTransportError(null);
+
+      (async () => {
+        try {
+          const response = await fetch(
+            `/api/workflows/${encodeURIComponent(verticalId)}/${encodeURIComponent(name)}/test-run`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ steps, failStepId }),
+              signal: controller.signal,
+            },
+          );
+          if (!response.ok || !response.body) {
+            if (!mountedRef.current) return;
+            setTransportError(
+              `Test run failed to start (HTTP ${response.status}).`,
+            );
+            setPhase("failed");
+            return;
+          }
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let newlineIdx = buffer.indexOf("\n");
+            while (newlineIdx !== -1) {
+              const line = buffer.slice(0, newlineIdx).trim();
+              buffer = buffer.slice(newlineIdx + 1);
+              if (line.length > 0) {
+                try {
+                  applyEvent(JSON.parse(line) as RunEvent);
+                } catch {
+                  // Ignore malformed line; stream continues.
+                }
+              }
+              newlineIdx = buffer.indexOf("\n");
+            }
+          }
+          if (buffer.trim().length > 0) {
+            try {
+              applyEvent(JSON.parse(buffer.trim()) as RunEvent);
+            } catch {
+              // Ignore trailing partial event.
+            }
+          }
+          if (!mountedRef.current) return;
+          setPhase((prev) => (prev === "running" ? "complete" : prev));
+        } catch (err) {
+          if ((err as { name?: string }).name === "AbortError") return;
+          if (!mountedRef.current) return;
+          setTransportError(
+            err instanceof Error
+              ? err.message
+              : "Unknown error while streaming run events.",
+          );
+          setPhase("failed");
+        }
+      })();
+    },
+    [verticalId, name, steps, applyEvent],
+  );
+
+  return { phase, stepStates, summary, transportError, start, reset };
+}
