@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T21:12:00Z",
+  "last_run_utc": "2026-05-21T21:27:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-33",
-  "run_notes": "Tick 33: auth fixed, 5 codex workers genuinely running (all fast-mode audits). Swept 17 zombie CLAIMED rows from this morning's 401-burst. 0 open PRs (workers still in implementation). Auditor STALE — missed overnight fire while machine slept; next scheduled 13:30 Melbourne."
+  "session_label": "anthropic-claude-code-conductor-tick-34",
+  "run_notes": "Tick 34: 5 codex workers active and deep into impl (log sizes 500KB-1.1MB). 2 ghost claims swept (tail of 401-burst). 0 open PRs. Auditor will fire in ~11 min (07:38 Melbourne)."
 }
