@@ -10,6 +10,7 @@
 | **Conductor** | `docs/build-plan/PROTOCOL_LOOP_PROMPT.md` | hourly (top of hour) | `docs/build-plan/BUILD_STATUS.md` + brief files + PR merges | `docs/skycot/agents/heartbeats/conductor.json` |
 | **Auditor** | `docs/skycot/audit/AUDITOR_CHARTER.md` | 3×/day Melbourne (07:30 / 13:30 / 19:30) | `docs/skycot/audit/scheduled/` | `docs/skycot/agents/heartbeats/auditor.json` |
 | **Marketing** | `docs/skycot/marketing/MARKETING_AGENT_CHARTER.md` | 1×/day Mon-Fri 06:00 Melbourne | `docs/skycot/marketing/drafts/` | `docs/skycot/agents/heartbeats/marketing.json` |
+| **personal-site** | `docs/skycot/personal-site/CHARTER.md` | 1×/day Mon-Fri 06:30 Melbourne | `docs/skycot/personal-site/drafts/` | `docs/skycot/agents/heartbeats/personal-site.json` |
 
 ## Liveness check (Gap 3 — agents can't notice when they die)
 
