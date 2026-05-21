@@ -29,6 +29,7 @@ pub(super) struct KpiAuditRow {
 
 pub(super) async fn fetch_audit_rows(
     store: &SessionStore,
+    tenant: TenantId,
     worker_id: WorkerId,
     now: DateTime<Utc>,
 ) -> ArgoResult<Vec<KpiAuditRow>> {
@@ -36,9 +37,10 @@ pub(super) async fn fetch_audit_rows(
     let rows = sqlx::query(
         "SELECT a.id, a.kind, a.payload_json, a.created_at \
          FROM audit_record a JOIN session s ON s.id = a.session_id \
-         WHERE s.worker_id = ? AND a.created_at >= ? \
+         WHERE s.tenant_id = ? AND s.worker_id = ? AND a.created_at >= ? \
          ORDER BY a.created_at DESC",
     )
+    .bind(tenant.0.as_bytes().to_vec())
     .bind(worker_id.0.as_bytes().to_vec())
     .bind(since)
     .fetch_all(store.pool())

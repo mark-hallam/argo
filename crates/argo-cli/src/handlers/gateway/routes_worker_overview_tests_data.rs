@@ -104,6 +104,53 @@ async fn recent_activity_capped_at_five_newest_first() {
 }
 
 #[tokio::test]
+async fn recent_activity_ignores_other_tenant_session_with_same_worker_id() {
+    let env = prep().await;
+    let worker = add_worker(&env.store, env.tenant, "human:mark").await;
+    let local_session = seed_session(&env, worker.id).await;
+    let (alien_tenant, alien_ws) = env
+        .store
+        .ensure_workspace("overview-alien", "/tmp/overview-alien")
+        .await
+        .unwrap();
+    let alien_session = env
+        .store
+        .create_session_with_worker(argo_store::SessionCreate {
+            tenant_id: alien_tenant,
+            workspace_id: alien_ws,
+            model: "test-model",
+            provider: "test-provider",
+            title: Some("alien"),
+            vertical_id: Some(VERT),
+            worker_id: Some(argo_store::WorkerId(worker.id.0)),
+        })
+        .await
+        .unwrap();
+    let local_sink = AuditSink::new_with_tenant(env.store.clone(), env.tenant.to_string());
+    write_audit(
+        &local_sink,
+        local_session,
+        AuditKind::ToolCall,
+        serde_json::json!({ "verb": "local_send", "status": "succeeded" }),
+    )
+    .await;
+    let alien_sink = AuditSink::new_with_tenant(env.store.clone(), alien_tenant.to_string());
+    write_audit(
+        &alien_sink,
+        alien_session,
+        AuditKind::ToolCall,
+        serde_json::json!({ "verb": "alien_send", "status": "succeeded" }),
+    )
+    .await;
+
+    let req = req_for(&worker.id.to_string(), Some("operator"), Some("human:mark"));
+    let v = parse_ok(&req, &worker.id.to_string(), &env.store).await;
+    let rendered = v["recent_activity"].to_string();
+    assert!(rendered.contains("local_send"), "{rendered}");
+    assert!(!rendered.contains("alien_send"), "{rendered}");
+}
+
+#[tokio::test]
 async fn duties_include_role_duty_rows() {
     let env = prep().await;
     let worker = add_worker(&env.store, env.tenant, "human:mark").await;

@@ -106,7 +106,7 @@ async fn build_overview(
         && worker.persona.builder_attribution == actor;
     let perms = resolve_permissions(role, is_hire_author);
     let now = Utc::now();
-    let audit_rows = fetch_audit_rows(store, worker_id, now)
+    let audit_rows = fetch_audit_rows(store, tenant, worker_id, now)
         .await
         .map_err(|e| ise(&format!("audit fetch: {e}")))?;
     let duties = duties_for_worker(store, tenant, worker_id, now)

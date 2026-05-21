@@ -237,15 +237,24 @@ pub(super) async fn apply_memory_fact(
 }
 pub(super) async fn revert_memory_fact(
     store: &Arc<SessionStore>,
+    ctx: &WorkerCtx,
     row: &RetrainRow,
 ) -> Result<(), Resp> {
     let Some(text) = row.structural_change.get("text").and_then(Value::as_str) else {
         return Ok(());
     };
     let bytes: Option<Vec<u8>> = sqlx::query_scalar(
-        "SELECT id FROM memory_entry WHERE body = ? AND superseded_by IS NULL ORDER BY learned_at DESC LIMIT 1",
+        "SELECT id FROM memory_entry \
+         WHERE tenant_id = ? AND worker_id = ? AND memory_scope = ? \
+           AND body = ? AND superseded_by IS NULL \
+         ORDER BY learned_at DESC LIMIT 1",
     )
-    .bind(text).fetch_optional(store.pool()).await
+    .bind(ctx.tenant.0.as_bytes().as_slice())
+    .bind(ctx.worker.id.0.as_bytes().as_slice())
+    .bind(scope_label(ctx.worker.memory_namespace.scope))
+    .bind(text)
+    .fetch_optional(store.pool())
+    .await
     .map_err(|e| server_error(&format!("fact lookup: {e}")))?;
     let Some(b) = bytes else { return Ok(()) };
     let id = Uuid::from_slice(&b).map_err(|e| server_error(&format!("fact id: {e}")))?;
@@ -273,11 +282,13 @@ pub(super) async fn find_retrain_row(
                 json_extract(payload_json, '$.structural_change'), \
                 json_extract(payload_json, '$.applied_at') \
          FROM audit_record WHERE kind = 'http.request' \
+           AND tenant_id = ? \
            AND json_extract(payload_json, '$.endpoint') = ? \
            AND json_extract(payload_json, '$.retrain_id') = ? \
            AND json_extract(payload_json, '$.worker_id') = ? \
          LIMIT 1",
     )
+    .bind(ctx.tenant.to_string())
     .bind(COMMIT_KEY)
     .bind(retrain_id.to_string())
     .bind(ctx.worker.id.to_string())
@@ -293,11 +304,15 @@ pub(super) async fn find_retrain_row(
         .with_timezone(&Utc);
     let undone: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM audit_record WHERE kind = 'http.request' \
+           AND tenant_id = ? \
            AND json_extract(payload_json, '$.endpoint') = ? \
-           AND json_extract(payload_json, '$.retrain_id') = ?",
+           AND json_extract(payload_json, '$.retrain_id') = ? \
+           AND json_extract(payload_json, '$.worker_id') = ?",
     )
+    .bind(ctx.tenant.to_string())
     .bind(UNDO_KEY)
     .bind(retrain_id.to_string())
+    .bind(ctx.worker.id.to_string())
     .fetch_one(store.pool())
     .await
     .map_err(|e| ArgoError::Provider(format!("undo probe: {e}")))?;
@@ -318,9 +333,11 @@ pub(super) async fn build_reverse_samples(
     let rows: Vec<(String, String)> = sqlx::query_as(
         "SELECT COALESCE(json_extract(payload_json, '$.tool_name'), ''), payload_json \
          FROM audit_record WHERE kind = 'tool_call' \
+           AND tenant_id = ? \
            AND json_extract(payload_json, '$.worker_id') = ? \
          ORDER BY seq DESC LIMIT ?",
     )
+    .bind(ctx.tenant.to_string())
     .bind(ctx.worker.id.to_string())
     .bind(i64::from(sample_size).max(1))
     .fetch_all(store.pool())

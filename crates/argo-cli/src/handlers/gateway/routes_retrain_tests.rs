@@ -5,8 +5,11 @@
 
 #![allow(clippy::too_many_lines)]
 
+use super::UNDO_KEY;
 use super::{classify_response, commit_response, dispatch, reverse_test_response, undo_response};
-use argo_identity::{IdentityStore, Persona, Role, Worker};
+use argo_audit::{AuditKind, AuditSink};
+use argo_identity::{IdentityStore, MemoryNs, MemoryScope, Persona, Role, Worker};
+use argo_memory::{MemoryFile, MemoryStore};
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use serde_json::{json, Value};
@@ -185,6 +188,56 @@ async fn undo_returns_200_and_tombstones_memory_fact() {
 }
 
 #[tokio::test]
+async fn undo_tombstones_only_current_tenant_fact() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().unwrap();
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    let worker = add_worker(&store, tenant, "Maya").await;
+    let wid = worker.id.to_string();
+    let text = "shared customer phrasing";
+    let retrain_id = commit_memory_fact(&store, &wid, text).await;
+    let (alien_tenant, alien_ws) = store
+        .ensure_workspace("alien-retrain", "/tmp/alien-retrain")
+        .await
+        .unwrap();
+    let alien_ns = MemoryNs::new(alien_tenant, worker.id, MemoryScope::WorkerSelf);
+    MemoryStore::new(Arc::clone(&store))
+        .append_in_namespace(&alien_ns, alien_ws, MemoryFile::Memory, text.into(), None)
+        .await
+        .unwrap();
+
+    let req = req_with(
+        "POST",
+        &format!("/api/v1/workers/{wid}/retrain/undo"),
+        &json!({ "retrain_id": retrain_id }).to_string(),
+    );
+    let (status, body) = undo_response(&wid, &req, Some(&store)).await;
+    assert_eq!(status, "200 OK", "{body}");
+    let current_active: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM memory_entry \
+         WHERE tenant_id = ? AND body = ? AND superseded_by IS NULL",
+    )
+    .bind(tenant.0.as_bytes().as_slice())
+    .bind(text)
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    let alien_active: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM memory_entry \
+         WHERE tenant_id = ? AND body = ? AND superseded_by IS NULL",
+    )
+    .bind(alien_tenant.0.as_bytes().as_slice())
+    .bind(text)
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(current_active, 0, "current-tenant fact must be tombstoned");
+    assert_eq!(alien_active, 1, "other-tenant fact must remain active");
+}
+
+#[tokio::test]
 async fn undo_twice_returns_400() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
@@ -206,6 +259,41 @@ async fn undo_twice_returns_400() {
 }
 
 #[tokio::test]
+async fn undo_ignores_other_tenant_undo_marker() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().unwrap();
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    let worker = add_worker(&store, tenant, "Maya").await;
+    let wid = worker.id.to_string();
+    let retrain_id = commit_memory_fact(&store, &wid, "other-tenant marker").await;
+    let alien_tenant = TenantId::new();
+    let sink = AuditSink::new_with_tenant(Arc::clone(&store), alien_tenant.to_string());
+    sink.write(
+        None,
+        AuditKind::HttpRequest,
+        json!({
+            "endpoint": UNDO_KEY,
+            "retrain_id": retrain_id.clone(),
+            "worker_id": wid.clone(),
+        }),
+        None,
+    )
+    .await
+    .unwrap();
+    sink.flush_pending().await.unwrap();
+
+    let req = req_with(
+        "POST",
+        &format!("/api/v1/workers/{wid}/retrain/undo"),
+        &json!({ "retrain_id": retrain_id }).to_string(),
+    );
+    let (status, body) = undo_response(&wid, &req, Some(&store)).await;
+    assert_eq!(status, "200 OK", "{body}");
+}
+
+#[tokio::test]
 async fn undo_unknown_retrain_returns_404() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().unwrap();
@@ -222,6 +310,51 @@ async fn undo_unknown_retrain_returns_404() {
     );
     let (status, _) = undo_response(&wid, &req, Some(&store)).await;
     assert_eq!(status, "404 Not Found");
+}
+
+#[tokio::test]
+async fn reverse_test_samples_ignore_other_tenant_tool_calls() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().unwrap();
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    let worker = add_worker(&store, tenant, "Maya").await;
+    let wid = worker.id.to_string();
+    let retrain_id = commit_memory_fact(&store, &wid, "sample isolation").await;
+    let current = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string());
+    current
+        .write(
+            None,
+            AuditKind::ToolCall,
+            json!({ "worker_id": wid.clone(), "tool_name": "local_send" }),
+            None,
+        )
+        .await
+        .unwrap();
+    current.flush_pending().await.unwrap();
+    let alien = AuditSink::new_with_tenant(Arc::clone(&store), TenantId::new().to_string());
+    alien
+        .write(
+            None,
+            AuditKind::ToolCall,
+            json!({ "worker_id": wid.clone(), "tool_name": "alien_send" }),
+            None,
+        )
+        .await
+        .unwrap();
+    alien.flush_pending().await.unwrap();
+
+    let req = req_with(
+        "POST",
+        &format!("/api/v1/workers/{wid}/retrain/reverse-test"),
+        &json!({ "retrain_id": retrain_id, "sample_size": 3 }).to_string(),
+    );
+    let (status, body) = reverse_test_response(&wid, &req, Some(&store)).await;
+    let v = json_of(status, &body).await;
+    let rendered = v["samples"].to_string();
+    assert!(rendered.contains("local_send"), "{rendered}");
+    assert!(!rendered.contains("alien_send"), "{rendered}");
 }
 
 #[tokio::test]

@@ -169,7 +169,7 @@ async fn undo_inner(wid: &str, req: &str, store: Option<&Arc<SessionStore>>) -> 
         ));
     }
     if row.classification == "memory_fact" {
-        revert_memory_fact(store, &row).await?;
+        revert_memory_fact(store, &ctx, &row).await?;
     }
     let undone_at = Utc::now();
     emit_audit(
