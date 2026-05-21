@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T07:35:00Z",
+  "last_run_utc": "2026-05-21T07:42:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-21-dirty-sweep",
-  "run_notes": "operator-requested DIRTY sweep complete: 4 MERGED (#1947 audit-kinds, #1953 settings-members, #1960 delete-duplicate, #1961 keyboard-shortcuts) + 4 CLOSED-as-stale (#1934/#1935/#1936 seed-cluster post-#1933, #1948 cron-tenant post-#1947). Queue clean for next worker spin-up."
+  "session_label": "anthropic-claude-code-conductor-worker-resume",
+  "run_notes": "Operator fired up 5 workers against clean 46-brief queue (37 claude + 9 codex TODO). DIRTY backlog cleared this conversation (4 MERGED via rebase + 17 CLOSED as stale). Standing by for first PRs."
 }

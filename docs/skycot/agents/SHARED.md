@@ -19,3 +19,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-21T07:12:00Z [conductor] operator-release — all worker tabs closed; 24 CLAIMED rows demoted to TODO with salvage notes; auditor-confirmed pattern of ghost-claims from claim-with-retry burst at 17:11-17:15 cleared
 2026-05-21T07:35:00Z [conductor] DIRTY-sweep — 4 MERGED + 4 CLOSED-as-stale. Backlog cleared for next worker spin-up.
 2026-05-21T09:40:06Z [auditor] T09-40 audit — wave-15 P0 #3 builder cluster FULLY CLOSED (B1+B2+B3+B4 merged, last 2 landed mid-run); corrected prior 256-CLAIMED counting bug + prior P0 #2 mock-offline phantom finding (guard already in place); orientation 78/100 (+13)
+2026-05-21T07:42:00Z [conductor] operator spun up 5 workers against clean 46-brief queue (0 DIRTY / 0 CLAIMED / 0 IN_REVIEW after DIRTY-sweep). Standing by for first PR triage.
