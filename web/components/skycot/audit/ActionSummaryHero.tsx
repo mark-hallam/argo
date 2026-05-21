@@ -8,7 +8,11 @@ import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { RedactedText } from "@/components/skycot/RedactedText";
 import type { RedactionPolicy } from "@/lib/redaction/redact";
 import type { AuditDetail } from "@/lib/types/audit-detail";
-import type { AuditStatus } from "@/lib/types/audit";
+import {
+  DECIDER_ROLE_LABELS,
+  type AuditStatus,
+  type DeciderRole,
+} from "@/lib/types/audit";
 
 /**
  * Summary hero card for the audit drill-in surface. Renders worker
@@ -113,17 +117,55 @@ export function ActionSummaryHero({
 }
 
 function HeroMeta({ detail }: { detail: AuditDetail }) {
-  const parts: string[] = [];
-  if (detail.approver) parts.push(`Approver: ${detail.approver.name}`);
-  if (detail.channel) parts.push(`Channel: ${detail.channel}`);
-  parts.push(formatTimestamp(detail.timestamp));
+  const tail: string[] = [];
+  if (detail.channel) tail.push(`Channel: ${detail.channel}`);
+  tail.push(formatTimestamp(detail.timestamp));
   return (
     <p
       data-testid="audit-hero-meta"
       className="text-xs text-[var(--muted-foreground)]"
     >
-      {parts.join(" · ")}
+      {detail.approver ? (
+        <>
+          <span>Approver: </span>
+          <ApproverWithRole
+            name={detail.approver.name}
+            role={detail.decider_role}
+          />
+          {tail.length > 0 ? <span> · </span> : null}
+        </>
+      ) : null}
+      {tail.join(" · ")}
     </p>
+  );
+}
+
+/** Render "<Role> <name>" (e.g. "Admin Mark") when `decider_role` is
+ *  present; bare name otherwise. The role label is plain inline text
+ *  per the audit page's restrained register — no gradient, no
+ *  Audiowide, no badge chrome — just a slightly weighted muted span
+ *  that the eye reads as a prefix on the name. */
+function ApproverWithRole({
+  name,
+  role,
+}: {
+  name: string;
+  role?: DeciderRole;
+}) {
+  if (!role) {
+    return <span data-testid="audit-hero-approver">{name}</span>;
+  }
+  return (
+    <span data-testid="audit-hero-approver">
+      <span
+        data-testid="audit-hero-approver-role"
+        data-role={role}
+        className="font-medium text-[var(--foreground)]"
+      >
+        {DECIDER_ROLE_LABELS[role]}
+      </span>
+      <span> {name}</span>
+    </span>
   );
 }
 

@@ -350,3 +350,86 @@ async fn audit_row_payload_lists_dims_used() {
     assert!(payload.contains("\"q\""));
     assert!(payload.contains("\"range\""));
 }
+
+/// Mission `web-approvals-decider-role-on-timeline`: when the
+/// underlying audit_record payload carries `decider_role` (stamped
+/// by #1956), the feed projector surfaces it as a top-level field.
+/// Pre-#1956 rows have no `decider_role` and must continue to render
+/// without one — covered by the existing `seed_minimal_two` rows
+/// that omit the field entirely.
+#[tokio::test]
+async fn projects_decider_role_when_payload_carries_it() {
+    let store = mem_store().await;
+    let mut payload = row(
+        "w-rbac",
+        "web",
+        "approval.decided",
+        "succeeded",
+        Some("a1"),
+        Some(0.0),
+        "internal",
+        "approved with role stamp",
+    );
+    payload["decider_role"] = serde_json::Value::String("admin".into());
+    seed_row(&store, payload).await;
+    let (status, body) =
+        parse_body(list_response(&get("/api/v1/audit?worker=w-rbac"), Some(&store)).await).await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items array");
+    let row_json = items
+        .iter()
+        .find(|it| it["worker"]["id"] == "w-rbac")
+        .expect("seeded rbac row present");
+    assert_eq!(row_json["decider_role"], "admin");
+}
+
+/// Backward-compat: rows without `decider_role` in payload (pre-#1956)
+/// must not have the field on the projected row at all (vs e.g.
+/// rendering as `null`), so the frontend's `decider_role?:` optional
+/// type guard keeps holding.
+#[tokio::test]
+async fn omits_decider_role_for_pre_rbac_rows() {
+    let store = mem_store().await;
+    seed_minimal_two(&store).await;
+    let (status, body) =
+        parse_body(list_response(&get("/api/v1/audit?worker=w1"), Some(&store)).await).await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items array");
+    let row_json = items
+        .iter()
+        .find(|it| it["worker"]["id"] == "w1")
+        .expect("seeded w1 row present");
+    assert!(
+        row_json.get("decider_role").is_none(),
+        "pre-#1956 row must omit decider_role; got {row_json}"
+    );
+}
+
+/// Unknown role labels (legacy / malformed) are dropped at the
+/// projection layer so the frontend's narrow `"owner" | "admin" |
+/// "user" | "guest"` union stays sound.
+#[tokio::test]
+async fn drops_unknown_decider_role_values() {
+    let store = mem_store().await;
+    let mut payload = row(
+        "w-legacy",
+        "web",
+        "approval.decided",
+        "succeeded",
+        Some("a1"),
+        None,
+        "internal",
+        "legacy role value",
+    );
+    payload["decider_role"] = serde_json::Value::String("wizard".into());
+    seed_row(&store, payload).await;
+    let (status, body) =
+        parse_body(list_response(&get("/api/v1/audit?worker=w-legacy"), Some(&store)).await).await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items array");
+    let row_json = items
+        .iter()
+        .find(|it| it["worker"]["id"] == "w-legacy")
+        .expect("seeded legacy row present");
+    assert!(row_json.get("decider_role").is_none());
+}

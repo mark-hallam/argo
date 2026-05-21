@@ -302,6 +302,28 @@ describe("AuditActionDetailPage", () => {
     expect(backMock).toHaveBeenCalledTimes(1);
   });
 
+  it("renders the decider role chip in the hero meta when decider_role is present", async () => {
+    mockedFetchAuditDetail.mockResolvedValue(
+      sampleDetail({ decider_role: "admin" }),
+    );
+    render(<PageWrapper />);
+    await screen.findByTestId("audit-detail-page");
+    const meta = screen.getByTestId("audit-hero-meta");
+    expect(meta).toHaveTextContent(/Approver: Admin Mark/);
+    const chip = screen.getByTestId("audit-hero-approver-role");
+    expect(chip).toHaveAttribute("data-role", "admin");
+    expect(chip).toHaveTextContent(/^Admin$/);
+  });
+
+  it("renders bare approver name when decider_role is absent (backward-compat)", async () => {
+    mockedFetchAuditDetail.mockResolvedValue(sampleDetail());
+    render(<PageWrapper />);
+    await screen.findByTestId("audit-detail-page");
+    const meta = screen.getByTestId("audit-hero-meta");
+    expect(meta).toHaveTextContent(/Approver: Mark/);
+    expect(screen.queryByTestId("audit-hero-approver-role")).toBeNull();
+  });
+
   it("renders an error state with retry that calls refetch on click", async () => {
     const user = userEvent.setup();
     mockedFetchAuditDetail.mockRejectedValue(new Error("boom"));

@@ -90,6 +90,20 @@ export type DataClassification =
   | "confidential"
   | "restricted";
 
+/** RBAC role recorded for whichever principal approved/refused the
+ *  action. Stamped into the audit row by
+ *  `mission-rbac-approvals-decide-role-gate` (#1956); projected by
+ *  the audit feed in `mission-web-approvals-decider-role-on-timeline`.
+ *  Optional because pre-#1956 rows carry no role claim. */
+export type DeciderRole = "owner" | "admin" | "user" | "guest";
+
+export const DECIDER_ROLE_LABELS: Record<DeciderRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  user: "User",
+  guest: "Guest",
+};
+
 /** One audit row in the cross-worker timeline. Plain English `verb`
  *  may carry PII — defense-in-depth via `<RedactedText>` lands in
  *  E1-e; the ActivityRow primitive inlines a byte-identical sentinel
@@ -112,6 +126,9 @@ export interface AuditRow {
   verb: string;
   status: AuditStatus;
   approver?: { id: string; name: string };
+  /** Resolved RBAC role of the approver (mission-rbac-approvals-
+   *  decide-role-gate). Absent on pre-#1956 rows. */
+  decider_role?: DeciderRole;
   channel?: ChannelKind;
   cost?: { usd: number };
   dataClassification?: DataClassification;

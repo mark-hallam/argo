@@ -243,7 +243,7 @@ fn audit_row_json(row: &ExportedRow, policy: &RedactionPolicy) -> Value {
         let (name, _) = redact_text(&raw, policy);
         json!({"id": id, "name": name})
     });
-    json!({
+    let mut row_json = json!({
         "id": row.id,
         "timestamp": timestamp,
         "worker": { "id": worker_id, "name": worker_name },
@@ -254,7 +254,24 @@ fn audit_row_json(row: &ExportedRow, policy: &RedactionPolicy) -> Value {
         "channel": payload_str(p, "channel").unwrap_or_else(|| "web".into()),
         "cost": payload_cost_usd(p).map_or(Value::Null, |usd| json!({"usd": usd})),
         "data_classification": classification(p).unwrap_or_else(|| "internal".into()),
-    })
+    });
+    // Additive surface from mission-rbac-approvals-decide-role-gate
+    // (#1956). Pre-#1956 rows omit `decider_role` from their payload;
+    // we project only when present so the frontend backward-compat
+    // branch keeps rendering the bare approver name.
+    if let Some(role) = decider_role(p) {
+        row_json["decider_role"] = Value::String(role);
+    }
+    row_json
+}
+
+/// Pass-through projector for the `decider_role` claim stamped by
+/// `mission-rbac-approvals-decide-role-gate` (#1956). Only known
+/// role labels are surfaced — anything else is treated as a legacy
+/// or malformed value and dropped.
+fn decider_role(p: &Value) -> Option<String> {
+    let raw = payload_str(p, "decider_role")?;
+    matches!(raw.as_str(), "owner" | "admin" | "user" | "guest").then_some(raw)
 }
 
 fn action_type(row: &ExportedRow) -> Option<String> {
