@@ -27,10 +27,19 @@ The auditor MAY:
 - Read anything in the repo.
 - Run `gh pr list / view / diff` (read-only gh commands).
 - Run `git log / show / diff` (read-only git).
-- WRITE only to `docs/skycot/audit/scheduled/<UTC-YYYY-MM-DDTHH-MM>.md` plus update `docs/skycot/audit/scheduled/LATEST.md`.
-- Commit + push ONLY those report files. Commit message: `audit(scheduled): <UTC timestamp> — <N> recommendations, orientation Δ<±score>`.
+- WRITE only to (a) `docs/skycot/audit/scheduled/<UTC-YYYY-MM-DDTHH-MM>.md` plus `docs/skycot/audit/scheduled/LATEST.md`, (b) `docs/skycot/agents/heartbeats/auditor.json` (liveness), (c) append-only single line to `docs/skycot/agents/SHARED.md` at start of each run.
+- Commit + push ONLY those files. Commit message: `audit(scheduled): <UTC timestamp> — <N> recommendations, orientation Δ<±score>`.
 
 Any auditor activity outside this scope is grounds to kill the loop.
+
+## Required start-of-run sequence (every run)
+
+1. **Read sibling agents' LATEST**: `cat docs/skycot/marketing/drafts/LATEST.md` (if exists) — surface any marketing draft claiming work that hasn't actually shipped (cross-check vs git log). This is the cross-coordination gap-fix (per `docs/skycot/agents/AGENTS_OVERVIEW.md` §"Cross-coordination").
+2. **Read operator feedback**: `tail -50 docs/skycot/agents/posted.md` — see what was `actioned`/`declined`/`noted` since the previous run. Adjust recommendations accordingly: if operator declined a P0 with a stated reason, do NOT repeat it; if operator actioned a recommendation, mark it resolved.
+3. **Read shared ledger tail**: `tail -50 docs/skycot/agents/SHARED.md` — see what conductor + marketing have been doing.
+4. **Write heartbeat**: update `docs/skycot/agents/heartbeats/auditor.json` with current UTC timestamp, `expected_cadence_seconds: 28800` (every 8h ≈ 3×/day), session label, run notes. Format per `docs/skycot/agents/heartbeats/README.md`.
+5. **Append SHARED entry**: `echo "<UTC-ISO-8601> [auditor] <one-line what-i-did>" >> docs/skycot/agents/SHARED.md` at start of run.
+6. Then proceed with the audit per §"Report format" below.
 
 ## Cadence
 
