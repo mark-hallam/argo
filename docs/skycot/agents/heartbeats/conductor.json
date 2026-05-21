@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T11:56:00Z",
+  "last_run_utc": "2026-05-21T12:31:12Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-24",
-  "run_notes": "Tick 24: 5 new PRs in review (#1972-#1976) + #1970 still DIRTY + #1966 still IN_REVIEW. Claude queue dropped to 23 (just below 25 threshold) — +3 pair-with-merged briefs. PR-review running."
+  "session_label": "anthropic-claude-code-conductor-tick-25",
+  "run_notes": "Tick 25: 6 new PRs (#1977-#1982), 3 DIRTY from last tick still need rebase (#1970, #1972 stale, #1973 catastrophic). Workers shipping ~5-6 PRs per 30min. Queue at 22 claude / 7 codex TODO."
 }
