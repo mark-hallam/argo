@@ -18,8 +18,8 @@ export const SAMPLE_COHORT_SUMMARIES: CohortSummary[] = [
     trust_grade_band: "trusted",
     trust_grade_min: 7,
     trust_grade_max: 10,
-    member_count: 6,
-    skill_count: 8,
+    member_count: 5,
+    skill_count: 7,
   },
   {
     cohort_id: "support::developing",
@@ -45,7 +45,7 @@ export const SAMPLE_COHORT_SUMMARIES: CohortSummary[] = [
     trust_grade_band: "developing",
     trust_grade_min: 1,
     trust_grade_max: 3,
-    member_count: 2,
+    member_count: 1,
     skill_count: 3,
   },
   {
@@ -64,48 +64,63 @@ const SUPPORT_TRUSTED_SKILLS: SkillCoverage[] = [
     skill_name: "triage_intent",
     version: "1.4.0",
     member_coverage_pct: 100.0,
-    member_hits: 6,
+    member_hits: 5,
   },
   {
     skill_name: "summarize_thread",
     version: "1.2.0",
-    member_coverage_pct: 83.3,
-    member_hits: 5,
+    member_coverage_pct: 80.0,
+    member_hits: 4,
   },
   {
     skill_name: "escalate_to_human",
     version: "0.9.1",
-    member_coverage_pct: 83.3,
-    member_hits: 5,
+    member_coverage_pct: 80.0,
+    member_hits: 4,
   },
   {
     skill_name: "refund_lookup",
     version: "2.0.0",
-    member_coverage_pct: 66.7,
-    member_hits: 4,
+    member_coverage_pct: 60.0,
+    member_hits: 3,
   },
   {
     skill_name: "tag_followup",
     version: "1.0.0",
-    member_coverage_pct: 50.0,
-    member_hits: 3,
+    member_coverage_pct: 40.0,
+    member_hits: 2,
   },
   {
     skill_name: "schedule_callback",
     version: null,
-    member_coverage_pct: 33.3,
-    member_hits: 2,
+    member_coverage_pct: 20.0,
+    member_hits: 1,
   },
   {
     skill_name: "draft_apology",
     version: "1.1.0",
-    member_coverage_pct: 33.3,
-    member_hits: 2,
+    member_coverage_pct: 20.0,
+    member_hits: 1,
+  },
+];
+
+const MARKETPLACE_DEVELOPING_SKILLS: SkillCoverage[] = [
+  {
+    skill_name: "list_inventory",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
   },
   {
-    skill_name: "compliance_check",
-    version: "0.4.0",
-    member_coverage_pct: 16.7,
+    skill_name: "reprice_items",
+    version: "1.2.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "counter_offers",
+    version: "0.9.0",
+    member_coverage_pct: 100.0,
     member_hits: 1,
   },
 ];
@@ -116,23 +131,9 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
   trust_grade_band: "trusted",
   trust_grade_min: 7,
   trust_grade_max: 10,
-  member_count: 6,
-  skill_count: 8,
+  member_count: 5,
+  skill_count: 7,
   members: [
-    {
-      worker_id: "wkr_01J0MAYA",
-      trust_grade: 9,
-      skill_ids: [
-        "triage_intent",
-        "summarize_thread",
-        "escalate_to_human",
-        "refund_lookup",
-        "tag_followup",
-        "schedule_callback",
-        "draft_apology",
-        "compliance_check",
-      ],
-    },
     {
       worker_id: "wkr_01J0PRIYA",
       trust_grade: 8,
@@ -175,6 +176,25 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
   skills: SUPPORT_TRUSTED_SKILLS,
 };
 
+export const SAMPLE_MARKETPLACE_COHORT_DETAIL: CohortDetail = {
+  cohort_id: "marketplace::developing",
+  vertical: "marketplace",
+  trust_grade_band: "developing",
+  trust_grade_min: 1,
+  trust_grade_max: 3,
+  member_count: 1,
+  skill_count: 3,
+  members: [
+    {
+      worker_id: "wkr_01J0MARIAH",
+      trust_grade: 2,
+      skill_ids: ["list_inventory", "reprice_items", "counter_offers"],
+    },
+  ],
+  skills: MARKETPLACE_DEVELOPING_SKILLS,
+};
+
 export const SAMPLE_COHORT_DETAILS: Record<string, CohortDetail> = {
   "support::trusted": SAMPLE_COHORT_DETAIL,
+  "marketplace::developing": SAMPLE_MARKETPLACE_COHORT_DETAIL,
 };
