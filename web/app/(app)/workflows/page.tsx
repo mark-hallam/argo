@@ -3,107 +3,26 @@ import "./page.css";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { GitBranch, ArrowRight, Plus, Search, FileCode2, Clock, Sparkles } from "lucide-react";
+import { GitBranch, ArrowRight, Plus, Search, Clock, Sparkles } from "lucide-react";
 import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
 import { HoverHint } from "@/components/ui/Tooltip";
+import { useWorkflows } from "@/lib/hooks/use-workflows";
+import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
 
 /**
  * Workflows index — `/workflows` brand-loud catalog view.
  *
- * Surfaces every workflow definition across the tenant's verticals
- * in one searchable grid. Each workflow card links to the existing
- * version viewer at `/verticals/<v>/workflows/<n>`, which already
- * exposes side-by-side diff between versions.
+ * Lives off `useWorkflows()` which fans the per-vertical gateway call
+ * out in parallel (`GET /api/v1/verticals/<v>/workflows`). When the
+ * gateway has no live data (offline dev, cold store, demo recording)
+ * the hook falls through to the local seed in
+ * `lib/sample-workflows` and surfaces `dataSource: "mock"` so the
+ * hero pill flips LIVE → MOCK.
  *
- * V1 ships a curated seed of demo workflows so the surface has body
- * for the operator demo recording. Real-time data binding (live
- * fetch of all workflows across all verticals) lands in a follow-up
- * brief — the gateway has the routes (`POST/GET/PUT/DELETE
- * /api/v1/verticals/<v>/workflows[...]`) from PR #1860.
+ * The per-card surface is unchanged from the seed-only version — the
+ * data binding is the only swap; visual / interaction tests against
+ * the catalog continue to pass.
  */
-
-const SEED_WORKFLOWS = [
-  {
-    name: "post_listing",
-    vertical: "gtm-engineer",
-    description: "Validate inventory data + post fresh listing to Facebook Marketplace.",
-    steps: 6,
-    versions: 3,
-    lastEdited: "2 days ago",
-    lastEditor: "Mariah",
-    risk: "approval-required",
-  },
-  {
-    name: "screen_candidate",
-    vertical: "people-ops",
-    description: "First-pass candidate screen against a JD with skill-match scoring.",
-    steps: 8,
-    versions: 5,
-    lastEdited: "4 hours ago",
-    lastEditor: "Priya",
-    risk: "autonomous",
-  },
-  {
-    name: "approve_refund",
-    vertical: "support",
-    description: "Verify refund eligibility, check ledger, route high-value to manager.",
-    steps: 5,
-    versions: 2,
-    lastEdited: "1 week ago",
-    lastEditor: "Jamal",
-    risk: "approval-required",
-  },
-  {
-    name: "extract_invoice",
-    vertical: "finance",
-    description: "Pull line items from PDF/scanned invoices, reconcile vendor.",
-    steps: 4,
-    versions: 1,
-    lastEdited: "12 hours ago",
-    lastEditor: "Sam",
-    risk: "autonomous",
-  },
-  {
-    name: "qualify_lead",
-    vertical: "sales",
-    description: "Budget / Authority / Need / Timeline qualification + calendar-link insertion + CRM update.",
-    steps: 7,
-    versions: 4,
-    lastEdited: "3 days ago",
-    lastEditor: "Rio",
-    risk: "approval-required",
-  },
-  {
-    name: "triage_ticket",
-    vertical: "support",
-    description: "Classify tickets, deflect with KB articles, escalate the rest.",
-    steps: 3,
-    versions: 6,
-    lastEdited: "32 minutes ago",
-    lastEditor: "Jamal",
-    risk: "autonomous",
-  },
-  {
-    name: "exit_interview_synth",
-    vertical: "people-ops",
-    description: "Quarterly synthesis of exit-interview transcripts into a retention report.",
-    steps: 3,
-    versions: 2,
-    lastEdited: "yesterday",
-    lastEditor: "Priya",
-    risk: "approval-required",
-  },
-  {
-    name: "draft_status_report",
-    vertical: "marketing",
-    description: "Weekly client status report — campaign perf + content shipped + next-week asks.",
-    steps: 4,
-    versions: 3,
-    lastEdited: "12 minutes ago",
-    lastEditor: "Nori",
-    risk: "approval-required",
-  },
-];
 
 const TRY_CHIPS = ["approval flows", "data extraction", "outbound qualification", "escalation"];
 
@@ -120,17 +39,22 @@ const RISK_COLOR: Record<string, string> = {
 export default function WorkflowsPage() {
   const [query, setQuery] = useState("");
   const [proposeOpen, setProposeOpen] = useState(false);
+  const { data, isLoading, isError } = useWorkflows();
+
+  const workflows = data?.workflows ?? SAMPLE_WORKFLOW_SUMMARIES;
+  const source = data?.source ?? "mock-offline";
+  const isLive = source === "gateway";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return SEED_WORKFLOWS;
-    return SEED_WORKFLOWS.filter(
+    if (!q) return workflows;
+    return workflows.filter(
       (wf) =>
         wf.name.toLowerCase().includes(q) ||
         wf.vertical.toLowerCase().includes(q) ||
         wf.description.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [query, workflows]);
 
   return (
     <>
@@ -141,9 +65,13 @@ export default function WorkflowsPage() {
         rel="stylesheet"
       />
       <div className="workflows-stage">
-        <div className="workflows-eyebrow">
+        <div
+          className="workflows-eyebrow"
+          data-testid="workflows-source-pill"
+          data-source={source}
+        >
           <span className="workflows-eyebrow-dot" />
-          WORKFLOWS · LIVE
+          WORKFLOWS · {isLive ? "LIVE" : "MOCK"}
         </div>
 
         <h1 className="workflows-hero">
@@ -171,9 +99,9 @@ export default function WorkflowsPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
           <span className="workflows-count-pill">
-            {filtered.length === SEED_WORKFLOWS.length
-              ? `${SEED_WORKFLOWS.length} workflows`
-              : `${filtered.length} of ${SEED_WORKFLOWS.length}`}
+            {filtered.length === workflows.length
+              ? `${workflows.length} workflows`
+              : `${filtered.length} of ${workflows.length}`}
           </span>
           <Link
             href="/workflows/templates"
@@ -215,7 +143,38 @@ export default function WorkflowsPage() {
           <span>NEWEST FIRST</span>
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div
+            data-testid="workflows-loading"
+            style={{
+              padding: "48px 24px",
+              textAlign: "center",
+              color: "var(--muted-foreground, #52525b)",
+              fontSize: 14,
+            }}
+          >
+            Loading workflows…
+          </div>
+        ) : null}
+
+        {isError ? (
+          <div
+            data-testid="workflows-error"
+            style={{
+              padding: "32px 24px",
+              textAlign: "center",
+              color: "#dc2626",
+              border: "1px solid #fecaca",
+              borderRadius: 12,
+              background: "#fef2f2",
+              fontSize: 14,
+            }}
+          >
+            Couldn&apos;t reach the gateway. Showing seed data so the demo still works.
+          </div>
+        ) : null}
+
+        {!isLoading && filtered.length === 0 ? (
           <div
             data-testid="workflows-empty"
             style={{
@@ -227,7 +186,14 @@ export default function WorkflowsPage() {
               color: "var(--muted-foreground, #52525b)",
             }}
           >
-            <p style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground, #1e1b4b)", margin: "0 0 6px" }}>
+            <p
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: "var(--foreground, #1e1b4b)",
+                margin: "0 0 6px",
+              }}
+            >
               No workflows match &ldquo;{query.trim()}&rdquo;.
             </p>
             <p style={{ fontSize: 14, margin: "0 0 16px" }}>
