@@ -7,6 +7,24 @@ import {
 import { ApiError } from "./types";
 import { SAMPLE_APPROVALS } from "@/lib/sample-approvals";
 
+// `toastForbidden` in `./approvals` calls `await import("sonner")`. Mocking
+// the module keeps the lazy import resolvable in unit tests and lets us
+// assert the role-denied toast surface fires with the right copy. The
+// `vi.hoisted` indirection is required because `vi.mock` factories run
+// before any top-level `const` initializers.
+const { toastErrorMock } = vi.hoisted(() => ({ toastErrorMock: vi.fn() }));
+vi.mock("sonner", () => ({
+  toast: {
+    error: toastErrorMock,
+    success: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    loading: vi.fn(),
+    promise: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
+
 const ORIGINAL_FETCH = globalThis.fetch;
 const ORIGINAL_BYPASS = process.env.ARGO_GATEWAY_AUTH_BYPASS;
 
@@ -54,6 +72,7 @@ describe("lib/api/approvals", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
     delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+    toastErrorMock.mockClear();
   });
   afterEach(() => {
     globalThis.fetch = ORIGINAL_FETCH;
@@ -138,6 +157,41 @@ describe("lib/api/approvals", () => {
       submitDecision({ approvalId: "ap_y", decision: "refuse" }),
     ).rejects.toBeInstanceOf(ApiError);
     await expect(submitUndo("ap_y")).rejects.toBeInstanceOf(ApiError);
+  });
+
+  // Pairs with mission-rbac-approvals-decide-role-gate (#1956): a
+  // viewer or below who tries to decide gets a 403 from the gateway.
+  // The client must (a) surface a plain-language "you don't have
+  // permission" toast and (b) rethrow so the useSubmitDecision
+  // `onError` handler can roll the optimistic mutation back — silently
+  // resolving here would corrupt the approvals audit chain.
+  it("surfaces a sonner toast and rethrows on 403 from /decide", async () => {
+    installMock(() => makeResponse({ status: 403, body: { error: "forbidden" } }));
+
+    await expect(
+      submitDecision({ approvalId: "ap_403", decision: "approve" }),
+    ).rejects.toBeInstanceOf(ApiError);
+
+    // toastForbidden uses a fire-and-forget dynamic import; flush
+    // pending microtasks so the `.then` chain runs before we assert.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    const [title, opts] = toastErrorMock.mock.calls[0];
+    expect(title).toMatch(/permission to approve/i);
+    expect(opts).toMatchObject({ description: expect.stringMatching(/admin/i) });
+  });
+
+  it("surfaces a sonner toast and rethrows on 403 from /undo", async () => {
+    installMock(() => makeResponse({ status: 403, body: { error: "forbidden" } }));
+
+    await expect(submitUndo("ap_403_undo")).rejects.toBeInstanceOf(ApiError);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    const [title] = toastErrorMock.mock.calls[0];
+    expect(title).toMatch(/permission to undo/i);
   });
 
   it("short-circuits to mock when ARGO_GATEWAY_AUTH_BYPASS=1 (no fetch made)", async () => {
