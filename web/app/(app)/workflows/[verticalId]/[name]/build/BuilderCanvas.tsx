@@ -5,7 +5,9 @@ import {
   MiniMap,
   ReactFlow,
   type Edge,
+  type IsValidConnection,
   type Node,
+  type OnConnect,
   type OnEdgesChange,
   type OnNodesChange,
 } from "@xyflow/react";
@@ -14,17 +16,29 @@ import { useMemo, useState } from "react";
 
 import { SkycotStepNode } from "./BuilderCanvasNode";
 import { AddStepPalette } from "./BuilderNodePalette";
-import { STEP_KIND_META, type SkyNodeData } from "./types";
+import { STEP_KIND_META, type SkyNodeData, type StepKind } from "./types";
 
 interface Props {
   nodes: Node[];
   edges: Edge[];
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
+  onConnect: OnConnect;
+  isValidConnection?: IsValidConnection<Edge>;
   onNodeClick: (event: React.MouseEvent, node: Node) => void;
+  onSelectStepKind: (kind: StepKind) => void;
 }
 
-export function BuilderCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick }: Props) {
+export function BuilderCanvas({
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  isValidConnection,
+  onNodeClick,
+  onSelectStepKind,
+}: Props) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const nodeTypes = useMemo(() => ({ skycot: SkycotStepNode }), []);
 
@@ -35,6 +49,8 @@ export function BuilderCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNo
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
         fitView
@@ -57,12 +73,18 @@ export function BuilderCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNo
       <button
         type="button"
         className="builder-add-step"
+        data-testid="builder-add-step"
         onClick={() => setPaletteOpen((v) => !v)}
         aria-expanded={paletteOpen}
       >
         <Plus size={15} /> Add step
       </button>
-      {paletteOpen ? <AddStepPalette onClose={() => setPaletteOpen(false)} /> : null}
+      {paletteOpen ? (
+        <AddStepPalette
+          onSelect={onSelectStepKind}
+          onClose={() => setPaletteOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

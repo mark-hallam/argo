@@ -2,7 +2,7 @@
 import "./page.css";
 
 import "@xyflow/react/dist/style.css";
-import type { Node } from "@xyflow/react";
+import type { Connection, Edge, IsValidConnection, Node } from "@xyflow/react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
@@ -22,9 +22,15 @@ import { getTemplate } from "@/lib/workflow-templates";
 import { BuilderCanvas } from "./BuilderCanvas";
 import { BuilderInspector } from "./BuilderInspector";
 import { BuilderToolbar } from "./BuilderToolbar";
+import {
+  isValidConnectionShape,
+  newStepNode,
+  STEP_KIND_DEFAULTS,
+  validateConnection,
+} from "./builder-handlers";
 import { stepsToFlow } from "./layout";
 import { SEED_WORKFLOWS } from "./seed-workflows";
-import type { SkyNodeData, WorkflowSpec } from "./types";
+import { STEP_KIND_META, type SkyNodeData, type StepKind, type WorkflowSpec } from "./types";
 
 /**
  * Class-leading visual workflow builder — `/workflows/<v>/<name>/build`.
@@ -179,6 +185,50 @@ function BuilderInner({
     builder.reset(initial.nodes, initial.edges);
   }, [builder, initial]);
 
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      const result = validateConnection(connection, builder.nodes, builder.edges);
+      if (!result.ok) {
+        if (result.reason === "self_loop") {
+          toast.error("A step can't connect to itself.");
+        } else if (result.reason === "duplicate") {
+          toast.error("These steps are already connected.");
+        } else if (result.reason === "trigger_incoming") {
+          toast.error("Triggers can't have incoming connections.");
+        }
+        return;
+      }
+      builder.addEdge(result.edge);
+    },
+    [builder],
+  );
+
+  const isValidConnection: IsValidConnection<Edge> = useCallback(
+    (edgeOrConnection) =>
+      isValidConnectionShape(
+        {
+          source: edgeOrConnection.source,
+          target: edgeOrConnection.target,
+          sourceHandle: edgeOrConnection.sourceHandle ?? null,
+          targetHandle: edgeOrConnection.targetHandle ?? null,
+        },
+        builder.nodes,
+      ),
+    [builder.nodes],
+  );
+
+  const handleAddStep = useCallback(
+    (kind: StepKind) => {
+      const suffix = crypto.randomUUID().slice(0, 8);
+      const node = newStepNode(kind, builder.nodes, suffix);
+      builder.addNode(node);
+      toast.success(`${STEP_KIND_META[kind].label} added — drag to position.`, {
+        description: STEP_KIND_DEFAULTS[kind].description,
+      });
+    },
+    [builder],
+  );
+
   if (stateFlag === "loading") {
     return <WorkflowBuilderSkeleton />;
   }
@@ -241,7 +291,10 @@ function BuilderInner({
             edges={builder.edges}
             onNodesChange={builder.onNodesChange}
             onEdgesChange={builder.onEdgesChange}
+            onConnect={onConnect}
+            isValidConnection={isValidConnection}
             onNodeClick={onNodeClick}
+            onSelectStepKind={handleAddStep}
           />
           {selectedStep ? (
             <BuilderInspector

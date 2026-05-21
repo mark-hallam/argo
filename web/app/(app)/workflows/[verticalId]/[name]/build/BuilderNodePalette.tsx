@@ -1,13 +1,22 @@
 "use client";
 import { X } from "lucide-react";
+import { useEffect } from "react";
 
-import { PALETTE_GROUPS, STEP_KIND_META } from "./types";
+import { PALETTE_GROUPS, STEP_KIND_META, type StepKind } from "./types";
 
-// Per the brief, the palette is a stub: insertion wiring lands in the
-// node-palette-sidebar brief. We render the visible Logic group so
-// operators can see Loop + Wait alongside Decision before that brief
-// lands.
-export function AddStepPalette({ onClose }: { onClose: () => void }) {
+interface AddStepPaletteProps {
+  onSelect: (kind: StepKind) => void;
+  onClose: () => void;
+}
+
+export function AddStepPalette({ onSelect, onClose }: AddStepPaletteProps) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
   return (
     <div
       role="dialog"
@@ -69,6 +78,11 @@ export function AddStepPalette({ onClose }: { onClose: () => void }) {
               <button
                 key={kind}
                 type="button"
+                data-testid={`palette-kind-${kind}`}
+                onClick={() => {
+                  onSelect(kind);
+                  onClose();
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
