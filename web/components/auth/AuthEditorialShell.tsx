@@ -405,6 +405,23 @@ export function AuthEditorialShell({
             font-size: 42px;
           }
         }
+        /* A11y: respect prefers-reduced-motion (WCAG 2.3.3). Auth pages
+           do not mount MotionRoot, so framer-motion's reduced-motion
+           swap doesn't reach this subtree. Neutralize all animations
+           and shorten transitions inside the auth shell so radial
+           blobs, hover transforms, and any future keyframes freeze for
+           users who set the OS preference. */
+        @media (prefers-reduced-motion: reduce) {
+          .auth-editorial,
+          .auth-editorial *,
+          .auth-editorial *::before,
+          .auth-editorial *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
       `}</style>
       <div className="auth-editorial">
         <header className="auth-top">

@@ -108,4 +108,19 @@ describe("WorkflowTemplatesPage gallery", () => {
     expect(screen.queryByTestId("templates-grid")).toBeNull();
     expect(screen.getByText(/No templates match those filters/)).toBeInTheDocument();
   });
+
+  it("declares a prefers-reduced-motion guard so card hover transitions freeze", () => {
+    // CSS-only behavior — the page sits under MotionRoot but the
+    // styled-jsx hover transforms (card lift, arrow slide-in, the
+    // 0.18s "transition: all" on .template-card) bypass framer-motion.
+    // Verify the @media rule is in the rendered <style> so users with
+    // reduced-motion get a still gallery.
+    const { container } = render(<WorkflowTemplatesPage />);
+    const styleNodes = container.ownerDocument.querySelectorAll("style");
+    const css = Array.from(styleNodes)
+      .map((s) => s.textContent ?? "")
+      .join("\n");
+    expect(css).toMatch(/prefers-reduced-motion/);
+    expect(css).toMatch(/transition-duration:\s*0\.001ms/);
+  });
 });

@@ -327,6 +327,22 @@ export default function WorkflowTemplatesPage() {
           border: 1px dashed var(--border, #ece9f5);
           border-radius: 14px;
         }
+        /* A11y: respect prefers-reduced-motion (WCAG 2.3.3). The template
+           gallery sits under MotionRoot via (app)/ but its styled-jsx
+           hover transitions (card lift, arrow slide-in, transition: all
+           0.18s) bypass framer-motion. Neutralize them for users who
+           set the OS preference. */
+        @media (prefers-reduced-motion: reduce) {
+          .templates-stage,
+          .templates-stage *,
+          .templates-stage *::before,
+          .templates-stage *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
       `}</style>
       <div className="templates-stage">
         <Link href="/workflows" className="templates-back">
