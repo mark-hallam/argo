@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-21T20:36:00Z",
+  "last_run_utc": "2026-05-21T21:12:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-32",
-  "run_notes": "Tick 32 (post-overnight resume): operator confirmed workers closed. Swept 13 zombie CLAIMED → TODO + closed 5 stale DIRTY PRs (#1970/#1972/#1973/#1976/#1978). Marketing cron fired at 06:15. Auditor stale (missed 11:30 UTC slot during machine sleep)."
+  "session_label": "anthropic-claude-code-conductor-tick-33",
+  "run_notes": "Tick 33: auth fixed, 5 codex workers genuinely running (all fast-mode audits). Swept 17 zombie CLAIMED rows from this morning's 401-burst. 0 open PRs (workers still in implementation). Auditor STALE — missed overnight fire while machine slept; next scheduled 13:30 Melbourne."
 }
