@@ -63,8 +63,11 @@ export default function SignupPage() {
 
       <form onSubmit={onSubmit} noValidate data-testid="signup-form">
         <div className="field-block">
-          <div className="field-label">Work email</div>
+          <label htmlFor="signup-email-input" className="field-label">
+            Work email
+          </label>
           <input
+            id="signup-email-input"
             type="email"
             name="email"
             autoComplete="email"

@@ -45,6 +45,15 @@ describe("SignupPage", () => {
     expect(screen.getByTestId("signup-submit")).toBeDisabled();
   });
 
+  it("associates the 'Work email' label with the email input via htmlFor", () => {
+    render(<SignupPage />);
+    // getByLabelText only finds the input when label[htmlFor] matches input[id].
+    // This is the screen-reader association the WCAG label rule requires.
+    const labeled = screen.getByLabelText("Work email");
+    expect(labeled).toBe(screen.getByTestId("signup-email"));
+    expect(labeled).toHaveAttribute("id", "signup-email-input");
+  });
+
   it("submitting a valid email POSTs to /api/auth/signup and redirects to check-email", async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: "sent" }));

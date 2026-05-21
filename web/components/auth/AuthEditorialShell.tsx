@@ -282,6 +282,7 @@ export function AuthEditorialShell({
           margin-bottom: 16px;
         }
         .field-label {
+          display: block;
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
           color: var(--ink-3);
