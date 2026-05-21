@@ -1,5 +1,7 @@
 import type { Connection, Edge, Node } from "@xyflow/react";
 
+import type { TriggerKind } from "@/components/workflows/triggers/types";
+
 import type { SkyNodeData, StepKind, SubWorkflowRef, WorkflowStep } from "./types";
 
 // Pure helpers for the visual builder's connect + add-step handlers.
@@ -105,4 +107,55 @@ export function newStepNode(
     position: newStepPosition(nodes),
     data: { step },
   };
+}
+
+export interface NewStepOverrides {
+  name?: string;
+  description?: string;
+  triggerKind?: TriggerKind;
+}
+
+// Build a step node at an arbitrary canvas position — used by the
+// left sidebar palette's drag-drop path, which needs to honor the
+// drop coordinate rather than appending past the last node. The
+// optional overrides let a single `trigger` kind spawn manual /
+// schedule / webhook / email / slack / form variants from the
+// palette without each variant needing its own `StepKind`.
+export function newStepNodeAt(
+  kind: StepKind,
+  idSuffix: string,
+  position: { x: number; y: number },
+  overrides?: NewStepOverrides,
+): Node {
+  const defaults = STEP_KIND_DEFAULTS[kind];
+  const step: WorkflowStep = {
+    id: `step-${idSuffix}`,
+    kind,
+    name: overrides?.name ?? defaults.name,
+    description: overrides?.description ?? defaults.description,
+    ...(overrides?.triggerKind ? { triggerKind: overrides.triggerKind } : {}),
+  };
+  return {
+    id: step.id,
+    type: kind === "sub_workflow" ? "subWorkflow" : "skycot",
+    position,
+    data: { step },
+  };
+}
+
+// Find the existing node with the largest y < dropY — i.e. the
+// "previous" step on the visual canvas. Used to auto-wire a freshly
+// dropped node into the closest predecessor. Returns null when the
+// drop is above every existing node (empty canvas, or above-trigger).
+export function findNearestPredecessor(nodes: Node[], dropY: number): Node | null {
+  let nearest: Node | null = null;
+  let bestDelta = Infinity;
+  for (const n of nodes) {
+    const delta = dropY - n.position.y;
+    if (delta > 0 && delta < bestDelta) {
+      bestDelta = delta;
+      nearest = n;
+    }
+  }
+  return nearest;
 }

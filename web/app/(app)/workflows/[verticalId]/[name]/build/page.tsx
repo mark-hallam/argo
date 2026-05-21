@@ -37,6 +37,7 @@ import { getTemplate } from "@/lib/workflow-templates";
 import { BuilderAiProposal } from "./BuilderAiProposal";
 import { BuilderCanvas, SNAP_GRID_SIZE } from "./BuilderCanvas";
 import { BuilderInspector } from "./BuilderInspector";
+import { BuilderSidebarPalette } from "./BuilderSidebarPalette";
 import { BuilderToolbar } from "./BuilderToolbar";
 import {
   isValidConnectionShape,
@@ -55,6 +56,7 @@ import {
   type WorkflowSpec,
   type WorkflowStep,
 } from "./types";
+import { usePaletteHandlers } from "./use-palette-handlers";
 import { useTestRun, type StepInput } from "./useTestRun";
 
 interface ContextMenuState {
@@ -553,6 +555,13 @@ function BuilderInner({
     [builder],
   );
 
+  const { handlePaletteDrop, handlePaletteSelect } = usePaletteHandlers({
+    reactFlow,
+    nodes: builder.nodes,
+    addNode: builder.addNode,
+    addEdge: builder.addEdge,
+  });
+
   if (stateFlag === "loading") {
     return <WorkflowBuilderSkeleton />;
   }
@@ -606,6 +615,7 @@ function BuilderInner({
         />
 
         <div className="builder-stage">
+          <BuilderSidebarPalette onSelect={handlePaletteSelect} />
           <BuilderCanvas
             nodes={nodesWithRunState}
             edges={builder.edges}
@@ -615,6 +625,7 @@ function BuilderInner({
             isValidConnection={isValidConnection}
             onNodeClick={onNodeClick}
             onSelectStepKind={handleAddStep}
+            onPaletteDrop={handlePaletteDrop}
             currentVerticalId={verticalId}
             currentName={name}
             onNodesDelete={onNodesDelete}

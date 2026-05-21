@@ -1,13 +1,20 @@
 import {
   Clock,
+  Code2,
   Database,
   GitBranch,
+  Globe,
+  Inbox,
   Layers,
+  Mail,
   MessageSquare,
+  MousePointer2,
   Play,
   Repeat,
   ShieldCheck,
+  Slack,
   Sparkles,
+  Webhook,
 } from "lucide-react";
 import { createElement, type ReactNode } from "react";
 import type { TriggerKind } from "@/components/workflows/triggers/types";
@@ -132,3 +139,102 @@ export const PALETTE_GROUPS: PaletteGroup[] = [
   { label: "Governance", kinds: ["approval"] },
   { label: "Data", kinds: ["data"] },
 ];
+
+// Drag-and-drop MIME type for palette items. Picked to avoid collision
+// with React Flow's own pointer-event drag handles on canvas nodes.
+export const PALETTE_DRAG_MIME = "application/x-skycot-palette-item";
+
+// A single draggable entry in the left sidebar palette. Maps to a
+// `StepKind` plus optional `triggerKind`/name overrides so a single
+// `trigger` kind can spawn manual / schedule / webhook / email / slack
+// / form variants without each needing its own `StepKind` enum value.
+export interface PaletteItem {
+  id: string;
+  kind: StepKind;
+  label: string;
+  description: string;
+  triggerKind?: TriggerKind;
+}
+
+export interface SidebarPaletteGroup {
+  label: string;
+  items: PaletteItem[];
+}
+
+export const SIDEBAR_PALETTE_GROUPS: SidebarPaletteGroup[] = [
+  {
+    label: "Triggers",
+    items: [
+      { id: "trigger-manual",   kind: "trigger", label: "Manual run",    description: "Run on demand from the builder", triggerKind: "manual" },
+      { id: "trigger-schedule", kind: "trigger", label: "Schedule",      description: "Cron-style recurring trigger",    triggerKind: "schedule" },
+      { id: "trigger-webhook",  kind: "trigger", label: "Webhook",       description: "HTTP endpoint trigger",           triggerKind: "webhook" },
+      { id: "trigger-email",    kind: "trigger", label: "Email",         description: "Inbox-watch trigger",             triggerKind: "email" },
+      { id: "trigger-slack",    kind: "trigger", label: "Slack",         description: "Slack event trigger",             triggerKind: "slack" },
+      { id: "trigger-form",     kind: "trigger", label: "Web form",      description: "Public form-submit trigger",      triggerKind: "form" },
+    ],
+  },
+  {
+    label: "Skills",
+    items: [
+      { id: "skill-invoke", kind: "skill_invoke", label: "Invoke skill", description: "Run a learned skill from the marketplace" },
+    ],
+  },
+  {
+    label: "Logic",
+    items: [
+      { id: "logic-decision", kind: "decision", label: "Decision", description: "Branch on a condition" },
+      { id: "logic-loop",     kind: "loop",     label: "Loop",     description: "Iterate over a list" },
+      { id: "logic-wait",     kind: "wait",     label: "Wait",     description: "Pause for a duration" },
+    ],
+  },
+  {
+    label: "Approval gates",
+    items: [
+      { id: "approval-slack", kind: "approval", label: "Slack approval", description: "Approval via Slack DM" },
+      { id: "approval-email", kind: "approval", label: "Email approval", description: "Approval via email" },
+      { id: "approval-web",   kind: "approval", label: "Web approval",   description: "Approval via web inbox" },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { id: "tool-http",    kind: "tool_call", label: "HTTP request",   description: "Call an external API" },
+      { id: "tool-browser", kind: "tool_call", label: "Browser action", description: "Drive a real browser" },
+      { id: "tool-code",    kind: "tool_call", label: "Code",           description: "Run inline code" },
+    ],
+  },
+  {
+    label: "Notify",
+    items: [
+      { id: "notify-slack", kind: "notify", label: "Slack DM",  description: "Send a Slack message" },
+      { id: "notify-email", kind: "notify", label: "Email",     description: "Send an email" },
+      { id: "notify-inbox", kind: "notify", label: "Web inbox", description: "Post to the in-app inbox" },
+    ],
+  },
+];
+
+// Per-item icon override (overrides STEP_KIND_META so each palette
+// variant can render a distinct glyph — e.g. all three Notify variants
+// share the same `notify` step kind but the palette shows Slack / Mail
+// / Inbox icons).
+export const PALETTE_ITEM_ICON: Record<string, ReactNode> = {
+  "trigger-manual":   createElement(MousePointer2, { size: 14 }),
+  "trigger-schedule": createElement(Clock,         { size: 14 }),
+  "trigger-webhook":  createElement(Webhook,       { size: 14 }),
+  "trigger-email":    createElement(Mail,          { size: 14 }),
+  "trigger-slack":    createElement(Slack,         { size: 14 }),
+  "trigger-form":     createElement(Globe,         { size: 14 }),
+  "skill-invoke":     createElement(Sparkles,      { size: 14 }),
+  "logic-decision":   createElement(GitBranch,     { size: 14 }),
+  "logic-loop":       createElement(Repeat,        { size: 14 }),
+  "logic-wait":       createElement(Clock,         { size: 14 }),
+  "approval-slack":   createElement(Slack,         { size: 14 }),
+  "approval-email":   createElement(Mail,          { size: 14 }),
+  "approval-web":     createElement(ShieldCheck,   { size: 14 }),
+  "tool-http":        createElement(Globe,         { size: 14 }),
+  "tool-browser":     createElement(MousePointer2, { size: 14 }),
+  "tool-code":        createElement(Code2,         { size: 14 }),
+  "notify-slack":     createElement(Slack,         { size: 14 }),
+  "notify-email":     createElement(Mail,          { size: 14 }),
+  "notify-inbox":     createElement(Inbox,         { size: 14 }),
+};

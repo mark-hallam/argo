@@ -21,7 +21,9 @@ import { AddStepPalette } from "./BuilderNodePalette";
 import { SubWorkflowNode } from "./SubWorkflowNode";
 import { SubWorkflowPicker } from "./SubWorkflowPicker";
 import {
+  PALETTE_DRAG_MIME,
   STEP_KIND_META,
+  type PaletteItem,
   type SkyNodeData,
   type StepKind,
   type SubWorkflowRef,
@@ -36,6 +38,7 @@ interface Props {
   isValidConnection?: IsValidConnection<Edge>;
   onNodeClick: (event: React.MouseEvent, node: Node) => void;
   onSelectStepKind: (kind: StepKind, subWorkflow?: SubWorkflowRef) => void;
+  onPaletteDrop?: (item: PaletteItem, clientX: number, clientY: number) => void;
   // Excluded from sub-workflow picker results so a workflow can't pick
   // itself as its own sub-workflow.
   currentVerticalId: string;
@@ -62,6 +65,7 @@ export function BuilderCanvas({
   isValidConnection,
   onNodeClick,
   onSelectStepKind,
+  onPaletteDrop,
   currentVerticalId,
   currentName,
   onNodesDelete,
@@ -79,6 +83,29 @@ export function BuilderCanvas({
     () => ({ skycot: SkycotStepNode, subWorkflow: SubWorkflowNode }),
     [],
   );
+
+  // Accept palette drags. Filtering on the custom MIME means React
+  // Flow's own pointer-based node drags (which never touch
+  // dataTransfer) are ignored — no collision with existing handles.
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (!onPaletteDrop) return;
+    if (!Array.from(e.dataTransfer.types).includes(PALETTE_DRAG_MIME)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, [onPaletteDrop]);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (!onPaletteDrop) return;
+    const raw = e.dataTransfer.getData(PALETTE_DRAG_MIME);
+    if (!raw) return;
+    e.preventDefault();
+    try {
+      const item = JSON.parse(raw) as PaletteItem;
+      onPaletteDrop(item, e.clientX, e.clientY);
+    } catch {
+      // Malformed payload — ignore.
+    }
+  }, [onPaletteDrop]);
 
   const handlePaletteSelect = useCallback(
     (kind: StepKind) => {
@@ -101,7 +128,7 @@ export function BuilderCanvas({
   );
 
   return (
-    <div className="builder-canvas">
+    <div className="builder-canvas" onDragOver={handleDragOver} onDrop={handleDrop}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

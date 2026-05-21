@@ -2,8 +2,10 @@ import type { Edge, Node } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
 import {
+  findNearestPredecessor,
   isValidConnectionShape,
   newStepNode,
+  newStepNodeAt,
   newStepPosition,
   validateConnection,
 } from "./builder-handlers";
@@ -147,5 +149,61 @@ describe("newStepNode", () => {
       "deadbeef",
     );
     expect(node.position).toEqual({ x: 720, y: 160 });
+  });
+});
+
+describe("newStepNodeAt", () => {
+  it("places the new node at the provided position", () => {
+    const node = newStepNodeAt("skill_invoke", "abc", { x: 420, y: 800 });
+    expect(node.position).toEqual({ x: 420, y: 800 });
+    expect(node.id).toBe("step-abc");
+    expect(node.type).toBe("skycot");
+  });
+
+  it("applies name + description + triggerKind overrides", () => {
+    const node = newStepNodeAt("trigger", "x", { x: 0, y: 0 }, {
+      name: "Schedule",
+      description: "Cron-style recurring trigger",
+      triggerKind: "schedule",
+    });
+    const data = node.data as SkyNodeData;
+    expect(data.step.name).toBe("Schedule");
+    expect(data.step.description).toBe("Cron-style recurring trigger");
+    expect(data.step.triggerKind).toBe("schedule");
+  });
+
+  it("omits triggerKind when not provided", () => {
+    const node = newStepNodeAt("notify", "y", { x: 0, y: 0 }, { name: "Slack DM", description: "" });
+    const data = node.data as SkyNodeData;
+    expect(data.step.triggerKind).toBeUndefined();
+  });
+
+  it("uses the subWorkflow node type for sub_workflow kind", () => {
+    const node = newStepNodeAt("sub_workflow", "sw", { x: 10, y: 20 });
+    expect(node.type).toBe("subWorkflow");
+  });
+});
+
+describe("findNearestPredecessor", () => {
+  it("returns the node with the largest y strictly less than dropY", () => {
+    const nodes = [
+      n("a", "trigger", 100, 60),
+      n("b", "skill_invoke", 100, 260),
+      n("c", "approval", 100, 460),
+    ];
+    expect(findNearestPredecessor(nodes, 500)?.id).toBe("c");
+    expect(findNearestPredecessor(nodes, 300)?.id).toBe("b");
+    expect(findNearestPredecessor(nodes, 200)?.id).toBe("a");
+  });
+
+  it("returns null when the drop is above every node or on an empty canvas", () => {
+    expect(findNearestPredecessor([], 100)).toBeNull();
+    const nodes = [n("a", "trigger", 100, 60)];
+    expect(findNearestPredecessor(nodes, 30)).toBeNull();
+  });
+
+  it("ignores nodes at the same y as the drop", () => {
+    const nodes = [n("a", "trigger", 100, 200), n("b", "skill_invoke", 100, 200)];
+    expect(findNearestPredecessor(nodes, 200)).toBeNull();
   });
 });
