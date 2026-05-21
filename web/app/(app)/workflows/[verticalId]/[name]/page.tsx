@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, use, useCallback } from "react";
+import { Suspense, use, useCallback, useState } from "react";
 import {
   ArrowLeft,
   GitBranch,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { WorkflowViewerSkeleton } from "@/components/skycot/workflows/WorkflowViewerSkeleton";
 import { WorkflowViewerErrorState } from "@/components/skycot/workflows/WorkflowEdgeStates";
+import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
 
 /**
  * Visual workflow detail viewer — `/workflows/<v>/<name>`.
@@ -447,6 +448,7 @@ function ViewerInner({
   const router = useRouter();
   const pathname = usePathname() ?? `/workflows/${verticalId}/${name}`;
   const searchParams = useSearchParams();
+  const [editChatOpen, setEditChatOpen] = useState(false);
   // Gateway-fetch-state simulator. See sibling /build page for the
   // rationale: real fetch lands in a follow-up PR; this lets each
   // branch be reached via URL flag for tests + screenshots.
@@ -757,6 +759,14 @@ function ViewerInner({
             >
               <Pencil size={13} /> Open builder
             </Link>
+            <button
+              type="button"
+              className="wfd-btn"
+              data-testid="wfd-edit-in-chat"
+              onClick={() => setEditChatOpen(true)}
+            >
+              <MessageSquare size={13} /> Edit in chat
+            </button>
             <Link
               href={`/verticals/${workflow.vertical}/workflows/${workflow.name}`}
               className="wfd-btn"
@@ -941,6 +951,14 @@ function ViewerInner({
           </div>
         </div>
       </div>
+      <WorkflowProposeModal
+        open={editChatOpen}
+        onOpenChange={setEditChatOpen}
+        editingWorkflow={{
+          workflowName: workflow.name,
+          verticalId: workflow.vertical,
+        }}
+      />
     </>
   );
 }

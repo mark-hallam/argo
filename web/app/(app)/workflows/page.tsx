@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GitBranch, ArrowRight, Plus, Search, FileCode2, Clock, Sparkles } from "lucide-react";
+import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
 
 /**
  * Workflows index — `/workflows` brand-loud catalog view.
@@ -116,6 +117,7 @@ const RISK_COLOR: Record<string, string> = {
 
 export default function WorkflowsPage() {
   const [query, setQuery] = useState("");
+  const [proposeOpen, setProposeOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -474,15 +476,16 @@ export default function WorkflowsPage() {
             <Sparkles size={13} />
             Browse 50+ templates
           </Link>
-          <Link
-            href="/workflows/templates"
+          <button
+            type="button"
             className="workflows-propose"
             data-testid="workflows-propose"
-            title="Start a new workflow from one of 50+ templates"
+            title="Describe a new workflow in plain English"
+            onClick={() => setProposeOpen(true)}
           >
             <Plus size={14} />
             Propose new
-          </Link>
+          </button>
         </div>
 
         <div className="workflows-try-row">
@@ -597,6 +600,7 @@ export default function WorkflowsPage() {
           ))}
         </div>
       </div>
+      <WorkflowProposeModal open={proposeOpen} onOpenChange={setProposeOpen} />
     </>
   );
 }
