@@ -127,7 +127,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
       <style jsx global>{`
         .wpc-card {
           background: white;
-          border: 1px solid var(--border, #ece9f5);
+          border: 1px solid var(--border);
           border-radius: 14px;
           padding: 22px;
           position: relative;
@@ -140,7 +140,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           left: 0;
           width: 100%;
           height: 4px;
-          background: linear-gradient(90deg, #8b5cf6, #ec4899, #ff6b6b);
+          background: linear-gradient(90deg, var(--primary), var(--gradient-end), var(--brand-coral));
         }
         .wpc-section-label {
           display: flex;
@@ -148,7 +148,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           gap: 6px;
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -181,7 +181,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
         .wpc-col h2 {
           margin: 0 0 10px;
           font-size: 13.5px;
-          color: var(--foreground, #1e1b4b);
+          color: var(--foreground);
           font-weight: 600;
           display: flex;
           align-items: center;
@@ -192,7 +192,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           padding: 0;
           margin: 0;
           font-size: 13.5px;
-          color: var(--muted-foreground, #3f3f46);
+          color: var(--muted-foreground);
           line-height: 1.55;
         }
         .wpc-list li {
@@ -212,7 +212,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
         .wpc-signature {
           margin-top: 22px;
           padding-top: 18px;
-          border-top: 1px solid var(--border, #ece9f5);
+          border-top: 1px solid var(--border);
         }
       `}</style>
       <div className="wpc-card">
@@ -230,7 +230,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
         <div className="wpc-cols">
           <div className="wpc-col">
             <h2>
-              <CheckCircle2 size={13} style={{ color: "#14b8a6" }} /> Great at
+              <CheckCircle2 size={13} style={{ color: "var(--brand-teal)" }} /> Great at
             </h2>
             <ul className="wpc-list">
               {personality.greatAt.map((g, i) => (
@@ -240,7 +240,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           </div>
           <div className="wpc-col">
             <h2>
-              <AlertTriangle size={13} style={{ color: "#f59e0b" }} /> Escalate when
+              <AlertTriangle size={13} style={{ color: "var(--warning)" }} /> Escalate when
             </h2>
             <ul className="wpc-list">
               {personality.escalateWhen.map((g, i) => (

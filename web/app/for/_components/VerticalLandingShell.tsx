@@ -27,15 +27,15 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
       />
       <style jsx global>{`
         .vland {
-          --purple: #8b5cf6;
-          --pink: #ec4899;
-          --coral: #ff6b6b;
-          --teal: #14b8a6;
-          --ink: #1e1b4b;
-          --ink-2: #3f3f46;
-          --ink-3: #52525b;
-          --bg: #fafaff;
-          --line: #ece9f5;
+          --purple: var(--brand-primary);
+          --pink: var(--brand-pink);
+          --coral: var(--brand-coral);
+          --teal: var(--brand-teal);
+          --ink: var(--foreground);
+          --ink-2: var(--muted-foreground);
+          --ink-3: var(--muted-foreground);
+          --bg: var(--background);
+          --line: var(--border);
           font-family: "Inter", sans-serif;
           background: var(--bg);
           color: var(--ink);
@@ -86,7 +86,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           width: 28px;
           height: 28px;
           border-radius: 7px;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--purple), var(--pink));
           box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
         }
         .vland-brand-name {
@@ -178,7 +178,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         .vland-cta-pill {
           padding: 9px 18px;
           border-radius: 999px;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--purple), var(--pink));
           color: white;
           font-size: 14px;
           font-weight: 700;
@@ -214,7 +214,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           padding: 6px 14px;
           border-radius: 999px;
           background: var(--accent-eyebrow-bg, rgba(139, 92, 246, 0.1));
-          color: var(--accent-eyebrow-fg, #8b5cf6);
+          color: var(--accent-eyebrow-fg);
           margin-bottom: 24px;
         }
         .vland-eyebrow-dot {
@@ -234,7 +234,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         }
         .vland-h1 strong {
           font-weight: 400;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
+          background: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -260,7 +260,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           gap: 8px;
           padding: 14px 24px;
           border-radius: 12px;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--purple), var(--pink));
           color: white;
           font-size: 15px;
           font-weight: 700;
@@ -346,7 +346,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         }
         .vland-section-title strong {
           font-weight: 400;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--purple), var(--pink));
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -377,7 +377,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           width: 40px;
           height: 40px;
           border-radius: 10px;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--purple), var(--pink));
           color: white;
           display: grid;
           place-items: center;
@@ -406,7 +406,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         .vland-flow-name {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
-          color: var(--accent-eyebrow-fg, #8b5cf6);
+          color: var(--accent-eyebrow-fg);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -431,7 +431,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         .vland-flow-actor {
           font-family: "JetBrains Mono", monospace;
           font-size: 11.5px;
-          color: var(--accent-eyebrow-fg, #8b5cf6);
+          color: var(--accent-eyebrow-fg);
           letter-spacing: 0.1em;
           text-transform: uppercase;
           font-weight: 700;
@@ -463,7 +463,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           font-family: "Audiowide", sans-serif;
           font-size: 44px;
           line-height: 1;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--purple), var(--pink));
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -488,7 +488,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           margin: 24px 64px 0;
           padding: 56px 48px;
           border-radius: 24px;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
+          background: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
           color: white;
           text-align: center;
           position: relative;
@@ -535,7 +535,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           padding: 14px 28px;
           border-radius: 12px;
           background: white;
-          color: #8b5cf6;
+          color: var(--purple);
           font-size: 15px;
           font-weight: 700;
           text-decoration: none;

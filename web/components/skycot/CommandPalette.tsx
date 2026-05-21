@@ -80,7 +80,7 @@ const WORKERS: PaletteItem[] = [
     href: "/workers/wkr_01J0MARIAH",
     initials: "MA",
     badge: "waiting",
-    badgeColor: "#f59e0b",
+    badgeColor: "var(--warning)",
     keywords: ["marketplace", "listings", "reprice"],
   },
   {
@@ -91,7 +91,7 @@ const WORKERS: PaletteItem[] = [
     href: "/workers/wkr_01J0PRIYA",
     initials: "PR",
     badge: "waiting",
-    badgeColor: "#f59e0b",
+    badgeColor: "var(--warning)",
     keywords: ["recruiting", "candidate", "interview"],
   },
   {
@@ -102,7 +102,7 @@ const WORKERS: PaletteItem[] = [
     href: "/workers/wkr_01J0JAMAL",
     initials: "JA",
     badge: "working",
-    badgeColor: "#14b8a6",
+    badgeColor: "var(--brand-teal)",
     keywords: ["support", "tickets", "customer"],
   },
   {
@@ -113,7 +113,7 @@ const WORKERS: PaletteItem[] = [
     href: "/workers/wkr_01J0NORI",
     initials: "NO",
     badge: "idle",
-    badgeColor: "#52525b",
+    badgeColor: "var(--muted-foreground)",
     keywords: ["marketing", "comms", "announcements"],
   },
   {
@@ -124,7 +124,7 @@ const WORKERS: PaletteItem[] = [
     href: "/workers/wkr_01J0RIO",
     initials: "RI",
     badge: "paused",
-    badgeColor: "#a855f7",
+    badgeColor: "var(--primary)",
     keywords: ["real-estate", "showings", "listing"],
   },
   {
@@ -135,7 +135,7 @@ const WORKERS: PaletteItem[] = [
     href: "/workers/wkr_01J0SAM",
     initials: "SA",
     badge: "blocked",
-    badgeColor: "#ef4444",
+    badgeColor: "var(--destructive)",
     keywords: ["ops", "on-call", "pagerduty"],
   },
 ];
@@ -320,7 +320,7 @@ const MEMBERS: PaletteItem[] = [
     href: "/settings/members",
     initials: "SH",
     badge: "owner",
-    badgeColor: "#8b5cf6",
+    badgeColor: "var(--primary)",
     keywords: ["owner", "sam@acmeco.com"],
   },
   {
@@ -331,7 +331,7 @@ const MEMBERS: PaletteItem[] = [
     href: "/settings/members",
     initials: "OC",
     badge: "admin",
-    badgeColor: "#ec4899",
+    badgeColor: "var(--gradient-end)",
     keywords: ["admin", "olivia@acmeco.com"],
   },
   {
@@ -342,7 +342,7 @@ const MEMBERS: PaletteItem[] = [
     href: "/settings/members",
     initials: "DA",
     badge: "user",
-    badgeColor: "#0891b2",
+    badgeColor: "var(--info)",
     keywords: ["user", "diego@acmeco.com"],
   },
   {
@@ -353,7 +353,7 @@ const MEMBERS: PaletteItem[] = [
     href: "/settings/members",
     initials: "TP",
     badge: "user",
-    badgeColor: "#0891b2",
+    badgeColor: "var(--info)",
     keywords: ["user", "theo@acmeco.com"],
   },
   {
@@ -364,7 +364,7 @@ const MEMBERS: PaletteItem[] = [
     href: "/settings/members",
     initials: "NW",
     badge: "guest",
-    badgeColor: "#52525b",
+    badgeColor: "var(--muted-foreground)",
     keywords: ["guest", "auditor", "naomi@auditor.gov"],
   },
   {
@@ -375,7 +375,7 @@ const MEMBERS: PaletteItem[] = [
     href: "/settings/members",
     initials: "AP",
     badge: "user",
-    badgeColor: "#0891b2",
+    badgeColor: "var(--info)",
     keywords: ["user", "aroha@acmeco.com"],
   },
 ];
@@ -649,13 +649,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .cmdk-modal {
           width: 100%;
           max-width: 640px;
-          background: #ffffff;
+          background: var(--card);
           border-radius: 16px;
           box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.45);
           border: 1px solid rgba(139, 92, 246, 0.15);
           overflow: hidden;
           font-family: "Inter", sans-serif;
-          color: #1e1b4b;
+          color: var(--foreground);
           display: flex;
           flex-direction: column;
           max-height: calc(100vh - 140px);
@@ -677,13 +677,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           align-items: center;
           gap: 12px;
           padding: 16px 20px;
-          border-bottom: 1px solid #ece9f5;
+          border-bottom: 1px solid var(--border);
         }
         .cmdk-search-icon {
           width: 28px;
           height: 28px;
           border-radius: 8px;
-          background: linear-gradient(135deg, #8b5cf6, #ec4899);
+          background: linear-gradient(135deg, var(--primary), var(--gradient-end));
           color: white;
           display: grid;
           place-items: center;
@@ -696,19 +696,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           border: none;
           outline: none;
           background: transparent;
-          color: #1e1b4b;
+          color: var(--foreground);
           letter-spacing: 0.01em;
         }
         .cmdk-search-input::placeholder {
-          color: #a1a1aa;
+          color: var(--muted-foreground);
         }
         .cmdk-kbd {
           font-family: "JetBrains Mono", monospace;
           font-size: 11px;
           font-weight: 600;
-          color: #52525b;
-          background: #f4f4f5;
-          border: 1px solid #ece9f5;
+          color: var(--muted-foreground);
+          background: var(--muted);
+          border: 1px solid var(--border);
           padding: 3px 7px;
           border-radius: 6px;
           letter-spacing: 0.04em;
@@ -726,7 +726,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .cmdk-group-label {
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: #52525b;
+          color: var(--muted-foreground);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -740,7 +740,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           margin: 0 4px;
           border-radius: 9px;
           cursor: pointer;
-          color: #1e1b4b;
+          color: var(--foreground);
           user-select: none;
         }
         .cmdk-row[data-active="true"] {
@@ -759,7 +759,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         }
         .cmdk-row-icon.gradient {
           background: linear-gradient(135deg, #c4b5fd, #fbcfe8);
-          color: #1e1b4b;
+          color: var(--foreground);
           font-family: "Inter", sans-serif;
           font-weight: 700;
           font-size: 11px;
@@ -772,7 +772,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .cmdk-row-title {
           font-size: 14px;
           font-weight: 600;
-          color: #1e1b4b;
+          color: var(--foreground);
           line-height: 1.25;
           white-space: nowrap;
           overflow: hidden;
@@ -780,7 +780,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         }
         .cmdk-row-subtitle {
           font-size: 12px;
-          color: #52525b;
+          color: var(--muted-foreground);
           line-height: 1.4;
           margin-top: 2px;
           white-space: nowrap;
@@ -816,7 +816,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         }
         .cmdk-enter {
           opacity: 0;
-          color: #52525b;
+          color: var(--muted-foreground);
           transition: opacity 120ms ease;
         }
         .cmdk-row[data-active="true"] .cmdk-enter {
@@ -825,14 +825,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .cmdk-empty {
           padding: 36px 16px 32px;
           text-align: center;
-          color: #52525b;
+          color: var(--muted-foreground);
           font-size: 13.5px;
         }
         .cmdk-empty-title {
           font-family: "Inter", sans-serif;
           font-size: 16px;
           font-weight: 600;
-          color: #1e1b4b;
+          color: var(--foreground);
           margin-bottom: 4px;
         }
         .cmdk-footer {
@@ -841,11 +841,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           justify-content: space-between;
           gap: 12px;
           padding: 10px 16px;
-          border-top: 1px solid #ece9f5;
-          background: #fafaff;
+          border-top: 1px solid var(--border);
+          background: var(--background);
           font-family: "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: #52525b;
+          color: var(--muted-foreground);
           letter-spacing: 0.06em;
         }
         .cmdk-footer-hints {

@@ -85,7 +85,7 @@ export default function TriggerConfigDrawer({
       style={{
         width: 420,
         background: "white",
-        borderLeft: "1px solid #ece9f5",
+        borderLeft: "1px solid var(--border)",
         padding: 24,
         overflowY: "auto",
         display: "flex",
@@ -101,7 +101,7 @@ export default function TriggerConfigDrawer({
               letterSpacing: "0.16em",
               textTransform: "uppercase",
               fontWeight: 700,
-              color: "#52525b",
+              color: "var(--muted-foreground)",
             }}
           >
             TRIGGER CONFIG
@@ -111,7 +111,7 @@ export default function TriggerConfigDrawer({
               fontFamily: "Inter, sans-serif",
               fontSize: 20,
               fontWeight: 700,
-              color: "#1e1b4b",
+              color: "var(--foreground)",
               margin: "4px 0 0",
             }}
           >
@@ -126,7 +126,7 @@ export default function TriggerConfigDrawer({
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            color: "#52525b",
+            color: "var(--muted-foreground)",
             padding: 6,
             borderRadius: 6,
           }}
@@ -144,7 +144,7 @@ export default function TriggerConfigDrawer({
           style={{
             marginTop: 18,
             paddingTop: 14,
-            borderTop: "1px solid #ece9f5",
+            borderTop: "1px solid var(--border)",
             display: "flex",
             gap: 8,
             justifyContent: "flex-end",
@@ -202,7 +202,7 @@ function NoExtraConfig({ kind }: { kind: TriggerKind }) {
         borderRadius: 10,
         background: "rgba(139,92,246,0.08)",
         border: "1px solid rgba(139,92,246,0.2)",
-        color: "#5b21b6",
+        color: "var(--primary)",
         fontSize: 13.5,
         fontFamily: "Inter, sans-serif",
         lineHeight: 1.55,

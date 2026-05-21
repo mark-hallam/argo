@@ -44,14 +44,14 @@ export function EscalationMatrix({
       <style jsx>{`
         .em-card {
           background: white;
-          border: 1px solid var(--border, #ece9f5);
+          border: 1px solid var(--border);
           border-radius: 14px;
           padding: 22px;
         }
         .em-label {
           font-family: ui-monospace, "JetBrains Mono", monospace;
           font-size: 10.5px;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
           letter-spacing: 0.16em;
           text-transform: uppercase;
           font-weight: 700;
@@ -61,7 +61,7 @@ export function EscalationMatrix({
           margin: 0 0 14px;
           font-size: 15px;
           font-weight: 600;
-          color: var(--foreground, #1e1b4b);
+          color: var(--foreground);
         }
         .em-table {
           width: 100%;
@@ -73,26 +73,26 @@ export function EscalationMatrix({
           font-size: 10.5px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
           font-weight: 700;
           padding: 0 8px 8px;
-          border-bottom: 1px solid var(--border, #ece9f5);
+          border-bottom: 1px solid var(--border);
         }
         .em-table tbody td {
           padding: 12px 8px;
           vertical-align: top;
-          color: var(--foreground, #1e1b4b);
-          border-bottom: 1px solid var(--border, #ece9f5);
+          color: var(--foreground);
+          border-bottom: 1px solid var(--border);
         }
         .em-table tbody tr:last-child td {
           border-bottom: none;
         }
         .em-action {
           font-weight: 600;
-          color: var(--foreground, #1e1b4b);
+          color: var(--foreground);
         }
         .em-condition {
-          color: var(--muted-foreground, #3f3f46);
+          color: var(--muted-foreground);
         }
         .em-routes {
           display: inline-flex;
@@ -109,7 +109,7 @@ export function EscalationMatrix({
         .em-channel {
           margin-top: 4px;
           font-size: 11.5px;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
         }
         .em-arrow {
           color: #c4b5fd;

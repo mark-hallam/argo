@@ -86,13 +86,13 @@ export function ErrorShell({
 
 const BRAND_STYLES = `
 .err-brand {
-  --purple: #8b5cf6;
-  --pink: #ec4899;
-  --ink: #1e1b4b;
-  --ink-2: #3f3f46;
-  --ink-3: #52525b;
-  --line: #ece9f5;
-  --bg: #fafaff;
+  --purple: var(--brand-primary);
+  --pink: var(--brand-pink);
+  --ink: var(--foreground);
+  --ink-2: var(--muted-foreground);
+  --ink-3: var(--muted-foreground);
+  --line: var(--border);
+  --bg: var(--background);
   --gradient: linear-gradient(135deg, var(--purple), var(--pink));
   font-family: "Inter", sans-serif;
   background: var(--bg);

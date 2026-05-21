@@ -17,8 +17,8 @@ export default function SlaPage() {
         padding: "80px 24px 120px",
         fontFamily:
           'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-        color: "#1e1b4b",
-        background: "#fafaff",
+        color: "var(--foreground)",
+        background: "var(--background)",
         minHeight: "100vh",
       }}
     >
@@ -28,7 +28,7 @@ export default function SlaPage() {
           fontSize: 11,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: "#52525b",
+          color: "var(--muted-foreground)",
           margin: "0 0 18px",
         }}
       >
@@ -41,7 +41,7 @@ export default function SlaPage() {
           fontWeight: 400,
           lineHeight: 1.05,
           margin: "0 0 14px",
-          backgroundImage: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+          backgroundImage: "linear-gradient(135deg, var(--primary), var(--gradient-end))",
           backgroundClip: "text",
           WebkitBackgroundClip: "text",
           color: "transparent",
@@ -50,10 +50,10 @@ export default function SlaPage() {
       >
         When you&apos;ll hear back.
       </h1>
-      <p style={{ fontSize: 18, lineHeight: 1.5, margin: "0 0 32px", color: "#52525b" }}>
+      <p style={{ fontSize: 18, lineHeight: 1.5, margin: "0 0 32px", color: "var(--muted-foreground)" }}>
         First-response targets for tickets submitted via the in-product help
         widget or{" "}
-        <a href="mailto:support@skycot.com" style={{ color: "#8b5cf6", fontWeight: 600 }}>
+        <a href="mailto:support@skycot.com" style={{ color: "var(--primary)", fontWeight: 600 }}>
           support@skycot.com
         </a>
         . Targets are business hours (Mon–Fri, 9–5 UTC) unless the tier
@@ -70,27 +70,27 @@ export default function SlaPage() {
       >
         <thead>
           <tr style={{ background: "#f3f0ff", textAlign: "left" }}>
-            <th style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5" }}>Tier</th>
-            <th style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5" }}>
+            <th style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Tier</th>
+            <th style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
               First response
             </th>
-            <th style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5" }}>Coverage</th>
+            <th style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Coverage</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5", fontWeight: 600 }}>
+            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 600 }}>
               Free
             </td>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5" }}>48 hours</td>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5" }}>Business hours.</td>
+            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>48 hours</td>
+            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Business hours.</td>
           </tr>
           <tr>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5", fontWeight: 600 }}>
+            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 600 }}>
               Pro
             </td>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5" }}>24 hours</td>
-            <td style={{ padding: "12px 16px", borderBottom: "1px solid #ece9f5" }}>Business hours.</td>
+            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>24 hours</td>
+            <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>Business hours.</td>
           </tr>
           <tr>
             <td style={{ padding: "12px 16px", fontWeight: 600 }}>Enterprise</td>
@@ -105,7 +105,7 @@ export default function SlaPage() {
       <h2 style={{ fontSize: 22, fontWeight: 600, margin: "0 0 10px" }}>
         What counts as a first response
       </h2>
-      <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 28px", color: "#3f3f46" }}>
+      <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 28px", color: "var(--muted-foreground)" }}>
         A human (or human-supervised) reply from the SKYCOT support team that
         acknowledges the ticket, asks a clarifying question, or proposes a fix.
         Automated acknowledgements do not count.
@@ -114,7 +114,7 @@ export default function SlaPage() {
       <h2 style={{ fontSize: 22, fontWeight: 600, margin: "0 0 10px" }}>
         Severity definitions (Enterprise)
       </h2>
-      <ul style={{ paddingLeft: 22, margin: "0 0 28px", color: "#3f3f46", lineHeight: 1.7 }}>
+      <ul style={{ paddingLeft: 22, margin: "0 0 28px", color: "var(--muted-foreground)", lineHeight: 1.7 }}>
         <li>
           <strong>Severity 1</strong> — production outage or data-integrity incident
           affecting the customer&apos;s tenant.
@@ -128,20 +128,20 @@ export default function SlaPage() {
           question.
         </li>
       </ul>
-      <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 28px", color: "#3f3f46" }}>
+      <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 28px", color: "var(--muted-foreground)" }}>
         Severity 1 + 2 trigger 24/7 coverage; severity 3 follows business hours.
       </p>
 
       <h2 style={{ fontSize: 22, fontWeight: 600, margin: "0 0 10px" }}>Escalation</h2>
-      <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 32px", color: "#3f3f46" }}>
+      <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 32px", color: "var(--muted-foreground)" }}>
         If the SLA target is missed, the ticket is auto-escalated to the
         on-call engineer via the operator&apos;s pager rotation. Enterprise
         contracts may name a dedicated technical contact.
       </p>
 
-      <p style={{ marginTop: 48, fontSize: 14, color: "#52525b" }}>
+      <p style={{ marginTop: 48, fontSize: 14, color: "var(--muted-foreground)" }}>
         Back to{" "}
-        <Link href="/help" style={{ color: "#8b5cf6" }}>
+        <Link href="/help" style={{ color: "var(--primary)" }}>
           Help
         </Link>
         .

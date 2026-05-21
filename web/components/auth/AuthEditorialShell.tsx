@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
  * Provides the SKYCOT brand language for every auth surface:
  *  - Audiowide hero typography via Google Fonts
  *  - Purple→pink→coral gradient on emphasized text and CTA
- *  - Warm radial-blob page background (#fafaff with purple + pink blooms)
+ *  - Warm radial-blob page background (var(--background) with purple + pink blooms)
  *  - Centered editorial stage (max-width 460px)
  *  - Header with brand mark + right-side CTA link
  *  - Optional footer-trust strip (SOC 2 / GDPR / SSO READY)
@@ -43,18 +43,18 @@ export function AuthEditorialShell({
       />
       <style jsx global>{`
         .auth-editorial {
-          --purple: #8b5cf6;
+          --purple: var(--brand-primary);
           --purple-deep: #6d28d9;
-          --pink: #ec4899;
-          --coral: #ff6b6b;
-          --teal: #14b8a6;
-          --ink: #1e1b4b;
-          --ink-2: #3f3f46;
-          --ink-3: #52525b;
-          --ink-4: #a1a1aa;
-          --bg: #fafaff;
-          --line: #ece9f5;
-          --line-2: #d1d1d1;
+          --pink: var(--brand-pink);
+          --coral: var(--brand-coral);
+          --teal: var(--brand-teal);
+          --ink: var(--foreground);
+          --ink-2: var(--muted-foreground);
+          --ink-3: var(--muted-foreground);
+          --ink-4: var(--muted-foreground);
+          --bg: var(--background);
+          --line: var(--border);
+          --line-2: var(--border);
           --gradient: linear-gradient(135deg, var(--purple), var(--pink));
           --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
           font-family: "Inter", sans-serif;

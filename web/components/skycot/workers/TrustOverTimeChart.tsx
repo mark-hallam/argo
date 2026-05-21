@@ -135,7 +135,7 @@ export function TrustOverTimeChart({
       <style jsx>{`
         .toc-card {
           background: white;
-          border: 1px solid var(--border, #ece9f5);
+          border: 1px solid var(--border);
           border-radius: 14px;
           padding: 22px;
           position: relative;
@@ -151,12 +151,12 @@ export function TrustOverTimeChart({
         .toc-title {
           font-size: 13.5px;
           font-weight: 600;
-          color: var(--foreground, #1e1b4b);
+          color: var(--foreground);
           margin: 0;
         }
         .toc-meta {
           font-size: 11.5px;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
           letter-spacing: 0.04em;
         }
         .toc-svg-wrap {
@@ -171,7 +171,7 @@ export function TrustOverTimeChart({
         }
         .toc-line {
           fill: none;
-          stroke: #8b5cf6;
+          stroke: var(--primary);
           stroke-width: 2;
           stroke-linecap: round;
           stroke-linejoin: round;
@@ -184,19 +184,19 @@ export function TrustOverTimeChart({
         }
         .toc-dot {
           fill: white;
-          stroke: #8b5cf6;
+          stroke: var(--primary);
           stroke-width: 2;
         }
         .toc-axis text,
         .toc-axis line {
           font-family: ui-sans-serif, system-ui, sans-serif;
           font-size: 10.5px;
-          fill: var(--muted-foreground, #52525b);
-          stroke: var(--border, #ece9f5);
+          fill: var(--muted-foreground);
+          stroke: var(--border);
         }
         .toc-tooltip {
           position: absolute;
-          background: var(--foreground, #1e1b4b);
+          background: var(--foreground);
           color: white;
           font-size: 11.5px;
           padding: 6px 10px;
@@ -249,8 +249,8 @@ export function TrustOverTimeChart({
           >
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+                <stop offset="0%" style={{ stopColor: "var(--primary)", stopOpacity: 0.22 }} />
+                <stop offset="100%" style={{ stopColor: "var(--primary)", stopOpacity: 0 }} />
               </linearGradient>
             </defs>
 

@@ -56,7 +56,7 @@ export function WizardErrorState({
       role="alert"
       style={{
         minHeight: "100vh",
-        background: "#fafaff",
+        background: "var(--background)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

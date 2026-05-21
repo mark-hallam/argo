@@ -22,8 +22,8 @@ export default function SecurityPage() {
         padding: "80px 24px 120px",
         fontFamily:
           'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-        color: "#1e1b4b",
-        background: "#fafaff",
+        color: "var(--foreground)",
+        background: "var(--background)",
         minHeight: "100vh",
       }}
     >
@@ -33,7 +33,7 @@ export default function SecurityPage() {
           fontSize: 11,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: "#52525b",
+          color: "var(--muted-foreground)",
           margin: "0 0 18px",
         }}
       >
@@ -46,7 +46,7 @@ export default function SecurityPage() {
           fontWeight: 400,
           lineHeight: 1.05,
           margin: "0 0 14px",
-          backgroundImage: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+          backgroundImage: "linear-gradient(135deg, var(--primary), var(--gradient-end))",
           backgroundClip: "text",
           WebkitBackgroundClip: "text",
           color: "transparent",
@@ -55,7 +55,7 @@ export default function SecurityPage() {
       >
         Security.
       </h1>
-      <p style={{ fontSize: 18, lineHeight: 1.5, margin: "0 0 32px", color: "#52525b" }}>
+      <p style={{ fontSize: 18, lineHeight: 1.5, margin: "0 0 32px", color: "var(--muted-foreground)" }}>
         SKYCOT is built for buyers whose security review is half the sales
         cycle. Here&apos;s the actual posture today — no aspirational claims.
       </p>
@@ -92,9 +92,9 @@ export default function SecurityPage() {
       <h2 style={{ fontSize: 22, fontWeight: 700, margin: "32px 0 14px" }}>
         Responsible disclosure
       </h2>
-      <p style={{ fontSize: 15, lineHeight: 1.55, color: "#52525b" }}>
+      <p style={{ fontSize: 15, lineHeight: 1.55, color: "var(--muted-foreground)" }}>
         Found something? Email{" "}
-        <a href="mailto:security@skycot.com" style={{ color: "#8b5cf6" }}>
+        <a href="mailto:security@skycot.com" style={{ color: "var(--primary)" }}>
           security@skycot.com
         </a>
         . We respond within 72 hours, credit reporters by name on a public
@@ -105,17 +105,17 @@ export default function SecurityPage() {
       <h2 style={{ fontSize: 22, fontWeight: 700, margin: "32px 0 14px" }}>
         Status page + breach notification
       </h2>
-      <p style={{ fontSize: 15, lineHeight: 1.55, color: "#52525b" }}>
+      <p style={{ fontSize: 15, lineHeight: 1.55, color: "var(--muted-foreground)" }}>
         Live status:{" "}
-        <a href="https://status.skycot.com" style={{ color: "#8b5cf6" }}>
+        <a href="https://status.skycot.com" style={{ color: "var(--primary)" }}>
           status.skycot.com
         </a>
         . If a security incident affects your data, you&apos;ll hear from us
         within 72 hours of discovery.
       </p>
 
-      <p style={{ marginTop: 48, fontSize: 14, color: "#52525b" }}>
-        <Link href="/landing" style={{ color: "#8b5cf6" }}>
+      <p style={{ marginTop: 48, fontSize: 14, color: "var(--muted-foreground)" }}>
+        <Link href="/landing" style={{ color: "var(--primary)" }}>
           Back to home
         </Link>
       </p>

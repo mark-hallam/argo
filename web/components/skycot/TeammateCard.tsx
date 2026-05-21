@@ -217,7 +217,7 @@ export function TeammateCard({
             0 1px 2px rgba(0, 0, 0, 0.06),
             0 32px 60px -16px rgba(139, 92, 246, 0.3),
             inset 0 0 0 2px rgba(139, 92, 246, 0.12),
-            0 0 0 3px var(--ring, #8b5cf6);
+            0 0 0 3px var(--ring);
         }
         .holo-card:hover {
           transform: translateY(-8px) rotate(-1deg) scale(1.015);
@@ -228,7 +228,7 @@ export function TeammateCard({
         }
         .holo-banner {
           position: relative;
-          background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+          background: linear-gradient(135deg, var(--primary) 0%, var(--gradient-end) 100%);
           color: white;
           padding: 24px 22px 72px;
           overflow: hidden;
@@ -336,7 +336,7 @@ export function TeammateCard({
           width: 100%;
           height: 100%;
           border-radius: 21px;
-          background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+          background: linear-gradient(135deg, var(--primary) 0%, var(--gradient-end) 100%);
           display: grid;
           place-items: center;
           color: white;
@@ -352,12 +352,12 @@ export function TeammateCard({
           font-size: 26px;
           font-weight: 800;
           letter-spacing: -0.025em;
-          color: var(--foreground, #1e1b4b);
+          color: var(--foreground);
           line-height: 1.1;
         }
         .holo-role {
           margin-top: 4px;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
           font-size: 13px;
           font-weight: 600;
         }
@@ -371,7 +371,7 @@ export function TeammateCard({
           font-size: 9.5px;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
           font-weight: 800;
           margin-bottom: 8px;
         }
@@ -400,7 +400,7 @@ export function TeammateCard({
           font-size: 9.5px;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
           font-weight: 800;
           margin-bottom: 4px;
         }
@@ -411,7 +411,7 @@ export function TeammateCard({
           display: flex;
           flex-direction: column;
           gap: 4px;
-          color: var(--foreground, #1e1b4b);
+          color: var(--foreground);
           font-size: 13px;
           line-height: 1.45;
         }
@@ -421,15 +421,15 @@ export function TeammateCard({
         }
         .holo-bullet::before {
           content: "•";
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
         }
         .holo-tomorrow {
           font-size: 12px;
-          color: var(--muted-foreground, #52525b);
+          color: var(--muted-foreground);
         }
         .holo-tomorrow-lbl {
           font-weight: 700;
-          color: var(--foreground, #1e1b4b);
+          color: var(--foreground);
         }
         .holo-foot {
           margin-top: auto;
