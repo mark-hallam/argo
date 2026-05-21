@@ -143,9 +143,9 @@ export function Step3Drafting({
       className="mx-auto max-w-2xl space-y-6"
     >
       <header className="space-y-2 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
+        <h2 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
           Drafting your new teammate
-        </h1>
+        </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           Just a moment — we&apos;re putting it all together.
         </p>

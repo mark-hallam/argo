@@ -35,7 +35,8 @@ export default function WorkersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <h1 className="sr-only">Workers</h1>
       <EmptyState
         data-testid="workers-empty"
         illustration={WorkersIllustration}

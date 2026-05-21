@@ -573,7 +573,7 @@ export default function WorkflowsPage() {
                   {RISK_LABEL[wf.risk] ?? wf.risk}
                 </span>
               </div>
-              <h3 className="workflow-card-name">{wf.name}</h3>
+              <h2 className="workflow-card-name">{wf.name}</h2>
               <p className="workflow-card-desc">{wf.description}</p>
 
               <div className="workflow-card-steps">

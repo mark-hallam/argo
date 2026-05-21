@@ -156,9 +156,9 @@ export function Step5Connect({
       className="mx-auto max-w-2xl space-y-6 pb-32"
     >
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+        <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
           {suggestedName} needs access to a few things.
-        </h1>
+        </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           You can skip — she&apos;ll work with whatever you have.
         </p>

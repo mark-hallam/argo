@@ -46,12 +46,12 @@ export function ReplayHeader({ actionId, verdict }: ReplayHeaderProps) {
           <div className="flex items-start gap-2">
             <ShieldCheck aria-hidden className="size-4 mt-0.5 text-[var(--info)]" />
             <div>
-              <p
+              <h1
                 data-testid="replay-sandbox-banner"
                 className="text-sm font-medium text-[var(--foreground)]"
               >
                 Sandbox — no side effects
-              </p>
+              </h1>
               <p className="text-xs text-[var(--muted-foreground)]">
                 MCP calls hit mocks, computer-use targets a virtual display,
                 outbound channels only produce would-have-sent traces.

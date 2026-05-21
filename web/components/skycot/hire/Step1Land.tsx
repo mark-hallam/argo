@@ -18,7 +18,9 @@ import { type UseStep1Result } from "@/lib/hire/use-step1";
  * surfaces once content exceeds the clamp.
  *
  * Accessibility:
- *  - The `<h1>` provides the page's accessible name.
+ *  - WizardEditorialShell renders the page's `<h1>`; this step's
+ *    sub-heading is an `<h2>` so the document outline stays
+ *    contiguous (h1 → h2, no skip).
  *  - A visually-hidden `<label>` programmatically labels the textarea
  *    (screen readers announce it; the visible heading is decorative
  *    for the input).
@@ -48,9 +50,9 @@ export function Step1Land({ step1 }: Step1LandProps) {
   return (
     <section className="mx-auto max-w-2xl space-y-6" data-testid="hire-step1-land">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
+        <h2 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
           What do you need help with?
-        </h1>
+        </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           Tell me in your own words. Anything you&apos;d love to stop doing yourself.
         </p>

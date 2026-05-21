@@ -59,9 +59,9 @@ export default function WorkerEvalsPage() {
       <div data-testid="worker-evals-page" className="space-y-4">
         <header className="space-y-1">
           <p className="text-sm text-[var(--muted-foreground)]">{workerName}</p>
-          <h1 className="text-2xl font-semibold tracking-normal text-[var(--foreground)]">
+          <h2 className="text-2xl font-semibold tracking-normal text-[var(--foreground)]">
             Eval results
-          </h1>
+          </h2>
         </header>
         <EmptyState
           data-testid="worker-evals-empty"

@@ -394,7 +394,7 @@ export default function SkillsPage() {
                 <div className="skill-icon">
                   {ICON_ROTATION[idx % ICON_ROTATION.length]}
                 </div>
-                <h3 className="skill-title">{prettifySkillName(skill.name)}</h3>
+                <h2 className="skill-title">{prettifySkillName(skill.name)}</h2>
                 <p className="skill-blurb">{skill.description}</p>
                 <div className="skill-meta">
                   <span className="skill-meta-item skill-cohort">{cohortLabel(skill)}</span>

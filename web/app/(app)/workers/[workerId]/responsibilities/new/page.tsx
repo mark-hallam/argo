@@ -68,9 +68,9 @@ export default function NewResponsibilityPage({
       </Breadcrumb>
 
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-[var(--foreground)]">
+        <h2 className="text-xl font-semibold text-[var(--foreground)]">
           Describe a new responsibility
-        </h1>
+        </h2>
         <p className="text-sm text-[color:var(--muted-foreground)]">
           Tell your teammate the recurring duty in plain English. We&apos;ll
           draft a workflow TOML for you to approve, edit, or cancel.

@@ -59,12 +59,12 @@ export function ActionSummaryHero({
             >
               {detail.worker.name}
             </p>
-            <p
+            <h1
               className="text-base font-medium text-[var(--foreground)]"
               data-testid="audit-hero-verb"
             >
               <RedactedText policy={policy}>{detail.verb}</RedactedText>
-            </p>
+            </h1>
             <HeroMeta detail={detail} />
           </div>
         </div>

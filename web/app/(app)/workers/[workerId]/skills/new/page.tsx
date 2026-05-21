@@ -45,9 +45,9 @@ export default function NewSkillPage() {
       </Breadcrumb>
 
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-[var(--foreground)]">
+        <h2 className="text-xl font-semibold text-[var(--foreground)]">
           Generate a skill from a prompt
-        </h1>
+        </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           Describe the work in plain English. We&apos;ll draft a workflow
           and open it on the canvas for you to refine.

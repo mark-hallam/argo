@@ -338,7 +338,7 @@ function StepRow({ step, index }: { step: TemplateStep; index: number }) {
         <div className="tpldetail-step-kind" style={{ color: meta.color }}>
           {meta.label}
         </div>
-        <h3 className="tpldetail-step-name">{step.name}</h3>
+        <h2 className="tpldetail-step-name">{step.name}</h2>
         <p className="tpldetail-step-desc">{step.description}</p>
         {step.inputs || step.outputs ? (
           <div className="tpldetail-step-meta">

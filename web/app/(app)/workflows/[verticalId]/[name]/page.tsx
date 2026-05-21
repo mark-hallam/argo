@@ -792,7 +792,7 @@ function ViewerInner({
                     >
                       {idx + 1}. {meta.label}
                     </span>
-                    <h3 className="wfd-step-name">{step.name}</h3>
+                    <h2 className="wfd-step-name">{step.name}</h2>
                     <button type="button" className="wfd-step-edit" aria-label={`Edit ${step.name}`}>
                       <Pencil size={13} />
                     </button>

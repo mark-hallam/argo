@@ -54,7 +54,7 @@ describe("Step1Land", () => {
   it("renders the locked headline + subtitle copy", () => {
     render(<Harness onSubmit={vi.fn()} />);
     expect(
-      screen.getByRole("heading", { level: 1, name: /what do you need help with\?/i }),
+      screen.getByRole("heading", { level: 2, name: /what do you need help with\?/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/tell me in your own words/i),

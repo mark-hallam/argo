@@ -178,7 +178,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
             grid-template-columns: 1fr;
           }
         }
-        .wpc-col h4 {
+        .wpc-col h2 {
           margin: 0 0 10px;
           font-size: 13.5px;
           color: var(--foreground, #1e1b4b);
@@ -229,9 +229,9 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
 
         <div className="wpc-cols">
           <div className="wpc-col">
-            <h4>
+            <h2>
               <CheckCircle2 size={13} style={{ color: "#14b8a6" }} /> Great at
-            </h4>
+            </h2>
             <ul className="wpc-list">
               {personality.greatAt.map((g, i) => (
                 <li key={i}>{g}</li>
@@ -239,9 +239,9 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
             </ul>
           </div>
           <div className="wpc-col">
-            <h4>
+            <h2>
               <AlertTriangle size={13} style={{ color: "#f59e0b" }} /> Escalate when
-            </h4>
+            </h2>
             <ul className="wpc-list">
               {personality.escalateWhen.map((g, i) => (
                 <li key={i}>{g}</li>

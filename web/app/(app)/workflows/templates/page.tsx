@@ -458,7 +458,7 @@ function TemplateCard({ template }: { template: WorkflowTemplate }) {
           {RISK_LABEL[template.risk]}
         </span>
       </div>
-      <h3 className="template-card-name">{template.name}</h3>
+      <h2 className="template-card-name">{template.name}</h2>
       <p className="template-card-desc">{template.description}</p>
       <div className="template-card-step-row">
         <div className="template-step-pill">{template.steps.length}</div>

@@ -240,10 +240,10 @@ function Tile({
     <>
       <div className="settings-tile-icon">{icon}</div>
       <div className="settings-tile-body">
-        <h3 className="settings-tile-title">
+        <h2 className="settings-tile-title">
           {title}
           {coming ? <span className="settings-coming-soon">v1.x</span> : null}
-        </h3>
+        </h2>
         <p className="settings-tile-blurb">{blurb}</p>
       </div>
     </>

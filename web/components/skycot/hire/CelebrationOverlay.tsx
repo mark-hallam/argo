@@ -26,13 +26,13 @@ export function CelebrationOverlay({ workerName }: CelebrationOverlayProps) {
       >
         <PartyPopper className="size-8" />
       </div>
-      <h1
+      <h2
         className="text-2xl font-semibold text-[var(--foreground)]"
         aria-live="polite"
       >
         <span aria-hidden>🎉 </span>
         {workerName} is hired.
-      </h1>
+      </h2>
       <p className="text-sm text-[var(--muted-foreground)]">
         Heading to your inbox…
       </p>

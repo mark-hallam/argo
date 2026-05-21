@@ -103,9 +103,9 @@ export function Step2Listen({
       data-testid="hire-step2-listen"
     >
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
+        <h2 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
           A few quick questions
-        </h1>
+        </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           So I can shape this teammate around your setup.
         </p>
