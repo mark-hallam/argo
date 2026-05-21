@@ -2,6 +2,7 @@ import "./page.css";
 
 import Link from "next/link";
 import { ArrowRight, Rss } from "lucide-react";
+import { articleSchema, JsonLd } from "@/components/seo/JsonLd";
 
 /**
  * Public changelog — `/changelog`, exempt from auth middleware.
@@ -240,6 +241,15 @@ export default function ChangelogPage() {
                 <div className="cl-entries">
                   {w.entries.map((e) => (
                     <article key={e.date + e.version} className="cl-entry">
+                      <JsonLd
+                        data={articleSchema({
+                          headline: e.title,
+                          datePublished: e.date,
+                          description: e.body,
+                          url: `https://skycot.com/changelog#${e.version}`,
+                          keywords: e.tags,
+                        })}
+                      />
                       <div className="cl-entry-meta">
                         <span className="cl-date-pill">{e.date}</span>
                         <span className="cl-version-tag">{e.version}</span>

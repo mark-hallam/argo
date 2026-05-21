@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { JsonLd, softwareApplicationSchema } from "@/components/seo/JsonLd";
 
 export const metadata: Metadata = {
   title: "Hire your first AI teammate",
@@ -15,6 +16,31 @@ export const metadata: Metadata = {
 export default function LandingLayout({ children }: { children: ReactNode }) {
   return (
     <main id="main" tabIndex={-1} className="focus:outline-none">
+      <JsonLd
+        data={softwareApplicationSchema({
+          url: "https://skycot.com/landing",
+          lowPrice: "0",
+          highPrice: "29",
+          offers: [
+            {
+              "@type": "Offer",
+              name: "Free",
+              price: "0",
+              priceCurrency: "USD",
+              category: "Free",
+              url: "https://skycot.com/auth/signup",
+            },
+            {
+              "@type": "Offer",
+              name: "Pro",
+              price: "29",
+              priceCurrency: "USD",
+              category: "Subscription",
+              url: "https://skycot.com/auth/signup?tier=pro",
+            },
+          ],
+        })}
+      />
       {children}
     </main>
   );

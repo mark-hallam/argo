@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { SkipToContent } from "@/components/a11y/SkipToContent";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { JsonLd, organizationSchema } from "@/components/seo/JsonLd";
 import { AuthProvider } from "@/components/skycot/AuthProvider";
 import { CommandPaletteProvider } from "@/components/skycot/CommandPaletteProvider";
 import { QueryProvider } from "@/components/skycot/QueryProvider";
@@ -89,6 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
       <body>
+        <JsonLd data={organizationSchema()} />
         <SkipToContent />
         <AuthProvider>
           <QueryProvider>
