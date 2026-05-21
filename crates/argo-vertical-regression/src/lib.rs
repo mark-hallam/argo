@@ -355,11 +355,17 @@ pub fn partition(violations: &[Violation]) -> (Vec<Violation>, Vec<(String, Stri
 /// `argo-vertical::manifest_validate_tests::fixture_manifests_pass_strict`.
 #[must_use]
 pub fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    // `CARGO_MANIFEST_DIR` points at `<workspace>/crates/<this-crate>`,
+    // so the workspace root is exactly two ancestors up. Cargo guarantees
+    // `CARGO_MANIFEST_DIR` is absolute, so the third ancestor always exists;
+    // fall back to the manifest dir itself if a non-standard layout ever
+    // strips that, rather than panicking at runtime.
+    manifest_dir
         .ancestors()
         .nth(2)
         .map(Path::to_path_buf)
-        .expect("workspace root above the crate dir")
+        .unwrap_or_else(|| manifest_dir.to_path_buf())
 }
 
 #[cfg(test)]
