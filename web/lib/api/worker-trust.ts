@@ -7,7 +7,7 @@
  * gateway endpoint is `GET /api/v1/workers/<id>/trust-grade`
  * (mission-trust-grade-ui).
  */
-import { apiGet } from "@/lib/api/client";
+import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { findSampleWorkerTrust } from "@/lib/sample-worker-trust";
 
@@ -170,6 +170,67 @@ export async function fetchWorkerTrustGrade(workerId: string): Promise<FetchTrus
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       return { snapshot: findSampleWorkerTrust(workerId), source: "mock-offline" };
+    }
+    throw err;
+  }
+}
+
+/** The three ratchet outcomes the engine can return. Matches the
+ *  Rust enum [`RatchetDecision`] in `argo-trust-engine`. */
+export type TrustRecomputeDecision = "promote" | "demote" | "hold";
+
+export interface TrustRecomputeResult {
+  decision: TrustRecomputeDecision;
+  fromGrade: TrustGradeId;
+  toGrade: TrustGradeId;
+  newGradeIndex: number;
+  scoreTotal: number;
+}
+
+interface GatewayRecomputeBody {
+  decision?: unknown;
+  from_grade?: unknown;
+  to_grade?: unknown;
+  new_grade_index?: unknown;
+  score_total?: unknown;
+}
+
+function asDecision(value: unknown): TrustRecomputeDecision {
+  if (value === "promote" || value === "demote") return value;
+  return "hold";
+}
+
+/** POST the trust-engine recompute endpoint and return the parsed
+ *  decision. Admin/owner only — the gateway enforces RBAC; the SPA
+ *  hides the affordance from delegators. Falls back to a synthetic
+ *  `hold` decision against the sample worker snapshot when the
+ *  gateway is unreachable (dev/demo path), matching the
+ *  404→mock-fallback contract on the read side. */
+export async function recomputeWorkerTrustGrade(
+  workerId: string,
+): Promise<TrustRecomputeResult> {
+  const path = `/api/v1/workers/${encodeURIComponent(workerId)}/trust-grade/recompute`;
+  try {
+    const body = await apiPost<GatewayRecomputeBody>(path);
+    const fromGrade = isTrustGradeId(body.from_grade) ? body.from_grade : "learned_unreviewed";
+    const toGrade = isTrustGradeId(body.to_grade) ? body.to_grade : fromGrade;
+    return {
+      decision: asDecision(body.decision),
+      fromGrade,
+      toGrade,
+      newGradeIndex: typeof body.new_grade_index === "number" ? body.new_grade_index : 0,
+      scoreTotal: typeof body.score_total === "number" ? body.score_total : 0,
+    };
+  } catch (err) {
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      const snapshot = findSampleWorkerTrust(workerId);
+      return {
+        decision: "hold",
+        fromGrade: snapshot.currentGrade,
+        toGrade: snapshot.currentGrade,
+        newGradeIndex: snapshot.currentGradeIndex,
+        scoreTotal: 0,
+      };
     }
     throw err;
   }

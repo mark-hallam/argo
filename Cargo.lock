@@ -443,6 +443,7 @@ dependencies = [
  "argo-team-headline",
  "argo-telemetry",
  "argo-tool",
+ "argo-trust-engine",
  "argo-tui",
  "argo-types",
  "argo-vertical",
@@ -1651,6 +1652,24 @@ dependencies = [
  "sqlx",
  "tempfile",
  "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "argo-trust-engine"
+version = "0.0.1"
+dependencies = [
+ "argo-audit",
+ "argo-identity",
+ "argo-skill",
+ "argo-store",
+ "argo-types",
+ "chrono",
+ "serde",
+ "serde_json",
+ "sqlx",
  "tokio",
  "tracing",
  "uuid",

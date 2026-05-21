@@ -1,10 +1,14 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { TrustGradeCard } from "@/components/skycot/worker/TrustGradeCard";
 import { useWorker } from "@/lib/hooks/use-worker";
-import { useWorkerTrustGrade } from "@/lib/hooks/use-worker-trust";
+import {
+  useRecomputeWorkerTrustGrade,
+  useWorkerTrustGrade,
+} from "@/lib/hooks/use-worker-trust";
+import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
 
 /**
  * Per-worker Trust tab — `/workers/<id>/trust`. Reads the worker
@@ -12,10 +16,12 @@ import { useWorkerTrustGrade } from "@/lib/hooks/use-worker-trust";
  * (`useWorker(workerId)` shares the key), then loads the trust-grade
  * snapshot from the gateway / mock fallback.
  *
- * Read-only — the brief intentionally forbids any edit affordance.
  * Operators see the grade, the signals behind it, and the path to
- * the next rung. Promotion happens via the underlying evaluation
- * logic (out of scope for this brief), not the UI.
+ * the next rung. As of
+ * `web-worker-trust-promotion-engine`, the grade actually moves —
+ * the `argo-trust-engine` cron loop recomputes every 30 minutes and
+ * admin/owner operators can trigger an on-demand recompute via the
+ * button below.
  *
  * Sub-route precedence: the static segment (`trust/`) wins over the
  * sibling dynamic `[tab]/page.tsx` placeholder, so this page
@@ -27,6 +33,9 @@ export default function WorkerTrustPage() {
   const workerId = routeParams?.workerId ?? "";
   const workerQuery = useWorker(workerId);
   const trustQuery = useWorkerTrustGrade(workerId);
+  const recompute = useRecomputeWorkerTrustGrade(workerId);
+  const policy = useViewerPolicy();
+  const canRecompute = policy.viewerRole === "operator";
 
   const workerName = workerQuery.data?.name;
 
@@ -55,9 +64,39 @@ export default function WorkerTrustPage() {
         data-testid="trust-grade-disclaimer"
         className="text-xs text-[var(--muted-foreground)]"
       >
-        Trust grade is derived from observed behavior, not operator-tunable. The criteria above
-        describe what would unlock the next rung once the worker meets them.
+        Trust grade is recomputed every 30 minutes from observed approvals, escalations, RBAC
+        denials, and cross-tenant quality observations. The criteria above describe what would
+        unlock the next rung once the worker meets them.
       </p>
+
+      {canRecompute && (
+        <div data-testid="trust-grade-recompute" className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => recompute.mutate()}
+            disabled={recompute.isPending}
+            className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent)] disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`size-4 ${recompute.isPending ? "animate-spin" : ""}`}
+              aria-hidden
+            />
+            {recompute.isPending ? "Recomputing…" : "Recompute trust grade"}
+          </button>
+          {recompute.isSuccess && (
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {recompute.data.decision === "hold"
+                ? "No grade change."
+                : `Grade ${recompute.data.decision === "promote" ? "promoted" : "demoted"} to ${recompute.data.toGrade}.`}
+            </p>
+          )}
+          {recompute.isError && (
+            <p className="text-xs text-[var(--destructive)]">
+              Recompute failed: {recompute.error.message}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

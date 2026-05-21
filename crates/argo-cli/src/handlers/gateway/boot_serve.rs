@@ -25,6 +25,7 @@ use super::{approval_expiry_sweeper, metrics, service_token_binding_sweeper, swe
 use argo_config::ArgoConfig;
 use argo_forge::{spawn_forge_cron, ForgeCronConfig};
 use argo_store::SessionStore;
+use argo_trust_engine::{spawn_trust_engine_cron, TrustEngineConfig};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -153,6 +154,7 @@ pub(super) struct BgGuards {
     _cu_screenshot_sweep: Option<AbortOnDrop>,
     _audit_watchdog: Option<AbortOnDrop>,
     _forge_cron: Option<AbortOnDrop>,
+    _trust_engine_cron: Option<AbortOnDrop>,
     _skill_learning_registry: Option<Arc<argo_skill::WorkerLearningRegistry>>,
     _siem_dispatcher: Option<AbortOnDrop>,
     _mcp_health: Option<HealthCheckGuard>,
@@ -178,6 +180,12 @@ pub(super) fn spawn_bg_tasks(
         _audit_watchdog: bg_store.map(|s| spawn_audit_watchdog(Arc::clone(s))),
         _forge_cron: bg_store
             .map(|s| AbortOnDrop::new(spawn_forge_cron(Arc::clone(s), ForgeCronConfig::from_env()))),
+        _trust_engine_cron: bg_store.map(|s| {
+            AbortOnDrop::new(spawn_trust_engine_cron(
+                Arc::clone(s),
+                TrustEngineConfig::from_env(),
+            ))
+        }),
         _skill_learning_registry: bg_store.and_then(|s| spawn_skill_learning(s, cfg)),
         _siem_dispatcher: bg_store.and_then(|s| {
             let cfg = ArgoConfig::load(&cwd_for_store.join("argo.toml")).unwrap_or_default();

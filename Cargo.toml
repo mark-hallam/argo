@@ -9,6 +9,7 @@ members = [
   "crates/argo-compliance",
   "crates/argo-provider",
   "crates/argo-tool",
+  "crates/argo-trust-engine",
   "crates/argo-memory",
   "crates/argo-skill",
   "crates/argo-skill-sdk",

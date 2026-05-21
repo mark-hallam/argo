@@ -52,6 +52,7 @@ use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_skill::TrustGrade;
 use argo_store::SessionStore;
+use argo_trust_engine::{recompute_worker, RatchetDecision};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
@@ -88,6 +89,119 @@ pub(super) async fn show_response(
     let body = build_trust_grade_response(&worker, now);
     emit_audit(store, req, tenant, worker_id).await;
     ("200 OK", body.to_string())
+}
+
+/// `POST /api/v1/workers/<id>/trust-grade/recompute` entry point.
+/// Synchronously runs one worker through the trust-engine and
+/// returns the ratchet decision + new grade. RBAC gating is applied
+/// upstream in `routes_dispatch_post_workers::dispatch_workers` —
+/// only admin/owner principals reach this code path.
+///
+/// Response body shape:
+/// `{ "decision": "promote"|"demote"|"hold", "from_grade": "...",
+///    "to_grade": "...", "new_grade_index": u8, "score_total": f32 }`.
+pub(super) async fn recompute_response(
+    worker_id_raw: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let store = match store {
+        Some(s) => s,
+        None => return super::store_unavailable(),
+    };
+    let worker_id = match worker_id_raw.parse::<WorkerId>() {
+        Ok(id) => id,
+        Err(e) => return bad_request(&format!("invalid worker_id '{worker_id_raw}': {e}")),
+    };
+    let tenant = match resolve_workspace_tenant(store).await {
+        Ok(t) => t,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
+    let identities = IdentityStore::new(store);
+    let worker = match identities.get_worker(tenant, worker_id).await {
+        Ok(Some(w)) => w,
+        Ok(None) => return not_found(&format!("worker {worker_id} not found")),
+        Err(e) => return server_error(&format!("get worker: {e}")),
+    };
+
+    let current_grade = grade_for_u8(worker.trust_grade);
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+    let decision = match recompute_worker(
+        store,
+        &sink,
+        &tenant,
+        &worker_id.to_string(),
+        current_grade,
+    )
+    .await
+    {
+        Ok(d) => d,
+        Err(e) => return server_error(&format!("recompute: {e}")),
+    };
+
+    let (decision_label, from_grade, to_grade) = match &decision {
+        RatchetDecision::Hold => ("hold", current_grade, current_grade),
+        RatchetDecision::Promote { from, to } => ("promote", *from, *to),
+        RatchetDecision::Demote { from, to } => ("demote", *from, *to),
+    };
+    let new_grade_index = match &decision {
+        RatchetDecision::Hold => worker.trust_grade,
+        RatchetDecision::Promote { to, .. } | RatchetDecision::Demote { to, .. } => {
+            argo_trust_engine::ratchet::grade_to_u8(*to)
+        }
+    };
+
+    // Re-read the freshly-written breakdown so the response carries the same
+    // total the audit chain just recorded. Cheap query — single worker.
+    let breakdown = match argo_trust_engine::compute_score(
+        store,
+        &tenant,
+        &worker_id.to_string(),
+    )
+    .await
+    {
+        Ok(b) => b,
+        Err(e) => return server_error(&format!("score: {e}")),
+    };
+
+    emit_recompute_audit(store, req, tenant, worker_id, decision_label).await;
+    let body = json!({
+        "decision": decision_label,
+        "from_grade": serde_json::to_value(from_grade).unwrap_or(Value::Null),
+        "to_grade": serde_json::to_value(to_grade).unwrap_or(Value::Null),
+        "new_grade_index": new_grade_index,
+        "score_total": breakdown.total,
+    });
+    ("200 OK", body.to_string())
+}
+
+async fn emit_recompute_audit(
+    store: &Arc<SessionStore>,
+    req: &str,
+    tenant: TenantId,
+    worker_id: WorkerId,
+    decision_label: &str,
+) {
+    let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
+    let payload = json!({
+        "endpoint": "worker.trust_grade.recompute",
+        "actor": actor,
+        "tenant_id": tenant.to_string(),
+        "worker_id": worker_id.to_string(),
+        "decision": decision_label,
+    });
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+    if let Err(e) = sink
+        .write(None, AuditKind::HttpRequest, payload, Some(actor.clone()))
+        .await
+    {
+        tracing::warn!(
+            target: "gateway::worker_trust_grade_recompute",
+            error = %e,
+            actor = %actor,
+            "worker.trust_grade.recompute audit write failed"
+        );
+    }
 }
 
 /// Pure assembler — given a worker snapshot and a clock, produce the

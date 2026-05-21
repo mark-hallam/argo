@@ -277,6 +277,18 @@ pub enum AuditKind {
     /// agent turn's persisted assistant message without re-storing
     /// the body in the audit row.
     WorkflowStepCompleted,
+    /// A worker's trust grade was advanced or rolled back by the
+    /// periodic `argo-trust-engine` cron loop
+    /// (`web-worker-trust-promotion-engine`). Pairs with
+    /// [`Self::ApprovalGranted`] / [`Self::EscalationRequired`] /
+    /// [`Self::RbacDeny`] as the input signals — the trust engine
+    /// reads those rows, computes a score, and emits this row when
+    /// the resulting ratchet decision moves a rung. Payload:
+    /// `{ worker_id, tenant_id, from_grade, to_grade, score_total,
+    /// score_breakdown: { streak_score, approval_score,
+    /// escalation_score, rbac_score, quality_score, total,
+    /// computed_at, worker_id }, decision: "promote" | "demote" }`.
+    TrustGradeChanged,
 }
 
 impl AuditKind {
@@ -332,6 +344,7 @@ impl AuditKind {
             Self::WorkflowVersionArchived => "workflow_version_archived",
             Self::WorkflowStepStarted => "workflow.step.started",
             Self::WorkflowStepCompleted => "workflow.step.completed",
+            Self::TrustGradeChanged => "trust_grade_changed",
         }
     }
 
@@ -389,6 +402,7 @@ impl AuditKind {
             "workflow_version_archived" => Self::WorkflowVersionArchived,
             "workflow.step.started" => Self::WorkflowStepStarted,
             "workflow.step.completed" => Self::WorkflowStepCompleted,
+            "trust_grade_changed" => Self::TrustGradeChanged,
             _ => return None,
         })
     }
@@ -446,6 +460,7 @@ impl AuditKind {
             Self::WorkflowVersionArchived,
             Self::WorkflowStepStarted,
             Self::WorkflowStepCompleted,
+            Self::TrustGradeChanged,
         ];
         v.sort_by_key(|k| k.label());
         v

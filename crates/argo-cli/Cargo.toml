@@ -58,6 +58,7 @@ argo-siem = { path = "../argo-siem" }
 argo-store = { path = "../argo-store" }
 argo-telemetry = { path = "../argo-telemetry" }
 argo-tool = { path = "../argo-tool" }
+argo-trust-engine = { path = "../argo-trust-engine" }
 argo-tui = { path = "../argo-tui" }
 argo-voice-tui = { path = "../argo-voice-tui" }
 argo-types = { path = "../argo-types" }
