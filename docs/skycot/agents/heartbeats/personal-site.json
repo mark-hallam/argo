@@ -1,0 +1,7 @@
+{
+  "agent": "personal-site",
+  "last_run_utc": "2026-05-22T07:45:00Z",
+  "expected_cadence_seconds": 86400,
+  "session_label": "anthropic-claude-code-conductor-bootstrap",
+  "run_notes": "Bootstrap heartbeat — agent infra created, durable cron armed; first real fire is Monday 06:30 Melbourne."
+}
