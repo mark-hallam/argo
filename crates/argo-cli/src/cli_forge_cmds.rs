@@ -13,9 +13,10 @@ pub enum ForgeCmd {
         iterations: u32,
         #[arg(long, default_value_t = 5.0)]
         budget: f64,
-        /// Emit progress as newline-delimited JSON on stdout
-        /// instead of the human-readable table. Each line is
-        /// either `{"event":"start", run_id, ...}`,
+        /// Emit progress as newline-delimited JSON (NDJSON — one
+        /// JSON object per line) on stdout instead of the
+        /// human-readable table. Each line is either
+        /// `{"event":"start", run_id, ...}`,
         /// `{"event":"iter", iter, version, mean_score, …}`, or
         /// `{"event":"done", best_score, best_version, status}`.
         /// Lets the TUI / watch scripts / gateway consume forge
@@ -23,12 +24,13 @@ pub enum ForgeCmd {
         #[arg(long)]
         stream: bool,
     },
-    /// Run an eval-task JSONL file through the agent loop and
-    /// score each task. Records a `forge_run` row with the mean
-    /// score + pass rate when the run finishes. Skill name is
-    /// captured for the row's metadata; the active skill body
-    /// isn't (yet) injected into the prompt — that lands with
-    /// the daemon-side prompt-loader PR.
+    /// Run an eval-task JSONL (JSON Lines — one JSON object per
+    /// line) file through the agent loop and score each task.
+    /// Records a `forge_run` row with the mean score + pass rate
+    /// when the run finishes. Skill name is captured for the row's
+    /// metadata; the active skill body isn't (yet) injected into
+    /// the prompt — that lands with the daemon-side prompt-loader
+    /// PR.
     Bench {
         skill: String,
         /// Path to a JSONL eval-task file (parsed by `argo eval
@@ -94,20 +96,21 @@ pub enum ForgeCmd {
     },
     /// Per-skill cost-attribution rollup over the recorded
     /// `forge_run` history (mission-forge-cost-attribution). Sums
-    /// per-call token counts, model-priced LLM cost, E2B sandbox
-    /// cost, and a stamped total — grouped by `skill_name`,
-    /// ordered by total cost descending. Lets operators identify
-    /// which skills cost the most to optimize and tune their
-    /// budgets accordingly.
+    /// per-call token counts, model-priced LLM (large language
+    /// model — like Claude or GPT) cost, E2B (a cloud-sandbox
+    /// provider used by computer-use agents) sandbox cost, and a
+    /// stamped total — grouped by `skill_name`, ordered by total
+    /// cost descending. Lets operators identify which skills cost
+    /// the most to optimize and tune their budgets accordingly.
     CostReport {
         /// Exact-match filter on `skill_name`. Omit to aggregate
         /// across every skill in the recorded history.
         #[arg(long)]
         skill: Option<String>,
         /// Start of the time window (inclusive lower bound on
-        /// `started_at`). Accepts RFC-3339
-        /// (`2026-05-01T00:00:00Z`) or `YYYY-MM-DD`. Omit for
-        /// "all time".
+        /// `started_at`). Accepts RFC-3339 (an internet-standard
+        /// timestamp format like `2026-05-01T00:00:00Z`) or
+        /// `YYYY-MM-DD`. Omit for "all time".
         #[arg(long)]
         since: Option<String>,
         /// Output as a single JSON envelope `{rows:[…], totals}`

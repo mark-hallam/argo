@@ -48,7 +48,10 @@ pub use super::cli_vertical_cmds::VerticalCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum McpCmd {
-    /// Serve the workspace store as an MCP server over stdio.
+    /// Serve the workspace store as an MCP (Model Context Protocol
+    /// — the standard for plugging external tools into an AI agent)
+    /// server over stdio (standard input/output — the pipe a parent
+    /// process uses to talk to a child).
     Serve,
     /// Discover the tools an MCP server exposes
     /// (`claude-mcp-tool-discovery-vis`). Connects to the server
@@ -61,8 +64,8 @@ pub enum McpCmd {
         /// Vertical id whose manifest declares the server.
         #[arg(long)]
         vertical: String,
-        /// Output format: `markdown` (default) or `json`
-        /// (NDJSON, one tool per line).
+        /// Output format: `markdown` (default) or `json` (NDJSON —
+        /// newline-delimited JSON, one tool per line).
         #[arg(long, default_value = "markdown")]
         format: String,
         /// Equivalent to `--format json`.
@@ -192,7 +195,9 @@ pub use cli_connector_cmds::ConnectorCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum ErrorsCmd {
-    /// Show HTTP 5xx rate from `audit_record` request rows.
+    /// Show HTTP 5xx (server-error response codes — 500-series,
+    /// meaning the server hit an internal problem) rate from
+    /// `audit_record` request rows.
     Dashboard {
         /// Time window to inspect, e.g. `30m`, `1h`, or `7d`.
         #[arg(long, default_value = "1h")]
@@ -211,7 +216,9 @@ pub enum ErrorsCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum SlaCmd {
-    /// Availability % + latency p50/p95/p99 from `audit_record` request rows.
+    /// Availability % + latency p50/p95/p99 (50th/95th/99th
+    /// percentile — median, slow-but-typical, worst-case) from
+    /// `audit_record` request rows.
     Report {
         /// Time window to inspect, e.g. `30m`, `1h`, or `24h` (default).
         #[arg(long, default_value = "24h")]

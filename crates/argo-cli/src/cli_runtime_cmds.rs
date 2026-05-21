@@ -13,9 +13,10 @@ use clap::Subcommand;
 #[derive(Subcommand, Debug)]
 pub enum RuntimeCmd {
     /// Start a fresh session row in the local store. Without a
-    /// daemon to actually call the LLM this is just a header
-    /// insert — useful for prototyping the read-side surface and
-    /// for capturing externally-streamed messages via the gateway
+    /// daemon to actually call the LLM (large language model — like
+    /// Claude or GPT) this is just a header insert — useful for
+    /// prototyping the read-side surface and for capturing
+    /// externally-streamed messages via the gateway
     /// (`POST /sessions/<id>/messages`).
     #[command(after_help = "Examples:\n  \
         argo new --provider anthropic --model claude-sonnet-4-6\n  \
@@ -112,7 +113,10 @@ pub enum RuntimeCmd {
     /// Inspect session traces. Without a subcommand, renders the
     /// audit-log timeline (`--session`) or one turn's span tree
     /// (`--turn`); with `explore <session>`, walks the local OTLP
-    /// NDJSON sink and renders a markdown or JSON tree.
+    /// (OpenTelemetry protocol — the standard wire format for
+    /// traces and metrics) NDJSON (newline-delimited JSON — one
+    /// JSON object per line) sink and renders a markdown or JSON
+    /// tree.
     #[command(after_help = "Examples:\n  \
         argo trace --session 01J9XYZ...\n  \
         argo trace --turn 01J9TURN...\n  \
@@ -145,8 +149,9 @@ pub enum RuntimeCmd {
         /// persisted message is the same — but you see it live.
         #[arg(long)]
         stream: bool,
-        /// Drop into a REPL: read user input, run a turn, print
-        /// the response, repeat. Ctrl-D / EOF exits cleanly.
+        /// Drop into a REPL (read-eval-print loop — interactive
+        /// prompt where you type, get a response, repeat). Ctrl-D /
+        /// EOF exits cleanly.
         #[arg(long, short = 'i')]
         interactive: bool,
         /// Override `MAX_TOOL_ROUNDS` (default 8). Useful when
@@ -190,8 +195,11 @@ pub enum RuntimeCmd {
         /// `--json` wins if both are passed.
         #[arg(long, default_value = "text")]
         format: String,
-        /// Skip DNS, TLS, and provider-auth probes. Also honored
-        /// when ARGO_DOCTOR_SKIP_NETWORK=1 is set.
+        /// Skip DNS (Domain Name System — turns `example.com` into
+        /// an IP address), TLS (Transport Layer Security — the
+        /// encryption behind the browser padlock), and provider-auth
+        /// probes. Also honored when ARGO_DOCTOR_SKIP_NETWORK=1 is
+        /// set.
         #[arg(long)]
         skip_network: bool,
     },
@@ -212,7 +220,8 @@ pub enum RuntimeCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    /// LLM-assisted post-mortem for a failed session (Stream
+    /// LLM (large language model — like Claude or GPT) -assisted
+    /// post-mortem for a failed session (Stream
     /// `claude-error-recovery-suggestions`). Walks the audit
     /// chain, calls Anthropic with the chain summary, returns
     /// 3 ranked fix suggestions. Cached per
@@ -252,8 +261,10 @@ pub enum RuntimeCmd {
     /// Show per-executor-kind action latency percentiles (Stream
     /// `claude-latency-percentiles-tracking`). Reads the
     /// `latency_buckets` table populated by the dispatch wrapper
-    /// and prints `kind | n | p50 | p95 | p99 | max` as a markdown
-    /// table (default) or as JSON.
+    /// and prints `kind | n | p50 | p95 | p99 | max` (p50/p95/p99
+    /// are the 50th/95th/99th percentile latencies — median,
+    /// slow-but-typical, worst-case) as a markdown table (default)
+    /// or as JSON.
     #[command(after_help = "Examples:\n  \
         argo latency\n  \
         argo latency --format json")]

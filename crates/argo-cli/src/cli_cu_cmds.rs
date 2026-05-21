@@ -1,4 +1,5 @@
-//! Clap surface for `argo cu` — computer-use trajectory inspection.
+//! Clap surface for `argo cu` — computer-use (agents that drive a
+//! real browser/desktop) trajectory inspection.
 //! Lives in its own file so `cli_command_enum.rs` keeps a one-line
 //! variant for `Cu`.
 use clap::Subcommand;
@@ -40,7 +41,8 @@ pub enum CuCmd {
         /// directory.
         #[arg(long)]
         inline: bool,
-        /// `markdown` (default) or `json`. JSON emits NDJSON,
+        /// `markdown` (default) or `json`. JSON emits NDJSON
+        /// (newline-delimited JSON — one JSON object per line),
         /// one-step-per-line, mirroring `session replay --stream`.
         #[arg(long, default_value = "markdown")]
         format: String,

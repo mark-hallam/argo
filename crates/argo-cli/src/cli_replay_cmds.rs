@@ -9,10 +9,12 @@ use clap::Subcommand;
 pub enum ReplayCmd {
     /// Export a session as a self-contained tar/tar.gz bundle for
     /// offline replay or support hand-off. Bundle includes the audit
-    /// chain in JSONL, a verify-chain summary, attached skill ids,
-    /// per-action bundles, a manifest with a content checksum, and a
-    /// short README. With `--sanitize`, JSON payloads are scrubbed of
-    /// provider keys, JWTs, emails, and phone numbers before write.
+    /// chain in JSONL (JSON Lines — one JSON object per line), a
+    /// verify-chain summary, attached skill ids, per-action bundles,
+    /// a manifest with a content checksum, and a short README. With
+    /// `--sanitize`, JSON payloads are scrubbed of provider keys,
+    /// JWTs (JSON Web Tokens — signed login receipts), emails, and
+    /// phone numbers before write.
     #[command(after_help = "Examples:\n  \
         argo replay export 01J9XYZ... --out /tmp/s.tar.gz\n  \
         argo replay export 01J9XYZ... --out /tmp/s.tar --uncompressed\n  \
@@ -26,9 +28,10 @@ pub enum ReplayCmd {
         /// Emit a plain tar archive instead of gzip-compressed.
         #[arg(long)]
         uncompressed: bool,
-        /// Redact provider keys, JWTs, emails, and phone numbers in
-        /// JSON payloads before bundling. The manifest records
-        /// `sanitized = true` so downstream consumers can distinguish.
+        /// Redact provider keys, JWTs (JSON Web Tokens), emails, and
+        /// phone numbers in JSON payloads before bundling. The
+        /// manifest records `sanitized = true` so downstream
+        /// consumers can distinguish.
         #[arg(long)]
         sanitize: bool,
     },

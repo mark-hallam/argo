@@ -7,10 +7,10 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum EvalCmd {
-    /// Validate eval seeds. Accepts either a JSONL path (legacy
-    /// generic task format) or a vertical id; the latter loads the
-    /// vertical's eval suites and reports a pass-rate envelope
-    /// (`mvp-vertical-eval-harness`).
+    /// Validate eval seeds. Accepts either a JSONL (JSON Lines —
+    /// one JSON object per line) path (legacy generic task format)
+    /// or a vertical id; the latter loads the vertical's eval suites
+    /// and reports a pass-rate envelope (`mvp-vertical-eval-harness`).
     Validate {
         /// Either a path to a JSONL fixtures file, or the id of a
         /// vertical loadable from `$ARGO_VERTICALS_DIR`/`./verticals`.
@@ -36,9 +36,10 @@ pub enum EvalCmd {
         /// Streaming output mode (Stream `claude-eval-streaming`):
         /// `off` (batch — historical default), `simple` (default
         /// — one line per fixture as it completes), `verbose`
-        /// (NDJSON per fixture for piping). Combine with `--json`
-        /// to skip per-fixture lines and emit only the JSON
-        /// envelope at the end.
+        /// (NDJSON — newline-delimited JSON, one object per line —
+        /// per fixture for piping). Combine with `--json` to skip
+        /// per-fixture lines and emit only the JSON envelope at the
+        /// end.
         #[arg(long, default_value = "simple")]
         stream: String,
         /// Output as a single JSON object.

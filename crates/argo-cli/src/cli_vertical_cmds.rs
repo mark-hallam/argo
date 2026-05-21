@@ -140,12 +140,13 @@ pub enum VerticalCmd {
         /// Optional judge layer (#698). Off by default — without
         /// this flag, scoring is purely rule-based. Two modes:
         /// `--judge heuristic` aggregates the rule check
-        /// outcomes into one verdict per fixture (no LLM, no
-        /// API key); `--judge <provider>/<model>` is the seam
-        /// for a live LLM judge — the wiring lands in PR #698b
-        /// (today the verdict carries a `not_yet_wired` reason
-        /// that mirrors the rule-engine outcome). Ignored
-        /// without `--score`. Reject empty / malformed specs.
+        /// outcomes into one verdict per fixture (no LLM (large
+        /// language model — like Claude or GPT), no API key);
+        /// `--judge <provider>/<model>` is the seam for a live LLM
+        /// judge — the wiring lands in PR #698b (today the verdict
+        /// carries a `not_yet_wired` reason that mirrors the
+        /// rule-engine outcome). Ignored without `--score`. Reject
+        /// empty / malformed specs.
         #[arg(long)]
         judge: Option<String>,
     },
@@ -253,7 +254,9 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Publish an installed vertical to an OCI registry as a
+    /// Publish an installed vertical to an OCI (Open Container
+    /// Initiative — the standard registry format used by Docker
+    /// Hub, GitHub Container Registry, etc.) registry as a
     /// versioned artifact (Stream
     /// `claude-marketplace-vertical-publish`). Packs every file
     /// under `verticals/<id>/` into a deterministic tar via
@@ -289,10 +292,12 @@ pub enum VerticalCmd {
     /// Pull a vertical from an OCI registry into the local
     /// discovery dir (Stream
     /// `claude-marketplace-vertical-publish`). Verifies the tar's
-    /// sha256 against the manifest's declared digest BEFORE writing
-    /// any file — refuses to extract tampered bundles. Refuses if
-    /// a vertical with the same id already exists locally; pass
-    /// `--rename <new-id>` to pull under a different local id.
+    /// sha256 (SHA-256 cryptographic checksum — same input always
+    /// yields the same fingerprint) against the manifest's declared
+    /// digest BEFORE writing any file — refuses to extract tampered
+    /// bundles. Refuses if a vertical with the same id already
+    /// exists locally; pass `--rename <new-id>` to pull under a
+    /// different local id.
     Pull {
         /// OCI reference, e.g.
         /// `ghcr.io/argo-agents/marketplace-seller:1.0.0`.

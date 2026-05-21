@@ -31,7 +31,9 @@ pub enum WorkspaceCmd {
     #[command(after_help = "Examples:\n  \
         argo workspace verify")]
     Verify,
-    /// Pull a workspace bundle from an OCI ref and extract it
+    /// Pull a workspace bundle from an OCI (Open Container
+    /// Initiative — the standard registry format used by Docker
+    /// Hub, GitHub Container Registry, etc.) ref and extract it
     /// into `--into <dir>` (defaults to a sibling directory named
     /// after the repo). The destination directory must not exist.
     Fork {
@@ -115,7 +117,8 @@ pub enum DbCmd {
     /// (Stream `mission-encryption-at-rest-sqlcipher`). The old key
     /// is loaded from `[security.encryption] key_source` in
     /// `argo.toml`; the new key is supplied via `--new-key-source`.
-    /// Stock builds (no SQLCipher-linked driver) succeed but do not
+    /// Stock builds (no SQLCipher (encrypted SQLite — same file
+    /// format, AES-256 at rest) -linked driver) succeed but do not
     /// actually encrypt — see `docs/skycot/RUNBOOK.md`.
     Rekey {
         /// `env:VAR` or `file:/path` for the *new* key. `none` is
@@ -166,9 +169,10 @@ pub enum CostsCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    /// Dump every row in `spend_ledger` as NDJSON (one JSON object
-    /// per line). Pass `--out <path>` to write to a file; otherwise
-    /// streams to stdout. `--since-minutes` scopes to recent rows.
+    /// Dump every row in `spend_ledger` as NDJSON (newline-delimited
+    /// JSON — one JSON object per line). Pass `--out <path>` to
+    /// write to a file; otherwise streams to stdout.
+    /// `--since-minutes` scopes to recent rows.
     Export {
         #[arg(long)]
         out: Option<String>,

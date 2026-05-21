@@ -16,10 +16,12 @@ use std::path::PathBuf;
 #[derive(Subcommand, Debug)]
 pub enum MigrateCmd {
     /// Convert an unencrypted SQLite database to SQLCipher-encrypted
-    /// in place. Creates a timestamped backup under
-    /// `~/.argo/backups/`, verifies row counts across every user
-    /// table, then atomically swaps the encrypted file in. Idempotent:
-    /// running against an already-encrypted DB is a clean no-op.
+    /// (SQLCipher: a drop-in SQLite build that adds AES-256
+    /// encryption at rest — same file format, same SQL) in place.
+    /// Creates a timestamped backup under `~/.argo/backups/`,
+    /// verifies row counts across every user table, then atomically
+    /// swaps the encrypted file in. Idempotent: running against an
+    /// already-encrypted DB is a clean no-op.
     #[command(after_help = "Examples:\n  \
         argo migrate encrypt --db ~/.argo/session.db\n  \
         argo migrate encrypt --db ./session.db --key-source env\n  \
@@ -33,8 +35,9 @@ pub struct MigrateEncryptArgs {
     #[arg(long)]
     pub db: PathBuf,
     /// Where the raw 32-byte encryption key comes from. `env` reads
-    /// `SKYCOT_DB_KEY_BASE64` (base64-encoded 32 bytes). `keyring`
-    /// will route through the per-tenant
+    /// `SKYCOT_DB_KEY_BASE64` (base64-encoded 32 bytes — base64 is a
+    /// text-safe encoding for binary data, letters + digits + `+/=`).
+    /// `keyring` will route through the per-tenant
     /// `argo_config::cred::db_key` API once PR 2 / PR 4 land; today
     /// it falls back to the env-var path with a one-line notice.
     #[arg(long, value_enum, default_value_t = MigrateKeySource::Env)]

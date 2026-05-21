@@ -85,7 +85,10 @@ pub enum Command {
         #[command(subcommand)]
         cmd: DaemonCmd,
     },
-    /// Manage OAuth and token credentials for MCP connectors.
+    /// Manage OAuth (open standard behind "sign in with
+    /// Google/GitHub") and token credentials for MCP (Model Context
+    /// Protocol — the standard for plugging external tools into an
+    /// AI agent) connectors.
     Connector {
         #[command(subcommand)]
         cmd: ConnectorCmd,
@@ -146,8 +149,10 @@ pub enum Command {
     },
     /// Cloud-sandbox lifecycle ops (Stream `mission-e2b-reap-idle`).
     /// `e2b list` / `e2b reap-idle` for out-of-band cleanup of
-    /// leaked E2B sandboxes — orthogonal to the CU executor's
-    /// in-band Drop path.
+    /// leaked E2B (a cloud-sandbox provider used by computer-use
+    /// agents) sandboxes — orthogonal to the CU (computer-use —
+    /// agents that drive a real browser/desktop) executor's in-band
+    /// Drop path.
     Sandbox {
         #[command(subcommand)]
         cmd: cli_sandbox_cmds::SandboxCmd,
@@ -233,7 +238,8 @@ pub enum Command {
         #[command(subcommand)]
         cmd: TrajectoryCmd,
     },
-    /// Export successful action trajectories as fine-tuning JSONL.
+    /// Export successful action trajectories as fine-tuning JSONL
+    /// (JSON Lines — one JSON object per line).
     Training {
         #[command(subcommand)]
         cmd: crate::handlers::training::TrainingCmd,
@@ -252,7 +258,9 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ErrorsCmd,
     },
-    /// Availability/SLA dashboards backed by canonical audit rows.
+    /// Availability/SLA (Service Level Agreement — the uptime and
+    /// latency promise made to customers) dashboards backed by
+    /// canonical audit rows.
     Sla {
         #[command(subcommand)]
         cmd: SlaCmd,
@@ -327,7 +335,8 @@ pub enum Command {
         #[command(subcommand)]
         cmd: RouteCmd,
     },
-    /// Validate eval JSONL, or run/list vertical eval fixtures.
+    /// Validate eval JSONL (JSON Lines — one JSON object per
+    /// line), or run/list vertical eval fixtures.
     Eval {
         #[command(subcommand)]
         cmd: cli_eval_cmds::EvalCmd,
@@ -357,9 +366,12 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ClassifyCmd,
     },
-    /// Decompose a coarse goal into a workflow DAG (Stream
+    /// Decompose a coarse goal into a workflow DAG (Directed
+    /// Acyclic Graph — a one-way step chart with no loops, like a
+    /// flowchart that always moves forward) (Stream
     /// `claude-runtime-planner-trait`). Offline TemplatePlanner by
-    /// default; `--llm` opts into the Anthropic-backed LlmPlanner.
+    /// default; `--llm` opts into the Anthropic-backed LlmPlanner
+    /// (LLM = large language model — like Claude or GPT).
     Plan {
         #[command(subcommand)]
         cmd: PlanCmd,
@@ -441,7 +453,9 @@ pub enum Command {
     ///   `docs/skycot/security/vuln-management.md`.
     /// - `rotate-keys` — key-rotation coordinator across DB
     ///   encryption / credentials master / gateway bearer /
-    ///   channel HMAC / per-connector OAuth (Mission
+    ///   channel HMAC (Hash-based Message Authentication Code — a
+    ///   tamper-proof signature on a message) / per-connector OAuth
+    ///   (open standard behind "sign in with Google/GitHub") (Mission
     ///   `mission-automated-key-rotation`). See the "Key rotation"
     ///   section of `docs/skycot/RUNBOOK.md`.
     Security {

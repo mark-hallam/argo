@@ -90,8 +90,11 @@ pub enum AuditQueryCmd {
     /// Export audit rows for compliance review.
     Export {
         /// Output format: `ndjson`, `jsonl`, `json`, `csv`, or
-        /// `tarball`. `jsonl` is a SIEM-friendly synonym for
-        /// `ndjson`; `json` emits a single top-level array.
+        /// `tarball`. (`ndjson` = newline-delimited JSON, one
+        /// object per line; `jsonl` = JSON Lines, the same shape,
+        /// kept as a SIEM (Security Information and Event
+        /// Management — enterprise log-aggregation tooling) -friendly
+        /// synonym; `json` emits a single top-level array.)
         #[arg(long, default_value = "ndjson")]
         format: String,
         /// Write output to a path instead of stdout.
@@ -282,7 +285,11 @@ pub enum AuditQueryCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Recompute SHA-256 + HMAC of `<bundle_id>` and assert match.
+    /// Recompute SHA-256 (a cryptographic checksum — same input
+    /// always yields the same fingerprint) + HMAC (Hash-based
+    /// Message Authentication Code — a tamper-proof signature on a
+    /// message, requiring a shared secret to verify) of
+    /// `<bundle_id>` and assert match.
     VerifyArchive {
         /// Bundle id (UUIDv7) as printed by `list-archives`.
         bundle_id: String,
@@ -294,14 +301,17 @@ pub enum AuditQueryCmd {
     /// Replay one session's audit chain in seq order for incident
     /// investigation (Stream `claude-audit-replay`). `pretty`
     /// (default) prints one-line headlines per row; `raw` emits
-    /// NDJSON for piping into `jq`.
+    /// NDJSON (newline-delimited JSON — one object per line) for
+    /// piping into `jq`.
     Replay {
         /// Session id (UUID) to replay.
         session_id: String,
         /// Lower bound on `seq` (inclusive).
         #[arg(long)]
         from_seq: Option<i64>,
-        /// Upper bound (inclusive) on `created_at` as RFC-3339.
+        /// Upper bound (inclusive) on `created_at` as RFC-3339 (an
+        /// internet-standard timestamp format like
+        /// `2026-05-21T10:00:00Z`).
         #[arg(long)]
         until: Option<String>,
         /// Output format: `pretty` (default) or `raw` (NDJSON).

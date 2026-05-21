@@ -41,10 +41,12 @@ pub enum SecurityCmd {
         compact: bool,
     },
     /// Scan one or more paths for likely credentials (OpenAI /
-    /// Anthropic / AWS / Stripe / Slack / GitHub / SSH private
-    /// keys / JWTs / Argo bearer tokens). CI parity for the
-    /// pre-commit hook installed by `argo doctor install-hooks`.
-    /// Exits non-zero when any unsuppressed match is found.
+    /// Anthropic / AWS / Stripe / Slack / GitHub / SSH (Secure
+    /// Shell — encrypted remote login) private keys / JWTs (JSON
+    /// Web Tokens — signed login receipts) / Argo bearer tokens).
+    /// CI parity for the pre-commit hook installed by `argo doctor
+    /// install-hooks`. Exits non-zero when any unsuppressed match is
+    /// found.
     ScanSecrets(SecretScanArgs),
     /// Coordinated key-rotation operations across the workspace
     /// (Mission `mission-automated-key-rotation`).
