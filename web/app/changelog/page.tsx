@@ -634,7 +634,7 @@ export default function ChangelogPage() {
         </section>
 
         <div className="cl-stage">
-          <main>
+          <main id="main" tabIndex={-1}>
             {WEEKS.map((w) => (
               <section key={w.label} id={w.label.toLowerCase().replace(/\s+/g, "-")} className="cl-week">
                 <div className="cl-week-h">

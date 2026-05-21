@@ -366,7 +366,7 @@ export function WizardEditorialShell({
             </button>
           </div>
         </header>
-        <main className="wiz-stage">
+        <main id="main" tabIndex={-1} className="wiz-stage">
           {eyebrow ? (
             <div className="wiz-eyebrow" data-testid="wiz-shell-eyebrow">
               <span className="wiz-eyebrow-dot" aria-hidden />

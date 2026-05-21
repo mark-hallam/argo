@@ -15,7 +15,7 @@ export default function OfflinePage() {
         href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&display=swap"
         rel="stylesheet"
       />
-      <main className="offline-shell" data-testid="offline-shell">
+      <main id="main" tabIndex={-1} className="offline-shell" data-testid="offline-shell">
         <div className="offline-blob offline-blob-a" aria-hidden="true" />
         <div className="offline-blob offline-blob-b" aria-hidden="true" />
         <div className="offline-stage">

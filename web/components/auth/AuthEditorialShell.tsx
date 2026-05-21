@@ -434,7 +434,7 @@ export function AuthEditorialShell({
             <Link href={topRightHref}>{topRightCta}</Link>
           </div>
         </header>
-        <main className="auth-stage">
+        <main id="main" tabIndex={-1} className="auth-stage">
           {children}
           {showTrustFoot ? (
             <div className="foot">

@@ -13,5 +13,9 @@ export const metadata: Metadata = {
 };
 
 export default function PricingLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return (
+    <main id="main" tabIndex={-1} className="focus:outline-none">
+      {children}
+    </main>
+  );
 }

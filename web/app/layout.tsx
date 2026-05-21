@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { SkipToContent } from "@/components/a11y/SkipToContent";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { AuthProvider } from "@/components/skycot/AuthProvider";
@@ -88,6 +89,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
       <body>
+        <SkipToContent />
         <AuthProvider>
           <QueryProvider>
             <ThemeProvider>

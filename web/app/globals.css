@@ -279,4 +279,38 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+
+  /* Skip-to-content — visually hidden until focused. WCAG 2.4.1 Bypass
+     Blocks. Brand-on visible state matches the locked SKYCOT identity
+     (Audiowide + purple→pink gradient). */
+  .skycot-skip-to-content {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -120%);
+    z-index: 10000;
+    padding: 0.625rem 1.25rem;
+    font-family: "Audiowide", var(--font-sans);
+    font-size: 0.875rem;
+    letter-spacing: 0.06em;
+    color: #ffffff;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    border-radius: 9999px;
+    box-shadow: 0 8px 24px -8px rgba(139, 92, 246, 0.45);
+    text-decoration: none;
+    transition: transform 160ms ease-out;
+  }
+
+  .skycot-skip-to-content:focus,
+  .skycot-skip-to-content:focus-visible {
+    transform: translate(-50%, 1rem);
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skycot-skip-to-content {
+      transition: none;
+    }
+  }
 }

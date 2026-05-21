@@ -24,9 +24,11 @@ export interface ErrorShellProps {
 export function ErrorShell({ code, title, description, variant, actions }: ErrorShellProps) {
   return (
     <main
+      id="main"
+      tabIndex={-1}
       role="main"
       data-testid="error-shell"
-      className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-16"
+      className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-16 focus:outline-none"
     >
       <div className="w-full max-w-[65ch] text-center space-y-6">
         <ErrorIllustration variant={variant} />

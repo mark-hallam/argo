@@ -32,7 +32,7 @@ export function AppShell({ children, breadcrumb }: AppShellProps) {
       <NavDrawer brand={<Brand />}>
         <AppNav />
       </NavDrawer>
-      <main className="md:pl-64">
+      <main id="main" tabIndex={-1} className="md:pl-64 focus:outline-none">
         {breadcrumb ? (
           <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
             <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-3">{breadcrumb}</div>

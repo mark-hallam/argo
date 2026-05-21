@@ -90,7 +90,11 @@ export default function SetupPage() {
   const inputType = INPUT_TYPES[current.step] ?? "text";
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="min-h-screen bg-background px-5 py-8 text-foreground focus:outline-none"
+    >
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col justify-center gap-8">
         <header className="space-y-3">
           <p className="text-sm font-medium uppercase tracking-[0.12em] text-muted-foreground">
