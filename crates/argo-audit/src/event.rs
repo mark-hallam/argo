@@ -314,6 +314,20 @@ pub enum AuditKind {
     /// `{ tenant_id, job_name, schedule, fired_at,
     /// dispatch_target: { platform, chat } }`.
     CronJobFired,
+    /// `/settings/members` invitation issued
+    /// (`web-settings-members-invite-real-wire`). Payload carries
+    /// `actor`, `tenant_id`, `invitee_email`, `role`, `cohort_scope`,
+    /// `invitation_id`, and `expires_at`. One row per accepted POST
+    /// to `/api/v1/workspace/members/invite`; duplicate-pending or
+    /// invalid-email rejections do not emit.
+    WorkspaceMemberInvited,
+    /// `/settings/members` invitation accepted
+    /// (`web-settings-members-invite-real-wire`). Payload carries
+    /// `actor` (the joining user_id), `tenant_id`, `user_id`,
+    /// `role`, and `invited_by`. Pairs with
+    /// [`Self::WorkspaceMemberInvited`] so the audit trail tells the
+    /// invite/accept story end-to-end.
+    WorkspaceMemberJoined,
 }
 
 impl AuditKind {
@@ -376,6 +390,8 @@ impl AuditKind {
             Self::CronJobCreated => "cron_job_created",
             Self::CronJobDeleted => "cron_job_deleted",
             Self::CronJobFired => "cron_job_fired",
+            Self::WorkspaceMemberInvited => "workspace.member.invited",
+            Self::WorkspaceMemberJoined => "workspace.member.joined",
         }
     }
 
@@ -440,6 +456,8 @@ impl AuditKind {
             "cron_job_created" => Self::CronJobCreated,
             "cron_job_deleted" => Self::CronJobDeleted,
             "cron_job_fired" => Self::CronJobFired,
+            "workspace.member.invited" => Self::WorkspaceMemberInvited,
+            "workspace.member.joined" => Self::WorkspaceMemberJoined,
             _ => return None,
         })
     }
@@ -504,6 +522,8 @@ impl AuditKind {
             Self::CronJobCreated,
             Self::CronJobDeleted,
             Self::CronJobFired,
+            Self::WorkspaceMemberInvited,
+            Self::WorkspaceMemberJoined,
         ];
         v.sort_by_key(|k| k.label());
         v

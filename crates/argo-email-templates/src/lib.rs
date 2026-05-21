@@ -30,6 +30,7 @@ const MAGIC_LINK_BODY: &str = include_str!("../templates/magic_link.html");
 const WELCOME_BODY: &str = include_str!("../templates/welcome.html");
 const RECEIPT_BODY: &str = include_str!("../templates/receipt.html");
 const SUPPORT_REPLY_BODY: &str = include_str!("../templates/support_reply.html");
+const WORKSPACE_INVITE_BODY: &str = include_str!("../templates/workspace_invite.html");
 
 /// One-click unsubscribe URL surfaced in `List-Unsubscribe` and the
 /// footer of non-essential templates.
@@ -84,6 +85,29 @@ pub struct ReceiptEmail {
     pub invoice_url: String,
 }
 
+/// Workspace-member invitation email. Essential — no unsubscribe.
+/// Sent from `POST /api/v1/workspace/members/invite` after the
+/// invitation row is persisted; the link drops the invitee on
+/// `/accept-invite?token=...` which calls the accept endpoint and
+/// mints a session cookie.
+#[derive(Debug, Clone)]
+pub struct WorkspaceInviteEmail {
+    /// Display name of the user that issued the invite (typically the
+    /// inviter's email).
+    pub inviter: String,
+    /// Workspace label rendered in the body + subject.
+    pub workspace_name: String,
+    /// Role label the invitee will hold after accepting
+    /// (`owner | admin | user | guest`).
+    pub role: String,
+    /// Recipient address (also rendered inside the greeting).
+    pub email: String,
+    /// One-time-use acceptance URL.
+    pub accept_url: String,
+    /// Human-readable expiry, e.g. `"7 days"`.
+    pub expires_in: String,
+}
+
 /// Threaded support-reply email. Non-essential — carries unsubscribe.
 #[derive(Debug, Clone)]
 pub struct SupportReplyEmail {
@@ -127,6 +151,21 @@ impl ReceiptEmail {
             .replace("{{invoice_url}}", &esc(&self.invoice_url));
         let subject = format!("Receipt for {} — {}", self.period, self.amount);
         finalize(&subject, &body, true)
+    }
+}
+
+impl WorkspaceInviteEmail {
+    /// Render the email; essential transactional, no unsubscribe header.
+    pub fn render(&self) -> RenderedEmail {
+        let body = WORKSPACE_INVITE_BODY
+            .replace("{{inviter}}", &esc(&self.inviter))
+            .replace("{{workspace_name}}", &esc(&self.workspace_name))
+            .replace("{{role}}", &esc(&self.role))
+            .replace("{{email}}", &esc(&self.email))
+            .replace("{{accept_url}}", &esc(&self.accept_url))
+            .replace("{{expires_in}}", &esc(&self.expires_in));
+        let subject = format!("You've been invited to {} on SKYCOT", self.workspace_name);
+        finalize(&subject, &body, false)
     }
 }
 

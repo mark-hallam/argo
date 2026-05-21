@@ -259,6 +259,19 @@ async fn api_v1_dispatch(
     if let Some(resp) = super::routes_notifications::dispatch_post(req, store).await {
         return Some(resp);
     }
+    // web-settings-members-invite-real-wire — `/settings/members`
+    // invite + accept paths. Accept returns JSON-only (no Set-Cookie);
+    // the SPA hands the invitee off to magic-link signin afterwards so
+    // the session is minted through the existing stream-owning verify
+    // route. A sibling brief can promote accept to a stream-owner to
+    // shave the second hop once `boot_router::try_dispatch_gates` is
+    // in scope.
+    if super::routes_workspace_members::is_invite_request(req) {
+        return Some(super::routes_workspace_members_invite::invite_response(req, store).await);
+    }
+    if super::routes_workspace_members_accept::is_accept_request(req) {
+        return Some(super::routes_workspace_members_accept::accept_response(req, store).await);
+    }
     None
 }
 

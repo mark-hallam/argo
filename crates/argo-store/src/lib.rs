@@ -311,6 +311,12 @@ pub mod workspace_keys;
 /// `argo-identity::{user_store, user_tenant_store}`; this module
 /// owns only the `magic_link_tokens` table.
 pub mod user_account;
+/// Outstanding `/settings/members` invitations
+/// (Stream `web-settings-members-invite-real-wire`). One row per
+/// pending invite; consumed rows stay forever as audit trail. The
+/// invitation carries its own SHA-256 token hash so the 7-day invite
+/// window does not share a row shape with the 15-minute login token.
+pub mod workspace_member_invitation;
 
 pub use argo_runtime::prompt_cache_affinity::PromptCacheAffinity;
 pub use grants::SessionGrant;

@@ -21,6 +21,11 @@ pub(super) async fn dispatch_api_get(
     {
         return Some(super::routes_meta_error_reporting::response());
     }
+    // web-settings-members-invite-real-wire — list workspace members
+    // + pending invitations for `/settings/members`.
+    if super::routes_workspace_members::is_list_request(req) {
+        return Some(super::routes_workspace_members::list_response(req, store).await);
+    }
     // mission-data-export-customer-flow — status polling +
     // token-suffixed download. Both branches share the dispatcher
     // helper so the path-extraction logic only lives in one place.
