@@ -4,7 +4,10 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "SKYCOT vs Zapier, n8n, Crew.ai, Lindy",
   description:
-    "Side-by-side comparison across 13 dimensions that matter for AI teammates: trust ratchet, approval-first, audit chain, plain-English editing, multi-channel, enterprise-grade.",
+    "SKYCOT vs Zapier, n8n, Crew.ai, Lindy — 13 dimensions side-by-side: trust ratchet, approval-first, audit chain, plain-English editing, enterprise.",
+  alternates: {
+    canonical: "/compare",
+  },
   openGraph: {
     title: "SKYCOT vs Zapier, n8n, Crew.ai, Lindy",
     description:

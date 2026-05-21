@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "Pricing",
   description:
     "Hire teammates. Pay like they're real. Start free, add a Pro tier when you're ready for production, talk to us for enterprise.",
+  alternates: {
+    canonical: "/pricing",
+  },
   openGraph: {
     title: "Pricing — SKYCOT",
     description:

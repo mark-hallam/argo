@@ -45,7 +45,10 @@ export const metadata: Metadata = {
     template: "%s · SKYCOT",
   },
   description:
-    "Don't buy another tool. Hire a teammate. SKYCOT compiles plain-English job descriptions into AI workers that live in Slack, learn from your feedback, and ask for approval before they act. Audit-first, single-binary, enterprise-grade.",
+    "Don't buy another tool. Hire a teammate. AI workers in Slack that ask before they act and ship a full audit trail. Approval-first, enterprise-grade.",
+  alternates: {
+    canonical: "/",
+  },
   keywords: [
     "AI teammate",
     "AI worker",
@@ -73,6 +76,7 @@ export const metadata: Metadata = {
     title: "SKYCOT — Hire your first AI teammate",
     description:
       "AI teammates that ask before they act. Audit-first. Single-binary. Enterprise-grade.",
+    site: "@skycot_ai",
     creator: "@skycot_ai",
   },
   robots: {

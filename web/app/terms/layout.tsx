@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Terms of service",
   description:
     "How SKYCOT and your team agree to work together. Approval-first product. Audit-first product. No surprise lock-in.",
+  alternates: {
+    canonical: "/terms",
+  },
 };
 
 export default function TermsLayout({ children }: { children: ReactNode }) {

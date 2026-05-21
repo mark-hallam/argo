@@ -17,11 +17,17 @@ export async function generateMetadata({ params }: LayoutParams): Promise<Metada
     };
   }
   const title = `${story.name} — SKYCOT case study`;
-  const description = `${story.name} (${story.industry}, ${story.size}) — ${story.headlineKpi}`;
+  // Drops `size` from the descriptor — keeping name+industry+size+KPI ran
+  // 157 chars for Polaris Marketing, over the 155-char SERP truncation
+  // cap. Name + industry + KPI keeps every story ≤120 chars.
+  const description = `${story.name} (${story.industry}) — ${story.headlineKpi}`;
   const ogImage = `/customers/${slug}-og.png`;
   return {
     title,
     description,
+    alternates: {
+      canonical: `/customers/${slug}`,
+    },
     openGraph: {
       title: `${story.name} runs on SKYCOT`,
       description,
@@ -32,6 +38,8 @@ export async function generateMetadata({ params }: LayoutParams): Promise<Metada
       title: `${story.name} runs on SKYCOT`,
       description,
       images: [ogImage],
+      site: "@skycot_ai",
+      creator: "@skycot_ai",
     },
   };
 }

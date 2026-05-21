@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Docs",
   description: "SKYCOT documentation — guides, references, and examples.",
+  alternates: {
+    canonical: "/docs",
+  },
   openGraph: {
     title: "Docs — SKYCOT",
     description:

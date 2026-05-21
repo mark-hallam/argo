@@ -8,6 +8,9 @@ const V = VERTICALS.support;
 export const metadata: Metadata = {
   title: V.title,
   description: V.description,
+  alternates: {
+    canonical: "/for/support",
+  },
   openGraph: {
     title: V.title,
     description: V.description,

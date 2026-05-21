@@ -8,6 +8,9 @@ const V = VERTICALS.ops;
 export const metadata: Metadata = {
   title: V.title,
   description: V.description,
+  alternates: {
+    canonical: "/for/ops",
+  },
   openGraph: {
     title: V.title,
     description: V.description,

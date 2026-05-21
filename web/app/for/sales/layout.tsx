@@ -8,6 +8,9 @@ const V = VERTICALS.sales;
 export const metadata: Metadata = {
   title: V.title,
   description: V.description,
+  alternates: {
+    canonical: "/for/sales",
+  },
   openGraph: {
     title: V.title,
     description: V.description,

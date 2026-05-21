@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Customers",
   description:
     "300+ teams shipping with SKYCOT. From solo founders to Fortune 500. Hear how they're using their AI teammates.",
+  alternates: {
+    canonical: "/customers",
+  },
   openGraph: {
     title: "Customers — SKYCOT",
     description:
