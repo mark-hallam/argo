@@ -8,6 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { UnsavedBanner } from "@/components/skycot/builder/UnsavedBanner";
 import TriggerConfigDrawer from "@/components/workflows/triggers/TriggerConfigDrawer";
 import type { TriggerConfig, TriggerKind } from "@/components/workflows/triggers/types";
 import { WorkflowBuilderSkeleton } from "@/components/skycot/workflows/WorkflowBuilderSkeleton";
@@ -174,6 +175,10 @@ function BuilderInner({
     });
   }, []);
 
+  const handleDiscard = useCallback(() => {
+    builder.reset(initial.nodes, initial.edges);
+  }, [builder, initial]);
+
   if (stateFlag === "loading") {
     return <WorkflowBuilderSkeleton />;
   }
@@ -222,6 +227,12 @@ function BuilderInner({
           onProposeChange={handleProposeChange}
           onTestRun={handleTestRun}
           onSaveAndPublish={handleSaveAndPublish}
+        />
+
+        <UnsavedBanner
+          dirty={builder.dirty}
+          onSave={handleSaveAndPublish}
+          onDiscard={handleDiscard}
         />
 
         <div className="builder-stage">
