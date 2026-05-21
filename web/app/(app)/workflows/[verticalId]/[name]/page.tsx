@@ -350,7 +350,7 @@ const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
         kind: "tool_call",
         name: "Post to Facebook Marketplace",
         description:
-          "BrowserExecutor opens FB Marketplace, fills the form, uploads photos, submits. Returns the public listing URL.",
+          "Your teammate's browser opens Facebook Marketplace, fills the form, uploads photos, submits. Returns the public listing URL.",
         outputs: ["listing.url"],
       },
     ],

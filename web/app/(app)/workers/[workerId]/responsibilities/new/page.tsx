@@ -73,7 +73,7 @@ export default function NewResponsibilityPage({
         </h2>
         <p className="text-sm text-[color:var(--muted-foreground)]">
           Tell your teammate the recurring duty in plain English. We&apos;ll
-          draft a workflow TOML for you to approve, edit, or cancel.
+          draft a workflow playbook for you to approve, edit, or cancel.
         </p>
       </header>
 

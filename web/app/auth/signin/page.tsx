@@ -172,7 +172,7 @@ export default function SignInPage() {
       </p>
 
       <div className="trouble">
-        Trouble signing in? <Link href="/support">Get help</Link> or{" "}
+        Trouble signing in? <Link href="/help">Get help</Link> or{" "}
         <a href="mailto:support@skycot.com">contact support</a>
       </div>
     </AuthEditorialShell>

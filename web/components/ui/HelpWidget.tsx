@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useCreateTicket } from "@/lib/support/use-create-ticket";
 
-const SLA_PATH = "/docs/skycot/support/sla.md";
+const SLA_PATH = "/sla";
 const INPUT =
   "rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm font-normal text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]";
 const LABEL = "flex flex-col gap-1 text-xs font-medium text-[var(--foreground)]";

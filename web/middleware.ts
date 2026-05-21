@@ -25,6 +25,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/compare") ||
     pathname.startsWith("/changelog") ||
     pathname.startsWith("/docs") ||
+    pathname.startsWith("/help") ||
+    pathname.startsWith("/sla") ||
     pathname.startsWith("/for/") ||
     pathname === "/opengraph-image" ||
     pathname === "/icon" ||
