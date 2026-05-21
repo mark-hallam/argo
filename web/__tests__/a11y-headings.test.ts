@@ -37,6 +37,7 @@ const H1_PROVIDERS = [
   "ReplayHeader",
   "TicketThread",
   "WorkflowDiff",
+  "BuilderToolbar",
 ];
 
 function walk(dir: string): string[] {
