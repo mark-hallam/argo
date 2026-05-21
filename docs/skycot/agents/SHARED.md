@@ -17,3 +17,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-21T06:51:00Z [conductor] tick-20 — 4 NEW PRs in last 30min (the 3 builder briefs unblocked tick-18 + dark-mode PR-B) + 2 small replenishment briefs (mission-genesis-fallback-audit-kind, codex-prepared-statement-coverage-audit)
 2026-05-21T07:05:00Z [conductor] tick-21 — queue fully drained by workers (0 TODO, 25 CLAIMED, 6 IN_REVIEW) — major Wave-A pickup; 2 MERGED (#1962 + #1963); 5 replenishment briefs
 2026-05-21T07:12:00Z [conductor] operator-release — all worker tabs closed; 24 CLAIMED rows demoted to TODO with salvage notes; auditor-confirmed pattern of ghost-claims from claim-with-retry burst at 17:11-17:15 cleared
+2026-05-21T07:35:00Z [conductor] DIRTY-sweep — 4 MERGED + 4 CLOSED-as-stale. Backlog cleared for next worker spin-up.
