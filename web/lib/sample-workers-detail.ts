@@ -115,6 +115,44 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     },
     lastActiveAt: new Date(now - 22 * hour).toISOString(),
   },
+  {
+    id: "wkr_01J0PETA",
+    name: "Peta",
+    role: {
+      tagline: "keeps the cadence — standups, action items, status",
+      vertical: "project-ops",
+    },
+    status: "waiting",
+    department: { id: "project-and-ops", name: "Project & Ops" },
+    team: { id: "project-management", name: "Project Management" },
+    kpiToday: { label: "action items chased", value: "3" },
+    permissions: DEFAULT_DELEGATOR_PERMISSIONS,
+    headline: {
+      bullets: ["3 action items chased today", "2 standup digests drafted"],
+      tomorrow: "morning standup digest at 09:00",
+    },
+    lastActiveAt: new Date(now - 6 * minute).toISOString(),
+    pendingApprovalCount: 2,
+  },
+  {
+    id: "wkr_01J0PATRICK",
+    name: "Patrick",
+    role: {
+      tagline: "writes the weekly exec status report",
+      vertical: "project-ops",
+    },
+    status: "working",
+    department: { id: "project-and-ops", name: "Project & Ops" },
+    team: { id: "project-management", name: "Project Management" },
+    kpiToday: { label: "exec summaries this month", value: "4" },
+    permissions: DEFAULT_DELEGATOR_PERMISSIONS,
+    headline: {
+      bullets: ["Q2 exec summary in draft", "RAID log refreshed"],
+      tomorrow: "Thursday 5pm exec draft for Friday review",
+    },
+    lastActiveAt: new Date(now - 24 * minute).toISOString(),
+    pendingApprovalCount: 1,
+  },
 ];
 
 export function findSampleWorker(id: string): Worker | undefined {
