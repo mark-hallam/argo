@@ -100,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn insert_and_get() {
+    fn insert_and_get_round_trip() {
         let mut r = Registry::new();
         r.insert(fixture("alpha")).unwrap();
         r.insert(fixture("beta")).unwrap();
@@ -132,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_helpers() {
+    fn is_empty_and_len_zero_on_new_registry() {
         let r = Registry::new();
         assert!(r.is_empty());
         assert_eq!(r.len(), 0);

@@ -25,7 +25,7 @@ fn fatal_err() -> CuError {
 }
 
 #[test]
-fn case_1_exhausts_budget_then_bails() {
+fn exhausts_budget_then_bails() {
     let mut c = RestartCoordinator::new(RestartStrategy::RetryWithContext {
         max_attempts: 2,
         backoff_ms: 0,
@@ -47,7 +47,7 @@ fn case_1_exhausts_budget_then_bails() {
 }
 
 #[test]
-fn case_2_retryable_vs_fatal_error_kinds() {
+fn retryable_vs_fatal_error_kinds() {
     let mut c = RestartCoordinator::new(RestartStrategy::SnapshotResetRetry {
         max_attempts: 5,
         snapshot_every_n_steps: 1,
@@ -81,7 +81,7 @@ fn case_2_retryable_vs_fatal_error_kinds() {
 }
 
 #[test]
-fn case_3_take_snapshot_captures_step_index_and_payload() {
+fn take_snapshot_captures_step_index_and_payload() {
     let traj = vec!["step 1: click".to_string(), "step 2: type".to_string()];
     let png = vec![0xDEu8, 0xAD, 0xBE, 0xEF];
     let snap = take_snapshot(&png, 2, "Find marketplace listing", &traj);
@@ -100,7 +100,7 @@ fn case_3_take_snapshot_captures_step_index_and_payload() {
 }
 
 #[test]
-fn case_4_restore_from_reseeds_prompt_with_goal_summary() {
+fn restore_from_reseeds_prompt_with_goal_summary() {
     let snap = Snapshot {
         last_screenshot: vec![1, 2, 3],
         last_action_idx: 4,
@@ -129,7 +129,7 @@ fn case_4_restore_from_reseeds_prompt_with_goal_summary() {
 }
 
 #[test]
-fn case_4b_restore_from_rejects_empty_screenshot() {
+fn restore_from_rejects_empty_screenshot() {
     let snap = Snapshot {
         last_screenshot: vec![],
         last_action_idx: 1,
@@ -146,7 +146,7 @@ fn case_4b_restore_from_rejects_empty_screenshot() {
 }
 
 #[test]
-fn case_5_snapshot_cadence_every_n_steps() {
+fn snapshot_cadence_every_n_steps() {
     let c = RestartCoordinator::new(RestartStrategy::SnapshotResetRetry {
         max_attempts: 3,
         snapshot_every_n_steps: 3,
@@ -166,7 +166,7 @@ fn case_5_snapshot_cadence_every_n_steps() {
 }
 
 #[test]
-fn case_5b_snapshot_cadence_zero_disables_snapshots() {
+fn snapshot_cadence_zero_disables_snapshots() {
     // snapshot_every_n_steps = 0 must not snapshot at any step
     // (avoid div-by-zero & noise).
     let c = RestartCoordinator::new(RestartStrategy::SnapshotResetRetry {
@@ -179,7 +179,7 @@ fn case_5b_snapshot_cadence_zero_disables_snapshots() {
 }
 
 #[test]
-fn case_6_retry_with_context_does_not_snapshot() {
+fn retry_with_context_does_not_snapshot() {
     let c = RestartCoordinator::new(RestartStrategy::RetryWithContext {
         max_attempts: 3,
         backoff_ms: 50,
@@ -200,7 +200,7 @@ fn case_6_retry_with_context_does_not_snapshot() {
 }
 
 #[test]
-fn case_7_none_strategy_is_no_op() {
+fn none_strategy_is_no_op() {
     let mut c = RestartCoordinator::new(RestartStrategy::None);
     // Every error → Continue (existing flow), zero attempts charged.
     assert_eq!(c.should_restart(&http_err()), CuRestartDecision::Continue);

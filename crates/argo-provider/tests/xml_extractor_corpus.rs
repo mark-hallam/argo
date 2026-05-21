@@ -21,7 +21,7 @@ fn fixture(name: &str) -> String {
 }
 
 #[test]
-fn single_call() {
+fn single_call_extracts_one_invocation() {
     let body = body_with_content(&fixture("01_single_call.txt"));
     let calls = xml_tool_call(&body).unwrap();
     assert_eq!(calls.len(), 1);

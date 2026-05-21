@@ -10,7 +10,7 @@ fn parse(name: &str) -> ProviderManifest {
 }
 
 #[test]
-fn openai_compatible() {
+fn openai_compatible_manifest_loads_with_expected_family() {
     let m = parse("openai-compatible.toml");
     assert_eq!(m.provider.family, ProviderFamily::OpenaiCompatible);
     assert_eq!(m.tool_calls.format, ToolCallFormat::OpenaiToolCalls);
@@ -19,7 +19,7 @@ fn openai_compatible() {
 }
 
 #[test]
-fn openai_responses() {
+fn openai_responses_manifest_loads_with_expected_chat_path() {
     let m = parse("openai-responses.toml");
     assert_eq!(m.provider.family, ProviderFamily::OpenaiResponses);
     assert_eq!(m.tool_calls.format, ToolCallFormat::OpenaiResponseTools);
@@ -27,7 +27,7 @@ fn openai_responses() {
 }
 
 #[test]
-fn anthropic() {
+fn anthropic_manifest_loads_with_quirks_and_models() {
     let m = parse("anthropic.toml");
     assert_eq!(m.provider.family, ProviderFamily::Anthropic);
     assert_eq!(m.tool_calls.format, ToolCallFormat::AnthropicToolUse);
@@ -49,7 +49,7 @@ fn anthropic() {
 }
 
 #[test]
-fn bedrock() {
+fn bedrock_manifest_loads_with_aws_region_quirk() {
     let m = parse("bedrock.toml");
     assert_eq!(m.provider.family, ProviderFamily::Bedrock);
     assert_eq!(m.tool_calls.format, ToolCallFormat::BedrockToolUse);
