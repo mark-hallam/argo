@@ -91,7 +91,7 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
             readOnly
             value={url}
             data-testid="webhook-url"
-            style={{ ...triggerStyles.input, background: "var(--background)", fontFamily: "JetBrains Mono, monospace", fontSize: 12.5 }}
+            style={{ ...triggerStyles.input, background: "var(--background)", fontFamily: "var(--font-mono)", fontSize: 12.5 }}
           />
           <SecondaryButton onClick={handleCopy} testId="webhook-copy">
             {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
@@ -126,7 +126,7 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
             <span
               data-testid="webhook-ping-status"
               style={{
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 12.5,
                 color: pingState === "ok" ? "#15803d" : "#b91c1c",
                 fontWeight: 700,
@@ -145,7 +145,7 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
               borderRadius: 8,
               background: "var(--foreground)",
               color: "var(--background)",
-              fontFamily: "JetBrains Mono, monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 11.5,
               whiteSpace: "pre-wrap",
               maxHeight: 160,
@@ -165,7 +165,7 @@ export default function WebhookConfigForm({ config, onChange, onTestPing }: Prop
             borderRadius: 8,
             background: "var(--background)",
             border: "1px solid #ece9f5",
-            fontFamily: "JetBrains Mono, monospace",
+            fontFamily: "var(--font-mono)",
             fontSize: 11.5,
             color: "var(--foreground)",
             whiteSpace: "pre-wrap",

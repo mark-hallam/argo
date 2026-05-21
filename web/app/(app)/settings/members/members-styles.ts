@@ -20,7 +20,7 @@ export const MEMBERS_PAGE_STYLES = `
     flex-wrap: wrap;
   }
   .members-eyebrow {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--muted-foreground, #52525b);
     letter-spacing: 0.16em;
@@ -123,7 +123,7 @@ export const MEMBERS_PAGE_STYLES = `
     align-items: center;
   }
   .members-list-head {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 10.5px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -169,7 +169,7 @@ export const MEMBERS_PAGE_STYLES = `
     gap: 5px;
     padding: 4px 10px;
     border-radius: 999px;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 10.5px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -177,7 +177,7 @@ export const MEMBERS_PAGE_STYLES = `
     color: white;
   }
   .member-status-pill {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -231,7 +231,7 @@ export const MEMBERS_PAGE_STYLES = `
     border-color: rgba(20, 184, 166, 0.22);
   }
   .member-scope-more {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 10.5px;
     font-weight: 700;
     color: var(--muted-foreground, #52525b);
@@ -287,7 +287,7 @@ export const MEMBERS_PAGE_STYLES = `
     margin: 0 0 22px;
   }
   .invite-label {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--muted-foreground, #52525b);
     letter-spacing: 0.16em;

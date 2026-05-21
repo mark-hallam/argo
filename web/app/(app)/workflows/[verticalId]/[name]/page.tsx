@@ -101,12 +101,6 @@ function ViewerInner({
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <div className="wfd-stage">
         <Link href="/workflows" className="wfd-back">
           <ArrowLeft size={12} />
@@ -133,7 +127,7 @@ function ViewerInner({
                 marginLeft: "auto",
                 padding: "3px 8px",
                 borderRadius: 999,
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
@@ -288,7 +282,7 @@ function ViewerInner({
             </div>
             <div
               style={{
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
@@ -311,7 +305,7 @@ function ViewerInner({
             </div>
             <div
               style={{
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
@@ -334,7 +328,7 @@ function ViewerInner({
             </div>
             <div
               style={{
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
@@ -357,7 +351,7 @@ function ViewerInner({
             </div>
             <div
               style={{
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",

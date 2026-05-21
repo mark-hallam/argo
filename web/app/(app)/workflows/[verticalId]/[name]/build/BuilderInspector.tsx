@@ -26,7 +26,7 @@ export function BuilderInspector({ step, isTrigger, onClose, onEdit }: Props) {
       {step.inputs ? (
         <div className="builder-panel-section">
           <div className="builder-panel-section-label">INPUTS</div>
-          <code style={{ fontSize: 12.5, color: "#1e1b4b", fontFamily: "JetBrains Mono, monospace" }}>
+          <code style={{ fontSize: 12.5, color: "#1e1b4b", fontFamily: "var(--font-mono)" }}>
             {step.inputs.join(", ")}
           </code>
         </div>
@@ -34,7 +34,7 @@ export function BuilderInspector({ step, isTrigger, onClose, onEdit }: Props) {
       {step.outputs ? (
         <div className="builder-panel-section">
           <div className="builder-panel-section-label">OUTPUTS</div>
-          <code style={{ fontSize: 12.5, color: "#1e1b4b", fontFamily: "JetBrains Mono, monospace" }}>
+          <code style={{ fontSize: 12.5, color: "#1e1b4b", fontFamily: "var(--font-mono)" }}>
             {step.outputs.join(", ")}
           </code>
         </div>

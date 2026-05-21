@@ -70,12 +70,6 @@ export default function TemplateDetailPage({
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <div className="tpldetail-stage">
         <Link href="/workflows/templates" className="tpldetail-back">
           <ArrowLeft size={11} /> ALL TEMPLATES

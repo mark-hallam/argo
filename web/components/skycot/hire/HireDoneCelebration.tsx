@@ -172,7 +172,7 @@ export function HireDoneCelebration({
           border-radius: 50%;
           background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 60%, #ff6b6b 100%);
           color: white;
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 36px;
           font-weight: 400;
           letter-spacing: 0.02em;

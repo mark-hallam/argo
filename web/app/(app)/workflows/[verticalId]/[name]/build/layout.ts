@@ -82,7 +82,7 @@ export function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge
         style: TRUE_EDGE_STYLE,
         label: fromDecision ? prevMainStep.branch!.trueLabel : undefined,
         labelStyle: fromDecision
-          ? { fontFamily: "JetBrains Mono, monospace", fontSize: 10, fill: "#8b5cf6", fontWeight: 700 }
+          ? { fontFamily: "var(--font-mono)", fontSize: 10, fill: "#8b5cf6", fontWeight: 700 }
           : undefined,
         labelBgStyle: fromDecision ? { fill: "white", fillOpacity: 0.92 } : undefined,
       });
@@ -111,7 +111,7 @@ export function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge
         style: LOOP_RETURN_EDGE_STYLE,
         label: "↻ loop back",
         labelStyle: {
-          fontFamily: "JetBrains Mono, monospace",
+          fontFamily: "var(--font-mono)",
           fontSize: 9,
           fill: "#6366f1",
           letterSpacing: "0.08em",
@@ -145,7 +145,7 @@ export function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge
         style: FALSE_EDGE_STYLE,
         label: j === 0 ? branch.falseLabel : undefined,
         labelStyle: j === 0
-          ? { fontFamily: "JetBrains Mono, monospace", fontSize: 10, fill: "#b45309", fontWeight: 700 }
+          ? { fontFamily: "var(--font-mono)", fontSize: 10, fill: "#b45309", fontWeight: 700 }
           : undefined,
         labelBgStyle: j === 0 ? { fill: "white", fillOpacity: 0.92 } : undefined,
       });
@@ -159,7 +159,7 @@ export function stepsToFlow(steps: WorkflowStep[]): { nodes: Node[]; edges: Edge
         animated: true,
         style: JOIN_EDGE_STYLE,
         label: "rejoin",
-        labelStyle: { fontFamily: "JetBrains Mono, monospace", fontSize: 9.5, fill: "#b45309", fontWeight: 700 },
+        labelStyle: { fontFamily: "var(--font-mono)", fontSize: 9.5, fill: "#b45309", fontWeight: 700 },
         labelBgStyle: { fill: "white", fillOpacity: 0.92 },
       });
     }

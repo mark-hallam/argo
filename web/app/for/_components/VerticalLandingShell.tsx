@@ -19,12 +19,6 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{`
         .vland {
           --purple: var(--brand-primary);
@@ -90,7 +84,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
         }
         .vland-brand-name {
-          font-family: "Audiowide", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 16px;
           letter-spacing: 0.08em;
         }
@@ -206,7 +200,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           letter-spacing: 0.18em;
           text-transform: uppercase;
@@ -224,7 +218,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           background: var(--coral);
         }
         .vland-h1 {
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 64px;
           line-height: 1.05;
           font-weight: 400;
@@ -289,7 +283,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           gap: 24px;
           flex-wrap: wrap;
           justify-content: center;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--ink-3);
           letter-spacing: 0.06em;
@@ -326,7 +320,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           }
         }
         .vland-section-label {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--ink-3);
           letter-spacing: 0.2em;
@@ -336,7 +330,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           text-align: center;
         }
         .vland-section-title {
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 38px;
           font-weight: 400;
           color: var(--ink);
@@ -404,7 +398,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           margin: 0 auto;
         }
         .vland-flow-name {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--accent-eyebrow-fg);
           letter-spacing: 0.16em;
@@ -429,7 +423,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           border-top: none;
         }
         .vland-flow-actor {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11.5px;
           color: var(--accent-eyebrow-fg);
           letter-spacing: 0.1em;
@@ -460,7 +454,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           text-align: center;
         }
         .vland-quote-mark {
-          font-family: "Audiowide", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 44px;
           line-height: 1;
           background: linear-gradient(135deg, var(--purple), var(--pink));
@@ -477,7 +471,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           font-weight: 300;
         }
         .vland-quote-byline {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--ink-3);
           letter-spacing: 0.1em;
@@ -514,7 +508,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           90% { transform: translateX(100%); }
         }
         .vland-cta-band h2 {
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 34px;
           font-weight: 400;
           color: white;
@@ -543,7 +537,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         }
         .vland-foot {
           padding: 32px 64px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--ink-3);
           letter-spacing: 0.12em;

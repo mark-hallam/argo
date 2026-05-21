@@ -213,7 +213,7 @@ export default function ScheduleConfigForm({ config, onChange }: Props) {
               style={{
                 padding: "6px 10px",
                 borderBottom: "1px solid #ece9f5",
-                fontFamily: "JetBrains Mono, monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 12,
                 color: "#3f3f46",
               }}

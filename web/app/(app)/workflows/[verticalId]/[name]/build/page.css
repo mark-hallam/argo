@@ -17,7 +17,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: #52525b;
   letter-spacing: 0.12em;
@@ -27,14 +27,14 @@
 }
 .builder-back:hover { color: #8b5cf6; }
 .builder-title {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 18px;
   color: #1e1b4b;
   font-weight: 700;
   margin: 0;
 }
 .builder-vertical-tag {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: #8b5cf6;
   letter-spacing: 0.14em;
@@ -42,7 +42,7 @@
   font-weight: 700;
 }
 .builder-version {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: #52525b;
 }
@@ -117,7 +117,7 @@
 }
 .builder-prompt-send:disabled { opacity: 0.5; cursor: not-allowed; }
 .builder-prompt-suggest {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: #52525b;
   letter-spacing: 0.1em;
@@ -152,7 +152,7 @@
   margin-bottom: 16px;
 }
 .builder-panel-eyebrow {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -179,7 +179,7 @@
   margin-bottom: 18px;
 }
 .builder-panel-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -275,7 +275,7 @@
   min-width: 0;
 }
 .builder-proposal-eyebrow {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.16em;
   color: #52525b;
@@ -286,7 +286,7 @@
   font-size: 16px;
   font-weight: 600;
   color: #1e1b4b;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 .builder-proposal-prompt {
@@ -296,7 +296,7 @@
 }
 .builder-proposal-prompt-label,
 .builder-proposal-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.16em;
   color: #52525b;
@@ -350,14 +350,14 @@
   border: 1px solid #ece9f5;
 }
 .builder-proposal-diff-marker {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-weight: 700;
   width: 12px;
   text-align: center;
 }
 .builder-proposal-diff-name { flex: 1; color: #1e1b4b; }
 .builder-proposal-diff-kind {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: #52525b;
   letter-spacing: 0.06em;
@@ -391,7 +391,7 @@
   color: #f8fafc;
   border-radius: 9px;
   padding: 12px 14px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   max-height: 260px;
   min-height: 120px;

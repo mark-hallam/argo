@@ -62,7 +62,7 @@
   box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
 }
 .land-brand-name {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 16px;
   letter-spacing: 0.08em;
 }
@@ -182,7 +182,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.18em;
@@ -201,7 +201,7 @@
   background: var(--coral);
 }
 .land-hero-h1 {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 68px;
   line-height: 1;
   font-weight: 400;
@@ -263,7 +263,7 @@
   display: flex;
   gap: 32px;
   flex-wrap: wrap;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.06em;
@@ -333,7 +333,7 @@
   display: grid;
   place-items: center;
   color: white;
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 11px;
   letter-spacing: 0.16em;
   box-shadow: 0 20px 50px -10px rgba(139, 92, 246, 0.5);
@@ -376,7 +376,7 @@
   }
 }
 .land-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.2em;
@@ -386,7 +386,7 @@
   text-align: center;
 }
 .land-section-title {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 40px;
   font-weight: 400;
   color: var(--ink);
@@ -478,7 +478,7 @@
   padding: 8px 0;
 }
 .land-how-n {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 36px;
   background: linear-gradient(135deg, #8b5cf6, #ec4899);
   -webkit-background-clip: text;
@@ -531,7 +531,7 @@
   background: white;
   border: 1px solid var(--line);
   border-radius: 12px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--ink);
   font-weight: 600;
@@ -546,7 +546,7 @@
   color: white;
   display: grid;
   place-items: center;
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 11px;
   letter-spacing: 0.02em;
 }
@@ -580,7 +580,7 @@
   box-shadow: 0 14px 28px -12px rgba(139, 92, 246, 0.18);
 }
 .land-quote-mark {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 36px;
   line-height: 1;
   background: linear-gradient(135deg, #8b5cf6, #ec4899);
@@ -610,7 +610,7 @@
   color: white;
   display: grid;
   place-items: center;
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 13px;
   flex-shrink: 0;
 }
@@ -621,7 +621,7 @@
   margin: 0;
 }
 .land-quote-role {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -667,7 +667,7 @@
   }
 }
 .land-compare-band h2 {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 36px;
   font-weight: 400;
   color: white;
@@ -701,7 +701,7 @@
   text-align: center;
 }
 .land-final h2 {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 48px;
   font-weight: 400;
   margin: 0 0 18px;
@@ -716,7 +716,7 @@
 }
 .land-foot {
   padding: 32px 64px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.12em;

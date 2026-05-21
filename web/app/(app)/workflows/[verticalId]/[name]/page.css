@@ -7,7 +7,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.12em;
@@ -44,7 +44,7 @@
   margin-bottom: 12px;
 }
 .wfd-vertical {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: #8b5cf6;
   letter-spacing: 0.14em;
@@ -52,7 +52,7 @@
   font-weight: 700;
 }
 .wfd-risk {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -63,14 +63,14 @@
 }
 .wfd-version {
   margin-left: auto;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.06em;
   font-weight: 600;
 }
 .wfd-name {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 32px;
   margin: 0 0 12px;
   color: var(--foreground, #1e1b4b);
@@ -110,7 +110,7 @@
   box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.4);
 }
 .wfd-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.16em;
@@ -165,7 +165,7 @@
   margin-bottom: 4px;
 }
 .wfd-step-kind {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -206,7 +206,7 @@
   flex-wrap: wrap;
   gap: 14px;
   margin-top: 10px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.04em;
@@ -234,7 +234,7 @@
 }
 .wfd-approval-banner strong {
   font-weight: 700;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;

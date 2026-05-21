@@ -7,7 +7,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.2em;
@@ -27,7 +27,7 @@
   box-shadow: 0 0 6px #14b8a6;
 }
 .workflows-hero {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 48px;
   line-height: 1.05;
   font-weight: 400;
@@ -80,7 +80,7 @@
   background: transparent;
 }
 .workflows-count-pill {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.08em;
@@ -131,7 +131,7 @@
   align-items: center;
 }
 .workflows-try-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.16em;
@@ -150,7 +150,7 @@
   cursor: pointer;
 }
 .workflows-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.16em;
@@ -196,7 +196,7 @@
   margin-bottom: 12px;
 }
 .workflow-card-vertical {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: #8b5cf6;
   letter-spacing: 0.12em;
@@ -204,7 +204,7 @@
   font-weight: 700;
 }
 .workflow-card-risk {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -240,7 +240,7 @@
   border-radius: 7px;
   background: linear-gradient(135deg, #8b5cf6, #ec4899);
   color: white;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
 }
@@ -257,7 +257,7 @@
   border-radius: 1px;
 }
 .workflow-step-count {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.04em;
@@ -266,7 +266,7 @@
 .workflow-card-meta {
   display: flex;
   gap: 14px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.04em;

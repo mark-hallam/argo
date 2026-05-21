@@ -136,7 +136,7 @@ const BRAND_STYLES = `
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -156,7 +156,7 @@ const BRAND_STYLES = `
   box-shadow: 0 0 6px var(--pink);
 }
 .err-brand-hero {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 56px;
   line-height: 1.05;
   font-weight: 400;
@@ -215,12 +215,6 @@ function BrandLoudErrorShell({
 }) {
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{BRAND_STYLES}</style>
       <main
         id="main"

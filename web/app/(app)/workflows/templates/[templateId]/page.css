@@ -7,7 +7,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.18em;
@@ -32,7 +32,7 @@
   margin-bottom: 14px;
 }
 .tpldetail-vertical {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: #8b5cf6;
   letter-spacing: 0.14em;
@@ -44,7 +44,7 @@
   border: 1px solid rgba(139, 92, 246, 0.2);
 }
 .tpldetail-risk {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -54,7 +54,7 @@
   color: white;
 }
 .tpldetail-steps-pill {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.12em;
@@ -62,7 +62,7 @@
   font-weight: 700;
 }
 .tpldetail-title {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 38px;
   line-height: 1.05;
   font-weight: 400;
@@ -112,7 +112,7 @@
   text-decoration: none;
 }
 .tpldetail-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.18em;
@@ -134,7 +134,7 @@
   border-radius: 12px;
 }
 .tpldetail-step-index {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.08em;
@@ -156,7 +156,7 @@
   min-width: 0;
 }
 .tpldetail-step-kind {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -181,7 +181,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.04em;
@@ -197,7 +197,7 @@
   line-height: 1.45;
 }
 .tpldetail-gate strong {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   display: block;

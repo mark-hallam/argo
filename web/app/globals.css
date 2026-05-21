@@ -12,6 +12,7 @@
 @theme {
   --font-sans: var(--font-sans-loaded, "Inter"), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-mono-loaded, "JetBrains Mono"), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-audiowide: var(--font-display-audiowide, "Audiowide"), var(--font-sans);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -299,7 +300,7 @@
     transform: translate(-50%, -120%);
     z-index: 10000;
     padding: 0.625rem 1.25rem;
-    font-family: "Audiowide", var(--font-sans);
+    font-family: var(--font-audiowide);
     font-size: 0.875rem;
     letter-spacing: 0.06em;
     color: #ffffff;

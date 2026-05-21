@@ -35,12 +35,6 @@ export function AuthEditorialShell({
 }) {
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{`
         .auth-editorial {
           --purple: var(--brand-primary);
@@ -113,7 +107,7 @@ export function AuthEditorialShell({
           box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
         }
         .auth-brand-name {
-          font-family: "Audiowide", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 16px;
           letter-spacing: 0.08em;
           color: var(--ink);
@@ -141,7 +135,7 @@ export function AuthEditorialShell({
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--ink-3);
           letter-spacing: 0.2em;
@@ -161,7 +155,7 @@ export function AuthEditorialShell({
           box-shadow: 0 0 6px var(--teal);
         }
         .hero {
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 56px;
           line-height: 1.05;
           font-weight: 400;
@@ -231,7 +225,7 @@ export function AuthEditorialShell({
         .sso-btn .coming-soon {
           position: absolute;
           right: 14px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 9.5px;
           color: var(--ink-3);
           letter-spacing: 0.08em;
@@ -271,7 +265,7 @@ export function AuthEditorialShell({
           background: var(--line);
         }
         .divider-lbl {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           color: var(--ink-3);
           text-transform: uppercase;
@@ -283,7 +277,7 @@ export function AuthEditorialShell({
         }
         .field-label {
           display: block;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           color: var(--ink-3);
           text-transform: uppercase;
@@ -344,7 +338,7 @@ export function AuthEditorialShell({
           box-shadow: none;
         }
         .cta .kbd {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           padding: 2px 7px;
           border-radius: 5px;
@@ -377,7 +371,7 @@ export function AuthEditorialShell({
           gap: 18px;
           align-items: center;
           justify-content: center;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--ink-4);
           letter-spacing: 0.06em;

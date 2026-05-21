@@ -67,7 +67,7 @@ export default function SecuritySettingsPage() {
     <>
       <style jsx global>{`
         .security-stage { padding: 48px 32px 96px; max-width: 980px; margin: 0 auto; }
-        .security-eyebrow { font-family: "JetBrains Mono", monospace; font-size: 11px;
+        .security-eyebrow { font-family: var(--font-mono); font-size: 11px;
           color: #52525b; letter-spacing: 0.16em; text-transform: uppercase;
           font-weight: 700; margin-bottom: 8px; }
         .security-title { font-family: "Inter", sans-serif; font-size: 32px;
@@ -83,7 +83,7 @@ export default function SecuritySettingsPage() {
         .security-status-pill { display: inline-flex; align-items: center; gap: 6px;
           padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
           border: 1px solid #ece9f5; background: #fafaff; color: #1e1b4b;
-          font-family: "JetBrains Mono", monospace; letter-spacing: 0.04em; }
+          font-family: var(--font-mono); letter-spacing: 0.04em; }
         .security-status-on { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
         .security-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
         .security-btn { padding: 9px 16px; border-radius: 10px; font-size: 13.5px;
@@ -105,7 +105,7 @@ export default function SecuritySettingsPage() {
           padding: 12px; border-radius: 10px; background: #fafaff;
           font-size: 13px; color: #3f3f46; }
         .security-summary dt { color: #52525b; font-weight: 600;
-          font-family: "JetBrains Mono", monospace; font-size: 11px;
+          font-family: var(--font-mono); font-size: 11px;
           letter-spacing: 0.06em; text-transform: uppercase; }
         .security-summary dd { margin: 0; word-break: break-all; }
         .security-error { color: #b91c1c; font-size: 13px; margin: 0; }
@@ -298,7 +298,7 @@ function SamlConfigModal({ initial, onCancel, onSaved }: ModalProps) {
         }
         .saml-modal h2 { margin: 0; font-size: 20px; font-weight: 600; color: #1e1b4b; }
         .saml-row { display: flex; flex-direction: column; gap: 6px; }
-        .saml-label { font-family: "JetBrains Mono", monospace; font-size: 11px;
+        .saml-label { font-family: var(--font-mono); font-size: 11px;
           letter-spacing: 0.12em; text-transform: uppercase; color: #52525b;
           font-weight: 700; }
         .saml-input, .saml-textarea, .saml-select {
@@ -309,7 +309,7 @@ function SamlConfigModal({ initial, onCancel, onSaved }: ModalProps) {
         .saml-input:focus, .saml-textarea:focus, .saml-select:focus {
           border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
         }
-        .saml-textarea { min-height: 140px; font-family: "JetBrains Mono", monospace;
+        .saml-textarea { min-height: 140px; font-family: var(--font-mono);
           font-size: 12.5px; line-height: 1.45; }
         .saml-toggle { display: flex; align-items: center; gap: 12px;
           padding: 12px; border-radius: 9px; background: #fafaff;

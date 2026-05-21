@@ -125,7 +125,7 @@ export function SubWorkflowPicker({
             <div>
               <div
                 style={{
-                  fontFamily: "JetBrains Mono, monospace",
+                  fontFamily: "var(--font-mono)",
                   fontSize: 9.5,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
@@ -232,7 +232,7 @@ export function SubWorkflowPicker({
                     borderRadius: 999,
                     background: "rgba(8,145,178,0.10)",
                     border: "1px solid rgba(8,145,178,0.25)",
-                    fontFamily: "JetBrains Mono, monospace",
+                    fontFamily: "var(--font-mono)",
                     fontSize: 9.5,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
@@ -252,7 +252,7 @@ export function SubWorkflowPicker({
                   <div
                     style={{
                       marginTop: 4,
-                      fontFamily: "JetBrains Mono, monospace",
+                      fontFamily: "var(--font-mono)",
                       fontSize: 9.5,
                       color: "#52525b",
                     }}

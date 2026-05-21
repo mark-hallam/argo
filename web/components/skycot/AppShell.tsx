@@ -72,12 +72,6 @@ function AppNav() {
 function Brand() {
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <a href="/" className="flex items-center gap-2.5 group" style={{ textDecoration: "none" }}>
         <span
           aria-hidden
@@ -93,7 +87,7 @@ function Brand() {
         <span className="flex flex-col leading-tight">
           <span
             style={{
-              fontFamily: "'Audiowide', sans-serif",
+              fontFamily: "var(--font-audiowide)",
               fontSize: 14,
               letterSpacing: "0.08em",
               color: "var(--foreground)",
@@ -103,7 +97,7 @@ function Brand() {
           </span>
           <span
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 9.5,
               textTransform: "uppercase",
               letterSpacing: "0.16em",
@@ -140,7 +134,7 @@ function SingleBinaryFooterChip() {
       <a
         href="/pricing#self-host"
         className="mt-2 mx-2 flex items-center gap-2 rounded-[999px] border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-[10.5px] uppercase tracking-[0.14em] font-semibold text-[var(--muted-foreground)] hover:border-[var(--brand-primary)] hover:text-[var(--foreground)] transition-colors duration-[var(--duration-fast)]"
-        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+        style={{ fontFamily: "var(--font-mono)" }}
       >
         <span
           aria-hidden

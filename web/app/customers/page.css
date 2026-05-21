@@ -65,7 +65,7 @@
   box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
 }
 .cus-brand-name {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 16px;
   letter-spacing: 0.08em;
 }
@@ -122,7 +122,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -140,7 +140,7 @@
   background: var(--teal);
 }
 .cus-h1 {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 60px;
   line-height: 1.05;
   font-weight: 400;
@@ -209,7 +209,7 @@
   display: grid;
   place-items: center;
   color: white;
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 17px;
   letter-spacing: 0.04em;
   flex-shrink: 0;
@@ -222,7 +222,7 @@
   line-height: 1.2;
 }
 .cus-card-meta {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--ink-3);
   letter-spacing: 0.1em;
@@ -237,7 +237,7 @@
   margin: 0;
 }
 .cus-kpi-line strong {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-weight: 400;
   background: linear-gradient(135deg, #8b5cf6, #ec4899);
   -webkit-background-clip: text;
@@ -255,7 +255,7 @@
   border-image: linear-gradient(180deg, #8b5cf6, #ec4899) 1;
 }
 .cus-quote-author {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -271,7 +271,7 @@
   border-top: 1px solid var(--line);
 }
 .cus-vertical-chip {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -325,7 +325,7 @@
   }
 }
 .cus-final h2 {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 42px;
   font-weight: 400;
   color: white;
@@ -354,7 +354,7 @@
 }
 .cus-foot {
   padding: 32px 64px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.12em;

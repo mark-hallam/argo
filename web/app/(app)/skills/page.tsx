@@ -77,12 +77,6 @@ export default function SkillsPage() {
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <div className="skills-stage">
         <div className="skills-eyebrow">
           <span className="skills-eyebrow-dot" />

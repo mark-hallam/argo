@@ -7,7 +7,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.2em;
@@ -20,7 +20,7 @@
   background: var(--background, #fafaff);
 }
 .compare-hero {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 48px;
   line-height: 1.05;
   font-weight: 400;
@@ -71,7 +71,7 @@
   margin: 0 0 4px;
 }
 .compare-position-name.us {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-weight: 400;
   background: linear-gradient(135deg, #8b5cf6, #ec4899);
   -webkit-background-clip: text;
@@ -79,7 +79,7 @@
   color: transparent;
 }
 .compare-position-tagline {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -123,7 +123,7 @@
   width: 44%;
 }
 .compare-table thead th {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -146,7 +146,7 @@
 }
 .compare-group-row td {
   background: var(--background, #fafaff);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;

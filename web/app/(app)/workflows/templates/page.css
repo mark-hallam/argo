@@ -7,7 +7,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.18em;
@@ -21,7 +21,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.2em;
@@ -34,7 +34,7 @@
   background: var(--background, #fafaff);
 }
 .templates-hero {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 48px;
   line-height: 1.05;
   font-weight: 400;
@@ -86,7 +86,7 @@
   background: transparent;
 }
 .templates-count-pill {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.08em;
@@ -99,7 +99,7 @@
   align-items: center;
 }
 .templates-filter-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.18em;
@@ -124,7 +124,7 @@
   box-shadow: 0 4px 10px -3px rgba(139, 92, 246, 0.45);
 }
 .templates-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.16em;
@@ -172,7 +172,7 @@
   margin-bottom: 12px;
 }
 .template-card-vertical {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: #8b5cf6;
   letter-spacing: 0.12em;
@@ -180,7 +180,7 @@
   font-weight: 700;
 }
 .template-card-risk {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -216,7 +216,7 @@
   border-radius: 7px;
   background: linear-gradient(135deg, #8b5cf6, #ec4899);
   color: white;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
 }
@@ -233,7 +233,7 @@
   border-radius: 1px;
 }
 .template-step-count {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted-foreground, #52525b);
   letter-spacing: 0.04em;

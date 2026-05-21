@@ -104,7 +104,7 @@ export function RunOverlay({
           margin: 0;
         }
         .run-banner-sub {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           opacity: 0.75;
           margin-top: 2px;
@@ -146,7 +146,7 @@ export function RunOverlay({
           border-bottom: 1px solid #ece9f5;
         }
         .run-tray-head-title {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           letter-spacing: 0.14em;
           text-transform: uppercase;
@@ -161,7 +161,7 @@ export function RunOverlay({
           color: #3f3f46;
         }
         .run-tray-count-num {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-weight: 700;
           color: #1e1b4b;
           margin-right: 4px;
@@ -177,7 +177,7 @@ export function RunOverlay({
           align-items: center;
           gap: 4px;
           font-size: 11px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-weight: 600;
         }
         .run-tray-toggle:hover { color: #8b5cf6; border-color: #8b5cf6; }
@@ -216,7 +216,7 @@ export function RunOverlay({
         }
         .run-tray-step-name { font-weight: 600; color: #1e1b4b; }
         .run-tray-step-meta {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: #52525b;
           letter-spacing: 0.04em;
@@ -229,7 +229,7 @@ export function RunOverlay({
           background: #fafaff;
           border: 1px solid #ece9f5;
           border-radius: 6px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: #3f3f46;
           line-height: 1.5;
@@ -241,7 +241,7 @@ export function RunOverlay({
           background: rgba(244, 63, 94, 0.08);
           border: 1px solid rgba(244, 63, 94, 0.3);
           border-radius: 6px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: #7f1d1d;
           line-height: 1.5;

@@ -59,7 +59,7 @@ export function OnboardingFormStyles() {
       }
       .wiz-editorial .ob-field-label {
         display: block;
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10.5px;
         color: var(--ob-ink-3);
         text-transform: uppercase;
@@ -101,7 +101,7 @@ export function OnboardingFormStyles() {
         box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
       }
       .wiz-editorial .ob-field-input.is-mono {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 14px;
         letter-spacing: 0.02em;
       }
@@ -229,7 +229,7 @@ export function OnboardingFormStyles() {
         cursor: not-allowed;
       }
       .wiz-editorial .ob-cta-kbd {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         padding: 2px 7px;
         border-radius: 5px;
@@ -265,7 +265,7 @@ export function OnboardingFormStyles() {
         box-shadow: 0 8px 22px -16px rgba(30, 27, 75, 0.18);
       }
       .wiz-editorial .ob-pillar-label {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10.5px;
         color: var(--ob-ink-3);
         text-transform: uppercase;
@@ -372,7 +372,7 @@ export function OnboardingFormStyles() {
         border-radius: 6px;
         background: var(--ob-paper-2);
         color: var(--ob-ink-2);
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10.5px;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -381,7 +381,7 @@ export function OnboardingFormStyles() {
         margin-top: auto;
         padding-top: 10px;
         border-top: 1px solid var(--ob-line);
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         color: var(--ob-ink-3);
         letter-spacing: 0.04em;

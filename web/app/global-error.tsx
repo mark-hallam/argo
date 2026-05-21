@@ -58,7 +58,7 @@ export default function GlobalError({
         >
           <p
             style={{
-              fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+              fontFamily: "var(--font-mono)",
               fontSize: 11,
               letterSpacing: "0.2em",
               textTransform: "uppercase",
@@ -70,7 +70,7 @@ export default function GlobalError({
           </p>
           <h1
             style={{
-              fontFamily: 'Audiowide, Inter, sans-serif',
+              fontFamily: 'var(--font-audiowide)',
               fontSize: 32,
               fontWeight: 400,
               lineHeight: 1.1,

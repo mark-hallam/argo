@@ -91,12 +91,6 @@ const TILES = [
 export default function SettingsLandingPage() {
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{`
         .settings-stage {
           padding: 48px 32px 96px;
@@ -107,7 +101,7 @@ export default function SettingsLandingPage() {
           margin-bottom: 36px;
         }
         .eyebrow {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--muted-foreground, #52525b);
           letter-spacing: 0.16em;
@@ -195,7 +189,7 @@ export default function SettingsLandingPage() {
           margin: 0;
         }
         .settings-coming-soon {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 9.5px;
           color: var(--muted-foreground, #52525b);
           letter-spacing: 0.08em;

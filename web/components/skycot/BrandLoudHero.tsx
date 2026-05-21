@@ -53,12 +53,6 @@ export function BrandLoudHero({
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{`
         .skycot-brandloud-hero {
           position: relative;
@@ -122,7 +116,7 @@ export function BrandLoudHero({
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           letter-spacing: 0.2em;
           text-transform: uppercase;
@@ -149,7 +143,7 @@ export function BrandLoudHero({
           50% { opacity: 0.45; }
         }
         .skycot-brandloud-title {
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 36px;
           line-height: 1.05;
           font-weight: 400;
@@ -179,7 +173,7 @@ export function BrandLoudHero({
           text-align: right;
         }
         .skycot-brandloud-kpi-label {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           letter-spacing: 0.16em;
           text-transform: uppercase;

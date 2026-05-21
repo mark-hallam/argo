@@ -629,10 +629,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return (
     <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{`
         .cmdk-overlay {
           position: fixed;
@@ -691,7 +687,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         }
         .cmdk-search-input {
           flex: 1;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 14px;
           border: none;
           outline: none;
@@ -703,7 +699,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           color: var(--muted-foreground);
         }
         .cmdk-kbd {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           font-weight: 600;
           color: var(--muted-foreground);
@@ -724,7 +720,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           margin-top: 4px;
         }
         .cmdk-group-label {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           color: var(--muted-foreground);
           letter-spacing: 0.16em;
@@ -794,7 +790,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           flex-shrink: 0;
         }
         .cmdk-tag {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           letter-spacing: 0.1em;
           text-transform: uppercase;
@@ -805,7 +801,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           border-radius: 999px;
         }
         .cmdk-badge {
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           letter-spacing: 0.06em;
           text-transform: uppercase;
@@ -843,7 +839,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           padding: 10px 16px;
           border-top: 1px solid var(--border);
           background: var(--background);
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           color: var(--muted-foreground);
           letter-spacing: 0.06em;

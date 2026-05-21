@@ -19,7 +19,7 @@ export function ApiKeysStyles() {
         flex-wrap: wrap;
       }
       .ak-eyebrow {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         color: var(--muted-foreground, #52525b);
         letter-spacing: 0.16em;
@@ -72,7 +72,7 @@ export function ApiKeysStyles() {
         align-items: center;
       }
       .ak-list-head {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10.5px;
         letter-spacing: 0.16em;
         text-transform: uppercase;
@@ -104,7 +104,7 @@ export function ApiKeysStyles() {
         white-space: nowrap;
       }
       .ak-row-prefix {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 12px;
         color: var(--muted-foreground, #3f3f46);
         background: var(--background, #fafaff);
@@ -134,7 +134,7 @@ export function ApiKeysStyles() {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         letter-spacing: 0.06em;
         padding: 3px 7px;
@@ -271,7 +271,7 @@ export function ApiKeysStyles() {
         margin: 8px 0 18px;
       }
       .ak-label {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10.5px;
         color: var(--muted-foreground, #52525b);
         letter-spacing: 0.16em;
@@ -313,7 +313,7 @@ export function ApiKeysStyles() {
         background: var(--background, #fafaff);
       }
       .ak-scope-group-title {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         letter-spacing: 0.14em;
         text-transform: uppercase;
@@ -332,7 +332,7 @@ export function ApiKeysStyles() {
       }
       .ak-admin-pill {
         margin-left: 6px;
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 9.5px;
         letter-spacing: 0.06em;
         background: rgba(236, 72, 153, 0.12);
@@ -366,7 +366,7 @@ export function ApiKeysStyles() {
         margin-right: 6px;
       }
       .ak-cohort-band {
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         letter-spacing: 0.06em;
         color: var(--muted-foreground, #52525b);
@@ -420,7 +420,7 @@ export function ApiKeysStyles() {
         border-radius: 10px;
         padding: 12px 14px;
         margin-bottom: 8px;
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-mono);
         font-size: 13px;
         color: var(--foreground, #1e1b4b);
         overflow: hidden;

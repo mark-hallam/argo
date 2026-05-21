@@ -109,7 +109,7 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontFamily: "JetBrains Mono, monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 9.5,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -136,7 +136,7 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
               borderRadius: 6,
               background: "rgba(99,102,241,0.08)",
               border: "1px dashed rgba(99,102,241,0.4)",
-              fontFamily: "JetBrains Mono, monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 10.5,
               color: "#3730a3",
               lineHeight: 1.5,
@@ -158,7 +158,7 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
               color: "#92400e",
             }}
           >
-            <strong style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9.5, letterSpacing: "0.12em" }}>
+            <strong style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.12em" }}>
               GATE · {step.approvalGate.channel}
             </strong>
           </div>
@@ -170,7 +170,7 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
               display: "flex",
               gap: 8,
               flexWrap: "wrap",
-              fontFamily: "JetBrains Mono, monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 9,
               color: "#52525b",
               letterSpacing: "0.04em",
@@ -188,7 +188,7 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
             justifyContent: "space-between",
             padding: "8px 14px 10px",
             borderTop: "1px dashed rgba(0,0,0,0.08)",
-            fontFamily: "JetBrains Mono, monospace",
+            fontFamily: "var(--font-mono)",
             fontSize: 9.5,
             letterSpacing: "0.1em",
             textTransform: "uppercase",
@@ -224,7 +224,7 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
             bottom: -22,
             left: "50%",
             transform: "translateX(-50%)",
-            fontFamily: "JetBrains Mono, monospace",
+            fontFamily: "var(--font-mono)",
             fontSize: 9,
             letterSpacing: "0.1em",
             textTransform: "uppercase",

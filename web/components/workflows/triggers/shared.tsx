@@ -11,7 +11,7 @@ const ROW = { marginBottom: 16 } as const;
 
 const LABEL = {
   display: "block",
-  fontFamily: "JetBrains Mono, monospace",
+  fontFamily: "var(--font-mono)",
   fontSize: 10,
   letterSpacing: "0.16em",
   textTransform: "uppercase" as const,

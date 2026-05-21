@@ -96,7 +96,7 @@ export default function TriggerConfigDrawer({
         <div>
           <div
             style={{
-              fontFamily: "JetBrains Mono, monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 10,
               letterSpacing: "0.16em",
               textTransform: "uppercase",

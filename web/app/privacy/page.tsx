@@ -9,12 +9,6 @@ import Link from "next/link";
 export default function PrivacyPage() {
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
     <main
       style={{
         maxWidth: 720,
@@ -29,7 +23,7 @@ export default function PrivacyPage() {
     >
       <p
         style={{
-          fontFamily: '"JetBrains Mono", monospace',
+          fontFamily: "var(--font-mono)",
           fontSize: 11,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
@@ -41,7 +35,7 @@ export default function PrivacyPage() {
       </p>
       <h1
         style={{
-          fontFamily: "Audiowide, Inter, sans-serif",
+          fontFamily: "var(--font-audiowide)",
           fontSize: 48,
           fontWeight: 400,
           lineHeight: 1.05,

@@ -116,7 +116,7 @@ function VerifySpinner({ label }: { label: string }) {
         justifyContent: "center",
         gap: 10,
         marginTop: 24,
-        fontFamily: "JetBrains Mono, monospace",
+        fontFamily: "var(--font-mono)",
         fontSize: 12,
         color: "var(--ink-3)",
         letterSpacing: "0.16em",

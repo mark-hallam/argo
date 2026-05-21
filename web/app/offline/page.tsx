@@ -9,12 +9,6 @@ export default function OfflinePage() {
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <main id="main" tabIndex={-1} className="offline-shell" data-testid="offline-shell">
         <div className="offline-blob offline-blob-a" aria-hidden="true" />
         <div className="offline-blob offline-blob-b" aria-hidden="true" />
@@ -83,14 +77,14 @@ export default function OfflinePage() {
             box-shadow: 0 12px 30px -8px rgba(139, 92, 246, 0.5);
           }
           .offline-eyebrow {
-            font-family: "Audiowide", sans-serif;
+            font-family: var(--font-audiowide);
             font-size: 14px;
             letter-spacing: 0.18em;
             color: #6366f1;
             margin: 0 0 16px;
           }
           .offline-hero {
-            font-family: "Audiowide", sans-serif;
+            font-family: var(--font-audiowide);
             font-size: clamp(40px, 8vw, 64px);
             line-height: 1.05;
             margin: 0 0 18px;

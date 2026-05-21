@@ -62,7 +62,7 @@
   box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
 }
 .pri-brand-name {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 16px;
   letter-spacing: 0.08em;
 }
@@ -125,7 +125,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -143,7 +143,7 @@
   background: var(--teal);
 }
 .pri-h1 {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 60px;
   line-height: 1.05;
   font-weight: 400;
@@ -214,21 +214,21 @@
   border-radius: 999px;
   background: linear-gradient(135deg, #8b5cf6, #ec4899);
   color: white;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .pri-tier-title {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 22px;
   letter-spacing: 0.04em;
   margin: 0;
   color: var(--ink);
 }
 .pri-tier-price {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 44px;
   line-height: 1;
   color: var(--ink);
@@ -240,7 +240,7 @@
   color: transparent;
 }
 .pri-tier-period {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -314,7 +314,7 @@
   }
 }
 .pri-section-label {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.2em;
@@ -324,7 +324,7 @@
   text-align: center;
 }
 .pri-section-title {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 36px;
   font-weight: 400;
   color: var(--ink);
@@ -358,7 +358,7 @@
 }
 .pri-matrix th {
   background: rgba(139, 92, 246, 0.04);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -472,7 +472,7 @@
   }
 }
 .pri-final h2 {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 42px;
   font-weight: 400;
   color: white;
@@ -501,7 +501,7 @@
 }
 .pri-foot {
   padding: 32px 64px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.12em;

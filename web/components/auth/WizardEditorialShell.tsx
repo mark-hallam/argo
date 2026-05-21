@@ -105,12 +105,12 @@ const WIZARD_STYLES = `
   box-shadow: 0 4px 12px -2px rgba(139, 92, 246, 0.3);
 }
 .wiz-brand-name {
-  font-family: "Audiowide", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 16px; letter-spacing: 0.08em; color: var(--ink);
 }
 .wiz-steps {
   display: flex; align-items: center; gap: 10px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px; color: var(--ink-3);
   letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600;
 }
@@ -140,7 +140,7 @@ const WIZARD_STYLES = `
 .wiz-exit {
   font-size: 13px; color: var(--ink-3);
   background: none; border: none; padding: 0;
-  cursor: pointer; font-family: "JetBrains Mono", monospace;
+  cursor: pointer; font-family: var(--font-mono);
   letter-spacing: 0.06em;
 }
 .wiz-exit:hover { color: var(--ink); }
@@ -150,7 +150,7 @@ const WIZARD_STYLES = `
 }
 .wiz-eyebrow {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px; font-weight: 700;
   letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--ink-3); margin-bottom: 28px;
@@ -162,7 +162,7 @@ const WIZARD_STYLES = `
   background: var(--teal); box-shadow: 0 0 6px var(--teal);
 }
 .wiz-hero {
-  font-family: "Audiowide", "Inter", sans-serif;
+  font-family: var(--font-audiowide);
   font-size: 76px; line-height: 1.0;
   font-weight: 400; letter-spacing: 0;
   margin: 0 auto 24px; color: var(--ink);
@@ -214,7 +214,7 @@ const WIZARD_STYLES = `
   box-shadow: none;
 }
 .wiz-cta-kbd {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 12px; padding: 3px 8px; border-radius: 5px;
   background: rgba(255, 255, 255, 0.22); letter-spacing: 0.04em;
 }
@@ -236,7 +236,7 @@ const WIZARD_STYLES = `
 }
 .wiz-foot-item {
   display: inline-flex; align-items: center; gap: 8px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
 }
 .wiz-foot-item strong { color: var(--ink); font-weight: 700; }
@@ -332,12 +332,6 @@ export function WizardEditorialShell({
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{WIZARD_STYLES}</style>
       <div className="wiz-editorial">
         <header className="wiz-top">

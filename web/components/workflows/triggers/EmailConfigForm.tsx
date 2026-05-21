@@ -159,7 +159,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        fontFamily: "JetBrains Mono, monospace",
+        fontFamily: "var(--font-mono)",
         fontSize: 10.5,
         letterSpacing: "0.18em",
         textTransform: "uppercase",

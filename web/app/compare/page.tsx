@@ -167,12 +167,6 @@ export default function ComparePage() {
   const groups = groupDimensions(DIMENSIONS);
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <div className="compare-stage">
         <div className="compare-eyebrow">
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#14b8a6" }} />

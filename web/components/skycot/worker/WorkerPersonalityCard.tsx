@@ -118,12 +118,6 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{`
         .wpc-card {
           background: white;
@@ -146,7 +140,7 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-family: "JetBrains Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           color: var(--muted-foreground);
           letter-spacing: 0.16em;

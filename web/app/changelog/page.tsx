@@ -186,12 +186,6 @@ const TAG_COLORS: Record<EntryTag, { bg: string; fg: string }> = {
 export default function ChangelogPage() {
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <div className="cl">
         <header className="cl-top">
           <Link href="/landing" className="cl-brand">

@@ -38,7 +38,7 @@ export function AddStepPalette({ onSelect, onClose }: AddStepPaletteProps) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <span
           style={{
-            fontFamily: "JetBrains Mono, monospace",
+            fontFamily: "var(--font-mono)",
             fontSize: 10,
             letterSpacing: "0.14em",
             textTransform: "uppercase",
@@ -61,7 +61,7 @@ export function AddStepPalette({ onSelect, onClose }: AddStepPaletteProps) {
         <div key={group.label} style={{ marginBottom: 10 }}>
           <div
             style={{
-              fontFamily: "JetBrains Mono, monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 9.5,
               letterSpacing: "0.16em",
               textTransform: "uppercase",

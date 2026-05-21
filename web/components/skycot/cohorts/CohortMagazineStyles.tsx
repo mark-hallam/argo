@@ -16,12 +16,6 @@
 export function CohortMagazineStyles() {
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <style jsx global>{`
         :root {
           --skycot-cohort-purple: #8b5cf6;
@@ -104,7 +98,7 @@ export function CohortMagazineStyles() {
         .skycot-cohort-tab-ct {
           display: block;
           margin-top: 2px;
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 10.5px;
           font-weight: 600;
           color: var(--skycot-cohort-ink-3);
@@ -135,7 +129,7 @@ export function CohortMagazineStyles() {
           font-weight: 700;
         }
         .skycot-cohort-mag-section-meta {
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--skycot-cohort-ink-3);
           letter-spacing: 0.14em;
@@ -229,7 +223,7 @@ export function CohortMagazineStyles() {
           right: 16px;
           padding: 4px 10px;
           border-radius: 4px;
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 9.5px;
           font-weight: 700;
           letter-spacing: 0.12em;
@@ -245,14 +239,14 @@ export function CohortMagazineStyles() {
           display: grid;
           place-items: center;
           color: white;
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-weight: 400;
           font-size: 24px;
           letter-spacing: 0.04em;
           background: var(--skycot-cohort-gradient);
         }
         .skycot-cohort-lead-kicker {
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           letter-spacing: 0.16em;
           text-transform: uppercase;
@@ -261,7 +255,7 @@ export function CohortMagazineStyles() {
           margin-bottom: 6px;
         }
         .skycot-cohort-lead-title {
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 36px;
           font-weight: 400;
           letter-spacing: -0.005em;
@@ -292,7 +286,7 @@ export function CohortMagazineStyles() {
           padding-top: 18px;
           border-top: 1px solid var(--skycot-cohort-line);
           margin-bottom: 14px;
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
           color: var(--skycot-cohort-ink-3);
         }
@@ -315,7 +309,7 @@ export function CohortMagazineStyles() {
         .skycot-cohort-lead-meta {
           font-size: 12.5px;
           color: var(--skycot-cohort-ink-3);
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
         }
 
         /* ── STACKED TILE ─────────────────────────────────────── */
@@ -330,13 +324,13 @@ export function CohortMagazineStyles() {
           display: grid;
           place-items: center;
           color: white;
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 13px;
           letter-spacing: 0.04em;
           background: linear-gradient(135deg, #ec4899, #ff6b6b);
         }
         .skycot-cohort-stacked-kicker {
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           letter-spacing: 0.16em;
           text-transform: uppercase;
@@ -375,7 +369,7 @@ export function CohortMagazineStyles() {
           flex-wrap: wrap;
           padding-top: 10px;
           border-top: 1px solid var(--skycot-cohort-line);
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--skycot-cohort-ink-3);
         }
@@ -397,13 +391,13 @@ export function CohortMagazineStyles() {
           display: grid;
           place-items: center;
           color: white;
-          font-family: "Audiowide", "Inter", sans-serif;
+          font-family: var(--font-audiowide);
           font-size: 12px;
           letter-spacing: 0.04em;
           background: linear-gradient(135deg, #14b8a6, #8b5cf6);
         }
         .skycot-cohort-compact-kicker {
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 9.5px;
           letter-spacing: 0.16em;
           text-transform: uppercase;
@@ -446,7 +440,7 @@ export function CohortMagazineStyles() {
           flex-wrap: wrap;
           padding-top: 10px;
           border-top: 1px solid var(--skycot-cohort-line);
-          font-family: "JetBrains Mono", ui-monospace, monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--skycot-cohort-ink-3);
         }
