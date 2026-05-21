@@ -18,7 +18,12 @@
 import { apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { STUB_QUESTIONS, stubWorkerDraft } from "@/lib/hire/genesis-stub";
-import type { WorkerDraft } from "@/lib/hire/draft-types";
+import {
+  fromGatewayWorkerDraft,
+  type GatewayDraftResponse,
+  type GatewayWorkerDraft,
+  type WorkerDraft,
+} from "@/lib/hire/draft-types";
 import type {
   AnswerType,
   ClassifyResponse,
@@ -124,65 +129,34 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((v) => typeof v === "string");
 }
 
-function isVoiceProfile(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  if (v.tone !== "warm" && v.tone !== "neutral" && v.tone !== "formal") return false;
-  if (v.formality !== "low" && v.formality !== "medium" && v.formality !== "high") return false;
-  return isStringArray(v.signaturePhrases);
-}
-
-function isPersona(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  if (typeof v.tagline !== "string") return false;
-  if (v.avatarKind !== "initials" && v.avatarKind !== "generated" && v.avatarKind !== "uploaded") {
-    return false;
-  }
-  return isVoiceProfile(v.voiceProfile);
-}
-
-function isDutiesArray(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  return value.every((d) => {
-    if (!d || typeof d !== "object") return false;
-    const dr = d as Record<string, unknown>;
-    if (typeof dr.label !== "string") return false;
-    if (typeof dr.defaultEnabled !== "boolean") return false;
-    const sched = dr.schedule as Record<string, unknown> | undefined;
-    if (!sched) return false;
-    if (sched.kind !== "cron" && sched.kind !== "event") return false;
-    return typeof sched.spec === "string";
-  });
-}
-
-function isExampleRepliesArray(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  return value.every((r) => {
-    if (!r || typeof r !== "object") return false;
-    const rr = r as Record<string, unknown>;
-    return typeof rr.inboundContext === "string" && typeof rr.mariahResponse === "string";
-  });
-}
-
-function isWorkerDraft(value: unknown): value is WorkerDraft {
+/**
+ * Type-guard for the canonical wire shape returned by
+ * `POST /api/v1/genesis/draft-worker` — the flat string-only struct
+ * defined at `crates/argo-cli/src/handlers/gateway/routes_genesis.rs`.
+ * The richer nested TS [[WorkerDraft]] is reconstructed from this by
+ * [[fromGatewayWorkerDraft]] at the boundary. Prior to the
+ * `web-hire-workerdraft-schema-mirror-only` brief, this validator
+ * mistakenly expected the rich shape and silently fell back to the
+ * STUB draft on every gateway hit — root cause of the "5 hires →
+ * 5 Mariah clones" bug.
+ */
+function isGatewayWorkerDraft(value: unknown): value is GatewayWorkerDraft {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   if (typeof v.suggestedName !== "string") return false;
-  if (!isPersona(v.persona)) return false;
+  if (typeof v.persona !== "string") return false;
   if (typeof v.charter !== "string") return false;
-  if (!isDutiesArray(v.duties)) return false;
-  if (!isExampleRepliesArray(v.exampleReplies)) return false;
-  const policy = v.approvalPolicy as Record<string, unknown> | undefined;
-  if (!policy) return false;
-  if (
-    policy.level !== "conservative" &&
-    policy.level !== "balanced" &&
-    policy.level !== "aggressive"
-  ) {
-    return false;
-  }
+  if (!isStringArray(v.duties)) return false;
+  if (!isStringArray(v.exampleReplies)) return false;
+  if (typeof v.approvalPolicy !== "string") return false;
   return typeof v.suggestedVertical === "string";
+}
+
+function isGatewayDraftResponse(value: unknown): value is GatewayDraftResponse {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  if (!isGatewayWorkerDraft(v.worker_draft)) return false;
+  return v.cost_usd === null || typeof v.cost_usd === "number";
 }
 
 /**
@@ -209,9 +183,12 @@ export async function draftWorker(req: DraftWorkerRequest): Promise<DraftWorkerR
     throw err;
   }
 
-  if (!isWorkerDraft(raw)) {
+  if (!isGatewayDraftResponse(raw)) {
     return { draft: stubWorkerDraft(req.problem), source: "stub" };
   }
 
-  return { draft: raw, source: "gateway" };
+  return {
+    draft: fromGatewayWorkerDraft(raw.worker_draft),
+    source: "gateway",
+  };
 }

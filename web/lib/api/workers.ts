@@ -228,12 +228,34 @@ async function postProxy<T>(path: string, body: unknown): Promise<T> {
   return parsed as T;
 }
 
+/**
+ * The gateway hire handler parses `worker_draft` (snake_case) as the
+ * envelope key, while the SPA tracks `workerDraft` (camelCase) in
+ * memory. The conversion lives at this single boundary so the rest of
+ * the SPA can keep using the camelCase name. The inner field names of
+ * the draft are already camelCase on both sides — the Rust `HireDraft`
+ * struct in `crates/argo-identity/src/store_hire.rs` carries
+ * `#[serde(rename_all = "camelCase")]`, so suggestedName /
+ * suggestedVertical / etc. ride through unchanged.
+ *
+ * `workerId` on the response stays camelCase — the gateway already
+ * emits camelCase there.
+ */
+function buildHireBody(req: HireWorkerRequest): Record<string, unknown> {
+  const { workerDraft, problem, answers } = req;
+  return {
+    worker_draft: workerDraft,
+    problem,
+    answers,
+  };
+}
+
 export async function hireWorker(req: HireWorkerRequest): Promise<HireWorkerResult> {
   if (isAuthBypassed()) {
     return { workerId: stubWorkerId(), success: true };
   }
   try {
-    const raw = await apiPost<unknown>("/api/v1/workers", req);
+    const raw = await apiPost<unknown>("/api/v1/workers", buildHireBody(req));
     if (
       raw &&
       typeof raw === "object" &&

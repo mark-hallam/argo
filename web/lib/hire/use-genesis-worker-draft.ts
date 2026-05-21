@@ -20,6 +20,13 @@ import {
  * isPending / mutate) plus a typed `start()` helper that the Step 3
  * component fires on mount.
  *
+ * The gateway response carries the flat `GatewayWorkerDraft` shape
+ * (see [[draft-types.ts]]); `lib/api/genesis.ts` validates that wire
+ * shape and reconstructs the rich [[WorkerDraft]] via
+ * `fromGatewayWorkerDraft` before the result reaches this hook. The
+ * `data.draft` returned here is always the rich shape — UI consumers
+ * don't see the wire envelope.
+ *
  * On unmount the caller should call `reset()` to invalidate any
  * in-flight result so a slow server response can't write into a
  * draft state the user has already navigated away from.
