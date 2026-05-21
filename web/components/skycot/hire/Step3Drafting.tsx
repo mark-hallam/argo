@@ -8,6 +8,7 @@ import {
   DRAFTING_STAGES,
   DraftingProgressList,
 } from "@/components/skycot/hire/DraftingProgressList";
+import { GenesisFallbackBanner } from "@/components/skycot/hire/GenesisFallbackBanner";
 import { EXAMPLE_ROLES, type ExampleRole } from "@/lib/hire/examples";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
@@ -133,9 +134,24 @@ export function Step3Drafting({
     setRetryCount((c) => c + 1);
   }, [retryCount]);
 
+  // Banner Retry — fires immediately, independent of the 30s wall.
+  // Reuses `setRetryCount` so the stage-clock effect re-arms and the
+  // mutation is re-issued via the same code path as the retry panel.
+  // Bypasses MAX_RETRIES because the banner failure mode is a quick
+  // gateway error rather than a 30s-pending stall; capping it here
+  // would block recovery for users on a flaky network.
+  const handleFallbackRetry = useCallback(() => {
+    setRetryCount((c) => c + 1);
+  }, []);
+
   const showSkipToTemplate =
     skipForced || (retryCount >= MAX_RETRIES && timeoutReached);
   const showRetryPanel = !showSkipToTemplate && timeoutReached;
+  // The banner fires whenever the mutation lands on stub data (404 /
+  // malformed) or throws (5xx / network). The skip-to-template panel
+  // is a terminal failure UI and supersedes the banner.
+  const showFallbackBanner =
+    !showSkipToTemplate && mutation.source === "stub";
 
   return (
     <section
@@ -150,6 +166,13 @@ export function Step3Drafting({
           Just a moment — we&apos;re putting it all together.
         </p>
       </header>
+
+      {showFallbackBanner ? (
+        <GenesisFallbackBanner
+          onRetry={handleFallbackRetry}
+          isRetrying={mutation.isPending}
+        />
+      ) : null}
 
       {showSkipToTemplate ? (
         <SkipToTemplatePanel examples={examples} onPick={onSkipToTemplate} />

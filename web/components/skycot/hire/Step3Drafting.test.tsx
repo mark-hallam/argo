@@ -9,6 +9,7 @@ let mockResult: UseGenesisWorkerDraftResult = {
   reset: () => undefined,
   data: undefined,
   error: null,
+  source: undefined,
   isPending: false,
   isSuccess: false,
   isError: false,
@@ -27,6 +28,7 @@ function setMock(next: Partial<UseGenesisWorkerDraftResult>) {
     reset: resetSpy,
     data: undefined,
     error: null,
+    source: undefined,
     isPending: false,
     isSuccess: false,
     isError: false,
@@ -211,5 +213,61 @@ describe("Step3Drafting", () => {
     const { unmount } = renderStep3();
     unmount();
     expect(resetSpy).toHaveBeenCalled();
+  });
+
+  describe("GenesisFallbackBanner", () => {
+    it("does NOT render the fallback banner when source === 'gateway'", () => {
+      setMock({
+        isSuccess: true,
+        data: { draft: SAMPLE_DRAFT, source: "gateway" },
+        source: "gateway",
+      });
+      renderStep3();
+      expect(
+        screen.queryByTestId("hire-step3-fallback-banner"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders the fallback banner when source === 'stub' (404 / malformed)", () => {
+      setMock({
+        isSuccess: true,
+        data: { draft: SAMPLE_DRAFT, source: "stub" },
+        source: "stub",
+      });
+      renderStep3();
+      const banner = screen.getByTestId("hire-step3-fallback-banner");
+      expect(banner).toBeInTheDocument();
+      expect(banner).toHaveTextContent(/generic questions only/i);
+      expect(
+        screen.getByTestId("hire-step3-fallback-retry"),
+      ).toBeInTheDocument();
+    });
+
+    it("renders the fallback banner when the mutation errored (5xx / network)", () => {
+      setMock({
+        isError: true,
+        error: new Error("boom"),
+        source: "stub",
+      });
+      renderStep3();
+      expect(
+        screen.getByTestId("hire-step3-fallback-banner"),
+      ).toBeInTheDocument();
+    });
+
+    it("re-fires the mutation when the banner Retry is clicked", () => {
+      setMock({
+        isError: true,
+        error: new Error("boom"),
+        source: "stub",
+      });
+      renderStep3();
+      expect(startSpy).toHaveBeenCalledTimes(1);
+      act(() => {
+        fireEvent.click(screen.getByTestId("hire-step3-fallback-retry"));
+      });
+      // Re-firing resets the stage clock and re-issues the mutation.
+      expect(startSpy).toHaveBeenCalledTimes(2);
+    });
   });
 });
