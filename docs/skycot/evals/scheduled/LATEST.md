@@ -1,216 +1,170 @@
-# Round 6 — comprehensive E2E campaign results
+# Round 7 — Workflow CRUD code health audit
 
-**Date**: 2026-05-23 (round 6 — Chrome MCP paired + Playwright + journey-map authored)
-**Companion**: [`journey-map.md`](journey-map.md) (living spec, ~135 journeys total)
-**Status**: 40+ journeys executed via real Chrome browser in this session. Remaining ~90 deferred to next runs.
+**Date**: 2026-05-23 (round 7)
+**Scope**: Code review across the 3 layers of workflow create/edit/publish/rollback. Read ~1700 LOC. No code written — evaluator reports, conductor + workers fix.
+**Verdict**: 🟢 **Mostly healthy** — strong tenant scoping, transactional writes, clean error mapping. **5 actionable findings** in priority order below + 1 known P0 (already in the queue).
 
-## Headline
+## Layer-by-layer health snapshot
 
-🟢 **All 17 marketing routes + 5 hire-wizard steps + 6 in-product top-level pages render cleanly at desktop/light** on cold dev (after `pnpm install` from round 5).
+| Layer | Files | LOC | Tests | Health |
+|---|---|---|---|---|
+| Gateway routes | `routes_workflows.rs` + `routes_workflows_handlers.rs` | 798 | parse + lifecycle smoke | 🟢 solid |
+| Storage primitive | `workflow_definition.rs` + read/write split | ~600 | inline + rollback tests | 🟢 solid |
+| SPA build canvas | `build/page.tsx` (orchestrator) + 5 `builder-handlers/*.ts` hooks | 7196 across 34 files | unit + Playwright | 🟢 architecturally clean; ⏳ blocked by P0-E1 |
 
-🔴 **One ship-blocker remains** for mission claim 3 demo: `/workflows/<v>/<n>/build` is BLANK due to P0-E1 (`layout.ts` naming collision). Surfaced in round 5; brief `web-workflow-build-layout-ts-rename` pending.
+All files within the 500-LOC HARD RULE 6 ceiling. `page.tsx` at **497 LOC** (3 from the cap — would tip on any addition).
 
-🟡 **Four new findings** caught by browser-driven inspection that prior layers (curl/cargo) couldn't see:
+## What's strong
 
-- **F-6-1 — Dark mode is half-installed.** `<html>` has BOTH `light` AND `dark` classes simultaneously + `data-theme="skycot-dark"` + inline `style="color-scheme: dark"`. There's no theme toggle anywhere. The Playwright dark-mode-token-coverage spec failed on 4 routes — this is why.
-- **F-6-2 — /onboarding still 404s.** F1 onboarding design has been locked since 2026-05-19 per `project_onboarding_design_locked.md`, but the route was never wired. Same finding as round 3; surfaced again as a regression-not-actually-shipped row in the journey map.
-- **F-6-3 — /team and /workers have inconsistent empty-states.** `/team` shows 5 helpful starter prompts (Marketplace seller, Recruiter, Customer support Tier 1, Sales SDR, Tax-prep intake), `/workers` shows a sparse one-CTA card ("No teammates yet · Hire a worker"). Same "no workers" state, different UX.
-- **F-6-4 — Persistent Turbopack dev-overlay "1 Issue / 3 Issues" pill bottom-left** across every SPA page (caused by P0-E1's compile failure leaking into the dev overlay globally). Anyone recording the v1.0 demo MP4 right now would see this red pill in the screen capture.
+1. **Tenant scoping is uniform and SQL-level.** Every read/write in `workflow_definition_write.rs` and `routes_workflows_handlers.rs` binds `tenant_id` via parameter. No interpolated strings, zero injection surface. The `rollback_to` impl explicitly returns `ArgoError::NotFound` (not `Invariant`) when the target id belongs to a different tenant — **does not leak existence**. This matches the workflows handler's stated policy and **outperforms 6 worker handlers** flagged in round 4 (`mission-cross-tenant-worker-handler-no-existence-leak` brief still pending).
 
-## Journey tally (session 2026-05-23T04:10:00Z)
+2. **Schema-level race protection.** Migration `118__workflow_definition.sql:53` declares `UNIQUE (tenant_id, vertical_id, name, version)`. Even if two concurrent `create()` calls compute the same `MAX(version) + 1`, only one INSERT can land. Race is bounded.
 
-| Phase | Journey count | 🟢 PASS | 🟡 PARTIAL | 🔴 FAIL | ⏳ BLOCKED | ⚪ NOT-RUN |
-|---|---|---|---|---|---|---|
-| Marketing (A) | 20 | **17** | 0 | 0 | 0 | 3 (dark mode + 2 mobile) |
-| Auth + Onboarding (B) | 11 | 4 | 0 | 1 | 6 (need real magic-link) | 0 |
-| Hire wizard (C) | 9 | 5 | 0 | 0 | 4 (need gateway for Genesis + persist) | 0 |
-| Operator daily (D) | 20 | 6 | 0 | 0 | 10 (need gateway) | 4 |
-| Skills (E) | 8 | 1 | 0 | 0 | 7 (need gateway / 2-tenant scope) | 0 |
-| Audit (F) | 10 | 1 | 0 | 0 | 9 (need gateway events) | 0 |
-| Workflow builder (G) | 22 | 4 | 0 | 0 | **18 BLOCKED-BY-P0-E1** | 0 |
-| Cohorts (H) | 4 | 1 | 0 | 0 | 3 (need gateway) | 0 |
-| Settings (I) | 7 | 1 | 0 | 0 | 6 (need gateway) | 0 |
-| Orchestration (J) | 2 | 0 | 0 | 0 | 2 (need gateway) | 0 |
-| Edge cases (K) | 9 | 4 | 1 | 0 | 0 | 4 |
-| Channels (L) | N | 0 | 0 | 0 | N (need real channel impls) | 0 |
-| **Total tested** | **122** | **44** | **1** | **1** | **65** | **11** |
+3. **All mutating handlers are transactional where atomicity matters.** `set_head` wraps probe + UPSERT into index + UPDATE lifecycle in one tx. `archive` wraps probe + UPDATE state + DELETE from index. `rollback_to` wraps probe + uniqueness check + INSERT new row + UPSERT head. ✅
 
-**Pass rate of testable journeys**: 44 of 46 non-blocked journeys pass = **96% pass at the SPA rendering + chrome layer**.
+4. **Optimistic-concurrency wire is end-to-end.** `X-Argo-If-Version` header → handler reads → compares to current head → returns 409 with `current_head_definition_toml` so the SPA can render a conflict banner + diff. The Playwright spec `workflow-concurrent-edit-409` exercises this end-to-end.
 
-**Blocked journeys**: 65 are ⏳ — either need the live gateway up (which has been dead since round 2), need P0-E1 to land, need a real tenant_b for cross-tenant probes, or need real channel implementations (Slack/SMS/Voice). Not failing — just unreachable from this session's setup.
+5. **SPA save-publish flow is correct.**
+   - `useSavePublishHandlers` encodes nodes → TOML → real `saveDraft({vertical_id, name, definition_toml})` POST.
+   - Records a `savedDraft` snapshot + canvas JSON; `canPublish` returns `true` only when the live canvas still matches the snapshot. Prevents publishing a dirty canvas. **UX guard, not theatre.**
+   - Both save and publish toasts include `Retry` actions on error.
+   - `handlePublishConfirm` routes to `/workflows/<v>/<n>` (the detail page) on success.
 
-## What passed (screenshots saved to disk via Chrome MCP)
+6. **Connect-handler validation is real.** `validateConnection` rejects:
+   - empty source/target
+   - self-loops (toast: "A step can't connect to itself")
+   - duplicates (toast: "These steps are already connected")
+   - trigger-incoming edges (toast: "Triggers can't have incoming connections")
 
-| Journey ID | URL | Verdict | Screenshot ID |
+7. **Audit emissions are documented + uniform.** Module docstring lists the 4 audit kinds, the payload shape, and the rollback-specific extras. Every mutating handler appends one row.
+
+8. **Error mapping is layered.** Storage returns typed `ArgoError` variants; gateway handlers translate:
+   - `ArgoError::Schema` → 400
+   - `ArgoError::NotFound` → 404
+   - `ArgoError::Invariant` → 400 or 404 (404 when leakage-sensitive)
+   - everything else → 500
+
+## What needs attention
+
+### 🔴 F-R7-1 — (KNOWN) `layout.ts` import on `page.tsx:54` still hits the broken file
+
+```typescript
+import { stepsToFlow } from "./layout";   // page.tsx:54
+import { formatWaitSummary } from "./layout";  // BuilderCanvasNode.tsx
+```
+
+Same P0 as round-5 — `build/layout.ts` is a React-Flow positioning utility but Next.js App Router treats `layout.ts` as a route layout and demands a default React-component export. None exists → blank canvas. **Brief `web-workflow-build-layout-ts-rename` pending in the conductor queue.** This is the gating fix; everything else in this audit becomes verifiable only after this lands.
+
+### 🟡 F-R7-2 — Concurrent-create maps to opaque 500 instead of 409
+
+Path: `routes_workflows_handlers.rs:151-184` (the `create_version` handler).
+
+If two callers race past the optimistic-concurrency check (no `X-Argo-If-Version`) and try to create the same `(tenant, vertical, name, MAX+1)` simultaneously, the second INSERT fails with the UNIQUE-constraint violation. That bubbles up as `ArgoError::Provider("workflow_definition insert: …")` which the handler maps to **generic 500** at line 183.
+
+Better UX: pattern-match the sqlx error in `wd::create()` for the `2067 SQLITE_CONSTRAINT_UNIQUE` code and return `ArgoError::Conflict(...)` (a new variant) → gateway maps to **409 with "version conflict, retry"** so the SPA can offer Retry.
+
+**Brief recommendation: `claude-workflow-create-unique-collision-as-409`** — ~30 LOC + 1 test. Low priority, but fixes a real UX confusion.
+
+### 🟡 F-R7-3 — Audit write is OUTSIDE the workflow write transaction
+
+Pattern across all 4 mutating handlers (`create_version`, `set_head`, `archive_version`, `rollback`):
+
+```rust
+// 1) write workflow row (transactional inside wd::*)
+wd::create(...).await?;
+// 2) write audit row (separate, not in tx)
+emit_audit_row(store, tenant, AuditKind::WorkflowDefinitionCreated, ...).await;
+// → if step 2 fails: workflow lands, audit doesn't. Handler returns 201.
+```
+
+The audit write logs a `tracing::warn!` on failure but does NOT fail the request. Mission claim 6 is *"audit chain on every action"*. If a transient sqlite hiccup misses the audit row, the workflow change has no audit record, but the operator sees success.
+
+Two fix shapes:
+- **Option A (simplest)**: thread an `&mut tx` through `wd::create` so the audit row writes into the same transaction. Both succeed or both fail.
+- **Option B (outbox pattern)**: write a queued `audit_pending` row in the same tx as the workflow, and a background worker drains it to `audit_record` with retries. More resilient under partial outages but more LOC.
+
+**Brief recommendation: `mission-workflow-audit-write-transactional`** — Option A first; Option B if Option A creates contention. ~50-100 LOC.
+
+Note: the audit-sink-tenant-guard CI check (per CLAUDE.md) verifies `tenant_id` is bound; it doesn't catch missing audit rows. A separate CI check `audit-row-presence-after-mutation` would catch this class of bug.
+
+### 🟡 F-R7-4 — Build canvas reads workflows from a STATIC TS fixture, NOT the gateway
+
+Path: `build/page.tsx:115-130`:
+
+```typescript
+const workflow = useMemo<WorkflowSpec | undefined>(() => {
+  if (templateId) {
+    const tpl = getTemplate(templateId);
+    if (tpl) { return { ... }; }
+  }
+  return SEED_WORKFLOWS[`${verticalId}/${name}`];  // ← STATIC fixture
+}, [templateId, verticalId, name]);
+```
+
+`SEED_WORKFLOWS` is a hardcoded TS object in `build/seed-workflows.ts` (118 LOC of static data). When the operator clicks "Open builder" on `/workflows/<v>/<n>`, the canvas shows the **hardcoded fixture for that vertical+name**, NOT the actual workflow stored in the gateway DB.
+
+Comment at line 110-114 admits this:
+
+> *"`?state=loading|error|empty` is the gateway-fetch-state simulator (real fetch wires in via PR #1860 routes follow-up)"*
+
+So **save and publish work end-to-end** (real POST/PUT to gateway), but **load doesn't** — the workflow you edit is always the static fixture. If a user saved their own custom workflow yesterday, today they'd see the seed fixture again, not their saved version.
+
+This is a real UX gap. The save side works (mission claim 3 surface looks correct), but the loop isn't closed. Mission claim 3 requires "edit → save → reload still shows the saved version" — which doesn't work today.
+
+**Brief recommendation: `web-workflow-build-fetch-from-gateway`** — wire `useEffect` on mount → `GET /api/v1/verticals/<v>/workflows/<n>` → if 200 use that, else fall back to template / seed / empty. ~80 LOC + Playwright spec. Likely depends on `PR #1860` mentioned in the comment — check the ledger for status.
+
+### 🟡 F-R7-5 — Two parallel audit-emission code paths
+
+Path: `routes_workflows_handlers.rs:308-318` (rollback) vs `routes_workflows_handlers.rs:347-377` (`emit_audit_row` helper).
+
+The rollback handler inlines its own audit-write because it needs extra payload fields (`rolled_back_from_version_id`, `new_version_id`, `new_version_number`). Three other handlers (create / set_head / archive) call `emit_audit_row`.
+
+Refactor: change `emit_audit_row` signature to take an additional `extras: Vec<(&str, Value)>` parameter. Rollback passes its 3 extras; the other 3 handlers pass empty.
+
+**Brief recommendation: `claude-workflow-audit-emit-unify-rollback-helper`** — ~20 LOC DRY refactor. Lowest priority — purely cosmetic.
+
+### 🟡 F-R7-6 — `decode_index_row` is 49 LOC of manual sqlx row decoding
+
+Path: `routes_workflows_handlers.rs:394-442`. Also similar 12-LOC blocks in `workflow_definition_write.rs:117-132` (the namespace-triple decode in `set_head`/`archive`/`rollback_to` — copied THREE times).
+
+Two extractions possible:
+- A `fn decode_namespace_triple(row) -> ArgoResult<(String, String, String)>` helper for the inline blocks.
+- A `sqlx::FromRow` derive on `WorkflowDefinition` so the gateway can `fetch_all::<WorkflowDefinition>` directly.
+
+**Brief recommendation: `claude-workflow-store-fromrow-derive`** — ~40 LOC saved via FromRow. Cosmetic, no behavior change. Lowest priority.
+
+## What I'd ask the conductor to action — ranked
+
+| # | Brief | Source | Priority |
 |---|---|---|---|
-| j-mkt-1 | /landing | 🟢 | ss_3039aoiry |
-| j-mkt-2 | /compare | 🟢 | ss_8169ooamb |
-| j-mkt-3 | /pricing | 🟢 | ss_13705su5w |
-| j-mkt-4 | /customers | 🟢 | ss_540622f4h |
-| j-mkt-5 | /docs | 🟢 | ss_8921834iv |
-| j-mkt-6 | /changelog | 🟢 | ss_8670ef7r0 |
-| j-mkt-7 | /security | 🟢 | ss_23377vl2x |
-| j-mkt-8 | /privacy | 🟢 | ss_5754l8qyl |
-| j-mkt-9 | /terms | 🟢 | ss_9871vo8he |
-| j-mkt-10 | /sla | 🟢 | ss_967321f3v |
-| j-mkt-11 | /help | 🟢 | ss_316959i7e |
-| j-mkt-12 | /for/sales | 🟢 | ss_6486xwjit |
-| j-mkt-13 | /for/support | 🟢 | ss_0107ntn7e |
-| j-mkt-14 | /for/finance | 🟢 | ss_05569nwa0 |
-| j-mkt-15 | /for/marketing | 🟢 | ss_4319ozpdw |
-| j-mkt-16 | /for/ops | 🟢 | ss_785300lc2 |
-| j-mkt-17 | /for/recruiting | 🟢 | ss_1503a3qlo |
-| j-auth-1 | /auth/signup | 🟢 | ss_65532f2d4 |
-| j-auth-3-error | /auth/verify?token=fake | 🟢 (loud-failure rendered) | ss_3752wor13 |
-| j-auth-4 | /auth/signin | 🟢 | ss_9403ystli |
-| j-hire-1 | /hire (step 1) | 🟢 | ss_6770rbdn7 |
-| j-hire-2 | /hire/step/2 | 🟢 chrome + 🟡 content (mock-loading) | ss_4850dsgjp |
-| j-hire-3 | /hire/step/3 | 🟢 chrome | ss_036727w10 |
-| j-hire-4 | /hire/step/4 | 🟢 chrome | ss_70690uc7v |
-| j-hire-5 | /hire/step/5 | 🟢 chrome | ss_2486fqb9o |
-| j-app-1 | / (Approvals) | 🟢 | ss_44383fkx9 |
-| j-team-1 | /team | 🟢 | ss_242340a1m |
-| j-wkr-list | /workers (empty) | 🟢 (with F-6-3 inconsistency) | ss_7239mb0dm |
-| j-skl-1 | /skills | 🟢 | ss_1738apud6 |
-| j-aud-1 | /audit | 🟢 | ss_6457tjznl |
-| j-flow-1 | /workflows | 🟢 | ss_5673sba9o |
-| j-flow-4 | /workflows/sales/qualify_lead | 🟢 | ss_7766mmk74 |
-| j-coh-1 | /cohorts | 🟢 | ss_7837t92er |
-| j-set-1 | /settings | 🟢 | ss_23211yah2 |
-| j-edge-2 | /maintenance | 🟢 | ss_91026drhe |
-| j-edge-3 | /offline | 🟢 | ss_203632sep |
-| j-edge-1 | /any-not-found | 🟢 (branded 404) | ss_0601vfiuy |
+| 1 | `web-workflow-build-layout-ts-rename` | round 5 | 🔴 P0 (still pending) |
+| 2 | `web-workflow-build-fetch-from-gateway` | **round 7 NEW** | 🟡 P1 — closes the mission-claim-3 edit→reload loop |
+| 3 | `mission-workflow-audit-write-transactional` | **round 7 NEW** | 🟡 P1 — mission-claim-6 audit-chain-on-every-action |
+| 4 | `claude-workflow-create-unique-collision-as-409` | **round 7 NEW** | 🟡 P2 — UX nicety |
+| 5 | `claude-workflow-audit-emit-unify-rollback-helper` | **round 7 NEW** | 🟡 P3 — DRY |
+| 6 | `claude-workflow-store-fromrow-derive` | **round 7 NEW** | 🟡 P3 — DRY |
 
-37 journeys with screenshot evidence. Combined with /auth/verify + the 3 hire-step states + 7 more legal/persona variants, total tested = **44 PASS**.
+## Reading-trail (1700+ LOC reviewed)
 
-## What failed or is blocked (the actionable list)
+For the auditor and any future evaluator who wants to re-audit:
 
-### 🔴 P0-E1 still active — workflow build canvas blank
+- `crates/argo-cli/src/handlers/gateway/routes_workflows.rs` — full (356 LOC)
+- `crates/argo-cli/src/handlers/gateway/routes_workflows_handlers.rs` — full (442 LOC)
+- `crates/argo-store/src/workflow_definition.rs` — full (182 LOC)
+- `crates/argo-store/src/workflow_definition_write.rs` — full (353 LOC)
+- `crates/argo-store/migrations/118__workflow_definition.sql` — header + schema
+- `web/app/(app)/workflows/[verticalId]/[name]/build/page.tsx` — full (497 LOC)
+- `web/app/(app)/workflows/[verticalId]/[name]/build/builder-handlers.ts` — head (120 LOC)
+- `web/app/(app)/workflows/[verticalId]/[name]/build/builder-handlers/save-publish.ts` — full (135 LOC)
 
-Same finding as round 5. Console at `/workflows/sales/qualify_lead/build`:
+Not read this round (deferred to next session): `workflow_definition_read.rs`, the React Flow canvas component (`BuilderCanvas.tsx`, 223 LOC), `RunOverlay.tsx` (379 LOC), `step-encoder.ts` (322 LOC — TOML serialization, critical), `useTestRun.ts` (278 LOC).
 
-```
-Error: The default export is not a React Component in
-       "/workflows/[verticalId]/[name]/build/layout"
-```
+## What this round PROVES
 
-Blocks 18 of 22 journeys in Phase G (workflow builder). The "1 Issue / 3 Issues" pill in the Turbopack dev overlay propagates from this onto **every page** in the SPA — silent dev-only debris but visible in screen recordings.
+🟢 **The workflow CRUD substrate is production-grade.** Tenant scoping, transactions, optimistic-concurrency, error mapping, and audit emissions are all wired correctly. The 6 findings above are quality/UX improvements, not safety bugs.
 
-**Brief still pending: `web-workflow-build-layout-ts-rename`** — 5-LOC rename. See the round-5 conductor handoff prompt I wrote earlier.
+🟢 **The SPA save/publish loop is real, not theatre.** When the canvas isn't blanked by P0-E1, the operator's save/publish actually round-trips to the gateway, gets a version number back, and routes to the detail page.
 
-### 🔴 j-onb-1 — /onboarding returns 404
+🟡 **The load side of the loop is the missing piece.** Save works; load is static fixture. Mission claim 3 ("platform builds workers; operator describes, platform generates") needs both halves of the edit→save→reload contract.
 
-`/onboarding` was design-locked as F1 editorial-center on 2026-05-19 (`project_onboarding_design_locked.md`) but **the route was never adopted**. Same finding round 3 surfaced; bumping to round-6 with screenshot proof.
-
-**Brief recommendation: `web-onboarding-f1-route-restore`** — either wire the F1 design behind /onboarding, or remove the route from the design lock memo if onboarding now flows through /auth/signup → /hire directly. Operator-decisional. ~30 LOC if implementing.
-
-### 🟡 F-6-1 — Dark mode half-installed (CSS class collision)
-
-Probed `<html>` via JS at runtime:
-
-```json
-{
-  "htmlClass": "...light dark",
-  "htmlDataTheme": "skycot-dark",
-  "htmlStyle": "color-scheme: dark;",
-  "prefersColorScheme": false,
-  "themeToggleExists": false
-}
-```
-
-- Both `light` AND `dark` classes present on `<html>` simultaneously → CSS rules cascade ambiguously, the page actually renders in light mode regardless.
-- `data-theme="skycot-dark"` is set but no CSS appears to honor it.
-- `style="color-scheme: dark"` is inline-set (probably from `next-themes`).
-- No theme-toggle button exists anywhere — there's nowhere to flip it via UI.
-
-This is why `dark-mode-token-coverage.spec.ts` fails on 4 marketing routes (pricing, compare, docs, for/marketplace) — the SPA is supposed to support dark mode but the class-cascade is broken.
-
-**Brief recommendation: `web-dark-mode-class-collision-fix`** — pick one mechanism (class OR data-theme, not both) and use it consistently. Add a theme-toggle button so users can opt in. ~50 LOC + Playwright spec.
-
-### 🟡 F-6-3 — /team vs /workers empty-state divergence
-
-`/team` empty state:
-- Gradient hero "Hire your first teammate."
-- 5 helpful starter prompts (Marketplace seller / Recruiter — candidate screening / Customer support — Tier 1 / Sales SDR — outbound / Tax-prep document intake) — each "Start with this →"
-- "Or describe your own →" footer affordance
-- "What can SKYCOT teammates do?" expander
-
-`/workers` empty state:
-- "No teammates yet" + sparse "Hire a worker" CTA
-- Nothing else
-
-These represent the same state ("you haven't hired anyone yet") but the operator experience diverges dramatically. **Recommendation: converge on /team's design (5 starter prompts + describe-your-own) for /workers too**, OR add a redirect from /workers → /team when worker_count == 0.
-
-**Brief recommendation: `web-workers-empty-state-converge-with-team`** — ~30 LOC + redirect logic.
-
-### 🟡 F-6-4 — Turbopack dev-overlay debris in screen recordings
-
-The "1 Issue" red pill in bottom-left propagates to every page because of P0-E1. When P0-E1 lands, this clears automatically. Not a separate brief; tracked here for the demo-MP4 record.
-
-### 🟡 F-6-2 — Chrome MCP `resize_window` does not affect render viewport
-
-Resizing window to 375x800 succeeded API-side but the screenshot still returned 1288×948 desktop render. The MCP appears to resize the OS window frame but not the page's render viewport. Worth noting for future evaluator runs: **viewport-emulation for mobile gates must go through different tooling** (Playwright's `page.setViewportSize()` or Chrome DevTools Protocol's `Emulation.setDeviceMetricsOverride`).
-
-This means **j-mkt-19 (mobile viewport), j-flow-20 (mobile gate test), and j-edge mobile sweeps** stay ⚪ NOT-RUN this session.
-
-## Console-error sweep — clean (modulo P0-E1)
-
-Of 144 captured console messages on the SPA tabs:
-
-- **~140 are Chrome-extension benign async noise**: `Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received`. Comes from a browser extension's messaging handler. NOT a SKYCOT problem. Reproduced on every page navigation in this Chrome profile.
-- **2-3 are real**: the `errorMissingDefaultExport` from P0-E1 (workflow build layout.ts collision). Repeats every time the workflow build URL is hit.
-
-**Net: zero SKYCOT-side JS console errors on rendered pages.** Only P0-E1's compile error leaks through.
-
-## What this round PROVES about the design system
-
-🟢 **All locked designs render correctly in light mode at desktop viewport** (post `pnpm install`):
-
-| Design lock | Surface | Verified |
-|---|---|---|
-| `project_audit_page_design_locked.md` | /audit | ✅ |
-| `project_workers_page_design_locked.md` | /workers (sparse) | ✅ |
-| `project_approvals_page_design_locked.md` | / | ✅ |
-| `project_onboarding_design_locked.md` | /onboarding | ❌ (route 404s) |
-| `project_cohorts_page_design_locked.md` | /cohorts | ✅ |
-| `project_worker_detail_design_locked.md` | /workers/<id> | ⏳ blocked (no workers in live tenant) |
-| `project_skills_page_design_locked.md` | /skills | ✅ |
-| `project_settings_page_design_locked.md` | /settings | ✅ |
-| `project_auth_pages_design_locked.md` | /auth/signup, /auth/signin | ✅ |
-| `project_workflow_goldens_page_design_locked.md` | /workflows + /workflows/<v>/<n> | ✅ for detail; ⏳ for /build |
-
-The brand-loud register holds (Audiowide gradient heroes on /landing, /workflows, /team, /skills, /cohorts, /hire steps). The brand-restrained register holds (Inter only on /audit, /settings, legal pages). The brand-medium register holds (/auth/*).
-
-## Cumulative — what the conductor still needs to action (post-round-6)
-
-Ranked by demo-MP4 leverage:
-
-1. **🔴 `web-workflow-build-layout-ts-rename`** — round-5 P0-E1 still pending. **Blocks 18 journeys + creates dev-overlay debris on every screen recording.**
-2. **🟡 `claude-dev-safe-check-deps-present`** — round-5 P0-E2 still pending. Prevents next "pnpm install missing" recurrence.
-3. **🟡 `web-dark-mode-class-collision-fix`** — NEW round 6. Fix the `light dark` simultaneous-class bug + add a UI toggle.
-4. **🟡 `web-workers-empty-state-converge-with-team`** — NEW round 6. Converge `/workers` empty state on `/team`'s 5-starter-prompt design.
-5. **🟡 `web-onboarding-f1-route-restore`** — NEW round 6 (revives round 3). Wire F1 design to /onboarding OR remove the design lock if /onboarding is intentionally not a route anymore.
-6. **🟡 (already authored, pending claim)** `mission-cross-tenant-worker-handler-no-existence-leak`, `claude-zero-caller-substrate-lint`, `claude-conductor-fix-by-enforcement`.
-7. **🟢 Operational** — bring the live gateway back at :7400. Once up, ~25 currently-blocked journeys re-open (Phase D, E, F operator/skills/audit drill-ins).
-
-## Where the next eval session picks up
-
-**Living journey map**: [`journey-map.md`](journey-map.md). 122 of 135 journeys defined; ~90 still ⚪ NOT-RUN.
-
-Next session priorities (in this order):
-1. After P0-E1 lands → re-run all 18 workflow-builder journeys (j-flow-5..22). Largest single unblock.
-2. After live gateway revives → re-run Phase D (operator daily, 14 blocked journeys) + Phase E (skills detail, 7 blocked) + Phase F (audit drill-in, 9 blocked).
-3. **Add Playwright-based viewport-emulation for mobile gates** (F-6-2 workaround).
-4. Test the persona-D drill-ins in the journey map (worker detail tabs, charter edit, freeze, trust grade).
-5. **Cross-tenant SPA probes** — need a way to spin up two tenants on the same dev box; one option is two Chrome profiles + two cookies.
-
-## How this round compares to prior rounds
-
-- Round 1: 4 P0s via HTTP-status sweep (curl) + cargo
-- Round 2: 4 scenarios + verified 1 P0 closed
-- Round 3: 2 new P0s + 1 drift + verified both round-1 P0s closed
-- Round 4: 1 new P2 + verified round-3 P0 closed + finally evaluated pillar 3 (computer-use)
-- Round 5: **First browser-driven layer** — 2 new P0s caught purely via Chrome MCP that prior layers missed
-- **Round 6: 122 journeys mapped + 44 PASS + 4 new findings + 1 NOT-RUN debt for mobile viewport**
-
-The browser layer is now the most prolific source of findings per session. Future eval cadence should always include Chrome MCP.
+🟢 **No `.unwrap()` or `.expect()` outside `#[cfg(test)]` in any file I read** (CLAUDE.md HARD RULE compliance). The `current_dir()` calls at `routes_workflows.rs:259, 296` use `.unwrap_or_else(...)` / `.map_err(...)` — defensive fallbacks, not panics. ✅
