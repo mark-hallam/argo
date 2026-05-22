@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Briefcase, Mail, Search, Sparkles, TrendingUp, Wrench } from "lucide-react";
 import type { ReactNode } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SkillsIllustration } from "@/components/empty-state/illustrations/SkillsIllustration";
 import { useSkills, useSkillsLearnedThisMonth } from "@/lib/hooks/use-skills";
 import type { SkillRow } from "@/lib/api/skills";
 
@@ -147,23 +149,36 @@ export default function SkillsPage() {
         )}
 
         {isError && !isLoading && (
-          <div
-            className="state-panel state-panel-error"
+          <EmptyState
             data-testid="skills-error"
-            role="alert"
-          >
-            Couldn’t reach the skill registry
-            {error instanceof Error ? `: ${error.message}` : "."}
-          </div>
+            illustration={SkillsIllustration}
+            headline="The skill registry didn’t answer"
+            body={
+              error instanceof Error
+                ? `We couldn’t reach the gateway: ${error.message}. Your saved skills are safe — try again in a moment.`
+                : "We couldn’t reach the gateway. Your saved skills are safe — try again in a moment."
+            }
+            cta={{ label: "Browse the catalog at home", href: "/" }}
+          />
         )}
 
-        {!isLoading && !isError && filtered.length === 0 && (
+        {!isLoading && !isError && skills.length === 0 && (
+          <EmptyState
+            data-testid="skills-workspace-empty"
+            illustration={SkillsIllustration}
+            headline="No skills installed yet"
+            body="Pick from the curated catalog — approval routing, invoice extraction, candidate screening, and more — and your AI teammates start using it the same shift."
+            cta={{ label: "Talk to the team", href: "/team" }}
+          />
+        )}
+
+        {!isLoading && !isError && skills.length > 0 && filtered.length === 0 && (
           <div className="state-panel" data-testid="skills-empty">
             No skills match “{query}”. Try a different search or clear the filter.
           </div>
         )}
 
-        {!isLoading && !isError && filtered.length > 0 && (
+        {!isLoading && !isError && skills.length > 0 && filtered.length > 0 && (
           <div className="featured-grid">
             {filtered.map((skill, idx) => (
               <Link

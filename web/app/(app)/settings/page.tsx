@@ -200,7 +200,7 @@ export default function SettingsLandingPage() {
           font-weight: 600;
         }
       `}</style>
-      <div className="settings-stage">
+      <div className="settings-stage" data-testid="settings-landing">
         <header className="header">
           <div className="eyebrow">⚙ Workspace settings</div>
           <h1 className="title">Settings</h1>
