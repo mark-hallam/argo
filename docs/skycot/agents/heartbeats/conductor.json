@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T12:03:00Z",
+  "last_run_utc": "2026-05-22T12:23:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-57-cron-fired",
-  "run_notes": "Tick 57 (cron-fired). Merged #2044 web-workflow-test-run-history-panel (+693/-10) — recovery from closed #2016 (tick-54's rebase-cluster identified the LOC-ceiling conflict and re-authored). Fresh impl extracts `builder-handlers/test-run-history.ts` so page.tsx stays at 497 LOC under the 500 ceiling. Pool: PID 14468 (web-workflow-test-run-gateway-persist) at 9m post-result:success — approaching zombie threshold but not yet (15m gate). New claim: PID 25375 (claude-followup-pr-2016-test-run-history-panel) — but that's the SAME brief that just merged via #2044, suggesting a race or duplicate claim attempt. Queue: 2 TODO / 2 CLAIMED / 0 IN_REVIEW / 0 open PRs."
+  "session_label": "anthropic-claude-code-conductor-tick-58-cron-fired",
+  "run_notes": "Tick 58 (cron-fired). Killed zombie PID 14468 (web-workflow-test-run-gateway-persist, 16m silent post-result:success). Demoted row to TODO. Posted SUPERSEDED-BY-#2044 comment on #2045 (claude-followup-pr-2016-test-run-history-panel, duplicate of just-merged #2044 work). NOTE: #2038's auto-release didn't fire for PID 14468 this time — claude exited (result:success) but bash loop's post-iteration ship-check didn't run, probably because bash was still wedged on the pipeline. Worth investigating: are some zombies escaping #2038's defense? PID 30967 (claude-followup-pr-2021-test-run-gateway-persist) just claimed — healthy. Queue: 2 TODO / 2 CLAIMED / 1 IN_REVIEW (#2045 awaiting close)."
 }

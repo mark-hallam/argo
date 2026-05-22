@@ -60,3 +60,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-22T11:27:36Z [conductor] tick-55 (cron-fired) — quiet tick, zero open PRs sustained, follow-up brief from tick-54 already claimed, 1 borderline zombie (11383 at 10m, under threshold).
 2026-05-22T11:48:01Z [conductor] tick-56 (cron-fired) — merged #2043 gateway-restart-runbook; `make restart-live-gateway` now executable; demo MP4 recording operationally unblocked. PID 20922 hit rate_limit_event but still running.
 2026-05-22T12:08:15Z [conductor] tick-57 (cron-fired) — merged #2044 web-workflow-test-run-history-panel (recovery from closed #2016). 0 open PRs sustained.
+2026-05-22T12:28:14Z [conductor] tick-58 (cron-fired) — killed zombie 14468 (test-run-gateway-persist); posted SUPERSEDED comment on #2045 (duplicate of #2044). NOTE: #2038's auto-release didn't fire — possible escape route for zombies, worth investigating.
