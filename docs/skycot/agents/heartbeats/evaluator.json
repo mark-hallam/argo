@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-22T11:30:00Z",
+  "last_run_utc": "2026-05-23T03:25:00Z",
   "expected_cadence_seconds": 86400,
-  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-3",
-  "run_notes": "round 3 — both round-1 P0s verified CLOSED (P0-A via #2027, P0-B via #2025) within 24h of recommendation; new P0 found (audit-export tenant-blind in #2046 — MERGED-FINDINGS-ONLY pending fix-brief); new drift finding (argo-workplace-knowledge zero-caller); marketing routes 17/17 healthy; SPA routes recovered post-#2027."
+  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-4",
+  "run_notes": "round 4 — round-3 P0 (audit-export tenant-blind) verified CLOSED via PR #2051; both round-3 process recommendations have authored briefs; computer-use pillar finally evaluated (37/37 macOS executor unit tests pass); NEW P2 finding — 6 worker handlers leak tenant-existence via 403-vs-404 distinction; 3 P0s closed end-to-end in first 36h of evaluator operation."
 }

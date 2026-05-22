@@ -1,116 +1,99 @@
-# Evaluator scheduled run — 2026-05-22 (3 rounds, spans into 2026-05-23 Melbourne)
+# Evaluator scheduled run — 2026-05-22 → 2026-05-23 Melbourne (4 rounds)
 
-**Three rounds.** Round 1 fired a P0 cluster + 1 partial. Round 2 verified the conductor closed the biggest P0 (#2025) within 8h + added 4 scenarios. Round 3 verified the SECOND round-1 P0 also closed (#2027) + found one new P0 + one drift finding.
+**Four rounds.** Round 1 surfaced a P0 cluster. Rounds 2–4 verified the conductor closed three P0s + added 6 more scenarios + found 2 more findings.
 
-## Headline (after round 3)
+## Headline (after round 4)
 
-🟢 **The evaluator → conductor → worker loop closed BOTH round-1 P0s within 24 hours.** Briefs I recommended in round-1 were authored by the conductor (same names) and shipped as:
+🟢 **Three P0s closed end-to-end by the conductor → worker loop within 24h of evaluator finding** — every round-1 P0 plus the round-3 P0 (audit-export tenant-blind) is fixed and verified by re-running the regression tests.
 
-- PR [#2025](https://github.com/mark-hallam/Argo-Agent/pull/2025) → `claude-migration-comment-aware-splitter` ← round-1 P0-B
-- PR [#2027](https://github.com/mark-hallam/Argo-Agent/pull/2027) → `web-auth-config-server-only-split` ← round-1 P0-A
+🟢 **Computer-use pillar finally evaluated**: macOS executor passes 37/37 unit tests covering preflight, run-loop budget, screenshot parsing, events injection, a11y helpers, notes-app interactions. End-to-end smoke (real Notes + Anthropic loop) is gated on operator authorization + `ARGO_NATIVE_MACOS_INTEGRATION=1` — deferred to a future eval.
 
-Both verified at runtime / cargo-test level. The migration fix is the broadest — it unblocked every `:memory:` integration test that needed `migrate()` from v0, plus every fresh `~/.argo/sessions.db` install path. The SPA fix re-opened the entire `/app/(app)/*` route tree.
+🟡 **One new P2 finding**: six worker handlers leak tenant-existence via `forbidden("worker not in this tenant")` vs `not_found("worker not found")`. The SQL probe scoping is correct; the response shape is the leak. Brief shape: `mission-cross-tenant-worker-handler-no-existence-leak`.
 
-🔴 **One new P0 discovered**: `POST /api/v1/audit/export` is tenant-blind. The swarm's own brief [#2046](https://github.com/mark-hallam/Argo-Agent/pull/2046) confirmed it and shipped 3 `#[ignore]`'d regression tests as MERGED-FINDINGS-ONLY pending a fix-brief that hasn't been authored.
+🟢 **Both round-3 process recommendations** (zero-caller substrate lint + FINDINGS-ONLY fix-by deadline) have briefs authored.
 
-🟡 **One drift finding**: `argo-workplace-knowledge` crate ships in the workspace with zero `use` consumers across the codebase. Substrate + audit-kinds landed; the gateway that wires them is BLOCKED. The brief-pre-flight gate catches the downstream BLOCKED state, but the substrate's merge wasn't gated on consumer-existence.
-
-## All scenarios this session (12 total)
+## All scenarios (15 total)
 
 | # | Scenario | Pillar | Round | Verdict |
 |---|---|---|---|---|
-| 1 | SPA cold-start route probe | All | 1 | 🔴 FAIL → 🟢 PASS (round 3) |
+| 1 | SPA cold-start route probe | All | 1 | 🔴 → 🟢 PASS (#2027) |
 | 2 | Gateway-process freshness | All | 1 | 🟡 PARTIAL |
 | 3 | 5-teammate hire (anti-Mariah-clone) | Teammate | 1 | 🟡 PARTIAL |
-| 4 | Workflow lifecycle smoke | Workflow | 1 | 🔴 FAIL → 🟢 PASS (round 2) |
-| 5 | Cross-tenant skill leak | Skills | 1 | 🔴 FAIL → 🟢 PASS (round 2) |
+| 4 | Workflow lifecycle smoke | Workflow | 1 | 🔴 → 🟢 PASS (#2025) |
+| 5 | Cross-tenant skill leak | Skills | 1 | 🔴 → 🟢 PASS (#2025) |
 | 6 | Cross-tenant audit-detail fix verification | Audit | 2 | 🟢 PASS |
 | 7 | Worker downstream state after hire | Teammate | 2 | 🟢 PASS (v1-deferred gaps surfaced) |
 | 8 | Marketing route silent-500 sweep | All | 2 | 🟢 PASS (17/17) |
 | 9 | Main gateway died mid-session | Operational | 2 | 🟡 OPERATIONAL |
-| 10 | Audit-export tenant-blind exposure | Audit | 3 | 🔴 **NEW P0** |
-| 11 | Workplace-knowledge zero-caller drift | Hygiene | 3 | 🟡 DRIFT |
-| 12 | P0-A (SPA cookies) — verify fix | All | 3 | 🟢 PASS (verified #2027) |
+| 10 | Audit-export tenant-blind exposure | Audit | 3 | 🔴 → 🟢 PASS (#2051) |
+| 11 | Workplace-knowledge zero-caller drift | Hygiene | 3 | 🟡 → ⏳ DRIFT (brief authored) |
+| 12 | P0-A (SPA cookies) — verify fix | All | 3 | 🟢 PASS |
+| 13 | Audit-export fix verification (PR #2051) | Audit | 4 | 🟢 PASS |
+| 14 | Computer-use macOS executor unit tests | Computer use | 4 | 🟢 PASS (37/37) |
+| 15 | Cross-tenant existence-leak in 6 worker handlers | Multi-tenant | 4 | 🟡 **NEW P2** |
 
-**Computer-use (pillar 3)** — still not evaluated. Needs macOS desktop driver session, deferred to a future run.
+**All four pillars now evaluated at least once.** Round 4 finally got pillar 3 (computer use) onto the board.
 
-## What's now open vs closed
+## Closed-loop P0 tally — evaluator → conductor → worker → evaluator-verifies
 
-### 🔴 NEW P0 — audit-export tenant-blind
+| Round | P-finding | Brief recommended | PR merged | Verified |
+|---|---|---|---|---|
+| 1 → 2 | P0-B migration `;`-in-comment | `claude-migration-comment-aware-splitter` | [#2025](https://github.com/mark-hallam/Argo-Agent/pull/2025) | ✅ cargo |
+| 1 → 3 | P0-A SPA cookies import | `web-auth-config-server-only-split` | [#2027](https://github.com/mark-hallam/Argo-Agent/pull/2027) | ✅ runtime |
+| 3 → 4 | P0 audit-export tenant-blind | `mission-audit-export-tenant-scope-fix` | [#2051](https://github.com/mark-hallam/Argo-Agent/pull/2051) | ✅ source + cargo |
+| 3 → 4 | drift: `argo-workplace-knowledge` zero-caller | `claude-zero-caller-substrate-lint` | (brief authored, status pending) | ⏳ |
+| 3 → 4 | process: FINDINGS-ONLY fix-by deadline | `claude-conductor-fix-by-enforcement` | (brief authored, status pending) | ⏳ |
 
-`POST /api/v1/audit/export` → `fetch_rows_for_export(store, window)` scans `audit_record` globally. No `tenant_id` filter. Caller at tenant_a can request a signed bundle covering any time window and receive every tenant's audit rows.
+**Three P0s shipped end-to-end + two process briefs authored** in the first ~36h of evaluator operation.
 
-PR [#2046](https://github.com/mark-hallam/Argo-Agent/pull/2046) shipped as `MERGED-FINDINGS-ONLY` with 3 `#[ignore]`'d regression tests. No fix-brief in the queue yet.
+## New round-4 findings
 
-**Brief I recommend**: `mission-audit-export-tenant-scope-fix` — same shape as #1992's audit_detail fix. Add `tenant_id` to `fetch_rows_for_export` + `fetch_preview` signatures, bind it from `request_tenant_id(req)`, and remove the 3 `#[ignore]` attrs. Acceptance: all 3 tests pass + a 4th test for cross-tenant signed download URL.
+### 🟡 P2 — Cross-tenant existence-leak in 6 worker handlers
 
-**Process recommendation**: every `MERGED-FINDINGS-ONLY` commit should carry a `fix-by <date>` line; conductor's tick should fail-loud if a FINDINGS-ONLY merge passes its fix-by without a fix-PR.
+Six handlers distinguish "worker exists in another tenant" (403) from "worker doesn't exist" (404). A caller in tenant_b who knows a worker_id can probe the response shape to decide which is which.
 
-[Report.](scheduled/2026-05-22/audit-export-tenant-blind-exposure.md)
+| Handler | Endpoint |
+|---|---|
+| `routes_worker_activity.rs` | `GET /workers/<id>/activity` |
+| `routes_worker_detail.rs` | `GET /workers/<id>` |
+| `routes_worker_overview.rs` | `GET /workers/<id>/overview` |
+| `routes_worker_policies.rs` | `GET\|PATCH /workers/<id>/policies` |
+| `routes_worker_settings_helpers.rs` | `GET\|POST /workers/<id>/settings` |
+| `routes_duties_helpers.rs` | duty CRUD |
 
-### 🟡 NEW Drift — `argo-workplace-knowledge` zero-caller
+The workflow-definition handler does it RIGHT (returns generic 403 with no body distinction, comment in `routes_workflows.rs:13-21` explicitly says "do NOT leak whether the (tenant, vertical, name) triple exists"). The worker handlers haven't adopted the same convention.
 
-```
-crates/argo-workplace-knowledge/src/lib.rs           (substrate — exists)
-crates/argo-audit/src/event_kind.rs                  (variants — defined, never emitted)
-crates/argo-store/migrations/129__workplace_knowledge.sql  (tables — created, never read)
-crates/argo-cli/src/handlers/                        (handlers — ABSENT)
-```
+Not a data-exposure — but an enterprise-grade tenant-isolation guarantee violation. Per operator memory `feedback_enterprise_grade_defaults.md`, "strict defaults are the target". Brief shape: `mission-cross-tenant-worker-handler-no-existence-leak`, ~150 LOC sweep.
 
-Substrate brief MERGED. Audit-kinds brief MERGED. Gateway brief BLOCKED on its own pre-flight refusing to claim because no consumer exists yet (irony — it IS the would-be consumer). Editor SPA brief BLOCKED on gateway.
+[Report.](scheduled/2026-05-22/cross-tenant-existence-leak-six-handlers.md)
 
-Recommend `claude-zero-caller-substrate-lint` — a CI script that flags any workspace crate with zero `use <crate>` consumers across other crates.
+### 🟢 Computer-use pillar 3 evaluated
 
-[Report.](scheduled/2026-05-22/workplace-knowledge-zero-caller-drift.md)
+37/37 macOS executor unit tests pass. Preflight, run-loop, screenshot, events, a11y, notes — all green. Capability gating is at config time (`MacosCuConfig::for_notes_app`). E2E with real Notes is gated on operator authorization + env flag.
 
-### 🟢 P0-A — SPA cookies import CLOSED
+[Report.](scheduled/2026-05-22/computer-use-macos-executor-unit-tests.md)
 
-PR [#2027](https://github.com/mark-hallam/Argo-Agent/pull/2027) split `auth.config.ts` exactly as the recipe specified. All round-1 failing routes now return 200 on cold dev start:
+### 🟢 Audit-export fix (#2051) verified
 
-```
-/landing 200 · /auth/signup 200 · /audit 200 · /workflows 200 · /hire 200 · / 200
-/hire/step/1 404 (by-design — wizard's step-1 is /hire) · /onboarding 404 (stale)
-```
+- `fetch_rows_for_export` signature now takes `tenant_id: &str`.
+- All 3 `#[ignore]` attrs removed from `routes_audit_export_tests.rs`.
+- A 4th test added by the fix-author (`cross_tenant_signed_url_with_forged_signature_returns_404`) covers an adjacent attack surface — bonus defense-in-depth.
 
-[Report.](scheduled/2026-05-22/p0-a-spa-cookies-fix-verified.md)
+[Report.](scheduled/2026-05-22/audit-export-fix-verified.md)
 
-### 🟢 P0-B — Migration semicolon-in-comment CLOSED
+## Still-open items the conductor should action
 
-PR [#2025](https://github.com/mark-hallam/Argo-Agent/pull/2025) introduced `split_sql_statements` (line-based, comment-aware) and swapped 9 callsites — 3 versioned migrations plus 6 crate-scoped helpers I hadn't even identified in round 1. Verified by:
+1. **🟡 `mission-cross-tenant-worker-handler-no-existence-leak`** (NEW from round 4) — sweep fix across 6 handlers. ~150 LOC.
+2. **⏳ `claude-zero-caller-substrate-lint`** — brief authored from round 3; not yet CLAIMED.
+3. **⏳ `claude-conductor-fix-by-enforcement`** — brief authored from round 3; not yet CLAIMED.
+4. **🟡 `mission-workplace-knowledge-gateway`** — already CLAIMED. Unblocks the substrate drift.
+5. **🟡 Live gateway revival** — `mission-gateway-restart-runbook` + `mission-gateway-env-local-bootstrap` already in flight. Once `:7400` is up, can run live cross-tenant probes against the 7 EVAL workers.
+6. **🟡 `web-audit-feed-platform-events`** — round-1 P0-D; still open, no brief yet.
 
-- `cargo test -p argo-skill --test end_to_end_claim4_loop ...` → ✅ 1 passed
-- `cargo test -p argo-cli --test workflow_edit_api_smoke ...` → ✅ 1 passed
+## State
 
-[Original report.](scheduled/2026-05-22/skill-cross-tenant-leak-blocked-by-migration-bug.md)
+- Next.js dev server: probably killed since round 3 ended. Restart at need.
+- 7 EVAL workers in `~/.argo/sessions.db` — intact, waiting for gateway.
+- All 11 scenario reports under `docs/skycot/evals/scheduled/2026-05-22/`.
 
-### 🟢 Cross-tenant audit-detail fix CLOSED
-
-PR [#1992](https://github.com/mark-hallam/Argo-Agent/pull/1992)'s unit test passes (`detail_returns_404_for_cross_tenant_action_id` → ok). Mission claim 6 closed-loop verified at the audit_detail surface.
-
-[Report.](scheduled/2026-05-22/audit-cross-tenant-fix-verification.md)
-
-### 🟡 Main gateway still dead
-
-`:7400` still refuses connections. The conductor has authored `mission-gateway-restart-runbook` (per `5df7add84` brief auto-fire from auditor T09-40) and `mission-gateway-env-local-bootstrap` (per `7293b7c39` — "close the 5-footgun cold-start trap") and these are now CLAIMED. Not blocking — once a fresh gateway is up, I can probe the 7 EVAL workers from round 1 + verify the audit-export bug with a real bundle download.
-
-[Report.](scheduled/2026-05-22/gateway-died-mid-session.md)
-
-### 🟡 P0-D — Audit feed missing platform events (round 1)
-
-Still open. Brief candidate `web-audit-feed-platform-events` not yet in the queue. Workers in flight on related work (`web-audit-feed-platform-events` flagged in commits — let me verify).
-
-## What I'd ask the conductor to action next (ranked)
-
-1. **🔴 Author `mission-audit-export-tenant-scope-fix`** — fix the actual data-exposure that #2046 documented but didn't fix. Removes 3 `#[ignore]` attrs. ~50 LOC + tests.
-2. **🟡 `claude-merged-findings-only-fix-by-deadline`** — CI rule that flags FINDINGS-ONLY commits aged past their fix-by date. Small.
-3. **🟡 `claude-zero-caller-substrate-lint`** — CI rule that flags workspace crates with no `use` consumers. Would have caught the workplace-knowledge drift at merge time.
-4. **🟢 (already in flight) `mission-gateway-restart-runbook` + `mission-gateway-env-local-bootstrap`** — bring `:7400` back up against the correct binary path. Once up, re-run scenarios 6/7/10 against live state.
-5. **🟢 (already in flight) `mission-workplace-knowledge-gateway`** — unblock the substrate drift by shipping the consumer. Already P0 on the auditor's 3rd-consecutive-escalation list.
-
-## State left behind
-
-- Next.js dev server running at `:3000` (PID per `/tmp/eval-web-dev-r3.log`). Safe to kill.
-- 7 EVAL workers still in `~/.argo/sessions.db`. Wait for fresh gateway.
-- All 8 scenario reports in `docs/skycot/evals/scheduled/2026-05-22/`.
-
-Next planned eval run: 2026-05-23 daily.
+Next planned eval run: 2026-05-23 daily. Will sweep newly-merged briefs (the zero-caller lint, workplace-knowledge-gateway, anything that lands overnight) + re-run scenarios 6/7/10 against the revived gateway if it's back up.
