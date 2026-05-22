@@ -101,6 +101,6 @@ describe("BuilderSidebarPalette", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0][0]).toBe(PALETTE_DRAG_MIME);
     const parsed = JSON.parse(calls[0][1]);
-    expect(parsed).toMatchObject({ id: "tool-http", kind: "tool_call", label: "HTTP request" });
+    expect(parsed).toMatchObject({ id: "tool-http", kind: "http_request", label: "HTTP request" });
   });
 });

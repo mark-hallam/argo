@@ -6,8 +6,10 @@ import {
   Check,
   Clipboard,
   Clock,
+  Code2,
   Database,
   GitBranch,
+  Globe,
   Laptop,
   Layers,
   MessageSquare,
@@ -55,6 +57,8 @@ const KIND_META: Record<StepKind, { icon: ReactNode; color: string; label: strin
   loop:         { icon: <Repeat size={12} />,        color: "#6366f1", label: "Loop" },
   wait:         { icon: <Clock size={12} />,         color: "#6366f1", label: "Wait" },
   sub_workflow: { icon: <Layers size={12} />,        color: "#0891b2", label: "Sub-workflow" },
+  http_request: { icon: <Globe size={12} />,         color: "#0891b2", label: "HTTP request" },
+  code:         { icon: <Code2 size={12} />,         color: "#3b82f6", label: "Code" },
 };
 
 function StepCard({ step, nested = false }: { step: WorkflowStep; nested?: boolean }) {

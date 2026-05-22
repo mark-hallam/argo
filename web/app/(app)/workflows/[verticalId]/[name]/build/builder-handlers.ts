@@ -2,7 +2,37 @@ import type { Connection, Edge, Node } from "@xyflow/react";
 
 import type { TriggerKind } from "@/components/workflows/triggers/types";
 
-import type { SkyNodeData, StepKind, SubWorkflowRef, WorkflowStep } from "./types";
+import type {
+  CodeConfig,
+  HttpRequestConfig,
+  SkyNodeData,
+  StepKind,
+  SubWorkflowRef,
+  WorkflowStep,
+} from "./types";
+
+export function defaultHttpRequestConfig(): HttpRequestConfig {
+  return {
+    method: "GET",
+    url: "https://api.example.com/v1/resource",
+    headers: [],
+    body: "",
+    auth: "none",
+    authToken: "",
+    authUsername: "",
+    authPassword: "",
+    authHeaderName: "",
+    authHeaderValue: "",
+    timeoutSeconds: 30,
+  };
+}
+
+export function defaultCodeConfig(): CodeConfig {
+  return {
+    language: "javascript",
+    code: "// Return a value to pass to the next step.\nreturn { ok: true };\n",
+  };
+}
 
 // Pure helpers for the visual builder's connect + add-step handlers.
 // Kept React-free so the validation rules can be unit-tested without
@@ -76,6 +106,8 @@ export const STEP_KIND_DEFAULTS: Record<StepKind, { name: string; description: s
   loop:         { name: "Loop",          description: "Iterate over a list" },
   wait:         { name: "Wait",          description: "Pause for a duration" },
   sub_workflow: { name: "Sub-workflow",  description: "Invoke another workflow as a single step" },
+  http_request: { name: "HTTP request",  description: "Call an external API" },
+  code:         { name: "Code",          description: "Run inline JavaScript or Python" },
 };
 
 export function newStepPosition(nodes: Node[]): { x: number; y: number } {
@@ -100,6 +132,8 @@ export function newStepNode(
       ? `Invokes ${subWorkflow.verticalId}/${subWorkflow.name} (${subWorkflow.stepCount} step${subWorkflow.stepCount === 1 ? "" : "s"}).`
       : defaults.description,
     subWorkflow,
+    ...(kind === "http_request" ? { httpRequest: defaultHttpRequestConfig() } : {}),
+    ...(kind === "code" ? { code: defaultCodeConfig() } : {}),
   };
   return {
     id: step.id,
@@ -134,6 +168,8 @@ export function newStepNodeAt(
     name: overrides?.name ?? defaults.name,
     description: overrides?.description ?? defaults.description,
     ...(overrides?.triggerKind ? { triggerKind: overrides.triggerKind } : {}),
+    ...(kind === "http_request" ? { httpRequest: defaultHttpRequestConfig() } : {}),
+    ...(kind === "code" ? { code: defaultCodeConfig() } : {}),
   };
   return {
     id: step.id,

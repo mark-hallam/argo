@@ -1,7 +1,14 @@
 "use client";
 import { Pin, PinOff, Settings as SettingsIcon, X } from "lucide-react";
 
-import { STEP_KIND_META, type WorkflowStep } from "./types";
+import { CodeConfigEditor } from "./step-config-code";
+import { HttpRequestConfigEditor } from "./step-config-http";
+import {
+  STEP_KIND_META,
+  type CodeConfig,
+  type HttpRequestConfig,
+  type WorkflowStep,
+} from "./types";
 
 interface Props {
   step: WorkflowStep;
@@ -11,6 +18,7 @@ interface Props {
   onEdit: () => void;
   onOpenPin: () => void;
   onClearPin: () => void;
+  onStepChange?: (next: WorkflowStep) => void;
 }
 
 export function BuilderInspector({
@@ -21,7 +29,12 @@ export function BuilderInspector({
   onEdit,
   onOpenPin,
   onClearPin,
+  onStepChange,
 }: Props) {
+  const updateHttp = (next: HttpRequestConfig) =>
+    onStepChange?.({ ...step, httpRequest: next });
+  const updateCode = (next: CodeConfig) =>
+    onStepChange?.({ ...step, code: next });
   return (
     <aside className="builder-panel">
       <div className="builder-panel-head">
@@ -48,6 +61,18 @@ export function BuilderInspector({
           <code style={{ fontSize: 12.5, color: "#1e1b4b", fontFamily: "var(--font-mono)" }}>
             {step.outputs.join(", ")}
           </code>
+        </div>
+      ) : null}
+      {step.kind === "http_request" && onStepChange ? (
+        <div className="builder-panel-section">
+          <div className="builder-panel-section-label">HTTP REQUEST</div>
+          <HttpRequestConfigEditor config={step.httpRequest} onChange={updateHttp} />
+        </div>
+      ) : null}
+      {step.kind === "code" && onStepChange ? (
+        <div className="builder-panel-section">
+          <div className="builder-panel-section-label">CODE</div>
+          <CodeConfigEditor config={step.code} onChange={updateCode} />
         </div>
       ) : null}
       {step.approvalGate ? (

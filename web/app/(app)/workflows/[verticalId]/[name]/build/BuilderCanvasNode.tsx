@@ -3,7 +3,39 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { CheckCircle2, Clock, Pin, XCircle } from "lucide-react";
 
 import { formatWaitSummary } from "./layout";
-import { STEP_KIND_META, type NodeRunStatus, type SkyNodeData } from "./types";
+import {
+  STEP_KIND_META,
+  type CodeConfig,
+  type HttpRequestConfig,
+  type NodeRunStatus,
+  type SkyNodeData,
+} from "./types";
+
+const URL_HEADER_MAX = 28;
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(1, max - 1))}…`;
+}
+
+function formatHttpHeader(cfg: HttpRequestConfig | undefined): string {
+  if (!cfg) return "HTTP request";
+  const url = cfg.url.replace(/^https?:\/\//, "");
+  return `${cfg.method} ${truncate(url || "—", URL_HEADER_MAX)}`;
+}
+
+function formatHttpTooltip(cfg: HttpRequestConfig | undefined): string {
+  if (!cfg) return "";
+  const auth = cfg.auth === "none" ? "no auth" : `${cfg.auth} auth`;
+  return `${cfg.method} ${cfg.url}\n${auth} · timeout ${cfg.timeoutSeconds}s`;
+}
+
+function formatCodeHeader(cfg: CodeConfig | undefined): string {
+  if (!cfg) return "Code";
+  const langLabel = cfg.language === "python" ? "PY" : "JS";
+  const firstLine = (cfg.code || "").split("\n").find((line) => line.trim().length > 0) ?? "";
+  return `${langLabel} ${truncate(firstLine.trim() || "(empty)", URL_HEADER_MAX)}`;
+}
 
 const RUN_BORDER: Record<NodeRunStatus, string | null> = {
   pending: null,
@@ -30,14 +62,26 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
   const isLoop = step.kind === "loop";
   const isWait = step.kind === "wait";
   const isDecision = step.kind === "decision" && !!step.branch;
+  const isHttp = step.kind === "http_request";
+  const isCode = step.kind === "code";
   const isRunning = runStatus === "running";
   const isSuccess = runStatus === "success";
   const isError = runStatus === "error";
+  const headerSummary = isHttp
+    ? formatHttpHeader(step.httpRequest)
+    : isCode
+      ? formatCodeHeader(step.code)
+      : step.name;
+  const hoverTitle = isError
+    ? runState?.error
+    : isHttp
+      ? formatHttpTooltip(step.httpRequest)
+      : undefined;
   return (
     <div
       data-run-status={runStatus}
       data-testid={`builder-node-${step.id}`}
-      title={isError ? runState?.error : undefined}
+      title={hoverTitle}
       style={{
         width: 280,
         background: "white",
@@ -122,6 +166,22 @@ export function SkycotStepNode({ data, selected }: NodeProps) {
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1e1b4b", marginTop: 2 }}>
             {step.name}
           </div>
+          {isHttp || isCode ? (
+            <div
+              data-testid={`builder-node-summary-${step.id}`}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10.5,
+                color: "#52525b",
+                marginTop: 4,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {headerSummary}
+            </div>
+          ) : null}
         </div>
         {sky.pinned ? (
           <div

@@ -29,7 +29,49 @@ export type StepKind =
   | "data"
   | "loop"
   | "wait"
-  | "sub_workflow";
+  | "sub_workflow"
+  | "http_request"
+  | "code";
+
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
+
+export const HTTP_METHODS: readonly HttpMethod[] = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS",
+];
+
+export type HttpAuthMode = "none" | "bearer" | "basic" | "custom_header";
+
+export interface HttpHeader {
+  key: string;
+  value: string;
+}
+
+export interface HttpRequestConfig {
+  method: HttpMethod;
+  url: string;
+  headers: HttpHeader[];
+  body: string;
+  auth: HttpAuthMode;
+  authToken: string;
+  authUsername: string;
+  authPassword: string;
+  authHeaderName: string;
+  authHeaderValue: string;
+  timeoutSeconds: number;
+}
+
+export type CodeLanguage = "javascript" | "python";
+
+export interface CodeConfig {
+  language: CodeLanguage;
+  code: string;
+}
 
 // Reference to another workflow invoked as a single composable unit.
 // `stepCount` is captured at link-time so the SubWorkflowNode can render
@@ -76,6 +118,8 @@ export interface WorkflowStep {
   waitConfig?: WaitConfig;
   branch?: DecisionBranch;
   subWorkflow?: SubWorkflowRef;
+  httpRequest?: HttpRequestConfig;
+  code?: CodeConfig;
 }
 
 export interface WorkflowSpec {
@@ -139,6 +183,8 @@ export const STEP_KIND_META: Record<StepKind, { icon: ReactNode; color: string; 
   loop:         { icon: createElement(Repeat, { size: 14 }),        color: "#6366f1", label: "Loop" },
   wait:         { icon: createElement(Clock, { size: 14 }),         color: "#6366f1", label: "Wait" },
   sub_workflow: { icon: createElement(Layers, { size: 14 }),        color: "#0891b2", label: "Sub-workflow" },
+  http_request: { icon: createElement(Globe, { size: 14 }),         color: "#0891b2", label: "HTTP request" },
+  code:         { icon: createElement(Code2, { size: 14 }),         color: "#3b82f6", label: "Code" },
 };
 
 export const TRUE_EDGE_STYLE = { stroke: "#8b5cf6", strokeWidth: 2 } as const;
@@ -224,9 +270,9 @@ export const SIDEBAR_PALETTE_GROUPS: SidebarPaletteGroup[] = [
   {
     label: "Tools",
     items: [
-      { id: "tool-http",    kind: "tool_call", label: "HTTP request",   description: "Call an external API" },
-      { id: "tool-browser", kind: "tool_call", label: "Browser action", description: "Drive a real browser" },
-      { id: "tool-code",    kind: "tool_call", label: "Code",           description: "Run inline code" },
+      { id: "tool-http",    kind: "http_request", label: "HTTP request",   description: "Call an external API" },
+      { id: "tool-browser", kind: "tool_call",    label: "Browser action", description: "Drive a real browser" },
+      { id: "tool-code",    kind: "code",         label: "Code",           description: "Run inline code" },
     ],
   },
   {

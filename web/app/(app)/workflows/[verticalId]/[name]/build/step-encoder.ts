@@ -14,7 +14,17 @@
  * keys are silently passed through on encode (none today) and
  * ignored on decode.
  */
-import type { StepKind, WorkflowStep } from "./types";
+import type {
+  CodeConfig,
+  CodeLanguage,
+  HttpAuthMode,
+  HttpHeader,
+  HttpMethod,
+  HttpRequestConfig,
+  StepKind,
+  WorkflowStep,
+} from "./types";
+import { HTTP_METHODS } from "./types";
 
 const STEP_KINDS: ReadonlySet<StepKind> = new Set<StepKind>([
   "trigger",
@@ -27,6 +37,20 @@ const STEP_KINDS: ReadonlySet<StepKind> = new Set<StepKind>([
   "loop",
   "wait",
   "sub_workflow",
+  "http_request",
+  "code",
+]);
+
+const HTTP_METHOD_SET: ReadonlySet<HttpMethod> = new Set<HttpMethod>(HTTP_METHODS);
+const HTTP_AUTH_MODES: ReadonlySet<HttpAuthMode> = new Set<HttpAuthMode>([
+  "none",
+  "bearer",
+  "basic",
+  "custom_header",
+]);
+const CODE_LANGUAGES: ReadonlySet<CodeLanguage> = new Set<CodeLanguage>([
+  "javascript",
+  "python",
 ]);
 
 function escapeTomlString(s: string): string {
@@ -59,9 +83,46 @@ export function encodeStepsToToml(
     if (step.description) {
       lines.push(`description = ${tomlString(step.description)}`);
     }
+    if (step.kind === "http_request" && step.httpRequest) {
+      appendHttpRequestLines(lines, step.httpRequest);
+    }
+    if (step.kind === "code" && step.code) {
+      appendCodeLines(lines, step.code);
+    }
   }
   lines.push("");
   return lines.join("\n");
+}
+
+function appendHttpRequestLines(lines: string[], cfg: HttpRequestConfig): void {
+  lines.push(`http_method = ${tomlString(cfg.method)}`);
+  lines.push(`http_url = ${tomlString(cfg.url)}`);
+  lines.push(`http_auth = ${tomlString(cfg.auth)}`);
+  lines.push(`http_timeout_seconds = ${Math.max(1, Math.floor(cfg.timeoutSeconds || 30))}`);
+  if (cfg.body) lines.push(`http_body = ${tomlString(cfg.body)}`);
+  if (cfg.headers.length > 0) {
+    const encoded = cfg.headers
+      .filter((h) => h.key.trim())
+      .map((h) => `${h.key.trim()}: ${h.value}`)
+      .join("\n");
+    if (encoded) lines.push(`http_headers = ${tomlString(encoded)}`);
+  }
+  if (cfg.auth === "bearer" && cfg.authToken) {
+    lines.push(`http_auth_token = ${tomlString(cfg.authToken)}`);
+  }
+  if (cfg.auth === "basic") {
+    if (cfg.authUsername) lines.push(`http_auth_username = ${tomlString(cfg.authUsername)}`);
+    if (cfg.authPassword) lines.push(`http_auth_password = ${tomlString(cfg.authPassword)}`);
+  }
+  if (cfg.auth === "custom_header") {
+    if (cfg.authHeaderName) lines.push(`http_auth_header_name = ${tomlString(cfg.authHeaderName)}`);
+    if (cfg.authHeaderValue) lines.push(`http_auth_header_value = ${tomlString(cfg.authHeaderValue)}`);
+  }
+}
+
+function appendCodeLines(lines: string[], cfg: CodeConfig): void {
+  lines.push(`code_language = ${tomlString(cfg.language)}`);
+  lines.push(`code_body = ${tomlString(cfg.code)}`);
 }
 
 export interface DecodedWorkflow {
@@ -75,6 +136,19 @@ interface PendingStep {
   name?: string;
   kind?: string;
   description?: string;
+  http_method?: string;
+  http_url?: string;
+  http_auth?: string;
+  http_timeout_seconds?: string;
+  http_body?: string;
+  http_headers?: string;
+  http_auth_token?: string;
+  http_auth_username?: string;
+  http_auth_password?: string;
+  http_auth_header_name?: string;
+  http_auth_header_value?: string;
+  code_language?: string;
+  code_body?: string;
 }
 
 function unescapeTomlString(s: string): string {
@@ -107,7 +181,69 @@ function commit(pending: PendingStep, idx: number): WorkflowStep | null {
   const kind: StepKind = STEP_KINDS.has(rawKind as StepKind)
     ? (rawKind as StepKind)
     : "tool_call";
-  return { id, kind, name, description: pending.description ?? "" };
+  const step: WorkflowStep = { id, kind, name, description: pending.description ?? "" };
+  if (kind === "http_request" && hasHttpRequestKeys(pending)) {
+    step.httpRequest = decodeHttpRequest(pending);
+  }
+  if (kind === "code" && hasCodeKeys(pending)) {
+    step.code = decodeCode(pending);
+  }
+  return step;
+}
+
+function hasHttpRequestKeys(pending: PendingStep): boolean {
+  return (
+    pending.http_method !== undefined
+    || pending.http_url !== undefined
+    || pending.http_auth !== undefined
+    || pending.http_timeout_seconds !== undefined
+    || pending.http_body !== undefined
+    || pending.http_headers !== undefined
+  );
+}
+
+function hasCodeKeys(pending: PendingStep): boolean {
+  return pending.code_language !== undefined || pending.code_body !== undefined;
+}
+
+function decodeHttpRequest(pending: PendingStep): HttpRequestConfig {
+  const method = (pending.http_method ?? "GET").toUpperCase() as HttpMethod;
+  const auth = (pending.http_auth ?? "none") as HttpAuthMode;
+  const timeoutRaw = Number.parseInt(pending.http_timeout_seconds ?? "30", 10);
+  return {
+    method: HTTP_METHOD_SET.has(method) ? method : "GET",
+    url: pending.http_url ?? "",
+    headers: parseHeaderBlock(pending.http_headers),
+    body: pending.http_body ?? "",
+    auth: HTTP_AUTH_MODES.has(auth) ? auth : "none",
+    authToken: pending.http_auth_token ?? "",
+    authUsername: pending.http_auth_username ?? "",
+    authPassword: pending.http_auth_password ?? "",
+    authHeaderName: pending.http_auth_header_name ?? "",
+    authHeaderValue: pending.http_auth_header_value ?? "",
+    timeoutSeconds: Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : 30,
+  };
+}
+
+function decodeCode(pending: PendingStep): CodeConfig {
+  const language = (pending.code_language ?? "javascript") as CodeLanguage;
+  return {
+    language: CODE_LANGUAGES.has(language) ? language : "javascript",
+    code: pending.code_body ?? "",
+  };
+}
+
+function parseHeaderBlock(raw: string | undefined): HttpHeader[] {
+  if (!raw) return [];
+  const out: HttpHeader[] = [];
+  for (const line of raw.split("\n")) {
+    const idx = line.indexOf(":");
+    if (idx < 0) continue;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    if (key) out.push({ key, value });
+  }
+  return out;
 }
 
 /**
@@ -163,6 +299,19 @@ export function decodeStepsFromToml(toml: string): DecodedWorkflow {
       else if (key === "name") pending.name = value;
       else if (key === "kind") pending.kind = value;
       else if (key === "description") pending.description = value;
+      else if (key === "http_method") pending.http_method = value;
+      else if (key === "http_url") pending.http_url = value;
+      else if (key === "http_auth") pending.http_auth = value;
+      else if (key === "http_timeout_seconds") pending.http_timeout_seconds = value;
+      else if (key === "http_body") pending.http_body = value;
+      else if (key === "http_headers") pending.http_headers = value;
+      else if (key === "http_auth_token") pending.http_auth_token = value;
+      else if (key === "http_auth_username") pending.http_auth_username = value;
+      else if (key === "http_auth_password") pending.http_auth_password = value;
+      else if (key === "http_auth_header_name") pending.http_auth_header_name = value;
+      else if (key === "http_auth_header_value") pending.http_auth_header_value = value;
+      else if (key === "code_language") pending.code_language = value;
+      else if (key === "code_body") pending.code_body = value;
     }
   }
   if (pending) {

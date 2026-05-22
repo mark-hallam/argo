@@ -210,7 +210,14 @@ function BuilderInner({
     true,
   );
 
-  const selectedStep = selectedNode ? (selectedNode.data as SkyNodeData).step : null;
+  // Re-derive `selectedStep` from the live `builder.nodes` so inline
+  // edits to the selected step (HTTP / Code config) flow back into the
+  // inspector immediately — `selectedNode` itself is a snapshot taken
+  // at click time and would otherwise show stale values.
+  const selectedStep = selectedNode
+    ? ((builder.nodes.find((n) => n.id === selectedNode.id)?.data as SkyNodeData | undefined)?.step
+        ?? (selectedNode.data as SkyNodeData).step)
+    : null;
   const selectedIsTrigger = selectedStep?.kind === "trigger";
   const selectedTriggerKind: TriggerKind = selectedStep?.triggerKind ?? "manual";
 
@@ -401,6 +408,15 @@ function BuilderInner({
               onEdit={() => setTriggerConfigOpen(true)}
               onOpenPin={() => setPinModalStepId(selectedStep.id)}
               onClearPin={() => annotations.clearPin(selectedStep.id)}
+              onStepChange={(next) => {
+                builder.setNodes((nds) =>
+                  nds.map((n) =>
+                    n.id === next.id
+                      ? { ...n, data: { ...(n.data as SkyNodeData), step: next } }
+                      : n,
+                  ),
+                );
+              }}
             />
           ) : null}
           {pinModalStepId
