@@ -1,26 +1,32 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { cookies } from "next/headers";
 
 /**
- * NextAuth v5 config — single credentials provider that verifies a
- * gateway bearer token by hitting `/healthz` with it attached.
+ * NextAuth v5 config — edge-safe, client-bundle-safe surface.
  *
- * Token verification is intentionally lightweight: the gateway's own
- * RBAC layer is the authority. We only confirm that the token is
- * accepted before we persist it into the session. The session is
- * stored as a JWT (no DB) and carries the bearer token forward to
- * the API client wrapper.
+ * Anything in this file must remain importable from Client Components
+ * and the Edge runtime, which means no server-only APIs from
+ * `next/headers` and no other request-scoped Node APIs. Server-only
+ * callbacks (those that need request cookies, request headers, or the
+ * DB) live in `web/auth.ts`, which wraps this config when it
+ * constructs the NextAuth instance. See the unit test at
+ * `web/__tests__/auth-config-no-server-imports.test.ts` which enforces
+ * this boundary.
  *
- * The magic-link flow sets a `__Host-session` HttpOnly cookie carrying
- * an HS256 JWT with `{ sub, email, tnt, role, iat, exp }`. The session
- * callback below decodes that cookie server-side so:
+ * The credentials provider verifies a gateway bearer token by hitting
+ * `/healthz` with it attached. Token verification is intentionally
+ * lightweight: the gateway's own RBAC layer is the authority. We only
+ * confirm that the token is accepted before persisting it into the
+ * session. The session is stored as a JWT (no DB) and carries the
+ * bearer token forward to the API client wrapper.
  *
+ * Session enrichment from the magic-link `__Host-session` cookie
+ * (decoded server-side in `web/auth.ts`):
  *   - `session.gatewayToken` = the JWT (sent as `Authorization: Bearer`
  *     so the gateway can verify it + read the embedded role).
  *   - `session.role` = the role claim, populated for `useViewerPolicy`
  *     and other client-side gates (read-only display only — the
- *     gateway is the authority).
+ *     gateway is the trust boundary).
  */
 export const authConfig = {
   session: { strategy: "jwt" },
@@ -61,46 +67,8 @@ export const authConfig = {
       }
       return token;
     },
-    async session({ session, token }) {
-      const gw = (token as { gatewayToken?: unknown }).gatewayToken;
-      if (typeof gw === "string") session.gatewayToken = gw;
-
-      // Surface the magic-link JWT + role into the session shape used
-      // by the API client and `useViewerPolicy`. Decode is body-only
-      // (no signature verify); the gateway is the trust boundary.
-      const magicLink = await readMagicLinkClaims();
-      if (magicLink) {
-        if (magicLink.jwt) session.gatewayToken = magicLink.jwt;
-        if (magicLink.role) session.role = magicLink.role;
-      }
-      return session;
-    },
   },
 } satisfies NextAuthConfig;
-
-interface MagicLinkClaims {
-  jwt: string;
-  role?: string;
-}
-
-async function readMagicLinkClaims(): Promise<MagicLinkClaims | null> {
-  try {
-    const store = await cookies();
-    const cookie = store.get("__Host-session")?.value;
-    if (!cookie) return null;
-    const parts = cookie.split(".");
-    if (parts.length !== 3) return { jwt: cookie };
-    const payload = parts[1];
-    const json = Buffer.from(
-      payload.replace(/-/g, "+").replace(/_/g, "/"),
-      "base64",
-    ).toString("utf8");
-    const claims = JSON.parse(json) as { role?: string };
-    return { jwt: cookie, role: claims.role };
-  } catch {
-    return null;
-  }
-}
 
 declare module "next-auth" {
   interface Session {
