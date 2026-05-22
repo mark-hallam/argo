@@ -72,12 +72,6 @@ web-PR boundary note (#2011, #2013, #2014, #2018, #2026, #2027,
   `ease-out` in `web/components/skycot/builder/UnsavedBanner.tsx:65`
   and `ease-in-out` in
   `web/components/skycot/cohorts/CohortMagazineStyles.tsx:565`.
-- `web/__tests__/onboarding/wizard.test.tsx > Welcome step > renders the headline and continues to /onboarding/workspace`
-  — First observed: 2026-05-21 (#1898 locked the F1
-  `WizardEditorialShell`; welcome hero text changed from "Welcome to
-  SKYCOT." to "Build your AI workforce."). Classification: stable.
-  Failure: `screen.getByText("Welcome to SKYCOT.")` no longer matches;
-  the rendered headline is "Build your AI workforce."
 
 ### Rust (cargo) — `cargo test --workspace`
 
