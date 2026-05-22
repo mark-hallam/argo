@@ -13,7 +13,7 @@
  * the envelope.
  */
 
-import { apiGet } from "@/lib/api/client";
+import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_COHORT_DETAILS, SAMPLE_COHORT_SUMMARIES } from "@/lib/sample-cohorts";
 
@@ -114,6 +114,40 @@ export async function fetchCohorts(): Promise<FetchCohortsResult> {
     }
     throw err;
   }
+}
+
+/**
+ * Result envelope for [`bulkAssignSkill`]. Mirrors the gateway shape
+ * exactly so the modal can surface partial successes (idempotent
+ * re-application — `already_had > 0`) without erroring.
+ */
+export interface BulkAssignSkillResponse {
+  /** Workers that did NOT already hold the skill — the new rows. */
+  assigned: number;
+  /** Workers that already held the skill — counted but no-op. */
+  already_had: number;
+  /** Per-worker errors; v1 always empty on a 2xx response. */
+  errors: Array<{ worker_id: string; message: string }>;
+}
+
+/**
+ * `POST /api/v1/cohorts/<id>/bulk-assign-skill` — assign one skill to
+ * every selected worker in a cohort. Wraps the gateway endpoint with
+ * the standard `apiPost`. Errors propagate as `ApiError` (caller
+ * handles toast / banner). The endpoint validates tenant + cohort
+ * membership server-side so the client only has to forward the
+ * selection.
+ */
+export async function bulkAssignSkill(
+  cohortId: string,
+  workerIds: string[],
+  skillId: string,
+): Promise<BulkAssignSkillResponse> {
+  const path = `/api/v1/cohorts/${encodeURIComponent(cohortId)}/bulk-assign-skill`;
+  return apiPost<BulkAssignSkillResponse>(path, {
+    worker_ids: workerIds,
+    skill_id: skillId,
+  });
 }
 
 export async function fetchCohortDetail(

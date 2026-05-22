@@ -69,6 +69,7 @@ pub use roster_policy_override::RosterPolicyOverride;
 pub use roster_store::RosterAssignment;
 pub use store::{IdentityStore, LearningEnrollFn};
 pub use store_hire::{ApprovalPolicyChoice, HireDraft, HireDutyDraft};
+pub use store_skills::BulkAssignSkillOutcome;
 pub use tenant::{Tenant, TenantStatus};
 pub use tenant_provision::{provision_for_user, ProvisionOutcome, ProvisionRequest};
 pub use tier::{AllowDecision, Tier, TierConfig, TierLimits};

@@ -226,6 +226,16 @@ async fn api_v1_dispatch(
     {
         return Some(super::routes_onboarding::first_hire_response(req, store).await);
     }
+    // mission-cohort-detail-bulk-assign-skill — bulk-apply one skill to
+    // every selected worker in a cohort. Sibling to the GET
+    // /api/v1/cohorts dispatcher in routes_dispatch_get_api.rs.
+    if let Some(rest) = req.strip_prefix("POST /api/v1/cohorts/") {
+        let head = rest.split_whitespace().next().unwrap_or(rest);
+        let head = head.split('?').next().unwrap_or(head);
+        if let Some(cohort_id) = head.strip_suffix("/bulk-assign-skill") {
+            return Some(super::routes_cohorts::bulk_assign_skill_response(req, cohort_id, store).await);
+        }
+    }
     // mission-data-export-customer-flow — customer-facing GDPR/CCPA
     // Article 15 export. Scoped to the X-Argo-Principal human caller.
     if let Some(resp) = super::routes_me_export::dispatch(req, store).await {

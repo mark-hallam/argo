@@ -1,6 +1,15 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CohortDetail, FetchCohortDetailResult } from "@/lib/api/cohorts";
+
+function wrap(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+  });
+  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+}
 
 type QueryShape = {
   data: FetchCohortDetailResult | undefined;
@@ -79,7 +88,7 @@ describe("CohortDetailDrawer", () => {
       data: { detail: DETAIL, source: "mock-offline" },
       isPending: false,
     });
-    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    render(wrap(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />));
     const matrix = screen.getByTestId("cohort-coverage-matrix");
     // 2 members × 2 skills = 4 cells; "follow_up" row covers both workers (present),
     // "qualify" row has 1 present + 1 missing.
@@ -92,14 +101,14 @@ describe("CohortDetailDrawer", () => {
   it("renders nothing when cohortId is null (drawer closed)", () => {
     useCohortDetailMock.mockReturnValue({ data: undefined, isPending: false });
     const { container } = render(
-      <CohortDetailDrawer cohortId={null} onClose={() => {}} />,
+      wrap(<CohortDetailDrawer cohortId={null} onClose={() => {}} />),
     );
     expect(container.firstChild).toBeNull();
   });
 
   it("renders a loading skeleton while the query is pending", () => {
     useCohortDetailMock.mockReturnValue({ data: undefined, isPending: true });
-    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    render(wrap(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />));
     expect(screen.getByTestId("cohort-detail-loading")).toBeInTheDocument();
   });
 
@@ -108,7 +117,7 @@ describe("CohortDetailDrawer", () => {
       data: { detail: DETAIL, source: "mock-offline" },
       isPending: false,
     });
-    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    render(wrap(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />));
     const rows = screen.getAllByTestId("cohort-detail-member-row");
     expect(rows.length).toBe(2);
     expect(rows[0]).toHaveAttribute("data-worker-id", "wkr_alpha");
@@ -122,7 +131,7 @@ describe("CohortDetailDrawer", () => {
       data: { detail: DETAIL, source: "mock-offline" },
       isPending: false,
     });
-    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    render(wrap(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />));
     const rows = screen.getAllByTestId("cohort-detail-activity-row");
     expect(rows.length).toBe(1);
     expect(
@@ -135,7 +144,7 @@ describe("CohortDetailDrawer", () => {
       data: { detail: EMPTY_COHORT_DETAIL, source: "mock-offline" },
       isPending: false,
     });
-    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    render(wrap(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />));
     expect(screen.getByTestId("cohort-detail-empty")).toBeInTheDocument();
     const cta = screen.getByTestId("cohort-detail-invite-cta");
     expect(cta).toHaveAttribute(
@@ -149,7 +158,7 @@ describe("CohortDetailDrawer", () => {
       data: { detail: null, source: "gateway" },
       isPending: false,
     });
-    render(<CohortDetailDrawer cohortId="ops::unknown" onClose={() => {}} />);
+    render(wrap(<CohortDetailDrawer cohortId="ops::unknown" onClose={() => {}} />));
     expect(screen.getByTestId("cohort-detail-empty")).toBeInTheDocument();
     expect(screen.getByTestId("cohort-detail-invite-cta")).toBeInTheDocument();
   });

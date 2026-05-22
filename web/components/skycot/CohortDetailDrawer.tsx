@@ -11,6 +11,7 @@ import type {
   CohortMember,
   SkillCoverage,
 } from "@/lib/api/cohorts";
+import { CohortDetailMembers } from "./CohortDetailMembers";
 
 export interface CohortDetailDrawerProps {
   cohortId: string | null;
@@ -62,7 +63,7 @@ export function CohortDetailDrawer({ cohortId, onClose }: CohortDetailDrawerProp
           ) : (
             <>
               <SummarySection detail={detail} />
-              <MembersSection detail={detail} />
+              <CohortDetailMembers detail={detail} />
               <SkillCoverageMatrix detail={detail} />
               <RecentActivitySection detail={detail} />
             </>
@@ -370,48 +371,6 @@ function buildWorkerSkillIndex(members: CohortMember[]): Map<string, Set<string>
     out.set(m.worker_id, new Set(m.skill_ids));
   }
   return out;
-}
-
-function MembersSection({ detail }: { detail: CohortDetail }) {
-  return (
-    <section aria-labelledby="cohort-detail-members-heading" className="space-y-2">
-      <h3
-        id="cohort-detail-members-heading"
-        className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]"
-      >
-        Members ({detail.members.length})
-      </h3>
-      <ul
-        data-testid="cohort-detail-members"
-        className="divide-y divide-[var(--border)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)]"
-      >
-        {detail.members.map((m) => (
-          <li
-            key={m.worker_id}
-            data-testid="cohort-detail-member-row"
-            data-worker-id={m.worker_id}
-            className="flex items-center justify-between gap-4 px-4 py-3"
-          >
-            <div className="min-w-0">
-              <Link
-                href={`/workers/${encodeURIComponent(m.worker_id)}`}
-                className="block truncate text-sm font-medium text-[var(--foreground)] hover:underline"
-              >
-                {m.worker_id}
-              </Link>
-              <p className="text-xs text-[var(--muted-foreground)]">
-                {m.skill_ids.length}{" "}
-                {m.skill_ids.length === 1 ? "skill" : "skills"}
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--muted)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--foreground)]">
-              grade {m.trust_grade}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
 }
 
 function RecentActivitySection({ detail }: { detail: CohortDetail }) {
