@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 /// plugin, and provider declares a `CapabilitySet`. The core enforces these
 /// at call time.
 ///
+/// # Examples
+///
 /// ```
 /// use argo_types::Capability;
 /// let cap = Capability::NetEgress { host_glob: "*.example.com".into(), port: Some(443) };
@@ -162,6 +164,8 @@ pub enum SpawnKind {
 
 /// A bag of capabilities granted to a principal.
 ///
+/// # Examples
+///
 /// ```
 /// use argo_types::{Capability, CapabilitySet};
 /// let mut set = CapabilitySet::empty();
@@ -306,6 +310,8 @@ pub struct CapabilityRole {
 }
 
 /// Who or what is acting.
+///
+/// # Examples
 ///
 /// ```
 /// use argo_types::Principal;

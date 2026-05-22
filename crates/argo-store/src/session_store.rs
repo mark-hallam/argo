@@ -25,6 +25,8 @@ use crate::{
 ///
 /// One DB per tenant. WAL mode. Migrations applied on `migrate()`.
 ///
+/// # Examples
+///
 /// ```
 /// # async fn doc() -> argo_store::StoreResult<()> {
 /// use argo_store::SessionStore;

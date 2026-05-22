@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 /// Role in a conversation.
 ///
+/// # Examples
+///
 /// ```
 /// use argo_types::MessageRole;
 /// let json = serde_json::to_string(&MessageRole::Assistant).unwrap();
@@ -25,6 +27,8 @@ pub enum MessageRole {
 }
 
 /// A single message in a conversation.
+///
+/// # Examples
 ///
 /// ```
 /// use argo_types::{ContentBlock, Message, MessageId, MessageRole, SessionId};
@@ -63,6 +67,8 @@ pub struct Message {
 }
 
 /// A piece of message content.
+///
+/// # Examples
 ///
 /// ```
 /// use argo_types::ContentBlock;
@@ -140,6 +146,8 @@ pub enum ContentBlock {
 
 /// A request from an Assistant turn to invoke a tool.
 ///
+/// # Examples
+///
 /// ```
 /// use argo_types::{ToolCallId, ToolCallRequest};
 /// let call = ToolCallRequest {
@@ -172,6 +180,8 @@ pub struct ToolCallRequest {
 }
 
 /// The outcome of a tool invocation.
+///
+/// # Examples
 ///
 /// ```
 /// use argo_types::{ContentBlock, ToolCallId, ToolCallResult};
