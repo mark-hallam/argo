@@ -34,12 +34,8 @@ const WORKER_KEY_RESULT_SCHEMA: &str = include_str!("../migrations/44__worker_ke
 /// Apply both schemas idempotently. Safe to call from every entry point.
 pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
     for schema in [WORKER_OBJECTIVE_SCHEMA, WORKER_KEY_RESULT_SCHEMA] {
-        for stmt in schema.split_terminator(';') {
-            let sql = stmt.trim();
-            if sql.is_empty() {
-                continue;
-            }
-            sqlx::query(sql)
+        for sql in crate::migrations::split_sql_statements(schema) {
+            sqlx::query(&sql)
                 .execute(pool)
                 .await
                 .map_err(|e| ArgoError::Provider(format!("worker_okr schema: {e}")))?;

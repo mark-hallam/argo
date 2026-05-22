@@ -59,12 +59,8 @@ pub struct ArchiveRow {
 /// entry point so callers don't have to coordinate with the global
 /// migration runner.
 pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
-    for stmt in WORKER_ARCHIVE_SCHEMA.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
+    for sql in crate::migrations::split_sql_statements(WORKER_ARCHIVE_SCHEMA) {
+        sqlx::query(&sql)
             .execute(pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("worker_archive schema: {e}")))?;
@@ -418,12 +414,8 @@ async fn ensure_audit_tombstone_column(pool: &SqlitePool) -> ArgoResult<()> {
     if exists {
         return Ok(());
     }
-    for stmt in AUDIT_TOMBSTONE_SCHEMA.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
+    for sql in crate::migrations::split_sql_statements(AUDIT_TOMBSTONE_SCHEMA) {
+        sqlx::query(&sql)
             .execute(pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("audit_worker_deleted_at: {e}")))?;

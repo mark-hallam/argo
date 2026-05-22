@@ -82,6 +82,9 @@ mod registry_compliance;
 mod registry_skills;
 mod registry_workers;
 mod registry_workflow;
+mod splitter;
+
+pub(crate) use splitter::split_sql_statements;
 
 use argo_types::ArgoError;
 use sqlx::{Pool, Sqlite};

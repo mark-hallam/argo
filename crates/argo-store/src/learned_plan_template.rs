@@ -171,12 +171,8 @@ pub struct LearnedPlanTemplateFilters {
 /// every entry point so callers don't have to coordinate with the
 /// global migration runner.
 pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
-    for stmt in LEARNED_PLAN_TEMPLATE_SCHEMA.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
+    for sql in crate::migrations::split_sql_statements(LEARNED_PLAN_TEMPLATE_SCHEMA) {
+        sqlx::query(&sql)
             .execute(pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("learned_plan_template schema: {e}")))?;

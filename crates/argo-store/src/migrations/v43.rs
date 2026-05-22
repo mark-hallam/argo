@@ -20,12 +20,8 @@ use sqlx::Sqlite;
 const V43_UP_SQL: &str = include_str!("../../migrations/47__skill_canary.sql");
 
 pub(super) async fn up<'a, 'b>(tx: &'a mut sqlx::Transaction<'b, Sqlite>) -> Result<(), ArgoError> {
-    for stmt in V43_UP_SQL.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
+    for sql in super::split_sql_statements(V43_UP_SQL) {
+        sqlx::query(&sql)
             .execute(&mut **tx)
             .await
             .map_err(|e| ArgoError::Provider(format!("v43 up: {e}")))?;

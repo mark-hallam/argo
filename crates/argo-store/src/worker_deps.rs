@@ -141,12 +141,8 @@ impl Direction {
 
 /// Apply the dep schema idempotently. Safe to call from every entry point.
 pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
-    for stmt in WORKER_DEPENDENCY_SCHEMA.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
+    for sql in crate::migrations::split_sql_statements(WORKER_DEPENDENCY_SCHEMA) {
+        sqlx::query(&sql)
             .execute(pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("worker_dependency schema: {e}")))?;
