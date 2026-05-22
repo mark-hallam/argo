@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T13:03:00Z",
+  "last_run_utc": "2026-05-22T13:23:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-60-cron-fired",
-  "run_notes": "Tick 60 (cron-fired) — quiet tick. New claim: PID 54702 on `mission-cross-tenant-test-audit-export` (one of the 3 cross-tenant rows added in tick-59 — replenishment paying off). Other active: PID 30967 on `claude-followup-pr-2021-test-run-gateway-persist` (state SN, log 4m old — under threshold, healthy). #2045 still open at 39m since SUPERSEDED comment — worker hasn't self-closed; protocol says wait for the 24h escalation rather than auto-close. Queue: 3 TODO / 2 CLAIMED / 1 IN_REVIEW / 1 open PR (#2045). Tick 60 is also the auto-expiry checkpoint — cron 5ffcb613 set to expire after 7 days (2026-05-29) per CronCreate default."
+  "session_label": "anthropic-claude-code-conductor-tick-61-cron-fired",
+  "run_notes": "Tick 61 (cron-fired) — quiet tick. No new PRs since tick-60. Both active workers healthy mid-tool-use: PID 30967 (claude-followup-pr-2021-test-run-gateway-persist) + PID 54702 (mission-cross-tenant-test-audit-export). No zombies above threshold. #2045 (superseded duplicate) open at 59m since SUPERSEDED comment — still well under any escalation window. Queue: 3 TODO / 2 CLAIMED / 1 IN_REVIEW / 1 open PR."
 }
