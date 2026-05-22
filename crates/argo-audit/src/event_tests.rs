@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 60);
+    assert_eq!(AuditKind::all().len(), 63);
 }
 
 #[test]
@@ -343,6 +343,37 @@ fn journey_event_kinds_round_trip_and_listed() {
         ("cron_job_created", AuditKind::CronJobCreated),
         ("cron_job_deleted", AuditKind::CronJobDeleted),
         ("cron_job_fired", AuditKind::CronJobFired),
+    ];
+    for (label, kind) in kinds {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+    }
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    for (label, _) in kinds {
+        assert!(labels.contains(&label), "missing {label}: {labels:?}");
+    }
+}
+
+#[test]
+fn workplace_knowledge_doc_kinds_round_trip_and_listed() {
+    // Stream `mission-workplace-knowledge-audit-kinds` — wiki doc
+    // lifecycle (create / update / delete) promoted out of the
+    // generic `HttpRequest` bucket so design-doc §7 Pillar 1
+    // (`SELECT kind, payload FROM audit_record WHERE kind =
+    // 'workplace_knowledge.doc.updated'`) works against named rows.
+    let kinds = [
+        (
+            "workplace_knowledge.doc.created",
+            AuditKind::WorkplaceKnowledgeDocCreated,
+        ),
+        (
+            "workplace_knowledge.doc.updated",
+            AuditKind::WorkplaceKnowledgeDocUpdated,
+        ),
+        (
+            "workplace_knowledge.doc.deleted",
+            AuditKind::WorkplaceKnowledgeDocDeleted,
+        ),
     ];
     for (label, kind) in kinds {
         assert_eq!(AuditKind::from_label(label), Some(kind));

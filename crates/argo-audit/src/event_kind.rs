@@ -367,4 +367,34 @@ pub enum AuditKind {
     /// `genesis.fallback_used` row in the same request means the
     /// gateway draft served cleanly.
     GenesisFallbackUsed,
+    /// A workplace-knowledge wiki doc was created via the gateway
+    /// (`mission-workplace-knowledge-audit-kinds`, design doc §3.3,
+    /// §7 Pillar 1). The substrate (`argo-workplace-knowledge`) holds
+    /// the versioned doc tree; this audit row gives `argo audit show`
+    /// and the operator audit feed a first-class kind to filter on
+    /// instead of the generic `HttpRequest` bucket. Emission lives in
+    /// the gateway wiki brief (sibling Wave-A brief 3); this brief
+    /// only makes the variant exist. Payload (per the emission brief):
+    /// `{ actor, tenant_id, workspace_id, slug, version, created_by,
+    /// created_at }`.
+    WorkplaceKnowledgeDocCreated,
+    /// A workplace-knowledge wiki doc was updated via the gateway
+    /// (`mission-workplace-knowledge-audit-kinds`, design doc §3.3,
+    /// §7 Pillar 1 acceptance — `SELECT kind, payload FROM
+    /// audit_record WHERE kind = 'workplace_knowledge.doc.updated'`
+    /// returns rows with the diff in payload after every edit). Pairs
+    /// with [`Self::WorkplaceKnowledgeDocCreated`] /
+    /// [`Self::WorkplaceKnowledgeDocDeleted`] for full lifecycle
+    /// coverage. Payload (per the emission brief): `{ actor,
+    /// tenant_id, workspace_id, slug, prev_version, new_version, diff,
+    /// updated_by, updated_at }`.
+    WorkplaceKnowledgeDocUpdated,
+    /// A workplace-knowledge wiki doc was deleted (soft-delete /
+    /// tombstoned) via the gateway
+    /// (`mission-workplace-knowledge-audit-kinds`). The substrate
+    /// retains the historical versions for audit; the audit row marks
+    /// the lifecycle transition. Payload (per the emission brief):
+    /// `{ actor, tenant_id, workspace_id, slug, last_version,
+    /// deleted_by, deleted_at }`.
+    WorkplaceKnowledgeDocDeleted,
 }

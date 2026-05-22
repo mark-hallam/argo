@@ -74,6 +74,9 @@ impl AuditKind {
             Self::WorkspaceMemberJoined => "workspace.member.joined",
             Self::LogoutCalled => "auth.logout",
             Self::GenesisFallbackUsed => "genesis.fallback_used",
+            Self::WorkplaceKnowledgeDocCreated => "workplace_knowledge.doc.created",
+            Self::WorkplaceKnowledgeDocUpdated => "workplace_knowledge.doc.updated",
+            Self::WorkplaceKnowledgeDocDeleted => "workplace_knowledge.doc.deleted",
         }
     }
 
@@ -143,6 +146,9 @@ impl AuditKind {
             "workspace.member.joined" => Self::WorkspaceMemberJoined,
             "auth.logout" => Self::LogoutCalled,
             "genesis.fallback_used" => Self::GenesisFallbackUsed,
+            "workplace_knowledge.doc.created" => Self::WorkplaceKnowledgeDocCreated,
+            "workplace_knowledge.doc.updated" => Self::WorkplaceKnowledgeDocUpdated,
+            "workplace_knowledge.doc.deleted" => Self::WorkplaceKnowledgeDocDeleted,
             _ => return None,
         })
     }
@@ -212,6 +218,9 @@ impl AuditKind {
             Self::WorkspaceMemberJoined,
             Self::LogoutCalled,
             Self::GenesisFallbackUsed,
+            Self::WorkplaceKnowledgeDocCreated,
+            Self::WorkplaceKnowledgeDocUpdated,
+            Self::WorkplaceKnowledgeDocDeleted,
         ];
         v.sort_by_key(|k| k.label());
         v
