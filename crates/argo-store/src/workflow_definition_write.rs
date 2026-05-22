@@ -5,9 +5,19 @@
 //! `codex-loc-budget-followup-wave3`). Re-exported from
 //! [`crate::workflow_definition`] so callers keep the same path.
 
-use crate::workflow_definition::{WorkflowDefinitionId, WorkflowLifecycleState};
+use crate::workflow_definition::{
+    WorkflowDefinitionError, WorkflowDefinitionId, WorkflowLifecycleState,
+};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use sqlx::{Pool, Row, Sqlite};
+
+/// Sqlite-specific UNIQUE-constraint detector. SQLite surfaces unique
+/// failures as extended-result-code 2067 (SQLITE_CONSTRAINT_UNIQUE) or
+/// 1555 (SQLITE_CONSTRAINT_PRIMARYKEY). Matches the pattern in
+/// `service_token_binding::is_unique_violation`.
+fn is_unique_violation(err: &dyn sqlx::error::DatabaseError) -> bool {
+    err.code().is_some_and(|c| c == "2067" || c == "1555")
+}
 
 /// Insert a new version row. Computes `MAX(version) + 1` per
 /// `(tenant_id, vertical_id, name)` so callers do not have to pass
@@ -26,21 +36,24 @@ pub async fn create(
     definition_toml: &str,
     parent_id: Option<WorkflowDefinitionId>,
     modified_by: &str,
-) -> ArgoResult<WorkflowDefinitionId> {
+) -> Result<WorkflowDefinitionId, WorkflowDefinitionError> {
     if vertical_id.is_empty() {
         return Err(ArgoError::Schema(
             "workflow_definition: vertical_id must not be empty".into(),
-        ));
+        )
+        .into());
     }
     if name.is_empty() {
         return Err(ArgoError::Schema(
             "workflow_definition: name must not be empty".into(),
-        ));
+        )
+        .into());
     }
     if modified_by.is_empty() {
         return Err(ArgoError::Schema(
             "workflow_definition: modified_by must not be empty".into(),
-        ));
+        )
+        .into());
     }
     argo_vertical::parse_workflow(definition_toml)?;
 
@@ -59,7 +72,7 @@ pub async fn create(
     let id = WorkflowDefinitionId::new();
     let created_at = chrono::Utc::now().to_rfc3339();
     let parent_id_str: Option<String> = parent_id.as_ref().map(|p| p.0.clone());
-    sqlx::query(
+    let res = sqlx::query(
         "INSERT INTO workflow_definition \
             (id, tenant_id, vertical_id, name, definition_toml, version, \
              parent_id, lifecycle_state, created_at, modified_by) \
@@ -76,9 +89,22 @@ pub async fn create(
     .bind(&created_at)
     .bind(modified_by)
     .execute(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("workflow_definition insert: {e}")))?;
-    Ok(id)
+    .await;
+    match res {
+        Ok(_) => Ok(id),
+        // Concurrent inserts on the same `(tenant, vertical, name)`
+        // triple both compute `MAX(version) + 1` and race on the
+        // UNIQUE(tenant_id, vertical_id, name, version) constraint —
+        // the loser surfaces here. The gateway maps this branch to
+        // `409 Conflict`; other sqlx errors stay `500`.
+        Err(sqlx::Error::Database(db_err)) if is_unique_violation(&*db_err) => {
+            Err(WorkflowDefinitionError::UniqueViolation {
+                vertical: vertical_id.to_string(),
+                name: name.to_string(),
+            })
+        }
+        Err(e) => Err(ArgoError::Provider(format!("workflow_definition insert: {e}")).into()),
+    }
 }
 
 /// Promote `id` to head for its `(tenant, vertical, name)` triple.

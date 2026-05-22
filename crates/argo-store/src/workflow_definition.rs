@@ -69,6 +69,39 @@ mod workflow_definition_write;
 pub use workflow_definition_read::{get, get_head, list_versions};
 pub use workflow_definition_write::{archive, create, rollback_to, set_head};
 
+/// Error type for [`create`]. Wraps [`ArgoError`] for the general case
+/// and carries a typed [`Self::UniqueViolation`] variant so the gateway
+/// can map a `(tenant, vertical, name, version)` UNIQUE-constraint race
+/// to `409 Conflict` with the colliding triple in the body, instead of
+/// the generic `500 Internal Server Error` that a stringly-typed
+/// `ArgoError::Provider` would surface.
+///
+/// Lossy `From<WorkflowDefinitionError> for ArgoError` is intentionally
+/// not provided — callers that need the typed branch must match
+/// directly. The handler in
+/// `crates/argo-cli/src/handlers/gateway/routes_workflows_handlers.rs`
+/// is the sole production consumer.
+#[derive(Debug, thiserror::Error)]
+pub enum WorkflowDefinitionError {
+    /// Concurrent inserts on the same `(tenant_id, vertical_id, name)`
+    /// triple both computed the same `MAX(version) + 1` and the loser
+    /// of the race tripped the SQLite UNIQUE constraint. The fields
+    /// echo back the colliding namespace so the gateway can render a
+    /// useful 409 body.
+    #[error("workflow already exists: vertical={vertical}, name={name}")]
+    UniqueViolation {
+        /// Vertical id that was being written.
+        vertical: String,
+        /// Workflow name that was being written.
+        name: String,
+    },
+    /// Any other error path — schema validation, sqlx I/O, invariant
+    /// breach — pre-existing call sites in this crate still surface
+    /// through this transparent wrapper.
+    #[error(transparent)]
+    Argo(#[from] ArgoError),
+}
+
 /// Strongly-typed handle for a single `workflow_definition` row.
 /// Wraps a UUID so the stored TEXT id is opaque to callers; the
 /// underlying string form is reachable via [`Self::as_str`].

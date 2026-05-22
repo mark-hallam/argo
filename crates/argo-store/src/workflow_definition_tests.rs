@@ -393,7 +393,83 @@ async fn create_rejects_malformed_toml() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, ArgoError::Schema(_)),
-        "malformed TOML must surface as ArgoError::Schema, got {err:?}"
+        matches!(err, WorkflowDefinitionError::Argo(ArgoError::Schema(_))),
+        "malformed TOML must surface as Schema, got {err:?}"
+    );
+}
+
+#[tokio::test]
+async fn concurrent_create_surfaces_typed_unique_violation() {
+    // Brief `claude-workflow-create-unique-collision-as-409`:
+    // evaluator round-7 saw concurrent POSTs collide on the
+    // `UNIQUE(tenant_id, vertical_id, name, version)` constraint and
+    // the loser surfaced as a generic 500 instead of a typed conflict.
+    // Spawn N writers behind a barrier so the SELECT MAX + INSERT
+    // race-window opens for every racer simultaneously; at least one
+    // must surface the typed [`WorkflowDefinitionError::UniqueViolation`]
+    // carrying the colliding `(vertical, name)`.
+    use std::sync::Arc;
+    use tokio::sync::Barrier;
+
+    let pool = fresh_pool().await;
+    let tenant = TenantId::new();
+    let toml = sample_toml("flow");
+
+    const N: usize = 8;
+    let barrier = Arc::new(Barrier::new(N));
+    let mut handles = Vec::with_capacity(N);
+    for i in 0..N {
+        let pool = pool.clone();
+        let toml = toml.clone();
+        let barrier = barrier.clone();
+        let actor = format!("user-{i}");
+        handles.push(tokio::spawn(async move {
+            barrier.wait().await;
+            create(&pool, tenant, "ops", "flow", &toml, None, &actor).await
+        }));
+    }
+    let mut results = Vec::with_capacity(N);
+    for h in handles {
+        results.push(h.await.expect("join"));
+    }
+
+    let success_count = results.iter().filter(|r| r.is_ok()).count();
+    let collision_count = results
+        .iter()
+        .filter(|r| matches!(r, Err(WorkflowDefinitionError::UniqueViolation { .. })))
+        .count();
+    let other_error_count = results
+        .iter()
+        .filter(|r| matches!(r, Err(WorkflowDefinitionError::Argo(_))))
+        .count();
+
+    assert_eq!(
+        other_error_count, 0,
+        "concurrent inserts must not surface as untyped Argo errors: {results:?}"
+    );
+    assert!(
+        success_count >= 1,
+        "at least one writer must win the race"
+    );
+    assert!(
+        collision_count >= 1,
+        "expected at least one UniqueViolation among {N} concurrent creators; got {success_count} successes"
+    );
+    for r in &results {
+        if let Err(WorkflowDefinitionError::UniqueViolation { vertical, name }) = r {
+            assert_eq!(vertical, "ops", "vertical echoed back verbatim");
+            assert_eq!(name, "flow", "name echoed back verbatim");
+        }
+    }
+
+    let row_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM workflow_definition WHERE name = ?")
+            .bind("flow")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        row_count as usize, success_count,
+        "persisted row count must equal success count (no orphan writes on collision path)"
     );
 }

@@ -4,7 +4,8 @@
 //! this file owns the DB + audit work for every accepted route.
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::workflow_definition::{
-    self as wd, WorkflowDefinition, WorkflowDefinitionId, WorkflowLifecycleState,
+    self as wd, WorkflowDefinition, WorkflowDefinitionError, WorkflowDefinitionId,
+    WorkflowLifecycleState,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -177,11 +178,32 @@ pub(super) async fn create_version(
             });
             ("201 Created", body.to_string())
         }
-        Err(ArgoError::Schema(msg)) => {
+        Err(WorkflowDefinitionError::UniqueViolation { vertical, name }) => {
+            collision_conflict_response(&vertical, &name)
+        }
+        Err(WorkflowDefinitionError::Argo(ArgoError::Schema(msg))) => {
             super::routes_workflows::bad_request(&format!("parse workflow toml: {msg}"))
         }
-        Err(e) => super::routes_workflows::internal(&format!("create workflow version: {e}")),
+        Err(WorkflowDefinitionError::Argo(e)) => {
+            super::routes_workflows::internal(&format!("create workflow version: {e}"))
+        }
     }
+}
+
+/// 409 emitted when two POSTs to
+/// `/api/v1/verticals/{vertical}/workflows/{name}` race on the
+/// SQLite `UNIQUE(tenant_id, vertical_id, name, version)` constraint
+/// (evaluator round-7 P2 finding — see
+/// `claude-workflow-create-unique-collision-as-409`). The body echoes
+/// the colliding triple so the SPA can render
+/// "{name} already exists in {vertical}" without re-fetching.
+fn collision_conflict_response(vertical: &str, name: &str) -> (&'static str, String) {
+    let body = json!({
+        "error": "workflow already exists",
+        "vertical": vertical,
+        "name": name,
+    });
+    ("409 Conflict", body.to_string())
 }
 
 fn conflict_response(

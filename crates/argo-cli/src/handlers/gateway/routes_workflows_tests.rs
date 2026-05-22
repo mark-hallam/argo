@@ -186,3 +186,65 @@ async fn save_draft_with_stale_if_version_returns_409_with_current_head() {
         .expect("list versions");
     assert_eq!(versions.len(), 2, "conflict must not insert a new draft");
 }
+
+#[tokio::test]
+async fn concurrent_create_handler_returns_201_and_409_not_500() {
+    // Brief `claude-workflow-create-unique-collision-as-409` — evaluator
+    // round-7 caught the gateway returning `500 Internal Server Error`
+    // for the loser of a concurrent-create race instead of the canonical
+    // `409 Conflict`. Spawn N concurrent handler invocations behind a
+    // barrier so the SELECT MAX + INSERT race opens for every racer;
+    // assert no `5xx` slips through and that the 409 body names the
+    // colliding triple per the brief's contract.
+    use tokio::sync::Barrier;
+
+    let store = SessionStore::open(":memory:").await.expect("open mem db");
+    store.migrate().await.expect("migrate");
+    let store = Arc::new(store);
+    let tenant = TenantId::new();
+
+    const N: usize = 8;
+    let barrier = Arc::new(Barrier::new(N));
+    let mut handles = Vec::with_capacity(N);
+    for i in 0..N {
+        let store = Arc::clone(&store);
+        let barrier = Arc::clone(&barrier);
+        let actor = format!("actor-{i}");
+        handles.push(tokio::spawn(async move {
+            barrier.wait().await;
+            hh::create_version(&store, tenant, VERTICAL, WORKFLOW, TOML_V1, &actor, None).await
+        }));
+    }
+    let mut resps = Vec::with_capacity(N);
+    for h in handles {
+        resps.push(h.await.expect("join"));
+    }
+
+    let mut got_201 = false;
+    let mut got_409 = false;
+    for (status, body) in &resps {
+        assert!(
+            !status.starts_with("5"),
+            "no 5xx on concurrent create: {status} {body}"
+        );
+        if status.starts_with("201") {
+            got_201 = true;
+        } else if status.starts_with("409") {
+            got_409 = true;
+            let parsed: Value = serde_json::from_str(body).expect("parse 409 body");
+            assert_eq!(
+                parsed["error"], "workflow already exists",
+                "409 body shape: {body}"
+            );
+            assert_eq!(parsed["vertical"], VERTICAL, "vertical in body: {body}");
+            assert_eq!(parsed["name"], WORKFLOW, "name in body: {body}");
+        } else {
+            panic!("unexpected status from concurrent create: {status} {body}");
+        }
+    }
+    assert!(got_201, "at least one 201 expected: {resps:?}");
+    assert!(
+        got_409,
+        "at least one 409 expected (collision must surface as Conflict, not 500): {resps:?}"
+    );
+}
