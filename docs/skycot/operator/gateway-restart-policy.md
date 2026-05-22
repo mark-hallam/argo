@@ -1,7 +1,64 @@
 # Gateway restart policy — decision doc
 
 **Authored against**: `origin/main` `209a15e11` on `2026-05-22`.
-**Status**: SPEC — pending operator pick. Implementation is a follow-up brief.
+**Status**: SPEC — Option B picked. Runnable counterpart shipped via
+`mission-gateway-restart-executable-runbook` (see *Quick reference*
+below).
+
+## Quick reference
+
+When the conductor tick prompt flags `🔴 GATEWAY STALE — live vN, code
+vM`, run:
+
+```
+$ make restart-live-gateway
+[1/8] Capturing old gateway PID + pre-restart schema_version...
+      found gateway pid=28198 listening on 127.0.0.1:7400
+      pre-restart schema_version=70 (expected 77)
+[2/8] Comparing live schema_version against EXPECTED_SCHEMA_VERSION...
+[3/8] May briefly interrupt active integration tests.
+      Press Ctrl-C within 5s to abort...
+[4/8] SIGTERM pid=28198 (10s grace)...
+      pid 28198 exited after 2s
+[5/8] Checking whether the release binary needs a rebuild...
+      built-from 4a1c... != HEAD 8683d... — will build.
+      running: cargo build --release --bin argo
+[6/8] Launching /tmp/argo-shared-target/release/argo gateway start ...
+[7/8] Polling http://127.0.0.1:7400/readyz up to 30s...
+      /readyz returned 200 after 12s
+[8/8] Confirming new schema_version >= EXPECTED_SCHEMA_VERSION...
+✅ Gateway live at schema_version 77 (was 70).
+```
+
+Underlying script: [`scripts/restart-live-gateway.sh`](../../../scripts/restart-live-gateway.sh).
+Smoke tests: `make test-restart-live-gateway` (stopped / current /
+stale scenarios, ~10s).
+
+**Flags**:
+
+- `make restart-live-gateway NO_PROMPT=1` — skip the 5s warning (for
+  cron-driven invocation later).
+- `make restart-live-gateway PORT=7500` — non-default port.
+- `make restart-live-gateway HOST=127.0.0.1` — non-default host.
+
+**Common scenarios**:
+
+| State                                  | What the script does                                |
+| -------------------------------------- | --------------------------------------------------- |
+| no gateway running                     | builds-if-stale, launches detached, polls `/readyz` |
+| running + already at EXPECTED          | no-op + reports "already at schema_version N"       |
+| running + stale schema_version         | SIGTERM (10s) → SIGKILL → build-if-stale → relaunch |
+| binary missing or HEAD has advanced    | runs `cargo build --release --bin argo` first      |
+
+**Binary-path footgun**: the script uses
+`${CARGO_TARGET_DIR:-./target}/release/argo`. This matches the swarm
+default of `CARGO_TARGET_DIR=/tmp/argo-shared-target`; without that
+env var it falls back to `./target/release/argo`. Do not hardcode
+either path in operator runbooks — use `make restart-live-gateway`.
+
+**Exit codes**: 0 on success or no-op; non-zero on any step failure
+with a clear diagnostic on stderr. The script never returns 0 on a
+half-finished restart — the schema_version check is the final gate.
 
 ## The gap, in one paragraph
 
