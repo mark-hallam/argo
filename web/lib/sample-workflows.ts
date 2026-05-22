@@ -8,7 +8,14 @@
  *
  * Shape matches `WorkflowSummary` / `WorkflowSpec` in
  * `lib/api/workflows.ts` so the swap from live → mock is mechanical.
+ * `httpRequest` / `code` config re-uses the canonical builder types
+ * so sample → builder hand-off is exact (round-trip in tests).
  */
+import type {
+  CodeConfig,
+  HttpRequestConfig,
+} from "@/app/(app)/workflows/[verticalId]/[name]/build/types";
+
 export type WorkflowStepKind =
   | "trigger"
   | "skill_invoke"
@@ -16,7 +23,9 @@ export type WorkflowStepKind =
   | "tool_call"
   | "notify"
   | "decision"
-  | "data";
+  | "data"
+  | "http_request"
+  | "code";
 
 export interface WorkflowStep {
   id: string;
@@ -26,6 +35,8 @@ export interface WorkflowStep {
   approvalGate?: { reason: string; channel: string };
   inputs?: string[];
   outputs?: string[];
+  httpRequest?: HttpRequestConfig;
+  code?: CodeConfig;
 }
 
 export type WorkflowRisk = "approval-required" | "autonomous";
@@ -82,16 +93,6 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     risk: "approval-required",
   },
   {
-    name: "extract_invoice",
-    vertical: "finance",
-    description: "Pull line items from PDF/scanned invoices, reconcile vendor.",
-    steps: 4,
-    versions: 1,
-    lastEdited: "12 hours ago",
-    lastEditor: "Sam",
-    risk: "autonomous",
-  },
-  {
     name: "qualify_lead",
     vertical: "sales",
     description:
@@ -113,25 +114,26 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     risk: "autonomous",
   },
   {
-    name: "exit_interview_synth",
-    vertical: "people-ops",
-    description: "Quarterly synthesis of exit-interview transcripts into a retention report.",
+    name: "morning_pipeline_digest",
+    vertical: "sales",
+    description:
+      "Pull yesterday's deals from the CRM via API, summarise the headline numbers, post to Slack.",
     steps: 3,
     versions: 2,
-    lastEdited: "yesterday",
-    lastEditor: "Priya",
-    risk: "approval-required",
+    lastEdited: "1 hour ago",
+    lastEditor: "Rio",
+    risk: "autonomous",
   },
   {
-    name: "draft_status_report",
-    vertical: "marketing",
+    name: "clean_customer_list",
+    vertical: "finance",
     description:
-      "Weekly client status report — campaign perf + content shipped + next-week asks.",
-    steps: 4,
-    versions: 3,
-    lastEdited: "12 minutes ago",
-    lastEditor: "Nori",
-    risk: "approval-required",
+      "Take a messy CSV of customer names, run a short JavaScript step to title-case and dedupe, write the cleaned file back.",
+    steps: 3,
+    versions: 1,
+    lastEdited: "20 minutes ago",
+    lastEditor: "Sam",
+    risk: "autonomous",
   },
 ];
 
@@ -215,43 +217,6 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       },
     ],
   },
-  "finance/extract_invoice": {
-    name: "extract_invoice",
-    vertical: "finance",
-    description:
-      "Pull line items from PDF or scanned invoices, reconcile vendor against QuickBooks / Xero / NetSuite, flag exceptions.",
-    version: "v1",
-    risk: "autonomous",
-    steps: [
-      {
-        id: "step-1",
-        kind: "trigger",
-        name: "Invoice email arrives in AP inbox",
-        description: "ap@yourcompany.com forwarded mail or vendor portal upload.",
-      },
-      {
-        id: "step-2",
-        kind: "skill_invoke",
-        name: "OCR + line-item extraction",
-        description:
-          "Skill `invoice.extract` runs OCR + structured extraction. Outputs vendor, line items, total, tax.",
-        outputs: ["vendor_id", "line_items[]", "total", "tax", "due_date"],
-      },
-      {
-        id: "step-3",
-        kind: "tool_call",
-        name: "Reconcile against PO + vendor data",
-        description:
-          "QuickBooks / Xero / NetSuite match. Flag discrepancy if line item differs from PO by >5%.",
-      },
-      {
-        id: "step-4",
-        kind: "decision",
-        name: "Auto-approve or flag for review",
-        description: "Match clean → auto-approve. Discrepancy → flag for AP human review.",
-      },
-    ],
-  },
   "support/approve_refund": {
     name: "approve_refund",
     vertical: "support",
@@ -297,76 +262,92 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       },
     ],
   },
-  "people-ops/exit_interview_synth": {
-    name: "exit_interview_synth",
-    vertical: "people-ops",
+  "sales/morning_pipeline_digest": {
+    name: "morning_pipeline_digest",
+    vertical: "sales",
     description:
-      "Combine exit-interview transcripts into a confidential quarterly report flagging retention patterns.",
+      "Every weekday morning, pull yesterday's pipeline movement from your CRM API, summarise the headline numbers, post to Slack.",
     version: "v2",
-    risk: "approval-required",
+    risk: "autonomous",
     steps: [
       {
         id: "step-1",
         kind: "trigger",
-        name: "Quarterly cron + transcripts uploaded",
-        description:
-          "Calendar-triggered; pulls all signed exit-interview transcripts from the secure store.",
+        name: "Weekday 8am cron",
+        description: "Fires Monday–Friday at 8am client-local-time.",
       },
       {
         id: "step-2",
-        kind: "skill_invoke",
-        name: "Pattern-extract across cohort",
+        kind: "http_request",
+        name: "Fetch yesterday's deals from HubSpot",
         description:
-          "Skill `feedback.synthesize` finds themes (manager, compensation, growth, culture) without naming individuals.",
+          "GET the deals that moved stage in the last 24 hours. Bearer-token auth, 15 second timeout.",
+        outputs: ["deals[]"],
+        httpRequest: {
+          method: "GET",
+          url: "https://api.hubspot.com/crm/v3/objects/deals?updatedSince=24h",
+          headers: [{ key: "Accept", value: "application/json" }],
+          body: "",
+          auth: "bearer",
+          authToken: "{{secret.hubspot_token}}",
+          authUsername: "",
+          authPassword: "",
+          authHeaderName: "",
+          authHeaderValue: "",
+          timeoutSeconds: 15,
+        },
       },
       {
         id: "step-3",
-        kind: "approval",
-        name: "Chief People Officer approves the synthesis",
-        description: "Confidential synthesis goes to CPO for review before exec circulation.",
-        approvalGate: {
-          reason: "Exit-interview synthesis is sensitive — CPO eyes-only before exec share.",
-          channel: "Email",
-        },
+        kind: "skill_invoke",
+        name: "Summarise + post to #sales",
+        description:
+          "Skill `pipeline.summarise` writes 3 bullet points (won / lost / stuck) and posts to Slack.",
       },
     ],
   },
-  "marketing/draft_status_report": {
-    name: "draft_status_report",
-    vertical: "marketing",
+  "finance/clean_customer_list": {
+    name: "clean_customer_list",
+    vertical: "finance",
     description:
-      "Weekly client status report: campaign performance, content shipped, asks for next week.",
-    version: "v3",
-    risk: "approval-required",
+      "Take a messy CSV of customer names, run a short JavaScript step to title-case and dedupe, write the cleaned file back.",
+    version: "v1",
+    risk: "autonomous",
     steps: [
       {
         id: "step-1",
         kind: "trigger",
-        name: "Friday 9am cron",
-        description: "Fires every Friday at 9am client-local-time.",
+        name: "CSV dropped into the inbox",
+        description: "Drag-drop a CSV into the finance inbox, or arrive via email attachment.",
+        inputs: ["rows[]"],
       },
       {
         id: "step-2",
-        kind: "skill_invoke",
-        name: "Pull campaign + content KPIs",
-        description: "Google Analytics, Meta Ads, LinkedIn Campaign Manager.",
+        kind: "code",
+        name: "Title-case names + dedupe",
+        description:
+          "A few lines of JavaScript: trim whitespace, title-case each name, drop exact duplicates.",
+        outputs: ["cleaned_rows[]"],
+        code: {
+          language: "javascript",
+          code: [
+            "const seen = new Set();",
+            "const clean = (s) => s.trim().toLowerCase().replace(/\\b\\w/g, (c) => c.toUpperCase());",
+            "return input.rows",
+            "  .map((row) => ({ ...row, name: clean(row.name) }))",
+            "  .filter((row) => {",
+            "    if (seen.has(row.name)) return false;",
+            "    seen.add(row.name);",
+            "    return true;",
+            "  });",
+          ].join("\n"),
+        },
       },
       {
         id: "step-3",
-        kind: "skill_invoke",
-        name: "Draft in client's brand voice",
-        description:
-          "Skill `narrative.compose` writes the report in the client's voice (length, tone, vocabulary all match prior drafts).",
-      },
-      {
-        id: "step-4",
-        kind: "approval",
-        name: "Account director approves",
-        description: "Slack DM with the draft + one-tap edit / send.",
-        approvalGate: {
-          reason: "Client-facing reports go out under the account director's signature.",
-          channel: "Slack",
-        },
+        kind: "data",
+        name: "Write cleaned CSV back",
+        description: "Saves to /finance/cleaned/ with the date appended to the filename.",
       },
     ],
   },

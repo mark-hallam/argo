@@ -6,7 +6,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useState } from "react";
 import {
   ArrowLeft,
+  Code2,
   GitBranch,
+  Globe,
   Play,
   Pencil,
   CheckCircle2,
@@ -44,6 +46,8 @@ const STEP_KIND_META: Record<
   notify: { icon: <MessageSquare size={14} />, color: "#ec4899", label: "Notify" },
   decision: { icon: <GitBranch size={14} />, color: "#6366f1", label: "Decision" },
   data: { icon: <Database size={14} />, color: "#52525b", label: "Data" },
+  http_request: { icon: <Globe size={14} />, color: "#0891b2", label: "HTTP request" },
+  code: { icon: <Code2 size={14} />, color: "#3b82f6", label: "Code" },
 };
 
 export default function WorkflowDetailPage({
