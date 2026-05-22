@@ -137,6 +137,17 @@ export interface HireWorkerRequest {
   workerDraft: WorkerDraft;
   problem: string;
   answers: Record<string, QuestionAnswer>;
+  /**
+   * `true` when the worker draft came from the local stub fallback
+   * (Step 3 Genesis call failed: 404 / malformed / 5xx / network).
+   * Forwarded to the gateway as `"genesis_fallback": true` so the
+   * hire handler can emit `AuditKind::GenesisFallbackUsed`, giving
+   * operators visibility in `/audit` when their workspace's Genesis
+   * is failing. Caller wiring (Step 4 → `hireWorker`) lands in a
+   * follow-up brief — this field stays optional so the gateway
+   * pass-through can ship without forcing all call sites to update.
+   */
+  genesisFallback?: boolean;
 }
 
 export interface HireWorkerResult {
@@ -242,12 +253,16 @@ async function postProxy<T>(path: string, body: unknown): Promise<T> {
  * emits camelCase there.
  */
 function buildHireBody(req: HireWorkerRequest): Record<string, unknown> {
-  const { workerDraft, problem, answers } = req;
-  return {
+  const { workerDraft, problem, answers, genesisFallback } = req;
+  const body: Record<string, unknown> = {
     worker_draft: workerDraft,
     problem,
     answers,
   };
+  if (genesisFallback) {
+    body.genesis_fallback = true;
+  }
+  return body;
 }
 
 export async function hireWorker(req: HireWorkerRequest): Promise<HireWorkerResult> {

@@ -363,6 +363,53 @@ async fn hire_handler_rejects_bad_json_400() {
 }
 
 #[tokio::test]
+async fn hire_with_genesis_fallback_emits_named_audit_row() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    reset_idem_cache_for_tests();
+    let store = mem_store().await;
+    let body = json!({
+        "worker_draft": valid_draft(),
+        "problem": "Need outbound follow-up across our weekly marketplace leads.",
+        "answers": {"role": "marketplace seller"},
+        "genesis_fallback": true,
+    })
+    .to_string();
+    let (status, _body) = hire_response(&hire_req(&body), Some(&store)).await;
+    assert_eq!(status, "201 Created");
+
+    let pool = store.pool();
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_record WHERE kind = 'genesis.fallback_used'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("count");
+    assert_eq!(count, 1, "expected exactly one genesis.fallback_used row");
+}
+
+#[tokio::test]
+async fn hire_without_genesis_fallback_emits_no_fallback_row() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    reset_idem_cache_for_tests();
+    let store = mem_store().await;
+    let (status, _body) = hire_response(&hire_req(&valid_body()), Some(&store)).await;
+    assert_eq!(status, "201 Created");
+
+    let pool = store.pool();
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_record WHERE kind = 'genesis.fallback_used'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("count");
+    assert_eq!(count, 0, "no fallback row should be emitted by default");
+}
+
+#[tokio::test]
 async fn hire_aggressive_policy_enables_auto_approval_on_row() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");

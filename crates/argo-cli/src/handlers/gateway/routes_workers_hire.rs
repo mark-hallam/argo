@@ -76,6 +76,10 @@ pub(super) async fn hire_response(
         Ok(d) => d,
         Err(msg) => return bad_request(msg),
     };
+    let genesis_fallback = parsed
+        .get("genesis_fallback")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let store = match store {
         Some(s) => s,
         None => return super::store_unavailable(),
@@ -126,6 +130,7 @@ pub(super) async fn hire_response(
         &problem,
         &answers,
         &draft,
+        genesis_fallback,
     )
     .await;
     (
@@ -253,6 +258,7 @@ pub(super) fn reset_idem_cache_for_tests() {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn emit_hire_audit(
     store: &std::sync::Arc<SessionStore>,
     tenant_id: TenantId,
@@ -261,6 +267,7 @@ async fn emit_hire_audit(
     problem: &str,
     answers: &Value,
     draft: &HireDraft,
+    genesis_fallback: bool,
 ) {
     let payload = json!({
         "endpoint": "workers.hire",
@@ -328,6 +335,35 @@ async fn emit_hire_audit(
             worker_id = %worker_id,
             "worker_hired audit write failed"
         );
+    }
+    // Stream `mission-genesis-fallback-audit-kind`: when the SPA tags
+    // the hire body with `"genesis_fallback": true`, the Step 3
+    // Genesis call fell back to the local stub draft. Emit a named
+    // row so operators can see Genesis-failure events directly in
+    // `/audit` without filtering on the generic HttpRequest payload.
+    if genesis_fallback {
+        let fallback_payload = json!({
+            "actor": principal_id,
+            "tenant_id": tenant_id.to_string(),
+            "worker_id": worker_id.to_string(),
+            "vertical_id": draft.suggested_vertical,
+        });
+        if let Err(e) = sink
+            .write(
+                None,
+                AuditKind::GenesisFallbackUsed,
+                fallback_payload,
+                Some(principal_id.to_string()),
+            )
+            .await
+        {
+            tracing::warn!(
+                target: "gateway::workers_hire",
+                error = %e,
+                worker_id = %worker_id,
+                "genesis_fallback_used audit write failed"
+            );
+        }
     }
 }
 

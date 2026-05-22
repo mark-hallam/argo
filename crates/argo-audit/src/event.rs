@@ -361,6 +361,20 @@ pub enum AuditKind {
     /// `jti: null` so the auth-funnel rollup can quantify the
     /// drain-on-exp cohort.
     LogoutCalled,
+    /// The SPA hire flow's Step 3 Genesis call fell back to the
+    /// local stub draft (404 / malformed / 5xx / network error) and
+    /// the hire commit was completed from that stub instead of a
+    /// gateway-served draft (`mission-genesis-fallback-audit-kind`).
+    /// The SPA tags the `POST /api/v1/workers` body with
+    /// `"genesis_fallback": true` when the draft came from the stub;
+    /// the gateway emits this row alongside the regular hire
+    /// `WorkerHired` row so operators can see in `/audit` when their
+    /// workspace's Genesis is failing. Payload:
+    /// `{ actor, tenant_id, worker_id, vertical_id }`. Pairs with
+    /// [`Self::WorkerHired`] — a hire row without an accompanying
+    /// `genesis.fallback_used` row in the same request means the
+    /// gateway draft served cleanly.
+    GenesisFallbackUsed,
 }
 
 impl AuditKind {
@@ -427,6 +441,7 @@ impl AuditKind {
             Self::WorkspaceMemberInvited => "workspace.member.invited",
             Self::WorkspaceMemberJoined => "workspace.member.joined",
             Self::LogoutCalled => "auth.logout",
+            Self::GenesisFallbackUsed => "genesis.fallback_used",
         }
     }
 
@@ -495,6 +510,7 @@ impl AuditKind {
             "workspace.member.invited" => Self::WorkspaceMemberInvited,
             "workspace.member.joined" => Self::WorkspaceMemberJoined,
             "auth.logout" => Self::LogoutCalled,
+            "genesis.fallback_used" => Self::GenesisFallbackUsed,
             _ => return None,
         })
     }
@@ -563,6 +579,7 @@ impl AuditKind {
             Self::WorkspaceMemberInvited,
             Self::WorkspaceMemberJoined,
             Self::LogoutCalled,
+            Self::GenesisFallbackUsed,
         ];
         v.sort_by_key(|k| k.label());
         v
