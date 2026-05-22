@@ -8,11 +8,38 @@ CLAUDE.md).
 
 - [ ] Next.js dev server running at http://localhost:3000
 - [ ] Gateway running at http://127.0.0.1:7400
+- [ ] **Gateway schema_version matches codebase** — see one-liner below
 - [ ] Disk has >50GiB free (cargo cache contention)
 - [ ] Browser zoomed to 100%
 - [ ] Microphone tested
 - [ ] No other apps in the visible window (close Slack notifications etc.)
 - [ ] /tmp/screen-recorder ready
+
+### Gateway schema_version matches codebase
+
+A gateway that's been running for days is silently missing every route added
+since it started. "Gateway up ✅" is necessary but not sufficient — confirm
+it's running against current code before recording, or you'll hit 404s on
+routes that exist in the code but not in the running process.
+
+Preferred (once `scripts/check-gateway-freshness.sh` lands via
+`mission-gateway-freshness-conductor-tick`):
+
+```bash
+bash scripts/check-gateway-freshness.sh
+```
+
+Expect `STATUS: FRESH (drift <= 2)`. On `STATUS: STALE` run
+`make restart-live-gateway` and re-check.
+
+Inline fallback if the script isn't available yet:
+
+```bash
+GATEWAY_VER=$(curl -s http://127.0.0.1:7400/health | jq -r .schema_version)
+CODE_VER=$(ls crates/argo-store/src/migrations/v*.rs | sort -V | tail -1 | grep -oE 'v[0-9]+')
+echo "gateway=$GATEWAY_VER codebase=$CODE_VER"
+[ "$GATEWAY_VER" = "$CODE_VER" ] || echo "⚠️  STALE — run: make restart-live-gateway"
+```
 
 ## Voiceover script (suggested)
 
