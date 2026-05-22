@@ -44,6 +44,7 @@ describe("lib/api/team", () => {
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
     delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE;
   });
 
   afterEach(() => {
@@ -61,7 +62,20 @@ describe("lib/api/team", () => {
     expect(result.workers).toEqual(payload);
   });
 
-  it("falls back to SAMPLE_TEAM mock when the gateway returns 404", async () => {
+  it("returns empty roster on 404 outside demo mode (fresh workspace empty state)", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 404,
+        body: { error: { code: "not_found", message: "no team endpoint" } },
+      }),
+    );
+    const result = await fetchTeam();
+    expect(result.source).toBe("gateway");
+    expect(result.workers).toEqual([]);
+  });
+
+  it("falls back to SAMPLE_TEAM mock on 404 when NEXT_PUBLIC_SKYCOT_DEMO_MODE=1", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
     installMock(() =>
       makeResponse({
         status: 404,

@@ -7,9 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MembersPage from "@/app/(app)/settings/members/page";
 import { CohortScopeDeniedEmptyState } from "@/components/skycot/CohortScopeDeniedEmptyState";
 
-// `fetchCohorts` falls back to `SAMPLE_COHORT_SUMMARIES` when the
-// network request fails (404 or TypeError). The vi.fn() global fetch
-// below returns undefined → TypeError → mock fallback fires.
+// `fetchCohorts` only returns `SAMPLE_COHORT_SUMMARIES` on
+// 404/TypeError when `NEXT_PUBLIC_SKYCOT_DEMO_MODE=1` is set — real
+// signed-in users get the fresh-workspace empty state. Stub the env
+// here so the cohort-chip assertions can drive against seeded data.
 
 function wrap(ui: ReactNode) {
   const client = new QueryClient({
@@ -19,10 +20,12 @@ function wrap(ui: ReactNode) {
 }
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
   global.fetch = vi.fn();
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.clearAllMocks();
 });
 

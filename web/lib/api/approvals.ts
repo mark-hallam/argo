@@ -35,6 +35,7 @@ import {
   type ApprovalItem,
   type ChannelKind,
 } from "@/lib/sample-approvals";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 export type DataSource = "live" | "mock-offline" | "mock-auth-bypass";
 
@@ -182,7 +183,13 @@ export async function fetchApprovals(): Promise<ApprovalsResult> {
     return { items: rows.map(rowToItem), source: "live" };
   } catch (err) {
     if (isMissingOrUnreachable(err)) {
-      return { items: SAMPLE_APPROVALS, source: "mock-offline" };
+      // Demo mode keeps the seeded SAMPLE_APPROVALS so the v1.0
+      // recorded walkthrough still plays back. Real signed-in users on
+      // a fresh workspace fall through to the empty inbox state.
+      if (isDemoMode()) {
+        return { items: SAMPLE_APPROVALS, source: "mock-offline" };
+      }
+      return { items: [], source: "live" };
     }
     throw err;
   }

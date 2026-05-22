@@ -23,6 +23,7 @@
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 import type { Worker } from "@/lib/types/worker";
 
 export type TeamDataSource = "gateway" | "mock-offline" | "mock-bypass";
@@ -61,7 +62,13 @@ export async function fetchTeam(): Promise<FetchTeamResult> {
     return { workers, source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
-      return { workers: SAMPLE_TEAM, source: "mock-offline" };
+      // Real signed-in users get an empty roster + the "hire your first
+      // teammate" empty state when the gateway endpoint isn't live yet.
+      // The mock fallback is reserved for the v1.0 recorded demo.
+      if (isDemoMode()) {
+        return { workers: SAMPLE_TEAM, source: "mock-offline" };
+      }
+      return { workers: [], source: "gateway" };
     }
     throw err;
   }

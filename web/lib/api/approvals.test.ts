@@ -125,13 +125,24 @@ describe("lib/api/approvals", () => {
     });
   });
 
-  it("falls back to mock dataset on 404 with source=mock-offline", async () => {
+  it("returns empty inbox on 404 outside demo mode (real users see fresh-workspace state)", async () => {
+    installMock(() => makeResponse({ status: 404, body: "" }));
+
+    const result = await fetchApprovals();
+    expect(result.source).toBe("live");
+    expect(result.items).toEqual([]);
+  });
+
+  it("falls back to mock dataset on 404 when NEXT_PUBLIC_SKYCOT_DEMO_MODE=1", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
     installMock(() => makeResponse({ status: 404, body: "" }));
 
     const result = await fetchApprovals();
     expect(result.source).toBe("mock-offline");
     expect(result.items).toEqual(SAMPLE_APPROVALS);
 
+    // Mutation mock-offline fallback is unchanged — it is the audit-
+    // trail launch-blocker guard that propagates 5xx in strict prod.
     const decision = await submitDecision({
       approvalId: "ap_x",
       decision: "approve",

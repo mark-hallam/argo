@@ -11,6 +11,7 @@
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_AUDIT_ROWS } from "@/lib/sample-audit";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 import {
   AUDIT_RANGE_PRESETS,
   DEFAULT_AUDIT_RANGE,
@@ -158,6 +159,10 @@ function mockPage(filters: AuditFilters): AuditFeedPage {
   return paginate(filtered, filters.cursor ?? null);
 }
 
+function emptyPage(): AuditFeedPage {
+  return { rows: [], nextCursor: null, totalPages: 1 };
+}
+
 function buildQueryString(filters: AuditFilters): string {
   const params = new URLSearchParams();
   const range = effectiveRange(filters.range);
@@ -242,7 +247,13 @@ export async function fetchAuditFeed(filters: AuditFilters): Promise<AuditFeedPa
     return await apiGet<AuditFeedPage>(path);
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
-      return mockPage(filters);
+      // Demo mode keeps the seeded SAMPLE_AUDIT_ROWS for the recorded
+      // v1.0 walkthrough. Real signed-in users on a fresh workspace
+      // fall through to the empty-state ("Quiet day") UI.
+      if (isDemoMode()) {
+        return mockPage(filters);
+      }
+      return emptyPage();
     }
     throw err;
   }

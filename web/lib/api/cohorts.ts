@@ -16,6 +16,7 @@
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_COHORT_DETAILS, SAMPLE_COHORT_SUMMARIES } from "@/lib/sample-cohorts";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 export interface CohortSummary {
   cohort_id: string;
@@ -110,7 +111,13 @@ export async function fetchCohorts(): Promise<FetchCohortsResult> {
     return { cohorts: envelope.cohorts ?? [], source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
-      return { cohorts: SAMPLE_COHORT_SUMMARIES, source: "mock-offline" };
+      // Demo mode keeps the seeded SAMPLE_COHORT_SUMMARIES so the v1.0
+      // recorded walkthrough still plays back. Real signed-in users on
+      // a fresh workspace fall through to the empty state.
+      if (isDemoMode()) {
+        return { cohorts: SAMPLE_COHORT_SUMMARIES, source: "mock-offline" };
+      }
+      return { cohorts: [], source: "gateway" };
     }
     throw err;
   }
@@ -165,10 +172,13 @@ export async function fetchCohortDetail(
     return { detail, source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
-      return {
-        detail: SAMPLE_COHORT_DETAILS[cohortId] ?? null,
-        source: "mock-offline",
-      };
+      if (isDemoMode()) {
+        return {
+          detail: SAMPLE_COHORT_DETAILS[cohortId] ?? null,
+          source: "mock-offline",
+        };
+      }
+      return { detail: null, source: "gateway" };
     }
     throw err;
   }

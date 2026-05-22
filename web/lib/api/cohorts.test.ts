@@ -44,6 +44,7 @@ describe("lib/api/cohorts", () => {
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
     delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE;
   });
 
   afterEach(() => {
@@ -61,7 +62,20 @@ describe("lib/api/cohorts", () => {
     expect(result.cohorts).toEqual(payload.cohorts);
   });
 
-  it("fetchCohorts falls back to SAMPLE on 404", async () => {
+  it("fetchCohorts returns empty list on 404 outside demo mode (fresh workspace state)", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 404,
+        body: { error: { code: "not_found", message: "no cohorts endpoint" } },
+      }),
+    );
+    const result = await fetchCohorts();
+    expect(result.source).toBe("gateway");
+    expect(result.cohorts).toEqual([]);
+  });
+
+  it("fetchCohorts falls back to SAMPLE on 404 when NEXT_PUBLIC_SKYCOT_DEMO_MODE=1", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
     installMock(() =>
       makeResponse({
         status: 404,
