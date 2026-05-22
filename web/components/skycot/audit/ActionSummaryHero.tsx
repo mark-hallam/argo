@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, Copy, Download, Play } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { RedactedText } from "@/components/skycot/RedactedText";
+import { WorkflowRollbackDiff } from "@/components/skycot/audit/WorkflowRollbackDiff";
+import { parseRollbackPayload } from "@/lib/diff/workflow-version-diff";
 import type { RedactionPolicy } from "@/lib/redaction/redact";
 import type { AuditDetail } from "@/lib/types/audit-detail";
 import {
@@ -41,6 +43,7 @@ export function ActionSummaryHero({
   const tone = STATUS_TONE[detail.status];
   const initials = workerInitials(detail.worker.name);
   const sameHourHref = relatedActionsHref(detail);
+  const rollbackPayload = useMemo(() => parseRollbackPayload(detail), [detail]);
 
   return (
     <section
@@ -102,6 +105,13 @@ export function ActionSummaryHero({
           </button>
         </div>
       </div>
+
+      {rollbackPayload ? (
+        <WorkflowRollbackDiff
+          payload={rollbackPayload}
+          approverName={detail.approver?.name}
+        />
+      ) : null}
 
       <div className="text-sm">
         <Link
