@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T12:43:00Z",
+  "last_run_utc": "2026-05-22T13:03:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-59-cron-fired",
-  "run_notes": "Tick 59 (cron-fired). 🚨 Queue starved (claude_todo=0) — workers correctly BLOCKED 2 briefs (gateway-persist + workplace-knowledge-editor) with valid reasons (superseded / dep-blocked). Step 8 fired: added 3 ledger rows for existing cross-tenant-test-* briefs (already on disk from #2033 sweep, never made it to ledger) + authored 1 new follow-up brief `claude-worker-loop-zombie-detection-followup` to close the gap proven by PID-14468 zombie escape in tick-58. claude_todo: 0 → 4. Active worker: PID 30967 (claude-followup-pr-2021-test-run-gateway-persist) at 10m silent post-result:success — approaching zombie threshold. #2045 still open (awaiting worker self-close after SUPERSEDED comment)."
+  "session_label": "anthropic-claude-code-conductor-tick-60-cron-fired",
+  "run_notes": "Tick 60 (cron-fired) — quiet tick. New claim: PID 54702 on `mission-cross-tenant-test-audit-export` (one of the 3 cross-tenant rows added in tick-59 — replenishment paying off). Other active: PID 30967 on `claude-followup-pr-2021-test-run-gateway-persist` (state SN, log 4m old — under threshold, healthy). #2045 still open at 39m since SUPERSEDED comment — worker hasn't self-closed; protocol says wait for the 24h escalation rather than auto-close. Queue: 3 TODO / 2 CLAIMED / 1 IN_REVIEW / 1 open PR (#2045). Tick 60 is also the auto-expiry checkpoint — cron 5ffcb613 set to expire after 7 days (2026-05-29) per CronCreate default."
 }

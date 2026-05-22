@@ -62,3 +62,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-22T12:08:15Z [conductor] tick-57 (cron-fired) — merged #2044 web-workflow-test-run-history-panel (recovery from closed #2016). 0 open PRs sustained.
 2026-05-22T12:28:14Z [conductor] tick-58 (cron-fired) — killed zombie 14468 (test-run-gateway-persist); posted SUPERSEDED comment on #2045 (duplicate of #2044). NOTE: #2038's auto-release didn't fire — possible escape route for zombies, worth investigating.
 2026-05-22T12:49:05Z [conductor] tick-59 (cron-fired) — Step 8 fired (queue starved): added 3 ledger rows for cross-tenant-test-* briefs + authored claude-worker-loop-zombie-detection-followup. claude_todo 0→4.
+2026-05-22T13:07:24Z [conductor] tick-60 (cron-fired) — quiet tick. Worker claimed mission-cross-tenant-test-audit-export (tick-59 replenishment paying off). No CLEAN PRs, no zombies. #2045 awaiting self-close.
