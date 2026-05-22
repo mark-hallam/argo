@@ -488,3 +488,7 @@ mod tests;
 #[cfg(test)]
 #[path = "routes_workers_hire_idem_tests.rs"]
 mod idem_tests;
+
+#[cfg(test)]
+#[path = "routes_workers_hire_audit_payload_tests.rs"]
+mod audit_payload_tests;
