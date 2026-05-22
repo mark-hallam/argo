@@ -136,4 +136,126 @@ describe("useTestRun", () => {
     await waitFor(() => expect(result.current.phase).toBe("failed"));
     expect(result.current.transportError).toContain("502");
   });
+
+  it("posts the completed run to the gateway via persistDeps", async () => {
+    // Stream `claude-followup-pr-2021-test-run-gateway-persist` —
+    // optimistic-record-then-persist: the in-memory overlay completes
+    // first, then the persist POST fires once per terminal phase.
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        streamFromLines([
+          JSON.stringify({ type: "step:start", stepId: "s1" }),
+          JSON.stringify({
+            type: "step:end",
+            stepId: "s1",
+            ok: true,
+            durationMs: 410,
+          }),
+          JSON.stringify({ type: "step:start", stepId: "s2" }),
+          JSON.stringify({
+            type: "step:end",
+            stepId: "s2",
+            ok: true,
+            durationMs: 620,
+          }),
+          JSON.stringify({
+            type: "run:summary",
+            ok: 2,
+            fail: 0,
+            durationMs: 1030,
+          }),
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    const persist = vi.fn().mockResolvedValue({ id: "row-1" });
+    const { result } = renderHook(() =>
+      useTestRun("support", "triage", STEPS, {
+        persistDeps: { persist },
+      }),
+    );
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.phase).toBe("complete"));
+    await waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+    const arg = persist.mock.calls[0][0];
+    expect(arg.verticalId).toBe("support");
+    expect(arg.name).toBe("triage");
+    expect(arg.run.status).toBe("complete");
+    expect(arg.run.summary?.ok).toBe(2);
+    expect(arg.run.stepStates.s1.status).toBe("success");
+  });
+
+  it("does not throw when persist rejects (best-effort)", async () => {
+    // Stream `claude-followup-pr-2021-test-run-gateway-persist` —
+    // persist failures must not break the in-memory overlay.
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        streamFromLines([
+          JSON.stringify({ type: "step:start", stepId: "s1" }),
+          JSON.stringify({
+            type: "step:end",
+            stepId: "s1",
+            ok: true,
+            durationMs: 100,
+          }),
+          JSON.stringify({
+            type: "run:summary",
+            ok: 1,
+            fail: 0,
+            durationMs: 100,
+          }),
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    const persist = vi.fn().mockRejectedValue(new Error("network"));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      useTestRun("support", "triage", STEPS, {
+        persistDeps: { persist },
+      }),
+    );
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.phase).toBe("complete"));
+    await waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+    // The hook must remain in `complete`, not bubble the rejection.
+    expect(result.current.phase).toBe("complete");
+    warnSpy.mockRestore();
+  });
+
+  it("skips the persist call when persistOnComplete=false", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        streamFromLines([
+          JSON.stringify({ type: "step:start", stepId: "s1" }),
+          JSON.stringify({
+            type: "step:end",
+            stepId: "s1",
+            ok: true,
+            durationMs: 50,
+          }),
+          JSON.stringify({
+            type: "run:summary",
+            ok: 1,
+            fail: 0,
+            durationMs: 50,
+          }),
+        ]),
+        { status: 200 },
+      ),
+    );
+
+    const persist = vi.fn().mockResolvedValue({});
+    const { result } = renderHook(() =>
+      useTestRun("support", "triage", STEPS, {
+        persistDeps: { persist },
+        persistOnComplete: false,
+      }),
+    );
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.phase).toBe("complete"));
+    expect(persist).not.toHaveBeenCalled();
+  });
 });

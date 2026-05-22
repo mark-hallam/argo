@@ -162,6 +162,15 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_knowledge::dispatch_delete(req, store).await {
         return Some(resp);
     }
+    // claude-followup-pr-2021-test-run-gateway-persist — `POST
+    // /api/v1/verticals/{vid}/workflows/{name}/test_runs` persists one
+    // completed run from the builder's "Test run" overlay. Mounted
+    // AFTER `routes_workflows::dispatch_mutate` because that
+    // dispatcher returns `None` for unrecognised suffixes; the
+    // `/test_runs` tail falls through here.
+    if let Some(resp) = super::routes_workflows_test_runs::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     None
 }
 

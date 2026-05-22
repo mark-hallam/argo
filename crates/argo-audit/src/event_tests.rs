@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 63);
+    assert_eq!(AuditKind::all().len(), 64);
 }
 
 #[test]
@@ -383,6 +383,27 @@ fn workplace_knowledge_doc_kinds_round_trip_and_listed() {
     for (label, _) in kinds {
         assert!(labels.contains(&label), "missing {label}: {labels:?}");
     }
+}
+
+#[test]
+fn workflow_test_run_persisted_round_trips_and_listed() {
+    // Stream `claude-followup-pr-2021-test-run-gateway-persist` —
+    // re-author of closed PR #2021. The builder's "Test run" overlay
+    // POSTs each completed run to the gateway, which emits this row
+    // alongside the existing `HttpRequest` so audit consumers can
+    // filter on a first-class kind.
+    let kind = AuditKind::WorkflowTestRunPersisted;
+    assert_eq!(
+        AuditKind::from_label("workflow_test_run.persisted"),
+        Some(kind)
+    );
+    assert_eq!(kind.label(), "workflow_test_run.persisted");
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"workflow_test_run.persisted"));
+    assert_eq!(
+        serde_json::to_string(&kind).unwrap(),
+        "\"workflow_test_run_persisted\""
+    );
 }
 
 #[test]

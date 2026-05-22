@@ -397,4 +397,17 @@ pub enum AuditKind {
     /// `{ actor, tenant_id, workspace_id, slug, last_version,
     /// deleted_by, deleted_at }`.
     WorkplaceKnowledgeDocDeleted,
+    /// A workflow test run was persisted server-side via
+    /// `POST /api/v1/verticals/{vid}/workflows/{name}/test_runs`
+    /// (Stream `claude-followup-pr-2021-test-run-gateway-persist`,
+    /// re-author of closed PR #2021). The builder's "Test run"
+    /// overlay now POSTs each completed run; this audit row promotes
+    /// the event out of the generic `HttpRequest` bucket so the
+    /// audit feed can filter on a first-class kind. Payload (per the
+    /// brief): `{ worker_id, vertical_id, workflow_name, status }`.
+    /// `worker_id` carries the resolved gateway principal (the
+    /// closest stand-in for an originating worker when the test was
+    /// triggered by a human operator); `status` is the run-phase
+    /// string (`"complete"` | `"failed"`).
+    WorkflowTestRunPersisted,
 }

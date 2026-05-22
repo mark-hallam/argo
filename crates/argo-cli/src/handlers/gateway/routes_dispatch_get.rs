@@ -43,5 +43,12 @@ pub(super) async fn dispatch_get(
     if let Some(resp) = super::routes_workflow_runs::dispatch_get(req, store).await {
         return Some(resp);
     }
+    // claude-followup-pr-2021-test-run-gateway-persist — server-side
+    // history for the builder's "Test run" overlay. Mounted AFTER the
+    // workflow CRUD/runs dispatchers because both return `None` for
+    // unrecognised suffixes; the `/test_runs` tail falls through here.
+    if let Some(resp) = super::routes_workflows_test_runs::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     None
 }

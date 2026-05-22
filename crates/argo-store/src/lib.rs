@@ -295,6 +295,11 @@ pub(crate) mod worker_okr_types;
 pub mod worker_presence;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
 pub mod workflow_checkpoint;
+/// Workflow test-run persistence (Stream
+/// `claude-followup-pr-2021-test-run-gateway-persist`, re-author of
+/// closed PR #2021). One row per completed run from the builder's
+/// "Test run" overlay, tenant-scoped via the canonical pattern.
+pub mod workflow_test_run;
 /// Workflow definition persistence layer (Stream
 /// `mission-pm-workflow-persistence-schema`, P1 #5). Version-chain
 /// store for workflow TOML bodies + per-`(tenant, vertical, name)`
@@ -356,7 +361,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 77;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 78;
 
 #[cfg(test)]
 #[path = "handoff_stats_query_tests.rs"]

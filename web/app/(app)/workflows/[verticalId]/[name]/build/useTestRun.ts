@@ -13,6 +13,20 @@ export interface CompletedTestRun {
 }
 
 /**
+ * Optional dependency injection for the server-side persist
+ * call. Defaults are wired to `web/lib/api/test-runs.ts` so production
+ * callers don't have to thread anything through; tests pass a stub to
+ * assert the POST fires without touching `fetch`.
+ */
+export interface TestRunPersistDeps {
+  persist?: (args: {
+    verticalId: string;
+    name: string;
+    run: CompletedTestRun;
+  }) => Promise<unknown>;
+}
+
+/**
  * Drives the builder's "Test run" overlay.
  *
  * Opens an NDJSON stream against
@@ -86,6 +100,18 @@ export interface UseTestRunOptions {
    * + final step states + summary as of completion.
    */
   onComplete?: (run: CompletedTestRun) => void;
+  /**
+   * Server-side persist override (test seam — production callers
+   * leave undefined and the hook routes through
+   * `web/lib/api/test-runs.ts::persistTestRun`).
+   */
+  persistDeps?: TestRunPersistDeps;
+  /**
+   * Toggle the server-side persist POST. Defaults to `true` so the
+   * builder records every completed run; pass `false` in fixtures
+   * that should not touch the gateway.
+   */
+  persistOnComplete?: boolean;
 }
 
 export function useTestRun(
@@ -148,9 +174,7 @@ export function useTestRun(
     if (phase !== "complete" && phase !== "failed") return;
     if (completionEmittedRef.current) return;
     completionEmittedRef.current = true;
-    const cb = onCompleteRef.current;
-    if (!cb) return;
-    cb({
+    const snapshot: CompletedTestRun = {
       startedAt: runStartRef.current ?? Date.now(),
       endedAt: Date.now(),
       status: phase,
@@ -158,8 +182,23 @@ export function useTestRun(
       steps: stepsRef.current,
       stepStates: stepStatesRef.current,
       summary: summaryRef.current,
-    });
-  }, [phase]);
+    };
+    const cb = onCompleteRef.current;
+    if (cb) cb(snapshot);
+    if (options.persistOnComplete !== false) {
+      const persist =
+        options.persistDeps?.persist ?? defaultPersistTestRun;
+      void persist({ verticalId, name, run: snapshot }).catch((err) => {
+        // Best-effort — persist failures must not break the in-memory
+        // overlay. Swallow + console-log so the test seam can assert
+        // the call fired without a noisy throw.
+        if (typeof console !== "undefined") {
+          // eslint-disable-next-line no-console
+          console.warn("[useTestRun] persist failed", err);
+        }
+      });
+    }
+  }, [phase, verticalId, name, options.persistOnComplete, options.persistDeps]);
 
   const applyEvent = useCallback((evt: RunEvent) => {
     if (!mountedRef.current) return;
@@ -275,4 +314,18 @@ export function useTestRun(
   );
 
   return { phase, stepStates, summary, transportError, start, reset };
+}
+
+/**
+ * Lazily-loaded production persist binding. Kept out of the
+ * top-level import graph so unit tests that stub `options.persistDeps`
+ * don't pay the import cost of `@/lib/api/client`.
+ */
+async function defaultPersistTestRun(args: {
+  verticalId: string;
+  name: string;
+  run: CompletedTestRun;
+}): Promise<unknown> {
+  const mod = await import("@/lib/api/test-runs");
+  return mod.persistTestRun(args);
 }
