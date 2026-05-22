@@ -31,6 +31,7 @@ GitHub Actions billing is operator-side blocked. Admin-merge is the v1.0 strateg
 | `cli-reference-drift.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | CLI reference docs drift detection; cosmetic for v1 build. Re-enable post-launch. |
 | `audit.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | Audit-chain CI checks; replaced by local audit-sink-tenant-guard in `pre-merge-gate.sh` + integration tests in `argo-audit`. |
 | `deny.yml.disabled` | **keep-disabled** (v1)  — *newly disabled 2026-05-21* | `cargo-deny` license/vulnerability checks; valuable but operator-triggered locally during v1 build. |
+| `web-cold-install.yml.disabled` | **keep-disabled** (v1)  — *added 2026-05-22, landed disabled* | Cold pnpm install + typecheck + lint gate that catches `package.json`/`pnpm-lock.yaml` drift the warm-cache `deploy-spa` gate misses (closes web-pnpm-install-missing-on-cold-start). Lands disabled because GHA billing is still operator-blocked; the file is on-disk so it ships ready to flip when billing returns. |
 
 ## Re-enable trigger conditions
 

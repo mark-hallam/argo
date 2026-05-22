@@ -1,0 +1,58 @@
+name: Web cold install gate
+
+# Catches the regression class: a dependency declared in web/package.json that
+# is absent from web/pnpm-lock.yaml (or vice versa). The existing deploy-spa
+# gate runs against a warm cache and silently passes when this drifts.
+#
+# Source: web-pnpm-install-missing-on-cold-start brief (closes auditor T03-39
+# §4 P2 — the `@radix-ui/react-tooltip@1.2.8` gap surfaced on a fresh checkout
+# 2026-05-22, fixed in #1957). With the cold-install gate in place, future
+# package.json/lockfile drift fails fast on PR rather than at the next cold
+# clone.
+#
+# Disabled state: `workflow_dispatch:` only AND filename is `.yml.disabled`
+# per .github/workflows/DISABLED_WORKFLOWS_POLICY.md (all workflows are
+# operator-disabled while GHA billing is restored). Re-enable by:
+#   1. Rename to `web-cold-install.yml`.
+#   2. Add `pull_request:` trigger with `paths: ['web/**']` filter.
+#   3. Re-enable Actions at the repo level.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cold-install:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # Intentionally NOT setting `cache: pnpm` — this workflow exists to
+          # prove that a fresh clone with no warm cache installs cleanly. The
+          # `--frozen-lockfile` flag below is the load-bearing assertion: it
+          # fails if `package.json` declares a dep that is not in the
+          # lockfile, which is exactly the regression class we are catching.
+
+      - name: Purge any pnpm cache that may have leaked in
+        run: |
+          rm -rf node_modules .pnpm-store
+          pnpm store path || true
+          pnpm store prune || true
+
+      - name: Cold install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
