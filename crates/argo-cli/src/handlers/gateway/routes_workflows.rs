@@ -47,6 +47,7 @@ use std::sync::Arc;
 
 const PREFIX: &str = "/api/v1/verticals/";
 const PRINCIPAL_HEADER: &str = "X-Argo-Principal";
+const IF_VERSION_HEADER: &str = "X-Argo-If-Version";
 
 /// GET dispatcher. Returns `Some` for any path under
 /// `/api/v1/verticals/{id}/workflows[...]`; `None` lets the parent
@@ -139,7 +140,8 @@ async fn handle_mutate(
     let body = super::body_from_request(req);
     match *route {
         Route::Create { vertical, name } => {
-            hh::create_version(store, tenant, vertical, name, body, &actor).await
+            let if_version = parse_if_version_header(req);
+            hh::create_version(store, tenant, vertical, name, body, &actor, if_version).await
         }
         Route::SetHead { vertical, name } => {
             hh::set_head(store, tenant, vertical, name, body, &actor).await
@@ -270,6 +272,15 @@ fn header_value(req: &str, name: &str) -> Option<String> {
         let (k, v) = line.split_once(':')?;
         k.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
     })
+}
+
+/// Parse the `X-Argo-If-Version` header into a numeric version, if
+/// present and well-formed. Malformed values (non-numeric) are
+/// treated as absent — the create path falls through to the no-
+/// `if_version` branch, which is a permissive default suitable for
+/// programmatic POSTs that omit the optimistic-lock contract.
+fn parse_if_version_header(req: &str) -> Option<i64> {
+    header_value(req, IF_VERSION_HEADER).and_then(|raw| raw.parse::<i64>().ok())
 }
 
 fn principal_to_actor(principal: &Principal) -> String {

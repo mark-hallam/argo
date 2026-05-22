@@ -1,6 +1,13 @@
 "use client";
 import { ArrowLeft, Loader2, Play, Rocket, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useCallback } from "react";
+
+import { ConcurrentEditBanner } from "@/components/skycot/workflows/ConcurrentEditBanner";
+import {
+  clearSaveDraftConflict,
+  useSaveDraftConflict,
+} from "@/lib/hooks/use-workflow-save-publish";
 
 import type { WorkflowSpec } from "./types";
 
@@ -58,6 +65,30 @@ export function BuilderToolbar({
     : !canPublish
       ? "Save your latest changes before publishing"
       : `Publish v${savedDraftVersion} to head`;
+  // Concurrent-edit conflict state is published by the saveDraft API
+  // client into a module-level store; we subscribe here so the banner
+  // can render without the parent page having to thread props. The
+  // banner sits below the toolbar and above the unsaved-changes
+  // banner — the user's dirty edits are preserved while they decide
+  // whether to refresh.
+  const lastConflict = useSaveDraftConflict();
+  const handleRefresh = useCallback(() => {
+    clearSaveDraftConflict();
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }, []);
+  const handleShowDiff = useCallback(() => {
+    if (typeof window === "undefined") return;
+    // v1 stub: open the read-only viewer of the current head in a new
+    // tab. A real inline diff against the user's dirty draft is a v1.x
+    // follow-up.
+    const url = `/workflows/${encodeURIComponent(verticalId)}/${encodeURIComponent(name)}`;
+    window.open(url, "_blank", "noopener");
+  }, [verticalId, name]);
+  const handleDismiss = useCallback(() => {
+    clearSaveDraftConflict();
+  }, []);
   return (
     <>
       <header className="builder-top">
@@ -134,6 +165,15 @@ export function BuilderToolbar({
           </button>
         </div>
       </header>
+
+      {lastConflict ? (
+        <ConcurrentEditBanner
+          currentVersion={lastConflict.current_version}
+          onRefresh={handleRefresh}
+          onShowDiff={handleShowDiff}
+          onDismiss={handleDismiss}
+        />
+      ) : null}
 
       {/* AI prompt bar — the SKYCOT differentiator */}
       <div className="builder-prompt-bar">

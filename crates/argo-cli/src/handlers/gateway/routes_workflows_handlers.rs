@@ -125,15 +125,29 @@ pub(super) async fn create_version(
     name: &str,
     body: &str,
     actor: &str,
+    if_version: Option<i64>,
 ) -> (&'static str, String) {
     if body.trim().is_empty() {
         return super::routes_workflows::bad_request("request body must contain workflow TOML");
     }
-    let parent_id = wd::get_head(store.pool(), tenant, vertical_id, name)
-        .await
-        .ok()
-        .flatten()
-        .map(|def| def.id);
+    // Optimistic-concurrency gate: when the caller asserts a known
+    // version via `X-Argo-If-Version`, we refuse the write if the
+    // current head has advanced past that number. The 409 body echoes
+    // the live head so the SPA can offer a refresh / show-diff banner
+    // without re-fetching the workflow.
+    let current_head = match wd::get_head(store.pool(), tenant, vertical_id, name).await {
+        Ok(opt) => opt,
+        Err(e) => {
+            return super::routes_workflows::internal(&format!("get_head: {e}"))
+        }
+    };
+    if let Some(expected) = if_version {
+        let current_version = current_head.as_ref().map(|d| d.version).unwrap_or(0);
+        if current_version != expected {
+            return conflict_response(&current_head, current_version);
+        }
+    }
+    let parent_id = current_head.as_ref().map(|def| def.id.clone());
     match wd::create(
         store.pool(),
         tenant,
@@ -168,6 +182,22 @@ pub(super) async fn create_version(
         }
         Err(e) => super::routes_workflows::internal(&format!("create workflow version: {e}")),
     }
+}
+
+fn conflict_response(
+    current_head: &Option<WorkflowDefinition>,
+    current_version: i64,
+) -> (&'static str, String) {
+    let current_head_definition_toml = current_head
+        .as_ref()
+        .map(|d| d.definition_toml.clone())
+        .unwrap_or_default();
+    let body = json!({
+        "kind": "conflict",
+        "current_version": current_version,
+        "current_head_definition_toml": current_head_definition_toml,
+    });
+    ("409 Conflict", body.to_string())
 }
 
 pub(super) async fn set_head(

@@ -45,9 +45,18 @@ export interface SaveDraftArgs {
   definition_toml: string;
   /** Optional edit reason — surfaces as `X-Argo-Edit-Reason` header. */
   edit_reason?: string;
+  /**
+   * Optimistic-concurrency assertion. When set, the gateway compares
+   * this against the current head version and returns
+   * `{ kind: 'conflict', ... }` if another writer has advanced it. Omit
+   * to skip the check (first save in a session, or callers that don't
+   * track loadedVersion).
+   */
+  if_version?: number;
 }
 
 export interface SaveDraftResult {
+  kind: "ok";
   version_id: string;
   version: number;
 }
@@ -64,10 +73,59 @@ export interface PublishHeadResult {
   head_version: number;
 }
 
+export interface SaveDraftConflict {
+  kind: "conflict";
+  /** Live head version the gateway has on disk (caller's view is stale). */
+  current_version: number;
+  /** Live head's TOML body, so the SPA can render a diff without a refetch. */
+  current_head_definition_toml: string;
+}
+
+export type SaveDraftResultOrConflict = SaveDraftResult | SaveDraftConflict;
+
 interface CreateResponse {
   vertical_id: string;
   name: string;
   version_id: string;
+}
+
+interface ConflictBody {
+  kind: "conflict";
+  current_version: number;
+  current_head_definition_toml: string;
+}
+
+/**
+ * Module-level pub/sub for the most-recent conflict response. The
+ * hook layer subscribes via `useSyncExternalStore` so a sibling
+ * component (`ConcurrentEditBanner`) can render the banner without
+ * the parent page threading conflict state through props — the
+ * builder page is well over the 500-LOC ceiling and may not be
+ * extended (see HARD RULE 6).
+ */
+let conflictState: SaveDraftConflict | null = null;
+const conflictSubscribers = new Set<() => void>();
+
+export function subscribeSaveDraftConflict(callback: () => void): () => void {
+  conflictSubscribers.add(callback);
+  return () => {
+    conflictSubscribers.delete(callback);
+  };
+}
+
+export function getSaveDraftConflict(): SaveDraftConflict | null {
+  return conflictState;
+}
+
+export function clearSaveDraftConflict(): void {
+  if (conflictState === null) return;
+  conflictState = null;
+  for (const cb of conflictSubscribers) cb();
+}
+
+function setSaveDraftConflict(next: SaveDraftConflict): void {
+  conflictState = next;
+  for (const cb of conflictSubscribers) cb();
 }
 
 function gatewayBase(): string {
@@ -142,11 +200,34 @@ async function buildAuthHeaders(
 async function postWorkflowToml(
   path: string,
   body: string,
-  editReason?: string,
-): Promise<CreateResponse> {
+  editReason: string | undefined,
+  ifVersion: number | undefined,
+): Promise<CreateResponse | SaveDraftConflict> {
   const headers = await buildAuthHeaders("application/toml", editReason);
+  if (typeof ifVersion === "number" && Number.isFinite(ifVersion)) {
+    headers.set("X-Argo-If-Version", String(ifVersion));
+  }
   const url = `${gatewayBase()}${path}`;
   const res = await fetch(url, { method: "POST", headers, body });
+  if (res.status === 409) {
+    const text = await res.text().catch(() => "");
+    const parsed = (() => {
+      try {
+        return JSON.parse(text) as Partial<ConflictBody>;
+      } catch {
+        return null;
+      }
+    })();
+    if (parsed && parsed.kind === "conflict") {
+      return {
+        kind: "conflict",
+        current_version: Number(parsed.current_version) || 0,
+        current_head_definition_toml: String(parsed.current_head_definition_toml ?? ""),
+      };
+    }
+    // 409 without a parseable conflict body — fall through to the
+    // generic error path so the caller can show a retry toast.
+  }
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as CreateResponse;
 }
@@ -163,16 +244,32 @@ async function putWorkflowJson(path: string, body: unknown): Promise<void> {
   // 204 No Content — nothing to parse.
 }
 
-export async function saveDraft(args: SaveDraftArgs): Promise<SaveDraftResult> {
+export async function saveDraft(
+  args: SaveDraftArgs,
+): Promise<SaveDraftResultOrConflict> {
   const path = workflowPath(args.vertical_id, args.name);
   const created = await postWorkflowToml(
     path,
     args.definition_toml,
     args.edit_reason,
+    args.if_version,
   );
+  if (isConflict(created)) {
+    setSaveDraftConflict(created);
+    return created;
+  }
+  // Successful POST → conflict state is cleared so a banner from a
+  // prior 409 vanishes once the user successfully reconciles.
+  clearSaveDraftConflict();
   const head = await apiGet<GatewayWorkflowItem>(path);
   const version = Math.max(1, Number(head.version) || 1);
-  return { version_id: created.version_id, version };
+  return { kind: "ok", version_id: created.version_id, version };
+}
+
+function isConflict(
+  value: CreateResponse | SaveDraftConflict,
+): value is SaveDraftConflict {
+  return (value as Partial<SaveDraftConflict>).kind === "conflict";
 }
 
 export async function publishHead(
