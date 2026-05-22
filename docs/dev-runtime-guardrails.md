@@ -37,7 +37,7 @@ described below.
 
 | Command                                  | When to run                                        |
 |------------------------------------------|----------------------------------------------------|
-| `./scripts/dev-safe-check.sh`            | Right now: see disk + artifact sizes.              |
+| `./scripts/dev-safe-check.sh`            | Verify `web/node_modules` matches `package.json`, then show disk + artifact sizes. Exits 1 on a missing dep with the `cd web && pnpm install` fix. |
 | `./scripts/dev-safe-clean.sh`            | Dry-run: list what would be deleted.               |
 | `./scripts/dev-safe-clean.sh --apply`    | Actually delete. Always after a dry-run review.    |
 | `./scripts/dev-safe-test.sh`             | Pre-flight before any autonomous coding session.   |
@@ -52,7 +52,7 @@ described below.
 
 This runs:
 
-1. **Disk health snapshot** — `dev-safe-check.sh`.
+1. **`web/node_modules` deps-present check + disk health snapshot** — `dev-safe-check.sh`. Catches the case where the pnpm lockfile is current but `pnpm install` hasn't run on the dev machine (hit twice in 36h on rounds 1 + 5: `@radix-ui/react-tooltip`, `@monaco-editor/react`); exits 1 with `cd web && pnpm install` before the disk-health sweep runs.
 2. **Free-space gate** — fails if free disk < 50 GiB (or your
    `--threshold-gib` / `ARGO_DEV_FREE_GIB` override). Prints
    the cleanup recommendation.
