@@ -93,6 +93,33 @@ otherwise leaves the old in-memory key alive):
 make restart-live-gateway FORCE=1
 ```
 
+## Freshness check
+
+`scripts/check-gateway-freshness.sh` is the read-only drift probe that
+surfaces "your running gateway is N migrations behind HEAD" without
+restarting anything. The conductor tick calls it on every pass (see
+`docs/build-plan/PROTOCOL_LOOP_PROMPT.md` step 4.7); the operator can
+also run it manually:
+
+```
+$ bash scripts/check-gateway-freshness.sh
+gateway_schema=v70 codebase_latest=v77 drift=7
+STATUS: STALE  (drift > 2, restart recommended: `make restart-live-gateway`)
+```
+
+Exit codes (stable contract for the conductor):
+
+- `0` — FRESH. Drift ≤ 2. No action.
+- `1` — STALE. Drift > 2. Run `make restart-live-gateway`.
+- `2` — UNREACHABLE. Nothing on `:7400/health`. Gateway probably down.
+- `3` — PARSE_ERROR. `/health` shape changed, or migrations dir empty.
+  Investigate before restarting.
+
+The drift > 2 threshold is deliberately permissive — a drift of 1
+is usually just a worker that merged in the last hour and is not
+worth nudging the operator about. The check is non-blocking; the
+conductor only surfaces the state, the operator decides when to bounce.
+
 ## Quick reference
 
 When the conductor tick prompt flags `🔴 GATEWAY STALE — live vN, code

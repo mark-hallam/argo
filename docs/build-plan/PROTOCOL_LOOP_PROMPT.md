@@ -91,6 +91,8 @@ commit that adds the brief file.
 
 4.6. **Agent-liveness watchdog (operator amendment 2026-05-21).** `bash scripts/check-agent-heartbeats.sh`. If any non-conductor agent is reported STALE (🔴), surface it in the tick summary at the end ("auditor stale since YYYY-MM-DDTHH-MM — operator should re-launch via the prompt in `docs/skycot/agents/AGENTS_OVERVIEW.md`"). Don't try to restart agents from the conductor — only operator can re-launch their sessions. Then write the conductor's own heartbeat: update `docs/skycot/agents/heartbeats/conductor.json` with current UTC timestamp, `expected_cadence_seconds: 3600`, this tick's session label, and a 1-line run note. Append one line to `docs/skycot/agents/SHARED.md`: `<UTC-ISO> [conductor] <one-line this-tick-did>`.
 
+4.7. **Gateway-freshness drift check (operator amendment 2026-05-23).** `bash scripts/check-gateway-freshness.sh > /tmp/gateway-freshness.txt 2>&1; FRESH_RC=$?`. Read the exit code: `0`=FRESH (skip), `1`=STALE, `2`=UNREACHABLE, `3`=PARSE_ERROR. For exit 1, prepend a `🟡 GATEWAY-STALE: $(cat /tmp/gateway-freshness.txt | head -1)` line to the tick summary so the operator sees the drift and can decide when to `make restart-live-gateway`. For exit 2 or 3, surface the same line with `🟡 GATEWAY-UNREACHABLE` / `🟡 GATEWAY-FRESHNESS-PARSE-ERROR` respectively. Read-only / non-blocking — the conductor only reports; the operator restarts.
+
 5. For any NEW open PR from a <WORKER_BRANCH_PREFIXES> branch I haven't reviewed yet:
    - gh pr diff <num> --color never | head -300 (skim the diff)
    - Verify against the brief's acceptance checklist — **TIERED VERIFICATION (tick368 amendment)**:
