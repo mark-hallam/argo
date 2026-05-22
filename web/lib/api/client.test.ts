@@ -100,4 +100,102 @@ describe("lib/api/client", () => {
     const out = await apiPost("/api/v1/x", { foo: 1 });
     expect(out).toBeUndefined();
   });
+
+  describe("session-expired 401 redirect", () => {
+    let assignSpy: ReturnType<typeof vi.fn>;
+    let originalLocation: Location;
+
+    beforeEach(() => {
+      originalLocation = window.location;
+      assignSpy = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: {
+          pathname: "/app/workers",
+          search: "?cohort=peta",
+          assign: assignSpy,
+        },
+      });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    });
+
+    it("redirects to /auth/signin with returnTo on `session expired` body", async () => {
+      installMock(() =>
+        makeResponse({ status: 401, body: { error: "session expired" } }),
+      );
+      await expect(apiGet("/api/v1/x")).rejects.toMatchObject({
+        status: 401,
+        code: "session_expired",
+      });
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+      expect(assignSpy).toHaveBeenCalledWith(
+        "/auth/signin?returnTo=%2Fapp%2Fworkers%3Fcohort%3Dpeta",
+      );
+    });
+
+    it("redirects on `session invalid` and `session revoked` bodies too", async () => {
+      installMock(() =>
+        makeResponse({ status: 401, body: { error: "session invalid" } }),
+      );
+      await expect(apiGet("/api/v1/x")).rejects.toMatchObject({ status: 401 });
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("redirects on SSO-shape envelope { error: { code: 'session_expired' } }", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 401,
+          body: { error: { code: "session_expired", message: "expired" } },
+        }),
+      );
+      await expect(apiGet("/api/v1/x")).rejects.toMatchObject({
+        status: 401,
+        code: "session_expired",
+      });
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("does NOT redirect on bearer-auth `unauthorized` 401", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 401,
+          body: { error: "unauthorized", reason: "missing bearer token" },
+        }),
+      );
+      await expect(apiGet("/api/v1/x")).rejects.toMatchObject({ status: 401 });
+      expect(assignSpy).not.toHaveBeenCalled();
+    });
+
+    it("does NOT redirect on 403 RBAC denial", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 403,
+          body: { error: { code: "forbidden", message: "no capability" } },
+        }),
+      );
+      await expect(apiGet("/api/v1/x")).rejects.toMatchObject({
+        status: 403,
+        code: "forbidden",
+      });
+      expect(assignSpy).not.toHaveBeenCalled();
+    });
+
+    it("does NOT redirect when already on /auth/* surface", async () => {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { pathname: "/auth/signin", search: "", assign: assignSpy },
+      });
+      installMock(() =>
+        makeResponse({ status: 401, body: { error: "session expired" } }),
+      );
+      await expect(apiGet("/api/v1/x")).rejects.toMatchObject({ status: 401 });
+      expect(assignSpy).not.toHaveBeenCalled();
+    });
+  });
 });

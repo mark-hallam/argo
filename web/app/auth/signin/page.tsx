@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSignup } from "@/lib/auth/use-signup";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
 import { SsoButtons } from "@/components/auth/SsoButtons";
@@ -12,6 +12,7 @@ import {
   type OAuthProvider,
   type SsoDiscoveryResult,
 } from "@/lib/api/sso";
+import { parseReturnTo, storeReturnToPending } from "@/lib/auth/return-to";
 
 /**
  * Signin page — locked editorial-A design (2026-05-18 design lock).
@@ -37,11 +38,49 @@ type SsoBranch =
   | { kind: "match-magic" };
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInScaffold />}>
+      <SignInInner />
+    </Suspense>
+  );
+}
+
+function SignInScaffold() {
+  return (
+    <AuthEditorialShell
+      topRightLabel="New to SKYCOT?"
+      topRightHref="/auth/signup"
+      topRightCta="Create an account"
+    >
+      <div className="eyebrow">
+        <span className="eyebrow-dot" />
+        WELCOME BACK
+      </div>
+      <h1 className="hero">
+        Sign in to
+        <br />
+        <strong>SKYCOT</strong>.
+      </h1>
+    </AuthEditorialShell>
+  );
+}
+
+function SignInInner() {
   const router = useRouter();
+  const search = useSearchParams();
   const { state, submit } = useSignup();
   const [email, setEmail] = useState("");
   const [sso, setSso] = useState<SsoBranch>({ kind: "idle" });
   const [probeError, setProbeError] = useState<string | null>(null);
+
+  // Capture `?returnTo=` from the URL on mount and persist for the
+  // magic-link round-trip. The verify page reads + clears the value
+  // post-`POST /api/auth/verify`. localStorage (not sessionStorage)
+  // because the magic-link typically opens in a fresh tab.
+  useEffect(() => {
+    const returnTo = parseReturnTo(search);
+    if (returnTo) storeReturnToPending(returnTo);
+  }, [search]);
 
   useEffect(() => {
     if (state.kind === "sent") {

@@ -6,6 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useVerify } from "@/lib/auth/use-verify";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
+import {
+  WELCOME_BACK_FLAG_KEY,
+  consumeReturnToPending,
+} from "@/lib/auth/return-to";
 
 /**
  * Verify page — locked editorial-A design (2026-05-18 design lock).
@@ -44,8 +48,25 @@ function VerifyInner() {
 
   useEffect(() => {
     if (state.kind !== "verified") return;
-    const dest = state.needsOnboarding ? "/onboarding/welcome" : "/";
-    router.replace(dest);
+    // Onboarding takes priority over a returnTo — a member who hasn't
+    // completed onboarding must finish that flow even if the 401
+    // happened mid-app. After onboarding, normal nav from the welcome
+    // screen takes over.
+    if (state.needsOnboarding) {
+      router.replace("/onboarding/welcome");
+      return;
+    }
+    const returnTo = consumeReturnToPending();
+    if (returnTo) {
+      try {
+        window.sessionStorage.setItem(WELCOME_BACK_FLAG_KEY, "1");
+      } catch {
+        /* storage disabled — banner just won't show */
+      }
+      router.replace(returnTo);
+      return;
+    }
+    router.replace("/");
   }, [state, router]);
 
   if (state.kind === "verifying" || state.kind === "idle") {

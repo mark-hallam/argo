@@ -6,6 +6,7 @@ import { MemberExpiryBanner } from "@/components/skycot/members/MemberExpiryBann
 import { RouteTransition } from "@/lib/motion/primitives";
 import { MotionRoot } from "@/lib/motion/provider";
 import { Toaster } from "@/components/ui/sonner";
+import { WelcomeBackBanner } from "@/components/ui/welcome-back-banner";
 
 /**
  * Default per-tab `<title>` for the (app) group. Individual routes
@@ -29,6 +30,7 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
         <RouteTransition>{children}</RouteTransition>
         <HelpWidget />
         <Toaster />
+        <WelcomeBackBanner />
       </AppShell>
     </MotionRoot>
   );

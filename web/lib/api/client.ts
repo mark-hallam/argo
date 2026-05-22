@@ -13,9 +13,69 @@
 
 import { ApiError, type ApiErrorEnvelope } from "./types";
 import { resolveCsrfToken } from "@/lib/auth/csrf-token";
+import {
+  buildSigninUrlWithReturnTo,
+  captureCurrentLocationAsReturnTo,
+} from "@/lib/auth/return-to";
 
 const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
+
+/**
+ * Session-expired 401 detection. The gateway's session-cookie verify
+ * middleware returns 401 with body `{"error":"session expired"}`,
+ * `{"error":"session invalid"}`, `{"error":"session revoked"}`, or
+ * the SSO-session shape `{"error":{"code":"session_expired", ...}}`
+ * when the user's JWT cookie is no longer valid. RBAC denials
+ * (operator lacks a capability) come back as 403 with
+ * `{"error":{"code":"forbidden", ...}}` and never hit this path.
+ *
+ * Bearer-auth failures (`{"error":"unauthorized","reason":"..."}`)
+ * are the dev-bearer-token path and intentionally bypass the
+ * redirect — those users should NOT be bounced to the magic-link
+ * signin surface.
+ */
+const SESSION_END_RE = /session\s+(expired|invalid|revoked)/i;
+const SESSION_END_CODES = new Set([
+  "session_expired",
+  "session_invalid",
+  "session_revoked",
+]);
+
+function isSessionEndedBody(rawBody: string): boolean {
+  if (!rawBody) return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawBody);
+  } catch {
+    return false;
+  }
+  if (typeof parsed !== "object" || parsed === null) return false;
+  const errVal = (parsed as { error?: unknown }).error;
+  if (typeof errVal === "string") {
+    return SESSION_END_RE.test(errVal);
+  }
+  if (typeof errVal === "object" && errVal !== null) {
+    const code = (errVal as { code?: unknown }).code;
+    if (typeof code === "string" && SESSION_END_CODES.has(code)) return true;
+  }
+  return false;
+}
+
+/**
+ * Browser-only redirect to `/auth/signin?returnTo=<current path>`.
+ * No-ops under SSR/RSC and when already on an `/auth/*` surface
+ * (the user is mid-signin; another bounce would be useless and
+ * could loop). Uses `location.assign` rather than the Next.js
+ * router because the API client module has no router context.
+ */
+function redirectToSignin(): void {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname.startsWith("/auth/")) return;
+  const current = captureCurrentLocationAsReturnTo();
+  const target = buildSigninUrlWithReturnTo(current);
+  window.location.assign(target);
+}
 
 function gatewayBase(): string {
   return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
@@ -46,6 +106,14 @@ async function readSessionToken(): Promise<string | undefined> {
 
 async function parseError(res: Response): Promise<ApiError> {
   const text = await res.text().catch(() => "");
+  // Session-ended on a cookie-authenticated request → fire the
+  // returnTo redirect before surfacing the ApiError to the call
+  // site. The throw still happens so in-flight UI can clean up; the
+  // redirect navigates the document away in parallel.
+  if (res.status === 401 && isSessionEndedBody(text)) {
+    redirectToSignin();
+    return new ApiError(res.status, "Session expired", "session_expired", text || undefined);
+  }
   if (res.status >= 400 && res.status < 500 && text) {
     try {
       const parsed = JSON.parse(text) as Partial<ApiErrorEnvelope>;
