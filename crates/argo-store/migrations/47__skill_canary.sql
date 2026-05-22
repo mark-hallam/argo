@@ -3,7 +3,7 @@
 --
 -- SAFETY: global table because skills are a cross-tenant marketplace
 -- catalog (see `skill` in v1.rs). Canary rollouts target the global
--- catalog by `skill_id`; operator-driven and not tenant-partitioned.
+-- catalog by `skill_id` — operator-driven and not tenant-partitioned.
 --
 -- One row per skill_id (the skill family name) records an
 -- in-flight canary: the operator has promoted `canary_version` and

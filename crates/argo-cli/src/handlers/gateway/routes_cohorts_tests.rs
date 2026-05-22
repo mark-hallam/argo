@@ -11,6 +11,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{Mutex, MutexGuard};
+use uuid::Uuid;
 
 async fn env_lock() -> MutexGuard<'static, ()> {
     static M: Mutex<()> = Mutex::const_new(());
@@ -97,6 +98,43 @@ async fn set_trust(store: &Arc<SessionStore>, worker_id: &str, grade: i64) {
         .execute(store.pool())
         .await
         .expect("trust update");
+}
+
+/// Test fixture: one row of inputs for [`insert_audit_row`]. Bundled
+/// into a struct because clippy flags >7 positional args, and a struct
+/// makes the call sites self-documenting too.
+struct AuditRowSpec<'a> {
+    tenant: TenantId,
+    worker_id: &'a str,
+    kind: &'a str,
+    action_type: &'a str,
+    created_at: i64,
+    summary: &'a str,
+    seq_idx: u128,
+}
+
+/// Seed one `audit_record` row tied to `spec.worker_id`.
+async fn insert_audit_row(store: &Arc<SessionStore>, spec: AuditRowSpec<'_>) {
+    let payload = serde_json::json!({
+        "summary": spec.summary,
+        "worker_id": spec.worker_id,
+    });
+    sqlx::query(
+        "INSERT INTO audit_record \
+         (id, session_id, kind, payload_json, parent_hash, self_hash, created_at, \
+          tenant_id, worker_id, action_type) \
+         VALUES (?, NULL, ?, ?, x'00', x'01', ?, ?, ?, ?)",
+    )
+    .bind(Uuid::from_u128(spec.seq_idx).as_bytes().as_slice())
+    .bind(spec.kind)
+    .bind(payload.to_string())
+    .bind(spec.created_at)
+    .bind(spec.tenant.to_string())
+    .bind(spec.worker_id)
+    .bind(spec.action_type)
+    .execute(store.pool())
+    .await
+    .expect("audit insert");
 }
 
 #[tokio::test]
@@ -229,6 +267,135 @@ async fn detail_404_when_cohort_unknown() {
     assert_eq!(status, "404 Not Found");
     let v: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["error"]["code"], "not_found");
+}
+
+#[tokio::test]
+async fn detail_includes_recent_activity_scoped_to_members() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    let w1 = seed(&store, tenant, "Maya", "support").await;
+    let w2 = seed(&store, tenant, "Priya", "support").await;
+    set_trust(&store, &w1.id.to_string(), 2).await;
+    set_trust(&store, &w2.id.to_string(), 2).await;
+    add_skill(&store, &w1.id.to_string(), "follow_up").await;
+    add_skill(&store, &w2.id.to_string(), "follow_up").await;
+    let w1_id = w1.id.to_string();
+    let w2_id = w2.id.to_string();
+    // Audit rows for cohort members — should surface in the envelope.
+    insert_audit_row(
+        &store,
+        AuditRowSpec {
+            tenant,
+            worker_id: &w1_id,
+            kind: "skill.applied",
+            action_type: "skill_apply",
+            created_at: 100,
+            summary: "follow_up ran on inbound #1",
+            seq_idx: 1,
+        },
+    )
+    .await;
+    insert_audit_row(
+        &store,
+        AuditRowSpec {
+            tenant,
+            worker_id: &w2_id,
+            kind: "approval.completed",
+            action_type: "approval",
+            created_at: 200,
+            summary: "approved $40 refund",
+            seq_idx: 2,
+        },
+    )
+    .await;
+    // Audit row for a stranger worker on the same tenant — must NOT
+    // surface (cohort scoping is by member worker_id).
+    let stranger_id = format!("stranger-{}", Uuid::now_v7());
+    insert_audit_row(
+        &store,
+        AuditRowSpec {
+            tenant,
+            worker_id: &stranger_id,
+            kind: "skill.applied",
+            action_type: "skill_apply",
+            created_at: 300,
+            summary: "stranger row that must not leak",
+            seq_idx: 3,
+        },
+    )
+    .await;
+    // Audit row for a member but on a DIFFERENT tenant — must NOT
+    // surface (tenant scoping).
+    let other_tenant = TenantId::new();
+    insert_audit_row(
+        &store,
+        AuditRowSpec {
+            tenant: other_tenant,
+            worker_id: &w1_id,
+            kind: "skill.applied",
+            action_type: "skill_apply",
+            created_at: 400,
+            summary: "other-tenant row that must not leak",
+            seq_idx: 4,
+        },
+    )
+    .await;
+
+    let (status, body) = detail_response(
+        &req_detail("support::developing", None),
+        "support::developing",
+        Some(&store),
+    )
+    .await;
+    assert_eq!(status, "200 OK", "body: {body}");
+    let v: Value = serde_json::from_str(&body).expect("json");
+    let activity = v["recent_activity"].as_array().expect("recent_activity array");
+    assert_eq!(activity.len(), 2, "expected 2 in-cohort rows, got {activity:?}");
+    let summaries: Vec<&str> = activity
+        .iter()
+        .filter_map(|r| r["summary"].as_str())
+        .collect();
+    assert!(summaries.iter().any(|s| s.contains("follow_up ran")));
+    assert!(summaries.iter().any(|s| s.contains("approved $40 refund")));
+    assert!(
+        !summaries.iter().any(|s| s.contains("stranger")),
+        "stranger row leaked into cohort activity"
+    );
+    assert!(
+        !summaries.iter().any(|s| s.contains("other-tenant")),
+        "cross-tenant row leaked into cohort activity"
+    );
+    // Newest-first ordering: approval (seq=2) should come before
+    // skill.applied (seq=1).
+    assert_eq!(activity[0]["kind"], "approval.completed");
+    assert_eq!(activity[1]["kind"], "skill.applied");
+}
+
+#[tokio::test]
+async fn detail_recent_activity_is_empty_when_no_audit_rows() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let tenant = workspace_tenant(&store).await;
+    let w = seed(&store, tenant, "Maya", "support").await;
+    set_trust(&store, &w.id.to_string(), 2).await;
+    let (status, body) = detail_response(
+        &req_detail("support::developing", None),
+        "support::developing",
+        Some(&store),
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let v: Value = serde_json::from_str(&body).expect("json");
+    assert_eq!(
+        v["recent_activity"].as_array().expect("array").len(),
+        0,
+        "no audit rows seeded → recent_activity should be []"
+    );
 }
 
 #[tokio::test]

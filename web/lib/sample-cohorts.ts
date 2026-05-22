@@ -9,7 +9,12 @@
  * are running side-by-side.
  */
 
-import type { CohortDetail, CohortSummary, SkillCoverage } from "@/lib/api/cohorts";
+import type {
+  CohortActivityRow,
+  CohortDetail,
+  CohortSummary,
+  SkillCoverage,
+} from "@/lib/api/cohorts";
 
 export const SAMPLE_COHORT_SUMMARIES: CohortSummary[] = [
   {
@@ -125,6 +130,69 @@ const MARKETPLACE_DEVELOPING_SKILLS: SkillCoverage[] = [
   },
 ];
 
+const NOW_MS = 1_716_336_000_000; // 2024-05-22T00:00:00Z, anchored so snapshot diffs stay stable.
+
+const SUPPORT_TRUSTED_ACTIVITY: CohortActivityRow[] = [
+  {
+    seq: 4201,
+    kind: "skill.applied",
+    action_type: "skill_apply",
+    worker_id: "wkr_01J0PRIYA",
+    principal_id: "human:mark@acmeco.com",
+    channel: "slack",
+    outcome_status: "success",
+    created_at_ms: NOW_MS - 5 * 60_000,
+    summary: "refund_lookup → resolved escalated ticket #4821",
+  },
+  {
+    seq: 4198,
+    kind: "policy.escalated",
+    action_type: "escalate",
+    worker_id: "wkr_01J0JAMAL",
+    principal_id: "human:ops-on-call",
+    channel: "email",
+    outcome_status: "approved",
+    created_at_ms: NOW_MS - 22 * 60_000,
+    summary: "draft_apology held for human review (sentiment < -0.7)",
+  },
+  {
+    seq: 4193,
+    kind: "skill.promoted",
+    action_type: "trust_promotion",
+    worker_id: "wkr_01J0RIO",
+    principal_id: "system:trust_engine",
+    channel: null,
+    outcome_status: "success",
+    created_at_ms: NOW_MS - 60 * 60_000,
+    summary: "grade 6 → 7 after 14-day clean streak",
+  },
+  {
+    seq: 4188,
+    kind: "approval.completed",
+    action_type: "approval",
+    worker_id: "wkr_01J0NORI",
+    principal_id: "human:mark@acmeco.com",
+    channel: "web",
+    outcome_status: "approved",
+    created_at_ms: NOW_MS - 3 * 60 * 60_000,
+    summary: "approved $480 refund (Mariah upsell, repeat customer)",
+  },
+];
+
+const MARKETPLACE_DEVELOPING_ACTIVITY: CohortActivityRow[] = [
+  {
+    seq: 4090,
+    kind: "skill.applied",
+    action_type: "skill_apply",
+    worker_id: "wkr_01J0MARIAH",
+    principal_id: null,
+    channel: "internal",
+    outcome_status: "success",
+    created_at_ms: NOW_MS - 9 * 60_000,
+    summary: "list_inventory ran on 142 SKUs (vintage_apparel)",
+  },
+];
+
 export const SAMPLE_COHORT_DETAIL: CohortDetail = {
   cohort_id: "support::trusted",
   vertical: "support",
@@ -174,6 +242,7 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
     },
   ],
   skills: SUPPORT_TRUSTED_SKILLS,
+  recent_activity: SUPPORT_TRUSTED_ACTIVITY,
 };
 
 export const SAMPLE_MARKETPLACE_COHORT_DETAIL: CohortDetail = {
@@ -192,6 +261,7 @@ export const SAMPLE_MARKETPLACE_COHORT_DETAIL: CohortDetail = {
     },
   ],
   skills: MARKETPLACE_DEVELOPING_SKILLS,
+  recent_activity: MARKETPLACE_DEVELOPING_ACTIVITY,
 };
 
 export const SAMPLE_COHORT_DETAILS: Record<string, CohortDetail> = {

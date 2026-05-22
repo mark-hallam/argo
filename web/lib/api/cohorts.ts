@@ -40,9 +40,29 @@ export interface SkillCoverage {
   member_hits: number;
 }
 
+/**
+ * One audit-record row attributed to a cohort member, surfaced as the
+ * drawer's "recent activity" feed. Shape mirrors the gateway envelope
+ * emitted by `routes_cohorts::recent_cohort_activity`: a flat row with
+ * the canonical kind + a short `summary` string extracted from the
+ * payload (`summary` → `endpoint` → `message` → `intent`).
+ */
+export interface CohortActivityRow {
+  seq: number;
+  kind: string;
+  action_type: string | null;
+  worker_id: string | null;
+  principal_id: string | null;
+  channel: string | null;
+  outcome_status: string | null;
+  created_at_ms: number;
+  summary: string | null;
+}
+
 export interface CohortDetail extends CohortSummary {
   members: CohortMember[];
   skills: SkillCoverage[];
+  recent_activity: CohortActivityRow[];
 }
 
 export type CohortDataSource = "gateway" | "mock-offline" | "mock-bypass";

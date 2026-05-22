@@ -41,6 +41,28 @@ const DETAIL: CohortDetail = {
       member_hits: 1,
     },
   ],
+  recent_activity: [
+    {
+      seq: 99,
+      kind: "skill.applied",
+      action_type: "skill_apply",
+      worker_id: "wkr_alpha",
+      principal_id: "human:mark@acmeco.com",
+      channel: "slack",
+      outcome_status: "success",
+      created_at_ms: Date.now() - 3 * 60_000,
+      summary: "follow_up resolved ticket #4821",
+    },
+  ],
+};
+
+const EMPTY_COHORT_DETAIL: CohortDetail = {
+  ...DETAIL,
+  member_count: 0,
+  skill_count: 0,
+  members: [],
+  skills: [],
+  recent_activity: [],
 };
 
 beforeEach(() => {
@@ -73,5 +95,62 @@ describe("CohortDetailDrawer", () => {
       <CohortDetailDrawer cohortId={null} onClose={() => {}} />,
     );
     expect(container.firstChild).toBeNull();
+  });
+
+  it("renders a loading skeleton while the query is pending", () => {
+    useCohortDetailMock.mockReturnValue({ data: undefined, isPending: true });
+    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    expect(screen.getByTestId("cohort-detail-loading")).toBeInTheDocument();
+  });
+
+  it("lists cohort members with grade and skill count", () => {
+    useCohortDetailMock.mockReturnValue({
+      data: { detail: DETAIL, source: "mock-offline" },
+      isPending: false,
+    });
+    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    const rows = screen.getAllByTestId("cohort-detail-member-row");
+    expect(rows.length).toBe(2);
+    expect(rows[0]).toHaveAttribute("data-worker-id", "wkr_alpha");
+    expect(within(rows[0]).getByText(/grade 9/)).toBeInTheDocument();
+    expect(within(rows[0]).getByText(/2 skills/)).toBeInTheDocument();
+    expect(within(rows[1]).getByText(/1 skill/)).toBeInTheDocument();
+  });
+
+  it("renders the recent activity feed when rows are present", () => {
+    useCohortDetailMock.mockReturnValue({
+      data: { detail: DETAIL, source: "mock-offline" },
+      isPending: false,
+    });
+    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    const rows = screen.getAllByTestId("cohort-detail-activity-row");
+    expect(rows.length).toBe(1);
+    expect(
+      within(rows[0]).getByText("follow_up resolved ticket #4821"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the no-members invite CTA when the cohort has zero members", () => {
+    useCohortDetailMock.mockReturnValue({
+      data: { detail: EMPTY_COHORT_DETAIL, source: "mock-offline" },
+      isPending: false,
+    });
+    render(<CohortDetailDrawer cohortId="support::trusted" onClose={() => {}} />);
+    expect(screen.getByTestId("cohort-detail-empty")).toBeInTheDocument();
+    const cta = screen.getByTestId("cohort-detail-invite-cta");
+    expect(cta).toHaveAttribute(
+      "href",
+      "/hire?cohort=support%3A%3Atrusted",
+    );
+  });
+
+  it("falls through to the empty/invite panel when the gateway returns 404 (detail null)", () => {
+    useCohortDetailMock.mockReturnValue({
+      data: { detail: null, source: "gateway" },
+      isPending: false,
+    });
+    render(<CohortDetailDrawer cohortId="ops::unknown" onClose={() => {}} />);
+    expect(screen.getByTestId("cohort-detail-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("cohort-detail-invite-cta")).toBeInTheDocument();
   });
 });

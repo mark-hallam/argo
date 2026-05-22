@@ -1,10 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
-import { X } from "lucide-react";
+import { Activity, UserPlus, Users, X } from "lucide-react";
 import { useCohortDetail } from "@/lib/hooks/use-cohorts";
 import { cn } from "@/lib/utils";
-import type { CohortDetail, CohortMember, SkillCoverage } from "@/lib/api/cohorts";
+import type {
+  CohortActivityRow,
+  CohortDetail,
+  CohortMember,
+  SkillCoverage,
+} from "@/lib/api/cohorts";
 
 export interface CohortDetailDrawerProps {
   cohortId: string | null;
@@ -48,18 +54,17 @@ export function CohortDetailDrawer({ cohortId, onClose }: CohortDetailDrawerProp
         <DrawerHeader cohortId={cohortId} onClose={onClose} closeRef={closeRef} />
         <div className="px-6 py-5 space-y-6">
           {query.isPending ? (
-            <p
-              data-testid="cohort-detail-loading"
-              className="text-sm text-[var(--muted-foreground)]"
-            >
-              Loading…
-            </p>
+            <CohortDetailSkeleton />
           ) : detail === null ? (
-            <CohortMissingState />
+            <CohortMissingState cohortId={cohortId} />
+          ) : detail.members.length === 0 ? (
+            <CohortEmptyMembersState detail={detail} />
           ) : (
             <>
               <SummarySection detail={detail} />
+              <MembersSection detail={detail} />
               <SkillCoverageMatrix detail={detail} />
+              <RecentActivitySection detail={detail} />
             </>
           )}
         </div>
@@ -99,18 +104,92 @@ function DrawerHeader({ cohortId, onClose, closeRef }: DrawerHeaderProps) {
   );
 }
 
-function CohortMissingState() {
+function CohortDetailSkeleton() {
+  return (
+    <div
+      data-testid="cohort-detail-loading"
+      role="status"
+      aria-label="Loading cohort detail"
+      className="space-y-4"
+    >
+      <div className="h-16 animate-pulse rounded-[var(--radius-lg)] bg-[var(--muted)]/60" />
+      <div className="h-24 animate-pulse rounded-[var(--radius-lg)] bg-[var(--muted)]/60" />
+      <div className="h-48 animate-pulse rounded-[var(--radius-lg)] bg-[var(--muted)]/60" />
+      <div className="h-32 animate-pulse rounded-[var(--radius-lg)] bg-[var(--muted)]/60" />
+      <span className="sr-only">Loading cohort detail…</span>
+    </div>
+  );
+}
+
+/**
+ * Rendered when the gateway returns 404 (cohort id does not match any
+ * `(vertical, trust_band)` bucket on this tenant) — we treat that as
+ * "no members yet" because functionally there's nothing to show; the
+ * invite CTA gets the operator unblocked. Surfacing this rather than a
+ * raw "not found" matches the brief's empty-cohort acceptance bullet.
+ */
+function CohortMissingState({ cohortId }: { cohortId: string }) {
+  return (
+    <EmptyMembersPanel
+      cohortId={cohortId}
+      label={cohortId}
+      headline="No members yet"
+      sub="No workers match this cohort's trust band on this tenant. Hire someone in to seed it."
+    />
+  );
+}
+
+function CohortEmptyMembersState({ detail }: { detail: CohortDetail }) {
+  return (
+    <EmptyMembersPanel
+      cohortId={detail.cohort_id}
+      label={`${detail.vertical} · ${detail.trust_grade_band}`}
+      headline="No members yet"
+      sub="This cohort exists but has no workers. Invite teammates to start sharing skills across the cohort."
+    />
+  );
+}
+
+function EmptyMembersPanel({
+  cohortId,
+  label,
+  headline,
+  sub,
+}: {
+  cohortId: string;
+  label: string;
+  headline: string;
+  sub: string;
+}) {
+  const hireHref = `/hire?cohort=${encodeURIComponent(cohortId)}`;
   return (
     <div
       data-testid="cohort-detail-empty"
-      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-10 px-6 text-center"
+      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--card)] px-6 py-10 text-center"
     >
-      <h3 className="text-sm font-semibold text-[var(--foreground)]">
-        Cohort not found
+      <div className="mx-auto grid size-12 place-items-center rounded-full bg-[var(--muted)] text-[var(--muted-foreground)]">
+        <Users className="size-5" />
+      </div>
+      <h3 className="mt-4 text-sm font-semibold text-[var(--foreground)]">
+        {headline}
       </h3>
-      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-        It may have been emptied since the page loaded.
+      <p className="mx-auto mt-1 max-w-sm text-xs text-[var(--muted-foreground)]">
+        {sub}
       </p>
+      <p
+        data-testid="cohort-detail-empty-id"
+        className="mt-2 text-[11px] uppercase tracking-wider text-[var(--muted-foreground)]"
+      >
+        {label}
+      </p>
+      <Link
+        data-testid="cohort-detail-invite-cta"
+        href={hireHref}
+        className="mt-5 inline-flex items-center gap-2 rounded-[var(--radius-md)] bg-[var(--foreground)] px-3 py-2 text-xs font-medium text-[var(--background)] hover:opacity-90 transition-opacity"
+      >
+        <UserPlus className="size-4" aria-hidden="true" />
+        Invite a member
+      </Link>
     </div>
   );
 }
@@ -291,4 +370,131 @@ function buildWorkerSkillIndex(members: CohortMember[]): Map<string, Set<string>
     out.set(m.worker_id, new Set(m.skill_ids));
   }
   return out;
+}
+
+function MembersSection({ detail }: { detail: CohortDetail }) {
+  return (
+    <section aria-labelledby="cohort-detail-members-heading" className="space-y-2">
+      <h3
+        id="cohort-detail-members-heading"
+        className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]"
+      >
+        Members ({detail.members.length})
+      </h3>
+      <ul
+        data-testid="cohort-detail-members"
+        className="divide-y divide-[var(--border)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)]"
+      >
+        {detail.members.map((m) => (
+          <li
+            key={m.worker_id}
+            data-testid="cohort-detail-member-row"
+            data-worker-id={m.worker_id}
+            className="flex items-center justify-between gap-4 px-4 py-3"
+          >
+            <div className="min-w-0">
+              <Link
+                href={`/workers/${encodeURIComponent(m.worker_id)}`}
+                className="block truncate text-sm font-medium text-[var(--foreground)] hover:underline"
+              >
+                {m.worker_id}
+              </Link>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {m.skill_ids.length}{" "}
+                {m.skill_ids.length === 1 ? "skill" : "skills"}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--muted)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--foreground)]">
+              grade {m.trust_grade}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function RecentActivitySection({ detail }: { detail: CohortDetail }) {
+  const rows = detail.recent_activity ?? [];
+  return (
+    <section aria-labelledby="cohort-detail-activity-heading" className="space-y-2">
+      <h3
+        id="cohort-detail-activity-heading"
+        className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]"
+      >
+        Recent activity
+      </h3>
+      {rows.length === 0 ? (
+        <p
+          data-testid="cohort-detail-activity-empty"
+          className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] px-4 py-6 text-center text-xs text-[var(--muted-foreground)]"
+        >
+          No audit rows yet for this cohort's members.
+        </p>
+      ) : (
+        <ul
+          data-testid="cohort-detail-activity"
+          className="divide-y divide-[var(--border)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)]"
+        >
+          {rows.map((row) => (
+            <ActivityRow key={row.seq} row={row} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ActivityRow({ row }: { row: CohortActivityRow }) {
+  const when = formatActivityTimestamp(row.created_at_ms);
+  return (
+    <li
+      data-testid="cohort-detail-activity-row"
+      className="flex items-start gap-3 px-4 py-3"
+    >
+      <Activity
+        className="mt-0.5 size-4 shrink-0 text-[var(--muted-foreground)]"
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-sm font-medium text-[var(--foreground)]">
+            {row.kind}
+          </span>
+          {row.action_type ? (
+            <span className="text-[11px] uppercase tracking-wider text-[var(--muted-foreground)]">
+              {row.action_type}
+            </span>
+          ) : null}
+        </div>
+        {row.summary ? (
+          <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+            {row.summary}
+          </p>
+        ) : null}
+        <p className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+          {row.worker_id ?? "—"} · {when}
+          {row.outcome_status ? ` · ${row.outcome_status}` : null}
+        </p>
+      </div>
+    </li>
+  );
+}
+
+function formatActivityTimestamp(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "—";
+  const now = Date.now();
+  const diff = now - ms;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < minute) return "just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`;
+  try {
+    return new Date(ms).toISOString().slice(0, 10);
+  } catch {
+    return "—";
+  }
 }

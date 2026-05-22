@@ -27,12 +27,17 @@
 
 use super::routes_auth_principal::principal_id_for_audit;
 use argo_audit::{AuditKind, AuditSink};
-use argo_store::cohort::{cohort_detail, list_cohorts, CohortSummary};
+use argo_store::cohort::{cohort_detail, list_cohorts, CohortMember, CohortSummary};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
-use serde_json::json;
+use serde_json::{json, Value};
+use sqlx::Row;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// Cap on recent audit rows surfaced in the cohort detail envelope.
+/// Brief calls for "3-5 most recent" — pick 5 as the upper bound.
+const COHORT_RECENT_ACTIVITY_LIMIT: i64 = 5;
 
 /// `GET /api/v1/cohorts`.
 pub(super) async fn list_response(
@@ -95,9 +100,94 @@ pub(super) async fn detail_response(
         Ok(None) => return not_found(&format!("cohort '{decoded}' not found")),
         Err(e) => return server_error(&format!("cohort detail: {e}")),
     };
+    let recent_activity =
+        match recent_cohort_activity(store, workspace_tenant, &detail.members).await {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::warn!(
+                    target: "gateway::cohorts",
+                    error = %e,
+                    cohort_id = %decoded,
+                    "cohorts.detail recent_activity query failed; falling back to empty list"
+                );
+                Vec::new()
+            }
+        };
     emit_detail_audit(store, req, &decoded, workspace_tenant).await;
-    let body = serde_json::to_string(&detail).unwrap_or_else(|_| "{}".to_string());
-    ("200 OK", body)
+    let mut envelope = serde_json::to_value(&detail).unwrap_or_else(|_| json!({}));
+    if let Value::Object(map) = &mut envelope {
+        map.insert("recent_activity".into(), Value::Array(recent_activity));
+    }
+    ("200 OK", envelope.to_string())
+}
+
+/// Fetch the most recent `audit_record` rows tied to any of the cohort's
+/// member worker ids, capped at [`COHORT_RECENT_ACTIVITY_LIMIT`]. Returns
+/// an empty list (rather than erroring) when the cohort has no members,
+/// so the front-end can render the "no members yet" empty state without
+/// a 500.
+///
+/// Sort is `seq DESC` — the autoincrement column is the chain order and
+/// is cheaper than the (TEXT-encoded) `created_at` column for ORDER BY.
+async fn recent_cohort_activity(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    members: &[CohortMember],
+) -> ArgoResult<Vec<Value>> {
+    if members.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders = members.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let sql = format!(
+        "SELECT seq, kind, action_type, worker_id, principal_id, channel, \
+                outcome_status, created_at, payload_json \
+         FROM audit_record \
+         WHERE tenant_id = ? AND worker_id IN ({placeholders}) \
+         ORDER BY seq DESC \
+         LIMIT ?"
+    );
+    let mut query = sqlx::query(&sql).bind(tenant.to_string());
+    for m in members {
+        query = query.bind(m.worker_id.clone());
+    }
+    query = query.bind(COHORT_RECENT_ACTIVITY_LIMIT);
+    let rows = query
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("cohort recent_activity: {e}")))?;
+    let mut out: Vec<Value> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let payload_raw: String = row.try_get("payload_json").unwrap_or_default();
+        let payload: Value = serde_json::from_str(&payload_raw).unwrap_or(Value::Null);
+        let summary = summarize_audit_payload(&payload);
+        out.push(json!({
+            "seq": row.try_get::<i64, _>("seq").unwrap_or(0),
+            "kind": row.try_get::<String, _>("kind").unwrap_or_default(),
+            "action_type": row.try_get::<Option<String>, _>("action_type").ok().flatten(),
+            "worker_id": row.try_get::<Option<String>, _>("worker_id").ok().flatten(),
+            "principal_id": row.try_get::<Option<String>, _>("principal_id").ok().flatten(),
+            "channel": row.try_get::<Option<String>, _>("channel").ok().flatten(),
+            "outcome_status": row.try_get::<Option<String>, _>("outcome_status").ok().flatten(),
+            "created_at_ms": row.try_get::<i64, _>("created_at").unwrap_or(0),
+            "summary": summary,
+        }));
+    }
+    Ok(out)
+}
+
+/// Pull a short, human-readable phrase out of the audit payload. The
+/// payload shape varies by kind; we look for the canonical keys
+/// `summary`, then `endpoint`, then `message`, then fall back to an
+/// empty string. The drawer renders this as the activity row's body.
+fn summarize_audit_payload(payload: &Value) -> Option<String> {
+    for key in &["summary", "endpoint", "message", "intent"] {
+        if let Some(s) = payload.get(*key).and_then(Value::as_str) {
+            if !s.is_empty() {
+                return Some(s.to_string());
+            }
+        }
+    }
+    None
 }
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
