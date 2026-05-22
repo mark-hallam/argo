@@ -397,24 +397,12 @@ async fn emit_hire_audit(
     }
 }
 
-/// Lightweight email/phone redactor for the audit-log copy of the
-/// hire context. Frontend payloads typically only carry emails;
-/// `argo-redact::redact_text` (Stream J2) becomes the authoritative
-/// fence once it lands.
+/// Audit-log redactor for the hire context. Delegates to
+/// `argo_redact::redact_text` (Stream J2) so email / phone (incl.
+/// `+CC`-prefixed international) / street-address sentinels stay in
+/// sync with the canonical fence's pattern set.
 fn redact_text(input: &str) -> String {
-    let email = redact_pattern(
-        input,
-        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}",
-        "[EMAIL]",
-    );
-    redact_pattern(&email, r"\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b", "[PHONE]")
-}
-
-fn redact_pattern(input: &str, pattern: &str, sentinel: &str) -> String {
-    match regex::Regex::new(pattern) {
-        Ok(re) => re.replace_all(input, sentinel).into_owned(),
-        Err(_) => input.to_string(),
-    }
+    argo_redact::redact_text(input, &argo_redact::RedactionPolicy::default()).0
 }
 
 fn redact_value(value: &Value) -> Value {

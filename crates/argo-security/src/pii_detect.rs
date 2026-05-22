@@ -37,10 +37,15 @@ pub enum PiiKind {
     CreditCard,
     /// RFC-5321-ish email address.
     Email,
-    /// US phone number (10 digits, common separators).
+    /// US-shape or `+CC`-prefixed international phone number. Kept
+    /// under the historic `UsPhone` name so the `us_phone` wire label
+    /// stays stable for audit consumers; the regex itself now covers
+    /// `+1-555-0123`, `+44 20 7946 0958`, `1.555.0123`, etc.
     UsPhone,
     /// International Bank Account Number, mod-97 validated.
     Iban,
+    /// US-shape street address (`123 Main St`, `456 North Main Ave`).
+    StreetAddress,
 }
 
 impl PiiKind {
@@ -53,6 +58,7 @@ impl PiiKind {
             PiiKind::Email => "email",
             PiiKind::UsPhone => "us_phone",
             PiiKind::Iban => "iban",
+            PiiKind::StreetAddress => "street_address",
         }
     }
 }
@@ -116,6 +122,7 @@ struct Patterns {
     email: Option<Regex>,
     phone: Option<Regex>,
     iban: Option<Regex>,
+    address: Option<Regex>,
 }
 
 fn patterns() -> &'static Patterns {
@@ -127,8 +134,26 @@ fn patterns() -> &'static Patterns {
         )
         .ok(),
         email: Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}\b").ok(),
-        phone: Regex::new(r"\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b").ok(),
+        // Phone shapes:
+        //   1. `+CC` international prefix with 3-3-4 / 1-3-4 / area-local.
+        //   2. US 10-digit with optional separators (`555-555-0123`,
+        //      `(555) 555-0123`, `555.555.0123`, bare `5555550123`).
+        // Separators stay optional on branch 2 to preserve the v1
+        // contract that a bare 10-digit run soft-flags as a phone
+        // (see `clean_string_yields_no_findings`).
+        phone: Regex::new(
+            r"\+\d{1,3}[\s\-\.]?\(?\d{1,4}\)?[\s\-\.]?(?:\d{2,4}[\s\-\.]?)?\d{3,4}|\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
+        )
+        .ok(),
         iban: Regex::new(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b").ok(),
+        // US-shape street address: 1-5 leading digits + 1-3 name
+        // words + recognised street suffix. Bounded middle keeps
+        // prose-embedded matches scoped instead of devouring whole
+        // sentences before the suffix.
+        address: Regex::new(
+            r"(?i)\b\d{1,5}\s+(?:[A-Za-z][A-Za-z0-9'\-]*\s+){1,3}(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Way|Ct|Court|Pl|Place|Pkwy|Parkway|Hwy|Highway)\b",
+        )
+        .ok(),
     })
 }
 
@@ -302,6 +327,15 @@ fn scan_inner(input: &str) -> PiiFindings {
             }
             raw.push(PiiFinding {
                 kind: PiiKind::Iban,
+                span: m.range(),
+                masked_value: mask(m.as_str()),
+            });
+        }
+    }
+    if let Some(re) = &p.address {
+        for m in re.find_iter(input) {
+            raw.push(PiiFinding {
+                kind: PiiKind::StreetAddress,
                 span: m.range(),
                 masked_value: mask(m.as_str()),
             });

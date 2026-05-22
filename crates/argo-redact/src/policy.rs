@@ -44,6 +44,8 @@ pub struct RedactionPolicy {
     pub iban: PolicyMode,
     /// Mode for NZ IRD matches.
     pub ird: PolicyMode,
+    /// Mode for US-shape street address matches.
+    pub address: PolicyMode,
 }
 
 impl Default for RedactionPolicy {
@@ -54,6 +56,7 @@ impl Default for RedactionPolicy {
             card: PolicyMode::Mask,
             iban: PolicyMode::Mask,
             ird: PolicyMode::Mask,
+            address: PolicyMode::Mask,
         }
     }
 }
@@ -69,6 +72,7 @@ impl RedactionPolicy {
             Category::Card => self.card,
             Category::Iban => self.iban,
             Category::Ird => self.ird,
+            Category::Address => self.address,
         }
     }
 
@@ -82,6 +86,7 @@ impl RedactionPolicy {
             card: PolicyMode::Show,
             iban: PolicyMode::Show,
             ird: PolicyMode::Show,
+            address: PolicyMode::Show,
         }
     }
 }
@@ -106,6 +111,8 @@ pub struct ViewerPermissions {
     pub unredacted_iban: bool,
     /// `permissions.unredacted_ird = true` → category shown.
     pub unredacted_ird: bool,
+    /// `permissions.unredacted_address = true` → category shown.
+    pub unredacted_address: bool,
 }
 
 impl ViewerPermissions {
@@ -125,6 +132,7 @@ impl ViewerPermissions {
             unredacted_card: true,
             unredacted_iban: true,
             unredacted_ird: true,
+            unredacted_address: true,
         }
     }
 
@@ -135,6 +143,7 @@ impl ViewerPermissions {
             Category::Card => self.unredacted_card,
             Category::Iban => self.unredacted_iban,
             Category::Ird => self.unredacted_ird,
+            Category::Address => self.unredacted_address,
         }
     }
 }
@@ -169,6 +178,7 @@ pub fn resolve_policy(viewer: &ViewerPermissions, grants: &GrantSet) -> Redactio
             Category::Card => p.card = mode,
             Category::Iban => p.iban = mode,
             Category::Ird => p.ird = mode,
+            Category::Address => p.address = mode,
         }
     }
     p

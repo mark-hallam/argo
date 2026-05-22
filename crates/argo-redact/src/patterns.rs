@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 use std::ops::Range;
 use std::sync::OnceLock;
 
-/// One of the five categories the v1 fence recognises.
+/// One of the six categories the v1 fence recognises.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Category {
     /// RFC-5321-ish email address.
     Email,
-    /// Phone number (NZ + common international shapes).
+    /// Phone number (NZ trunks + international `+CC` shapes).
     Phone,
     /// Credit card number, Luhn-validated.
     Card,
@@ -25,17 +25,20 @@ pub enum Category {
     Iban,
     /// New Zealand IRD number (8 or 9 digits, dashed or run-together).
     Ird,
+    /// US-shape street address (`123 Main St`, `456 North Main Ave`).
+    Address,
 }
 
 /// Every category, in stable definition order. Useful for tests and
 /// for callers that need to iterate (e.g. building a per-category
 /// `RedactionPolicy`).
-pub const ALL_CATEGORIES: [Category; 5] = [
+pub const ALL_CATEGORIES: [Category; 6] = [
     Category::Email,
     Category::Phone,
     Category::Card,
     Category::Iban,
     Category::Ird,
+    Category::Address,
 ];
 
 impl Category {
@@ -48,6 +51,7 @@ impl Category {
             Self::Card => "card",
             Self::Iban => "iban",
             Self::Ird => "ird",
+            Self::Address => "address",
         }
     }
 
@@ -61,6 +65,7 @@ impl Category {
             Self::Card => crate::SENTINEL_CARD,
             Self::Iban => crate::SENTINEL_IBAN,
             Self::Ird => crate::SENTINEL_IRD,
+            Self::Address => crate::SENTINEL_ADDRESS,
         }
     }
 
@@ -73,6 +78,7 @@ impl Category {
             "card" => Self::Card,
             "iban" => Self::Iban,
             "ird" => Self::Ird,
+            "address" => Self::Address,
             _ => return None,
         })
     }
@@ -84,20 +90,28 @@ struct Patterns {
     card: Option<Regex>,
     iban: Option<Regex>,
     ird: Option<Regex>,
+    address: Option<Regex>,
 }
 
 fn patterns() -> &'static Patterns {
     static P: OnceLock<Patterns> = OnceLock::new();
     P.get_or_init(|| Patterns {
         email: Regex::new(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,24}\b").ok(),
-        // Phone shapes: international prefixed (+CC ...), or NZ-style
-        // leading-0 trunk (02x mobile, 0[3-9]x landline). Whitespace
-        // ignored via verbose mode for readability.
+        // Phone shapes:
+        //   1. International prefix `+CC` followed by 3-3-4 / 3-4 /
+        //      area + local, with space / dash / dot separators.
+        //   2. NZ leading-0 trunk (02x mobile, 0[3-9]x landline).
+        //   3. US 3-3-4 (`555-555-0123`, `(555) 555-0123`, `555.555.0123`).
+        // The middle group inside the int'l branch is `\d{0,4}` so
+        // 7-digit local numbers (`+1-555-0123`) match alongside the
+        // 10-digit shapes (`+1-555-555-0123`).
         phone: Regex::new(
             r"(?x)
-            \+\d{1,3}[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{2,4}[\s\-]?\d{3,4}
+            \+\d{1,3}[\s\-\.]?\(?\d{1,4}\)?[\s\-\.]?(?:\d{2,4}[\s\-\.]?)?\d{3,4}
             |
             \b0\d{1,2}[\s\-]?\d{3}[\s\-]?\d{4}\b
+            |
+            \b\(?\d{3}\)?[\s\-\.]\d{3}[\s\-\.]\d{4}\b
             ",
         )
         .ok(),
@@ -110,6 +124,14 @@ fn patterns() -> &'static Patterns {
         // NZ IRD: 8 or 9 digits, optionally dashed at positions 2-3
         // and 5-6 (`12-345-678` or `123-456-789`).
         ird: Regex::new(r"\b\d{2,3}[\s\-]?\d{3}[\s\-]?\d{3}\b").ok(),
+        // US-shape street address: 1-5 leading digits + 1-3 name
+        // words + a recognised street suffix. The bounded {1,3}
+        // middle keeps `5 apples on Main St` matchable but stops the
+        // regex devouring whole sentences before the suffix.
+        address: Regex::new(
+            r"(?i)\b\d{1,5}\s+(?:[A-Za-z][A-Za-z0-9'\-]*\s+){1,3}(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Way|Ct|Court|Pl|Place|Pkwy|Parkway|Hwy|Highway)\b",
+        )
+        .ok(),
     })
 }
 
@@ -126,12 +148,13 @@ pub(crate) struct PatternMatch {
 pub(crate) fn find_matches(input: &str) -> Vec<PatternMatch> {
     let p = patterns();
     let mut out = Vec::new();
-    let pairs: [(Category, Option<&Regex>); 5] = [
+    let pairs: [(Category, Option<&Regex>); 6] = [
         (Category::Email, p.email.as_ref()),
         (Category::Iban, p.iban.as_ref()),
         (Category::Card, p.card.as_ref()),
         (Category::Phone, p.phone.as_ref()),
         (Category::Ird, p.ird.as_ref()),
+        (Category::Address, p.address.as_ref()),
     ];
     for (cat, maybe_re) in pairs {
         let Some(re) = maybe_re else { continue };

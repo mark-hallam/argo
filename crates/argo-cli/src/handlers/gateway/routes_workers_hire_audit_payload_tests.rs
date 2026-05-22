@@ -182,22 +182,13 @@ async fn hire_audit_redacts_email_and_us_standard_phone_in_problem_text() {
     );
 }
 
-/// FINDINGS-ONLY (P1): the current handler-side `redact_text` regex
-/// `\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b` only matches the
-/// strict 3-3-4 US format. International-prefix phones like
-/// `+1-555-0123` (1-3-4 digit grouping) pass through un-redacted.
-///
-/// The `argo-security::pii_detect::scan_and_maybe_redact` second pass
-/// inside `AuditSink::write_with_tenant` uses the same 3-3-4 anchor
-/// AND only logs (not auto-redacts) unless `ARGO_PII_AUTOREDACT=1`,
-/// so it does not paper over the gap.
-///
-/// Marked `#[ignore]` per the brief's "FINDINGS-ONLY" handling: the
-/// fix is out of this brief's may-touch (it lives in either
-/// `argo-redact` or the hire-handler redactor); reverting `#[ignore]`
-/// once the redactor lands locks the contract in place.
+/// International-prefix phones like `+1-555-0123` (1-3-4 grouping)
+/// must redact alongside the strict 3-3-4 US format. Originally shipped
+/// as `#[ignore]` per #2067's FINDINGS-ONLY handling; un-ignored by
+/// `argo-security-pii-detect-broaden-phone-and-address` after the hire
+/// handler started delegating to `argo_redact::redact_text` (which now
+/// matches the `+CC` shape via the broadened phone regex).
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: current redactor misses +1-XXX-XXXX phone format; fix lives outside this brief"]
 async fn findings_hire_audit_should_redact_international_phone() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -218,16 +209,12 @@ async fn findings_hire_audit_should_redact_international_phone() {
     );
 }
 
-/// FINDINGS-ONLY (P1): street addresses (`123 Main St`) are not
-/// recognised by either the handler's `redact_text` regex
-/// (email + 3-3-4 phone only) or `argo-security::pii_detect` (SSN,
-/// CC, email, US phone, IBAN). They pass through to the audit row
-/// verbatim.
-///
-/// `#[ignore]`'d for the same reason as the international-phone
-/// FINDINGS test above.
+/// Street addresses (`123 Main St`) must redact alongside email and
+/// phone. Originally shipped as `#[ignore]` per #2067's FINDINGS-ONLY
+/// handling; un-ignored once `argo_redact::Category::Address` and its
+/// `[ADDR]` sentinel landed and the hire handler delegated to the
+/// canonical redactor.
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: redactor has no street-address pattern; fix lives outside this brief"]
 async fn findings_hire_audit_should_redact_street_address() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");

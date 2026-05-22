@@ -64,6 +64,71 @@ fn us_phone_detected() {
 }
 
 #[test]
+fn international_prefixed_phone_detected() {
+    // +CC-prefixed shapes that the strict 3-3-4 US regex misses —
+    // pinned per `argo-security-pii-detect-broaden-phone-and-address`.
+    for s in [
+        "reach me at +1-555-0123 today",
+        "reach me at +1 555 0123 today",
+        "reach me at +1.555.0123 today",
+        "reach me at +1-555-555-0123 today",
+        "reach me at +44 20 7946 0958 today",
+    ] {
+        let findings = scan(s);
+        assert_eq!(kinds(&findings), vec![PiiKind::UsPhone], "input was {s:?}");
+    }
+}
+
+#[test]
+fn year_like_four_digit_is_not_phone() {
+    // Negative locked by the brief: a 4-digit year must never be
+    // flagged as a phone number.
+    let findings = scan("shipped in 2026 with no PII");
+    assert!(findings.is_empty(), "year flagged as phone: {findings:?}");
+}
+
+#[test]
+fn street_address_detected() {
+    let s = "we're at 123 Main St for the meeting";
+    let findings = scan(s);
+    assert_eq!(kinds(&findings), vec![PiiKind::StreetAddress]);
+    let redacted = findings.redact(s);
+    assert_eq!(
+        redacted,
+        "we're at <redacted:street_address> for the meeting"
+    );
+}
+
+#[test]
+fn multi_word_street_address_detected() {
+    let s = "ship to 456 North Main Ave please";
+    let findings = scan(s);
+    assert_eq!(kinds(&findings), vec![PiiKind::StreetAddress]);
+}
+
+#[test]
+fn bare_integer_is_not_street_address() {
+    // Negative locked by the brief: a digit run without `<space>
+    // <name-words> <suffix>` must not match.
+    let findings = scan("see line 123 of the report");
+    assert!(
+        findings.is_empty(),
+        "bare integer flagged as address: {findings:?}"
+    );
+}
+
+#[test]
+fn lone_street_suffix_is_not_street_address() {
+    // Negative locked by the brief: the suffix `St` on its own (no
+    // digit prefix + name words) must not match.
+    let findings = scan("turn left at St Andrews and stop");
+    assert!(
+        findings.is_empty(),
+        "lone suffix flagged as address: {findings:?}"
+    );
+}
+
+#[test]
 fn iban_detected() {
     // GB82 WEST 1234 5698 7654 32 is a canonical IBAN test value.
     let findings = scan("transfer to GB82WEST12345698765432 today");

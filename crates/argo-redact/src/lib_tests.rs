@@ -91,6 +91,85 @@ fn six_digit_run_is_not_an_ird() {
 }
 
 #[test]
+fn international_prefixed_phone_is_masked() {
+    // +1-555-0123 (1-3-4 grouping) is the canonical North-American
+    // intl form that the strict 3-3-4 US regex misses — must hit
+    // the int'l branch and redact cleanly.
+    let (out, hits) = redact_text("Reach me at +1-555-0123 today", &default_strict());
+    assert_eq!(out, "Reach me at [PHONE] today");
+    assert_eq!(hits, vec![Category::Phone]);
+}
+
+#[test]
+fn international_prefixed_phone_with_spaces_is_masked() {
+    let (out, hits) = redact_text("phone +1 555 0123 ok", &default_strict());
+    assert_eq!(out, "phone [PHONE] ok");
+    assert_eq!(hits, vec![Category::Phone]);
+}
+
+#[test]
+fn international_prefixed_phone_with_dots_is_masked() {
+    let (out, hits) = redact_text("phone +1.555.0123 ok", &default_strict());
+    assert_eq!(out, "phone [PHONE] ok");
+    assert_eq!(hits, vec![Category::Phone]);
+}
+
+#[test]
+fn full_us_103_phone_with_intl_prefix_is_masked() {
+    let (out, hits) = redact_text("call +1-555-555-0123 now", &default_strict());
+    assert_eq!(out, "call [PHONE] now");
+    assert_eq!(hits, vec![Category::Phone]);
+}
+
+#[test]
+fn us_standard_dashed_phone_is_masked() {
+    let (out, hits) = redact_text("dial 555-555-0123 please", &default_strict());
+    assert_eq!(out, "dial [PHONE] please");
+    assert_eq!(hits, vec![Category::Phone]);
+}
+
+#[test]
+fn year_like_four_digit_is_not_a_phone() {
+    // Negative locked by the brief: a 4-digit year (`2026`) must
+    // never be masked as a phone number.
+    let (out, hits) = redact_text("shipped in 2026", &default_strict());
+    assert_eq!(out, "shipped in 2026");
+    assert!(hits.is_empty());
+}
+
+#[test]
+fn street_address_is_masked() {
+    let (out, hits) = redact_text("meet at 123 Main St, San Francisco", &default_strict());
+    assert_eq!(out, "meet at [ADDR], San Francisco");
+    assert_eq!(hits, vec![Category::Address]);
+}
+
+#[test]
+fn multi_word_street_address_is_masked() {
+    let (out, hits) = redact_text("ship to 456 North Main Ave", &default_strict());
+    assert_eq!(out, "ship to [ADDR]");
+    assert_eq!(hits, vec![Category::Address]);
+}
+
+#[test]
+fn bare_integer_is_not_an_address() {
+    // Negative locked by the brief: a bare digit run (`123`) must
+    // not trip the address pattern.
+    let (out, hits) = redact_text("see line 123 of the report", &default_strict());
+    assert_eq!(out, "see line 123 of the report");
+    assert!(hits.is_empty());
+}
+
+#[test]
+fn lone_street_suffix_is_not_an_address() {
+    // Negative locked by the brief: the suffix `St` on its own (no
+    // digit prefix + name words) must not match.
+    let (out, hits) = redact_text("turn left at St Andrews", &default_strict());
+    assert_eq!(out, "turn left at St Andrews");
+    assert!(hits.is_empty());
+}
+
+#[test]
 fn viewer_with_unredacted_email_sees_email_raw() {
     let viewer = ViewerPermissions {
         unredacted_email: true,
@@ -269,7 +348,7 @@ fn mock_grants_lookup_returns_empty() {
 
 #[test]
 fn sentinels_match_e1e_byte_for_byte() {
-    // The five sentinels are part of the cross-layer contract; any
+    // The six sentinels are part of the cross-layer contract; any
     // accidental rename here desyncs the server fence from the
     // client redaction layer.
     assert_eq!(SENTINEL_EMAIL, "[EMAIL]");
@@ -277,13 +356,14 @@ fn sentinels_match_e1e_byte_for_byte() {
     assert_eq!(SENTINEL_CARD, "[CARD]");
     assert_eq!(SENTINEL_IBAN, "[IBAN]");
     assert_eq!(SENTINEL_IRD, "[IRD]");
+    assert_eq!(SENTINEL_ADDRESS, "[ADDR]");
 }
 
 #[test]
 fn all_categories_array_covers_every_variant() {
     // Compile-time-ish guard: if a new variant gets added without
     // an ALL_CATEGORIES entry the count assertion catches it.
-    assert_eq!(ALL_CATEGORIES.len(), 5);
+    assert_eq!(ALL_CATEGORIES.len(), 6);
     for cat in ALL_CATEGORIES {
         assert!(!cat.label().is_empty());
         assert!(!cat.sentinel().is_empty());

@@ -15,8 +15,9 @@
 //! ```
 //!
 //! Sentinels are byte-identical to the E1-e client-layer
-//! (`[EMAIL]`, `[PHONE]`, `[CARD]`, `[IBAN]`, `[IRD]`) so the two
-//! defenses mask the same way and grep / cross-layer tests align.
+//! (`[EMAIL]`, `[PHONE]`, `[CARD]`, `[IBAN]`, `[IRD]`, `[ADDR]`) so
+//! the two defenses mask the same way and grep / cross-layer tests
+//! align.
 //!
 //! v1 scope:
 //! - 5 regex-driven categories matching the client layer.
@@ -55,3 +56,6 @@ pub const SENTINEL_CARD: &str = "[CARD]";
 pub const SENTINEL_IBAN: &str = "[IBAN]";
 /// Sentinel inserted in place of NZ IRD matches when policy masks IRD.
 pub const SENTINEL_IRD: &str = "[IRD]";
+/// Sentinel inserted in place of US-shape street address matches when
+/// policy masks address.
+pub const SENTINEL_ADDRESS: &str = "[ADDR]";

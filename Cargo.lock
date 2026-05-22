@@ -651,6 +651,8 @@ name = "argo-executor-computer-use-macos"
 version = "0.0.1"
 dependencies = [
  "argo-executor-computer-use",
+ "argo-identity",
+ "argo-store",
  "argo-types",
  "async-trait",
  "chrono",
