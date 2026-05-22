@@ -1,0 +1,7 @@
+{
+  "agent": "evaluator",
+  "last_run_utc": "2026-05-22T02:25:00Z",
+  "expected_cadence_seconds": 86400,
+  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22",
+  "run_notes": "bootstrap run — 5 scenarios; 4 P0 findings (SPA cookies break, migration semicolon-in-comment, gateway 92h stale, audit-feed misses platform events); hire pipeline + workflow source architecture both healthy"
+}
