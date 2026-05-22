@@ -1,0 +1,49 @@
+{
+  "entry": "select-window",
+  "metadata": {
+    "name": "gcal-read",
+    "version": "1.0.0",
+    "description": "Read upcoming meetings; identify standups, reviews, planning, and 1:1s from titles, attendees, and recurrence. Read-only.",
+    "source": "M21 project-coordinator pack",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.001,
+    "tool_scopes": ["calendar.readonly"]
+  },
+  "variables": [
+    { "name": "window", "varType": "TimeWindow", "scope": "graph" },
+    { "name": "events", "varType": "CalendarEventList", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "select-window",
+      "label": "Resolve calendar window",
+      "kind": {
+        "type": "transform",
+        "template": "Default: today + next 24h for cadence prep; week-ahead for status reports. Honor operator timezone."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.94 }
+    },
+    {
+      "id": "fetch-events",
+      "label": "Fetch calendar events",
+      "kind": { "type": "fetch", "target": "google_calendar.events", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "google-calendar", "toolName": "list_events" }
+      }
+    },
+    {
+      "id": "classify",
+      "label": "Classify meeting type",
+      "kind": {
+        "type": "transform",
+        "template": "Tag each event as standup | review | planning | 1:1 | external | unknown using title regex + attendee patterns + recurrence."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.87 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-window", "to": "fetch-events", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-events", "to": "classify", "cond": { "kind": "always" } }
+  ]
+}

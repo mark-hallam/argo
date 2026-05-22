@@ -1,0 +1,59 @@
+{
+  "entry": "ingest-transcript",
+  "metadata": {
+    "name": "meeting-summarize",
+    "version": "1.0.0",
+    "description": "Process a meeting transcript into structured decisions, action items, and attendee notes. Delayed by meeting_summary_delay_minutes to allow human edits to the live transcript.",
+    "source": "M21 project-coordinator pack",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.008,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "transcript", "varType": "MeetingTranscript", "scope": "graph" },
+    { "name": "summary", "varType": "MeetingSummary", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "ingest-transcript",
+      "label": "Ingest + normalize speakers",
+      "kind": {
+        "type": "transform",
+        "template": "Map speaker names to project_roster identities. Tag unrecognized speakers as guest_*."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.84 }
+    },
+    {
+      "id": "extract-decisions",
+      "label": "Extract decisions + rationale",
+      "kind": {
+        "type": "transform",
+        "template": "Return decisions[{date, decision, rationale, owner, evidence_quote}]. Flag ambiguous decisions for human confirmation."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.81 }
+    },
+    {
+      "id": "extract-actions",
+      "label": "Extract action items",
+      "kind": {
+        "type": "transform",
+        "template": "Delegate to action_item.extract. Returned items append to action_item_log."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.83 }
+    },
+    {
+      "id": "log-decisions",
+      "label": "Append to decision_log",
+      "kind": { "type": "action", "instruction": "Append each extracted decision to memory.decision_log (append-only)." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "memory", "toolName": "append" }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "ingest-transcript", "to": "extract-decisions", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "extract-decisions", "to": "extract-actions", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "extract-actions", "to": "log-decisions", "cond": { "kind": "always" } }
+  ]
+}

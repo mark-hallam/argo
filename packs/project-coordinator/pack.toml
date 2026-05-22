@@ -1,0 +1,9 @@
+[pack]
+name = "project-coordinator"
+version = "1.0.0"
+display_name = "Project Coordinator"
+description = "Cross-functional project coordinator pack for engineering teams: reconciles Linear + GitHub + Slack + Google Calendar, drafts cadence summaries, extracts action items, and never sends outbound communications without explicit human approval."
+
+[[verticals]]
+id = "project-coordinator"
+path = "."

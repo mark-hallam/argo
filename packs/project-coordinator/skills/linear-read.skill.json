@@ -1,0 +1,59 @@
+{
+  "entry": "select-scope",
+  "metadata": {
+    "name": "linear-read",
+    "version": "1.0.0",
+    "description": "Read Linear tickets, comments, cycles, status changes, and parent-child links for cross-tool synthesis. Read-only.",
+    "source": "M21 project-coordinator pack",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.002,
+    "tool_scopes": ["read:issues", "read:teams", "read:projects"]
+  },
+  "variables": [
+    { "name": "scope", "varType": "LinearReadScope", "scope": "graph" },
+    { "name": "items", "varType": "LinearItemBundle", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "select-scope",
+      "label": "Resolve scope (cycle, project, or issue list)",
+      "kind": {
+        "type": "transform",
+        "template": "Resolve the requested Linear scope into a concrete query: active cycle for team, project by id, or explicit issue list. Refuse if scope crosses tenant boundary."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.92 }
+    },
+    {
+      "id": "fetch-issues",
+      "label": "Fetch issues + comments + status history",
+      "kind": { "type": "fetch", "target": "linear.issues", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "linear", "toolName": "list_issues" }
+      }
+    },
+    {
+      "id": "fetch-links",
+      "label": "Fetch parent-child + blocking relations",
+      "kind": { "type": "fetch", "target": "linear.relations", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "linear", "toolName": "list_relations" }
+      }
+    },
+    {
+      "id": "normalize",
+      "label": "Normalize into LinearItemBundle",
+      "kind": {
+        "type": "transform",
+        "template": "Return issues with: id, title, status, assignee_linear_user_id, cycle_id, project_id, last_status_change_at, blocking_ids, blocked_by_ids, last_comment_at."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.95 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-scope", "to": "fetch-issues", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-issues", "to": "fetch-links", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "fetch-links", "to": "normalize", "cond": { "kind": "always" } }
+  ]
+}

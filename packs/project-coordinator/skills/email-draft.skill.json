@@ -1,0 +1,68 @@
+{
+  "entry": "compose-draft",
+  "metadata": {
+    "name": "email-draft",
+    "version": "1.0.0",
+    "description": "Compose Gmail drafts for action-item recaps, follow-ups, and meeting prep. Always-approval before send; uses gmail.compose scope only.",
+    "source": "M21 project-coordinator pack",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.004,
+    "tool_scopes": ["gmail.compose"]
+  },
+  "variables": [
+    { "name": "intent", "varType": "EmailIntent", "scope": "graph" },
+    { "name": "draft", "varType": "EmailDraft", "scope": "graph" },
+    { "name": "approval", "varType": "ApprovalRecord", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "compose-draft",
+      "label": "Compose draft (subject, body, recipients)",
+      "kind": {
+        "type": "transform",
+        "template": "Use policy.tone for voice. Include explicit action items + owners + due dates where relevant. Strip any inferred-but-unconfirmed commitments."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.85 }
+    },
+    {
+      "id": "policy-gate",
+      "label": "Outbound-approval gate",
+      "kind": {
+        "type": "condition",
+        "expression": "worker.policy.outbound_communication_requires_signoff == true"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Await human approval",
+      "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 7200 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "create-draft",
+      "label": "Create Gmail draft (no send)",
+      "kind": { "type": "action", "instruction": "Create the draft in Gmail. Send button stays with the operator." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "gmail", "toolName": "create_draft" }
+      }
+    },
+    {
+      "id": "refuse-no-approval",
+      "label": "Refuse + log to audit",
+      "kind": {
+        "type": "transform",
+        "template": "Outbound-approval is mandatory. Surface the draft inline to the operator and log a refusal to audit with reason 'missing_approval'."
+      },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "compose-draft", "to": "policy-gate", "cond": { "kind": "always" } },
+    { "id": "e2", "from": "policy-gate", "to": "approval", "cond": { "kind": "on-pattern", "pattern": "true" } },
+    { "id": "e3", "from": "policy-gate", "to": "refuse-no-approval", "cond": { "kind": "on-pattern", "pattern": "false" } },
+    { "id": "e4", "from": "approval", "to": "create-draft", "cond": { "kind": "on-success" } },
+    { "id": "e5", "from": "approval", "to": "refuse-no-approval", "cond": { "kind": "on-failure" } }
+  ]
+}

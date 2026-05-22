@@ -1,0 +1,51 @@
+{
+  "entry": "load-deps",
+  "metadata": {
+    "name": "dependency-check",
+    "version": "1.0.0",
+    "description": "Cross-team dependency reconciliation: detect when another team's blocker is blocking our project. LOCKED at L3 (read-only at L3; autonomous outbound notification at L4).",
+    "source": "M21 project-coordinator pack",
+    "level": "L3",
+    "locked": true,
+    "unlock_requirement": "Promote worker to L3.",
+    "target_cost_usd_per_call": 0.004,
+    "tool_scopes": ["read:issues", "read:projects"]
+  },
+  "variables": [
+    { "name": "project_id", "varType": "ProjectId", "scope": "graph" },
+    { "name": "dependency_report", "varType": "DependencyReport", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-deps",
+      "label": "Load this project's blocking relations",
+      "kind": { "type": "fetch", "target": "linear.relations", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "linear", "toolName": "list_relations" }
+      }
+    },
+    {
+      "id": "fan-out",
+      "label": "Fan out to dependent projects",
+      "kind": {
+        "type": "transform",
+        "template": "For each blocking_id, fetch the source issue's status, owner, project, and current slippage."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.86 }
+    },
+    {
+      "id": "synthesize",
+      "label": "Synthesize blocking chain",
+      "kind": {
+        "type": "transform",
+        "template": "Return DependencyReport: blocking_chain[{depth, issue, project, owner, slipped_days}], recommended_callout (draft only, not sent)."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.83 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-deps", "to": "fan-out", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fan-out", "to": "synthesize", "cond": { "kind": "always" } }
+  ]
+}

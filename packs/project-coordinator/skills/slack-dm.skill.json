@@ -1,0 +1,68 @@
+{
+  "entry": "draft-message",
+  "metadata": {
+    "name": "slack-dm",
+    "version": "1.0.0",
+    "description": "Draft a Slack DM and gate the send behind explicit human approval. Used for cadence pings, reminders, and risk callouts. Outbound is ALWAYS approval-gated, including inside the operator's tenant.",
+    "source": "M21 project-coordinator pack",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.001,
+    "tool_scopes": ["chat:write", "users:read"]
+  },
+  "variables": [
+    { "name": "recipient", "varType": "SlackUserRef", "scope": "graph" },
+    { "name": "draft", "varType": "SlackDraft", "scope": "graph" },
+    { "name": "approval", "varType": "ApprovalRecord", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "draft-message",
+      "label": "Draft message with tone-match",
+      "kind": {
+        "type": "transform",
+        "template": "Use policy.tone to match the operator's communication style. Output: text, attachments[], slack_user_id, mentions[]. Refuse to draft if recipient is outside operator's tenant unless explicitly authorized."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.88 }
+    },
+    {
+      "id": "policy-gate",
+      "label": "Outbound-approval gate",
+      "kind": {
+        "type": "condition",
+        "expression": "worker.policy.outbound_communication_requires_signoff == true"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Await human approval",
+      "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 3600 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "send",
+      "label": "Send Slack DM",
+      "kind": { "type": "action", "instruction": "Post the approved draft to the recipient as a Slack DM. Log to communication_log with approval id." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "slack", "toolName": "send_dm" }
+      }
+    },
+    {
+      "id": "refuse-no-approval",
+      "label": "Refuse + log to audit",
+      "kind": {
+        "type": "transform",
+        "template": "Outbound-approval is mandatory. Surface the draft to the operator and log a refusal to audit with reason 'missing_approval'."
+      },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "draft-message", "to": "policy-gate", "cond": { "kind": "always" } },
+    { "id": "e2", "from": "policy-gate", "to": "approval", "cond": { "kind": "on-pattern", "pattern": "true" } },
+    { "id": "e3", "from": "policy-gate", "to": "refuse-no-approval", "cond": { "kind": "on-pattern", "pattern": "false" } },
+    { "id": "e4", "from": "approval", "to": "send", "cond": { "kind": "on-success" } },
+    { "id": "e5", "from": "approval", "to": "refuse-no-approval", "cond": { "kind": "on-failure" } }
+  ]
+}

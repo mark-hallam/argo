@@ -1,0 +1,59 @@
+{
+  "entry": "ingest-source",
+  "metadata": {
+    "name": "action-item-extract",
+    "version": "1.0.0",
+    "description": "Extract assignable action items from any source (Slack thread, meeting transcript, email). Each item has owner + due date + source link.",
+    "source": "M21 project-coordinator pack",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.005,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "source", "varType": "SourceContent", "scope": "graph" },
+    { "name": "items", "varType": "ActionItemList", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "ingest-source",
+      "label": "Normalize source content + author map",
+      "kind": {
+        "type": "transform",
+        "template": "Resolve authors against project_roster to canonical owner ids. Tag unmatched speakers as ambiguous."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.87 }
+    },
+    {
+      "id": "extract",
+      "label": "Extract action items",
+      "kind": {
+        "type": "transform",
+        "template": "Return items[{id, description, owner, due_date, source_url, confidence}]. If owner or due date is unclear, set field=null and mark needs_confirmation=true."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.8 }
+    },
+    {
+      "id": "dedupe",
+      "label": "Dedupe against open log",
+      "kind": {
+        "type": "transform",
+        "template": "Drop items whose (description, owner) already appears in action_item_log with status in [open, in_progress]."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.9 }
+    },
+    {
+      "id": "append-log",
+      "label": "Append to action_item_log",
+      "kind": { "type": "action", "instruction": "Append remaining items to memory.action_item_log with status=open." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "memory", "toolName": "append" }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "ingest-source", "to": "extract", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "extract", "to": "dedupe", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "dedupe", "to": "append-log", "cond": { "kind": "always" } }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "1",
+  "namespace": "project-coordinator",
+  "collections": {
+    "project_roster": {
+      "description": "Canonical identity map for each human teammate across Linear, GitHub, and Slack. Required for cross-tool reconciliation.",
+      "fields": {
+        "name": "string",
+        "role": "string",
+        "slack_id": "string",
+        "linear_user_id": "string",
+        "github_user": "string",
+        "on_call_status": "string",
+        "primary_project_ids": "string[]"
+      }
+    },
+    "milestone_calendar": {
+      "description": "Active milestones and their slip status across all in-flight projects.",
+      "fields": {
+        "project_id": "string",
+        "milestone_id": "string",
+        "name": "string",
+        "due_date": "date",
+        "status": "on_track|at_risk|slipping|complete",
+        "owner": "string",
+        "slippage_days": "number"
+      }
+    },
+    "decision_log": {
+      "description": "Append-only record of decisions captured from meetings, async threads, or operator confirmation.",
+      "append_only": true,
+      "fields": {
+        "date": "date",
+        "decision": "string",
+        "rationale": "string",
+        "owner": "string",
+        "source_url": "string",
+        "evidence_quote": "string"
+      }
+    },
+    "action_item_log": {
+      "description": "Live list of action items extracted across sources, with owner and due date.",
+      "fields": {
+        "id": "string",
+        "description": "string",
+        "owner": "string",
+        "due_date": "date",
+        "source_meeting_id": "string",
+        "source_url": "string",
+        "status": "open|in_progress|done|cancelled",
+        "last_pinged_at": "datetime",
+        "needs_confirmation": "boolean"
+      }
+    },
+    "stakeholder_map": {
+      "description": "How each stakeholder prefers to be updated and which projects they care about.",
+      "fields": {
+        "name": "string",
+        "role": "string",
+        "comm_preference": "async|sync",
+        "cares_about": "string[]",
+        "preferred_channel": "slack|email|none"
+      }
+    },
+    "communication_log": {
+      "description": "Last 30 days of outbound communications drafted by the worker and their approval status. Required for tone learning and audit trails.",
+      "retention_days": 30,
+      "fields": {
+        "id": "string",
+        "drafted_at": "datetime",
+        "channel": "slack|email|status-report",
+        "recipient": "string",
+        "subject": "string",
+        "body": "string",
+        "approval_status": "draft|approved|refused|expired",
+        "approver": "string",
+        "sent_at": "datetime",
+        "refusal_reason": "string"
+      }
+    }
+  }
+}

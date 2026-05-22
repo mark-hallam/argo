@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "namespace": "project-coordinator",
+  "note": "Empty seed collections — worker populates per-tenant from real Linear/GitHub/Slack/GCal accounts on first run. project_roster MUST be populated before the cohort can perform cross-tool synthesis (see Amendment 2026-05-19 in the brief).",
+  "collections": {
+    "project_roster": [],
+    "milestone_calendar": [],
+    "decision_log": [],
+    "action_item_log": [],
+    "stakeholder_map": [],
+    "communication_log": []
+  }
+}

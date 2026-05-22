@@ -1,0 +1,39 @@
+{
+  "entry": "load-style",
+  "metadata": {
+    "name": "policy-tone",
+    "version": "1.0.0",
+    "description": "Cohort-shared skill for matching the operator's communication tone (formal/casual, brief/discursive, emoji/no-emoji) in any outbound draft. Read-only style analysis; no network calls.",
+    "source": "M21 project-coordinator pack (cohort-shared)",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.001,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "samples", "varType": "ToneSampleList", "scope": "graph" },
+    { "name": "style", "varType": "ToneStyle", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-style",
+      "label": "Load prior approved drafts as tone samples",
+      "kind": {
+        "type": "transform",
+        "template": "Pull the last N=15 communication_log entries with status=approved as tone samples; fall back to operator-provided style guide if no samples exist."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.9 }
+    },
+    {
+      "id": "infer-style",
+      "label": "Infer style features",
+      "kind": {
+        "type": "transform",
+        "template": "Return ToneStyle: formality (0..1), avg_sentence_len, emoji_rate, opening_pattern, closing_pattern, banned_phrases[]."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.83 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-style", "to": "infer-style", "cond": { "kind": "on-success" } }
+  ]
+}

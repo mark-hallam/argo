@@ -1,0 +1,70 @@
+{
+  "entry": "select-repo",
+  "metadata": {
+    "name": "github-read",
+    "version": "1.0.0",
+    "description": "Read GitHub PRs, commits, linked issues, review state, and CI status for the configured repositories. Read-only.",
+    "source": "M21 project-coordinator pack",
+    "level": "L2",
+    "target_cost_usd_per_call": 0.003,
+    "tool_scopes": ["read:org", "read:issues", "read:pull_requests", "read:repository"]
+  },
+  "variables": [
+    { "name": "repos", "varType": "GitHubRepoList", "scope": "graph" },
+    { "name": "window", "varType": "TimeWindow", "scope": "graph" },
+    { "name": "bundle", "varType": "GitHubActivityBundle", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "select-repo",
+      "label": "Select repos + time window",
+      "kind": {
+        "type": "transform",
+        "template": "Resolve repos from project_roster.github_repos and a time window (default last 24h for standup digests, last 7d for status reports)."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.93 }
+    },
+    {
+      "id": "fetch-prs",
+      "label": "Fetch PRs in window",
+      "kind": { "type": "fetch", "target": "github.pulls", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "github", "toolName": "list_pull_requests" }
+      }
+    },
+    {
+      "id": "fetch-issues",
+      "label": "Fetch linked issues",
+      "kind": { "type": "fetch", "target": "github.issues", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "github", "toolName": "list_issues" }
+      }
+    },
+    {
+      "id": "fetch-ci",
+      "label": "Fetch CI status for open PRs",
+      "kind": { "type": "fetch", "target": "github.checks", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "github", "toolName": "list_checks" }
+      }
+    },
+    {
+      "id": "normalize",
+      "label": "Normalize into GitHubActivityBundle",
+      "kind": {
+        "type": "transform",
+        "template": "Return prs[{number, title, author_github_user, review_state, ci_status, linked_issue_ids, last_activity_at, blocked_on}] plus issues[] and merged_in_window counts."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.94 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-repo", "to": "fetch-prs", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-prs", "to": "fetch-issues", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "fetch-issues", "to": "fetch-ci", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "fetch-ci", "to": "normalize", "cond": { "kind": "always" } }
+  ]
+}

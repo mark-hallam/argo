@@ -1,0 +1,58 @@
+{
+  "entry": "detect-risk",
+  "metadata": {
+    "name": "risk-escalate",
+    "version": "1.0.0",
+    "description": "Flag blocked or slipping items to the team lead with full cross-tool context. LOCKED at L3 (always-approval at L3; autonomous send only at L4 with operator opt-in).",
+    "source": "M21 project-coordinator pack",
+    "level": "L3",
+    "locked": true,
+    "unlock_requirement": "Promote worker to L3; outbound send still approval-gated at L3.",
+    "target_cost_usd_per_call": 0.006,
+    "tool_scopes": ["chat:write", "users:read"]
+  },
+  "variables": [
+    { "name": "signal", "varType": "RiskSignal", "scope": "graph" },
+    { "name": "packet", "varType": "EscalationPacket", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "detect-risk",
+      "label": "Detect risk signal",
+      "kind": {
+        "type": "transform",
+        "template": "Compute slippage_days vs milestone_calendar; cross-reference linear-read.blocked_by_ids and github-read.review_state. Trigger when slippage_days >= worker.policy.escalation_threshold_days."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.88 }
+    },
+    {
+      "id": "compose-packet",
+      "label": "Compose escalation packet",
+      "kind": {
+        "type": "transform",
+        "template": "Bundle: affected milestone, owner, blocker chain (linear + github), recommended next steps, tone-matched Slack draft, confidence."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.82 }
+    },
+    {
+      "id": "approval",
+      "label": "Await human approval before send",
+      "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 7200 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "send",
+      "label": "Send Slack escalation (post-approval)",
+      "kind": { "type": "action", "instruction": "Post the approved escalation packet to the configured project-lead Slack channel; log to communication_log." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "slack", "toolName": "send_dm" }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "detect-risk", "to": "compose-packet", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "compose-packet", "to": "approval", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "approval", "to": "send", "cond": { "kind": "on-success" } }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "entry": "gather-week",
+  "metadata": {
+    "name": "status-report-draft",
+    "version": "1.0.0",
+    "description": "Draft a weekly project status report by reading Linear + GitHub + Slack + GCal across the last 7 days. LOCKED at L3 (still always-approval at L3; autonomous send only at L4).",
+    "source": "M21 project-coordinator pack",
+    "level": "L3",
+    "locked": true,
+    "unlock_requirement": "Promote worker to L3; status_report.send remains approval-gated until L4.",
+    "target_cost_usd_per_call": 0.012,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "week", "varType": "WeekWindow", "scope": "graph" },
+    { "name": "report", "varType": "StatusReportDraft", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "gather-week",
+      "label": "Gather cross-tool week-in-review",
+      "kind": {
+        "type": "transform",
+        "template": "Invoke linear-read (last 7d), github-read (last 7d), and gcal-read (last 7d). Bundle into WeekWindow."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.9 }
+    },
+    {
+      "id": "compose-report",
+      "label": "Compose status report",
+      "kind": {
+        "type": "transform",
+        "template": "Sections: shipped, in-flight, at-risk, decisions logged this week, blockers needing exec attention, next week. Cite source links per bullet. Tone-matched."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.84 }
+    },
+    {
+      "id": "approval",
+      "label": "Await operator approval (always at L3)",
+      "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "publish",
+      "label": "Publish approved report (Slack post or email)",
+      "kind": { "type": "action", "instruction": "Post the approved draft to the configured status-report channel/recipients; log to communication_log." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "slack", "toolName": "post_channel" }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "gather-week", "to": "compose-report", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "compose-report", "to": "approval", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "approval", "to": "publish", "cond": { "kind": "on-success" } }
+  ]
+}
