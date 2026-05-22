@@ -76,6 +76,43 @@ The legal transitions are enforced by convention, not code. Workers
 pre-flight on `git pull --ff-only` before each transition; if push
 loses the race, pull and pick a different row.
 
+### 1a. MERGED-FINDINGS-ONLY contract
+
+A brief that ships `#[ignore]`'d regression tests + documentation
+of a real bug — without the actual fix — gets the status
+**MERGED-FINDINGS-ONLY** rather than the regular **MERGED**.
+The first known example was #2046 (audit-export tenant-blind
+finding: tests landed, fix landed later via #2052's sibling
+`mission-audit-export-tenant-scope-fix`). The status exists so
+the conductor and operator can tell at a glance that work is
+shipped but the underlying issue is still live on main.
+
+The MERGED-FINDINGS-ONLY note SHOULD carry a `fix-by YYYY-MM-DD`
+token naming when a fix-PR is expected to land. The soft-guideline
+budget by severity of the original brief:
+
+- **P0 findings** → 2 days (the underlying issue is a ship-blocker)
+- **P1 findings** → 5 days
+- **P2 findings** → 14 days
+- **P3 findings** → no token required (informational, deadline at
+  conductor's discretion)
+
+`scripts/check-findings-only-fix-by.sh` sweeps the ledger every
+conductor tick (step 4.8 in `PROTOCOL_LOOP_PROMPT.md`) and reports:
+
+- 🟢 within budget OR no fix-by token (informational)
+- 🟡 due today
+- 🔴 overdue — script exits 1
+
+The sweep does NOT fail the conductor's tick; it WARNs loudly so
+the next human/agent reading the tick summary sees the overdue
+finding and decides whether to author a fix-brief, extend the
+budget, or downgrade the severity.
+
+Existing rows without a `fix-by` token are back-compatible: the
+sweep treats them as informational. Going forward, every new
+MERGED-FINDINGS-ONLY merge should include the token.
+
 ### 2. Conductor tick (9 steps, 5-minute cron)
 
 Every tick the conductor runs the same numbered loop. See
