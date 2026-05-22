@@ -18,7 +18,7 @@ use argo_executor_computer_use::{CuError, CuStepRunner};
 use std::time::Instant;
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn run_loop_with_client<R, A>(
+pub async fn run_loop_with_client<R, A>(
     runner: &R,
     anthropic: &A,
     req: &MacosCuRunRequest,

@@ -55,7 +55,7 @@ pub mod config;
 pub mod error;
 pub mod events;
 pub mod executor;
-mod executor_loop;
+pub mod executor_loop;
 pub mod notes;
 pub mod preflight;
 #[cfg(test)]
