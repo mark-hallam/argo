@@ -8,7 +8,12 @@ import {
   type SkyNodeData,
   type WorkflowStep,
 } from "../types";
-import { useTestRun, type StepInput, type UseTestRunResult } from "../useTestRun";
+import {
+  useTestRun,
+  type CompletedTestRun,
+  type StepInput,
+  type UseTestRunResult,
+} from "../useTestRun";
 
 type Annotations = ReturnType<typeof useBuilderAnnotations>;
 
@@ -18,6 +23,11 @@ export interface TestRunHandlerDeps {
   nodes: Node[];
   currentSteps: WorkflowStep[];
   annotations: Annotations;
+  /**
+   * Optional completion sink so the page-level history panel can
+   * capture each finished run for replay after the overlay dismisses.
+   */
+  onRunComplete?: (run: CompletedTestRun) => void;
 }
 
 export interface TestRunHandlers {
@@ -37,13 +47,15 @@ export interface TestRunHandlers {
  * is a usability quirk worth flagging once per run.
  */
 export function useTestRunHandlers(deps: TestRunHandlerDeps): TestRunHandlers {
-  const { verticalId, name, nodes, currentSteps, annotations } = deps;
+  const { verticalId, name, nodes, currentSteps, annotations, onRunComplete } = deps;
 
   const stepInputs = useMemo<StepInput[]>(
     () => currentSteps.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
     [currentSteps],
   );
-  const testRun = useTestRun(verticalId, name, stepInputs);
+  const testRun = useTestRun(verticalId, name, stepInputs, {
+    onComplete: onRunComplete,
+  });
 
   const nodesWithRunState = useMemo(() => {
     const decorated = annotations.decorateWithPins(

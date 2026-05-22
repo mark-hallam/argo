@@ -15,6 +15,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { TestRunHistoryPanel } from "@/components/skycot/builder/TestRunHistoryPanel";
 import { UnsavedBanner } from "@/components/skycot/builder/UnsavedBanner";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { KeyboardShortcutsModal } from "@/components/skycot/workflows/KeyboardShortcutsModal";
@@ -49,6 +50,7 @@ import { useHistoryHandlers } from "./builder-handlers/history";
 import { useProposalHandlers } from "./builder-handlers/proposal";
 import { useSavePublishHandlers } from "./builder-handlers/save-publish";
 import { useTestRunHandlers } from "./builder-handlers/test-run";
+import { buildRunOverlayProps, useTestRunHistoryHandlers } from "./builder-handlers/test-run-history";
 import { stepsToFlow } from "./layout";
 import { RunOverlay } from "./RunOverlay";
 import { SEED_WORKFLOWS } from "./seed-workflows";
@@ -226,12 +228,15 @@ function BuilderInner({
     [builder.nodes],
   );
 
+  const runHistoryHandlers = useTestRunHistoryHandlers(workflowId);
+
   const { testRun, stepInputs, nodesWithRunState, handleTestRun } = useTestRunHandlers({
     verticalId,
     name,
     nodes: builder.nodes,
     currentSteps,
     annotations,
+    onRunComplete: runHistoryHandlers.handleRunComplete,
   });
 
   const savePublishHandlers = useSavePublishHandlers({
@@ -462,13 +467,12 @@ function BuilderInner({
               onCancel={proposal.handleProposalCancel}
             />
           ) : null}
-          <RunOverlay
-            phase={testRun.phase}
-            steps={stepInputs}
-            stepStates={testRun.stepStates}
-            summary={testRun.summary}
-            transportError={testRun.transportError}
-            onDismiss={testRun.reset}
+          <RunOverlay {...buildRunOverlayProps(runHistoryHandlers, testRun, stepInputs)} />
+        </div>
+        <div style={{ padding: "12px 28px 24px" }}>
+          <TestRunHistoryPanel
+            entries={runHistoryHandlers.runHistory.entries}
+            onView={(entry) => testRun.phase !== "running" && runHistoryHandlers.openReplay(entry)}
           />
         </div>
       </div>

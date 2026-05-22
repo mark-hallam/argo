@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+export interface CompletedTestRun {
+  startedAt: number;
+  endedAt: number;
+  status: "complete" | "failed";
+  transportError: string | null;
+  steps: StepInput[];
+  stepStates: Record<string, StepRunState>;
+  summary: RunSummary | null;
+}
+
 /**
  * Drives the builder's "Test run" overlay.
  *
@@ -67,10 +77,22 @@ function emptyStates(steps: StepInput[]): Record<string, StepRunState> {
   return out;
 }
 
+export interface UseTestRunOptions {
+  /**
+   * Fires once when a run transitions to a terminal phase
+   * (`complete`, `failed`, or transport-error). The history panel
+   * subscribes to this so it can record the run for replay after the
+   * overlay closes. Callback is invoked with a snapshot of the inputs
+   * + final step states + summary as of completion.
+   */
+  onComplete?: (run: CompletedTestRun) => void;
+}
+
 export function useTestRun(
   verticalId: string,
   name: string,
   steps: StepInput[],
+  options: UseTestRunOptions = {},
 ): UseTestRunResult {
   const [phase, setPhase] = useState<RunPhase>("idle");
   const [stepStates, setStepStates] = useState<Record<string, StepRunState>>(
@@ -81,6 +103,22 @@ export function useTestRun(
 
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
+  // Keep onComplete + the latest snapshot in refs so the completion
+  // emitter sees the freshest closure even when the parent re-renders
+  // mid-stream. Without these refs the emit would capture stale values
+  // and the history entry would lose its final step states.
+  const onCompleteRef = useRef(options.onComplete);
+  onCompleteRef.current = options.onComplete;
+  const runStartRef = useRef<number | null>(null);
+  const stepsRef = useRef<StepInput[]>(steps);
+  stepsRef.current = steps;
+  const stepStatesRef = useRef<Record<string, StepRunState>>(stepStates);
+  stepStatesRef.current = stepStates;
+  const summaryRef = useRef<RunSummary | null>(summary);
+  summaryRef.current = summary;
+  const transportErrorRef = useRef<string | null>(transportError);
+  transportErrorRef.current = transportError;
+  const completionEmittedRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -94,11 +132,34 @@ export function useTestRun(
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    completionEmittedRef.current = false;
+    runStartRef.current = null;
     setPhase("idle");
     setStepStates(emptyStates(steps));
     setSummary(null);
     setTransportError(null);
   }, [steps]);
+
+  // Emit the on-completion event exactly once per run. Watching phase
+  // via effect (rather than calling onComplete inline at each terminal
+  // setPhase site) guarantees React has committed the latest summary
+  // + stepStates before we snapshot them.
+  useEffect(() => {
+    if (phase !== "complete" && phase !== "failed") return;
+    if (completionEmittedRef.current) return;
+    completionEmittedRef.current = true;
+    const cb = onCompleteRef.current;
+    if (!cb) return;
+    cb({
+      startedAt: runStartRef.current ?? Date.now(),
+      endedAt: Date.now(),
+      status: phase,
+      transportError: transportErrorRef.current,
+      steps: stepsRef.current,
+      stepStates: stepStatesRef.current,
+      summary: summaryRef.current,
+    });
+  }, [phase]);
 
   const applyEvent = useCallback((evt: RunEvent) => {
     if (!mountedRef.current) return;
@@ -142,6 +203,8 @@ export function useTestRun(
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      completionEmittedRef.current = false;
+      runStartRef.current = Date.now();
       setPhase("running");
       setStepStates(emptyStates(steps));
       setSummary(null);
