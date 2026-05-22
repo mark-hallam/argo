@@ -64,6 +64,7 @@ argo-voice-tui = { path = "../argo-voice-tui" }
 argo-types = { path = "../argo-types" }
 argo-vertical = { path = "../argo-vertical" }
 argo-vertical-packs = { workspace = true }
+argo-workplace-knowledge = { path = "../argo-workplace-knowledge" }
 argo-executor-computer-use = { path = "../argo-executor-computer-use" }
 argo-executor-computer-use-macos = { path = "../argo-executor-computer-use-macos" }
 argo-executor-document = { path = "../argo-executor-document" }

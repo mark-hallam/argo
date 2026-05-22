@@ -87,6 +87,22 @@ pub(super) enum Action {
     /// Owner only — exports include other users' rows in shared
     /// workspaces.
     DataExport,
+    /// `GET /api/v1/knowledge` + `GET /api/v1/knowledge/<slug>` +
+    /// `GET /api/v1/knowledge/<slug>/revisions`. All roles including
+    /// guest can read the tenant wiki (operator-authored handbook /
+    /// brand voice / FAQ surfaces).
+    KnowledgeRead,
+    /// `POST /api/v1/knowledge` and `PUT /api/v1/knowledge/<slug>`.
+    /// Owner and admin only — the handbook is a privileged surface
+    /// that feeds every agent's system prompt, so non-elevated
+    /// callers cannot edit it
+    /// (`mission-workplace-knowledge-gateway` §5 brief 3).
+    KnowledgeWrite,
+    /// `DELETE /api/v1/knowledge/<slug>`. Owner only — soft-deletes
+    /// the head doc while preserving revisions. Stricter than
+    /// `KnowledgeWrite` to match the design doc's "owner only" floor
+    /// for destructive wiki mutations.
+    KnowledgeDelete,
 }
 
 impl Action {
@@ -109,6 +125,9 @@ impl Action {
             Self::SupportTickets => "support.tickets",
             Self::BillingView => "billing.view",
             Self::DataExport => "data.export",
+            Self::KnowledgeRead => "knowledge.read",
+            Self::KnowledgeWrite => "knowledge.write",
+            Self::KnowledgeDelete => "knowledge.delete",
         }
     }
 }
@@ -118,15 +137,18 @@ impl Action {
 /// floor is permitted; below is denied with 403.
 pub(super) fn required_role(action: Action) -> UserTenantRole {
     match action {
-        // owner-only: hard-delete, cross-tenant audit, data export.
-        Action::WorkerHardDelete | Action::AuditCrossTenant | Action::DataExport => {
-            UserTenantRole::Owner
-        }
+        // owner-only: hard-delete, cross-tenant audit, data export,
+        // wiki delete (destructive head removal).
+        Action::WorkerHardDelete
+        | Action::AuditCrossTenant
+        | Action::DataExport
+        | Action::KnowledgeDelete => UserTenantRole::Owner,
         // admin+: hiring, freeze (legacy CapabilityEngine matched this
         // — user role lacks `WorkerFreeze`), lifecycle, archive,
         // settings-patch, workflow-edit, billing-view, support tickets
         // (matches the prior `is_admin` check in
-        // `routes_support_tickets`).
+        // `routes_support_tickets`), wiki create/update (privileged
+        // edits to the operator-authored handbook).
         Action::WorkerHire
         | Action::WorkerFreeze
         | Action::WorkerLifecycle
@@ -134,14 +156,19 @@ pub(super) fn required_role(action: Action) -> UserTenantRole {
         | Action::WorkerSettingsPatch
         | Action::WorkflowEdit
         | Action::BillingView
-        | Action::SupportTickets => UserTenantRole::Admin,
+        | Action::SupportTickets
+        | Action::KnowledgeWrite => UserTenantRole::Admin,
         // user+: approvals decide / undo. The wave-3 audit's
         // load-bearing finding — no gate today; default to the most
         // permissive enforcement that improves on "anyone with a
         // session can approve".
         Action::ApprovalDecide | Action::ApprovalUndo => UserTenantRole::User,
-        // all roles including guest: audit feed / detail (own tenant).
-        Action::AuditFeedRead | Action::AuditDetailRead => UserTenantRole::Guest,
+        // all roles including guest: audit feed / detail (own tenant),
+        // wiki read (handbook surfaces feed every agent's system
+        // prompt and guest auditors must be able to see them).
+        Action::AuditFeedRead | Action::AuditDetailRead | Action::KnowledgeRead => {
+            UserTenantRole::Guest
+        }
     }
 }
 

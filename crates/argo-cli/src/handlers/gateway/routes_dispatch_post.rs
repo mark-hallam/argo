@@ -149,6 +149,19 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_workflows::dispatch_mutate(req, store).await {
         return Some(resp);
     }
+    // mission-workplace-knowledge-gateway — POST creates a wiki doc;
+    // PUT updates the head; DELETE soft-deletes it. All three verbs
+    // route through the knowledge sub-dispatcher so the role-gate
+    // (Admin+ for write, Owner-only for delete) lives in one place.
+    if let Some(resp) = super::routes_knowledge::dispatch_post(req, store).await {
+        return Some(resp);
+    }
+    if let Some(resp) = super::routes_knowledge::dispatch_put(req, store).await {
+        return Some(resp);
+    }
+    if let Some(resp) = super::routes_knowledge::dispatch_delete(req, store).await {
+        return Some(resp);
+    }
     None
 }
 

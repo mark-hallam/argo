@@ -450,6 +450,7 @@ dependencies = [
  "argo-vertical-packs",
  "argo-voice-tui",
  "argo-workflow",
+ "argo-workplace-knowledge",
  "async-trait",
  "aws-config",
  "base64 0.22.1",

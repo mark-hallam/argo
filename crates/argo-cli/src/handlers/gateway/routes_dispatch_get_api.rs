@@ -263,6 +263,12 @@ pub(super) async fn dispatch_api_get(
     {
         return Some(super::routes_support_tickets::list_response(req, store).await);
     }
+    // mission-workplace-knowledge-gateway — list head docs, fetch one
+    // head, and read per-doc revision history. The sub-dispatcher
+    // returns `None` for any path outside `/api/v1/knowledge[...]`.
+    if let Some(resp) = super::routes_knowledge::dispatch_get_api(req, store).await {
+        return Some(resp);
+    }
     None
 }
 
