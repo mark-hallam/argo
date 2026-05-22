@@ -17,7 +17,7 @@
 //! (`mission-audit-export-csv-format`).
 
 use crate::csv::{write_audit_csv_header, write_audit_csv_row};
-use crate::export::ExportedRow;
+use crate::export::{row_to_exported, ExportedRow, Row};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
@@ -205,38 +205,67 @@ pub struct ExportPreview {
 /// Sample-size cap for [`fetch_preview`].
 pub const PREVIEW_SAMPLE_CAP: usize = 5;
 
-/// Fetch every [`ExportedRow`] in `window`, in `seq` order.
+/// Fetch every [`ExportedRow`] in `window` scoped to `tenant_id`,
+/// in `seq` order. The tenant filter is applied in SQL (matches the
+/// `audit_record.tenant_id` column added in migration v61), so callers
+/// cannot observe rows owned by other tenants — see
+/// `mission-audit-export-tenant-scope-fix` for the cross-tenant
+/// exposure this closes.
 ///
 /// # Errors
-/// Propagates [`ArgoError::Provider`] from the underlying NDJSON
-/// scan.
+/// Returns [`ArgoError::Provider`] on SQL failure.
 pub async fn fetch_rows_for_export(
     store: &SessionStore,
+    tenant_id: &str,
     window: &ExportWindow,
 ) -> ArgoResult<Vec<ExportedRow>> {
-    let mut out = Vec::new();
-    crate::export::export_ndjson(store, |row| {
-        if window.matches(row.created_at_micros) {
-            out.push(row.clone());
-        }
-        Ok(())
-    })
-    .await?;
-    Ok(out)
+    let from_micros = window.from.map(|t| t.timestamp_micros());
+    let to_micros = window.to.map(|t| t.timestamp_micros());
+    let mut where_parts: Vec<&str> = vec!["a.tenant_id = ?"];
+    if from_micros.is_some() {
+        where_parts.push("a.created_at >= ?");
+    }
+    if to_micros.is_some() {
+        where_parts.push("a.created_at <= ?");
+    }
+    // audit-allow: identifier substitution from fixed WHERE-clause fragments
+    let sql = format!(
+        "SELECT a.seq, a.id, a.session_id, s.vertical_id, a.kind, \
+                a.payload_json, a.parent_hash, a.self_hash, a.created_at \
+         FROM audit_record a \
+         LEFT JOIN session s ON s.id = a.session_id \
+         WHERE {} \
+         ORDER BY a.seq ASC",
+        where_parts.join(" AND ")
+    );
+    let mut q = sqlx::query_as::<_, Row>(&sql).bind(tenant_id);
+    if let Some(lo) = from_micros {
+        q = q.bind(lo);
+    }
+    if let Some(hi) = to_micros {
+        q = q.bind(hi);
+    }
+    let rows = q
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("audit export tenant query: {e}")))?;
+    rows.into_iter().map(row_to_exported).collect()
 }
 
 /// Cheap preview: count + sample without realising the full bundle
-/// on disk. The byte estimate is the NDJSON serialization size,
-/// which is the largest of the three formats today.
+/// on disk. Tenant-scoped through [`fetch_rows_for_export`]. The byte
+/// estimate is the NDJSON serialization size, which is the largest of
+/// the three formats today.
 ///
 /// # Errors
 /// Propagates [`ArgoError::Provider`] / [`ArgoError::Schema`] from
 /// row fetch and per-row serialization.
 pub async fn fetch_preview(
     store: &SessionStore,
+    tenant_id: &str,
     window: &ExportWindow,
 ) -> ArgoResult<ExportPreview> {
-    let rows = fetch_rows_for_export(store, window).await?;
+    let rows = fetch_rows_for_export(store, tenant_id, window).await?;
     let mut byte_estimate = 0_usize;
     for row in &rows {
         let line = serde_json::to_string(row)

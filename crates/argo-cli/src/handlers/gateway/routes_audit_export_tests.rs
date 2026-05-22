@@ -4,7 +4,7 @@
 
 use super::{download_response, export_response, preview_response, sign_export_url};
 use argo_audit::export_bundle::BundleFormat;
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, DEFAULT_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::{json, Value};
@@ -117,8 +117,9 @@ async fn download_expired_signature_is_rejected() {
     let store = mem_store().await;
     let bundle_id = "expired-test-bundle";
     let past = chrono::Utc::now().timestamp() - 100;
-    let url = sign_export_url(bundle_id, BundleFormat::Json, past);
-    let resp = download_response(bundle_id, &url, Some(&store)).await;
+    let url = sign_export_url(bundle_id, BundleFormat::Json, past, DEFAULT_AUDIT_TENANT_ID);
+    let req = get(&url);
+    let resp = download_response(&req, bundle_id, &url, Some(&store)).await;
     assert!(resp.0.starts_with("401"), "status: {}", resp.0);
     assert_eq!(parse(&resp)["error"]["code"], "unauthorized");
 }
@@ -129,13 +130,14 @@ async fn download_tampered_signature_is_rejected() {
     let store = mem_store().await;
     let bundle_id = "tampered-test-bundle";
     let future = chrono::Utc::now().timestamp() + 600;
-    let good_url = sign_export_url(bundle_id, BundleFormat::Json, future);
+    let good_url = sign_export_url(bundle_id, BundleFormat::Json, future, DEFAULT_AUDIT_TENANT_ID);
     // Flip the last hex char.
     let mut bad: Vec<char> = good_url.chars().collect();
     let last = bad.len() - 1;
     bad[last] = if bad[last] == '0' { '1' } else { '0' };
     let bad_url: String = bad.into_iter().collect();
-    let resp = download_response(bundle_id, &bad_url, Some(&store)).await;
+    let req = get(&bad_url);
+    let resp = download_response(&req, bundle_id, &bad_url, Some(&store)).await;
     assert!(resp.0.starts_with("401"), "status: {}", resp.0);
 }
 
@@ -145,8 +147,9 @@ async fn download_unknown_bundle_returns_404() {
     let store = mem_store().await;
     let bundle_id = "nonexistent-bundle";
     let future = chrono::Utc::now().timestamp() + 600;
-    let url = sign_export_url(bundle_id, BundleFormat::Json, future);
-    let resp = download_response(bundle_id, &url, Some(&store)).await;
+    let url = sign_export_url(bundle_id, BundleFormat::Json, future, DEFAULT_AUDIT_TENANT_ID);
+    let req = get(&url);
+    let resp = download_response(&req, bundle_id, &url, Some(&store)).await;
     assert!(resp.0.starts_with("404"), "status: {}", resp.0);
 }
 
@@ -384,7 +387,6 @@ fn get_with_tenant(path: &str, tenant: &str) -> String {
 }
 
 #[tokio::test]
-#[ignore = "BLOCKED: routes_audit_export.rs does not tenant-scope fetch_rows_for_export — see PR findings"]
 async fn cross_tenant_export_excludes_other_tenant_rows() {
     let _dir = unique_export_dir("cross-tenant-export-scope");
     let store = mem_store().await;
@@ -403,19 +405,22 @@ async fn cross_tenant_export_excludes_other_tenant_rows() {
         body["row_count"]
     );
     let url = body["download_url"].as_str().unwrap();
-    let dl = super::try_dispatch_get(&get(url), Some(&store)).await.unwrap();
+    // Same-tenant happy path: tenant-a downloads tenant-a's bundle.
+    let dl = super::try_dispatch_get(&get_with_tenant(url, "tenant-a"), Some(&store))
+        .await
+        .unwrap();
+    assert!(dl.0.starts_with("200"), "tenant-a download status: {}", dl.0);
     let bytes = general_purpose::STANDARD
         .decode(parse(&dl)["b64"].as_str().unwrap())
         .unwrap();
     let payload = String::from_utf8(bytes).unwrap();
     assert!(
-        !payload.contains("tenant-b"),
+        !payload.contains("\"tenant-b\""),
         "tenant-b leaked into tenant-a NDJSON: {payload}"
     );
 }
 
 #[tokio::test]
-#[ignore = "BLOCKED: routes_audit_export.rs does not tenant-scope fetch_preview — see PR findings"]
 async fn cross_tenant_preview_excludes_other_tenant_rows() {
     let store = mem_store().await;
     seed_for_tenant(&store, "tenant-a", 3).await;
@@ -446,7 +451,6 @@ async fn cross_tenant_preview_excludes_other_tenant_rows() {
 }
 
 #[tokio::test]
-#[ignore = "BLOCKED: routes_audit_export.rs HMAC-only gate has no per-tenant binding — see PR findings"]
 async fn cross_tenant_download_rejects_other_tenant_signed_url() {
     let _dir = unique_export_dir("cross-tenant-download-scope");
     let store = mem_store().await;
@@ -463,9 +467,33 @@ async fn cross_tenant_download_rejects_other_tenant_signed_url() {
         .await
         .expect("download dispatched");
     assert!(
-        !resp.0.starts_with("2"),
-        "cross-tenant download must reject — got {}: {}",
+        resp.0.starts_with("404"),
+        "cross-tenant download must 404 (existence-hide pattern) — got {}: {}",
         resp.0,
         resp.1
     );
+}
+
+// 4th cross-tenant negative (`mission-audit-export-tenant-scope-fix`):
+// attacker re-signs tenant-a's bundle_id under tenant-b. HMAC matches
+// the caller, but the file lookup is scoped to the caller's tenant
+// subdirectory → 404 (no access to tenant-a's bytes).
+#[tokio::test]
+async fn cross_tenant_signed_url_with_forged_signature_returns_404() {
+    let _dir = unique_export_dir("cross-tenant-forged-sig");
+    let store = mem_store().await;
+    seed_for_tenant(&store, "tenant-a", 2).await;
+    let post_resp = export_response(
+        &post_with_tenant("/api/v1/audit/export", "tenant-a", json!({"format": "json"})),
+        Some(&store),
+    )
+    .await;
+    assert!(post_resp.0.starts_with("201"), "tenant-a POST: {} {}", post_resp.0, post_resp.1);
+    let bundle_id = parse(&post_resp)["bundle_id"].as_str().unwrap().to_string();
+    let future = chrono::Utc::now().timestamp() + 600;
+    let forged_url = sign_export_url(&bundle_id, BundleFormat::Json, future, "tenant-b");
+    let resp = super::try_dispatch_get(&get_with_tenant(&forged_url, "tenant-b"), Some(&store))
+        .await
+        .expect("download dispatched");
+    assert!(resp.0.starts_with("404"), "forged cross-tenant URL must 404 — got {}", resp.0);
 }

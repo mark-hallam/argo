@@ -38,17 +38,17 @@ pub struct ExportedRow {
 }
 
 #[derive(sqlx::FromRow)]
-struct Row {
-    seq: i64,
-    id: Vec<u8>,
-    session_id: Option<Vec<u8>>,
+pub(crate) struct Row {
+    pub(crate) seq: i64,
+    pub(crate) id: Vec<u8>,
+    pub(crate) session_id: Option<Vec<u8>>,
     /// Joined from `session.vertical_id` via LEFT JOIN (#691).
-    vertical_id: Option<String>,
-    kind: String,
-    payload_json: String,
-    parent_hash: Vec<u8>,
-    self_hash: Vec<u8>,
-    created_at: i64,
+    pub(crate) vertical_id: Option<String>,
+    pub(crate) kind: String,
+    pub(crate) payload_json: String,
+    pub(crate) parent_hash: Vec<u8>,
+    pub(crate) self_hash: Vec<u8>,
+    pub(crate) created_at: i64,
 }
 
 /// Stream every row in `seq` order. The callback is invoked for
@@ -197,7 +197,7 @@ pub async fn rows_for_session(
     rows.into_iter().map(row_to_exported).collect()
 }
 
-fn row_to_exported(row: Row) -> ArgoResult<ExportedRow> {
+pub(crate) fn row_to_exported(row: Row) -> ArgoResult<ExportedRow> {
     Ok(ExportedRow {
         seq: row.seq,
         id: hex::encode(&row.id),

@@ -9,9 +9,14 @@
 //!   written to disk under the configured export root.
 //! - `POST /api/v1/audit/export/preview` — count + sample of what
 //!   would land in the bundle. No file generated.
-//! - `GET /api/v1/audit/export/<bundle_id>?expires=…&sig=…` —
+//! - `GET /api/v1/audit/export/<bundle_id>?format=…&expires=…&tenant=…&sig=…` —
 //!   download a previously-built bundle. Verifies the HMAC over
-//!   `bundle_id|expires`, refuses expired or unsigned URLs.
+//!   `bundle_id|format|expires|tenant_id`, matches the URL's `tenant`
+//!   query against the caller's `X-Argo-Tenant-Id` header
+//!   (existence-hide 404 on mismatch — see
+//!   `mission-audit-export-tenant-scope-fix`), then reads bytes from
+//!   a per-tenant subdirectory of the export root. Refuses expired
+//!   or unsigned URLs.
 //!
 //! The on-disk file is the procurement-grade evidence artefact —
 //! its SHA-256 + size are recorded on the manifest entry returned
@@ -29,17 +34,19 @@ use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
-use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use signing::{
+    is_safe_bundle_id, query_kv, request_tenant_id, sha256_hex, sign_export_url, tenant_export_dir,
+    url_decode, verify_signature,
+};
+
+#[path = "routes_audit_export_signing.rs"]
+mod signing;
+
 /// Lifetime of a freshly-signed export URL, in seconds (5 minutes).
 pub(super) const EXPORT_URL_TTL_SECS: i64 = 300;
-
-const SECRET_ENV: &str = "ARGO_AUDIT_EXPORT_SECRET";
-const DEV_FALLBACK_SECRET: &[u8] = b"argo-dev-export-secret-do-not-use-in-prod";
-const EXPORT_DIR_ENV: &str = "ARGO_AUDIT_EXPORT_DIR";
 
 /// `POST /api/v1/audit/export` — body `{ from?, to?, format }`.
 pub(super) async fn export_response(
@@ -61,7 +68,8 @@ pub(super) async fn export_response(
         Ok(w) => w,
         Err(msg) => return bad_request(&msg),
     };
-    let rows = match fetch_rows_for_export(store, &window).await {
+    let tenant_id = request_tenant_id(req);
+    let rows = match fetch_rows_for_export(store, &tenant_id, &window).await {
         Ok(r) => r,
         Err(e) => return server_error(&format!("fetch rows: {e}")),
     };
@@ -71,20 +79,26 @@ pub(super) async fn export_response(
     };
     let sha256 = sha256_hex(&bytes);
     let bundle_id = Uuid::now_v7().simple().to_string();
-    let export_dir = export_root();
-    if let Err(e) = std::fs::create_dir_all(&export_dir) {
+    // `mission-audit-export-tenant-scope-fix`: bundles live under a
+    // per-tenant subdir so a forged signed URL minted with another
+    // tenant's id cannot read these bytes — the lookup at GET time
+    // is scoped to the caller's tenant directory.
+    let Some(tenant_dir) = tenant_export_dir(&tenant_id) else {
+        return bad_request("invalid tenant id");
+    };
+    if let Err(e) = std::fs::create_dir_all(&tenant_dir) {
         return server_error(&format!(
             "create export dir {}: {e}",
-            export_dir.display()
+            tenant_dir.display()
         ));
     }
     let filename = format!("{bundle_id}.{}", format.extension());
-    let bundle_path = export_dir.join(&filename);
+    let bundle_path = tenant_dir.join(&filename);
     if let Err(e) = std::fs::write(&bundle_path, &bytes) {
         return server_error(&format!("write {}: {e}", bundle_path.display()));
     }
     let expires = Utc::now().timestamp() + EXPORT_URL_TTL_SECS;
-    let download_url = sign_export_url(&bundle_id, format, expires);
+    let download_url = sign_export_url(&bundle_id, format, expires, &tenant_id);
     emit_export_audit(store, req, &bundle_id, format, rows.len(), &sha256).await;
     let body = json!({
         "bundle_id": bundle_id,
@@ -125,7 +139,8 @@ pub(super) async fn preview_response(
         Ok(w) => w,
         Err(msg) => return bad_request(&msg),
     };
-    let preview: ExportPreview = match fetch_preview(store, &window).await {
+    let tenant_id = request_tenant_id(req);
+    let preview: ExportPreview = match fetch_preview(store, &tenant_id, &window).await {
         Ok(p) => p,
         Err(e) => return server_error(&format!("fetch preview: {e}")),
     };
@@ -138,10 +153,18 @@ pub(super) async fn preview_response(
     ("200 OK", body.to_string())
 }
 
-/// `GET /api/v1/audit/export/<bundle_id>?format=<f>&expires=<unix>&sig=<hex>`.
+/// `GET /api/v1/audit/export/<bundle_id>?format=<f>&expires=<unix>&tenant=<id>&sig=<hex>`.
 /// Returns the bundle bytes (base64-wrapped — the v1 listener
 /// hard-codes JSON content-type; mirrors the screenshot endpoint).
+///
+/// Cross-tenant defense (`mission-audit-export-tenant-scope-fix`): the
+/// signed `tenant` query value is the tenant the bundle was issued
+/// for; the caller's `X-Argo-Tenant-Id` request header must match it,
+/// otherwise the handler returns 404 (existence-hide pattern, per
+/// #2040). The HMAC also incorporates the tenant, so a cross-tenant
+/// forgery without the export secret fails signature verification.
 pub(super) async fn download_response(
+    req: &str,
     bundle_id: &str,
     query: &str,
     _store: Option<&Arc<SessionStore>>,
@@ -153,19 +176,35 @@ pub(super) async fn download_response(
     let Some(expires) = query_kv(query, "expires").and_then(|v| v.parse::<i64>().ok()) else {
         return unauthorized("missing or invalid expires");
     };
+    let Some(signed_tenant) = query_kv(query, "tenant").and_then(|s| url_decode(&s)) else {
+        return not_found(bundle_id);
+    };
     let Some(sig) = query_kv(query, "sig") else {
         return unauthorized("missing sig");
     };
+    // Caller-tenant binding check (mission-audit-export-tenant-scope-fix).
+    // Mismatch is 404, not 403 — same existence-hide pattern used by
+    // routes_worker_skills per #2040.
+    let caller_tenant = request_tenant_id(req);
+    if caller_tenant != signed_tenant {
+        return not_found(bundle_id);
+    }
     if expires <= Utc::now().timestamp() {
         return unauthorized("signature expired");
     }
-    if !verify_signature(bundle_id, format, expires, &sig) {
+    if !verify_signature(bundle_id, format, expires, &signed_tenant, &sig) {
         return unauthorized("signature mismatch");
     }
     if !is_safe_bundle_id(bundle_id) {
         return bad_request("invalid bundle id");
     }
-    let path = export_root().join(format!("{bundle_id}.{}", format.extension()));
+    // Scope the read to the caller's tenant directory so a forged
+    // signed URL cannot read bytes another tenant wrote
+    // (`mission-audit-export-tenant-scope-fix`).
+    let Some(tenant_dir) = tenant_export_dir(&caller_tenant) else {
+        return not_found(bundle_id);
+    };
+    let path = tenant_dir.join(format!("{bundle_id}.{}", format.extension()));
     let bytes = match std::fs::read(&path) {
         Ok(b) => b,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return not_found(bundle_id),
@@ -180,17 +219,6 @@ pub(super) async fn download_response(
         "b64": general_purpose::STANDARD.encode(&bytes),
     });
     ("200 OK", body.to_string())
-}
-
-/// Build the public download URL for `(bundle_id, format)`. The
-/// caller picks `expires` (typically `now + EXPORT_URL_TTL_SECS`).
-#[must_use]
-pub(super) fn sign_export_url(bundle_id: &str, format: BundleFormat, expires: i64) -> String {
-    let sig = compute_signature(bundle_id, format, expires);
-    format!(
-        "/api/v1/audit/export/{bundle_id}?format={}&expires={expires}&sig={sig}",
-        format_wire(format)
-    )
 }
 
 fn parse_format(body: &Value) -> Result<BundleFormat, String> {
@@ -227,103 +255,6 @@ fn parse_optional_timestamp(v: Option<&Value>, label: &str) -> Result<Option<Dat
         .parse()
         .map_err(|e| format!("`{label}` parse: {e}"))?;
     Ok(Some(parsed))
-}
-
-fn export_root() -> PathBuf {
-    if let Ok(dir) = std::env::var(EXPORT_DIR_ENV) {
-        if !dir.is_empty() {
-            return PathBuf::from(dir);
-        }
-    }
-    std::env::temp_dir().join("argo-audit-exports")
-}
-
-fn is_safe_bundle_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 128
-        && id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-}
-
-fn format_wire(f: BundleFormat) -> &'static str {
-    match f {
-        BundleFormat::Json => "json",
-        BundleFormat::Csv => "csv",
-        BundleFormat::Tar => "tar",
-    }
-}
-
-fn verify_signature(bundle_id: &str, format: BundleFormat, expires: i64, presented: &str) -> bool {
-    let expected = compute_signature(bundle_id, format, expires);
-    constant_time_eq(expected.as_bytes(), presented.as_bytes())
-}
-
-fn compute_signature(bundle_id: &str, format: BundleFormat, expires: i64) -> String {
-    let secret = secret_bytes();
-    let msg = format!("{bundle_id}|{}|{expires}", format_wire(format));
-    hex::encode(hmac_sha256(&secret, msg.as_bytes()))
-}
-
-fn secret_bytes() -> Vec<u8> {
-    std::env::var(SECRET_ENV)
-        .ok()
-        .filter(|s| !s.is_empty())
-        .map_or_else(|| DEV_FALLBACK_SECRET.to_vec(), String::into_bytes)
-}
-
-fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
-    const BLOCK: usize = 64;
-    let mut k = if key.len() > BLOCK {
-        let mut h = Sha256::new();
-        h.update(key);
-        h.finalize().to_vec()
-    } else {
-        key.to_vec()
-    };
-    k.resize(BLOCK, 0);
-    let opad: Vec<u8> = k.iter().map(|b| b ^ 0x5c).collect();
-    let ipad: Vec<u8> = k.iter().map(|b| b ^ 0x36).collect();
-    let mut inner = Sha256::new();
-    inner.update(&ipad);
-    inner.update(msg);
-    let inner_digest = inner.finalize();
-    let mut outer = Sha256::new();
-    outer.update(&opad);
-    outer.update(inner_digest);
-    let out = outer.finalize();
-    let mut buf = [0u8; 32];
-    buf.copy_from_slice(&out);
-    buf
-}
-
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut diff = 0u8;
-    for (x, y) in a.iter().zip(b.iter()) {
-        diff |= x ^ y;
-    }
-    diff == 0
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut h = Sha256::new();
-    h.update(bytes);
-    hex::encode(h.finalize())
-}
-
-fn query_kv(query: &str, key: &str) -> Option<String> {
-    let trimmed = query.split_whitespace().next().unwrap_or(query);
-    let qs = trimmed
-        .split_once('?')
-        .map(|(_, q)| q)
-        .unwrap_or(trimmed);
-    qs.split('&').find_map(|kv| {
-        let (k, v) = kv.split_once('=')?;
-        (k == key).then(|| v.to_string())
-    })
 }
 
 async fn emit_export_audit(
@@ -417,7 +348,7 @@ pub(super) async fn try_dispatch_get(
     if bundle_id.is_empty() || bundle_id.contains('/') {
         return None;
     }
-    Some(download_response(bundle_id, path, store).await)
+    Some(download_response(req, bundle_id, path, store).await)
 }
 
 /// Dispatcher for the POST mutate paths. Called from
@@ -441,18 +372,18 @@ fn is_route(req: &str, method: &str, path: &str) -> bool {
 }
 
 /// Bundle dir cleanup helper exposed for test isolation. Removes
-/// every file under [`export_root`]; tests use it to keep
+/// every file under the export root; tests use it to keep
 /// per-process state from leaking between cases.
 #[cfg(test)]
 pub(super) fn _test_cleanup_export_dir() {
-    let _ = std::fs::remove_dir_all(export_root());
+    let _ = std::fs::remove_dir_all(signing::export_root());
 }
 
 /// Allow tests to walk the bundle directory without re-deriving the
 /// path from env vars.
 #[cfg(test)]
-pub(super) fn _test_export_root() -> PathBuf {
-    export_root()
+pub(super) fn _test_export_root() -> std::path::PathBuf {
+    signing::export_root()
 }
 
 #[cfg(test)]

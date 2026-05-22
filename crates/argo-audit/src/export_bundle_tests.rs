@@ -57,7 +57,9 @@ async fn fetch_and_build_round_trip_json() {
     let store = fresh_store().await;
     write_n(&store, 3).await;
     let window = ExportWindow::default();
-    let rows = fetch_rows_for_export(&store, &window).await.unwrap();
+    let rows = fetch_rows_for_export(&store, crate::DEFAULT_AUDIT_TENANT_ID, &window)
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 3);
     let bytes = build_bundle(&rows, BundleFormat::Json).unwrap();
     assert_eq!(bytes.iter().filter(|b| **b == b'\n').count(), 3);
@@ -67,7 +69,7 @@ async fn fetch_and_build_round_trip_json() {
 async fn fetch_and_build_round_trip_csv_has_header() {
     let store = fresh_store().await;
     write_n(&store, 2).await;
-    let rows = fetch_rows_for_export(&store, &ExportWindow::default())
+    let rows = fetch_rows_for_export(&store, crate::DEFAULT_AUDIT_TENANT_ID, &ExportWindow::default())
         .await
         .unwrap();
     let bytes = build_bundle(&rows, BundleFormat::Csv).unwrap();
@@ -81,7 +83,7 @@ async fn fetch_and_build_round_trip_csv_has_header() {
 async fn fetch_and_build_round_trip_tar() {
     let store = fresh_store().await;
     write_n(&store, 4).await;
-    let rows = fetch_rows_for_export(&store, &ExportWindow::default())
+    let rows = fetch_rows_for_export(&store, crate::DEFAULT_AUDIT_TENANT_ID, &ExportWindow::default())
         .await
         .unwrap();
     let bytes = build_bundle(&rows, BundleFormat::Tar).unwrap();
@@ -97,7 +99,7 @@ async fn tar_bundle_contains_sibling_csv_with_header_and_rows() {
 
     let store = fresh_store().await;
     write_n(&store, 3).await;
-    let rows = fetch_rows_for_export(&store, &ExportWindow::default())
+    let rows = fetch_rows_for_export(&store, crate::DEFAULT_AUDIT_TENANT_ID, &ExportWindow::default())
         .await
         .unwrap();
     let bytes = build_bundle(&rows, BundleFormat::Tar).unwrap();
@@ -145,7 +147,7 @@ async fn empty_bundle_csv_has_header_only_and_manifest_pins_sha() {
     use std::io::Read;
 
     let store = fresh_store().await;
-    let rows = fetch_rows_for_export(&store, &ExportWindow::default())
+    let rows = fetch_rows_for_export(&store, crate::DEFAULT_AUDIT_TENANT_ID, &ExportWindow::default())
         .await
         .unwrap();
     assert!(rows.is_empty());
@@ -180,12 +182,53 @@ async fn empty_bundle_csv_has_header_only_and_manifest_pins_sha() {
 async fn preview_counts_and_samples_match_full_export() {
     let store = fresh_store().await;
     write_n(&store, 10).await;
-    let p = fetch_preview(&store, &ExportWindow::default())
+    let p = fetch_preview(&store, crate::DEFAULT_AUDIT_TENANT_ID, &ExportWindow::default())
         .await
         .unwrap();
     assert_eq!(p.row_count, 10);
     assert_eq!(p.sample.len(), PREVIEW_SAMPLE_CAP);
     assert!(p.byte_estimate > 0);
+}
+
+#[tokio::test]
+async fn fetch_rows_for_export_excludes_other_tenants() {
+    let store = fresh_store().await;
+    let sink_a = crate::AuditSink::new_with_tenant(Arc::clone(&store), "tenant-a".to_string());
+    let sink_b = crate::AuditSink::new_with_tenant(Arc::clone(&store), "tenant-b".to_string());
+    for i in 0..3 {
+        sink_a
+            .write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
+            .await
+            .unwrap();
+    }
+    for i in 0..2 {
+        sink_b
+            .write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
+            .await
+            .unwrap();
+    }
+    let rows_a = fetch_rows_for_export(&store, "tenant-a", &ExportWindow::default())
+        .await
+        .unwrap();
+    assert_eq!(rows_a.len(), 3, "tenant-a should only see its own rows");
+    let rows_b = fetch_rows_for_export(&store, "tenant-b", &ExportWindow::default())
+        .await
+        .unwrap();
+    assert_eq!(rows_b.len(), 2, "tenant-b should only see its own rows");
+    let preview_a = fetch_preview(&store, "tenant-a", &ExportWindow::default())
+        .await
+        .unwrap();
+    assert_eq!(preview_a.row_count, 3);
+    let preview_b = fetch_preview(&store, "tenant-b", &ExportWindow::default())
+        .await
+        .unwrap();
+    assert_eq!(preview_b.row_count, 2);
+    // Unknown tenant — empty.
+    let rows_unknown =
+        fetch_rows_for_export(&store, "tenant-c", &ExportWindow::default())
+            .await
+            .unwrap();
+    assert!(rows_unknown.is_empty());
 }
 
 #[tokio::test]
@@ -199,7 +242,9 @@ async fn preview_window_filter_excludes_outside_rows() {
         from: far_future,
         to: None,
     };
-    let p = fetch_preview(&store, &window).await.unwrap();
+    let p = fetch_preview(&store, crate::DEFAULT_AUDIT_TENANT_ID, &window)
+        .await
+        .unwrap();
     assert_eq!(p.row_count, 0);
     assert_eq!(p.byte_estimate, 0);
     assert!(p.sample.is_empty());
