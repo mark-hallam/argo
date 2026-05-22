@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SubWorkflowNode } from "@/app/(app)/workflows/[verticalId]/[name]/build/SubWorkflowNode";
 import { SubWorkflowPicker } from "@/app/(app)/workflows/[verticalId]/[name]/build/SubWorkflowPicker";
 import { newStepNode } from "@/app/(app)/workflows/[verticalId]/[name]/build/builder-handlers";
-import { stepsToFlow } from "@/app/(app)/workflows/[verticalId]/[name]/build/layout";
+import { stepsToFlow } from "@/app/(app)/workflows/[verticalId]/[name]/build/flow-layout";
 import {
   PALETTE_GROUPS,
   STEP_KIND_META,

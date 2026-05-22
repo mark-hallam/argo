@@ -2,7 +2,7 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { CheckCircle2, Clock, Pin, XCircle } from "lucide-react";
 
-import { formatWaitSummary } from "./layout";
+import { formatWaitSummary } from "./flow-layout";
 import {
   STEP_KIND_META,
   type CodeConfig,

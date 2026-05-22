@@ -2,7 +2,7 @@ import type { Edge, Node } from "@xyflow/react";
 import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 
-import { stepsToFlow } from "../layout";
+import { stepsToFlow } from "../flow-layout";
 import type { WorkflowStep } from "../types";
 
 export interface ProposalHandlerDeps {

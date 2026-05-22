@@ -51,7 +51,7 @@ import { useProposalHandlers } from "./builder-handlers/proposal";
 import { useSavePublishHandlers } from "./builder-handlers/save-publish";
 import { useTestRunHandlers } from "./builder-handlers/test-run";
 import { buildRunOverlayProps, useTestRunHistoryHandlers } from "./builder-handlers/test-run-history";
-import { stepsToFlow } from "./layout";
+import { stepsToFlow } from "./flow-layout";
 import { RunOverlay } from "./RunOverlay";
 import { SEED_WORKFLOWS } from "./seed-workflows";
 import {
