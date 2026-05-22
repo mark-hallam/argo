@@ -163,8 +163,13 @@ async fn unknown_worker_id_returns_404() {
     assert_eq!(v["error"]["code"], "not_found");
 }
 
+/// `mission-cross-tenant-worker-handler-no-existence-leak`: the cross-tenant
+/// existence probe must NOT distinguish "exists in another tenant" from
+/// "does not exist at all" in the HTTP response. Both branches return a
+/// byte-identical 404 so an attacker cannot enumerate worker_ids across
+/// tenants.
 #[tokio::test]
-async fn cross_tenant_worker_returns_403() {
+async fn cross_tenant_worker_detail_returns_same_404_as_unknown_worker() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
@@ -172,11 +177,25 @@ async fn cross_tenant_worker_returns_403() {
     let _ = workspace_tenant(&store).await;
     let other_tenant = TenantId::new();
     let alien = add_worker(&store, other_tenant, "Alien", "human:mark").await;
-    let req = req_for(&alien.id.to_string(), None, None);
-    let (status, body) = show_response(&alien.id.to_string(), &req, Some(&store)).await;
-    assert_eq!(status, "403 Forbidden", "body: {body}");
-    let v: Value = serde_json::from_str(&body).unwrap();
-    assert_eq!(v["error"]["code"], "forbidden");
+    let req_alien = req_for(&alien.id.to_string(), None, None);
+    let (status_alien, body_alien) =
+        show_response(&alien.id.to_string(), &req_alien, Some(&store)).await;
+    let ghost = WorkerId::new().to_string();
+    let req_ghost = req_for(&ghost, None, None);
+    let (status_ghost, body_ghost) = show_response(&ghost, &req_ghost, Some(&store)).await;
+    assert_eq!(status_alien, "404 Not Found", "body: {body_alien}");
+    assert_eq!(
+        status_alien, status_ghost,
+        "cross-tenant status must match unknown-worker status"
+    );
+    assert_eq!(
+        body_alien, body_ghost,
+        "cross-tenant body must be byte-identical to unknown-worker body"
+    );
+    assert!(
+        !body_alien.contains(&alien.id.to_string()),
+        "response must not echo requested worker_id"
+    );
 }
 
 #[tokio::test]

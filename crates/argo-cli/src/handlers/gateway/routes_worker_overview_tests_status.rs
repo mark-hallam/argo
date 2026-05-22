@@ -24,16 +24,32 @@ async fn unknown_worker_id_returns_404() {
     assert_eq!(v["error"]["code"], "not_found");
 }
 
+/// `mission-cross-tenant-worker-handler-no-existence-leak`: cross-tenant
+/// existence is hidden — both branches return byte-identical 404.
 #[tokio::test]
-async fn cross_tenant_worker_returns_403() {
+async fn cross_tenant_worker_overview_returns_same_404_as_unknown_worker() {
     let env = prep().await;
     let alien_tenant = TenantId::new();
     let alien = add_worker(&env.store, alien_tenant, "human:mark").await;
-    let req = req_for(&alien.id.to_string(), None, None);
-    let (status, body) = show_response(&alien.id.to_string(), &req, Some(&env.store)).await;
-    assert_eq!(status, "403 Forbidden", "body: {body}");
-    let v: Value = serde_json::from_str(&body).unwrap();
-    assert_eq!(v["error"]["code"], "forbidden");
+    let req_alien = req_for(&alien.id.to_string(), None, None);
+    let (status_alien, body_alien) =
+        show_response(&alien.id.to_string(), &req_alien, Some(&env.store)).await;
+    let ghost = WorkerId::new().to_string();
+    let req_ghost = req_for(&ghost, None, None);
+    let (status_ghost, body_ghost) = show_response(&ghost, &req_ghost, Some(&env.store)).await;
+    assert_eq!(status_alien, "404 Not Found", "body: {body_alien}");
+    assert_eq!(
+        status_alien, status_ghost,
+        "cross-tenant status must match unknown-worker status"
+    );
+    assert_eq!(
+        body_alien, body_ghost,
+        "cross-tenant body must be byte-identical to unknown-worker body"
+    );
+    assert!(
+        !body_alien.contains(&alien.id.to_string()),
+        "response must not echo requested worker_id"
+    );
 }
 
 #[tokio::test]

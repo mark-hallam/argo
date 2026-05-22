@@ -244,21 +244,38 @@ async fn dispatch_patch_routes_settings_autonomy_alias() {
     assert_eq!(status, "200 OK");
 }
 
+/// `mission-cross-tenant-worker-handler-no-existence-leak`: cross-tenant
+/// existence is hidden — both branches return byte-identical 404.
+/// Supersedes the 2026-04 PR #1511 convention. The probe still runs
+/// internally for telemetry; the HTTP response cannot disambiguate.
 #[tokio::test]
-async fn dispatch_patch_settings_alias_cross_tenant_returns_403() {
+async fn cross_tenant_worker_settings_alias_returns_same_404_as_unknown_worker() {
     let env = setup().await;
     let other = TenantId::new();
     let alien = add_worker(&env.store, other, "Alien").await;
     let body = json!({ "level": "balanced" });
-    let req = patch_settings_req(&alien.id, "autonomy", &body);
-    let resp =
-        super::super::routes_dispatch_patch::dispatch_patch(&req, Some(&env.store)).await;
-    let (status, _) = resp.expect("dispatcher matched");
-    // Cross-tenant returns 403 (not 404). PR #1511 chose explicit
-    // "wrong tenant" over existence-hiding; we follow the same
-    // convention used by GET /settings — see
-    // `routes_worker_settings_helpers::load_worker_by_id`.
-    assert_eq!(status, "403 Forbidden");
+    let req_alien = patch_settings_req(&alien.id, "autonomy", &body);
+    let resp_alien =
+        super::super::routes_dispatch_patch::dispatch_patch(&req_alien, Some(&env.store)).await;
+    let (status_alien, body_alien) = resp_alien.expect("dispatcher matched");
+    let ghost = WorkerId::new();
+    let req_ghost = patch_settings_req(&ghost, "autonomy", &body);
+    let resp_ghost =
+        super::super::routes_dispatch_patch::dispatch_patch(&req_ghost, Some(&env.store)).await;
+    let (status_ghost, body_ghost) = resp_ghost.expect("dispatcher matched");
+    assert_eq!(status_alien, "404 Not Found", "body: {body_alien}");
+    assert_eq!(
+        status_alien, status_ghost,
+        "cross-tenant status must match unknown-worker status"
+    );
+    assert_eq!(
+        body_alien, body_ghost,
+        "cross-tenant body must be byte-identical to unknown-worker body"
+    );
+    assert!(
+        !body_alien.contains(&alien.id.to_string()),
+        "response must not echo requested worker_id"
+    );
 }
 
 #[tokio::test]

@@ -68,6 +68,9 @@ async fn build_overview(
     let tenant = resolve_workspace_tenant(store)
         .await
         .map_err(|e| ise(&format!("resolve tenant: {e}")))?;
+    // Cross-tenant existence is hidden from the HTTP response.
+    // See routes_workflows.rs:13-21 for the canonical invariant.
+    // Probe runs internally for telemetry; response is identical for both branches.
     let worker = match IdentityStore::new(store)
         .get_worker(tenant, worker_id)
         .await
@@ -78,19 +81,10 @@ async fn build_overview(
             let other = exists_in_other_tenant(store, tenant, worker_id)
                 .await
                 .map_err(|e| ise(&format!("cross-tenant probe: {e}")))?;
-            return Err(if other {
-                err(
-                    "403 Forbidden",
-                    "forbidden",
-                    &format!("worker {worker_id} not in this tenant"),
-                )
-            } else {
-                err(
-                    "404 Not Found",
-                    "not_found",
-                    &format!("worker {worker_id} not found"),
-                )
-            });
+            if other {
+                tracing::debug!(target: "tenancy", %worker_id, "cross-tenant probe: exists in other tenant");
+            }
+            return Err(err("404 Not Found", "not_found", "worker not found"));
         }
     };
     let (created_at, archived_at) = worker_metadata(store, tenant, worker_id)

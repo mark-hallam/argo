@@ -57,11 +57,15 @@ pub(super) async fn list_response(
         Ok(c) => c,
         Err(e) => return server_error(&format!("cwd: {e}")),
     };
+    // Cross-tenant existence is hidden from the HTTP response.
+    // See routes_workflows.rs:13-21 for the canonical invariant.
+    // Probe runs internally for telemetry; response is identical for both branches.
     let paused = match resolve_paused(store, worker_id).await {
         Ok(p) => p,
-        Err(WorkerLookupError::NotFound) => return not_found(worker_id_raw),
+        Err(WorkerLookupError::NotFound) => return worker_not_found(),
         Err(WorkerLookupError::CrossTenant) => {
-            return forbidden(&format!("worker {worker_id} not in this tenant"))
+            tracing::debug!(target: "tenancy", %worker_id, "cross-tenant probe: exists in other tenant");
+            return worker_not_found();
         }
         Err(WorkerLookupError::Backend(msg)) => return server_error(&msg),
     };
@@ -121,11 +125,15 @@ pub(super) async fn update_response(
         Ok(c) => c,
         Err(e) => return server_error(&format!("cwd: {e}")),
     };
+    // Cross-tenant existence is hidden from the HTTP response.
+    // See routes_workflows.rs:13-21 for the canonical invariant.
+    // Probe runs internally for telemetry; response is identical for both branches.
     let paused = match resolve_paused(store, worker_id).await {
         Ok(p) => p,
-        Err(WorkerLookupError::NotFound) => return not_found(worker_id_raw),
+        Err(WorkerLookupError::NotFound) => return worker_not_found(),
         Err(WorkerLookupError::CrossTenant) => {
-            return forbidden(&format!("worker {worker_id} not in this tenant"))
+            tracing::debug!(target: "tenancy", %worker_id, "cross-tenant probe: exists in other tenant");
+            return worker_not_found();
         }
         Err(WorkerLookupError::Backend(msg)) => return server_error(&msg),
     };
@@ -411,15 +419,12 @@ async fn emit_policy_audit(
 fn bad_request(msg: &str) -> (&'static str, String) {
     err("400 Bad Request", "bad_request", msg)
 }
-fn not_found(id: &str) -> (&'static str, String) {
-    err(
-        "404 Not Found",
-        "worker_not_found",
-        &format!("no worker with id '{id}'"),
-    )
-}
-fn forbidden(msg: &str) -> (&'static str, String) {
-    err("403 Forbidden", "forbidden", msg)
+/// Generic 404 used for both "worker not found in this tenant" and
+/// "exists in another tenant" paths so the HTTP response cannot
+/// disambiguate the two. See `routes_workflows.rs:13-21` for the
+/// canonical invariant.
+fn worker_not_found() -> (&'static str, String) {
+    err("404 Not Found", "not_found", "worker not found")
 }
 fn conflict(msg: &str) -> (&'static str, String) {
     err("409 Conflict", "worker_paused", msg)

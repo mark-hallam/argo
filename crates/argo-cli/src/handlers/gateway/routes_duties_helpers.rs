@@ -60,21 +60,19 @@ pub(super) async fn resolve_worker<'a>(
         )
     })?;
     let identities = IdentityStore::new(store);
+    // Cross-tenant existence is hidden from the HTTP response.
+    // See routes_workflows.rs:13-21 for the canonical invariant.
+    // Probe runs internally for telemetry; response is identical for both branches.
     match identities.get_worker(tenant, worker_id).await {
         Ok(Some(_)) => {}
         Ok(None) => {
             return Err(
                 match exists_in_other_tenant(store, tenant, worker_id).await {
-                    Ok(true) => err(
-                        "403 Forbidden",
-                        "forbidden",
-                        &format!("worker {worker_id} not in this tenant"),
-                    ),
-                    Ok(false) => err(
-                        "404 Not Found",
-                        "not_found",
-                        &format!("worker {worker_id} not found"),
-                    ),
+                    Ok(true) => {
+                        tracing::debug!(target: "tenancy", %worker_id, "cross-tenant probe: exists in other tenant");
+                        err("404 Not Found", "not_found", "worker not found")
+                    }
+                    Ok(false) => err("404 Not Found", "not_found", "worker not found"),
                     Err(e) => err(
                         "500 Internal Server Error",
                         "internal_error",

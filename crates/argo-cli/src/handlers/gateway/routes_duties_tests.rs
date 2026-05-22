@@ -163,8 +163,10 @@ async fn classify_returns_404_for_unknown_worker() {
     assert_eq!(status, "404 Not Found", "body: {resp}");
 }
 
+/// `mission-cross-tenant-worker-handler-no-existence-leak`: cross-tenant
+/// existence is hidden — both branches return byte-identical 404.
 #[tokio::test]
-async fn classify_cross_tenant_worker_returns_403() {
+async fn cross_tenant_worker_duties_returns_same_404_as_unknown_worker() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
@@ -173,12 +175,29 @@ async fn classify_cross_tenant_worker_returns_403() {
     let other = TenantId::new();
     let alien = add_worker(&store, other, "Alien").await;
     let body = json!({ "input": "alien duty" }).to_string();
-    let req = post_req(
+    let req_alien = post_req(
         &format!("/api/v1/workers/{}/duties/classify", alien.id),
         &body,
     );
-    let (status, _) = classify_response(&alien.id.to_string(), &req, Some(&store)).await;
-    assert_eq!(status, "403 Forbidden");
+    let (status_alien, body_alien) =
+        classify_response(&alien.id.to_string(), &req_alien, Some(&store)).await;
+    let ghost = WorkerId::new();
+    let req_ghost = post_req(&format!("/api/v1/workers/{ghost}/duties/classify"), &body);
+    let (status_ghost, body_ghost) =
+        classify_response(&ghost.to_string(), &req_ghost, Some(&store)).await;
+    assert_eq!(status_alien, "404 Not Found", "body: {body_alien}");
+    assert_eq!(
+        status_alien, status_ghost,
+        "cross-tenant status must match unknown-worker status"
+    );
+    assert_eq!(
+        body_alien, body_ghost,
+        "cross-tenant body must be byte-identical to unknown-worker body"
+    );
+    assert!(
+        !body_alien.contains(&alien.id.to_string()),
+        "response must not echo requested worker_id"
+    );
 }
 
 #[tokio::test]

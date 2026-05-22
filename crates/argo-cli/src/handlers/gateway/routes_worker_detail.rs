@@ -173,11 +173,17 @@ pub(super) async fn show_response(
         Err(e) => return server_error(&format!("resolve tenant: {e}")),
     };
     let identities = IdentityStore::new(store);
+    // Cross-tenant existence is hidden from the HTTP response.
+    // See routes_workflows.rs:13-21 for the canonical invariant.
+    // Probe runs internally for telemetry; response is identical for both branches.
     let worker = match identities.get_worker(tenant, worker_id).await {
         Ok(Some(w)) => w,
         Ok(None) => match exists_in_other_tenant(store, tenant, worker_id).await {
-            Ok(true) => return forbidden(&format!("worker {worker_id} not in this tenant")),
-            Ok(false) => return not_found(&format!("worker {worker_id} not found")),
+            Ok(true) => {
+                tracing::debug!(target: "tenancy", %worker_id, "cross-tenant probe: exists in other tenant");
+                return not_found("worker not found");
+            }
+            Ok(false) => return not_found("worker not found"),
             Err(e) => return server_error(&format!("cross-tenant probe: {e}")),
         },
         Err(e) => return server_error(&format!("get worker: {e}")),
@@ -450,10 +456,6 @@ fn bad_request(message: &str) -> (&'static str, String) {
 
 fn not_found(message: &str) -> (&'static str, String) {
     error_envelope("404 Not Found", "not_found", message)
-}
-
-fn forbidden(message: &str) -> (&'static str, String) {
-    error_envelope("403 Forbidden", "forbidden", message)
 }
 
 fn server_error(message: &str) -> (&'static str, String) {
