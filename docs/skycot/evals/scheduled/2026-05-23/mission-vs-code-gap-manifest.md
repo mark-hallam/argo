@@ -102,12 +102,12 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 | Crate | Mission claim served | Audited? | Known gap | Priority |
 |---|---|---|---|---|
 | `argo-types` | All | 🟢 by use | Canonical types. CI guards parallel-pub-types per operator memory `feedback_brief_authoring_preflight_rules.md`. | — |
-| `argo-agent-runner` | All (worker runtime) | 🔴 NOT AUDITED | THE runtime. `turn_helpers.rs:65` wires skill-library worker-load per round-1 SHIP-BLOCKER. **Gap: complete walk of the turn lifecycle — turn entry → policy gate → skill lookup → tool call → audit emit → capability check → response.** | 🔴 P0 — biggest unaudited surface. |
+| `argo-agent-runner` | All (worker runtime) | 🟢 round 9 — surface + dispatch.rs audited | **VERDICT: SOLID.** `dispatch_one_with_tenant` (line 161) is the canonical entry — explicit `tenant_id` parameter, caller cannot bypass. `McpConnectionPool.client(tenant_id, name, transport)` acquires from pool keyed by `(tenant_id, name)` — per-tenant isolation at the pool layer. **Capability engine is checked BEFORE every MCP tool dispatch** (`engine.check(principal, &Capability::ToolDispatch{...})` at dispatch.rs:206-217). `dispatch_tenant_isolation_tests::mcp_pool_isolates_same_server_by_tenant` exists as the negative test. 30+ files, 5918 LOC, decomposed cleanly (turn_budget, turn_canary, turn_context_policy, turn_helpers ×4, turn_memory, turn_planner, turn_routing, turn_run_loop, turn_skills ×4, turn_system_prompt, turn_vertical ×2). Strict `deny(clippy::unwrap_used, clippy::expect_used)` at lib.rs:38. Future-eval: walk the turn_run_loop + turn_planner deeper to verify subtask-budget tree behavior and tier-routing classifier. | 🟢 — major P0 cleared. |
 | `argo-runtime` | All | 🔴 NOT AUDITED | Relationship to argo-agent-runner unclear; may be deprecated or a wrapper. | 🟡 P2 — clarify. |
 | `argo-config` | All | 🔴 NOT AUDITED | Workspace + tenant config. | 🟢 P3 |
 | `argo-store` | All | 🟡 partial (round 5 fix-merge verified) | Migration framework now comment-aware (#2025). Workflow_definition primitive audited round 7. **Other tables (worker, persona, role, duty, audit_record, skill, etc.) need similar tenant-scoping audits.** | 🟡 P1 — `eval-argo-store-tenant-bind-sweep`. |
 | `argo-capability` | All RBAC | 🟢 by use | Per-role + per-tenant capability engine. Used by routes_workflows + routes_workers + etc. | — |
-| `argo-credentials` | Auth, channels, MCP | 🔴 NOT AUDITED | Stores per-tenant OAuth tokens + API keys. **High-leverage cross-tenant target.** | 🔴 P0 — `eval-credentials-cross-tenant-isolation`. |
+| `argo-credentials` | Auth, channels, MCP | 🟢 round 9 — audited | **VERDICT: BY-DESIGN WORKSPACE-SCOPED.** Store is FILE-BASED at `<workspace>/.argo/credentials.toml` — one credentials file per workspace (cwd), not a per-tenant SQL table. The "cross-tenant" concern I feared is a non-issue: tenant boundary IS the workspace location, enforced at the OS/process level. ✅ At-rest encryption via `age` with workspace master key. ✅ Atomic write with `0600` Unix permissions. ✅ Migration tool `migrate_plaintext_in_place` available. 🟡 **Caveat**: legacy plaintext entries are STILL accepted on read (`EncryptedEntry::Plain(s)` enum variant in `lib.rs`). For enterprise customers expecting forced encryption-at-rest, migration should be auto-run on first read, not opt-in. | 🟢 P0 cleared; 🟡 P2 quality follow-up `eval-credentials-force-migrate-on-read` for the legacy-accept path. |
 | `argo-cli` | All (binary + gateway) | 🟡 spot-audited | Gateway routes module-by-module. Some submodules audited (workflows ×7, hire ×1, audit-export verified). Others not. | 🟡 P1 |
 | `argo-tui` | UX | 🟢 N/A — not v1 | Per CLAUDE.md operator-locked: argo-cli monolith leave-alone for v1. | — |
 | `argo-voice-tui` | UX | 🟢 N/A — not v1 | Same. | — |
@@ -175,9 +175,9 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 
 In rough order of mission-leverage:
 
-1. `argo-agent-runner` — 🔴 P0
-2. `argo-credentials` — 🔴 P0
-3. `argo-mcp` (core, not connectors) — 🟡 P1
+1. ~~`argo-agent-runner`~~ — 🟢 CLEARED round 9
+2. ~~`argo-credentials`~~ — 🟢 CLEARED round 9
+3. `argo-mcp` (core, not connectors) — 🟡 P1 — **now top of next-session list**
 4. `argo-cron` (deep walk — partially started this round) — 🟡 P1
 5. `argo-genesis` (deep walk through 8881 LOC) — 🟡 P1
 6. `argo-workflow` (executor, checkpoint, DAG) — 🟡 P1

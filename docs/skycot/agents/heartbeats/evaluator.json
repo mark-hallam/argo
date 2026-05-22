@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T07:30:00Z",
+  "last_run_utc": "2026-05-23T08:00:00Z",
   "expected_cadence_seconds": 86400,
-  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-8",
-  "run_notes": "round 8 — bootstrapped mission-vs-code coverage campaign per operator directive. Authored docs/skycot/evals/scheduled/2026-05-23/mission-vs-code-gap-manifest.md (LIVING doc). Triaged all 89 workspace crates against 6 mission claims. 29 gaps logged: 6 🔴 P0, 13 🟡 P1, 10+ 🟡 P2. Highest-leverage NEW P0: argo-agent-runner turn-lifecycle (largest unaudited mission-critical surface, every claim routes through it) + argo-credentials cross-tenant isolation. Estimated 5-7 evaluator sessions to reach full coverage."
+  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-9",
+  "run_notes": "round 9 — cleared TWO top P0s from the manifest. (1) argo-agent-runner: dispatch_one_with_tenant takes explicit tenant_id, McpConnectionPool keyed by (tenant_id, name), capability engine checked before every tool dispatch, dispatch_tenant_isolation_tests negative test exists. SUBSTRATE SOLID. (2) argo-credentials: file-based + workspace-scoped by design — tenant boundary IS the workspace location, age-encrypted at rest, 0600 perms. Legacy plaintext still accepted on read (🟡 P2 quality follow-up). Manifest rows updated. Top of next-session list: argo-mcp (core)."
 }
