@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T17:00:00Z",
+  "last_run_utc": "2026-05-22T17:15:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-68-cleanup-pass",
-  "run_notes": "Tick 68 — operator-directed aggressive cleanup. Merged #2051 (P0 cross-tenant audit-export fix from evaluator round-3; 3 #[ignore]'d tests un-ignored). Promoted 5 tier-2 actionable briefs to Phase A (marketing mdx fix, worker onboarding CLI, worker charter storage, M21 PM cohort, marketing landing rebuild). Archive directory created with 4 high-confidence stale/shipped moves (mvp-gateway-bind-hardening, codex-rebase-recover-cache-pr911, claude-cli-rs-split-v2, claude-store-team_roster-split). Background audit agent classifying remaining ~410 aged orphans into shipped/stale/v1.x-deferred/keep-for-review buckets — will action when it returns. 4 fresh workers spawned (PIDs 64270/64294/64367/64441). claude_todo: 3 → 8. Worker pool: 16 bash loops alive."
+  "session_label": "anthropic-claude-code-conductor-tick-69-bulk-archive",
+  "run_notes": "Tick 69 — bulk archive sweep complete. Sub-agent classified 425 aged orphans: 417 shipped-by-other (verified via git log + PR-merge tags), 2 stale-premise (defensive splits no longer needed), 3 v1.x-deferred (post-v1 track overviews + TUI), 3 keep-for-review (2 ADRs as reference docs + 1 mission-claim-6 brief promoted to TODO). Brief files in streams/: 1356 → 931. Archive holds 425 across 3 subdirs. Also authored claude-zero-caller-substrate-lint to close the last evaluator round-3 recommendation (drift finding). 4 fresh workers spawned (PIDs 64270/64294/64367/64441). Pool: 16 bash worker-loops alive. claude_todo: 7. ALL evaluator round-3 recommendations now actioned (3/3) + ALL in-flight items (3/3)."
 }
