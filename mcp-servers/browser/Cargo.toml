@@ -1,3 +1,4 @@
+# zero-caller-allowed: MCP server binary subprocess (polyglot core invariant)
 [package]
 name = "argo-mcp-browser"
 version.workspace = true

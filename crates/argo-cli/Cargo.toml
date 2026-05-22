@@ -1,3 +1,4 @@
+# zero-caller-allowed: binary (argo CLI) — consumed at process boot, not via use
 [package]
 name = "argo-cli"
 version.workspace = true

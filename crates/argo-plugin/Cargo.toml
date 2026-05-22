@@ -1,3 +1,4 @@
+# zero-caller-allowed: plugin SDK + test scaffolding — consumed by external plugin authors
 [package]
 name = "argo-plugin"
 version.workspace = true

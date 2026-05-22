@@ -1,3 +1,4 @@
+# zero-caller-allowed: MCP connector subprocess (polyglot core invariant)
 [package]
 name = "argo-mcp-connector-discord"
 version.workspace = true

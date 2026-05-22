@@ -1,3 +1,4 @@
+# zero-caller-allowed: test cassette scaffolding — invoked via test harness, not src/ use
 [package]
 name = "argo-test-cassette"
 version.workspace = true

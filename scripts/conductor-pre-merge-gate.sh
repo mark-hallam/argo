@@ -47,13 +47,13 @@ fail() { printf '\033[31m[pre-merge-gate FAIL]\033[0m %s\n' "$*" >&2; fail_count
 log "running on $(git rev-parse --short HEAD)"
 
 # Gate 1: migration slot collision check
-log "[1/4] migration slot check"
+log "[1/5] migration slot check"
 if ! bash scripts/check-migration-slots.sh; then
   fail "migration slot collision detected — see output above"
 fi
 
 # Gate 2: LOC budget — no file > 500 LOC in crates/
-log "[2/4] LOC budget (files > 500)"
+log "[2/5] LOC budget (files > 500)"
 over_500=$(find crates -name '*.rs' -exec wc -l {} \; 2>/dev/null | awk '$1 > 500 {print $0}')
 if [[ -n "$over_500" ]]; then
   fail "files over 500 LOC ceiling:"
@@ -61,19 +61,28 @@ if [[ -n "$over_500" ]]; then
 fi
 
 # Gate 3: parallel-pub-types canonicalization
-log "[3/4] parallel-pub-types lint"
+log "[3/5] parallel-pub-types lint"
 if ! python3 scripts/lint-parallel-pub-types.py >/dev/null 2>&1; then
   fail "parallel-pub-types violation — run python3 scripts/lint-parallel-pub-types.py"
 fi
 
-# Gate 4: workspace clippy (slowest; ~3-6 min). Skippable.
+# Gate 4: zero-caller substrate — enforce CLAUDE.md "wire or defer"
+# at merge time. Cheap (one cargo metadata + bounded grep over
+# workspace src/), runs ahead of the 3-6min workspace clippy so
+# wire-or-defer drift surfaces first.
+log "[4/5] zero-caller substrate lint"
+if ! bash scripts/check-zero-caller-substrate.sh; then
+  fail "zero-caller substrate lint — a crate has no \`use <name>::\` callers AND no zero-caller-allowed marker"
+fi
+
+# Gate 5: workspace clippy (slowest; ~3-6 min). Skippable.
 if [[ "$SKIP_CLIPPY" -eq 0 ]]; then
-  log "[4/4] workspace clippy (3-6 min)"
+  log "[5/5] workspace clippy (3-6 min)"
   if ! bash scripts/workspace-clippy-fast-fail.sh; then
     fail "workspace clippy failure — see output above"
   fi
 else
-  warn "[4/4] workspace clippy SKIPPED (--skip-clippy)"
+  warn "[5/5] workspace clippy SKIPPED (--skip-clippy)"
 fi
 
 echo

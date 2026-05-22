@@ -33,6 +33,23 @@ QUIET=0
 start=$SECONDS
 [[ "$QUIET" -eq 0 ]] && echo "=== Workspace clippy (fast-fail) ==="
 
+# Step 1: zero-caller-substrate lint (claude-zero-caller-substrate-lint).
+# Cheaper than clippy and catches the wire-or-defer drift pattern that
+# motivated the lint (PR #2034: substrate crate landed with zero
+# consumers, sat unused for 4+ days before the gateway brief unblocked).
+# Fail-fast here so a worker doesn't burn 9min on workspace clippy when
+# a missing-caller surfaces first.
+zc_output=$(bash "$REPO_ROOT/scripts/check-zero-caller-substrate.sh" 2>&1)
+zc_rc=$?
+if [[ "$zc_rc" -ne 0 ]]; then
+    echo "❌ zero-caller-substrate lint FAILED"
+    echo ""
+    echo "$zc_output"
+    exit 1
+fi
+[[ "$QUIET" -eq 0 ]] && echo "$zc_output"
+
+# Step 2: workspace clippy.
 # Filter pattern: keep warnings, errors, source-pointer arrows (-->), Finished line.
 # Drop the dominant noise: "Compiling foo v0.0.1", "Checking foo v0.0.1",
 # "Downloading", "Updating".

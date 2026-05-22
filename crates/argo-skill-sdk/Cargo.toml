@@ -1,3 +1,4 @@
+# zero-caller-allowed: skill plugin SDK — consumed by external skill plugin authors, not workspace callers
 [package]
 name = "argo-skill-sdk"
 version.workspace = true

@@ -237,6 +237,45 @@ unblock commits during this run included:
 These are the seams the brief author didn't anticipate. Expect one
 per stream.
 
+### 5. Wire-or-defer enforcement (claude-zero-caller-substrate-lint)
+
+The CLAUDE.md "Drift prevention" rule **Wire or defer** ("every new
+public surface in a brief names its consumer") was authoring
+convention only — nothing gated it at merge. PR #2034 surfaced the
+cost when `argo-workplace-knowledge` shipped as substrate without
+runtime callers and sat for 4+ days before a gateway brief
+unblocked.
+
+`scripts/check-zero-caller-substrate.sh` runs in both gates that
+fire on every push + every admin-merge:
+
+- `scripts/workspace-clippy-fast-fail.sh` (worker pre-push) — runs
+  the lint **before** the slow workspace clippy so wire-or-defer
+  drift surfaces in milliseconds rather than 9 minutes.
+- `scripts/conductor-pre-merge-gate.sh` (conductor admin-merge) —
+  gate `[4/5]`, between the parallel-pub-types lint and the
+  workspace clippy.
+
+It enumerates workspace members via `cargo metadata --no-deps`,
+counts `use <crate_name>::` references across every member's `src/`
+(excluding the crate's own `src/`), and exits 1 if any crate has
+zero callers AND no `# zero-caller-allowed: <reason>` marker on a
+line in its `Cargo.toml`.
+
+Crates that are legitimately standalone (binaries, MCP subprocess
+plugins, plugin/scaffolding SDKs consumed by external authors)
+carry the marker explicitly:
+
+```toml
+# zero-caller-allowed: MCP subprocess plugin (polyglot core invariant)
+[package]
+name = "argo-mcp-connector-slack"
+```
+
+The marker comment must appear at the start of a `Cargo.toml` line
+(grep-anchored on `^[[:space:]]*#[[:space:]]*zero-caller-allowed`)
+so casual mentions in prose comments don't accidentally allowlist.
+
 ---
 
 ## Why it works
