@@ -3,7 +3,95 @@
 **Authored against**: `origin/main` `209a15e11` on `2026-05-22`.
 **Status**: SPEC — Option B picked. Runnable counterpart shipped via
 `mission-gateway-restart-executable-runbook` (see *Quick reference*
-below).
+below). First-run bootstrap shipped via
+`mission-gateway-env-local-bootstrap` (see *First-run setup* below).
+
+## First-run setup
+
+Setting the gateway up on a fresh machine? Two paths, both safe:
+
+### Path A — `make restart-live-gateway` does it all (recommended)
+
+Just run the normal restart target. On first run (no
+`$ARGO_HOME/env.local` and `SKYCOT_DB_KEY_BASE64` unset in the parent
+shell), the script auto-bootstraps:
+
+1. Generates a 32-byte base64 `SKYCOT_DB_KEY_BASE64` (verifies the
+   decoded length is exactly 32 bytes before writing — no more 42-byte
+   "fix-strings" silently rejected by the gateway).
+2. Reuses `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` if either is already
+   exported in your shell. Otherwise prompts interactively (input
+   hidden).
+3. Writes `$ARGO_HOME/env.local` with `chmod 600`.
+4. Sources the new file inline so the gateway in the same invocation
+   picks up the key — no second run, no `source ... &&` prefix
+   required.
+
+Every subsequent `make restart-live-gateway` auto-sources
+`$ARGO_HOME/env.local` if it exists, so you never need to remember the
+`source ~/.argo/env.local &&` prefix again.
+
+### Path B — `make first-run-setup` (explicit)
+
+If you want to bootstrap env.local without launching the gateway in
+the same step (e.g. you want to inspect the generated file first):
+
+```
+$ make first-run-setup
+[0/8] First-run setup: no /Users/you/.argo/env.local and SKYCOT_DB_KEY_BASE64 unset.
+      found ANTHROPIC_API_KEY in parent environment; reusing.
+      wrote /Users/you/.argo/env.local (chmod 600, DB key decodes to 32 bytes)
+
+      Source it manually with:
+          source /Users/you/.argo/env.local && make restart-live-gateway
+      Or just re-run 'make restart-live-gateway' — it auto-sources.
+✅ --bootstrap-only requested; exiting without launching the gateway.
+```
+
+### Path C — copy the template manually
+
+If you'd rather skip the script entirely, copy
+[`scripts/env.local.example`](../../../scripts/env.local.example) to
+`~/.argo/env.local` and edit the values in by hand:
+
+```
+mkdir -p ~/.argo
+cp scripts/env.local.example ~/.argo/env.local
+chmod 600 ~/.argo/env.local
+# ...edit SKYCOT_DB_KEY_BASE64 and ANTHROPIC_API_KEY...
+make restart-live-gateway
+```
+
+### Recovering from a lost DB key
+
+If `~/.argo/env.local` is deleted or the key inside it is changed
+after sessions were written, the SQLCipher sessions DB becomes
+unreadable. To recover:
+
+```
+mv ~/.argo/sessions.db ~/.argo/sessions.db.cant-decrypt-old-key-lost
+rm ~/.argo/env.local      # forces bootstrap to generate a new key
+make restart-live-gateway # bootstraps env.local + launches with a fresh DB
+```
+
+You lose runtime session history (audit rows, ongoing workflows). All
+durable state lives in checked-in files / external providers; the
+sessions DB is in-flight runtime state only. Back up
+`~/.argo/env.local` if you care about preserving session history
+across machine moves.
+
+### Rotating the API key safely
+
+Edit the `export ANTHROPIC_API_KEY='…'` line in `~/.argo/env.local`.
+The gateway holds the previous key in memory until the next restart —
+no immediate action needed if you just want the new key picked up on
+the next bounce. To force the running gateway to switch right now,
+restart with `--force` (the no-op-on-schema-current optimization
+otherwise leaves the old in-memory key alive):
+
+```
+make restart-live-gateway FORCE=1
+```
 
 ## Quick reference
 
@@ -32,12 +120,16 @@ $ make restart-live-gateway
 
 Underlying script: [`scripts/restart-live-gateway.sh`](../../../scripts/restart-live-gateway.sh).
 Smoke tests: `make test-restart-live-gateway` (stopped / current /
-stale scenarios, ~10s).
+stale / `--force` scenarios plus first-run bootstrap, ~10s).
 
 **Flags**:
 
 - `make restart-live-gateway NO_PROMPT=1` — skip the 5s warning (for
   cron-driven invocation later).
+- `make restart-live-gateway FORCE=1` — restart even when the live
+  schema_version already matches EXPECTED. Use when switching from a
+  one-time inline `SKYCOT_DB_KEY_BASE64` to a persistent
+  `~/.argo/env.local` key.
 - `make restart-live-gateway PORT=7500` — non-default port.
 - `make restart-live-gateway HOST=127.0.0.1` — non-default host.
 
@@ -45,8 +137,10 @@ stale scenarios, ~10s).
 
 | State                                  | What the script does                                |
 | -------------------------------------- | --------------------------------------------------- |
+| first run (no env.local + key unset)   | bootstraps `~/.argo/env.local` with a fresh 32-byte DB key + API key, then launches |
+| env.local present                      | auto-sources it (no need for `source ~/.argo/env.local &&` prefix) |
 | no gateway running                     | builds-if-stale, launches detached, polls `/readyz` |
-| running + already at EXPECTED          | no-op + reports "already at schema_version N"       |
+| running + already at EXPECTED          | no-op + reports "already at schema_version N" (overridden by `FORCE=1`) |
 | running + stale schema_version         | SIGTERM (10s) → SIGKILL → build-if-stale → relaunch |
 | binary missing or HEAD has advanced    | runs `cargo build --release --bin argo` first      |
 

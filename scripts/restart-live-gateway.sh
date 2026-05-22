@@ -4,10 +4,13 @@
 # policy spec (docs/skycot/operator/gateway-restart-policy.md, PR #2023).
 #
 # Steps:
+#   [0/8] First-run bootstrap (if needed): generate SKYCOT_DB_KEY_BASE64,
+#         prompt for ANTHROPIC_API_KEY, write $ARGO_HOME/env.local with
+#         chmod 600. Then source env.local if it exists.
 #   [1/8] Capture old PID + pre-restart schema_version (or "stopped").
 #   [2/8] Compare live schema_version against EXPECTED_SCHEMA_VERSION
 #         (read from crates/argo-store/src/lib.rs). If they match and
-#         a gateway is running, no-op + report.
+#         a gateway is running, no-op + report (overridden by --force).
 #   [3/8] 5s "may briefly interrupt N active integration tests" prompt
 #         (skipped with --no-prompt).
 #   [4/8] SIGTERM old PID, wait up to 10s, escalate to SIGKILL.
@@ -33,16 +36,27 @@ die()  { printf '❌ %s\n' "$*" >&2; exit 1; }
 
 usage() {
     cat <<'EOF'
-Usage: restart-live-gateway.sh [--no-prompt] [--port PORT] [--host HOST]
+Usage: restart-live-gateway.sh [--no-prompt] [--force] [--bootstrap-only]
+                               [--port PORT] [--host HOST]
 
   --no-prompt       Skip the 5s pre-restart warning (for cron/automation).
+  --force           Restart even when the live schema_version already
+                    matches EXPECTED_SCHEMA_VERSION. Use when switching
+                    from a one-time inline key to a persistent
+                    $ARGO_HOME/env.local key (the no-op short-circuit
+                    otherwise leaves the old in-memory key alive).
+  --bootstrap-only  Run first-run bootstrap then exit without restarting.
+                    No-op if $ARGO_HOME/env.local already exists.
   --port PORT       Gateway port (default: $ARGO_GATEWAY_PORT or 7400).
   --host HOST       Gateway host (default: 127.0.0.1).
   -h, --help        This message.
 
 Behavior:
+  - On first run (no $ARGO_HOME/env.local and SKYCOT_DB_KEY_BASE64
+    unset), bootstraps env.local with a fresh 32-byte DB key + API key.
+  - Auto-sources $ARGO_HOME/env.local on every run.
   - If no gateway is running, start a fresh one.
-  - If a current gateway is running, no-op + report.
+  - If a current gateway is running, no-op + report (unless --force).
   - If a stale gateway is running, stop + rebuild-if-needed + restart.
 EOF
 }
@@ -50,15 +64,19 @@ EOF
 # ---------- arg parsing ----------------------------------------------
 
 NO_PROMPT=0
+FORCE=0
+BOOTSTRAP_ONLY=0
 PORT="${ARGO_GATEWAY_PORT:-7400}"
 HOST="127.0.0.1"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --no-prompt) NO_PROMPT=1; shift ;;
-        --port)      PORT="$2"; shift 2 ;;
-        --host)      HOST="$2"; shift 2 ;;
-        -h|--help)   usage; exit 0 ;;
+        --no-prompt)      NO_PROMPT=1; shift ;;
+        --force)          FORCE=1; shift ;;
+        --bootstrap-only) BOOTSTRAP_ONLY=1; shift ;;
+        --port)           PORT="$2"; shift 2 ;;
+        --host)           HOST="$2"; shift 2 ;;
+        -h|--help)        usage; exit 0 ;;
         *) die "unknown arg: $1 (try --help)" ;;
     esac
 done
@@ -74,8 +92,105 @@ BIN="${ARGO_RESTART_BIN:-$TARGET_DIR/release/argo}"
 ARGO_HOME_DIR="${ARGO_HOME:-$HOME/.argo}"
 BUILT_FROM_FILE="$ARGO_HOME_DIR/gateway-built-from"
 LOG_DIR="$ARGO_HOME_DIR/logs"
+ENV_LOCAL_FILE="$ARGO_HOME_DIR/env.local"
 
 HEALTH_URL="http://${HOST}:${PORT}/readyz"
+
+# ---------- step 0: first-run bootstrap + env.local auto-source ------
+
+# Generate a 32-byte SKYCOT_DB_KEY_BASE64 (verified to decode to 32
+# bytes), discover or prompt for an LLM API key, write env.local with
+# chmod 600. Stdout messages avoid leading '#' so copy-paste into a
+# shell never silently swallows lines as comments.
+bootstrap_env_local() {
+    mkdir -p "$ARGO_HOME_DIR"
+
+    local key length attempts=0
+    while :; do
+        attempts=$((attempts + 1))
+        key="$(openssl rand -base64 32)"
+        length="$(printf '%s' "$key" | base64 -d 2>/dev/null | wc -c | tr -d ' ')"
+        [[ "$length" == "32" ]] && break
+        if (( attempts >= 5 )); then
+            die "could not generate a 32-byte base64 key after 5 attempts (got length=$length)"
+        fi
+    done
+
+    local api_key="" api_var="ANTHROPIC_API_KEY"
+    if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+        log "      found ANTHROPIC_API_KEY in parent environment; reusing."
+        api_key="$ANTHROPIC_API_KEY"
+        api_var="ANTHROPIC_API_KEY"
+    elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
+        log "      found OPENAI_API_KEY in parent environment; reusing."
+        api_key="$OPENAI_API_KEY"
+        api_var="OPENAI_API_KEY"
+    elif [[ -t 0 && "${ARGO_BOOTSTRAP_NONINTERACTIVE:-0}" != "1" ]]; then
+        log "      Paste an Anthropic API key (input hidden; blank to skip):"
+        read -rs api_key
+        printf '\n'
+        api_var="ANTHROPIC_API_KEY"
+    else
+        log "      non-interactive shell and no *_API_KEY in env — writing env.local"
+        log "      with a placeholder. Edit $ENV_LOCAL_FILE to add a real key before launch."
+    fi
+
+    if [[ -n "$api_key" ]]; then
+        if (( ${#api_key} < 20 )) || [[ ! "$api_key" =~ ^(sk-ant-|sk-) ]]; then
+            log "      warning: API key looks unusual (length=${#api_key}, prefix='${api_key:0:7}'); writing anyway."
+        fi
+    fi
+
+    # Write env.local. Note: no leading '#' on stdout messages, but
+    # comments inside the file itself are fine — the file is sourced,
+    # not pasted into a shell prompt.
+    {
+        printf '%s\n' '# ~/.argo/env.local — sourced by scripts/restart-live-gateway.sh'
+        printf '%s\n' '# Generated by the first-run bootstrap; safe to edit by hand.'
+        printf '%s\n' '# chmod 600 enforced — contains a DB encryption key and API key.'
+        printf '\n'
+        printf '%s\n' '# 32-byte base64 key for the SQLCipher sessions DB. Losing this'
+        printf '%s\n' '# means the on-disk sessions.db is unreadable; back it up if you'
+        printf '%s\n' '# care about historical sessions.'
+        printf "export SKYCOT_DB_KEY_BASE64='%s'\n" "$key"
+        printf '\n'
+        if [[ -n "$api_key" ]]; then
+            printf '%s\n' '# LLM provider key. Rotate by editing this line; in-memory keys'
+            printf '%s\n' '# in a running gateway are unchanged until next restart.'
+            printf "export %s='%s'\n" "$api_var" "$api_key"
+        else
+            printf '%s\n' '# LLM provider key — uncomment and fill in before launch.'
+            printf '%s\n' "# export ANTHROPIC_API_KEY='sk-ant-...'"
+            printf '%s\n' "# export OPENAI_API_KEY='sk-...'"
+        fi
+    } > "$ENV_LOCAL_FILE"
+    chmod 600 "$ENV_LOCAL_FILE"
+
+    log "      wrote $ENV_LOCAL_FILE (chmod 600, DB key decodes to 32 bytes)"
+    log ""
+    log "      Source it manually with:"
+    log "          source $ENV_LOCAL_FILE && make restart-live-gateway"
+    log "      Or just re-run 'make restart-live-gateway' — it auto-sources."
+
+    # shellcheck disable=SC1090
+    source "$ENV_LOCAL_FILE"
+}
+
+if [[ -f "$ENV_LOCAL_FILE" ]]; then
+    log "[0/8] Auto-sourcing $ENV_LOCAL_FILE..."
+    # shellcheck disable=SC1090
+    source "$ENV_LOCAL_FILE"
+elif [[ -z "${SKYCOT_DB_KEY_BASE64:-}" ]]; then
+    log "[0/8] First-run setup: no $ENV_LOCAL_FILE and SKYCOT_DB_KEY_BASE64 unset."
+    bootstrap_env_local
+else
+    log "[0/8] No $ENV_LOCAL_FILE but SKYCOT_DB_KEY_BASE64 is set in env; continuing."
+fi
+
+if [[ "$BOOTSTRAP_ONLY" -eq 1 ]]; then
+    log "✅ --bootstrap-only requested; exiting without launching the gateway."
+    exit 0
+fi
 
 # ---------- expected schema version (from source of truth) -----------
 
@@ -124,8 +239,13 @@ fi
 log "[2/8] Comparing live schema_version against EXPECTED_SCHEMA_VERSION..."
 
 if [[ -n "$OLD_PID" && "$OLD_VER" == "$EXPECTED_SCHEMA_VERSION" ]]; then
-    log "✅ already at schema_version $OLD_VER (current). No-op."
-    exit 0
+    if [[ "$FORCE" -eq 1 ]]; then
+        log "      already at $EXPECTED_SCHEMA_VERSION but --force given: continuing restart."
+    else
+        log "✅ already at schema_version $OLD_VER (current). No-op."
+        log "      (use --force to restart anyway, e.g. to pick up a new env.local key.)"
+        exit 0
+    fi
 fi
 
 # ---------- step 3: pre-restart prompt -------------------------------

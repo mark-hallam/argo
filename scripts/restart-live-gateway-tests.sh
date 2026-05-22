@@ -177,6 +177,10 @@ run_script() {
     "$SCRIPT" --no-prompt --port "$PORT" --host 127.0.0.1
 }
 
+run_script_force() {
+    "$SCRIPT" --no-prompt --force --port "$PORT" --host 127.0.0.1
+}
+
 # ---------- scenario 1: stopped --------------------------------------
 
 echo "Scenario 1: no gateway running → script starts a fresh one."
@@ -228,4 +232,27 @@ echo "$out" | grep -q "Gateway live at schema_version $EXPECTED (was $STALE)" \
 assert_version "$EXPECTED" && pass "/readyz returns $EXPECTED after restart"
 stop_fake
 
-echo "✅ All 3 scenarios passed."
+# ---------- scenario 4: --force overrides current no-op --------------
+
+echo "Scenario 4: --force restarts even when schema_version already current."
+start_fake_at_version "$EXPECTED"
+assert_version "$EXPECTED" || fail "fake didn't start at $EXPECTED"
+OLD_PID_BEFORE="$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -n1)"
+[[ -n "$OLD_PID_BEFORE" ]] || fail "expected a listener on $PORT pre-force"
+if out=$(run_script_force 2>&1); then
+    pass "exit 0"
+else
+    echo "$out" >&2
+    fail "script exited non-zero with --force"
+fi
+echo "$out" | grep -q "but --force given: continuing restart" \
+    || { echo "$out" >&2; fail "missing '--force given: continuing restart' line"; }
+echo "$out" | grep -q "Gateway live at schema_version $EXPECTED" \
+    || { echo "$out" >&2; fail "missing post-restart 'Gateway live' line"; }
+NEW_PID_AFTER="$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -n1)"
+[[ -n "$NEW_PID_AFTER" && "$NEW_PID_AFTER" != "$OLD_PID_BEFORE" ]] \
+    || fail "expected a new pid on $PORT after --force (was $OLD_PID_BEFORE, got $NEW_PID_AFTER)"
+pass "--force replaced the pid ($OLD_PID_BEFORE → $NEW_PID_AFTER)"
+stop_fake
+
+echo "✅ All 4 scenarios passed."
