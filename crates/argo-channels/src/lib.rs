@@ -57,7 +57,7 @@ pub use operator_risk_overrides::{
     OperatorRiskOverridesSource, OverrideScope, RiskResolutionTrace, RiskResolver,
     TomlOperatorRiskOverridesSource,
 };
-pub use quiet_hours::QuietHours;
+pub use quiet_hours::{OperatorQuietHoursConfig, QuietHours, QuietHoursResolver};
 pub use rate_limit::{RateLimit, RateLimitConfig};
 pub use slack_inbound::InboundChannel;
 pub use teams::{TeamsApprovalChannel, TeamsApprovalChannelConfig};

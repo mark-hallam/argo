@@ -38,7 +38,7 @@ use argo_audit::AuditSink;
 use argo_channels::operator_preferences::{
     OperatorId, OperatorPreferencesResolver, TomlPreferencesSource,
 };
-use argo_channels::Notification;
+use argo_channels::{Notification, QuietHoursResolver};
 #[cfg(test)]
 use argo_channels::RiskLevel;
 use chrono::Utc;
@@ -114,6 +114,14 @@ pub async fn try_dispatch_on_ask(
         // block matches — covers the no-config dev path safely.
         let preferred = resolve_preferred_channel(cwd, &notification).await;
         let chain = worker_actions_notify_fallback::promote_preferred(chain, preferred.as_deref());
+        // mission-quiet-hours-channels: workspace `[operator.quiet_hours]`
+        // filter — strip noisy channel kinds (SMS, voice, WhatsApp,
+        // iMessage, push by default) inside the operator's quiet window
+        // so dispatch falls through to a non-noisy step (typically
+        // WebInbox). Disabled-by-default; absent config leaves the chain
+        // untouched.
+        let chain = QuietHoursResolver::from_toml_path(&cwd.join("argo.toml"))
+            .filter_chain(chain, chrono::Utc::now());
         let report = worker_actions_notify_fallback::dispatch_with_fallback(
             &notification,
             &chain,
