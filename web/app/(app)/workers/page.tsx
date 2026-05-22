@@ -3,18 +3,18 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { WorkersIllustration } from "@/components/empty-state/illustrations/WorkersIllustration";
+import { HireStarterPrompts } from "@/components/empty-state/HireStarterPrompts";
 import { useTeam } from "@/lib/hooks/use-team";
 
 /**
  * `/workers` — nav-bar entrypoint for the worker roster. When the
- * tenant has zero workers, render the unified empty state and invite
- * the operator to hire their first AI teammate. When workers exist,
- * redirect to `/team`, the canonical roster surface — `useTeam()` is
- * the shared data source. A dedicated workers list with column-level
- * filters is a separate Track-E brief; this page only owns the
- * empty-state experience until then.
+ * tenant has zero workers, render the shared `<HireStarterPrompts>`
+ * empty state (the same 5 starter-prompt grid the `/team` page uses)
+ * so the buyer sees the same first-touch CTA pattern from either
+ * surface. When workers exist, redirect to `/team`, the canonical
+ * roster surface — `useTeam()` is the shared data source. A dedicated
+ * workers list with column-level filters is a separate Track-E brief;
+ * this page only owns the empty-state experience until then.
  */
 export default function WorkersPage() {
   const router = useRouter();
@@ -35,15 +35,12 @@ export default function WorkersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div
+      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6"
+      data-testid="workers-empty"
+    >
       <h1 className="sr-only">Workers</h1>
-      <EmptyState
-        data-testid="workers-empty"
-        illustration={WorkersIllustration}
-        headline="No teammates yet"
-        body="Hire your first AI worker to start shipping."
-        cta={{ label: "Hire a worker", href: "/hire" }}
-      />
+      <HireStarterPrompts />
     </div>
   );
 }
