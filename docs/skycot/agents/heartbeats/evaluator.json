@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T04:10:00Z",
+  "last_run_utc": "2026-05-23T05:30:00Z",
   "expected_cadence_seconds": 86400,
-  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-5",
-  "run_notes": "round 5 — Chrome MCP paired + Playwright suite run; TWO NEW P0s: (1) layout.ts naming collision with Next.js App Router blanks the workflow builder canvas (mission claim 3 demo anchor); (2) @monaco-editor/react + 6 transitive deps missing from node_modules; Playwright suite 47/49 fail due to these two; design system holds at runtime once fixes apply."
+  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-6",
+  "run_notes": "round 6 — comprehensive E2E campaign via Chrome MCP. Journey-map authored (~135 journeys spec'd). 44 PASS / 1 FAIL (/onboarding 404) / 65 BLOCKED-by-P0-E1-or-dead-gateway / 11 NOT-RUN (mobile viewport). 4 new findings: dark-mode class collision; /workers vs /team empty-state divergence; Turbopack dev-overlay debris; resize_window doesn't affect render viewport. P0-E1 still active. Pass rate 96% on testable journeys."
 }
