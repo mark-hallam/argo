@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T06:30:00Z",
+  "last_run_utc": "2026-05-23T07:30:00Z",
   "expected_cadence_seconds": 86400,
-  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-7",
-  "run_notes": "round 7 — workflow code health audit across all 3 layers (gateway routes + storage primitive + SPA build canvas, ~1700 LOC reviewed). Verdict: 🟢 mostly healthy — strong tenant scoping, transactional writes, clean error mapping. 5 actionable findings + the known round-5 P0. Highest-leverage NEW: (a) build canvas reads from STATIC TS fixture not gateway → save works but reload shows seed not user's saved version (mission claim 3 edit-loop incomplete); (b) audit write NOT in same transaction as workflow write (mission claim 6 audit-on-every-action gap)."
+  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-8",
+  "run_notes": "round 8 — bootstrapped mission-vs-code coverage campaign per operator directive. Authored docs/skycot/evals/scheduled/2026-05-23/mission-vs-code-gap-manifest.md (LIVING doc). Triaged all 89 workspace crates against 6 mission claims. 29 gaps logged: 6 🔴 P0, 13 🟡 P1, 10+ 🟡 P2. Highest-leverage NEW P0: argo-agent-runner turn-lifecycle (largest unaudited mission-critical surface, every claim routes through it) + argo-credentials cross-tenant isolation. Estimated 5-7 evaluator sessions to reach full coverage."
 }
