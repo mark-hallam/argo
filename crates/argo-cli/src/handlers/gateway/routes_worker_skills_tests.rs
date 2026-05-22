@@ -273,6 +273,46 @@ async fn delete_skill_removes_from_active_overlay() {
     assert_eq!(count, 0, "overlay should be empty after DELETE");
 }
 
+/// Load-bearing cross-tenant guard (per conductor pattern post-#1983):
+/// a caller in tenant A may not remove a skill from a worker in
+/// tenant B. The handler resolves the workspace tenant from cwd and
+/// then looks the worker up under that tenant — an alien worker
+/// surfaces as 404 (never leaks existence) and the overlay row in
+/// the alien tenant is untouched.
+#[tokio::test]
+async fn delete_skill_cross_tenant_returns_404_and_does_not_touch_overlay() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let _cwd_tenant = workspace_tenant(&store).await;
+    let alien_tenant = TenantId::new();
+    let alien = add_worker(&store, alien_tenant, "Alien").await;
+    let skill_id = install_skill(&store, "alien-skill").await;
+    IdentityStore::new(&store)
+        .add_worker_skill(alien.id, &skill_id.0.to_string(), 3)
+        .await
+        .expect("seed alien overlay");
+
+    let path = format!("/api/v1/workers/{}/skills/{}", alien.id, skill_id.0);
+    let req = delete_req(&path);
+    let (status, _) =
+        remove_response(&alien.id.to_string(), &skill_id.0.to_string(), &req, Some(&store)).await;
+    assert_eq!(
+        status, "404 Not Found",
+        "cross-tenant DELETE must surface as 404 (no existence leak)"
+    );
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM worker_skill WHERE worker_id = ?")
+        .bind(alien.id.to_string())
+        .fetch_one(store.pool())
+        .await
+        .expect("count");
+    assert_eq!(
+        count, 1,
+        "cross-tenant DELETE must not touch the alien tenant's overlay rows"
+    );
+}
+
 // =========================================================================
 // GET /api/v1/workers/<id>/skills/<sid>/history
 // =========================================================================
