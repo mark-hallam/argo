@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T17:15:00Z",
+  "last_run_utc": "2026-05-22T17:10:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-69-bulk-archive",
-  "run_notes": "Tick 69 — bulk archive sweep complete. Sub-agent classified 425 aged orphans: 417 shipped-by-other (verified via git log + PR-merge tags), 2 stale-premise (defensive splits no longer needed), 3 v1.x-deferred (post-v1 track overviews + TUI), 3 keep-for-review (2 ADRs as reference docs + 1 mission-claim-6 brief promoted to TODO). Brief files in streams/: 1356 → 931. Archive holds 425 across 3 subdirs. Also authored claude-zero-caller-substrate-lint to close the last evaluator round-3 recommendation (drift finding). 4 fresh workers spawned (PIDs 64270/64294/64367/64441). Pool: 16 bash worker-loops alive. claude_todo: 7. ALL evaluator round-3 recommendations now actioned (3/3) + ALL in-flight items (3/3)."
+  "session_label": "anthropic-claude-code-conductor-tick-70-ledger-catchup",
+  "run_notes": "Tick 70 — ledger catch-up + round-4 evaluator action. Flipped 2 stale IN_REVIEW→MERGED (#2047 mission-gateway-env-local-bootstrap, #2048 claude-worker-loop-zombie-detection-followup) — both merged at 15:59Z but ledger hadn't been flipped. Demoted #2045 (claude-followup-pr-2016-test-run-history-panel) IN_REVIEW→MERGED-VIA-SIBLING — work satisfied by sibling PR #2044 (won the race); PR remains open for operator close per HARD RULE 10. Authored mission-cross-tenant-worker-handler-no-existence-leak brief — closes evaluator round-4 P2 finding (6 worker handlers leak cross-tenant worker_id existence via distinguishable 403/404). All 4 workers actively pulsing (within 30s): mission-spa-pages-500-fix writing tests, mission-spa-show-real-session wiring demo-mode gates, mission-workplace-knowledge-gateway clippy-checking, claude-followup-pr-2021 writing gateway routes + web client. claude_todo: 8 (was 7 + new brief). claude_claimed: 3 (workers active). open_prs: 1 (#2045 superseded). 16 bash worker-loops alive. ALL evaluator findings actioned through round-4 (round-1×2 + round-3×3 + round-4×1 = 6/6)."
 }
