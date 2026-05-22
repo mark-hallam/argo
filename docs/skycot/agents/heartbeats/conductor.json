@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T12:23:00Z",
+  "last_run_utc": "2026-05-22T12:43:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-58-cron-fired",
-  "run_notes": "Tick 58 (cron-fired). Killed zombie PID 14468 (web-workflow-test-run-gateway-persist, 16m silent post-result:success). Demoted row to TODO. Posted SUPERSEDED-BY-#2044 comment on #2045 (claude-followup-pr-2016-test-run-history-panel, duplicate of just-merged #2044 work). NOTE: #2038's auto-release didn't fire for PID 14468 this time — claude exited (result:success) but bash loop's post-iteration ship-check didn't run, probably because bash was still wedged on the pipeline. Worth investigating: are some zombies escaping #2038's defense? PID 30967 (claude-followup-pr-2021-test-run-gateway-persist) just claimed — healthy. Queue: 2 TODO / 2 CLAIMED / 1 IN_REVIEW (#2045 awaiting close)."
+  "session_label": "anthropic-claude-code-conductor-tick-59-cron-fired",
+  "run_notes": "Tick 59 (cron-fired). 🚨 Queue starved (claude_todo=0) — workers correctly BLOCKED 2 briefs (gateway-persist + workplace-knowledge-editor) with valid reasons (superseded / dep-blocked). Step 8 fired: added 3 ledger rows for existing cross-tenant-test-* briefs (already on disk from #2033 sweep, never made it to ledger) + authored 1 new follow-up brief `claude-worker-loop-zombie-detection-followup` to close the gap proven by PID-14468 zombie escape in tick-58. claude_todo: 0 → 4. Active worker: PID 30967 (claude-followup-pr-2021-test-run-gateway-persist) at 10m silent post-result:success — approaching zombie threshold. #2045 still open (awaiting worker self-close after SUPERSEDED comment)."
 }
