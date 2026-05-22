@@ -7,6 +7,7 @@
 
 #![allow(clippy::too_many_lines)]
 
+use super::helpers::{entry_count, fact_body, seed_alien_fact};
 use super::{
     fact_create_response, fact_delete_response, fact_update_response, list_response,
     FACT_TOMBSTONE_MARKER,
@@ -412,6 +413,73 @@ async fn audit_row_written_per_mutation() {
         endpoints.iter().any(|e| e == "worker.memory.fact.deleted"),
         "deleted audit row missing: {endpoints:?}"
     );
+}
+
+// Cross-tenant negatives (mission-cross-tenant-test-worker-memory):
+// workspace tenant (cwd) is "tenant-b" (caller); a fresh TenantId is
+// "tenant-a" (owner of worker_a + its facts). Each verb against
+// worker_a's id must 404 and leave `memory_entry` byte-identical.
+
+async fn alien_env() -> (MutexGuard<'static, ()>, tempfile::TempDir, Arc<SessionStore>, Worker) {
+    let g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let _tenant_b = workspace_tenant(&store).await;
+    let tenant_a = TenantId::new();
+    let worker_a = add_worker(&store, tenant_a, "Aya", "human:mark").await;
+    (g, tmp, store, worker_a)
+}
+
+#[tokio::test]
+async fn cross_tenant_get_memory_returns_404() {
+    let (_g, _tmp, store, worker_a) = alien_env().await;
+    let _ = seed_alien_fact(&store, &worker_a, "tenant-a only").await;
+    let id = worker_a.id.to_string();
+    let req = get_req(&id, Some("operator"), Some("human:mark"));
+    let (status, body) = list_response(&id, &req, Some(&store)).await;
+    assert_eq!(status, "404 Not Found", "body: {body}");
+}
+
+#[tokio::test]
+async fn cross_tenant_post_fact_returns_404_no_rows_added() {
+    let (_g, _tmp, store, worker_a) = alien_env().await;
+    let before = entry_count(&store).await;
+    let id = worker_a.id.to_string();
+    let req = post_req(&id, r#"{"text":"x-tenant injection"}"#);
+    let (status, body) = fact_create_response(&id, &req, Some(&store)).await;
+    assert_eq!(status, "404 Not Found", "body: {body}");
+    assert_eq!(entry_count(&store).await, before, "no rows added");
+}
+
+#[tokio::test]
+async fn cross_tenant_put_fact_returns_404_text_unchanged() {
+    let (_g, _tmp, store, worker_a) = alien_env().await;
+    let original = "owned-by-tenant-a, untouchable";
+    let fact_id = seed_alien_fact(&store, &worker_a, original).await;
+    let id = worker_a.id.to_string();
+    let fid = fact_id.to_string();
+    let req = put_req(&id, &fid, r#"{"text":"hijack"}"#);
+    let (status, body) = fact_update_response(&id, &fid, &req, Some(&store)).await;
+    assert_eq!(status, "404 Not Found", "body: {body}");
+    assert_eq!(fact_body(&store, fact_id).await, original, "body intact");
+}
+
+#[tokio::test]
+async fn cross_tenant_delete_fact_returns_404_no_tombstone() {
+    let (_g, _tmp, store, worker_a) = alien_env().await;
+    let original = "owned-by-tenant-a";
+    let fact_id = seed_alien_fact(&store, &worker_a, original).await;
+    let before = entry_count(&store).await;
+    let id = worker_a.id.to_string();
+    let fid = fact_id.to_string();
+    let req = delete_req(&id, &fid);
+    let (status, _) = fact_delete_response(&id, &fid, &req, Some(&store)).await;
+    assert_eq!(status, "404 Not Found");
+    // supersede = INSERT + UPDATE; if `entry_count` is unchanged AND
+    // the original body persists, no tombstone path ran.
+    assert_eq!(entry_count(&store).await, before, "no tombstone appended");
+    assert_eq!(fact_body(&store, fact_id).await, original, "body intact");
 }
 
 #[tokio::test]

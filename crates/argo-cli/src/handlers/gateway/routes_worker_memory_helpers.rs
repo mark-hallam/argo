@@ -265,3 +265,32 @@ fn envelope(status: &'static str, code: &str, message: &str) -> (&'static str, S
         json!({ "error": { "code": code, "message": message } }).to_string(),
     )
 }
+
+// ----- test seeding + introspection (cross-tenant negatives) ---------------
+
+/// Seed a fact under `worker`'s namespace, bypassing cwd-tenant resolution
+/// so an "alien" tenant can own it. Used by cross-tenant negative tests.
+#[cfg(test)]
+pub(super) async fn seed_alien_fact(
+    store: &Arc<SessionStore>, worker: &Worker, text: &str,
+) -> Uuid {
+    let workspace = crate::home::cwd_workspace(store).await.expect("workspace");
+    MemoryStore::new(Arc::clone(store))
+        .append_in_namespace(
+            &worker.memory_namespace, workspace, MemoryFile::Memory, text.to_string(), None,
+        )
+        .await.expect("seed alien fact").id
+}
+
+#[cfg(test)]
+pub(super) async fn entry_count(store: &SessionStore) -> i64 {
+    sqlx::query_scalar("SELECT COUNT(*) FROM memory_entry")
+        .fetch_one(store.pool()).await.expect("count")
+}
+
+#[cfg(test)]
+pub(super) async fn fact_body(store: &SessionStore, fact_id: Uuid) -> String {
+    sqlx::query_scalar("SELECT body FROM memory_entry WHERE id = ?")
+        .bind(fact_id.as_bytes().as_slice())
+        .fetch_one(store.pool()).await.expect("fetch body")
+}
