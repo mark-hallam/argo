@@ -30,8 +30,9 @@ import {
 import { MobileBuilderGate } from "@/components/skycot/workflows/MobileBuilderGate";
 import { useBuilderAnnotations } from "@/lib/hooks/use-builder-annotations";
 import { useBuilderKeyboard } from "@/lib/hooks/use-builder-keyboard";
+import { useWorkflow } from "@/lib/hooks/use-workflows";
 import { useWorkflowBuilderState } from "@/lib/hooks/use-workflow-builder-state";
-import { getTemplate } from "@/lib/workflow-templates";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 import { BuilderAiProposal } from "./BuilderAiProposal";
 import { BuilderCanvas } from "./BuilderCanvas";
@@ -52,8 +53,8 @@ import { useSavePublishHandlers } from "./builder-handlers/save-publish";
 import { useTestRunHandlers } from "./builder-handlers/test-run";
 import { buildRunOverlayProps, useTestRunHistoryHandlers } from "./builder-handlers/test-run-history";
 import { stepsToFlow } from "./flow-layout";
+import { resolveBuilderWorkflowSource } from "./resolve-workflow";
 import { RunOverlay } from "./RunOverlay";
-import { SEED_WORKFLOWS } from "./seed-workflows";
 import {
   STEP_KIND_META,
   type SkyNodeData,
@@ -107,27 +108,27 @@ function BuilderInner({
   const searchParams = useSearchParams();
   const templateId = searchParams.get("from_template");
   // `?state=loading|error|empty` is the gateway-fetch-state simulator
-  // (real fetch wires in via PR #1860 routes follow-up). It exists so
-  // tests + dev/screenshot flows can land each branch without standing
-  // up a flaky backend. Empty also fires naturally when the live
-  // workflow has zero steps.
+  // kept alongside the real hook signals so tests + dev/screenshot
+  // flows can land each branch without standing up a flaky backend.
+  // Empty also fires naturally when the live workflow has zero steps.
   const stateFlag = searchParams.get("state");
-  const workflow = useMemo<WorkflowSpec | undefined>(() => {
-    if (templateId) {
-      const tpl = getTemplate(templateId);
-      if (tpl) {
-        return {
-          name: tpl.name,
-          vertical: tpl.vertical,
-          description: tpl.description,
-          version: "draft",
-          risk: tpl.risk,
-          steps: tpl.steps,
-        };
-      }
-    }
-    return SEED_WORKFLOWS[`${verticalId}/${name}`];
-  }, [templateId, verticalId, name]);
+  // Templates are an in-memory copy-from-catalog (never hits gateway),
+  // so we disable the query while a template is being applied.
+  const workflowQuery = useWorkflow(
+    templateId ? null : verticalId,
+    templateId ? null : name,
+  );
+  const workflow = useMemo<WorkflowSpec | undefined>(
+    () =>
+      resolveBuilderWorkflowSource({
+        verticalId,
+        name,
+        templateId,
+        data: workflowQuery.data as { workflow: WorkflowSpec | null } | undefined,
+        demoMode: isDemoMode(),
+      }),
+    [templateId, verticalId, name, workflowQuery.data],
+  );
   const initial = useMemo(
     () => (workflow ? stepsToFlow(workflow.steps) : { nodes: [], edges: [] }),
     [workflow],
@@ -315,11 +316,11 @@ function BuilderInner({
     addEdge: builder.addEdge,
   });
 
-  if (stateFlag === "loading") {
+  if (stateFlag === "loading" || (!templateId && workflowQuery.isLoading)) {
     return <WorkflowBuilderSkeleton />;
   }
 
-  if (stateFlag === "error") {
+  if (stateFlag === "error" || (!templateId && workflowQuery.isError && !workflow)) {
     return <WorkflowBuilderErrorState onRetry={resetState} />;
   }
 
