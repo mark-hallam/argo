@@ -67,7 +67,9 @@ mod workflow_definition_read;
 mod workflow_definition_write;
 
 pub use workflow_definition_read::{get, get_head, list_versions};
-pub use workflow_definition_write::{archive, create, rollback_to, set_head};
+pub use workflow_definition_write::{
+    archive, archive_in_tx, create, rollback_to, rollback_to_in_tx, set_head, set_head_in_tx,
+};
 
 /// Error type for [`create`]. Wraps [`ArgoError`] for the general case
 /// and carries a typed [`Self::UniqueViolation`] variant so the gateway

@@ -9,7 +9,7 @@ use crate::workflow_definition::{
     WorkflowDefinitionError, WorkflowDefinitionId, WorkflowLifecycleState,
 };
 use argo_types::{ArgoError, ArgoResult, TenantId};
-use sqlx::{Pool, Row, Sqlite};
+use sqlx::{Pool, Row, Sqlite, Transaction};
 
 /// Sqlite-specific UNIQUE-constraint detector. SQLite surfaces unique
 /// failures as extended-result-code 2067 (SQLITE_CONSTRAINT_UNIQUE) or
@@ -125,16 +125,35 @@ pub async fn set_head(
     name: &str,
     id: &WorkflowDefinitionId,
 ) -> ArgoResult<()> {
-    let tenant_str = tenant_id.to_string();
     let mut tx = pool
         .begin()
         .await
         .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head tx: {e}")))?;
+    set_head_in_tx(&mut tx, tenant_id, vertical_id, name, id).await?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head commit: {e}")))?;
+    Ok(())
+}
 
+/// Same as [`set_head`] but runs inside the caller's transaction
+/// without committing. The caller owns the commit — the row writes
+/// here will be rolled back if the caller's tx is dropped or fails.
+///
+/// Added under `mission-workflow-audit-write-transactional` so the
+/// gateway handler can share one tx with the `audit_record` insert.
+pub async fn set_head_in_tx<'c>(
+    tx: &mut Transaction<'c, Sqlite>,
+    tenant_id: TenantId,
+    vertical_id: &str,
+    name: &str,
+    id: &WorkflowDefinitionId,
+) -> ArgoResult<()> {
+    let tenant_str = tenant_id.to_string();
     let row =
         sqlx::query("SELECT tenant_id, vertical_id, name FROM workflow_definition WHERE id = ?")
             .bind(id.as_str())
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await
             .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head probe: {e}")))?;
     let row = row.ok_or_else(|| {
@@ -166,20 +185,16 @@ pub async fn set_head(
     .bind(vertical_id)
     .bind(name)
     .bind(id.as_str())
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head write: {e}")))?;
 
     sqlx::query("UPDATE workflow_definition SET lifecycle_state = ? WHERE id = ?")
         .bind(WorkflowLifecycleState::Active.as_str())
         .bind(id.as_str())
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head state: {e}")))?;
-
-    tx.commit()
-        .await
-        .map_err(|e| ArgoError::Provider(format!("workflow_definition set_head commit: {e}")))?;
     Ok(())
 }
 
@@ -193,18 +208,31 @@ pub async fn archive(pool: &Pool<Sqlite>, id: &WorkflowDefinitionId) -> ArgoResu
         .begin()
         .await
         .map_err(|e| ArgoError::Provider(format!("workflow_definition archive tx: {e}")))?;
+    archive_in_tx(&mut tx, id).await?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("workflow_definition archive commit: {e}")))?;
+    Ok(())
+}
 
+/// Same as [`archive`] but runs inside the caller's transaction
+/// without committing. Caller owns the commit; the row writes here
+/// will be rolled back if the caller's tx is dropped or fails.
+///
+/// Added under `mission-workflow-audit-write-transactional` so the
+/// gateway handler can share one tx with the `audit_record` insert.
+pub async fn archive_in_tx<'c>(
+    tx: &mut Transaction<'c, Sqlite>,
+    id: &WorkflowDefinitionId,
+) -> ArgoResult<()> {
     let probe =
         sqlx::query("SELECT tenant_id, vertical_id, name FROM workflow_definition WHERE id = ?")
             .bind(id.as_str())
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await
             .map_err(|e| ArgoError::Provider(format!("workflow_definition archive probe: {e}")))?;
     let Some(row) = probe else {
         // Idempotent: archive of a missing id is a no-op.
-        tx.commit()
-            .await
-            .map_err(|e| ArgoError::Provider(format!("workflow_definition archive commit: {e}")))?;
         return Ok(());
     };
     let row_tenant: String = row
@@ -220,7 +248,7 @@ pub async fn archive(pool: &Pool<Sqlite>, id: &WorkflowDefinitionId) -> ArgoResu
     sqlx::query("UPDATE workflow_definition SET lifecycle_state = ? WHERE id = ?")
         .bind(WorkflowLifecycleState::Archived.as_str())
         .bind(id.as_str())
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("workflow_definition archive update: {e}")))?;
 
@@ -232,13 +260,9 @@ pub async fn archive(pool: &Pool<Sqlite>, id: &WorkflowDefinitionId) -> ArgoResu
     .bind(&row_vertical)
     .bind(&row_name)
     .bind(id.as_str())
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("workflow_definition archive index: {e}")))?;
-
-    tx.commit()
-        .await
-        .map_err(|e| ArgoError::Provider(format!("workflow_definition archive commit: {e}")))?;
     Ok(())
 }
 
@@ -269,18 +293,39 @@ pub async fn rollback_to(
     target_id: &WorkflowDefinitionId,
     modified_by: &str,
 ) -> ArgoResult<(WorkflowDefinitionId, i64)> {
-    let tenant_str = tenant_id.to_string();
     let mut tx = pool
         .begin()
         .await
         .map_err(|e| ArgoError::Provider(format!("rollback_to tx: {e}")))?;
+    let result =
+        rollback_to_in_tx(&mut tx, tenant_id, vertical_id, name, target_id, modified_by).await?;
+    tx.commit()
+        .await
+        .map_err(|e| ArgoError::Provider(format!("rollback_to commit: {e}")))?;
+    Ok(result)
+}
 
+/// Same as [`rollback_to`] but runs inside the caller's transaction
+/// without committing. The caller owns the commit and may interleave
+/// other writes (typically an `audit_record` insert) in the same tx
+/// so workflow + audit share atomicity.
+///
+/// Added under `mission-workflow-audit-write-transactional`.
+pub async fn rollback_to_in_tx<'c>(
+    tx: &mut Transaction<'c, Sqlite>,
+    tenant_id: TenantId,
+    vertical_id: &str,
+    name: &str,
+    target_id: &WorkflowDefinitionId,
+    modified_by: &str,
+) -> ArgoResult<(WorkflowDefinitionId, i64)> {
+    let tenant_str = tenant_id.to_string();
     let row = sqlx::query(
         "SELECT tenant_id, vertical_id, name, definition_toml \
          FROM workflow_definition WHERE id = ?",
     )
     .bind(target_id.as_str())
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("rollback_to probe: {e}")))?;
     let row = row.ok_or_else(|| {
@@ -317,7 +362,7 @@ pub async fn rollback_to(
     .bind(&tenant_str)
     .bind(vertical_id)
     .bind(name)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("rollback_to head probe: {e}")))?;
     if current_head.as_deref() == Some(target_id.as_str()) {
@@ -333,7 +378,7 @@ pub async fn rollback_to(
     .bind(&tenant_str)
     .bind(vertical_id)
     .bind(name)
-    .fetch_one(&mut *tx)
+    .fetch_one(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("rollback_to next-version: {e}")))?;
 
@@ -355,7 +400,7 @@ pub async fn rollback_to(
     .bind(WorkflowLifecycleState::Active.as_str())
     .bind(&created_at)
     .bind(modified_by)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("rollback_to insert: {e}")))?;
 
@@ -368,12 +413,9 @@ pub async fn rollback_to(
     .bind(vertical_id)
     .bind(name)
     .bind(new_id.as_str())
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await
     .map_err(|e| ArgoError::Provider(format!("rollback_to head flip: {e}")))?;
 
-    tx.commit()
-        .await
-        .map_err(|e| ArgoError::Provider(format!("rollback_to commit: {e}")))?;
     Ok((new_id, next_version))
 }

@@ -48,6 +48,12 @@ mod gap;
 mod replay;
 mod sink;
 mod sink_chain;
+/// Transactional audit write — shares the caller's sqlx transaction
+/// so workflow mutators (and other callers needing atomicity) can
+/// commit a workflow row + its `audit_record` row together or roll
+/// them back together. Added under
+/// `mission-workflow-audit-write-transactional`.
+mod sink_tx;
 /// Audit tenant constants for default, system, and pre-auth writes.
 pub mod sink_tenant;
 mod verify;
@@ -70,6 +76,7 @@ pub use export::{
 pub use gap::{detect_policy_denials, CapabilityGap, GapKind};
 pub use replay::{filter_rows as filter_replay_rows, render as render_replay, ReplayFormat};
 pub use sink::{compute_chain_hash, AuditEvent, AuditSink, AUDIT_BROADCAST_CAPACITY};
+pub use sink_tx::AuditPostCommit;
 pub use sink_tenant::{ANONYMOUS_AUDIT_TENANT_ID, DEFAULT_AUDIT_TENANT_ID, SYSTEM_AUDIT_TENANT_ID};
 pub use verify::{verify_all, verify_session, ChainBreak, VerifyReport};
 pub use watchdog::{spawn_watchdog, WatchdogConfig};

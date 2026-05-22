@@ -2,7 +2,10 @@
 //! the parent module to keep both files under the 500-LOC ceiling.
 //! The dispatcher and auth helpers live in `routes_workflows.rs`;
 //! this file owns the DB + audit work for every accepted route.
-use argo_audit::{AuditKind, AuditSink};
+use super::routes_workflows_audit::{
+    emit_audit_row, run_transactional_audit, workflow_audit_payload,
+};
+use argo_audit::AuditKind;
 use argo_store::workflow_definition::{
     self as wd, WorkflowDefinition, WorkflowDefinitionError, WorkflowDefinitionId,
     WorkflowLifecycleState,
@@ -243,20 +246,33 @@ pub(super) async fn set_head(
         }
     };
     let id = WorkflowDefinitionId(version_id);
-    match wd::set_head(store.pool(), tenant, vertical_id, name, &id).await {
-        Ok(()) => {
-            emit_audit_row(
-                store,
-                tenant,
+    let id_for_closure = id.clone();
+    let vertical_id_owned = vertical_id.to_string();
+    let name_owned = name.to_string();
+    let actor_owned = actor.to_string();
+    let outcome = run_transactional_audit(store, tenant, move |tx, sink| {
+        Box::pin(async move {
+            wd::set_head_in_tx(tx, tenant, &vertical_id_owned, &name_owned, &id_for_closure)
+                .await?;
+            sink.write_in_tx(
+                tx,
+                None,
                 AuditKind::WorkflowHeadChanged,
-                vertical_id,
-                name,
-                &id.0,
-                actor,
+                workflow_audit_payload(
+                    tenant,
+                    &vertical_id_owned,
+                    &name_owned,
+                    &id_for_closure.0,
+                    &actor_owned,
+                ),
+                Some(actor_owned),
             )
-            .await;
-            ("204 No Content", String::new())
-        }
+            .await
+        })
+    })
+    .await;
+    match outcome {
+        Ok(()) => ("204 No Content", String::new()),
         Err(ArgoError::NotFound(_) | ArgoError::Invariant(_)) => {
             super::routes_workflows::not_found(&format!(
                 "no workflow definition version '{}' for ({vertical_id}, {name})",
@@ -276,6 +292,11 @@ pub(super) async fn archive_version(
     actor: &str,
 ) -> (&'static str, String) {
     let id = WorkflowDefinitionId(version_id.to_string());
+    // Pre-check outside the tx so we can return a friendlier 404 with
+    // no audit row written. The transactional path below assumes the
+    // row exists in the expected namespace; in-tx archive of a missing
+    // id is a no-op at the store layer, which would otherwise emit an
+    // audit row for a non-event.
     match wd::get(store.pool(), &id).await {
         Ok(Some(def))
             if def.tenant_id == tenant
@@ -288,20 +309,33 @@ pub(super) async fn archive_version(
         }
         Err(e) => return super::routes_workflows::internal(&format!("archive lookup: {e}")),
     }
-    match wd::archive(store.pool(), &id).await {
-        Ok(()) => {
-            emit_audit_row(
-                store,
-                tenant,
+    let id_for_closure = id.clone();
+    let vertical_id_owned = vertical_id.to_string();
+    let name_owned = name.to_string();
+    let version_id_owned = version_id.to_string();
+    let actor_owned = actor.to_string();
+    let outcome = run_transactional_audit(store, tenant, move |tx, sink| {
+        Box::pin(async move {
+            wd::archive_in_tx(tx, &id_for_closure).await?;
+            sink.write_in_tx(
+                tx,
+                None,
                 AuditKind::WorkflowVersionArchived,
-                vertical_id,
-                name,
-                version_id,
-                actor,
+                workflow_audit_payload(
+                    tenant,
+                    &vertical_id_owned,
+                    &name_owned,
+                    &version_id_owned,
+                    &actor_owned,
+                ),
+                Some(actor_owned),
             )
-            .await;
-            ("204 No Content", String::new())
-        }
+            .await
+        })
+    })
+    .await;
+    match outcome {
+        Ok(()) => ("204 No Content", String::new()),
         Err(e) => super::routes_workflows::internal(&format!("archive version: {e}")),
     }
 }
@@ -327,31 +361,63 @@ pub(super) async fn rollback(
         }
     };
     let target_id = WorkflowDefinitionId(target_id_str.clone());
-    match wd::rollback_to(store.pool(), tenant, vertical_id, name, &target_id, actor).await {
-        Ok((new_id, new_version)) => {
+    let rollback_result: Arc<std::sync::Mutex<Option<(WorkflowDefinitionId, i64)>>> =
+        Arc::new(std::sync::Mutex::new(None));
+    let rollback_result_inner = Arc::clone(&rollback_result);
+    let target_id_for_closure = target_id.clone();
+    let target_id_str_owned = target_id_str.clone();
+    let vertical_id_owned = vertical_id.to_string();
+    let name_owned = name.to_string();
+    let actor_owned = actor.to_string();
+    let outcome = run_transactional_audit(store, tenant, move |tx, sink| {
+        Box::pin(async move {
+            let (new_id, new_version) = wd::rollback_to_in_tx(
+                tx,
+                tenant,
+                &vertical_id_owned,
+                &name_owned,
+                &target_id_for_closure,
+                &actor_owned,
+            )
+            .await?;
             let payload = json!({
-                "actor": actor,
+                "actor": actor_owned,
                 "tenant_id": tenant.to_string(),
-                "vertical_id": vertical_id,
-                "name": name,
-                "rolled_back_from_version_id": target_id_str,
+                "vertical_id": vertical_id_owned,
+                "name": name_owned,
+                "rolled_back_from_version_id": target_id_str_owned,
                 "new_version_id": new_id.0,
                 "new_version_number": new_version,
             });
-            let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
-            if let Err(e) = sink
-                .write(None, AuditKind::WorkflowRolledBack, payload, Some(actor.to_string()))
-                .await
-            {
-                tracing::warn!(
-                    target: "gateway::routes_workflows",
-                    error = %e,
-                    kind = %AuditKind::WorkflowRolledBack.label(),
-                    vertical_id = %vertical_id,
-                    name = %name,
-                    "workflow rollback audit write failed",
-                );
+            let post = sink
+                .write_in_tx(
+                    tx,
+                    None,
+                    AuditKind::WorkflowRolledBack,
+                    payload,
+                    Some(actor_owned),
+                )
+                .await?;
+            if let Ok(mut guard) = rollback_result_inner.lock() {
+                *guard = Some((new_id, new_version));
             }
+            Ok(post)
+        })
+    })
+    .await;
+    match outcome {
+        Ok(()) => {
+            // outcome=Ok implies the closure ran to completion and
+            // populated `rollback_result` before the tx committed.
+            let result = rollback_result.lock().ok().and_then(|g| g.clone());
+            let (new_id, new_version) = match result {
+                Some(r) => r,
+                None => {
+                    return super::routes_workflows::internal(
+                        "rollback_to: result missing after commit",
+                    )
+                }
+            };
             let body = json!({
                 "id": new_id.0,
                 "version": new_version,
@@ -364,39 +430,7 @@ pub(super) async fn rollback(
     }
 }
 
-// ── Audit + JSON helpers ────────────────────────────────────────
-
-async fn emit_audit_row(
-    store: &Arc<SessionStore>,
-    tenant: TenantId,
-    kind: AuditKind,
-    vertical_id: &str,
-    name: &str,
-    version_id: &str,
-    actor: &str,
-) {
-    let payload = json!({
-        "actor": actor,
-        "tenant_id": tenant.to_string(),
-        "vertical_id": vertical_id,
-        "name": name,
-        "version_id": version_id,
-    });
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
-    if let Err(e) = sink
-        .write(None, kind, payload, Some(actor.to_string()))
-        .await
-    {
-        tracing::warn!(
-            target: "gateway::routes_workflows",
-            error = %e,
-            kind = %kind.label(),
-            vertical_id = %vertical_id,
-            name = %name,
-            "workflow audit write failed",
-        );
-    }
-}
+// ── JSON helpers ────────────────────────────────────────────────
 
 fn definition_json(def: &WorkflowDefinition) -> Value {
     json!({

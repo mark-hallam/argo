@@ -255,6 +255,20 @@ impl AuditSink {
     pub fn store(&self) -> &SessionStore {
         &self.store
     }
+
+    /// Cloned store handle. Used by [`crate::sink_tx`] for post-commit
+    /// fanout that needs to touch `worker_presence`. Crate-private so
+    /// external callers stick to [`Self::store`].
+    pub(crate) fn store_arc(&self) -> Arc<SessionStore> {
+        Arc::clone(&self.store)
+    }
+
+    /// Borrowed broadcast sender. Used by [`crate::sink_tx`] for the
+    /// post-commit broadcast fan-out path. Crate-private — external
+    /// callers subscribe via [`Self::subscribe`].
+    pub(crate) fn broadcast_sender(&self) -> &tokio::sync::broadcast::Sender<AuditEvent> {
+        &self.broadcast
+    }
 }
 
 /// Re-export so other crates can recompute the chain hash for tests.
