@@ -20,3 +20,8 @@ book-output/
 **/fuzz/corpus/
 **/fuzz/artifacts/
 **/fuzz/target/
+
+# Operator's personal-site design explorations (HTML mockups, drafts,
+# work-in-progress). Lives outside the swarm — stays local until the
+# operator picks a direction.
+docs/personal-site/
