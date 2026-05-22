@@ -86,6 +86,7 @@ members = [
   "crates/argo-billing",
   "crates/argo-runtime",
   "crates/argo-workflow",
+  "crates/argo-workplace-knowledge",
   "crates/argo-test-cassette",
   "crates/argo-credentials",
   "mcp-servers/voice",
