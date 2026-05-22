@@ -1,6 +1,12 @@
 "use client";
 import { Plus, Trash2, Zap } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+
+import {
+  looksLikeJson,
+  prettyPrintJson,
+  tryParseJson,
+} from "@/lib/builder/json-helpers";
 
 import { defaultHttpRequestConfig } from "./builder-handlers";
 import {
@@ -95,6 +101,13 @@ export function HttpRequestConfigEditor({ config, onChange }: Props) {
     },
     [cfg.headers, update],
   );
+
+  const bodyJsonError = useMemo<string | null>(() => {
+    if (!looksLikeJson(cfg.body)) return null;
+    const parsed = tryParseJson(cfg.body);
+    if (parsed.ok) return null;
+    return `JSON parse error at line ${parsed.line}: ${parsed.message}`;
+  }, [cfg.body]);
 
   const tryIt = useCallback(async () => {
     setTryResult({ status: "running" });
@@ -239,10 +252,29 @@ export function HttpRequestConfigEditor({ config, onChange }: Props) {
           data-testid="builder-http-body"
           value={cfg.body}
           onChange={(e) => update({ body: e.target.value })}
+          onBlur={() => {
+            const pretty = prettyPrintJson(cfg.body);
+            if (pretty !== null && pretty !== cfg.body) {
+              update({ body: pretty });
+            }
+          }}
           rows={5}
           placeholder='{"key": "value"}'
           style={{ ...MONO_STYLE, resize: "vertical" }}
         />
+        {bodyJsonError ? (
+          <div
+            data-testid="builder-http-body-json-error"
+            style={{
+              marginTop: 4,
+              fontSize: 11,
+              color: "#b91c1c",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {bodyJsonError}
+          </div>
+        ) : null}
       </div>
       <div style={FIELD_STYLE}>
         <label htmlFor="http-auth" style={LABEL_STYLE}>Auth</label>
