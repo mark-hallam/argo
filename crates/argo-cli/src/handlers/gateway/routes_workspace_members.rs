@@ -114,3 +114,7 @@ pub(super) fn is_invite_request(req: &str) -> bool {
 #[cfg(test)]
 #[path = "routes_workspace_members_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_workspace_members_cross_tenant_tests.rs"]
+mod cross_tenant_tests;
