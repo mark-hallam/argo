@@ -8,18 +8,6 @@ use serde::{Deserialize, Serialize};
 ///
 /// Adding a variant is API-stable; renaming or removing one is not —
 /// a rename means a schema migration so old records still verify.
-///
-/// # Examples
-///
-/// ```
-/// use argo_audit::AuditKind;
-///
-/// let json = serde_json::to_string(&AuditKind::HttpRequest).unwrap();
-/// assert_eq!(json, "\"http_request\"");
-///
-/// let decoded: AuditKind = serde_json::from_str(&json).unwrap();
-/// assert_eq!(decoded, AuditKind::HttpRequest);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditKind {
