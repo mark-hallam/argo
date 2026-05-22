@@ -6,6 +6,10 @@
 //! used by the hourly z-score check. One row per (worker_id,
 //! hour_of_day).
 //!
+//! SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+//! unique worker primary key; tenant-facing readers must derive the
+//! worker set from the tenant-scoped `worker` table first.
+//!
 //! 26-collision split: this slot pairs with v31 above and v33
 //! below (see v31 doc comment for ordering rationale).
 //!

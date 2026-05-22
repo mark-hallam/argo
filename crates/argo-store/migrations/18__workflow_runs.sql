@@ -8,6 +8,12 @@
 -- map (task_id → TaskVerdict). The wire shape mirrors
 -- argo_workflow::TaskVerdict so future operators can deserialise
 -- back into a typed report.
+--
+-- SAFETY: legacy CLI-local workflow history. The table predates
+-- tenant-aware workflow definitions and is only addressed by
+-- unguessable run ids in the local workspace DB. Tenant-facing
+-- workflow surfaces use the tenant-scoped `workflow_definition`
+-- tables instead.
 
 CREATE TABLE IF NOT EXISTS workflow_run (
     id TEXT PRIMARY KEY,

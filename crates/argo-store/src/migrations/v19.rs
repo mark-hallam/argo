@@ -3,6 +3,10 @@
 //! Reconciles raw SQL migration `19__anomaly.sql` (per-(worker,
 //! action_kind) behavioural baselines + anomaly events).
 //!
+//! SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+//! unique worker primary key; tenant-facing anomaly readers must first
+//! resolve the worker through the tenant-scoped `worker` table.
+//!
 //! 19-collision split: this slot pairs with v20 below. The raw
 //! `migrations/` directory ships two files prefixed `19__`:
 //! `19__anomaly.sql` and `19__worker_fs_root.sql`. The versioned

@@ -5,6 +5,11 @@
 //! `kind='http.request'` as of
 //! `mission-gateway-request-audit-consolidate-to-audit-record`.
 //! Planned deletion in v1.2; legacy rows remain queryable directly.
+//!
+//! SAFETY: deprecated legacy capture table. New tenant-facing gateway
+//! audit reads use `audit_record kind='http.request'`, which carries
+//! `tenant_id`; this table remains for v1.x peer-socket fallback and
+//! historical retention.
 use argo_types::ArgoError;
 use sqlx::Sqlite;
 

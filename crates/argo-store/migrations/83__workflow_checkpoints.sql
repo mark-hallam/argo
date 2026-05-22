@@ -11,6 +11,12 @@
 -- the same key already exists in any prior run, the task's
 -- output is reused without re-execution. Mainly for skipping
 -- expensive LLM calls on retry.
+--
+-- SAFETY: legacy CLI-local workflow checkpoint state. Rows are scoped
+-- by unguessable `workflow_run_id` from the local workspace DB, and no
+-- tenant-facing route enumerates checkpoints without first holding
+-- the run id. Tenant-aware workflow product state lives under
+-- `workflow_definition`.
 
 CREATE TABLE IF NOT EXISTS workflow_checkpoint (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

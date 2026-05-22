@@ -5,6 +5,10 @@
 //! updates it at end; the CLI surfaces these via
 //! `argo workflow status <run-id>` and `argo workflow list-runs`.
 //!
+//! SAFETY: legacy CLI-local workflow history. Tenant-aware workflow
+//! product state lives in `workflow_definition`; this table is only
+//! addressed by unguessable run ids in the local workspace DB.
+//!
 //! Rollback drops the table and its index. No other reconciled
 //! migration in v16..v21 depends on it.
 use argo_types::ArgoError;

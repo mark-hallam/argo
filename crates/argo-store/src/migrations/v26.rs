@@ -6,6 +6,10 @@
 //! `argo workflow resume` and the `cache_key` whole-workflow
 //! idempotency path.
 //!
+//! SAFETY: legacy CLI-local workflow checkpoint state. Rows are
+//! scoped by unguessable workflow run ids; tenant-facing workflow
+//! product state lives under `workflow_definition`.
+//!
 //! 23-collision split: this slot pairs with v25 above (see v25
 //! doc comment).
 //!

@@ -4,6 +4,11 @@
 -- a record can carry multiple classes. The DataClass enum lives
 -- in argo_identity::classification, this table persists the
 -- string form.
+--
+-- SAFETY: polymorphic tag table. Tenant scope is inherited from the
+-- tagged record identified by `(record_kind, record_id)`. Callers
+-- must resolve that record through its owning tenant table before
+-- exposing classification rows.
 
 CREATE TABLE IF NOT EXISTS data_classification_tag (
     -- Logical record kind ('memory_entry', 'audit_record', etc.).

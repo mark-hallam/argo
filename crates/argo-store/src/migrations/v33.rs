@@ -6,6 +6,10 @@
 //! when worker spend crosses a configured budget threshold;
 //! includes a partial unique index for non-synthetic dedup.
 //!
+//! SAFETY: no direct tenant_id column. Alerts are keyed by deployment-
+//! unique worker ids; tenant-facing readers must resolve the worker
+//! through the tenant-scoped `worker` table before showing rows.
+//!
 //! 26-collision split: this slot pairs with v31 and v32 above
 //! (see v31 doc comment for ordering rationale).
 //!

@@ -1,5 +1,11 @@
 -- Stream `claude-anomaly-detector`: per-(worker, action_kind)
 -- behavioural baselines + anomaly events.
+--
+-- SAFETY: no direct tenant_id column. `worker_id` is a deployment-
+-- unique worker primary key, and the anomaly helpers only accept or
+-- return rows for a caller-supplied worker id. Tenant-facing readers
+-- must resolve that worker through the tenant-scoped `worker` table
+-- before calling these primitives.
 
 CREATE TABLE IF NOT EXISTS worker_behavior_baseline (
     worker_id TEXT NOT NULL,

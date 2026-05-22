@@ -8,6 +8,11 @@
 -- weighting candidate emission:
 --   vote=up   → bonus weight (lowers the proposal threshold)
 --   vote=down → blacklist (skip candidate emission entirely)
+--
+-- SAFETY: no direct tenant_id column. Feedback is consumed as an
+-- aggregate skill-learning signal by action id / worker id. Current
+-- tenant-facing readers either resolve the worker first or expose
+-- aggregate counts rather than cross-tenant row bodies.
 
 CREATE TABLE IF NOT EXISTS operator_feedback (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

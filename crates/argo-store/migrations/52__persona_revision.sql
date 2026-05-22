@@ -16,6 +16,11 @@
 -- sent_at column), slot 50 already taken by `worker_trust_grade`.
 -- This brief rolls forward to 52 per the brief's "verify slot ≥
 -- v52" directive.
+--
+-- SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+-- unique worker primary key. Tenant-facing persona history/revert
+-- flows must resolve the worker through the tenant-scoped `worker`
+-- or `persona` table before exposing revisions.
 CREATE TABLE IF NOT EXISTS persona_revision (
     rev_id            TEXT PRIMARY KEY,
     worker_id         TEXT NOT NULL,

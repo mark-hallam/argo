@@ -13,6 +13,11 @@
 -- Row lifecycle: `pending` on insert, `running` when the runner
 -- picks the node up, then one of `done` / `failed` / `skipped`.
 -- `output` is a JSON object filled when the row enters `done`.
+--
+-- SAFETY: no direct tenant_id column. Rows carry deployment-unique
+-- `worker_id` and optional `parent_session_id`. Tenant-facing views
+-- must resolve the worker or session through tenant-scoped tables
+-- before listing subtasks.
 
 CREATE TABLE IF NOT EXISTS subtask_ledger (
     -- UUIDv7 string id (sortable insert order).

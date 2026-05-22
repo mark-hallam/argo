@@ -2,6 +2,11 @@
 -- audit trail. Two tables — auction_log persists each auction's
 -- header (task description, lifecycle, winner), and auction_bid
 -- persists every bid for replay.
+--
+-- SAFETY: auction ids are deployment-local orchestration ids and bids
+-- use deployment-unique worker ids. Tenant-facing handoff statistics
+-- are served from tenant-scoped session joins. This replay log is not
+-- exposed as a cross-tenant row list.
 
 CREATE TABLE IF NOT EXISTS auction_log (
     -- Caller-supplied auction id.

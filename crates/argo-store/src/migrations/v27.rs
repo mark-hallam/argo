@@ -6,6 +6,10 @@
 //! skill-learning loop reads the most-recent vote when weighting
 //! candidate emission.
 //!
+//! SAFETY: no direct tenant_id column. Feedback is consumed as an
+//! aggregate skill-learning signal; tenant-facing readers either
+//! resolve the worker first or expose aggregate counts only.
+//!
 //! 24-collision split: this slot pairs with v28 and v29 below.
 //! The brief's recommended assignment (operator_feedback → v27,
 //! skill_quality_score → v28, vertical_archived → v29) does not

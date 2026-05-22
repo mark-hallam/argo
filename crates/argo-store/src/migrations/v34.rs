@@ -5,6 +5,10 @@
 //! auction's header (task description, lifecycle, winner), and
 //! `auction_bid` persists every bid for replay.
 //!
+//! SAFETY: auction ids are deployment-local orchestration ids and bids
+//! use deployment-unique worker ids. Tenant-facing handoff statistics
+//! are served from tenant-scoped session joins, not this replay log.
+//!
 //! 27-collision split: this slot pairs with v35 below
 //! (27__spend_anomaly). Brief assigns handoff_auctions → v34,
 //! spend_anomaly → v35, consistent with the published-contract

@@ -17,6 +17,12 @@
 --
 -- Idempotent: CREATE TABLE/INDEX IF NOT EXISTS. Down migration drops
 -- the index and table (see `migrations/v47.rs`).
+--
+-- SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+-- unique worker primary key. Tenant-facing readers either join or
+-- pre-resolve workers through the tenant-scoped `worker` table before
+-- reading active skill rows. Global adoption counters return only
+-- aggregate counts, not cross-tenant row bodies.
 CREATE TABLE IF NOT EXISTS worker_skill (
     worker_id TEXT NOT NULL,
     skill_id TEXT NOT NULL,

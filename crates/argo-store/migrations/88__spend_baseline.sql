@@ -6,6 +6,11 @@
 -- Welford rolling-stats fields (mean, M2 for variance) update
 -- incrementally so the table stays one-row-per-(worker, hour)
 -- regardless of history depth.
+--
+-- SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+-- unique worker primary key, and spend-baseline callers operate on a
+-- resolved worker id. Tenant-facing readers must derive the worker
+-- set from the tenant-scoped `worker` table before reading baselines.
 
 CREATE TABLE IF NOT EXISTS worker_spend_baseline (
     -- Worker the baseline tracks (matches `worker_budget.worker_id`).

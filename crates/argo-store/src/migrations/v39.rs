@@ -6,6 +6,10 @@
 //! coarse goal into a workflow DAG, with `pending`/`running`/
 //! `done`/`failed`/`skipped` lifecycle for restart-safe resume.
 //!
+//! SAFETY: no direct tenant_id column. Rows carry deployment-unique
+//! worker ids and optional session ids; tenant-facing views must
+//! resolve worker or session ownership before listing subtasks.
+//!
 //! No collision: `29__` is a single-prefix entry between the 28
 //! and 30 collision groups. Idempotent: CREATE TABLE/INDEX IF NOT
 //! EXISTS. Rollback drops the table and all five indexes.

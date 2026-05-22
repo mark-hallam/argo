@@ -4,6 +4,11 @@
 //! The latest row per `worker_id` is the current circuit-breaker
 //! state; earlier rows are kept as durable audit history.
 //!
+//! SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+//! unique worker primary key, and this table has no tenant-facing list
+//! or show reader today; future readers must resolve the worker via
+//! the tenant-scoped `worker` table before exposing rows.
+//!
 //! Rollback drops the table and its index. The table is purely
 //! observational — no other reconciled migration in v16..v21
 //! depends on it — so unwinding v17 in tests does not corrupt

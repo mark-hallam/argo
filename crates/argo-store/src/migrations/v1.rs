@@ -181,6 +181,10 @@ const V1_UP: &[&str] = &[
         set_at          INTEGER NOT NULL,
         set_by          TEXT NOT NULL
     )",
+    // SAFETY: forge runs are deployment-level optimizer jobs over the
+    // global skill catalog. Tenant-scoped skill usage and promotion
+    // decisions are recorded in tenant-stamped audit rows; this table
+    // remains the operator-visible forge queue/history.
     "CREATE TABLE forge_run (
         id              BLOB PRIMARY KEY,
         skill_name      TEXT NOT NULL,

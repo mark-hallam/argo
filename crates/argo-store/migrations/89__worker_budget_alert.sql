@@ -1,5 +1,10 @@
 -- Stream `codex-budget-alert-channel` — push notifications when
 -- worker spend crosses configured budget thresholds.
+--
+-- SAFETY: no direct tenant_id column. Alerts are keyed by deployment-
+-- unique `worker_id`. Current code records notification history only,
+-- and any tenant-facing reader must resolve the worker through the
+-- tenant-scoped `worker` table before showing rows.
 
 CREATE TABLE IF NOT EXISTS worker_budget_alert (
     id TEXT PRIMARY KEY,

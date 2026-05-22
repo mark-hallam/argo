@@ -11,6 +11,11 @@
 -- brief). Cycle detection within one `kind` runs in the application
 -- layer (DFS) at insert time, since SQLite has no graph constraints
 -- to express the rule declaratively.
+--
+-- SAFETY: no direct tenant_id column. Both endpoints are deployment-
+-- unique worker ids. Tenant-facing graph views must start from a
+-- tenant-resolved worker set before traversing this declared
+-- dependency graph.
 CREATE TABLE IF NOT EXISTS worker_dependency (
     a_worker_id TEXT NOT NULL,
     b_worker_id TEXT NOT NULL,

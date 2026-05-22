@@ -7,6 +7,10 @@
 //! payloads, and worker actions. One row per (record_kind,
 //! record_id, class).
 //!
+//! SAFETY: polymorphic tag table. Tenant scope is inherited from the
+//! tagged record identified by `(record_kind, record_id)`; callers
+//! must resolve that owning record before exposing tag rows.
+//!
 //! 26-collision split: this slot pairs with v32 and v33 below.
 //! The brief's recommended assignment maps data_classification →
 //! v31, spend_baseline → v32, worker_budget_alert → v33. Git-log

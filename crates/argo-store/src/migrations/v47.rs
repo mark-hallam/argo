@@ -10,6 +10,10 @@
 //! `v43` (`skill_canary` → `47__skill_canary.sql`) and `v44`
 //! (`approvals` → `48__approvals.sql`).
 //!
+//! SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+//! unique worker primary key; tenant-facing readers join or pre-
+//! resolve workers through the tenant-scoped `worker` table.
+//!
 //! Slot ordering: v47 is the next free versioned slot after v46
 //! (`worker_trust_grade`). The raw SQL filename lands at 51 because
 //! raw slot 49 is taken by `worker_archived_at` (PR #1271) and slot

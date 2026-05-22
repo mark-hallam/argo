@@ -3,6 +3,11 @@
 -- Latest row per worker is the current circuit state. Closed
 -- rows keep `failure_count` so consecutive failures are durable
 -- without mutating earlier audit entries.
+--
+-- SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+-- unique worker primary key, and this table has no tenant-facing list
+-- or show reader today. Any future reader must resolve the worker
+-- through the tenant-scoped `worker` table before exposing rows.
 
 CREATE TABLE IF NOT EXISTS worker_circuit_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

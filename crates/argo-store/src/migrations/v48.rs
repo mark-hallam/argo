@@ -22,6 +22,10 @@
 //! that backs the newest-first `list_persona_revisions` query.
 //! DOWN drops both in reverse order. Idempotent via
 //! `IF NOT EXISTS` / `IF EXISTS` guards.
+//!
+//! SAFETY: no direct tenant_id column. `worker_id` is the deployment-
+//! unique worker primary key; persona history/revert flows must
+//! resolve worker ownership through tenant-scoped identity tables.
 use argo_types::ArgoError;
 use sqlx::Sqlite;
 

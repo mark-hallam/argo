@@ -1,3 +1,7 @@
+-- SAFETY: deprecated legacy capture table. New tenant-facing gateway
+-- audit reads use `audit_record kind='http.request'`, which carries
+-- `tenant_id`. This table remains for v1.x peer-socket fallback and
+-- historical retention until planned v1.2 deletion.
 CREATE TABLE IF NOT EXISTS gateway_request_audit (
     request_id BLOB PRIMARY KEY NOT NULL,
     received_at INTEGER NOT NULL,
