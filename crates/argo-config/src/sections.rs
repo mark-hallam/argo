@@ -38,7 +38,7 @@ pub use crate::sections_executor::{
     CodeExecutorConfig, DocumentCsvConfig, DocumentGsuiteConfig, DEFAULT_CODE_EXECUTOR_PROFILE,
 };
 pub use crate::sections_gateway::{
-    GatewayBehindProxyConfig, GatewayConfig, GatewayRequestAuditConfig,
+    GatewayBehindProxyConfig, GatewayConfig, GatewayCorsConfig, GatewayRequestAuditConfig,
     GatewaySecurityHeadersConfig,
 };
 pub use crate::sections_planner::{PlannerBiasConfig, PlannerConfig};

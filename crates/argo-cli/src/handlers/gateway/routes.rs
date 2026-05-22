@@ -36,9 +36,34 @@ pub(super) async fn dispatch_route(
     // chain. Short-circuits cleanly when the gateway booted without
     // a store, or when the path matches `/health*` / `/metrics*`.
     let started = std::time::Instant::now();
-    let result = dispatch_route_inner(req, store, shutdown).await;
+    // mission-gateway-cors-preflight: OPTIONS on `/api/v1/*` is a
+    // pure header check that carries no auth and must run ahead of
+    // the bearer / cookie / origin / csrf middleware (browsers send
+    // preflight with no credentials). Every other path falls
+    // through to the inner dispatcher, then has CORS headers
+    // stamped onto its status line via `apply_cors`.
+    let result = if super::cors::is_preflight(req) {
+        super::cors::preflight_response(req)
+    } else {
+        apply_cors(req, dispatch_route_inner(req, store, shutdown).await)
+    };
     super::routes_request_audit::record(req, store, &result, started.elapsed()).await;
     result
+}
+
+/// Stamp CORS response headers on `/api/v1/*` responses by looking
+/// up the (status, request-Origin) pair in the global registry.
+/// Non-`/api/v1/*` paths and requests from non-allowlisted Origins
+/// pass through unchanged — the latter is the fail-closed default.
+fn apply_cors(
+    req: &str,
+    (status, body): (&'static str, String),
+) -> (&'static str, String) {
+    if super::cors::is_api_v1(req) {
+        (super::cors::enhance_status(req, status), body)
+    } else {
+        (status, body)
+    }
 }
 
 async fn dispatch_route_inner(

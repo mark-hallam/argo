@@ -80,7 +80,7 @@ pub use sandbox::SandboxConfig;
 pub use sections::{
     AnomalyConfig, AuditConfig, AuthConfig, BudgetConfig, ChannelsConfig, CodeExecutorConfig,
     CoreConfig, DelegateConfig, DocumentCsvConfig, DocumentGsuiteConfig, ForgeConfig,
-    GatewayBehindProxyConfig, GatewayConfig, GatewayRequestAuditConfig,
+    GatewayBehindProxyConfig, GatewayConfig, GatewayCorsConfig, GatewayRequestAuditConfig,
     GatewaySecurityHeadersConfig, GenesisJdConfig, IpAllowlistConfig, JudgeConfig, LoopConfig,
     MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
     RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,

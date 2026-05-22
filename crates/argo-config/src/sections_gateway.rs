@@ -55,6 +55,9 @@ pub struct GatewayConfig {
     pub request_audit: GatewayRequestAuditConfig,
     /// `[gateway.security_headers]` browser hardening knobs.
     pub security_headers: GatewaySecurityHeadersConfig,
+    /// `[gateway.cors]` — Cross-Origin Resource Sharing allowlist for
+    /// `/api/v1/*` browser callers.
+    pub cors: GatewayCorsConfig,
 }
 
 impl Default for GatewayConfig {
@@ -72,6 +75,52 @@ impl Default for GatewayConfig {
             behind_proxy: GatewayBehindProxyConfig::default(),
             request_audit: GatewayRequestAuditConfig::default(),
             security_headers: GatewaySecurityHeadersConfig::default(),
+            cors: GatewayCorsConfig::default(),
+        }
+    }
+}
+
+/// `[gateway.cors]` — browser CORS allowlist for `/api/v1/*` routes
+/// (mission-gateway-cors-preflight).
+///
+/// The gateway echoes the request `Origin` back in
+/// `Access-Control-Allow-Origin` only when it appears in
+/// `allowed_origins`. Origins not in the list receive responses
+/// without any `Access-Control-Allow-*` header, which browsers
+/// refuse — the fail-closed default that prevents drive-by
+/// cross-origin reads.
+///
+/// Dev default is `["http://localhost:3000", "http://localhost:3001"]`
+/// so the SPA dev server (port 3000) and Storybook (port 3001) work
+/// against a freshly checked-out repo without configuration.
+/// Production deployments override the list explicitly, e.g.
+/// `allowed_origins = ["https://app.skycot.com"]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayCorsConfig;
+///
+/// let cfg = GatewayCorsConfig::default();
+/// assert!(cfg.allowed_origins.iter().any(|o| o == "http://localhost:3000"));
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GatewayCorsConfig {
+    /// Origins permitted to read `/api/v1/*` responses from a browser
+    /// context. Match is exact-string against the request `Origin`
+    /// header. Empty list disables CORS entirely (no browser callers
+    /// can reach the API).
+    pub allowed_origins: Vec<String>,
+}
+
+impl Default for GatewayCorsConfig {
+    fn default() -> Self {
+        Self {
+            allowed_origins: vec![
+                "http://localhost:3000".into(),
+                "http://localhost:3001".into(),
+            ],
         }
     }
 }

@@ -20,6 +20,7 @@ mod boot_spawns;
 mod boot_telemetry;
 mod boot_telemetry_admin;
 mod bootstrap_token;
+mod cors;
 mod dashboard;
 mod dashboard_fleet;
 mod email_outbound;
@@ -260,6 +261,10 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             // and spawn its eviction sweep before the listener accepts.
             // Idempotent — only the first caller actually wires state.
             let _ = rate_limit::init_with_config(&cfg.gateway.rate_limit.route);
+            // mission-gateway-cors-preflight: install the CORS allowlist
+            // registry. Pre-builds (status × origin) response strings so
+            // dispatch lookups are zero-allocation. Idempotent.
+            cors::install(&cfg.gateway.cors);
             // mission-per-tenant-rate-limiting: layer the per-tenant
             // limiter on top of the `[gateway.rate_limit.tenant]`
             // config block and hydrate per-tenant overrides from the
