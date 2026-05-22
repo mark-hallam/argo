@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T16:35:00Z",
+  "last_run_utc": "2026-05-22T16:55:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-66-brief-audit",
-  "run_notes": "Tick 66 — operator-directed brief audit. Spawned read-only audit agent on 76 unrowed/blocked/deferred briefs + sampled 50 of the 425 aged orphans. Findings: 4 P0 demo-blockers were sitting orphan (mission-gateway-cors-preflight + mission-spa-pages-500-fix + mission-workplace-knowledge-gateway BLOCKED-unblockable + mission-knowledge-context-injection conditionally-blocked). Promoted top 5 to Phase A top: 4 demo-gate P0s + 1 P1 (mission-spa-show-real-session). Wave-A gateway unblocked (substrate + audit-kinds deps met). Audit recommended freeze on new non-v1.0 brief authoring + mass-archive of 248 aged claude-* orphans (deferred to post-demo-MP4 ship). claude_todo: 2 → 5. Honest take: swarm slightly off-mission, accumulating ~150 v1.x polish briefs; concentrate next 3-4 ticks on Wave-A finish + 3 SPA demo-blockers."
+  "session_label": "anthropic-claude-code-conductor-tick-67-cron-fired",
+  "run_notes": "Tick 67 (cron-fired). Merged #2049 (cross-tenant-test-worker-memory, +97/-0) + #2050 (cross-tenant-test-workspace-members, +350/-0). Both proof-of-coverage; no new bugs surfaced — closes 2 of the 17 high-risk gaps from #2033's audit. A worker just claimed `mission-gateway-cors-preflight` (the P0 demo-gate brief I promoted in tick-66) within MINUTES of promotion. Active workers (3): mission-audit-export-tenant-scope-fix (the cross-tenant export fix, 1h35m in), mission-cross-tenant-test-workspace-members (just shipped #2050, in cleanup), mission-gateway-cors-preflight (just claimed). Queue: claude_todo 5→4 / claimed=2 / in_review=2 just merged. Promotion working: the tick-66 audit's P0 demo-blockers are getting picked up immediately."
 }
