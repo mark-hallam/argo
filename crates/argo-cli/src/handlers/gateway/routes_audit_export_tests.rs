@@ -346,3 +346,126 @@ async fn exported_bundle_contains_verify_script_executes_clean() {
         String::from_utf8_lossy(&output.stdout)
     );
 }
+
+// Cross-tenant negative tests (`mission-cross-tenant-test-audit-export`).
+// `POST /api/v1/audit/export` is the top-1 data-exposure risk in the
+// cross-tenant coverage report at
+// `docs/skycot/audit/cross-tenant-endpoint-coverage.md`.
+
+async fn seed_for_tenant(store: &Arc<SessionStore>, tenant_id: &str, n: usize) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    for i in 0..n {
+        sink.write(
+            None,
+            AuditKind::ToolCall,
+            json!({"i": i, "tool": "echo", "tenant_marker": tenant_id}),
+            None,
+        )
+        .await
+        .expect("write tenant-scoped audit row");
+    }
+    sink.flush_pending().await.expect("flush tenant-scoped batch");
+}
+
+fn post_with_tenant(path: &str, tenant: &str, body: Value) -> String {
+    let body = body.to_string();
+    format!(
+        "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\
+         X-Argo-Role: user\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+}
+
+fn get_with_tenant(path: &str, tenant: &str) -> String {
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\
+         X-Argo-Role: user\r\n\r\n"
+    )
+}
+
+#[tokio::test]
+#[ignore = "BLOCKED: routes_audit_export.rs does not tenant-scope fetch_rows_for_export — see PR findings"]
+async fn cross_tenant_export_excludes_other_tenant_rows() {
+    let _dir = unique_export_dir("cross-tenant-export-scope");
+    let store = mem_store().await;
+    seed_for_tenant(&store, "tenant-a", 3).await;
+    seed_for_tenant(&store, "tenant-b", 2).await;
+    let resp = export_response(
+        &post_with_tenant("/api/v1/audit/export", "tenant-a", json!({"format": "json"})),
+        Some(&store),
+    )
+    .await;
+    assert!(resp.0.starts_with("201"), "status: {} body: {}", resp.0, resp.1);
+    let body = parse(&resp);
+    assert_eq!(
+        body["row_count"], 3,
+        "tenant-a saw {} rows; tenant-b leaked: {body}",
+        body["row_count"]
+    );
+    let url = body["download_url"].as_str().unwrap();
+    let dl = super::try_dispatch_get(&get(url), Some(&store)).await.unwrap();
+    let bytes = general_purpose::STANDARD
+        .decode(parse(&dl)["b64"].as_str().unwrap())
+        .unwrap();
+    let payload = String::from_utf8(bytes).unwrap();
+    assert!(
+        !payload.contains("tenant-b"),
+        "tenant-b leaked into tenant-a NDJSON: {payload}"
+    );
+}
+
+#[tokio::test]
+#[ignore = "BLOCKED: routes_audit_export.rs does not tenant-scope fetch_preview — see PR findings"]
+async fn cross_tenant_preview_excludes_other_tenant_rows() {
+    let store = mem_store().await;
+    seed_for_tenant(&store, "tenant-a", 3).await;
+    seed_for_tenant(&store, "tenant-b", 2).await;
+    let resp = preview_response(
+        &post_with_tenant(
+            "/api/v1/audit/export/preview",
+            "tenant-b",
+            json!({"format": "json"}),
+        ),
+        Some(&store),
+    )
+    .await;
+    assert!(resp.0.starts_with("200"), "status: {} body: {}", resp.0, resp.1);
+    let body = parse(&resp);
+    assert_eq!(
+        body["row_count"], 2,
+        "tenant-b saw {} preview rows; tenant-a leaked: {body}",
+        body["row_count"]
+    );
+    for row in body["sample"].as_array().expect("sample array") {
+        assert_eq!(
+            row["payload"]["tenant_marker"].as_str(),
+            Some("tenant-b"),
+            "tenant-a leaked in preview sample: {row}"
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore = "BLOCKED: routes_audit_export.rs HMAC-only gate has no per-tenant binding — see PR findings"]
+async fn cross_tenant_download_rejects_other_tenant_signed_url() {
+    let _dir = unique_export_dir("cross-tenant-download-scope");
+    let store = mem_store().await;
+    seed_for_tenant(&store, "tenant-a", 2).await;
+    seed_for_tenant(&store, "tenant-b", 1).await;
+    let post_resp = export_response(
+        &post_with_tenant("/api/v1/audit/export", "tenant-a", json!({"format": "json"})),
+        Some(&store),
+    )
+    .await;
+    assert!(post_resp.0.starts_with("201"), "tenant-a POST: {} {}", post_resp.0, post_resp.1);
+    let url = parse(&post_resp)["download_url"].as_str().unwrap().to_string();
+    let resp = super::try_dispatch_get(&get_with_tenant(&url, "tenant-b"), Some(&store))
+        .await
+        .expect("download dispatched");
+    assert!(
+        !resp.0.starts_with("2"),
+        "cross-tenant download must reject — got {}: {}",
+        resp.0,
+        resp.1
+    );
+}
