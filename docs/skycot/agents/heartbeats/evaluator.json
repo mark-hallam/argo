@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-22T02:25:00Z",
+  "last_run_utc": "2026-05-22T10:30:00Z",
   "expected_cadence_seconds": 86400,
-  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22",
-  "run_notes": "bootstrap run — 5 scenarios; 4 P0 findings (SPA cookies break, migration semicolon-in-comment, gateway 92h stale, audit-feed misses platform events); hire pipeline + workflow source architecture both healthy"
+  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-2",
+  "run_notes": "round 2 — 4 new scenarios; round-1 P0-B verified CLOSED via PR #2025 (skill cross-tenant test + workflow lifecycle smoke both PASS); cross-tenant audit fix #1992 verified PASS; main gateway died mid-session; 17/17 marketing routes healthy; remaining P0 is web/auth.config.ts cookies() import"
 }
