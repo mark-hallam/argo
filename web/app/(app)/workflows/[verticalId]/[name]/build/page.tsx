@@ -17,6 +17,7 @@ import { Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from
 import { toast } from "sonner";
 
 import { UnsavedBanner } from "@/components/skycot/builder/UnsavedBanner";
+import { AlertDialog } from "@/components/ui/AlertDialog";
 import { KeyboardShortcutsModal } from "@/components/skycot/workflows/KeyboardShortcutsModal";
 import TriggerConfigDrawer from "@/components/workflows/triggers/TriggerConfigDrawer";
 import type { TriggerConfig, TriggerKind } from "@/components/workflows/triggers/types";
@@ -592,19 +593,46 @@ function BuilderInner({
   }, [testRun, stepInputs.length, pinnedStepNames]);
 
   const savePublish = useWorkflowSavePublish();
+  // After every successful save we record the draft id/version AND a
+  // JSON snapshot of the canvas at save time. Publish then compares
+  // the current canvas to that snapshot — equal means "safe to publish
+  // the saved draft"; diverged means "user edited again, must save first".
+  // This works around the phase-1 builder-state hook not resetting its
+  // own `dirty` baseline on save (out of scope for this brief; the
+  // local snapshot tracking is self-contained in this page).
+  const [savedDraft, setSavedDraft] = useState<
+    { version_id: string; version: number; snapshot: string } | null
+  >(null);
+  const canvasSnapshot = useMemo(
+    () => JSON.stringify({ nodes: builder.nodes, edges: builder.edges }),
+    [builder.nodes, builder.edges],
+  );
+  const canPublish =
+    savedDraft !== null && savedDraft.snapshot === canvasSnapshot;
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+
   const performSaveDraft = useCallback(async (): Promise<void> => {
     if (!workflow) return;
     const definitionToml = encodeStepsToToml(currentSteps, {
       workflowName: workflow.name,
       workflowDescription: workflow.description,
     });
+    const snapshot = JSON.stringify({
+      nodes: builder.nodes,
+      edges: builder.edges,
+    });
     const result = await savePublish.saveDraft({
       vertical_id: verticalId,
       name,
       definition_toml: definitionToml,
     });
+    setSavedDraft({
+      version_id: result.version_id,
+      version: result.version,
+      snapshot,
+    });
     toast.success(`Saved (v${result.version})`);
-  }, [savePublish, currentSteps, workflow, verticalId, name]);
+  }, [savePublish, currentSteps, workflow, verticalId, name, builder.nodes, builder.edges]);
   const handleSaveAndPublish = useCallback(() => {
     performSaveDraft().catch((err) => {
       const message = err instanceof Error && err.message
@@ -616,6 +644,36 @@ function BuilderInner({
       });
     });
   }, [performSaveDraft]);
+
+  const performPublishHead = useCallback(async (): Promise<void> => {
+    if (!savedDraft) return;
+    const result = await savePublish.publishHead({
+      vertical_id: verticalId,
+      name,
+      version_id: savedDraft.version_id,
+    });
+    toast.success(`Published v${result.head_version} to head`);
+    router.push(`/workflows/${verticalId}/${name}`);
+  }, [savePublish, savedDraft, verticalId, name, router]);
+  const handlePublishConfirm = useCallback(() => {
+    setPublishConfirmOpen(false);
+    performPublishHead().catch((err) => {
+      const message = err instanceof Error && err.message
+        ? err.message
+        : "Network error";
+      toast.error("Couldn't publish workflow", {
+        description: message,
+        action: {
+          label: "Retry",
+          onClick: () => { void performPublishHead(); },
+        },
+      });
+    });
+  }, [performPublishHead]);
+  const handlePublishRequest = useCallback(() => {
+    if (!canPublish) return;
+    setPublishConfirmOpen(true);
+  }, [canPublish]);
 
   const handleDiscard = useCallback(() => {
     builder.reset(initial.nodes, initial.edges);
@@ -711,6 +769,9 @@ function BuilderInner({
           name={name}
           dirty={builder.dirty}
           saving={savePublish.isSaving}
+          publishing={savePublish.isPublishing}
+          savedDraftVersion={savedDraft?.version ?? null}
+          canPublish={canPublish}
           promptText={promptText}
           proposing={activeProposalPrompt !== null}
           onPromptTextChange={setPromptText}
@@ -718,6 +779,7 @@ function BuilderInner({
           onPickSuggestion={handlePickSuggestion}
           onTestRun={handleTestRun}
           onSaveAndPublish={handleSaveAndPublish}
+          onPublish={handlePublishRequest}
           testRunPhase={testRun.phase}
         />
 
@@ -824,6 +886,20 @@ function BuilderInner({
         </div>
       </div>
       <KeyboardShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <AlertDialog
+        open={publishConfirmOpen}
+        onOpenChange={setPublishConfirmOpen}
+        title={
+          savedDraft
+            ? `Publish v${savedDraft.version} to head?`
+            : "Publish draft to head?"
+        }
+        description="Publishing makes this version the live workflow for every run from now on. Existing runs in flight are unaffected."
+        confirmLabel="Publish to head"
+        cancelLabel="Cancel"
+        confirmVariant="primary"
+        onConfirm={handlePublishConfirm}
+      />
       <MobileBuilderGate workflow={workflow} />
     </>
   );

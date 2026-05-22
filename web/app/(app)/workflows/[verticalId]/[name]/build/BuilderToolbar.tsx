@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, Loader2, Play, RotateCcw, Save, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Rocket, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import type { WorkflowSpec } from "./types";
@@ -12,6 +12,11 @@ interface Props {
   name: string;
   dirty: boolean;
   saving?: boolean;
+  publishing?: boolean;
+  /** Numeric version of the most-recently-saved draft; null until first save in this session. */
+  savedDraftVersion?: number | null;
+  /** When true, the saved draft matches the current canvas — Publish is safe. */
+  canPublish?: boolean;
   promptText: string;
   proposing: boolean;
   onPromptTextChange: (next: string) => void;
@@ -20,6 +25,7 @@ interface Props {
   onPickSuggestion: (next: string) => void;
   onTestRun: () => void;
   onSaveAndPublish: () => void;
+  onPublish: () => void;
   testRunPhase?: TestRunPhase;
 }
 
@@ -29,6 +35,9 @@ export function BuilderToolbar({
   name,
   dirty,
   saving = false,
+  publishing = false,
+  savedDraftVersion = null,
+  canPublish = false,
   promptText,
   proposing,
   onPromptTextChange,
@@ -36,10 +45,19 @@ export function BuilderToolbar({
   onPickSuggestion,
   onTestRun,
   onSaveAndPublish,
+  onPublish,
   testRunPhase = "idle",
 }: Props) {
   const isRunning = testRunPhase === "running";
   const hasRun = testRunPhase === "complete" || testRunPhase === "failed";
+  const publishDisabled = !canPublish || publishing || saving;
+  // Tooltip nudges the user toward the right next action when the
+  // button is disabled — without this the disabled state is silent.
+  const publishHint = savedDraftVersion === null
+    ? "Save a draft first"
+    : !canPublish
+      ? "Save your latest changes before publishing"
+      : `Publish v${savedDraftVersion} to head`;
   return (
     <>
       <header className="builder-top">
@@ -91,6 +109,26 @@ export function BuilderToolbar({
             ) : (
               <>
                 <Save size={13} /> Save as draft
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            className="builder-btn builder-btn-primary"
+            onClick={onPublish}
+            disabled={publishDisabled}
+            title={publishHint}
+            data-testid="builder-publish"
+            data-can-publish={canPublish ? "true" : "false"}
+            data-publishing={publishing ? "true" : "false"}
+          >
+            {publishing ? (
+              <>
+                <Loader2 size={13} className="builder-spin" /> Publishing…
+              </>
+            ) : (
+              <>
+                <Rocket size={13} /> Publish
               </>
             )}
           </button>
