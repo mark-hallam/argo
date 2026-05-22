@@ -312,6 +312,13 @@ async fn exported_bundle_contains_verify_script_executes_clean() {
 
     let verify_path = unpack_dir.join("verify.sh");
     assert!(verify_path.exists(), "verify.sh missing from export tar");
+    let csv_path = unpack_dir.join("audit.csv");
+    assert!(csv_path.exists(), "audit.csv missing from export tar");
+    let csv_body = fs::read_to_string(&csv_path).unwrap();
+    assert!(csv_body.starts_with("seq,"), "csv header: {csv_body:?}");
+    assert!(csv_body.contains("\r\n"), "csv must be RFC 4180 CRLF: {csv_body:?}");
+    // 3 seeded rows + 1 header row.
+    assert_eq!(csv_body.matches("\r\n").count(), 4);
     #[cfg(unix)]
     assert_eq!(
         fs::metadata(&verify_path).unwrap().permissions().mode() & 0o777,

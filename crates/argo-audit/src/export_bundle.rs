@@ -8,8 +8,13 @@
 //! persistence and the signed-URL flow.
 //!
 //! The tar.gz layout is identical to [`crate::archive`]:
-//! `audit.ndjson` + `chain_metadata.json` + `verify.sh`. Operators
-//! can unpack an exported bundle and run `./verify.sh` without `argo`.
+//! `audit.ndjson` + `audit.csv` + `chain_metadata.json` + `verify.sh`.
+//! Operators can unpack an exported bundle and run `./verify.sh`
+//! without `argo`. The sibling `audit.csv` mirrors the same row set
+//! (one row per audit event, RFC 4180) so procurement reviewers can
+//! load the evidence directly in a spreadsheet without re-running
+//! `argo audit export --format csv` against the NDJSON stream
+//! (`mission-audit-export-csv-format`).
 
 use crate::csv::{write_audit_csv_header, write_audit_csv_row};
 use crate::export::ExportedRow;
@@ -283,21 +288,28 @@ fn build_csv(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
 
 fn build_tarball(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
     let ndjson = build_ndjson(rows)?;
+    let csv = build_csv(rows)?;
     let head_hash = rows
         .last()
         .map_or(ZERO_CHAIN_HEAD, |row| row.self_hash.as_str());
+    // `audit_csv_sha256` is procurement-grade chain-of-custody for the
+    // sibling CSV: external reviewers can re-hash `audit.csv` and
+    // confirm it matches the manifest without trusting the tar
+    // archive's own integrity. verify.sh stays JSONL-only.
     let metadata = serde_json::to_vec_pretty(&serde_json::json!({
         "generator": "argo audit export",
         "generator_version": env!("CARGO_PKG_VERSION"),
         "row_count": rows.len(),
         "head_hash": head_hash,
         "audit_ndjson_sha256": sha256_hex(&ndjson),
+        "audit_csv_sha256": sha256_hex(&csv),
     }))
     .map_err(|e| ArgoError::Schema(format!("metadata serialize: {e}")))?;
     let mut gz = GzEncoder::new(Vec::new(), Compression::default());
     {
         let mut tar_b = tar::Builder::new(&mut gz);
         append_tar(&mut tar_b, "audit.ndjson", &ndjson)?;
+        append_tar(&mut tar_b, "audit.csv", &csv)?;
         append_tar(&mut tar_b, "chain_metadata.json", &metadata)?;
         append_tar_mode(&mut tar_b, "verify.sh", VERIFY_SH.as_bytes(), 0o755)?;
         tar_b
@@ -334,121 +346,5 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::AuditKind;
-    use argo_store::SessionStore;
-    use std::sync::Arc;
-
-    async fn fresh_store() -> Arc<SessionStore> {
-        let s = SessionStore::open(":memory:").await.unwrap();
-        s.migrate().await.unwrap();
-        Arc::new(s)
-    }
-
-    async fn write_n(store: &Arc<SessionStore>, n: usize) {
-        #[allow(deprecated)]
-        let sink = crate::AuditSink::new(Arc::clone(store));
-        for i in 0..n {
-            sink.write(
-                None,
-                AuditKind::TurnStart,
-                serde_json::json!({"i": i}),
-                None,
-            )
-            .await
-            .unwrap();
-        }
-    }
-
-    #[test]
-    fn parse_format_handles_common_aliases() {
-        assert_eq!(BundleFormat::parse("json"), Some(BundleFormat::Json));
-        assert_eq!(BundleFormat::parse("NDJSON"), Some(BundleFormat::Json));
-        assert_eq!(BundleFormat::parse("csv"), Some(BundleFormat::Csv));
-        assert_eq!(BundleFormat::parse("TAR"), Some(BundleFormat::Tar));
-        assert_eq!(BundleFormat::parse("tar.gz"), Some(BundleFormat::Tar));
-        assert_eq!(BundleFormat::parse("tgz"), Some(BundleFormat::Tar));
-        assert!(BundleFormat::parse("xml").is_none());
-    }
-
-    #[test]
-    fn export_window_includes_endpoints() {
-        let w = ExportWindow {
-            from: DateTime::<Utc>::from_timestamp_micros(100),
-            to: DateTime::<Utc>::from_timestamp_micros(200),
-        };
-        assert!(w.matches(100));
-        assert!(w.matches(150));
-        assert!(w.matches(200));
-        assert!(!w.matches(99));
-        assert!(!w.matches(201));
-    }
-
-    #[tokio::test]
-    async fn fetch_and_build_round_trip_json() {
-        let store = fresh_store().await;
-        write_n(&store, 3).await;
-        let window = ExportWindow::default();
-        let rows = fetch_rows_for_export(&store, &window).await.unwrap();
-        assert_eq!(rows.len(), 3);
-        let bytes = build_bundle(&rows, BundleFormat::Json).unwrap();
-        assert_eq!(bytes.iter().filter(|b| **b == b'\n').count(), 3);
-    }
-
-    #[tokio::test]
-    async fn fetch_and_build_round_trip_csv_has_header() {
-        let store = fresh_store().await;
-        write_n(&store, 2).await;
-        let rows = fetch_rows_for_export(&store, &ExportWindow::default())
-            .await
-            .unwrap();
-        let bytes = build_bundle(&rows, BundleFormat::Csv).unwrap();
-        let s = String::from_utf8(bytes).unwrap();
-        // RFC 4180 CRLF + first column label.
-        assert!(s.starts_with("seq,"), "got: {s:?}");
-        assert!(s.contains("\r\n"));
-    }
-
-    #[tokio::test]
-    async fn fetch_and_build_round_trip_tar() {
-        let store = fresh_store().await;
-        write_n(&store, 4).await;
-        let rows = fetch_rows_for_export(&store, &ExportWindow::default())
-            .await
-            .unwrap();
-        let bytes = build_bundle(&rows, BundleFormat::Tar).unwrap();
-        // gzip magic prefix
-        assert!(bytes.len() > 10);
-        assert_eq!(&bytes[..2], &[0x1f, 0x8b]);
-    }
-
-    #[tokio::test]
-    async fn preview_counts_and_samples_match_full_export() {
-        let store = fresh_store().await;
-        write_n(&store, 10).await;
-        let p = fetch_preview(&store, &ExportWindow::default())
-            .await
-            .unwrap();
-        assert_eq!(p.row_count, 10);
-        assert_eq!(p.sample.len(), PREVIEW_SAMPLE_CAP);
-        assert!(p.byte_estimate > 0);
-    }
-
-    #[tokio::test]
-    async fn preview_window_filter_excludes_outside_rows() {
-        let store = fresh_store().await;
-        write_n(&store, 5).await;
-        let far_future = DateTime::<Utc>::from_timestamp_micros(
-            chrono::Utc::now().timestamp_micros() + 60_000_000_000,
-        );
-        let window = ExportWindow {
-            from: far_future,
-            to: None,
-        };
-        let p = fetch_preview(&store, &window).await.unwrap();
-        assert_eq!(p.row_count, 0);
-        assert_eq!(p.byte_estimate, 0);
-        assert!(p.sample.is_empty());
-    }
-}
+#[path = "export_bundle_tests.rs"]
+mod tests;

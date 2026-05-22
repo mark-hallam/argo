@@ -88,6 +88,7 @@ async fn audit_export_formats_redacts_and_checks_chain() {
     let mut archive = tar::Archive::new(std::fs::File::open(&tar_path).unwrap());
     let mut names = Vec::new();
     let mut manifest = Value::Null;
+    let mut audit_csv_body = String::new();
     for entry in archive.entries().unwrap() {
         let mut entry = entry.unwrap();
         let name = entry.path().unwrap().to_string_lossy().to_string();
@@ -95,12 +96,21 @@ async fn audit_export_formats_redacts_and_checks_chain() {
             let mut body = String::new();
             entry.read_to_string(&mut body).unwrap();
             manifest = serde_json::from_str(&body).unwrap();
+        } else if name == "audit.csv" {
+            entry.read_to_string(&mut audit_csv_body).unwrap();
         }
         names.push(name);
     }
-    assert_eq!(names, vec!["audit.ndjson", "manifest.json", "README.txt"]);
+    assert_eq!(
+        names,
+        vec!["audit.ndjson", "audit.csv", "manifest.json", "README.txt"]
+    );
     assert_eq!(manifest["row_count"], 2);
     assert!(manifest["audit_ndjson_sha256"].as_str().unwrap().len() == 64);
+    assert!(manifest["audit_csv_sha256"].as_str().unwrap().len() == 64);
+    // Header + 2 data rows in CRLF form (mission-audit-export-csv-format).
+    assert!(audit_csv_body.starts_with("seq,id,session_id"));
+    assert_eq!(audit_csv_body.matches("\r\n").count(), 3);
 
     sqlx::query("UPDATE audit_record SET payload_json = ? WHERE seq = 1")
         .bind(r#"{"worker_id":"worker-a","email":"ops@example.com","tampered":true}"#)

@@ -285,11 +285,16 @@ pub enum AuditCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    /// Stream the audit log to ndjson. Defaults to stdout; pass
-    /// `--out <path>` to write to a file. Pass `--session <id>` to
-    /// scope the export to one session, or `--since-minutes <N>`
-    /// to scope to recent rows.
+    /// Stream the audit log. Defaults to stdout; pass `--out <path>`
+    /// to write to a file. Pass `--session <id>` to scope the export
+    /// to one session, or `--since-minutes <N>` to scope to recent
+    /// rows.
     Export {
+        /// Output format: `ndjson` (default), `jsonl` (alias),
+        /// `json` (single array), `csv` (RFC 4180 — spreadsheet /
+        /// procurement-friendly), or `tarball` (gzip evidence
+        /// bundle: `audit.ndjson` + sibling `audit.csv` +
+        /// `chain_metadata.json` + `verify.sh`).
         #[arg(long, default_value = "ndjson")]
         format: String,
         #[arg(long)]

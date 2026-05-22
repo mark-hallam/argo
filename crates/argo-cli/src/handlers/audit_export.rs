@@ -14,7 +14,9 @@
 //! NDJSON sha256 of its sibling member.
 use super::audit_export_args::{ExportFormat, NormalizedExport};
 use super::audit_export_redact::redact_value;
-use argo_audit::{export_ndjson, verify_all, write_audit_csv_header, write_audit_csv_row, ExportedRow};
+use argo_audit::{
+    export_ndjson, verify_all, write_audit_csv_header, write_audit_csv_row, ExportedRow,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use sha2::{Digest, Sha256};
@@ -302,6 +304,8 @@ fn render_ndjson(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
 fn render_tarball(query: &NormalizedExport, rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
     let ndjson = render_ndjson(rows)?;
     let ndjson_sha = sha256_hex(&ndjson);
+    let csv = render_csv(rows)?;
+    let csv_sha = sha256_hex(&csv);
     let manifest = serde_json::to_vec_pretty(&serde_json::json!({
         "generator": "argo audit export",
         "generator_version": env!("CARGO_PKG_VERSION"),
@@ -314,6 +318,7 @@ fn render_tarball(query: &NormalizedExport, rows: &[ExportedRow]) -> ArgoResult<
         "gdpr_redact_emails": query.gdpr_redact_emails,
         "row_count": rows.len(),
         "audit_ndjson_sha256": ndjson_sha,
+        "audit_csv_sha256": csv_sha,
     }))
     .map_err(|e| ArgoError::Provider(format!("serialize manifest: {e}")))?;
     let readme = README_TXT.as_bytes();
@@ -321,11 +326,23 @@ fn render_tarball(query: &NormalizedExport, rows: &[ExportedRow]) -> ArgoResult<
     {
         let mut builder = tar::Builder::new(&mut out);
         append_tar_bytes(&mut builder, "audit.ndjson", &ndjson)?;
+        append_tar_bytes(&mut builder, "audit.csv", &csv)?;
         append_tar_bytes(&mut builder, "manifest.json", &manifest)?;
         append_tar_bytes(&mut builder, "README.txt", readme)?;
         builder
             .finish()
             .map_err(|e| ArgoError::Provider(format!("finish tarball: {e}")))?;
+    }
+    Ok(out)
+}
+
+fn render_csv(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
+    let mut out = Vec::new();
+    write_audit_csv_header(&mut out)
+        .map_err(|e| ArgoError::Io(format!("csv header: {e}")))?;
+    for row in rows {
+        write_audit_csv_row(row, &mut out)
+            .map_err(|e| ArgoError::Io(format!("csv row: {e}")))?;
     }
     Ok(out)
 }
@@ -352,7 +369,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 const README_TXT: &str = "Argo audit export bundle\n\n\
-audit.ndjson contains records in seq order. manifest.json records query parameters, generator version, and the sha256 of audit.ndjson. Email redaction is deterministic when enabled.\n";
+audit.ndjson contains records in seq order. audit.csv mirrors the same rows in RFC 4180 CSV (procurement / spreadsheet-friendly). manifest.json records query parameters, generator version, and the sha256 of both audit.ndjson and audit.csv. Email redaction is deterministic when enabled.\n";
 
 #[cfg(test)]
 #[path = "audit_export_tests.rs"]
