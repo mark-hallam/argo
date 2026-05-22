@@ -3,13 +3,17 @@
 //! Cross-tenant capability gate (`mission-enterprise-cross-tenant-audit`)
 //! plus the SQL fast-path (`mission-enterprise-audit-full-text-search`)
 //! that the post-v67 migration unlocks. Query-shape tests live in
-//! `routes_audit_feed_query_tests.rs`.
+//! `routes_audit_feed_query_tests.rs`. Platform-event surfacing
+//! coverage (stream `web-audit-feed-platform-events`) lives at the
+//! bottom of this file.
 
 #![allow(clippy::too_many_lines)]
 #![allow(deprecated)]
 
 use super::list_response;
 use super::test_helpers::*;
+use argo_audit::AuditKind;
+use serde_json::json;
 
 #[tokio::test]
 async fn tenant_scope_default_excludes_other_tenants() {
@@ -126,6 +130,140 @@ async fn sql_path_indexes_used_on_worker_filter() {
     assert!(
         plan_text.contains("audit_record"),
         "expected query plan to touch audit_record, got: {plan_text}"
+    );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Platform-event surfacing (stream `web-audit-feed-platform-events`).
+//
+// Locks the contract that domain audit kinds emitted by the gateway
+// (worker hire, workflow head-flip, workflow rollback) reach the
+// `/api/v1/audit` feed without dedicated UNION wiring. The SQL
+// fetch in `routes_audit_feed_indexed` does NOT restrict by `kind`,
+// and the app-layer `row_passes_filters` pass does not check `kind`
+// either, so any `AuditKind` written under the workspace's tenant_id
+// surfaces. These regression tests pin that behaviour so a future
+// "tighten the WHERE" refactor immediately surfaces here instead of
+// silently breaking the operator audit feed.
+// ──────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn worker_hired_event_surfaces_in_feed() {
+    let store = mem_store().await;
+    seed_platform_event(
+        &store,
+        "tenant-a",
+        AuditKind::WorkerHired,
+        json!({
+            "worker_id": "wkr-peta",
+            "worker_name": "Peta · Project Coordinator",
+            "vertical_id": "project-ops",
+            "name": "Peta",
+            "duty_count": 4,
+            "hired_at": "2026-05-22T03:00:00Z",
+        }),
+    )
+    .await;
+    let (status, body) = parse_body(
+        list_response(&get_with_tenant("/api/v1/audit", "tenant-a"), Some(&store)).await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items array");
+    let hired = items
+        .iter()
+        .find(|it| it["action_type"] == "worker.hired")
+        .unwrap_or_else(|| panic!("worker.hired row missing from feed: {body}"));
+    assert_eq!(hired["worker"]["id"], "wkr-peta");
+}
+
+#[tokio::test]
+async fn workflow_head_changed_event_surfaces_in_feed() {
+    let store = mem_store().await;
+    seed_platform_event(
+        &store,
+        "tenant-a",
+        AuditKind::WorkflowHeadChanged,
+        json!({
+            "vertical_id": "project-ops",
+            "name": "weekly-status",
+            "version_id": "ver-abcd",
+        }),
+    )
+    .await;
+    let (status, body) = parse_body(
+        list_response(&get_with_tenant("/api/v1/audit", "tenant-a"), Some(&store)).await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items array");
+    assert!(
+        items.iter().any(|it| it["action_type"] == "workflow_head_changed"),
+        "workflow_head_changed missing from feed: {body}"
+    );
+}
+
+#[tokio::test]
+async fn workflow_rolled_back_event_surfaces_in_feed() {
+    let store = mem_store().await;
+    seed_platform_event(
+        &store,
+        "tenant-a",
+        AuditKind::WorkflowRolledBack,
+        json!({
+            "vertical_id": "project-ops",
+            "name": "weekly-status",
+            "rolled_back_from_version_id": "ver-bad",
+            "new_version_id": "ver-good",
+            "new_version_number": 7,
+        }),
+    )
+    .await;
+    let (status, body) = parse_body(
+        list_response(&get_with_tenant("/api/v1/audit", "tenant-a"), Some(&store)).await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items array");
+    assert!(
+        items.iter().any(|it| it["action_type"] == "workflow_rolled_back"),
+        "workflow_rolled_back missing from feed: {body}"
+    );
+}
+
+#[tokio::test]
+async fn worker_hired_does_not_leak_across_tenants() {
+    // Load-bearing cross-tenant negative test — last week's #1983 PR
+    // shipped a real cross-tenant data-exposure bug in audit detail,
+    // so every audit-feed touch carries a fresh negative test for
+    // platform-event rows too.
+    let store = mem_store().await;
+    seed_platform_event(
+        &store,
+        "tenant-a",
+        AuditKind::WorkerHired,
+        json!({
+            "worker_id": "wkr-alpha",
+            "worker_name": "Alpha",
+            "vertical_id": "project-ops",
+            "name": "Alpha",
+            "duty_count": 1,
+            "hired_at": "2026-05-22T03:00:00Z",
+        }),
+    )
+    .await;
+    let (status, body) = parse_body(
+        list_response(&get_with_tenant("/api/v1/audit", "tenant-b"), Some(&store)).await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items array");
+    let leaked = items
+        .iter()
+        .any(|it| it["worker"]["id"] == "wkr-alpha");
+    assert!(
+        !leaked,
+        "tenant-a worker hire leaked into tenant-b feed: {body}"
     );
 }
 

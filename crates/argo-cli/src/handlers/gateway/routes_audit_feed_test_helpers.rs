@@ -141,3 +141,33 @@ pub(super) fn get_with_tenant_and_cap(path: &str, tenant: &str) -> String {
         "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\nX-Argo-Role: owner\r\n\r\n"
     )
 }
+
+/// Seed one platform-event audit row (e.g. `WorkerHired`,
+/// `WorkflowHeadChanged`, `WorkflowRolledBack`) under `tenant_id` with
+/// the payload shape the writer emits in
+/// `routes_workers_hire.rs` / `routes_workflows_handlers.rs`.
+///
+/// `extra` is merged into the base payload after `tenant_id` is
+/// stamped, so callers can attach `worker_id`, `vertical_id`,
+/// `workflow_name`, etc. without having to duplicate the shared keys.
+pub(super) async fn seed_platform_event(
+    store: &Arc<SessionStore>,
+    tenant_id: &str,
+    kind: AuditKind,
+    extra: Value,
+) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    let mut payload = json!({
+        "actor": "human:platform-event-test",
+        "tenant_id": tenant_id,
+    });
+    if let Value::Object(map) = extra {
+        for (k, v) in map {
+            payload[k] = v;
+        }
+    }
+    sink.write(None, kind, payload, Some("human:platform-event-test".into()))
+        .await
+        .expect("write platform-event audit row");
+    sink.flush_pending().await.expect("flush platform-event row");
+}
