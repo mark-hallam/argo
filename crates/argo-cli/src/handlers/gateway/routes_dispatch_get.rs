@@ -34,5 +34,14 @@ pub(super) async fn dispatch_get(
     if let Some(resp) = super::routes_workflows::dispatch_get(req, store).await {
         return Some(resp);
     }
+    // web-workflow-per-workflow-runs-table — workflow-run aggregate +
+    // recent-rows backing the `/workflows/<v>/<n>` detail page (replaces
+    // the hardcoded `82` runs / `94%` literals). Mounted AFTER
+    // `routes_workflows::dispatch_get` because that dispatcher returns
+    // `None` for unmatched sub-paths under `/workflows/...`, so the
+    // `/runs` suffix falls through cleanly to this arm.
+    if let Some(resp) = super::routes_workflow_runs::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     None
 }

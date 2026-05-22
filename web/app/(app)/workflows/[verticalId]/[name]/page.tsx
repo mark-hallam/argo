@@ -4,6 +4,7 @@ import "./page.css";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Code2,
@@ -22,7 +23,12 @@ import { WorkflowViewerErrorState } from "@/components/skycot/workflows/Workflow
 import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
 import { WorkflowVersionsPanel } from "@/components/skycot/workflows/WorkflowVersionsPanel";
 import { useWorkflow } from "@/lib/hooks/use-workflows";
+import {
+  fetchWorkflowRuns,
+  type FetchWorkflowRunsResult,
+} from "@/lib/api/workflow-runs";
 import type { WorkflowStepKind } from "@/lib/sample-workflows";
+import { WorkflowRunStats, WorkflowRunsTable } from "./run-history";
 
 /**
  * Visual workflow detail viewer — `/workflows/<v>/<name>`.
@@ -78,6 +84,15 @@ function ViewerInner({
   const workflow = data?.workflow ?? null;
   const source = data?.source ?? null;
   const isLive = source === "gateway";
+
+  const runsQuery = useQuery<FetchWorkflowRunsResult>({
+    queryKey: ["workflow-runs", verticalId, name],
+    queryFn: () => fetchWorkflowRuns({ verticalId, name, days: 30, limit: 25 }),
+    enabled: !!verticalId && !!name,
+    staleTime: 30_000,
+  });
+  const runsSummary = runsQuery.data?.summary ?? null;
+
 
   const resetState = useCallback(() => {
     const next = new URLSearchParams(searchParams?.toString() ?? "");
@@ -259,114 +274,13 @@ function ViewerInner({
           </div>
         )}
 
-        <div className="wfd-section-label">RUN HISTORY · LAST 7 DAYS</div>
-        <div
-          style={{
-            padding: 20,
-            background: "white",
-            border: "1px solid var(--border, #ece9f5)",
-            borderRadius: 12,
-            display: "flex",
-            gap: 24,
-            flexWrap: "wrap",
-            fontFamily: "Inter, sans-serif",
-            fontSize: 13,
-            color: "var(--muted-foreground, #52525b)",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                color: "var(--foreground, #1e1b4b)",
-                lineHeight: 1,
-              }}
-            >
-              82
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                marginTop: 4,
-              }}
-            >
-              Runs
-            </div>
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                color: "#14b8a6",
-                lineHeight: 1,
-              }}
-            >
-              94%
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                marginTop: 4,
-              }}
-            >
-              Success rate
-            </div>
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                color: "var(--foreground, #1e1b4b)",
-                lineHeight: 1,
-              }}
-            >
-              6.2s
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                marginTop: 4,
-              }}
-            >
-              Median latency
-            </div>
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                color: "var(--foreground, #1e1b4b)",
-                lineHeight: 1,
-              }}
-            >
-              $0.012
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                marginTop: 4,
-              }}
-            >
-              Cost / run
-            </div>
-          </div>
-        </div>
+        <div className="wfd-section-label">RUN HISTORY · LAST 30 DAYS</div>
+        <WorkflowRunStats query={runsQuery} summary={runsSummary} />
+        <WorkflowRunsTable
+          isPending={runsQuery.isPending}
+          isError={runsQuery.isError}
+          runs={runsSummary?.runs ?? []}
+        />
         {isLive ? (
           <WorkflowVersionsPanel
             verticalId={verticalId}
@@ -386,3 +300,4 @@ function ViewerInner({
     </>
   );
 }
+
