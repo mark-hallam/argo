@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T09:32:00Z",
+  "last_run_utc": "2026-05-22T09:43:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-49-cron-fired",
-  "run_notes": "Tick 49 — first cron-driven tick (cron 5ffcb613 at 3,23,43 * * * *). Merged #2038 (zombie-detection brief — worker loop will auto-release future zombies). Detected + killed 2nd zombie on web-cohort-skill-removal (PID 7718 chain, same SN-state-after-result:success pattern as the 4 prior incidents); row demoted to TODO. Queue: 6 TODO / 2 CLAIMED (workplace-knowledge-audit-kinds + audit-feed-platform-events, both healthy) / 2 IN_REVIEW / 6 open PRs (5 still DIRTY from cascade)."
+  "session_label": "anthropic-claude-code-conductor-tick-50-cron-fired",
+  "run_notes": "Tick 50 (cron-fired). Auditor T09-40 fired during interval: orientation 87/100, +8 delta (biggest interval ever). 4 P0 evaluator findings + 5-tick mission-workplace-knowledge-substrate ESCALATION all RESOLVED. Authored 2 follow-up briefs from auditor recommendations: (P0) claude-rebase-dirty-pr-cluster-tick38 — sweep the 5 DIRTY PRs as one pass with operator-authorized close-as-stale carve-out; (P2) mission-gateway-restart-executable-runbook — convert #2023 spec into `make restart-live-gateway`. Quick BLOCKED triage: most are DROPPED-not-blocked or have non-dep blockers; #1948 (dep for codex-tenant-id-callsite-grep-extension) is CLOSED-not-merged, so that row stays blocked. Queue: claude_todo 7 → 9 after this tick's 2 new briefs."
 }
