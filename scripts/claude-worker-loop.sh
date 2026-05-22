@@ -396,24 +396,52 @@ the next iteration.
   # SN state without EOF-ing stdout. The bash `tee | jq` pipeline never
   # closed, so the outer loop never reached the post-iteration block.
   #
+  # Followup (claude-worker-loop-zombie-detection-followup, PID-14468
+  # incident 2026-05-22): the original 4-condition gate failed to fire.
+  # Two defects, both fixed in this block:
+  #   (1) Condition #3 checked the LAST log line for result:*, but Claude
+  #       Code's background-task wake mechanism emits `{"type":"system",
+  #       "subtype":"init"}` AFTER a result to re-engage the session.
+  #       When claude wedged on the wake, the last line was `init`, not
+  #       `result` — condition #3 silently skipped.
+  #   (2) Condition #4 checked $PULSE_FILE mtime, but the sidecar touch
+  #       loop is independent of claude's wedge state — it keeps the
+  #       pulse fresh forever as long as bash itself is running. So
+  #       condition #4 was effectively always satisfied as "fresh" and
+  #       the gate never fired.
+  #
+  # Fix:
+  #   - Condition #3 now greps the WHOLE log for any result:success/error
+  #     event. Once claude has emitted a terminal result at least once,
+  #     the gate treats subsequent silence as "claude reported done" —
+  #     post-result `init` lines no longer reset that.
+  #   - Condition #4 replaces pulse-file mtime with claude's actual
+  #     process state. `SN` (nice'd sleep) is the documented wedge
+  #     signature; healthy claude is R*/S+/Ss/Sl; ScheduleWakeup-sleeping
+  #     claude stays in `S`, not `SN`. The state check distinguishes
+  #     wedge from legitimate sleep without relying on a bash sidecar
+  #     that can't see claude's state.
+  #
   # The watchdog fires ONLY when ALL FOUR conditions hold:
   #   1. The claude pipeline is still running (loop guard).
   #   2. $LOG_FILE mtime stale ≥20min (no streamed event in 20min).
-  #   3. The last log line is a `result:success` or `result:error`
-  #      event — i.e., claude already emitted its terminal event.
-  #   4. $PULSE_FILE mtime stale ≥120s — the bash-side heartbeat has
-  #      also stopped, confirming the loop is wedged on the pipeline.
+  #   3. The log has ever contained a `result:success` or `result:error`
+  #      event — claude reported "done" at least once.
+  #   4. The claude process is in `SN` (nice'd sleep) state — the wedge
+  #      signature. If CLAUDE_PID is unresolved (pgrep raced), skip
+  #      (conservative — accept missing the zombie rather than firing
+  #      blind without a clean target for SIGTERM).
   #
   # Operator-locked: NO hard per-session timeout. Legitimate long
   # iterations (cold workspace-clippy ~9min, 600-LOC briefs with
   # multi-crate tests 30-60min, ScheduleWakeup-based sleeps) must run
-  # as long as they need. The 4-condition gate distinguishes zombie
-  # from busy: a worker mid-cargo-test still streams tool_use events
-  # (log mtime fresh); a worker mid-ScheduleWakeup still touches the
-  # pulse from the bash side. Only true zombies satisfy all four.
+  # as long as they need. The state-based condition #4 is what holds
+  # the ScheduleWakeup line: a worker mid-cargo-test produces streaming
+  # tool_use events (log mtime fresh, fails #2); a worker mid-
+  # ScheduleWakeup is in `S` not `SN` (fails #4). Only true wedges
+  # satisfy all four.
   #
-  # On trigger: SIGTERM the claude PID (or pipeline PID if claude
-  # unresolved); escalate to SIGKILL after 30s grace.
+  # On trigger: SIGTERM the claude PID; escalate to SIGKILL after 30s.
   # ----------------------------------------------------------------------
   {
     while kill -0 "$PIPELINE_PID" 2>/dev/null; do
@@ -427,28 +455,29 @@ the next iteration.
       log_age=$((now - log_mtime))
       [ "$log_age" -lt 1200 ] && continue
 
-      # condition 3: last log event is result:success or result:error.
-      # JSON field order is not stable — check both orderings.
-      last_line=$(tail -1 "$LOG_FILE" 2>/dev/null || true)
-      case "$last_line" in
-        *'"type":"result"'*'"subtype":"success"'*) ;;
-        *'"type":"result"'*'"subtype":"error"'*)   ;;
-        *'"subtype":"success"'*'"type":"result"'*) ;;
-        *'"subtype":"error"'*'"type":"result"'*)   ;;
-        *) continue ;;
+      # condition 3: log has emitted at least one result:success/error
+      # event. Broader than "last line is result" — handles PID-14468
+      # where Claude Code's wake mechanism emitted `system:init` after
+      # the result, before claude wedged. JSON field order is not stable,
+      # so the regex accepts both orderings.
+      if ! grep -qE '"type":"result"[^{}]*"subtype":"(success|error)"|"subtype":"(success|error)"[^{}]*"type":"result"' "$LOG_FILE" 2>/dev/null; then
+        continue
+      fi
+
+      # condition 4: claude process state is SN (nice'd sleep — the
+      # wedge signature). Replaces the broken pulse-file mtime check.
+      # If CLAUDE_PID is unresolved, skip — we can't both verify wedge
+      # and reliably target SIGTERM, so be conservative.
+      [ -z "${CLAUDE_PID:-}" ] && continue
+      claude_state=$(ps -o state= -p "$CLAUDE_PID" 2>/dev/null | tr -d ' ')
+      case "$claude_state" in
+        SN*) ;;  # nice'd sleep — wedged
+        *) continue ;;  # R*/S+/Ss/Sl/S/I* — making progress or healthy sleep
       esac
 
-      # condition 4: $PULSE_FILE mtime stale ≥120s
-      pulse_age=0
-      if [ -f "$PULSE_FILE" ]; then
-        pulse_mtime=$(stat -f %m "$PULSE_FILE" 2>/dev/null || stat -c %Y "$PULSE_FILE" 2>/dev/null || echo 0)
-        pulse_age=$((now - pulse_mtime))
-      fi
-      [ "$pulse_age" -lt 120 ] && continue
-
       # ALL FOUR conditions hold → true zombie signature.
-      echo "[$(date +%H:%M:%S)] 🧟 zombie-watchdog fired: claude=${CLAUDE_PID:-?} pipeline=$PIPELINE_PID log_age=${log_age}s pulse_age=${pulse_age}s last_event=result; sending SIGTERM..." >&2
-      target_pid="${CLAUDE_PID:-$PIPELINE_PID}"
+      echo "[$(date +%H:%M:%S)] 🧟 zombie-watchdog fired: claude=$CLAUDE_PID pipeline=$PIPELINE_PID log_age=${log_age}s claude_state=$claude_state; sending SIGTERM..." >&2
+      target_pid="$CLAUDE_PID"
       kill -TERM "$target_pid" 2>/dev/null || true
       for _ in $(seq 30); do
         kill -0 "$target_pid" 2>/dev/null || break

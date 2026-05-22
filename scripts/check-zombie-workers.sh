@@ -105,11 +105,20 @@ mtime_epoch() {
 }
 
 # Classify a worker into 🟢/🟡/🔴 from (state, log_age_min, last_event).
+#
+# `last_event` after the PID-14468 followup: live mode now reports
+# `result:success` if the log contains ANY result event (grep over the
+# whole file), not just `tail -1`. This handles the wake-cycle case
+# where Claude Code emits `system:init` AFTER a result to re-engage
+# the session, and claude then wedges on the wake. We also accept the
+# literal `system:init` value here as terminal-equivalent so fixture
+# rows can model the wedge-on-init pattern directly without simulating
+# the full log history.
 classify() {
   local state="$1" log_age_min="$2" last_event="$3"
   local terminal=0
   case "$last_event" in
-    result:success|result:error) terminal=1 ;;
+    result:success|result:error|system:init) terminal=1 ;;
   esac
 
   # Default state buckets first.
@@ -197,21 +206,31 @@ for pid in $PIDS; do
   if [[ -n "$log" ]]; then
     log_mtime=$(mtime_epoch "$log")
     log_age_min=$(( (NOW_EPOCH - log_mtime) / 60 ))
-    last_line=$(tail -1 "$log" 2>/dev/null || echo "")
-    # Try jq first (cleaner); fall back to crude grep if jq missing.
-    if command -v jq >/dev/null 2>&1; then
-      last_event=$(printf '%s' "$last_line" | jq -r '
-        if .type == "result" then "result:" + (.subtype // "ok")
-        elif .type == "assistant" then "assistant"
-        elif .type == "system" then "system:" + (.subtype // "ok")
-        else (.type // "?") end' 2>/dev/null || echo "?")
+    # PID-14468 followup: derive last_event from the WHOLE log, not just
+    # the last line. If any result:success/error event ever appeared, we
+    # report that — even if the last raw line is `system:init` or a
+    # `task_notification` from Claude Code's background-task wake
+    # mechanism. The classify() function treats this as terminal so the
+    # 20-min log-staleness + SN state combination correctly flags zombies
+    # that wedged on a post-result init wake.
+    if grep -qE '"type":"result"[^{}]*"subtype":"error"|"subtype":"error"[^{}]*"type":"result"' "$log" 2>/dev/null; then
+      last_event="result:error"
+    elif grep -qE '"type":"result"[^{}]*"subtype":"success"|"subtype":"success"[^{}]*"type":"result"' "$log" 2>/dev/null; then
+      last_event="result:success"
     else
-      case "$last_line" in
-        *'"type":"result"'*'"subtype":"success"'*) last_event="result:success" ;;
-        *'"type":"result"'*'"subtype":"error"'*)   last_event="result:error" ;;
-        *'"type":"assistant"'*)                     last_event="assistant" ;;
-        *)                                          last_event="?" ;;
-      esac
+      last_line=$(tail -1 "$log" 2>/dev/null || echo "")
+      if command -v jq >/dev/null 2>&1; then
+        last_event=$(printf '%s' "$last_line" | jq -r '
+          if .type == "assistant" then "assistant"
+          elif .type == "system" then "system:" + (.subtype // "ok")
+          else (.type // "?") end' 2>/dev/null || echo "?")
+      else
+        case "$last_line" in
+          *'"type":"assistant"'*) last_event="assistant" ;;
+          *'"type":"system"'*'"subtype":"init"'*) last_event="system:init" ;;
+          *)                      last_event="?" ;;
+        esac
+      fi
     fi
   else
     log_age_min="?"

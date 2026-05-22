@@ -59,6 +59,7 @@ cat > "$FIXTURE" <<'EOF'
 1003	SN	2-09:33	zombie-after-result	42	result:success
 1004	SN	1-15:00	zombie-after-error	25	result:error
 1005	S+	00:05	healthy-just-started	0	system:init
+1006	SN	1-08:00	zombie-wedge-on-init-after-result	48	system:init
 EOF
 
 output=$(bash "$SUT" --fixture "$FIXTURE" 2>&1)
@@ -111,6 +112,19 @@ if echo "$output" | grep -q $'🟢healthy\t1005\t'; then
   pass "1005 classified as 🟢healthy (S+ state)"
 else
   fail "1005 not classified as 🟢healthy — output: $(echo "$output" | grep 1005 || echo MISSING)"
+fi
+
+# Expect 🔴zombie for pid 1006 — PID-14468 incident pattern.
+# Claude emitted result:success, then Claude Code's background-task wake
+# emitted system:init to re-engage; claude wedged on the wake. Last raw
+# log line was `init`, not result. Pre-followup classify() skipped this
+# (terminal=0 → 🟡suspicious at best). The followup treats system:init
+# as terminal-equivalent when state=SN AND log_age ≥20min — same zombie
+# signature as the original.
+if echo "$output" | grep -q $'🔴zombie\t1006\t'; then
+  pass "1006 classified as 🔴zombie (SN + log 48min silent + last=system:init — PID-14468 pattern)"
+else
+  fail "1006 not classified as 🔴zombie — output: $(echo "$output" | grep 1006 || echo MISSING)"
 fi
 
 # ------------------------------------------------------------------
