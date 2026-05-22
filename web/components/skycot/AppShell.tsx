@@ -1,8 +1,10 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import * as Popover from "@radix-ui/react-popover";
+import { ChevronDown, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { signOut as nextAuthSignOut } from "next-auth/react";
+import { useState, type ReactNode } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
 import { HoverHint } from "@/components/ui/Tooltip";
@@ -11,6 +13,8 @@ import {
   NAV_ITEMS,
   isNavItemActive,
 } from "@/components/skycot/nav-items";
+import { signOut as gatewaySignOut } from "@/lib/api/auth";
+import { useToast } from "@/lib/ui/use-toast";
 
 /**
  * Layout shell for every surface inside the `(app)` route group:
@@ -148,17 +152,67 @@ function SingleBinaryFooterChip() {
 }
 
 function WorkspaceFooter() {
+  const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
+  const toast = useToast();
+
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    const result = await gatewaySignOut();
+    if (!result.ok) {
+      setSigningOut(false);
+      setOpen(false);
+      toast.error("Couldn't sign out — please refresh and try again.");
+      return;
+    }
+    // The gateway has cleared `__Host-session` via Set-Cookie and
+    // written the JWT's jti into `revoked_tokens`. Drop the NextAuth
+    // session client-side and route to signin. `redirect: false` keeps
+    // the navigation owned by `router.replace` so React state stays
+    // consistent — NextAuth's built-in redirect bypasses the router.
+    await nextAuthSignOut({ redirect: false });
+    toast.success("Signed out");
+    router.replace("/auth/signin");
+  }
+
   return (
-    <button
-      type="button"
-      className="mt-1 flex items-center gap-2.5 rounded-[var(--radius-md)] px-3 py-2 hover:bg-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
-    >
-      <Avatar alt="Sam Harlow" size="sm" />
-      <span className="flex-1 flex flex-col items-start leading-tight">
-        <span className="text-sm font-medium text-[var(--foreground)]">Sam Harlow</span>
-        <span className="text-[11px] text-[var(--muted-foreground)]">Acmeco · Owner</span>
-      </span>
-      <ChevronDown className="size-4 text-[var(--muted-foreground)]" />
-    </button>
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          data-testid="appshell-user-menu-trigger"
+          aria-label="Open account menu"
+          className="mt-1 flex items-center gap-2.5 rounded-[var(--radius-md)] px-3 py-2 hover:bg-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
+        >
+          <Avatar alt="Sam Harlow" size="sm" />
+          <span className="flex-1 flex flex-col items-start leading-tight">
+            <span className="text-sm font-medium text-[var(--foreground)]">Sam Harlow</span>
+            <span className="text-[11px] text-[var(--muted-foreground)]">Acmeco · Owner</span>
+          </span>
+          <ChevronDown className="size-4 text-[var(--muted-foreground)]" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          side="top"
+          sideOffset={6}
+          className="z-50 min-w-[200px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] p-1 shadow-lg"
+        >
+          <button
+            type="button"
+            data-testid="appshell-sign-out"
+            disabled={signingOut}
+            onClick={handleSignOut}
+            className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--accent)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-[var(--duration-fast)]"
+          >
+            <LogOut className="size-4 text-[var(--muted-foreground)]" />
+            <span>{signingOut ? "Signing out…" : "Sign out"}</span>
+          </button>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
