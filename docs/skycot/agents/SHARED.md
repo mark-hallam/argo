@@ -65,3 +65,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-22T13:07:24Z [conductor] tick-60 (cron-fired) — quiet tick. Worker claimed mission-cross-tenant-test-audit-export (tick-59 replenishment paying off). No CLEAN PRs, no zombies. #2045 awaiting self-close.
 2026-05-22T13:27:16Z [conductor] tick-61 (cron-fired) — quiet tick. Both workers healthy mid-tool-use. No new PRs. #2045 still awaiting self-close.
 2026-05-22T13:47:19Z [conductor] tick-62 (cron-fired) — quiet, no state change. PID 30967 hit result:success, watching.
+2026-05-22T15:47:12Z [conductor] tick-63 (post-restart, cron d37c53a3 re-armed) — operator spawned 17 workers post-restart; 4 active on conductor-authored briefs. Merged #2046 MERGED-FINDINGS-ONLY (3 cross-tenant bugs documented as #[ignore]'d tests; fix-brief needed).

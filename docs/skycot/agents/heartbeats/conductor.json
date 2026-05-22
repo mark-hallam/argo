@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T13:43:00Z",
+  "last_run_utc": "2026-05-23T01:50:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-62-cron-fired",
-  "run_notes": "Tick 62 (cron-fired) — quiet, no state change since tick-61. Both workers still active: PID 30967 (claude-followup-pr-2021-test-run-gateway-persist) just hit result:success with fresh log — may produce PR shortly OR could zombie next tick. PID 54702 (mission-cross-tenant-test-audit-export) still mid-tool-use. #2045 at 79m since SUPERSEDED comment — still under any escalation window. Queue: 3 TODO / 2 CLAIMED / 1 IN_REVIEW / 1 open PR. No action this tick."
+  "session_label": "anthropic-claude-code-conductor-tick-63-post-restart",
+  "run_notes": "Tick 63 (cron-fired, post-Mac-restart). Cron re-armed as d37c53a3. Operator spawned 17 bash worker-loops post-restart; 4 active claudes ALL on briefs the conductor authored this session: mission-cross-tenant-test-worker-memory, mission-gateway-env-local-bootstrap (claimed within minutes of authoring), mission-cross-tenant-test-workspace-members, claude-worker-loop-zombie-detection-followup. Merged #2046 (cross-tenant-test-audit-export) as MERGED-FINDINGS-ONLY — 3 #[ignore]'d regression tests + findings documenting 3 real cross-tenant bugs in routes_audit_export.rs. Fix-brief needed next tick: tenant-scope fetch_rows_for_export/fetch_preview + bind tenant into signed payload + check caller-tenant on download. Queue: 0 TODO / 5 CLAIMED / 1 IN_REVIEW / 1 open PR (#2045 superseded duplicate). Auditor 6h1m old."
 }
