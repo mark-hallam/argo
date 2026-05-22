@@ -1,10 +1,12 @@
 # mission-workplace-knowledge-substrate — new crate `argo-workplace-knowledge` + 2 tables for tenant-scoped wiki
 
 **Owner**: claude.
-**Authored against**: origin/main `c613d922` on `2026-05-21`.
+**Authored against**: origin/main `90fb64111` on `2026-05-22` (re-validated; original auth `c613d922` 2026-05-21).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-workplace-knowledge-substrate`.
-**Priority**: P1 — first brief of Wave A from `docs/skycot/design/workplace-onboarding-architecture.md`. **PREREQUISITE for the 5 sibling Wave-A briefs.**
+**Priority**: 🚨 **P0 — OPERATOR-LOCKED 2026-05-22** — buyer-trial substrate. Mission claim 4 ("Skills shared + learned") cannot demo end-to-end without this. Gates 5 dependents (2 BLOCKED + 3 TODO). Auditor surfaced as P0 across 5+ consecutive reports (T04-02, T08-52, T09-40, T10-00, T21-40). Operator unblock confirmed by Mark Hallam on 2026-05-22. **Next claude-pool worker MUST claim this.**
 **Sizing**: ~600 LOC across new crate (lib.rs + doc.rs + revision.rs + tests) + migration SQL + workspace `Cargo.toml` registration.
+
+**Slot/v re-verification (2026-05-22 ledger snapshot — STILL run the pre-flight at claim time)**: latest slot is now **128** (`128__revoked_tokens.sql`), not 126 as the original brief noted. Latest v-registry is still **v76**. `EXPECTED_SCHEMA_VERSION` is still **76**. The slot number (next: ~129) is DIFFERENT from the v-version (next: v77) — they are not aligned on current main; verify via `scripts/check-migration-slots.sh` and inspect `registry_compliance.rs` for the slot↔v mapping convention before authoring.
 
 ## Why this brief exists
 
