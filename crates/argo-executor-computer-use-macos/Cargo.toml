@@ -9,6 +9,8 @@ description = "Argo V1.5 PoC — native macOS computer-use executor (drives macO
 
 [dependencies]
 argo-executor-computer-use = { path = "../argo-executor-computer-use" }
+argo-identity = { path = "../argo-identity" }
+argo-store = { path = "../argo-store" }
 argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
@@ -20,7 +22,5 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-argo-identity = { path = "../argo-identity" }
-argo-store = { path = "../argo-store" }
 tempfile = "3"
 tokio = { workspace = true, features = ["macros", "rt"] }

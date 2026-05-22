@@ -4,6 +4,8 @@
 //! [`argo_executor_computer_use::CuError`] so the dispatcher can
 //! decide handoff vs hard-fail per-variant.
 
+use argo_identity::WorkerId;
+use argo_types::TenantId;
 use thiserror::Error;
 
 /// Top-level error for the macOS executor.
@@ -15,6 +17,22 @@ pub enum MacosCuError {
     /// Windows test runner.
     #[error("argo-executor-computer-use-macos requires macOS (target_os = \"macos\")")]
     NotMacos,
+
+    /// The caller tenant does not own the worker named in the
+    /// request. Returned by the executor's tenant pre-flight gate
+    /// BEFORE any macOS API call (screen capture, osascript, etc.)
+    /// runs. The message is shape-identical whether the worker is
+    /// absent or lives in a different tenant — same principle as
+    /// `mission-cross-tenant-worker-handler-no-existence-leak` —
+    /// so a compromised tenant cannot enumerate other tenants'
+    /// workers via timing or message differences.
+    #[error("tenant pre-flight refused: tenant {tenant_id} does not own worker {worker_id}")]
+    TenantMismatch {
+        /// Caller tenant from the request.
+        tenant_id: TenantId,
+        /// Worker the caller tried to drive.
+        worker_id: WorkerId,
+    },
 
     /// One of the four required macOS permissions is not granted.
     /// `kind` is the System Settings panel name; `hint` is the
@@ -153,5 +171,41 @@ mod tests {
             bundle_id: "x".into()
         }
         .is_recoverable_to_handoff());
+        // TenantMismatch is a hard refusal — never silently handoff.
+        assert!(!MacosCuError::TenantMismatch {
+            tenant_id: TenantId::new(),
+            worker_id: WorkerId::nil(),
+        }
+        .is_recoverable_to_handoff());
+    }
+
+    #[test]
+    fn tenant_mismatch_message_shape_does_not_leak_other_tenant() {
+        // Both "worker absent" and "worker in another tenant" map
+        // to TenantMismatch with the request's own tenant/worker
+        // ids. The error text MUST NOT name another tenant, name
+        // a different worker, or otherwise let the caller
+        // distinguish the two cases (existence-leak invariant,
+        // matches mission-cross-tenant-worker-handler-no-existence-leak).
+        let tenant_a = TenantId::new();
+        let worker_x = WorkerId::nil();
+        let msg = MacosCuError::TenantMismatch {
+            tenant_id: tenant_a,
+            worker_id: worker_x,
+        }
+        .to_string();
+        assert!(
+            msg.contains(&tenant_a.to_string()),
+            "message names the caller tenant for audit"
+        );
+        assert!(
+            msg.contains(&worker_x.to_string()),
+            "message names the requested worker for audit"
+        );
+        // The message format is fixed; it has no "in tenant Y"
+        // suffix or similar that would betray the other tenant.
+        assert!(!msg.contains(" in tenant"));
+        assert!(!msg.contains("found in"));
+        assert!(!msg.contains("owned by"));
     }
 }

@@ -1,65 +1,41 @@
 //! Cross-tenant capability negative test for the macOS computer-use
-//! executor (mission-cu-macos-cross-tenant-capability-test).
+//! executor (mission-cu-macos-executor-tenant-preflight-enforce).
 //!
-//! **Ship status: FINDINGS-ONLY.** The brief asks for an
-//! `#[ignore]`'d test plus a finding when the executor turns out to
-//! have no tenant-aware capability gate. That is exactly what this
-//! file does — the tests below document the contract the
-//! conductor-authored fix-brief will need to deliver, and the
-//! `#[ignore]` keeps them from running until that landing is on
-//! main.
+//! Originally shipped as FINDINGS-ONLY by
+//! `mission-cu-macos-cross-tenant-capability-test` (#2063) — the
+//! contract tests were `#[ignore]`'d because the executor had no
+//! tenant-aware pre-flight surface to assert against. This
+//! fix-pair brief delivers the surface; the `#[ignore]` attributes
+//! are now dropped and the contract runs.
 //!
-//! ## The gap
+//! ## What this asserts
 //!
-//! - `MacosCuRunRequest` carries only `action_id` + `system_prompt`
-//!   + `audit_dir` + `anthropic_api_key`. **No `tenant_id`, no
-//!   `worker_id`.** There is no place in the executor's run-time
-//!   surface to bind a request to a tenant for a per-call
-//!   capability check.
-//! - `MacosCuExecutor::run`'s "pre-flight" is
-//!   `crate::preflight::probe()` which checks the four macOS
-//!   permissions (Screen Recording / Accessibility / Input
-//!   Monitoring / Automation). **It is NOT a capability gate.**
-//! - `MacosCuError` carries `NotMacos`, `PermissionDenied`,
-//!   `AppNotAllowed`, `ActionNotAllowed`, `FrontAppMismatch`,
-//!   subprocess + protocol variants — **no `CapabilityDenied` or
-//!   `TenantMismatch` variant.**
-//!
-//! Mission claim 5 (real-world execution) requires the macOS
-//! computer-use executor to refuse a tenant-mismatched
-//! `(caller_tenant, worker_id)` at pre-flight before any screen
-//! capture or `osascript` invocation runs. Until that lands, a
-//! compromised tenant_a worker that obtains `worker_b`'s id could
-//! drive tenant_b's computer-use session — provided some upstream
-//! caller hands it to the executor. The SQL primitives are
-//! tenant-scoped (verified by the positive sanity check below);
-//! the per-call capability gate at the executor layer is the
-//! missing piece.
-//!
-//! ## Removing `#[ignore]`
-//!
-//! Drop the attribute on both tests once the fix-brief delivers:
-//!   1. `MacosCuRunRequest` grows `tenant_id: TenantId` and
-//!      `worker_id: WorkerId` (or carries an opaque caller-
-//!      capability token signed against tenant_id).
-//!   2. `MacosCuExecutor::new` (or `run`) gains a handle to
-//!      `IdentityStore` so the pre-flight can look up
-//!      `worker.tenant_id`.
-//!   3. Pre-flight refuses the call with a typed error variant —
-//!      most likely `MacosCuError::CapabilityDenied { reason }` or
-//!      `MacosCuError::TenantMismatch { caller, worker_tenant }`.
-//!
-//! Source: evaluator round-4 finding documented at
-//! `docs/skycot/evals/scheduled/2026-05-22/computer-use-macos-executor-unit-tests.md`.
+//! 1. `sql_primitives_are_tenant_scoped_today` — the SQL layer is
+//!    tenant-scoped (sanity check, ran on FINDINGS-ONLY ship too).
+//! 2. `cross_tenant_worker_id_returns_tenant_mismatch` — the
+//!    executor refuses a request whose `(tenant_id, worker_id)`
+//!    pair does not exist in that tenant, returning
+//!    `MacosCuError::TenantMismatch` BEFORE any macOS API call
+//!    runs. This is the negative-path contract for mission
+//!    claim 5 (real-world execution).
+//! 3. `same_tenant_worker_id_passes_pre_flight` — the positive
+//!    pair: a request whose `(tenant_id, worker_id)` pair DOES
+//!    exist passes the pre-flight gate. The run will still bail
+//!    on the macOS-permission probe in CI / non-mac hosts, but
+//!    the bail is at the macOS layer, NOT a `TenantMismatch`.
 
-use argo_executor_computer_use_macos::{MacosCuConfig, MacosCuExecutor};
+use argo_executor_computer_use_macos::{
+    MacosCuConfig, MacosCuError, MacosCuExecutor, MacosCuRunRequest,
+};
 use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::SessionStore;
 use argo_types::TenantId;
+use std::path::PathBuf;
+use std::sync::Arc;
 
-/// Two-tenant bootstrap shared by both tests.
+/// Two-tenant bootstrap shared by the cross-tenant tests.
 struct Bootstrap {
-    store: SessionStore,
+    store: Arc<SessionStore>,
     tenant_a: TenantId,
     tenant_b: TenantId,
     worker_a: Worker,
@@ -69,7 +45,10 @@ struct Bootstrap {
 async fn bootstrap_two_tenants() -> Bootstrap {
     let store = SessionStore::open(":memory:").await.expect("open :memory:");
     let identities = IdentityStore::new(&store);
-    identities.ensure_schema().await.expect("ensure identity schema");
+    identities
+        .ensure_schema()
+        .await
+        .expect("ensure identity schema");
     let tenant_a = TenantId::new();
     let tenant_b = TenantId::new();
     let worker_a = Worker::draft(
@@ -84,10 +63,16 @@ async fn bootstrap_two_tenants() -> Bootstrap {
         Persona::named("bob", "test"),
         Role::new("tenant_b operator"),
     );
-    identities.create_worker(&worker_a).await.expect("create worker_a");
-    identities.create_worker(&worker_b).await.expect("create worker_b");
+    identities
+        .create_worker(&worker_a)
+        .await
+        .expect("create worker_a");
+    identities
+        .create_worker(&worker_b)
+        .await
+        .expect("create worker_b");
     Bootstrap {
-        store,
+        store: Arc::new(store),
         tenant_a,
         tenant_b,
         worker_a,
@@ -95,15 +80,24 @@ async fn bootstrap_two_tenants() -> Bootstrap {
     }
 }
 
-/// Sanity check that runs today (does NOT bear the `#[ignore]`):
-/// the SQL primitives ARE tenant-scoped — `worker_b` is not
-/// visible from `tenant_a`. The cross-tenant guard that's missing
-/// is the executor-level capability gate, not the underlying
-/// store query.
+fn run_request(tenant_id: TenantId, worker_id: argo_identity::WorkerId) -> MacosCuRunRequest {
+    MacosCuRunRequest {
+        tenant_id,
+        worker_id,
+        action_id: "act-cross-tenant".into(),
+        system_prompt: "noop".into(),
+        audit_dir: PathBuf::from("/tmp/cross-tenant-audit-never-written"),
+        anthropic_api_key: "test-key-never-used".into(),
+    }
+}
+
+/// Sanity check: the SQL layer is tenant-scoped — `worker_b` is
+/// not visible from `tenant_a`. (This ran on the FINDINGS-ONLY
+/// PR too and still runs here.)
 #[tokio::test]
 async fn sql_primitives_are_tenant_scoped_today() {
     let setup = bootstrap_two_tenants().await;
-    let identities = IdentityStore::new(&setup.store);
+    let identities = IdentityStore::new(setup.store.as_ref());
     let from_a = identities
         .get_worker(setup.tenant_a, setup.worker_b.id)
         .await
@@ -122,74 +116,79 @@ async fn sql_primitives_are_tenant_scoped_today() {
     );
 }
 
-/// **Negative**: executor refuses a `(caller=tenant_a, worker_id=worker_b)`
-/// pre-flight with a typed error. **`#[ignore]`'d** — the executor
-/// has no surface to express the cross-tenant call today, so this
-/// contract cannot be exercised. Drop the attribute when the
-/// fix-brief lands.
+/// **Negative**: the executor refuses a
+/// `(caller=tenant_a, worker_id=worker_b)` pre-flight with
+/// `MacosCuError::TenantMismatch`. This is the contract enforced
+/// BEFORE any macOS API call runs.
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: MacosCuRunRequest has no tenant_id/worker_id; \
-            MacosCuError has no CapabilityDenied/TenantMismatch variant. \
-            Conductor: author a fix-brief to grow the executor's capability \
-            pre-flight, then remove this #[ignore]."]
-async fn cross_tenant_worker_id_is_refused_at_preflight() {
+async fn cross_tenant_worker_id_returns_tenant_mismatch() {
     let setup = bootstrap_two_tenants().await;
-    let _executor = MacosCuExecutor::new(MacosCuConfig::for_notes_app())
-        .expect("construct executor with default config");
-    // The shape this test wants to express, once the executor is
-    // tenant-aware:
-    //
-    //   let req = MacosCuRunRequest {
-    //       tenant_id: setup.tenant_a,
-    //       worker_id: setup.worker_b.id,
-    //       action_id: "act-1".into(),
-    //       /* ... other fields ... */
-    //   };
-    //   let outcome = executor.run(req).await;
-    //   assert!(matches!(
-    //       outcome,
-    //       Err(MacosCuError::CapabilityDenied { .. })
-    //         | Err(MacosCuError::TenantMismatch { .. })
-    //   ));
-    //
-    // Today, `MacosCuRunRequest` carries no tenant/worker fields,
-    // so the call cannot even be constructed. Silenced via
-    // `#[ignore]` rather than `unimplemented!()` so the test
-    // skeleton survives clippy / cargo test without misleading
-    // CI into thinking the contract is enforced.
-    let _ = (setup.tenant_a, setup.worker_b.id);
+    let lookup: Arc<dyn argo_executor_computer_use_macos::TenantWorkerLookup> =
+        Arc::clone(&setup.store) as _;
+    let executor = MacosCuExecutor::new(MacosCuConfig::for_notes_app(), lookup)
+        .expect("construct executor with default config + lookup");
+
+    let req = run_request(setup.tenant_a, setup.worker_b.id);
+    let err = executor
+        .pre_flight_tenant_check(&req)
+        .await
+        .expect_err("cross-tenant pair must be refused at pre-flight");
+
+    match err {
+        MacosCuError::TenantMismatch {
+            tenant_id,
+            worker_id,
+        } => {
+            assert_eq!(tenant_id, setup.tenant_a);
+            assert_eq!(worker_id, setup.worker_b.id);
+        }
+        other => panic!("expected TenantMismatch, got: {other:?}"),
+    }
 }
 
-/// **Positive**: a same-tenant call passes the (would-be)
-/// capability pre-flight gate. The actual `run()` may still fail
-/// downstream (no Screen Recording grant in CI, missing
-/// Anthropic API key, etc.) — the contract is about the gate, not
-/// the action completing. **`#[ignore]`'d** for the same reason as
-/// the negative test.
+/// **Negative (absent worker)**: the executor refuses a
+/// `(caller=tenant_a, worker_id=<fresh, never created>)` with
+/// the same `TenantMismatch` variant. Same message shape as the
+/// cross-tenant case so a caller cannot distinguish "worker does
+/// not exist" from "worker is in another tenant" (existence-leak
+/// invariant, matches
+/// `mission-cross-tenant-worker-handler-no-existence-leak`).
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: pairs with `cross_tenant_worker_id_is_refused_at_preflight`. \
-            Remove together once the executor grows tenant-aware MacosCuRunRequest."]
-async fn same_tenant_worker_id_passes_preflight_gate() {
+async fn absent_worker_id_returns_tenant_mismatch_shape() {
     let setup = bootstrap_two_tenants().await;
-    let _executor = MacosCuExecutor::new(MacosCuConfig::for_notes_app())
-        .expect("construct executor with default config");
-    // The shape this test wants to express:
-    //
-    //   let req = MacosCuRunRequest {
-    //       tenant_id: setup.tenant_a,
-    //       worker_id: setup.worker_a.id,
-    //       action_id: "act-1".into(),
-    //       /* ... */
-    //   };
-    //   let outcome = executor.run(req).await;
-    //   // Pre-flight should NOT refuse with CapabilityDenied /
-    //   // TenantMismatch. Any other variant (PermissionDenied,
-    //   // NotMacos, etc.) is acceptable — that's a downstream
-    //   // gate, not the capability one this test asserts.
-    //   assert!(!matches!(
-    //       outcome,
-    //       Err(MacosCuError::CapabilityDenied { .. })
-    //         | Err(MacosCuError::TenantMismatch { .. })
-    //   ));
-    let _ = (setup.tenant_a, setup.worker_a.id);
+    let lookup: Arc<dyn argo_executor_computer_use_macos::TenantWorkerLookup> =
+        Arc::clone(&setup.store) as _;
+    let executor = MacosCuExecutor::new(MacosCuConfig::for_notes_app(), lookup)
+        .expect("construct executor with default config + lookup");
+
+    let absent_worker = argo_identity::WorkerId::new();
+    let req = run_request(setup.tenant_a, absent_worker);
+    let err = executor
+        .pre_flight_tenant_check(&req)
+        .await
+        .expect_err("absent worker must be refused at pre-flight");
+
+    assert!(
+        matches!(err, MacosCuError::TenantMismatch { .. }),
+        "expected TenantMismatch (existence-leak shape), got: {err:?}"
+    );
+}
+
+/// **Positive**: a same-tenant `(tenant_a, worker_a)` request
+/// passes the pre-flight gate. We only assert the gate's verdict;
+/// the full `run()` would still fail downstream on macOS
+/// permissions in CI, which is a separate gate.
+#[tokio::test]
+async fn same_tenant_worker_id_passes_pre_flight() {
+    let setup = bootstrap_two_tenants().await;
+    let lookup: Arc<dyn argo_executor_computer_use_macos::TenantWorkerLookup> =
+        Arc::clone(&setup.store) as _;
+    let executor = MacosCuExecutor::new(MacosCuConfig::for_notes_app(), lookup)
+        .expect("construct executor with default config + lookup");
+
+    let req = run_request(setup.tenant_a, setup.worker_a.id);
+    executor
+        .pre_flight_tenant_check(&req)
+        .await
+        .expect("same-tenant pair must pass the pre-flight gate");
 }

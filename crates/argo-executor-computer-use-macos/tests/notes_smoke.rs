@@ -34,8 +34,8 @@ async fn notes_create_type_readback() {
         return;
     }
 
-    let exec =
-        MacosCuExecutor::new(MacosCuConfig::for_notes_app()).expect("default config should build");
+    let exec = MacosCuExecutor::new_unguarded(MacosCuConfig::for_notes_app())
+        .expect("default config should build");
     let report = exec.preflight().await;
     if !report.all_granted() {
         println!(
@@ -108,5 +108,5 @@ async fn config_validate_smoke() {
     // file always contributes one passing assertion).
     let cfg = MacosCuConfig::for_notes_app();
     cfg.validate().expect("default Notes config validates");
-    let _exec = MacosCuExecutor::new(cfg).expect("default config builds executor");
+    let _exec = MacosCuExecutor::new_unguarded(cfg).expect("default config builds executor");
 }

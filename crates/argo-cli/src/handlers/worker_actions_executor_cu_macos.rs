@@ -63,9 +63,17 @@ fn dispatch_on_platform(
     decl: Option<&ActionDeclaration>,
 ) -> ArgoResult<ActionOutcome> {
     use argo_executor_computer_use_macos::{MacosCuError, MacosCuExecutor, MacosCuRunRequest};
+    use argo_types::TenantId;
 
     let config = build_config(decl);
-    let exec = MacosCuExecutor::new(config).map_err(|e| match e {
+    // CLI dispatch is single-tenant by construction: the executor
+    // is driven against the operator's own workspace store. The
+    // multi-tenant gate (refuse cross-tenant `(tenant, worker)`)
+    // engages when the executor is invoked from the gateway /
+    // agent runner — that path uses `MacosCuExecutor::new` with a
+    // real `Arc<SessionStore>` lookup. Marking the CLI path as
+    // `new_unguarded` keeps the opt-out explicit.
+    let exec = MacosCuExecutor::new_unguarded(config).map_err(|e| match e {
         MacosCuError::NotMacos => {
             ArgoError::Provider("argo-executor-computer-use-macos requires macOS".into())
         }
@@ -79,6 +87,8 @@ fn dispatch_on_platform(
 
     let bundle_path = bundle_path(action, cwd);
     let req = MacosCuRunRequest {
+        tenant_id: TenantId(uuid::Uuid::nil()),
+        worker_id: action.worker_id,
         action_id: action.action_id.clone(),
         system_prompt: build_system_prompt(action, decl),
         audit_dir: bundle_path.clone(),

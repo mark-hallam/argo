@@ -31,7 +31,9 @@
 //! use argo_executor_computer_use_macos::{MacosCuExecutor, MacosCuConfig};
 //! # async fn demo() -> Result<(), argo_executor_computer_use_macos::MacosCuError> {
 //! let config = MacosCuConfig::for_notes_app();
-//! let exec = MacosCuExecutor::new(config)?;
+//! // Single-tenant CLI dispatch path — see `MacosCuExecutor::new`
+//! // for the multi-tenant constructor that takes a real lookup.
+//! let exec = MacosCuExecutor::new_unguarded(config)?;
 //! let report = exec.preflight().await;
 //! if !report.all_granted() {
 //!     eprintln!("missing permissions:\n{}", report.actionable_summary());
@@ -61,6 +63,7 @@ pub mod preflight;
 #[cfg(test)]
 mod run_loop_tests;
 pub mod screenshot;
+pub mod tenant;
 
 pub use config::MacosCuConfig;
 pub use error::MacosCuError;
@@ -69,6 +72,7 @@ pub use executor::{
     MacosCuExecutor, MacosCuOutcome, MacosCuRunRequest, MacosCuSession, MacosStepRecord,
 };
 pub use preflight::{PermissionKind, PermissionReport, PermissionStatus};
+pub use tenant::{noop_tenant_lookup, NoopTenantWorkerLookup, TenantWorkerLookup};
 
 /// Result alias for the crate.
 pub type MacosCuResult<T> = Result<T, MacosCuError>;

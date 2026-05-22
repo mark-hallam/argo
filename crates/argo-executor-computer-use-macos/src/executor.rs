@@ -9,6 +9,7 @@ use crate::events::{action_kind, post, MacosActionResult};
 use crate::executor_loop::run_loop_with_client;
 use crate::preflight::{probe, PermissionReport};
 use crate::screenshot::{capture_front_window, read_png, screen_size};
+use crate::tenant::{noop_tenant_lookup, TenantWorkerLookup};
 use crate::MacosCuResult;
 use argo_executor_computer_use::anthropic::AnthropicClient;
 use argo_executor_computer_use::audit::AuditLog;
@@ -18,21 +19,42 @@ use argo_executor_computer_use::e2b::{ActionResult, CuAction};
 use argo_executor_computer_use::profile::Profile;
 use argo_executor_computer_use::restart::RestartCoordinator;
 use argo_executor_computer_use::{CuError, CuStepRunner};
+use argo_identity::WorkerId;
+use argo_types::TenantId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
-/// Top-level executor. Cloneable (config is `Clone`), so the same
-/// instance can drive concurrent dispatches.
-#[derive(Debug, Clone)]
+/// Top-level executor. Cloneable (config + the lookup `Arc` are
+/// both `Clone`), so the same instance can drive concurrent
+/// dispatches.
+#[derive(Clone)]
 pub struct MacosCuExecutor {
     config: MacosCuConfig,
+    tenant_lookup: Arc<dyn TenantWorkerLookup>,
+}
+
+impl std::fmt::Debug for MacosCuExecutor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MacosCuExecutor")
+            .field("config", &self.config)
+            .field("tenant_lookup", &"<dyn TenantWorkerLookup>")
+            .finish()
+    }
 }
 
 /// One native-macOS CU dispatch input.
+///
+/// `tenant_id` + `worker_id` bind the request to its caller's
+/// identity. The executor's pre-flight gate refuses any call
+/// where `tenant_lookup.worker_owned_by_tenant(tenant_id,
+/// worker_id)` is `false`, BEFORE any macOS API call runs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MacosCuRunRequest {
+    pub tenant_id: TenantId,
+    pub worker_id: WorkerId,
     pub action_id: String,
     pub system_prompt: String,
     pub audit_dir: PathBuf,
@@ -70,12 +92,35 @@ pub struct MacosCuSession {
 }
 
 impl MacosCuExecutor {
-    /// Build the executor. Validates the config; returns an error
-    /// if `target_app` isn't in `allowed_apps` or
-    /// `allowed_actions` is empty.
-    pub fn new(config: MacosCuConfig) -> MacosCuResult<Self> {
+    /// Build the executor with an explicit tenant-pre-flight
+    /// lookup. The lookup is consulted at the head of every
+    /// [`Self::run`] call, BEFORE any macOS API runs; a
+    /// cross-tenant `(tenant_id, worker_id)` pair refuses with
+    /// [`MacosCuError::TenantMismatch`].
+    ///
+    /// Multi-tenant callers (gateway, agent runner) pass an
+    /// `Arc<SessionStore>` (or any other
+    /// [`TenantWorkerLookup`] impl). Single-tenant callers (the
+    /// CLI dispatch path) pass [`crate::tenant::NoopTenantWorkerLookup`]
+    /// — see [`Self::new`] for that ergonomic.
+    pub fn new(
+        config: MacosCuConfig,
+        tenant_lookup: Arc<dyn TenantWorkerLookup>,
+    ) -> MacosCuResult<Self> {
         config.validate().map_err(MacosCuError::Protocol)?;
-        Ok(Self { config })
+        Ok(Self {
+            config,
+            tenant_lookup,
+        })
+    }
+
+    /// Build the executor with the trusted-single-tenant noop
+    /// lookup. Use ONLY when the caller is single-tenant by
+    /// construction (the CLI dispatch path against the operator's
+    /// own workspace store). Multi-tenant callers MUST use
+    /// [`Self::new`] with a real [`TenantWorkerLookup`].
+    pub fn new_unguarded(config: MacosCuConfig) -> MacosCuResult<Self> {
+        Self::new(config, noop_tenant_lookup())
     }
 
     /// Probe the four required macOS permissions. Returns a
@@ -85,9 +130,31 @@ impl MacosCuExecutor {
         probe()
     }
 
+    /// Verify that the request's `(tenant_id, worker_id)` pair
+    /// resolves to a worker the caller tenant owns. Returns
+    /// `Err(MacosCuError::TenantMismatch)` for any other case
+    /// (worker absent, cross-tenant, lookup error). Runs BEFORE
+    /// [`Self::preflight`] so a refused tenant never even probes
+    /// the macOS permission surface.
+    pub async fn pre_flight_tenant_check(&self, req: &MacosCuRunRequest) -> MacosCuResult<()> {
+        if self
+            .tenant_lookup
+            .worker_owned_by_tenant(req.tenant_id, req.worker_id)
+            .await
+        {
+            Ok(())
+        } else {
+            Err(MacosCuError::TenantMismatch {
+                tenant_id: req.tenant_id,
+                worker_id: req.worker_id,
+            })
+        }
+    }
+
     /// Run the autonomous Anthropic computer-use loop against
     /// native macOS step primitives.
     pub async fn run(&self, req: MacosCuRunRequest) -> MacosCuResult<MacosCuOutcome> {
+        self.pre_flight_tenant_check(&req).await?;
         let report = self.preflight().await;
         if !report.all_granted() {
             return Ok(Self::handoff(report.actionable_summary(), Vec::new()));

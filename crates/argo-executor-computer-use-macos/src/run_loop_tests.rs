@@ -9,6 +9,8 @@ use argo_executor_computer_use::e2b::{ActionResult, CuAction};
 use argo_executor_computer_use::profile::Profile;
 use argo_executor_computer_use::restart::RestartCoordinator;
 use argo_executor_computer_use::{CuError, CuStepRunner};
+use argo_identity::WorkerId;
+use argo_types::TenantId;
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -17,10 +19,10 @@ use std::time::Instant;
 fn executor_helpers_validate_and_package_outcomes() {
     let mut cfg = MacosCuConfig::for_notes_app();
     cfg.target_app = "com.apple.Terminal".to_string();
-    let err = MacosCuExecutor::new(cfg).unwrap_err();
+    let err = MacosCuExecutor::new_unguarded(cfg).unwrap_err();
     assert!(matches!(err, MacosCuError::Protocol(_)));
 
-    let exec = MacosCuExecutor::new(MacosCuConfig::for_notes_app()).unwrap();
+    let exec = MacosCuExecutor::new_unguarded(MacosCuConfig::for_notes_app()).unwrap();
     assert!(!exec.budget_exhausted(0, Instant::now()));
 
     match MacosCuExecutor::handoff("budget", vec![]) {
@@ -41,7 +43,7 @@ fn executor_helpers_validate_and_package_outcomes() {
 
 #[test]
 fn budget_exhausted_when_steps_reach_max() {
-    let exec = MacosCuExecutor::new(MacosCuConfig::for_notes_app()).unwrap();
+    let exec = MacosCuExecutor::new_unguarded(MacosCuConfig::for_notes_app()).unwrap();
     let started = Instant::now();
     assert!(exec.budget_exhausted(exec.config().max_steps, started));
     assert!(exec.budget_exhausted(exec.config().max_steps + 1, started));
@@ -105,6 +107,8 @@ impl AnthropicCall for ScriptedAnthropic {
 
 fn req(dir: &tempfile::TempDir) -> MacosCuRunRequest {
     MacosCuRunRequest {
+        tenant_id: TenantId::new(),
+        worker_id: WorkerId::new(),
         action_id: "act-mac".into(),
         system_prompt: "Type a short note, then stop_success.".into(),
         audit_dir: dir.path().join("bundle"),

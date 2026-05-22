@@ -122,7 +122,8 @@ fn dispatch_on_macos_preserves_handoff_when_preflight_missing() {
     use argo_executor_computer_use_macos::{MacosCuConfig, MacosCuExecutor};
     use std::fs;
 
-    let exec_for_probe = MacosCuExecutor::new(MacosCuConfig::for_notes_app()).expect("config");
+    let exec_for_probe =
+        MacosCuExecutor::new_unguarded(MacosCuConfig::for_notes_app()).expect("config");
     if super::run_preflight_summary(&exec_for_probe)
         .expect("preflight")
         .is_none()
