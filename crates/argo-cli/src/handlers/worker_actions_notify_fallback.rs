@@ -125,6 +125,29 @@ async fn run_one_attempt(
     }
 }
 
+/// Return a fallback chain with `preferred` moved to position 0
+/// (mission-channels-operator-preferred-fallback). When `preferred`
+/// is `None` or empty, the chain is returned unchanged so callers
+/// without an operator-preferred resolver — and operators with no
+/// configured `[operator.<id>.preferences]` block — keep the
+/// manifest-defined order. When `preferred` is already at position
+/// 0 the chain is also unchanged (no-op promotion). Otherwise the
+/// preferred channel is moved to the front, deduplicated against
+/// any prior occurrence further down the chain, so it is attempted
+/// first and only attempted once.
+#[must_use]
+pub fn promote_preferred(mut chain: FallbackChain, preferred: Option<&str>) -> FallbackChain {
+    let Some(name) = preferred.map(str::trim).filter(|s| !s.is_empty()) else {
+        return chain;
+    };
+    if chain.order.first().is_some_and(|c| c == name) {
+        return chain;
+    }
+    chain.order.retain(|c| c != name);
+    chain.order.insert(0, name.to_string());
+    chain
+}
+
 /// Best-effort persistence of a [`DeliveryReport`] to the JSONL
 /// log read by `argo doctor channels`. Errors are logged at
 /// `tracing::warn!` and swallowed — the chain's source of truth is

@@ -35,9 +35,15 @@
 use crate::handlers::worker_actions::ActionRecord;
 use crate::handlers::worker_actions_notify_fallback;
 use argo_audit::AuditSink;
+use argo_channels::operator_preferences::{
+    OperatorId, OperatorPreferencesResolver, TomlPreferencesSource,
+};
+use argo_channels::Notification;
 #[cfg(test)]
-use argo_channels::{Notification, RiskLevel};
+use argo_channels::RiskLevel;
+use chrono::Utc;
 use std::path::Path;
+use std::sync::Arc;
 
 #[path = "worker_actions_notify_audit.rs"]
 mod notify_audit;
@@ -100,6 +106,14 @@ pub async fn try_dispatch_on_ask(
     let sender = EnvChannelSender;
     if let Some(chain) = config.fallback_chain() {
         let notification = build_notification(action);
+        // mission-channels-operator-preferred-fallback: resolve the
+        // operator's preferred channel (Slack-first, SMS-never, etc.)
+        // and promote it to position 0 of the fallback chain. The
+        // resolver lazily reads `<cwd>/argo.toml` and falls through
+        // to manifest order when no `[operator.<id>.preferences]`
+        // block matches — covers the no-config dev path safely.
+        let preferred = resolve_preferred_channel(cwd, &notification).await;
+        let chain = worker_actions_notify_fallback::promote_preferred(chain, preferred.as_deref());
         let report = worker_actions_notify_fallback::dispatch_with_fallback(
             &notification,
             &chain,
@@ -131,6 +145,30 @@ pub async fn try_dispatch_on_ask(
         }
     }
     results.iter().filter(|r| r.success).count()
+}
+
+/// Resolve the operator-preferred channel kind for `notification`
+/// against the `[operator.<id>.preferences]` block (if any) in
+/// `<cwd>/argo.toml`. Returns the channel kind string suitable for
+/// matching against `FallbackChain.order` entries, or `None` when:
+///
+/// - the operator has no preferences row,
+/// - the file is missing/unparseable,
+/// - or the resolver errors for any other reason.
+///
+/// All failure modes return `None` so the dispatcher falls back to
+/// the manifest-defined order — operator preferences are an
+/// override, not a hard requirement.
+async fn resolve_preferred_channel(cwd: &Path, notification: &Notification) -> Option<String> {
+    let path = cwd.join("argo.toml");
+    let source = Arc::new(TomlPreferencesSource::new(path));
+    let resolver = OperatorPreferencesResolver::new(source);
+    let op = OperatorId::new(&notification.target.operator_id);
+    resolver
+        .resolve_initial(&op, notification.risk_level, Utc::now())
+        .await
+        .ok()
+        .map(|channel| channel.0)
 }
 
 #[cfg(test)]

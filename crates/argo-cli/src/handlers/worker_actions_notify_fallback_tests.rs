@@ -360,3 +360,47 @@ async fn persist_report_round_trips_through_jsonl() {
     assert_eq!(recent.len(), 1);
     assert_eq!(recent[0].action_id, "act-9");
 }
+
+#[test]
+fn promote_preferred_is_noop_when_preference_absent() {
+    let chain = FallbackChain::from_order(["slack", "email", "webinbox"]);
+    let promoted = promote_preferred(chain.clone(), None);
+    assert_eq!(promoted.order, chain.order);
+}
+
+#[test]
+fn promote_preferred_is_noop_when_preference_blank() {
+    let chain = FallbackChain::from_order(["slack", "email", "webinbox"]);
+    let promoted = promote_preferred(chain.clone(), Some("   "));
+    assert_eq!(promoted.order, chain.order);
+}
+
+#[test]
+fn promote_preferred_is_noop_when_already_first() {
+    let chain = FallbackChain::from_order(["slack", "email", "webinbox"]);
+    let promoted = promote_preferred(chain.clone(), Some("slack"));
+    assert_eq!(promoted.order, chain.order);
+}
+
+#[test]
+fn promote_preferred_moves_mid_chain_entry_to_front() {
+    let chain = FallbackChain::from_order(["slack", "email", "webinbox"]);
+    let promoted = promote_preferred(chain, Some("email"));
+    assert_eq!(promoted.order, vec!["email", "slack", "webinbox"]);
+}
+
+#[test]
+fn promote_preferred_prepends_when_channel_not_in_chain() {
+    let chain = FallbackChain::from_order(["slack", "email", "webinbox"]);
+    let promoted = promote_preferred(chain, Some("sms"));
+    assert_eq!(promoted.order, vec!["sms", "slack", "email", "webinbox"]);
+}
+
+#[test]
+fn promote_preferred_dedups_repeated_channel_when_moved_to_front() {
+    // Duplicate `slack` mid-chain gets removed when slack is
+    // promoted from a non-first position.
+    let chain = FallbackChain::from_order(["email", "slack", "webinbox", "slack"]);
+    let promoted = promote_preferred(chain, Some("slack"));
+    assert_eq!(promoted.order, vec!["slack", "email", "webinbox"]);
+}
