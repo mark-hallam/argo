@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
 import { HoverHint } from "@/components/ui/Tooltip";
 import { DemoBanner } from "@/components/skycot/DemoBanner";
+import { ThemeToggle } from "@/components/skycot/ThemeToggle";
 import { UserPill } from "@/components/skycot/UserPill";
 import {
   FOOTER_NAV_ITEMS,
@@ -68,7 +69,12 @@ function AppNav() {
           </NavItem>
         ))}
         <SingleBinaryFooterChip />
-        <UserPill />
+        <div className="flex items-end gap-1">
+          <div className="flex-1 min-w-0">
+            <UserPill />
+          </div>
+          <ThemeToggle />
+        </div>
       </div>
     </>
   );
