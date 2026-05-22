@@ -20,4 +20,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+argo-identity = { path = "../argo-identity" }
+argo-store = { path = "../argo-store" }
 tempfile = "3"
+tokio = { workspace = true, features = ["macros", "rt"] }
