@@ -1,5 +1,6 @@
 "use client";
 import { AlertTriangle } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useCallback } from "react";
 
 import { defaultCodeConfig } from "./builder-handlers";
@@ -37,13 +38,44 @@ const LANGUAGE_OPTIONS: { value: CodeLanguage; label: string }[] = [
   { value: "python", label: "Python 3.12" },
 ];
 
+const EDITOR_FRAME_STYLE: React.CSSProperties = {
+  borderRadius: 7,
+  border: "1px solid rgba(0,0,0,0.12)",
+  background: "white",
+  overflow: "hidden",
+};
+
+const EDITOR_FALLBACK_STYLE: React.CSSProperties = {
+  height: 320,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontFamily: "var(--font-mono)",
+  fontSize: 11,
+  color: "#a1a1aa",
+};
+
+// Monaco runtime weighs ~3MB; ship it from a code-split chunk that only
+// loads when a code-step config is opened. `ssr: false` avoids a
+// Next.js SSR boundary that the editor's window-globals would trip.
+const MonacoCodeEditor = dynamic(
+  () => import("@/components/builder/MonacoCodeEditor"),
+  {
+    ssr: false,
+    loading: () => (
+      <div data-testid="builder-code-monaco-loading" style={EDITOR_FALLBACK_STYLE}>
+        Loading editor…
+      </div>
+    ),
+  },
+);
+
 /**
- * Inline editor for the Code node config. Uses a plain monospaced
- * textarea rather than Monaco — keeps the SPA bundle small for v1; a
- * Monaco upgrade is a separate brief once the language-server wiring
- * exists. The sandbox warning banner is the brief's "no surprises"
- * promise: code execution is isolated, time-budgeted, and
- * network-allowlisted.
+ * Inline editor for the Code node config. The code body is a
+ * code-split Monaco editor (JavaScript / Python syntax highlighting,
+ * line numbers, 2-space tabs). The sandbox warning banner is the
+ * brief's "no surprises" promise: code execution is isolated,
+ * time-budgeted, and network-allowlisted.
  */
 export function CodeConfigEditor({ config, onChange }: Props) {
   const cfg = config ?? defaultCodeConfig();
@@ -92,7 +124,7 @@ export function CodeConfigEditor({ config, onChange }: Props) {
       </div>
       <div style={{ marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-          <label htmlFor="code-body" style={LABEL_STYLE}>Source</label>
+          <span style={LABEL_STYLE}>Source</span>
           <span
             style={{
               fontFamily: "var(--font-mono)",
@@ -103,23 +135,13 @@ export function CodeConfigEditor({ config, onChange }: Props) {
             Available: input, env, secrets
           </span>
         </div>
-        <textarea
-          id="code-body"
-          data-testid="builder-code-body"
-          value={cfg.code}
-          onChange={(e) => update({ code: e.target.value })}
-          rows={12}
-          spellCheck={false}
-          style={{
-            ...INPUT_STYLE,
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            lineHeight: 1.5,
-            tabSize: 2,
-            minHeight: 220,
-            resize: "vertical",
-          }}
-        />
+        <div data-testid="builder-code-body" style={EDITOR_FRAME_STYLE}>
+          <MonacoCodeEditor
+            language={cfg.language}
+            value={cfg.code}
+            onChange={(next) => update({ code: next })}
+          />
+        </div>
         {isEmpty ? (
           <div
             role="alert"
