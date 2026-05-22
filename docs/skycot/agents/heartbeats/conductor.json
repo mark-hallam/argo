@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-22T07:30:00Z",
+  "last_run_utc": "2026-05-22T09:05:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-44",
-  "run_notes": "Tick 44 — no-op tick. No new PRs since tick-43. 5 DIRTY PRs unchanged (oldest at 81 min, ~39 min from 2h stale threshold). P0 OPERATOR-LOCKED brief (mission-workplace-knowledge-substrate) still TODO after orphan-sweep — pool is at capacity (3 active CLAIMED workers, all on other briefs). Next natural inflection: DIRTY PRs cross 2h ~08:11 UTC → stale demotion; OR worker frees and re-claims P0; OR auditor cron fires (8h cadence, last 03:39 UTC, next ~11:39 UTC). Recommend operator pause ticks until one of those fires."
+  "session_label": "anthropic-claude-code-conductor-tick-47-operator-driven",
+  "run_notes": "Tick 45-47 batch (operator-driven, no automated interval). Ticks 45-46: 4 PRs merged (#2032 lint, #2033 cross-tenant-audit, #2034 P0 OPERATOR-LOCKED ✅, #2035 known-flakes, #2036 cohort-bulk-assign). Tick-45 zombie sweep killed 3 (PIDs 17940/18871/59400) + demoted 5 stale-DIRTY rows. Tick-47: unblocked Wave-A audit-kinds (cascade-unlocks 3 more), promoted to Phase A top. Just killed another 3 zombies (25742/41381/10598) and spawned 3 replacement workers. PID 7430+7436 actively shipping the P1 audit-kinds brief now. No conductor cron/launchd running — purely operator-driven this session."
 }
