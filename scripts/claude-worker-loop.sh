@@ -263,7 +263,15 @@ while true; do
   #
   # No --include-partial-messages: those produce ~15 stream_event chunks
   # per real action — pure noise. We want completed events only.
-  claude --dangerously-skip-permissions \
+  #
+  # Backgrounded inside `{ ... ; } &` so we can capture the subshell PID and
+  # spawn a zombie-detection watchdog. The watchdog distinguishes a
+  # legitimate long iteration (cargo test mid-stream, ScheduleWakeup sleep)
+  # from a true zombie (claude already emitted `result:success/error` but
+  # never EOF'd stdout, so bash is wedged on the pipeline). See watchdog
+  # block below. The `|| echo "Claude session exited non-zero..."` fallback
+  # is preserved via the `if ! wait` after the pipeline closes.
+  { claude --dangerously-skip-permissions \
          --output-format stream-json \
          --verbose \
          -p "You are a SKYCOT $FAMILY worker.
@@ -360,8 +368,113 @@ the next iteration.
       ))
     elif .type == "result" then "  ✅ result: " + (.subtype // "ok")
     elif .type == "system" and .subtype == "init" then "  ▶️  session started"
-    else empty end' \
-  || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
+    else empty end'; } &
+  PIPELINE_PID=$!
+
+  # Try to locate the claude PID among the pipeline subshell's children.
+  # `pgrep -P $PIPELINE_PID` lists direct children (claude, tee, jq); we
+  # match comm to filter to the claude process. Try for up to ~5s while the
+  # subshell spawns its pipeline; if we never find it, fall back to killing
+  # the pipeline subshell itself in the watchdog.
+  CLAUDE_PID=""
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    for child in $(pgrep -P "$PIPELINE_PID" 2>/dev/null || true); do
+      comm=$(ps -o comm= -p "$child" 2>/dev/null | tr -d ' ')
+      case "$comm" in
+        *claude*) CLAUDE_PID="$child"; break 2 ;;
+      esac
+    done
+    sleep 0.5
+  done
+  echo "[$(date +%H:%M:%S)] Pipeline PID=$PIPELINE_PID, claude PID=${CLAUDE_PID:-unresolved}"
+
+  # ----------------------------------------------------------------------
+  # Zombie-detection watchdog (claude-worker-loop-zombie-detection brief).
+  #
+  # Source: 4 observed zombie incidents (tick-38 through tick-45) where
+  # claude emitted `{"type":"result","subtype":"success"}`, then wedged in
+  # SN state without EOF-ing stdout. The bash `tee | jq` pipeline never
+  # closed, so the outer loop never reached the post-iteration block.
+  #
+  # The watchdog fires ONLY when ALL FOUR conditions hold:
+  #   1. The claude pipeline is still running (loop guard).
+  #   2. $LOG_FILE mtime stale ≥20min (no streamed event in 20min).
+  #   3. The last log line is a `result:success` or `result:error`
+  #      event — i.e., claude already emitted its terminal event.
+  #   4. $PULSE_FILE mtime stale ≥120s — the bash-side heartbeat has
+  #      also stopped, confirming the loop is wedged on the pipeline.
+  #
+  # Operator-locked: NO hard per-session timeout. Legitimate long
+  # iterations (cold workspace-clippy ~9min, 600-LOC briefs with
+  # multi-crate tests 30-60min, ScheduleWakeup-based sleeps) must run
+  # as long as they need. The 4-condition gate distinguishes zombie
+  # from busy: a worker mid-cargo-test still streams tool_use events
+  # (log mtime fresh); a worker mid-ScheduleWakeup still touches the
+  # pulse from the bash side. Only true zombies satisfy all four.
+  #
+  # On trigger: SIGTERM the claude PID (or pipeline PID if claude
+  # unresolved); escalate to SIGKILL after 30s grace.
+  # ----------------------------------------------------------------------
+  {
+    while kill -0 "$PIPELINE_PID" 2>/dev/null; do
+      sleep 60
+      kill -0 "$PIPELINE_PID" 2>/dev/null || break  # condition 1
+
+      now=$(date +%s)
+
+      # condition 2: $LOG_FILE mtime stale ≥1200s (20min)
+      log_mtime=$(stat -f %m "$LOG_FILE" 2>/dev/null || stat -c %Y "$LOG_FILE" 2>/dev/null || echo 0)
+      log_age=$((now - log_mtime))
+      [ "$log_age" -lt 1200 ] && continue
+
+      # condition 3: last log event is result:success or result:error.
+      # JSON field order is not stable — check both orderings.
+      last_line=$(tail -1 "$LOG_FILE" 2>/dev/null || true)
+      case "$last_line" in
+        *'"type":"result"'*'"subtype":"success"'*) ;;
+        *'"type":"result"'*'"subtype":"error"'*)   ;;
+        *'"subtype":"success"'*'"type":"result"'*) ;;
+        *'"subtype":"error"'*'"type":"result"'*)   ;;
+        *) continue ;;
+      esac
+
+      # condition 4: $PULSE_FILE mtime stale ≥120s
+      pulse_age=0
+      if [ -f "$PULSE_FILE" ]; then
+        pulse_mtime=$(stat -f %m "$PULSE_FILE" 2>/dev/null || stat -c %Y "$PULSE_FILE" 2>/dev/null || echo 0)
+        pulse_age=$((now - pulse_mtime))
+      fi
+      [ "$pulse_age" -lt 120 ] && continue
+
+      # ALL FOUR conditions hold → true zombie signature.
+      echo "[$(date +%H:%M:%S)] 🧟 zombie-watchdog fired: claude=${CLAUDE_PID:-?} pipeline=$PIPELINE_PID log_age=${log_age}s pulse_age=${pulse_age}s last_event=result; sending SIGTERM..." >&2
+      target_pid="${CLAUDE_PID:-$PIPELINE_PID}"
+      kill -TERM "$target_pid" 2>/dev/null || true
+      for _ in $(seq 30); do
+        kill -0 "$target_pid" 2>/dev/null || break
+        sleep 1
+      done
+      if kill -0 "$target_pid" 2>/dev/null; then
+        echo "[$(date +%H:%M:%S)] 🧟 zombie-watchdog: SIGTERM ineffective after 30s; escalating SIGKILL." >&2
+        kill -KILL "$target_pid" 2>/dev/null || true
+      fi
+      break
+    done
+  } &
+  WATCHDOG_PID=$!
+
+  # Wait for the pipeline to complete. Preserves the original `|| echo "..."`
+  # semantics: if the pipeline exits non-zero (claude crash, jq parse failure,
+  # SIGTERM/SIGKILL from the watchdog), print the friendly note. `if !`
+  # avoids tripping `set -e`.
+  if ! wait "$PIPELINE_PID"; then
+    echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
+  fi
+
+  # Stop the watchdog (it may still be inside its 60s sleep; that's fine —
+  # `kill` interrupts the sleep). Reap to suppress the "Done" job message.
+  kill "$WATCHDOG_PID" 2>/dev/null || true
+  wait "$WATCHDOG_PID" 2>/dev/null || true
 
   # Stop the heartbeat: clear the pulse file (background loop drops on next
   # check) and explicitly kill the writer in case it's mid-sleep.
@@ -487,6 +600,54 @@ PY
     continue
   fi
   rm -f "$QUOTA_HIT"  # belt-and-braces cleanup if file existed but was empty
+
+  # ----------------------------------------------------------------------
+  # Post-iteration "did claude actually ship?" check.
+  #
+  # The watchdog above kills true zombies (claude wedged after emitting
+  # `result:success/error`), but a worker can also bail without shipping
+  # for non-zombie reasons (network partition during gh pr create, OOM,
+  # SIGKILL from outside, ScheduleWakeup wedge after compaction, etc.).
+  # In every case the failure mode is the same: brief stays CLAIMED with
+  # no PR opened, the conductor must orphan-sweep + demote.
+  #
+  # Mirrors the quota guard's release block: same regex shape, same
+  # Python regex, same commit+rebase+push pattern. Triggered by a
+  # different signal (still-CLAIMED on origin/main after pipeline close).
+  # Runs AFTER the quota check so we don't double-release when quota
+  # already released the row.
+  # ----------------------------------------------------------------------
+  set +e
+  git -C "$REPO" fetch origin main 2>&1 | tail -1
+  git -C "$REPO" pull --ff-only origin main 2>&1 | tail -1
+  if grep -qE "^\| ${BRIEF_ID} \| (claude|codex) \| CLAIMED \|" \
+       "$REPO/docs/build-plan/BUILD_STATUS.md" 2>/dev/null; then
+    echo "[$(date +%H:%M:%S)] 🧟 ship-check: $BRIEF_ID still CLAIMED on main; releasing to TODO."
+    python3 - "$BRIEF_ID" "$REPO" <<'PY'
+import re, sys, pathlib
+brief, repo = sys.argv[1:3]
+p = pathlib.Path(repo) / "docs/build-plan/BUILD_STATUS.md"
+text = p.read_text()
+note = (f" **RELEASED by worker-loop zombie-detection:** "
+        f"worker exited without opening PR; /tmp/{brief} may have salvageable WIP.")
+new, n = re.subn(
+    rf"^(\| {re.escape(brief)} \| (?:claude|codex)) \| CLAIMED \|(.*) \|$",
+    lambda m: f"{m.group(1)} | TODO |{m.group(2)}{note} |",
+    text, count=1, flags=re.MULTILINE,
+)
+if n:
+    p.write_text(new)
+PY
+    git -C "$REPO" add docs/build-plan/BUILD_STATUS.md
+    if ! git -C "$REPO" diff --cached --quiet; then
+      git -C "$REPO" commit -m "status: release $BRIEF_ID (zombie; no PR opened)" 2>&1 | tail -1
+      git -C "$REPO" pull --rebase origin main 2>&1 | tail -2
+      git -C "$REPO" push origin main 2>&1 | tail -2
+    else
+      echo "[$(date +%H:%M:%S)] Row already non-CLAIMED; skipping ship-check release commit."
+    fi
+  fi
+  set -e
 
   # Defensive disk cleanup — SCOPED STRICTLY to this iteration's BRIEF_ID.
   # If the worker followed step 9 of its prompt the worktree is already
