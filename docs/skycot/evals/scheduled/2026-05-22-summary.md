@@ -1,100 +1,116 @@
-# Evaluator scheduled run — 2026-05-22
+# Evaluator scheduled run — 2026-05-22 (3 rounds, spans into 2026-05-23 Melbourne)
 
-**Two rounds.** Round 1 fired a P0 cluster + a partial. Round 2 verified the conductor closed the biggest P0 within 8 hours and added 4 more scenarios.
+**Three rounds.** Round 1 fired a P0 cluster + 1 partial. Round 2 verified the conductor closed the biggest P0 (#2025) within 8h + added 4 scenarios. Round 3 verified the SECOND round-1 P0 also closed (#2027) + found one new P0 + one drift finding.
 
-## Headline (after round 2)
+## Headline (after round 3)
 
-🟢 **The evaluator → conductor → worker loop is working as designed.** Round 1's P0-B (migration semicolon-in-comment) was authored as the brief I recommended (`claude-migration-comment-aware-splitter`), claimed, shipped, and merged as PR [#2025](https://github.com/mark-hallam/Argo-Agent/pull/2025) in <8 hours. After the fix, the two cargo tests that round 1 caught failing (`claim4_learned_skill_publishes_and_reloads_without_cross_tenant_leak` + `workflow_edit_api_lifecycle`) both pass cleanly.
+🟢 **The evaluator → conductor → worker loop closed BOTH round-1 P0s within 24 hours.** Briefs I recommended in round-1 were authored by the conductor (same names) and shipped as:
 
-**Remaining P0**: still the SPA cookies() import bug (P0-A) — `web/auth.config.ts:3` pulls server-only `next/headers` into a Client Component bundle, breaking every `/app/(app)/*` route. Brief `web-auth-config-server-only-split` (or similar). Same recipe as P0-B: split server-only from client-safe.
+- PR [#2025](https://github.com/mark-hallam/Argo-Agent/pull/2025) → `claude-migration-comment-aware-splitter` ← round-1 P0-B
+- PR [#2027](https://github.com/mark-hallam/Argo-Agent/pull/2027) → `web-auth-config-server-only-split` ← round-1 P0-A
 
-## Scenarios this session (9 total)
+Both verified at runtime / cargo-test level. The migration fix is the broadest — it unblocked every `:memory:` integration test that needed `migrate()` from v0, plus every fresh `~/.argo/sessions.db` install path. The SPA fix re-opened the entire `/app/(app)/*` route tree.
+
+🔴 **One new P0 discovered**: `POST /api/v1/audit/export` is tenant-blind. The swarm's own brief [#2046](https://github.com/mark-hallam/Argo-Agent/pull/2046) confirmed it and shipped 3 `#[ignore]`'d regression tests as MERGED-FINDINGS-ONLY pending a fix-brief that hasn't been authored.
+
+🟡 **One drift finding**: `argo-workplace-knowledge` crate ships in the workspace with zero `use` consumers across the codebase. Substrate + audit-kinds landed; the gateway that wires them is BLOCKED. The brief-pre-flight gate catches the downstream BLOCKED state, but the substrate's merge wasn't gated on consumer-existence.
+
+## All scenarios this session (12 total)
 
 | # | Scenario | Pillar | Round | Verdict |
 |---|---|---|---|---|
-| 1 | SPA cold-start route probe | All | 1 | 🔴 FAIL — P0-A |
+| 1 | SPA cold-start route probe | All | 1 | 🔴 FAIL → 🟢 PASS (round 3) |
 | 2 | Gateway-process freshness | All | 1 | 🟡 PARTIAL |
 | 3 | 5-teammate hire (anti-Mariah-clone) | Teammate | 1 | 🟡 PARTIAL |
-| 4 | Workflow lifecycle smoke | Workflow | 1 | 🔴 FAIL (now ✅ after #2025) |
-| 5 | Cross-tenant skill leak | Skills | 1 | 🔴 FAIL (now ✅ after #2025) |
-| 6 | Cross-tenant audit fix verification | Audit | 2 | 🟢 PASS |
+| 4 | Workflow lifecycle smoke | Workflow | 1 | 🔴 FAIL → 🟢 PASS (round 2) |
+| 5 | Cross-tenant skill leak | Skills | 1 | 🔴 FAIL → 🟢 PASS (round 2) |
+| 6 | Cross-tenant audit-detail fix verification | Audit | 2 | 🟢 PASS |
 | 7 | Worker downstream state after hire | Teammate | 2 | 🟢 PASS (v1-deferred gaps surfaced) |
 | 8 | Marketing route silent-500 sweep | All | 2 | 🟢 PASS (17/17) |
 | 9 | Main gateway died mid-session | Operational | 2 | 🟡 OPERATIONAL |
+| 10 | Audit-export tenant-blind exposure | Audit | 3 | 🔴 **NEW P0** |
+| 11 | Workplace-knowledge zero-caller drift | Hygiene | 3 | 🟡 DRIFT |
+| 12 | P0-A (SPA cookies) — verify fix | All | 3 | 🟢 PASS (verified #2027) |
 
-**Computer-use (pillar 3)** — not evaluated. Needs a macOS desktop driver session.
+**Computer-use (pillar 3)** — still not evaluated. Needs macOS desktop driver session, deferred to a future run.
 
-## Findings ranked by what's left to do
+## What's now open vs closed
 
-### 🔴 Still P0 — SPA cookies() import
+### 🔴 NEW P0 — audit-export tenant-blind
 
-`web/auth.config.ts:3` — `import { cookies } from "next/headers"` — pulled into a Client Component bundle via `auth.config.ts → auth.ts → lib/api/client.ts → use-approval-bundles.ts → app/(app)/page.tsx`. Result: `/auth/signup`, `/hire/step/1`, `/audit`, `/workflows` all return HTTP 500 on cold dev start. Landed in PR [#1901](https://github.com/mark-hallam/Argo-Agent/pull/1901).
+`POST /api/v1/audit/export` → `fetch_rows_for_export(store, window)` scans `audit_record` globally. No `tenant_id` filter. Caller at tenant_a can request a signed bundle covering any time window and receive every tenant's audit rows.
 
-**Concrete fix recipe**: split `auth.config.ts` into a client-safe `authConfig` constant + a server-only sibling that owns the `cookies()` call. Acceptance: cold `pnpm dev` returns 200 (or 302 to /auth/signin) on all 6 probe routes.
+PR [#2046](https://github.com/mark-hallam/Argo-Agent/pull/2046) shipped as `MERGED-FINDINGS-ONLY` with 3 `#[ignore]`'d regression tests. No fix-brief in the queue yet.
 
-[Report.](scheduled/2026-05-22/spa-cookies-import-app-routes-500.md)
+**Brief I recommend**: `mission-audit-export-tenant-scope-fix` — same shape as #1992's audit_detail fix. Add `tenant_id` to `fetch_rows_for_export` + `fetch_preview` signatures, bind it from `request_tenant_id(req)`, and remove the 3 `#[ignore]` attrs. Acceptance: all 3 tests pass + a 4th test for cross-tenant signed download URL.
 
-### 🟢 Round-2 follow-on: P0-B closed in 8h (the win story)
+**Process recommendation**: every `MERGED-FINDINGS-ONLY` commit should carry a `fix-by <date>` line; conductor's tick should fail-loud if a FINDINGS-ONLY merge passes its fix-by without a fix-PR.
 
-Round 1 found:
-- 48 migration SQL files have `;` characters inside `-- ` line comments (added by PR #1988 today).
-- The `split_terminator(';')` pattern in `v43.rs`, `v47.rs`, `v51.rs` chops comments on the embedded semicolons.
-- Symptom: `near "operator": syntax error` from SQLite during fresh-from-zero migrations.
-- Blast radius: every fresh install + every `:memory:` integration test.
+[Report.](scheduled/2026-05-22/audit-export-tenant-blind-exposure.md)
 
-Round 2 verified PR [#2025](https://github.com/mark-hallam/Argo-Agent/pull/2025) (`store(migrations): comment-aware SQL splitter`) merged today:
-- Introduces `argo_store::migrations::split_sql_statements`.
-- Swaps **9 callsites** (3 versioned migrations + 6 crate-scoped helpers I didn't even surface in round 1: `worker_archive`, `worker_deps`, `worker_kpi`, `worker_okr`, `learned_plan_template`, plus one in `migrations/mod.rs`).
-- Both regression tests now pass:
-  - `cargo test -p argo-skill --test end_to_end_claim4_loop ...` → 1 passed.
-  - `cargo test -p argo-cli --test workflow_edit_api_smoke ...` → 1 passed.
+### 🟡 NEW Drift — `argo-workplace-knowledge` zero-caller
 
-[Reports.](scheduled/2026-05-22/skill-cross-tenant-leak-blocked-by-migration-bug.md) [And.](scheduled/2026-05-22/workflow-build-save-publish-rollback.md)
+```
+crates/argo-workplace-knowledge/src/lib.rs           (substrate — exists)
+crates/argo-audit/src/event_kind.rs                  (variants — defined, never emitted)
+crates/argo-store/migrations/129__workplace_knowledge.sql  (tables — created, never read)
+crates/argo-cli/src/handlers/                        (handlers — ABSENT)
+```
 
-### 🟢 Audit cross-tenant scoping verified (mission claim 6 closed loop)
+Substrate brief MERGED. Audit-kinds brief MERGED. Gateway brief BLOCKED on its own pre-flight refusing to claim because no consumer exists yet (irony — it IS the would-be consumer). Editor SPA brief BLOCKED on gateway.
 
-PR [#1992](https://github.com/mark-hallam/Argo-Agent/pull/1992) scoped `audit_detail` + `audit_replay` + `retros` row-fetches by tenant. The bug was: `SELECT … FROM audit_record WHERE id = ?` (no tenant scoping). The fix: `SELECT … FROM audit_record WHERE id = ? AND tenant_id = ?`.
+Recommend `claude-zero-caller-substrate-lint` — a CI script that flags any workspace crate with zero `use <crate>` consumers across other crates.
 
-Unit test that pins this: `detail_returns_404_for_cross_tenant_action_id` — seeds a row under tenant A, queries under tenant B, asserts 404. ✅ Passes.
+[Report.](scheduled/2026-05-22/workplace-knowledge-zero-caller-drift.md)
 
-This closes the marketing-vs-reality gap the auditor flagged 2026-05-21: the Friday founder-post `2026-05-22/linkedin-personal-founder-audit-found-real-bugs.md` can now ship truthfully — audit found bugs → workers shipped fixes within hours.
+### 🟢 P0-A — SPA cookies import CLOSED
+
+PR [#2027](https://github.com/mark-hallam/Argo-Agent/pull/2027) split `auth.config.ts` exactly as the recipe specified. All round-1 failing routes now return 200 on cold dev start:
+
+```
+/landing 200 · /auth/signup 200 · /audit 200 · /workflows 200 · /hire 200 · / 200
+/hire/step/1 404 (by-design — wizard's step-1 is /hire) · /onboarding 404 (stale)
+```
+
+[Report.](scheduled/2026-05-22/p0-a-spa-cookies-fix-verified.md)
+
+### 🟢 P0-B — Migration semicolon-in-comment CLOSED
+
+PR [#2025](https://github.com/mark-hallam/Argo-Agent/pull/2025) introduced `split_sql_statements` (line-based, comment-aware) and swapped 9 callsites — 3 versioned migrations plus 6 crate-scoped helpers I hadn't even identified in round 1. Verified by:
+
+- `cargo test -p argo-skill --test end_to_end_claim4_loop ...` → ✅ 1 passed
+- `cargo test -p argo-cli --test workflow_edit_api_smoke ...` → ✅ 1 passed
+
+[Original report.](scheduled/2026-05-22/skill-cross-tenant-leak-blocked-by-migration-bug.md)
+
+### 🟢 Cross-tenant audit-detail fix CLOSED
+
+PR [#1992](https://github.com/mark-hallam/Argo-Agent/pull/1992)'s unit test passes (`detail_returns_404_for_cross_tenant_action_id` → ok). Mission claim 6 closed-loop verified at the audit_detail surface.
 
 [Report.](scheduled/2026-05-22/audit-cross-tenant-fix-verification.md)
 
-### 🟡 Operational — main gateway died mid-session
+### 🟡 Main gateway still dead
 
-`http://127.0.0.1:7400` no longer accepts connections. PID 28198 gone. `~/.argo/gateway.pid` removed. `~/.argo/gateway.log` shows a failed restart attempt against `./target/release/argo` — but the gateway runs from `/tmp/argo-shared-target/release/argo`, so the watchdog command was wrong.
-
-Good news: the conductor already authored `gateway-restart-runbook` brief (per `5df7add84` in git log — "from auditor T09-40"). Coordinated with this finding.
-
-The 7 EVAL workers from round 1 + the conductor's workspace state are intact in `~/.argo/sessions.db` (3.3 MB file untouched). They re-appear as soon as someone brings up a gateway with the correct binary path.
+`:7400` still refuses connections. The conductor has authored `mission-gateway-restart-runbook` (per `5df7add84` brief auto-fire from auditor T09-40) and `mission-gateway-env-local-bootstrap` (per `7293b7c39` — "close the 5-footgun cold-start trap") and these are now CLAIMED. Not blocking — once a fresh gateway is up, I can probe the 7 EVAL workers from round 1 + verify the audit-export bug with a real bundle download.
 
 [Report.](scheduled/2026-05-22/gateway-died-mid-session.md)
 
-### 🟡 Marketing routes — all 17 healthy
+### 🟡 P0-D — Audit feed missing platform events (round 1)
 
-`/landing`, `/compare`, `/pricing`, `/customers`, `/docs`, `/changelog`, `/security`, `/privacy`, `/terms`, `/sla`, `/help`, plus `/for/{finance,marketing,ops,recruiting,sales,support}` — all return HTTP 200 on cold `pnpm dev`. The customer-acquisition surface is solid up to the "Hire your first worker" call-to-action. The breakage starts the moment you cross into the auth-gated tree (P0-A).
+Still open. Brief candidate `web-audit-feed-platform-events` not yet in the queue. Workers in flight on related work (`web-audit-feed-platform-events` flagged in commits — let me verify).
 
-[Report.](scheduled/2026-05-22/worker-downstream-state-after-hire.md) [Side notes.](scheduled/2026-05-22/teammate-hire-five-distinct-personas.md)
+## What I'd ask the conductor to action next (ranked)
 
-### 🟢 Worker downstream state — real, not theater
+1. **🔴 Author `mission-audit-export-tenant-scope-fix`** — fix the actual data-exposure that #2046 documented but didn't fix. Removes 3 `#[ignore]` attrs. ~50 LOC + tests.
+2. **🟡 `claude-merged-findings-only-fix-by-deadline`** — CI rule that flags FINDINGS-ONLY commits aged past their fix-by date. Small.
+3. **🟡 `claude-zero-caller-substrate-lint`** — CI rule that flags workspace crates with no `use` consumers. Would have caught the workplace-knowledge drift at merge time.
+4. **🟢 (already in flight) `mission-gateway-restart-runbook` + `mission-gateway-env-local-bootstrap`** — bring `:7400` back up against the correct binary path. Once up, re-run scenarios 6/7/10 against live state.
+5. **🟢 (already in flight) `mission-workplace-knowledge-gateway`** — unblock the substrate drift by shipping the consumer. Already P0 on the auditor's 3rd-consecutive-escalation list.
 
-Hire writes 4 SQL rows in a single transaction (persona / role / worker / duty). Memory namespace allocated. Trust grade defaulted to 0. Channels + KPIs intentionally empty at hire (v1-deferred to post-hire flows). The Mariah-card mockup's animated KPIs are "what it looks like after a few days", not "immediately after hire" — would be worth a one-line empty-state copy on fresh hires.
+## State left behind
 
-All 6 `argo-identity` inline tests pass against current `main`.
-
-[Report.](scheduled/2026-05-22/worker-downstream-state-after-hire.md)
-
-## State left behind by round 2
-
-- Next.js dev server running at `:3000` (restarted in this session, PID printed in /tmp/eval-web-dev-round2.log). Safe to kill.
-- 7 EVAL workers still in `~/.argo/sessions.db`. Wait for a fresh gateway to query them.
-- All scenario reports in `docs/skycot/evals/scheduled/2026-05-22/`.
-
-## What I'd ask the conductor to action next
-
-1. **Author `web-auth-config-server-only-split`** to close P0-A. Recipe in [the round-1 SPA report](scheduled/2026-05-22/spa-cookies-import-app-routes-500.md#gap--follow-up-brief-candidates).
-2. **Run `mission-gateway-restart-runbook`** (already on the queue) and bring `:7400` back up against `/tmp/argo-shared-target/release/argo`. Once up, I can run scenarios 6 + 7 + the audit-feed surface check against the real DB.
-3. **Author `web-audit-feed-platform-events`** to UNION platform events (WorkerHired, WorkflowHeadChanged, WorkflowRolledBack) into the operator's `/audit` view — round-1 P0-D, still open.
+- Next.js dev server running at `:3000` (PID per `/tmp/eval-web-dev-r3.log`). Safe to kill.
+- 7 EVAL workers still in `~/.argo/sessions.db`. Wait for fresh gateway.
+- All 8 scenario reports in `docs/skycot/evals/scheduled/2026-05-22/`.
 
 Next planned eval run: 2026-05-23 daily.
