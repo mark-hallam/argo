@@ -49,3 +49,4 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 2026-05-22T06:58:49Z [conductor] tick-42 — merged #2029 (sample-workflows-catalog); +2 P3 hygiene briefs (known-flakes-refresh + wizard-flake-fix). 5 DIRTY PRs still in flight; under 2h stale threshold.
 2026-05-22T07:20:29Z [conductor] tick-43 — merged #2030 (auth-session-expired); 🚨 ORPHAN-CLAIM SWEEP demoted mission-workplace-knowledge-substrate (P0 OPERATOR-LOCKED) + web-workplace-knowledge-editor — no pulse, no worktree, no remote branch. Workers must re-claim the P0.
 2026-05-22T07:33:17Z [conductor] tick-44 — no-op tick (no new PRs, no rebases on 5 DIRTY, P0 still TODO awaiting worker capacity). Recommend pause until DIRTY cross 2h ~08:11 UTC or new PR opens.
+2026-05-22T09:29:13Z [conductor] tick-49 (cron-fired) — merged #2038 zombie-detection; killed 2nd zombie on web-cohort-skill-removal + demoted row. Queue: 6 TODO / 2 CLAIMED / 2 IN_REVIEW.
