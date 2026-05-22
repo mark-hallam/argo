@@ -15,7 +15,19 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{Mutex, MutexGuard};
 
-async fn env_lock() -> MutexGuard<'static, ()> {
+/// Count the worker rows persisted into the test store. The hire
+/// handler writes through `IdentityStore::create_worker_from_draft`,
+/// which the canonical `worker_persona` table backs; counting the
+/// table catches duplicate-row creation regardless of the response
+/// shape returned to the client.
+pub(super) async fn count_worker_rows(store: &SessionStore) -> i64 {
+    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM worker")
+        .fetch_one(store.pool())
+        .await
+        .expect("count worker rows")
+}
+
+pub(super) async fn env_lock() -> MutexGuard<'static, ()> {
     static M: Mutex<()> = Mutex::const_new(());
     M.lock().await
 }
@@ -28,19 +40,19 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-fn set_test_env(tmp: &std::path::Path) {
+pub(super) fn set_test_env(tmp: &std::path::Path) {
     std::env::set_var("ARGO_HOME", tmp.join("home"));
     std::fs::create_dir_all(tmp.join("home")).expect("home dir");
     std::env::set_var("ARGO_VERTICALS_DIR", workspace_root().join("verticals"));
 }
 
-async fn mem_store() -> Arc<SessionStore> {
+pub(super) async fn mem_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:").await.expect("open mem db");
     store.migrate().await.expect("migrate");
     Arc::new(store)
 }
 
-fn hire_req(body: &str) -> String {
+pub(super) fn hire_req(body: &str) -> String {
     format!(
         "POST /api/v1/workers HTTP/1.1\r\nHost: x\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()
@@ -72,7 +84,7 @@ fn valid_draft() -> Value {
     })
 }
 
-fn valid_body() -> String {
+pub(super) fn valid_body() -> String {
     json!({
         "worker_draft": valid_draft(),
         "problem": "Need outbound follow-up across our weekly marketplace leads.",
@@ -450,3 +462,4 @@ async fn hire_aggressive_policy_enables_auto_approval_on_row() {
         .expect("present");
     assert!(worker.auto_approval.enabled);
 }
+

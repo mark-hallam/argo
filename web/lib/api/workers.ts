@@ -42,6 +42,7 @@ import { ApiError } from "@/lib/api/types";
 import { findSampleWorker } from "@/lib/sample-workers-detail";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
+import { getOrCreateIdempotencyKey } from "@/lib/hire/idempotency-key";
 import type { Worker, WorkerStatus } from "@/lib/types/worker";
 
 /** Thrown when the worker id doesn't resolve. */
@@ -148,11 +149,26 @@ export interface HireWorkerRequest {
    * pass-through can ship without forcing all call sites to update.
    */
   genesisFallback?: boolean;
+  /**
+   * Optional caller-provided idempotency key (UUID v7 recommended). If
+   * omitted, [[hireWorker]] sources the per-flow key from the
+   * Step-1-generated localStorage entry via
+   * [[getOrCreateIdempotencyKey]]. The gateway de-dupes on
+   * `(tenant, key, created_at > now - 1h)` so a double-click or
+   * page-reload during Step 4 cannot create a second worker.
+   */
+  idempotencyKey?: string;
 }
 
 export interface HireWorkerResult {
   workerId: string;
   success: true;
+  /**
+   * Set to `true` on a duplicate idempotency_key submission. The
+   * `workerId` is the existing row's id and the parent UI can route
+   * to it unchanged (the user sees the same Done state either way).
+   */
+  duplicate?: boolean;
 }
 
 function stubWorkerId(): string {
@@ -253,7 +269,8 @@ async function postProxy<T>(path: string, body: unknown): Promise<T> {
  * emits camelCase there.
  */
 function buildHireBody(req: HireWorkerRequest): Record<string, unknown> {
-  const { workerDraft, problem, answers, genesisFallback } = req;
+  const { workerDraft, problem, answers, genesisFallback, idempotencyKey } = req;
+  const key = idempotencyKey ?? getOrCreateIdempotencyKey() ?? undefined;
   const body: Record<string, unknown> = {
     worker_draft: workerDraft,
     problem,
@@ -262,6 +279,7 @@ function buildHireBody(req: HireWorkerRequest): Record<string, unknown> {
   if (genesisFallback) {
     body.genesis_fallback = true;
   }
+  if (key) body.idempotency_key = key;
   return body;
 }
 

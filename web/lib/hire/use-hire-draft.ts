@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { clearDraft as clearDraftStore, loadDraft, saveDraft } from "./draft-store";
 import type { HireDraftState } from "./draft-types";
+import {
+  clearIdempotencyKey,
+  getOrCreateIdempotencyKey,
+} from "./idempotency-key";
 
 /**
  * Working state held by the hook before the user has touched the
@@ -26,6 +30,14 @@ export interface UseHireDraftResult {
   isLoading: boolean;
   /** Last error from a load/save/clear attempt. */
   error: Error | null;
+  /**
+   * UUID v7 idempotency key generated on Step 1 first-load and
+   * persisted across Step 2–6. The gateway hire endpoint de-dupes on
+   * `(tenant, key, created_at > now - 1h)` so a double-click or
+   * reload cannot create a duplicate worker row. `null` until the
+   * hook has mounted on the client (SSR).
+   */
+  idempotencyKey: string | null;
 }
 
 const EMPTY_BODY: HireDraftBody = { step: 1 };
@@ -43,9 +55,14 @@ export function useHireDraft(): UseHireDraftResult {
   const [state, setState] = useState<HireDraftState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    // Lazy-generate the hire-flow idempotency key on first mount.
+    // Step 1 page is the typical first-load, but any step page mounts
+    // the same hook and produces / reuses the same persisted key.
+    setIdempotencyKey(getOrCreateIdempotencyKey());
     loadDraft()
       .then((draft) => {
         if (!cancelled) {
@@ -83,11 +100,13 @@ export function useHireDraft(): UseHireDraftResult {
     setError(null);
     try {
       await clearDraftStore();
+      clearIdempotencyKey();
       setState(null);
+      setIdempotencyKey(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err : new Error(String(err)));
     }
   }, []);
 
-  return { state, update, clear, isLoading, error };
+  return { state, update, clear, isLoading, error, idempotencyKey };
 }

@@ -40,7 +40,23 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 const IDEMPOTENCY_HEADER: &str = "Idempotency-Key";
-const IDEMPOTENCY_TTL_SECS: i64 = 24 * 60 * 60;
+const IDEMPOTENCY_BODY_FIELD: &str = "idempotency_key";
+const IDEMPOTENCY_WINDOW_ENV: &str = "ARGO_HIRE_IDEMPOTENCY_WINDOW_SECS";
+const IDEMPOTENCY_DEFAULT_WINDOW_SECS: i64 = 60 * 60;
+
+/// De-dupe window for `(tenant_id, idempotency_key)` lookups. The
+/// brief calls for a 1-hour default (`created_at > now - 1h`) so a
+/// double-click or page reload during Step 4 collapses to one row,
+/// but a legitimate same-key hire a week later is not blocked.
+/// Operators can extend or shrink the window via
+/// [`IDEMPOTENCY_WINDOW_ENV`].
+fn idempotency_window_secs() -> i64 {
+    std::env::var(IDEMPOTENCY_WINDOW_ENV)
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(IDEMPOTENCY_DEFAULT_WINDOW_SECS)
+}
 
 /// `POST /api/v1/workers` — commit a hire from the E2-e draft.
 ///
@@ -94,12 +110,16 @@ pub(super) async fn hire_response(
         return bad_request(&format!("unknown vertical '{}'", draft.suggested_vertical));
     }
 
-    let idem_key = idempotency_key(req);
+    // Phase 3 of the hire-flow split adds the body-level
+    // `idempotency_key` field (SPA generates a UUID v7 on Step 1 +
+    // persists across steps). The legacy `Idempotency-Key` header
+    // remains a fallback so curl-driven and SDK callers don't break.
+    let idem_key = body_idempotency_key(&parsed).or_else(|| idempotency_key(req));
     let body_digest = digest_body(body);
     if let Some(key) = idem_key.as_deref() {
         match check_idempotency(tenant_id, key, &body_digest) {
             IdempotencyHit::Match(existing) => {
-                return ok_idempotent(existing, draft.suggested_vertical.as_str());
+                return ok_idempotent(existing);
             }
             IdempotencyHit::Conflict => {
                 return conflict_response(key);
@@ -195,6 +215,15 @@ fn idempotency_key(req: &str) -> Option<String> {
     })
 }
 
+fn body_idempotency_key(parsed: &Value) -> Option<String> {
+    parsed
+        .get(IDEMPOTENCY_BODY_FIELD)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 fn digest_body(body: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(body.as_bytes());
@@ -248,7 +277,8 @@ fn remember_idempotency(tenant: TenantId, key: &str, body_digest: &str, worker_i
 
 fn sweep_expired(map: &mut HashMap<(TenantId, String), IdemEntry>) {
     let now = Utc::now();
-    map.retain(|_, e| (now - e.at).num_seconds() < IDEMPOTENCY_TTL_SECS);
+    let window = idempotency_window_secs();
+    map.retain(|_, e| (now - e.at).num_seconds() < window);
 }
 
 #[cfg(test)]
@@ -400,11 +430,21 @@ fn redact_value(value: &Value) -> Value {
     }
 }
 
-fn ok_idempotent(worker_id: WorkerId, _vertical: &str) -> (&'static str, String) {
+fn ok_idempotent(worker_id: WorkerId) -> (&'static str, String) {
+    // Per the Phase 3 hire-flow brief: the duplicate response carries
+    // `worker_id` (the row the caller is effectively reusing),
+    // `duplicate_of` (the canonical id — identical here because the
+    // first call is its own canonical row), and a human-readable
+    // `message` so client toasts / audit views can disambiguate from
+    // a fresh hire. `success: true` stays for backwards-compat with
+    // pre-Phase-3 SDK callers that only checked the boolean.
+    let id_str = worker_id.to_string();
     (
         "200 OK",
         json!({
-            "worker_id": worker_id.to_string(),
+            "worker_id": id_str,
+            "duplicate_of": id_str,
+            "message": "Already hired (idempotent)",
             "success": true,
             "idempotent": true,
         })
@@ -444,3 +484,7 @@ fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static 
 #[cfg(test)]
 #[path = "routes_workers_hire_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_workers_hire_idem_tests.rs"]
+mod idem_tests;
