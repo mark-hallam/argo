@@ -7,6 +7,8 @@
  *   GET /verticals                                     → discovery
  *   GET /api/v1/verticals/<v>/workflows                → catalog per vertical
  *   GET /api/v1/verticals/<v>/workflows/<n>            → workflow head
+ *   GET /api/v1/verticals/<v>/workflows/<n>/versions   → version list (#1980)
+ *   POST /api/v1/verticals/<v>/workflows/<n>/rollback  → rollback (#1980)
  *
  * `fetchAllWorkflows` fans the per-vertical call out in parallel and
  * folds the results into a single summary list. Per-vertical 404/5xx
@@ -22,8 +24,16 @@
  * `workflow.toml` schema we own (header + `[workflow]` + `[[step]]`).
  * No new dependency; full TOML parsing is overkill for the four keys
  * we need (workflow.description, step.name/kind/description).
+ *
+ * `listVersions` + `rollbackToVersion` are the canonical
+ * version-history + rollback bindings for the viewer UI button
+ * (Stream `web-workflow-rollback-ui-button`). They delegate to the
+ * gateway endpoints first wired by #1980; this module is the
+ * canonical client home so the viewer page never has to reach into a
+ * sibling file. The older `workflow-rollback.ts` module still exists
+ * for backward compatibility and is not edited here.
  */
-import { apiGet } from "@/lib/api/client";
+import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import {
   SAMPLE_WORKFLOW_SPECS,
@@ -312,3 +322,61 @@ export type {
   WorkflowStepKind,
   WorkflowSummary,
 };
+
+// ── Version history + rollback (#1980 gateway routes) ──────────
+
+export interface WorkflowVersionItem {
+  id: string;
+  version: number;
+  parent_id: string | null;
+  lifecycle_state: "draft" | "active" | "archived" | string;
+  created_at: string;
+  modified_by: string;
+  definition_toml: string;
+}
+
+interface WorkflowVersionListEnvelope {
+  vertical_id?: string;
+  name?: string;
+  count?: number;
+  items?: WorkflowVersionItem[];
+}
+
+export interface RollbackToVersionArgs {
+  verticalId: string;
+  name: string;
+  targetVersionId: string;
+}
+
+export interface RollbackToVersionResult {
+  /** ID of the newly created head version. */
+  id: string;
+  /** Numeric head version after the rollback. */
+  version: number;
+}
+
+function versionsPath(verticalId: string, name: string): string {
+  return `/api/v1/verticals/${encodeURIComponent(verticalId)}/workflows/${encodeURIComponent(name)}/versions`;
+}
+
+function rollbackPath(verticalId: string, name: string): string {
+  return `/api/v1/verticals/${encodeURIComponent(verticalId)}/workflows/${encodeURIComponent(name)}/rollback`;
+}
+
+export async function listVersions(
+  verticalId: string,
+  name: string,
+): Promise<WorkflowVersionItem[]> {
+  const envelope = await apiGet<WorkflowVersionListEnvelope>(
+    versionsPath(verticalId, name),
+  );
+  return envelope.items ?? [];
+}
+
+export async function rollbackToVersion(
+  args: RollbackToVersionArgs,
+): Promise<RollbackToVersionResult> {
+  return apiPost<RollbackToVersionResult>(rollbackPath(args.verticalId, args.name), {
+    target_version_id: args.targetVersionId,
+  });
+}
