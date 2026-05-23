@@ -117,7 +117,7 @@ async fn duty_tick_emits_worker_duty_fired_audit() {
     scheduler.tick(tick_at).await.unwrap();
 
     sink.flush_pending().await.unwrap();
-    let attribution = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     assert_eq!(attribution.len(), 1);
     let session_id = attribution[0].0.clone();
     let session_uuid_bytes = uuid::Uuid::parse_str(session_id.as_str())
@@ -150,16 +150,22 @@ async fn duty_tick_emits_worker_duty_fired_audit() {
 #[tokio::test]
 async fn duty_tick_emits_failed_audit_and_keeps_ticking_on_runner_err() {
     let (duties, orch, store) = fresh_stores().await;
+    // Shared tenant across AuditSink + DutyRecord so the
+    // tenant-scoped sessions_for_duty(tenant, &duty_id) lookup
+    // below resolves the row inserted by this test (signature
+    // grew via #2091; fix-cron-duty-wire-closure-test-rebase-
+    // onto-tenant-id-arg threads this through).
+    let tenant = TenantId::new();
     let sink = Arc::new(AuditSink::new_with_tenant(
         store.clone(),
-        TenantId::new().0.to_string(),
+        tenant.0.to_string(),
     ));
     let scheduler = DutyScheduler::new(duties.clone(), orch.clone(), Arc::new(OpenGate))
         .with_agent_runner(Arc::new(AlwaysErrRunner))
         .with_audit_sink(sink.clone());
 
     let mut duty = DutyRecord::new(
-        TenantId::new(),
+        tenant,
         WorkerId::new(),
         "0 * * * * *",
         "ping",
@@ -174,7 +180,7 @@ async fn duty_tick_emits_failed_audit_and_keeps_ticking_on_runner_err() {
     assert_eq!(report.run_failed, vec![duty.id.clone()]);
 
     sink.flush_pending().await.unwrap();
-    let attribution = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     let session_id = attribution[0].0.clone();
     let session_uuid_bytes = uuid::Uuid::parse_str(session_id.as_str())
         .unwrap()
@@ -272,7 +278,7 @@ async fn duty_tick_rolls_back_session_when_audit_write_fails() {
         session_count.0, 0,
         "session row must be absent — audit + session share a transaction"
     );
-    let attribution = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     assert!(
         attribution.is_empty(),
         "attribution row must be absent on rolled-back fire"
