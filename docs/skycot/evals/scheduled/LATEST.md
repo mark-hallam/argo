@@ -72,8 +72,8 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 
 | Crate | LOC | Audited? | Known gap | Cite | Priority | Brief shape |
 |---|---|---|---|---|---|---|
-| `argo-mcp` (core) | ? | 🔴 NOT AUDITED | Per MISSION.md "currently 15 in-core tools". The MCP client pool is the substrate. Round 4 mentioned `McpConnectionPool` (parallel to `McpClientPool`) as a known cross-tenant credential leak that was fixed; need to verify no new parallel surface has appeared. | MISSION.md §"core platform invariants" #5 | 🟡 P2 | `eval-mcp-client-pool-tenant-keyed` — write a cargo test: pool keyed by tenant + caller-supplied creds; assert tenant_b cannot reuse tenant_a's MCP client. |
-| 27 MCP connectors | ? | 🔴 NOT AUDITED individually | Slack, gcal, hubspot, jira, linear, pagerduty, notion, gmail, asana, airtable, salesforce, zendesk, discord, stripe, stripe-events, trello, github-issues, typeform, figma, google-meet, calendly, mailchimp, sendgrid, postmark, monday, fireflies, clickup, imessage, onedrive. **Per operator memory: 4 consumer/redundant connector stubs (signal, telegram, mailgun, resend) are being deleted; 3 enterprise stubs (apollo, zoominfo, zoom) stay as DEFERRED-v1.x placeholders.** Need to enumerate which are MERGED-real vs stub. | `Cargo.toml` connectors list | 🟡 P1 | `eval-mcp-connector-real-vs-stub-inventory` — for each connector crate, check (a) does it have a real `connect()` that hits the upstream API, (b) is its `request()` keyed by per-tenant OAuth tokens, (c) is there at least one passing smoke test that doesn't hit real network? Tag each connector REAL / STUB-OK / STUB-NEEDS-WORK. |
+| `argo-mcp` (core) | 2816 | 🟢 round 10 — pool per-tenant keyed; 11/11 integration tests pass (3 cross-tenant negative) | `PoolKey { tenant_id, manifest_id }` is structural — `pool.acquire` cannot be called without explicit `tenant_id`. Rate limiter also tenant-keyed. No parallel surfaces detected. | round 10 report | — | (cleared) |
+| 27 MCP connectors | (29 disk) | 🟡 round 10 — structural inventory PASS, per-connector credential scoping deferred | 29 real crates compile + carry tests. 7 leftover empty dirs from prior deletes (apollo/mailgun/resend/signal/telegram/zoom/zoominfo). Slack listed TWICE in workspace Cargo.toml. Notion outlier at 360 LOC / 2 tests (peer median ~700 LOC / 9 tests). Per-tenant OAuth scoping NOT yet verified. | round 10 report | 🟡 P1 | `eval-mcp-connector-credential-scoping-sweep` — for each of 27 real connectors, verify client construction takes `tenant_id`, request path does not silently fall back to shared token, ≥ 1 negative test cross-tenant cannot reuse auth. |
 | `argo-executor-computer-use` (E2B) | ? | 🔴 NOT AUDITED | E2B Firecracker microVM. Per CLAUDE.md `v1.0 strategic decisions` — DEFERRED-v1.x. | — | 🟢 P3 (v1.x) | `eval-e2b-executor-substrate-status`. |
 | `argo-executor-computer-use-macos` | ? | 🟢 round 4 — 37/37 lib tests pass | Smoke test (`notes_smoke.rs`) gated on `ARGO_NATIVE_MACOS_INTEGRATION=1`. End-to-end real-Notes run not yet performed. | round 4 report | 🟡 P2 | `mission-cu-macos-smoke-run-with-real-anthropic-loop` (operator-authorised one-time). |
 | `argo-executor-computer-use-{linux,windows}` | ? | 🔴 NOT AUDITED | DEFERRED-v1.x per operator memory. | — | 🟢 P3 (v1.x) | — |
@@ -143,7 +143,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 7. `eval-cron-duty-fires-agent-runner-end-to-end` — does the duty scheduler ACTUALLY drive the agent runner?
 8. `eval-genesis-pipeline-end-to-end-smoke` — does Genesis produce a real vertical from a plain-English role?
 9. `eval-workflow-execution-runs-real-step` — argo-workflow's executor + checkpoint.
-10. `eval-mcp-connector-real-vs-stub-inventory` — 27 connectors, which are real?
+10. `eval-mcp-connector-credential-scoping-sweep` — 27 connectors, per-tenant OAuth scoping NOT yet verified (round 10 PARTIAL did structural inventory only; substrate/pool layer already verified per-tenant safe).
 11. `eval-in-core-tool-inventory-vs-mission` — MISSION.md claims 15 in-core tools; verify.
 12. `mission-wire-api-action-executor` — per MISSION.md known-blocked status.
 13. `eval-channels-v1-config-vs-code-inventory` — 13 channels in code, 3 in Pro pricing card; matrix the gap.
@@ -177,11 +177,12 @@ In rough order of mission-leverage:
 
 1. ~~`argo-agent-runner`~~ — 🟢 CLEARED round 9
 2. ~~`argo-credentials`~~ — 🟢 CLEARED round 9
-3. `argo-mcp` (core, not connectors) — 🟡 P1 — **now top of next-session list**
-4. `argo-cron` (deep walk — partially started this round) — 🟡 P1
-5. `argo-genesis` (deep walk through 8881 LOC) — 🟡 P1
-6. `argo-workflow` (executor, checkpoint, DAG) — 🟡 P1
-7. `argo-channels` (deep walk per channel) — 🟡 P1 (partial this round)
+3. ~~`argo-mcp` (core)~~ — 🟢 CLEARED round 10 (pool tenant-keyed, 11 tests pass)
+4. ~~27 MCP connectors structural inventory~~ — 🟡 round 10 PASS (per-tenant scoping sweep deferred to follow-up)
+5. `argo-cron` (deep walk — partially started this round) — 🟡 P1 — **now top of next-session list (or wait for #2085 to land)**
+6. `argo-genesis` (deep walk through 8881 LOC) — 🟡 P1 (or wait for #2084 to land)
+7. `argo-workflow` (executor, checkpoint, DAG) — 🟡 P1 (or wait for #2086 to land)
+8. `argo-channels` (deep walk per channel) — 🟡 P1 (partial round 8)
 8. `argo-orchestrator` — 🟡 P2
 9. `argo-routing` — 🟡 P1 (for ApiExecutor blocker)
 10. `argo-tool` — 🟡 P1

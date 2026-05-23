@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T08:00:00Z",
-  "expected_cadence_seconds": 86400,
-  "session_label": "anthropic-claude-code-evaluator-session-bootstrap-2026-05-22-round-9",
-  "run_notes": "round 9 — cleared TWO top P0s from the manifest. (1) argo-agent-runner: dispatch_one_with_tenant takes explicit tenant_id, McpConnectionPool keyed by (tenant_id, name), capability engine checked before every tool dispatch, dispatch_tenant_isolation_tests negative test exists. SUBSTRATE SOLID. (2) argo-credentials: file-based + workspace-scoped by design — tenant boundary IS the workspace location, age-encrypted at rest, 0600 perms. Legacy plaintext still accepted on read (🟡 P2 quality follow-up). Manifest rows updated. Top of next-session list: argo-mcp (core)."
+  "last_run_utc": "2026-05-23T10:55:00Z",
+  "expected_cadence_seconds": 3600,
+  "session_label": "scheduled-task:skycot-evaluator-hourly-round-10",
+  "run_notes": "round 10 — cleared TWO P1 manifest rows. (1) argo-mcp core pool: PoolKey is (tenant_id, manifest_id) structural; module docs pin the cross-tenant invariant; 11/11 integration tests pass including 3 cross-tenant negative tests against a real subprocess. Rate limiter ALSO tenant-keyed (defence-in-depth before cache lookup). No parallel-surface drift. (2) 27 MCP connector inventory: 29 real connector crates (workspace members + Cargo.toml + tests + compile clean); 7 leftover empty dirs from prior deletes (apollo/mailgun/resend/signal/telegram/zoom/zoominfo — NOT workspace members, NOT real placeholders despite operator memory claiming apollo/zoom/zoominfo are kept as v1.x stubs); slack listed TWICE in workspace Cargo.toml; notion outlier (360 LOC, 2 tests vs peer median ~700/9). Round-10 follow-ups recommended: claude-workspace-cargo-dedupe-slack-entry (P3), claude-mcp-connector-empty-dir-cleanup (P3), eval-mcp-connector-credential-scoping-sweep (P1, next dedicated round). Next session candidates per manifest: argo-cron / argo-channels / argo-store / argo-tool — but wait for in-flight eval-* PRs (#2084/#2085/#2086) to land first to avoid overlap."
 }
