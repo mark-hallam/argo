@@ -20,10 +20,52 @@ import { ApiError } from "@/lib/api/types";
 import {
   mockGenerate,
   mockPreview,
+  type ExportFormat,
   type ExportParams,
   type ExportPreview,
   type ExportResult,
 } from "@/lib/sample-export";
+
+/**
+ * Wire format the gateway's `POST /api/v1/audit/export` accepts.
+ * Mirrors `BundleFormat` in `crates/argo-audit/src/export_bundle.rs`.
+ */
+type GatewayBundleFormat = "json" | "csv" | "tar";
+
+/**
+ * Map the SPA's compliance-shaped `ExportFormat` to the gateway's
+ * `BundleFormat`. All four compliance bundles ride the `tar` envelope
+ * (`audit.ndjson` + `audit.csv` + `chain_metadata.json` + `verify.sh`);
+ * the compliance label stays SPA-side as cosmetic metadata for filename
+ * and UI copy. Closes `web-audit-export-format-strings-fix` — the
+ * gateway's `parse_format` rejects `soc2-type-ii`/`gdpr-article-15`/
+ * `hipaa-disclosure-log`/`generic` with a 400 today.
+ */
+export function complianceFormatToBundleFormat(
+  format: ExportFormat,
+): GatewayBundleFormat {
+  switch (format) {
+    case "soc2-type-ii":
+    case "gdpr-article-15":
+    case "hipaa-disclosure-log":
+    case "generic":
+      return "tar";
+  }
+}
+
+interface GatewayExportRequest {
+  scope: ExportParams["scope"];
+  tenantId: ExportParams["tenantId"];
+  format: GatewayBundleFormat;
+}
+
+function toGatewayRequest(params: ExportParams): GatewayExportRequest {
+  return {
+    scope: params.scope,
+    tenantId: params.tenantId,
+    format: complianceFormatToBundleFormat(params.format),
+  };
+}
 
 function isStrictProduction(): boolean {
   return (
@@ -50,9 +92,9 @@ export async function previewExport(
 ): Promise<ExportPreview> {
   if (isAuthBypassed()) return mockPreview(params);
   try {
-    return await apiPost<ExportPreview, ExportParams>(
+    return await apiPost<ExportPreview, GatewayExportRequest>(
       "/api/v1/audit/export/preview",
-      params,
+      toGatewayRequest(params),
     );
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
@@ -69,9 +111,9 @@ export async function generateExport(
 ): Promise<ExportResult> {
   if (isAuthBypassed()) return withAuditEmission(params, mockGenerate(params));
   try {
-    const result = await apiPost<ExportResult, ExportParams>(
+    const result = await apiPost<ExportResult, GatewayExportRequest>(
       "/api/v1/audit/export",
-      params,
+      toGatewayRequest(params),
     );
     void emitAuditRow(params, result);
     return result;
