@@ -39,14 +39,24 @@ impl SkillStore {
         rows.into_iter().map(Skill::try_from).collect()
     }
 
-    /// Active (non-superseded) version for `name`, if any.
+    /// Active (non-superseded, non-rejected) version for `name`,
+    /// if any.
+    ///
+    /// Filters on BOTH `lifecycle_state = 'active'` AND
+    /// `superseded_by IS NULL` so a judge-rejected skill row (which
+    /// has `lifecycle_state = 'rejected'` AND `superseded_by IS
+    /// NULL`) doesn't leak into the worker prompt path via
+    /// `LayeredLookup::find` (mission-layered-lookup-filter-by-
+    /// lifecycle-active; finding from PR #2122's
+    /// eval-skill-rejection-flow).
     pub async fn find_active_by_name(&self, name: &str) -> ArgoResult<Option<Skill>> {
         let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
              s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
              s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
-             WHERE s.name = ? AND s.superseded_by IS NULL",
+             WHERE s.name = ? AND s.lifecycle_state = 'active' \
+             AND s.superseded_by IS NULL",
         )
         .bind(name)
         .fetch_optional(self.pool())
@@ -119,14 +129,25 @@ impl SkillStore {
         rows.into_iter().map(Skill::try_from).collect()
     }
 
-    /// All active skills, ordered by name.
+    /// All active (non-rejected, non-superseded) skills, ordered
+    /// by name.
+    ///
+    /// Filters on BOTH `lifecycle_state = 'active'` AND
+    /// `superseded_by IS NULL`. The lifecycle filter is the
+    /// load-bearing one for the judge-rejection contract — a row
+    /// in `lifecycle_state = 'rejected'` AND `superseded_by IS
+    /// NULL` would otherwise survive the filter and leak into the
+    /// worker prompt path via `LayeredLookup::list_for_action`
+    /// (mission-layered-lookup-filter-by-lifecycle-active; finding
+    /// from PR #2122's eval-skill-rejection-flow).
     pub async fn list_active(&self) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
              s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
              s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
-             WHERE s.superseded_by IS NULL ORDER BY s.name ASC",
+             WHERE s.lifecycle_state = 'active' \
+             AND s.superseded_by IS NULL ORDER BY s.name ASC",
         )
         .fetch_all(self.pool())
         .await

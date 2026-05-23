@@ -17,18 +17,18 @@
 //! > review, reject it, assert SkillRejected audit + skill removed
 //! > from `LayeredLookup::list_for_action` results.
 //!
-//! Two `#[ignore]`'d FINDINGS-ONLY tests pin a real contract gap
-//! surfaced by this audit: `LayeredLookup::list_for_action` /
-//! `::find` route through `SkillStore::list_active` /
-//! `find_active_by_name`, which filter only on
-//! `superseded_by IS NULL` and **not** on `lifecycle_state`
-//! (`crates/argo-skill/src/store_lookups.rs:43,123`). Sibling
-//! reader `list_skills_for_vertical` already filters
-//! `lifecycle_state = 'active'`
-//! (`crates/argo-skill/src/store_vertical.rs:97`), so the contract
-//! is established but the layered-lookup path is leaky. Fix-brief:
-//! `mission-layered-lookup-filter-by-lifecycle-active` — name the
-//! follow-up in the PR body.
+//! Two contract tests at the bottom of the file pin the rejection
+//! propagation rule: `LayeredLookup::list_for_action` and `::find`
+//! route through `SkillStore::list_active` / `find_active_by_name`
+//! (`crates/argo-skill/src/store_lookups.rs:50,135`), both of
+//! which filter on `lifecycle_state = 'active' AND
+//! superseded_by IS NULL` since
+//! `mission-layered-lookup-filter-by-lifecycle-active`. A row in
+//! `lifecycle_state = 'rejected'` AND `superseded_by IS NULL` no
+//! longer leaks through. Sibling reader `list_skills_for_vertical`
+//! has carried the same `lifecycle_state = 'active'` filter at
+//! `crates/argo-skill/src/store_vertical.rs:97` for longer; both
+//! paths now agree.
 
 use argo_audit::{AuditKind, AuditSink};
 use argo_judge::{Judge, JudgeEvidence};
@@ -237,16 +237,13 @@ async fn pending_review_skill_does_not_propagate_via_vertical_view() {
 // violates the contract; the fix-brief named in the ignore message
 // is the follow-up that will let us un-ignore them.
 
-/// FINDINGS-ONLY: `LayeredLookup::list_for_action` currently leaks
-/// `Rejected` skills because the underlying `SkillStore::list_active`
-/// filters only on `superseded_by IS NULL`. The expected contract is
-/// that a rejected skill never surfaces from the layered worker view.
+/// `LayeredLookup::list_for_action` must NOT leak `Rejected` skills.
+/// `SkillStore::list_active` filters on
+/// `lifecycle_state = 'active' AND superseded_by IS NULL`
+/// (mission-layered-lookup-filter-by-lifecycle-active), so a
+/// rejected row (lifecycle_state = 'rejected' AND superseded_by
+/// IS NULL) no longer surfaces from the layered worker view.
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY (eval-skill-rejection-flow): \
-            LayeredLookup::list_for_action routes through SkillStore::list_active \
-            (store_lookups.rs:123) which filters only on superseded_by IS NULL — \
-            rejected rows leak into the worker prompt. \
-            Fix-brief: mission-layered-lookup-filter-by-lifecycle-active"]
 async fn rejected_skill_does_not_propagate_via_layered_lookup_list() {
     let (_store, skills) = fresh().await;
     let sid = SessionId::new();
@@ -274,14 +271,12 @@ async fn rejected_skill_does_not_propagate_via_layered_lookup_list() {
     );
 }
 
-/// FINDINGS-ONLY: same gap, `::find` codepath. Pins the contract
-/// independently because the two methods use distinct queries
-/// (`find_active_by_name` vs `list_active`).
+/// Same contract on the `::find` codepath. Pinned independently
+/// because the two methods use distinct queries
+/// (`find_active_by_name` vs `list_active`); the lifecycle filter
+/// landed on both via mission-layered-lookup-filter-by-lifecycle-
+/// active.
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY (eval-skill-rejection-flow): \
-            LayeredLookup::find routes through SkillStore::find_active_by_name \
-            (store_lookups.rs:43) which filters only on superseded_by IS NULL. \
-            Fix-brief: mission-layered-lookup-filter-by-lifecycle-active"]
 async fn rejected_skill_does_not_propagate_via_layered_lookup_find() {
     let (_store, skills) = fresh().await;
     let sid = SessionId::new();
