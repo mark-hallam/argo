@@ -32,6 +32,17 @@ const config: NextConfig = {
       { source: "/api/v1/:path*", destination: `${gatewayUrl}/api/v1/:path*` },
     ];
   },
+  // Bare auth paths → canonical `/auth/*` (308 permanent). Operators or
+  // marketing copy may link to `/signup`, `/signin`, `/verify` even
+  // though the canonical routes live under `/auth/*`. 308 preserves the
+  // HTTP method and is cacheable by the browser.
+  async redirects() {
+    return [
+      { source: "/signup", destination: "/auth/signup", permanent: true },
+      { source: "/signin", destination: "/auth/signin", permanent: true },
+      { source: "/verify", destination: "/auth/verify", permanent: true },
+    ];
+  },
   // SECURITY (P1 fix, 2026-05-20): baseline browser security headers.
   // HSTS — Strict-Transport-Security: force HTTPS for 2 years inc.
   //   subdomains. Safe on app.skycot.com / skycot.com which are both
