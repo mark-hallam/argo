@@ -64,5 +64,6 @@ pub use helpers::{
 pub use transport::{build_transport, load_manifest};
 pub use turn::turn_planner::{maybe_decompose, DecomposeOutcome, PlannerHook};
 pub use turn::{
-    run_turn, run_turn_with_events, run_turn_with_planner_hook, TurnResult, MAX_TOOL_ROUNDS,
+    compose_system_prompt_for_diagnostics, run_turn, run_turn_with_events,
+    run_turn_with_planner_hook, TurnResult, MAX_TOOL_ROUNDS,
 };

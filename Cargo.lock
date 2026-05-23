@@ -279,6 +279,7 @@ dependencies = [
  "argo-types",
  "argo-vertical",
  "argo-workflow",
+ "argo-workplace-knowledge",
  "async-trait",
  "aws-config",
  "chrono",
@@ -288,6 +289,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "uuid",
  "wiremock",
 ]

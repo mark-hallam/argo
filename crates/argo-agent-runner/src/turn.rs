@@ -181,6 +181,9 @@ mod turn_canary;
 #[path = "turn_memory.rs"]
 mod turn_memory;
 
+#[path = "turn_helpers_workplace.rs"]
+mod turn_helpers_workplace;
+
 #[path = "turn_skills_runtime.rs"]
 mod turn_skills_runtime;
 
@@ -223,6 +226,7 @@ pub(crate) use turn_context_policy::{
 pub(crate) use turn_system_prompt::build_system_prompt_with_ab;
 #[cfg(test)]
 pub(crate) use turn_system_prompt::build_system_prompt;
+pub use turn_system_prompt::compose_system_prompt_for_diagnostics;
 
 #[cfg(test)]
 #[path = "turn_tests.rs"]

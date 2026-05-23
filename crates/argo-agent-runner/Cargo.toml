@@ -24,6 +24,7 @@ argo-telemetry = { path = "../argo-telemetry" }
 argo-tool = { path = "../argo-tool" }
 argo-types = { path = "../argo-types" }
 argo-vertical = { path = "../argo-vertical" }
+argo-workplace-knowledge = { path = "../argo-workplace-knowledge" }
 async-trait = { workspace = true }
 aws-config = { workspace = true }
 chrono = { workspace = true }
@@ -38,4 +39,5 @@ uuid = { workspace = true }
 argo-workflow = { path = "../argo-workflow" }
 tempfile = "3"
 tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
 wiremock = "0.6"
