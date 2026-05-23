@@ -44,9 +44,36 @@ pub struct ToolCallRecord {
 /// Decouples replay from `argo-store`: the production impl builds
 /// the `Vec<TurnRecord>` from `message` / `tool_call` rows; tests
 /// feed the records directly via [`InMemorySource`].
+///
+/// # Multi-tenant contract
+///
+/// `SessionId` is globally unique (UUIDv4) so a collision is not the
+/// concern. The concern is *authorization*: when a remote caller
+/// presents `session_id=X`, the production impl must verify that
+/// the caller's tenant owns session `X` before returning its turns.
+///
+/// Production implementors MUST tenant-scope the underlying SQL
+/// (e.g. `WHERE id = ? AND tenant_id = ?` on `session`, or a
+/// pre-check via `session_tenant(id)` that fails the request before
+/// any rows are read). #1992 fixed the same class of bug on the
+/// `audit_record` lookups in `routes_audit_detail`,
+/// `routes_audit_replay`, and `routes_retros`; bindings against
+/// this trait must not re-introduce it.
+///
+/// The trait signature deliberately keeps `tenant_id` out of the
+/// argument list: production impls construct the source already
+/// bound to the caller's `tenant_id` (closure or struct field), so
+/// the SQL `WHERE` clause is unconditional and not optional at the
+/// callsite. See `eval-argo-replay-after-1992-fix` for the full
+/// re-verification reasoning.
 #[async_trait]
 pub trait SessionSource: Send + Sync {
     /// Fetch the recorded turns for a session, in turn order.
+    ///
+    /// Production impls must already be tenant-scoped — see the
+    /// trait-level "Multi-tenant contract" note. Callers should
+    /// construct a fresh `SessionSource` per request rather than
+    /// share a process-global tenant-blind one.
     async fn fetch_turns(&self, session: SessionId) -> ArgoResult<Vec<TurnRecord>>;
 }
 
