@@ -35,9 +35,13 @@ impl SkillStore {
     /// error rather than an empty list so an upstream typo /
     /// wrong-tenant surfaces loudly.
     ///
-    /// Out of scope (per brief): cross-tenant filtering (this lookup
-    /// is per-tenant by construction), workspace filtering, skill
-    /// version selection (active rows only).
+    /// Cross-tenant filter (mission-skill-table-add-tenant-id-column,
+    /// post-v79): the SQL binds `s.tenant_id = ?` so skill rows from
+    /// other tenants — and the migration-placeholder rows that have
+    /// not yet been re-tenanted — are NOT visible. This is the strict
+    /// half of the v1 seam: legacy `SkillStore::install()` rows carry
+    /// the placeholder and disappear from this lookup; tenant-aware
+    /// `install_for_tenant()` rows surface to their owning tenant only.
     pub async fn available_for_worker(
         &self,
         trust_reader: &dyn WorkerTrustReader,
@@ -58,9 +62,11 @@ impl SkillStore {
              s.vertical_id, s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.superseded_by IS NULL \
+             AND s.tenant_id = ? \
              AND (s.min_trust_grade IS NULL OR ? >= s.min_trust_grade) \
              ORDER BY s.name ASC",
         )
+        .bind(tenant_id.to_string())
         .bind(i64::from(grade))
         .fetch_all(self.pool())
         .await

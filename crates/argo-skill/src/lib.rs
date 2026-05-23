@@ -152,7 +152,7 @@ pub use skill::{
     EvalCase, ExpectedOutcome, LifecycleState, PrincipalOverride, Provenance, Skill,
     SkillFrontmatter,
 };
-pub use store::SkillStore;
+pub use store::{SkillStore, PLACEHOLDER_TENANT_ID};
 pub use success_metric::{should_propose_metric, ProposalThreshold, SuccessMetric};
 pub use trust::{is_skill_eligible, min_trust_for_risk, TrustGrade};
 pub use trust_reader::WorkerTrustReader;

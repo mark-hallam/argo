@@ -41,10 +41,14 @@ async fn no_restriction_skills_always_returned() {
     // Skills with `min_trust_grade IS NULL` surface for every worker,
     // including the most-restrictive grade=0.
     let skills = fresh_store().await;
-    skills.install(&skill_md("open"), None).await.unwrap();
+    let tenant = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("open"), &tenant.to_string(), None)
+        .await
+        .unwrap();
     let reader = FakeTrustReader(Some(0));
     let got = skills
-        .available_for_worker(&reader, TenantId::new(), Uuid::now_v7())
+        .available_for_worker(&reader, tenant, Uuid::now_v7())
         .await
         .unwrap();
     assert_eq!(got.len(), 1);
@@ -57,14 +61,18 @@ async fn restricted_skill_filtered_when_worker_grade_too_low() {
     // PublishedVerified (discriminant 1) on the same numeric ladder.
     // 1 >= 2 is false, so the skill must NOT appear in the list.
     let skills = fresh_store().await;
-    skills.install(&skill_md("restricted"), None).await.unwrap();
+    let tenant = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("restricted"), &tenant.to_string(), None)
+        .await
+        .unwrap();
     skills
         .set_min_trust_grade("restricted", Some(TrustGrade::Tenant))
         .await
         .unwrap();
     let reader = FakeTrustReader(Some(1));
     let got = skills
-        .available_for_worker(&reader, TenantId::new(), Uuid::now_v7())
+        .available_for_worker(&reader, tenant, Uuid::now_v7())
         .await
         .unwrap();
     assert!(
@@ -79,14 +87,18 @@ async fn restricted_skill_returned_when_worker_grade_equal() {
     // Skill requires Tenant (=2); worker is also Tenant (=2). 2 >= 2
     // is true; skill must surface.
     let skills = fresh_store().await;
-    skills.install(&skill_md("gated"), None).await.unwrap();
+    let tenant = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("gated"), &tenant.to_string(), None)
+        .await
+        .unwrap();
     skills
         .set_min_trust_grade("gated", Some(TrustGrade::Tenant))
         .await
         .unwrap();
     let reader = FakeTrustReader(Some(2));
     let got = skills
-        .available_for_worker(&reader, TenantId::new(), Uuid::now_v7())
+        .available_for_worker(&reader, tenant, Uuid::now_v7())
         .await
         .unwrap();
     assert_eq!(got.len(), 1);
@@ -98,14 +110,18 @@ async fn restricted_skill_returned_when_worker_grade_higher() {
     // Skill floor at PublishedVerified (=1); worker at
     // PublishedCommunity (=3). 3 >= 1 is true.
     let skills = fresh_store().await;
-    skills.install(&skill_md("loose"), None).await.unwrap();
+    let tenant = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("loose"), &tenant.to_string(), None)
+        .await
+        .unwrap();
     skills
         .set_min_trust_grade("loose", Some(TrustGrade::PublishedVerified))
         .await
         .unwrap();
     let reader = FakeTrustReader(Some(3));
     let got = skills
-        .available_for_worker(&reader, TenantId::new(), Uuid::now_v7())
+        .available_for_worker(&reader, tenant, Uuid::now_v7())
         .await
         .unwrap();
     assert_eq!(got.len(), 1);
@@ -119,15 +135,22 @@ async fn legacy_zero_grade_worker_only_sees_unrestricted_skills() {
     // surface skills with NULL min_trust_grade or min_trust_grade
     // <= 0; any positive floor filters them out.
     let skills = fresh_store().await;
-    skills.install(&skill_md("open"), None).await.unwrap();
-    skills.install(&skill_md("gated"), None).await.unwrap();
+    let tenant = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("open"), &tenant.to_string(), None)
+        .await
+        .unwrap();
+    skills
+        .install_for_tenant(&skill_md("gated"), &tenant.to_string(), None)
+        .await
+        .unwrap();
     skills
         .set_min_trust_grade("gated", Some(TrustGrade::PublishedVerified))
         .await
         .unwrap();
     let reader = FakeTrustReader(Some(0));
     let got = skills
-        .available_for_worker(&reader, TenantId::new(), Uuid::now_v7())
+        .available_for_worker(&reader, tenant, Uuid::now_v7())
         .await
         .unwrap();
     let names: Vec<&str> = got.iter().map(|s| s.frontmatter.name.as_str()).collect();
@@ -140,10 +163,14 @@ async fn nonexistent_worker_returns_provider_error() {
     // pair. The brief asks for an explicit error rather than an
     // empty list so a wrong-tenant typo surfaces loudly.
     let skills = fresh_store().await;
-    skills.install(&skill_md("any"), None).await.unwrap();
+    let tenant = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("any"), &tenant.to_string(), None)
+        .await
+        .unwrap();
     let reader = FakeTrustReader(None);
     let err = skills
-        .available_for_worker(&reader, TenantId::new(), Uuid::now_v7())
+        .available_for_worker(&reader, tenant, Uuid::now_v7())
         .await
         .expect_err("missing worker must error");
     match err {
@@ -155,4 +182,106 @@ async fn nonexistent_worker_returns_provider_error() {
         }
         other => panic!("expected Provider error, got {other:?}"),
     }
+}
+
+#[tokio::test]
+async fn cross_tenant_skill_is_invisible_via_available_for_worker() {
+    // mission-skill-table-add-tenant-id-column — the bedrock cross-
+    // tenant invariant. Tenant A installs a skill; Tenant B's worker
+    // calls `available_for_worker` with B's tenant id. The lookup
+    // MUST return zero rows from A. This is byte-identical to the
+    // result of calling against an empty store: cross-tenant lookup
+    // is indistinguishable from a clean install for tenant B.
+    let skills = fresh_store().await;
+    let tenant_a = TenantId::new();
+    let tenant_b = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("alpha"), &tenant_a.to_string(), None)
+        .await
+        .unwrap();
+    let reader = FakeTrustReader(Some(0));
+    // Tenant A sees its own skill.
+    let from_a = skills
+        .available_for_worker(&reader, tenant_a, Uuid::now_v7())
+        .await
+        .unwrap();
+    assert_eq!(from_a.len(), 1);
+    assert_eq!(from_a[0].frontmatter.name, "alpha");
+    // Tenant B sees nothing — A's skill is hidden.
+    let from_b = skills
+        .available_for_worker(&reader, tenant_b, Uuid::now_v7())
+        .await
+        .unwrap();
+    assert!(
+        from_b.is_empty(),
+        "tenant B must not see tenant A's skill, got {:?}",
+        from_b.iter().map(|s| &s.frontmatter.name).collect::<Vec<_>>(),
+    );
+}
+
+#[tokio::test]
+async fn legacy_placeholder_tenant_skills_hidden_from_strict_lookup() {
+    // mission-skill-table-add-tenant-id-column — legacy `install()`
+    // (no tenant context) stamps the migration placeholder. The
+    // placeholder MUST NOT match any real tenant's UUID. Worker in
+    // tenant_a calls `available_for_worker`; the legacy-installed
+    // skill is invisible because its tenant_id is the placeholder.
+    //
+    // This is the v1 seam: legacy paths quarantine their writes
+    // until an operator CLI re-tenants them via a separate brief.
+    let skills = fresh_store().await;
+    skills.install(&skill_md("legacy"), None).await.unwrap();
+    let reader = FakeTrustReader(Some(0));
+    let from_real_tenant = skills
+        .available_for_worker(&reader, TenantId::new(), Uuid::now_v7())
+        .await
+        .unwrap();
+    assert!(
+        from_real_tenant.is_empty(),
+        "placeholder-tenant skill leaked into a real tenant's view: {:?}",
+        from_real_tenant
+            .iter()
+            .map(|s| &s.frontmatter.name)
+            .collect::<Vec<_>>(),
+    );
+}
+
+#[tokio::test]
+async fn each_tenant_sees_only_its_own_skills_in_multi_install() {
+    // Two tenants each install distinct skills; available_for_worker
+    // must partition them with zero leakage.
+    let skills = fresh_store().await;
+    let tenant_a = TenantId::new();
+    let tenant_b = TenantId::new();
+    skills
+        .install_for_tenant(&skill_md("alpha-1"), &tenant_a.to_string(), None)
+        .await
+        .unwrap();
+    skills
+        .install_for_tenant(&skill_md("alpha-2"), &tenant_a.to_string(), None)
+        .await
+        .unwrap();
+    skills
+        .install_for_tenant(&skill_md("beta-1"), &tenant_b.to_string(), None)
+        .await
+        .unwrap();
+    let reader = FakeTrustReader(Some(0));
+    let mut a_names: Vec<String> = skills
+        .available_for_worker(&reader, tenant_a, Uuid::now_v7())
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|s| s.frontmatter.name)
+        .collect();
+    a_names.sort();
+    let mut b_names: Vec<String> = skills
+        .available_for_worker(&reader, tenant_b, Uuid::now_v7())
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|s| s.frontmatter.name)
+        .collect();
+    b_names.sort();
+    assert_eq!(a_names, vec!["alpha-1".to_string(), "alpha-2".to_string()]);
+    assert_eq!(b_names, vec!["beta-1".to_string()]);
 }

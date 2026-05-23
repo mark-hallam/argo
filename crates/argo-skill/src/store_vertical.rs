@@ -27,6 +27,12 @@ impl SkillStore {
     /// bundled it (#678). Used by
     /// `vertical_attach::install_and_attach_bundle` so per-
     /// vertical skill lookups can scope correctly.
+    ///
+    /// Legacy non-tenant-aware path: rows installed via this method
+    /// carry the [`crate::store::PLACEHOLDER_TENANT_ID`] sentinel and
+    /// are NOT visible to strict tenant-bound reads (e.g.
+    /// [`super::SkillStore::available_for_worker`]). Tenant-aware
+    /// callers should use [`Self::install_for_tenant_and_vertical`].
     pub async fn install_for_vertical(
         &self,
         raw: &str,
@@ -42,6 +48,50 @@ impl SkillStore {
             )));
         }
         self.insert_row(frontmatter, body, learned_in, vertical_id)
+            .await
+    }
+
+    /// Tenant-aware install — the canonical write path for the
+    /// post-v79 schema. The new row is stamped with the caller's
+    /// `tenant_id` so cross-tenant filters (e.g.
+    /// [`super::SkillStore::available_for_worker`]) see it only from
+    /// that tenant's worker context.
+    ///
+    /// `tenant_id` is taken as a string (not `TenantId`) because the
+    /// `skill.tenant_id` column is TEXT and operators may seed
+    /// non-UUID tenant identifiers during bootstrap; the migration
+    /// placeholder `__migration_placeholder__` itself is one such
+    /// non-UUID value. Callers holding a [`argo_types::TenantId`]
+    /// should pass `&tenant.to_string()`.
+    pub async fn install_for_tenant(
+        &self,
+        raw: &str,
+        tenant_id: &str,
+        learned_in: Option<SessionId>,
+    ) -> ArgoResult<Skill> {
+        self.install_for_tenant_and_vertical(raw, tenant_id, learned_in, None)
+            .await
+    }
+
+    /// Tenant + vertical-aware install. Combines the bundling-vertical
+    /// tag from [`Self::install_for_vertical`] with the strict
+    /// tenant binding from [`Self::install_for_tenant`].
+    pub async fn install_for_tenant_and_vertical(
+        &self,
+        raw: &str,
+        tenant_id: &str,
+        learned_in: Option<SessionId>,
+        vertical_id: Option<&str>,
+    ) -> ArgoResult<Skill> {
+        let (frontmatter, body) = parse_skill_md(raw)?;
+        let existing = self.find_active_by_name(&frontmatter.name).await?;
+        if existing.is_some() {
+            return Err(ArgoError::Schema(format!(
+                "skill '{}' already installed; use supersede() to bump",
+                frontmatter.name
+            )));
+        }
+        self.insert_row_for_tenant(frontmatter, body, learned_in, vertical_id, tenant_id)
             .await
     }
 
@@ -249,6 +299,7 @@ impl SkillStore {
             Some(learned_in),
             Some(vertical_id),
             lifecycle,
+            crate::store::PLACEHOLDER_TENANT_ID,
         )
         .await
     }

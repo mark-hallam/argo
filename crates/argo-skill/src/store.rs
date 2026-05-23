@@ -23,6 +23,7 @@ mod store_trust_grade;
 mod store_write;
 
 pub(crate) use crate::store_lookups::RawSkill;
+pub use store_write::PLACEHOLDER_TENANT_ID;
 pub(crate) use store_trust_grade::{trust_grade_as_u8, trust_grade_from_u8};
 
 /// Content-addressed skill store with append-only history + locks.

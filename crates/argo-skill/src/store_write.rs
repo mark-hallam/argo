@@ -5,6 +5,18 @@ use argo_types::{ArgoError, ArgoResult, Lock, SessionId, SkillId};
 use chrono::Utc;
 use sha2::{Digest, Sha256};
 
+/// Sentinel tenant identifier written by legacy `SkillStore::install`
+/// and `SkillStore::install_for_vertical` paths that have no tenant
+/// context in scope. The migration `131__skill_tenant_id.sql` uses the
+/// same string as the NOT NULL column default for back-fill of
+/// pre-v79 rows.
+///
+/// Rows with this tenant are filtered OUT of strict tenant-bound
+/// reads (e.g. [`SkillStore::available_for_worker`]); a separate
+/// operator CLI re-tenants placeholder rows after the column has
+/// landed.
+pub const PLACEHOLDER_TENANT_ID: &str = "__migration_placeholder__";
+
 impl SkillStore {
     pub(crate) async fn insert_row(
         &self,
@@ -19,6 +31,31 @@ impl SkillStore {
             learned_in,
             vertical_id,
             LifecycleState::Active,
+            PLACEHOLDER_TENANT_ID,
+        )
+        .await
+    }
+
+    /// Tenant-scoped insert helper used by the strict
+    /// `install_for_tenant*` surfaces. Identical to [`Self::insert_row`]
+    /// but binds the caller-provided `tenant_id` instead of the
+    /// migration placeholder, so the row participates in cross-tenant
+    /// filters from [`SkillStore::available_for_worker`].
+    pub(crate) async fn insert_row_for_tenant(
+        &self,
+        frontmatter: SkillFrontmatter,
+        body: String,
+        learned_in: Option<SessionId>,
+        vertical_id: Option<&str>,
+        tenant_id: &str,
+    ) -> ArgoResult<Skill> {
+        self.insert_row_with_state(
+            frontmatter,
+            body,
+            learned_in,
+            vertical_id,
+            LifecycleState::Active,
+            tenant_id,
         )
         .await
     }
@@ -30,6 +67,7 @@ impl SkillStore {
         learned_in: Option<SessionId>,
         vertical_id: Option<&str>,
         state: LifecycleState,
+        tenant_id: &str,
     ) -> ArgoResult<Skill> {
         let id = SkillId::new();
         let created_at = Utc::now();
@@ -40,8 +78,8 @@ impl SkillStore {
             .map_err(|e| ArgoError::Schema(format!("frontmatter serialize: {e}")))?;
         sqlx::query(
             "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, \
-             learned_in, created_at, vertical_id, lifecycle_state) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             learned_in, created_at, vertical_id, lifecycle_state, tenant_id) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id.0.as_bytes().as_slice())
         .bind(&frontmatter.name)
@@ -54,6 +92,7 @@ impl SkillStore {
         .bind(created_at.timestamp_micros())
         .bind(vertical_id)
         .bind(state.label())
+        .bind(tenant_id)
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("skill install: {e}")))?;
