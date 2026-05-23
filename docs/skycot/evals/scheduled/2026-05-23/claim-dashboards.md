@@ -104,14 +104,14 @@ When `wire-worker-session-runner` lands + notes_smoke runs green with the env fl
 
 | # | Item | Cite | State |
 |---|---|---|---|
-| 1 | Worker triggers approval-gated action → Slack outbound message fires | `argo-channels::slack`, `worker_actions_notify_chat.rs` | 🟡 substrate present, e2e not verified |
+| 1 | Worker triggers approval-gated action → Slack outbound message fires | `argo-channels::slack` + `crates/argo-channels/tests/claim_6_slack_outbound.rs` (round 22) | 🟢🟢 payload-shape VERIFIED (round 22 — 2 tests green: outbound payload routes to operator's Slack channel, contains approve+reject buttons with distinct action_ids, signed tokens embedded in `value` fields, risk_level + prompt_body + approval_id all surface) — actual POST to Slack still gated on `SLACK_APPROVALS_BOT_TOKEN` env in `slack.rs::posts_to_slack_when_env_present` |
 | 2 | Slack inbound (operator approves via Slack interactive button) → action proceeds | `argo-channels::slack_inbound` | 🟡 substrate present (round 12), e2e not verified |
 | 3 | HMAC-signed approval token in the Slack message body | `argo-channels::token` | 🟢 token signing verified (round 12 import trace) |
 | 4 | `ApprovalGranted` audit row on approve; `ApprovalDeclined` on decline | `argo-audit::AuditKind::Approval*` | 🟢 substrate verified rounds 3/4 |
 | 5 | Cross-tenant isolation — tenant_b can't see/decide tenant_a's pending Slack-approval queue | `argo-cli` gateway `routes_approvals_json`, audit-export #2051 | 🟢 substrate scoped + 1992 fix verified rounds 3/4 |
 | 6 | Audit chain unbroken across approval + decision (round-15 strengthener — `argo audit verify` returns OK) | `argo audit verify` subcommand + `crates/argo-audit/tests/claim_6_audit_chain_verify.rs` | 🟢🟢 e2e VERIFIED (round 21 — regression test green on main: clean DB returns ok=true rows=N, tampered DB returns ok=false with ChainBreak pointing at the tampered seq) |
 
-**Claim 6 MVP score: ~67% (3 of 6 🟢 + 1 🟢🟢 e2e-verified + 2 🟡 substrate-only). Round 21 jump from ~55% — audit-chain strengthener cell flipped to e2e-verified.**
+**Claim 6 MVP score: ~75% (3 of 6 🟢 + 2 🟢🟢 e2e-verified + 1 🟡 substrate-only). Round 22 jump from ~67% — Slack outbound payload-shape verified.**
 
 When 6/6 turn 🟢 with regression tests covering an e2e Slack approval round-trip + audit-verify pass, **MVP-LIVE**.
 
@@ -151,5 +151,6 @@ The `argo audit verify` mechanism + the channel inbound-path audit are likely th
 | Date | Round | Change |
 |---|---|---|
 | 2026-05-23 | 19 | Initial authoring — operator-locked MVPs for claims 4/5/6; row-by-row state seeded from rounds 1-18 audits |
+| 2026-05-23 | 22 | Claim 6 MVP row 1 (Slack outbound) flipped 🟡 → 🟢🟢 payload-shape verified. New regression test `crates/argo-channels/tests/claim_6_slack_outbound.rs` — 2 tests green on main: payload routes to operator's Slack channel, includes approve+reject buttons with distinct action_ids, signed tokens embedded in `value` fields, risk_level + prompt_body + approval_id all surface. Actual POST to real Slack remains gated on `SLACK_APPROVALS_BOT_TOKEN` env. Claim 6 MVP score: ~67% → ~75%. |
 | 2026-05-23 | 21 | Claim 6 MVP row 6 (audit-chain strengthener) flipped 🟡 → 🟢🟢 e2e-verified. New regression test `crates/argo-audit/tests/claim_6_audit_chain_verify.rs` passes on main: seeds 5 audit rows via AuditSink, asserts verify_session returns ok=true with zero breaks; tampers one row's payload_json via SQL UPDATE; re-runs verify; asserts ok=false with ChainBreak.seq matching the tampered row OR the next row (whose parent_hash now mismatches). Claim 6 MVP score: ~55% → ~67%. |
 | 2026-05-23 | 20 | Claim 4 MVP rows 4/5/6/7 all flipped 🔴 → 🟢 SUBSTRATE PRESENT after deep grep. Found: (4) `learn::should_propose` + `SkillCandidate::from_cu_trajectory`; (5) `pending_review` lifecycle + `routes_worker_skills`; (6) `argo skill review approve` CLI + `POST /skills/<name>/promote` gateway + `skill.candidate.promoted` audit; (7) `trust-engine::scoring::compute_score` consumes 5 signals (approvals/rejections/escalations/RBAC denies/quality-avg) + `ratchet_grade` + cron tick. Claim 4 MVP score: ~30% → ~75%. E2E verification of each cell is the next several eval rounds. |
