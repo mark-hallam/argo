@@ -116,6 +116,10 @@ If `which claude` fails:
 - **Related onboarding docs**: `docs/build-plan/RESUME.md`
   (fresh-agent primer), `docs/build-plan/CONTRIBUTING_AGENT.md`
   (worker rules), `docs/build-plan/SWARM_PROTOCOL.md` (HARD RULES).
+- **Heartbeat timestamps**: `docs/skycot/agents/heartbeats/WRITE_SIDE_RUNBOOK.md`
+  covers the related case of scheduled-task prompts stamping
+  local time as `Z` (the `date -u` fix). Same class of host-setup
+  hygiene as the `PATH` canary.
 
 Author: `ops-host-setup-runbook-path-canary` (P2 audit follow-up,
 2026-05-23T09-40 §4 P2 #5).

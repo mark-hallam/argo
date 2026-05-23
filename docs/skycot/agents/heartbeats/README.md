@@ -59,4 +59,4 @@ Why: round-36 evaluator (2026-05-23) observed a session that stamped Melbourne l
 
 The 5-minute grace is tight enough to catch tz mistakes (typically multiple-hour offsets) and loose enough for clock drift between writer and reader on the same host. Tune `FUTURE_DATED_GRACE_S` at the top of the watchdog if your deployment needs a different bound.
 
-To fix the write-side gap (so agents stop producing future-dated stamps in the first place), update the evaluator's scheduled-task prompt at `~/.claude/scheduled-tasks/skycot-evaluator-hourly/SKILL.md` to stamp `date -u +%Y-%m-%dT%H:%M:%SZ` rather than local time with a `Z` suffix. That file is not repo-tracked, so it's operator-actionable; this watchdog filter is the read-side defence.
+To fix the write-side gap (so agents stop producing future-dated stamps in the first place), see [`WRITE_SIDE_RUNBOOK.md`](WRITE_SIDE_RUNBOOK.md) — covers the `date -u` fix, where the operator-actionable `SKILL.md` files live (not repo-tracked), and the one-liner sed that audits + fixes every prompt at once.
