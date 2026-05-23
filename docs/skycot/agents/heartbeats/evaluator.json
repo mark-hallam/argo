@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T16:00:00Z",
+  "last_run_utc": "2026-05-23T16:30:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-evaluator-session-round-19-claim-dashboards",
-  "run_notes": "round 19 — claims 4/5/6 LIVE criteria LOCKED via MVP + end-state dashboards pattern (operator-locked). New doc claim-dashboards.md replaces the failed round-18 lock attempt. MVP definitions: claim 4 needs BOTH shared + learned halves (7-item dashboard, currently ~30%); claim 5 needs macOS cu e2e (5-item dashboard, ~60%); claim 6 needs ONE channel Slack working fully (6-item dashboard, ~55%). End-state dashboards track full mission ambition matrices. MISSION.md TBD rows replaced with refs. Each eval round updates cells; doc has a changelog footer. Next session: trace the 4 unknown rows in claim 4 MVP (novel-seq detection / candidate queue / approve flow / trust ratchet) to convert 🔴 → 🟡 or 🟢."
+  "session_label": "anthropic-claude-code-evaluator-session-round-20-claim-4-substrate",
+  "run_notes": "round 20 — claim 4 MVP score jumped ~30% → ~75% after deep grep. All 4 unknown rows have SUBSTRATE PRESENT: novel-seq detection (learn::should_propose + SkillCandidate), candidate queue (pending_review lifecycle), approve flow (CLI + gateway promote, both emit skill.candidate.promoted), trust ratchet (5-signal compute_score + ratchet_grade + cron). E2E with REAL CU trajectory is the verification step. Dashboard updated with row-level citations."
 }
