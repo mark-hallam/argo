@@ -68,6 +68,12 @@ pub(super) async fn run_startup_checks(skip: bool, cwd: &Path) -> ArgoResult<()>
 }
 
 async fn run_startup_checks_inner(skip: bool, cwd: &Path) -> ArgoResult<()> {
+    // demo-ops-add-magic-link-bypass-for-recording: refuse to bind
+    // when ARGO_DEMO_MODE=1 is set in an environment that still has
+    // bearer-auth enforcement on. Honored even with --skip-startup-check
+    // so an operator cannot accidentally ship a prod gateway with the
+    // demo signup-bypass route exposed.
+    demo_mode_compatibility_check()?;
     if skip {
         eprintln!("argo gateway: --skip-startup-check set; bypassing critical health checks");
         return Ok(());
@@ -136,6 +142,32 @@ async fn dispatch_gateway_boot_fail(
 pub(super) fn provider_key_present() -> bool {
     let any = |k: &str| std::env::var(k).is_ok_and(|v| !v.is_empty());
     any("ANTHROPIC_API_KEY") || any("OPENAI_API_KEY")
+}
+
+/// Refuse to bind when `ARGO_DEMO_MODE=1` is set in an environment
+/// where bearer-auth would otherwise be enforced. Demo-mode bypasses
+/// the magic-link verify step entirely, so it MUST co-exist with
+/// `ARGO_GATEWAY_AUTH_BYPASS=1` (the dev-only escape hatch that
+/// disables the bearer gate). The pair is intentional: if you have
+/// bearer-auth on, demo-mode is not safe to enable.
+fn demo_mode_compatibility_check() -> ArgoResult<()> {
+    let demo = std::env::var("ARGO_DEMO_MODE").is_ok_and(|v| v == "1");
+    if !demo {
+        return Ok(());
+    }
+    let bypass = std::env::var("ARGO_GATEWAY_AUTH_BYPASS").is_ok_and(|v| v == "1");
+    if !bypass {
+        return Err(ArgoError::Provider(
+            "ARGO_DEMO_MODE=1 cannot be used in production; \
+             set ARGO_GATEWAY_AUTH_BYPASS=1 or unset ARGO_DEMO_MODE"
+                .into(),
+        ));
+    }
+    eprintln!(
+        "argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted; \
+         every mint emits a warn log + audit row with demo_mode_bypass=true"
+    );
+    Ok(())
 }
 
 /// Load-bearing bind-safety guard

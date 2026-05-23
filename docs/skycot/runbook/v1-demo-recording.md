@@ -111,6 +111,73 @@ post). Don't rename them.
 
 ---
 
+## 3.5 Demo-mode magic-link bypass (recording only)
+
+`ARGO_DEMO_MODE=1` mounts a single dev-only route
+`POST /api/v1/demo/mint-principal` on the gateway. The route returns
+a session token without an SMTP round-trip, so the operator can record
+the v1.0 demo in a single take without wiring up a throwaway inbox.
+
+**What it does** (when the gateway boots with `ARGO_DEMO_MODE=1` AND
+`ARGO_GATEWAY_AUTH_BYPASS=1`):
+
+- Mounts `POST /api/v1/demo/mint-principal`. Body: `{"email": "demo@throwaway.cc"}`.
+  Response: `{"ok": true, "principal": "human:demo@throwaway.cc", "session_token": "<jwt>"}`.
+- The SPA's signup form (when launched with `NEXT_PUBLIC_ARGO_DEMO_MODE=1`)
+  posts to this route on the **Enter demo workspace** button instead of
+  the normal "Send magic link" flow, then routes the operator straight
+  to `/onboarding/welcome`.
+- Every mint emits `tracing::warn!(target: "argo_cli::demo_mode", …)`
+  to gateway stderr.
+- Every mint writes an `auth.succeeded` audit row tagged
+  `payload.demo_mode_bypass: true`, so post-recording you can confirm
+  the row exists and tell demo-recording principals apart from real
+  signups.
+
+**Safety rails:**
+
+- If `ARGO_DEMO_MODE=1` is set but `ARGO_GATEWAY_AUTH_BYPASS=1` is NOT,
+  the gateway refuses to bind with:
+  `ARGO_DEMO_MODE=1 cannot be used in production; set ARGO_GATEWAY_AUTH_BYPASS=1 or unset ARGO_DEMO_MODE`.
+- The env var is read ONCE at gateway startup and cached. There is no
+  runtime flip; a malicious request cannot enable the bypass mid-process.
+- Without `ARGO_DEMO_MODE=1`, the route returns 404 (the dispatcher
+  short-circuits before reaching it).
+
+**Copy-pasteable env block** (drop into the demo terminal alongside
+the other vars in §5):
+
+```bash
+# Demo-mode bypass — operator-only, recording sessions only
+export ARGO_DEMO_MODE=1
+export ARGO_GATEWAY_AUTH_BYPASS=1
+
+# Also export the SPA-side mirror so the signup form switches branches
+export NEXT_PUBLIC_ARGO_DEMO_MODE=1
+```
+
+**Verify it's working:**
+
+1. `argo gateway start` — stderr should print
+   `argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted`.
+2. Open `http://localhost:3000/auth/signup`. You should see a yellow
+   "DEMO MODE — auth bypass active" banner at the top of the form.
+3. Type any email + click **Enter demo workspace**. Browser should
+   navigate to `/onboarding/welcome` without a 401.
+4. Tail the gateway stderr — you should see one
+   `demo-mode magic-link bypass minted principal for <email>` line per
+   click.
+5. Confirm the audit row: `sqlite3 ~/.argo/sessions.db "SELECT payload FROM audit_record WHERE payload LIKE '%demo_mode_bypass%' ORDER BY seq DESC LIMIT 1"`.
+
+**Never enable this in production.** The startup guard (§3.5 above)
+covers the common foot-gun, but you should also avoid setting these
+env vars in any environment that isn't your own laptop during a
+single recording session. Treat `ARGO_DEMO_MODE` the same way you'd
+treat `RUST_BACKTRACE=1` in production — a debugging knob, not a
+deployment configuration.
+
+---
+
 ## 4. Tunnel setup (2 min)
 
 The Slack interactivity request URL must be reachable from Slack's

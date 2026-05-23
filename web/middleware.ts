@@ -42,6 +42,18 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // demo-ops-add-magic-link-bypass-for-recording: when the gateway
+  // booted with ARGO_DEMO_MODE=1, the SPA mirror NEXT_PUBLIC_ARGO_DEMO_MODE=1
+  // short-circuits the cookie gate so the operator can record the
+  // single-take demo without an SMTP round-trip. Hard-disabled in
+  // production builds (mirrors the auth-bypass branch above).
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_ARGO_DEMO_MODE === "1"
+  ) {
+    return NextResponse.next();
+  }
+
   // Cookie-name precedence (Wave-11 audit P0 fix, 2026-05-21):
   // canonical is `__Host-session` — the gateway mints it on the
   // SPA edge `/api/auth/verify` proxy after magic-link verify

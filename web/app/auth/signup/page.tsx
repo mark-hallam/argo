@@ -12,11 +12,31 @@ import { SsoButtons } from "@/components/auth/SsoButtons";
  * Customer-facing entry. Three SSO buttons (Google / GitHub / Microsoft)
  * start the OAuth authorization-code flow; magic-link is the email
  * fallback for anyone without an SSO provider.
+ *
+ * Demo-mode branch (demo-ops-add-magic-link-bypass-for-recording):
+ * when `NEXT_PUBLIC_ARGO_DEMO_MODE=1`, the "Send magic link" button
+ * calls `POST /api/v1/demo/mint-principal` against the gateway
+ * directly, bypassing the SMTP round-trip, and routes the operator
+ * straight to `/onboarding/welcome`. The branch is only meaningful
+ * paired with the gateway flag — without `ARGO_DEMO_MODE=1` on the
+ * gateway, the call returns 404 and the form falls back to the
+ * normal magic-link flow.
  */
+const DEMO_MODE =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_ARGO_DEMO_MODE === "1";
+
+const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
+
+function gatewayBase(): string {
+  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const { state, submit } = useSignup();
   const [email, setEmail] = useState("");
+  const [demoPending, setDemoPending] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (state.kind === "sent") {
@@ -26,11 +46,47 @@ export default function SignupPage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (DEMO_MODE) {
+      await submitDemoMint();
+      return;
+    }
     await submit({ email });
   }
 
-  const pending = state.kind === "submitting";
-  const error = state.kind === "error" ? state.message : null;
+  async function submitDemoMint() {
+    const trimmed = email.trim().toLowerCase();
+    if (trimmed.length === 0) return;
+    setDemoPending(true);
+    setDemoError(null);
+    try {
+      const res = await fetch(`${gatewayBase()}/api/v1/demo/mint-principal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      if (!res.ok) {
+        setDemoError(
+          `Demo mint failed (HTTP ${res.status}). Confirm the gateway booted with ARGO_DEMO_MODE=1.`,
+        );
+        return;
+      }
+      router.replace("/onboarding/welcome");
+    } catch {
+      setDemoError("Couldn't reach the gateway. Confirm it's running on the configured port.");
+    } finally {
+      setDemoPending(false);
+    }
+  }
+
+  const pending = state.kind === "submitting" || demoPending;
+  const error = demoError ?? (state.kind === "error" ? state.message : null);
+  const buttonLabel = DEMO_MODE
+    ? pending
+      ? "Minting demo session…"
+      : "Enter demo workspace"
+    : pending
+      ? "Sending magic link…"
+      : "Send magic link";
 
   return (
     <AuthEditorialShell
@@ -38,6 +94,8 @@ export default function SignupPage() {
       topRightHref="/auth/signin"
       topRightCta="Sign in"
     >
+      {DEMO_MODE ? <DemoModeBanner /> : null}
+
       <div className="eyebrow">
         <span className="eyebrow-dot" />
         START YOUR FREE TRIAL
@@ -74,7 +132,7 @@ export default function SignupPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            aria-invalid={state.kind === "error" || undefined}
+            aria-invalid={state.kind === "error" || Boolean(demoError) || undefined}
             aria-describedby={error ? "signup-error" : undefined}
             placeholder="you@yourcompany.com"
             className="field-input"
@@ -93,14 +151,39 @@ export default function SignupPage() {
           disabled={pending || email.trim().length === 0}
           data-testid="signup-submit"
         >
-          {pending ? "Sending magic link…" : "Send magic link"}
+          {buttonLabel}
           {pending ? null : <span className="kbd">↵</span>}
         </button>
       </form>
 
       <p className="below-form">
-        We&apos;ll email you a one-tap sign-in link. No password to remember.
+        {DEMO_MODE
+          ? "Demo mode is active — no email is sent. You'll land in onboarding immediately."
+          : "We'll email you a one-tap sign-in link. No password to remember."}
       </p>
     </AuthEditorialShell>
+  );
+}
+
+function DemoModeBanner() {
+  return (
+    <div
+      role="status"
+      data-testid="demo-mode-banner"
+      style={{
+        background: "#fef3c7",
+        border: "1px solid #f59e0b",
+        color: "#78350f",
+        padding: "10px 14px",
+        borderRadius: 8,
+        marginBottom: 20,
+        fontSize: 13,
+        fontWeight: 600,
+      }}
+    >
+      DEMO MODE — auth bypass active. ARGO_DEMO_MODE=1 is set; signup mints a
+      verified principal without an email round-trip. Never enable this in
+      production.
+    </div>
   );
 }

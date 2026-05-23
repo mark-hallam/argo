@@ -23,6 +23,7 @@ mod bootstrap_token;
 mod cors;
 mod dashboard;
 mod dashboard_fleet;
+mod demo_mode;
 mod email_outbound;
 mod hipaa_startup_check;
 mod ip_allowlist;

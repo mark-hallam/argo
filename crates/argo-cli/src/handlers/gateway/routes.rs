@@ -144,6 +144,15 @@ async fn dispatch_route_inner(
     if let Some(resp) = super::auth_magic_link::dispatch(req, store).await {
         return resp;
     }
+    // Demo-mode magic-link bypass
+    // (demo-ops-add-magic-link-bypass-for-recording). Active only
+    // when `ARGO_DEMO_MODE=1` is set at gateway startup; mounted
+    // ahead of bearer-auth so the SPA's signup form can call it
+    // anonymously. The startup-check refuses to bind when this
+    // env var co-exists with bearer-auth (see startup_check.rs).
+    if let Some(resp) = super::demo_mode::dispatch(req, store).await {
+        return resp;
+    }
     // CSRF token-fetch surface — same-origin XHR endpoint that
     // mirrors the `__Host-csrf` cookie value back as JSON. Anonymous
     // (no bearer gate) so the SPA can call it on first-load.
