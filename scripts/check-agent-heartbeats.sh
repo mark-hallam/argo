@@ -60,20 +60,51 @@ alive_count=0
 printf '%-15s  %-22s  %-12s  %s\n' 'AGENT' 'LAST RUN (UTC)' 'AGE' 'STATUS'
 printf '%-15s  %-22s  %-12s  %s\n' '─────' '─────────────────────' '────────────' '──────'
 
+# Future-dated rejection threshold. Round-36 evaluator (2026-05-23)
+# observed a live race where a concurrent session stamped Melbourne
+# local time as `Z` (UTC), producing a `last_run_utc` 10h ahead of
+# real UTC. With the per-session-file dedupe from #2139 in place,
+# the future-dated row stays lexicographically-largest forever —
+# wrong-time mode becomes silently permanent. Reject any timestamp
+# >5min ahead of `now_iso`: tight enough to catch tz mistakes
+# (typically multiple-hour offsets) and loose enough for clock
+# drift between writer + reader on the same host.
+FUTURE_DATED_GRACE_S=300
+
 # First pass: collect (canonical_agent, last_iso, hb_path) for every
 # heartbeat file, then keep only the freshest entry per canonical
 # agent. This is the load-bearing concurrent-write guard: when two
 # sessions write `evaluator-interactive.json` and
 # `evaluator-scheduled.json` concurrently, the freshest still wins
-# at staleness-check time.
+# at staleness-check time. Rows whose timestamp is more than
+# FUTURE_DATED_GRACE_S ahead of now are shunted to `reject_file`
+# instead of the main collect stream so a wrong-time agent can't
+# monopolise the freshness verdict.
 shopt -s nullglob
 collect_file="$(mktemp -t agent-heartbeats.XXXXXX)"
-trap 'rm -f "$collect_file" "$collect_file.dedup"' EXIT
+reject_file="$(mktemp -t agent-heartbeats-rej.XXXXXX)"
+trap 'rm -f "$collect_file" "$collect_file.dedup" "$reject_file"' EXIT
 for hb in "$HEARTBEAT_DIR"/*.json; do
     name="$(basename "$hb" .json)"
     [[ "$name" == "README" ]] && continue
     canonical="$(canonical_agent_for "$name")"
     candidate_iso="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('last_run_utc',''))" "$hb" 2>/dev/null || echo "")"
+    # Future-dated guard. Convert the candidate to epoch and
+    # compare to now_epoch. A timestamp more than
+    # FUTURE_DATED_GRACE_S ahead of now goes to reject_file —
+    # surfaced in the report as `⚠ FUTURE-DATED` so the operator
+    # sees what was dropped, never silently swallowed.
+    # Unparseable timestamps fall through to the normal path and
+    # hit the existing MALFORMED HEARTBEAT render; no double-flag.
+    if [[ -n "$candidate_iso" ]]; then
+        if cand_epoch="$(date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$candidate_iso" +%s 2>/dev/null)" \
+            || cand_epoch="$(date -u -d "$candidate_iso" +%s 2>/dev/null)"; then
+            if (( cand_epoch - now_epoch > FUTURE_DATED_GRACE_S )); then
+                printf '%s\t%s\t%s\n' "$canonical" "$candidate_iso" "$hb" >> "$reject_file"
+                continue
+            fi
+        fi
+    fi
     # Emit (canonical, last_iso, path) so the freshest survives the
     # sort below. Missing/empty last_iso sorts last so it only
     # surfaces if no sibling file has a valid timestamp.
@@ -143,6 +174,19 @@ while IFS=$'\t' read -r agent last_iso_candidate hb; do
         alive_count=$((alive_count + 1))
     fi
 done < "$collect_file.dedup"
+
+# Surface every future-dated row that was shunted to reject_file.
+# Each entry counts as STALE so the script exit code reflects the
+# anomaly. If a canonical agent has ALL of its sibling heartbeats
+# in reject_file (no entry survived to collect_file.dedup), the
+# agent didn't render above — it appears here as 🔴 STALE on the
+# future-dated line, the right answer.
+while IFS=$'\t' read -r agent last_iso hb; do
+    [[ -z "$agent" ]] && continue
+    printf '%-15s  %-22s  %-12s  ⚠️  FUTURE-DATED (rejected, >5min ahead of now)\n' \
+        "$agent" "$last_iso" "—"
+    stale_count=$((stale_count + 1))
+done < "$reject_file"
 
 if (( alive_count == 0 && stale_count == 0 )); then
     echo "(no heartbeats yet — agents have not had a chance to write one)" >&2

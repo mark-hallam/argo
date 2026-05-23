@@ -50,3 +50,13 @@ When launching an evaluator session, write the heartbeat to ONE of:
 - `evaluator-interactive.json` — operator-launched interactive sessions.
 
 Do NOT write to the base `evaluator.json` path from a session that knows itself to be one of the two flavours — it can still be raced by the other. The watchdog will collapse both back to the canonical `evaluator` agent at staleness-check time.
+
+### Future-dated rejection (5-min grace)
+
+The watchdog rejects any `last_run_utc` timestamp more than **5 minutes ahead** of `now_iso` (UTC, the host's `date -u +%s`). Rejected rows surface in the report as `⚠️ FUTURE-DATED (rejected, >5min ahead of now)` and count as STALE for the script's exit code.
+
+Why: round-36 evaluator (2026-05-23) observed a session that stamped Melbourne local time as `Z` and produced a `last_run_utc` 10h ahead of real UTC. Without this filter, the dedupe at `scripts/check-agent-heartbeats.sh` picks the lexicographically-largest timestamp — the future-dated row wins forever and the agent shows ✅ alive on a bogus stamp. Pre-#2139 the wrong timestamp eventually got corrected by the next real write (last-writer-wins). Post-#2139 the dedupe makes the bad row permanent unless this filter drops it.
+
+The 5-minute grace is tight enough to catch tz mistakes (typically multiple-hour offsets) and loose enough for clock drift between writer and reader on the same host. Tune `FUTURE_DATED_GRACE_S` at the top of the watchdog if your deployment needs a different bound.
+
+To fix the write-side gap (so agents stop producing future-dated stamps in the first place), update the evaluator's scheduled-task prompt at `~/.claude/scheduled-tasks/skycot-evaluator-hourly/SKILL.md` to stamp `date -u +%Y-%m-%dT%H:%M:%SZ` rather than local time with a `Z` suffix. That file is not repo-tracked, so it's operator-actionable; this watchdog filter is the read-side defence.
