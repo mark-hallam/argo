@@ -200,6 +200,155 @@ async fn audit_row_is_written_with_tenant_provisioned_kind() {
 }
 
 #[tokio::test]
+async fn provision_seeds_5_workplace_docs() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let (status, resp) = provision_response(
+        &req(&body(), Some("human:alice@acme.com")),
+        Some(&store),
+    )
+    .await;
+    assert_eq!(status, "201 Created", "body: {resp}");
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    let tenant_id = v["tenant_id"].as_str().unwrap().to_string();
+
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM workplace_knowledge_doc WHERE tenant_id = ?",
+    )
+    .bind(&tenant_id)
+    .fetch_one(store.pool())
+    .await
+    .expect("count seeded docs");
+    assert_eq!(count, 5, "expected 5 seeded docs, got {count}");
+
+    let mut slugs: Vec<String> = sqlx::query_scalar(
+        "SELECT slug FROM workplace_knowledge_doc WHERE tenant_id = ? ORDER BY slug",
+    )
+    .bind(&tenant_id)
+    .fetch_all(store.pool())
+    .await
+    .expect("fetch slugs");
+    slugs.sort();
+    assert_eq!(
+        slugs,
+        vec![
+            "brand-voice".to_string(),
+            "business-rules".to_string(),
+            "customer-tone".to_string(),
+            "escalation-policy".to_string(),
+            "never-do-this".to_string(),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn provision_is_idempotent_when_docs_already_exist() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let r = req(&body(), Some("human:alice@acme.com"));
+    let (status1, _b1) = provision_response(&r, Some(&store)).await;
+    assert_eq!(status1, "201 Created");
+    let (status2, b2) = provision_response(&r, Some(&store)).await;
+    assert_eq!(status2, "200 OK");
+    let v2: Value = serde_json::from_str(&b2).unwrap();
+    let tenant_id = v2["tenant_id"].as_str().unwrap().to_string();
+
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM workplace_knowledge_doc WHERE tenant_id = ?",
+    )
+    .bind(&tenant_id)
+    .fetch_one(store.pool())
+    .await
+    .expect("count seeded docs");
+    assert_eq!(count, 5, "re-provision must not duplicate docs");
+
+    // No second wave of seed-audit rows either: the per-slug
+    // existence check short-circuits before `doc::create` is called,
+    // so a no-op re-call writes zero new `workplace_knowledge.doc.created`
+    // events.
+    let audit_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_record WHERE kind = 'workplace_knowledge.doc.created'",
+    )
+    .fetch_one(store.pool())
+    .await
+    .expect("count seed-audit rows");
+    assert_eq!(audit_count, 5, "expected exactly 5 seed-audit rows, got {audit_count}");
+}
+
+#[tokio::test]
+async fn seed_emits_5_audit_rows_with_doc_created_kind() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let (status, _resp) = provision_response(
+        &req(&body(), Some("human:alice@acme.com")),
+        Some(&store),
+    )
+    .await;
+    assert_eq!(status, "201 Created");
+
+    let rows: Vec<(String, Option<String>)> = sqlx::query_as(
+        "SELECT payload_json, principal_id FROM audit_record \
+         WHERE kind = 'workplace_knowledge.doc.created' \
+         ORDER BY created_at ASC",
+    )
+    .fetch_all(store.pool())
+    .await
+    .expect("fetch seed-audit rows");
+    assert_eq!(rows.len(), 5, "expected 5 doc-created audit rows");
+    for (payload, principal) in rows {
+        assert_eq!(
+            principal.as_deref(),
+            Some("system:onboarding-seed"),
+            "every seed-audit row carries the system actor"
+        );
+        assert!(
+            payload.contains("\"source\":\"onboarding-seed\""),
+            "payload missing source marker: {payload}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn seed_body_matches_disk_file_byte_for_byte() {
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    let (status, resp) = provision_response(
+        &req(&body(), Some("human:alice@acme.com")),
+        Some(&store),
+    )
+    .await;
+    assert_eq!(status, "201 Created");
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    let tenant_id = v["tenant_id"].as_str().unwrap().to_string();
+
+    let on_disk = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/handlers/gateway/onboarding_seeds/brand_voice.md"),
+    )
+    .expect("read brand_voice.md from disk");
+    let stored: String = sqlx::query_scalar(
+        "SELECT body_markdown FROM workplace_knowledge_doc \
+         WHERE tenant_id = ? AND slug = 'brand-voice'",
+    )
+    .bind(&tenant_id)
+    .fetch_one(store.pool())
+    .await
+    .expect("fetch brand-voice doc");
+    assert_eq!(
+        stored, on_disk,
+        "seeded brand-voice body must match the on-disk file byte-for-byte"
+    );
+}
+
+#[tokio::test]
 async fn idempotent_call_does_not_write_second_audit_row() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");

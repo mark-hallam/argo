@@ -29,15 +29,21 @@
 //!    whether this was a fresh insert or an idempotent re-call.
 
 use super::body_from_request;
+use super::onboarding_seeds;
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::user::UserAccount;
 use argo_identity::user_store::{get_user_by_email, insert_user};
 use argo_identity::{provision_for_user, ProvisionOutcome, ProvisionRequest};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::{json, Value};
 use std::sync::Arc;
+
+/// Principal handle stamped on seeded workplace-knowledge docs and on
+/// their audit rows. Distinct from `human:<email>` so operators can
+/// filter `/audit` by actor to see the initial seed event.
+const SEED_ACTOR: &str = "system:onboarding-seed";
 
 const DEFAULT_VERTICAL: &str = "gtm-engineer";
 const HUMAN_PRINCIPAL_PREFIX: &str = "human:";
@@ -102,6 +108,20 @@ pub(super) async fn provision_response(
     };
 
     emit_audit(store, &user, &workspace_name, &outcome).await;
+
+    if let Err(e) = seed_and_audit(store, &outcome.tenant_id).await {
+        // Seeds are best-effort polish: failing to seed shouldn't 500
+        // a successful provision — the wiki can still be authored by
+        // hand. We log + continue so the response stays consistent
+        // with the rest of the post-provision audit emissions
+        // (`emit_audit` also swallows + logs).
+        tracing::warn!(
+            target: "gateway::onboarding_provision::seed",
+            error = %e,
+            tenant_id = %outcome.tenant_id,
+            "workplace-knowledge seed failed"
+        );
+    }
 
     let next_step = next_step_for(&outcome);
     let payload = json!({
@@ -191,6 +211,47 @@ async fn emit_audit(
             "tenant_provisioned audit write failed"
         );
     }
+}
+
+async fn seed_and_audit(store: &Arc<SessionStore>, tenant_id: &TenantId) -> ArgoResult<()> {
+    let inserted =
+        onboarding_seeds::seed_workplace_knowledge(store, tenant_id, SEED_ACTOR).await?;
+    if inserted.is_empty() {
+        return Ok(());
+    }
+    tracing::info!(
+        target: "argo::onboarding::seed",
+        tenant = %tenant_id,
+        count = inserted.len(),
+        "workplace knowledge seeded"
+    );
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    for slug in inserted {
+        let payload = json!({
+            "tenant_id": tenant_id.to_string(),
+            "slug": slug,
+            "created_by": SEED_ACTOR,
+            "source": "onboarding-seed",
+        });
+        if let Err(e) = sink
+            .write(
+                None,
+                AuditKind::WorkplaceKnowledgeDocCreated,
+                payload,
+                Some(SEED_ACTOR.to_string()),
+            )
+            .await
+        {
+            tracing::warn!(
+                target: "gateway::onboarding_provision::seed",
+                error = %e,
+                tenant_id = %tenant_id,
+                slug = slug,
+                "workplace_knowledge_doc_created audit write failed"
+            );
+        }
+    }
+    Ok(())
 }
 
 fn unauthorized() -> (&'static str, String) {
