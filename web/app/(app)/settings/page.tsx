@@ -77,8 +77,8 @@ const TILES = [
     href: "/settings/connectors",
     icon: <Plug size={20} />,
     title: "Connectors",
-    blurb: "Slack, GitHub, Linear, Notion, Email. OAuth scopes per channel.",
-    coming: true,
+    blurb: "Slack, GitHub, Linear, Notion, Email — 29 integrations. OAuth + API-key.",
+    coming: false,
   },
   {
     href: "/billing",

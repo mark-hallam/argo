@@ -13,7 +13,7 @@
  * Until the gateway lands the routes both helpers fall back gracefully
  * (status defaults to "not_connected"; disconnect is a no-op).
  */
-import { apiDelete, apiGet, ApiError } from "./client";
+import { apiDelete, apiGet, apiPost, ApiError } from "./client";
 
 export type ConnectorStatus =
   | "not_connected"
@@ -106,4 +106,84 @@ export function buildConnectUrl(args: {
     return: ret,
   });
   return `${base}${pathPrefix}/${encodeURIComponent(args.connectorId)}?${params.toString()}`;
+}
+
+/**
+ * Tenant-scoped OAuth-start URL for the `/settings/connectors` page.
+ * Mirrors {@link buildConnectUrl} but without the `worker` query
+ * parameter — the gateway scopes the saved credential to the tenant
+ * directly. Returns to `/settings/connectors/oauth-return`.
+ */
+export function buildTenantConnectUrl(args: {
+  connectorId: string;
+  returnOrigin: string;
+}): string {
+  const base = gatewayBaseUrl();
+  const ret = `${args.returnOrigin}/settings/connectors/oauth-return`;
+  const params = new URLSearchParams({ return: ret });
+  return `${base}/connect/${encodeURIComponent(args.connectorId)}?${params.toString()}`;
+}
+
+/** Single row in the tenant-scoped connector status response. */
+export interface TenantConnectorRow {
+  connectorId: string;
+  status: ConnectorStatus;
+  connectedAs?: string;
+  connectedAt?: string;
+}
+
+export interface TenantConnectorListResponse {
+  connectors: TenantConnectorRow[];
+}
+
+/**
+ * Read the tenant's connection state for every connector at once.
+ * Falls back to an empty list when the gateway route is missing so
+ * the catalog page still renders during v1 rollout.
+ */
+export async function listTenantConnectors(
+  init?: { signal?: AbortSignal },
+): Promise<TenantConnectorListResponse> {
+  try {
+    return await apiGet<TenantConnectorListResponse>("/api/v1/connectors", {
+      signal: init?.signal,
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return { connectors: [] };
+    }
+    throw err;
+  }
+}
+
+/** Revoke a tenant-scoped credential. 404 → already disconnected. */
+export async function disconnectTenantConnector(
+  connectorId: string,
+): Promise<{ connectorId: string; ok: boolean }> {
+  try {
+    await apiDelete<void>(
+      `/api/v1/connectors/${encodeURIComponent(connectorId)}`,
+    );
+    return { connectorId, ok: true };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return { connectorId, ok: true };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Save a credential for an API-key-shaped connector. The gateway is
+ * responsible for the encrypted-at-rest persistence + tenant scoping.
+ */
+export async function saveTenantConnectorCredential(args: {
+  connectorId: string;
+  fields: Record<string, string>;
+}): Promise<{ ok: true }> {
+  await apiPost<void>(
+    `/api/v1/connectors/${encodeURIComponent(args.connectorId)}/credentials`,
+    args.fields,
+  );
+  return { ok: true };
 }
