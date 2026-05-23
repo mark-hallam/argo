@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T14:30:00Z",
+  "last_run_utc": "2026-05-23T15:00:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-evaluator-session-round-17-claim-1-live-test",
-  "run_notes": "round 17 — authored the FIRST falsifiable mission-claim LIVE test. crates/argo-identity/tests/claim_1_live_workers_persist.rs pins MISSION.md's operator-locked Claim 1 LIVE criteria (5 workers persist across gateway restarts, memory roundtrip survives second restart cycle, one worker re-summoned by name 24h later). 4 phases: schema pre-flight (no expires_at/ttl/valid_until columns), file-backed hire of 5 distinct workers, simulated restart + identity assertion, simulated 24h restart + memory marker round-trip. Compile-check in flight. Once green, this becomes the regression contract for Claim 1."
+  "session_label": "anthropic-claude-code-evaluator-session-round-18-live-criteria-drafts",
+  "run_notes": "round 18 — drafted LIVE criteria for claims 4/5/6 in docs/skycot/evals/scheduled/2026-05-23/draft-live-criteria-claims-4-5-6.md. Pending operator sign-off. Same format as claims 1/2/3 (round 15). Claim 4: option 4A substrate (install + invoke + audit) recommended for v1, option 4B closed-loop learning deferred to v1.x. Claim 5: split into MCP half + cu-macos half, both must be green. Claim 6: split into outbound, cross-tenant, audit-chain sub-tests, ALL three must be green. Once operator picks (go / amend / reject) per criterion, I'll push the wording into MISSION.md and author the regression tests in subsequent rounds. Target: by 2026-05-30 all 6 mission claims have green regression contracts."
 }
