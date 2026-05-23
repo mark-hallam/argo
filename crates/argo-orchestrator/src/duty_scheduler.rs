@@ -10,8 +10,12 @@
 //! [`argo_identity::AutoApprovalPolicy`] gate is honored before
 //! the session is created.
 //!
-//! Implementation is split across three sibling files:
+//! Implementation is split across sibling files + a sub-module dir:
 //!   * `duty_scheduler.rs` — record type + scheduler loop (this file)
+//!   * `duty_scheduler/agent_invocation.rs` — `DutyAgentRunner`,
+//!     `DutyRunContext`, `NoopDutyRunner`, audit-payload builder
+//!   * `duty_scheduler/cron_eval.rs` — `DutyRecord::should_fire`,
+//!     `trunc_to_micros`
 //!   * `duty_scheduler_gate.rs` — `FireDecision`, `DutyGate`, gates
 //!   * `duty_scheduler_store.rs` — SQLite CRUD over `role_duty`
 //!
@@ -20,17 +24,21 @@
 //! assert_eq!(FireDecision::AutoApprove.label(), "auto_approved");
 //! ```
 use crate::{OrchestratorStore, Session, SessionId};
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::AuditSink;
 use argo_identity::WorkerId;
 use argo_types::{ArgoError, ArgoResult, TenantId};
-use async_trait::async_trait;
-use chrono::{DateTime, TimeZone, Utc};
-use cron::Schedule;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
+
+mod agent_invocation;
+mod cron_eval;
+
+pub use agent_invocation::{DutyAgentRunner, DutyRunContext, NoopDutyRunner};
+use agent_invocation::build_audit_payload;
+use cron_eval::trunc_to_micros;
 
 pub use crate::duty_scheduler_gate::{
     gate_from_config, ClosedGate, DutyGate, FireDecision, GateConfig, OpenGate, QuietHoursGate,
@@ -94,24 +102,6 @@ impl DutyRecord {
             gate: GateConfig::default(),
         }
     }
-
-    /// `true` iff the cron window has elapsed since the last fire
-    /// origin (`last_fired_at` if set, else `created_at`).
-    pub fn should_fire(&self, now: DateTime<Utc>) -> ArgoResult<bool> {
-        if !self.enabled {
-            return Ok(false);
-        }
-        if matches!(self.paused_until, Some(until) if until > now) {
-            return Ok(false);
-        }
-        let schedule = Schedule::from_str(&self.cron)
-            .map_err(|e| ArgoError::Schema(format!("duty.cron '{}': {e}", self.cron)))?;
-        let origin = self.last_fired_at.unwrap_or(self.created_at);
-        match schedule.after(&origin).next() {
-            Some(next) => Ok(next <= now),
-            None => Ok(false),
-        }
-    }
 }
 
 /// Outcome of a single tick.
@@ -130,72 +120,6 @@ pub struct DutyTickReport {
     /// were the worst failure mode pre-fix; this counter makes them
     /// visible in the per-tick report.
     pub run_failed: Vec<String>,
-}
-
-/// Behaviour the [`DutyScheduler`] needs from the agent runtime
-/// when a duty's cron window elapses and the gate auto-approves.
-///
-/// Defined here so [`argo-orchestrator`] doesn't depend on
-/// [`argo-agent-runner`] (the existing dep direction is
-/// runner → orchestrator). Production wires a thin adapter that
-/// calls `argo_agent_runner::run_turn`; tests inject mocks.
-/// [`NoopDutyRunner`] is the default — it always succeeds and is
-/// used by every constructor that doesn't explicitly opt into a
-/// runner via [`DutyScheduler::with_agent_runner`].
-#[async_trait]
-pub trait DutyAgentRunner: Send + Sync {
-    /// Drive one agent turn for the just-spawned duty session.
-    ///
-    /// Returning `Ok(())` ⇒ the scheduler emits a
-    /// [`AuditKind::WorkerDutyFired`] row. Returning `Err` ⇒ the
-    /// scheduler emits a [`AuditKind::WorkerDutyFailed`] row, logs
-    /// at `tracing::error` level, and keeps ticking the next duty
-    /// — a single runner failure must never kill the loop.
-    async fn run_turn(&self, ctx: DutyRunContext) -> ArgoResult<()>;
-}
-
-/// Context handed to [`DutyAgentRunner::run_turn`] per duty fire.
-#[derive(Debug, Clone)]
-pub struct DutyRunContext {
-    /// Tenant that owns the duty + worker + session.
-    pub tenant_id: TenantId,
-    /// Worker the duty belongs to — the agent loop must run AS
-    /// this worker (system prompt, capabilities, memory).
-    pub worker_id: WorkerId,
-    /// Duty row id — included so the runner can look up the
-    /// duty's entry_action / description / cron history if needed.
-    pub duty_id: String,
-    /// Session row the scheduler just spawned for this fire. The
-    /// runner appends messages to this session, not a fresh one.
-    pub session_id: SessionId,
-    /// Cron expression that fired (informational; audit payload).
-    pub cron_spec: String,
-    /// Handler name from the worker action vocabulary — the
-    /// canonical "what to do this tick" string.
-    pub entry_action: String,
-    /// Tick instant (UTC) — every audit row written for this
-    /// fire stamps the same value so a single fire is one row in
-    /// `worker_duty.fired` (or `worker_duty.failed`) by timestamp.
-    pub fired_at: DateTime<Utc>,
-}
-
-/// Default [`DutyAgentRunner`] — does nothing, always succeeds.
-///
-/// Wired by every constructor that doesn't call
-/// [`DutyScheduler::with_agent_runner`]. Lets every existing
-/// callsite (CLI handlers, gateway boot's `ClosedGate` path,
-/// integration tests) keep its current behaviour: spawn the
-/// session row + write the attribution row, no agent invocation.
-/// The production gateway swaps in a real adapter that calls
-/// `argo_agent_runner::run_turn` via a follow-up wire-up brief.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct NoopDutyRunner;
-
-#[async_trait]
-impl DutyAgentRunner for NoopDutyRunner {
-    async fn run_turn(&self, _ctx: DutyRunContext) -> ArgoResult<()> {
-        Ok(())
-    }
 }
 
 /// Combines a [`DutyStore`] with an [`OrchestratorStore`] and a
@@ -449,33 +373,6 @@ impl DutyScheduler {
     }
 }
 
-fn build_audit_payload(
-    ctx: &DutyRunContext,
-    err: Option<&ArgoError>,
-) -> (AuditKind, serde_json::Value) {
-    let mut payload = serde_json::json!({
-        "tenant_id": ctx.tenant_id.0.to_string(),
-        "worker_id": ctx.worker_id.to_string(),
-        "duty_id": ctx.duty_id,
-        "session_id": ctx.session_id.as_str(),
-        "cron_spec": ctx.cron_spec,
-        "fired_at": ctx.fired_at.to_rfc3339(),
-        "entry_action": ctx.entry_action,
-    });
-    match err {
-        None => (AuditKind::WorkerDutyFired, payload),
-        Some(e) => {
-            if let serde_json::Value::Object(ref mut map) = payload {
-                map.insert(
-                    "error".to_string(),
-                    serde_json::Value::String(e.to_string()),
-                );
-            }
-            (AuditKind::WorkerDutyFailed, payload)
-        }
-    }
-}
-
 /// Spawn a tokio task that calls [`DutyScheduler::tick`] on the
 /// given interval, swallowing per-tick errors via `tracing::error!`
 /// so a flaky tick never kills the loop. Gateway boot binds this
@@ -496,12 +393,6 @@ pub fn spawn_duty_scheduler(
             }
         }
     })
-}
-
-fn trunc_to_micros(d: DateTime<Utc>) -> DateTime<Utc> {
-    Utc.timestamp_micros(d.timestamp_micros())
-        .single()
-        .unwrap_or(d)
 }
 
 #[cfg(test)]
