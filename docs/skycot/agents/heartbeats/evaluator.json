@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T16:30:00Z",
+  "last_run_utc": "2026-05-23T17:00:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-evaluator-session-round-20-claim-4-substrate",
-  "run_notes": "round 20 — claim 4 MVP score jumped ~30% → ~75% after deep grep. All 4 unknown rows have SUBSTRATE PRESENT: novel-seq detection (learn::should_propose + SkillCandidate), candidate queue (pending_review lifecycle), approve flow (CLI + gateway promote, both emit skill.candidate.promoted), trust ratchet (5-signal compute_score + ratchet_grade + cron). E2E with REAL CU trajectory is the verification step. Dashboard updated with row-level citations."
+  "session_label": "anthropic-claude-code-evaluator-session-round-21-audit-chain-verify",
+  "run_notes": "round 21 — claim 6 strengthener cell e2e-verified. New regression test crates/argo-audit/tests/claim_6_audit_chain_verify.rs green on main: seed 5 audit rows + verify_session OK + tamper one payload_json + verify_session FAIL with ChainBreak at right seq. Claim 6 MVP score 55% → 67%. Third mission-claim regression test green (after round-17 claim 1). Next: Slack outbound + inbound e2e tests to push claim 6 MVP higher."
 }
