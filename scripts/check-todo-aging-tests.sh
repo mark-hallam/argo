@@ -29,6 +29,8 @@ cat > "$TMPDIR/BUILD_STATUS.md" <<'EOF'
 | row-p0-overdue | claude | TODO | — | 🔴 P0 NEW 2026-05-21T00:00Z; 60h old → overdue |
 | row-p0-dateonly | claude | TODO | — | 🔴 P0 NEW 2026-05-23 — no time component; anchor at midnight UTC |
 | row-operator-locked | claude | TODO | — | 🚨 P0 OPERATOR-LOCKED 2026-05-23T08:00Z by operator |
+| row-p0-claimed-overdue | claude | CLAIMED | — | 🔴 P0 claimed at 2026-05-21T03:00Z but no PR yet; 57h stuck → overdue |
+| row-p0-changes-requested-aging | claude | CHANGES-REQUESTED | #999 | 🔴 P0 fix-request posted 2026-05-22T04:00Z; 32h since changes requested → aging |
 | row-p1-not-tagged | claude | TODO | — | 🟡 P1 routine work, NEW 2026-05-19T00:00Z — not P0 so silent |
 | row-merged-narrative-p0 | claude | MERGED | #1 | post-mortem note mentions the P0 in narrative — status is MERGED, must not surface |
 EOF
@@ -67,6 +69,8 @@ expect "date-only NEW → midnight anchor" "🟢 row-p0-dateonly.*within budget.
 expect "OPERATOR-LOCKED row picked up"  "row-operator-locked"
 deny   "P1 row NOT surfaced"            "row-p1-not-tagged"
 deny   "MERGED row NOT surfaced"        "row-merged-narrative-p0"
+expect "CLAIMED P0 row surfaced"        "🔴 row-p0-claimed-overdue.*OVERDUE.*57h"
+expect "CHANGES-REQUESTED P0 surfaced"  "🟠 row-p0-changes-requested-aging.*aging.*32h"
 expect "tally line"                     "^Tally: [0-9]+ within-budget · [0-9]+ aging · [0-9]+ overdue"
 if [ "$RC" -eq 0 ]; then
   echo "  PASS  exit 0 (informational, never escalates)"

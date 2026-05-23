@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# Sweep BUILD_STATUS.md for TODO rows tagged P0 and report how
-# long each has been waiting (ops-add-todo-aging-gate-script).
+# Sweep BUILD_STATUS.md for unfinished P0 rows and report how long
+# each has been waiting. "Unfinished" = `status` is one of TODO /
+# CLAIMED / CHANGES-REQUESTED — anything not yet on main.
 #
 # Why: scheduled audit 2026-05-23T09-40 §4 P1 #4 — the cu-macos
 # P0 went 17h+ unfixed during the mac-host doom-loop because the
 # sibling `scripts/check-findings-only-fix-by.sh` (from
 # claude-conductor-fix-by-enforcement / #2065) only walks rows
-# that are MERGED-FINDINGS-ONLY, not TODO. A P0 that's been
-# sitting in TODO for >24h is operationally indistinguishable
-# from a P0 that's been forgotten about. This script closes that
-# gap.
+# that are MERGED-FINDINGS-ONLY, not pre-merge rows. A P0 that's
+# been sitting in TODO / CLAIMED / CHANGES-REQUESTED for >24h is
+# operationally indistinguishable from a P0 that's been forgotten
+# about. This script closes that gap (initial TODO-only landing
+# via ops-add-todo-aging-gate-script / #2134, broadened to
+# CLAIMED + CHANGES-REQUESTED via
+# ops-fix-by-tracker-add-p0-cu-macos-blocker — same shape, wider
+# net so an actively-CLAIMED-but-not-shipping P0 also escalates).
 #
 # The output mirrors `check-findings-only-fix-by.sh` so the
 # conductor's tick surfaces both gates with the same visual
@@ -19,7 +24,7 @@
 #   ./scripts/check-todo-aging.sh [--ledger PATH] [--now YYYY-MM-DDTHH:MMZ]
 #
 # Output (human-readable):
-#   one line per TODO row tagged P0:
+#   one line per P0 row in TODO / CLAIMED / CHANGES-REQUESTED:
 #     🟢 <brief-id>  within budget (<H>h since <anchor>)
 #     🟠 <brief-id>  aging         (<H>h since <anchor>)
 #     🔴 <brief-id>  OVERDUE       (<H>h since <anchor>)
@@ -111,7 +116,13 @@ fi
 rows=$(awk -F'|' '
   /^\| [a-zA-Z0-9_.-]+/ {
     status=$4; gsub(/^ +| +$/, "", status)
-    if (status != "TODO") next
+    # Pre-merge statuses only — anything that has landed on main
+    # (MERGED, MERGED-FINDINGS-ONLY, MERGED-DUP-OF-*, DROPPED,
+    # DEFERRED-*) is out of scope for this sweep. The fix-by sweep
+    # at step 4.8 handles MERGED-FINDINGS-ONLY separately.
+    if (status != "TODO" && \
+        status != "CLAIMED" && \
+        status != "CHANGES-REQUESTED") next
     reason=$6; gsub(/^ +| +$/, "", reason)
     id=$2; gsub(/^ +| +$/, "", id)
     if (reason ~ /🔴 P0/ || \
@@ -129,7 +140,7 @@ red=0
 total=0
 
 if [ -z "$rows" ]; then
-  echo "No P0-tagged TODO rows in ledger — nothing to age."
+  echo "No P0-tagged TODO / CLAIMED / CHANGES-REQUESTED rows in ledger — nothing to age."
   exit 0
 fi
 
