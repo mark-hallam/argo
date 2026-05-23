@@ -197,49 +197,52 @@ fn empty_relative_path_resolves_to_worker_root_only() {
     assert!(entries_dot.iter().any(|e| e.name == "hi.txt"));
 }
 
-// --- FINDINGS -----------------------------------------------------
+// --- Dir-symlink escape regressions ------------------------------
 //
-// Finding 1 — directory-symlink in a non-leaf path component
-// bypasses `assert_no_symlink_escape` for writes.
-//
-// Root cause: `Sandbox::assert_no_symlink_escape` short-circuits on
-// `!abs.exists()`. For a write target that does not yet exist, the
-// final path doesn't exist either, so the canonicalisation check
-// never runs. `fs::write` then follows the directory-symlink in the
-// middle of the path and lands the bytes outside the sandbox.
-//
-// Exploit requires an adversary to plant a directory-symlink inside
-// the worker's `fs_root` out-of-band — the 6 ops exposed today don't
-// create symlinks, so a well-behaved worker cannot reach this state
-// alone. Treat as defense-in-depth: a partially-failed mkdir, an
-// inherited fs_root, or a misconfigured operator helper could leave
-// a stale symlink behind, and the executor would happily ferry bytes
-// through it.
-//
-// Fix-brief (to be queued): `fix-fs-executor-reject-symlink-dir-components`
-// — walk every intermediate component of `abs` in `assert_no_symlink_escape`
-// and reject if any resolves to a symlink whose target escapes the root,
-// regardless of whether the final path exists.
-//
-// Until the fix lands, this regression hook stays `#[ignore]`'d and
-// documents the gap. Flip to live on the same PR that ships the fix.
+// `Sandbox::assert_no_symlink_escape` walks every intermediate
+// component of the resolved path, not just the final basename. The
+// two tests below pin the write- and read-side variants of the
+// `dir-symlink/leaf` shape — historically a hole because the final
+// leaf didn't yet exist (write) or because the dir-symlink was
+// silently followed (read).
 
 #[cfg(unix)]
 #[test]
-#[ignore = "FINDINGS: assert_no_symlink_escape doesn't walk intermediate symlink dir-components; fix-brief: fix-fs-executor-reject-symlink-dir-components"]
 fn write_through_directory_symlink_dir_component_escapes_to_other_worker_root() {
     use std::os::unix::fs::symlink;
     let (_parent, _sb_a, sb_b) = two_worker_sandboxes();
     // Pre-plant a directory-symlink inside worker_b's root pointing
-    // at worker_a's root.
+    // outside the sandbox.
     let outside = tempdir().unwrap();
     symlink(outside.path(), sb_b.root().join("peek")).unwrap();
 
-    // Write through the dir-symlink. Today this *succeeds* and the
-    // bytes land in `outside`/`new.txt` — i.e. ESCAPE.
-    let res = ops::write_file(&sb_b, "peek/new.txt", b"loot");
+    let err = ops::write_file(&sb_b, "peek/new.txt", b"loot").unwrap_err();
     assert!(
-        res.is_err(),
-        "executor must reject write through directory-symlink that escapes root"
+        matches!(err, FsExecutorError::SymlinkEscape(_)),
+        "expected SymlinkEscape, got {err:?}"
+    );
+    assert!(
+        !outside.path().join("new.txt").exists(),
+        "no bytes should have landed outside the sandbox"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn read_through_directory_symlink_dir_component_escape_rejected() {
+    use std::os::unix::fs::symlink;
+    let (_parent, _sb_a, sb_b) = two_worker_sandboxes();
+    // Pre-plant an existing file in an outside directory and a
+    // dir-symlink inside worker_b pointing at it.
+    let outside = tempdir().unwrap();
+    std::fs::write(outside.path().join("loot.txt"), b"stolen").unwrap();
+    symlink(outside.path(), sb_b.root().join("peek")).unwrap();
+
+    // Read through the dir-symlink — must be refused even though
+    // `peek/loot.txt` exists on disk via the symlink target.
+    let err = ops::read_file(&sb_b, "peek/loot.txt").unwrap_err();
+    assert!(
+        matches!(err, FsExecutorError::SymlinkEscape(_)),
+        "expected SymlinkEscape, got {err:?}"
     );
 }

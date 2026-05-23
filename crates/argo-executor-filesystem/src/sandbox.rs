@@ -122,22 +122,63 @@ impl Sandbox {
         Ok(buf)
     }
 
-    /// After a successful `resolve`, check that the on-disk path
-    /// (if it exists) doesn't symlink to somewhere outside the
-    /// sandbox. Called from each op so callers don't have to remember.
-    /// Non-existent paths pass through (they're write-targets).
+    /// After a successful `resolve`, check that no on-disk component
+    /// of `abs` — whether the final target or any intermediate
+    /// directory — symlinks to somewhere outside the sandbox.
+    ///
+    /// Walks `abs` one component at a time, starting from `self.root`
+    /// (which is already canonicalised at construction). For every
+    /// component that exists, canonicalise it and verify the result
+    /// still lives inside `self.root`. The first non-existent
+    /// component ends the walk: the remaining tail is a pure
+    /// write-target (no symlink can hide in a path that doesn't yet
+    /// exist on disk).
+    ///
+    /// This closes the FINDINGS gap pinned by
+    /// `tests/fs_root_cross_tenant.rs::write_through_directory_symlink_dir_component_escapes_to_other_worker_root`:
+    /// previously, a `dir-symlink/new-file.txt` write succeeded
+    /// because `new-file.txt` didn't yet exist, so the check
+    /// short-circuited and `fs::write` happily followed the
+    /// dir-symlink out of the sandbox.
     pub fn assert_no_symlink_escape(&self, abs: &Path) -> FsResult<()> {
-        if !abs.exists() {
-            return Ok(());
+        // `resolve` always returns `self.root / <relative tail>`, so
+        // stripping the root yields the components we need to walk.
+        // If stripping fails (a caller fed us a path we didn't mint),
+        // fail closed — refuse rather than silently allow.
+        let tail = abs.strip_prefix(&self.root).map_err(|_| {
+            FsExecutorError::PathEscape(abs.display().to_string())
+        })?;
+        let mut cur = self.root.clone();
+        for comp in tail.components() {
+            match comp {
+                Component::Normal(seg) => cur.push(seg),
+                // `resolve` already rejects RootDir / Prefix / ParentDir
+                // before we ever get here. CurDir is a harmless noop.
+                Component::CurDir => continue,
+                Component::Prefix(_) | Component::RootDir | Component::ParentDir => {
+                    return Err(FsExecutorError::PathEscape(abs.display().to_string()));
+                }
+            }
+            match std::fs::symlink_metadata(&cur) {
+                Ok(_) => {
+                    let real = cur
+                        .canonicalize()
+                        .map_err(|e| FsExecutorError::io("canonicalize", &cur, e))?;
+                    if !real.starts_with(&self.root) {
+                        return Err(FsExecutorError::SymlinkEscape(real.display().to_string()));
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    // First component that doesn't exist yet — the
+                    // remaining tail is a not-yet-created write
+                    // target. No symlink can hide there because the
+                    // path entries don't exist on disk.
+                    return Ok(());
+                }
+                Err(e) => return Err(FsExecutorError::io("symlink_metadata", &cur, e)),
+            }
         }
-        let real = abs
-            .canonicalize()
-            .map_err(|e| FsExecutorError::io("canonicalize", abs, e))?;
-        if real.starts_with(&self.root) {
-            Ok(())
-        } else {
-            Err(FsExecutorError::SymlinkEscape(real.display().to_string()))
-        }
+        Ok(())
     }
 
     /// Refuse the op if its byte count would breach the per-op cap.
@@ -244,9 +285,27 @@ mod tests {
         let sb = Sandbox::open(inside.path()).unwrap();
         let outside_target = outside.path().join("treasure.txt");
         std::fs::write(&outside_target, b"hi").unwrap();
-        let link = inside.path().join("link.txt");
+        // Use sb.root() (canonical) for the link path — production
+        // callers always feed `assert_no_symlink_escape` the output
+        // of `Sandbox::resolve`, which is canonical-root-prefixed.
+        let link = sb.root().join("link.txt");
         symlink(&outside_target, &link).unwrap();
         let err = sb.assert_no_symlink_escape(&link).unwrap_err();
+        assert!(matches!(err, FsExecutorError::SymlinkEscape(_)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dir_symlink_in_intermediate_component_is_caught_by_assert() {
+        use std::os::unix::fs::symlink;
+        let outside = tempdir().unwrap();
+        let inside = tempdir().unwrap();
+        let sb = Sandbox::open(inside.path()).unwrap();
+        // Plant a directory-symlink inside the sandbox pointing
+        // outside. The leaf does NOT exist yet (write-target shape).
+        symlink(outside.path(), sb.root().join("dir-link")).unwrap();
+        let abs = sb.resolve("dir-link/new.txt").unwrap();
+        let err = sb.assert_no_symlink_escape(&abs).unwrap_err();
         assert!(matches!(err, FsExecutorError::SymlinkEscape(_)));
     }
 
