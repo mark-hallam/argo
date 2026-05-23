@@ -1781,7 +1781,9 @@ dependencies = [
 name = "argo-workflow"
 version = "0.0.1"
 dependencies = [
+ "argo-genesis",
  "argo-types",
+ "argo-vertical",
  "async-trait",
  "chrono",
  "serde",
@@ -1790,6 +1792,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "toml 0.8.23",
  "uuid",
 ]
 
