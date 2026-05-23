@@ -270,7 +270,12 @@ async fn end_to_end_imessage_marks_high_risk_and_resolves_attachment() {
     assert_eq!(channel, "imessage");
     assert_eq!(recipient, "iMessage;-;chat-guid-1");
     assert_eq!(attachments.len(), 1);
-    assert_eq!(attachments[0], ws.path().join(attach_rel));
+    // `confine_path` returns the canonicalized resolution (post
+    // `mission-path-guard-canonicalize-symlinks`); on macOS the
+    // tempdir lives under `/var → /private/var`, so compare against
+    // the canonical form rather than the lexical input.
+    let expected = ws.path().join(attach_rel).canonicalize().unwrap();
+    assert_eq!(attachments[0], expected);
 }
 
 #[tokio::test]

@@ -18,25 +18,56 @@
 //!   from the agent loop, a workflow step, or a direct CLI
 //!   invocation.
 //!
-//! Two enforcement rules:
+//! Enforcement (canonicalize-then-prefix-check, supersedes the
+//! original lexical-only check from #677; see
+//! `mission-path-guard-canonicalize-symlinks` and PR #2117 F3):
 //!
-//! 1. After joining the requested path against the workspace
-//!    root, no `..` component may remain in the resolved path.
-//! 2. If the requested path is absolute, it must lexically
-//!    start with the workspace root.
-//!
-//! Lexical-only — does not follow symlinks. A symlink inside
-//! the workspace pointing outside still escapes. Follow-up
-//! PR (#678+) can add canonicalization for the symlink case;
-//! the lexical check catches the obvious / accidental
-//! traversal attempts that are the most common mistake.
+//! 1. The `workspace_root` must exist and is canonicalized
+//!    (resolving any symlinks in the root itself). A non-existent
+//!    workspace is refused — production callers always pass
+//!    `ctx.workspace_root`, which is set from the agent's actual
+//!    workspace.
+//! 2. The requested path is joined against the canonical
+//!    workspace. Any `..` component in the joined path is refused
+//!    early as defense-in-depth (catches the obvious / accidental
+//!    traversal even before we touch the filesystem).
+//! 3. The deepest existing ancestor of the joined path is
+//!    canonicalized (so any symlink in the chain is resolved),
+//!    and any non-existent leaf components are re-attached
+//!    lexically. This lets `file_write` create a new file at
+//!    `dir/sub/new.txt` without erroring on the not-yet-present
+//!    tail.
+//! 4. Dangling symlinks (symlink whose target does not exist)
+//!    are refused: the in-workspace symlink-of-symlink chain
+//!    must resolve to something real, otherwise we have no way
+//!    to verify the final destination is inside the workspace.
+//! 5. The canonicalized result must `starts_with` the canonical
+//!    workspace root. An in-workspace symlink pointing outside
+//!    the workspace fails this check.
+
+use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 
-/// Confine `requested` (relative or absolute) to
-/// `workspace_root`. Returns the resolved absolute path on
-/// success, or an error string describing the violation.
+/// Confine `requested` (relative or absolute) to `workspace_root`.
+/// Returns the canonicalized absolute path on success, or an
+/// error string describing the violation.
+///
+/// See the module-level docs for the full enforcement policy.
 pub fn confine_path(workspace_root: &Path, requested: &Path) -> Result<PathBuf, String> {
-    let joined = workspace_root.join(requested);
+    let canonical_root = workspace_root.canonicalize().map_err(|e| {
+        format!(
+            "workspace root '{}' cannot be canonicalized: {e}; refusing (vertical isolation, #677)",
+            workspace_root.display()
+        )
+    })?;
+
+    // If requested is absolute, `join` discards the workspace_root
+    // and just returns the requested path — that's documented Rust
+    // behaviour and exactly what we want (the absolute path must
+    // stand on its own merits and still canonicalize inside the
+    // workspace).
+    let joined = canonical_root.join(requested);
+
     for component in joined.components() {
         if matches!(component, Component::ParentDir) {
             return Err(format!(
@@ -45,76 +76,261 @@ pub fn confine_path(workspace_root: &Path, requested: &Path) -> Result<PathBuf, 
             ));
         }
     }
-    if requested.is_absolute() && !joined.starts_with(workspace_root) {
+
+    let canonical = canonicalize_deepest_existing(&joined)?;
+
+    if !canonical.starts_with(&canonical_root) {
         return Err(format!(
-            "absolute path '{}' is outside the workspace root '{}'; refusing (vertical isolation, #677)",
+            "path '{}' resolves to '{}' which is outside the workspace root '{}'; refusing (vertical isolation, #677)",
             requested.display(),
-            workspace_root.display()
+            canonical.display(),
+            canonical_root.display(),
         ));
     }
-    Ok(joined)
+
+    Ok(canonical)
+}
+
+/// Walk `joined` from leaf to root looking for the deepest
+/// ancestor that canonicalizes successfully, then re-attach the
+/// non-existent tail components in their original order.
+///
+/// A `NotFound` at any ancestor that exists as a symlink (per
+/// `symlink_metadata`) is a dangling-symlink — refused. A
+/// `NotFound` at a path that does not exist at all is treated as
+/// "writing a new file" and the walk continues up.
+fn canonicalize_deepest_existing(joined: &Path) -> Result<PathBuf, String> {
+    let mut suffix: Vec<OsString> = Vec::new();
+    let mut current = joined.to_path_buf();
+
+    loop {
+        match current.canonicalize() {
+            Ok(canonical) => {
+                let mut result = canonical;
+                for part in suffix.iter().rev() {
+                    result.push(part);
+                }
+                return Ok(result);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                if current.symlink_metadata().is_ok() {
+                    return Err(format!(
+                        "path '{}' includes dangling symlink at '{}'; refusing (vertical isolation, #677)",
+                        joined.display(),
+                        current.display()
+                    ));
+                }
+                let Some(leaf) = current.file_name().map(|s| s.to_owned()) else {
+                    return Err(format!(
+                        "no canonicalizable ancestor for '{}'; refusing (vertical isolation, #677)",
+                        joined.display()
+                    ));
+                };
+                suffix.push(leaf);
+                let Some(parent) = current.parent().map(|p| p.to_path_buf()) else {
+                    return Err(format!(
+                        "walked above filesystem root for '{}'; refusing (vertical isolation, #677)",
+                        joined.display()
+                    ));
+                };
+                current = parent;
+            }
+            Err(e) => {
+                return Err(format!(
+                    "canonicalize failed for ancestor of '{}': {e}; refusing (vertical isolation, #677)",
+                    joined.display()
+                ));
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
-    fn ws() -> PathBuf {
-        PathBuf::from("/tmp/argo-ws")
+    fn ws() -> TempDir {
+        tempfile::tempdir().unwrap()
+    }
+
+    /// Tempdirs on macOS live under `/tmp` which is a symlink to
+    /// `/private/tmp`. `confine_path` returns canonicalized paths,
+    /// so the test must compare against the canonical form.
+    fn canonical(p: &Path) -> PathBuf {
+        p.canonicalize().unwrap()
     }
 
     #[test]
     fn relative_path_inside_workspace_passes() {
-        let resolved = confine_path(&ws(), Path::new("hello.txt")).unwrap();
-        assert_eq!(resolved, PathBuf::from("/tmp/argo-ws/hello.txt"));
+        let ws = ws();
+        let resolved = confine_path(ws.path(), Path::new("hello.txt")).unwrap();
+        assert_eq!(resolved, canonical(ws.path()).join("hello.txt"));
     }
 
     #[test]
     fn relative_path_in_subdir_passes() {
-        let resolved = confine_path(&ws(), Path::new("a/b/c.txt")).unwrap();
-        assert_eq!(resolved, PathBuf::from("/tmp/argo-ws/a/b/c.txt"));
+        let ws = ws();
+        let resolved = confine_path(ws.path(), Path::new("a/b/c.txt")).unwrap();
+        assert_eq!(resolved, canonical(ws.path()).join("a/b/c.txt"));
     }
 
     #[test]
     fn relative_parent_traversal_rejected() {
-        let err = confine_path(&ws(), Path::new("../escape.txt")).unwrap_err();
+        let ws = ws();
+        let err = confine_path(ws.path(), Path::new("../escape.txt")).unwrap_err();
         assert!(err.contains("`..`"), "got: {err}");
     }
 
     #[test]
     fn nested_parent_traversal_rejected() {
-        // `a/../../escape.txt` after join becomes `/tmp/argo-ws/a/../../escape.txt`
-        // — the resolved path STILL contains `..` lexically,
-        // even though it'd resolve to `/tmp/escape.txt` after
-        // canonicalization. The lexical check fires.
-        let err = confine_path(&ws(), Path::new("a/../../escape.txt")).unwrap_err();
+        let ws = ws();
+        let err = confine_path(ws.path(), Path::new("a/../../escape.txt")).unwrap_err();
         assert!(err.contains("`..`"), "got: {err}");
     }
 
     #[test]
     fn absolute_path_inside_workspace_passes() {
-        // /tmp/argo-ws/foo.txt is inside the workspace.
-        let resolved = confine_path(&ws(), Path::new("/tmp/argo-ws/foo.txt")).unwrap();
-        assert_eq!(resolved, PathBuf::from("/tmp/argo-ws/foo.txt"));
+        let ws = ws();
+        let target = ws.path().join("foo.txt");
+        let resolved = confine_path(ws.path(), &target).unwrap();
+        assert_eq!(resolved, canonical(ws.path()).join("foo.txt"));
     }
 
     #[test]
     fn absolute_path_outside_workspace_rejected() {
-        let err = confine_path(&ws(), Path::new("/etc/passwd")).unwrap_err();
+        let ws = ws();
+        let err = confine_path(ws.path(), Path::new("/etc/passwd")).unwrap_err();
         assert!(err.contains("outside the workspace root"), "got: {err}");
     }
 
     #[test]
     fn absolute_root_path_rejected() {
-        let err = confine_path(&ws(), Path::new("/")).unwrap_err();
+        let ws = ws();
+        let err = confine_path(ws.path(), Path::new("/")).unwrap_err();
         assert!(err.contains("outside the workspace root"), "got: {err}");
     }
 
     #[test]
     fn empty_path_resolves_to_workspace_root() {
-        // Edge case — caller probably has a bug if they pass
-        // empty, but it's not a security violation.
-        let resolved = confine_path(&ws(), Path::new("")).unwrap();
-        assert_eq!(resolved, ws());
+        let ws = ws();
+        let resolved = confine_path(ws.path(), Path::new("")).unwrap();
+        assert_eq!(resolved, canonical(ws.path()));
+    }
+
+    #[test]
+    fn nonexistent_workspace_root_rejected() {
+        let err = confine_path(
+            Path::new("/tmp/argo-does-not-exist-9b1c"),
+            Path::new("foo.txt"),
+        )
+        .unwrap_err();
+        assert!(err.contains("cannot be canonicalized"), "got: {err}");
+    }
+
+    // ---- Symlink-aware coverage (the canonicalize-then-check upgrade) ----
+
+    #[cfg(unix)]
+    #[test]
+    fn in_workspace_symlink_to_outside_workspace_rejected() {
+        let ws = ws();
+        let outside = tempfile::tempdir().unwrap();
+        let outside_file = outside.path().join("secret.txt");
+        std::fs::write(&outside_file, "secret").unwrap();
+        let link = ws.path().join("escape_link");
+        std::os::unix::fs::symlink(&outside_file, &link).unwrap();
+
+        let err = confine_path(ws.path(), Path::new("escape_link")).unwrap_err();
+        assert!(
+            err.contains("outside the workspace root"),
+            "expected outside-workspace rejection, got: {err}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn in_workspace_symlink_to_in_workspace_target_allowed() {
+        let ws = ws();
+        let target = ws.path().join("real.txt");
+        std::fs::write(&target, "ok").unwrap();
+        let link = ws.path().join("link_to_real");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let resolved = confine_path(ws.path(), Path::new("link_to_real")).unwrap();
+        assert_eq!(resolved, canonical(ws.path()).join("real.txt"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_chain_inside_workspace_followed_and_allowed() {
+        let ws = ws();
+        let real = ws.path().join("real.txt");
+        std::fs::write(&real, "ok").unwrap();
+        let mid = ws.path().join("mid");
+        std::os::unix::fs::symlink(&real, &mid).unwrap();
+        let outer = ws.path().join("outer");
+        std::os::unix::fs::symlink(&mid, &outer).unwrap();
+
+        let resolved = confine_path(ws.path(), Path::new("outer")).unwrap();
+        assert_eq!(resolved, canonical(ws.path()).join("real.txt"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_chain_escapes_workspace_rejected() {
+        let ws = ws();
+        let outside = tempfile::tempdir().unwrap();
+        let outside_file = outside.path().join("secret.txt");
+        std::fs::write(&outside_file, "secret").unwrap();
+        let mid = ws.path().join("mid");
+        std::os::unix::fs::symlink(&outside_file, &mid).unwrap();
+        let outer = ws.path().join("outer");
+        std::os::unix::fs::symlink(&mid, &outer).unwrap();
+
+        let err = confine_path(ws.path(), Path::new("outer")).unwrap_err();
+        assert!(
+            err.contains("outside the workspace root"),
+            "expected outside-workspace rejection through symlink chain, got: {err}"
+        );
+    }
+
+    /// Writing a new file at `subdir/new.txt` where `subdir` exists
+    /// but `new.txt` does not — `file_write` depends on this case.
+    #[test]
+    fn nonexistent_leaf_under_existing_dir_allowed() {
+        let ws = ws();
+        let sub = ws.path().join("subdir");
+        std::fs::create_dir(&sub).unwrap();
+
+        let resolved = confine_path(ws.path(), Path::new("subdir/new.txt")).unwrap();
+        assert_eq!(resolved, canonical(ws.path()).join("subdir/new.txt"));
+    }
+
+    /// Writing a new file deep under multiple non-existent directories
+    /// — `file_write { create_dirs: true }` is the typical caller.
+    #[test]
+    fn nonexistent_deep_path_under_workspace_allowed() {
+        let ws = ws();
+        let resolved =
+            confine_path(ws.path(), Path::new("a/b/c/new.txt")).unwrap();
+        assert_eq!(resolved, canonical(ws.path()).join("a/b/c/new.txt"));
+    }
+
+    /// Dangling symlink — the link itself exists (via
+    /// `symlink_metadata`) but its target does not. Reject, because
+    /// the eventual `open()` will follow the link and we cannot
+    /// verify the final destination is inside the workspace.
+    #[cfg(unix)]
+    #[test]
+    fn dangling_symlink_rejected() {
+        let ws = ws();
+        let link = ws.path().join("dangling");
+        std::os::unix::fs::symlink("/tmp/this-does-not-exist-cf91", &link).unwrap();
+
+        let err = confine_path(ws.path(), Path::new("dangling")).unwrap_err();
+        assert!(
+            err.contains("dangling symlink"),
+            "expected dangling-symlink rejection, got: {err}"
+        );
     }
 }

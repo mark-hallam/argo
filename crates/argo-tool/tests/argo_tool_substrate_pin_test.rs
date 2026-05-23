@@ -331,30 +331,24 @@ async fn registry_mcp_route_misses_until_record_mcp_tools_called() {
 // §5 — FINDINGS-ONLY pin tests (`#[ignore]`'d)
 // =====================================================================
 
-/// **FINDINGS-ONLY (F3)** — `path_guard::confine_path` is lexical-only.
-/// A symlink inside the workspace pointing outside still escapes.
-/// Documented in `path_guard.rs:30-32` as a deferred follow-up since
-/// #677.
-///
-/// This test creates a real symlink inside a tempdir workspace
-/// pointing at `/etc/hosts`, calls `confine_path` against the
-/// symlink's relative name, and asserts the call **succeeds** (i.e.
-/// proves the gap). Un-ignore + invert (`is_err()`) once
-/// `mission-path-guard-canonicalize-symlinks` lands.
-#[ignore]
+/// **F3 — FIXED by `mission-path-guard-canonicalize-symlinks`.**
+/// `path_guard::confine_path` is now canonicalize-then-prefix-check
+/// (see `path_guard.rs` module docs): an in-workspace symlink whose
+/// target is outside the workspace is rejected. This was the F3 gap
+/// from PR #2117 (originally `#[ignore]`'d pin); un-ignored + inverted
+/// once the fix landed.
 #[cfg(unix)]
 #[test]
-fn path_guard_rejects_symlink_inside_workspace_today() {
+fn path_guard_rejects_symlink_inside_workspace() {
     let dir = tempfile::tempdir().unwrap();
     let workspace = dir.path();
     let link_name = workspace.join("escape_link");
     std::os::unix::fs::symlink("/etc/hosts", &link_name).unwrap();
-    let resolved = confine_path(workspace, std::path::Path::new("escape_link"));
+    let err = confine_path(workspace, std::path::Path::new("escape_link"))
+        .expect_err("F3 fix: in-workspace symlink to outside target must be rejected");
     assert!(
-        resolved.is_ok(),
-        "F3 expected: lexical confine_path accepts the in-workspace symlink, \
-         even though it resolves to /etc/hosts. Got: {resolved:?}. \
-         Un-ignore + invert once mission-path-guard-canonicalize-symlinks lands."
+        err.contains("outside the workspace root"),
+        "expected canonicalize check to flag outside-workspace target, got: {err}"
     );
 }
 
