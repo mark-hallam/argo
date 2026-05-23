@@ -28,6 +28,10 @@ preserved for engineers and contributors at
 Briefs that touch user-facing docs should default to SPA-first
 framing.
 
+## Before you launch the supervisor (30 seconds)
+
+If you're spinning the worker-loop on a fresh host, run the host-setup canary first — `docs/build-plan/HOST_SETUP.md` documents the 30-second `bash -c "which claude"` check that prevents the mac-host-doom-loop class of incident (40+ minutes, 86+ zombie commits). The runbook also explains why `~/.zshrc` is insufficient for the supervisor's subshells and what to export from `~/.zshenv` instead.
+
 ## Read in this order (5 files, ~20 min)
 
 1. **`docs/build-plan/BUILD_STATUS.md` — first ~90 lines.** The live

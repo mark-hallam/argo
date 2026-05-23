@@ -53,6 +53,9 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
 fi
 
 # --- HARD GUARD: refuse to run if `claude` binary is not on PATH ----------
+# Runbook: docs/build-plan/HOST_SETUP.md (30-second canary + .zshenv export
+# pattern + post-incident operator amendment).
+#
 # Source: 2026-05-23 mac-host doom-loop incident (tick-96 through tick-99 +
 # follow-ups). The supervisor was launched from a shell whose PATH did not
 # include ~/.local/bin (Claude Code's standard install dir). Every worker
