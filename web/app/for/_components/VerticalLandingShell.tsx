@@ -624,7 +624,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           <div className="vland-trust">
             <span className="vland-trust-item">
               <span className="vland-trust-dot" />
-              SOC 2 TYPE II
+              SOC 2-READY AUDIT TRAIL
             </span>
             <span className="vland-trust-item">
               <span className="vland-trust-dot" />
