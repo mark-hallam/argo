@@ -150,6 +150,15 @@ commit that adds the brief file.
       `**Authored against**: origin/main <short-sha> on <YYYY-MM-DD>`. Capture
       via `git rev-parse --short origin/main` at author-time. Forward-only —
       do NOT retrofit older briefs.
+   d2. **Block-history guard (tick-102 lesson — `claude-mcp-connector-empty-dir-cleanup`)**:
+      before authoring OR re-authoring a brief stub AND before inserting a TODO row,
+      run `bash scripts/check-brief-block-history.sh <brief-id>`. Exit codes:
+      `0` safe to author, `1` prior BLOCK on this id in git history (script prints
+      SHAs + dates), `2` ledger already carries a non-TODO row for this id. If exit
+      != 0, choose a different brief — do NOT re-author. The 2026-05-23 tick-92 +30
+      batch re-authored a brief that had been BLOCKED earlier the same day at
+      commit `7418b5045`; two claude workers then wasted iterations rediscovering
+      the same impossible premise. This guard exists to make that mistake mechanical.
    e. Push ONE commit per replenishment: "briefs: replenish <owner> queue (<id1>, <id2>, ...)".
       If sourced from MISSION_BACKLOG, include the backlog-tag-flip in the SAME commit
       (so MISSION_BACKLOG and the new brief files land atomically — never re-author the
