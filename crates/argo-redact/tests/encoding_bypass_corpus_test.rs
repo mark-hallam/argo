@@ -60,44 +60,12 @@ fn assert_pin_catch(label: &str, input: &str) {
 // § Email — REGEX MISSES (bypass surface)
 // ============================================================================
 
-#[test]
-fn pin_email_base64_wrapped_is_missed() {
-    // "sam@acmeco.com" base64-encoded. A regex fence cannot see the
-    // `@` literal; only a wrapper-decode pass plus re-scan would.
-    assert_pin_miss("base64 email", "credential: c2FtQGFjbWVjby5jb20=");
-}
-
-#[test]
-fn pin_email_url_encoded_is_missed() {
-    // `%40` is the URL-encoded `@`. Common in audit payloads pulled
-    // from HTTP query strings or webhook fragments.
-    assert_pin_miss("url-encoded email", "callback?to=sam%40acmeco.com");
-}
-
-#[test]
-fn pin_email_html_entity_at_is_missed() {
-    // `&#64;` is the HTML decimal entity for `@`. Common when the
-    // gateway receives a rendered HTML notification body verbatim.
-    assert_pin_miss("html-entity email", "mailto link sam&#64;acmeco.com");
-}
-
-#[test]
-fn pin_email_fullwidth_at_is_missed() {
-    // U+FF20 FULLWIDTH COMMERCIAL AT renders visually identical to
-    // `@` but is a different code point. Trivial homoglyph bypass.
-    assert_pin_miss("fullwidth @", "ping sam\u{FF20}acmeco.com today");
-}
-
-#[test]
-fn pin_email_zero_width_space_split_is_missed() {
-    // U+200B ZERO WIDTH SPACE between `@` and the domain. Invisible
-    // to a human reader; lethal to a `\b[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`
-    // domain class.
-    assert_pin_miss(
-        "zero-width-space split",
-        "addr sam@\u{200B}acmeco.com confirmed",
-    );
-}
+// Stage-1 canonicalisation closed these six bypasses:
+// base64 wrap / URL-encode / HTML-entity / fullwidth `@` /
+// zero-width-space split / soft-hyphen split. The PIN tests that
+// snapshotted the v1 MISS behaviour have been promoted into the
+// FINDINGS section below (un-ignored, asserting CATCH) so the corpus
+// still pins each input — just on the post-Stage-1 outcome.
 
 #[test]
 fn pin_email_whitespace_jitter_is_missed() {
@@ -115,16 +83,6 @@ fn pin_email_bracketed_at_dot_is_missed() {
     // Common in mailing-list footers to defeat scrapers; same trick
     // defeats a regex fence.
     assert_pin_miss("bracketed [at] [dot]", "sam[at]acmeco[dot]com");
-}
-
-#[test]
-fn pin_email_soft_hyphen_in_domain_is_missed() {
-    // U+00AD SOFT HYPHEN renders as nothing in most fonts but
-    // breaks the contiguous domain match.
-    assert_pin_miss(
-        "soft hyphen in domain",
-        "from sam@acm\u{00AD}eco.com received",
-    );
 }
 
 #[test]
@@ -400,41 +358,40 @@ fn pin_multi_pii_inline_is_caught() {
 }
 
 // ============================================================================
-// § FINDINGS-ONLY (ignored) — what a real fence MUST catch
+// § Stage-1 FINDINGS — un-ignored by mission-redact-promote-to-real-fence
 // ============================================================================
 //
-// These tests assert the OUTCOME a canonicalisation-aware fence would
-// produce. They fail under v1's regex-only redactor. Un-ignore them in
-// the follow-up `mission-redact-promote-to-real-fence` PR once the
-// canonicalisation pre-pass (NFKC + URL-decode + base64-detect + HTML-
-// entity-decode + zero-width / soft-hyphen strip) lands.
+// These six findings asserted the OUTCOME a canonicalisation-aware fence
+// produces. Stage 1 (`mission-redact-promote-to-real-fence`) landed the
+// NFKC + URL-decode + HTML-entity decode + zero-width / soft-hyphen
+// strip + base64 detect-and-rescan pre-pass, so these tests are now
+// active CATCH assertions that gate the canonicalisation layer.
+//
+// The remaining four FINDINGS below stay `#[ignore]`'d — they need
+// Stage 2 (`mission-redact-broaden-suffix-and-separator-classes`)
+// for the regex separator / suffix classes.
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must mask base64-encoded PII once a wrapper-decode + rescan pass exists"]
 fn finding_base64_email_must_be_masked() {
     assert_pin_catch("base64 email", "credential: c2FtQGFjbWVjby5jb20=");
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must mask URL-encoded PII once a decode + rescan pass exists"]
 fn finding_url_encoded_email_must_be_masked() {
     assert_pin_catch("url-encoded email", "callback?to=sam%40acmeco.com");
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must mask HTML-entity-encoded PII once a decode + rescan pass exists"]
 fn finding_html_entity_email_must_be_masked() {
     assert_pin_catch("html-entity email", "mailto link sam&#64;acmeco.com");
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must NFKC-normalise input before regex pass to catch homoglyphs"]
 fn finding_fullwidth_at_email_must_be_masked() {
     assert_pin_catch("fullwidth @", "ping sam\u{FF20}acmeco.com today");
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must strip U+200B ZERO WIDTH SPACE before regex pass"]
 fn finding_zero_width_space_email_must_be_masked() {
     assert_pin_catch(
         "zero-width-space split",
@@ -443,7 +400,6 @@ fn finding_zero_width_space_email_must_be_masked() {
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must strip U+00AD SOFT HYPHEN before regex pass"]
 fn finding_soft_hyphen_email_must_be_masked() {
     assert_pin_catch(
         "soft hyphen in domain",

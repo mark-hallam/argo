@@ -1414,11 +1414,13 @@ dependencies = [
 name = "argo-redact"
 version = "0.0.1"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "regex",
  "serde",
  "serde_json",
  "tracing",
+ "unicode-normalization",
 ]
 
 [[package]]

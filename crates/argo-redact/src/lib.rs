@@ -29,6 +29,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod canonicalize;
 mod grants;
 mod patterns;
 mod policy;
