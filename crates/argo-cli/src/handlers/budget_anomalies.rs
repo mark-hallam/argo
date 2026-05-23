@@ -14,8 +14,9 @@
 //! configured threshold.
 use crate::cli::BudgetOutputFormat;
 use argo_store::spend_anomaly::{
-    configured_threshold, list_active_worker_ids, list_anomalies, load_baseline,
-    observe_recent_hour, record_anomaly, save_baseline, AnomalyFilters, SpendAnomaly,
+    configured_threshold, list_active_tenant_ids, list_active_worker_ids, list_anomalies,
+    load_baseline, observe_recent_hour, record_anomaly, save_baseline, AnomalyFilters,
+    SpendAnomaly,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
@@ -82,9 +83,22 @@ pub(crate) async fn list(
 }
 
 /// `argo budget anomaly-tick` — run one detection pass.
+///
+/// Iterates every tenant present in `worker_budget` and, for each
+/// tenant, walks that tenant's active workers. Per-tenant scoping
+/// matters: `list_active_worker_ids` is now tenant-scoped (#2068
+/// SQL-layer twin), so the admin cron must enumerate tenants
+/// itself to preserve the original "walk every active worker"
+/// semantic without leaking worker_ids across tenants at the
+/// query layer.
 pub(crate) async fn tick(store: &SessionStore, now: DateTime<Utc>, json: bool) -> ArgoResult<()> {
     let pool = store.pool();
-    let workers = list_active_worker_ids(pool).await?;
+    let tenants = list_active_tenant_ids(pool).await?;
+    let mut workers: Vec<String> = Vec::new();
+    for tenant_id in &tenants {
+        let mut per_tenant = list_active_worker_ids(pool, tenant_id).await?;
+        workers.append(&mut per_tenant);
+    }
     let threshold = configured_threshold();
     let mut decisions: Vec<TickDecision> = Vec::new();
     for worker_id in &workers {

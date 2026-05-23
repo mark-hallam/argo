@@ -2,13 +2,15 @@
 //! (Stream `claude-spend-anomaly-alerts`). Sibling test file so
 //! `spend_anomaly.rs` stays focused on the data model + queries.
 use super::{
-    configured_threshold, list_active_worker_ids, list_anomalies, load_baseline,
-    observe_recent_hour, previous_hour_bounds, record_anomaly, save_baseline, AnomalyFilters,
-    SpendBaseline, DEFAULT_SPEND_Z_THRESHOLD, MIN_SAMPLES_FOR_DETECT,
+    configured_threshold, list_active_tenant_ids, list_active_worker_ids, list_anomalies,
+    load_baseline, observe_recent_hour, previous_hour_bounds, record_anomaly, save_baseline,
+    AnomalyFilters, SpendBaseline, DEFAULT_SPEND_Z_THRESHOLD, MIN_SAMPLES_FOR_DETECT,
 };
 use crate::SessionStore;
+use argo_types::TenantId;
 use chrono::{TimeZone, Utc};
 use sqlx::SqlitePool;
+use uuid::Uuid;
 
 async fn fresh_pool() -> SqlitePool {
     // worker_budget (v14), worker_spend_baseline (v32) and
@@ -293,20 +295,84 @@ async fn observe_recent_hour_sums_worker_budget_in_window() {
 #[tokio::test]
 async fn list_active_worker_ids_returns_distinct_rows() {
     let pool = fresh_pool().await;
+    let tenant = TenantId(Uuid::nil());
     for (i, w) in ["w-1", "w-2", "w-1"].iter().enumerate() {
         sqlx::query(
             "INSERT INTO worker_budget (tenant_id, worker_id, action_id, usd_micros, charged_at) \
              VALUES (?, ?, ?, 1, 0)",
         )
-        .bind(vec![0u8; 16])
+        .bind(tenant.0.as_bytes().as_slice())
         .bind(*w)
         .bind(format!("a-{i}"))
         .execute(&pool)
         .await
         .expect("seed");
     }
-    let workers = list_active_worker_ids(&pool).await.expect("list");
+    let workers = list_active_worker_ids(&pool, &tenant)
+        .await
+        .expect("list");
     assert_eq!(workers, vec!["w-1", "w-2"]);
+}
+
+/// 🔴 Cross-tenant negative test for the round-13 finding:
+/// `SELECT DISTINCT worker_id FROM worker_budget` must NOT leak
+/// `worker_id`s across tenants. Bootstraps tenant_a with W1+W2
+/// and tenant_b with W3+W4, then calls from tenant_b's context
+/// and asserts the result is *exactly* [W3, W4] — never the
+/// merged superset.
+///
+/// SQL-layer twin of the response-layer existence leak fixed in
+/// #2068 (mission-cross-tenant-worker-handler-no-existence-leak).
+#[tokio::test]
+async fn list_active_worker_ids_does_not_leak_across_tenants() {
+    let pool = fresh_pool().await;
+    let tenant_a = TenantId::new();
+    let tenant_b = TenantId::new();
+
+    async fn seed(pool: &SqlitePool, tenant: &TenantId, worker: &str, action: &str) {
+        sqlx::query(
+            "INSERT INTO worker_budget (tenant_id, worker_id, action_id, usd_micros, charged_at) \
+             VALUES (?, ?, ?, 1, 0)",
+        )
+        .bind(tenant.0.as_bytes().as_slice())
+        .bind(worker)
+        .bind(action)
+        .execute(pool)
+        .await
+        .expect("seed");
+    }
+
+    seed(&pool, &tenant_a, "W1", "a-1").await;
+    seed(&pool, &tenant_a, "W2", "a-2").await;
+    seed(&pool, &tenant_b, "W3", "a-3").await;
+    seed(&pool, &tenant_b, "W4", "a-4").await;
+
+    let from_b = list_active_worker_ids(&pool, &tenant_b)
+        .await
+        .expect("list from tenant_b");
+    assert_eq!(
+        from_b,
+        vec!["W3".to_string(), "W4".to_string()],
+        "tenant_b must see only its own workers, never tenant_a's; got {from_b:?}",
+    );
+    assert!(
+        !from_b.iter().any(|w| w == "W1" || w == "W2"),
+        "tenant_b leaked tenant_a worker_ids: {from_b:?}",
+    );
+
+    let from_a = list_active_worker_ids(&pool, &tenant_a)
+        .await
+        .expect("list from tenant_a");
+    assert_eq!(from_a, vec!["W1".to_string(), "W2".to_string()]);
+
+    // Admin enumeration sees both tenants — confirms the admin
+    // surface is intact for the cli cron path.
+    let all_tenants = list_active_tenant_ids(&pool)
+        .await
+        .expect("list active tenants");
+    assert_eq!(all_tenants.len(), 2);
+    assert!(all_tenants.contains(&tenant_a));
+    assert!(all_tenants.contains(&tenant_b));
 }
 
 #[tokio::test]

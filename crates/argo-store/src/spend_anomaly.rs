@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 
 /// Default `|z|` threshold above which a (worker, hour) sample
 /// is flagged. `4.0` is intentionally aggressive — the
@@ -347,15 +347,52 @@ pub async fn observe_recent_hour(
 }
 
 /// Discover all worker_ids that have charged anything in the
-/// `worker_budget` table. Used by the cli tick to walk every
-/// active worker without needing the IdentityStore handle.
-pub async fn list_active_worker_ids(pool: &SqlitePool) -> ArgoResult<Vec<String>> {
-    let rows: Vec<(String,)> =
-        sqlx::query_as("SELECT DISTINCT worker_id FROM worker_budget ORDER BY worker_id")
-            .fetch_all(pool)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("spend active workers: {e}")))?;
+/// `worker_budget` table for one tenant. Used by the cli tick to
+/// walk every active worker (scoped to a tenant) without needing
+/// the IdentityStore handle.
+///
+/// The `tenant_id` predicate is load-bearing: without it, a
+/// caller in tenant_b could enumerate every `worker_id` charged
+/// in any tenant — a cross-tenant existence leak (round-13
+/// evaluator finding; SQL-layer twin of the response-layer leak
+/// fixed in #2068).
+pub async fn list_active_worker_ids(
+    pool: &SqlitePool,
+    tenant_id: &TenantId,
+) -> ArgoResult<Vec<String>> {
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT worker_id FROM worker_budget \
+         WHERE tenant_id = ? \
+         ORDER BY worker_id",
+    )
+    .bind(tenant_id.0.as_bytes().as_slice())
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("spend active workers: {e}")))?;
     Ok(rows.into_iter().map(|(w,)| w).collect())
+}
+
+/// Discover all tenant_ids that have ever charged anything in
+/// `worker_budget`. Admin helper used by the cli tick to walk
+/// every tenant before walking that tenant's active workers via
+/// [`list_active_worker_ids`].
+///
+/// This is an admin-cron surface, not a per-tenant user surface;
+/// it is intended for the `argo budget anomaly-tick` handler
+/// (and equivalent server-side cron drivers).
+pub async fn list_active_tenant_ids(pool: &SqlitePool) -> ArgoResult<Vec<TenantId>> {
+    let rows: Vec<(Vec<u8>,)> = sqlx::query_as(
+        "SELECT DISTINCT tenant_id FROM worker_budget \
+         WHERE tenant_id IS NOT NULL \
+         ORDER BY tenant_id",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("spend active tenants: {e}")))?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(raw,)| Uuid::from_slice(&raw).ok().map(TenantId))
+        .collect())
 }
 
 /// Compute the [start, end) bounds for the *previous* complete
