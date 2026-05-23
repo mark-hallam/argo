@@ -3,6 +3,10 @@
 //! Boots an in-memory `SessionStore`, seeds `workflow_run` rows via raw
 //! sqlx (no need to spin up the workflow CLI), and asserts the JSON
 //! envelope shape + the aggregate math.
+//!
+//! Pagination + filter coverage lives in the sibling
+//! `routes_workflow_runs_filters_tests.rs` module — keeps this file
+//! under the 500-LOC ceiling.
 
 use argo_store::SessionStore;
 use chrono::Utc;
@@ -11,7 +15,10 @@ use std::sync::Arc;
 
 use super::dispatch_get;
 
-async fn fresh_store() -> Arc<SessionStore> {
+#[path = "routes_workflow_runs_filters_tests.rs"]
+mod filters_tests;
+
+pub(super) async fn fresh_store() -> Arc<SessionStore> {
     let store = SessionStore::open(":memory:").await.expect("open store");
     // Create only the workflow_run schema (migration 18). We skip
     // `store.migrate()` to avoid the pre-existing v43 migration bug
@@ -35,7 +42,7 @@ async fn fresh_store() -> Arc<SessionStore> {
     Arc::new(store)
 }
 
-async fn insert_run(
+pub(super) async fn insert_run(
     store: &SessionStore,
     id: &str,
     workflow_id: &str,
@@ -58,11 +65,11 @@ async fn insert_run(
     .expect("insert");
 }
 
-fn req(path: &str) -> String {
+pub(super) fn req(path: &str) -> String {
     format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n")
 }
 
-async fn fetch_runs(store: &Arc<SessionStore>, path: &str) -> (String, Value) {
+pub(super) async fn fetch_runs(store: &Arc<SessionStore>, path: &str) -> (String, Value) {
     let (status, body) = dispatch_get(&req(path), Some(store))
         .await
         .expect("must dispatch /runs path");
@@ -94,12 +101,17 @@ async fn list_runs_returns_aggregates_and_recent_rows() {
     assert_eq!(body["window_days"], 30);
     assert_eq!(body["vertical_id"], "pr_checker");
     assert_eq!(body["workflow_name"], "standard_review");
-    // 4 rows ordered DESC by started_at — newest first is r4 (the failure).
     let runs = body["runs"].as_array().expect("runs array");
     assert_eq!(runs.len(), 4);
     assert_eq!(runs[0]["id"], "r4");
     assert_eq!(runs[0]["ok"], false);
+    assert_eq!(runs[0]["status"], "failed");
     assert!(body["last_run_at"].is_string());
+    // Pagination metadata is present even when not explicitly
+    // requested — defaults to page 1 with page_size 25.
+    assert_eq!(body["page"], 1);
+    assert_eq!(body["page_size"], 25);
+    assert_eq!(body["total_filtered"], 4);
 }
 
 #[tokio::test]
@@ -117,6 +129,7 @@ async fn list_runs_empty_workflow_returns_null_success_rate() {
     assert_eq!(body["p95_duration_ms"], 0);
     assert!(body["last_run_at"].is_null());
     assert!(body["runs"].as_array().unwrap().is_empty());
+    assert_eq!(body["total_filtered"], 0);
 }
 
 #[tokio::test]
@@ -210,8 +223,6 @@ async fn p95_duration_within_top_5pct_bucket() {
     }
     let (_, body) = fetch_runs(&store, "/api/v1/verticals/v/workflows/p/runs").await;
     let p95_ms = body["p95_duration_ms"].as_i64().expect("p95 present");
-    // floor(20 * 0.95) = 19, sorted asc index 19 → duration 20ms.
-    // Implementation may pick 19ms (idx clamped to len-1=19 → element 20ms).
     assert!(
         (19..=20).contains(&p95_ms),
         "p95 should be in the top-5pct bucket; got {p95_ms}ms"
@@ -244,17 +255,12 @@ async fn store_unavailable_returns_503() {
 
 #[test]
 fn unrelated_paths_return_none() {
-    // These tests are sync because dispatch_get short-circuits on
-    // parse failure before any await.
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let store: Option<&Arc<SessionStore>> = None;
-        // No `/runs` suffix.
         assert!(dispatch_get(&req("/api/v1/verticals/v/workflows/n"), store)
             .await
             .is_none());
-        // Wrong verb is impossible here (dispatch_get is GET-only), but
-        // wrong root prefix must also bail.
         assert!(dispatch_get(&req("/api/v1/something-else"), store)
             .await
             .is_none());

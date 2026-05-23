@@ -148,14 +148,81 @@ interface WorkflowRunsTableProps {
   isPending: boolean;
   isError: boolean;
   runs: WorkflowRun[];
+  /**
+   * When true and `runs` is empty, render the "no results match your
+   * filters" empty state. Distinct from the workflow-never-ran empty
+   * state that [`WorkflowRunStats`] owns. Defaults to false so legacy
+   * callers (the pre-filter-bar build) preserve their original
+   * "hide on empty" behaviour.
+   */
+  filtersActive?: boolean;
+  /** Reset filters to defaults. Used by the empty-state link. */
+  onClearFilters?: () => void;
+  /** Render N skeleton rows during loading. Defaults to 5. */
+  skeletonRows?: number;
 }
 
 export function WorkflowRunsTable({
   isPending,
   isError,
   runs,
+  filtersActive = false,
+  onClearFilters,
+  skeletonRows = 5,
 }: WorkflowRunsTableProps) {
-  if (isPending || isError || runs.length === 0) {
+  if (isError) {
+    return null;
+  }
+  if (isPending) {
+    return (
+      <>
+        <div className="wfd-section-label">RECENT RUNS</div>
+        <RunsTableSkeleton rows={skeletonRows} />
+      </>
+    );
+  }
+  if (runs.length === 0) {
+    if (filtersActive) {
+      return (
+        <>
+          <div className="wfd-section-label">RECENT RUNS</div>
+          <div
+            data-testid="wfd-runs-filtered-empty"
+            style={{
+              padding: "20px 16px",
+              border: "1px dashed var(--border, #ece9f5)",
+              borderRadius: 10,
+              color: "var(--muted-foreground, #52525b)",
+              fontSize: 13,
+              textAlign: "center",
+            }}
+          >
+            No runs match your filters.
+            {onClearFilters ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  data-testid="wfd-runs-clear-link"
+                  onClick={onClearFilters}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#8b5cf6",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    fontSize: 13,
+                    padding: 0,
+                  }}
+                >
+                  Clear filters
+                </button>
+              </>
+            ) : null}
+          </div>
+        </>
+      );
+    }
     return null;
   }
   return (
@@ -255,6 +322,45 @@ export function WorkflowRunsTable({
         </table>
       </div>
     </>
+  );
+}
+
+function RunsTableSkeleton({ rows }: { rows: number }) {
+  return (
+    <div
+      data-testid="wfd-runs-skeleton"
+      style={{
+        background: "white",
+        border: "1px solid var(--border, #ece9f5)",
+        borderRadius: 12,
+        overflow: "hidden",
+      }}
+    >
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr 1fr",
+            gap: 16,
+            padding: "14px 16px",
+            borderTop: i === 0 ? "none" : "1px solid var(--border, #ece9f5)",
+          }}
+        >
+          {Array.from({ length: 4 }).map((__, j) => (
+            <div
+              key={j}
+              style={{
+                height: 12,
+                background: "rgba(139, 92, 246, 0.08)",
+                borderRadius: 4,
+                width: j === 3 ? "60%" : "85%",
+              }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 

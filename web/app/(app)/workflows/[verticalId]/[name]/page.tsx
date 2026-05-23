@@ -31,6 +31,16 @@ import {
 } from "@/lib/api/workflow-runs";
 import type { WorkflowStepKind } from "@/lib/sample-workflows";
 import { WorkflowRunStats, WorkflowRunsTable } from "./run-history";
+import {
+  WorkflowRunsFilterBar,
+  DEFAULT_FILTER_STATE,
+  type RunsFilterState,
+  type RunsRangePreset,
+  type RunsPageSize,
+  PAGE_SIZES,
+} from "./runs-filter-bar";
+import type { WorkflowRunStatus } from "@/lib/api/workflow-runs";
+import { WORKFLOW_RUN_STATUSES } from "@/lib/api/workflow-runs";
 
 /**
  * Visual workflow detail viewer — `/workflows/<v>/<name>`.
@@ -88,13 +98,55 @@ function ViewerInner({
   const source = data?.source ?? null;
   const isLive = source === "gateway";
 
+  const filterState = parseFilterStateFromUrl(searchParams);
+  const { sinceTs, untilTs } = resolveDateRange(filterState);
+
   const runsQuery = useQuery<FetchWorkflowRunsResult>({
-    queryKey: ["workflow-runs", verticalId, name],
-    queryFn: () => fetchWorkflowRuns({ verticalId, name, days: 30, limit: 25 }),
+    queryKey: [
+      "workflow-runs",
+      verticalId,
+      name,
+      filterState.range,
+      filterState.customSince,
+      filterState.customUntil,
+      filterState.statuses.join(","),
+      filterState.page,
+      filterState.pageSize,
+    ],
+    queryFn: () =>
+      fetchWorkflowRuns({
+        verticalId,
+        name,
+        page: filterState.page,
+        pageSize: filterState.pageSize,
+        statuses: filterState.statuses,
+        sinceTs,
+        untilTs,
+      }),
     enabled: !!verticalId && !!name,
     staleTime: 30_000,
   });
   const runsSummary = runsQuery.data?.summary ?? null;
+  const totalFiltered = runsSummary?.total_filtered ?? runsSummary?.runs.length ?? 0;
+  const visibleRunCount = runsSummary?.runs.length ?? 0;
+  const filtersActive =
+    filterState.statuses.length > 0 ||
+    filterState.range !== DEFAULT_FILTER_STATE.range ||
+    filterState.page > 1;
+
+  const updateFilterState = useCallback(
+    (next: RunsFilterState) => {
+      const merged = new URLSearchParams(searchParams?.toString() ?? "");
+      writeFilterStateToParams(merged, next);
+      const qs = merged.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+
+  const clearFilters = useCallback(() => {
+    updateFilterState({ ...DEFAULT_FILTER_STATE });
+  }, [updateFilterState]);
 
 
   const handleRunWorkflow = useCallback(async () => {
@@ -308,12 +360,23 @@ function ViewerInner({
           </div>
         )}
 
-        <div className="wfd-section-label">RUN HISTORY · LAST 30 DAYS</div>
+        <div className="wfd-section-label">
+          RUN HISTORY · {sectionLabelForRange(filterState.range)}
+        </div>
         <WorkflowRunStats query={runsQuery} summary={runsSummary} />
+        <WorkflowRunsFilterBar
+          state={filterState}
+          onChange={updateFilterState}
+          totalFiltered={totalFiltered}
+          visibleCount={visibleRunCount}
+          isLoading={runsQuery.isPending}
+        />
         <WorkflowRunsTable
           isPending={runsQuery.isPending}
           isError={runsQuery.isError}
           runs={runsSummary?.runs ?? []}
+          filtersActive={filtersActive}
+          onClearFilters={clearFilters}
         />
         {isLive ? (
           <WorkflowVersionsPanel
@@ -333,5 +396,111 @@ function ViewerInner({
       />
     </>
   );
+}
+
+const SECTION_LABEL_BY_RANGE: Record<RunsRangePreset, string> = {
+  "24h": "LAST 24 HOURS",
+  "7d": "LAST 7 DAYS",
+  "30d": "LAST 30 DAYS",
+  custom: "CUSTOM RANGE",
+};
+
+function sectionLabelForRange(r: RunsRangePreset): string {
+  return SECTION_LABEL_BY_RANGE[r] ?? SECTION_LABEL_BY_RANGE["7d"];
+}
+
+const VALID_RANGES: ReadonlySet<RunsRangePreset> = new Set([
+  "24h",
+  "7d",
+  "30d",
+  "custom",
+]);
+
+function parseFilterStateFromUrl(
+  searchParams: ReturnType<typeof useSearchParams>,
+): RunsFilterState {
+  const rawRange = searchParams?.get("range");
+  const range =
+    rawRange && VALID_RANGES.has(rawRange as RunsRangePreset)
+      ? (rawRange as RunsRangePreset)
+      : DEFAULT_FILTER_STATE.range;
+  const rawStatuses = (searchParams?.get("status") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is WorkflowRunStatus =>
+      WORKFLOW_RUN_STATUSES.includes(s as WorkflowRunStatus),
+    );
+  const rawPage = Number.parseInt(searchParams?.get("page") ?? "", 10);
+  const rawPageSize = Number.parseInt(searchParams?.get("page_size") ?? "", 10);
+  const pageSize =
+    PAGE_SIZES.includes(rawPageSize as RunsPageSize)
+      ? (rawPageSize as RunsPageSize)
+      : DEFAULT_FILTER_STATE.pageSize;
+  return {
+    range,
+    customSince: searchParams?.get("since") ?? null,
+    customUntil: searchParams?.get("until") ?? null,
+    statuses: rawStatuses,
+    page: Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1,
+    pageSize,
+  };
+}
+
+function writeFilterStateToParams(
+  params: URLSearchParams,
+  state: RunsFilterState,
+): void {
+  if (state.range === DEFAULT_FILTER_STATE.range) {
+    params.delete("range");
+  } else {
+    params.set("range", state.range);
+  }
+  if (state.range === "custom") {
+    if (state.customSince) params.set("since", state.customSince);
+    else params.delete("since");
+    if (state.customUntil) params.set("until", state.customUntil);
+    else params.delete("until");
+  } else {
+    params.delete("since");
+    params.delete("until");
+  }
+  if (state.statuses.length > 0) {
+    params.set("status", state.statuses.join(","));
+  } else {
+    params.delete("status");
+  }
+  if (state.page === 1) params.delete("page");
+  else params.set("page", String(state.page));
+  if (state.pageSize === DEFAULT_FILTER_STATE.pageSize) {
+    params.delete("page_size");
+  } else {
+    params.set("page_size", String(state.pageSize));
+  }
+}
+
+const HOURS_24_MS = 24 * 60 * 60 * 1_000;
+const DAYS_7_MS = 7 * HOURS_24_MS;
+const DAYS_30_MS = 30 * HOURS_24_MS;
+
+function resolveDateRange(state: RunsFilterState): {
+  sinceTs: number | undefined;
+  untilTs: number | undefined;
+} {
+  const now = Date.now();
+  if (state.range === "custom") {
+    return {
+      sinceTs: state.customSince ? Date.parse(state.customSince) * 1_000 : undefined,
+      untilTs: state.customUntil
+        ? (Date.parse(state.customUntil) + HOURS_24_MS) * 1_000
+        : undefined,
+    };
+  }
+  const offsetMs =
+    state.range === "24h"
+      ? HOURS_24_MS
+      : state.range === "30d"
+        ? DAYS_30_MS
+        : DAYS_7_MS;
+  return { sinceTs: (now - offsetMs) * 1_000, untilTs: undefined };
 }
 

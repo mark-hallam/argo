@@ -1,19 +1,29 @@
 /**
- * Coverage for the `/workflows/<v>/<n>` run-history swap-in. We test
- * the `run-history.tsx` components directly because the parent
- * `page.tsx` pulls in TanStack Query + Next router + edge-state modals
- * — mocking all of those would test infrastructure, not the literal-
- * swap behaviour the brief is paying for.
+ * Coverage for the `/workflows/<v>/<n>` run-history surface.
  *
- * Three scenarios from the brief acceptance criteria:
- *   1. renders_run_count_from_gateway
- *   2. renders_skeleton_while_loading  → renders "—" placeholders
- *   3. renders_empty_state_when_zero_runs
+ * Tests the building-block components (`run-history.tsx`,
+ * `runs-filter-bar.tsx`) directly because the parent `page.tsx` pulls
+ * in TanStack Query + Next router — mocking all of those would test
+ * infrastructure, not the behaviour the brief is paying for.
+ *
+ * Coverage spans:
+ *   - Stat grid (renders gateway numbers, skeleton, empty state)
+ *   - Recent-runs table (renders rows, hides on empty, shows
+ *     filtered-empty state with Clear link, shows skeleton during
+ *     pending)
+ *   - Filter bar (status chip toggle, page-size dropdown, prev/next,
+ *     showing X-Y of Z indicator, clear-all)
  */
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import type { WorkflowRun } from "@/lib/api/workflow-runs";
 import { WorkflowRunStats, WorkflowRunsTable } from "./run-history";
+import {
+  WorkflowRunsFilterBar,
+  DEFAULT_FILTER_STATE,
+  type RunsFilterState,
+} from "./runs-filter-bar";
 
 function summary(overrides: Partial<{
   run_count: number;
@@ -49,9 +59,6 @@ describe("WorkflowRunStats", () => {
         summary={null}
       />,
     );
-    // Each cell shows the em-dash placeholder while the query is
-    // pending — verify all four cells are in the skeleton state and
-    // that no real number sneaks through.
     expect(screen.getByTestId("wfd-stat-runs")).toHaveTextContent("—");
     expect(screen.getByTestId("wfd-stat-success-rate")).toHaveTextContent("—");
     expect(screen.getByTestId("wfd-stat-avg-duration")).toHaveTextContent("—");
@@ -71,7 +78,6 @@ describe("WorkflowRunStats", () => {
       />,
     );
     expect(screen.getByTestId("wfd-stat-runs")).toHaveTextContent("0");
-    // Zero of zero is undefined — must render the dash, not "0%".
     expect(screen.getByTestId("wfd-stat-success-rate")).toHaveTextContent("—");
     expect(screen.getByTestId("wfd-stat-last-run")).toHaveTextContent("Never");
     expect(screen.getByTestId("wfd-runs-empty")).toBeInTheDocument();
@@ -117,18 +123,166 @@ describe("WorkflowRunsTable", () => {
     expect(screen.getByText("Running…")).toBeInTheDocument();
   });
 
-  it("hides the table while the query is pending or on empty data", () => {
-    const { rerender } = render(
-      <WorkflowRunsTable isPending={true} isError={false} runs={[]} />,
+  it("renders skeleton rows while pending", () => {
+    render(<WorkflowRunsTable isPending={true} isError={false} runs={[]} />);
+    expect(screen.getByTestId("wfd-runs-skeleton")).toBeInTheDocument();
+    expect(screen.queryByTestId("wfd-runs-table")).toBeNull();
+  });
+
+  it("hides the table on empty + no active filters (legacy behaviour)", () => {
+    render(<WorkflowRunsTable isPending={false} isError={false} runs={[]} />);
+    expect(screen.queryByTestId("wfd-runs-table")).toBeNull();
+    expect(screen.queryByTestId("wfd-runs-filtered-empty")).toBeNull();
+  });
+
+  it("renders filtered-empty state with Clear link", async () => {
+    const onClear = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <WorkflowRunsTable
+        isPending={false}
+        isError={false}
+        runs={[]}
+        filtersActive={true}
+        onClearFilters={onClear}
+      />,
+    );
+    expect(screen.getByTestId("wfd-runs-filtered-empty")).toHaveTextContent(
+      /no runs match your filters/i,
+    );
+    await user.click(screen.getByTestId("wfd-runs-clear-link"));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides everything on error", () => {
+    render(
+      <WorkflowRunsTable
+        isPending={false}
+        isError={true}
+        runs={[]}
+        filtersActive={true}
+      />,
     );
     expect(screen.queryByTestId("wfd-runs-table")).toBeNull();
+    expect(screen.queryByTestId("wfd-runs-skeleton")).toBeNull();
+    expect(screen.queryByTestId("wfd-runs-filtered-empty")).toBeNull();
+  });
+});
+
+describe("WorkflowRunsFilterBar", () => {
+  function setup(overrides: Partial<RunsFilterState> = {}) {
+    const onChange = vi.fn();
+    const state: RunsFilterState = { ...DEFAULT_FILTER_STATE, ...overrides };
+    const utils = render(
+      <WorkflowRunsFilterBar
+        state={state}
+        onChange={onChange}
+        totalFiltered={120}
+        visibleCount={25}
+      />,
+    );
+    return { onChange, ...utils };
+  }
+
+  it("renders the showing X-Y of Z indicator with comma-separated totals", () => {
+    const { rerender } = setup();
+    expect(screen.getByTestId("wfd-pagination-indicator")).toHaveTextContent(
+      "Showing 1-25 of 120",
+    );
     rerender(
-      <WorkflowRunsTable isPending={false} isError={false} runs={[]} />,
+      <WorkflowRunsFilterBar
+        state={{ ...DEFAULT_FILTER_STATE, page: 2 }}
+        onChange={() => undefined}
+        totalFiltered={1247}
+        visibleCount={25}
+      />,
     );
-    expect(screen.queryByTestId("wfd-runs-table")).toBeNull();
+    expect(screen.getByTestId("wfd-pagination-indicator")).toHaveTextContent(
+      "Showing 26-50 of 1,247",
+    );
+  });
+
+  it("toggles a status chip and resets page", async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup({ page: 3 });
+    await user.click(screen.getByTestId("wfd-status-failed"));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ statuses: ["failed"], page: 1 }),
+    );
+  });
+
+  it("supports multi-select status (toggle removes)", async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup({ statuses: ["failed", "running"] });
+    await user.click(screen.getByTestId("wfd-status-failed"));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ statuses: ["running"], page: 1 }),
+    );
+  });
+
+  it("changes page size and resets page", async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup({ page: 4 });
+    await user.selectOptions(screen.getByTestId("wfd-page-size"), "50");
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 50, page: 1 }),
+    );
+  });
+
+  it("Prev disabled on page 1, Next disabled on last page", () => {
+    setup({ page: 1, pageSize: 25 });
+    expect(screen.getByTestId("wfd-prev-page")).toBeDisabled();
+    expect(screen.getByTestId("wfd-next-page")).toBeEnabled();
+  });
+
+  it("Next disabled when page covers all rows", () => {
+    render(
+      <WorkflowRunsFilterBar
+        state={{ ...DEFAULT_FILTER_STATE, page: 5, pageSize: 25 }}
+        onChange={() => undefined}
+        totalFiltered={120}
+        visibleCount={20}
+      />,
+    );
+    expect(screen.getByTestId("wfd-next-page")).toBeDisabled();
+  });
+
+  it("range preset switches to custom and surfaces date inputs", async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup();
+    await user.click(screen.getByTestId("wfd-range-custom"));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ range: "custom", page: 1 }),
+    );
+  });
+
+  it("renders 0 of 0 when totalFiltered is zero", () => {
+    render(
+      <WorkflowRunsFilterBar
+        state={{ ...DEFAULT_FILTER_STATE, statuses: ["queued"] }}
+        onChange={() => undefined}
+        totalFiltered={0}
+        visibleCount={0}
+      />,
+    );
+    expect(screen.getByTestId("wfd-pagination-indicator")).toHaveTextContent(
+      /0 of 0/i,
+    );
+  });
+
+  it("Clear button appears only when filters are non-default", async () => {
+    const user = userEvent.setup();
+    const { onChange, rerender } = setup();
+    expect(screen.queryByTestId("wfd-clear-filters")).toBeNull();
     rerender(
-      <WorkflowRunsTable isPending={false} isError={true} runs={[]} />,
+      <WorkflowRunsFilterBar
+        state={{ ...DEFAULT_FILTER_STATE, statuses: ["success"] }}
+        onChange={onChange}
+        totalFiltered={5}
+        visibleCount={5}
+      />,
     );
-    expect(screen.queryByTestId("wfd-runs-table")).toBeNull();
+    await user.click(screen.getByTestId("wfd-clear-filters"));
+    expect(onChange).toHaveBeenCalledWith(DEFAULT_FILTER_STATE);
   });
 });

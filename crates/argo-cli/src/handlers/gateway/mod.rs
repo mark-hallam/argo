@@ -199,6 +199,7 @@ mod routes_worker_trust_grade;
 mod routes_workers_hire;
 mod routes_workflow_execute;
 mod routes_workflow_runs;
+mod routes_workflow_runs_queries;
 mod routes_knowledge;
 mod routes_knowledge_handlers;
 mod routes_workflows;

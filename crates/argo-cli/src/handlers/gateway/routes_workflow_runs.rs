@@ -1,14 +1,19 @@
 //! `web-workflow-per-workflow-runs-table` — workflow-run aggregate +
 //! recent-rows endpoint backing the `/workflows/<v>/<n>` detail page.
 //!
-//! Replaces the hardcoded `82` runs / `94%` success-rate / `6.2s`
-//! latency literals on that page with real counts pulled from the
-//! `workflow_run` table (migration 18).
+//! Extended by `web-workflow-runs-table-pagination-filters` with
+//! pagination (`page`, `page_size`), status filters
+//! (`status[]=success|failed|running|queued`), and absolute date
+//! range overrides (`since_ts`, `until_ts`).
 //!
 //! ## Path
 //!
 //! ```text
-//! GET /api/v1/verticals/<vertical_id>/workflows/<name>/runs[?days=30&limit=100]
+//! GET /api/v1/verticals/<vertical_id>/workflows/<name>/runs
+//!     [?days=30]                    # legacy date window (default 30)
+//!     [&since_ts=…&until_ts=…]      # absolute date range in epoch micros (overrides days)
+//!     [&page=1&page_size=25]        # pagination (1-indexed; sizes 25/50/100)
+//!     [&status[]=success&status[]=failed&status[]=running&status[]=queued]
 //! ```
 //!
 //! ## Response
@@ -18,39 +23,53 @@
 //!   "vertical_id": "pr_checker",
 //!   "workflow_name": "standard_review",
 //!   "window_days": 30,
-//!   "run_count": 0,
+//!   "since_ts": 1716196800000000,
+//!   "until_ts": null,
+//!   "run_count": 0,        // aggregate over the date window (ignores status filters)
 //!   "success_rate": null,
 //!   "avg_duration_ms": 0,
 //!   "p95_duration_ms": 0,
 //!   "last_run_at": null,
-//!   "runs": []
+//!   "page": 1,
+//!   "page_size": 25,
+//!   "total_filtered": 0,   // total rows matching status filters (drives pagination)
+//!   "runs": []             // current page only
 //! }
 //! ```
 //!
+//! Aggregate fields intentionally ignore status filters — they answer
+//! "what does this workflow look like over the window?" rather than
+//! "what does the filtered slice look like?". Pagination
+//! (`total_filtered`, `page`, `page_size`) is the only place status
+//! filters apply.
+//!
 //! `success_rate` is `null` when `run_count == 0` (zero of zero is
-//! undefined; the frontend renders "—" in that case). Otherwise it is
-//! a fraction in `[0.0, 1.0]`.
+//! undefined; the frontend renders "—"). Otherwise a fraction in
+//! `[0.0, 1.0]`.
 //!
 //! ## workflow_id matching
 //!
 //! Migration 18's `workflow_run.workflow_id` stores whichever `id` the
-//! `ExecutionReport` carries — historically that is the
-//! `workflow.id` from the YAML body. The brief hinted at a synthetic
-//! `"{vertical_id}/{name}"` key, but the table on operator workspaces
-//! today stores either the bare `name` (matching the YAML id) or the
-//! synthetic compound key. We match BOTH so the endpoint works
-//! regardless of which seeding convention an operator used.
+//! `ExecutionReport` carries — historically that is the `workflow.id`
+//! from the YAML body. We match both the synthetic
+//! `"{vertical_id}/{name}"` compound key and the bare YAML id so the
+//! endpoint works regardless of seeding convention.
 
 use argo_store::SessionStore;
 use chrono::Utc;
 use serde_json::{json, Value};
-use sqlx::Row;
 use std::sync::Arc;
+
+use super::routes_workflow_runs_queries::{
+    aggregate_stats, count_filtered, paged_rows, FilterParams, StatusFilter,
+};
 
 const PREFIX: &str = "/api/v1/verticals/";
 const DEFAULT_DAYS: i64 = 30;
 const DEFAULT_LIMIT: i64 = 100;
 const MAX_LIMIT: i64 = 1000;
+const DEFAULT_PAGE_SIZE: i64 = 25;
+const MAX_PAGE_SIZE: i64 = 100;
 
 /// GET dispatcher. Returns `Some` for any path under
 /// `/api/v1/verticals/<vertical_id>/workflows/<name>/runs`; `None`
@@ -67,9 +86,6 @@ pub(super) async fn dispatch_get(
     Some(list_runs_response(&vertical_id, &name, req, store).await)
 }
 
-/// Parses `GET /api/v1/verticals/<vertical_id>/workflows/<name>/runs[?...]`.
-/// Returns owned strings so the borrow on `req` does not have to
-/// outlive the await point inside `dispatch_get`.
 fn parse_runs_path(req: &str) -> Option<(String, String)> {
     let after_verb = req.strip_prefix("GET ")?;
     let path_with_query = after_verb.split_whitespace().next()?;
@@ -94,25 +110,48 @@ async fn list_runs_response(
     req: &str,
     store: &Arc<SessionStore>,
 ) -> (&'static str, String) {
-    let days = parse_param(req, "days", DEFAULT_DAYS).clamp(1, 365);
-    let limit = parse_param(req, "limit", DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+    let days = parse_i64(req, "days", DEFAULT_DAYS).clamp(1, 365);
+    let limit = parse_i64(req, "limit", DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+    let page = parse_i64(req, "page", 1).max(1);
+    let page_size = parse_i64(req, "page_size", DEFAULT_PAGE_SIZE).clamp(1, MAX_PAGE_SIZE);
+    let statuses = parse_statuses(req);
 
     let window_micros = days
         .checked_mul(86_400_000_000)
         .unwrap_or(i64::MAX / 2);
-    let cutoff = Utc::now()
+    let default_since = Utc::now()
         .timestamp_micros()
         .saturating_sub(window_micros);
+    let since_ts = parse_optional_i64(req, "since_ts").unwrap_or(default_since);
+    let until_ts = parse_optional_i64(req, "until_ts");
 
     let compound_key = format!("{vertical_id}/{name}");
     let bare_key = name.to_string();
 
-    let stats = match aggregate_stats(store, &compound_key, &bare_key, cutoff).await {
+    let stats = match aggregate_stats(store, &compound_key, &bare_key, since_ts, until_ts).await {
         Ok(s) => s,
         Err(msg) => return server(&msg),
     };
 
-    let rows = match recent_rows(store, &compound_key, &bare_key, cutoff, limit).await {
+    let filter_params = FilterParams {
+        compound_key: &compound_key,
+        bare_key: &bare_key,
+        since_ts,
+        until_ts,
+        statuses: &statuses,
+    };
+
+    let total_filtered = match count_filtered(store, &filter_params).await {
+        Ok(c) => c,
+        Err(msg) => return server(&msg),
+    };
+
+    // `limit` (legacy) still caps the per-request slice; the smaller
+    // of (page_size, limit) wins so old + new params coexist safely.
+    let slice = page_size.min(limit);
+    let offset = (page - 1) * slice;
+
+    let rows = match paged_rows(store, &filter_params, slice, offset).await {
         Ok(r) => r,
         Err(msg) => return server(&msg),
     };
@@ -138,12 +177,14 @@ async fn list_runs_response(
         .into_iter()
         .map(|r| {
             let duration_ms = r.finished_at_micros.map(|f| (f - r.started_at_micros) / 1000);
+            let status = derive_row_status(r.ok, r.finished_at_micros);
             json!({
                 "id": r.id,
                 "started_at": micros_to_rfc3339(r.started_at_micros),
                 "finished_at": r.finished_at_micros.and_then(micros_to_rfc3339),
                 "ok": r.ok.unwrap_or(false),
                 "duration_ms": duration_ms,
+                "status": status,
             })
         })
         .collect();
@@ -152,172 +193,99 @@ async fn list_runs_response(
         "vertical_id": vertical_id,
         "workflow_name": name,
         "window_days": days,
+        "since_ts": since_ts,
+        "until_ts": until_ts,
         "run_count": stats.run_count,
         "success_rate": success_rate,
         "avg_duration_ms": avg_duration_ms,
         "p95_duration_ms": stats.p95_duration_micros / 1000,
         "last_run_at": last_run_at_iso,
+        "page": page,
+        "page_size": slice,
+        "total_filtered": total_filtered,
         "runs": runs_json,
     });
     ("200 OK", body.to_string())
 }
 
-struct AggregateStats {
-    run_count: i64,
-    success_count: i64,
-    completed_count: i64,
-    sum_duration_micros: i64,
-    p95_duration_micros: i64,
-    last_run_at_micros: Option<i64>,
-}
-
-async fn aggregate_stats(
-    store: &SessionStore,
-    compound_key: &str,
-    bare_key: &str,
-    cutoff: i64,
-) -> Result<AggregateStats, String> {
-    let agg_row = sqlx::query(
-        "SELECT COUNT(*) AS run_count, \
-                COALESCE(SUM(CASE WHEN ok = 1 THEN 1 ELSE 0 END), 0) AS success_count, \
-                COALESCE(SUM(CASE WHEN finished_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS completed_count, \
-                COALESCE(SUM(CASE WHEN finished_at IS NOT NULL THEN (finished_at - started_at) ELSE 0 END), 0) AS sum_duration \
-         FROM workflow_run \
-         WHERE workflow_id IN (?, ?) AND started_at >= ?",
-    )
-    .bind(compound_key)
-    .bind(bare_key)
-    .bind(cutoff)
-    .fetch_one(store.pool())
-    .await
-    .map_err(|e| format!("aggregate: {e}"))?;
-
-    let run_count: i64 = agg_row.try_get("run_count").map_err(|e| format!("agg col: {e}"))?;
-    let success_count: i64 = agg_row.try_get("success_count").map_err(|e| format!("agg col: {e}"))?;
-    let completed_count: i64 = agg_row.try_get("completed_count").map_err(|e| format!("agg col: {e}"))?;
-    let sum_duration_micros: i64 = agg_row.try_get("sum_duration").map_err(|e| format!("agg col: {e}"))?;
-
-    let p95_duration_micros = p95_duration(store, compound_key, bare_key, cutoff).await?;
-    let last_run_at_micros = last_run_at(store, compound_key, bare_key).await?;
-
-    Ok(AggregateStats {
-        run_count,
-        success_count,
-        completed_count,
-        sum_duration_micros,
-        p95_duration_micros,
-        last_run_at_micros,
-    })
-}
-
-async fn p95_duration(
-    store: &SessionStore,
-    compound_key: &str,
-    bare_key: &str,
-    cutoff: i64,
-) -> Result<i64, String> {
-    let durations: Vec<i64> = sqlx::query_scalar(
-        "SELECT (finished_at - started_at) FROM workflow_run \
-         WHERE workflow_id IN (?, ?) AND started_at >= ? AND finished_at IS NOT NULL \
-         ORDER BY (finished_at - started_at) ASC",
-    )
-    .bind(compound_key)
-    .bind(bare_key)
-    .bind(cutoff)
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| format!("p95: {e}"))?;
-
-    if durations.is_empty() {
-        return Ok(0);
+fn derive_row_status(ok: Option<bool>, finished_at: Option<i64>) -> &'static str {
+    match (ok, finished_at) {
+        (Some(true), _) => "success",
+        (Some(false), _) => "failed",
+        // `ok IS NULL` (with or without `finished_at`) is treated as
+        // running so we never drop the row from the table.
+        (None, _) => "running",
     }
-    let idx = ((durations.len() as f64) * 0.95) as usize;
-    let bounded = idx.min(durations.len() - 1);
-    Ok(durations[bounded])
 }
 
-async fn last_run_at(
-    store: &SessionStore,
-    compound_key: &str,
-    bare_key: &str,
-) -> Result<Option<i64>, String> {
-    let value: Option<i64> = sqlx::query_scalar(
-        "SELECT MAX(started_at) FROM workflow_run WHERE workflow_id IN (?, ?)",
-    )
-    .bind(compound_key)
-    .bind(bare_key)
-    .fetch_one(store.pool())
-    .await
-    .map_err(|e| format!("last_run_at: {e}"))?;
-    Ok(value)
+fn parse_i64(req: &str, key: &str, default: i64) -> i64 {
+    parse_optional_i64(req, key).unwrap_or(default)
 }
 
-struct RunRow {
-    id: String,
-    started_at_micros: i64,
-    finished_at_micros: Option<i64>,
-    ok: Option<bool>,
-}
-
-async fn recent_rows(
-    store: &SessionStore,
-    compound_key: &str,
-    bare_key: &str,
-    cutoff: i64,
-    limit: i64,
-) -> Result<Vec<RunRow>, String> {
-    let rows = sqlx::query(
-        "SELECT id, started_at, finished_at, ok \
-         FROM workflow_run \
-         WHERE workflow_id IN (?, ?) AND started_at >= ? \
-         ORDER BY started_at DESC \
-         LIMIT ?",
-    )
-    .bind(compound_key)
-    .bind(bare_key)
-    .bind(cutoff)
-    .bind(limit)
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| format!("recent rows: {e}"))?;
-
-    let mut out = Vec::with_capacity(rows.len());
-    for row in rows {
-        let id: String = row.try_get("id").map_err(|e| format!("row id: {e}"))?;
-        let started_at_micros: i64 = row.try_get("started_at").map_err(|e| format!("row started: {e}"))?;
-        let finished_at_micros: Option<i64> = row.try_get("finished_at").map_err(|e| format!("row finished: {e}"))?;
-        let ok_raw: Option<i64> = row.try_get("ok").map_err(|e| format!("row ok: {e}"))?;
-        out.push(RunRow {
-            id,
-            started_at_micros,
-            finished_at_micros,
-            ok: ok_raw.map(|n| n != 0),
-        });
-    }
-    Ok(out)
-}
-
-fn parse_param(req: &str, key: &str, default: i64) -> i64 {
-    let after_verb = match req.strip_prefix("GET ") {
-        Some(s) => s,
-        None => return default,
-    };
-    let path_with_query = match after_verb.split_whitespace().next() {
-        Some(s) => s,
-        None => return default,
-    };
-    let query = match path_with_query.split_once('?') {
-        Some((_, q)) => q,
-        None => return default,
-    };
+fn parse_optional_i64(req: &str, key: &str) -> Option<i64> {
+    let query = request_query(req)?;
     for pair in query.split('&') {
         if let Some((k, v)) = pair.split_once('=') {
             if k == key {
-                return v.parse::<i64>().unwrap_or(default);
+                return v.parse::<i64>().ok();
             }
         }
     }
-    default
+    None
+}
+
+/// Parses both `?status=foo&status=bar` and the PHP-style
+/// `?status[]=foo&status[]=bar` so callers can pick whichever form
+/// their HTTP-client library encodes naturally.
+fn parse_statuses(req: &str) -> Vec<StatusFilter> {
+    let Some(query) = request_query(req) else { return Vec::new() };
+    let mut out = Vec::new();
+    for pair in query.split('&') {
+        let Some((k, v)) = pair.split_once('=') else { continue };
+        if k != "status" && k != "status[]" && k != "status%5B%5D" {
+            continue;
+        }
+        let decoded = percent_decode(v);
+        if let Some(s) = StatusFilter::from_str(&decoded) {
+            if !out.contains(&s) {
+                out.push(s);
+            }
+        }
+    }
+    out
+}
+
+fn request_query(req: &str) -> Option<&str> {
+    let after_verb = req.strip_prefix("GET ")?;
+    let path_with_query = after_verb.split_whitespace().next()?;
+    let (_, q) = path_with_query.split_once('?')?;
+    Some(q)
+}
+
+/// Decode the small set of percent-escapes we expect in status values
+/// (`%5B`, `%5D`, …). Avoids pulling `percent-encoding` for one caller.
+fn percent_decode(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hi = (bytes[i + 1] as char).to_digit(16);
+            let lo = (bytes[i + 2] as char).to_digit(16);
+            if let (Some(h), Some(l)) = (hi, lo) {
+                out.push(((h * 16 + l) as u8) as char);
+                i += 3;
+                continue;
+            }
+        }
+        if bytes[i] == b'+' {
+            out.push(' ');
+        } else {
+            out.push(bytes[i] as char);
+        }
+        i += 1;
+    }
+    out
 }
 
 fn micros_to_rfc3339(value: i64) -> Option<String> {
