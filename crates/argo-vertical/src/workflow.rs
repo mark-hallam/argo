@@ -201,6 +201,10 @@ fn validate_step_kind(workflow_name: &str, step: &WorkflowStep) -> ArgoResult<()
 }
 
 #[cfg(test)]
+#[path = "workflow_edge_tests.rs"]
+mod edge_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

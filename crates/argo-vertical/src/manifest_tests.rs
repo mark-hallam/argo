@@ -121,6 +121,75 @@ fn rejects_missing_required_fields() {
 }
 
 #[test]
+fn rejects_missing_vertical_id() {
+    let src = "schema_version = \"1\"\n[vertical]\nname=\"x\"\nversion=\"0.1.0\"\n";
+    let err = parse(src).expect_err("missing id must fail");
+    let msg = format!("{err}");
+    assert!(msg.contains("id") || msg.contains("missing"), "got: {msg}");
+}
+
+#[test]
+fn rejects_missing_vertical_name() {
+    let src = "schema_version = \"1\"\n[vertical]\nid=\"demo\"\nversion=\"0.1.0\"\n";
+    let err = parse(src).expect_err("missing name must fail");
+    let msg = format!("{err}");
+    assert!(msg.contains("name") || msg.contains("missing"), "got: {msg}");
+}
+
+#[test]
+fn rejects_missing_vertical_version() {
+    let src = "schema_version = \"1\"\n[vertical]\nid=\"demo\"\nname=\"D\"\n";
+    let err = parse(src).expect_err("missing version must fail");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("version") || msg.contains("missing"),
+        "got: {msg}"
+    );
+}
+
+#[test]
+fn rejects_missing_schema_version_field() {
+    let src = "[vertical]\nid=\"demo\"\nname=\"D\"\nversion=\"0.1.0\"\n";
+    let err = parse(src).expect_err("missing schema_version must fail");
+    let msg = format!("{err}");
+    assert!(msg.contains("schema_version"), "got: {msg}");
+}
+
+#[test]
+fn rejects_empty_schema_version_string() {
+    let src = "schema_version=\"\"\n[vertical]\nid=\"demo\"\nname=\"D\"\nversion=\"0.1.0\"\n";
+    let err = parse(src).expect_err("empty schema_version must fail");
+    let msg = format!("{err}");
+    assert!(msg.contains("schema_version"), "got: {msg}");
+}
+
+#[test]
+fn rejects_unknown_key_inside_vertical_section() {
+    let src = "schema_version=\"1\"\n[vertical]\nid=\"demo\"\nname=\"D\"\nversion=\"0.1.0\"\nmystery=\"oops\"\n";
+    let err = parse(src).expect_err("unknown subsection key must fail");
+    let msg = format!("{err}");
+    assert!(msg.contains("mystery") || msg.contains("unknown"), "got: {msg}");
+}
+
+#[test]
+fn rejects_unknown_key_inside_role_section() {
+    let src = "schema_version=\"1\"\n[vertical]\nid=\"demo\"\nname=\"D\"\nversion=\"0.1.0\"\n[role]\nsystem_prompt=\"prompts/system.md\"\nbogus=\"oops\"\n";
+    let err = parse(src).expect_err("unknown role-section key must fail");
+    let msg = format!("{err}");
+    assert!(msg.contains("bogus") || msg.contains("unknown"), "got: {msg}");
+}
+
+#[test]
+fn empty_workflows_files_list_parses_clean() {
+    // `[workflows]` block with an empty `files = []` list is
+    // structurally valid and must not be confused with "missing
+    // workflows section." Pins the additive-by-default shape.
+    let src = "schema_version=\"1\"\n[vertical]\nid=\"demo\"\nname=\"D\"\nversion=\"0.1.0\"\n[workflows]\nfiles=[]\n";
+    let m = parse(src).expect("empty workflows.files is OK");
+    assert!(m.workflows.as_ref().unwrap().files.is_empty());
+}
+
+#[test]
 fn cost_tier_defaults_to_balanced() {
     let m = parse(
         r#"

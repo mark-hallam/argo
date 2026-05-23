@@ -91,6 +91,10 @@ fn load_one(root: &Path, manifest_path: &Path) -> ArgoResult<LoadedVertical> {
 }
 
 #[cfg(test)]
+#[path = "loader_edge_tests.rs"]
+mod edge_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
