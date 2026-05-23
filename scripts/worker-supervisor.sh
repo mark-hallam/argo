@@ -44,6 +44,19 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   echo "   Comment it out in ~/.zshenv and re-open this terminal." >&2
   exit 2
 fi
+# Mirror the worker-loop's PATH guard so the supervisor itself refuses to
+# start with the broken env that caused the 2026-05-23 doom-loop incident.
+# Auto-repair the common case (PATH missing ~/.local/bin), hard-fail if
+# still missing — children inherit our PATH, so getting it right here
+# protects every slot.
+if ! command -v claude >/dev/null 2>&1; then
+  export PATH="$HOME/.local/bin:$PATH"
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "❌ supervisor refused: 'claude' binary not on PATH (tried \$PATH + \$HOME/.local/bin)." >&2
+    echo "   Re-launch from a fresh terminal so .zshrc reloads, or set PATH explicitly before launching." >&2
+    exit 2
+  fi
+fi
 
 # Single-supervisor lock — don't double-spawn.
 if [ -f "$SUPERVISOR_PID_FILE" ] && kill -0 "$(cat "$SUPERVISOR_PID_FILE")" 2>/dev/null; then

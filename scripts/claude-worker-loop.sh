@@ -52,6 +52,42 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   exit 2
 fi
 
+# --- HARD GUARD: refuse to run if `claude` binary is not on PATH ----------
+# Source: 2026-05-23 mac-host doom-loop incident (tick-96 through tick-99 +
+# follow-ups). The supervisor was launched from a shell whose PATH did not
+# include ~/.local/bin (Claude Code's standard install dir). Every worker
+# iteration spent ~5s failing with `claude: command not found`, then the
+# ship-check at line 649 released the brief back to TODO and the loop
+# claimed the next one — ~25-30s per cycle, ~2 git push commits per cycle.
+# 86 zombie-status commits in one 20min window across 8+ briefs before the
+# conductor demoted enough rows to BLOCKED to halt the spread.
+#
+# Auto-repair the common case (PATH simply missing ~/.local/bin), then
+# hard-fail if `claude` is still not resolvable. Exit code 2 matches the
+# ANTHROPIC_API_KEY guard, which the supervisor (line 104) interprets as
+# "real config error — do NOT respawn this slot" — preventing the doom
+# loop at the supervisor level too.
+if ! command -v claude >/dev/null 2>&1; then
+  export PATH="$HOME/.local/bin:$PATH"
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "" >&2
+    echo "╔═══════════════════════════════════════════════════════════════════╗" >&2
+    echo "║  🛑  worker-loop refused: 'claude' binary not on PATH               ║" >&2
+    echo "║                                                                     ║" >&2
+    echo "║  Tried: \$PATH + \$HOME/.local/bin (Claude Code's standard install). ║" >&2
+    echo "║  Neither resolved. Without claude, every iteration would silently   ║" >&2
+    echo "║  cycle claim→release of TODO briefs (~25s/cycle, ~2 pushes/cycle)   ║" >&2
+    echo "║  without ever opening a PR.                                         ║" >&2
+    echo "║                                                                     ║" >&2
+    echo "║  Fix: confirm 'which claude' from your interactive shell, then      ║" >&2
+    echo "║  re-launch the supervisor from a shell where that PATH is set       ║" >&2
+    echo "║  (typically: open a fresh terminal so .zshrc reloads).              ║" >&2
+    echo "╚═══════════════════════════════════════════════════════════════════╝" >&2
+    echo "" >&2
+    exit 2
+  fi
+fi
+
 REPO="${REPO:-~/code/argo}"
 FAMILY="${FAMILY:-claude}"
 
