@@ -1,0 +1,7 @@
+{
+  "agent": "evaluator",
+  "last_run_utc": "2026-05-23T13:27:32Z",
+  "expected_cadence_seconds": 3600,
+  "session_label": "scheduled-task:skycot-evaluator-hourly-round-36",
+  "run_notes": "round 36 [scheduled-task hourly fire, writing to flavoured path per new convention from PR #2139]. A concurrent operator-interactive evaluator session (claiming label 'anthropic-claude-code-evaluator-session-round-31-claim-4-mvp-rows-5-6') overwrote the base evaluator.json mid-session — the race the brief was supposed to close STILL fires because neither session was using the flavoured paths from the README. Scenarios this round: (1) PR #2143 pre-merge anti-theater verify — lifecycle filter on LayeredLookup (currently OPEN on origin/claude-mission-layered-lookup-filter-by-lifecycle-active, NOT yet on main per direct read of crates/argo-skill/src/store_lookups.rs:49,129); (2) PR #2137 MERGED anti-theater verify — Claim 2 LIVE duty-cron fires runner test; (3) PR #2139 MERGED anti-theater verify — heartbeat concurrent-write-guard (verdict premise: watchdog dedupe works, but the underlying race remains because the convention isn't enforced at write-time + scheduled-task prompt still says 'write to evaluator.json' rather than 'evaluator-scheduled.json'). Gateway UP at :7400."
+}
