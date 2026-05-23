@@ -12,7 +12,20 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 69);
+    assert_eq!(AuditKind::all().len(), 70);
+}
+
+#[test]
+fn approval_declined_round_trips_and_listed() {
+    let kind = AuditKind::ApprovalDeclined;
+    assert_eq!(AuditKind::from_label("approval.declined"), Some(kind));
+    assert_eq!(kind.label(), "approval.declined");
+    assert_eq!(
+        serde_json::to_string(&kind).unwrap(),
+        "\"approval_declined\""
+    );
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"approval.declined"));
 }
 
 #[test]

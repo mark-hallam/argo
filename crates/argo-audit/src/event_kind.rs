@@ -78,6 +78,25 @@ pub enum AuditKind {
     /// blocked tool on a specific session via `argo session
     /// approve` or the gateway equivalent (#664).
     ApprovalGranted,
+    /// An operator declined an approval-request decision via the
+    /// gateway approve-or-refuse path (Stream
+    /// `mission-add-approval-audit-kinds`). Distinct from
+    /// [`Self::ApprovalRevoked`] (which is "undo a previously-
+    /// granted tool grant") and from [`Self::ApprovalReplied`]
+    /// with `reply_kind: "reject"` (which is the channel-inbound
+    /// webhook reply edge before the gate's state transition
+    /// runs). Pairs with [`Self::ApprovalGranted`] on the decide
+    /// side: exactly one of the two is written per
+    /// `approvals::decide_request` success when the canonical
+    /// callsite is wired. Wire-up is deferred to a follow-up
+    /// brief because `argo-store::approvals` cannot depend on
+    /// `argo-audit` (argo-audit already depends on argo-store)
+    /// and the gateway approve route currently uses the
+    /// `worker_actions_transitions` flow, not `decide_request`.
+    /// Payload (per the deferred wire-up brief):
+    /// `{ approval_id, decided_by, decision: "reject",
+    ///   decided_at, request_summary }`.
+    ApprovalDeclined,
     /// An operator revoked a previously-granted approval (#664).
     ApprovalRevoked,
     /// A one-shot approval grant was consumed by a successful
