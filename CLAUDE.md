@@ -109,7 +109,7 @@ authoritative; the live ledger is.
 the following entry-point docs are KNOWN STALE; check the date in the
 section before relying on what they say:
 
-- **CLAUDE.md "Status 2026-05-18" block below** is 6+ days behind reality. Use the handoff doc above + `docs/skycot/MISSION.md` for current state.
+- **CLAUDE.md "Status" block below** was CORRECTED 2026-05-24 after codex caught the original handoff listing MERGED PRs as "P0 TODO". The 8 LIVE-test wave PRs (#2088, #2092, #2109, #2110, #2112, #2113, #2133, #2137) are all MERGED — verify with `gh pr view <num>` before reporting otherwise.
 - `docs/build-plan/RESUME.md` "Last sweep" claims 2026-05-20; truthful as of 2026-05-23 but flagged for next sweep.
 - `docs/build-plan/BUILD_PLAN_V11.md` (2026-05-12) — operative for backend track only; product-surface moved to `docs/build-plan/PRODUCT_ROADMAP.md`.
 - `docs/plan/argo-build-plan.md` (v0.2) — **HISTORICAL.** Not the operative plan. Reference only.
@@ -142,21 +142,23 @@ The full audit reports live in `docs/skycot/audit/`:
 - `2026-05-17-readonly-codebase-audit.md` — codex audit (13 findings)
 - `2026-05-17-claude-conductor-audit.md` — claude audit (13 findings + closure verification)
 
-**Status 2026-05-24 (post-quota-halt):** **Swarm halted at 98% quota — see handoff doc above.** Mission state per MISSION.md operator-locked LIVE criteria + evaluator rounds 1-34:
+**Status 2026-05-24 (post-quota-halt, CORRECTED after codex caught stale handoff):** **Swarm halted at 98% quota — see handoff doc above.** Mission state per MISSION.md operator-locked LIVE criteria + evaluator rounds 1-34, post the 2026-05-23 LIVE-test chain-merge wave:
 
 - Claim 1 (Teammate, not tool) — 🟢 **LIVE** (regression test passes cold per round-19)
-- Claim 2 (Delegation is the unit) — 🔴 NOT LIVE (needs #2088 fix + claim-2 LIVE regression test)
-- Claim 3 (Platform builds workers) — 🟡 LIVE-pending-verify (substrate shipped via #2089 + #2106; LIVE regression test queued)
-- Claim 4 (Skills shared + learned) — 🟡 MVP ~75% per round-20 (substrate done; LIVE criteria draft pending operator signoff)
-- Claim 5 (Any-PC execution) — 🟡 HALF-LIVE (cu-macos 37/37 unit tests pass; LIVE criteria + macOS perms pending)
-- Claim 6 (Multi-channel + multi-tenant) — 🟡 strengthener pass (LIVE criteria pending signoff)
+- Claim 2 (Delegation is the unit) — 🟢 **LIKELY-LIVE** (#2088 + #2137 merged 2026-05-23; needs cold rerun of `claim_2_live_duty_runs` to confirm no flakes)
+- Claim 3 (Platform builds workers) — 🟢 **LIKELY-LIVE** (#2089 + #2106 + #2109 merged; needs cold rerun of `claim_3_live_genesis_to_run`)
+- Claim 4 (Skills shared + learned) — 🟢 **LIKELY-LIVE** (#2092 + #2110 merged; criteria operator-locked round 19; needs cold rerun of `claim_4_live_install_invoke`)
+- Claim 5 (Any-PC execution) — 🟡 **LIKELY-LIVE-pending-perms** (#2112 merged; needs operator macOS perms on argo binary + cold rerun of `claim_5_live_mcp_and_cu`)
+- Claim 6 (Multi-channel + multi-tenant) — 🟢 **LIKELY-LIVE** (#2113 merged; criteria operator-locked round 19; needs cold rerun of `claim_6_live_cross_tenant`)
 - v1.0 demo MP4 — ❌ NOT RECORDED (operator-only artifact)
 
-**Tick-91 chain-merge wave (2026-05-23)** shipped 8 PRs in one tick — #2089 WorkerSessionRunner (claim-3 broken-wire closed), #2090 per-tenant master key, #2098 workflow-runs pagination, #2100 orchestrator duty-store tenant-args, #2101 skill-ab-test tenant-id (schema bumped to v79), #2102 rebase-cluster, #2103 mcp-connector token-cache, #2105 memory per-worker-scope, #2106 workflow-execute route.
+**2026-05-23 LIVE-test chain-merge wave** shipped 8 PRs 08:34-12:42 UTC: #2088 + #2092 (substrate); #2109 + #2110 + #2112 + #2113 + #2137 (the 5 claim-N-LIVE regression tests); #2133 (conductor block-history guard). Original handoff doc listed these as "P0 TODO" — corrected 2026-05-24 after codex cross-checked `gh pr view` against the doc.
+
+**Earlier 2026-05-23 tick-91 chain-merge wave** shipped 8 unrelated PRs in one tick — #2089 WorkerSessionRunner (claim-3 broken-wire closed), #2090 per-tenant master key, #2098 workflow-runs pagination, #2100 orchestrator duty-store tenant-args, #2101 skill-ab-test tenant-id (schema bumped to v79), #2102 rebase-cluster, #2103 mcp-connector token-cache, #2105 memory per-worker-scope, #2106 workflow-execute route.
 
 **Earlier history (2026-05-18 state, KEPT for context):** Magic-link signup+verify LIVE on main via #1823. CI gates GREEN locally (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool at full Pro 20x. SQLCipher 4-PR sequence MERGED.
 
-**Remaining for v1.0 launch**: (a) 5 LIVE-test briefs ship green (queued at top of BUILD_STATUS.md Phase A under MISSION-LIVE CRITICAL PATH marker), (b) operator signs off Claim 4/5/6 LIVE criteria (draft at `docs/skycot/evals/scheduled/2026-05-23/draft-live-criteria-claims-4-5-6.md`), (c) macOS permissions on `argo` binary (Accessibility + Screen Recording), (d) operator records demo MP4.
+**Remaining for v1.0 launch** (CORRECTED 2026-05-24): (a) agent: cold-rerun the 5 claim-N-LIVE regression tests on current main to confirm no flakes, (b) agent: restart gateway (LaunchAgent loaded but no process; KeepAlive=false), (c) operator: grant macOS permissions on `argo` binary (Accessibility + Screen Recording) for claim-5, (d) operator: record demo MP4 per `docs/skycot/demos/v1-mission-mvp-runbook.md`, (e) agent: triage PR #2131 (4× demoted for doc-tree clobbers; reclaim or close). Items (a)/(b)/(e) are agent-doable; (c)/(d) are operator-only. **NOT pending: Claim 4/5/6 LIVE criteria signoff (already locked round 19), #2088/#2092 rebase (both MERGED), fix-cu-macos brief (MERGED-as-collateral via #2112).**
 
 ## Project rename — Argo → Skycot
 

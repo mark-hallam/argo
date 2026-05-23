@@ -19,6 +19,11 @@ conductor-mode if unclear.
 
 CONTEXT — the swarm is currently HALTED.
 
+🔧 KNOWN-STALE WARNING (2026-05-24): the original quota-handoff doc
+listed 7 P0 briefs as TODO that are actually MERGED. ALWAYS verify
+PR state via `gh pr view <num>` before reporting "TODO" status —
+do NOT trust doc lists of PR numbers without re-checking.
+
 The previous Claude Code session was at 98% Claude quota and operator-
 directed halt-all-token-burning-work. Everything is documented. Your job
 when first invoked: read the handoff + verify state + report back. Do NOT
@@ -85,18 +90,18 @@ Print a structured report:
   ✅ Gateway at :7400: <READY|NOT_READY>
   ✅ Heartbeat: <conductor last_run_utc>
   ✅ Open PRs: <count> [list them]
-  ✅ Top of queue (7 P0 critical-path):
-       1. eval-claim-2-live-duty-cron-fires-runner-test
-       2. eval-claim-3-live-genesis-to-workflow-run-test
-       3. eval-claim-4-live-skill-install-invoke-audit-test ⏸ awaits operator signoff
-       4. eval-claim-5-live-mcp-and-cu-test ⏸ awaits operator + macOS perms
-       5. eval-claim-6-live-cross-tenant-audit-chain-test ⏸ awaits operator
-       6. claude-conductor-queue-replenishment-block-history-guard
-       7. fix-cu-macos-permission-revoke-mid-run-test-workspace-clippy-drift
-  ⏸ Operator-decisional pending:
-       - Claim 4/5/6 LIVE criteria draft signoff
+  ✅ Top of queue: VERIFY against `gh pr view` per PR number — do NOT
+     trust this prompt's list. The 8 PRs the original handoff listed as
+     P0 TODOs are actually MERGED (#2088, #2092, #2109, #2110, #2112,
+     #2113, #2133, #2137). Run `gh pr view <num> --json state,mergedAt`
+     for each to confirm before reporting.
+  ⏸ Operator-decisional pending (verified 2026-05-24):
        - macOS perms (Accessibility + Screen Recording) on argo binary
-       - #2088 + #2092 stale-DIRTY (NEEDS-REBASE)
+         at /tmp/argo-shared-target/release/argo (for Claim 5 LIVE)
+       - v1.0 demo MP4 recording (operator-only)
+       - PR #2131 — open, 4× demoted; reclaim or close
+  ✅ Gateway: needs restart (LaunchAgent loaded but no process).
+     `bash scripts/restart-gateway.sh` then curl /readyz.
 
 Then ASK:
   Which mode would you like me to operate in?
