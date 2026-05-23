@@ -168,9 +168,52 @@ export ARGO_GATEWAY_AUTH_BYPASS=1
 Sanity check:
 
 ```bash
-env | grep -E '^(ANTHROPIC_API_KEY|SLACK_|ARGO_BROWSER_MCP_BIN|ARGO_GATEWAY_AUTH_BYPASS)=' | wc -l
-# expect: 6
+env | grep -E '^(ANTHROPIC_API_KEY|SLACK_|ARGO_BROWSER_MCP_BIN|ARGO_GATEWAY_AUTH_BYPASS|SKYCOT_DB_KEY_BASE64)=' | wc -l
+# expect: 7
 ```
+
+---
+
+### 5.1 SQLCipher key (one extra env var)
+
+The gateway encrypts its local SQLite database with SQLCipher
+(Structured Query Language Cipher — an open-source extension to
+SQLite that adds 256-bit AES encryption to every database file).
+The encryption key is derived from one of two sources, in this
+order of preference:
+
+1. **`SKYCOT_DB_KEY_BASE64`** — a 32-byte secret you provide,
+   encoded as base64 (a way of representing binary bytes as
+   ASCII text so they can fit in an env var).
+2. **macOS Keychain** (or Linux `keyring`, Windows
+   `Credential Manager`) — the gateway asks the operating
+   system's password vault on startup. The OS may pop a prompt
+   asking "Allow access to keyring item?" — if you click No (or
+   the prompt fires behind your recording overlay and you don't
+   see it), the gateway refuses to start with a 503 on every
+   request.
+
+**For recording: always set `SKYCOT_DB_KEY_BASE64` explicitly.** The
+keyring path is fine for daily development but the prompt is
+fragile to dismiss accidentally during a screen recording. Use:
+
+```bash
+# Generate a fresh 32-byte secret + base64-encode it. Stable
+# across this recording session only — drop it after recording.
+export SKYCOT_DB_KEY_BASE64="$(openssl rand -base64 32)"
+```
+
+Add this to the env-var block in §5. Your sanity check from §5
+becomes:
+
+```bash
+env | grep -E '^(ANTHROPIC_API_KEY|SLACK_|ARGO_BROWSER_MCP_BIN|ARGO_GATEWAY_AUTH_BYPASS|SKYCOT_DB_KEY_BASE64)=' | wc -l
+# expect: 7
+```
+
+If the gateway logs `"store open failed ... derive SQLCipher key
+for workspace-default tenant: ... User canceled the operation."`,
+you forgot this var. Re-export it and restart `argo gateway start`.
 
 ---
 
