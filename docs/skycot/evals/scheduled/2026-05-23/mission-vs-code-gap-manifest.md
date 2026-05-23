@@ -129,6 +129,14 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 
 ## Master gap list (sorted by priority)
 
+🟡 **NEW P2 — operator-locked 2026-05-23 vocabulary + UX (evaluator round 16):**
+
+- **`web-rename-duty-to-schedule-in-ui-copy`** — every operator-facing string that says "Duty/Duties" in the SPA / hire wizard / settings / docs / marketing renames to "Schedule/Schedules." Keep `duty` in code, SQL, audit kinds, brief filenames, route paths (internal contracts). Cite: `project_vocabulary_duty_vs_schedule.md` operator memory. ~150 LOC + Playwright assertion that no SPA page contains "Duty/Duties" anymore.
+
+- **`web-workflow-detail-add-as-schedule-button`** — on `/workflows/<v>/<n>` detail page, show a "+ Add as Schedule for <worker>" CTA. Picks the worker from the active cohort, opens a cron picker, POSTs to `/api/v1/workers/<id>/duties` (API path stays — internal contract). Closes the round-15 finding that the architecture already supports vertical-wide workflow access for a worker, but operators can't easily schedule a newly-added workflow. ~200 LOC + 1 Playwright spec.
+
+---
+
 🔴 **P0** — ship-blocker or active demo-blocker:
 
 1. ✅ `eval-credentials-cross-tenant-isolation` — `argo-credentials` AUDITED 2026-05-23. 8 fix-briefs queued (3 × P0, 2 × P1, 2 × P2, 1 × P3). See report at `docs/skycot/evals/scheduled/2026-05-23/eval-credentials-cross-tenant-isolation.md`.
