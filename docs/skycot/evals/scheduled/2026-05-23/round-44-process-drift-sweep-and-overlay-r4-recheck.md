@@ -56,13 +56,25 @@ This is the heartbeat write-side timestamp-drift bug round 36/37/38/39/40 evalua
 
 **Recommended action for operator** (re-surfaced): edit `~/.claude/scheduled-tasks/skycot-evaluator-hourly/SKILL.md` to enforce: (a) heartbeat MUST be `date -u`-derived, (b) SHARED.md append MUST use the same value, (c) cron-evaluator self-rejects if its own `last_run_utc` is ahead of system clock. ~5-10 LOC SKILL.md prompt edit.
 
-## Observed — `store_worker_overlay_tests` 4th-round recheck
+## Observed — `store_worker_overlay_tests` 4th-round recheck — **CONFIRMED RED**
 
 Round 41 (2026-05-23T13:27Z) first flagged this: brief `fix-skill-worker-overlay-blob-text-join-mismatch` was authored, ledger row CLAIMED, but the production `crates/argo-store/src/worker_overlay.rs` BLOB-vs-TEXT JOIN mismatch was still LIVE-RED — 2 of 5 `store_worker_overlay_tests` failing on `origin/main`. Rounds 42 and 43 confirmed still-RED.
 
-This round (44) I kicked off `cargo test -p argo-store store_worker_overlay` cold to recheck — at submit-time the cargo build is still in the rustc dependency-graph phase (~20 min for cold argo-store rebuild on this machine when target/ is hot for another crate's build). I'll mark this 🟡 PENDING for this round and the next evaluator run can either fast-check (cargo target/ should be warm by then) OR the conductor's pre-merge gate will catch it the moment any worker tries to land a PR touching argo-store.
+**Round 44 — 4th-consecutive-round confirmation 🔴**. I initially ran `cargo test -p argo-store store_worker_overlay` (filtered to zero matches because the tests live in argo-skill, not argo-store; my mistake). Corrected command `cargo test -p argo-skill --lib store_worker_overlay_tests`:
 
-The original brief `fix-skill-worker-overlay-blob-text-join-mismatch` is still CLAIMED per BUILD_STATUS.md — the work isn't abandoned, just slow. If round 45 confirms still-RED, escalate to "ageing CLAIMED row" — the worker's been on it 8+ hours without a PR.
+```
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 351 filtered out; finished in 0.64s
+
+failures:
+    store_worker_overlay_tests::list_for_worker_filters_other_workers
+    store_worker_overlay_tests::list_for_worker_returns_attached_active_overlays
+```
+
+Both failing tests assert `left=0 right=1` at `crates/argo-skill/src/store_worker_overlay_tests.rs:67` — overlay rows the cron writes are invisible to the read-side JOIN. The 3 "passing" tests are vacuous (filter assertions hold trivially when the JOIN returns empty). Pattern identical to rounds 41/42/43.
+
+**Brief ageing**: `fix-skill-worker-overlay-blob-text-join-mismatch` has been CLAIMED ≥48 hours without a PR landing. This crosses the threshold from "in-progress" to "ageing CLAIMED row" — recommend conductor either re-assign or unblock.
+
+**Blast radius reminder** (from round 41): `worker_overlay::list_for_worker` has exactly one production caller chain — `turn_helpers_overlay.rs:43+69` → `load_prompt_skills_with_library`. The Claim 4 MVP row 2 e2e regression test (worker invokes installed skill through workflow skill_invoke) WILL appear to pass while still returning zero overlays unless this lands first.
 
 ## Anti-theater check
 
@@ -84,6 +96,6 @@ The original brief `fix-skill-worker-overlay-blob-text-join-mismatch` is still C
 |---|---|---|
 | 1 | PR #2168 mission-gateway-session-routes-tenant-bind anti-theater verify | 🟢🟢 PASS — real SQL filter + real handler routing + real structural pin |
 | 2 | mission-skill-share-tenant-pinned P0 60-min ageing watch | 🔴 P0 STILL UNCLAIMED — production leak live on main, 60 min since elevation |
-| 3 | process drift + overlay-test r4 recheck | 🟡 PARTIAL — fix-by clean, SHARED.md drift 10th-round, overlay pending cargo cold-build |
+| 3 | process drift + overlay-test r4 recheck | 🔴 PARTIAL — fix-by clean, SHARED.md drift 10th-round, **overlay 2/5 RED 4th-consecutive-round (brief CLAIMED ≥48h, ageing)** |
 
 22nd anti-theater-honest substrate contract verified on main this week.
