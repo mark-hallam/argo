@@ -107,7 +107,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 | `argo-config` | All | 🔴 NOT AUDITED | Workspace + tenant config. | 🟢 P3 |
 | `argo-store` | All | 🟡 partial (round 5 fix-merge verified) | Migration framework now comment-aware (#2025). Workflow_definition primitive audited round 7. **Other tables (worker, persona, role, duty, audit_record, skill, etc.) need similar tenant-scoping audits.** | 🟡 P1 — `eval-argo-store-tenant-bind-sweep`. |
 | `argo-capability` | All RBAC | 🟢 by use | Per-role + per-tenant capability engine. Used by routes_workflows + routes_workers + etc. | — |
-| `argo-credentials` | Auth, channels, MCP | 🟢 round 9 — audited | **VERDICT: BY-DESIGN WORKSPACE-SCOPED.** Store is FILE-BASED at `<workspace>/.argo/credentials.toml` — one credentials file per workspace (cwd), not a per-tenant SQL table. The "cross-tenant" concern I feared is a non-issue: tenant boundary IS the workspace location, enforced at the OS/process level. ✅ At-rest encryption via `age` with workspace master key. ✅ Atomic write with `0600` Unix permissions. ✅ Migration tool `migrate_plaintext_in_place` available. 🟡 **Caveat**: legacy plaintext entries are STILL accepted on read (`EncryptedEntry::Plain(s)` enum variant in `lib.rs`). For enterprise customers expecting forced encryption-at-rest, migration should be auto-run on first read, not opt-in. | 🟢 P0 cleared; 🟡 P2 quality follow-up `eval-credentials-force-migrate-on-read` for the legacy-accept path. |
+| `argo-credentials` | Auth, channels, MCP | 🟢 round 9 — audited (eval-credentials-cross-tenant-isolation, 2026-05-23) | **TWO VIEWS — both useful.** (1) Crate-itself is small (623 LOC) + clean; store is FILE-BASED at `<workspace>/.argo/credentials.toml` (per-workspace, not per-tenant SQL); at-rest encryption via `age` + atomic 0600 writes. (2) **Three P0 findings at the SEAM** (not inside the crate): process-global `OnceLock<MasterKey>` at `routes_onboarding_helpers.rs:180` (data loss + cross-tenant blast); `argo_config::cred::get(name)` tenant-blind across 40+ callsites; OAuth caches at `<cwd>/.argo/connectors/<name>/access_token.json` shared. Plus 2 P1 + 2 P2 + 1 P3. ⚠ legacy plaintext entries still accepted on read (`EncryptedEntry::Plain` in `lib.rs`). See report: `docs/skycot/evals/scheduled/2026-05-23/eval-credentials-cross-tenant-isolation.md`. | 🟢 audited — fix-briefs authored 2026-05-23: `mission-credentials-per-tenant-master-key`, `mission-cred-get-tenant-parameter`, `mission-skill-table-add-tenant-id-column`, `mission-skill-ab-test-run-tenant-id-bind`. Plus 🟡 P2 `eval-credentials-force-migrate-on-read` for the legacy-accept path. |
 | `argo-cli` | All (binary + gateway) | 🟡 spot-audited | Gateway routes module-by-module. Some submodules audited (workflows ×7, hire ×1, audit-export verified). Others not. | 🟡 P1 |
 | `argo-tui` | UX | 🟢 N/A — not v1 | Per CLAUDE.md operator-locked: argo-cli monolith leave-alone for v1. | — |
 | `argo-voice-tui` | UX | 🟢 N/A — not v1 | Same. | — |
@@ -131,7 +131,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 
 🔴 **P0** — ship-blocker or active demo-blocker:
 
-1. `eval-credentials-cross-tenant-isolation` — `argo-credentials` stores OAuth + API keys, never audited.
+1. ✅ `eval-credentials-cross-tenant-isolation` — `argo-credentials` AUDITED 2026-05-23. 8 fix-briefs queued (3 × P0, 2 × P1, 2 × P2, 1 × P3). See report at `docs/skycot/evals/scheduled/2026-05-23/eval-credentials-cross-tenant-isolation.md`.
 2. `eval-argo-agent-runner-turn-lifecycle` — THE runtime. Largest unaudited surface for mission claims 1-6.
 3. (already authored) `web-workflow-build-layout-ts-rename` — round 5; in IN_REVIEW as #2066.
 4. (already known) `web-workflow-build-fetch-from-gateway` — round 7; canvas reads static fixture.
@@ -176,7 +176,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 In rough order of mission-leverage:
 
 1. ~~`argo-agent-runner`~~ — 🟢 CLEARED round 9
-2. ~~`argo-credentials`~~ — 🟢 CLEARED round 9
+2. ~~`argo-credentials`~~ — 🟢 CLEARED round 9 (eval-credentials-cross-tenant-isolation, 2026-05-23)
 3. `argo-mcp` (core, not connectors) — 🟡 P1 — **now top of next-session list**
 4. `argo-cron` (deep walk — partially started this round) — 🟡 P1
 5. `argo-genesis` (deep walk through 8881 LOC) — 🟡 P1
