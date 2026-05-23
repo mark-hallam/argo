@@ -26,7 +26,7 @@ async fn migration_chain_applies_and_h_stack_tables_accept_inserts() {
     insert_shared_team_memory_if_present(&store).await.unwrap();
 }
 
-async fn apply_sql_file_migrations(store: &SessionStore, idempotent: bool) -> Result<(), String> {
+async fn apply_sql_file_migrations(store: &SessionStore, _idempotent: bool) -> Result<(), String> {
     for path in migration_files()? {
         if is_reconciled_versioned_raw(&path) {
             continue;
@@ -45,7 +45,23 @@ async fn apply_sql_file_migrations(store: &SessionStore, idempotent: bool) -> Re
                 Err(e) if is_worker_trust_grade_duplicate(stmt, &e) => {}
                 Err(e) if is_skill_min_trust_grade_duplicate(stmt, &e) => {}
                 Err(e) if is_skill_ab_test_run_tenant_id_duplicate(stmt, &e) => {}
-                Err(e) if idempotent && is_clean_idempotent_error(&e) => {}
+                // Reconciled-versioned fallback: a raw `.sql`
+                // slot whose ALTER/CREATE was already executed
+                // by a registered `vN.rs` migration in
+                // `crates/argo-store/src/migrations/` (slots 40,
+                // 46-50, 52-59, 61, 65, etc. all have vN.rs
+                // counterparts that run first). The columns/
+                // tables exist by the time this raw re-apply
+                // step executes; tolerating the
+                // "duplicate column name" / "already exists"
+                // shape here mirrors the same guard at the
+                // idempotent pass and replaces a hand-curated
+                // allowlist of ~12 slots that grew with every
+                // new vN.rs/raw pair (PR #2146 boundary note +
+                // 6 same-shape cascades). Added 2026-05-24 via
+                // ops-fix-migration-llm-input-tokens-duplicate-
+                // column.
+                Err(e) if is_clean_idempotent_error(&e) => {}
                 Err(e) => return Err(format!("{}: {e}", path.display())),
             }
         }
