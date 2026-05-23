@@ -564,7 +564,11 @@ dependencies = [
  "age",
  "argo-types",
  "base64 0.22.1",
+ "bech32",
+ "dashmap",
+ "hkdf",
  "serde",
+ "sha2 0.10.9",
  "tempfile",
  "toml 0.8.23",
 ]

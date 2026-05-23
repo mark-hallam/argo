@@ -81,3 +81,156 @@ Per-entry encryption (`mission-credentials-secret-newtype-at-decrypt`) is a sepa
 [credentials.tenant."01975e4f-8a7a-7c10-9c44-3d4b6f93a5ee".SLACK_BOT_TOKEN]
 value = "<age-encrypted base64>"
 ```
+
+# Operator runbook — Per-tenant credential master keys
+
+Brief: `mission-credentials-per-tenant-master-key` (P0 fix from `eval-credentials-cross-tenant-isolation` / #2080 §3).
+
+SKYCOT wraps every persisted credential (database-backed and on-disk)
+with [age](https://age-encryption.org/) encryption. Each tenant gets a
+**distinct** master key derived from a single workspace root key via
+HKDF-SHA256, so a leak of one tenant's key cannot decrypt another
+tenant's data.
+
+This runbook covers:
+
+- The two-tier key hierarchy and where each key lives
+- How to provision a workspace root key
+- The lazy-migration path for credentials encrypted under the legacy
+  process-global key
+
+## Key hierarchy
+
+```
+SKYCOT_WORKSPACE_ROOT_KEY_BASE64   (env var; macOS Keychain on roadmap)
+  │
+  └─ HKDF-SHA256("argo-cred-master-v1", root, tenant_id) ──► per-tenant MasterKey
+       │
+       └─ age-encrypts that tenant's credential values at rest
+```
+
+The workspace root key is **32 bytes**, base64-encoded for transport.
+HKDF derives a 32-byte secret per tenant from that root, which becomes
+the `age::x25519::Identity` used to wrap individual credential values.
+Per-tenant derivation runs at most once per tenant per process boot —
+results are held in a `DashMap` cache keyed by `TenantId`.
+
+## Why this exists
+
+The previous implementation (process-wide
+`OnceLock<MasterKey>` at
+`crates/argo-cli/src/handlers/gateway/routes_onboarding_helpers.rs:180-183`)
+used **one master key for every tenant**, with a `MasterKey::generate()`
+fallback that produced an ephemeral random key when no key was
+configured.
+
+Two bugs, both surfaced in
+`eval-credentials-cross-tenant-isolation` (round-9, PR #2080) §3 P0:
+
+1. **Data loss on restart.** The ephemeral fallback was different on
+   every boot — credentials wrapped by yesterday's process were
+   permanently unreadable today.
+2. **Cross-tenant blast radius.** A leak of the single master key
+   compromised every tenant's credentials at once.
+
+The per-tenant scheme fixes both: there is no ephemeral fallback
+(fail-closed), and any leaked per-tenant key only decrypts that one
+tenant's data.
+
+## Provisioning a workspace root key
+
+```bash
+# Generate a 32-byte secret and base64-encode it.
+openssl rand -base64 32
+
+# Add it to ~/.argo/env.local.
+cat <<'EOF' >> ~/.argo/env.local
+export SKYCOT_WORKSPACE_ROOT_KEY_BASE64='<paste output here>'
+EOF
+
+# Verify the value decodes to exactly 32 bytes (44 base64 characters).
+echo "$SKYCOT_WORKSPACE_ROOT_KEY_BASE64" | base64 -d | wc -c   # → 32
+```
+
+Restart the gateway after adding the variable; the resolver reads it
+once at first credential wrap and caches the derivation result.
+
+## Back-compat with single-key deployments
+
+If `SKYCOT_WORKSPACE_ROOT_KEY_BASE64` is unset, the resolver
+deterministically derives a workspace root from whatever
+`ARGO_CREDENTIALS_MASTER_KEY` produces. Single-tenant dev
+environments that only set the legacy variable keep working
+unchanged.
+
+For any production deployment with more than one tenant, set
+`SKYCOT_WORKSPACE_ROOT_KEY_BASE64` explicitly. The back-compat path is
+a *convenience*, not a security recommendation — the workspace root
+is the operator-facing rotation unit.
+
+## Lazy migration of legacy ciphertexts
+
+Credentials wrapped before this brief landed are encrypted under the
+legacy process-global key (logical `key_version = 1`). The decrypt
+path supports lazy migration via
+[`argo_credentials::decrypt_value_with_fallback`]:
+
+1. Try the per-tenant key (`key_version = 2`). If it succeeds, return.
+2. If the per-tenant key fails the AEAD check, retry with the legacy
+   global key.
+3. If the legacy key succeeds, return the plaintext **plus** a
+   `KeyVersion::Legacy` marker so the caller knows to re-encrypt under
+   the per-tenant key and write back.
+
+The `argo_config::cred` read path consumes that marker at
+`crates/argo-config/src/cred.rs:92` — when a value comes back tagged
+`KeyVersion::Legacy`, the credential is re-wrapped with the per-tenant
+key, the TOML section is rewritten in place, and a one-shot
+`tracing::warn!` fires per `(tenant_id, key)` so the migration is
+observable in the operator log.
+
+No operator action is required — every credential migrates on first
+read after the upgrade. The migration is idempotent: re-running it
+against an already-migrated row is a no-op.
+
+If both keys fail, the decrypt errors loudly with an
+`ArgoError::Provider` naming both failures — this is the
+"corrupt blob" or "wrong key" failure mode, not a silent-empty
+return.
+
+## Rotating the workspace root
+
+Rotating the root invalidates every existing per-tenant derivation.
+Until per-tenant rotation tooling lands (tracked separately), the
+operator-facing recipe is:
+
+1. Generate a new root, but keep the OLD root configured for one
+   release cycle as the fallback.
+2. New writes use the new root's per-tenant keys.
+3. Reads transparently fall back to the old root via the
+   `decrypt_value_with_fallback` path described above, re-encrypting
+   on first hit.
+4. Once every row has been re-read and re-encrypted (sweep with a
+   read-only crawler if you don't want to wait for natural turnover),
+   remove the old root.
+
+This is the same shape as the legacy-to-per-tenant migration —
+versioned salts (`argo-cred-master-v1`) leave headroom for a
+future `-v2` derivation without colliding with on-disk ciphertexts
+still validating under `-v1`.
+
+## Verifying isolation
+
+After rotating, you can confirm cross-tenant isolation via the unit
+test pinned in
+`crates/argo-credentials/src/master_key_tests.rs::derive_for_two_tenants_yields_distinct_keys`:
+
+```bash
+cargo test -p argo-credentials master_key_tests
+```
+
+The test bootstraps two distinct tenants, derives a master key for
+each, and asserts (a) the two keys serialize to different bech32
+strings and (b) decrypting tenant A's payload with tenant B's key
+fails with an AEAD authentication error. The decrypt-cross-tenant
+assertion is the load-bearing invariant the brief fixes.

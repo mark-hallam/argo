@@ -14,7 +14,11 @@ path = "src/lib.rs"
 age = "0.11"
 argo-types = { path = "../argo-types" }
 base64 = "0.22"
+bech32 = "0.9"
+dashmap = "5"
+hkdf = "0.12"
 serde = { workspace = true }
+sha2 = "0.10"
 toml = { workspace = true }
 
 [dev-dependencies]

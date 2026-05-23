@@ -16,11 +16,17 @@
 //!    crate without a redacting newtype. Removed once the API switches
 //!    to `SecretString`.
 //!
-//! 2. **§3 P0 + §4 P0** — `MasterKey::resolve` is tenant-blind. There
-//!    is no `MasterKey::resolve_for_tenant(TenantId)` (or any
-//!    per-tenant key-derivation primitive). Every credential value in
-//!    the crate-owned file is wrapped with the same key. Removed once
-//!    the per-tenant-key brief lands.
+//! ~~2. §3 P0 + §4 P0 — `MasterKey::resolve` is tenant-blind.~~
+//! FIXED 2026-05-23 by `mission-credentials-per-tenant-master-key`
+//! (this brief). The new constructors
+//! `MasterKey::resolve_for_tenant(tenant_id) -> Arc<MasterKey>` and
+//! `MasterKey::derive_for_tenant(&WorkspaceRootKey, tenant_id)` are
+//! the per-tenant entry points; the legacy tenant-blind
+//! `MasterKey::resolve` remains for the workspace-file flow (which
+//! has no tenant axis) and as the lazy-migration fallback for
+//! decrypting blobs wrapped under the old global key. The
+//! corresponding finding test was deleted with this comment as its
+//! grave-marker.
 //!
 //! The report at
 //! `docs/skycot/evals/scheduled/2026-05-23/eval-credentials-cross-tenant-isolation.md`
@@ -51,52 +57,10 @@ fn decrypt_returns_raw_string_not_secret_newtype() {
     let _: String = plaintext;
 }
 
-/// §3 P0 + §4 P0 — `MasterKey::resolve` is tenant-blind.
-///
-/// We assert the resolver signature does NOT take a `TenantId`. The
-/// current signature is `resolve(home_override: Option<&Path>) -> ArgoResult<Self>`.
-/// When per-tenant key derivation lands
-/// (`mission-credentials-per-tenant-master-key`), a new
-/// `resolve_for_tenant(TenantId)` (or equivalent) constructor will
-/// exist, and this test should be deleted.
-///
-/// We can't statically assert "no overload takes TenantId" without
-/// reflection, but we can pin the current call shape: the resolver
-/// works without any tenant context.
-#[test]
-#[ignore = "FINDINGS-ONLY: codifies §3 P0 + §4 P0 — master-key resolution is tenant-blind"]
-fn master_key_resolve_does_not_take_tenant_id() {
-    // No tenant id, no per-tenant derivation. Two distinct tenants
-    // would resolve the EXACT same MasterKey out of the same process
-    // env / `~/.skycot/.master_key` file.
-    //
-    // We use a tempdir as the `home_override` so the test doesn't touch
-    // the real `~/.skycot/.master_key` file. `resolve` will error with
-    // "no key configured" — which is the audit's evidence: there is no
-    // path here that takes a TenantId and would resolve differently per
-    // tenant.
-    let tmp_home = tempfile::tempdir().expect("tempdir");
-    // Save & clear the env var so the test is hermetic regardless of
-    // the developer's shell state. (The `master_key.rs:24` constant.)
-    let prior = std::env::var(argo_credentials::MASTER_KEY_ENV).ok();
-    std::env::remove_var(argo_credentials::MASTER_KEY_ENV);
-
-    let err =
-        MasterKey::resolve(Some(tmp_home.path())).expect_err("no key configured in tempdir home");
-
-    // The error mentions the env var, not any tenant context — that is
-    // the codified finding: resolution has no tenant axis.
-    let msg = format!("{err}");
-    assert!(
-        msg.contains(argo_credentials::MASTER_KEY_ENV),
-        "resolution error names the env var (tenant-blind contract): {msg}"
-    );
-    assert!(
-        !msg.contains("tenant") && !msg.contains("Tenant"),
-        "resolution error MUST NOT mention tenant — that would mean the API has been fixed and this test should be deleted: {msg}"
-    );
-
-    if let Some(v) = prior {
-        std::env::set_var(argo_credentials::MASTER_KEY_ENV, v);
-    }
-}
+// §3 P0 + §4 P0 finding (`master_key_resolve_does_not_take_tenant_id`)
+// deleted 2026-05-23 by `mission-credentials-per-tenant-master-key`.
+// See the module docstring above for the closure marker. The replacement
+// per-tenant API is exercised by the sibling tests in
+// `crates/argo-credentials/src/master_key_tests.rs`
+// (`derive_for_two_tenants_yields_distinct_keys` +
+// `decrypt_cross_tenant_fails_loudly`).

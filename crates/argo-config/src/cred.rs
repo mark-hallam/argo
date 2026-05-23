@@ -277,28 +277,29 @@ fn load_from_file(
     key: &str,
 ) -> Result<String, VarError> {
     let document = load_document(workspace).map_err(|_| VarError::NotPresent)?;
-    let master_key = master_key_for(&document)?;
     if let Some(tid) = tenant_id {
         if let Some(entry) = document
             .credentials
             .tenant
             .get(&tid.to_string())
             .and_then(|section| section.get(key))
+            .cloned()
         {
-            return entry
-                .clone()
-                .into_plain(master_key.as_ref())
-                .map_err(|_| VarError::NotPresent);
+            return decrypt_tenant_entry(workspace, tid, key, entry);
         }
-        if let Some(entry) = document.credentials.root.get(key) {
+        if let Some(entry) = document.credentials.root.get(key).cloned() {
             warn_legacy_fallback(tid, key, "file");
+            // Legacy root-level entries decrypt under the legacy global
+            // key; they migrate when an operator runs the migration CLI,
+            // not on every read.
+            let legacy_key = legacy_master_key_for(&document)?;
             return entry
-                .clone()
-                .into_plain(master_key.as_ref())
+                .into_plain(legacy_key.as_ref())
                 .map_err(|_| VarError::NotPresent);
         }
         Err(VarError::NotPresent)
     } else {
+        let legacy_key = legacy_master_key_for(&document)?;
         document
             .credentials
             .root
@@ -307,21 +308,51 @@ fn load_from_file(
             .ok_or(VarError::NotPresent)
             .and_then(|entry| {
                 entry
-                    .into_plain(master_key.as_ref())
+                    .into_plain(legacy_key.as_ref())
                     .map_err(|_| VarError::NotPresent)
             })
     }
 }
 
-fn master_key_for(
+/// Decrypt one tenant-scoped entry, lazy-migrating from the legacy
+/// process-global key to the per-tenant key when needed.
+///
+/// Plain entries pass through unchanged. Encrypted entries go through
+/// `decrypt_value_with_fallback`; a `KeyVersion::Legacy` result triggers
+/// an in-place re-encrypt + write-back and a one-shot `tracing::warn!`
+/// per (tenant, key).
+fn decrypt_tenant_entry(
+    workspace: &Path,
+    tenant_id: &TenantId,
+    key: &str,
+    entry: CredentialEntry,
+) -> Result<String, VarError> {
+    match entry {
+        CredentialEntry::Plain(value) => Ok(value),
+        CredentialEntry::Encrypted { value } => {
+            io::decrypt_tenant_value_with_migration(workspace, tenant_id, key, &value)
+                .map_err(|_| VarError::NotPresent)
+        }
+    }
+}
+
+/// Resolve the **legacy** process-global master key only when the
+/// document still has root-level encrypted entries that need it for
+/// decrypt.
+///
+/// Tenant-scoped reads resolve their per-tenant key inside
+/// [`decrypt_tenant_entry`] (and [`io::decrypt_tenant_value_with_migration`])
+/// rather than going through this helper — keeping the two paths
+/// separate lets `decrypt_value_with_fallback` carry the legacy key in
+/// as an explicit `Option` only when the lazy-migration path actually
+/// needs it.
+fn legacy_master_key_for(
     document: &CredentialDocument,
 ) -> Result<Option<argo_credentials::MasterKey>, VarError> {
     let needs_key = document
         .credentials
-        .tenant
+        .root
         .values()
-        .flat_map(BTreeMap::values)
-        .chain(document.credentials.root.values())
         .any(CredentialEntry::is_encrypted);
     if needs_key {
         argo_credentials::MasterKey::resolve(None)

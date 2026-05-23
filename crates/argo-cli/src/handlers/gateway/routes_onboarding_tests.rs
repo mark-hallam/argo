@@ -36,6 +36,18 @@ fn set_test_env(tmp: &std::path::Path) {
     std::env::set_var("ARGO_HOME", tmp.join("home"));
     std::fs::create_dir_all(tmp.join("home")).expect("home dir");
     std::env::set_var("ARGO_VERTICALS_DIR", workspace_root().join("verticals"));
+    // `wrap_secret` now requires a workspace root key (per-tenant master
+    // keys derived via HKDF). The previous OnceLock fallback to
+    // `MasterKey::generate()` was the §3 P0 finding this brief fixes.
+    // Pin a deterministic 32-byte test root so the per-tenant
+    // derivation is fail-closed in production but stable here.
+    std::env::set_var(
+        argo_credentials::WORKSPACE_ROOT_KEY_ENV,
+        // 32 zero bytes encoded as base64 → "AAAA..." (44 chars). Fine
+        // for tests; the per-tenant HKDF still produces a distinct key
+        // per tenant_id input.
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    );
 }
 
 async fn mem_store() -> Arc<SessionStore> {

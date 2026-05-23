@@ -14,7 +14,7 @@ use argo_types::{ArgoError, ArgoResult, TenantId, WorkspaceId};
 use argo_vertical::LoadedVertical;
 use serde_json::{json, Value};
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 pub(super) const HUMAN_PRINCIPAL_PREFIX: &str = "human:";
 const PRINCIPAL_HEADER: &str = "X-Argo-Principal";
@@ -170,16 +170,27 @@ pub(super) fn micros_to_usd(micros: i64) -> f64 {
     v / 1_000_000.0
 }
 
-/// Wrap a secret with the process-wide master key. Falls back to a
-/// process-ephemeral key when no `MasterKey` is configured so the
-/// ciphertext column never lands as plaintext in dev/test.
-pub(super) fn wrap_secret(plaintext: &str) -> ArgoResult<String> {
-    encrypt_value(plaintext, process_master_key())
-}
-
-fn process_master_key() -> &'static MasterKey {
-    static KEY: OnceLock<MasterKey> = OnceLock::new();
-    KEY.get_or_init(|| MasterKey::resolve(None).unwrap_or_else(|_| MasterKey::generate()))
+/// Wrap a secret with the **per-tenant** master key derived from the
+/// workspace root via HKDF-SHA256.
+///
+/// The previous implementation used a process-global `OnceLock<MasterKey>`
+/// with a `MasterKey::generate()` ephemeral fallback. That had two
+/// production bugs surfaced by eval-credentials-cross-tenant-isolation
+/// (round-9, PR #2080 §3 P0):
+///
+/// 1. **Data loss**: if env resolution fell through to `generate()`,
+///    the random ephemeral key was lost on restart and every wrapped
+///    credential became permanently unreadable.
+/// 2. **Cross-tenant blast radius**: one master key for every tenant
+///    meant any leak compromised the whole estate at once.
+///
+/// The new contract: `MasterKey::resolve_for_tenant` always derives
+/// from the workspace-root key (fail-closed; no ephemeral fallback),
+/// and caches the per-tenant `Arc<MasterKey>` so repeat wraps in the
+/// same process pay HKDF cost at most once per tenant.
+pub(super) fn wrap_secret(plaintext: &str, tenant: TenantId) -> ArgoResult<String> {
+    let key = MasterKey::resolve_for_tenant(tenant)?;
+    encrypt_value(plaintext, &key)
 }
 
 /// Load one vertical pack from the on-disk catalog. Returns `None`

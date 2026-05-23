@@ -90,7 +90,7 @@ pub(super) async fn provider_key_response(
         return bad_request(&validation.reason);
     }
     let masked = mask_key(&api_key);
-    let ciphertext = match wrap_secret(&api_key) {
+    let ciphertext = match wrap_secret(&api_key, tenant) {
         Ok(c) => c,
         Err(e) => return server_error(&format!("wrap key: {e}")),
     };

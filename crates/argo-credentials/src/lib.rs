@@ -36,8 +36,16 @@ mod master_key;
 #[path = "lib_tests.rs"]
 mod lib_tests;
 
-pub use age_wrap::{decrypt_value, encrypt_value};
-pub use master_key::{dirs_home_dir, MasterKey, MASTER_KEY_ENV, MASTER_KEY_FILE_REL};
+pub use age_wrap::{
+    decrypt_value, decrypt_value_with_fallback, encrypt_value, DecryptedValue, KeyVersion,
+};
+pub use master_key::{
+    dirs_home_dir, MasterKey, WorkspaceRootKey, MASTER_KEY_ENV, MASTER_KEY_FILE_REL,
+    WORKSPACE_ROOT_KEY_ENV, WORKSPACE_ROOT_KEY_LEN,
+};
+
+#[doc(hidden)]
+pub use master_key::_clear_tenant_key_cache_for_tests;
 
 use argo_types::{ArgoError, ArgoResult};
 use serde::{Deserialize, Serialize};

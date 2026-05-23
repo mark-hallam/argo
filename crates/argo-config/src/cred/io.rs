@@ -7,14 +7,18 @@
 use super::{
     load_document, CredentialDocument, CredentialEntry, CredentialSections,
 };
+use argo_credentials::{
+    decrypt_value_with_fallback, encrypt_value, DecryptedValue, KeyVersion, MasterKey,
+};
 use argo_types::{ArgoError, ArgoResult, TenantId};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 /// Set one credential value in the workspace credentials file (legacy
 /// root-level section).
@@ -129,6 +133,82 @@ pub fn export_lines(workspace: &Path, shell: &str) -> ArgoResult<Vec<String>> {
         lines.push(line);
     }
     Ok(lines)
+}
+
+/// Decrypt an encrypted tenant-scoped credential entry, lazily migrating
+/// it to the per-tenant master key when the blob was wrapped under the
+/// legacy process-global key.
+///
+/// On a successful migration the tenant section is rewritten in place
+/// with the re-encrypted value, and a one-shot `tracing::warn!` per
+/// (tenant, key) records the upgrade so operators can observe lazy
+/// migrations rolling forward in the log stream.
+///
+/// # Errors
+/// Returns [`ArgoError`] when neither the per-tenant nor the legacy key
+/// can decrypt the blob, when the per-tenant key cannot be resolved, or
+/// when the re-encrypted document cannot be written back to disk.
+pub(super) fn decrypt_tenant_value_with_migration(
+    workspace: &Path,
+    tenant_id: &TenantId,
+    key: &str,
+    blob_b64: &str,
+) -> ArgoResult<String> {
+    let primary = MasterKey::resolve_for_tenant(*tenant_id)?;
+    // Legacy global key is best-effort: it only matters when the blob
+    // was wrapped before the per-tenant migration shipped. If the
+    // legacy resolver fails, the fallback path is simply unavailable
+    // — that is the correct behavior for a fresh deployment.
+    let legacy = MasterKey::resolve(None).ok();
+    let DecryptedValue {
+        plaintext,
+        key_version,
+    } = decrypt_value_with_fallback(blob_b64, primary.as_ref(), legacy.as_ref())?;
+    if matches!(key_version, KeyVersion::Legacy) {
+        // Re-wrap with the per-tenant key and overwrite the entry.
+        let new_blob = encrypt_value(&plaintext, primary.as_ref())?;
+        rewrite_tenant_entry(workspace, tenant_id, key, new_blob)?;
+        warn_legacy_migration(tenant_id, key);
+    }
+    Ok(plaintext)
+}
+
+fn rewrite_tenant_entry(
+    workspace: &Path,
+    tenant_id: &TenantId,
+    key: &str,
+    new_blob_b64: String,
+) -> ArgoResult<()> {
+    let mut document = load_document(workspace)?;
+    let section = document
+        .credentials
+        .tenant
+        .entry(tenant_id.to_string())
+        .or_default();
+    section.insert(
+        key.to_string(),
+        CredentialEntry::Encrypted {
+            value: new_blob_b64,
+        },
+    );
+    write_document(workspace, &document)
+}
+
+fn warn_legacy_migration(tenant_id: &TenantId, key: &str) {
+    static SEEN: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    let set = SEEN.get_or_init(|| Mutex::new(HashSet::new()));
+    let cache_key = format!("{tenant_id}|{key}");
+    if let Ok(mut guard) = set.lock() {
+        if !guard.insert(cache_key) {
+            return;
+        }
+    }
+    tracing::warn!(
+        target: "argo_config::cred",
+        tenant_id = %tenant_id,
+        key = key,
+        "credential lazy-migrated from legacy process-global key to per-tenant key (key_version 1 → 2)"
+    );
 }
 
 pub(super) fn write_document(workspace: &Path, document: &CredentialDocument) -> ArgoResult<()> {

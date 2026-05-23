@@ -15,6 +15,34 @@ use base64::Engine;
 
 const BLOB_ENGINE: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
+/// Logical key version reported by [`decrypt_value_with_fallback`] so
+/// the caller knows whether the blob is on the current encryption key
+/// or whether it still needs the lazy-migration re-encrypt.
+///
+/// The variants are 1-indexed to match operator-facing documentation
+/// (`key_version: 1` = pre-2026-05-23 process-global key; `key_version: 2`
+/// = per-tenant HKDF-derived key).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum KeyVersion {
+    /// Decrypted under the **legacy** process-global master key —
+    /// caller must re-encrypt with the per-tenant key and write back.
+    Legacy = 1,
+    /// Decrypted under the current per-tenant master key — no action.
+    PerTenant = 2,
+}
+
+/// Decrypted plaintext plus the key version that produced it.
+#[derive(Debug, Clone)]
+pub struct DecryptedValue {
+    /// The plaintext value.
+    pub plaintext: String,
+    /// `Legacy` when the fallback key was needed → caller should
+    /// re-encrypt with the primary (per-tenant) key. `PerTenant` is
+    /// the steady state.
+    pub key_version: KeyVersion,
+}
+
 /// Encrypt one credential value with the master key. Returns a
 /// base64-encoded binary age blob.
 ///
@@ -42,4 +70,44 @@ pub fn decrypt_value(blob_b64: &str, key: &MasterKey) -> ArgoResult<String> {
         .map_err(|e| ArgoError::Provider(format!("age decrypt: {e}")))?;
     String::from_utf8(plaintext)
         .map_err(|e| ArgoError::Schema(format!("decrypted value not UTF-8: {e}")))
+}
+
+/// Decrypt a blob with the primary (per-tenant) key, falling back to
+/// the legacy global key on AEAD failure. The lazy-migration entry
+/// point: if [`KeyVersion::Legacy`] comes back, the caller is expected
+/// to re-encrypt with `primary` and write the new blob back to storage.
+///
+/// Bech32 / base64 / non-UTF-8 errors are NOT retried with the
+/// fallback — those are structural, not key-mismatch, failures.
+///
+/// # Errors
+/// Returns [`ArgoError::Schema`] for malformed input, or
+/// [`ArgoError::Provider`] when *both* keys fail to decrypt. The
+/// returned error message names the primary failure so operators can
+/// tell "wrong key" from "no fallback configured."
+pub fn decrypt_value_with_fallback(
+    blob_b64: &str,
+    primary: &MasterKey,
+    legacy: Option<&MasterKey>,
+) -> ArgoResult<DecryptedValue> {
+    match decrypt_value(blob_b64, primary) {
+        Ok(plaintext) => Ok(DecryptedValue {
+            plaintext,
+            key_version: KeyVersion::PerTenant,
+        }),
+        Err(ArgoError::Schema(msg)) => Err(ArgoError::Schema(msg)),
+        Err(primary_err) => match legacy {
+            Some(fallback) => match decrypt_value(blob_b64, fallback) {
+                Ok(plaintext) => Ok(DecryptedValue {
+                    plaintext,
+                    key_version: KeyVersion::Legacy,
+                }),
+                Err(fallback_err) => Err(ArgoError::Provider(format!(
+                    "age decrypt: per-tenant key failed ({primary_err}); \
+                     legacy fallback also failed ({fallback_err})"
+                ))),
+            },
+            None => Err(primary_err),
+        },
+    }
 }
