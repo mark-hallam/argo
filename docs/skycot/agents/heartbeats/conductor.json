@@ -1,8 +1,15 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-23T12:23:00Z",
-  "expected_cadence_seconds": 1200,
-  "session_label": "scheduled-task:skycot-conductor-20min-tick-110",
-  "run_notes": "Tick 110 (scheduled :03 fire). STEP 0 queue depth at start: codex_todo=0 + claude_todo=17 — BOTH below 25 threshold (codex critical). STEP 1-4 sync clean (HEAD=2af54930f). STEP 4.5 audit LATEST.md (T09-40) P0s #1+#2 RESOLVED: #2088 MERGED + #2092 MERGED already on main; only #2131 still CONFLICTING. STEP 5 PR triage spawned read-only agent over 6 open PRs — verdicts: 5×MERGE-NOW (#2129/#2130/#2132/#2133/#2134) + 1×FIX-WITH-RECIPE (#2131 needs rebase). Plus #2135 (ops-host-setup-runbook-path-canary) appeared during tick — docs-only, also MERGE-NOW. Admin-merged 6 PRs (#2129+#2130+#2132+#2133+#2134+#2135); posted rebase recipe on #2131. Flipped 6 ledger rows IN_REVIEW→MERGED. STEP 4.7 gateway UNREACHABLE (informational). STEP 4.8 findings-only fix-by all 5 within budget. STEP 7 cleared duplicate-row drift (eval-mcp-connector-credential-scoping-sweep TODO+MERGED → deleted TODO duplicate, drift now zero). STEP 8 queue replenishment: authored 5 new briefs (2 claude P0/P1 + 3 codex P3) — mission-gateway-session-export-tenant-bind (P0 cross-tenant leak from #2130 finding), mission-forge-optimize-thread-real-judge (P1 broken-wire from #2129 finding), docs-verticals-readme-table-from-load-dir (P3 docs fast-mode), eval-argo-judge-crate-surface (P3 substrate audit), eval-vertical-regression-cadence (P3 substrate audit). New counts: codex_todo=3 + claude_todo=19. Still below 30-40 target; next tick should fire another round. Open PRs after tick: 1 (#2131 CONFLICTING with fix-recipe posted).",
-  "open_prs": 1
+  "host": "mac-host",
+  "iso_ts": "2026-05-23T12:50:52Z",
+  "tick": 111,
+  "last_action": "tick-111 — merged 4 CLEAN PRs (#2136/#2137/#2138/#2139) + replenished queue (+5 briefs: mission-add-approval-audit-kinds, demo-ops-add-magic-link-bypass-for-recording, docs-demo-runbook-add-skycot-db-key-section, eval-gateway-uuid-bound-routes-tenant-ownership-sweep, eval-argo-store-tenant-bind-sweep-remaining-tables)",
+  "queue_depth": {
+    "claude_todo": 19,
+    "codex_todo": 3,
+    "claimed": 3,
+    "in_review": 2
+  },
+  "open_prs": 1,
+  "open_prs_note": "#2131 mission-orchestrator-cross-tenant-handoff-audit-kind CONFLICTING (carries from prior ticks)"
 }
