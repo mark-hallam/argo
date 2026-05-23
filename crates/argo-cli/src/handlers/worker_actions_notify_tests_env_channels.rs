@@ -199,13 +199,65 @@ async fn voice_posts_to_twilio() {
 }
 
 #[tokio::test]
+async fn imessage_missing_env_names_var() {
+    let _guard = env_guard().await;
+    clear_env(&[
+        "BLUE_BUBBLES_URL",
+        "BLUE_BUBBLES_PASSWORD",
+        "ARGO_CHANNEL_HMAC_SECRET",
+    ]);
+    let err = send_env_channel("imessage", "iMessage;+;chat-guid-1")
+        .await
+        .unwrap_err();
+    assert!(err.contains("imessage not configured"));
+    assert!(err.contains("BLUE_BUBBLES_URL"));
+}
+
+#[tokio::test]
+async fn imessage_empty_target_is_rejected() {
+    let _guard = env_guard().await;
+    let err = send_env_channel("imessage", "").await.unwrap_err();
+    assert!(err.contains("imessage not configured"));
+    assert!(err.contains("operator chat GUID"));
+}
+
+#[tokio::test]
+async fn imessage_posts_to_bluebubbles() {
+    let _guard = env_guard().await;
+    let (url, handle) = http_mock("200 OK", r#"{"data":{"guid":"msg-env-1"}}"#).await;
+    std::env::set_var("BLUE_BUBBLES_URL", &url);
+    std::env::set_var("BLUE_BUBBLES_PASSWORD", "smoke-password");
+    std::env::set_var("ARGO_CHANNEL_HMAC_SECRET", "smoke-secret");
+    send_env_channel("imessage", "iMessage;+;smoke-chat-guid")
+        .await
+        .unwrap();
+    let req = handle.await.unwrap();
+    assert!(
+        req.starts_with("POST /api/v1/message/text?password=smoke-password"),
+        "Blue Bubbles message endpoint missing in request: {req}"
+    );
+    assert!(req.contains("smoke-chat-guid"));
+    assert!(req.contains("Approve"));
+    assert!(req.contains("act-env"));
+}
+
+#[tokio::test]
 async fn voice_unsupported_kind_error_lists_deferred_set() {
     let _guard = env_guard().await;
-    let err = send_env_channel("imessage", "+15551234567")
+    // mission-imessage-wire-pro-tier-outbound-dispatch: iMessage is no
+    // longer DEFERRED — it is now a v1 channel served by
+    // `notify_imessage::send_imessage`. WhatsApp remains DEFERRED-v1.x
+    // and exercises the no-match error branch here.
+    let err = send_env_channel("whatsapp", "+15551234567")
         .await
         .unwrap_err();
     assert!(err.contains("not supported"));
-    assert!(err.contains("imessage"));
+    assert!(err.contains("whatsapp"));
     assert!(err.contains("DEFERRED-v1.x"));
     assert!(err.contains("voice"));
+    assert!(err.contains("imessage"));
+    assert!(
+        !err.contains("DEFERRED-v1.x: imessage"),
+        "imessage must no longer appear in the DEFERRED-v1.x list; err={err}"
+    );
 }

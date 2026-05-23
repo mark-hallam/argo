@@ -57,6 +57,8 @@ mod notify_dispatch;
 mod notify_email;
 #[path = "worker_actions_notify_env.rs"]
 mod notify_env;
+#[path = "worker_actions_notify_imessage.rs"]
+mod notify_imessage;
 #[path = "worker_actions_notify_slack.rs"]
 mod notify_slack;
 #[path = "worker_actions_notify_sms.rs"]

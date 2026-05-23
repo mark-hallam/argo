@@ -69,3 +69,7 @@ The `IMessageChannel` impl is real (`crates/argo-channels/src/imessage.rs:56`, 3
 - Building a `/settings/connectors` UI for iMessage — owned by sibling brief `web-settings-add-approval-channels-config-page`.
 
 ~150-200 LOC across handler + smoke test + env match arm. Single-crate touch.
+
+## Status
+
+Shipped via claude PR (2026-05-24). iMessage is now a v1 channel: the dispatcher arm at `worker_actions_notify_env.rs:21` routes `"imessage"` → `notify_imessage::send_imessage`, which loads Blue Bubbles env vars (`BLUE_BUBBLES_URL`, `BLUE_BUBBLES_PASSWORD`, `ARGO_CHANNEL_HMAC_SECRET`) and reuses the `send_with_rate_limit_retry` helper. The no-match error message lists `imessage` in the v1 set and drops it from `DEFERRED-v1.x` (only `whatsapp, teams, matrix` remain deferred). Smoke test at `crates/argo-cli/tests/imessage_approval_smoke.rs` proves the Blue Bubbles outbound + env-loader round-trip; in-source `imessage_posts_to_bluebubbles` proves the `EnvChannelSender::send_via("imessage", ...)` dispatcher arm end-to-end.

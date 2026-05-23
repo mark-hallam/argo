@@ -1,6 +1,7 @@
 use super::notify_dispatch::NotifySender;
 use super::{
-    notify_chat, notify_discord, notify_email, notify_slack, notify_sms, notify_sse, notify_voice,
+    notify_chat, notify_discord, notify_email, notify_imessage, notify_slack, notify_sms,
+    notify_sse, notify_voice,
 };
 use argo_channels::{ChannelError, Notification, NotifyChannel};
 use argo_identity::NotifyChannelRef;
@@ -18,6 +19,7 @@ impl NotifySender for EnvChannelSender {
             "push" => send_push(n).await,
             "webinbox" => send_webinbox(n).await,
             "slack" => notify_slack::send_slack(n).await,
+            "imessage" => notify_imessage::send_imessage(ref_, n).await,
             "email" => notify_email::send_email(ref_, n).await,
             "sms" => notify_sms::send_sms(ref_, n).await,
             "discord" => notify_discord::send_discord(n).await,
@@ -26,8 +28,8 @@ impl NotifySender for EnvChannelSender {
             "voice" => notify_voice::send_voice(ref_, n).await,
             other => Err(format!(
                 "channel kind '{other}' is not supported by dispatch_notify \
-                 (v1 channels: push, webinbox, slack, email, sms, discord, chat, sse, voice; \
-                 DEFERRED-v1.x: imessage, whatsapp, teams, matrix)"
+                 (v1 channels: push, webinbox, slack, imessage, email, sms, discord, chat, sse, voice; \
+                 DEFERRED-v1.x: whatsapp, teams, matrix)"
             )),
         }
     }
