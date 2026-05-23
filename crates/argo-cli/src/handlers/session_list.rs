@@ -1,6 +1,8 @@
 //! `argo session list` + `argo session count` impls. Lifted out
 //! of `session.rs` so that file stays under the 500-LOC budget
-//! as more filter dimensions land.
+//! as more filter dimensions land. Per-phase filter / sort /
+//! render helpers live in [`super::session_list_render`] so
+//! `list_sessions` stays a thin orchestrator.
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
@@ -22,6 +24,7 @@ pub(super) async fn list_sessions(
     vertical: Option<String>,
 ) -> ArgoResult<()> {
     use super::session_aggregates::{spend_per_session, tool_calls_per_session};
+    use super::session_list_render as r;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
@@ -29,143 +32,27 @@ pub(super) async fn list_sessions(
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
     let mut sessions = store.list_all_sessions(limit).await?;
-    if let Some(minutes) = since_minutes {
-        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
-        sessions.retain(|s| s.started_at >= cutoff);
-    }
-    if let Some(minutes) = older_than_minutes {
-        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
-        sessions.retain(|s| s.started_at < cutoff);
-    }
-    if let Some(want) = provider.as_deref() {
-        sessions.retain(|s| s.provider == want);
-    }
-    if let Some(want) = model.as_deref() {
-        sessions.retain(|s| s.model == want);
-    }
-    if let Some(want) = vertical.as_deref() {
-        sessions.retain(|s| s.vertical_id.as_deref() == Some(want));
-    }
-    match status.as_str() {
-        "open" => sessions.retain(|s| s.ended_at.is_none()),
-        "ended" => sessions.retain(|s| s.ended_at.is_some()),
-        "all" => {}
-        other => {
-            return Err(ArgoError::Provider(format!(
-                "unknown --status '{other}' — use open|ended|all"
-            )));
-        }
-    }
-    if let Some(needle) = title_contains.as_deref() {
-        let lower = needle.to_lowercase();
-        sessions.retain(|s| {
-            s.title
-                .as_deref()
-                .map(|t| t.to_lowercase().contains(&lower))
-                .unwrap_or(false)
-        });
-    }
+    r::apply_session_filters(
+        &mut sessions,
+        since_minutes,
+        older_than_minutes,
+        provider.as_deref(),
+        model.as_deref(),
+        vertical.as_deref(),
+        &status,
+        title_contains.as_deref(),
+    )?;
     let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
     let tool_calls_by_sid = tool_calls_per_session(&store).await.unwrap_or_default();
-    match sort_by.as_str() {
-        "started-at" => {} // already sorted by store
-        "spend" => {
-            sessions.sort_by(|a, b| {
-                let sa = spend_by_sid
-                    .get(a.id.0.as_bytes().as_slice())
-                    .copied()
-                    .unwrap_or(0);
-                let sb = spend_by_sid
-                    .get(b.id.0.as_bytes().as_slice())
-                    .copied()
-                    .unwrap_or(0);
-                sb.cmp(&sa)
-            });
-        }
-        other => {
-            return Err(ArgoError::Provider(format!(
-                "unknown --sort-by '{other}' — use started-at|spend"
-            )));
-        }
-    }
-    if spent_min.is_some() || spent_max.is_some() {
-        sessions.retain(|s| {
-            let spent = spend_by_sid
-                .get(s.id.0.as_bytes().as_slice())
-                .copied()
-                .unwrap_or(0);
-            if let Some(min) = spent_min {
-                if spent < min {
-                    return false;
-                }
-            }
-            if let Some(max) = spent_max {
-                if spent > max {
-                    return false;
-                }
-            }
-            true
-        });
-    }
+    r::apply_sort_and_spent(&mut sessions, &spend_by_sid, &sort_by, spent_min, spent_max)?;
     let pick = if json { "json" } else { format };
     match pick {
         "json" => {
-            for s in &sessions {
-                let spent = spend_by_sid
-                    .get(s.id.0.as_bytes().as_slice())
-                    .copied()
-                    .unwrap_or(0);
-                let tcs = tool_calls_by_sid
-                    .get(s.id.0.as_bytes().as_slice())
-                    .copied()
-                    .unwrap_or(0);
-                let mut value = serde_json::to_value(s)
-                    .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
-                if let serde_json::Value::Object(ref mut m) = value {
-                    m.insert("spent_usd_micros".into(), serde_json::Value::from(spent));
-                    m.insert("tool_call_count".into(), serde_json::Value::from(tcs));
-                }
-                let line = serde_json::to_string(&value)
-                    .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
-                println!("{line}");
-            }
+            r::render_json(&sessions, &spend_by_sid, &tool_calls_by_sid)?;
             return Ok(());
         }
         "markdown" => {
-            println!(
-                "# Sessions ({} match{})",
-                sessions.len(),
-                if sessions.len() == 1 { "" } else { "es" }
-            );
-            println!();
-            if sessions.is_empty() {
-                return Ok(());
-            }
-            // #690: vertical column (after model, before spend) so
-            // operators can scan which sessions are bound at a glance.
-            // Unbound rows render as `-` to keep the table tight.
-            println!("| status | session_id | provider | model | vertical | spend (USD) | tools | title |");
-            println!("| :---: | --- | --- | --- | --- | ---: | ---: | --- |");
-            for s in &sessions {
-                let spent = spend_by_sid
-                    .get(s.id.0.as_bytes().as_slice())
-                    .copied()
-                    .unwrap_or(0);
-                let tcs = tool_calls_by_sid
-                    .get(s.id.0.as_bytes().as_slice())
-                    .copied()
-                    .unwrap_or(0);
-                let marker = if s.ended_at.is_none() { "●" } else { "○" };
-                let title = s.title.as_deref().unwrap_or("").replace('|', "\\|");
-                let vertical = s.vertical_id.as_deref().unwrap_or("-");
-                println!(
-                    "| {marker} | `{}` | `{}` | `{}` | `{vertical}` | ${:.4} | {tcs} | {title} |",
-                    s.id.0,
-                    s.provider,
-                    s.model,
-                    spent as f64 / 1_000_000.0
-                );
-            }
+            r::render_markdown(&sessions, &spend_by_sid, &tool_calls_by_sid);
             return Ok(());
         }
         "text" => {}
@@ -179,43 +66,7 @@ pub(super) async fn list_sessions(
         println!("(no sessions in {})", db.display());
         return Ok(());
     }
-    // #690: 7-column header now includes vertical between model
-    // and spend. `-` for unbound keeps the column compact when
-    // most rows are legacy.
-    println!(
-        "  {sid:<38} {prov:<12} {model:<24} {vert:<10} {spend:>10} {tools:>5} title",
-        sid = "session_id",
-        prov = "provider",
-        model = "model",
-        vert = "vertical",
-        spend = "spend",
-        tools = "tools",
-    );
-    for s in sessions {
-        let spent = spend_by_sid
-            .get(s.id.0.as_bytes().as_slice())
-            .copied()
-            .unwrap_or(0);
-        let tcs = tool_calls_by_sid
-            .get(s.id.0.as_bytes().as_slice())
-            .copied()
-            .unwrap_or(0);
-        // ● for open (no ended_at), ○ for ended — mirrors the
-        // TUI session-list marker so `argo session list` and the
-        // viewer agree at a glance.
-        let marker = if s.ended_at.is_none() { "●" } else { "○" };
-        let vertical = s.vertical_id.as_deref().unwrap_or("-");
-        println!(
-            "{marker} {:<38} {:<12} {:<24} {:<10} {:>10.4} {:>5} {}",
-            s.id.0,
-            short(&s.provider, 12),
-            short(&s.model, 24),
-            short(vertical, 10),
-            spent as f64 / 1_000_000.0,
-            tcs,
-            s.title.as_deref().unwrap_or("")
-        );
-    }
+    r::render_text(&sessions, &spend_by_sid, &tool_calls_by_sid);
     Ok(())
 }
 
@@ -309,12 +160,4 @@ pub(super) async fn count_sessions(
         println!("{count}");
     }
     Ok(())
-}
-
-fn short(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}…", &s[..max.saturating_sub(1)])
-    }
 }
