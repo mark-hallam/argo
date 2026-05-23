@@ -32,23 +32,29 @@ pub struct SkillRunRow {
 
 /// Return newest-first runs for a single skill.
 ///
+/// `tenant_id` scopes the joined `worker_budget` spend aggregate so
+/// callers operating in one tenant cannot see another tenant's
+/// spend numbers. Pass `None` only from admin/operator surfaces
+/// that intentionally need a cross-tenant view.
+///
 /// # Examples
 ///
 /// ```no_run
 /// # async fn demo(store: &argo_store::SessionStore) -> argo_store::StoreResult<()> {
-/// let rows = argo_store::runs_for_skill(store, "my-skill", None, None, 10, false).await?;
+/// let rows = argo_store::runs_for_skill(store, None, "my-skill", None, None, 10, false).await?;
 /// assert!(rows.len() <= 10);
 /// # Ok(()) }
 /// ```
 pub async fn runs_for_skill(
     store: &SessionStore,
+    tenant_id: Option<&str>,
     skill_name: &str,
     worker_id: Option<&str>,
     since_micros: Option<i64>,
     limit: usize,
     include_failed: bool,
 ) -> StoreResult<Vec<SkillRunRow>> {
-    let rows = collect_latest_runs(store).await?;
+    let rows = collect_latest_runs(store, tenant_id).await?;
     Ok(filter_runs(
         rows,
         Some(skill_name),
@@ -77,7 +83,7 @@ pub async fn runs_for_tenant(
     limit: usize,
     include_failed: bool,
 ) -> StoreResult<Vec<SkillRunRow>> {
-    let rows = collect_latest_runs(store).await?;
+    let rows = collect_latest_runs(store, Some(tenant_id)).await?;
     Ok(filter_runs(
         rows,
         None,
@@ -89,8 +95,11 @@ pub async fn runs_for_tenant(
     ))
 }
 
-async fn collect_latest_runs(store: &SessionStore) -> StoreResult<Vec<SkillRunRow>> {
-    let budgets = budget_by_action(store).await?;
+async fn collect_latest_runs(
+    store: &SessionStore,
+    tenant_id: Option<&str>,
+) -> StoreResult<Vec<SkillRunRow>> {
+    let budgets = budget_by_action(store, tenant_id).await?;
     let tenants = tenant_by_worker(store).await?;
     let rows = sqlx::query(
         "SELECT m.body, m.learned_at \
@@ -125,16 +134,38 @@ async fn collect_latest_runs(store: &SessionStore) -> StoreResult<Vec<SkillRunRo
     Ok(latest.into_values().collect())
 }
 
-async fn budget_by_action(store: &SessionStore) -> StoreResult<HashMap<String, u64>> {
+async fn budget_by_action(
+    store: &SessionStore,
+    tenant_id: Option<&str>,
+) -> StoreResult<HashMap<String, u64>> {
     if !table_exists(store, "worker_budget").await? {
         return Ok(HashMap::new());
     }
-    let rows = sqlx::query(
-        "SELECT action_id, COALESCE(SUM(usd_micros), 0) AS spend_usd_micros \
-         FROM worker_budget GROUP BY action_id",
-    )
-    .fetch_all(store.pool())
-    .await
+    // worker_budget.tenant_id is BLOB; the column stores the raw
+    // UTF-8 bytes of the canonical tenant id (see
+    // argo-identity::worker_budget::record_charge, which binds
+    // worker.tenant_id bytes). Bind &[u8] to match BLOB storage
+    // class — TEXT/BLOB comparisons return false even on byte
+    // equality in SQLite.
+    let rows = match tenant_id {
+        Some(tid) => {
+            sqlx::query(
+                "SELECT action_id, COALESCE(SUM(usd_micros), 0) AS spend_usd_micros \
+                 FROM worker_budget WHERE tenant_id = ? GROUP BY action_id",
+            )
+            .bind(tid.as_bytes())
+            .fetch_all(store.pool())
+            .await
+        }
+        None => {
+            sqlx::query(
+                "SELECT action_id, COALESCE(SUM(usd_micros), 0) AS spend_usd_micros \
+                 FROM worker_budget GROUP BY action_id",
+            )
+            .fetch_all(store.pool())
+            .await
+        }
+    }
     .map_err(|e| ArgoError::Provider(format!("skill runs budget query: {e}")))?;
     Ok(rows
         .into_iter()
@@ -195,7 +226,7 @@ mod tests {
         )
         .await;
 
-        let rows = runs_for_skill(&store, "my-skill", None, None, 10, false)
+        let rows = runs_for_skill(&store, None, "my-skill", None, None, 10, false)
             .await
             .unwrap();
 
@@ -212,7 +243,7 @@ mod tests {
         insert_action(&store, "my-skill", "tenant-a", "w-1", "completed", 120, now).await;
 
         let cutoff = (now - Duration::hours(1)).timestamp_micros();
-        let rows = runs_for_skill(&store, "my-skill", None, Some(cutoff), 10, false)
+        let rows = runs_for_skill(&store, None, "my-skill", None, Some(cutoff), 10, false)
             .await
             .unwrap();
 
@@ -228,10 +259,10 @@ mod tests {
         insert_action(&store, "my-skill", "tenant-a", "w-1", "failed", 1, now).await;
         insert_action(&store, "my-skill", "tenant-a", "w-1", "blocked", 2, now).await;
 
-        let success = runs_for_skill(&store, "my-skill", None, None, 10, false)
+        let success = runs_for_skill(&store, None, "my-skill", None, None, 10, false)
             .await
             .unwrap();
-        let all = runs_for_skill(&store, "my-skill", None, None, 10, true)
+        let all = runs_for_skill(&store, None, "my-skill", None, None, 10, true)
             .await
             .unwrap();
 
@@ -248,7 +279,7 @@ mod tests {
         insert_action(&store, "my-skill", "tenant-a", "w-1", "completed", 0, now).await;
         insert_action(&store, "my-skill", "tenant-a", "w-2", "completed", 1, now).await;
 
-        let rows = runs_for_skill(&store, "my-skill", Some("w-2"), None, 10, false)
+        let rows = runs_for_skill(&store, None, "my-skill", Some("w-2"), None, 10, false)
             .await
             .unwrap();
 
@@ -271,6 +302,76 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].skill_name, "alpha");
         assert_eq!(rows[1].skill_name, "beta");
+    }
+
+    /// 🔴 P1 regression test for the cross-tenant spend-aggregate
+    /// leak fixed in claude-skill-runs-worker-budget-tenant-scope.
+    ///
+    /// Tenants A and B each get a `worker_budget` row whose
+    /// `action_id` matches a `worker_action` memory entry for that
+    /// tenant. We deliberately reuse the SAME `action_id` across
+    /// tenants. Before the fix, `budget_by_action` aggregated
+    /// across all tenants, so tenant_b's row inherited tenant_a's
+    /// spend on the shared key. After the fix, the SELECT is
+    /// scoped to tenant_b and only tenant_b's spend appears.
+    #[tokio::test]
+    async fn budget_aggregate_is_tenant_scoped() {
+        let (store, _workspace) = setup().await;
+        let now = fixed_now();
+        // Same action_id intentionally — exercises the leak path.
+        insert_action(&store, "shared", "tenant-a", "w-a", "completed", 5, now).await;
+        insert_action(&store, "shared", "tenant-b", "w-b", "completed", 5, now).await;
+        // Each tenant has distinct action_id rows in worker_budget
+        // (PRIMARY KEY includes action_id, so we also assert
+        // GROUP BY action_id picks up cross-tenant rows that
+        // collide on action_id alone).
+        let action_id = "shared-05";
+        insert_budget(&store, "tenant-a", "w-a", action_id, 999_000_000, now).await;
+        insert_budget(&store, "tenant-b", "w-b", action_id, 1_000_000, now).await;
+
+        let rows = runs_for_tenant(&store, "tenant-b", None, 50, false)
+            .await
+            .unwrap();
+
+        // Tenant-b receives exactly tenant-b's budget — NOT the
+        // sum of both tenants' rows.
+        assert!(
+            rows.iter()
+                .all(|row| row.tenant_id.as_deref() == Some("tenant-b")),
+            "rows leaked from tenant-a: {rows:?}"
+        );
+        let leaked: Vec<_> = rows
+            .iter()
+            .filter(|row| row.spend_usd_micros != 1_000_000)
+            .collect();
+        assert!(
+            leaked.is_empty(),
+            "tenant-b spend leaked tenant-a totals: {leaked:?}"
+        );
+    }
+
+    /// `runs_for_skill` with explicit Some(tenant) must NOT sum
+    /// another tenant's worker_budget rows into the returned row.
+    #[tokio::test]
+    async fn runs_for_skill_with_tenant_does_not_leak_budget() {
+        let (store, _workspace) = setup().await;
+        let now = fixed_now();
+        insert_action(&store, "skill-x", "tenant-a", "w-a", "completed", 7, now).await;
+        insert_action(&store, "skill-x", "tenant-b", "w-b", "completed", 7, now).await;
+        let action_id = "skill-x-07";
+        insert_budget(&store, "tenant-a", "w-a", action_id, 5_000_000, now).await;
+        insert_budget(&store, "tenant-b", "w-b", action_id, 250_000, now).await;
+
+        let rows =
+            runs_for_skill(&store, Some("tenant-b"), "skill-x", None, None, 10, false)
+                .await
+                .unwrap();
+        for row in &rows {
+            assert_eq!(
+                row.spend_usd_micros, 250_000,
+                "tenant-b view saw tenant-a's spend: {row:?}"
+            );
+        }
     }
 
     async fn setup() -> (SessionStore, argo_types::WorkspaceId) {
@@ -315,6 +416,29 @@ mod tests {
         .bind(body)
         .bind(created_at.timestamp_micros())
         .bind(hash.as_slice())
+        .execute(store.pool())
+        .await
+        .unwrap();
+    }
+
+    async fn insert_budget(
+        store: &SessionStore,
+        tenant: &str,
+        worker: &str,
+        action_id: &str,
+        usd_micros: i64,
+        now: DateTime<Utc>,
+    ) {
+        sqlx::query(
+            "INSERT INTO worker_budget \
+             (tenant_id, worker_id, action_id, usd_micros, charged_at) \
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(tenant.as_bytes())
+        .bind(worker)
+        .bind(action_id)
+        .bind(usd_micros)
+        .bind(now.timestamp())
         .execute(store.pool())
         .await
         .unwrap();

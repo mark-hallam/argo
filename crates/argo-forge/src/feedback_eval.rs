@@ -159,6 +159,7 @@ pub async fn ingest_operator_feedback(
     let since_micros = since_micros_from_window(window);
     let runs = runs_for_skill(
         store,
+        None,
         skill_name,
         None,
         Some(since_micros),

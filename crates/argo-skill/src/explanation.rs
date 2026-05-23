@@ -284,7 +284,7 @@ async fn build_usage_summary(store: &SessionStore, name: &str) -> ArgoResult<Usa
     let now = Utc::now();
     let since_30 = (now - Duration::days(30)).timestamp_micros();
     let since_7 = (now - Duration::days(7)).timestamp_micros();
-    let rows = runs_for_skill(store, name, None, Some(since_30), 1000, true).await?;
+    let rows = runs_for_skill(store, None, name, None, Some(since_30), 1000, true).await?;
     let invocations_last_30d = u32::try_from(rows.len()).unwrap_or(u32::MAX);
     let invocations_last_7d = u32::try_from(
         rows.iter()

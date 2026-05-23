@@ -45,7 +45,8 @@ pub async fn run(
             })?;
             (
                 "skill".to_string(),
-                runs_for_skill(&store, name, worker, since_micros, limit, include_failed).await?,
+                runs_for_skill(&store, None, name, worker, since_micros, limit, include_failed)
+                    .await?,
             )
         }
     };
