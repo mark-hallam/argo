@@ -94,4 +94,30 @@ describe("useWorkflowBuilderState", () => {
     });
     expect(result.current.dirty).toBe(false);
   });
+
+  // Regression: async workflow loads (gateway resolves after the page
+  // mounts) used to seed the hook with `[]`/`[]`, then re-render with a
+  // real spec and flip `dirty` true on the very first paint — firing
+  // `beforeunload` before the user interacted. The hook now re-seeds on
+  // identity change of either initial array.
+  it("re-seeds state and keeps dirty=false when initialNodes/initialEdges identity changes", () => {
+    let nextInitialNodes: Node[] = [];
+    let nextInitialEdges: Edge[] = [];
+    const { result, rerender } = renderHook(() =>
+      useWorkflowBuilderState(nextInitialNodes, nextInitialEdges),
+    );
+    expect(result.current.nodes).toEqual([]);
+    expect(result.current.dirty).toBe(false);
+
+    nextInitialNodes = [n("loaded-a"), n("loaded-b")];
+    nextInitialEdges = [e("loaded-a-b", "loaded-a", "loaded-b")];
+    rerender();
+
+    expect(result.current.nodes.map((node) => node.id)).toEqual([
+      "loaded-a",
+      "loaded-b",
+    ]);
+    expect(result.current.edges.map((edge) => edge.id)).toEqual(["loaded-a-b"]);
+    expect(result.current.dirty).toBe(false);
+  });
 });
