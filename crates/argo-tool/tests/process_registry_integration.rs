@@ -6,16 +6,21 @@
 #![cfg(unix)]
 
 use argo_tool::{ProcessRegistry, Terminal, ToolContext};
-use argo_types::{ContentBlock, Principal};
+use argo_types::{ContentBlock, Principal, TenantId};
 use std::sync::Arc;
 use std::time::Duration;
 
+fn integration_tenant() -> TenantId {
+    TenantId(uuid::Uuid::from_u128(0xC0FFEE))
+}
+
 fn ctx_with_registry(reg: Arc<ProcessRegistry>, dir: &std::path::Path) -> ToolContext {
-    ToolContext::new(
+    ToolContext::new_with_tenant(
         Principal::Local {
             os_user: "u".into(),
         },
         dir.to_path_buf(),
+        integration_tenant(),
     )
     .with_background_processes(reg)
 }

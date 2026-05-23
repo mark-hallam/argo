@@ -401,23 +401,18 @@ async fn production_tool_context_lacks_process_registry_today() {
     }
 }
 
-/// **FINDINGS-ONLY (F2)** — `ProcessRegistry` has no tenant scope.
-/// `spawn`/`list`/`status`/`tail`/`kill` operate on raw `ProcessId`.
-/// Today the registry is per-context so cross-tenant kill is
-/// structurally impossible; if F1 is fixed by sharing one registry
-/// across sessions (the natural fix), F2 becomes an instantly-active
-/// cross-tenant leak.
+/// **F2 FIX VERIFIED** — `ProcessRegistry` is now tenant-keyed
+/// (`mission-process-registry-tenant-keyed`). When two
+/// `ToolContext`s share a single `Arc<ProcessRegistry>` but carry
+/// different `tenant_id`s, tenant B MUST NOT be able to kill (or
+/// even observe) tenant A's process. The error surface mirrors a
+/// genuinely-missing pid so existence isn't leaked across tenants.
 ///
-/// This test demonstrates the gap by sharing a single `Arc<ProcessRegistry>`
-/// between two `ToolContext`s with different `tenant_id`s and showing
-/// tenant B can kill tenant A's process via the `process` tool.
-///
-/// Un-ignore + invert (assert tenant B's kill is rejected) once
-/// `mission-process-registry-tenant-keyed` lands.
-#[ignore]
+/// This is the inverted form of the pre-fix #2117 pin. If a future
+/// refactor drops the per-entry tenant guard, this test fails loud.
 #[cfg(unix)]
 #[tokio::test]
-async fn process_registry_kill_is_tenant_blind_today() {
+async fn process_registry_kill_rejected_across_tenants() {
     let dir = tempfile::tempdir().unwrap();
     let registry = Arc::new(ProcessRegistry::new());
 
@@ -452,7 +447,7 @@ async fn process_registry_kill_is_tenant_blind_today() {
         other => panic!("expected text block, got: {other:?}"),
     };
 
-    // Tenant B — different tenant_id, different principal — kills it.
+    // Tenant B — different tenant_id, different principal — tries to kill it.
     let kill_result = Process
         .dispatch(
             serde_json::json!({"action": "kill", "pid": pid_a.clone()}),
@@ -461,16 +456,40 @@ async fn process_registry_kill_is_tenant_blind_today() {
         .await
         .unwrap();
     assert!(
-        !kill_result.is_error,
-        "F2 expected: tenant B kills tenant A's pid with no rejection. \
-         Got: {kill_result:?}. Un-ignore + invert once \
-         mission-process-registry-tenant-keyed lands."
+        kill_result.is_error,
+        "F2 fix: tenant B's kill must be rejected. Got: {kill_result:?}"
     );
-    // Verify the registry is actually drained — the kill landed.
+    match &kill_result.content[0] {
+        ContentBlock::Text { text } => {
+            assert!(
+                text.contains("no such process"),
+                "cross-tenant kill must surface the same `no such process` \
+                 error as a genuinely-unknown pid (no existence leak). \
+                 Got: {text}"
+            );
+        }
+        other => panic!("expected text block, got: {other:?}"),
+    }
+    // Registry still owns tenant A's entry — tenant B's call did not drop it.
     assert_eq!(
-        registry.len().await,
-        0,
-        "kill must drop the entry; tenant B's call should not have been \
-         silently no-op'd"
+        registry.len(tenant_a).await,
+        1,
+        "tenant A's entry must survive the cross-tenant kill attempt"
     );
+    assert_eq!(
+        registry.len(tenant_b).await,
+        0,
+        "tenant B never spawned anything"
+    );
+
+    // Tenant A can still kill their own process. Cleanup.
+    registry
+        .kill(
+            &argo_tool::process_registry::ProcessId(pid_a.clone()),
+            tenant_a,
+            std::time::Duration::from_secs(2),
+        )
+        .await
+        .unwrap();
+    assert_eq!(registry.len(tenant_a).await, 0);
 }

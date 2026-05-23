@@ -146,8 +146,8 @@ async fn action_list(
     ctx: &ToolContext,
     elapsed_ms: u64,
 ) -> ArgoResult<ToolCallResult> {
-    registry.reap_finished().await;
-    let live = registry.list().await;
+    registry.reap_finished(ctx.tenant_id).await;
+    let live = registry.list(ctx.tenant_id).await;
     let body = serde_json::to_string_pretty(&live).map_err(|e| argo_types::ArgoError::Tool {
         tool: "process".into(),
         msg: format!("serialize list failed: {e}"),
@@ -161,7 +161,7 @@ async fn action_status(
     id: &ProcessId,
     elapsed_ms: u64,
 ) -> ArgoResult<ToolCallResult> {
-    match registry.status(id).await {
+    match registry.status(id, ctx.tenant_id).await {
         Some(info) => {
             let body =
                 serde_json::to_string_pretty(&info).map_err(|e| argo_types::ArgoError::Tool {
@@ -184,7 +184,7 @@ async fn action_tail(
     id: &ProcessId,
     elapsed_ms: u64,
 ) -> ArgoResult<ToolCallResult> {
-    match registry.tail(id).await {
+    match registry.tail(id, ctx.tenant_id).await {
         Some(out) => Ok(success_text(
             ctx.call_id,
             format!(
@@ -207,7 +207,7 @@ async fn action_kill(
     id: &ProcessId,
     elapsed_ms: u64,
 ) -> ArgoResult<ToolCallResult> {
-    match registry.kill(id, KILL_GRACE).await {
+    match registry.kill(id, ctx.tenant_id, KILL_GRACE).await {
         Ok(()) => Ok(success_text(
             ctx.call_id,
             format!("killed: {id}"),
@@ -225,26 +225,32 @@ async fn action_kill(
 mod tests {
     use super::*;
     use crate::process_registry::{ProcessRegistry, SpawnRequest};
-    use argo_types::Principal;
+    use argo_types::{Principal, TenantId};
     use std::sync::Arc;
 
+    fn test_tenant() -> TenantId {
+        TenantId(uuid::Uuid::from_u128(0xAA))
+    }
+
     fn ctx_with_registry(reg: Arc<ProcessRegistry>) -> ToolContext {
-        ToolContext::new(
+        ToolContext::new_with_tenant(
             Principal::Local {
                 os_user: "u".into(),
             },
             std::env::temp_dir(),
+            test_tenant(),
         )
         .with_background_processes(reg)
     }
 
     #[tokio::test]
     async fn list_without_registry_errors() {
-        let ctx = ToolContext::new(
+        let ctx = ToolContext::new_with_tenant(
             Principal::Local {
                 os_user: "u".into(),
             },
             std::env::temp_dir(),
+            test_tenant(),
         );
         let r = Process
             .dispatch(serde_json::json!({"action": "list"}), &ctx)
@@ -258,10 +264,13 @@ mod tests {
     async fn list_returns_live_processes() {
         let reg = Arc::new(ProcessRegistry::new());
         let id = reg
-            .spawn(SpawnRequest {
-                command: "sleep 30".into(),
-                working_dir: std::env::temp_dir(),
-            })
+            .spawn(
+                SpawnRequest {
+                    command: "sleep 30".into(),
+                    working_dir: std::env::temp_dir(),
+                },
+                test_tenant(),
+            )
             .await
             .unwrap();
         let ctx = ctx_with_registry(reg.clone());
@@ -275,7 +284,9 @@ mod tests {
             _ => panic!("text"),
         };
         assert!(body.contains(&id.0));
-        reg.kill(&id, Duration::from_secs(2)).await.unwrap();
+        reg.kill(&id, test_tenant(), Duration::from_secs(2))
+            .await
+            .unwrap();
     }
 
     #[cfg(unix)]
@@ -283,10 +294,13 @@ mod tests {
     async fn tail_returns_recent_output() {
         let reg = Arc::new(ProcessRegistry::new());
         let id = reg
-            .spawn(SpawnRequest {
-                command: "echo hello-process; sleep 0.2".into(),
-                working_dir: std::env::temp_dir(),
-            })
+            .spawn(
+                SpawnRequest {
+                    command: "echo hello-process; sleep 0.2".into(),
+                    working_dir: std::env::temp_dir(),
+                },
+                test_tenant(),
+            )
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_millis(400)).await;
@@ -301,7 +315,7 @@ mod tests {
             _ => panic!("text"),
         };
         assert!(body.contains("hello-process"), "got: {body:?}");
-        reg.reap_finished().await;
+        reg.reap_finished(test_tenant()).await;
     }
 
     #[cfg(unix)]
@@ -309,10 +323,13 @@ mod tests {
     async fn kill_terminates_child() {
         let reg = Arc::new(ProcessRegistry::new());
         let id = reg
-            .spawn(SpawnRequest {
-                command: "sleep 60".into(),
-                working_dir: std::env::temp_dir(),
-            })
+            .spawn(
+                SpawnRequest {
+                    command: "sleep 60".into(),
+                    working_dir: std::env::temp_dir(),
+                },
+                test_tenant(),
+            )
             .await
             .unwrap();
         let ctx = ctx_with_registry(reg.clone());
@@ -321,7 +338,7 @@ mod tests {
             .await
             .unwrap();
         assert!(!r.is_error);
-        assert_eq!(reg.list().await.len(), 0);
+        assert_eq!(reg.list(test_tenant()).await.len(), 0);
     }
 
     #[tokio::test]

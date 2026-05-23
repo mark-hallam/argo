@@ -357,6 +357,7 @@ async fn background_returns_process_id_via_registry() {
     let reg = Arc::new(ProcessRegistry::new());
     let mut c = ctx(dir.path());
     c.background_processes = Some(reg.clone());
+    let tenant = c.tenant_id;
     let r = Terminal::default()
         .dispatch(
             serde_json::json!({"command": "sleep 30", "background": true}),
@@ -367,11 +368,12 @@ async fn background_returns_process_id_via_registry() {
     assert!(!r.is_error);
     let text = body(&r);
     assert!(text.starts_with("process_id: "), "got: {text:?}");
-    assert_eq!(reg.list().await.len(), 1);
+    assert_eq!(reg.list(tenant).await.len(), 1);
     // Cleanup so the test doesn't leave a sleeping child.
     let id = text.trim_start_matches("process_id: ").to_string();
     reg.kill(
         &crate::process_registry::ProcessId(id),
+        tenant,
         Duration::from_secs(2),
     )
     .await

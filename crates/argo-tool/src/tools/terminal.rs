@@ -319,10 +319,13 @@ async fn dispatch_background(
         ));
     };
     match registry
-        .spawn(SpawnRequest {
-            command: command.to_string(),
-            working_dir: cwd,
-        })
+        .spawn(
+            SpawnRequest {
+                command: command.to_string(),
+                working_dir: cwd,
+            },
+            ctx.tenant_id,
+        )
         .await
     {
         Ok(id) => Ok(success_text(
