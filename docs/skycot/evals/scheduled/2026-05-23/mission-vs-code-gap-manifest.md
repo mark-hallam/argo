@@ -36,7 +36,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 | Crate | LOC | Audited? | Known gap | Cite | Priority | Brief shape |
 |---|---|---|---|---|---|---|
 | `argo-identity` | ~600 | 🟢 round 2 + 7 | None at substrate level. Channels + KPIs intentionally deferred to post-hire flows. | `store_hire.rs:151` `worker-downstream-state-after-hire.md` | — | — |
-| `argo-memory` | ? | 🔴 NOT AUDITED | Per MISSION.md status: "per-worker memory scope (workspace-shared shipped, the schema extension is queued)". The `MemoryNs::WorkerSelf` scope exists on Worker but may not be honored by the memory store. | MISSION.md status §"runtime closed loops" | 🟡 P1 | `eval-memory-per-worker-scope-honored` — verify worker.memory_namespace constrains read/write at SQL bind layer + add cross-worker negative test. |
+| `argo-memory` | ~3.3K | 🟢 AUDITED 2026-05-23 (eval-memory-per-worker-scope-honored) | Per-worker `MemoryNs` scope IS honored at SQL bind: `layer_rows` binds `(tenant_id, worker_id, memory_scope, layer)` (layers.rs:258-278); `append_in_namespace_with_layer` writes the same triple (layers.rs:110-128); `summary_namespaces` GROUP BY `(tenant_id, worker_id, memory_scope)` (summary.rs:176-211). 7 contract-pinning tests added (`crates/argo-memory/tests/per_worker_scope_test.rs`): same-tenant cross-worker, cross-tenant same-WorkerId, WorkerSelf-vs-SharedTeam, WorkerSelf-vs-Role, shared-team tenant-only isolation, summary per-worker grouping. Legacy `append`/`list_active`/`get`/`supersede`/`revert`/`set_lock` bind only `workspace_id` — pre-MemoryNs CLI-editor surface, not part of mission-claim-1 substrate. Findings report: `eval-memory-per-worker-scope-honored.md`. | MISSION.md status §"runtime closed loops"; `crates/argo-memory/src/layers.rs:258-278`; `crates/argo-memory/src/summary.rs:176-211` | 🟢 closed | — |
 | `argo-team-headline` | ? | 🔴 NOT AUDITED | Crate exists, unknown surface. Worker overview page uses it per `routes_team_list.rs` import. | `routes_team_list.rs:31` | 🟢 P3 | `eval-team-headline-crate-surface` — read + assess. |
 
 ### Claim 2 — Delegation is the unit
@@ -159,7 +159,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 15. `eval-argo-store-tenant-bind-sweep` — round-7 verified workflow_definition; sweep the other 30+ tables.
 16. `eval-argo-cli-gateway-module-sweep` — complete handler-by-handler RBAC + tenant audit.
 17. `eval-plugin-abi-stable` — MISSION.md invariant #1 says polyglot core with stable JSON-RPC ABI.
-18. `eval-memory-per-worker-scope-honored` — per MISSION.md status, schema extension queued.
+18. ✅ `eval-memory-per-worker-scope-honored` — 🟢 CLOSED 2026-05-23. SQL bind layer honors `(tenant_id, worker_id, memory_scope)`; 7 contract-pinning tests in `crates/argo-memory/tests/per_worker_scope_test.rs`; no fix-brief needed.
 19. `mission-kpi-rollup-from-audit-trail` — Mariah-card KPIs aren't auto-derived.
 
 🟡 **P2** — quality / completeness:
@@ -195,7 +195,7 @@ In rough order of mission-leverage:
 10. `argo-tool` — 🟡 P1
 11. `argo-trust-engine` — 🟡 P2
 12. `argo-vertical` + `argo-vertical-packs` — 🟡 P2
-13. `argo-memory` — 🟡 P1
+13. ~~`argo-memory`~~ — 🟢 CLEARED 2026-05-23 (eval-memory-per-worker-scope-honored)
 14. `argo-skill-sdk` — 🟡 P2
 15. `argo-replay` — 🟡 P2 (re-verify after #1992)
 16. `argo-redact` — 🟡 P2
