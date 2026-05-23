@@ -116,7 +116,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 | `argo-siem` | All | 🔴 NOT AUDITED | SIEM dispatch (per migration 103). | 🟡 P2 |
 | `argo-replay` | Mission claim 6 audit | 🔴 NOT AUDITED | Audit-replay surface. Cross-tenant fix in #1992. | 🟡 P2 — re-verify. |
 | `argo-billing` | Operational | 🟢 by use | Stripe HMAC + checkout + portal. Per round-1 audit listed as tenant-agnostic by construction. | — |
-| `argo-orchestrator` | Multi-worker | 🔴 NOT AUDITED | Inter-worker handoffs. Per coverage report: HIGH-risk for cross-tenant strategy disclosure. | 🟡 P2 |
+| `argo-orchestrator` | Multi-worker | 🟢 round 12 — cross-tenant regression locked (eval-orchestrator-cross-tenant-handoff-negative-test, 2026-05-23) | **SQL is tenant-scoped at every WHERE clause** — `find_handoff`, `insert_handoff`, `list_pending_handoffs_for_worker`, `list_handoffs_for_session`, `update_handoff_status`, `cancel_handoff`, `RetryPolicyStore::get`/`list_for_skill`, `DutyStore::list_for_tenant`, `SlaStore::get`/`list`/`update`/`delete` all join on `tenant_id`. 13 new cross-tenant negative tests in `crates/argo-orchestrator/tests/cross_tenant_handoff_test.rs` pin the byte-identical-response contract (cross-tenant call indistinguishable from genuine-nonexistent — per the #2068 existence-leak pattern). 🟡 **One finding (not a leak, but a hardening gap)**: `DutyStore::get`/`mark_fired`/`set_paused`/`link_fire`/`sessions_for_duty` take no `TenantId` argument; production callers pre-filter via `list_active`, but the surface itself is not self-defending. Follow-up: `mission-orchestrator-duty-store-tenant-args`. | 🟢 pinned — fix-brief queued for duty-store tenant args. |
 | `argo-forge` | Worker A/B | 🔴 NOT AUDITED | Per MISSION.md status: "Judge is consulted by forge promote (fail-CLOSED — promotion blast-radius is larger)". | 🟡 P2 |
 | `argo-eval` | Worker quality | 🔴 NOT AUDITED | Eval framework. | 🟡 P2 |
 | `argo-marketplace` | Claim 4 distribution | 🔴 NOT AUDITED | OCI skill distribution. | 🟡 P2 |
@@ -160,7 +160,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 21. `eval-skill-rejection-flow`
 22. `eval-genesis-output-loads-cleanly-through-argo-vertical`
 23. `eval-vertical-pack-registry-coverage`
-24. `eval-orchestrator-cross-tenant-handoff-safety`
+24. ✅ `eval-orchestrator-cross-tenant-handoff-safety` — `argo-orchestrator` audited round 12 (eval-orchestrator-cross-tenant-handoff-negative-test, 2026-05-23). 13 cross-tenant negative tests pin the contract; 1 fix-brief queued (`mission-orchestrator-duty-store-tenant-args`).
 25. `eval-document-executor-cross-tenant-scoping`
 26. `eval-filesystem-executor-fs-root-enforced`
 27. `eval-redact-crate-promote-from-regex-to-real-fence`
@@ -182,7 +182,7 @@ In rough order of mission-leverage:
 5. `argo-genesis` (deep walk through 8881 LOC) — 🟡 P1
 6. `argo-workflow` (executor, checkpoint, DAG) — 🟡 P1
 7. `argo-channels` (deep walk per channel) — 🟡 P1 (partial this round)
-8. `argo-orchestrator` — 🟡 P2
+8. ~~`argo-orchestrator`~~ — 🟢 CLEARED round 12 (eval-orchestrator-cross-tenant-handoff-negative-test, 2026-05-23)
 9. `argo-routing` — 🟡 P1 (for ApiExecutor blocker)
 10. `argo-tool` — 🟡 P1
 11. `argo-trust-engine` — 🟡 P2
