@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T11:30:00Z",
+  "last_run_utc": "2026-05-23T12:00:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-evaluator-session-round-11",
-  "run_notes": "round 11 — verified 15 in-core tools claim (regression test pins names + count); audited argo-genesis safety substrate. SAFETY JUDGE GOLD-STANDARD: 5 distinct enforcement call-sites (auto_fix + judge in manifest_writer ×2, write_vertical pre-write guard, refine_apply ×2, archetype_meta derivation). dry_run=true for first 24h canary period. Mission claim 3 is HALF-LIVE: Genesis side SOLID, execution side BROKEN (wire-worker-session-runner CLAIMED, fix-by 2026-05-30). Next session candidates: argo-orchestrator handoff safety, argo-channels deep walk per-channel, argo-tool full surface, argo-trust-engine ratchet, OR wait for in-flight fixes (#2085/#2086) to land + re-verify."
+  "session_label": "anthropic-claude-code-evaluator-session-round-12",
+  "run_notes": "round 12 — audited argo-orchestrator (9127 LOC, ~30 files, multi-worker session + handoff + escalation + duty scheduler + auction substrate). Substrate IS tenant-scoped at SQL level (every persist_handoffs.rs query binds tenant_id via tenant_blob), same shape in retry.rs/duty_scheduler_store.rs/sla.rs. NEW 🟡 P1 GAP: ZERO cross-tenant negative tests in the entire crate. SQL is right but no regression test pins it — exactly the round-3 audit-export pattern that shipped a bug. Recommend brief: eval-orchestrator-cross-tenant-handoff-negative-test. Also confirmed DutyScheduler location (argo-orchestrator, not argo-cron); same scheduler that round-10 found tick-but-no-runner-invoke. Next session: argo-channels deep walk per-channel, argo-trust-engine ratchet, argo-store table sweep (the other 30 tables), or wait for #2085+#2086 fix-merges to re-verify mission claims 2+3."
 }
