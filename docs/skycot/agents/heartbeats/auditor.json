@@ -1,7 +1,7 @@
 {
   "agent": "auditor",
-  "last_run_utc": "2026-05-23T09:40:00Z",
+  "last_run_utc": "2026-05-23T21:41:13Z",
   "expected_cadence_seconds": 28800,
   "session_label": "scheduled-task:skycot-auditor-3x-daily",
-  "run_notes": "T09-40 audit — 21 PRs MERGED in 6h (incl. #2102 rebase-cluster closing tick-85 trio + #2106 workflow-execute-route flipping claim-3 to LIVE + #2105 per-worker memory scope + #2103 connector tenant-key OAuth + #2109/#2110/#2112/#2113 four claim-LIVE regression tests on main); mac-host PATH-bug doom-loop hit + RCA-resolved tick-99b (~25-30s respawn cycles for ~40min); legacy #1832/#1799/#1790 6th-consec escalation RETRACTED — all 3 are MERGED (stale fact in prior 6 reports); remaining P0 = #2088 (claim-2 wire) + #2092 (claim-4 cross-tenant) both 8h+ CONFLICTING; orientation 94/100 (+2)"
+  "run_notes": "T21-41 audit — 55 PRs MERGED in 12h since T09-40 (cadence high: #2112→#2168 contiguous; T09-40 P0 backlog cleared — #2088 + #2092 both MERGED, claim-2 LIVE end-to-end). Net 12h: claim-2 LIVE-regression contract on main (#2137), claim-4 row-6 audit-emit pin (#2144), per-tenant ProcessRegistry (#2149), redact pipe Stage-1+2 (#2156/#2160), magic-link demo bypass + runbook (#2164/#2165), gateway UUID-bound session-routes tenant sweep cluster-2 (#2166+#2168). NEW P0 LATENT-BUT-LIVE: skill_share.set_shared cross-tenant UPDATE leak via POST /marketplace/<id>/install (mission-skill-share-tenant-pinned TODO 60min+, evaluator round-43 elevated). 1 open PR (#2131 CONFLICTING awaiting re-claim). 0 drift rows. Orientation 94/100 (held — best-closure-rate-ever offset by 3 escalating drift signals)."
 }
