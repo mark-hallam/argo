@@ -5,13 +5,14 @@
 //! last message + active duration), and the inter-message gap
 //! statistics (avg + max) so callers can spot stuck or
 //! pathologically slow sessions at a glance.
-use super::store_unavailable;
+use super::{request_tenant_id, store_unavailable};
 use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
 
 pub(super) async fn session_stats_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -27,6 +28,22 @@ pub(super) async fn session_stats_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store.session_belongs_to_tenant(id, &tenant_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let rows = match store.list_messages(id).await {
         Ok(r) => r,
         Err(e) => {
@@ -125,6 +142,7 @@ pub(super) async fn session_stats_response(
 /// than the raw message list.
 pub(super) async fn session_turns_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -140,6 +158,22 @@ pub(super) async fn session_turns_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store.session_belongs_to_tenant(id, &tenant_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let rows = match store.list_messages(id).await {
         Ok(r) => r,
         Err(e) => {

@@ -5,7 +5,9 @@
 //! budget on the third per-session drill-down (#628). The
 //! workspace-wide rollups (`audit/by-session`, `audit/by-tool`,
 //! `audit/tool-errors`) stay in the parent file.
+use super::request_tenant_id;
 use argo_store::SessionStore;
+use argo_types::SessionId;
 use std::sync::Arc;
 
 /// `GET /sessions/<id>/audit/by-kind[?since-minutes=M&format=markdown]`
@@ -17,6 +19,7 @@ use std::sync::Arc;
 /// sorted desc by count.
 pub(super) async fn session_audit_by_kind_response(
     sid: &str,
+    req: &str,
     since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
@@ -33,6 +36,25 @@ pub(super) async fn session_audit_by_kind_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store
+        .session_belongs_to_tenant(SessionId(id), &tenant_id)
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
@@ -102,6 +124,7 @@ pub(super) async fn session_audit_by_kind_response(
 /// session call?".
 pub(super) async fn session_audit_by_tool_response(
     sid: &str,
+    req: &str,
     since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
@@ -118,6 +141,25 @@ pub(super) async fn session_audit_by_tool_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store
+        .session_belongs_to_tenant(SessionId(id), &tenant_id)
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {
@@ -190,6 +232,7 @@ pub(super) async fn session_audit_by_tool_response(
 /// here). "Which tools failed in this session?".
 pub(super) async fn session_audit_tool_errors_response(
     sid: &str,
+    req: &str,
     since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
@@ -206,6 +249,25 @@ pub(super) async fn session_audit_tool_errors_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store
+        .session_belongs_to_tenant(SessionId(id), &tenant_id)
+        .await
+    {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let pool = store.pool();
     let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
         Some(m) => {

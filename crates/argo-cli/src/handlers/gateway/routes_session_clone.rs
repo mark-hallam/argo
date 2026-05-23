@@ -10,7 +10,7 @@
 //! - `branch?through-seq=N` copies messages 1..=N only. Useful
 //!   for "rewind to turn 5 and try a different prompt"
 //!   experimentation: branch, then post a new prompt.
-use super::store_unavailable;
+use super::{request_tenant_id, store_unavailable};
 use argo_store::SessionStore;
 use argo_types::{MessageRole, SessionId};
 use std::sync::Arc;
@@ -23,21 +23,24 @@ enum Mode {
 
 pub(super) async fn session_clone_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    clone_or_branch_response(sid, store, None, Mode::Clone).await
+    clone_or_branch_response(sid, req, store, None, Mode::Clone).await
 }
 
 pub(super) async fn session_branch_response(
     sid: &str,
+    req: &str,
     through_seq: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    clone_or_branch_response(sid, store, through_seq, Mode::Branch).await
+    clone_or_branch_response(sid, req, store, through_seq, Mode::Branch).await
 }
 
 async fn clone_or_branch_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     through_seq: Option<i64>,
     mode: Mode,
@@ -54,7 +57,8 @@ async fn clone_or_branch_response(
             );
         }
     };
-    let header = match store.get_session(id).await {
+    let tenant_id = request_tenant_id(req);
+    let header = match store.get_session_for_tenant(id, &tenant_id).await {
         Ok(Some(h)) => h,
         Ok(None) => {
             return (
@@ -65,7 +69,7 @@ async fn clone_or_branch_response(
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"get_session: {e}\"}}"),
+                format!("{{\"error\":\"get_session_for_tenant: {e}\"}}"),
             );
         }
     };

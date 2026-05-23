@@ -5,7 +5,7 @@ use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
 
-use super::store_unavailable;
+use super::{request_tenant_id, store_unavailable};
 
 /// `GET /sessions/<id>/spend/total[?format=markdown]` —
 /// single-number total spend for one session, in USD micros.
@@ -13,6 +13,7 @@ use super::store_unavailable;
 /// (no ledger rows).
 pub(super) async fn session_spend_total_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -28,6 +29,22 @@ pub(super) async fn session_spend_total_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store.session_belongs_to_tenant(id, &tenant_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let total = super::session_spend_micros(store, id).await.unwrap_or(0);
     if matches!(format, Some("markdown")) {
         let mut out = format!("# Session spend total `{sid}`\n\n");
@@ -46,6 +63,7 @@ pub(super) async fn session_spend_total_response(
 
 pub(super) async fn session_spend_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -61,6 +79,22 @@ pub(super) async fn session_spend_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store.session_belongs_to_tenant(id, &tenant_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let total = super::session_spend_micros(store, id).await.unwrap_or(0);
     type Row = (i64, i64, String, String);
     let rows: Vec<Row> = match sqlx::query_as(
@@ -132,6 +166,7 @@ pub(super) async fn session_spend_response(
 /// the same fields rendered as markdown bullets.
 pub(super) async fn session_show_response_with_format(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -147,7 +182,8 @@ pub(super) async fn session_show_response_with_format(
             );
         }
     };
-    let session = match store.get_session(id).await {
+    let tenant_id = request_tenant_id(req);
+    let session = match store.get_session_for_tenant(id, &tenant_id).await {
         Ok(Some(s)) => s,
         Ok(None) => {
             return (
@@ -158,7 +194,7 @@ pub(super) async fn session_show_response_with_format(
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"get_session: {e}\"}}"),
+                format!("{{\"error\":\"get_session_for_tenant: {e}\"}}"),
             );
         }
     };
@@ -225,3 +261,4 @@ pub(super) async fn session_show_response_with_format(
         serde_json::to_string(&row).unwrap_or_else(|_| "{}".to_string()),
     )
 }
+

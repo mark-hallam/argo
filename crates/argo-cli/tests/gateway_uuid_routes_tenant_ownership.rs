@@ -105,18 +105,76 @@ fn pin_cluster_1_session_messages_route_leaks_across_tenants() {
     );
 }
 
-/// Cluster 2 — `SessionStore::get_session(SessionId)` leak.
-/// Fix brief: `mission-gateway-session-routes-tenant-bind`.
-#[ignore = "FINDINGS-ONLY pin; un-ignore once mission-gateway-session-routes-tenant-bind lands"]
+/// Cluster 2 — `SessionStore::get_session(SessionId)` leak — INVERTED.
+///
+/// Fix brief `mission-gateway-session-routes-tenant-bind` shipped the
+/// SQL-level filter (`get_session_for_tenant` +
+/// `session_belongs_to_tenant`) plus a tenant pre-flight in every
+/// cluster-2 handler. This test now locks the shape — dropping the
+/// filter or the `request_tenant_id` derivation in any cluster-2
+/// file regresses the test.
+///
+/// Structural shape (same family as
+/// `audit_replay_handler_still_binds_tenant_id_in_sql` above):
+/// asserts each cluster-2 source file calls `request_tenant_id(req)`
+/// AND routes the session id through one of the tenant-aware store
+/// methods. Catches the silent "drop the AND tenant_id = ?"
+/// regression that an integration-style probe would also catch,
+/// without taking on the dual-tenant fixture lift.
 #[test]
 fn pin_cluster_2_session_show_route_leaks_across_tenants() {
-    panic!(
-        "FINDINGS pin awaits fix-brief mission-gateway-session-routes-tenant-bind. \
-         See docs/skycot/evals/scheduled/2026-05-23/\
-         eval-gateway-uuid-bound-routes-tenant-ownership-sweep.md §3 cluster 2. \
-         Expected post-fix: hit GET /sessions/<tenant_a_sid> with \
-         x-argo-tenant-id: tenant_b, assert HTTP/1.1 404 Not Found (not 200)."
-    );
+    // (source-file, label) — every entry is one of the 11 cluster-2
+    // handlers per the sweep report §3 cluster 2 table.
+    let files = [
+        ("src/handlers/gateway/routes_session.rs", "routes_session"),
+        (
+            "src/handlers/gateway/routes_session_stats.rs",
+            "routes_session_stats",
+        ),
+        (
+            "src/handlers/gateway/routes_session_audit_rollups.rs",
+            "routes_session_audit_rollups",
+        ),
+        (
+            "src/handlers/gateway/routes_session_clone.rs",
+            "routes_session_clone",
+        ),
+        (
+            "src/handlers/gateway/routes_audit_session.rs",
+            "routes_audit_session",
+        ),
+    ];
+
+    for (rel, label) in files {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
+        let source = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+
+        // Each cluster-2 source file MUST derive tenant from the
+        // request header. Hardcoded sentinel or dropped read
+        // regresses the bind.
+        assert!(
+            source.contains("request_tenant_id(req)"),
+            "{label} no longer derives tenant via request_tenant_id(req) — \
+             the cluster-2 fix (mission-gateway-session-routes-tenant-bind) \
+             regressed. See docs/skycot/evals/scheduled/2026-05-23/\
+             eval-gateway-uuid-bound-routes-tenant-ownership-sweep.md §3 cluster 2."
+        );
+
+        // …and MUST route the session id through one of the
+        // tenant-aware store methods. The bare `store.get_session(`
+        // call was the leak; the additive `get_session_for_tenant`
+        // / `session_belongs_to_tenant` siblings are the fix.
+        let normalised: String = source.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(
+            normalised.contains("get_session_for_tenant")
+                || normalised.contains("session_belongs_to_tenant"),
+            "{label} no longer calls get_session_for_tenant or \
+             session_belongs_to_tenant — cluster-2 cross-tenant filter \
+             regressed. See sweep report §3 cluster 2 for the canonical \
+             tenant-aware store methods."
+        );
+    }
 }
 
 /// Cluster 4 — `MemoryStore::set_lock`/`supersede`/`revert` leak.

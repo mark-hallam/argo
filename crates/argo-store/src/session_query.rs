@@ -136,7 +136,18 @@ impl SessionStore {
         Ok(id)
     }
 
-    /// Fetch a session header.
+    /// Fetch a session header by id, without tenant scoping.
+    ///
+    /// Used by internal callers (worker turn helpers, replay
+    /// tooling) that have already established tenant context out
+    /// of band. **Gateway handlers must use
+    /// [`SessionStore::get_session_for_tenant`] instead** — they
+    /// derive the caller's tenant from the `X-Argo-Tenant-Id`
+    /// header and need the SQL-level filter to refuse
+    /// cross-tenant reads. See sweep report
+    /// `docs/skycot/evals/scheduled/2026-05-23/eval-gateway-uuid-
+    /// bound-routes-tenant-ownership-sweep.md` §3 cluster 2 for
+    /// the leak this gap previously enabled.
     pub async fn get_session(&self, session_id: SessionId) -> StoreResult<Option<SessionHeader>> {
         let row = sqlx::query_as::<_, SessionHeaderRow>(
             "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id, worker_id, routing_policy
@@ -148,6 +159,62 @@ impl SessionStore {
         .map_err(|e| ArgoError::Provider(format!("get_session: {e}")))?;
 
         row.map(SessionHeader::try_from).transpose()
+    }
+
+    /// Tenant-scoped sibling of [`SessionStore::get_session`].
+    /// Returns `Ok(None)` when the row doesn't exist OR belongs
+    /// to a different tenant, so gateway handlers can map the
+    /// result straight to the "existence-hide" 404 shape used
+    /// across the audit-replay / audit-detail family.
+    ///
+    /// `tenant_id_str` is the raw `X-Argo-Tenant-Id` header
+    /// value — typically the UUID string form of [`TenantId`].
+    /// A non-UUID value matches no row and resolves to
+    /// `Ok(None)` (the gateway hides existence either way).
+    pub async fn get_session_for_tenant(
+        &self,
+        session_id: SessionId,
+        tenant_id_str: &str,
+    ) -> StoreResult<Option<SessionHeader>> {
+        let Ok(tenant_uuid) = uuid::Uuid::parse_str(tenant_id_str) else {
+            return Ok(None);
+        };
+        let row = sqlx::query_as::<_, SessionHeaderRow>(
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id, worker_id, routing_policy
+             FROM session WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("get_session_for_tenant: {e}")))?;
+
+        row.map(SessionHeader::try_from).transpose()
+    }
+
+    /// Lightweight existence + ownership check. Returns `true`
+    /// only when the session row exists AND its `tenant_id`
+    /// matches `tenant_id_str` parsed as a UUID. Used as the
+    /// pre-flight gate for per-session aggregate handlers
+    /// (audit rollups, stats, turns) whose existing SQL is
+    /// session-id scoped only.
+    pub async fn session_belongs_to_tenant(
+        &self,
+        session_id: SessionId,
+        tenant_id_str: &str,
+    ) -> StoreResult<bool> {
+        let Ok(tenant_uuid) = uuid::Uuid::parse_str(tenant_id_str) else {
+            return Ok(false);
+        };
+        let exists: Option<i64> = sqlx::query_scalar(
+            "SELECT 1 FROM session WHERE id = ? AND tenant_id = ? LIMIT 1",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("session_belongs_to_tenant: {e}")))?;
+        Ok(exists.is_some())
     }
 
     /// List sessions across all tenants, ordered by recency. Used

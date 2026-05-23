@@ -59,8 +59,14 @@ pub(super) async fn dispatch_forge_audit_get(
                     .unwrap_or(false);
                 let format = parse_query_kv(tail, "format");
                 return Some(
-                    audit_session_verify_response(sid, include_breaks, store, format.as_deref())
-                        .await,
+                    audit_session_verify_response(
+                        sid,
+                        req,
+                        include_breaks,
+                        store,
+                        format.as_deref(),
+                    )
+                    .await,
                 );
             }
         }
@@ -83,7 +89,8 @@ pub(super) async fn dispatch_forge_audit_get(
             }
         }
         return Some(
-            audit_session_response(sid, store, kind.as_deref(), since, format.as_deref()).await,
+            audit_session_response(sid, req, store, kind.as_deref(), since, format.as_deref())
+                .await,
         );
     }
     // /costs/* dispatch lives in the sibling `routes_dispatch_costs`

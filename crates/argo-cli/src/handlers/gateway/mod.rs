@@ -229,6 +229,9 @@ mod start_banner_config;
 mod startup_check;
 mod streaming;
 mod sweepers;
+mod tenant_header;
+#[cfg(test)]
+mod routes_session_tenant_bind_tests;
 mod tier_capability_filter;
 mod ws_inbox_events;
 mod ws_skill_trace;
@@ -412,6 +415,8 @@ pub(super) fn store_unavailable() -> (&'static str, String) {
 pub(super) fn body_from_request(req: &str) -> &str {
     req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
 }
+
+pub(super) use tenant_header::request_tenant_id;
 
 /// Count the `ToolCall` audit rows scoped to one session — cheaper
 /// than walking message content_json. Used by `GET /sessions/<id>`.

@@ -37,11 +37,11 @@ pub(super) async fn dispatch_session_get(
     if let Some((sid, tail)) = rest.split_once('/') {
         if tail.starts_with("spend/total ") || tail.starts_with("spend/total?") {
             let format = parse_query_kv(tail, "format");
-            return Some(session_spend_total_response(sid, store, format.as_deref()).await);
+            return Some(session_spend_total_response(sid, req, store, format.as_deref()).await);
         }
         if tail.starts_with("spend ") || tail.starts_with("spend?") {
             let format = parse_query_kv(tail, "format");
-            return Some(session_spend_response(sid, store, format.as_deref()).await);
+            return Some(session_spend_response(sid, req, store, format.as_deref()).await);
         }
         if tail.starts_with("messages/last ") || tail.starts_with("messages/last?") {
             let format = parse_query_kv(tail, "format");
@@ -146,11 +146,11 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("stats ") || tail.starts_with("stats?") {
             let format = parse_query_kv(tail, "format");
-            return Some(session_stats_response(sid, store, format.as_deref()).await);
+            return Some(session_stats_response(sid, req, store, format.as_deref()).await);
         }
         if tail.starts_with("turns ") || tail.starts_with("turns?") {
             let format = parse_query_kv(tail, "format");
-            return Some(session_turns_response(sid, store, format.as_deref()).await);
+            return Some(session_turns_response(sid, req, store, format.as_deref()).await);
         }
         // /sessions/<id>/audit/{verify,count} are aliases for the
         // /audit/sessions/<id>/{verify,count} surface so callers
@@ -162,7 +162,8 @@ pub(super) async fn dispatch_session_get(
                 .unwrap_or(false);
             let format = parse_query_kv(tail, "format");
             return Some(
-                audit_session_verify_response(sid, include_breaks, store, format.as_deref()).await,
+                audit_session_verify_response(sid, req, include_breaks, store, format.as_deref())
+                    .await,
             );
         }
         if tail.starts_with("audit/count ") || tail.starts_with("audit/count?") {
@@ -176,6 +177,7 @@ pub(super) async fn dispatch_session_get(
             return Some(
                 super::routes_session_audit_rollups::session_audit_by_kind_response(
                     sid,
+                    req,
                     since,
                     store,
                     format.as_deref(),
@@ -189,6 +191,7 @@ pub(super) async fn dispatch_session_get(
             return Some(
                 super::routes_session_audit_rollups::session_audit_by_tool_response(
                     sid,
+                    req,
                     since,
                     store,
                     format.as_deref(),
@@ -202,6 +205,7 @@ pub(super) async fn dispatch_session_get(
             return Some(
                 super::routes_session_audit_rollups::session_audit_tool_errors_response(
                     sid,
+                    req,
                     since,
                     store,
                     format.as_deref(),
@@ -214,7 +218,8 @@ pub(super) async fn dispatch_session_get(
             let since = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
             let format = parse_query_kv(tail, "format");
             return Some(
-                audit_session_response(sid, store, kind.as_deref(), since, format.as_deref()).await,
+                audit_session_response(sid, req, store, kind.as_deref(), since, format.as_deref())
+                    .await,
             );
         }
     }
@@ -229,8 +234,13 @@ pub(super) async fn dispatch_session_get(
             .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
             .map(str::to_string);
         return Some(
-            super::routes_session::session_show_response_with_format(sid, store, format.as_deref())
-                .await,
+            super::routes_session::session_show_response_with_format(
+                sid,
+                req,
+                store,
+                format.as_deref(),
+            )
+            .await,
         );
     }
     None

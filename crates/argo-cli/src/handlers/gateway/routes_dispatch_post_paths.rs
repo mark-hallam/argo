@@ -277,11 +277,11 @@ pub(super) async fn dispatch_session_path(
         return Some(session_reopen_response(sid, store).await);
     }
     if tail.starts_with("clone ") {
-        return Some(session_clone_response(sid, store).await);
+        return Some(session_clone_response(sid, req, store).await);
     }
     if tail.starts_with("branch ") || tail.starts_with("branch?") {
         let through_seq = parse_query_kv(tail, "through-seq").and_then(|v| v.parse::<i64>().ok());
-        return Some(session_branch_response(sid, through_seq, store).await);
+        return Some(session_branch_response(sid, req, through_seq, store).await);
     }
     if tail.starts_with("approve ") {
         return Some(session_approve_response(sid, req, store).await);

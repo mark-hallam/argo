@@ -3,7 +3,7 @@
 //! Both endpoints take a session id and either verify the chain or
 //! list the rows; pure read-side, no chain mutation here.
 
-use super::store_unavailable;
+use super::{request_tenant_id, store_unavailable};
 use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
@@ -17,6 +17,7 @@ use std::sync::Arc;
 /// chain-ok and chain-broken cases — `ok` says which.
 pub(super) async fn audit_session_verify_response(
     sid: &str,
+    req: &str,
     include_breaks: bool,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
@@ -33,6 +34,22 @@ pub(super) async fn audit_session_verify_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store.session_belongs_to_tenant(id, &tenant_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     match argo_audit::verify_session(store, id).await {
         Ok(report) => {
             if matches!(format, Some("markdown")) {
@@ -98,6 +115,7 @@ pub(super) async fn audit_session_verify_response(
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn audit_session_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     kind: Option<&str>,
     since_minutes: Option<i64>,
@@ -115,6 +133,22 @@ pub(super) async fn audit_session_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store.session_belongs_to_tenant(id, &tenant_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     match argo_audit::rows_for_session(store, id).await {
         Ok(mut rows) => {
             if let Some(want) = kind {
