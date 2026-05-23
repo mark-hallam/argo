@@ -5,11 +5,18 @@ use chrono::Utc;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const DEFAULT_BASE_URL: &str = "https://www.googleapis.com/calendar/v3";
 const DEFAULT_CALENDAR_ID: &str = "primary";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
+/// Env var that names the tenant whose cached OAuth token this
+/// connector subprocess should read/write. Spawners (the
+/// `McpConnectionPool` in `argo-agent-runner`) set this when launching
+/// the connector under a specific tenant context; absence falls back to
+/// the workspace-stable tenant id so single-tenant deployments still
+/// get a stable, isolated key.
+const TENANT_ID_ENV: &str = "ARGO_MCP_TENANT_ID";
 
 /// Runtime configuration for [`GcalClient`].
 #[derive(Debug, Clone)]
@@ -266,14 +273,17 @@ async fn access_token_from_env_or_cache() -> McpResult<String> {
     if let Ok(token) = argo_config::cred::get_unscoped("GCAL_TEST_TOKEN") {
         return Ok(token);
     }
-    if let Some(token) = read_cached_access_token()? {
+    let cwd = std::env::current_dir().map_err(|e| McpError::Io(format!("current_dir: {e}")))?;
+    let tenant_id = cache_tenant_id(&cwd);
+    if let Some(token) = read_cached_access_token(&cwd, &tenant_id)? {
         return Ok(token);
     }
-    refresh_access_token().await
+    refresh_access_token(&cwd, &tenant_id).await
 }
 
-fn read_cached_access_token() -> McpResult<Option<String>> {
-    let path = token_cache_path()?;
+fn read_cached_access_token(cwd: &Path, tenant_id: &str) -> McpResult<Option<String>> {
+    migrate_legacy_cache_if_present(cwd, tenant_id)?;
+    let path = token_cache_path(cwd, tenant_id);
     if !path.exists() {
         return Ok(None);
     }
@@ -288,7 +298,7 @@ fn read_cached_access_token() -> McpResult<Option<String>> {
     }
 }
 
-async fn refresh_access_token() -> McpResult<String> {
+async fn refresh_access_token(cwd: &Path, tenant_id: &str) -> McpResult<String> {
     let refresh_token = required_env("ARGO_GCAL_REFRESH_TOKEN")?;
     let client_id = required_env("ARGO_GCAL_CLIENT_ID")?;
     let client_secret = required_env("ARGO_GCAL_CLIENT_SECRET")?;
@@ -317,12 +327,12 @@ async fn refresh_access_token() -> McpResult<String> {
     }
     let refreshed: RefreshResponse = serde_json::from_str(&body)
         .map_err(|e| McpError::Decode(format!("gcal token JSON: {e}")))?;
-    write_cached_access_token(&refreshed)?;
+    write_cached_access_token(cwd, tenant_id, &refreshed)?;
     Ok(refreshed.access_token)
 }
 
-fn write_cached_access_token(token: &RefreshResponse) -> McpResult<()> {
-    let path = token_cache_path()?;
+fn write_cached_access_token(cwd: &Path, tenant_id: &str, token: &RefreshResponse) -> McpResult<()> {
+    let path = token_cache_path(cwd, tenant_id);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| McpError::Io(format!("create {}: {e}", parent.display())))?;
@@ -336,18 +346,83 @@ fn write_cached_access_token(token: &RefreshResponse) -> McpResult<()> {
     std::fs::write(&path, body).map_err(|e| McpError::Io(format!("write {}: {e}", path.display())))
 }
 
-fn token_cache_path() -> McpResult<PathBuf> {
-    std::env::current_dir()
-        .map(|cwd| {
-            cwd.join(".argo")
-                .join("connectors")
-                .join("gcal")
-                .join("access_token.json")
-        })
-        .map_err(|e| McpError::Io(format!("current_dir: {e}")))
+/// Tenant-keyed cache path under `<cwd>/.argo/connectors/<tenant_id>/gcal/access_token.json`.
+fn token_cache_path(cwd: &Path, tenant_id: &str) -> PathBuf {
+    cwd.join(".argo")
+        .join("connectors")
+        .join(tenant_id)
+        .join("gcal")
+        .join("access_token.json")
+}
+
+/// Legacy (pre-2026-05-23) cwd-shared path that mixed tenants.
+fn legacy_cache_path(cwd: &Path) -> PathBuf {
+    cwd.join(".argo")
+        .join("connectors")
+        .join("gcal")
+        .join("access_token.json")
+}
+
+/// Quarantine destination for the legacy file on first read.
+fn legacy_quarantine_path(cwd: &Path) -> PathBuf {
+    cwd.join(".argo")
+        .join("connectors")
+        .join("legacy")
+        .join("gcal")
+        .join("access_token.json")
+}
+
+/// Move a pre-tenant-keyed cache file out of the shared path the first
+/// time we see one. Operator re-authenticates the next call so this
+/// tenant gets its own token. Don't auto-delete (`legacy/` preserves
+/// the file for operator recovery).
+fn migrate_legacy_cache_if_present(cwd: &Path, tenant_id: &str) -> McpResult<()> {
+    let legacy = legacy_cache_path(cwd);
+    if !legacy.exists() {
+        return Ok(());
+    }
+    let dest = legacy_quarantine_path(cwd);
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| McpError::Io(format!("create {}: {e}", parent.display())))?;
+    }
+    if let Err(e) = std::fs::rename(&legacy, &dest) {
+        return Err(McpError::Io(format!(
+            "quarantine legacy gcal token cache {} -> {}: {e}",
+            legacy.display(),
+            dest.display()
+        )));
+    }
+    tracing::warn!(
+        target: "argo_mcp_connector_gcal",
+        tenant_id = tenant_id,
+        legacy = %legacy.display(),
+        quarantined_to = %dest.display(),
+        "moved pre-tenant-keyed gcal OAuth token cache to legacy/; re-authenticate to refresh",
+    );
+    Ok(())
+}
+
+/// Resolve the tenant id this connector subprocess should key its
+/// cache under. Prefers the spawner-set `ARGO_MCP_TENANT_ID` env var;
+/// falls back to the workspace-stable id from `argo.toml` so a
+/// single-tenant deployment still isolates by workspace rather than
+/// reusing the legacy shared path.
+fn cache_tenant_id(cwd: &Path) -> String {
+    if let Ok(id) = std::env::var(TENANT_ID_ENV) {
+        let trimmed = id.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    argo_config::workspace_tenant_id(cwd)
 }
 
 fn required_env(name: &str) -> McpResult<String> {
     // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
     argo_config::cred::get_unscoped(name).map_err(|_| McpError::Initialize(format!("{name} is required")))
 }
+
+#[cfg(test)]
+#[path = "client_cache_tenant_tests.rs"]
+mod cache_tenant_tests;

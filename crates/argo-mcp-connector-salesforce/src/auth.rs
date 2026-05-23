@@ -8,6 +8,13 @@ pub const SF_CLIENT_ID_ENV: &str = "SF_CLIENT_ID";
 pub const SF_CLIENT_SECRET_ENV: &str = "SF_CLIENT_SECRET";
 /// Salesforce instance URL env var, e.g. `https://example.my.salesforce.com`.
 pub const SF_INSTANCE_URL_ENV: &str = "SF_INSTANCE_URL";
+/// Env var that names the tenant whose cached OAuth token this
+/// connector subprocess should read/write. Spawners (the
+/// `McpConnectionPool` in `argo-agent-runner`) set this when launching
+/// the connector under a specific tenant context; absence falls back to
+/// the workspace-stable tenant id so single-tenant deployments still
+/// get a stable, isolated key.
+pub const TENANT_ID_ENV: &str = "ARGO_MCP_TENANT_ID";
 
 /// OAuth client credentials config.
 #[derive(Debug, Clone)]
@@ -47,21 +54,24 @@ impl SalesforceConfig {
 pub async fn access_token_from_env() -> Result<SalesforceToken, String> {
     let cfg = SalesforceConfig::from_env()?;
     let cwd = std::env::current_dir().map_err(|e| format!("cwd: {e}"))?;
-    if let Some(token) = read_cached_token(&cwd)? {
+    let tenant_id = cache_tenant_id(&cwd);
+    if let Some(token) = read_cached_token(&cwd, &tenant_id)? {
         if !token.access_token.trim().is_empty() {
             return Ok(token);
         }
     }
-    refresh_and_cache(&cfg, &cwd).await
+    refresh_and_cache(&cfg, &cwd, &tenant_id).await
 }
 
-/// Refresh a token using client credentials and persist it under cwd.
+/// Refresh a token using client credentials and persist it under cwd
+/// keyed by tenant.
 pub async fn refresh_and_cache(
     cfg: &SalesforceConfig,
     cwd: &Path,
+    tenant_id: &str,
 ) -> Result<SalesforceToken, String> {
     let token = refresh(cfg).await?;
-    write_cached_token(cwd, &token)?;
+    write_cached_token(cwd, tenant_id, &token)?;
     Ok(token)
 }
 
@@ -109,8 +119,9 @@ async fn refresh(cfg: &SalesforceConfig) -> Result<SalesforceToken, String> {
     })
 }
 
-fn read_cached_token(cwd: &Path) -> Result<Option<SalesforceToken>, String> {
-    let path = cache_path(cwd);
+fn read_cached_token(cwd: &Path, tenant_id: &str) -> Result<Option<SalesforceToken>, String> {
+    migrate_legacy_cache_if_present(cwd, tenant_id)?;
+    let path = cache_path(cwd, tenant_id);
     if !path.exists() {
         return Ok(None);
     }
@@ -121,8 +132,8 @@ fn read_cached_token(cwd: &Path) -> Result<Option<SalesforceToken>, String> {
         .map_err(|e| format!("parse Salesforce token cache {}: {e}", path.display()))
 }
 
-fn write_cached_token(cwd: &Path, token: &SalesforceToken) -> Result<(), String> {
-    let path = cache_path(cwd);
+fn write_cached_token(cwd: &Path, tenant_id: &str, token: &SalesforceToken) -> Result<(), String> {
+    let path = cache_path(cwd, tenant_id);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
             format!(
@@ -137,8 +148,76 @@ fn write_cached_token(cwd: &Path, token: &SalesforceToken) -> Result<(), String>
         .map_err(|e| format!("write Salesforce token cache {}: {e}", path.display()))
 }
 
-fn cache_path(cwd: &Path) -> PathBuf {
-    cwd.join(".argo/connectors/salesforce/token.json")
+/// Tenant-keyed cache path under `<cwd>/.argo/connectors/<tenant_id>/salesforce/token.json`.
+fn cache_path(cwd: &Path, tenant_id: &str) -> PathBuf {
+    cwd.join(".argo")
+        .join("connectors")
+        .join(tenant_id)
+        .join("salesforce")
+        .join("token.json")
+}
+
+/// Legacy (pre-2026-05-23) cwd-shared path that mixed tenants.
+fn legacy_cache_path(cwd: &Path) -> PathBuf {
+    cwd.join(".argo")
+        .join("connectors")
+        .join("salesforce")
+        .join("token.json")
+}
+
+/// Quarantine destination for the legacy file on first read.
+fn legacy_quarantine_path(cwd: &Path) -> PathBuf {
+    cwd.join(".argo")
+        .join("connectors")
+        .join("legacy")
+        .join("salesforce")
+        .join("token.json")
+}
+
+/// Move a pre-tenant-keyed cache file out of the shared path the first
+/// time we see one. Operator re-authenticates the next call so this
+/// tenant gets its own token. Don't auto-delete (`legacy/` preserves
+/// the file for operator recovery).
+fn migrate_legacy_cache_if_present(cwd: &Path, tenant_id: &str) -> Result<(), String> {
+    let legacy = legacy_cache_path(cwd);
+    if !legacy.exists() {
+        return Ok(());
+    }
+    let dest = legacy_quarantine_path(cwd);
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Salesforce token cache legacy mkdir: {e}"))?;
+    }
+    std::fs::rename(&legacy, &dest).map_err(|e| {
+        format!(
+            "quarantine legacy Salesforce token cache {} -> {}: {e}",
+            legacy.display(),
+            dest.display()
+        )
+    })?;
+    tracing::warn!(
+        target: "argo_mcp_connector_salesforce",
+        tenant_id = tenant_id,
+        legacy = %legacy.display(),
+        quarantined_to = %dest.display(),
+        "moved pre-tenant-keyed Salesforce OAuth token cache to legacy/; re-authenticate to refresh",
+    );
+    Ok(())
+}
+
+/// Resolve the tenant id this connector subprocess should key its
+/// cache under. Prefers the spawner-set `ARGO_MCP_TENANT_ID` env var;
+/// falls back to the workspace-stable id from `argo.toml` so a
+/// single-tenant deployment still isolates by workspace rather than
+/// reusing the legacy shared path.
+fn cache_tenant_id(cwd: &Path) -> String {
+    if let Ok(id) = std::env::var(TENANT_ID_ENV) {
+        let trimmed = id.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    argo_config::workspace_tenant_id(cwd)
 }
 
 fn required_env(name: &str) -> Result<String, String> {
@@ -187,10 +266,11 @@ mod tests {
             client_secret: "secret".into(),
             instance_url: format!("http://{addr}"),
         };
-        let token = refresh_and_cache(&cfg, &cwd).await.unwrap();
+        let tenant_id = "tenant-a";
+        let token = refresh_and_cache(&cfg, &cwd, tenant_id).await.unwrap();
         assert_eq!(token.access_token, "tok_123");
-        assert!(cache_path(&cwd).exists());
-        let cached = read_cached_token(&cwd).unwrap().unwrap();
+        assert!(cache_path(&cwd, tenant_id).exists());
+        let cached = read_cached_token(&cwd, tenant_id).unwrap().unwrap();
         assert_eq!(cached.instance_url, "http://sf.test");
     }
 
@@ -204,5 +284,57 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    fn token_with(access: &str) -> SalesforceToken {
+        SalesforceToken {
+            access_token: access.into(),
+            instance_url: "https://sf.test".into(),
+        }
+    }
+
+    // Cross-tenant negative: tenant_b must NEVER read tenant_a's cached
+    // token. Pre-fix this returned `tok_a` for both reads because both
+    // tenants shared `<cwd>/.argo/connectors/salesforce/token.json`.
+    #[test]
+    fn cross_tenant_token_isolation() {
+        let cwd = unique_temp_dir("sf-isolation");
+        write_cached_token(&cwd, "tenant-a", &token_with("tok_a")).unwrap();
+        write_cached_token(&cwd, "tenant-b", &token_with("tok_b")).unwrap();
+
+        let a = read_cached_token(&cwd, "tenant-a").unwrap().unwrap();
+        let b = read_cached_token(&cwd, "tenant-b").unwrap().unwrap();
+        assert_eq!(a.access_token, "tok_a");
+        assert_eq!(b.access_token, "tok_b");
+
+        let path_a = cache_path(&cwd, "tenant-a");
+        let path_b = cache_path(&cwd, "tenant-b");
+        assert_ne!(path_a, path_b);
+        assert!(path_a.exists());
+        assert!(path_b.exists());
+    }
+
+    // Migration on first read: legacy cwd-shared file moves to legacy/
+    // and read returns None so the caller refreshes a fresh tenant-keyed
+    // token rather than serving the shared one.
+    #[test]
+    fn legacy_cache_is_quarantined_on_first_read() {
+        let cwd = unique_temp_dir("sf-legacy");
+        let legacy = legacy_cache_path(&cwd);
+        std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        let leaked = token_with("leaked");
+        std::fs::write(&legacy, serde_json::to_string(&leaked).unwrap()).unwrap();
+        assert!(legacy.exists());
+
+        let result = read_cached_token(&cwd, "tenant-a").unwrap();
+        assert!(
+            result.is_none(),
+            "legacy token must NOT be served to tenant-a",
+        );
+        assert!(!legacy.exists(), "legacy file should be moved");
+        assert!(
+            legacy_quarantine_path(&cwd).exists(),
+            "legacy file should land under legacy/",
+        );
     }
 }
