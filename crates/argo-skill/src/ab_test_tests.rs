@@ -1,15 +1,20 @@
 //! Unit tests for `ab_test`. Lives in a sibling file so the
-//! main module stays under the per-file 500-LOC budget.
+//! main module stays under the per-file 500-LOC budget. The
+//! quality-weighted completion path has its own sibling test file
+//! `ab_test_quality_tests.rs` (wired from `ab_test_quality.rs`).
 use super::{
-    create_run, ensure_ab_schema, get_run, maybe_complete, maybe_complete_with_quality, promote,
-    record_outcome, select_variant, significance, variant_counts, QualityWeightConfig, Variant,
-    VariantCounts, WinnerReason, CHI_SQUARE_CRIT_DF1_ALPHA_05,
+    create_run, ensure_ab_schema, get_run, maybe_complete, promote, record_outcome, select_variant,
+    significance, variant_counts, Variant, VariantCounts, CHI_SQUARE_CRIT_DF1_ALPHA_05,
 };
-use crate::quality::{QualityInputs, SkillQualityStore};
 use argo_store::SessionStore;
-use argo_types::SkillId;
-use chrono::{Duration, Utc};
-use std::sync::Arc;
+use argo_types::TenantId;
+use uuid::Uuid;
+
+fn test_tenant(byte: u8) -> TenantId {
+    let mut bytes = [0u8; 16];
+    bytes[15] = byte;
+    TenantId(Uuid::from_bytes(bytes))
+}
 
 async fn open_store() -> SessionStore {
     let store = SessionStore::open(":memory:").await.unwrap();
@@ -41,69 +46,6 @@ async fn insert_skill_with_id(store: &SessionStore, name: &str, version: &str, i
     .execute(store.pool())
     .await
     .unwrap();
-}
-
-async fn open_store_arc() -> Arc<SessionStore> {
-    Arc::new(open_store().await)
-}
-
-async fn make_qstore(store: Arc<SessionStore>) -> SkillQualityStore {
-    let qstore = SkillQualityStore::new(store);
-    qstore.ensure_schema().await.unwrap();
-    qstore
-}
-
-fn inputs_for_score(success_rate: f64) -> QualityInputs {
-    // Drives `compute_score` to `success_rate * 100` with no
-    // latency or retry penalty so tests can pin scores precisely.
-    QualityInputs {
-        success_rate,
-        avg_latency_ms: 0.0,
-        retry_count: 0,
-        p99_latency_ms: 0.0,
-    }
-}
-
-/// Set up a run + outcomes with the requested per-variant success
-/// counts (out of 100 trials each). `seed` UUIDs differentiate
-/// skill ids so tests sharing an in-memory store don't collide.
-async fn setup_run(
-    store: &SessionStore,
-    seed_a: u128,
-    seed_b: u128,
-    successes_a: usize,
-    successes_b: usize,
-) -> (String, SkillId, SkillId) {
-    let a_uuid = uuid::Uuid::from_u128(seed_a);
-    let b_uuid = uuid::Uuid::from_u128(seed_b);
-    insert_skill_with_id(store, "demo", "v1", &a_uuid).await;
-    insert_skill_with_id(store, "demo", "v2", &b_uuid).await;
-    let run_id = create_run(store, "demo", "v1", "v2", 100).await.unwrap();
-    for i in 0..100 {
-        record_outcome(
-            store,
-            &run_id,
-            &format!("a-{i}"),
-            Variant::A,
-            i < successes_a,
-            Some(10),
-        )
-        .await
-        .unwrap();
-    }
-    for i in 0..100 {
-        record_outcome(
-            store,
-            &run_id,
-            &format!("b-{i}"),
-            Variant::B,
-            i < successes_b,
-            Some(10),
-        )
-        .await
-        .unwrap();
-    }
-    (run_id, SkillId(a_uuid), SkillId(b_uuid))
 }
 
 #[test]
@@ -174,8 +116,9 @@ fn significance_does_not_fire_on_equal_rates() {
 #[tokio::test]
 async fn create_run_rejects_identical_variants() {
     let store = open_store().await;
+    let tenant = test_tenant(1);
     insert_skill(&store, "demo", "v1").await;
-    let err = create_run(&store, "demo", "v1", "v1", 100)
+    let err = create_run(&store, &tenant, "demo", "v1", "v1", 100)
         .await
         .unwrap_err();
     assert!(err.to_string().contains("must differ"));
@@ -184,8 +127,9 @@ async fn create_run_rejects_identical_variants() {
 #[tokio::test]
 async fn create_run_rejects_unknown_variant_version() {
     let store = open_store().await;
+    let tenant = test_tenant(1);
     insert_skill(&store, "demo", "v1").await;
-    let err = create_run(&store, "demo", "v1", "v2", 100)
+    let err = create_run(&store, &tenant, "demo", "v1", "v2", 100)
         .await
         .unwrap_err();
     assert!(err.to_string().contains("no version 'v2'"));
@@ -194,9 +138,12 @@ async fn create_run_rejects_unknown_variant_version() {
 #[tokio::test]
 async fn run_round_trip_records_outcomes_and_completes() {
     let store = open_store().await;
+    let tenant = test_tenant(1);
     insert_skill(&store, "demo", "v1").await;
     insert_skill(&store, "demo", "v2").await;
-    let run_id = create_run(&store, "demo", "v1", "v2", 100).await.unwrap();
+    let run_id = create_run(&store, &tenant, "demo", "v1", "v2", 100)
+        .await
+        .unwrap();
     // 60 successes for A, 30 for B (clear winner)
     for i in 0..100 {
         record_outcome(
@@ -222,9 +169,12 @@ async fn run_round_trip_records_outcomes_and_completes() {
         .await
         .unwrap();
     }
-    let sig = maybe_complete(&store, &run_id, 30).await.unwrap().unwrap();
+    let sig = maybe_complete(&store, &tenant, &run_id, 30)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(sig.significant);
-    let run = get_run(&store, &run_id).await.unwrap().unwrap();
+    let run = get_run(&store, &tenant, &run_id).await.unwrap().unwrap();
     assert_eq!(run.status, "completed");
     assert_eq!(run.winner.as_deref(), Some("v1"));
 }
@@ -232,16 +182,23 @@ async fn run_round_trip_records_outcomes_and_completes() {
 #[tokio::test]
 async fn promote_marks_loser_superseded_by_winner() {
     let store = open_store().await;
+    let tenant = test_tenant(1);
     insert_skill(&store, "demo", "v1").await;
     insert_skill(&store, "demo", "v2").await;
-    let run_id = create_run(&store, "demo", "v1", "v2", 50).await.unwrap();
-    // Force a winner manually for this test
-    sqlx::query("UPDATE skill_ab_test_run SET status='completed', winner='v2' WHERE id = ?")
-        .bind(&run_id)
-        .execute(store.pool())
+    let run_id = create_run(&store, &tenant, "demo", "v1", "v2", 50)
         .await
         .unwrap();
-    let winner = promote(&store, &run_id, None).await.unwrap();
+    // Force a winner manually for this test
+    sqlx::query(
+        "UPDATE skill_ab_test_run SET status='completed', winner='v2' \
+         WHERE id = ? AND tenant_id = ?",
+    )
+    .bind(&run_id)
+    .bind(tenant.to_string())
+    .execute(store.pool())
+    .await
+    .unwrap();
+    let winner = promote(&store, &tenant, &run_id, None).await.unwrap();
     assert_eq!(winner, "v2");
     let row: Option<(Option<Vec<u8>>,)> =
         sqlx::query_as("SELECT superseded_by FROM skill WHERE name = ? AND version = ?")
@@ -259,9 +216,12 @@ async fn promote_marks_loser_superseded_by_winner() {
 #[tokio::test]
 async fn record_outcome_is_idempotent_on_invocation_id() {
     let store = open_store().await;
+    let tenant = test_tenant(1);
     insert_skill(&store, "demo", "v1").await;
     insert_skill(&store, "demo", "v2").await;
-    let run_id = create_run(&store, "demo", "v1", "v2", 5).await.unwrap();
+    let run_id = create_run(&store, &tenant, "demo", "v1", "v2", 5)
+        .await
+        .unwrap();
     record_outcome(&store, &run_id, "inv-1", Variant::A, true, None)
         .await
         .unwrap();
@@ -272,180 +232,56 @@ async fn record_outcome_is_idempotent_on_invocation_id() {
     assert_eq!(a.trials, 1);
 }
 
-// ---- Quality-aware promote (mission-skill-ab-quality-promote) ----
-
 #[tokio::test]
-async fn quality_tips_decision_when_both_variants_have_recent_score() {
-    let store = open_store_arc().await;
-    // A leads on raw success rate (60% vs 30%) but has a much
-    // lower quality score (20 vs 100). With weight=0.3 the
-    // weighted formula picks B: 0.21 + 0.30 = 0.51 > 0.42 + 0.06 = 0.48.
-    let (run_id, a_id, b_id) = setup_run(&store, 0x10, 0x11, 60, 30).await;
-    let qstore = make_qstore(Arc::clone(&store)).await;
-    let now = Utc::now();
-    qstore
-        .record(a_id, &inputs_for_score(0.20), now)
+async fn get_run_refuses_cross_tenant_lookup() {
+    let store = open_store().await;
+    let tenant_a = test_tenant(0xAA);
+    let tenant_b = test_tenant(0xBB);
+    insert_skill(&store, "slack-dm", "v1").await;
+    insert_skill(&store, "slack-dm", "v2").await;
+    let run_id_a = create_run(&store, &tenant_a, "slack-dm", "v1", "v2", 100)
         .await
         .unwrap();
-    qstore
-        .record(b_id, &inputs_for_score(1.00), now)
-        .await
-        .unwrap();
-    let (sig, reason) = maybe_complete_with_quality(
-        &store,
-        &run_id,
-        30,
-        Some(&qstore),
-        QualityWeightConfig::default(),
-    )
-    .await
-    .unwrap();
-    assert!(sig.unwrap().significant);
-    assert_eq!(reason, Some(WinnerReason::WeightedQuality));
-    assert_eq!(
-        get_run(&store, &run_id)
-            .await
-            .unwrap()
-            .unwrap()
-            .winner
-            .as_deref(),
-        Some("v2")
+    // tenant_a sees its own run.
+    let own = get_run(&store, &tenant_a, &run_id_a).await.unwrap();
+    assert!(own.is_some(), "tenant_a must see its own run");
+    // tenant_b knows the UUIDv7 (a UUID alone is global) but the
+    // SELECT predicate refuses to return another tenant's row.
+    let leaked = get_run(&store, &tenant_b, &run_id_a).await.unwrap();
+    assert!(
+        leaked.is_none(),
+        "tenant_b must not see tenant_a's A/B run via leaked run id"
     );
 }
 
 #[tokio::test]
-async fn falls_through_to_success_rate_when_only_one_variant_has_quality() {
-    let store = open_store_arc().await;
-    let (run_id, a_id, _b_id) = setup_run(&store, 0x20, 0x21, 60, 30).await;
-    let qstore = make_qstore(Arc::clone(&store)).await;
-    // Only A has a quality score.
-    qstore
-        .record(a_id, &inputs_for_score(0.20), Utc::now())
+async fn promote_refuses_cross_tenant_run_id() {
+    let store = open_store().await;
+    let tenant_a = test_tenant(0xAA);
+    let tenant_b = test_tenant(0xBB);
+    insert_skill(&store, "slack-dm", "v1").await;
+    insert_skill(&store, "slack-dm", "v2").await;
+    let run_id_a = create_run(&store, &tenant_a, "slack-dm", "v1", "v2", 50)
         .await
         .unwrap();
-    let (_, reason) = maybe_complete_with_quality(
-        &store,
-        &run_id,
-        30,
-        Some(&qstore),
-        QualityWeightConfig::default(),
+    sqlx::query(
+        "UPDATE skill_ab_test_run SET status='completed', winner='v2' \
+         WHERE id = ? AND tenant_id = ?",
     )
+    .bind(&run_id_a)
+    .bind(tenant_a.to_string())
+    .execute(store.pool())
     .await
     .unwrap();
-    assert_eq!(reason, Some(WinnerReason::SuccessRate));
-    // A wins on raw success rate even though its quality is lower
-    // — the quality data wasn't actionable because B had no score.
-    assert_eq!(
-        get_run(&store, &run_id)
-            .await
-            .unwrap()
-            .unwrap()
-            .winner
-            .as_deref(),
-        Some("v1")
+    // tenant_b promote on tenant_a's run id must error rather than
+    // silently flipping the loser's `superseded_by` pointer.
+    let err = promote(&store, &tenant_b, &run_id_a, None)
+        .await
+        .unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains("no ab run with id"),
+        "expected 'no ab run with id' guard, got {msg}"
     );
 }
 
-#[tokio::test]
-async fn falls_through_to_success_rate_when_neither_variant_has_quality() {
-    let store = open_store_arc().await;
-    let (run_id, _, _) = setup_run(&store, 0x30, 0x31, 60, 30).await;
-    let qstore = make_qstore(Arc::clone(&store)).await;
-    let (_, reason) = maybe_complete_with_quality(
-        &store,
-        &run_id,
-        30,
-        Some(&qstore),
-        QualityWeightConfig::default(),
-    )
-    .await
-    .unwrap();
-    assert_eq!(reason, Some(WinnerReason::SuccessRate));
-    assert_eq!(
-        get_run(&store, &run_id)
-            .await
-            .unwrap()
-            .unwrap()
-            .winner
-            .as_deref(),
-        Some("v1")
-    );
-}
-
-#[tokio::test]
-async fn stale_quality_score_is_treated_as_missing() {
-    let store = open_store_arc().await;
-    let (run_id, a_id, b_id) = setup_run(&store, 0x40, 0x41, 60, 30).await;
-    let qstore = make_qstore(Arc::clone(&store)).await;
-    // Both scores recorded but B's is older than the 7-day cutoff
-    // → B treated as missing → fall-through to success rate.
-    qstore
-        .record(a_id, &inputs_for_score(0.20), Utc::now())
-        .await
-        .unwrap();
-    let stale = Utc::now() - Duration::days(10);
-    qstore
-        .record(b_id, &inputs_for_score(1.00), stale)
-        .await
-        .unwrap();
-    let (_, reason) = maybe_complete_with_quality(
-        &store,
-        &run_id,
-        30,
-        Some(&qstore),
-        QualityWeightConfig::default(),
-    )
-    .await
-    .unwrap();
-    assert_eq!(reason, Some(WinnerReason::SuccessRate));
-    assert_eq!(
-        get_run(&store, &run_id)
-            .await
-            .unwrap()
-            .unwrap()
-            .winner
-            .as_deref(),
-        Some("v1")
-    );
-}
-
-#[tokio::test]
-async fn weight_knob_changes_decision() {
-    let store = open_store_arc().await;
-    // Same raw shape as the quality_tips test (A=60%, B=30%; A
-    // quality=20, B quality=100). With weight=0.0 quality is
-    // ignored → A wins on success rate. With weight=0.3 → B wins.
-    let (run_id, a_id, b_id) = setup_run(&store, 0x50, 0x51, 60, 30).await;
-    let qstore = make_qstore(Arc::clone(&store)).await;
-    let now = Utc::now();
-    qstore
-        .record(a_id, &inputs_for_score(0.20), now)
-        .await
-        .unwrap();
-    qstore
-        .record(b_id, &inputs_for_score(1.00), now)
-        .await
-        .unwrap();
-    let (_, reason) = maybe_complete_with_quality(
-        &store,
-        &run_id,
-        30,
-        Some(&qstore),
-        QualityWeightConfig {
-            weight_quality: 0.0,
-            max_score_age_days: 7,
-        },
-    )
-    .await
-    .unwrap();
-    assert_eq!(reason, Some(WinnerReason::SuccessRate));
-    assert_eq!(
-        get_run(&store, &run_id)
-            .await
-            .unwrap()
-            .unwrap()
-            .winner
-            .as_deref(),
-        Some("v1")
-    );
-}

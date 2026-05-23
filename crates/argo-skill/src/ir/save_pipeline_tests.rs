@@ -129,9 +129,11 @@ async fn save_second_version_schedules_ab_run() {
     let run_id = second.ab_test_run_id.expect("ab run");
 
     let row = sqlx::query(
-        "SELECT skill_name, variant_a, variant_b, status FROM skill_ab_test_run WHERE id = ?",
+        "SELECT skill_name, variant_a, variant_b, status, tenant_id \
+         FROM skill_ab_test_run WHERE id = ? AND tenant_id = ?",
     )
     .bind(&run_id)
+    .bind(tenant.to_string())
     .fetch_one(store.pool())
     .await
     .expect("ab row");
@@ -139,4 +141,5 @@ async fn save_second_version_schedules_ab_run() {
     assert_eq!(row.get::<String, _>("variant_a"), first.version);
     assert_eq!(row.get::<String, _>("variant_b"), second.version);
     assert_eq!(row.get::<String, _>("status"), "running");
+    assert_eq!(row.get::<String, _>("tenant_id"), tenant.to_string());
 }

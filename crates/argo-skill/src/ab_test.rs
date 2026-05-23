@@ -28,7 +28,7 @@
 use crate::version::find_version;
 use argo_eval::{ensure_promotion_allowed, EvalRegressionReport};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -111,8 +111,14 @@ pub async fn ensure_ab_schema(store: &SessionStore) -> ArgoResult<()> {
 
 /// Insert a new `skill_ab_test_run` row. Both variants are
 /// version strings (e.g. `"v2"` / `"v3"`). Returns the run id.
+///
+/// `tenant_id` is persisted onto the row so subsequent
+/// [`get_run`] / [`promote`] / [`maybe_complete`] calls scope to the
+/// same tenant; cross-tenant lookups return `None` even when the
+/// UUIDv7 `run_id` is known.
 pub async fn create_run(
     store: &SessionStore,
+    tenant_id: &TenantId,
     skill_name: &str,
     variant_a_version: &str,
     variant_b_version: &str,
@@ -143,10 +149,11 @@ pub async fn create_run(
     let now = Utc::now().timestamp_micros();
     sqlx::query(
         "INSERT INTO skill_ab_test_run \
-         (id, skill_name, variant_a, variant_b, target_runs, started_at, status) \
-         VALUES (?, ?, ?, ?, ?, ?, 'running')",
+         (id, tenant_id, skill_name, variant_a, variant_b, target_runs, started_at, status) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'running')",
     )
     .bind(&id)
+    .bind(tenant_id.to_string())
     .bind(skill_name)
     .bind(variant_a_version)
     .bind(variant_b_version)
@@ -188,13 +195,23 @@ pub async fn record_outcome(
 }
 
 /// Fetch a run by id. Returns `None` if missing.
-pub async fn get_run(store: &SessionStore, run_id: &str) -> ArgoResult<Option<AbTestRun>> {
+///
+/// The `id` column is a globally-unique UUIDv7, so a collision-by-id
+/// is impossible — the `tenant_id = ?` predicate is defence-in-depth:
+/// even if a caller leaks a foreign run id, this returns `None`
+/// rather than silently surfacing another tenant's row.
+pub async fn get_run(
+    store: &SessionStore,
+    tenant_id: &TenantId,
+    run_id: &str,
+) -> ArgoResult<Option<AbTestRun>> {
     let row = sqlx::query(
         "SELECT id, skill_name, variant_a, variant_b, target_runs, \
          started_at, completed_at, status, winner \
-         FROM skill_ab_test_run WHERE id = ?",
+         FROM skill_ab_test_run WHERE id = ? AND tenant_id = ?",
     )
     .bind(run_id)
+    .bind(tenant_id.to_string())
     .fetch_optional(store.pool())
     .await
     .map_err(|e| ArgoError::Provider(format!("get ab run: {e}")))?;
@@ -245,11 +262,13 @@ pub async fn variant_counts(
 /// — re-calling on a `completed` run is a no-op.
 pub async fn maybe_complete(
     store: &SessionStore,
+    tenant_id: &TenantId,
     run_id: &str,
     min_samples_per_variant: i64,
 ) -> ArgoResult<Option<Significance>> {
     let (sig, _) = maybe_complete_with_quality(
         store,
+        tenant_id,
         run_id,
         min_samples_per_variant,
         None,
@@ -267,10 +286,11 @@ pub async fn maybe_complete(
 /// was applied.
 pub async fn promote(
     store: &SessionStore,
+    tenant_id: &TenantId,
     run_id: &str,
     explicit_winner: Option<&str>,
 ) -> ArgoResult<String> {
-    promote_with_regression_gate(store, run_id, explicit_winner, None, false).await
+    promote_with_regression_gate(store, tenant_id, run_id, explicit_winner, None, false).await
 }
 
 /// Promote an AB-test winner after enforcing an optional eval-regression gate.
@@ -280,6 +300,7 @@ pub async fn promote(
 /// blocks promotion and `override_regression` is false.
 pub async fn promote_with_regression_gate(
     store: &SessionStore,
+    tenant_id: &TenantId,
     run_id: &str,
     explicit_winner: Option<&str>,
     regression: Option<&EvalRegressionReport>,
@@ -288,7 +309,7 @@ pub async fn promote_with_regression_gate(
     if let Some(report) = regression {
         ensure_promotion_allowed(report, override_regression).map_err(ArgoError::Provider)?;
     }
-    let run = get_run(store, run_id)
+    let run = get_run(store, tenant_id, run_id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("promote: no ab run with id '{run_id}'")))?;
     let winner = explicit_winner

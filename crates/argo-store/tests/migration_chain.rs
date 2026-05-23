@@ -44,6 +44,7 @@ async fn apply_sql_file_migrations(store: &SessionStore, idempotent: bool) -> Re
                 Err(e) if is_worker_archived_at_duplicate(stmt, &e) => {}
                 Err(e) if is_worker_trust_grade_duplicate(stmt, &e) => {}
                 Err(e) if is_skill_min_trust_grade_duplicate(stmt, &e) => {}
+                Err(e) if is_skill_ab_test_run_tenant_id_duplicate(stmt, &e) => {}
                 Err(e) if idempotent && is_clean_idempotent_error(&e) => {}
                 Err(e) => return Err(format!("{}: {e}", path.display())),
             }
@@ -360,6 +361,11 @@ fn is_skill_min_trust_grade_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
         && err
             .to_string()
             .contains("duplicate column name: min_trust_grade")
+}
+
+fn is_skill_ab_test_run_tenant_id_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
+    stmt.contains("ALTER TABLE skill_ab_test_run ADD COLUMN tenant_id")
+        && err.to_string().contains("duplicate column name: tenant_id")
 }
 
 fn is_clean_idempotent_error(err: &sqlx::Error) -> bool {

@@ -144,7 +144,7 @@ pub async fn save_edited_graph(
     ir.put(tenant_id, skill_id, &version, graph).await?;
     let ir_hash_hex = canonical_hash_hex(graph)?;
     let ab_test_run_id = match previous {
-        Some(prev) => Some(schedule_ab_test(store, skill_id, &prev, &version).await?),
+        Some(prev) => Some(schedule_ab_test(store, tenant_id, skill_id, &prev, &version).await?),
         None => None,
     };
     Ok(SavePipelineOutcome {
@@ -160,6 +160,7 @@ fn next_canvas_version() -> String {
 
 async fn schedule_ab_test(
     store: &SessionStore,
+    tenant_id: TenantId,
     skill_id: SkillId,
     previous_version: &str,
     next_version: &str,
@@ -167,10 +168,11 @@ async fn schedule_ab_test(
     let id = Uuid::now_v7().to_string();
     sqlx::query(
         "INSERT INTO skill_ab_test_run \
-         (id, skill_name, variant_a, variant_b, target_runs, started_at, status) \
-         VALUES (?, ?, ?, ?, ?, ?, 'running')",
+         (id, tenant_id, skill_name, variant_a, variant_b, target_runs, started_at, status) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'running')",
     )
     .bind(&id)
+    .bind(tenant_id.to_string())
     .bind(skill_id.to_string())
     .bind(previous_version)
     .bind(next_version)

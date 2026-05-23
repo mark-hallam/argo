@@ -6,9 +6,13 @@ use argo_skill::{
     SkillFrontmatter, Variant,
 };
 use argo_store::SessionStore;
-use argo_types::{CapabilitySet, Lock, SkillId};
+use argo_types::{CapabilitySet, Lock, SkillId, TenantId};
 use chrono::Utc;
 use uuid::Uuid;
+
+fn test_tenant() -> TenantId {
+    TenantId(Uuid::nil())
+}
 
 fn skill(name: &str, version: &str, body: &str) -> Skill {
     Skill {
@@ -83,7 +87,9 @@ async fn two_variants_deterministic_selection_via_ab_run() {
     ensure_ab_schema(&store).await.unwrap();
     insert_skill_row(&store, "alpha", "v1").await;
     insert_skill_row(&store, "alpha", "v2").await;
-    let run_id = create_run(&store, "alpha", "v1", "v2", 100).await.unwrap();
+    let run_id = create_run(&store, &test_tenant(), "alpha", "v1", "v2", 100)
+        .await
+        .unwrap();
 
     let active = vec![
         skill("alpha", "v1", "body-v1"),
@@ -126,7 +132,9 @@ async fn record_outcome_success_writes_a_row() {
     ensure_ab_schema(&store).await.unwrap();
     insert_skill_row(&store, "alpha", "v1").await;
     insert_skill_row(&store, "alpha", "v2").await;
-    let run_id = create_run(&store, "alpha", "v1", "v2", 100).await.unwrap();
+    let run_id = create_run(&store, &test_tenant(), "alpha", "v1", "v2", 100)
+        .await
+        .unwrap();
     let pending = vec![PendingAbOutcome {
         run_id: run_id.clone(),
         invocation_id: "inv-success".into(),
@@ -144,7 +152,9 @@ async fn record_outcome_failure_writes_a_row_with_zero_successes() {
     ensure_ab_schema(&store).await.unwrap();
     insert_skill_row(&store, "alpha", "v1").await;
     insert_skill_row(&store, "alpha", "v2").await;
-    let run_id = create_run(&store, "alpha", "v1", "v2", 100).await.unwrap();
+    let run_id = create_run(&store, &test_tenant(), "alpha", "v1", "v2", 100)
+        .await
+        .unwrap();
     let pending = vec![PendingAbOutcome {
         run_id: run_id.clone(),
         invocation_id: "inv-fail".into(),
@@ -162,7 +172,9 @@ async fn select_error_falls_back_to_first_variant_when_target_version_missing() 
     ensure_ab_schema(&store).await.unwrap();
     insert_skill_row(&store, "alpha", "v1").await;
     insert_skill_row(&store, "alpha", "v2").await;
-    create_run(&store, "alpha", "v1", "v2", 100).await.unwrap();
+    create_run(&store, &test_tenant(), "alpha", "v1", "v2", 100)
+        .await
+        .unwrap();
 
     // Active list only has v3/v4 — neither matches the run's
     // declared variants. select_variant picks A or B; either way
@@ -202,7 +214,9 @@ async fn record_outcome_is_idempotent_via_invocation_id() {
     ensure_ab_schema(&store).await.unwrap();
     insert_skill_row(&store, "alpha", "v1").await;
     insert_skill_row(&store, "alpha", "v2").await;
-    let run_id = create_run(&store, "alpha", "v1", "v2", 100).await.unwrap();
+    let run_id = create_run(&store, &test_tenant(), "alpha", "v1", "v2", 100)
+        .await
+        .unwrap();
     let pending = vec![PendingAbOutcome {
         run_id: run_id.clone(),
         invocation_id: "inv-dedup".into(),

@@ -17,10 +17,23 @@ use argo_skill::{
     QualityWeightConfig, SkillQualityStore, SkillVersion, WinnerReason,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde_json::json;
 use sqlx::Row;
 use std::sync::Arc;
+use uuid::Uuid;
+
+/// Sentinel tenant for CLI invocations until the
+/// operator-facing `--tenant` flag lands. Using the all-zero UUID
+/// keeps subsequent CLI calls (`ab-test` → `ab-status` →
+/// `ab-promote`) coherent across process boundaries: every
+/// invocation hits the same `tenant_id` predicate, so the run
+/// inserted by one command stays findable by the next. The
+/// re-tenanting CLI queued in the sibling brief reassigns these
+/// rows to a real tenant once the operator chooses one.
+fn cli_default_tenant() -> TenantId {
+    TenantId(Uuid::nil())
+}
 
 /// `argo skill versions <name>` entry.
 pub async fn versions(cmd: SkillVersionsCmd) -> ArgoResult<()> {
@@ -54,8 +67,9 @@ pub async fn ab_test(cmd: SkillAbTestCmd) -> ArgoResult<()> {
     let (a, b) = parse_variants(&cmd.variants)?;
     let store = open_store().await?;
     ensure_ab_schema(&store).await?;
-    let run_id = create_run(&store, &cmd.name, &a, &b, cmd.runs).await?;
-    let run = get_run(&store, &run_id)
+    let tenant = cli_default_tenant();
+    let run_id = create_run(&store, &tenant, &cmd.name, &a, &b, cmd.runs).await?;
+    let run = get_run(&store, &tenant, &run_id)
         .await?
         .ok_or_else(|| ArgoError::Provider("ab-test: run inserted but not found".into()))?;
     if cmd.json {
@@ -75,14 +89,17 @@ pub async fn ab_test(cmd: SkillAbTestCmd) -> ArgoResult<()> {
 pub async fn ab_status(cmd: SkillAbStatusCmd) -> ArgoResult<()> {
     let store = open_store().await?;
     ensure_ab_schema(&store).await?;
-    let run = get_run(&store, &cmd.run_id).await?.ok_or_else(|| {
+    let tenant = cli_default_tenant();
+    let run = get_run(&store, &tenant, &cmd.run_id).await?.ok_or_else(|| {
         ArgoError::Provider(format!("ab-status: no run with id '{}'", cmd.run_id))
     })?;
     let (a, b) = variant_counts(&store, &cmd.run_id).await?;
     let sig = significance(a, b, cmd.min_samples);
     // Auto-complete if eligible (idempotent).
-    let _ = maybe_complete(&store, &cmd.run_id, cmd.min_samples).await?;
-    let run_after = get_run(&store, &cmd.run_id).await?.unwrap_or(run.clone());
+    let _ = maybe_complete(&store, &tenant, &cmd.run_id, cmd.min_samples).await?;
+    let run_after = get_run(&store, &tenant, &cmd.run_id)
+        .await?
+        .unwrap_or(run.clone());
     if cmd.json {
         println!(
             "{}",
@@ -107,7 +124,8 @@ pub async fn ab_status(cmd: SkillAbStatusCmd) -> ArgoResult<()> {
 pub async fn ab_snapshot(cmd: SkillAbSnapshotCmd) -> ArgoResult<()> {
     let store = open_store().await?;
     ensure_ab_schema(&store).await?;
-    let Some(run) = latest_run_for_skill(&store, &cmd.name).await? else {
+    let tenant = cli_default_tenant();
+    let Some(run) = latest_run_for_skill(&store, &tenant, &cmd.name).await? else {
         if cmd.json {
             println!("{}", json!({"skill": cmd.name, "run": null}));
         } else {
@@ -135,25 +153,29 @@ pub async fn ab_snapshot(cmd: SkillAbSnapshotCmd) -> ArgoResult<()> {
 
 async fn latest_run_for_skill(
     store: &SessionStore,
+    tenant_id: &TenantId,
     skill_name: &str,
 ) -> ArgoResult<Option<AbTestRun>> {
     let row = sqlx::query(
         "SELECT id FROM skill_ab_test_run \
-         WHERE skill_name = ? ORDER BY started_at DESC LIMIT 1",
+         WHERE tenant_id = ? AND skill_name = ? \
+         ORDER BY started_at DESC LIMIT 1",
     )
+    .bind(tenant_id.to_string())
     .bind(skill_name)
     .fetch_optional(store.pool())
     .await
     .map_err(|e| ArgoError::Provider(format!("ab-snapshot lookup: {e}")))?;
     let Some(row) = row else { return Ok(None) };
     let id: String = row.get("id");
-    get_run(store, &id).await
+    get_run(store, tenant_id, &id).await
 }
 
 /// `argo skill ab-promote <run-id> [--winner V]` entry.
 pub async fn ab_promote(cmd: SkillAbPromoteCmd) -> ArgoResult<()> {
     let store = Arc::new(open_store().await?);
     ensure_ab_schema(&store).await?;
+    let tenant = cli_default_tenant();
     let quality_store = SkillQualityStore::new(Arc::clone(&store));
     quality_store.ensure_schema().await?;
     let config = QualityWeightConfig {
@@ -162,13 +184,14 @@ pub async fn ab_promote(cmd: SkillAbPromoteCmd) -> ArgoResult<()> {
     };
     let (_, reason) = maybe_complete_with_quality(
         &store,
+        &tenant,
         &cmd.run_id,
         cmd.min_samples,
         Some(&quality_store),
         config,
     )
     .await?;
-    let winner = promote(&store, &cmd.run_id, cmd.winner.as_deref()).await?;
+    let winner = promote(&store, &tenant, &cmd.run_id, cmd.winner.as_deref()).await?;
     let reason_str = winner_reason_str(reason);
     if cmd.json {
         println!(
@@ -319,7 +342,10 @@ mod tests {
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
         ensure_ab_schema(&store).await.unwrap();
-        let run = latest_run_for_skill(&store, "alpha").await.unwrap();
+        let tenant = cli_default_tenant();
+        let run = latest_run_for_skill(&store, &tenant, "alpha")
+            .await
+            .unwrap();
         assert!(run.is_none());
     }
 
@@ -328,14 +354,19 @@ mod tests {
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
         ensure_ab_schema(&store).await.unwrap();
+        let tenant = cli_default_tenant();
         insert_skill_row(&store, "alpha", "v1").await;
         insert_skill_row(&store, "alpha", "v2").await;
-        let _r1 = create_run(&store, "alpha", "v1", "v2", 100).await.unwrap();
+        let _r1 = create_run(&store, &tenant, "alpha", "v1", "v2", 100)
+            .await
+            .unwrap();
         // tiny pause so the second run's started_at strictly exceeds
         // the first's (microsecond clock resolution).
         tokio::time::sleep(std::time::Duration::from_millis(2)).await;
-        let r2 = create_run(&store, "alpha", "v1", "v2", 200).await.unwrap();
-        let got = latest_run_for_skill(&store, "alpha")
+        let r2 = create_run(&store, &tenant, "alpha", "v1", "v2", 200)
+            .await
+            .unwrap();
+        let got = latest_run_for_skill(&store, &tenant, "alpha")
             .await
             .unwrap()
             .unwrap();
@@ -347,11 +378,35 @@ mod tests {
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
         ensure_ab_schema(&store).await.unwrap();
+        let tenant = cli_default_tenant();
         // Verifies the lookup path returns cleanly when no run
         // exists — the human/json branches inside the handler are
         // smoke-tested by the JSON shape via `latest_run_for_skill`
         // returning `None`.
-        let result = latest_run_for_skill(&store, "nonexistent").await.unwrap();
+        let result = latest_run_for_skill(&store, &tenant, "nonexistent")
+            .await
+            .unwrap();
         assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn latest_run_for_skill_does_not_leak_across_tenants() {
+        let store = SessionStore::open(":memory:").await.unwrap();
+        store.migrate().await.unwrap();
+        ensure_ab_schema(&store).await.unwrap();
+        insert_skill_row(&store, "alpha", "v1").await;
+        insert_skill_row(&store, "alpha", "v2").await;
+        let tenant_a = TenantId(Uuid::from_u128(0xAA));
+        let tenant_b = TenantId(Uuid::from_u128(0xBB));
+        let _ = create_run(&store, &tenant_a, "alpha", "v1", "v2", 50)
+            .await
+            .unwrap();
+        let got = latest_run_for_skill(&store, &tenant_b, "alpha")
+            .await
+            .unwrap();
+        assert!(
+            got.is_none(),
+            "tenant_b must not see tenant_a's A/B run via shared workspace lookup"
+        );
     }
 }

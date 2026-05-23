@@ -4,7 +4,7 @@ use super::{get_run, significance, variant_counts, AbTestRun, Significance, Vari
 use crate::quality::SkillQualityStore;
 use crate::version::find_version;
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SkillId};
+use argo_types::{ArgoError, ArgoResult, SkillId, TenantId};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -65,12 +65,13 @@ pub enum WinnerReason {
 /// `Some` only when the run flipped to `completed` on this call.
 pub async fn maybe_complete_with_quality(
     store: &SessionStore,
+    tenant_id: &TenantId,
     run_id: &str,
     min_samples_per_variant: i64,
     quality_store: Option<&SkillQualityStore>,
     config: QualityWeightConfig,
 ) -> ArgoResult<(Option<Significance>, Option<WinnerReason>)> {
-    let Some(run) = get_run(store, run_id).await? else {
+    let Some(run) = get_run(store, tenant_id, run_id).await? else {
         return Ok((None, None));
     };
     if run.status != "running" {
@@ -87,11 +88,12 @@ pub async fn maybe_complete_with_quality(
     let now = Utc::now().timestamp_micros();
     sqlx::query(
         "UPDATE skill_ab_test_run SET status = 'completed', \
-         completed_at = ?, winner = ? WHERE id = ?",
+         completed_at = ?, winner = ? WHERE id = ? AND tenant_id = ?",
     )
     .bind(now)
     .bind(&winner)
     .bind(run_id)
+    .bind(tenant_id.to_string())
     .execute(store.pool())
     .await
     .map_err(|e| ArgoError::Provider(format!("complete ab run: {e}")))?;
@@ -204,3 +206,7 @@ fn skill_id_from_hex(hex: &str) -> Option<SkillId> {
     }
     Some(SkillId(Uuid::from_bytes(bytes)))
 }
+
+#[cfg(test)]
+#[path = "ab_test_quality_tests.rs"]
+mod ab_test_quality_tests;
