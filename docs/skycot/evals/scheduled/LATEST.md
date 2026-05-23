@@ -1,5 +1,14 @@
 # Mission-vs-Code Gap Manifest
 
+## Round headlines (most-recent first)
+
+| Round | UTC | Scenarios | Verdicts | Brief candidates |
+|---|---|---|---|---|
+| 16 | 2026-05-23T14:30Z | #2089 WorkerSessionRunner verify · #2091 orchestrator cross-tenant verify | 🟢 + 🟢 + 1 P2 surfaced | `mission-orchestrator-duty-store-tenant-args` (P2 — DutyStore mutators take `id: &str` only) · re-confirm `mission-workflow-execute-route` exists (gateway HTTP route for WorkerSessionRunner) |
+| 15 | 2026-05-23T13:45Z | MISSION.md amendment (strengtheners + LIVE criteria 1/2/3) | informational | — |
+| 14 | 2026-05-23 | argo-memory audit | 🟢 strongest tenant-isolation evidence to date | (cleared) |
+| 13 | 2026-05-23 | argo-store 13-table sweep | 🔴 2 cross-tenant leaks + 1 audit gap | claude-skill-runs-worker-budget-tenant-scope + claude-spend-anomaly-tenant-scope-distinct + eval-subtask-ledger-caller-tenant-audit (all authored) |
+
 **Authored**: 2026-05-23 (evaluator round 8)
 **Status**: 🔴 LIVING DOCUMENT — extend, never truncate.
 **Purpose**: Single canonical map of "what MISSION.md says SKYCOT must do" vs "what code currently exists." Each gap row has a citation + priority + suggested brief shape the conductor turns into ledger work.
@@ -55,7 +64,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 | `argo-vertical` | ? | 🔴 NOT AUDITED | Loads `.workflow.toml` files. Authoritative source for v1 per `workflow_definition.rs:1-10` docstring. **Mission claim 3 says Genesis-generated verticals must work; need to verify Genesis output round-trips through argo-vertical's loader.** | `argo-vertical::parse_workflow` cited in `workflow_definition_write.rs:45` | 🟡 P2 | `eval-genesis-output-loads-cleanly-through-argo-vertical` — drive Genesis on 5 distinct role descriptions, write the trees to tempdirs, `argo_vertical::load_dir` each, assert no parse errors. |
 | `argo-vertical-packs` | ? | 🔴 NOT AUDITED | Vertical marketplace registry per `project_skycot_packs_repo.md`. **Gap: which verticals ship today? Which are reachable from `/api/v1/verticals`?** | `routes_verticals.rs` | 🟢 P2 | `eval-vertical-pack-registry-coverage` — list installed verticals on a fresh `~/.argo/`, compare to `verticals/` repo subdir + the marketplace catalog, surface any drift. |
 | `argo-vertical-regression` | ? | 🔴 NOT AUDITED | Regression-test framework for vertical changes (drift gate). Per `feedback_brief_authoring_preflight_rules.md` the regression suite is consulted before vertical edits ship. | — | 🟢 P3 | `eval-vertical-regression-cadence` — verify the regression suite runs on every vertical edit + flags drift. |
-| `argo-workflow` (runtime) | ? | 🔴 NOT AUDITED | DAG / executor / checkpoint primitives. Per `argo-workflow/src/lib.rs` — the workflow runner. **Mission claim 3 needs the SPA build canvas → save → publish → execute loop end-to-end. Round 7 confirmed CRUD layer is solid; execution layer is unaudited.** | `argo-workflow/src/executor.rs` | 🟡 P1 | `eval-workflow-execution-runs-real-step` — given a saved workflow with a single `tool_call` step against a mock MCP server, executor invokes the tool, captures audit, writes checkpoint. |
+| `argo-workflow` (runtime) | 1.1k | 🟢 round 16 — WorkerSessionRunner verified via #2089 | CRUD layer solid (round 7). Execution layer: capability check fires BEFORE MCP dispatch, audit row in step tx, 5/5 contract tests pass including cross-tenant refusal (`dispatcher.calls().is_empty()` on capability denial). **Open follow-up**: `mission-workflow-execute-route` — no `POST /api/v1/verticals/<v>/workflows/<n>/run` route at origin/main yet (called out in runner.rs:50-57). | `crates/argo-workflow/src/runner.rs:1-360` + round-16 report | 🟡 P1 follow-up | Confirm `mission-workflow-execute-route` is in queue; escalate if missing. |
 | Workflow build canvas LOAD path | — | 🔴 GAP confirmed round 7 | Canvas reads `SEED_WORKFLOWS` static fixture not the gateway. | `page.tsx:115-130` | 🔴 P0 | `web-workflow-build-fetch-from-gateway` (round 7). |
 
 ### Claim 4 — Skills shared + learned
@@ -116,7 +125,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 | `argo-siem` | All | 🔴 NOT AUDITED | SIEM dispatch (per migration 103). | 🟡 P2 |
 | `argo-replay` | Mission claim 6 audit | 🔴 NOT AUDITED | Audit-replay surface. Cross-tenant fix in #1992. | 🟡 P2 — re-verify. |
 | `argo-billing` | Operational | 🟢 by use | Stripe HMAC + checkout + portal. Per round-1 audit listed as tenant-agnostic by construction. | — |
-| `argo-orchestrator` | Multi-worker | 🔴 NOT AUDITED | Inter-worker handoffs. Per coverage report: HIGH-risk for cross-tenant strategy disclosure. | 🟡 P2 |
+| `argo-orchestrator` | Multi-worker | 🟢 round 12 + 16 — 13/13 cross-tenant tests pass via #2091 | OrchestratorStore SQL was tenant-scoped (round 12) but had zero negative tests; #2091 added byte-identical-Debug-repr coverage across Handoff/RetryPolicy/Duty/SLA (5 surfaces). 🟡 **DutyStore mutators take `id: &str` only** (not self-defending; production seam holds via `DutyScheduler::tick`'s pre-filter). Brief candidate: `mission-orchestrator-duty-store-tenant-args` (P2, ~300 LOC). | 🟡 P2 follow-up |
 | `argo-forge` | Worker A/B | 🔴 NOT AUDITED | Per MISSION.md status: "Judge is consulted by forge promote (fail-CLOSED — promotion blast-radius is larger)". | 🟡 P2 |
 | `argo-eval` | Worker quality | 🔴 NOT AUDITED | Eval framework. | 🟡 P2 |
 | `argo-marketplace` | Claim 4 distribution | 🔴 NOT AUDITED | OCI skill distribution. | 🟡 P2 |
