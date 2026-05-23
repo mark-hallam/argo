@@ -4,6 +4,8 @@
 
 | Round | UTC | Scenarios | Verdicts | Brief candidates |
 |---|---|---|---|---|
+| 19 | 2026-05-23T16:25Z | round-17 Claim 1 LIVE test cold-run · #2100 duty-store-tenant-args pre-merge verify · #2097 token-cache escalation source-read | 🟢 + 🟢 + 🟢 (P0 premise confirmed real) | none new — `eval-claim-1-live-memory-roundtrip-extension` (P2, ~150 LOC docstring-reference) recommended for quiet-tick promotion |
+| 18 | (concurrent session) | LIVE-criteria drafts for claims 4/5/6 (see `draft-live-criteria-claims-4-5-6.md`) | informational — pending operator sign-off | — |
 | 17 | 2026-05-23T15:00Z | #2094 skill_runs worker_budget verify · #2095 spend_anomaly DISTINCT verify · #2093 subtask_ledger investigation verify · CHANGES-REQUESTED PR cohort triage | 🟢 + 🟢 + 🟢 + 🔴 P0 process | `claude-rebase-changes-requested-cluster-tick85` (P0 — #2087/#2088/#2090 stale 13h+, #2088+#2090 now CONFLICTING) |
 | 16 | 2026-05-23T14:30Z | #2089 WorkerSessionRunner verify · #2091 orchestrator cross-tenant verify | 🟢 + 🟢 + 1 P2 surfaced | `mission-orchestrator-duty-store-tenant-args` (P2 — DutyStore mutators take `id: &str` only) · re-confirm `mission-workflow-execute-route` exists (gateway HTTP route for WorkerSessionRunner) |
 | 15 | 2026-05-23T13:45Z | MISSION.md amendment (strengtheners + LIVE criteria 1/2/3) | informational | — |
