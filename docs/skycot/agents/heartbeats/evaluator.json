@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T15:00:00Z",
+  "last_run_utc": "2026-05-23T15:30:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-evaluator-session-round-18-live-criteria-drafts",
-  "run_notes": "round 18 — drafted LIVE criteria for claims 4/5/6 in docs/skycot/evals/scheduled/2026-05-23/draft-live-criteria-claims-4-5-6.md. Pending operator sign-off. Same format as claims 1/2/3 (round 15). Claim 4: option 4A substrate (install + invoke + audit) recommended for v1, option 4B closed-loop learning deferred to v1.x. Claim 5: split into MCP half + cu-macos half, both must be green. Claim 6: split into outbound, cross-tenant, audit-chain sub-tests, ALL three must be green. Once operator picks (go / amend / reject) per criterion, I'll push the wording into MISSION.md and author the regression tests in subsequent rounds. Target: by 2026-05-30 all 6 mission claims have green regression contracts."
+  "session_label": "anthropic-claude-code-evaluator-session-round-18-mission-criteria-locked",
+  "run_notes": "round 18 follow-on — operator signed off on LIVE criteria drafts for claims 4/5/6. Pushed verbatim into MISSION.md. Provenance note extended. All 6 mission claims now have falsifiable, operator-locked, machine-verifiable LIVE criteria. Claim 1 regression test green on main (round 17). Claims 2+3 regression land when the CLAIMED P0 fix-briefs ship by 2026-05-30. Claims 4/5/6 regression tests will be authored in subsequent rounds. By 2026-05-30 all 6 mission claims = machine-verifiable contracts."
 }

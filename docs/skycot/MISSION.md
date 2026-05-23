@@ -92,18 +92,21 @@ no test are explicitly NOT LIVE.
 | **1 LIVE** | 5 distinct workers persist across gateway restarts, with memory, and one of them can be re-summoned by name 24 hours later. |
 | **2 LIVE** | A hired worker's duty cron fires AND invokes its agent runner AND writes a `WorkerDutyFired` audit row within 60 seconds. |
 | **3 LIVE** | `argo genesis plan "be my marketing intern" maya && argo workflow run` produces real output, not just files on disk. |
-| **4 LIVE** | _(TBD — pending operator pass-criteria.)_ |
-| **5 LIVE** | _(TBD — pending operator pass-criteria.)_ |
-| **6 LIVE** | _(TBD — pending operator pass-criteria.)_ |
+| **4 LIVE** | (option 4A locked; option 4B deferred to v1.x) `argo skill install <pack>` writes the skill to the workspace's skill library, a worker invokes it through a workflow step, and a `SkillInvoked` audit row is written carrying the skill's provenance (source pack + version + author). The closed-loop "learned" half (approve-novel-sequence → new skill → cross-tenant install + trust ratchet) is deferred to v1.x. |
+| **5 LIVE** | Two halves — **both must be green**. (i) **MCP**: a workflow step of kind `tool_call` against a registered MCP server's tool routes through `McpConnectionPool` keyed by `(tenant_id, name)`, passes the capability check, returns a result, and writes an `AuditKind::ToolCall` row with tenant_id + action_type + status. (ii) **Computer-use (macOS)**: with `ARGO_NATIVE_MACOS_INTEGRATION=1`, `tests/notes_smoke.rs` opens Notes, types a marker string via osascript, reads it back, asserts the marker round-trips, audit row carries the screenshot artifact id. Linux + Windows computer-use executors are DEFERRED-v1.x per operator memory; v1.0 LIVE for claim 5 is macOS-only. |
+| **6 LIVE** | Three sub-tests — **all three must be green**. (a) **Outbound** — a worker triggers an approval-gated action; email + Slack fire the request with an HMAC-signed approval token; approving advances the action and writes `ApprovalGranted`, declining writes `ApprovalDeclined`. (b) **Cross-tenant** — tenant_b cannot see tenant_a's pending approvals via any API (`GET /approvals`, `GET /approvals/bundles`, `POST /audit/export`); attempting to decide on an approval id from another tenant returns 404, not 403, per the existence-leak policy. (c) **Audit-chain** (round-15 strengthener) — `argo audit verify` returns `OK ({N} rows verified)` on a clean DB; after tampering with one row's `payload_json`, it returns `FAIL (row {id} hash mismatch)`. |
 
 Strengtheners get their own LIVE criteria as they mature.
 
 > **Provenance note**: this "Strengthening items" subsection +
 > "What 'LIVE' means per claim" subsection were added on
 > 2026-05-23 with direct operator sign-off in the evaluator
-> round-15 session. Mission claims 1-6 themselves are unchanged.
-> Future amendments to either subsection require the same
-> operator sign-off pattern.
+> round-15 session. Claims 1/2/3 LIVE criteria locked in
+> round 15. Claims 4/5/6 LIVE criteria locked in round 18
+> (also 2026-05-23, same direct operator sign-off pattern).
+> Mission claims 1-6 themselves are unchanged. Future
+> amendments to either subsection require the same operator
+> sign-off pattern.
 
 ---
 
