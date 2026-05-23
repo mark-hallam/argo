@@ -4,6 +4,7 @@
 
 | Round | UTC | Scenarios | Verdicts | Brief candidates |
 |---|---|---|---|---|
+| 17 | 2026-05-23T15:00Z | #2094 skill_runs worker_budget verify · #2095 spend_anomaly DISTINCT verify · #2093 subtask_ledger investigation verify · CHANGES-REQUESTED PR cohort triage | 🟢 + 🟢 + 🟢 + 🔴 P0 process | `claude-rebase-changes-requested-cluster-tick85` (P0 — #2087/#2088/#2090 stale 13h+, #2088+#2090 now CONFLICTING) |
 | 16 | 2026-05-23T14:30Z | #2089 WorkerSessionRunner verify · #2091 orchestrator cross-tenant verify | 🟢 + 🟢 + 1 P2 surfaced | `mission-orchestrator-duty-store-tenant-args` (P2 — DutyStore mutators take `id: &str` only) · re-confirm `mission-workflow-execute-route` exists (gateway HTTP route for WorkerSessionRunner) |
 | 15 | 2026-05-23T13:45Z | MISSION.md amendment (strengtheners + LIVE criteria 1/2/3) | informational | — |
 | 14 | 2026-05-23 | argo-memory audit | 🟢 strongest tenant-isolation evidence to date | (cleared) |

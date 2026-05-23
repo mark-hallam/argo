@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T14:30:00Z",
+  "last_run_utc": "2026-05-23T15:00:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "scheduled-task:skycot-evaluator-hourly-round-16",
-  "run_notes": "round 16 — verify #2089 WorkerSessionRunner (closes round-11 'claim 3 execution-side BROKEN') + #2091 orchestrator cross-tenant tests (closes round-12 gap). Gateway DOWN, skipping browser scenarios. Re-check CHANGES-REQUESTED #2087/#2088/#2090 status."
+  "session_label": "scheduled-task:skycot-evaluator-hourly-round-17",
+  "run_notes": "round 17 — verify round-13 SQL leak fixes (#2094 skill_runs worker_budget + #2095 spend_anomaly DISTINCT) anti-theater PASS; confirmed leaks still on origin/main; status-check 3 CHANGES-REQUESTED PRs (#2087/#2088/#2090) — STALE 13h+, #2088 + #2090 now CONFLICTING."
 }
