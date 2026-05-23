@@ -135,7 +135,7 @@ async fn expire_overdue_ignores_already_decided_rows() {
     .unwrap();
 
     // Resolve before sweep runs.
-    decide_request(&pool, &id, "grantor", ApprovalDecision::Approve)
+    decide_request(&pool, &id, tenant, "grantor", ApprovalDecision::Approve)
         .await
         .unwrap();
 
@@ -201,7 +201,7 @@ async fn state_machine_rejects_grant_after_expire() {
         .await
         .unwrap();
 
-    let updated = decide_request(&pool, &id, "grantor", ApprovalDecision::Approve)
+    let updated = decide_request(&pool, &id, tenant, "grantor", ApprovalDecision::Approve)
         .await
         .unwrap();
     assert!(!updated, "Expired -> Approve is illegal; must be a no-op");

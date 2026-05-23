@@ -139,6 +139,7 @@ async fn claim_6_mvp_cross_tenant_slack_approval_queue_isolation() {
     let decided = decide_request(
         &pool,
         &a_refund,
+        tenant_a,
         "human:operator-tenant-a",
         ApprovalDecision::Approve,
     )

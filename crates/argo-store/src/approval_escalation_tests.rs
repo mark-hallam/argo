@@ -81,7 +81,7 @@ async fn mark_escalation_sent_ignores_decided_rows() {
     let pool = fresh_pool().await;
     let tenant = TenantId::new();
     let id = seed(&pool, tenant, 1_700_000_000, 1).await;
-    decide_request(&pool, &id, "grantor", ApprovalDecision::Approve)
+    decide_request(&pool, &id, tenant, "grantor", ApprovalDecision::Approve)
         .await
         .unwrap();
 

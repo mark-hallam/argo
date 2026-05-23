@@ -46,7 +46,7 @@
 //! )
 //! .await?;
 //!
-//! decide_request(pool, &id, "approver-1", ApprovalDecision::Approve).await?;
+//! decide_request(pool, &id, tenant, "approver-1", ApprovalDecision::Approve).await?;
 //! let _ = list_pending(pool, tenant, 100).await?;
 //! # Ok(()) }
 //! ```
@@ -106,9 +106,18 @@ pub async fn get_request(pool: &SqlitePool, id: &str) -> ArgoResult<Option<Appro
 /// call on a non-Pending row is a silent no-op (returns `false`); the
 /// first successful call returns `true`. The `WHERE status = 'pending'`
 /// clause is what makes this safe under concurrent grantor races.
+///
+/// `tenant_id` pins the call to the row's owning tenant: a caller in
+/// tenant_b's context that supplies tenant_b cannot flip a row owned by
+/// tenant_a (the UPDATE matches zero rows and returns `false`). This
+/// closes the §4-finding-1 latent leak from
+/// `eval-argo-store-tenant-bind-sweep` (#2116): without the bind, any
+/// route handler that learned an approval id could decide across tenant
+/// boundaries.
 pub async fn decide_request(
     pool: &SqlitePool,
     id: &str,
+    tenant_id: TenantId,
     decided_by: &str,
     decision: ApprovalDecision,
 ) -> ArgoResult<bool> {
@@ -117,13 +126,14 @@ pub async fn decide_request(
     let rows = sqlx::query(
         "UPDATE approval_request \
          SET status = ?, decided_at = ?, decided_by = ?, decision = ? \
-         WHERE id = ? AND status = 'pending'",
+         WHERE id = ? AND tenant_id = ? AND status = 'pending'",
     )
     .bind(decision.as_store_str())
     .bind(now)
     .bind(decided_by)
     .bind(decision.as_store_str())
     .bind(&id_bytes)
+    .bind(tenant_id.0.as_bytes().as_slice())
     .execute(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("approval decide: {e}")))?;
