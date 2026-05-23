@@ -217,8 +217,7 @@ async fn claim_1_live_workers_persist_across_simulated_restart() {
     }
 
     let mariah_id_before_restart = hired_ids
-        .iter()
-        .next()
+        .first()
         .cloned()
         .expect("Mariah was hired first");
     assert_eq!(
