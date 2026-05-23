@@ -80,7 +80,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 | `argo-executor-document(-csv,-gsuite)` | ? | 🔴 NOT AUDITED | Document executors (CSV reader, Google Sheets). | — | 🟡 P2 | `eval-document-executor-cross-tenant-scoping` — Sheets credentials per tenant; CSV file reads scoped to worker's `worker_fs_root`. |
 | `argo-executor-filesystem` | ? | 🔴 NOT AUDITED | Per `worker_fs_root.sql` (migration 79) the executor scopes file access. | migration 79 | 🟡 P2 | `eval-filesystem-executor-fs-root-enforced` — assert a worker cannot read outside its `worker_fs_root`. |
 | `argo-sandbox` | ? | 🔴 NOT AUDITED | E2B microVM substrate. | — | 🟢 P3 (v1.x) | — |
-| `argo-tool` | ? | 🔴 NOT AUDITED | Tool capability declarations. Per MISSION.md "new tools default to MCP unless they require direct AgentDeps". **Gap: which tools are in-core vs MCP today? The 15-in-core list per MISSION.md needs verification.** | MISSION.md core-platform invariant #5 | 🟡 P1 | `eval-in-core-tool-inventory-vs-mission` — enumerate every in-core tool, verify capability declaration, compare to the MISSION's 15-tools claim. |
+| `argo-tool` | ~2.5K | 🟢 AUDITED 2026-05-23 (eval-in-core-tool-inventory-vs-mission) | All 15 in-core tools justified (Direct AgentDeps / sandbox primitive / filesystem primitive / lean fallback). Every tool declares a per-call capability except `session_search`, which intentionally returns `CapabilitySet::empty()` and documents the registry's `ToolDispatch` glob as the sole gate. Every tool has ≥1 test. **"15 in-core tools" claim lives in CLAUDE.md invariant #5, NOT in MISSION.md** — gap-manifest cite shorthand corrected. New pin test at `crates/argo-tool/tests/in_core_tool_inventory_pin_test.rs` asserts both invariants (capability declared + ≥1 test) for all 15 tools. No SHOULD-MIGRATE-TO-MCP verdicts today; `web_search` + `web_extract` are lean fallbacks until a browser MCP connector ships (#642). | `CLAUDE.md:50-52`; `crates/argo-tool/src/tools/mod.rs:222-251`; `eval-in-core-tool-inventory-vs-mission.md` | 🟢 closed | — |
 | `argo-routing` | ? | 🔴 NOT AUDITED | Per MISSION.md status: "ApiExecutor remains BLOCKED on schema-vs-acceptance mismatch (mission-wire-api-action-executor)". | MISSION.md §"runtime closed loops" | 🟡 P1 | `mission-wire-api-action-executor` (already a named brief per MISSION.md — verify status; may have shipped since the snapshot). |
 
 ### Claim 6 — Multi-channel approval + multi-tenant by construction
@@ -152,7 +152,7 @@ The conductor + auditor read this doc each tick and pick up unactioned rows. The
 8. `eval-genesis-pipeline-end-to-end-smoke` — does Genesis produce a real vertical from a plain-English role?
 9. `eval-workflow-execution-runs-real-step` — argo-workflow's executor + checkpoint.
 10. `eval-mcp-connector-real-vs-stub-inventory` — 27 connectors, which are real?
-11. `eval-in-core-tool-inventory-vs-mission` — MISSION.md claims 15 in-core tools; verify.
+11. ✅ `eval-in-core-tool-inventory-vs-mission` — 🟢 CLOSED 2026-05-23. All 15 tools justified; pin test added; CLAUDE.md (not MISSION.md) is the source of the "15 in-core" claim.
 12. `mission-wire-api-action-executor` — per MISSION.md known-blocked status.
 13. `eval-channels-v1-config-vs-code-inventory` — 13 channels in code, 3 in Pro pricing card; matrix the gap.
 14. `eval-channels-inbound-coverage` — which channels have inbound (approval-reply) paths.
@@ -192,7 +192,7 @@ In rough order of mission-leverage:
 7. `argo-channels` (deep walk per channel) — 🟡 P1 (partial this round)
 8. ~~`argo-orchestrator`~~ — 🟢 CLEARED round 12 (eval-orchestrator-cross-tenant-handoff-negative-test, 2026-05-23)
 9. `argo-routing` — 🟡 P1 (for ApiExecutor blocker)
-10. `argo-tool` — 🟡 P1
+10. ~~`argo-tool`~~ — 🟢 CLEARED 2026-05-23 (eval-in-core-tool-inventory-vs-mission)
 11. `argo-trust-engine` — 🟡 P2
 12. `argo-vertical` + `argo-vertical-packs` — 🟡 P2
 13. ~~`argo-memory`~~ — 🟢 CLEARED 2026-05-23 (eval-memory-per-worker-scope-honored)
