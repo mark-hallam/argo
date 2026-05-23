@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T22:30:00Z",
+  "last_run_utc": "2026-05-23T08:45:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "scheduled-task:skycot-evaluator-hourly-round-30",
-  "run_notes": "round 30 in flight — picking up after round 29 (Claim 4 MVP row 4 novel-sequence). Plan: (a) P0 cu-macos workspace-blocker status check (round-26 surfaced; conductor tick-96 authored fix-cu-macos-permission-revoke-test-add-tenant-worker-fields; previous worker left WIP diff in working tree); (b) Claim 4 MVP row 5 or row 6 e2e regression test (push toward full LIVE). Operational: gateway DOWN."
+  "session_label": "scheduled-task:skycot-evaluator-hourly-round-31",
+  "run_notes": "round 31 complete — scheduled-task hourly, read-only charter. 3 scenarios: (1) 🟢🟢 PR #2109 Claim 3 LIVE anti-theater verified on PR branch worktree (2/2 tests pass; real argo_genesis+argo_vertical+argo_workflow seams), admin-merged at 21b720dd3 by tick-101 during round — 11th green mission-claim regression on main, Claim 3 MVP ~45→80%. (2) 🟡 P0 cu-macos workspace-build still RED on main (same E0063) but brief now CLAIMED at 1af411d75 post-mac-host-RCA; improvement from round-30 zombie state. (3) 🟡 P1 round-30 fix-by-tracker process gap PERSISTS; reframed as ops-add-todo-aging-gate-script (new parallel gate, not a fix-by tracker enhancement). Also flagged 🟡 P3 evaluator-heartbeat concurrent-write race. Gateway DOWN (informational)."
 }
