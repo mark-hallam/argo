@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T15:00:00Z",
+  "last_run_utc": "2026-05-23T14:15:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "scheduled-task:skycot-evaluator-hourly-round-17",
-  "run_notes": "round 17 — verify round-13 SQL leak fixes (#2094 skill_runs worker_budget + #2095 spend_anomaly DISTINCT) anti-theater PASS; confirmed leaks still on origin/main; status-check 3 CHANGES-REQUESTED PRs (#2087/#2088/#2090) — STALE 13h+, #2088 + #2090 now CONFLICTING."
+  "session_label": "anthropic-claude-code-evaluator-session-round-16-vocabulary",
+  "run_notes": "round 16 — operator-locked vocabulary split: 'duty' = internal (code/SQL/audit/briefs), 'schedule' = operator-facing (SPA/wizard/marketing/docs). Saved as project_vocabulary_duty_vs_schedule.md memory + appended index. Added 2 P2 manifest rows: web-rename-duty-to-schedule-in-ui-copy + web-workflow-detail-add-as-schedule-button. Confirmed architecture: 1 worker = 1 vertical = N workflows (auto-accessible) = N duties (scheduled subset). The 'add as schedule' button is the missing UX affordance; no architecture change needed."
 }
