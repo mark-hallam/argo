@@ -27,22 +27,76 @@ now_epoch="$(date -u +%s)"
 now_iso="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 day_of_week_local="$(date +%u)"  # 1=Monday, 7=Sunday in operator's local tz
 
+# Agents whose heartbeat file may be split across multiple session
+# files (e.g. evaluator-interactive.json + evaluator-scheduled.json).
+# Source: ops-evaluator-heartbeat-concurrent-write-guard (round-31
+# SHARED.md handoff). Two concurrent evaluator sessions race on a
+# single evaluator.json; last-writer-wins overwrites the newer
+# timestamp with an older one. The per-session-file split lets
+# each session own its own file; the freshness check below
+# collapses them back to one canonical agent for the staleness
+# verdict, taking whichever timestamp is freshest.
+#
+# To add an agent to the allowlist: append its base name here, then
+# document the per-session naming convention in the agent's role
+# doc + heartbeats/README.md.
+SPLIT_AGENTS=(evaluator)
+
+canonical_agent_for() {
+    local name="$1"
+    local split
+    for split in "${SPLIT_AGENTS[@]}"; do
+        if [[ "$name" == "$split"-* ]]; then
+            echo "$split"
+            return
+        fi
+    done
+    echo "$name"
+}
+
 stale_count=0
 alive_count=0
 
 printf '%-15s  %-22s  %-12s  %s\n' 'AGENT' 'LAST RUN (UTC)' 'AGE' 'STATUS'
 printf '%-15s  %-22s  %-12s  %s\n' '─────' '─────────────────────' '────────────' '──────'
 
+# First pass: collect (canonical_agent, last_iso, hb_path) for every
+# heartbeat file, then keep only the freshest entry per canonical
+# agent. This is the load-bearing concurrent-write guard: when two
+# sessions write `evaluator-interactive.json` and
+# `evaluator-scheduled.json` concurrently, the freshest still wins
+# at staleness-check time.
 shopt -s nullglob
+collect_file="$(mktemp -t agent-heartbeats.XXXXXX)"
+trap 'rm -f "$collect_file" "$collect_file.dedup"' EXIT
 for hb in "$HEARTBEAT_DIR"/*.json; do
-    agent="$(basename "$hb" .json)"
-    [[ "$agent" == "README" ]] && continue
+    name="$(basename "$hb" .json)"
+    [[ "$name" == "README" ]] && continue
+    canonical="$(canonical_agent_for "$name")"
+    candidate_iso="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('last_run_utc',''))" "$hb" 2>/dev/null || echo "")"
+    # Emit (canonical, last_iso, path) so the freshest survives the
+    # sort below. Missing/empty last_iso sorts last so it only
+    # surfaces if no sibling file has a valid timestamp.
+    printf '%s\t%s\t%s\n' "$canonical" "${candidate_iso:-0000-00-00T00:00:00Z}" "$hb" >> "$collect_file"
+done
 
-    # Parse JSON fields. Use python rather than jq to keep dep light.
-    last_iso="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('last_run_utc',''))" "$hb")"
+# Sort by canonical asc, then by last_iso desc (lexicographic on
+# the ISO-8601 timestamp is correct because the format is fixed-
+# width). awk's `!seen[$1]++` keeps the first line per canonical
+# — which after this sort is the freshest.
+sort -k1,1 -k2,2r "$collect_file" | awk -F'\t' '!seen[$1]++' > "$collect_file.dedup"
+
+while IFS=$'\t' read -r agent last_iso_candidate hb; do
+    [[ -z "$agent" ]] && continue
+
+    # `last_iso` comes from the pre-pass (already chosen as the
+    # freshest among per-session files). Re-parse `cadence_s`
+    # from the winning file — split-agent sessions all carry the
+    # same cadence by convention.
+    last_iso="$last_iso_candidate"
     cadence_s="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('expected_cadence_seconds',0))" "$hb")"
 
-    if [[ -z "$last_iso" || -z "$cadence_s" || "$cadence_s" == "0" ]]; then
+    if [[ -z "$last_iso" || "$last_iso" == "0000-00-00T00:00:00Z" || -z "$cadence_s" || "$cadence_s" == "0" ]]; then
         printf '%-15s  %-22s  %-12s  ⚠️  MALFORMED HEARTBEAT\n' "$agent" "(unparseable)" "?"
         stale_count=$((stale_count + 1))
         continue
@@ -88,7 +142,7 @@ for hb in "$HEARTBEAT_DIR"/*.json; do
         printf '%-15s  %-22s  %-12s  ✅ alive\n' "$agent" "$last_iso" "$age_h"
         alive_count=$((alive_count + 1))
     fi
-done
+done < "$collect_file.dedup"
 
 if (( alive_count == 0 && stale_count == 0 )); then
     echo "(no heartbeats yet — agents have not had a chance to write one)" >&2
