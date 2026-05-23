@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-23T11:05:00Z",
+  "last_run_utc": "2026-05-23T12:05:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-82",
-  "run_notes": "Tick 82 — quiet PR side (0 open, 5 workers deep in P0 implementations), busy Step 7 side. Scanner clean. Workers all fresh-pulsing on cred-tenant-parameter + per-tenant-master-key + skill-table-tenant-id + duty-scheduler-fix + worker-session-runner-wire. Step 7 BLOCKED triage on 7-row backlog: (1) UNBLOCK web-workflow-runs-table-pagination-filters (dep #2017 MERGED), (2) UNBLOCK mission-knowledge-startup-seed (deps #2034 + #2039 MERGED, claim 4 demo-relevant), (3) FLIP web-workflow-test-run-gateway-persist BLOCKED→MERGED-DUP-OF-#2056 (superseded). Remaining 4 BLOCKED: ab-test-run-bind (correctly blocked on sibling), M2-airgapped (operator-decisional Tier 4), codex-cli-json (needs codex worker), web-builder-controlled-state (claimed since unblock). claude_todo: 6. claude_claimed: 5. Fix-by 5/5 within budget."
+  "session_label": "anthropic-claude-code-conductor-tick-83",
+  "run_notes": "Tick 83 — quiet PR side (0 open, 5 workers still on the 5 P0 fix-briefs), busy scanner side. Step 4.5b caught TWO unread evaluator handoffs: (1) round 11 — 15-in-core-tools VERIFIED + Genesis safety substrate AUDITED (5 distinct call-sites enforce sensitive-verb→requires_approval; gold-standard). Informational. (2) round 12 — argo-orchestrator AUDITED (9127 LOC, ~30 files). SUBSTRATE TENANT-SCOPED at SQL level on all surfaces (persist_handoffs/retry/duty_scheduler_store/sla all bind tenant_id) BUT ZERO cross-tenant negative tests in the crate — same shape as round-3 audit-export bug pattern. Authored fix-brief `eval-orchestrator-cross-tenant-handoff-negative-test` (P1, ~250-400 LOC, 5 surfaces × byte-identical NotFound assertion). Heartbeat bumped past round 12 (12:00Z). claude_todo: 7. claude_claimed: 5. Worker pool throughput-limited on the big multi-crate fix-briefs. Fix-by 5/5 within budget."
 }
