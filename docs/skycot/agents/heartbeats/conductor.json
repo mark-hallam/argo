@@ -1,7 +1,7 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-23T12:05:00Z",
+  "last_run_utc": "2026-05-23T12:35:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-conductor-tick-83",
-  "run_notes": "Tick 83 — quiet PR side (0 open, 5 workers still on the 5 P0 fix-briefs), busy scanner side. Step 4.5b caught TWO unread evaluator handoffs: (1) round 11 — 15-in-core-tools VERIFIED + Genesis safety substrate AUDITED (5 distinct call-sites enforce sensitive-verb→requires_approval; gold-standard). Informational. (2) round 12 — argo-orchestrator AUDITED (9127 LOC, ~30 files). SUBSTRATE TENANT-SCOPED at SQL level on all surfaces (persist_handoffs/retry/duty_scheduler_store/sla all bind tenant_id) BUT ZERO cross-tenant negative tests in the crate — same shape as round-3 audit-export bug pattern. Authored fix-brief `eval-orchestrator-cross-tenant-handoff-negative-test` (P1, ~250-400 LOC, 5 surfaces × byte-identical NotFound assertion). Heartbeat bumped past round 12 (12:00Z). claude_todo: 7. claude_claimed: 5. Worker pool throughput-limited on the big multi-crate fix-briefs. Fix-by 5/5 within budget."
+  "session_label": "anthropic-claude-code-conductor-tick-84",
+  "run_notes": "Tick 84 — quiet PR side (0 open, 5 workers still on P0 fix-briefs from prior ticks), busy evaluator side. Step 4.5b caught round 13 — argo-store table sweep (13 of 91 tables spot-checked) found 2 REAL cross-tenant SQL leaks + 1 audit-shape gap. Authored 3 P1 fix-briefs: (1) claude-skill-runs-worker-budget-tenant-scope (worker_budget aggregate tenant-blind — direct financial leak), (2) claude-spend-anomaly-tenant-scope-distinct (DISTINCT worker_id enumeration — SQL-layer twin of #2068 HTTP-layer existence-leak), (3) eval-subtask-ledger-caller-tenant-audit (12 queries key by id alone — same shape as #1992 audit_detail bug). Heartbeat bumped past round 13 (12:30Z). claude_todo: 10. claude_claimed: 5. Worker pool throughput-limited on multi-crate sweeps. Fix-by 5/5 within budget."
 }
