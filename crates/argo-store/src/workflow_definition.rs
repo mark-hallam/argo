@@ -214,3 +214,7 @@ mod workflow_definition_tests;
 #[cfg(test)]
 #[path = "workflow_definition_rollback_tests.rs"]
 mod workflow_definition_rollback_tests;
+
+#[cfg(test)]
+#[path = "workflow_definition_tx_rollback_tests.rs"]
+mod workflow_definition_tx_rollback_tests;
