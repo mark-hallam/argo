@@ -122,7 +122,7 @@ async fn duty_tick_creates_session_for_matching_cron() {
         report.denied_by_gate
     );
 
-    let attribution = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     assert_eq!(
         attribution.len(),
         1,
@@ -185,7 +185,7 @@ async fn duty_tick_does_not_fire_for_non_matching_cron() {
     );
     assert!(report.denied_by_gate.is_empty());
 
-    let attribution = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     assert!(
         attribution.is_empty(),
         "no attribution row written for a non-firing tick: {attribution:?}"
@@ -197,7 +197,7 @@ async fn duty_tick_does_not_fire_for_non_matching_cron() {
         "no session row created for a non-firing tick: {sessions:?}"
     );
 
-    let reloaded = duties.get(&duty.id).await.unwrap().unwrap();
+    let reloaded = duties.get(tenant, &duty.id).await.unwrap().unwrap();
     assert!(
         reloaded.last_fired_at.is_none(),
         "last_fired_at must NOT advance on a no-match tick: {:?}",
@@ -240,8 +240,14 @@ async fn duty_tick_cross_tenant_isolation() {
     assert!(report.fired.contains(&duty_b.id));
 
     // Per-duty attribution: each duty owns exactly one session.
-    let attr_a = duties.sessions_for_duty(&duty_a.id).await.unwrap();
-    let attr_b = duties.sessions_for_duty(&duty_b.id).await.unwrap();
+    let attr_a = duties
+        .sessions_for_duty(tenant_a, &duty_a.id)
+        .await
+        .unwrap();
+    let attr_b = duties
+        .sessions_for_duty(tenant_b, &duty_b.id)
+        .await
+        .unwrap();
     assert_eq!(attr_a.len(), 1, "duty_a owns exactly one fire row");
     assert_eq!(attr_b.len(), 1, "duty_b owns exactly one fire row");
     let session_a = attr_a[0].0.clone();

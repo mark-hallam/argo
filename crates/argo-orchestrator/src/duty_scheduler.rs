@@ -171,18 +171,26 @@ impl DutyScheduler {
                 Some(g) => g,
                 None => self.gate.as_ref(),
             };
+            let tenant = duty.tenant_id;
             match gate.evaluate(&duty).await? {
                 FireDecision::AutoApprove => {
                     let session_id = self.spawn_session(&duty, now).await?;
                     self.duties
-                        .link_fire(&duty.id, &session_id, now, FireDecision::AutoApprove)
+                        .link_fire(
+                            tenant,
+                            &duty.id,
+                            &session_id,
+                            now,
+                            FireDecision::AutoApprove,
+                        )
                         .await?;
-                    self.duties.mark_fired(&duty.id, now).await?;
+                    self.duties.mark_fired(tenant, &duty.id, now).await?;
                     report.fired.push(duty.id);
                 }
                 other => {
                     self.duties
                         .link_fire(
+                            tenant,
                             &duty.id,
                             &SessionId::from_string("00000000-0000-0000-0000-000000000000".into()),
                             now,
@@ -190,7 +198,7 @@ impl DutyScheduler {
                         )
                         .await
                         .ok();
-                    self.duties.mark_fired(&duty.id, now).await?;
+                    self.duties.mark_fired(tenant, &duty.id, now).await?;
                     report.denied_by_gate.push(duty.id);
                 }
             }
@@ -199,19 +207,21 @@ impl DutyScheduler {
     }
 
     /// Manually fire one duty bypassing cron + gate (the
-    /// `argo duty fire-now` surface).
-    pub async fn fire_now(&self, duty_id: &str) -> ArgoResult<SessionId> {
+    /// `argo duty fire-now` surface). `tenant` scopes every
+    /// underlying `DutyStore` lookup; cross-tenant calls surface as
+    /// a byte-identical "not found" `ArgoError::Schema`.
+    pub async fn fire_now(&self, tenant: TenantId, duty_id: &str) -> ArgoResult<SessionId> {
         let now = Utc::now();
         let duty = self
             .duties
-            .get(duty_id)
+            .get(tenant, duty_id)
             .await?
             .ok_or_else(|| ArgoError::Schema(format!("duty '{duty_id}' not found")))?;
         let session_id = self.spawn_session(&duty, now).await?;
         self.duties
-            .link_fire(&duty.id, &session_id, now, FireDecision::ManualFire)
+            .link_fire(tenant, &duty.id, &session_id, now, FireDecision::ManualFire)
             .await?;
-        self.duties.mark_fired(&duty.id, now).await?;
+        self.duties.mark_fired(tenant, &duty.id, now).await?;
         Ok(session_id)
     }
 
@@ -322,8 +332,8 @@ mod tests {
         let scheduler = DutyScheduler::new(duties.clone(), orch, Arc::new(OpenGate));
         let d = record("0 0 * * * *");
         duties.insert(&d).await.unwrap();
-        let session_id = scheduler.fire_now(&d.id).await.unwrap();
-        let attribution = duties.sessions_for_duty(&d.id).await.unwrap();
+        let session_id = scheduler.fire_now(d.tenant_id, &d.id).await.unwrap();
+        let attribution = duties.sessions_for_duty(d.tenant_id, &d.id).await.unwrap();
         assert_eq!(attribution.len(), 1);
         assert_eq!(attribution[0].0, session_id);
         assert_eq!(attribution[0].2, "manual_fire");
@@ -349,7 +359,7 @@ mod tests {
         let (duties, _) = open_stores().await;
         let d = record("0 * * * * *");
         duties.insert(&d).await.unwrap();
-        assert_eq!(duties.get(&d.id).await.unwrap().unwrap(), d);
+        assert_eq!(duties.get(d.tenant_id, &d.id).await.unwrap().unwrap(), d);
     }
 
     #[tokio::test]
@@ -387,19 +397,19 @@ mod tests {
         let d = record("0 * * * * *");
         duties.insert(&d).await.unwrap();
         duties
-            .set_paused(&d.id, Some(Utc::now() + CDur::hours(2)))
+            .set_paused(d.tenant_id, &d.id, Some(Utc::now() + CDur::hours(2)))
             .await
             .unwrap();
         assert!(duties
-            .get(&d.id)
+            .get(d.tenant_id, &d.id)
             .await
             .unwrap()
             .unwrap()
             .paused_until
             .is_some());
-        duties.set_paused(&d.id, None).await.unwrap();
+        duties.set_paused(d.tenant_id, &d.id, None).await.unwrap();
         assert!(duties
-            .get(&d.id)
+            .get(d.tenant_id, &d.id)
             .await
             .unwrap()
             .unwrap()

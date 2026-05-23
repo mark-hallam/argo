@@ -17,21 +17,21 @@
 //! ("just returns 404" is too weak; cross-tenant must be
 //! indistinguishable from genuine-not-found).
 //!
-//! ## FINDINGS — not blockers, but follow-up briefs are warranted
+//! ## FINDINGS — RESOLVED via `mission-orchestrator-duty-store-tenant-args`
 //!
 //! [`argo_orchestrator::DutyStore::get`],
 //! [`argo_orchestrator::DutyStore::mark_fired`],
 //! [`argo_orchestrator::DutyStore::set_paused`],
 //! [`argo_orchestrator::DutyStore::link_fire`], and
-//! [`argo_orchestrator::DutyStore::sessions_for_duty`] do NOT take a
-//! `TenantId` argument. They are id-scoped lookups; tenant scoping
-//! depends entirely on the caller pre-filtering via
-//! `list_for_tenant`. Production today calls them only from
-//! `DutyScheduler::tick`, which seeds them from `list_active`, so the
-//! seam holds — but the surface is not self-defending. Recommended
-//! fix-brief: `mission-orchestrator-duty-store-tenant-args` (add
-//! `TenantId` to every `DutyStore` mutator + lookup, mirror the
-//! `OrchestratorStore` shape).
+//! [`argo_orchestrator::DutyStore::sessions_for_duty`] now take a
+//! `TenantId` first arg. Each method's SQL has an
+//! `AND tenant_id = ?` predicate (or, for the `duty_fired_session`
+//! link table which has no `tenant_id` column, an inner-join /
+//! INSERT-SELECT against `role_duty` keyed on tenant). The five
+//! Surface-6 cross-tenant tests live in the sibling file
+//! `cross_tenant_duty_store_test.rs` (split out to keep this file
+//! under the 500-LOC ceiling). The original
+//! surface-not-self-defending risk is closed.
 
 use argo_identity::WorkerId;
 use argo_orchestrator::{

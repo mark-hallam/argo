@@ -54,7 +54,7 @@ async fn tick_fires_matching_duty_exactly_once_then_records_attribution() {
     assert!(report2.fired.is_empty());
 
     // Attribution row exists for the fire.
-    let attribution = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     assert_eq!(attribution.len(), 1);
     assert_eq!(attribution[0].2, "auto_approved");
 
@@ -62,7 +62,7 @@ async fn tick_fires_matching_duty_exactly_once_then_records_attribution() {
     let next_tick = Utc.with_ymd_and_hms(2026, 5, 6, 12, 3, 0).unwrap();
     let report3 = scheduler.tick(next_tick).await.unwrap();
     assert_eq!(report3.fired.len(), 1);
-    let attribution2 = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution2 = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     assert_eq!(attribution2.len(), 2);
 }
 
@@ -89,12 +89,12 @@ async fn closed_gate_denies_fire_and_records_decision() {
     // last_fired_at is bumped (so the duty doesn't re-evaluate
     // every minute on a denial loop) but no real session row was
     // attributed.
-    let updated = duties.get(&duty.id).await.unwrap().unwrap();
+    let updated = duties.get(tenant, &duty.id).await.unwrap().unwrap();
     assert_eq!(updated.last_fired_at, Some(tick_at));
 
     // The link table records the denial via the sentinel
     // session id; production callers can filter on `decision`.
-    let attribution = duties.sessions_for_duty(&duty.id).await.unwrap();
+    let attribution = duties.sessions_for_duty(tenant, &duty.id).await.unwrap();
     assert_eq!(attribution.len(), 1);
     assert_eq!(attribution[0].2, FireDecision::DeniedGate.label());
 }

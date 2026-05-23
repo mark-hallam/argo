@@ -1,12 +1,13 @@
 //! `argo duty show <id>` handler (Stream
 //! `claude-worker-duty-scheduler`).
-use crate::handlers::duty_list::open_duty_store;
+use crate::handlers::duty_list::{open_duty_store, workspace_tenant};
 use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
     let store = open_duty_store().await?;
+    let tenant = workspace_tenant().await?;
     let duty = store
-        .get(id)
+        .get(tenant, id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("duty '{id}' not found")))?;
     if json {

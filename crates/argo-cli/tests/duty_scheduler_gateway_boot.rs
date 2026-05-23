@@ -25,8 +25,9 @@ async fn gateway_boot_spawns_closed_gate_duty_scheduler() {
     let duties = DutyStore::new(Arc::clone(&store));
     duties.ensure_schema().await.expect("duty schema");
 
+    let tenant = TenantId::new();
     let mut duty = DutyRecord::new(
-        TenantId::new(),
+        tenant,
         WorkerId::new(),
         "* * * * * *",
         "review_queue",
@@ -62,7 +63,7 @@ async fn gateway_boot_spawns_closed_gate_duty_scheduler() {
 
     let store = Arc::new(SessionStore::open(&db_path).await.expect("reopen store"));
     let duties = DutyStore::new(store);
-    let fires = wait_for_fire(&duties, &duty_id).await;
+    let fires = wait_for_fire(&duties, tenant, &duty_id).await;
     assert_eq!(fires.len(), 1);
     assert_eq!(fires[0].2, FireDecision::DeniedGate.label());
 
@@ -91,12 +92,13 @@ fn await_gateway_listening(stderr: &mut BufReader<impl Read>) {
 
 async fn wait_for_fire(
     duties: &DutyStore,
+    tenant: TenantId,
     duty_id: &str,
 ) -> Vec<(argo_orchestrator::SessionId, chrono::DateTime<Utc>, String)> {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let fires = duties
-            .sessions_for_duty(duty_id)
+            .sessions_for_duty(tenant, duty_id)
             .await
             .expect("query duty fires");
         if !fires.is_empty() {

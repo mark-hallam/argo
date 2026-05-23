@@ -70,15 +70,20 @@ impl DutyStore {
         Ok(())
     }
 
-    /// Look up one duty by id.
-    pub async fn get(&self, id: &str) -> ArgoResult<Option<DutyRecord>> {
+    /// Look up one duty by tenant + id. Returns `Ok(None)` for both
+    /// "no such id in this tenant" and "id exists but in another
+    /// tenant" — the response is byte-identical to prevent
+    /// cross-tenant existence leaks (pinned by
+    /// `cross_tenant_handoff_test::duty_get_*`).
+    pub async fn get(&self, tenant_id: TenantId, id: &str) -> ArgoResult<Option<DutyRecord>> {
         self.ensure_schema().await?;
         let row = sqlx::query(
             "SELECT id, tenant_id, worker_id, cron, entry_action, description, \
              enabled, paused_until, last_fired_at, created_at \
-             FROM role_duty WHERE id = ?",
+             FROM role_duty WHERE id = ? AND tenant_id = ?",
         )
         .bind(id)
+        .bind(tenant_id.0.as_bytes().as_slice())
         .fetch_optional(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("find duty: {e}")))?;
@@ -120,11 +125,20 @@ impl DutyStore {
     }
 
     /// Set `paused_until` on a duty. Pass `None` to clear (resume).
-    pub async fn set_paused(&self, id: &str, until: Option<DateTime<Utc>>) -> ArgoResult<()> {
+    /// Cross-tenant calls silently no-op (byte-identical to a
+    /// nonexistent-id call); pinned by
+    /// `cross_tenant_handoff_test::duty_set_paused_*`.
+    pub async fn set_paused(
+        &self,
+        tenant_id: TenantId,
+        id: &str,
+        until: Option<DateTime<Utc>>,
+    ) -> ArgoResult<()> {
         self.ensure_schema().await?;
-        sqlx::query("UPDATE role_duty SET paused_until = ? WHERE id = ?")
+        sqlx::query("UPDATE role_duty SET paused_until = ? WHERE id = ? AND tenant_id = ?")
             .bind(until.map(|d| d.timestamp_micros()))
             .bind(id)
+            .bind(tenant_id.0.as_bytes().as_slice())
             .execute(self.store.pool())
             .await
             .map_err(|e| ArgoError::Provider(format!("set paused_until: {e}")))?;
@@ -132,20 +146,34 @@ impl DutyStore {
     }
 
     /// Update `last_fired_at`. Called after a successful fire.
-    pub async fn mark_fired(&self, id: &str, fired_at: DateTime<Utc>) -> ArgoResult<()> {
+    /// Cross-tenant calls silently no-op (byte-identical to a
+    /// nonexistent-id call); pinned by
+    /// `cross_tenant_handoff_test::duty_mark_fired_*`.
+    pub async fn mark_fired(
+        &self,
+        tenant_id: TenantId,
+        id: &str,
+        fired_at: DateTime<Utc>,
+    ) -> ArgoResult<()> {
         self.ensure_schema().await?;
-        sqlx::query("UPDATE role_duty SET last_fired_at = ? WHERE id = ?")
+        sqlx::query("UPDATE role_duty SET last_fired_at = ? WHERE id = ? AND tenant_id = ?")
             .bind(fired_at.timestamp_micros())
             .bind(id)
+            .bind(tenant_id.0.as_bytes().as_slice())
             .execute(self.store.pool())
             .await
             .map_err(|e| ArgoError::Provider(format!("mark fired: {e}")))?;
         Ok(())
     }
 
-    /// Record the (duty -> session) attribution row.
+    /// Record the (duty -> session) attribution row. The link is
+    /// only inserted if a `role_duty` with `id = duty_id` exists in
+    /// the caller's tenant; cross-tenant calls are silent no-ops
+    /// (byte-identical to a nonexistent-id call). Pinned by
+    /// `cross_tenant_handoff_test::duty_link_fire_*`.
     pub async fn link_fire(
         &self,
+        tenant_id: TenantId,
         duty_id: &str,
         session_id: &SessionId,
         fired_at: DateTime<Utc>,
@@ -154,12 +182,16 @@ impl DutyStore {
         self.ensure_schema().await?;
         sqlx::query(
             "INSERT OR IGNORE INTO duty_fired_session \
-             (duty_id, session_id, fired_at, decision) VALUES (?, ?, ?, ?)",
+             (duty_id, session_id, fired_at, decision) \
+             SELECT ?, ?, ?, ? FROM role_duty \
+             WHERE id = ? AND tenant_id = ?",
         )
         .bind(duty_id)
         .bind(session_id.as_str())
         .bind(fired_at.timestamp_micros())
         .bind(decision.label())
+        .bind(duty_id)
+        .bind(tenant_id.0.as_bytes().as_slice())
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("link fire: {e}")))?;
@@ -167,16 +199,24 @@ impl DutyStore {
     }
 
     /// All sessions ever spawned by one duty, newest first.
+    /// Cross-tenant calls return an empty vector (byte-identical to
+    /// a nonexistent-id call); pinned by
+    /// `cross_tenant_handoff_test::duty_sessions_for_duty_*`.
     pub async fn sessions_for_duty(
         &self,
+        tenant_id: TenantId,
         duty_id: &str,
     ) -> ArgoResult<Vec<(SessionId, DateTime<Utc>, String)>> {
         self.ensure_schema().await?;
         let rows = sqlx::query(
-            "SELECT session_id, fired_at, decision FROM duty_fired_session \
-             WHERE duty_id = ? ORDER BY fired_at DESC",
+            "SELECT dfs.session_id, dfs.fired_at, dfs.decision \
+             FROM duty_fired_session dfs \
+             INNER JOIN role_duty rd ON rd.id = dfs.duty_id \
+             WHERE dfs.duty_id = ? AND rd.tenant_id = ? \
+             ORDER BY dfs.fired_at DESC",
         )
         .bind(duty_id)
+        .bind(tenant_id.0.as_bytes().as_slice())
         .fetch_all(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("sessions_for_duty: {e}")))?;

@@ -1,6 +1,8 @@
 //! `argo duty fire-now <id>` handler (Stream
 //! `claude-worker-duty-scheduler`).
-use crate::handlers::duty_list::{default_gate, open_duty_store, open_orchestrator};
+use crate::handlers::duty_list::{
+    default_gate, open_duty_store, open_orchestrator, workspace_tenant,
+};
 use argo_orchestrator::DutyScheduler;
 use argo_types::{ArgoError, ArgoResult};
 use serde_json::json;
@@ -9,8 +11,9 @@ use std::sync::Arc;
 pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
     let duties = Arc::new(open_duty_store().await?);
     let orch = open_orchestrator().await?;
+    let tenant = workspace_tenant().await?;
     let scheduler = DutyScheduler::new(duties, orch, default_gate());
-    let session_id = scheduler.fire_now(id).await?;
+    let session_id = scheduler.fire_now(tenant, id).await?;
     if json {
         println!(
             "{}",

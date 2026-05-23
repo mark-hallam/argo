@@ -1,19 +1,20 @@
 //! `argo duty pause <id> [--until <RFC3339>]` handler (Stream
 //! `claude-worker-duty-scheduler`).
-use crate::handlers::duty_list::open_duty_store;
+use crate::handlers::duty_list::{open_duty_store, workspace_tenant};
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Duration as CDur, Utc};
 use serde_json::json;
 
 pub async fn run(id: &str, until: Option<&str>, json: bool) -> ArgoResult<()> {
     let store = open_duty_store().await?;
+    let tenant = workspace_tenant().await?;
     let until_dt = match until {
         Some(raw) => DateTime::parse_from_rfc3339(raw)
             .map_err(|e| ArgoError::Schema(format!("invalid --until '{raw}': {e}")))?
             .with_timezone(&Utc),
         None => Utc::now() + CDur::hours(24),
     };
-    store.set_paused(id, Some(until_dt)).await?;
+    store.set_paused(tenant, id, Some(until_dt)).await?;
     if json {
         println!(
             "{}",

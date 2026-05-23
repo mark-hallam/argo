@@ -181,7 +181,7 @@ pub(super) async fn preview_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, _, _) = match resolve_worker(worker_id_raw, store).await {
+    let (store, _, tenant) = match resolve_worker(worker_id_raw, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -205,7 +205,7 @@ pub(super) async fn preview_response(
         .map_or(PREVIEW_DEFAULT_SAMPLES, |n| n as usize)
         .clamp(1, PREVIEW_MAX_SAMPLES);
     let duty_store = DutyStore::new(Arc::clone(store));
-    let duty = match duty_store.get(&duty_id).await {
+    let duty = match duty_store.get(tenant, &duty_id).await {
         Ok(Some(d)) => d,
         Ok(None) => {
             return err(
@@ -245,7 +245,7 @@ pub(super) async fn patch_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, worker_id, _) = match resolve_worker(worker_id_raw, store).await {
+    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -258,7 +258,7 @@ pub(super) async fn patch_response(
         Err(resp) => return resp,
     };
     let duty_store = DutyStore::new(Arc::clone(store));
-    let existing = match duty_store.get(duty_id).await {
+    let existing = match duty_store.get(tenant, duty_id).await {
         Ok(Some(d)) if d.worker_id == worker_id => d,
         Ok(_) => {
             return err(
@@ -314,7 +314,7 @@ pub(super) async fn patch_response(
     }
     emit_audit(store, req, "duty.patch", &worker_id, 1).await;
     let refreshed = duty_store
-        .get(duty_id)
+        .get(tenant, duty_id)
         .await
         .ok()
         .flatten()
@@ -331,7 +331,7 @@ pub(super) async fn delete_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let (store, worker_id, _) = match resolve_worker(worker_id_raw, store).await {
+    let (store, worker_id, tenant) = match resolve_worker(worker_id_raw, store).await {
         Ok(t) => t,
         Err(resp) => return resp,
     };
@@ -340,7 +340,7 @@ pub(super) async fn delete_response(
         return err("400 Bad Request", "bad_request", "missing duty_id");
     }
     let duty_store = DutyStore::new(Arc::clone(store));
-    match duty_store.get(duty_id).await {
+    match duty_store.get(tenant, duty_id).await {
         Ok(Some(d)) if d.worker_id == worker_id => {}
         Ok(_) => {
             return err(
@@ -357,8 +357,9 @@ pub(super) async fn delete_response(
             )
         }
     }
-    if let Err(e) = sqlx::query("DELETE FROM role_duty WHERE id = ?")
+    if let Err(e) = sqlx::query("DELETE FROM role_duty WHERE id = ? AND tenant_id = ?")
         .bind(duty_id)
+        .bind(tenant.0.as_bytes().as_slice())
         .execute(store.pool())
         .await
     {

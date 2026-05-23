@@ -168,7 +168,7 @@ async fn genesis_to_first_duty_smoke() {
 
     // 5. An action lands in the duty_fired_session ledger for our worker.
     let fires = duties
-        .sessions_for_duty(&duty_id)
+        .sessions_for_duty(tenant_id, &duty_id)
         .await
         .expect("sessions_for_duty");
     assert_eq!(fires.len(), 1, "expected 1 fire row, got {}", fires.len());

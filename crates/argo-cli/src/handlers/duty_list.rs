@@ -124,6 +124,25 @@ pub(crate) async fn open_orchestrator() -> ArgoResult<Arc<OrchestratorStore>> {
     Ok(orch)
 }
 
+/// Resolve the cwd workspace's tenant id, ensuring the workspace
+/// row exists. Mirrors the per-handler helpers in
+/// `skill_ir_backfill.rs` / `worker_actions_executor_browser.rs`,
+/// hoisted here so every `duty_*` handler can share one impl.
+pub(crate) async fn workspace_tenant() -> ArgoResult<TenantId> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store.ensure_workspace(name, &root).await?;
+    Ok(tenant)
+}
+
 /// Build an [`OpenGate`] (the gateway-default for CLI flows that
 /// don't have access to the per-worker resolved policy).
 pub(crate) fn default_gate() -> Arc<OpenGate> {
