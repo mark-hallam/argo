@@ -110,3 +110,7 @@ fn sha256_hex(s: &str) -> String {
     h.update(s.as_bytes());
     hex::encode(h.finalize())
 }
+
+#[cfg(test)]
+#[path = "routes_skill_refine_tests.rs"]
+mod tests;
