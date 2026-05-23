@@ -410,6 +410,18 @@ pub enum AuditKind {
     /// triggered by a human operator); `status` is the run-phase
     /// string (`"complete"` | `"failed"`).
     WorkflowTestRunPersisted,
+    /// A workflow execution was dispatched via
+    /// `POST /api/v1/verticals/{vid}/workflows/{name}/execute`
+    /// (`mission-workflow-execute-route`). One row per accepted POST
+    /// — refused requests (401 / 403 / 404 / 409) do not emit. Pairs
+    /// with [`Self::WorkflowStepExecuted`] / [`Self::WorkflowStepFailed`]
+    /// so the audit chain tells the dispatch → step-by-step story
+    /// when the production `WorkerSessionRunner` is wired in. Payload:
+    /// `{ actor, tenant_id, vertical_id, workflow_name, run_id,
+    /// idempotency_key?, dispatched_at, ok }`. `ok` carries the
+    /// synchronous run outcome — v1 runs the DAG via `MockRunner` so
+    /// this lands `true` for shape-correct workflows.
+    WorkflowExecuteDispatched,
     /// A single DAG-step inside a workflow_run completed successfully
     /// via the production `WorkerSessionRunner`
     /// (`wire-worker-session-runner`). Distinct from

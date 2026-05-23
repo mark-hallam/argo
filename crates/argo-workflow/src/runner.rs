@@ -46,15 +46,6 @@
 //! - `task.inputs["tool"]` — string, the MCP tool name to invoke
 //! - `task.inputs["args"]` — JSON, the tool arguments (defaults to
 //!   `{}` when absent)
-//!
-//! ## Follow-up
-//!
-//! The brief notes a missing production wire: no
-//! `POST /api/v1/verticals/<v>/workflows/<n>/run` route exists at
-//! `origin/main`. The follow-up brief `mission-workflow-execute-route`
-//! adds that route + the concrete trait impls in `argo-cli` that
-//! adapt `AuditSink` / `CapabilityEngine` / `McpClientPool` to the
-//! three trait seams below.
 use crate::dag::TaskNode;
 use crate::executor::{TaskOutcome, TaskRunner};
 use argo_types::{Principal, TenantId};

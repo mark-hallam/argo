@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 66);
+    assert_eq!(AuditKind::all().len(), 67);
 }
 
 #[test]
@@ -417,6 +417,22 @@ fn workflow_test_run_persisted_round_trips_and_listed() {
     assert_eq!(
         serde_json::to_string(&kind).unwrap(),
         "\"workflow_test_run_persisted\""
+    );
+}
+
+#[test]
+fn workflow_execute_dispatched_round_trips_and_listed() {
+    let kind = AuditKind::WorkflowExecuteDispatched;
+    assert_eq!(
+        AuditKind::from_label("workflow.execute.dispatched"),
+        Some(kind)
+    );
+    assert_eq!(kind.label(), "workflow.execute.dispatched");
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"workflow.execute.dispatched"));
+    assert_eq!(
+        serde_json::to_string(&kind).unwrap(),
+        "\"workflow_execute_dispatched\""
     );
 }
 

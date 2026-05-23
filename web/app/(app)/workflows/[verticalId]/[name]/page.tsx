@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { executeWorkflow } from "@/lib/api/workflow-execute";
 import {
   ArrowLeft,
   Code2,
@@ -78,6 +80,7 @@ function ViewerInner({
   const pathname = usePathname() ?? `/workflows/${verticalId}/${name}`;
   const searchParams = useSearchParams();
   const [editChatOpen, setEditChatOpen] = useState(false);
+  const [running, setRunning] = useState(false);
   const stateFlag = searchParams?.get("state") ?? null;
 
   const { data, isLoading, isError } = useWorkflow(verticalId, name);
@@ -93,6 +96,23 @@ function ViewerInner({
   });
   const runsSummary = runsQuery.data?.summary ?? null;
 
+
+  const handleRunWorkflow = useCallback(async () => {
+    if (running) return;
+    setRunning(true);
+    try {
+      const report = await executeWorkflow({ verticalId, name });
+      toast.success(
+        `Workflow run ${report.ok ? "succeeded" : "completed with failures"} · ${report.run_id.slice(0, 8)}`,
+      );
+      runsQuery.refetch();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "unknown error";
+      toast.error(`Run failed: ${message}`);
+    } finally {
+      setRunning(false);
+    }
+  }, [running, verticalId, name, runsQuery]);
 
   const resetState = useCallback(() => {
     const next = new URLSearchParams(searchParams?.toString() ?? "");
@@ -183,6 +203,20 @@ function ViewerInner({
             </Link>
             <button type="button" className="wfd-btn">
               <Play size={13} /> Test run
+            </button>
+            <button
+              type="button"
+              className="wfd-btn wfd-btn-primary"
+              data-testid="wfd-run-workflow"
+              onClick={handleRunWorkflow}
+              disabled={running || !isLive}
+              title={
+                isLive
+                  ? "Execute against the live gateway workflow"
+                  : "Available once this workflow is published to the gateway"
+              }
+            >
+              <Play size={13} /> {running ? "Running…" : "Run workflow"}
             </button>
           </div>
         </div>

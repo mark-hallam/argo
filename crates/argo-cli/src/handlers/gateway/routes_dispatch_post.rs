@@ -171,6 +171,14 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_workflows_test_runs::dispatch_post(req, store).await {
         return Some(resp);
     }
+    // mission-workflow-execute-route — `POST /api/v1/verticals/{vid}/
+    // workflows/{name}/execute` invokes the workflow runner against
+    // the workflow_definition head. Mounted alongside `test_runs`
+    // because `routes_workflows::dispatch_mutate` returns `None` for
+    // the `/execute` suffix.
+    if let Some(resp) = super::routes_workflow_execute::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     None
 }
 
