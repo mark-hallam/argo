@@ -111,7 +111,7 @@ export const SEED_WORKFLOWS: Record<string, WorkflowSpec> = {
           { id: "s3c", kind: "wait", name: "Throttle provider", description: "Avoid rate-limit on the LLM.", waitConfig: { duration_seconds: 2 } },
         ],
       },
-      { id: "s4", kind: "wait", name: "Hold for shift handover", description: "Defer summary until the next on-duty manager is online.", waitConfig: { until_field: "$.next_shift_start" } },
+      { id: "s4", kind: "wait", name: "Hold for shift handover", description: "Defer summary until the next on-shift manager is online.", waitConfig: { until_field: "$.next_shift_start" } },
       { id: "s5", kind: "notify", name: "Post summary to Slack", description: "QA scorecard + flagged tickets posted to #support-coaching." },
     ],
   },

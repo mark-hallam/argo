@@ -62,7 +62,7 @@ export function Step4Conflict({
         </div>
         <div className="flex-1 space-y-1">
           <h2 className="text-base font-semibold text-[var(--foreground)]">
-            This overlaps with one of {workerName}&apos;s existing duties
+            This overlaps with one of {workerName}&apos;s existing schedules
           </h2>
           <p className="text-sm text-[var(--muted-foreground)]">{conflict.reason}</p>
         </div>
@@ -74,7 +74,7 @@ export function Step4Conflict({
           className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-3"
         >
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
-            Existing duty
+            Existing schedule
           </p>
           <p className="mt-1 text-sm text-[var(--foreground)]">
             {conflict.existingDutyLabel} — {conflict.existingSchedule.spec}
@@ -85,7 +85,7 @@ export function Step4Conflict({
           className="rounded-[var(--radius-md)] border border-[var(--primary)]/40 bg-[var(--primary)]/5 px-4 py-3"
         >
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--primary)]">
-            New duty
+            New schedule
           </p>
           <p className="mt-1 text-sm text-[var(--foreground)]">
             {proposal.label} — {proposal.schedule.spec}
@@ -101,7 +101,7 @@ export function Step4Conflict({
           What should I do?
         </legend>
         <ChoiceRow
-          label="Replace the existing duty with this one."
+          label="Replace the existing schedule with this one."
           value="replace"
           checked={choice === "replace"}
           onSelect={setChoice}

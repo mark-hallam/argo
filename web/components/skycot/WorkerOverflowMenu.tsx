@@ -64,7 +64,7 @@ export function WorkerOverflowMenu({
             disabled={perms ? !perms.canEditDuties : false}
             onSelect={() => fire("disable-duties")}
           >
-            Disable duties
+            Disable schedules
           </Item>
           <Item
             testid="worker-action-archive"

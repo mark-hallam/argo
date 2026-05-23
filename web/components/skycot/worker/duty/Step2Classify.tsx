@@ -65,7 +65,7 @@ export function Step2Classify({
         Figuring out the shape of this responsibility&hellip;
       </p>
       <p className="text-xs text-[var(--muted-foreground)]/80">
-        {workerName} is sorting it into a recurring duty.
+        {workerName} is sorting it into a recurring schedule.
       </p>
     </div>
   );

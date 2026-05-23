@@ -72,7 +72,7 @@ export default function NewResponsibilityPage({
           Describe a new responsibility
         </h2>
         <p className="text-sm text-[color:var(--muted-foreground)]">
-          Tell your teammate the recurring duty in plain English. We&apos;ll
+          Tell your teammate the recurring schedule in plain English. We&apos;ll
           draft a workflow playbook for you to approve, edit, or cancel.
         </p>
       </header>
