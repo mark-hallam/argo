@@ -179,6 +179,10 @@ export function apiPatch<T, B = unknown>(path: string, body?: B, init?: ApiReque
   return request<T>("PATCH", path, { ...init, json: body });
 }
 
+export function apiPut<T, B = unknown>(path: string, body?: B, init?: ApiRequestInit): Promise<T> {
+  return request<T>("PUT", path, { ...init, json: body });
+}
+
 export function apiDelete<T>(path: string, init?: ApiRequestInit): Promise<T> {
   return request<T>("DELETE", path, init);
 }

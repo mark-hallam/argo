@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Building2,
   Bell,
+  BookOpen,
   Lock,
   Key,
   KeyRound,
@@ -63,6 +64,13 @@ const TILES = [
     icon: <KeyRound size={20} />,
     title: "API keys",
     blurb: "Long-lived tokens for service accounts, CI, and integrations.",
+    coming: false,
+  },
+  {
+    href: "/settings/knowledge",
+    icon: <BookOpen size={20} />,
+    title: "Knowledge",
+    blurb: "Brand voice, business rules, compliance, internal handbook, FAQ — what every worker reads.",
     coming: false,
   },
   {
