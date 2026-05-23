@@ -39,7 +39,10 @@
 
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
-import { findSampleWorker } from "@/lib/sample-workers-detail";
+import {
+  findSampleWorker,
+  SAMPLE_WORKERS_DETAIL,
+} from "@/lib/sample-workers-detail";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
 import { getOrCreateIdempotencyKey } from "@/lib/hire/idempotency-key";
@@ -313,4 +316,33 @@ export async function hireWorker(req: HireWorkerRequest): Promise<HireWorkerResu
     }
     throw err;
   }
+}
+
+/**
+ * List workers in one vertical for the workflow → schedule drawer.
+ *
+ * Calls `GET /api/v1/workers?vertical=<id>` (placeholder endpoint
+ * authored alongside the SPA flow — until the gateway lands the
+ * collection route it 404s, and we fall through to a sample-data
+ * filter so the drawer is testable end-to-end with the gateway dark,
+ * mirroring [[fetchWorker]]'s 404-fallback contract).
+ */
+export async function listWorkersInVertical(verticalId: string): Promise<Worker[]> {
+  const path = `/api/v1/workers?vertical=${encodeURIComponent(verticalId)}`;
+  try {
+    const raw = await apiGet<unknown>(path);
+    if (Array.isArray(raw)) return raw as Worker[];
+    if (raw && typeof raw === "object") {
+      const env = raw as { workers?: unknown };
+      if (Array.isArray(env.workers)) return env.workers as Worker[];
+    }
+    return sampleWorkersForVertical(verticalId);
+  } catch (err) {
+    if (shouldFallBackToMock(err)) return sampleWorkersForVertical(verticalId);
+    throw err;
+  }
+}
+
+function sampleWorkersForVertical(verticalId: string): Worker[] {
+  return SAMPLE_WORKERS_DETAIL.filter((w) => w.role.vertical === verticalId);
 }
