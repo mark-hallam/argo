@@ -137,6 +137,8 @@ fn profile() -> Profile {
 
 fn run_request(audit_dir: std::path::PathBuf) -> MacosCuRunRequest {
     MacosCuRunRequest {
+        tenant_id: argo_types::TenantId::new(),
+        worker_id: argo_identity::WorkerId::new(),
         action_id: "act-permission-revoke".into(),
         system_prompt: "Type two notes; the second is doomed.".into(),
         audit_dir,
