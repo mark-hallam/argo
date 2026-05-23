@@ -7,9 +7,15 @@
 //! `for line in sys.stdin:`.
 //!
 //! Spec: `docs/plan/argo-build-plan.md` §11.
+//!
+//! Forward-compat rules, error-code constants, and version-compat
+//! classification live in [`crate::abi`]. Wire-shape contract tests
+//! that pin the JSON exactly live in `tests/abi_contract.rs`.
 use serde::{Deserialize, Serialize};
 
-/// Pinned protocol version. Bumped when wire-shape changes.
+/// Pinned protocol version. Bumped when wire-shape changes; the
+/// `protocol_version_pinned` contract test in `tests/abi_contract.rs`
+/// fails on any change so the bump is deliberate and reviewed.
 pub const PROTOCOL_VERSION: &str = "0.1.0";
 
 /// One Argo → plugin (or plugin → Argo) request.

@@ -29,11 +29,17 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod abi;
 mod error;
 mod host;
 mod protocol;
 pub mod registry;
 
+pub use abi::{
+    classify_compatibility, is_wire_compatible, parse_protocol_version, AbiCompatibility,
+    JSONRPC_VERSION, RPC_INTERNAL_ERROR, RPC_INVALID_PARAMS, RPC_INVALID_REQUEST,
+    RPC_METHOD_NOT_FOUND, RPC_PARSE_ERROR,
+};
 pub use error::{PluginError, PluginResult};
 pub use host::{PluginHost, DEFAULT_CALL_TIMEOUT};
 pub use protocol::{
