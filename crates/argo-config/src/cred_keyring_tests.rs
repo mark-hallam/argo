@@ -135,7 +135,7 @@ fn auto_falls_back_to_file_when_keyring_empty() {
     set(dir.path(), key, "from-file").unwrap();
     // Keyring entry intentionally absent → Auto must fall through to
     // the file backend rather than erroring.
-    let got = cred::get_with_backend(dir.path(), key, CredentialBackend::Auto).unwrap();
+    let got = cred::get_with_backend(dir.path(), None, key, CredentialBackend::Auto).unwrap();
     assert_eq!(got, "from-file");
 }
 
@@ -146,7 +146,7 @@ fn env_var_wins_even_with_keyring_backend() {
     let key = "ARGO_KEYRING_ENV_PRECEDENCE_TOKEN";
     keyring_set(dir.path(), key, "from-keyring").unwrap();
     env::set_var(key, "from-env");
-    let got = cred::get_with_backend(dir.path(), key, CredentialBackend::Keyring).unwrap();
+    let got = cred::get_with_backend(dir.path(), None, key, CredentialBackend::Keyring).unwrap();
     env::remove_var(key);
     assert_eq!(got, "from-env");
 }

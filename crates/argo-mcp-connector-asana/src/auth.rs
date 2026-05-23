@@ -12,7 +12,8 @@ pub const DEFAULT_BASE_URL: &str = "https://app.asana.com/api/1.0";
 /// Read the Asana personal access token from `ASANA_PAT`.
 pub fn pat_from_env() -> Result<String, String> {
     let pat =
-        argo_config::cred::get(ASANA_PAT_ENV).map_err(|_| format!("missing {ASANA_PAT_ENV}"))?;
+        // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+        argo_config::cred::get_unscoped(ASANA_PAT_ENV).map_err(|_| format!("missing {ASANA_PAT_ENV}"))?;
     if pat.trim().is_empty() {
         return Err(format!("missing {ASANA_PAT_ENV}"));
     }

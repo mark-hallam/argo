@@ -63,7 +63,8 @@ impl ProbeConfig {
 }
 
 fn env_nonempty(name: &str) -> Option<String> {
-    argo_config::cred::get(name)
+    // tenant-unscoped: single-tenant CLI invocation
+    argo_config::cred::get_unscoped(name)
         .ok()
         .filter(|v| !v.trim().is_empty())
 }

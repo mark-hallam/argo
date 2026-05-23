@@ -212,7 +212,8 @@ impl ResolvedConfig {
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(DEFAULT_MEMORY_MIB);
-        let backend = if argo_config::cred::get(ENV_E2B_TOKEN).is_ok() {
+        // tenant-unscoped: worker action handler called from queue without tenant context yet (follow-up: pass via WorkerAction envelope)
+        let backend = if argo_config::cred::get_unscoped(ENV_E2B_TOKEN).is_ok() {
             CodeExecBackendKind::E2b
         } else {
             CodeExecBackendKind::Local

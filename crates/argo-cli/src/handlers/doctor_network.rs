@@ -123,7 +123,8 @@ impl NetworkProbe for RealProbe {
     }
 
     async fn auth(&self, cwd: &Path, target: &AuthTarget) -> Value {
-        let Ok(key) = argo_config::cred::get_from_workspace(cwd, target.env_var) else {
+        // tenant-unscoped: single-tenant CLI invocation
+        let Ok(key) = argo_config::cred::get_unscoped_from_workspace(cwd, target.env_var) else {
             return json!({"provider": target.provider, "host": target.host, "status": "SKIP", "detail": "no key configured"});
         };
         let started = Instant::now();

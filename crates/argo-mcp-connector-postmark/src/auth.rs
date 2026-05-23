@@ -9,7 +9,8 @@ pub const DEFAULT_BASE_URL: &str = "https://api.postmarkapp.com";
 
 /// Read the Postmark server token from `POSTMARK_SERVER_TOKEN`.
 pub fn server_token_from_env() -> Result<String, String> {
-    let token = argo_config::cred::get(POSTMARK_SERVER_TOKEN_ENV)
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    let token = argo_config::cred::get_unscoped(POSTMARK_SERVER_TOKEN_ENV)
         .map_err(|_| format!("missing {POSTMARK_SERVER_TOKEN_ENV}"))?;
     if token.trim().is_empty() {
         return Err(format!("missing {POSTMARK_SERVER_TOKEN_ENV}"));

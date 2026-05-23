@@ -11,7 +11,8 @@ pub const DEFAULT_BASE_URL: &str = "https://api.clickup.com/api/v2";
 
 /// Read the ClickUp personal token from `CLICKUP_TOKEN`.
 pub fn token_from_env() -> Result<String, String> {
-    let token = argo_config::cred::get(CLICKUP_TOKEN_ENV)
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    let token = argo_config::cred::get_unscoped(CLICKUP_TOKEN_ENV)
         .map_err(|_| format!("missing {CLICKUP_TOKEN_ENV}"))?;
     if token.trim().is_empty() {
         return Err(format!("missing {CLICKUP_TOKEN_ENV}"));

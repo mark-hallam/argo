@@ -39,7 +39,8 @@ pub(super) fn check_scim_bearer(req: &str) -> Option<(&'static str, String)> {
     if argo_config::load().unwrap_or_default().gateway.auth_bypass {
         return None;
     }
-    let expected = match argo_config::cred::get("ARGO_SCIM_BEARER_TOKEN") {
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    let expected = match argo_config::cred::get_unscoped("ARGO_SCIM_BEARER_TOKEN") {
         Ok(t) if !t.is_empty() => t,
         _ => {
             return Some((

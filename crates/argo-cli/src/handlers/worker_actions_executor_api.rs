@@ -260,7 +260,8 @@ fn protect_secret_placeholders(body: &str) -> (String, Vec<String>) {
 fn render_secret_tokens(body: &str, secrets: &[String]) -> ArgoResult<String> {
     let mut out = body.to_string();
     for (idx, secret) in secrets.iter().enumerate() {
-        let value = argo_config::cred::get(secret)
+        // tenant-unscoped: worker action handler called from queue without tenant context yet (follow-up: pass via WorkerAction envelope)
+        let value = argo_config::cred::get_unscoped(secret)
             .map_err(|_| provider(format!("API executor missing secret '{secret}'")))?;
         out = out.replace(&format!("@@ARGO_SECRET_{idx}@@"), &value);
     }

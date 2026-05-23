@@ -21,7 +21,8 @@ pub struct SlackClient {
 
 impl SlackClient {
     pub fn from_env() -> McpResult<Self> {
-        let token = argo_config::cred::get(SLACK_BOT_TOKEN_ENV)
+        // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+        let token = argo_config::cred::get_unscoped(SLACK_BOT_TOKEN_ENV)
             .ok()
             .map(|value| value.trim().to_owned())
             .filter(|value| !value.is_empty())

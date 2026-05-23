@@ -26,7 +26,8 @@ impl SendgridConfig {
 }
 
 fn required_env(name: &str) -> Result<String, String> {
-    let value = argo_config::cred::get(name).map_err(|_| format!("missing {name}"))?;
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    let value = argo_config::cred::get_unscoped(name).map_err(|_| format!("missing {name}"))?;
     if value.trim().is_empty() {
         return Err(format!("missing {name}"));
     }

@@ -229,7 +229,8 @@ pub(super) fn check_auth(req: &str, route: Route) -> Result<(), (&'static str, S
         // accidental call as audit-style for defense in depth.
         Route::SkillTrace { .. } => "ARGO_AUDIT_STREAM_BEARER_TOKEN",
     };
-    if let Ok(expected) = argo_config::cred::get(env_var) {
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    if let Ok(expected) = argo_config::cred::get_unscoped(env_var) {
         if !expected.is_empty() && token != expected {
             return Err((
                 "401 Unauthorized",

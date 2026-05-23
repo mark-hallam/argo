@@ -20,8 +20,10 @@ pub struct NotionConfig {
 impl NotionConfig {
     /// Load config from environment.
     pub fn from_env() -> McpResult<Self> {
-        let integration_token = argo_config::cred::get("NOTION_INTEGRATION_TOKEN")
-            .or_else(|_| argo_config::cred::get("NOTION_TEST_TOKEN"))
+        // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+        let integration_token = argo_config::cred::get_unscoped("NOTION_INTEGRATION_TOKEN")
+            // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+            .or_else(|_| argo_config::cred::get_unscoped("NOTION_TEST_TOKEN"))
             .map_err(|_| McpError::Initialize("NOTION_INTEGRATION_TOKEN is required".into()))?;
         Ok(Self {
             integration_token,

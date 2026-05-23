@@ -67,7 +67,10 @@ fn get_from_workspace_decrypts_encrypted_file_entry() {
         fs::create_dir_all(dir.path().join(ARGO_DIR)).unwrap();
         fs::write(credentials_path(dir.path()), body).unwrap();
 
-        assert_eq!(get_from_workspace(dir.path(), name).unwrap(), "from-file");
+        assert_eq!(
+            get_unscoped_from_workspace(dir.path(), name).unwrap(),
+            "from-file"
+        );
     });
 }
 

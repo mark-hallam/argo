@@ -17,7 +17,8 @@ pub fn password_from_env() -> Result<String, String> {
 }
 
 fn required_env(name: &str) -> Result<String, String> {
-    argo_config::cred::get(name)
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    argo_config::cred::get_unscoped(name)
         .ok()
         .map(|v| v.trim().to_owned())
         .filter(|v| !v.is_empty())

@@ -6,7 +6,8 @@ pub(super) async fn send_sms(ref_: &NotifyChannelRef, n: &Notification) -> Resul
     let sid = required_env("sms", "TWILIO_ACCOUNT_SID")?;
     let token = required_env("sms", "TWILIO_AUTH_TOKEN")?;
     let from = required_env("sms", "TWILIO_FROM")?;
-    let base = argo_config::cred::get("TWILIO_API_BASE_URL")
+    // tenant-unscoped: worker action handler called from queue without tenant context yet (follow-up: pass via WorkerAction envelope)
+    let base = argo_config::cred::get_unscoped("TWILIO_API_BASE_URL")
         .ok()
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| "https://api.twilio.com".into());

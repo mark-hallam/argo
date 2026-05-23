@@ -120,7 +120,8 @@ fn compute_signature(action_id: &str, idx: usize, exp: i64) -> String {
 }
 
 fn secret_bytes() -> Vec<u8> {
-    argo_config::cred::get(SECRET_ENV)
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    argo_config::cred::get_unscoped(SECRET_ENV)
         .ok()
         .filter(|s| !s.is_empty())
         .map_or_else(|| DEV_FALLBACK_SECRET.to_vec(), String::into_bytes)

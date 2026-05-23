@@ -14,7 +14,8 @@ pub struct HubspotClient {
 impl HubspotClient {
     /// Build from `HUBSPOT_PRIVATE_APP_TOKEN`.
     pub fn from_env() -> Result<Self, String> {
-        let token = argo_config::cred::get("HUBSPOT_PRIVATE_APP_TOKEN")
+        // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+        let token = argo_config::cred::get_unscoped("HUBSPOT_PRIVATE_APP_TOKEN")
             .map_err(|_| "missing HUBSPOT_PRIVATE_APP_TOKEN".to_string())?;
         if token.trim().is_empty() {
             return Err("missing HUBSPOT_PRIVATE_APP_TOKEN".into());

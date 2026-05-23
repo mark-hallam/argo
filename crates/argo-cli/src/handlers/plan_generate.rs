@@ -181,7 +181,8 @@ fn planner_to_argo(e: PlannerError) -> ArgoError {
 /// directly and posts to `https://api.anthropic.com/v1/messages`.
 /// Errors during the call surface as `PlannerError::Llm`.
 fn build_anthropic_caller() -> ArgoResult<Box<dyn AnthropicCaller>> {
-    let key = argo_config::cred::get("ANTHROPIC_API_KEY").map_err(|_| {
+    // tenant-unscoped: single-tenant CLI invocation
+    let key = argo_config::cred::get_unscoped("ANTHROPIC_API_KEY").map_err(|_| {
         ArgoError::Provider(
             "ANTHROPIC_API_KEY unset; pass without --llm to use the offline planner".into(),
         )

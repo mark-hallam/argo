@@ -59,7 +59,8 @@ pub(super) async fn imessage_webhook_response(req: &str) -> (&'static str, Strin
 }
 
 fn configured_secret() -> Option<String> {
-    argo_config::cred::get(SECRET_ENV)
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    argo_config::cred::get_unscoped(SECRET_ENV)
         .ok()
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())

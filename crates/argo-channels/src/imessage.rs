@@ -57,7 +57,8 @@ impl IMessageChannelConfig {
             server_url: required_env("BLUE_BUBBLES_URL")?,
             password: required_env("BLUE_BUBBLES_PASSWORD")?,
             approval_secret: required_env("ARGO_CHANNEL_HMAC_SECRET")?,
-            webhook_secret: argo_config::cred::get("BLUE_BUBBLES_WEBHOOK_SECRET").ok(),
+            // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+            webhook_secret: argo_config::cred::get_unscoped("BLUE_BUBBLES_WEBHOOK_SECRET").ok(),
             operator_routes: BTreeMap::new(),
             rate_limit: RateLimitConfig::default(),
             quiet_hours: None,
@@ -250,7 +251,8 @@ fn nonempty(value: &str) -> Option<String> {
 }
 
 fn required_env(name: &str) -> ChannelResult<String> {
-    argo_config::cred::get(name)
+    // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+    argo_config::cred::get_unscoped(name)
         .ok()
         .and_then(|v| nonempty(&v))
         .ok_or_else(|| ChannelError::Config(format!("missing env {name}")))

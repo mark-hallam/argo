@@ -23,7 +23,8 @@ pub(super) fn is_production_mode_for_bind(bind: &str) -> bool {
 }
 
 pub(super) fn bearer_token_configured() -> bool {
-    argo_config::cred::get(BEARER_TOKEN_ENV).is_ok_and(|t| !t.trim().is_empty())
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    argo_config::cred::get_unscoped(BEARER_TOKEN_ENV).is_ok_and(|t| !t.trim().is_empty())
 }
 
 fn profile_is_production() -> bool {

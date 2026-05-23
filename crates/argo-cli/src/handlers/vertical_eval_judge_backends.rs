@@ -81,7 +81,8 @@ pub(super) fn load_manifest(provider_id: &str) -> ArgoResult<ProviderManifest> {
 /// SDK's default chain.
 pub(super) fn read_api_key(manifest: &ProviderManifest, provider_id: &str) -> ArgoResult<String> {
     let env_var = manifest.auth.api_key_env.clone();
-    argo_config::cred::get(&env_var).map_err(|_| {
+    // tenant-unscoped: single-tenant CLI invocation
+    argo_config::cred::get_unscoped(&env_var).map_err(|_| {
         ArgoError::Provider(format!(
             "live judge: provider `{provider_id}` requires env `{env_var}` (resolved from \
              manifest `auth.api_key_env`). Set it and re-run, or use --judge heuristic for an \

@@ -84,7 +84,8 @@ fn read_token(token_file: Option<&Path>) -> ArgoResult<String> {
             .map_err(|e| ArgoError::Io(format!("read token file {}: {e}", path.display())))?;
         return Ok(raw.trim().to_string());
     }
-    match argo_config::cred::get(ENV_TOKEN) {
+    // tenant-unscoped: single-tenant CLI invocation
+    match argo_config::cred::get_unscoped(ENV_TOKEN) {
         Ok(t) if !t.is_empty() => Ok(t),
         _ => Err(ArgoError::Schema(format!(
             "provide --token-file <path> or set {ENV_TOKEN}; tokens are never accepted on argv"
@@ -160,4 +161,3 @@ fn truncate(s: &str, max: usize) -> String {
         out
     }
 }
-

@@ -224,7 +224,8 @@ fn whatsapp_address(value: &str) -> String {
 }
 
 fn env_required(name: &str) -> ChannelResult<String> {
-    argo_config::cred::get(name)
+    // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+    argo_config::cred::get_unscoped(name)
         .ok()
         .filter(|v| !v.trim().is_empty())
         .ok_or_else(|| ChannelError::Config(format!("missing env {name}")))

@@ -235,7 +235,8 @@ impl NotifyChannel for VoiceApprovalChannel {
 }
 
 fn env_required(name: &str) -> ChannelResult<String> {
-    let value = argo_config::cred::get(name)
+    // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+    let value = argo_config::cred::get_unscoped(name)
         .map_err(|_| ChannelError::Config(format!("missing env {name}")))?;
     if value.is_empty() {
         Err(ChannelError::Config(format!(
@@ -247,11 +248,13 @@ fn env_required(name: &str) -> ChannelResult<String> {
 }
 
 fn env_first(primary: &str, fallback: &str) -> ChannelResult<String> {
-    argo_config::cred::get(primary)
+    // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+    argo_config::cred::get_unscoped(primary)
         .ok()
         .filter(|v| !v.is_empty())
         .or_else(|| {
-            argo_config::cred::get(fallback)
+            // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+            argo_config::cred::get_unscoped(fallback)
                 .ok()
                 .filter(|v| !v.is_empty())
         })

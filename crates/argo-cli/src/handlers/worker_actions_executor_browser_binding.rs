@@ -211,7 +211,8 @@ fn protect_secrets(body: &str) -> (String, Vec<String>) {
 fn fill_secrets(mut body: String, secrets: &[String]) -> String {
     for (idx, name) in secrets.iter().enumerate() {
         let token = format!("@@ARGO_BROWSER_SECRET_{idx}@@");
-        let value = argo_config::cred::get(name).unwrap_or_else(|_| "(missing)".to_string());
+        // tenant-unscoped: worker action handler called from queue without tenant context yet (follow-up: pass via WorkerAction envelope)
+        let value = argo_config::cred::get_unscoped(name).unwrap_or_else(|_| "(missing)".to_string());
         body = body.replace(&token, &value);
     }
     body

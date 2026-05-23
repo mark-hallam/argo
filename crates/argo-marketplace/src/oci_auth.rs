@@ -92,8 +92,10 @@ fn nonempty(value: &str) -> Option<String> {
 
 fn credentials_token(host: &str, workspace: &Path) -> Option<String> {
     let host_key = credential_token_key(host);
-    argo_config::cred::get_from_workspace(workspace, &host_key)
-        .or_else(|_| argo_config::cred::get_from_workspace(workspace, "ARGO_OCI_TOKEN"))
+    // tenant-unscoped: OCI registry credentials are workspace-scoped (registry account), not tenant-scoped
+    argo_config::cred::get_unscoped_from_workspace(workspace, &host_key)
+        // tenant-unscoped: OCI registry credentials are workspace-scoped (registry account), not tenant-scoped
+        .or_else(|_| argo_config::cred::get_unscoped_from_workspace(workspace, "ARGO_OCI_TOKEN"))
         .ok()
         .and_then(|v| nonempty(&v))
 }

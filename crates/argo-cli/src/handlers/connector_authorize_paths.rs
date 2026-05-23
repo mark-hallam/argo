@@ -33,7 +33,8 @@ pub fn cache_path(workspace: &Path, spec: &ConnectorSpec) -> PathBuf {
 }
 
 pub fn credential_value(workspace: &Path, key: &str) -> Option<String> {
-    argo_config::cred::get_from_workspace(workspace, key)
+    // tenant-unscoped: single-tenant CLI invocation
+    argo_config::cred::get_unscoped_from_workspace(workspace, key)
         .ok()
         .filter(|v| !v.trim().is_empty())
 }

@@ -34,7 +34,8 @@ impl NotifySender for EnvChannelSender {
 }
 
 pub(super) fn required_env(channel: &str, name: &str) -> Result<String, String> {
-    let value = argo_config::cred::get(name)
+    // tenant-unscoped: worker action handler called from queue without tenant context yet (follow-up: pass via WorkerAction envelope)
+    let value = argo_config::cred::get_unscoped(name)
         .map_err(|_| format!("{channel} not configured: set {name}"))?;
     if value.trim().is_empty() {
         Err(format!("{channel} not configured: set {name}"))

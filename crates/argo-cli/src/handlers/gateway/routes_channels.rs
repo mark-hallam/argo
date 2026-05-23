@@ -249,7 +249,8 @@ pub(super) fn verify_token(token: &str, secret: &str) -> Result<TokenClaims, Str
 }
 
 pub(super) fn hmac_secret() -> Result<String, String> {
-    let secret = argo_config::cred::get("ARGO_CHANNEL_HMAC_SECRET")
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    let secret = argo_config::cred::get_unscoped("ARGO_CHANNEL_HMAC_SECRET")
         .map_err(|_| "missing ARGO_CHANNEL_HMAC_SECRET".to_string())?;
     if secret.is_empty() {
         Err("ARGO_CHANNEL_HMAC_SECRET must not be empty".into())

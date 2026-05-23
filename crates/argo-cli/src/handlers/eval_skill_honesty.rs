@@ -169,17 +169,20 @@ async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Arc<dyn Trans
             Arc::new(BedrockTransport::from_manifest(manifest, &cfg)?)
         }
         ProviderFamily::Anthropic => {
-            let api_key = argo_config::cred::get(&api_env)
+            // tenant-unscoped: single-tenant CLI invocation
+            let api_key = argo_config::cred::get_unscoped(&api_env)
                 .map_err(|_| ArgoError::Provider(format!("{api_env} not set")))?;
             Arc::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiCompatible => {
-            let api_key = argo_config::cred::get(&api_env)
+            // tenant-unscoped: single-tenant CLI invocation
+            let api_key = argo_config::cred::get_unscoped(&api_env)
                 .map_err(|_| ArgoError::Provider(format!("{api_env} not set")))?;
             Arc::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiResponses => {
-            let api_key = argo_config::cred::get(&api_env)
+            // tenant-unscoped: single-tenant CLI invocation
+            let api_key = argo_config::cred::get_unscoped(&api_env)
                 .map_err(|_| ArgoError::Provider(format!("{api_env} not set")))?;
             Arc::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
         }

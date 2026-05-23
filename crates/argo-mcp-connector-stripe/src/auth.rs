@@ -11,7 +11,8 @@ pub const DEFAULT_BASE_URL: &str = "https://api.stripe.com";
 
 /// Read the Stripe API key from `STRIPE_API_KEY`.
 pub fn api_key_from_env() -> Result<String, String> {
-    let key = argo_config::cred::get(STRIPE_API_KEY_ENV)
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    let key = argo_config::cred::get_unscoped(STRIPE_API_KEY_ENV)
         .map_err(|_| format!("missing {STRIPE_API_KEY_ENV}"))?;
     if key.trim().is_empty() {
         return Err(format!("missing {STRIPE_API_KEY_ENV}"));

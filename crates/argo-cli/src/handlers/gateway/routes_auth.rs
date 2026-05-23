@@ -61,7 +61,8 @@ pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
         warn_dev_bypass();
         return None;
     }
-    let expected = match argo_config::cred::get("ARGO_GATEWAY_BEARER_TOKEN") {
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    let expected = match argo_config::cred::get_unscoped("ARGO_GATEWAY_BEARER_TOKEN") {
         Ok(t) if !t.trim().is_empty() => t,
         _ if production => {
             return Some((
@@ -230,7 +231,8 @@ pub(super) async fn authenticate_request(
     if cfg.gateway.auth_bypass {
         return AuthCheckOutcome::Pass(dev_bypass_principal(req));
     }
-    let expected = match argo_config::cred::get("ARGO_GATEWAY_BEARER_TOKEN") {
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    let expected = match argo_config::cred::get_unscoped("ARGO_GATEWAY_BEARER_TOKEN") {
         Ok(t) if !t.is_empty() => t,
         _ => return AuthCheckOutcome::Pass(dev_bypass_principal(req)),
     };

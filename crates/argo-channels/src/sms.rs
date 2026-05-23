@@ -203,7 +203,8 @@ impl NotifyChannel for SmsApprovalChannel {
 }
 
 fn env_required(name: &str) -> ChannelResult<String> {
-    let value = argo_config::cred::get(name)
+    // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+    let value = argo_config::cred::get_unscoped(name)
         .map_err(|_| ChannelError::Config(format!("missing env {name}")))?;
     if value.is_empty() {
         Err(ChannelError::Config(format!(

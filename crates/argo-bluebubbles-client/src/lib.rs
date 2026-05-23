@@ -275,7 +275,8 @@ async fn decode_response(path: &str, response: reqwest::Response) -> BlueBubbles
 }
 
 fn required_env(name: &str) -> BlueBubblesResult<String> {
-    argo_config::cred::get(name)
+    // tenant-unscoped: BlueBubbles client init pre-dates per-tenant scoping (follow-up: thread tenant_id through channel pool)
+    argo_config::cred::get_unscoped(name)
         .ok()
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())

@@ -82,7 +82,8 @@ impl RefineConfig {
     /// `ANTHROPIC_API_KEY` is unset.
     pub fn from_env() -> Result<Self, GenesisError> {
         let api_key =
-            argo_config::cred::get("ANTHROPIC_API_KEY").map_err(|_| GenesisError::Validation {
+            // tenant-unscoped: genesis CLI / refine tool — single-tenant invocation
+            argo_config::cred::get_unscoped("ANTHROPIC_API_KEY").map_err(|_| GenesisError::Validation {
                 stage: "refine.config",
                 detail: "ANTHROPIC_API_KEY must be set when --refine is passed".into(),
             })?;

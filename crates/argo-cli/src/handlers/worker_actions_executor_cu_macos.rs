@@ -146,7 +146,8 @@ fn run_preflight_summary(
 
 #[cfg(target_os = "macos")]
 fn anthropic_api_key() -> ArgoResult<String> {
-    argo_config::cred::get("ANTHROPIC_API_KEY").map_err(|_| {
+    // tenant-unscoped: worker action handler called from queue without tenant context yet (follow-up: pass via WorkerAction envelope)
+    argo_config::cred::get_unscoped("ANTHROPIC_API_KEY").map_err(|_| {
         ArgoError::Provider(
             "computer-use-macos executor not configured: set ANTHROPIC_API_KEY".into(),
         )

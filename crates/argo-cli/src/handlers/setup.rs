@@ -36,7 +36,8 @@ fn detect_provider_keys() -> Vec<&'static str> {
     candidates
         .iter()
         .filter(|k| {
-            argo_config::cred::get(k)
+            // tenant-unscoped: single-tenant CLI invocation
+            argo_config::cred::get_unscoped(k)
                 .map(|v| !v.trim().is_empty())
                 .unwrap_or(false)
         })
@@ -81,7 +82,8 @@ fn run_check_required(required: &[String]) -> ArgoResult<()> {
     let missing: Vec<&String> = required
         .iter()
         .filter(|var| {
-            argo_config::cred::get(var.as_str())
+            // tenant-unscoped: single-tenant CLI invocation
+            argo_config::cred::get_unscoped(var.as_str())
                 .map(|v| v.trim().is_empty())
                 .unwrap_or(true)
         })

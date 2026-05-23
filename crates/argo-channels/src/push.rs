@@ -52,7 +52,8 @@ impl PushApprovalChannelConfig {
                 .ok()
                 .filter(|v| !v.trim().is_empty())
                 .unwrap_or_else(|| DEFAULT_EXPO_ENDPOINT.into()),
-            access_token: argo_config::cred::get("EXPO_ACCESS_TOKEN")
+            // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+            access_token: argo_config::cred::get_unscoped("EXPO_ACCESS_TOKEN")
                 .ok()
                 .filter(|v| !v.trim().is_empty()),
             device_registry_path: device_registry_path_from_env(),

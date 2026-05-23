@@ -55,7 +55,8 @@ impl MatrixChannelConfig {
     /// - [`ChannelError::Config`] when the configured env var is
     ///   missing/empty, or `user_id`/`default_room_id` are malformed.
     pub fn from_toml(cfg: &argo_config::MatrixTomlConfig) -> ChannelResult<Self> {
-        let access_token = argo_config::cred::get(&cfg.access_token_env)
+        // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+        let access_token = argo_config::cred::get_unscoped(&cfg.access_token_env)
             .map_err(|_| ChannelError::Config(format!("missing env {}", cfg.access_token_env)))?;
         if access_token.trim().is_empty() {
             return Err(ChannelError::Config(format!(

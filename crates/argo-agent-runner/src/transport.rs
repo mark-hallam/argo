@@ -25,7 +25,8 @@ pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn T
         )?)));
     }
     let api_key_env = manifest.auth.api_key_env.clone();
-    let api_key = argo_config::cred::get(&api_key_env)
+    // tenant-unscoped: provider API key resolved at transport layer (process-wide, not per-tenant)
+    let api_key = argo_config::cred::get_unscoped(&api_key_env)
         .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
     let t: Box<dyn Transport> = match manifest.provider.family {
         ProviderFamily::Anthropic => {

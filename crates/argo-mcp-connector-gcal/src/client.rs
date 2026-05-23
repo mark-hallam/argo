@@ -258,10 +258,12 @@ fn encode(segment: &str) -> String {
 }
 
 async fn access_token_from_env_or_cache() -> McpResult<String> {
-    if let Ok(token) = argo_config::cred::get("GCAL_ACCESS_TOKEN") {
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    if let Ok(token) = argo_config::cred::get_unscoped("GCAL_ACCESS_TOKEN") {
         return Ok(token);
     }
-    if let Ok(token) = argo_config::cred::get("GCAL_TEST_TOKEN") {
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    if let Ok(token) = argo_config::cred::get_unscoped("GCAL_TEST_TOKEN") {
         return Ok(token);
     }
     if let Some(token) = read_cached_access_token()? {
@@ -346,5 +348,6 @@ fn token_cache_path() -> McpResult<PathBuf> {
 }
 
 fn required_env(name: &str) -> McpResult<String> {
-    argo_config::cred::get(name).map_err(|_| McpError::Initialize(format!("{name} is required")))
+    // tenant-unscoped: MCP connector auth init pre-dates per-tenant scoping; follow-up: thread tenant_id through McpClientPool keying
+    argo_config::cred::get_unscoped(name).map_err(|_| McpError::Initialize(format!("{name} is required")))
 }

@@ -48,19 +48,22 @@ async fn test(provider_id: &str) -> ArgoResult<()> {
             Box::new(BedrockTransport::from_manifest(manifest, &cfg)?)
         }
         ProviderFamily::Anthropic => {
-            let api_key = argo_config::cred::get(&manifest.auth.api_key_env).map_err(|_| {
+            // tenant-unscoped: single-tenant CLI invocation
+            let api_key = argo_config::cred::get_unscoped(&manifest.auth.api_key_env).map_err(|_| {
                 ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
             })?;
             Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiCompatible => {
-            let api_key = argo_config::cred::get(&manifest.auth.api_key_env).map_err(|_| {
+            // tenant-unscoped: single-tenant CLI invocation
+            let api_key = argo_config::cred::get_unscoped(&manifest.auth.api_key_env).map_err(|_| {
                 ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
             })?;
             Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiResponses => {
-            let api_key = argo_config::cred::get(&manifest.auth.api_key_env).map_err(|_| {
+            // tenant-unscoped: single-tenant CLI invocation
+            let api_key = argo_config::cred::get_unscoped(&manifest.auth.api_key_env).map_err(|_| {
                 ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
             })?;
             Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)

@@ -94,7 +94,8 @@ fn auth(req: &str, tenant: TenantId) -> Result<(), (&'static str, String)> {
         .and_then(|h| h.strip_prefix("Bearer ").map(str::to_string))
         .or_else(|| cookie(req, "argo_operator_token"))
         .ok_or_else(|| unauthorized("missing bearer token"))?;
-    if let Ok(expected) = argo_config::cred::get("ARGO_WEBINBOX_BEARER_TOKEN") {
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    if let Ok(expected) = argo_config::cred::get_unscoped("ARGO_WEBINBOX_BEARER_TOKEN") {
         if !expected.is_empty() && token != expected {
             return Err(unauthorized("invalid bearer token"));
         }

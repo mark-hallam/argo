@@ -147,7 +147,8 @@ async fn write_cache(
 }
 
 fn build_caller() -> ArgoResult<Box<dyn AnthropicCaller>> {
-    let key = argo_config::cred::get("ANTHROPIC_API_KEY").map_err(|_| {
+    // tenant-unscoped: single-tenant CLI invocation
+    let key = argo_config::cred::get_unscoped("ANTHROPIC_API_KEY").map_err(|_| {
         ArgoError::Provider(
             "ANTHROPIC_API_KEY unset; cannot run recover (cache hits work without the key)".into(),
         )

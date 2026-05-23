@@ -65,7 +65,8 @@ impl TeamsApprovalChannelConfig {
     /// Returns [`ChannelError::Config`] when the configured env var
     /// is missing or empty.
     pub fn from_toml(cfg: &argo_config::TeamsTomlConfig) -> ChannelResult<Self> {
-        let client_secret = argo_config::cred::get(&cfg.client_secret_env)
+        // tenant-unscoped: channel send pre-dates per-tenant scoping; follow-up: thread tenant_id from request principal
+        let client_secret = argo_config::cred::get_unscoped(&cfg.client_secret_env)
             .map_err(|_| ChannelError::Config(format!("missing env {}", cfg.client_secret_env)))?;
         if client_secret.trim().is_empty() {
             return Err(ChannelError::Config(format!(

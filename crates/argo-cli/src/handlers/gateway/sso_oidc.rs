@@ -289,7 +289,8 @@ pub(super) async fn handle_callback(
         Some(t) => t,
         None => return err_outcome("400 Bad Request", "tenant not configured"),
     };
-    let client_secret = argo_config::cred::get(&tcfg.client_secret_env).unwrap_or_default();
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    let client_secret = argo_config::cred::get_unscoped(&tcfg.client_secret_env).unwrap_or_default();
     let mut form: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
     form.insert("grant_type".into(), "authorization_code".into());
     form.insert("code".into(), code);

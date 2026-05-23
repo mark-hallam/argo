@@ -59,7 +59,8 @@ pub(super) async fn whatsapp_webhook_response(req: &str) -> (&'static str, Strin
 }
 
 fn twilio_auth_token() -> Result<String, String> {
-    argo_config::cred::get("TWILIO_AUTH_TOKEN")
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    argo_config::cred::get_unscoped("TWILIO_AUTH_TOKEN")
         .ok()
         .filter(|v| !v.trim().is_empty())
         .ok_or_else(|| "missing TWILIO_AUTH_TOKEN".to_string())

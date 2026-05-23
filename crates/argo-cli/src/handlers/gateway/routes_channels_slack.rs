@@ -17,7 +17,8 @@ pub(super) fn is_slack_webhook(req: &str) -> bool {
 }
 
 pub(super) async fn slack_webhook_response(req: &str) -> (&'static str, String) {
-    let Ok(signing_secret) = argo_config::cred::get("SLACK_APPROVALS_SIGNING_SECRET") else {
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    let Ok(signing_secret) = argo_config::cred::get_unscoped("SLACK_APPROVALS_SIGNING_SECRET") else {
         return server_error("missing SLACK_APPROVALS_SIGNING_SECRET");
     };
     let secret = match hmac_secret() {

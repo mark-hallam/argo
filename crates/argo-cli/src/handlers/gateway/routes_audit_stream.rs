@@ -138,7 +138,8 @@ fn check_auth(req: &str) -> Result<(), (&'static str, String)> {
             json!({"error":"missing bearer token"}).to_string(),
         )
     })?;
-    if let Ok(expected) = argo_config::cred::get("ARGO_AUDIT_STREAM_BEARER_TOKEN") {
+    // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
+    if let Ok(expected) = argo_config::cred::get_unscoped("ARGO_AUDIT_STREAM_BEARER_TOKEN") {
         if !expected.is_empty() && token != expected {
             return Err((
                 "401 Unauthorized",

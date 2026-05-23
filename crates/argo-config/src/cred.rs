@@ -1,20 +1,51 @@
 //! Workspace credential storage helpers.
+//!
+//! # Tenancy model (mission-cred-get-tenant-parameter)
+//!
+//! Reading a credential requires a [`argo_types::TenantId`]. The
+//! storage layout is per-tenant TOML sections in `<workspace>/.argo/
+//! credentials.toml`:
+//!
+//! ```toml
+//! # canonical per-tenant section
+//! [credentials.tenant.<tenant_id_uuid>]
+//! SLACK_BOT_TOKEN = "xoxb-..."
+//!
+//! # legacy root-level section (back-compat fallback only)
+//! [credentials]
+//! SLACK_BOT_TOKEN = "xoxb-..."
+//! ```
+//!
+//! Reads via [`get`] consult the requested tenant's section first.
+//! Misses fall through to the legacy root-level section with a
+//! `tracing::warn!` (one warning per (tenant, key) per process — the
+//! fallback is meant as a migration ramp, not a steady state).
+//!
+//! [`get_unscoped`] is the additive escape hatch for genuine single-
+//! tenant operations (CLI startup probes, `argo creds export` etc.).
+//! Every call site is expected to carry a `// tenant-unscoped:
+//! <reason>` comment justifying the scope. Cross-tenant exposure
+//! through this entrypoint is by design — callers MUST hold tenant
+//! authority themselves.
 
 /// Per-tenant SQLCipher encryption-key resolution
 /// (`mission-sqlcipher-2-keyring-wire`). API only — wired into
 /// [`crate::store::SessionStore`] in PR 4.
 pub mod db_key;
 
-use argo_types::{ArgoError, ArgoResult};
+mod io;
+pub use io::{
+    clear, clear_all, export_lines, import_current_env, set, set_tenant,
+};
+
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env::{self, VarError};
-use std::fs::{self, OpenOptions};
-use std::io::Write;
-#[cfg(unix)]
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::{Mutex, OnceLock};
 
 const ARGO_DIR: &str = ".argo";
 const CREDENTIALS_FILE: &str = "credentials.toml";
@@ -65,14 +96,29 @@ impl FromStr for CredentialBackend {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct CredentialDocument {
+pub(crate) struct CredentialDocument {
     #[serde(default)]
-    credentials: BTreeMap<String, CredentialEntry>,
+    pub(crate) credentials: CredentialSections,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub(crate) struct CredentialSections {
+    /// Per-tenant credentials: `[credentials.tenant.<uuid>]`.
+    ///
+    /// Skipped on serialize when empty so older argo-credentials
+    /// readers (which know only the legacy root-level shape) keep
+    /// round-tripping cleanly through `migrate_plaintext_in_place`
+    /// etc.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) tenant: BTreeMap<String, BTreeMap<String, CredentialEntry>>,
+    /// Legacy root-level entries inlined under `[credentials]`.
+    #[serde(flatten)]
+    pub(crate) root: BTreeMap<String, CredentialEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-enum CredentialEntry {
+pub(crate) enum CredentialEntry {
     Plain(String),
     Encrypted { value: String },
 }
@@ -101,34 +147,67 @@ pub fn credentials_path(workspace: &Path) -> PathBuf {
     workspace.join(ARGO_DIR).join(CREDENTIALS_FILE)
 }
 
-/// Read a credential by key, preserving normal environment variable precedence.
+/// Read a tenant-scoped credential by key.
 ///
-/// If `key` is present in the process environment, that value is returned.
-/// Otherwise the helper falls back to `<cwd>/.argo/credentials.toml`.
+/// Resolution order:
+/// 1. Process environment (preserved for all backends).
+/// 2. The tenant's section in `<cwd>/.argo/credentials.toml`.
+/// 3. Legacy root-level entry, with `tracing::warn!` on first hit per
+///    (tenant, key) pair.
 ///
 /// # Errors
-/// Returns [`VarError::NotPresent`] when neither source has the key, or
-/// [`VarError::NotUnicode`] when the environment value is not valid Unicode.
-pub fn get(key: &str) -> Result<String, VarError> {
+/// Returns [`VarError::NotPresent`] when no source has the key, or
+/// [`VarError::NotUnicode`] when the environment value is not valid
+/// Unicode.
+pub fn get(tenant_id: &TenantId, key: &str) -> Result<String, VarError> {
     let cwd = std::env::current_dir().map_err(|_| VarError::NotPresent)?;
-    get_from_workspace(&cwd, key)
+    get_from_workspace(&cwd, tenant_id, key)
 }
 
-/// Read a credential by key from a specific workspace, after checking env first.
+/// Unscoped credential read — bypasses tenancy isolation.
 ///
-/// The backend is resolved from `<workspace>/argo.toml`
-/// `[credentials] backend = "..."` (default `auto`). Env-var
-/// precedence is preserved for every backend.
+/// Use ONLY when the calling context legitimately has no tenant
+/// identity (CLI startup probes, single-tenant `argo` invocations,
+/// gateway-process secrets like webhook HMAC). Every call site SHOULD
+/// carry a `// tenant-unscoped: <reason>` comment.
 ///
 /// # Errors
-/// Returns [`VarError::NotPresent`] when neither source has the key, or
-/// [`VarError::NotUnicode`] when the environment value is not valid Unicode.
-pub fn get_from_workspace(workspace: &Path, key: &str) -> Result<String, VarError> {
+/// Returns [`VarError::NotPresent`] when no source has the key, or
+/// [`VarError::NotUnicode`] when the environment value is not valid
+/// Unicode.
+pub fn get_unscoped(key: &str) -> Result<String, VarError> {
+    let cwd = std::env::current_dir().map_err(|_| VarError::NotPresent)?;
+    get_unscoped_from_workspace(&cwd, key)
+}
+
+/// Tenant-scoped read from an explicit workspace root.
+///
+/// # Errors
+/// As for [`get`].
+pub fn get_from_workspace(
+    workspace: &Path,
+    tenant_id: &TenantId,
+    key: &str,
+) -> Result<String, VarError> {
     let backend = read_configured_backend(workspace);
-    get_with_backend(workspace, key, backend)
+    get_with_backend(workspace, Some(tenant_id), key, backend)
+}
+
+/// Unscoped read from an explicit workspace root.
+///
+/// # Errors
+/// As for [`get_unscoped`].
+pub fn get_unscoped_from_workspace(workspace: &Path, key: &str) -> Result<String, VarError> {
+    let backend = read_configured_backend(workspace);
+    get_with_backend(workspace, None, key, backend)
 }
 
 /// Read a credential using an explicit backend choice.
+///
+/// `tenant_id = Some(_)` selects the tenant's section first and falls
+/// through to the legacy root-level section with a `tracing::warn!`.
+/// `tenant_id = None` reads only the legacy root-level section (used
+/// by [`get_unscoped`]).
 ///
 /// Env-var precedence is unchanged: a value in the process environment
 /// is returned regardless of `backend`. For `Auto`, the keyring is
@@ -142,35 +221,133 @@ pub fn get_from_workspace(workspace: &Path, key: &str) -> Result<String, VarErro
 /// Unicode.
 pub fn get_with_backend(
     workspace: &Path,
+    tenant_id: Option<&TenantId>,
     key: &str,
     backend: CredentialBackend,
 ) -> Result<String, VarError> {
+    if tenant_id.is_none() {
+        tracing::warn!(
+            target: "argo_config::cred",
+            key = key,
+            "tenant-unscoped credential read (caller bypassed tenancy isolation)"
+        );
+    }
     match env::var(key) {
         Ok(value) => return Ok(value),
         Err(VarError::NotUnicode(value)) => return Err(VarError::NotUnicode(value)),
         Err(VarError::NotPresent) => {}
     }
     match backend {
-        CredentialBackend::File => load_from_file(workspace, key),
-        CredentialBackend::Keyring => {
-            crate::cred_keyring::keyring_get(workspace, key).map_err(|_| VarError::NotPresent)
-        }
+        CredentialBackend::File => load_from_file(workspace, tenant_id, key),
+        CredentialBackend::Keyring => keyring_lookup(workspace, tenant_id, key),
         CredentialBackend::Auto => {
             if crate::cred_keyring::keyring_available() {
-                if let Ok(value) = crate::cred_keyring::keyring_get(workspace, key) {
+                if let Ok(value) = keyring_lookup(workspace, tenant_id, key) {
                     return Ok(value);
                 }
             }
-            load_from_file(workspace, key)
+            load_from_file(workspace, tenant_id, key)
         }
     }
 }
 
-fn load_from_file(workspace: &Path, key: &str) -> Result<String, VarError> {
-    load(workspace)
-        .ok()
-        .and_then(|credentials| credentials.get(key).cloned())
-        .ok_or(VarError::NotPresent)
+fn keyring_lookup(
+    workspace: &Path,
+    tenant_id: Option<&TenantId>,
+    key: &str,
+) -> Result<String, VarError> {
+    if let Some(tid) = tenant_id {
+        let scoped = format!("tenant/{tid}/{key}");
+        if let Ok(value) = crate::cred_keyring::keyring_get(workspace, &scoped) {
+            return Ok(value);
+        }
+        if let Ok(value) = crate::cred_keyring::keyring_get(workspace, key) {
+            warn_legacy_fallback(tid, key, "keyring");
+            return Ok(value);
+        }
+        Err(VarError::NotPresent)
+    } else {
+        crate::cred_keyring::keyring_get(workspace, key).map_err(|_| VarError::NotPresent)
+    }
+}
+
+fn load_from_file(
+    workspace: &Path,
+    tenant_id: Option<&TenantId>,
+    key: &str,
+) -> Result<String, VarError> {
+    let document = load_document(workspace).map_err(|_| VarError::NotPresent)?;
+    let master_key = master_key_for(&document)?;
+    if let Some(tid) = tenant_id {
+        if let Some(entry) = document
+            .credentials
+            .tenant
+            .get(&tid.to_string())
+            .and_then(|section| section.get(key))
+        {
+            return entry
+                .clone()
+                .into_plain(master_key.as_ref())
+                .map_err(|_| VarError::NotPresent);
+        }
+        if let Some(entry) = document.credentials.root.get(key) {
+            warn_legacy_fallback(tid, key, "file");
+            return entry
+                .clone()
+                .into_plain(master_key.as_ref())
+                .map_err(|_| VarError::NotPresent);
+        }
+        Err(VarError::NotPresent)
+    } else {
+        document
+            .credentials
+            .root
+            .get(key)
+            .cloned()
+            .ok_or(VarError::NotPresent)
+            .and_then(|entry| {
+                entry
+                    .into_plain(master_key.as_ref())
+                    .map_err(|_| VarError::NotPresent)
+            })
+    }
+}
+
+fn master_key_for(
+    document: &CredentialDocument,
+) -> Result<Option<argo_credentials::MasterKey>, VarError> {
+    let needs_key = document
+        .credentials
+        .tenant
+        .values()
+        .flat_map(BTreeMap::values)
+        .chain(document.credentials.root.values())
+        .any(CredentialEntry::is_encrypted);
+    if needs_key {
+        argo_credentials::MasterKey::resolve(None)
+            .map(Some)
+            .map_err(|_| VarError::NotPresent)
+    } else {
+        Ok(None)
+    }
+}
+
+fn warn_legacy_fallback(tenant_id: &TenantId, key: &str, backend: &str) {
+    static SEEN: OnceLock<Mutex<std::collections::HashSet<String>>> = OnceLock::new();
+    let set = SEEN.get_or_init(|| Mutex::new(std::collections::HashSet::new()));
+    let cache_key = format!("{tenant_id}|{key}|{backend}");
+    if let Ok(mut guard) = set.lock() {
+        if !guard.insert(cache_key) {
+            return;
+        }
+    }
+    tracing::warn!(
+        target: "argo_config::cred",
+        tenant_id = %tenant_id,
+        key = key,
+        backend = backend,
+        "credential found via legacy root-level fallback; migrate with `argo creds migrate-to-tenant <tid>`"
+    );
 }
 
 fn read_configured_backend(workspace: &Path) -> CredentialBackend {
@@ -189,25 +366,28 @@ fn read_configured_backend(workspace: &Path) -> CredentialBackend {
         .unwrap_or(CredentialBackend::Auto)
 }
 
-/// Load all stored credentials from a workspace.
-///
-/// # Errors
-/// Returns an [`ArgoError`] when the file exists but cannot be read or parsed.
-pub fn load(workspace: &Path) -> ArgoResult<BTreeMap<String, String>> {
+pub(crate) fn load_document(workspace: &Path) -> ArgoResult<CredentialDocument> {
     let path = credentials_path(workspace);
     if !path.exists() {
-        return Ok(BTreeMap::new());
+        return Ok(CredentialDocument::default());
     }
     let body = fs::read_to_string(&path)
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
-    let document: CredentialDocument = toml::from_str(&body)
-        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
-    flatten_document(document)
+    toml::from_str(&body)
+        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))
 }
 
-fn flatten_document(document: CredentialDocument) -> ArgoResult<BTreeMap<String, String>> {
+/// Load all stored credentials from a workspace's legacy root-level
+/// section (back-compat for export / migrate tooling).
+///
+/// # Errors
+/// Returns an [`ArgoError`] when the file exists but cannot be read or
+/// parsed, or when an encrypted entry cannot be decrypted.
+pub fn load(workspace: &Path) -> ArgoResult<BTreeMap<String, String>> {
+    let document = load_document(workspace)?;
     let master_key = if document
         .credentials
+        .root
         .values()
         .any(CredentialEntry::is_encrypted)
     {
@@ -220,7 +400,7 @@ fn flatten_document(document: CredentialDocument) -> ArgoResult<BTreeMap<String,
         None
     };
     let mut credentials = BTreeMap::new();
-    for (key, entry) in document.credentials {
+    for (key, entry) in document.credentials.root {
         let value = entry
             .into_plain(master_key.as_ref())
             .map_err(|e| ArgoError::Provider(format!("decrypt {key}: {e}")))?;
@@ -229,141 +409,41 @@ fn flatten_document(document: CredentialDocument) -> ArgoResult<BTreeMap<String,
     Ok(credentials)
 }
 
-/// Set one credential value in the workspace credentials file.
+/// Load stored credentials for a specific tenant section.
+///
+/// Returns the per-tenant section only (no legacy fallback). Used by
+/// the `argo creds migrate-to-tenant` helper and the cross-tenant
+/// isolation tests.
 ///
 /// # Errors
-/// Returns an [`ArgoError`] when the key is invalid or the file cannot be written.
-pub fn set(workspace: &Path, key: &str, value: &str) -> ArgoResult<()> {
-    validate_key(key)?;
-    let mut credentials = load(workspace)?;
-    credentials.insert(key.to_string(), value.to_string());
-    write_credentials(workspace, &credentials)
-}
-
-/// Remove one credential value. Returns `true` when the key existed.
-///
-/// # Errors
-/// Returns an [`ArgoError`] when the file cannot be read or written.
-pub fn clear(workspace: &Path, key: &str) -> ArgoResult<bool> {
-    validate_key(key)?;
-    let mut credentials = load(workspace)?;
-    let removed = credentials.remove(key).is_some();
-    write_credentials(workspace, &credentials)?;
-    Ok(removed)
-}
-
-/// Remove all stored credentials and return the number removed.
-///
-/// # Errors
-/// Returns an [`ArgoError`] when the file cannot be read or written.
-pub fn clear_all(workspace: &Path) -> ArgoResult<usize> {
-    let count = load(workspace)?.len();
-    write_credentials(workspace, &BTreeMap::new())?;
-    Ok(count)
-}
-
-/// Import credential-looking environment variables into the workspace file.
-///
-/// # Errors
-/// Returns an [`ArgoError`] when the file cannot be read or written.
-pub fn import_current_env(workspace: &Path) -> ArgoResult<usize> {
-    let mut credentials = load(workspace)?;
-    let mut imported = 0;
-    for (key, value) in env::vars() {
-        if looks_like_credential_key(&key) {
-            validate_key(&key)?;
-            credentials.insert(key, value);
-            imported += 1;
-        }
-    }
-    write_credentials(workspace, &credentials)?;
-    Ok(imported)
-}
-
-/// Render stored credentials as shell export lines.
-///
-/// # Errors
-/// Returns an [`ArgoError`] when the file cannot be read or `shell` is unknown.
-pub fn export_lines(workspace: &Path, shell: &str) -> ArgoResult<Vec<String>> {
-    let credentials = load(workspace)?;
-    let mut lines = Vec::with_capacity(credentials.len());
-    for (key, value) in credentials {
-        validate_key(&key)?;
-        let line = match shell {
-            "bash" | "zsh" => format!("export {key}={}", quote_posix(&value)),
-            "fish" => format!("set -gx {key} {};", quote_posix(&value)),
-            other => {
-                return Err(ArgoError::Provider(format!(
-                    "unsupported shell '{other}': expected bash, zsh, or fish"
-                )));
-            }
-        };
-        lines.push(line);
-    }
-    Ok(lines)
-}
-
-fn write_credentials(workspace: &Path, credentials: &BTreeMap<String, String>) -> ArgoResult<()> {
-    let path = credentials_path(workspace);
-    let parent = path
-        .parent()
-        .ok_or_else(|| ArgoError::Schema(format!("invalid credentials path {}", path.display())))?;
-    fs::create_dir_all(parent)
-        .map_err(|e| ArgoError::Io(format!("create {}: {e}", parent.display())))?;
-    let document = CredentialDocument {
-        credentials: credentials
-            .iter()
-            .map(|(key, value)| (key.clone(), CredentialEntry::Plain(value.clone())))
-            .collect(),
+/// Returns an [`ArgoError`] when the file exists but cannot be read or
+/// parsed, or when an encrypted entry cannot be decrypted.
+pub fn load_tenant(
+    workspace: &Path,
+    tenant_id: &TenantId,
+) -> ArgoResult<BTreeMap<String, String>> {
+    let document = load_document(workspace)?;
+    let section = match document.credentials.tenant.get(&tenant_id.to_string()) {
+        Some(section) => section.clone(),
+        None => return Ok(BTreeMap::new()),
     };
-    let body = toml::to_string_pretty(&document)
-        .map_err(|e| ArgoError::Provider(format!("serialize {}: {e}", path.display())))?;
-    let mut options = OpenOptions::new();
-    options.create(true).truncate(true).write(true);
-    #[cfg(unix)]
-    options.mode(0o600);
-    let mut file = options
-        .open(&path)
-        .map_err(|e| ArgoError::Provider(format!("open {}: {e}", path.display())))?;
-    file.write_all(body.as_bytes())
-        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
-    #[cfg(unix)]
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
-        .map_err(|e| ArgoError::Provider(format!("chmod 0600 {}: {e}", path.display())))?;
-    Ok(())
-}
-
-fn validate_key(key: &str) -> ArgoResult<()> {
-    if is_valid_key(key) {
-        Ok(())
+    let master_key = if section.values().any(CredentialEntry::is_encrypted) {
+        Some(argo_credentials::MasterKey::resolve(None).map_err(|e| {
+            ArgoError::Provider(format!(
+                "decrypt credential: master key not configured: {e}"
+            ))
+        })?)
     } else {
-        Err(ArgoError::Provider(format!(
-            "invalid credential key '{key}': expected shell-safe env var name"
-        )))
-    }
-}
-
-fn is_valid_key(key: &str) -> bool {
-    let mut chars = key.chars();
-    let Some(first) = chars.next() else {
-        return false;
+        None
     };
-    (first == '_' || first.is_ascii_alphabetic())
-        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn looks_like_credential_key(key: &str) -> bool {
-    is_valid_key(key)
-        && (key.ends_with("_API_KEY")
-            || key.ends_with("_TOKEN")
-            || key.ends_with("_SECRET")
-            || key.ends_with("_PASSWORD")
-            || key.ends_with("_PAT")
-            || key.contains("ACCESS_KEY"))
-}
-
-fn quote_posix(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "'\\''"))
+    let mut credentials = BTreeMap::new();
+    for (key, entry) in section {
+        let value = entry
+            .into_plain(master_key.as_ref())
+            .map_err(|e| ArgoError::Provider(format!("decrypt {key}: {e}")))?;
+        credentials.insert(key, value);
+    }
+    Ok(credentials)
 }
 
 #[cfg(test)]
@@ -371,87 +451,5 @@ fn quote_posix(value: &str) -> String {
 mod cred_encryption_tests;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn set_and_load_round_trips() {
-        let dir = tempfile::tempdir().unwrap();
-        set(dir.path(), "POSTMARK_API_KEY", "pm_test").unwrap();
-
-        let loaded = load(dir.path()).unwrap();
-        assert_eq!(
-            loaded.get("POSTMARK_API_KEY").map(String::as_str),
-            Some("pm_test")
-        );
-    }
-
-    #[test]
-    fn clear_removes_one_key() {
-        let dir = tempfile::tempdir().unwrap();
-        set(dir.path(), "A_TOKEN", "one").unwrap();
-        set(dir.path(), "B_TOKEN", "two").unwrap();
-
-        assert!(clear(dir.path(), "A_TOKEN").unwrap());
-        let loaded = load(dir.path()).unwrap();
-        assert!(!loaded.contains_key("A_TOKEN"));
-        assert_eq!(loaded.get("B_TOKEN").map(String::as_str), Some("two"));
-    }
-
-    #[test]
-    fn clear_all_reports_removed_count() {
-        let dir = tempfile::tempdir().unwrap();
-        set(dir.path(), "A_TOKEN", "one").unwrap();
-        set(dir.path(), "B_TOKEN", "two").unwrap();
-
-        assert_eq!(clear_all(dir.path()).unwrap(), 2);
-        assert!(load(dir.path()).unwrap().is_empty());
-    }
-
-    #[test]
-    fn get_prefers_environment_over_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let key = "ARGO_TEST_CRED_ENV_FIRST_TOKEN";
-        set(dir.path(), key, "file").unwrap();
-        env::set_var(key, "env");
-
-        assert_eq!(get_from_workspace(dir.path(), key).unwrap(), "env");
-        env::remove_var(key);
-    }
-
-    #[test]
-    fn get_falls_back_to_file_when_env_unset() {
-        let dir = tempfile::tempdir().unwrap();
-        let key = "ARGO_TEST_CRED_FILE_TOKEN";
-        env::remove_var(key);
-        set(dir.path(), key, "file").unwrap();
-
-        assert_eq!(get_from_workspace(dir.path(), key).unwrap(), "file");
-    }
-
-    #[test]
-    fn export_bash_escapes_single_quotes() {
-        let dir = tempfile::tempdir().unwrap();
-        set(dir.path(), "ANTHROPIC_API_KEY", "sk-'quoted'").unwrap();
-
-        let lines = export_lines(dir.path(), "bash").unwrap();
-        assert_eq!(
-            lines,
-            vec!["export ANTHROPIC_API_KEY='sk-'\\''quoted'\\'''"]
-        );
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn credentials_file_mode_is_0600() {
-        let dir = tempfile::tempdir().unwrap();
-        set(dir.path(), "POSTMARK_API_KEY", "pm_test").unwrap();
-
-        let mode = fs::metadata(credentials_path(dir.path()))
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777;
-        assert_eq!(mode, 0o600);
-    }
-}
+#[path = "cred_tenant_tests.rs"]
+mod cred_tenant_tests;
