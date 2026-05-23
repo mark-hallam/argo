@@ -123,6 +123,59 @@ impl OrchestratorStore {
         Ok(())
     }
 
+    /// Insert a new orchestrator session INSIDE a caller-owned sqlx
+    /// transaction. The caller commits — if any other write in the same
+    /// transaction fails, the session row is rolled back atomically.
+    ///
+    /// Used by `DutyScheduler::tick` to commit the duty session and
+    /// its `WorkerDutyFired` audit row in one transaction, satisfying
+    /// the brief's atomicity contract ("audit + session writes share a
+    /// transaction; if audit fails, session row is absent").
+    pub(crate) async fn insert_session_in_tx(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        session: &Session,
+    ) -> ArgoResult<()> {
+        // Schema bring-up runs on a separate connection — idempotent
+        // and safe to run before the caller's tx begins. Cheap (a few
+        // `CREATE TABLE IF NOT EXISTS` no-ops once warm).
+        self.ensure_schema().await?;
+        let id = session_id_blob(&session.id)?;
+        let tenant = tenant_blob(session.tenant_id);
+        sqlx::query(
+            "INSERT OR IGNORE INTO workspace (id, tenant_id, name, root_path, created_at) \
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(tenant.as_slice())
+        .bind(tenant.as_slice())
+        .bind(ORCHESTRATOR_PROVIDER)
+        .bind("")
+        .bind(session.created_at.timestamp_micros())
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("orchestrator workspace (in tx): {e}")))?;
+        sqlx::query(
+            "INSERT INTO session (id, tenant_id, workspace_id, title, started_at, \
+             model, provider, status, participants, created_at, deadline) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(id.as_slice())
+        .bind(tenant.as_slice())
+        .bind(tenant.as_slice())
+        .bind(&session.title)
+        .bind(session.created_at.timestamp_micros())
+        .bind(ORCHESTRATOR_PROVIDER)
+        .bind(ORCHESTRATOR_PROVIDER)
+        .bind(session_status_label(session.status))
+        .bind(participants_json(&session.participants)?)
+        .bind(session.created_at.timestamp_micros())
+        .bind(session.deadline.map(|d| d.timestamp_micros()))
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("insert orchestrator session (in tx): {e}")))?;
+        Ok(())
+    }
+
     /// Find one orchestrator session inside a tenant.
     pub async fn find_session(
         &self,

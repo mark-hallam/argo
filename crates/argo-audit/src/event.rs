@@ -81,6 +81,8 @@ impl AuditKind {
             Self::WorkflowExecuteDispatched => "workflow.execute.dispatched",
             Self::WorkflowStepExecuted => "workflow.step.executed",
             Self::WorkflowStepFailed => "workflow.step.failed",
+            Self::WorkerDutyFired => "worker_duty.fired",
+            Self::WorkerDutyFailed => "worker_duty.failed",
         }
     }
 
@@ -157,6 +159,8 @@ impl AuditKind {
             "workflow.execute.dispatched" => Self::WorkflowExecuteDispatched,
             "workflow.step.executed" => Self::WorkflowStepExecuted,
             "workflow.step.failed" => Self::WorkflowStepFailed,
+            "worker_duty.fired" => Self::WorkerDutyFired,
+            "worker_duty.failed" => Self::WorkerDutyFailed,
             _ => return None,
         })
     }
@@ -233,6 +237,8 @@ impl AuditKind {
             Self::WorkflowExecuteDispatched,
             Self::WorkflowStepExecuted,
             Self::WorkflowStepFailed,
+            Self::WorkerDutyFired,
+            Self::WorkerDutyFailed,
         ];
         v.sort_by_key(|k| k.label());
         v

@@ -90,8 +90,29 @@ impl AuditSink {
         payload: serde_json::Value,
         principal_id: Option<String>,
     ) -> ArgoResult<AuditPostCommit> {
+        self.write_in_tx_for_tenant(tx, session_id, kind, payload, principal_id, self.tenant_id())
+            .await
+    }
+
+    /// Same as [`Self::write_in_tx`] but stamps `tenant_id` from an
+    /// explicit override rather than the sink's configured tenant.
+    /// Used by callers (e.g. `DutyScheduler::tick`) that share one
+    /// long-lived sink across multiple tenants and need the audit
+    /// row pinned to the row's actual tenant, not the sink's default.
+    ///
+    /// # Errors
+    /// As for [`Self::write_in_tx`].
+    pub async fn write_in_tx_for_tenant<'c>(
+        &self,
+        tx: &mut Transaction<'c, Sqlite>,
+        session_id: Option<SessionId>,
+        kind: AuditKind,
+        payload: serde_json::Value,
+        principal_id: Option<String>,
+        tenant_id: &str,
+    ) -> ArgoResult<AuditPostCommit> {
         let id = Uuid::now_v7();
-        let stamped_payload = stamp_tenant_id(payload, self.tenant_id());
+        let stamped_payload = stamp_tenant_id(payload, tenant_id);
         let raw = serde_json::to_string(&stamped_payload)
             .map_err(|e| ArgoError::Schema(format!("audit payload serialize: {e}")))?;
         let canonical = pii_detect::scan_and_maybe_redact(&raw, "audit_write").into_owned();
@@ -118,7 +139,7 @@ impl AuditSink {
         .bind(self_hash.as_slice())
         .bind(created_at.timestamp_micros())
         .bind(principal_id.as_deref())
-        .bind(self.tenant_id())
+        .bind(tenant_id)
         .bind(filter_dims.worker_id.as_deref())
         .bind(filter_dims.channel.as_deref())
         .bind(filter_dims.action_type.as_deref())
@@ -137,7 +158,7 @@ impl AuditSink {
             payload: stamped_payload,
             canonical,
             principal_id,
-            tenant_id: self.tenant_id().to_string(),
+            tenant_id: tenant_id.to_string(),
             created_at,
             filter_dims,
         };

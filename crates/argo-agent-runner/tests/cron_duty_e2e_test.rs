@@ -60,6 +60,12 @@
 //! choice — the FINDINGS-ONLY hooks belong next to the runner
 //! they would call.
 
+//! The companion file `cron_duty_wire_closure_test.rs` covers the
+//! runner-invocation + audit-emission wire — the four assertions
+//! flipped from FINDINGS-ONLY to live as part of
+//! `fix-duty-scheduler-invokes-agent-runner`. The split keeps this
+//! file under the 500-LOC ceiling.
+
 use argo_identity::WorkerId;
 use argo_orchestrator::{
     DutyRecord, DutyScheduler, DutyStore, FireDecision, OpenGate, OrchestratorStore,
@@ -313,65 +319,3 @@ async fn duty_tick_cross_tenant_isolation() {
     );
 }
 
-// ----------------------------------------------------------------
-// FINDINGS-ONLY regression hooks — `#[ignore]`'d because the wire
-// they assert does not exist yet. See module doc for the trace.
-// A follow-up brief (`fix-duty-scheduler-invokes-agent-runner` or
-// equivalent) is expected to:
-//   1. add an `AgentRunner` handle to `DutyScheduler`
-//   2. invoke `AgentRunner::run_turn` from `tick` once a session
-//      is spawned
-//   3. write an audit row (`AuditKind::WorkerDutyFired` or reuse of
-//      `CronJobFired`) for the (tenant, worker, duty) tuple.
-// When that brief lands, the implementer flips off `#[ignore]` and
-// replaces each `panic!` body with the real assertion.
-// ----------------------------------------------------------------
-
-#[tokio::test]
-#[ignore = "FINDINGS-ONLY: DutyScheduler::tick does not invoke AgentRunner::run_turn — wire missing on origin/main; fix-brief pending"]
-async fn duty_tick_invokes_agent_runner_findings_only() {
-    // The desired assertion (sketch — does not compile against
-    // current main, because DutyScheduler holds no AgentRunner):
-    //
-    //   let probe = Arc::new(RecordingAgentRunner::default());
-    //   let scheduler = DutyScheduler::with_agent_runner(
-    //       duties, orch, gate, probe.clone());
-    //   scheduler.tick(tick_at).await.unwrap();
-    //   let calls = probe.calls();
-    //   assert_eq!(calls.len(), 1);
-    //   assert_eq!(calls[0].tenant_id, tenant);
-    //   assert_eq!(calls[0].worker_id, worker);
-    //   assert_eq!(calls[0].entry_action, duty.entry_action);
-    //
-    panic!(
-        "FINDINGS-ONLY: argo_orchestrator::DutyScheduler::tick spawns \
-         a Session row but does NOT invoke AgentRunner::run_turn. \
-         The struct holds no AgentRunner handle. See module doc \
-         for the production trace and the follow-up fix-brief."
-    );
-}
-
-#[tokio::test]
-#[ignore = "FINDINGS-ONLY: DutyScheduler::tick writes no audit row; AuditKind::WorkerDutyFired does not exist — fix-brief pending"]
-async fn duty_tick_emits_worker_duty_fired_audit_findings_only() {
-    // The desired assertion (sketch — does not compile against
-    // current main, because AuditKind::WorkerDutyFired does not
-    // exist and DutyScheduler does not own an AuditSink):
-    //
-    //   let sink = AuditSink::in_memory();
-    //   let scheduler = DutyScheduler::with_audit_sink(
-    //       duties, orch, gate, sink.clone());
-    //   scheduler.tick(tick_at).await.unwrap();
-    //   let rows = sink.rows_of_kind(AuditKind::WorkerDutyFired).await;
-    //   assert_eq!(rows.len(), 1);
-    //   assert_eq!(rows[0].tenant_id, Some(tenant));
-    //   assert_eq!(rows[0].payload["worker_id"], worker.to_string());
-    //   assert_eq!(rows[0].payload["duty_id"], duty.id);
-    //
-    panic!(
-        "FINDINGS-ONLY: argo_orchestrator::DutyScheduler::tick writes \
-         NO audit row, and argo_audit::AuditKind has no WorkerDutyFired \
-         variant (closest is CronJobFired, which belongs to the \
-         not-wired argo-cron path). See module doc + fix-brief."
-    );
-}

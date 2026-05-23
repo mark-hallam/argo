@@ -77,8 +77,8 @@ pub use auction::{
 };
 pub use auction_dispatcher::{AuctionDispatcher, AuctionEvent, DEFAULT_CHANNEL_CAPACITY};
 pub use duty_scheduler::{
-    spawn_duty_scheduler, ClosedGate, DutyGate, DutyRecord, DutyScheduler, DutyStore,
-    DutyTickReport, FireDecision, OpenGate,
+    spawn_duty_scheduler, ClosedGate, DutyAgentRunner, DutyGate, DutyRecord, DutyRunContext,
+    DutyScheduler, DutyStore, DutyTickReport, FireDecision, NoopDutyRunner, OpenGate,
 };
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};

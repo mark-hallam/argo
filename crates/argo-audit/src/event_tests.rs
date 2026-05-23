@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 67);
+    assert_eq!(AuditKind::all().len(), 69);
 }
 
 #[test]
@@ -27,6 +27,20 @@ fn workflow_step_executed_and_failed_round_trip_and_listed() {
     let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
     assert!(labels.contains(&"workflow.step.executed"));
     assert!(labels.contains(&"workflow.step.failed"));
+}
+
+#[test]
+fn worker_duty_kinds_round_trip_and_listed() {
+    for (label, kind) in [
+        ("worker_duty.fired", AuditKind::WorkerDutyFired),
+        ("worker_duty.failed", AuditKind::WorkerDutyFailed),
+    ] {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+    }
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"worker_duty.fired"));
+    assert!(labels.contains(&"worker_duty.failed"));
 }
 
 #[test]

@@ -20,8 +20,10 @@
 //! assert_eq!(FireDecision::AutoApprove.label(), "auto_approved");
 //! ```
 use crate::{OrchestratorStore, Session, SessionId};
+use argo_audit::{AuditKind, AuditSink};
 use argo_identity::WorkerId;
 use argo_types::{ArgoError, ArgoResult, TenantId};
+use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use cron::Schedule;
 use serde::{Deserialize, Serialize};
@@ -121,6 +123,79 @@ pub struct DutyTickReport {
     pub fired: Vec<String>,
     /// Duty ids whose cron matched but the gate denied.
     pub denied_by_gate: Vec<String>,
+    /// Duty ids whose cron matched + auto-approved + spawned a
+    /// session BUT whose injected [`DutyAgentRunner::run_turn`]
+    /// returned `Err`. Pairs with the [`AuditKind::WorkerDutyFailed`]
+    /// audit row written for the same fire — silent runner failures
+    /// were the worst failure mode pre-fix; this counter makes them
+    /// visible in the per-tick report.
+    pub run_failed: Vec<String>,
+}
+
+/// Behaviour the [`DutyScheduler`] needs from the agent runtime
+/// when a duty's cron window elapses and the gate auto-approves.
+///
+/// Defined here so [`argo-orchestrator`] doesn't depend on
+/// [`argo-agent-runner`] (the existing dep direction is
+/// runner → orchestrator). Production wires a thin adapter that
+/// calls `argo_agent_runner::run_turn`; tests inject mocks.
+/// [`NoopDutyRunner`] is the default — it always succeeds and is
+/// used by every constructor that doesn't explicitly opt into a
+/// runner via [`DutyScheduler::with_agent_runner`].
+#[async_trait]
+pub trait DutyAgentRunner: Send + Sync {
+    /// Drive one agent turn for the just-spawned duty session.
+    ///
+    /// Returning `Ok(())` ⇒ the scheduler emits a
+    /// [`AuditKind::WorkerDutyFired`] row. Returning `Err` ⇒ the
+    /// scheduler emits a [`AuditKind::WorkerDutyFailed`] row, logs
+    /// at `tracing::error` level, and keeps ticking the next duty
+    /// — a single runner failure must never kill the loop.
+    async fn run_turn(&self, ctx: DutyRunContext) -> ArgoResult<()>;
+}
+
+/// Context handed to [`DutyAgentRunner::run_turn`] per duty fire.
+#[derive(Debug, Clone)]
+pub struct DutyRunContext {
+    /// Tenant that owns the duty + worker + session.
+    pub tenant_id: TenantId,
+    /// Worker the duty belongs to — the agent loop must run AS
+    /// this worker (system prompt, capabilities, memory).
+    pub worker_id: WorkerId,
+    /// Duty row id — included so the runner can look up the
+    /// duty's entry_action / description / cron history if needed.
+    pub duty_id: String,
+    /// Session row the scheduler just spawned for this fire. The
+    /// runner appends messages to this session, not a fresh one.
+    pub session_id: SessionId,
+    /// Cron expression that fired (informational; audit payload).
+    pub cron_spec: String,
+    /// Handler name from the worker action vocabulary — the
+    /// canonical "what to do this tick" string.
+    pub entry_action: String,
+    /// Tick instant (UTC) — every audit row written for this
+    /// fire stamps the same value so a single fire is one row in
+    /// `worker_duty.fired` (or `worker_duty.failed`) by timestamp.
+    pub fired_at: DateTime<Utc>,
+}
+
+/// Default [`DutyAgentRunner`] — does nothing, always succeeds.
+///
+/// Wired by every constructor that doesn't call
+/// [`DutyScheduler::with_agent_runner`]. Lets every existing
+/// callsite (CLI handlers, gateway boot's `ClosedGate` path,
+/// integration tests) keep its current behaviour: spawn the
+/// session row + write the attribution row, no agent invocation.
+/// The production gateway swaps in a real adapter that calls
+/// `argo_agent_runner::run_turn` via a follow-up wire-up brief.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NoopDutyRunner;
+
+#[async_trait]
+impl DutyAgentRunner for NoopDutyRunner {
+    async fn run_turn(&self, _ctx: DutyRunContext) -> ArgoResult<()> {
+        Ok(())
+    }
 }
 
 /// Combines a [`DutyStore`] with an [`OrchestratorStore`] and a
@@ -129,10 +204,17 @@ pub struct DutyScheduler {
     duties: Arc<DutyStore>,
     orchestrator: Arc<OrchestratorStore>,
     gate: Arc<dyn DutyGate>,
+    runner: Arc<dyn DutyAgentRunner>,
+    audit_sink: Option<Arc<AuditSink>>,
 }
 
 impl DutyScheduler {
     /// Build a scheduler around the three injected dependencies.
+    ///
+    /// The agent runner defaults to [`NoopDutyRunner`] and the
+    /// audit sink defaults to `None` — opt into the real wire via
+    /// [`Self::with_agent_runner`] / [`Self::with_audit_sink`] so
+    /// every existing callsite keeps compiling unchanged.
     #[must_use]
     pub fn new(
         duties: Arc<DutyStore>,
@@ -143,7 +225,30 @@ impl DutyScheduler {
             duties,
             orchestrator,
             gate,
+            runner: Arc::new(NoopDutyRunner),
+            audit_sink: None,
         }
+    }
+
+    /// Inject a [`DutyAgentRunner`] — gateway boot calls this with
+    /// an adapter that invokes `argo_agent_runner::run_turn`. The
+    /// returned scheduler is otherwise unchanged.
+    #[must_use]
+    pub fn with_agent_runner(mut self, runner: Arc<dyn DutyAgentRunner>) -> Self {
+        self.runner = runner;
+        self
+    }
+
+    /// Inject an [`AuditSink`] so each fire emits a
+    /// [`AuditKind::WorkerDutyFired`] (or
+    /// [`AuditKind::WorkerDutyFailed`]) row. Without a sink the
+    /// scheduler keeps today's behaviour: session row + attribution
+    /// only. The sink is wired by the gateway-boot brief alongside
+    /// the runner injection.
+    #[must_use]
+    pub fn with_audit_sink(mut self, sink: Arc<AuditSink>) -> Self {
+        self.audit_sink = Some(sink);
+        self
     }
 
     /// Walk every active duty and fire those whose cron window has
@@ -174,7 +279,55 @@ impl DutyScheduler {
             let tenant = duty.tenant_id;
             match gate.evaluate(&duty).await? {
                 FireDecision::AutoApprove => {
-                    let session_id = self.spawn_session(&duty, now).await?;
+                    // Pre-allocate the session in memory so the runner
+                    // gets a stable session_id BEFORE the atomic write.
+                    // Persistence happens later, inside the same
+                    // transaction as the audit row.
+                    let session = self.build_session(&duty, now);
+                    let session_id = session.id.clone();
+                    let ctx = DutyRunContext {
+                        tenant_id: duty.tenant_id,
+                        worker_id: duty.worker_id,
+                        duty_id: duty.id.clone(),
+                        session_id: session_id.clone(),
+                        cron_spec: duty.cron.clone(),
+                        entry_action: duty.entry_action.clone(),
+                        fired_at: now,
+                    };
+                    let run_outcome = self.runner.run_turn(ctx.clone()).await;
+                    if let Err(ref err) = run_outcome {
+                        tracing::error!(
+                            target: "argo_orchestrator::duty_scheduler",
+                            tenant_id = %duty.tenant_id.0,
+                            worker_id = %duty.worker_id,
+                            duty_id = %duty.id,
+                            session_id = %session_id.as_str(),
+                            error = %err,
+                            "duty agent runner returned Err — emitting WorkerDutyFailed; scheduler continues"
+                        );
+                    }
+                    // Atomic: session + audit either both commit or
+                    // neither. If the audit write fails, the session
+                    // row is rolled back and the duty stays unfired —
+                    // the next tick retries.
+                    let commit_outcome = self
+                        .commit_session_and_audit(
+                            &session,
+                            &ctx,
+                            run_outcome.as_ref().err(),
+                        )
+                        .await;
+                    if let Err(err) = commit_outcome {
+                        tracing::error!(
+                            target: "argo_orchestrator::duty_scheduler",
+                            tenant_id = %duty.tenant_id.0,
+                            worker_id = %duty.worker_id,
+                            duty_id = %duty.id,
+                            error = %err,
+                            "atomic session+audit commit failed; duty not marked fired — scheduler retries next tick"
+                        );
+                        continue;
+                    }
                     self.duties
                         .link_fire(
                             tenant,
@@ -185,6 +338,9 @@ impl DutyScheduler {
                         )
                         .await?;
                     self.duties.mark_fired(tenant, &duty.id, now).await?;
+                    if run_outcome.is_err() {
+                        report.run_failed.push(duty.id.clone());
+                    }
                     report.fired.push(duty.id);
                 }
                 other => {
@@ -217,7 +373,9 @@ impl DutyScheduler {
             .get(tenant, duty_id)
             .await?
             .ok_or_else(|| ArgoError::Schema(format!("duty '{duty_id}' not found")))?;
-        let session_id = self.spawn_session(&duty, now).await?;
+        let session = self.build_session(&duty, now);
+        let session_id = session.id.clone();
+        self.orchestrator.insert_session(&session).await?;
         self.duties
             .link_fire(tenant, &duty.id, &session_id, now, FireDecision::ManualFire)
             .await?;
@@ -225,7 +383,59 @@ impl DutyScheduler {
         Ok(session_id)
     }
 
-    async fn spawn_session(&self, duty: &DutyRecord, now: DateTime<Utc>) -> ArgoResult<SessionId> {
+    /// Atomically persist session + audit in one sqlx tx; with no
+    /// sink configured, falls back to a standalone session insert.
+    async fn commit_session_and_audit(
+        &self,
+        session: &Session,
+        ctx: &DutyRunContext,
+        err: Option<&ArgoError>,
+    ) -> ArgoResult<()> {
+        let Some(sink) = self.audit_sink.as_ref() else {
+            // No audit sink ⇒ preserve the pre-fix behavior: session
+            // is inserted standalone, no audit row written.
+            self.orchestrator.insert_session(session).await?;
+            return Ok(());
+        };
+        let (kind, payload) = build_audit_payload(ctx, err);
+        let session_uuid = Uuid::parse_str(ctx.session_id.as_str()).map_err(|parse_err| {
+            ArgoError::Schema(format!(
+                "duty session id not parseable as UUID '{}': {parse_err}",
+                ctx.session_id.as_str()
+            ))
+        })?;
+        let audit_session = argo_types::SessionId(session_uuid);
+        let mut tx = self
+            .orchestrator
+            .pool()
+            .begin()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("duty scheduler tx begin: {e}")))?;
+        self.orchestrator
+            .insert_session_in_tx(&mut tx, session)
+            .await?;
+        // Stamp the duty's tenant on the audit row — the injected
+        // sink is shared across tenants for the scheduler's lifetime.
+        let tenant = ctx.tenant_id.0.to_string();
+        let post = sink
+            .write_in_tx_for_tenant(&mut tx, Some(audit_session), kind, payload, None, &tenant)
+            .await?;
+        tx.commit()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("duty scheduler tx commit: {e}")))?;
+        if let Err(e) = sink.after_commit_fanout(post).await {
+            tracing::warn!(
+                target: "argo_orchestrator::duty_scheduler",
+                tenant_id = %ctx.tenant_id.0,
+                duty_id = %ctx.duty_id,
+                error = %e,
+                "duty audit post-commit fanout failed (session + audit already committed)"
+            );
+        }
+        Ok(())
+    }
+
+    fn build_session(&self, duty: &DutyRecord, now: DateTime<Utc>) -> Session {
         let mut session = Session::new(
             duty.tenant_id,
             format!(
@@ -235,8 +445,34 @@ impl DutyScheduler {
             ),
         );
         session.add_participant(duty.worker_id);
-        self.orchestrator.insert_session(&session).await?;
-        Ok(session.id)
+        session
+    }
+}
+
+fn build_audit_payload(
+    ctx: &DutyRunContext,
+    err: Option<&ArgoError>,
+) -> (AuditKind, serde_json::Value) {
+    let mut payload = serde_json::json!({
+        "tenant_id": ctx.tenant_id.0.to_string(),
+        "worker_id": ctx.worker_id.to_string(),
+        "duty_id": ctx.duty_id,
+        "session_id": ctx.session_id.as_str(),
+        "cron_spec": ctx.cron_spec,
+        "fired_at": ctx.fired_at.to_rfc3339(),
+        "entry_action": ctx.entry_action,
+    });
+    match err {
+        None => (AuditKind::WorkerDutyFired, payload),
+        Some(e) => {
+            if let serde_json::Value::Object(ref mut map) = payload {
+                map.insert(
+                    "error".to_string(),
+                    serde_json::Value::String(e.to_string()),
+                );
+            }
+            (AuditKind::WorkerDutyFailed, payload)
+        }
     }
 }
 
@@ -269,151 +505,5 @@ fn trunc_to_micros(d: DateTime<Utc>) -> DateTime<Utc> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use argo_store::SessionStore;
-    use chrono::Duration as CDur;
-
-    async fn open_stores() -> (Arc<DutyStore>, Arc<OrchestratorStore>) {
-        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
-        store.migrate().await.unwrap();
-        let duties = Arc::new(DutyStore::new(store.clone()));
-        duties.ensure_schema().await.unwrap();
-        let orch = Arc::new(OrchestratorStore::new(store));
-        orch.ensure_schema().await.unwrap();
-        (duties, orch)
-    }
-
-    fn record(cron: &str) -> DutyRecord {
-        DutyRecord::new(TenantId::new(), WorkerId::new(), cron, "ping", "test duty")
-    }
-
-    #[tokio::test]
-    async fn disabled_duty_never_fires() {
-        let mut d = record("0 * * * * *");
-        d.enabled = false;
-        assert!(!d.should_fire(Utc::now()).unwrap());
-    }
-
-    #[tokio::test]
-    async fn paused_duty_skipped_until_window_passes() {
-        let mut d = record("0 * * * * *");
-        let now = Utc::now();
-        d.paused_until = Some(now + CDur::hours(1));
-        assert!(!d.should_fire(now).unwrap());
-        d.paused_until = Some(now - CDur::hours(1));
-        assert!(!d.should_fire(now).unwrap());
-        assert!(d.should_fire(now + CDur::minutes(2)).unwrap());
-    }
-
-    #[tokio::test]
-    async fn cron_window_idempotent_via_last_fired_at() {
-        let mut d = record("0 * * * * *");
-        let base = Utc.with_ymd_and_hms(2026, 5, 6, 12, 0, 0).unwrap();
-        d.created_at = base;
-        assert!(d.should_fire(base + CDur::minutes(2)).unwrap());
-        d.last_fired_at = Some(base + CDur::minutes(2));
-        assert!(!d.should_fire(base + CDur::minutes(2)).unwrap());
-        assert!(d.should_fire(base + CDur::minutes(3)).unwrap());
-    }
-
-    #[tokio::test]
-    async fn invalid_cron_surfaces_schema_error() {
-        let d = record("not a cron");
-        assert!(matches!(
-            d.should_fire(Utc::now()),
-            Err(ArgoError::Schema(_))
-        ));
-    }
-
-    #[tokio::test]
-    async fn fire_now_creates_session_attributed_to_duty() {
-        let (duties, orch) = open_stores().await;
-        let scheduler = DutyScheduler::new(duties.clone(), orch, Arc::new(OpenGate));
-        let d = record("0 0 * * * *");
-        duties.insert(&d).await.unwrap();
-        let session_id = scheduler.fire_now(d.tenant_id, &d.id).await.unwrap();
-        let attribution = duties.sessions_for_duty(d.tenant_id, &d.id).await.unwrap();
-        assert_eq!(attribution.len(), 1);
-        assert_eq!(attribution[0].0, session_id);
-        assert_eq!(attribution[0].2, "manual_fire");
-    }
-
-    #[tokio::test]
-    async fn tick_skips_paused_and_disabled_duties() {
-        let (duties, orch) = open_stores().await;
-        let scheduler = DutyScheduler::new(duties.clone(), orch, Arc::new(OpenGate));
-        let mut paused = record("* * * * * *");
-        paused.paused_until = Some(Utc::now() + CDur::hours(1));
-        let mut disabled = record("* * * * * *");
-        disabled.enabled = false;
-        duties.insert(&paused).await.unwrap();
-        duties.insert(&disabled).await.unwrap();
-        let report = scheduler.tick(Utc::now()).await.unwrap();
-        assert_eq!(report.evaluated, 0);
-        assert!(report.fired.is_empty());
-    }
-
-    #[tokio::test]
-    async fn duty_round_trips_through_store() {
-        let (duties, _) = open_stores().await;
-        let d = record("0 * * * * *");
-        duties.insert(&d).await.unwrap();
-        assert_eq!(duties.get(d.tenant_id, &d.id).await.unwrap().unwrap(), d);
-    }
-
-    #[tokio::test]
-    async fn list_for_tenant_isolates_other_tenants() {
-        let (duties, _) = open_stores().await;
-        let a = TenantId::new();
-        let b = TenantId::new();
-        duties
-            .insert(&DutyRecord::new(
-                a,
-                WorkerId::new(),
-                "0 * * * * *",
-                "ping",
-                "",
-            ))
-            .await
-            .unwrap();
-        duties
-            .insert(&DutyRecord::new(
-                b,
-                WorkerId::new(),
-                "0 * * * * *",
-                "ping",
-                "",
-            ))
-            .await
-            .unwrap();
-        assert_eq!(duties.list_for_tenant(a).await.unwrap().len(), 1);
-        assert_eq!(duties.list_for_tenant(b).await.unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn pause_then_resume_round_trips() {
-        let (duties, _) = open_stores().await;
-        let d = record("0 * * * * *");
-        duties.insert(&d).await.unwrap();
-        duties
-            .set_paused(d.tenant_id, &d.id, Some(Utc::now() + CDur::hours(2)))
-            .await
-            .unwrap();
-        assert!(duties
-            .get(d.tenant_id, &d.id)
-            .await
-            .unwrap()
-            .unwrap()
-            .paused_until
-            .is_some());
-        duties.set_paused(d.tenant_id, &d.id, None).await.unwrap();
-        assert!(duties
-            .get(d.tenant_id, &d.id)
-            .await
-            .unwrap()
-            .unwrap()
-            .paused_until
-            .is_none());
-    }
-}
+#[path = "duty_scheduler_tests.rs"]
+mod tests;

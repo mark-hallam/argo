@@ -444,4 +444,28 @@ pub enum AuditKind {
     /// with [`Self::WorkflowStepExecuted`] so success and failure
     /// share the same forensic surface.
     WorkflowStepFailed,
+    /// `argo_orchestrator::DutyScheduler::tick` matched a duty,
+    /// auto-approved its fire, spawned the session row, and the
+    /// injected `DutyAgentRunner::run_turn` returned `Ok`. Stream
+    /// `fix-duty-scheduler-invokes-agent-runner` — the brief that
+    /// closed the P0 broken wire surfaced by PR #2085's review
+    /// pre-flight grep (gateway boots the orchestrator's scheduler;
+    /// the cron crate's `Scheduler::tick_with_audit` is not wired).
+    /// Payload: `{ tenant_id, worker_id, duty_id, session_id,
+    /// cron_spec, fired_at, entry_action }`. Pairs with
+    /// [`Self::WorkerDutyFailed`] — exactly one of the two is
+    /// written per fired duty, so an auditor can quantify the
+    /// duty-loop's healthy-vs-failed ratio by counting kinds.
+    WorkerDutyFired,
+    /// `argo_orchestrator::DutyScheduler::tick` matched + auto-
+    /// approved a duty and spawned the session row, but the
+    /// injected `DutyAgentRunner::run_turn` returned `Err`. Stream
+    /// `fix-duty-scheduler-invokes-agent-runner`. The scheduler
+    /// keeps ticking — silent runner failures are the worst
+    /// failure mode, so this variant exists specifically to make
+    /// them loud. Payload mirrors [`Self::WorkerDutyFired`] with an
+    /// extra `error` field carrying the stringified `ArgoError`:
+    /// `{ tenant_id, worker_id, duty_id, session_id, cron_spec,
+    /// fired_at, entry_action, error }`.
+    WorkerDutyFailed,
 }
