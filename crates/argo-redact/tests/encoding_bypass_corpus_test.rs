@@ -186,15 +186,10 @@ fn pin_phone_words_spelled_out_is_missed() {
     );
 }
 
-#[test]
-fn pin_phone_en_dash_separator_is_missed() {
-    // U+2013 EN DASH instead of U+002D HYPHEN. Looks the same in
-    // most fonts; the regex's literal `[\-\.]` rejects it.
-    assert_pin_miss(
-        "en-dash phone",
-        "dial 555\u{2013}555\u{2013}0123 today",
-    );
-}
+// Stage-2 vocabulary broadening closed the en-dash / em-dash separator
+// gap: the previous `pin_phone_en_dash_separator_is_missed` MISS pin
+// has been promoted into the FINDINGS section below (un-ignored,
+// asserting CATCH).
 
 // ============================================================================
 // § Phone — REGEX CATCHES
@@ -214,23 +209,10 @@ fn pin_phone_with_trailing_extension_text_is_caught() {
 // § Card — REGEX MISSES (Luhn-aware path)
 // ============================================================================
 
-#[test]
-fn pin_card_dot_separator_is_missed() {
-    // Card regex is `\d[ \-]?` between groups — only space or hyphen
-    // accepted between digit pairs. Dots are not.
-    assert_pin_miss(
-        "card with dot separators",
-        "saved 4111.1111.1111.1111 on file",
-    );
-}
-
-#[test]
-fn pin_card_underscore_separator_is_missed() {
-    assert_pin_miss(
-        "card with underscore separators",
-        "csv col 4111_1111_1111_1111 row",
-    );
-}
+// Stage-2 vocabulary broadening closed the dot / underscore separator
+// gaps: the previous `pin_card_dot_separator_is_missed` MISS pin has
+// been promoted into the FINDINGS section below, and a sibling
+// underscore-separator FINDING joins it.
 
 #[test]
 fn pin_card_letter_obfuscation_is_missed() {
@@ -278,16 +260,9 @@ fn pin_card_with_inline_text_is_caught() {
 // § IBAN — REGEX MISSES
 // ============================================================================
 
-#[test]
-fn pin_iban_with_canonical_spacing_is_missed() {
-    // IBANs are conventionally rendered with a space every 4 chars
-    // (`GB82 WEST 1234 5698 7654 32`). The v1 regex requires the
-    // 30-char run be unbroken — a paste from a banking UI bypasses.
-    assert_pin_miss(
-        "spaced IBAN canonical form",
-        "send to GB82 WEST 1234 5698 7654 32 please",
-    );
-}
+// Stage-2 vocabulary broadening closed the every-4-chars IBAN spacing
+// gap: the previous `pin_iban_with_canonical_spacing_is_missed` MISS
+// pin has been promoted into the FINDINGS section below.
 
 #[test]
 fn pin_iban_lowercase_country_code_is_missed() {
@@ -303,43 +278,24 @@ fn pin_iban_lowercase_country_code_is_missed() {
 // § Address — REGEX MISSES
 // ============================================================================
 
-#[test]
-fn pin_address_unrecognized_suffix_terrace_is_missed() {
-    // `Terrace` and `Tce` are not in the suffix whitelist.
-    assert_pin_miss(
-        "unrecognized suffix Terrace",
-        "meet at 123 Main Terrace then",
-    );
-}
+// Stage-2 vocabulary broadening closed the unrecognized-suffix gap for
+// Terrace, Tce, Circle, Cir, Plaza, Plz, Crescent, Cres, Esplanade,
+// Esp, Parade, Pde, Trail, Trl, Square, Sq, Heights, Hts, Circuit,
+// Cct (plus a Way → Wy / Pkwy → Pky variant pair). The previous
+// `pin_address_unrecognized_suffix_terrace_is_missed` MISS pin has
+// been promoted into the FINDINGS section below; a sibling Circle
+// suffix CATCH and an AU/NZ unit-slash CATCH are added there too.
 
 #[test]
-fn pin_address_unrecognized_suffix_circle_is_missed() {
-    assert_pin_miss(
-        "unrecognized suffix Circle",
-        "ship to 456 Maple Circle thanks",
-    );
-}
-
-#[test]
-fn pin_address_au_unit_slash_form_is_missed() {
+fn pin_address_au_unit_slash_form_is_caught() {
     // `5/123 Main St` is the canonical Australian unit-slash form.
-    // The pattern requires `\d{1,5}\s+...` — the `5/` group breaks
-    // the leading number into a fragment with no whitespace.
-    // Captures the AU/NZ blind spot.
+    // Stage-2 added an optional `\d{1,5}\s*/\s*` prefix to the address
+    // pattern so the entire unit-plus-street string is masked,
+    // preventing the unit number from leaking.
     let s = "post to 5/123 Main St Carlton";
     let (out, hits) = redact_text(s, &strict());
-    // The regex MAY still catch `123 Main St` as a substring. Pin
-    // whatever the current build does.
-    if hits.is_empty() {
-        assert_eq!(out, s, "AU unit-slash address is a MISS");
-    } else {
-        // If it caught the inner `123 Main St`, the unit number `5`
-        // leaks. Real-fence work should fold the unit into the mask.
-        assert!(
-            out.contains("[ADDR]"),
-            "AU unit-slash address matched but sentinel missing"
-        );
-    }
+    assert_eq!(out, "post to [ADDR] Carlton");
+    assert_eq!(hits.len(), 1, "expected 1 address hit, got {hits:?}");
 }
 
 // ============================================================================
@@ -358,18 +314,19 @@ fn pin_multi_pii_inline_is_caught() {
 }
 
 // ============================================================================
-// § Stage-1 FINDINGS — un-ignored by mission-redact-promote-to-real-fence
+// § Stage-1 + Stage-2 FINDINGS — promoted PIN tests
 // ============================================================================
 //
-// These six findings asserted the OUTCOME a canonicalisation-aware fence
-// produces. Stage 1 (`mission-redact-promote-to-real-fence`) landed the
-// NFKC + URL-decode + HTML-entity decode + zero-width / soft-hyphen
-// strip + base64 detect-and-rescan pre-pass, so these tests are now
-// active CATCH assertions that gate the canonicalisation layer.
-//
-// The remaining four FINDINGS below stay `#[ignore]`'d — they need
-// Stage 2 (`mission-redact-broaden-suffix-and-separator-classes`)
-// for the regex separator / suffix classes.
+// These findings assert the OUTCOME a real fence produces. Stage 1
+// (`mission-redact-promote-to-real-fence`) landed the NFKC + URL-decode
+// + HTML-entity decode + zero-width / soft-hyphen strip + base64
+// detect-and-rescan pre-pass; Stage 2
+// (`mission-redact-broaden-suffix-and-separator-classes`) broadened
+// the address suffix vocabulary, added en-dash / em-dash phone
+// separators, dot / underscore card separators (Luhn-gated),
+// the every-4-chars IBAN spacing convention, and the AU/NZ
+// unit-slash address form. All of these tests are now active CATCH
+// assertions that gate the post-Stage-2 fence behaviour.
 
 #[test]
 fn finding_base64_email_must_be_masked() {
@@ -408,7 +365,6 @@ fn finding_soft_hyphen_email_must_be_masked() {
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must accept en-dash + em-dash separators in phone shapes"]
 fn finding_en_dash_phone_must_be_masked() {
     assert_pin_catch(
         "en-dash phone",
@@ -417,7 +373,14 @@ fn finding_en_dash_phone_must_be_masked() {
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must accept dot-separated card digit groups after canonicalisation"]
+fn finding_em_dash_phone_must_be_masked() {
+    assert_pin_catch(
+        "em-dash phone",
+        "dial 555\u{2014}555\u{2014}0123 today",
+    );
+}
+
+#[test]
 fn finding_dot_separated_card_must_be_masked() {
     assert_pin_catch(
         "card with dots",
@@ -426,7 +389,14 @@ fn finding_dot_separated_card_must_be_masked() {
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must accept canonical IBAN spacing (every-4-chars convention)"]
+fn finding_underscore_separated_card_must_be_masked() {
+    assert_pin_catch(
+        "card with underscores",
+        "csv col 4111_1111_1111_1111 row",
+    );
+}
+
+#[test]
 fn finding_spaced_iban_must_be_masked() {
     assert_pin_catch(
         "spaced IBAN",
@@ -435,10 +405,17 @@ fn finding_spaced_iban_must_be_masked() {
 }
 
 #[test]
-#[ignore = "FINDINGS-ONLY: real fence must broaden street-suffix vocabulary (Terrace, Circle, Mews, Crescent, …)"]
 fn finding_terrace_address_must_be_masked() {
     assert_pin_catch(
         "Terrace suffix",
         "meet at 123 Main Terrace then",
+    );
+}
+
+#[test]
+fn finding_circle_address_must_be_masked() {
+    assert_pin_catch(
+        "Circle suffix",
+        "ship to 456 Maple Circle thanks",
     );
 }

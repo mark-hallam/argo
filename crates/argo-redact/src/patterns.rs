@@ -93,44 +93,58 @@ struct Patterns {
     address: Option<Regex>,
 }
 
+/// Stage-2 street-suffix vocabulary covering the US baseline plus the
+/// AU/NZ shortcuts the regex previously missed (Terrace/Tce,
+/// Circle/Cir, Plaza/Plz, Crescent/Cres, Esplanade/Esp, Parade/Pde,
+/// Trail/Trl, Square/Sq, Heights/Hts, Circuit/Cct). Compiled into the
+/// address regex once at first call.
+const ADDRESS_SUFFIX_ALTERNATION: &str = "St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Way|Wy|Ct|Court|Pl|Place|Pkwy|Pky|Parkway|Hwy|Highway|Terrace|Tce|Circle|Cir|Plaza|Plz|Crescent|Cres|Esplanade|Esp|Parade|Pde|Trail|Trl|Square|Sq|Heights|Hts|Circuit|Cct";
+
 fn patterns() -> &'static Patterns {
     static P: OnceLock<Patterns> = OnceLock::new();
     P.get_or_init(|| Patterns {
         email: Regex::new(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,24}\b").ok(),
         // Phone shapes:
         //   1. International prefix `+CC` followed by 3-3-4 / 3-4 /
-        //      area + local, with space / dash / dot separators.
+        //      area + local, with space / dash / dot / en-dash / em-dash
+        //      separators.
         //   2. NZ leading-0 trunk (02x mobile, 0[3-9]x landline).
-        //   3. US 3-3-4 (`555-555-0123`, `(555) 555-0123`, `555.555.0123`).
+        //   3. US 3-3-4 (`555-555-0123`, `(555) 555-0123`, `555.555.0123`,
+        //      `555–555–0123` with en-dash, `555—555—0123` with em-dash).
         // The middle group inside the int'l branch is `\d{0,4}` so
         // 7-digit local numbers (`+1-555-0123`) match alongside the
-        // 10-digit shapes (`+1-555-555-0123`).
+        // 10-digit shapes (`+1-555-555-0123`). Stage-2 adds U+2013
+        // (en-dash) and U+2014 (em-dash) to every separator class.
         phone: Regex::new(
             r"(?x)
-            \+\d{1,3}[\s\-\.]?\(?\d{1,4}\)?[\s\-\.]?(?:\d{2,4}[\s\-\.]?)?\d{3,4}
+            \+\d{1,3}[\s\-.\u{2013}\u{2014}]?\(?\d{1,4}\)?[\s\-.\u{2013}\u{2014}]?(?:\d{2,4}[\s\-.\u{2013}\u{2014}]?)?\d{3,4}
             |
-            \b0\d{1,2}[\s\-]?\d{3}[\s\-]?\d{4}\b
+            \b0\d{1,2}[\s\-\u{2013}\u{2014}]?\d{3}[\s\-\u{2013}\u{2014}]?\d{4}\b
             |
-            \b\(?\d{3}\)?[\s\-\.]\d{3}[\s\-\.]\d{4}\b
+            \b\(?\d{3}\)?[\s\-.\u{2013}\u{2014}]\d{3}[\s\-.\u{2013}\u{2014}]\d{4}\b
             ",
         )
         .ok(),
-        // Card: 13-19 digits with optional spaces / dashes between
-        // each pair. Luhn validation happens downstream in
-        // `find_matches`.
-        card: Regex::new(r"\b(?:\d[ \-]?){12,18}\d\b").ok(),
-        // IBAN: country prefix + check digits + 11-30 alphanumerics.
-        iban: Regex::new(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b").ok(),
+        // Card: 13-19 digits with optional space / dash / dot /
+        // underscore between each pair. Luhn validation in
+        // `find_matches` drops false positives (version numbers,
+        // file paths) — the regex casts the wide net, Luhn narrows it.
+        card: Regex::new(r"\b(?:\d[ \-._]?){12,18}\d\b").ok(),
+        // IBAN: country prefix + check digits + 11-30 alphanumerics,
+        // allowing the every-4-chars space convention seen on banking
+        // UIs (`GB82 WEST 1234 5698 7654 32`).
+        iban: Regex::new(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}\b").ok(),
         // NZ IRD: 8 or 9 digits, optionally dashed at positions 2-3
         // and 5-6 (`12-345-678` or `123-456-789`).
         ird: Regex::new(r"\b\d{2,3}[\s\-]?\d{3}[\s\-]?\d{3}\b").ok(),
-        // US-shape street address: 1-5 leading digits + 1-3 name
+        // US- + AU/NZ-shape street address: optional AU/NZ unit-slash
+        // prefix (`5/123`, `5 / 123`) + 1-5 leading digits + 1-3 name
         // words + a recognised street suffix. The bounded {1,3}
         // middle keeps `5 apples on Main St` matchable but stops the
         // regex devouring whole sentences before the suffix.
-        address: Regex::new(
-            r"(?i)\b\d{1,5}\s+(?:[A-Za-z][A-Za-z0-9'\-]*\s+){1,3}(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Way|Ct|Court|Pl|Place|Pkwy|Parkway|Hwy|Highway)\b",
-        )
+        address: Regex::new(&format!(
+            r"(?i)\b(?:\d{{1,5}}\s*/\s*)?\d{{1,5}}\s+(?:[A-Za-z][A-Za-z0-9'\-]*\s+){{1,3}}(?:{ADDRESS_SUFFIX_ALTERNATION})\b"
+        ))
         .ok(),
     })
 }
