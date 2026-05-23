@@ -170,7 +170,7 @@ export function AddResponsibilityDialog({
             Add a responsibility for {workerName}
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
-            Plain-English duty add flow for {workerName}.
+            Plain-English schedule add flow for {workerName}.
           </DialogPrimitive.Description>
           <div
             data-testid="duty-step-indicator"
@@ -271,7 +271,7 @@ function Step5Commit({
       <div data-testid="duty-step-commit" className="space-y-4">
         <header className="space-y-1">
           <h2 className="text-base font-semibold text-[var(--foreground)]">
-            Add this duty to {workerName}?
+            Add this schedule to {workerName}?
           </h2>
           <p className="text-sm text-[var(--muted-foreground)]">{proposal.description}</p>
           <p className="text-xs text-[var(--muted-foreground)]">
@@ -299,7 +299,7 @@ function Step5Commit({
             loading={isCommitting}
             disabled={isCommitting}
           >
-            ✓ Add this duty
+            ✓ Add this schedule
           </Button>
         </div>
       </div>

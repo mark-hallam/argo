@@ -84,14 +84,14 @@ export function DutyEditorRow({
           data-testid={`hire-step4-duty-editor-${index}-toggle`}
           checked={duty.defaultEnabled}
           onChange={(e) => toggleEnabled(e.target.checked)}
-          aria-label={`Enable duty: ${duty.label || "untitled"}`}
+          aria-label={`Enable schedule: ${duty.label || "untitled"}`}
           className="size-4 shrink-0 accent-[var(--primary)]" />
         <input type="text"
           data-testid={`hire-step4-duty-editor-${index}-label`}
           value={duty.label}
           onChange={(e) => updateLabel(e.target.value)}
-          placeholder="What should this duty do?"
-          aria-label={`Edit label for duty ${index + 1}`}
+          placeholder="What should this schedule do?"
+          aria-label={`Edit label for schedule ${index + 1}`}
           className={cn(
             "min-w-[12rem] flex-1 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-sm",
             "outline-none focus:ring-2 focus:ring-[var(--ring)]",
@@ -99,7 +99,7 @@ export function DutyEditorRow({
         <Button type="button" variant="ghost" size="sm"
           data-testid={`hire-step4-duty-editor-${index}-remove`}
           onClick={() => onRemove(index)}
-          aria-label={`Remove duty ${index + 1}`}>
+          aria-label={`Remove schedule ${index + 1}`}>
           <X className="size-3.5" aria-hidden />
         </Button>
       </div>
@@ -113,7 +113,7 @@ export function DutyEditorRow({
           data-testid={`hire-step4-duty-editor-${index}-spec`}
           value={duty.schedule.spec}
           onChange={(e) => updateSpec(e.target.value)}
-          aria-label={`Schedule expression for duty ${index + 1}`}
+          aria-label={`Trigger expression for schedule ${index + 1}`}
           aria-invalid={cronInvalid || undefined}
           placeholder={duty.schedule.kind === "cron" ? "0 9 * * *" : "message.inbound"}
           className={cn(

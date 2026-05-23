@@ -49,7 +49,7 @@ export function DutyToggleRow({ duty, index, onToggle }: DutyToggleRowProps) {
         checked={duty.defaultEnabled}
         onChange={(e) => onToggle(index, e.target.checked)}
         className="mt-1 size-4 accent-[var(--primary)]"
-        aria-label={`Enable duty: ${duty.label}`}
+        aria-label={`Enable schedule: ${duty.label}`}
       />
       <label
         htmlFor={id}

@@ -218,7 +218,7 @@ export function StructuredAdjustDrawer({
                 Edit teammate fields
               </DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-xs text-[var(--muted-foreground)]">
-                Direct edits to charter, duties, and voice — no Genesis
+                Direct edits to charter, schedules, and voice — no Genesis
                 re-run.
               </DialogPrimitive.Description>
             </div>
@@ -268,12 +268,12 @@ export function StructuredAdjustDrawer({
 
             <section
               data-testid="hire-step4-structured-duties"
-              aria-label="Duties"
+              aria-label="Schedules"
               className="space-y-2"
             >
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                  Duties
+                  Schedules
                 </label>
                 <span className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
                   {dutiesEnabledLabel}
@@ -300,7 +300,7 @@ export function StructuredAdjustDrawer({
                 className="w-full justify-center border border-dashed border-[var(--border)]"
               >
                 <Plus className="size-3.5" aria-hidden />
-                Add duty
+                Add schedule
               </Button>
               {!anyDutyEnabled ? (
                 <p
@@ -308,7 +308,7 @@ export function StructuredAdjustDrawer({
                   data-testid="hire-step4-structured-no-duty-error"
                   className="text-xs text-[var(--destructive)]"
                 >
-                  Enable at least one duty before saving.
+                  Enable at least one schedule before saving.
                 </p>
               ) : null}
             </section>

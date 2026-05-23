@@ -163,7 +163,7 @@ function EmptyState({ q }: { q: string }) {
       <p className="text-sm text-[var(--muted-foreground)]">
         {q
           ? "Try a broader theme — sections are searched case-insensitively."
-          : "Run a retro from a worker profile after a long-running duty wraps."}
+          : "Run a retro from a worker profile after a long-running schedule wraps."}
       </p>
     </div>
   );

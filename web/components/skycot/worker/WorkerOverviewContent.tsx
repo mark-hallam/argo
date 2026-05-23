@@ -72,7 +72,7 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     [],
   );
   const onEditDuty = useCallback(
-    () => setAnnouncement("Edit duty ships in E4-h"),
+    () => setAnnouncement("Edit schedule ships in E4-h"),
     [],
   );
   const onSaveCharter = useCallback((next: string) => {

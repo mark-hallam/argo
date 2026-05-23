@@ -154,7 +154,7 @@ export function Step3Draft({
           data-testid="duty-draft-conflict-hint"
           className="text-xs text-[var(--warning-foreground)]"
         >
-          Heads up — this overlaps with {conflictCount === 1 ? "another duty" : `${conflictCount} other duties`}.
+          Heads up — this overlaps with {conflictCount === 1 ? "another schedule" : `${conflictCount} other schedules`}.
         </p>
       ) : null}
 

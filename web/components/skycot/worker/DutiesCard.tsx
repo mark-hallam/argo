@@ -212,7 +212,7 @@ function DutyToggle({
       type="button"
       role="switch"
       aria-checked={enabled}
-      aria-label={enabled ? "Disable duty" : "Enable duty"}
+      aria-label={enabled ? "Disable schedule" : "Enable schedule"}
       disabled={!canEdit}
       onClick={onChange}
       data-testid={`duty-toggle-${dutyId}`}

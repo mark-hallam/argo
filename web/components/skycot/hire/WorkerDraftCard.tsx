@@ -132,10 +132,10 @@ export function WorkerDraftCard({
         <section
           data-testid="hire-step4-duties"
           className="space-y-2"
-          aria-label="Default duties"
+          aria-label="Default schedules"
         >
           <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            Default duties
+            Default schedules
           </h3>
           <div className="space-y-2">
             {draft.duties.map((duty, idx) => (
