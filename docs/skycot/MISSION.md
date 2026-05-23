@@ -92,18 +92,22 @@ no test are explicitly NOT LIVE.
 | **1 LIVE** | 5 distinct workers persist across gateway restarts, with memory, and one of them can be re-summoned by name 24 hours later. |
 | **2 LIVE** | A hired worker's duty cron fires AND invokes its agent runner AND writes a `WorkerDutyFired` audit row within 60 seconds. |
 | **3 LIVE** | `argo genesis plan "be my marketing intern" maya && argo workflow run` produces real output, not just files on disk. |
-| **4 LIVE** | _(TBD — pending operator pass-criteria.)_ |
-| **5 LIVE** | _(TBD — pending operator pass-criteria.)_ |
-| **6 LIVE** | _(TBD — pending operator pass-criteria.)_ |
+| **4 LIVE** | Two dashboards in parallel — MVP + end-state — at [`docs/skycot/evals/scheduled/2026-05-23/claim-dashboards.md`](evals/scheduled/2026-05-23/claim-dashboards.md). **MVP requires BOTH the shared half AND the learned half** (operator-locked round 19: install-from-marketplace + worker-invokes + audit row + novel-sequence detection + skill-candidate review queue + operator-approve flow + trust ratchet on 3× successful invocations). End-state adds cross-tenant marketplace install, provenance preservation, canary, A/B testing, rejection flow, per-tenant trust grades. |
+| **5 LIVE** | Two dashboards at [`docs/skycot/evals/scheduled/2026-05-23/claim-dashboards.md`](evals/scheduled/2026-05-23/claim-dashboards.md). **MVP = computer-use working e2e on macOS** (operator-locked round 19) — Notes round-trip, capability-gated, audit row written, cross-tenant isolated, invoked from a real workflow step. End-state matrix covers macOS / Linux / Windows / E2B across cu + MCP + audit + cross-tenant + workflow-integrated axes; Linux + Windows + E2B cu DEFERRED-v1.x per `project_v1_strategic_decisions_2026_05_14.md`. |
+| **6 LIVE** | Two dashboards at [`docs/skycot/evals/scheduled/2026-05-23/claim-dashboards.md`](evals/scheduled/2026-05-23/claim-dashboards.md). **MVP = ONE channel (Slack) working fully e2e** (operator-locked round 19) — outbound + inbound + HMAC-signed token + audit row + cross-tenant isolation + `argo audit verify` passes. End-state covers the 6 mission-named channels (Email, Slack, SMS, push, voice, web) plus the 5 in-code-extras (iMessage, Teams, Discord, WhatsApp, Matrix) on the same outbound × inbound × audit × cross-tenant × signed-token matrix. |
 
 Strengtheners get their own LIVE criteria as they mature.
 
 > **Provenance note**: this "Strengthening items" subsection +
 > "What 'LIVE' means per claim" subsection were added on
 > 2026-05-23 with direct operator sign-off in the evaluator
-> round-15 session. Mission claims 1-6 themselves are unchanged.
-> Future amendments to either subsection require the same
-> operator sign-off pattern.
+> round-15 session. Claims 1/2/3 LIVE criteria locked in
+> round 15 (binary single-test contracts). Claims 4/5/6 LIVE
+> criteria locked in round 19 via the MVP + end-state
+> dashboards pattern (a separate doc that each eval round
+> updates cell-by-cell). Mission claims 1-6 themselves are
+> unchanged. Future amendments to either subsection require
+> the same operator sign-off pattern.
 
 ---
 

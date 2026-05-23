@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T05:28:19Z",
+  "last_run_utc": "2026-05-23T16:00:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "scheduled-task:skycot-evaluator-hourly-round-20",
-  "run_notes": "round 20 — picked 3 scenarios: (A) anti-theater verify #2104 LOC-fix split is faithful to pre-split assertions (test-only PR, low value but high anti-theater risk); (B) Claim 4 substrate trace — operator wants more time on LIVE criteria, so deep-walking skill install → workflow invoke → SkillInvoked audit row gives them concrete data for sign-off; (C) process drift sweep — findings-only fix-by + gateway-freshness + stale-claim. Gateway DOWN (HTTP 000 on :7400); browser scenarios skipped. 17 evaluator handoffs are flagged unread but tick-90 already verbally acknowledged rounds 6-19 (known artefact, not new drift)."
+  "session_label": "anthropic-claude-code-evaluator-session-round-19-claim-dashboards",
+  "run_notes": "round 19 — claims 4/5/6 LIVE criteria LOCKED via MVP + end-state dashboards pattern (operator-locked). New doc claim-dashboards.md replaces the failed round-18 lock attempt. MVP definitions: claim 4 needs BOTH shared + learned halves (7-item dashboard, currently ~30%); claim 5 needs macOS cu e2e (5-item dashboard, ~60%); claim 6 needs ONE channel Slack working fully (6-item dashboard, ~55%). End-state dashboards track full mission ambition matrices. MISSION.md TBD rows replaced with refs. Each eval round updates cells; doc has a changelog footer. Next session: trace the 4 unknown rows in claim 4 MVP (novel-seq detection / candidate queue / approve flow / trust ratchet) to convert 🔴 → 🟡 or 🟢."
 }
