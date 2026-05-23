@@ -78,6 +78,8 @@ impl AuditKind {
             Self::WorkplaceKnowledgeDocUpdated => "workplace_knowledge.doc.updated",
             Self::WorkplaceKnowledgeDocDeleted => "workplace_knowledge.doc.deleted",
             Self::WorkflowTestRunPersisted => "workflow_test_run.persisted",
+            Self::WorkflowStepExecuted => "workflow.step.executed",
+            Self::WorkflowStepFailed => "workflow.step.failed",
         }
     }
 
@@ -151,6 +153,8 @@ impl AuditKind {
             "workplace_knowledge.doc.updated" => Self::WorkplaceKnowledgeDocUpdated,
             "workplace_knowledge.doc.deleted" => Self::WorkplaceKnowledgeDocDeleted,
             "workflow_test_run.persisted" => Self::WorkflowTestRunPersisted,
+            "workflow.step.executed" => Self::WorkflowStepExecuted,
+            "workflow.step.failed" => Self::WorkflowStepFailed,
             _ => return None,
         })
     }
@@ -224,6 +228,8 @@ impl AuditKind {
             Self::WorkplaceKnowledgeDocUpdated,
             Self::WorkplaceKnowledgeDocDeleted,
             Self::WorkflowTestRunPersisted,
+            Self::WorkflowStepExecuted,
+            Self::WorkflowStepFailed,
         ];
         v.sort_by_key(|k| k.label());
         v

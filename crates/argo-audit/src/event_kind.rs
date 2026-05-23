@@ -410,4 +410,26 @@ pub enum AuditKind {
     /// triggered by a human operator); `status` is the run-phase
     /// string (`"complete"` | `"failed"`).
     WorkflowTestRunPersisted,
+    /// A single DAG-step inside a workflow_run completed successfully
+    /// via the production `WorkerSessionRunner`
+    /// (`wire-worker-session-runner`). Distinct from
+    /// [`Self::WorkflowStepCompleted`] which covers the
+    /// vertical-workflow + skill-invoke surface — this row is the
+    /// MCP-dispatch arm of the DAG executor. Payload (per the
+    /// emission brief): `{ tenant_id, workflow_id, task_id, tool,
+    /// outputs }` where `outputs` is the JSON tool response trimmed
+    /// to the runner-visible map. The row is written by the runner
+    /// after capability check + MCP dispatch succeed so a forensic
+    /// reader can pin who ran which tool against which tenant.
+    WorkflowStepExecuted,
+    /// A single DAG-step inside a workflow_run failed during the
+    /// production `WorkerSessionRunner` dispatch
+    /// (`wire-worker-session-runner`). Failure mode is one of:
+    /// capability denied, MCP transport / call error, audit write
+    /// rolled back. Payload (per the emission brief): `{ tenant_id,
+    /// workflow_id, task_id, tool, reason }` where `reason` is a
+    /// short string suitable for `argo audit show` rendering. Pairs
+    /// with [`Self::WorkflowStepExecuted`] so success and failure
+    /// share the same forensic surface.
+    WorkflowStepFailed,
 }

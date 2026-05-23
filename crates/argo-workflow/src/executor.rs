@@ -8,6 +8,7 @@
 use crate::checkpoint::CheckpointError;
 use crate::dag::{TaskNode, Trigger, Workflow, WorkflowId};
 use crate::expr::{resolve_inputs, ExprError};
+use argo_types::{Principal, TenantId};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -96,18 +97,34 @@ pub enum ExecutionError {
 }
 
 /// Request handed to [`Executor::execute`].
+///
+/// As of stream `wire-worker-session-runner`, the request optionally
+/// carries the [`Principal`] + [`TenantId`] that initiated the run.
+/// The DAG executor itself does not consult them — they are forensic
+/// context that production [`TaskRunner`] impls (e.g.
+/// [`crate::WorkerSessionRunner`]) read at dispatch time to refuse
+/// foreign-tenant principals and stamp audit rows. Legacy callers
+/// using [`ExecutionRequest::new`] continue to work; the optional
+/// fields default to `None` and the executor's behaviour is
+/// unchanged.
 pub struct ExecutionRequest {
     pub(crate) workflow: Workflow,
     pub(crate) workflow_id: WorkflowId,
+    pub(crate) principal: Option<Principal>,
+    pub(crate) tenant_id: Option<TenantId>,
 }
 
 impl ExecutionRequest {
-    /// Build a request with a freshly-generated id.
+    /// Build a request with a freshly-generated id and no auth
+    /// context. Mostly used by tests + the legacy CLI handler that
+    /// binds [`MockRunner`].
     #[must_use]
     pub fn new(workflow: Workflow) -> Self {
         Self {
             workflow,
             workflow_id: WorkflowId::new(),
+            principal: None,
+            tenant_id: None,
         }
     }
 
@@ -118,7 +135,32 @@ impl ExecutionRequest {
         Self {
             workflow,
             workflow_id: id,
+            principal: None,
+            tenant_id: None,
         }
+    }
+
+    /// Attach a `(principal, tenant_id)` pair to the request. The
+    /// runner reads these at dispatch time — the abstract executor
+    /// ignores them so the legacy `MockRunner` test paths keep
+    /// working unchanged.
+    #[must_use]
+    pub fn with_auth(mut self, principal: Principal, tenant_id: TenantId) -> Self {
+        self.principal = Some(principal);
+        self.tenant_id = Some(tenant_id);
+        self
+    }
+
+    /// Borrow the optional principal stamped onto the request.
+    #[must_use]
+    pub fn principal(&self) -> Option<&Principal> {
+        self.principal.as_ref()
+    }
+
+    /// Borrow the optional tenant id stamped onto the request.
+    #[must_use]
+    pub fn tenant_id(&self) -> Option<&TenantId> {
+        self.tenant_id.as_ref()
     }
 }
 

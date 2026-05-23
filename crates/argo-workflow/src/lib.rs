@@ -53,6 +53,10 @@ mod dag_tests;
 mod executor;
 mod executor_checkpoint;
 mod expr;
+/// Production [`TaskRunner`] that wires MCP dispatch + audit emission
+/// + capability checks (`wire-worker-session-runner`). See
+/// `runner.rs` module docs for the load-bearing contracts.
+pub mod runner;
 mod yaml;
 
 pub use checkpoint::{Checkpoint, CheckpointError, CheckpointStore, InMemoryCheckpointStore};
@@ -62,4 +66,8 @@ pub use executor::{
     TaskVerdict,
 };
 pub use expr::{Expr, ExprError};
+pub use runner::{
+    StepAuditContext, ToolDispatchError, ToolDispatcher, WorkerSessionRunner,
+    WorkflowAuditEmitter, WorkflowCapabilityChecker,
+};
 pub use yaml::{parse_yaml, parse_yaml_str, YamlError};

@@ -1,109 +1,37 @@
-//! Integration test for `argo-workflow` execution layer (brief
-//! `eval-workflow-execution-runs-real-step`).
+//! Integration test for `argo-workflow` execution layer.
 //!
-//! Round-8 mission-vs-code-gap manifest, `argo-workflow` row:
-//!
-//! > "argo-workflow (runtime) — DAG / executor / checkpoint primitives.
-//! > The workflow runner. Mission claim 3 needs the SPA build canvas →
-//! > save → publish → execute loop end-to-end. Round 7 confirmed CRUD
-//! > layer is solid; execution layer is unaudited."
-//!
-//! The brief asks: given a saved workflow with a single `tool_call`
-//! step against a mock MCP server, does the executor (1) invoke the
-//! tool, (2) write an audit_record row, (3) write a workflow_run
-//! checkpoint, plus a cross-tenant negative and a failure-injection?
-//!
-//! # Pre-flight finding: the executor seam is abstract; the wire is broken.
-//!
-//! **Per the brief's "If pre-flight reveals … the wire is broken →
-//! ship `#[ignore]`'d + FINDINGS-ONLY" branch.** The executor surface
-//! exists and has a clean test seam (`TaskRunner` trait), but no
-//! production `TaskRunner` impl exists anywhere in the workspace —
-//! every caller binds the in-tree `MockRunner::echo()`. The
-//! executor crate has zero references to `tenant_id`, `audit_record`,
-//! or anything in `argo-mcp`. The three load-bearing contracts the
-//! brief wants pinned cannot be exercised against current
-//! `origin/main`.
-//!
-//! ## Surface map (read at `origin/main` `6fb89c6e3`)
-//!
-//! Present in `crates/argo-workflow/src/`:
-//! - `Executor<R: TaskRunner>::execute(ExecutionRequest) ->
-//!   ExecutionReport` — topological DAG walker.
-//! - `trait TaskRunner { async fn run(&self, &TaskNode, &inputs) ->
-//!   TaskOutcome; }` — the only injection seam.
-//! - `MockRunner::echo() / .fail(id)` — only `TaskRunner` impl in the
-//!   entire workspace (verified via `rg 'impl TaskRunner' crates/`).
-//! - `trait CheckpointStore` + `InMemoryCheckpointStore` —
-//!   optional checkpoint backend, opt-in via
-//!   `Executor::execute_with_checkpoints`.
-//!
-//! Present elsewhere but **not wired through the executor**:
-//! - `workflow_run` SQL table (migration 18) — written by
-//!   `argo-cli/src/handlers/workflow.rs::run_workflow` after the
-//!   executor returns, NOT by the executor itself. The CLI handler
-//!   binds `Executor::new(MockRunner::echo())` and notes in its
-//!   header comment: *"v1 wiring uses the `MockRunner` so workflows
-//!   are end-to-end testable without the production worker dispatch
-//!   path; a follow-up brief swaps in a `WorkerSessionRunner`."*
-//!   That follow-up brief has not landed.
-//! - `workflow_test_run` SQL table (migration 130 / v78, PR #2056) —
-//!   server-side history for the builder's "Test run" overlay,
-//!   written by an NDJSON gateway handler, not by the executor.
-//! - `audit_record` SQL table — `argo-audit`'s sink. No call site
-//!   in `argo-workflow` (verified via `rg 'audit_record\|AuditSink'
-//!   crates/argo-workflow/`).
-//! - `argo-mcp::McpClient` — no reference from `argo-workflow`
-//!   (verified via `rg 'argo[_-]mcp\|McpClient' crates/argo-workflow/`).
-//!
-//! ## What's missing for the brief's contracts to pin
-//!
-//! 1. **No tenant identity on the executor surface.** The brief asks
-//!    for "try to run tenant_a's workflow with tenant_b's principal →
-//!    assert refusal at executor pre-flight". `ExecutionRequest` has
-//!    no `tenant_id` / `Principal` field, and `Executor::execute` has
-//!    no pre-flight predicate to fail. A new field on
-//!    `ExecutionRequest` plus an `AuthorizationCheck` trait would be
-//!    needed.
-//! 2. **No MCP / tool-call wire.** The brief asks the mock MCP server
-//!    to "receive the tool call". `TaskRunner::run` takes a
-//!    `TaskNode` whose `worker` field is a string ID — the trait does
-//!    not invoke MCP, audit, or any external service. A
-//!    `WorkerSessionRunner: TaskRunner` (the named follow-up that
-//!    hasn't landed) would need to call into `argo-mcp`.
-//! 3. **No audit emission from the executor.** `Executor::execute`
-//!    returns a `BTreeMap<task_id, TaskVerdict>` but writes nothing
-//!    to `audit_record`. The verdicts live only in the returned
-//!    report and the optional checkpoint store.
-//!
-//! ## Smoke that DOES pass today
-//!
-//! The one non-ignored test below confirms that the surface the
-//! executor _does_ export — DAG walking + verdict emission via the
-//! abstract `TaskRunner` seam — still works as documented. It is a
-//! surface-existence guard against future refactors hollowing out
-//! the executor's public API.
+//! `eval-workflow-execution-runs-real-step` (#2086) landed three
+//! `#[ignore]`'d FINDINGS-ONLY tests pinning the contracts the
+//! executor seam was missing: (1) MCP + audit invocation,
+//! (2) cross-tenant refusal, (3) failure-injection. The
+//! `wire-worker-session-runner` brief ships `WorkerSessionRunner`
+//! which satisfies those contracts; the three tests are now
+//! un-ignored and exercise the real runner against stub
+//! `ToolDispatcher` / `WorkflowAuditEmitter` /
+//! `WorkflowCapabilityChecker` impls (see crate-level runner docs
+//! for the dep-cycle carve-out).
 
 use argo_workflow::{
-    ExecutionReport, ExecutionRequest, Executor, MockRunner, TaskNode, TaskOutcome, TaskRunner,
-    TaskVerdict, Workflow,
+    ExecutionRequest, Executor, MockRunner, StepAuditContext, TaskNode, TaskOutcome, TaskRunner,
+    TaskVerdict, ToolDispatchError, ToolDispatcher, WorkerSessionRunner, Workflow,
+    WorkflowAuditEmitter, WorkflowCapabilityChecker,
 };
+use argo_types::{Principal, TenantId};
 use async_trait::async_trait;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
+// ============================================================
+// Existing surface-existence smokes — kept from #2086.
+// ============================================================
+
 /// Helper: a 1-task workflow asking worker `mcp-tool-caller` to run
-/// a single `tool_call`-shaped step. Matches the brief's shape:
-/// "minimal workflow with ONE step (a `tool_call` against a mock MCP
-/// server)".
+/// a single `tool_call`-shaped step.
 fn single_step_tool_call_workflow() -> Workflow {
     let mut inputs = BTreeMap::new();
+    inputs.insert("tool".into(), serde_json::Value::String("echo".into()));
     inputs.insert(
-        "tool".into(),
-        serde_json::Value::String("echo".into()),
-    );
-    inputs.insert(
-        "payload".into(),
+        "args".into(),
         serde_json::json!({"msg": "hello-from-test"}),
     );
     Workflow {
@@ -122,58 +50,33 @@ fn single_step_tool_call_workflow() -> Workflow {
     }
 }
 
-/// Surface-existence smoke. NOT ignored. Pins that the executor's
-/// abstract DAG-walker + `TaskRunner`-seam wire-up still works end
-/// to end, so a future refactor that hollows out the seam fails
-/// loudly here even before the WorkerSessionRunner follow-up lands.
 #[tokio::test]
 async fn executor_surface_walks_a_single_task_and_emits_a_verdict() {
     let workflow = single_step_tool_call_workflow();
     let exec = Executor::new(MockRunner::echo());
-    let report: ExecutionReport = exec
+    let report = exec
         .execute(ExecutionRequest::new(workflow))
         .await
         .expect("executor must accept a validated 1-task workflow");
-    assert!(report.ok, "single-task workflow must complete ok: {report:?}");
-    assert_eq!(
-        report.task_verdicts.len(),
-        1,
-        "exactly one task verdict expected"
-    );
-    let verdict = report
-        .task_verdicts
-        .get("call")
-        .expect("verdict for 'call' must be present");
-    match verdict {
+    assert!(report.ok);
+    assert_eq!(report.task_verdicts.len(), 1);
+    match report.task_verdicts.get("call").expect("verdict") {
         TaskVerdict::Success { outputs } => {
-            // MockRunner echoes inputs into outputs verbatim plus the
-            // synthetic `echo` key. Pinning both confirms the input-
-            // resolution + verdict-emission seam works.
             assert_eq!(
                 outputs.get("tool"),
                 Some(&serde_json::Value::String("echo".into())),
-                "MockRunner must echo inputs into outputs"
             );
             assert_eq!(
                 outputs.get("echo"),
                 Some(&serde_json::Value::String("call".into())),
-                "MockRunner must emit synthetic `echo` keyed by task id"
             );
         }
         other => panic!("expected Success verdict, got {other:?}"),
     }
 }
 
-/// Shared per-invocation record. Each tuple is `(task_id, resolved
-/// inputs handed to the runner)`.
 type CallLog = Arc<Mutex<Vec<(String, BTreeMap<String, serde_json::Value>)>>>;
 
-/// Recording runner: captures every `TaskRunner::run` invocation so
-/// tests can assert what the executor *would* hand to a real runner.
-/// Stand-in for the `WorkerSessionRunner`/MCP-client seam the
-/// follow-up brief will introduce. The log is held in an `Arc` so
-/// the test can keep a handle alongside the executor (the executor
-/// takes ownership of its runner via `pub(crate)` field).
 struct RecordingRunner {
     calls: CallLog,
 }
@@ -206,10 +109,6 @@ impl TaskRunner for RecordingRunner {
     }
 }
 
-/// Lightweight pin: even before MCP is wired through, the executor
-/// must hand each task's resolved inputs to the runner. This is the
-/// contract a future `WorkerSessionRunner` will rely on to forward
-/// the payload to MCP. NOT ignored — exercises real seam behavior.
 #[tokio::test]
 async fn executor_hands_resolved_inputs_to_the_runner_seam() {
     let workflow = single_step_tool_call_workflow();
@@ -220,94 +119,370 @@ async fn executor_hands_resolved_inputs_to_the_runner_seam() {
         .await
         .expect("executes");
     let calls = calls.lock().expect("lock");
-    assert_eq!(calls.len(), 1, "exactly one runner invocation expected");
+    assert_eq!(calls.len(), 1);
     let (id, inputs) = &calls[0];
     assert_eq!(id, "call");
     assert_eq!(
         inputs.get("tool"),
         Some(&serde_json::Value::String("echo".into())),
-        "executor must pass the YAML-declared `tool` input through verbatim"
     );
     assert_eq!(
-        inputs.get("payload"),
+        inputs.get("args"),
         Some(&serde_json::json!({"msg": "hello-from-test"})),
-        "executor must pass the YAML-declared `payload` through verbatim"
     );
 }
 
 // ============================================================
-// FINDINGS-ONLY tests below. All `#[ignore]`'d. Each documents
-// one of the brief's three load-bearing contracts and what
-// would need to be wired before it can be un-ignored.
+// Brief contract tests — un-ignored as of `wire-worker-session-runner`.
 // ============================================================
 
-/// **FINDINGS-ONLY.** Brief contract: "The mock MCP server received
-/// the tool call. The executor produced an `audit_record` row with
-/// the tool's actual response."
-///
-/// **Why ignored:** `argo-workflow` has zero references to
-/// `argo-mcp` or `AuditSink`. The executor's only injection seam
-/// (`TaskRunner`) doesn't know about MCP or audit. No production
-/// `TaskRunner` impl exists in the workspace — `MockRunner` is the
-/// only one. To un-ignore: land the `WorkerSessionRunner`
-/// (referenced in the comment header of
-/// `crates/argo-cli/src/handlers/workflow.rs`) so that the runner
-/// invokes `McpClient::call_tool` and writes an `audit_record` row
-/// with the tool's response. The brief's suggested path —
-/// `mockito` + in-test JSON-RPC handler — depends on that wire-up
-/// existing first.
+/// Recorded dispatcher invocation (kept in a Mutex'd Vec for assertions).
+#[derive(Debug, Clone)]
+struct StubCall {
+    tenant_id: TenantId,
+    server: String,
+    tool: String,
+    args: serde_json::Value,
+}
+
+/// In-test dispatcher returning either a canned success response or
+/// a canned transport error.
+struct StubDispatcher {
+    calls: Arc<Mutex<Vec<StubCall>>>,
+    behavior: DispatcherBehavior,
+}
+
+#[derive(Clone)]
+enum DispatcherBehavior {
+    Ok(serde_json::Value),
+    Transport(String),
+}
+
+impl StubDispatcher {
+    fn ok(value: serde_json::Value) -> Arc<Self> {
+        Arc::new(Self {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            behavior: DispatcherBehavior::Ok(value),
+        })
+    }
+
+    fn fail(message: impl Into<String>) -> Arc<Self> {
+        Arc::new(Self {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            behavior: DispatcherBehavior::Transport(message.into()),
+        })
+    }
+
+    fn calls(&self) -> Vec<StubCall> {
+        self.calls.lock().expect("calls lock").clone()
+    }
+}
+
+#[async_trait]
+impl ToolDispatcher for StubDispatcher {
+    async fn call(
+        &self,
+        tenant_id: &TenantId,
+        server: &str,
+        tool: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, ToolDispatchError> {
+        self.calls.lock().expect("calls lock").push(StubCall {
+            tenant_id: *tenant_id,
+            server: server.to_string(),
+            tool: tool.to_string(),
+            args: args.clone(),
+        });
+        match &self.behavior {
+            DispatcherBehavior::Ok(v) => Ok(v.clone()),
+            DispatcherBehavior::Transport(m) => Err(ToolDispatchError::Transport(m.clone())),
+        }
+    }
+}
+
+/// Recorded audit emission ((kind, task_id, tool, reason_or_response)).
+#[derive(Debug, Clone)]
+struct AuditEvent {
+    kind: &'static str,
+    task_id: String,
+    tool: String,
+    reason_or_response: serde_json::Value,
+    principal_label: String,
+    tenant_id: TenantId,
+}
+
+struct StubAudit {
+    events: Arc<Mutex<Vec<AuditEvent>>>,
+}
+
+impl StubAudit {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            events: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
+    fn events(&self) -> Vec<AuditEvent> {
+        self.events.lock().expect("events lock").clone()
+    }
+}
+
+fn principal_label_for(p: &Principal) -> String {
+    match p {
+        Principal::Local { os_user } => format!("local:{os_user}"),
+        Principal::Gateway { adapter, identity } => format!("{adapter}:{identity}"),
+        Principal::Acp { harness, identity } => format!("{harness}:{identity}"),
+        Principal::Forge => "forge".to_string(),
+    }
+}
+
+#[async_trait]
+impl WorkflowAuditEmitter for StubAudit {
+    async fn step_executed(
+        &self,
+        ctx: &StepAuditContext<'_>,
+        response: &serde_json::Value,
+    ) -> Result<(), String> {
+        self.events.lock().expect("events lock").push(AuditEvent {
+            kind: "workflow.step.executed",
+            task_id: ctx.task_id.to_string(),
+            tool: ctx.tool.to_string(),
+            reason_or_response: response.clone(),
+            principal_label: principal_label_for(ctx.principal),
+            tenant_id: *ctx.tenant_id,
+        });
+        Ok(())
+    }
+
+    async fn step_failed(&self, ctx: &StepAuditContext<'_>, reason: &str) {
+        self.events.lock().expect("events lock").push(AuditEvent {
+            kind: "workflow.step.failed",
+            task_id: ctx.task_id.to_string(),
+            tool: ctx.tool.to_string(),
+            reason_or_response: serde_json::Value::String(reason.to_string()),
+            principal_label: principal_label_for(ctx.principal),
+            tenant_id: *ctx.tenant_id,
+        });
+    }
+}
+
+/// In-test capability checker. Maps `(principal, tool)` pairs to a
+/// granted-or-denied verdict.
+struct StubCapabilities {
+    grants: Vec<(Principal, String)>,
+}
+
+impl StubCapabilities {
+    fn granting(principal: Principal, tool: impl Into<String>) -> Arc<Self> {
+        Arc::new(Self {
+            grants: vec![(principal, tool.into())],
+        })
+    }
+
+}
+
+impl WorkflowCapabilityChecker for StubCapabilities {
+    fn check_dispatch(&self, principal: &Principal, tool: &str) -> Result<(), String> {
+        let has_grant = self
+            .grants
+            .iter()
+            .any(|(p, t)| p == principal && t == tool);
+        if has_grant {
+            Ok(())
+        } else {
+            Err(format!(
+                "principal {} not bound to ToolDispatch[{tool}]",
+                principal_label_for(principal),
+            ))
+        }
+    }
+}
+
+/// Brief contract #1: happy path — the runner invokes the dispatcher
+/// (the MCP-call seam) and the audit emitter sees a
+/// `workflow.step.executed` row carrying the tool's response.
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: no production TaskRunner impl wires MCP or audit (see module docs)"]
-async fn happy_path_executor_invokes_mcp_and_writes_audit_row() {
-    unreachable!(
-        "Cannot run until `WorkerSessionRunner: TaskRunner` exists and \
-         emits `audit_record` rows from `argo-workflow`. Re-check this \
-         when the executor's `TaskRunner` seam grows an MCP-aware impl."
+async fn happy_path_runner_invokes_dispatcher_and_writes_audit_row() {
+    let principal = Principal::Local {
+        os_user: "alice".into(),
+    };
+    let tenant_id = TenantId::new();
+    let dispatcher = StubDispatcher::ok(serde_json::json!({"answer": "hello-from-test"}));
+    let audit = StubAudit::new();
+    let capabilities = StubCapabilities::granting(principal.clone(), "echo");
+
+    let runner = WorkerSessionRunner::new(
+        dispatcher.clone(),
+        audit.clone(),
+        capabilities,
+        principal.clone(),
+        tenant_id,
+    );
+    let exec = Executor::new(runner);
+    let report = exec
+        .execute(ExecutionRequest::new(single_step_tool_call_workflow()))
+        .await
+        .expect("execute");
+
+    // Dispatcher saw exactly one invocation with the expected shape.
+    let calls = dispatcher.calls();
+    assert_eq!(calls.len(), 1, "exactly one MCP dispatch expected");
+    assert_eq!(calls[0].tenant_id, tenant_id);
+    assert_eq!(calls[0].server, "mcp-tool-caller");
+    assert_eq!(calls[0].tool, "echo");
+    assert_eq!(calls[0].args, serde_json::json!({"msg": "hello-from-test"}));
+
+    // Verdict carries the dispatcher's response under `outputs.response`.
+    match report.task_verdicts.get("call").expect("verdict") {
+        TaskVerdict::Success { outputs } => {
+            assert_eq!(
+                outputs.get("response"),
+                Some(&serde_json::json!({"answer": "hello-from-test"})),
+            );
+        }
+        other => panic!("expected Success, got {other:?}"),
+    }
+    assert!(report.ok);
+
+    // Audit: exactly one executed row, carrying the response.
+    let events = audit.events();
+    assert_eq!(events.len(), 1, "exactly one audit event expected");
+    assert_eq!(events[0].kind, "workflow.step.executed");
+    assert_eq!(events[0].task_id, "call");
+    assert_eq!(events[0].tool, "echo");
+    assert_eq!(events[0].principal_label, "local:alice");
+    assert_eq!(events[0].tenant_id, tenant_id);
+    assert_eq!(
+        events[0].reason_or_response,
+        serde_json::json!({"answer": "hello-from-test"})
     );
 }
 
-/// **FINDINGS-ONLY.** Brief contract: "Cross-tenant negative: try to
-/// run tenant_a's workflow with tenant_b's principal → assert refusal
-/// at executor pre-flight."
-///
-/// **Why ignored:** `argo-workflow` has zero references to
-/// `tenant_id` or `Principal`. `ExecutionRequest` carries only the
-/// workflow + a generated run id. There is no executor pre-flight
-/// predicate to refuse a cross-tenant principal. To un-ignore:
-/// add a `principal: Principal` (or equivalent tenant-bearing
-/// identity) to `ExecutionRequest` plus an `AuthorizationCheck` trait
-/// that the executor calls before walking the DAG.
+/// Brief contract #2: cross-tenant negative — a principal the
+/// capability checker never bound is refused at the runner's pre-
+/// dispatch gate. The dispatcher MUST NOT see the call (the load-
+/// bearing RBAC-bypass guard).
 #[tokio::test]
-#[ignore = "FINDINGS-ONLY: ExecutionRequest carries no tenant identity (see module docs)"]
-async fn cross_tenant_executor_refuses_foreign_principal() {
-    unreachable!(
-        "Cannot run until `ExecutionRequest` (or a wrapping API) carries a \
-         tenant-bearing principal and the executor consults it pre-flight."
+async fn cross_tenant_runner_refuses_foreign_principal() {
+    let tenant_a = TenantId::new();
+    let tenant_b = TenantId::new();
+    assert_ne!(tenant_a, tenant_b);
+
+    let principal_a = Principal::Local {
+        os_user: "alice-tenant-a".into(),
+    };
+    let principal_b = Principal::Local {
+        os_user: "bob-tenant-b".into(),
+    };
+
+    // Capability checker grants `echo` to tenant_a's principal only;
+    // when the runner is bound to tenant_b's principal it must
+    // refuse.
+    let capabilities = StubCapabilities::granting(principal_a, "echo");
+    let dispatcher = StubDispatcher::ok(serde_json::json!({"never": "called"}));
+    let audit = StubAudit::new();
+
+    let runner = WorkerSessionRunner::new(
+        dispatcher.clone(),
+        audit.clone(),
+        capabilities,
+        principal_b,
+        tenant_b,
+    );
+    let exec = Executor::new(runner);
+    let report = exec
+        .execute(ExecutionRequest::new(single_step_tool_call_workflow()))
+        .await
+        .expect("execute");
+
+    // Dispatcher must NOT have been called — capability check fires
+    // BEFORE MCP dispatch (the load-bearing assertion).
+    assert!(
+        dispatcher.calls().is_empty(),
+        "cross-tenant principal must be refused before MCP dispatch; got calls={:?}",
+        dispatcher.calls()
+    );
+
+    // Verdict is Failed with a capability-denied reason.
+    match report.task_verdicts.get("call").expect("verdict") {
+        TaskVerdict::Failed { reason } => {
+            assert!(
+                reason.starts_with("capability denied"),
+                "expected capability-denied reason, got {reason:?}"
+            );
+        }
+        other => panic!("expected Failed verdict, got {other:?}"),
+    }
+    assert!(!report.ok);
+
+    // Audit: exactly one failed row.
+    let events = audit.events();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].kind, "workflow.step.failed");
+    assert_eq!(events[0].tool, "echo");
+    assert_eq!(events[0].tenant_id, tenant_b);
+    let reason = events[0]
+        .reason_or_response
+        .as_str()
+        .expect("reason is string");
+    assert!(reason.contains("capability denied"), "got {reason:?}");
+}
+
+/// Brief contract #3: failure-injection — the dispatcher returns a
+/// transport error (the moral equivalent of "mock MCP returns 500").
+/// The audit emitter sees a step-failed row carrying the upstream
+/// message AND the verdict is `Failed` (`report.ok == false`). The
+/// failure is NOT silently swallowed.
+#[tokio::test]
+async fn failure_injection_dispatcher_500_marks_step_failed_and_writes_audit() {
+    let principal = Principal::Local {
+        os_user: "alice".into(),
+    };
+    let tenant_id = TenantId::new();
+    let dispatcher = StubDispatcher::fail("upstream MCP server returned 500");
+    let audit = StubAudit::new();
+    let capabilities = StubCapabilities::granting(principal.clone(), "echo");
+
+    let runner = WorkerSessionRunner::new(
+        dispatcher.clone(),
+        audit.clone(),
+        capabilities,
+        principal,
+        tenant_id,
+    );
+    let exec = Executor::new(runner);
+    let report = exec
+        .execute(ExecutionRequest::new(single_step_tool_call_workflow()))
+        .await
+        .expect("execute");
+
+    // Dispatcher was called once (failure happened upstream of the
+    // runner, not before it).
+    assert_eq!(dispatcher.calls().len(), 1);
+
+    // Verdict is Failed, reason carries the upstream message.
+    match report.task_verdicts.get("call").expect("verdict") {
+        TaskVerdict::Failed { reason } => {
+            assert!(
+                reason.contains("upstream MCP server returned 500"),
+                "expected upstream message in reason, got {reason:?}"
+            );
+        }
+        other => panic!("expected Failed verdict, got {other:?}"),
+    }
+    assert!(!report.ok, "run ok must be false on MCP failure");
+
+    // Audit: exactly one failed row.
+    let events = audit.events();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].kind, "workflow.step.failed");
+    let reason = events[0]
+        .reason_or_response
+        .as_str()
+        .expect("reason is string");
+    assert!(
+        reason.contains("upstream MCP server returned 500"),
+        "got {reason:?}"
     );
 }
 
-/// **FINDINGS-ONLY.** Brief contract: "Failure-injection: mock MCP
-/// returns 500 → assert workflow_run row marks step FAILED (not
-/// silently swallowed), audit row still written with the failure."
-///
-/// **Why ignored:** Same wire-broken root cause as the happy-path
-/// test — there is no MCP-aware runner to inject a 500 into, and
-/// the executor does not write `audit_record` rows. The `Executor`
-/// *does* surface a `Failed { reason }` verdict via `TaskOutcome`,
-/// and a downstream `workflow_run.task_verdicts_json` row in the
-/// CLI handler captures it — so the in-process verdict-propagation
-/// half of this contract is functional (covered by
-/// `failed_task_skips_downstream` in `executor.rs`). What is missing
-/// is the *audit* arm of the contract: a 500 from MCP must produce
-/// an `audit_record` row with the failure, not be swallowed silently
-/// at the runner boundary.
-#[tokio::test]
-#[ignore = "FINDINGS-ONLY: no MCP runner + no audit wire from executor (see module docs)"]
-async fn failure_injection_mcp_500_marks_step_failed_and_writes_audit() {
-    unreachable!(
-        "Cannot run until `WorkerSessionRunner` exists and writes an \
-         `audit_record` row on tool-call failure. The DAG-walker side of \
-         this (Failed verdict + downstream skip) is already covered by \
-         the executor's unit tests."
-    );
-}
