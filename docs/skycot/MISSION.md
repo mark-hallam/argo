@@ -50,6 +50,63 @@ operator. The six load-bearing claims it makes are:
 
 ---
 
+## Strengthening items
+
+These two strengtheners are not new claims — they make existing
+architectural moats explicit so the swarm and the marketing both
+treat them as first-class.
+
+### Hash-chained audit as evidence
+
+Every worker action is hash-chained into `audit_record`. Each
+row's `self_hash` is `SHA-256(prior_row_hash || canonical_content)`,
+so any tampering between writes is detectable. Verifiable months
+later via `argo audit verify`. SOC 2-ready forensic trail **by
+construction** — not a separate logging system bolted on. The
+audit chain is the load-bearing evidence layer the enterprise
+buyer is paying for.
+
+### Multi-worker org structure
+
+Workers form an **org**, not a fleet. Cohorts group teammates by
+department / skill family / trust grade. Escalation chains route
+work through named participants. Handoffs pass control with
+payload between workers (or to a human). Auctions let multiple
+bidders compete for delegated tasks. Supervisors manage worker
+subprocess lifecycles. The substrate is `argo-orchestrator`; the
+surface is `/cohorts`. This is the multi-worker org moat —
+none of the competitors (Zapier, n8n, Crew.ai, Lindy) ship it.
+
+---
+
+## What "LIVE" means per claim
+
+A claim is **LIVE** only when a falsifiable test that exercises
+the whole end-to-end loop passes. The eval rounds score each
+claim against these criteria; the conductor queues fix-briefs
+for anything that's HALF-LIVE or OFF. Aspirational claims with
+no test are explicitly NOT LIVE.
+
+| Claim | LIVE means |
+|---|---|
+| **1 LIVE** | 5 distinct workers persist across gateway restarts, with memory, and one of them can be re-summoned by name 24 hours later. |
+| **2 LIVE** | A hired worker's duty cron fires AND invokes its agent runner AND writes a `WorkerDutyFired` audit row within 60 seconds. |
+| **3 LIVE** | `argo genesis plan "be my marketing intern" maya && argo workflow run` produces real output, not just files on disk. |
+| **4 LIVE** | _(TBD — pending operator pass-criteria.)_ |
+| **5 LIVE** | _(TBD — pending operator pass-criteria.)_ |
+| **6 LIVE** | _(TBD — pending operator pass-criteria.)_ |
+
+Strengtheners get their own LIVE criteria as they mature.
+
+> **Provenance note**: this "Strengthening items" subsection +
+> "What 'LIVE' means per claim" subsection were added on
+> 2026-05-23 with direct operator sign-off in the evaluator
+> round-15 session. Mission claims 1-6 themselves are unchanged.
+> Future amendments to either subsection require the same
+> operator sign-off pattern.
+
+---
+
 ## What "real teammate" means architecturally
 
 A teammate is not a clone of a vertical; it is an **instance with

@@ -1,7 +1,7 @@
 {
   "agent": "evaluator",
-  "last_run_utc": "2026-05-23T13:00:00Z",
+  "last_run_utc": "2026-05-23T13:45:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "anthropic-claude-code-evaluator-session-round-14",
-  "run_notes": "round 14 — argo-memory audited (3301 LOC, 17 files: context/dreams_backend/embedding/entry/layers/row/shared_team/skill_candidate/store/store_vertical/summary). 🟢 STRONGEST tenant-isolation evidence of any crate so far: TWO real cross-tenant negative tests (shared_team::cross_tenant_isolation_hides_other_tenant_writes asserts tenant_a write invisible to tenant_b; layer_tests::cross_tenant_index_query_returns_zero_rows). 🟢 memory_entry table is workspace_id-scoped (workspace=tenant per round-9 credentials finding → transitively safe). 🟢 Per-worker scope substrate exists in summary.rs queries binding (tenant_id, worker_id, memory_scope). 🟡 Consistent with MISSION.md status: schema extension for per-worker scope is QUEUED — the canonical memory_entry write path in store.rs doesn't yet filter on memory_scope. Round-8 gap row eval-memory-per-worker-scope-honored remains the right brief. 🟢 Closes round-13 question about memory_embedding + shared_team_memory: queries live here in argo-memory, all workspace/tenant scoped. Next session: argo-channels per-channel walk OR argo-trust-engine ratchet OR argo-tool surface beyond the 15 in-core."
+  "session_label": "anthropic-claude-code-evaluator-session-round-15-mission-amendment",
+  "run_notes": "round 15 — MISSION.md amended with operator sign-off. Added strengtheners: hash-chained audit-as-evidence + multi-worker org structure. Added LIVE-criteria section with falsifiable tests for claims 1/2/3; 4/5/6 marked TBD. Operator confirmed 6 claims unchanged — hard is the point. Provenance note preserved in MISSION.md itself. Next session: pick up campaign with argo-channels / argo-trust-engine / argo-vertical, OR write the claim-1 LIVE test (5-worker-persist-across-restart cargo smoke) since that's now the highest-leverage missing verifier."
 }
