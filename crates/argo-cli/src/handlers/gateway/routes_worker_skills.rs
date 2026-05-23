@@ -407,3 +407,7 @@ async fn active_skill_ids(
 #[cfg(test)]
 #[path = "routes_worker_skills_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "claim_4_mvp_row_6_gateway_promote_audit_pin.rs"]
+mod claim_4_mvp_row_6_pin;
