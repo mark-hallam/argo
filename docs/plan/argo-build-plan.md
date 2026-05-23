@@ -1,3 +1,18 @@
+> # ⚠️ HISTORICAL — NOT THE OPERATIVE PLAN
+>
+> This is `argo-build-plan.md v0.2` — the original architecture reference for the core-platform layer.
+> It is **historical**. Do NOT use as a guide for current work.
+>
+> **Current operative plans** (per `CLAUDE.md`):
+> - Backend tracks: `docs/build-plan/BUILD_PLAN_V11.md`
+> - Product surface (UX/UI/web): `docs/build-plan/PRODUCT_ROADMAP.md`
+> - Live ledger: `docs/build-plan/BUILD_STATUS.md`
+> - Mission claims + LIVE criteria: `docs/skycot/MISSION.md`
+>
+> Banner added 2026-05-23 by operator-directed staleness audit.
+
+---
+
 # Argo — Master Build Plan (v0.2)
 
 **Codename:** Argo (the ship of agents)

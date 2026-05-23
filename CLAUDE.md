@@ -92,13 +92,36 @@ Plan documents, in order of operative precedence:
 The vertical-template system is documented in its own design doc
 once Phase 1 lands.
 
-**Fresh agents: start at [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)** — a single-page primer pointing you at the
+**🛑 IF YOU'RE A FRESH AGENT JOINING POST-2026-05-23**: read this FIRST →
+[`docs/skycot/operator/quota-conservation-handoff-2026-05-23.md`](docs/skycot/operator/quota-conservation-handoff-2026-05-23.md).
+The swarm was deliberately halted at 98% Claude quota; do NOT spawn workers
+or run ticks autonomously until you've read it and reported state to operator.
+
+**Fresh agents (any time): start at [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)** — a single-page primer pointing you at the
 5 files to read (in order) to pick up the swarm. The
 `docs/build-plan/BUILD_STATUS.md` header (first ~90 lines) is the
 live ledger — operator amendments (queue thresholds, agent-family
 availability, paused streams, active directives) live there and
 override every other doc. Memory and template defaults are not
 authoritative; the live ledger is.
+
+**Doc-staleness gotchas (read before trusting any text in this repo)** —
+the following entry-point docs are KNOWN STALE; check the date in the
+section before relying on what they say:
+
+- **CLAUDE.md "Status 2026-05-18" block below** is 6+ days behind reality. Use the handoff doc above + `docs/skycot/MISSION.md` for current state.
+- `docs/build-plan/RESUME.md` "Last sweep" claims 2026-05-20; truthful as of 2026-05-23 but flagged for next sweep.
+- `docs/build-plan/BUILD_PLAN_V11.md` (2026-05-12) — operative for backend track only; product-surface moved to `docs/build-plan/PRODUCT_ROADMAP.md`.
+- `docs/plan/argo-build-plan.md` (v0.2) — **HISTORICAL.** Not the operative plan. Reference only.
+- `docs/build-plan/MISSION_BACKLOG.md` (2026-05-19) — items marked `[NEW]` may have shipped; cross-check against `git log`.
+- The 1,015 brief files in `docs/build-plan/streams/` — many shipped or stale; **always check the ledger row in BUILD_STATUS.md** for the brief's current status before claiming.
+
+**Source of truth, in order**:
+1. The handoff doc (post-2026-05-23)
+2. `docs/build-plan/BUILD_STATUS.md` header + ledger rows
+3. `docs/skycot/MISSION.md` (operator-locked LIVE criteria, latest 2026-05-24)
+4. `docs/skycot/agents/heartbeats/conductor.json` (latest tick state)
+5. `git log -20 origin/main` (what actually shipped)
 
 PR title format: `<phase> — <section> — <one-line summary>`
 
@@ -119,7 +142,21 @@ The full audit reports live in `docs/skycot/audit/`:
 - `2026-05-17-readonly-codebase-audit.md` — codex audit (13 findings)
 - `2026-05-17-claude-conductor-audit.md` — claude audit (13 findings + closure verification)
 
-**Status 2026-05-18:** **Magic-link signup+verify LIVE on main via #1823.** Mission claim 4 PROVEN via #1822 (skill-loop closure smoke). All 6 audit-derived briefs from 2026-05-17 closed. CI gates GREEN locally (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool at full Pro 20x. Remaining for launch: SQLCipher 4-PR sequence (v1.0 scope per operator 2026-05-18) + tonight's demo recording.
+**Status 2026-05-24 (post-quota-halt):** **Swarm halted at 98% quota — see handoff doc above.** Mission state per MISSION.md operator-locked LIVE criteria + evaluator rounds 1-34:
+
+- Claim 1 (Teammate, not tool) — 🟢 **LIVE** (regression test passes cold per round-19)
+- Claim 2 (Delegation is the unit) — 🔴 NOT LIVE (needs #2088 fix + claim-2 LIVE regression test)
+- Claim 3 (Platform builds workers) — 🟡 LIVE-pending-verify (substrate shipped via #2089 + #2106; LIVE regression test queued)
+- Claim 4 (Skills shared + learned) — 🟡 MVP ~75% per round-20 (substrate done; LIVE criteria draft pending operator signoff)
+- Claim 5 (Any-PC execution) — 🟡 HALF-LIVE (cu-macos 37/37 unit tests pass; LIVE criteria + macOS perms pending)
+- Claim 6 (Multi-channel + multi-tenant) — 🟡 strengthener pass (LIVE criteria pending signoff)
+- v1.0 demo MP4 — ❌ NOT RECORDED (operator-only artifact)
+
+**Tick-91 chain-merge wave (2026-05-23)** shipped 8 PRs in one tick — #2089 WorkerSessionRunner (claim-3 broken-wire closed), #2090 per-tenant master key, #2098 workflow-runs pagination, #2100 orchestrator duty-store tenant-args, #2101 skill-ab-test tenant-id (schema bumped to v79), #2102 rebase-cluster, #2103 mcp-connector token-cache, #2105 memory per-worker-scope, #2106 workflow-execute route.
+
+**Earlier history (2026-05-18 state, KEPT for context):** Magic-link signup+verify LIVE on main via #1823. CI gates GREEN locally (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool at full Pro 20x. SQLCipher 4-PR sequence MERGED.
+
+**Remaining for v1.0 launch**: (a) 5 LIVE-test briefs ship green (queued at top of BUILD_STATUS.md Phase A under MISSION-LIVE CRITICAL PATH marker), (b) operator signs off Claim 4/5/6 LIVE criteria (draft at `docs/skycot/evals/scheduled/2026-05-23/draft-live-criteria-claims-4-5-6.md`), (c) macOS permissions on `argo` binary (Accessibility + Screen Recording), (d) operator records demo MP4.
 
 ## Project rename — Argo → Skycot
 

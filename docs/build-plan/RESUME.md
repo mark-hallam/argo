@@ -1,7 +1,13 @@
 # RESUME — fresh-session entry point
 
-Last sweep: 2026-05-20 (mission-audit-docs-drift-sweep). The conductor
-warns on every tick when this date is more than 14 days stale.
+Last sweep: 2026-05-23 (operator-directed staleness audit during quota-halt).
+Next sweep due: when this date is >14 days old OR after any major
+architectural change.
+
+**🛑 IF YOU'RE JOINING POST-2026-05-23 QUOTA HALT**: read
+[`../skycot/operator/quota-conservation-handoff-2026-05-23.md`](../skycot/operator/quota-conservation-handoff-2026-05-23.md)
+FIRST. The swarm was deliberately halted at 98% Claude quota. Do NOT
+spawn workers or run ticks autonomously until you've read it.
 
 A new agent picking up SKYCOT (Argo) work reads this page first.
 
