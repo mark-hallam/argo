@@ -4,6 +4,7 @@
 
 | Round | UTC | Scenarios | Verdicts | Brief candidates |
 |---|---|---|---|---|
+| 20 | 2026-05-23T05:28Z | #2104 LOC-split anti-theater verify · Claim 4 substrate trace for LIVE-4A sign-off · process drift sweep | 🟢 + 🟡 (1 P1 substrate gap) + 🟢 | DO-NOT-AUTHOR-YET (pending operator sign-off on 4A wording): `mission-tool-call-payload-skill-provenance` (P1, ~30 LOC) + `eval-claim-4-live-regression-test` (P1, ~200 LOC follow-on) — recommended path is "option b" of the three resolutions enumerated in the round-20 report |
 | 19 | 2026-05-23T16:25Z | round-17 Claim 1 LIVE test cold-run · #2100 duty-store-tenant-args pre-merge verify · #2097 token-cache escalation source-read | 🟢 + 🟢 + 🟢 (P0 premise confirmed real) | none new — `eval-claim-1-live-memory-roundtrip-extension` (P2, ~150 LOC docstring-reference) recommended for quiet-tick promotion |
 | 18 | (concurrent session) | LIVE-criteria drafts for claims 4/5/6 (see `draft-live-criteria-claims-4-5-6.md`) | informational — pending operator sign-off | — |
 | 17 | 2026-05-23T15:00Z | #2094 skill_runs worker_budget verify · #2095 spend_anomaly DISTINCT verify · #2093 subtask_ledger investigation verify · CHANGES-REQUESTED PR cohort triage | 🟢 + 🟢 + 🟢 + 🔴 P0 process | `claude-rebase-changes-requested-cluster-tick85` (P0 — #2087/#2088/#2090 stale 13h+, #2088+#2090 now CONFLICTING) |
