@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Building2,
   Bell,
+  BellRing,
   BookOpen,
   Lock,
   Key,
@@ -64,6 +65,13 @@ const TILES = [
     icon: <KeyRound size={20} />,
     title: "API keys",
     blurb: "Long-lived tokens for service accounts, CI, and integrations.",
+    coming: false,
+  },
+  {
+    href: "/settings/notify-channels",
+    icon: <BellRing size={20} />,
+    title: "Notification channels",
+    blurb: "Configure approval routing for Slack, iMessage, Email, SMS, Voice, Push, and the web inbox.",
     coming: false,
   },
   {
