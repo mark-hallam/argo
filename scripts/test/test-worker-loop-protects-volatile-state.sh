@@ -9,14 +9,15 @@
 # evaluator report writer, auditor) made to volatile-state files during
 # the claim window. Round-37 (commit 9b07a2ce6, 2026-05-24) lost
 # docs/skycot/audit/scheduled/LATEST.md + the evaluator heartbeat + the
-# round's report dir to exactly this race.
+# round's report dir to exactly this race. Round-38 added evaluator
+# scheduled reports under docs/skycot/evals/scheduled to the same guard.
 #
 # This harness sources claim-with-retry.sh (which exposes the helpers
 # above its main() guard) and exercises stash_volatile_state +
 # restore_volatile_state directly against a temp git repo. We test:
-#   1. Edits to each of the 3 protected paths survive a reset --hard.
+#   1. Edits to each of the 4 protected paths survive a reset --hard.
 #   2. An edit to a NON-protected file is correctly NOT preserved
-#      (negative control — proves the scope is the 3 globs, not "stash
+#      (negative control — proves the scope is the protected globs, not "stash
 #      everything").
 #   3. Conflict path: when the reset moves HEAD to a newer main that
 #      also touched the same file, the local edit is dropped AND a
@@ -59,7 +60,7 @@ assert_no_grep() {
 }
 
 # setup_repo <tmp> — builds a bare remote + a local clone seeded with the
-# 3 protected files committed to main. Echoes the local clone path.
+# protected files committed to main. Echoes the local clone path.
 setup_repo() {
     local tmp="$1"
     mkdir -p "$tmp/remote"
@@ -71,11 +72,14 @@ setup_repo() {
     git -C "$tmp/seed" config commit.gpgsign false
 
     mkdir -p "$tmp/seed/docs/skycot/agents/heartbeats" \
-             "$tmp/seed/docs/skycot/audit/scheduled"
+             "$tmp/seed/docs/skycot/audit/scheduled" \
+             "$tmp/seed/docs/skycot/evals/scheduled/2026-05-23"
     echo '{"agent":"evaluator","last_seen":"2026-05-24T00:00:00Z"}' \
         > "$tmp/seed/docs/skycot/agents/heartbeats/evaluator.json"
     echo '# initial latest' \
         > "$tmp/seed/docs/skycot/audit/scheduled/LATEST.md"
+    echo '# initial eval latest' \
+        > "$tmp/seed/docs/skycot/evals/scheduled/2026-05-23/LATEST.md"
     echo '# shared scratchpad' \
         > "$tmp/seed/docs/skycot/agents/SHARED.md"
     echo 'unrelated file' \
@@ -92,8 +96,8 @@ setup_repo() {
     echo "$tmp/work"
 }
 
-# ── Test 1: all 3 protected paths survive a stash → reset --hard → restore ──
-echo "[1/4] all 3 protected paths survive reset --hard"
+# ── Test 1: all 4 protected paths survive a stash → reset --hard → restore ──
+echo "[1/4] all 4 protected paths survive reset --hard"
 tmp1="$(mktemp -d)"
 work1="$(setup_repo "$tmp1")"
 
@@ -102,6 +106,9 @@ echo '{"agent":"evaluator","last_seen":"2026-05-24T08:30:00Z","note":"CONCURRENT
     > "$work1/docs/skycot/agents/heartbeats/evaluator.json"
 echo '# latest with CONCURRENT_EDIT_LATEST' \
     > "$work1/docs/skycot/audit/scheduled/LATEST.md"
+mkdir -p "$work1/docs/skycot/evals/scheduled/2026-05-24/round-46"
+echo '# eval report CONCURRENT_EDIT_EVAL' \
+    > "$work1/docs/skycot/evals/scheduled/2026-05-24/round-46/findings.md"
 echo '# shared CONCURRENT_EDIT_SHARED' \
     > "$work1/docs/skycot/agents/SHARED.md"
 
@@ -119,6 +126,10 @@ assert_grep "$work1/docs/skycot/agents/heartbeats/evaluator.json" "CONCURRENT_ED
 assert_grep "$work1/docs/skycot/audit/scheduled/LATEST.md" "CONCURRENT_EDIT_LATEST" \
     "audit/scheduled/LATEST.md edit survived reset" \
     "audit/scheduled/LATEST.md was WIPED by reset (regression)"
+
+assert_grep "$work1/docs/skycot/evals/scheduled/2026-05-24/round-46/findings.md" "CONCURRENT_EDIT_EVAL" \
+    "evals/scheduled round report survived reset" \
+    "evals/scheduled round report was WIPED by reset (regression)"
 
 assert_grep "$work1/docs/skycot/agents/SHARED.md" "CONCURRENT_EDIT_SHARED" \
     "agents/SHARED.md edit survived reset" \
@@ -145,7 +156,7 @@ assert_rc $? 1 "non-protected dirt → return 1 (correctly out of scope)"
 # Confirm a raw reset wipes that edit (proves we wouldn't have saved it).
 git -C "$work3" reset --hard origin/main >/dev/null 2>&1
 assert_no_grep "$work3/docs/skycot/agents/UNRELATED.md" "CONCURRENT_NON_PROTECTED_EDIT" \
-    "non-protected file correctly wiped by reset (scope is the 3 globs)" \
+    "non-protected file correctly wiped by reset (scope is protected globs)" \
     "non-protected file unexpectedly preserved — scope too wide?"
 rm -rf "$tmp3"
 

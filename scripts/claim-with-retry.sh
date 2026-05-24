@@ -21,12 +21,11 @@
 # writer, auditor — during the window between this script's dirty-check
 # and the reset itself. Evaluator round-37 (commit 9b07a2ce6, 2026-05-24)
 # observed a live wipe of docs/skycot/audit/scheduled/LATEST.md, the
-# evaluator heartbeat, and the round's report dir; only SHARED.md's
-# append-only edit survived because the concurrent writer happened to
-# commit before the wipe.
+# evaluator heartbeat, and the round's report dir. Round-38 extended the
+# same guard to docs/skycot/evals/scheduled/* round outputs.
 #
 # Defense: before the reset, stash any uncommitted edits matching the
-# three protected globs; after the reset, pop the stash. On stash-pop
+# protected globs; after the reset, pop the stash. On stash-pop
 # conflict (reset moved to a newer main that also touched the file),
 # prefer the upstream version and log a wipe-race warning so the
 # concurrent writer can re-apply by hand.
@@ -37,6 +36,7 @@
 VOLATILE_PATHS=(
     'docs/skycot/agents/heartbeats'
     'docs/skycot/audit/scheduled'
+    'docs/skycot/evals/scheduled'
     'docs/skycot/agents/SHARED.md'
 )
 
