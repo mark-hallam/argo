@@ -11,9 +11,10 @@ support-, triage-, sales-, PR-checker-specific behaviour lives
 ## Discovery
 
 `argo` walks `./verticals/` (or `$ARGO_VERTICALS_DIR`) at startup.
-Subdirs that contain a `vertical.toml` are loaded; subdirs without
-one are silently skipped (so this README, for instance, doesn't
-trip the loader).
+Every immediate subdirectory is expected to contain a loadable
+`vertical.toml`; non-directory files such as this README are ignored.
+Demo-only artifacts that are not loadable verticals live under
+`docs/skycot/verticals-archive/`.
 
 ## Per-vertical layout
 
@@ -52,6 +53,10 @@ OS's approval-gated state machine), see
 
 ## Verticals shipped today
 
+The workspace currently contains 32 loadable vertical templates. The
+reference set below shows the original spread that proved the shared
+runtime abstraction.
+
 | Slug | Purpose | Worker v3 actions? | Status |
 |---|---|---|---|
 | `pr-checker` | Advisory PR review against project invariants | no | v0.1.0 (#652) |
@@ -62,7 +67,7 @@ OS's approval-gated state machine), see
 The set covers a deliberate spread: technical/structured
 (pr-checker), conversational soft-skilled (receptionist),
 research-heavy commerce (gtm-engineer), high-volume outbound
-(sales-follow-up). Four verticals running through the same runtime,
+(sales-follow-up). These reference verticals run through the same runtime,
 sharing zero
 domain-specific code in the platform crates — that's the
 abstraction working.
