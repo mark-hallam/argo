@@ -53,24 +53,52 @@ OS's approval-gated state machine), see
 
 ## Verticals shipped today
 
-The workspace currently contains 32 loadable vertical templates. The
-reference set below shows the original spread that proved the shared
-runtime abstraction.
+The table below is generated from `argo vertical list --source workspace --json`.
+That CLI path calls `argo_vertical::load_dir`, so the row set matches runtime discovery.
+Regenerate with `scripts/update-verticals-readme-table.py --write`; check with `scripts/update-verticals-readme-table.py --check`.
 
-| Slug | Purpose | Worker v3 actions? | Status |
-|---|---|---|---|
-| `pr-checker` | Advisory PR review against project invariants | no | v0.1.0 (#652) |
-| `receptionist` | Front-desk visitor triage with intent classification + escalation | no (pre-v3) | v0.1.0 (#657) |
-| `gtm-engineer` | Marketplace seller — research → draft listings → approval-gated post | yes — 10 actions | v0.1.0 (#729 → #732) |
-| `sales-follow-up` | Warm-lead follow-up with research → draft → approval-gated send → CRM logging | yes — 6 actions | v0.0.1 (#746) |
+<!-- verticals-readme-table:start -->
+The workspace currently contains **32 loadable vertical templates**.
 
-The set covers a deliberate spread: technical/structured
-(pr-checker), conversational soft-skilled (receptionist),
-research-heavy commerce (gtm-engineer), high-volume outbound
-(sales-follow-up). These reference verticals run through the same runtime,
-sharing zero
-domain-specific code in the platform crates — that's the
-abstraction working.
+Excluded top-level directories without `vertical.toml`: none.
+
+| Manifest id | Directory | Version | Worker v3 actions | Persona source |
+|---|---|---|---:|---|
+| [bookkeeping-assistant](./bookkeeping-assistant/vertical.toml) | `bookkeeping-assistant/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [customer-onboarding](./customer-onboarding/vertical.toml) | `customer-onboarding/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [customer-support](./customer-support/vertical.toml) | `customer-support/` | `0.1.0` | 5 | `prompts/persona.md` |
+| [data-entry-clerk](./data-entry-clerk/vertical.toml) | `data-entry-clerk/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [event-coordinator](./event-coordinator/vertical.toml) | `event-coordinator/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [executive-assistant](./executive-assistant/vertical.toml) | `executive-assistant/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [finance-ar](./finance-ar/vertical.toml) | `finance-ar/` | `0.1.0` | 5 | `prompts/persona.md` |
+| [fundraising-coordinator](./fundraising-coordinator/vertical.toml) | `fundraising-coordinator/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [gtm-engineer](./gtm-engineer/vertical.toml) | `gtm-engineer/` | `0.1.0` | 10 | `prompts/persona.md` |
+| [healthcare-intake](./healthcare-intake/vertical.toml) | `healthcare-intake/` | `0.1.0` | 5 | `persona.toml` |
+| [hr-screener](./hr-screener/vertical.toml) | `hr-screener/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [lead-research](./lead-research/vertical.toml) | `lead-research/` | `0.1.0` | 3 | `prompts/persona.md` |
+| [legal-paralegal](./legal-paralegal/vertical.toml) | `legal-paralegal/` | `0.1.0` | 5 | `prompts/persona.md` |
+| [marketing-intern](./marketing-intern/vertical.toml) | `marketing-intern/` | `0.1.0` | 7 | `prompts/persona.md` |
+| [marketplace-seller](./marketplace-seller/vertical.toml) | `marketplace-seller/` | `0.2.0` | 9 | `prompts/persona.md` |
+| [marketplace-seller-browser](./marketplace-seller-browser/vertical.toml) | `marketplace-seller-browser/` | `0.1.0` | 6 | `prompts/persona.md` |
+| [medical-coder](./medical-coder/vertical.toml) | `medical-coder/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [ops-on-call](./ops-on-call/vertical.toml) | `ops-on-call/` | `0.1.0` | 4 | `prompts/persona.md` |
+| [pr-checker](./pr-checker/vertical.toml) | `pr-checker/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [procurement-assistant](./procurement-assistant/vertical.toml) | `procurement-assistant/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [product-manager](./product-manager/vertical.toml) | `product-manager/` | `0.1.0` | 5 | `persona.toml` |
+| [qa-engineer](./qa-engineer/vertical.toml) | `qa-engineer/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [real-estate-agent](./real-estate-agent/vertical.toml) | `real-estate-agent/` | `0.1.0` | 5 | `prompts/persona.md` |
+| [receptionist](./receptionist/vertical.toml) | `receptionist/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [recruiter](./recruiter/vertical.toml) | `recruiter/` | `0.1.0` | 5 | `persona.toml` |
+| [recruiter-screener](./recruiter-screener/vertical.toml) | `recruiter-screener/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [research-analyst](./research-analyst/vertical.toml) | `research-analyst/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [sales-follow-up](./sales-follow-up/vertical.toml) | `sales-follow-up/` | `0.1.0` | 10 | `prompts/persona.md` |
+| [sales-sdr](./sales-sdr/vertical.toml) | `sales-sdr/` | `0.1.0` | 5 | `prompts/persona.md` |
+| [social-media-drafter](./social-media-drafter/vertical.toml) | `social-media-drafter/` | `0.1.0` | 0 | `prompts/persona.md` |
+| [starter-library](./_starter-library/vertical.toml) | `_starter-library/` | `0.1.0` | 0 | none |
+| [tax-prep](./tax-prep/vertical.toml) | `tax-prep/` | `0.1.0` | 5 | `prompts/persona.md` |
+<!-- verticals-readme-table:end -->
+
+The set covers a deliberate spread across library-tier skills, technical review, front-office coordination, GTM/sales, finance, healthcare, legal, recruiting, ops, procurement, QA, real estate, research, and data-entry work. These templates run through the same runtime, sharing zero domain-specific code in the platform crates -- that is the abstraction working.
 
 When authoring a NEW vertical:
 
