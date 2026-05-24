@@ -1,7 +1,7 @@
 {
   "agent": "auditor",
-  "last_run_utc": "2026-05-23T21:41:13Z",
+  "last_run_utc": "2026-05-24T03:40:14Z",
   "expected_cadence_seconds": 28800,
   "session_label": "scheduled-task:skycot-auditor-3x-daily",
-  "run_notes": "T21-41 audit — 55 PRs MERGED in 12h since T09-40 (cadence high: #2112→#2168 contiguous; T09-40 P0 backlog cleared — #2088 + #2092 both MERGED, claim-2 LIVE end-to-end). Net 12h: claim-2 LIVE-regression contract on main (#2137), claim-4 row-6 audit-emit pin (#2144), per-tenant ProcessRegistry (#2149), redact pipe Stage-1+2 (#2156/#2160), magic-link demo bypass + runbook (#2164/#2165), gateway UUID-bound session-routes tenant sweep cluster-2 (#2166+#2168). NEW P0 LATENT-BUT-LIVE: skill_share.set_shared cross-tenant UPDATE leak via POST /marketplace/<id>/install (mission-skill-share-tenant-pinned TODO 60min+, evaluator round-43 elevated). 1 open PR (#2131 CONFLICTING awaiting re-claim). 0 drift rows. Orientation 94/100 (held — best-closure-rate-ever offset by 3 escalating drift signals)."
+  "run_notes": "T03-40 audit (~6h after T21-41). 37 commits / 2 PRs MERGED since (#2169 argo-cron surface + #2170 gap-manifest flip) — both substrate-pinning, neither closes a flagged P0/P1. #2131 + #2171 both CLEAN but gate-blocked by preexisting main workspace-clippy drift in claim_4_mvp_row_5_pending_review_queue.rs (NEW P0 = fix-skill-test-claim-4-row-5-6-workspace-clippy-lints). mission-skill-share-tenant-pinned STILL TODO ~7h after round-43 elevation. fix-skill-worker-overlay-blob-text-join-mismatch RED 5th consecutive round + brief file rediscovered missing on disk (re-authored tick-132). Operator HALT at 03:50Z but scheduled tasks (incl. this auditor) still firing — halt doc partly stale. 1 of 7 prior recs RESOLVED (worst closure rate this loop has logged after best-ever). Orientation 90/100 (-4): substrate held, 3 drift signals escalating, +1 new gate-blocker."
 }
