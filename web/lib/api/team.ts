@@ -58,7 +58,13 @@ export async function fetchTeam(): Promise<FetchTeamResult> {
   }
 
   try {
-    const workers = await apiGet<Worker[]>("/api/v1/team");
+    // Gateway returns { workers: Worker[], total_count: number } envelope.
+    // Fall back to treating a bare-array response as Worker[] for any older
+    // gateway build that hasn't been redeployed.
+    const response = await apiGet<{ workers: Worker[]; total_count?: number } | Worker[]>(
+      "/api/v1/team",
+    );
+    const workers = Array.isArray(response) ? response : response.workers;
     return { workers, source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
