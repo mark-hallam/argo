@@ -116,7 +116,7 @@ impl SkillStore {
              s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
              s.lifecycle_state \
              FROM worker_skill ws \
-             JOIN skill s ON s.id = ws.skill_id \
+             JOIN skill s ON lower(hex(s.id)) = replace(lower(ws.skill_id), '-', '') \
              LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE ws.worker_id = ? AND s.lifecycle_state = 'active' \
              AND s.superseded_by IS NULL \
