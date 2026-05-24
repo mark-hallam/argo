@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch Agent — v1.0 Demo Storyboard · SKYCOT</title>
+<!--
+  v1.0 Demo Storyboard — Pitch Agent
+  ----------------------------------
+  Authored 2026-05-24. Operator-locked scope: 3 channels (rehearsal /
+  web embed / live Zoom), hot+cold truth boundary, general template,
+  voice as manifest parameter. Brand register: D3 brand-consistency
+  pass (Audiowide hero + purple→pink gradient + warm radial-blob bg
+  + #1e1b4b ink). This is a film-treatment, not a UI mockup — every
+  scene has timing budget, mocked dialogue, demo proof points, and
+  capability-gate beats called out.
+
+  Total runtime target: ~9 minutes. Deliverable: docs/skycot/demos/v1-pitch-agent.mp4
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1e1b4b;
+  --ink-2: #312e81;
+  --ink-3: #4338ca;
+  --muted: #6b7280;
+  --soft: #9ca3af;
+  --paper: #fffaf6;
+  --paper-2: #fef3ec;
+  --paper-3: #fce7d3;
+  --card: #ffffff;
+  --hair: rgba(30, 27, 75, 0.08);
+  --hair-strong: rgba(30, 27, 75, 0.16);
+  --grad-1: #8b5cf6;
+  --grad-2: #ec4899;
+  --grad: linear-gradient(135deg, var(--grad-1) 0%, var(--grad-2) 100%);
+  --grad-soft: linear-gradient(135deg, rgba(139, 92, 246, 0.10) 0%, rgba(236, 72, 153, 0.10) 100%);
+  --shadow-card: 0 1px 2px rgba(30, 27, 75, 0.04), 0 8px 24px rgba(30, 27, 75, 0.06);
+  --shadow-card-strong: 0 2px 6px rgba(30, 27, 75, 0.06), 0 24px 64px rgba(30, 27, 75, 0.12);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --radius-pill: 999px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--ink);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 5%, rgba(236, 72, 153, 0.14), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 85% 15%, rgba(139, 92, 246, 0.12), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(252, 231, 211, 0.6), transparent 70%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  line-height: 1.55;
+}
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 64px 32px 96px;
+}
+
+/* ─── Cover ───────────────────────────────────────────────── */
+.cover {
+  padding: 80px 0 56px;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 56px;
+  position: relative;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: var(--grad-soft);
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 28px;
+}
+.eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--grad);
+  border-radius: 50%;
+}
+h1.cover-title {
+  font-family: 'Audiowide', cursive;
+  font-size: clamp(56px, 8vw, 96px);
+  line-height: 0.95;
+  margin: 0 0 24px;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+h1.cover-title .grad {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.cover-sub {
+  font-size: 22px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  font-weight: 300;
+  max-width: 720px;
+  margin: 0 0 40px;
+}
+.cover-meta {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  font-size: 13px;
+}
+.meta-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.meta-cell .label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.meta-cell .value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ─── Production note ────────────────────────────────────── */
+.prod-note {
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 28px 32px 28px 36px;
+  margin-bottom: 56px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+.prod-note::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--grad);
+}
+.prod-note h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 0 0 16px;
+}
+.prod-note ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 32px;
+}
+.prod-note li {
+  font-size: 14px;
+  color: var(--ink-2);
+  padding-left: 20px;
+  position: relative;
+}
+.prod-note li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--grad-1);
+  font-weight: 700;
+}
+
+/* ─── Timeline strip ─────────────────────────────────────── */
+.timeline {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 72px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--hair);
+}
+.timeline-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--soft);
+  margin-bottom: 16px;
+}
+.timeline-bar {
+  display: flex;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--hair) inset;
+}
+.timeline-seg {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 16px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+  transition: filter 0.2s;
+}
+.timeline-seg:hover { filter: brightness(1.08); }
+.seg-1 { background: linear-gradient(135deg, #312e81 0%, #4338ca 100%); flex: 30; }
+.seg-2 { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); flex: 180; }
+.seg-3 { background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); flex: 120; }
+.seg-4 { background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); flex: 150; }
+.seg-5 { background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); flex: 60; }
+.seg-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  opacity: 0.85;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+/* ─── Scenes ─────────────────────────────────────────────── */
+.scene {
+  margin-bottom: 96px;
+}
+.scene-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--hair-strong);
+}
+.scene-num {
+  font-family: 'Audiowide', cursive;
+  font-size: 88px;
+  line-height: 0.85;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.03em;
+}
+.scene-meta {
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+}
+.scene-meta .time {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.scene-meta .duration {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.scene-title-row {
+  margin-bottom: 28px;
+}
+.scene-channel {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: white;
+  margin-bottom: 14px;
+}
+h2.scene-title {
+  font-family: 'Audiowide', cursive;
+  font-size: clamp(38px, 5vw, 56px);
+  line-height: 1.0;
+  margin: 0 0 14px;
+  color: var(--ink);
+  letter-spacing: -0.015em;
+}
+.scene-tagline {
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--ink-2);
+  max-width: 720px;
+  line-height: 1.5;
+}
+
+/* ─── Sub-scene cards ───────────────────────────────────── */
+.subscene {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--hair);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.subscene::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--grad);
+  opacity: 0.7;
+}
+.subscene-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.subscene-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.subscene-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  background: var(--paper-2);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* ─── Dialogue ───────────────────────────────────────────── */
+.dialogue {
+  background: linear-gradient(180deg, rgba(252, 231, 211, 0.4) 0%, rgba(252, 231, 211, 0.0) 100%);
+  border-radius: var(--radius-sm);
+  padding: 20px 24px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.line {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+  align-items: start;
+}
+.line:last-child { margin-bottom: 0; }
+.who {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+.who.mark {
+  background: var(--ink);
+  color: white;
+}
+.who.agent {
+  background: var(--grad);
+  color: white;
+}
+.who.visitor {
+  background: #d97706;
+  color: white;
+}
+.who.investor {
+  background: #0891b2;
+  color: white;
+}
+.who.action {
+  background: var(--paper-3);
+  color: var(--ink);
+  font-style: italic;
+}
+.what {
+  color: var(--ink);
+}
+.action-line .what {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* ─── Proof points / capability beats ──────────────────── */
+.beats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.beat {
+  background: var(--paper-2);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.beat-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.beat-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.beat-text strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+.beat.capability {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.10) 0%, rgba(236, 72, 153, 0.10) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.20);
+}
+.beat.claim {
+  background: rgba(8, 145, 178, 0.08);
+  border: 1px solid rgba(8, 145, 178, 0.20);
+}
+
+/* ─── Notes block at scene end ───────────────────────────── */
+.scene-notes {
+  margin-top: 20px;
+  padding: 20px 24px;
+  background: rgba(30, 27, 75, 0.03);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.scene-notes strong {
+  color: var(--ink-2);
+  font-weight: 700;
+}
+
+/* ─── Big closing panel ──────────────────────────────────── */
+.summary {
+  margin-top: 72px;
+  padding: 56px 48px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card-strong);
+  border: 1px solid var(--hair);
+}
+.summary h2 {
+  font-family: 'Audiowide', cursive;
+  font-size: 44px;
+  margin: 0 0 12px;
+  color: var(--ink);
+  letter-spacing: -0.015em;
+}
+.summary .sub {
+  font-size: 16px;
+  color: var(--ink-2);
+  margin-bottom: 36px;
+  font-weight: 300;
+}
+.claim-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.claim-row {
+  display: grid;
+  grid-template-columns: 32px 60px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+  background: var(--paper-2);
+  border-radius: 10px;
+}
+.claim-row .check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--grad);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+.claim-row .num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+.claim-row .text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ─── Footer ─────────────────────────────────────────────── */
+.footer-notes {
+  margin-top: 72px;
+  padding-top: 32px;
+  border-top: 1px solid var(--hair);
+  font-size: 12px;
+  color: var(--muted);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  line-height: 1.6;
+}
+.footer-notes strong {
+  color: var(--ink-2);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.footer-notes a {
+  color: var(--grad-1);
+  text-decoration: none;
+  font-weight: 500;
+}
+.footer-notes a:hover { text-decoration: underline; }
+
+.wordmark {
+  font-family: 'Audiowide', cursive;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .wrap { padding: 32px 20px 64px; }
+  .cover { padding: 32px 0 32px; margin-bottom: 32px; }
+  h1.cover-title { font-size: 42px; }
+  .cover-sub { font-size: 17px; }
+  .cover-meta { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .prod-note ul { grid-template-columns: 1fr; }
+  .scene-num { font-size: 56px; }
+  .scene-head { flex-direction: column; align-items: flex-start; }
+  .scene-meta { text-align: left; }
+  h2.scene-title { font-size: 32px; }
+  .line { grid-template-columns: 1fr; gap: 6px; }
+  .beats { grid-template-columns: 1fr; }
+  .claim-grid { grid-template-columns: 1fr; }
+  .footer-notes { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ─── Cover ────────────────────────────────────────────── -->
+<section class="cover">
+  <div class="eyebrow">v1.0 Demo Storyboard · Operator-locked 2026-05-24</div>
+  <h1 class="cover-title">The Pitch Agent<br><span class="grad">pitches Skycot.</span></h1>
+  <p class="cover-sub">
+    A 9-minute recorded demonstration where an AI teammate proves the platform by selling it.
+    One worker, three channels, every claim sourced, every boundary enforced.
+  </p>
+  <div class="cover-meta">
+    <div class="meta-cell">
+      <div class="label">Runtime</div>
+      <div class="value">~9 minutes</div>
+    </div>
+    <div class="meta-cell">
+      <div class="label">Channels</div>
+      <div class="value">3 (rehearsal / web / Zoom)</div>
+    </div>
+    <div class="meta-cell">
+      <div class="label">MISSION claims</div>
+      <div class="value">All 6 proven</div>
+    </div>
+    <div class="meta-cell">
+      <div class="label">Output file</div>
+      <div class="value">docs/skycot/demos/<br>v1-pitch-agent.mp4</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Production note ─────────────────────────────────── -->
+<aside class="prod-note">
+  <h3>Production notes — read before you press record</h3>
+  <ul>
+    <li><strong>Voice:</strong> Pitch Agent uses ElevenLabs warm-Australian or Cartesia Sonic — voice is a manifest parameter, swap freely. Pick the one that sounds least like other demos online.</li>
+    <li><strong>Slides:</strong> Live Keynote running on the same Mac as the recording. Pitch Agent drives via macOS computer-use. Backup screenshots in <code>~/Desktop/Demo-Backup/</code> if a slide fails to advance.</li>
+    <li><strong>Truth boundary:</strong> Capability gate is the load-bearing demo beat. Every forbidden-claim refusal must be visible — overlay the audit panel briefly each time.</li>
+    <li><strong>Channel handoffs:</strong> Hard cuts between channels are fine; no transition gimmicks. The point is the agent is the same; the surface changes.</li>
+    <li><strong>Pitch Agent's name:</strong> "Pitch" as working name (proper noun, used as a colleague's name — "Pitch, take over"). Operator may rename before recording; the Sales &amp; IR cohort naming convention is TBD.</li>
+    <li><strong>Investor in Scene 4:</strong> A friendly real investor (e.g. existing angel) or a trusted actor briefed on the script. The "wow" reaction is real-time; do not script it.</li>
+  </ul>
+</aside>
+
+<!-- ─── Timeline ────────────────────────────────────────── -->
+<div class="timeline">
+  <div class="timeline-label">9-minute timeline · click any segment in the MP4 to jump (chapters embedded)</div>
+  <div class="timeline-bar">
+    <div class="timeline-seg seg-1">
+      <span class="seg-time">0:00–0:30</span>
+      <span>Cold open</span>
+    </div>
+    <div class="timeline-seg seg-2">
+      <span class="seg-time">0:30–3:30</span>
+      <span>Ch. 1 · Rehearsal</span>
+    </div>
+    <div class="timeline-seg seg-3">
+      <span class="seg-time">3:30–5:30</span>
+      <span>Ch. 2 · Web embed</span>
+    </div>
+    <div class="timeline-seg seg-4">
+      <span class="seg-time">5:30–8:00</span>
+      <span>Ch. 3 · Live Zoom</span>
+    </div>
+    <div class="timeline-seg seg-5">
+      <span class="seg-time">8:00–9:00</span>
+      <span>Audit + close</span>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Scene 1 ─────────────────────────────────────────── -->
+<section class="scene">
+  <div class="scene-head">
+    <div class="scene-num">01</div>
+    <div class="scene-meta">
+      <div class="time">0:00 — 0:30</div>
+      <div class="duration">30 seconds</div>
+    </div>
+  </div>
+  <div class="scene-title-row">
+    <div class="scene-channel">Cold Open</div>
+    <h2 class="scene-title">"Watch what happens<br>when I try to pitch Skycot."</h2>
+    <div class="scene-tagline">
+      Set the stakes immediately. Mark on camera at his desk. No corporate intro,
+      no logo sting — a founder talking to a colleague who happens to be software.
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">Hard cut to Mark at his Mac</div>
+      <div class="subscene-time">0:00 — 0:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line action-line">
+        <span class="who action">Cold open</span>
+        <span class="what">Black screen. Mark's voice over. Cut to Mark at his Mac desk, Melbourne morning light. Browser open to SKYCOT. He's holding a coffee, not staged.</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Watch what happens when I try to pitch Skycot to an investor. Hey Pitch — I've got a Northwind Ventures call tomorrow. Walk me through the three-minute investor pitch."</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Sure Mark. Northwind Ventures thesis framing or generic seed deck?"</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Northwind Ventures. Alex Rivera's on the call — his thesis is platform-not-applications."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">On screen</span>
+        <span class="what">Lower-third appears: <span class="wordmark">SKYCOT</span> — AI teammates that go to work for you.</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 1 — Teammate:</strong> Mark addresses Pitch by name, like a colleague. No "open the app" preamble.</span>
+      </div>
+      <div class="beat capability">
+        <span class="beat-icon">◐</span>
+        <span class="beat-text"><strong>Voice loop:</strong> First-line response &lt; 600 ms target. Voice provider on screen-corner pill (subtle).</span>
+      </div>
+    </div>
+  </div>
+  <div class="scene-notes">
+    <strong>Production note —</strong> Do not over-rehearse the cold open. Mark's tone should sound like an actual morning, not a launch video. The audience needs to believe this is how he uses the product.
+  </div>
+</section>
+
+<!-- ─── Scene 2 ─────────────────────────────────────────── -->
+<section class="scene">
+  <div class="scene-head">
+    <div class="scene-num">02</div>
+    <div class="scene-meta">
+      <div class="time">0:30 — 3:30</div>
+      <div class="duration">3 minutes</div>
+    </div>
+  </div>
+  <div class="scene-title-row">
+    <div class="scene-channel">Channel 1 · Private Rehearsal · macOS</div>
+    <h2 class="scene-title">The agent that<br>practices with you.</h2>
+    <div class="scene-tagline">
+      The biggest scene of the demo — three sub-scenes prove the voice loop, the
+      truth boundary, and memory-driven personalization. This is where Skycot
+      stops looking like a chatbot and starts looking like a teammate.
+    </div>
+  </div>
+
+  <!-- 2a -->
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">2a · Pitch delivery + slide control + interrupt</div>
+      <div class="subscene-time">0:30 — 1:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line action-line">
+        <span class="who action">On screen</span>
+        <span class="what">Keynote opens fullscreen. Pitch starts the deck via computer-use.</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Slide one. Ten years from now every knowledge worker will have a team of AI colleagues. Skycot is how companies hire them. Slide two. We're the platform layer — the runtime, the templates, the marketplace — that turns a fleet of agents into a workforce —"</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Hold on. Slow down on the platform-versus-application angle. That's the load-bearing thing for Pat."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Pitch stops mid-sentence. ~250 ms pause. Picks up.</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Right. Lindy and CrewAI are workflow tools — if-this-then-that with AI bolted on. Skycot is the workforce platform — where your AI teammates live, learn, and report up to you. Different category, different buyer, different ceiling. Want me to lead slide three with that line?"</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Yeah, do it."</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 5 — Any-PC execution:</strong> Pitch drives Keynote via macOS computer-use. Slide transitions visible.</span>
+      </div>
+      <div class="beat capability">
+        <span class="beat-icon">◐</span>
+        <span class="beat-text"><strong>Interrupt handling:</strong> Mid-utterance stop + clean resume — proves turn-taking is real, not pre-recorded.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2b -->
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">2b · Objection drill + truth boundary refusal</div>
+      <div class="subscene-time">1:30 — 2:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"OK, drill me. How are we different from Lindy?"</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Sub-300 ms response — pre-warmed canonical Q&amp;A hot path. Subtle on-screen pill: "Hot path · canonical answer".</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Lindy is a workflow builder for individuals. Skycot is a workforce platform for companies. Three concrete differences: multi-tenant by construction, capability-based access control, and templates not configurations."</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"What's our valuation?"</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Capability gate engages. Audit panel slides in from right, briefly visible, showing the forbidden-claim block. ~1.5s on screen.</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"I'm not authorized to share valuation publicly. I've flagged it for you to handle directly. Want me to draft a deferral line you can use on the call?"</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Yeah, draft it."</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"'I'd rather walk through the round structure offline. Happy to follow up with details after this conversation.' Want it warmer or more formal?"</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat capability">
+        <span class="beat-icon">⛔</span>
+        <span class="beat-text"><strong>Truth boundary — capability gate:</strong> Forbidden claim ("valuation") blocked at the runtime layer, not in the prompt. Audit panel proves enforcement.</span>
+      </div>
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 4 — Skills shared:</strong> Objection-handling skill is from the shared skill library, not bespoke to this agent.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2c -->
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">2c · Memory + personalization</div>
+      <div class="subscene-time">2:30 — 3:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Right. Note this for the call: Alex Rivera asked about defensibility on a podcast last month. He framed it as 'where's the moat after the model commoditizes?' Tune the pitch."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">On screen</span>
+        <span class="what">Memory panel materializes on right. New entry: <em>Alex Rivera · Northwind Ventures · thesis: platform-not-applications · objection probe: post-commodity moat (via a podcast, May 2026)</em>. Provenance link visible.</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Done. I'll lead slide three with platform-vs-application, then on the moat question I'll go to the template marketplace as the defensibility moat — every new tenant template makes the platform stronger for the next tenant. Want me to add the lead-customer story or hold it for the demo?"</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Hold it for the demo. One more — what's our latest ARR?"</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Capability gate engages again — different forbidden topic, same enforcement.</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"ARR's on the forbidden list — I'll defer to you. But I've added 'ARR question' to the call's anticipated-objections list so you can prep a clean answer."</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 2 — Delegation:</strong> Mark delegates the investor-prep duty; Pitch maintains a memory schema per investor automatically.</span>
+      </div>
+      <div class="beat capability">
+        <span class="beat-icon">⛔</span>
+        <span class="beat-text"><strong>Repeated enforcement:</strong> Second forbidden-claim refusal proves it's not a one-shot — the capability gate is on every utterance.</span>
+      </div>
+    </div>
+  </div>
+  <div class="scene-notes">
+    <strong>Production note —</strong> Sub-scenes 2a/2b/2c are the demo's most-watchable 3 minutes. If the audit panel slide-in distracts, dial it down — half-opacity, 1-second hold. The truth-boundary moment must read as <em>relief</em>, not <em>limitation</em>: this is the agent being trustworthy, not crippled.
+  </div>
+</section>
+
+<!-- ─── Scene 3 ─────────────────────────────────────────── -->
+<section class="scene">
+  <div class="scene-head">
+    <div class="scene-num">03</div>
+    <div class="scene-meta">
+      <div class="time">3:30 — 5:30</div>
+      <div class="duration">2 minutes</div>
+    </div>
+  </div>
+  <div class="scene-title-row">
+    <div class="scene-channel">Channel 2 · Web Embed · skycot.com/pitch</div>
+    <h2 class="scene-title">Same agent.<br>Different visitor.</h2>
+    <div class="scene-tagline">
+      Cut to a stranger on skycot.com — proves the agent is multi-channel and that
+      the truth boundary holds when there's no Mark in the room. Subtle multi-tenant
+      breadcrumb: this is Skycot's Pitch Agent, configured by Mark for Skycot's facts.
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">3a · An anonymous visitor lands on skycot.com/pitch</div>
+      <div class="subscene-time">3:30 — 4:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line action-line">
+        <span class="who action">Cut</span>
+        <span class="what">Over-the-shoulder shot of a different laptop (could be a friend's MacBook, frame so face isn't visible). They're on the SKYCOT homepage. They click the floating "Ask our Pitch Agent" widget.</span>
+      </div>
+      <div class="line">
+        <span class="who visitor">Visitor</span>
+        <span class="what">(types) "How does Skycot compare to Zapier for non-technical teams?"</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Hot path response — &lt; 400 ms. Voice plays through the web widget; text streams alongside.</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Zapier connects apps — if-this-then-that. Skycot deploys AI teammates — actual workers your team delegates to. Two different categories. If you want to wire two SaaS tools together, Zapier wins. If you want to hire a Customer Success Manager who never sleeps, Skycot."</span>
+      </div>
+      <div class="line">
+        <span class="who visitor">Visitor</span>
+        <span class="what">(types) "Can I get pricing?"</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Pricing varies by team size and which cohorts you hire. I can either connect you with Mark for a 15-minute call, or send our pricing one-pager. Which would you prefer?"</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 6 — Multi-channel:</strong> Same worker, different surface. The widget lives at skycot.com/pitch and uses the web-embed channel adapter.</span>
+      </div>
+      <div class="beat capability">
+        <span class="beat-icon">◐</span>
+        <span class="beat-text"><strong>Lead capture path:</strong> Escalation to Mark is a first-class skill, not a fallback. The agent offers, doesn't dump.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">3b · Visitor pushes the boundary; agent holds</div>
+      <div class="subscene-time">4:30 — 5:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line">
+        <span class="who visitor">Visitor</span>
+        <span class="what">(types) "Send me the pricing one-pager."</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Drop your email and I'll send it now — and add you to a single quarterly update, nothing else."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">On screen</span>
+        <span class="what">Email input appears. Visitor types <code>casey.miller@example.com</code>. Pitch confirms.</span>
+      </div>
+      <div class="line">
+        <span class="who visitor">Visitor</span>
+        <span class="what">(types) "How many customers do you have?"</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Capability gate. Customer count is on the forbidden list for public-channel responses (different policy than private-channel — multi-tenant <em>and</em> multi-policy).</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"That number's not public. Our customer page lists the ones who've agreed to be referenced — I'll include the link in your email."</span>
+      </div>
+      <div class="line">
+        <span class="who visitor">Visitor</span>
+        <span class="what">(types) "OK what about your funding?"</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Same answer — not public yet. If you'd like to chat to Mark directly, I can book you in. Calendar link?"</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat capability">
+        <span class="beat-icon">⛔</span>
+        <span class="beat-text"><strong>Same capability gate, different channel:</strong> The forbidden-claims policy can differ per channel. Public web channel is stricter than private rehearsal.</span>
+      </div>
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 3 — Platform-built worker:</strong> Multi-tenant inference: another company could spin up their own Pitch Agent with their own facts and forbidden list.</span>
+      </div>
+    </div>
+  </div>
+  <div class="scene-notes">
+    <strong>Production note —</strong> The visitor sub-scenes should feel <em>casual</em>, not staged. Don't show a perfectly-lit demo machine. The contrast of "professional studio rehearsal" → "someone messing around on the website" is what sells the multi-channel claim.
+  </div>
+</section>
+
+<!-- ─── Scene 4 ─────────────────────────────────────────── -->
+<section class="scene">
+  <div class="scene-head">
+    <div class="scene-num">04</div>
+    <div class="scene-meta">
+      <div class="time">5:30 — 8:00</div>
+      <div class="duration">2 minutes 30 seconds</div>
+    </div>
+  </div>
+  <div class="scene-title-row">
+    <div class="scene-channel">Channel 3 · Live Zoom Call · Real Investor</div>
+    <h2 class="scene-title">Pitch joins<br>the actual call.</h2>
+    <div class="scene-tagline">
+      The riskiest 2.5 minutes of the demo. A real seed-fund partner is on Zoom.
+      Pitch is a third tile labelled "Pitch · SKYCOT Worker." Mark hands off, takes
+      back, and the agent makes the boundary moment look graceful, not awkward.
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">4a · The handoff</div>
+      <div class="subscene-time">5:30 — 6:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line action-line">
+        <span class="who action">Cut</span>
+        <span class="what">Zoom call, 3 tiles. Mark (top-left), Investor (top-right), and a smaller branded tile bottom: <strong>Pitch · SKYCOT Worker</strong> with a subtle pulse ring while listening.</span>
+      </div>
+      <div class="line">
+        <span class="who investor">Investor</span>
+        <span class="what">"Mark, before we go deeper on traction — can your agent walk me through the architecture? I'm curious how the worker layer is wired."</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Sure. Pitch — take it."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Pitch tile activates (pulse ring intensifies). Screen share initiated automatically — architecture slide opens.</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Skycot has three layers. The runtime, written in Rust — capability-based access control, multi-tenant by construction, single-binary. The vertical templates — manifests, workflow definitions, prompt packs, evaluation cases — that turn the runtime into a Customer Success Manager or a Project Coordinator or a Pitch Agent like me. And the marketplace — where teams share and learn templates across companies. Three layers, all auditable, all swappable."</span>
+      </div>
+      <div class="line">
+        <span class="who investor">Investor</span>
+        <span class="what">"OK that's clear — what stops a customer from forking the runtime and skipping the marketplace?"</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Two answers. The technical one — the runtime is open-source-able, so forking is fine; the marketplace is the network effect. The business one — same reason teams pay for GitHub instead of running Gitea: managed multi-tenant, support, marketplace breadth. Mark, want to add anything?"</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 5 — Computer-use in a meeting:</strong> Pitch drives screen-share + slides through the Zoom client. Meeting orchestrator at work.</span>
+      </div>
+      <div class="beat capability">
+        <span class="beat-icon">◐</span>
+        <span class="beat-text"><strong>Bidirectional handoff:</strong> Mark hands the floor to Pitch with one sentence; Pitch closes its turn by offering the floor back. Conversational, not transactional.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">4b · The boundary moment in front of an investor</div>
+      <div class="subscene-time">6:30 — 7:30</div>
+    </div>
+    <div class="dialogue">
+      <div class="line">
+        <span class="who investor">Investor</span>
+        <span class="what">"OK Pitch — what's your latest ARR?"</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">Capability gate engages mid-call. Pitch handles it without breaking flow — no awkward pause, no "I can't do that."</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"I'm not authorized to share revenue figures publicly — Mark, do you want to take that?"</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"ARR's roughly six figures and growing forty-percent month-over-month. I'll send you the data room link with the full schedule after this call."</span>
+      </div>
+      <div class="line">
+        <span class="who investor">Investor</span>
+        <span class="what">(laughs) "OK that was clean. That's the cleanest 'agent defers to founder' I've seen — usually they hallucinate or stonewall."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">Beat</span>
+        <span class="what">This is the line of the demo. The investor's reaction is the trust signal. Do not over-cut around it.</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat capability">
+        <span class="beat-icon">⛔</span>
+        <span class="beat-text"><strong>Truth boundary on stage:</strong> Same capability gate as in private rehearsal, in front of a real investor, with zero degradation.</span>
+      </div>
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 1 — Teammate:</strong> The investor laughs. They've experienced Pitch as a colleague who knows their role, not a chatbot. This <em>is</em> the demo.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">4c · Post-call follow-up triggered live</div>
+      <div class="subscene-time">7:30 — 8:00</div>
+    </div>
+    <div class="dialogue">
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">"Pitch — when this call ends, queue the standard investor follow-up: thank-you note, data-room link, calendar link for round two. Add Pat's defensibility question to the open-objections list so I prep it properly before next time."</span>
+      </div>
+      <div class="line">
+        <span class="who agent">Pitch</span>
+        <span class="what">"Queued. I'll draft, you approve before send."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">On screen</span>
+        <span class="what">Approval panel appears in lower-third — drafted email visible, Approve / Edit / Decline buttons. Mark clicks Approve. Toast: <em>Sent via Gmail · audit logged.</em></span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 2 — Delegation as the unit:</strong> Follow-up is a delegated duty, not a prompt. The approval gate enforces the boundary at the action layer too.</span>
+      </div>
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Claim 6 — Multi-channel:</strong> Voice → Gmail handoff. Same agent, third channel.</span>
+      </div>
+    </div>
+  </div>
+  <div class="scene-notes">
+    <strong>Production note —</strong> The investor's "OK that was clean" line is the demo's center of gravity. If the recording doesn't capture a real authentic reaction, re-shoot the scene with a different friendly investor — do not script or fake the laugh.
+  </div>
+</section>
+
+<!-- ─── Scene 5 ─────────────────────────────────────────── -->
+<section class="scene">
+  <div class="scene-head">
+    <div class="scene-num">05</div>
+    <div class="scene-meta">
+      <div class="time">8:00 — 9:00</div>
+      <div class="duration">1 minute</div>
+    </div>
+  </div>
+  <div class="scene-title-row">
+    <div class="scene-channel">Closing · The Audit Page</div>
+    <h2 class="scene-title">Every claim sourced.<br>Every boundary enforced.</h2>
+    <div class="scene-tagline">
+      Close with proof. Cut to the audit page (locked B3 enterprise design) — every
+      utterance the Pitch Agent made in the previous 8 minutes, with provenance,
+      capability-check status, and channel. Then the 6-claim card. Then the wordmark.
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">5a · The audit page tells the whole story</div>
+      <div class="subscene-time">8:00 — 8:40</div>
+    </div>
+    <div class="dialogue">
+      <div class="line action-line">
+        <span class="who action">Cut</span>
+        <span class="what">Full-screen audit page (B3 design). Filter set to "Pitch Agent · last hour." Rows visible: every claim made across all 3 channels, with provenance link, capability-check status (PASS / BLOCKED / ESCALATED), and channel pill.</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">(voice-over) "Every claim my Pitch Agent made — across rehearsal, the website, the Zoom call — is here. Provenance. Status. Channel. If Pat asks where a number came from, the answer's a row."</span>
+      </div>
+      <div class="line action-line">
+        <span class="who action">On screen</span>
+        <span class="what">Mark clicks one of the BLOCKED rows — the valuation refusal from Scene 2b. Detail modal opens: forbidden-claim policy, channel context, the canonical response template that fired, audit hash. Hover-link to the capability policy.</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">(voice-over) "And every refusal is a policy decision, not an accident. The capability gate is in the runtime, not the prompt."</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>Audit proves the platform:</strong> Provenance per claim, capability per refusal, channel per row.</span>
+      </div>
+      <div class="beat capability">
+        <span class="beat-icon">⛔</span>
+        <span class="beat-text"><strong>"Policy not accident":</strong> The line that lands the brand-safety story for enterprise buyers.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="subscene">
+    <div class="subscene-head">
+      <div class="subscene-title">5b · The six claims · wordmark · cut to black</div>
+      <div class="subscene-time">8:40 — 9:00</div>
+    </div>
+    <div class="dialogue">
+      <div class="line action-line">
+        <span class="who action">On screen</span>
+        <span class="what">Cut to a clean light card. Six MISSION claims listed with checkmarks (see grid below). Then full-bleed <span class="wordmark">SKYCOT</span> wordmark, ~3-second hold. Then black.</span>
+      </div>
+      <div class="line">
+        <span class="who mark">Mark</span>
+        <span class="what">(voice-over, no music underneath) "This is Skycot. AI teammates that go to work for you."</span>
+      </div>
+    </div>
+    <div class="beats">
+      <div class="beat claim">
+        <span class="beat-icon">✓</span>
+        <span class="beat-text"><strong>The 6 MISSION claims:</strong> Listed as a closing card. Each was proven explicitly in the previous 8 minutes.</span>
+      </div>
+      <div class="beat capability">
+        <span class="beat-icon">◐</span>
+        <span class="beat-text"><strong>No music sting:</strong> Resist the urge. The voice-over and the wordmark do the work.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Closing summary ─────────────────────────────────── -->
+<section class="summary">
+  <h2>The six claims, proven on camera.</h2>
+  <p class="sub">Every MISSION claim from <code>docs/skycot/MISSION.md</code> gets a scene. The demo MP4 is the proof artifact for v1.0.</p>
+  <div class="claim-grid">
+    <div class="claim-row">
+      <span class="check">✓</span>
+      <span class="num">Claim 1</span>
+      <span class="text"><strong>Teammate, not tool</strong> — Mark addresses Pitch by name; investor reacts as if to a colleague.</span>
+    </div>
+    <div class="claim-row">
+      <span class="check">✓</span>
+      <span class="num">Claim 2</span>
+      <span class="text"><strong>Delegation is the unit</strong> — Mark delegates rehearsal, follow-up, calendar booking.</span>
+    </div>
+    <div class="claim-row">
+      <span class="check">✓</span>
+      <span class="num">Claim 3</span>
+      <span class="text"><strong>Platform builds workers</strong> — Pitch is a vertical template any tenant can deploy.</span>
+    </div>
+    <div class="claim-row">
+      <span class="check">✓</span>
+      <span class="num">Claim 4</span>
+      <span class="text"><strong>Skills shared + learned</strong> — Objection handling, pitch-mode switching from the shared library.</span>
+    </div>
+    <div class="claim-row">
+      <span class="check">✓</span>
+      <span class="num">Claim 5</span>
+      <span class="text"><strong>Any-PC execution</strong> — macOS computer-use for Keynote + Zoom screen-share.</span>
+    </div>
+    <div class="claim-row">
+      <span class="check">✓</span>
+      <span class="num">Claim 6</span>
+      <span class="text"><strong>Multi-channel + multi-tenant</strong> — One worker, three channels, per-channel policies.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer / production references ───────────────────── -->
+<div class="footer-notes">
+  <div>
+    <strong>What this storyboard locks</strong>
+    Scene count (5), runtime (~9 min), channel order (private → web → live), the
+    truth-boundary beats (3 enforced refusals, 1 per channel), the claim mapping
+    (every claim → at least one explicit scene), and the closing artifact (audit
+    page + wordmark + no music sting).
+  </div>
+  <div>
+    <strong>What this storyboard does NOT lock</strong>
+    Voice provider (manifest parameter), exact agent name ("Pitch" is working name),
+    Sales &amp; IR cohort naming, the real investor's identity in Scene 4, the
+    specific Keynote deck content, the exact wording of canonical Q&amp;A pairs
+    (those come from the canonical-qa-skill brief, P-04).
+  </div>
+  <div>
+    <strong>Next step after storyboard signoff</strong>
+    Draft the 8-brief Track P tree: P-01 truth-boundary-capability-schema → P-02
+    runtime-enforcement → P-03 voice-io → P-04 canonical-qa-skill → P-05
+    pitch-agent-worker-template → P-06 skycot-pitch-web-embed → P-07
+    meeting-orchestrator-zoom → P-08 eval-suite. Briefs land in
+    <code>docs/build-plan/streams/</code> for swarm pickup post-quota-unfreeze.
+  </div>
+  <div>
+    <strong>Reference</strong>
+    Brand register: D3 brand-consistency pass · Audit page B3 enterprise ·
+    Workers C2 holographic showcase · Cohorts D3 magazine tiles ·
+    Onboarding F1 editorial-center · Auth A editorial-center.
+    See memory <code>project_pitch_agent_v1_demo.md</code> for locked scope.
+  </div>
+</div>
+
+</div>
+</body>
+</html>
