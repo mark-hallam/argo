@@ -27,6 +27,11 @@
 //!   surfaces the work queue.
 use std::path::PathBuf;
 
+fn read_manifest_source(rel: &str) -> String {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+}
+
 /// 🟢 Positive regression — the SELECT in `routes_audit_replay.rs`
 /// MUST still bind tenant alongside id.
 ///
@@ -40,8 +45,8 @@ use std::path::PathBuf;
 fn audit_replay_handler_still_binds_tenant_id_in_sql() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("src/handlers/gateway/routes_audit_replay.rs");
-    let source = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let source =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
 
     // Strip whitespace so a reformat that wraps the SQL across
     // lines doesn't false-trip the test.
@@ -177,18 +182,78 @@ fn pin_cluster_2_session_show_route_leaks_across_tenants() {
     }
 }
 
-/// Cluster 4 — `MemoryStore::set_lock`/`supersede`/`revert` leak.
-/// Fix brief: `mission-gateway-memory-routes-tenant-bind`.
-#[ignore = "FINDINGS-ONLY pin; un-ignore once mission-gateway-memory-routes-tenant-bind lands"]
+/// Cluster 4 — `MemoryStore::set_lock`/`supersede`/`revert`/`history`
+/// leak — INVERTED.
+///
+/// Fix brief `mission-gateway-memory-routes-tenant-bind` shipped
+/// tenant-aware MemoryStore siblings plus request-header plumbing
+/// across the cluster-4 handlers. This structural test pins that
+/// shape without relying on gateway boot, which the sweep report
+/// called out as flaky for this test family.
 #[test]
 fn pin_cluster_4_memory_lock_route_leaks_across_tenants() {
-    panic!(
-        "FINDINGS pin awaits fix-brief mission-gateway-memory-routes-tenant-bind. \
-         See docs/skycot/evals/scheduled/2026-05-23/\
-         eval-gateway-uuid-bound-routes-tenant-ownership-sweep.md §3 cluster 4. \
-         Expected post-fix: hit POST /memory/<tenant_a_entry_id>/lock with \
-         x-argo-tenant-id: tenant_b, assert HTTP/1.1 404 Not Found (not 200), \
-         and verify the entry's lock was NOT mutated in the underlying table."
+    let handler_files = [
+        (
+            "src/handlers/gateway/routes_post_admin.rs",
+            "routes_post_admin",
+            "set_lock_for_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_post_admin.rs",
+            "routes_post_admin",
+            "supersede_for_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_post_admin.rs",
+            "routes_post_admin",
+            "revert_for_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_meta.rs",
+            "routes_meta",
+            "get_for_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_lists_memory.rs",
+            "routes_lists_memory",
+            "versions_for_entry_for_tenant",
+        ),
+    ];
+
+    for (rel, label, method) in handler_files {
+        let source = read_manifest_source(rel);
+        assert!(
+            source.contains("request_tenant_id(req)"),
+            "{label} no longer derives tenant via request_tenant_id(req) — \
+             cluster-4 memory tenant binding regressed."
+        );
+        assert!(
+            source
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .contains(method),
+            "{label} no longer calls MemoryStore::{method}; cluster-4 \
+             cross-tenant memory binding regressed."
+        );
+    }
+
+    let post_dispatch = read_manifest_source("src/handlers/gateway/routes_dispatch_post_memory.rs");
+    assert!(
+        post_dispatch.contains("memory_unlock_response(id, req, store)")
+            && post_dispatch.contains("memory_forget_response(id, req, store)"),
+        "memory POST dispatch no longer passes the raw request into \
+         unlock/forget, so those handlers cannot derive X-Argo-Tenant-Id."
+    );
+
+    let get_dispatch =
+        read_manifest_source("src/handlers/gateway/routes_dispatch_get_catalog_groups.rs");
+    assert!(
+        get_dispatch.contains("memory_versions_response(id, req, store")
+            && get_dispatch.contains("memory_show_response_with_format(")
+            && get_dispatch.contains("req,"),
+        "memory GET dispatch no longer passes the raw request into \
+         show/versions, so those handlers cannot derive X-Argo-Tenant-Id."
     );
 }
 

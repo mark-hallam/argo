@@ -7,7 +7,7 @@
 //! All four endpoints pass `PrincipalOverride::Force` to the
 //! underlying store API — the gateway acts as the user, not as
 //! an agent. A future tier of RBAC tokens may narrow this.
-use super::{body_from_request, store_unavailable};
+use super::{body_from_request, request_tenant_id, store_unavailable};
 use argo_skill::{PrincipalOverride as SkillPrincipal, SkillStore};
 use argo_store::SessionStore;
 use argo_types::Lock;
@@ -47,16 +47,21 @@ pub(super) async fn memory_lock_response(
         Err(e) => return e,
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    let tenant_id = request_tenant_id(req);
     match memory
-        .set_lock(id, lock, argo_memory::PrincipalOverride::Force)
+        .set_lock_for_tenant(id, &tenant_id, lock, argo_memory::PrincipalOverride::Force)
         .await
     {
-        Ok(()) => (
+        Ok(true) => (
             "200 OK",
             format!(
                 "{{\"locked\":true,\"id\":\"{raw_id}\",\"lock\":\"{}\"}}",
                 lock_label(lock)
             ),
+        ),
+        Ok(false) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no memory entry with id {raw_id}\"}}"),
         ),
         Err(e) => (
             "400 Bad Request",
@@ -179,21 +184,27 @@ pub(super) async fn memory_edit_response(
         );
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    let tenant_id = request_tenant_id(req);
     match memory
-        .supersede(
+        .supersede_for_tenant(
             id,
+            &tenant_id,
             new_body.to_string(),
             None,
             argo_memory::PrincipalOverride::Force,
         )
         .await
     {
-        Ok(entry) => (
+        Ok(Some(entry)) => (
             "200 OK",
             format!(
                 "{{\"edited\":true,\"prev\":\"{raw_id}\",\"new_head\":\"{}\"}}",
                 entry.id
             ),
+        ),
+        Ok(None) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no memory entry with id {raw_id}\"}}"),
         ),
         Err(e) => ("400 Bad Request", format!("{{\"error\":\"edit: {e}\"}}")),
     }
@@ -202,10 +213,12 @@ pub(super) async fn memory_edit_response(
 /// `POST /memory/<id>/forget` — revert a memory entry to the
 /// previous head (or no-op when this is already the head).
 /// Mirrors `argo memory forget <id>` which is itself a thin
-/// alias for `revert`. Returns 200 + the new entry's id; 400
-/// on bad uuid or unknown entry.
+/// alias for `revert`. Returns 200 + the new entry's id; 404 when
+/// the entry is absent or belongs to another tenant; 400 on bad uuid
+/// or lock violation.
 pub(super) async fn memory_forget_response(
     raw_id: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -221,26 +234,33 @@ pub(super) async fn memory_forget_response(
         }
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    let tenant_id = request_tenant_id(req);
     match memory
-        .revert(id, argo_memory::PrincipalOverride::Force)
+        .revert_for_tenant(id, &tenant_id, argo_memory::PrincipalOverride::Force)
         .await
     {
-        Ok(entry) => (
+        Ok(Some(entry)) => (
             "200 OK",
             format!(
                 "{{\"forgotten\":true,\"id\":\"{raw_id}\",\"new_head\":\"{}\"}}",
                 entry.id
             ),
         ),
+        Ok(None) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no memory entry with id {raw_id}\"}}"),
+        ),
         Err(e) => ("400 Bad Request", format!("{{\"error\":\"forget: {e}\"}}")),
     }
 }
 
 /// `POST /memory/<id>/unlock` — clear the lock. Returns 200 +
-/// `{unlocked, id}`. 400 on invalid id; underlying delete is
-/// idempotent (no-op when no row exists).
+/// `{unlocked, id}`. 404 when the entry is absent or belongs to
+/// another tenant. 400 on invalid id; underlying delete is
+/// idempotent after ownership is established.
 pub(super) async fn memory_unlock_response(
     raw_id: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -256,13 +276,23 @@ pub(super) async fn memory_unlock_response(
         }
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    let tenant_id = request_tenant_id(req);
     match memory
-        .set_lock(id, Lock::None, argo_memory::PrincipalOverride::Force)
+        .set_lock_for_tenant(
+            id,
+            &tenant_id,
+            Lock::None,
+            argo_memory::PrincipalOverride::Force,
+        )
         .await
     {
-        Ok(()) => (
+        Ok(true) => (
             "200 OK",
             format!("{{\"unlocked\":true,\"id\":\"{raw_id}\"}}"),
+        ),
+        Ok(false) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no memory entry with id {raw_id}\"}}"),
         ),
         Err(e) => ("400 Bad Request", format!("{{\"error\":\"unlock: {e}\"}}")),
     }

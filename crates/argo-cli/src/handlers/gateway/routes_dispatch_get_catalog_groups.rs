@@ -157,7 +157,7 @@ pub(super) async fn dispatch_memory_family(
         if let Some((id, tail)) = rest.split_once('/') {
             if tail.starts_with("versions ") || tail.starts_with("versions?") {
                 let format = parse_query_kv(tail, "format");
-                return Some(memory_versions_response(id, store, format.as_deref()).await);
+                return Some(memory_versions_response(id, req, store, format.as_deref()).await);
             }
         }
         if let Some((id_with_query, _)) = rest.split_once(' ') {
@@ -169,8 +169,13 @@ pub(super) async fn dispatch_memory_family(
                 .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
                 .map(str::to_string);
             return Some(
-                super::routes_meta::memory_show_response_with_format(id, store, format.as_deref())
-                    .await,
+                super::routes_meta::memory_show_response_with_format(
+                    id,
+                    req,
+                    store,
+                    format.as_deref(),
+                )
+                .await,
             );
         }
     }

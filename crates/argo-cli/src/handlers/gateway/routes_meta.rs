@@ -5,6 +5,7 @@
 //! Lives in its own file to keep `routes.rs` under the 500-LOC
 //! budget and to scope the I/O (filesystem walk for providers,
 //! registry build for tools) away from the dispatch shape.
+use super::request_tenant_id;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -35,6 +36,7 @@ pub(super) use super::routes_forge::forge_runs_response;
 /// + the raw body — paste-able as standalone documentation.
 pub(super) async fn memory_show_response_with_format(
     raw_id: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -51,8 +53,9 @@ pub(super) async fn memory_show_response_with_format(
         }
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
-    match memory.get(id).await {
-        Ok(e) => {
+    let tenant_id = request_tenant_id(req);
+    match memory.get_for_tenant(id, &tenant_id).await {
+        Ok(Some(e)) => {
             if matches!(format, Some("markdown")) {
                 let mut out = format!("# Memory entry `{}`\n\n", e.id);
                 out.push_str(&format!("- **File**: `{:?}`\n", e.file));
@@ -82,7 +85,7 @@ pub(super) async fn memory_show_response_with_format(
                 serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()),
             )
         }
-        Err(argo_types::ArgoError::Schema(_)) => (
+        Ok(None) => (
             "404 Not Found",
             format!("{{\"error\":\"no memory entry with id {raw_id}\"}}"),
         ),

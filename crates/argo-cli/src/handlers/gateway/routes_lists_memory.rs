@@ -2,7 +2,7 @@
 //! Lifted out of `routes_lists.rs` to stay under the 500-LOC
 //! ceiling; re-exported from `routes_lists` so call sites are
 //! unchanged.
-use super::store_unavailable;
+use super::{request_tenant_id, store_unavailable};
 use crate::home::cwd_workspace;
 use argo_store::SessionStore;
 use std::sync::Arc;
@@ -75,6 +75,7 @@ pub(super) async fn memory_count_response(
 /// 404 when the entry doesn't exist.
 pub(super) async fn memory_versions_response(
     raw_id: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -91,8 +92,9 @@ pub(super) async fn memory_versions_response(
         }
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
-    match memory.versions_for_entry(id).await {
-        Ok(rows) => {
+    let tenant_id = request_tenant_id(req);
+    match memory.versions_for_entry_for_tenant(id, &tenant_id).await {
+        Ok(Some(rows)) => {
             if matches!(format, Some("markdown")) {
                 let n = rows.len();
                 let active = rows
@@ -141,6 +143,10 @@ pub(super) async fn memory_versions_response(
                 serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
             )
         }
+        Ok(None) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no memory entry with id {raw_id}\"}}"),
+        ),
         Err(e) => (
             "404 Not Found",
             format!("{{\"error\":\"versions_for_entry: {e}\"}}"),

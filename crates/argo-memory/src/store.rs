@@ -248,6 +248,159 @@ impl MemoryStore {
         .ok_or_else(|| ArgoError::Schema(format!("memory entry {entry_id} not found")))?;
         MemoryEntry::try_from(row)
     }
+
+    /// Tenant-scoped sibling of [`Self::get`].
+    ///
+    /// Returns `Ok(None)` when the entry does not exist OR belongs
+    /// to a different tenant, so gateway handlers can map both cases
+    /// to an existence-hiding 404. The filter joins through
+    /// `workspace.tenant_id`; when `memory_entry.tenant_id` is set,
+    /// it must agree with the workspace tenant. Legacy
+    /// workspace-global rows keep `memory_entry.tenant_id` NULL.
+    pub async fn get_for_tenant(
+        &self,
+        entry_id: Uuid,
+        tenant_id_str: &str,
+    ) -> ArgoResult<Option<MemoryEntry>> {
+        self.ensure_layer_schema().await?;
+        let Ok(tenant_uuid) = Uuid::parse_str(tenant_id_str) else {
+            return Ok(None);
+        };
+        let row = sqlx::query_as::<_, RawEntry>(
+            "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \
+             m.learned_at, m.superseded_by, m.hash, l.lock, m.vertical_id \
+             FROM memory_entry m \
+             JOIN workspace w ON w.id = m.workspace_id \
+             LEFT JOIN memory_lock l ON l.entry_id = m.id \
+             WHERE m.id = ? AND w.tenant_id = ? \
+               AND (m.tenant_id IS NULL OR m.tenant_id = ?)",
+        )
+        .bind(entry_id.as_bytes().as_slice())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("memory get_for_tenant: {e}")))?;
+        row.map(MemoryEntry::try_from).transpose()
+    }
+
+    /// Lightweight existence + ownership check for gateway mutation
+    /// preflights.
+    pub async fn memory_belongs_to_tenant(
+        &self,
+        entry_id: Uuid,
+        tenant_id_str: &str,
+    ) -> ArgoResult<bool> {
+        self.ensure_layer_schema().await?;
+        let Ok(tenant_uuid) = Uuid::parse_str(tenant_id_str) else {
+            return Ok(false);
+        };
+        let exists: Option<i64> = sqlx::query_scalar(
+            "SELECT 1 FROM memory_entry m \
+             JOIN workspace w ON w.id = m.workspace_id \
+             WHERE m.id = ? AND w.tenant_id = ? \
+               AND (m.tenant_id IS NULL OR m.tenant_id = ?) LIMIT 1",
+        )
+        .bind(entry_id.as_bytes().as_slice())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("memory_belongs_to_tenant: {e}")))?;
+        Ok(exists.is_some())
+    }
+
+    /// Tenant-scoped sibling of [`Self::set_lock`].
+    ///
+    /// Returns `Ok(false)` when the entry is missing or owned by a
+    /// different tenant.
+    pub async fn set_lock_for_tenant(
+        &self,
+        entry_id: Uuid,
+        tenant_id_str: &str,
+        lock: Lock,
+        principal: PrincipalOverride,
+    ) -> ArgoResult<bool> {
+        if !self
+            .memory_belongs_to_tenant(entry_id, tenant_id_str)
+            .await?
+        {
+            return Ok(false);
+        }
+        self.set_lock(entry_id, lock, principal).await?;
+        Ok(true)
+    }
+
+    /// Tenant-scoped sibling of [`Self::supersede`].
+    pub async fn supersede_for_tenant(
+        &self,
+        prev_id: Uuid,
+        tenant_id_str: &str,
+        new_body: String,
+        learned_in: Option<SessionId>,
+        principal: PrincipalOverride,
+    ) -> ArgoResult<Option<MemoryEntry>> {
+        if !self
+            .memory_belongs_to_tenant(prev_id, tenant_id_str)
+            .await?
+        {
+            return Ok(None);
+        }
+        self.supersede(prev_id, new_body, learned_in, principal)
+            .await
+            .map(Some)
+    }
+
+    /// Tenant-scoped sibling of [`Self::revert`].
+    pub async fn revert_for_tenant(
+        &self,
+        entry_id: Uuid,
+        tenant_id_str: &str,
+        principal: PrincipalOverride,
+    ) -> ArgoResult<Option<MemoryEntry>> {
+        if !self
+            .memory_belongs_to_tenant(entry_id, tenant_id_str)
+            .await?
+        {
+            return Ok(None);
+        }
+        self.revert(entry_id, principal).await.map(Some)
+    }
+
+    /// Tenant-scoped sibling of [`Self::versions_for_entry`].
+    pub async fn versions_for_entry_for_tenant(
+        &self,
+        entry_id: Uuid,
+        tenant_id_str: &str,
+    ) -> ArgoResult<Option<Vec<MemoryEntry>>> {
+        let Some(head) = self.get_for_tenant(entry_id, tenant_id_str).await? else {
+            return Ok(None);
+        };
+        let Ok(tenant_uuid) = Uuid::parse_str(tenant_id_str) else {
+            return Ok(None);
+        };
+        let rows = sqlx::query_as::<_, RawEntry>(
+            "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \
+             m.learned_at, m.superseded_by, m.hash, l.lock, m.vertical_id \
+             FROM memory_entry m \
+             JOIN workspace w ON w.id = m.workspace_id \
+             LEFT JOIN memory_lock l ON l.entry_id = m.id \
+             WHERE m.workspace_id = ? AND m.file = ? AND w.tenant_id = ? \
+               AND (m.tenant_id IS NULL OR m.tenant_id = ?) \
+             ORDER BY m.learned_at ASC",
+        )
+        .bind(head.workspace_id.0.as_bytes().as_slice())
+        .bind(head.file.filename())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .bind(tenant_uuid.as_bytes().as_slice())
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("versions_for_entry_for_tenant: {e}")))?;
+        rows.into_iter()
+            .map(MemoryEntry::try_from)
+            .collect::<ArgoResult<Vec<_>>>()
+            .map(Some)
+    }
 }
 
 fn sha256(body: &str) -> [u8; 32] {

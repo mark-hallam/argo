@@ -30,10 +30,10 @@ pub(super) async fn dispatch_memory(
                 return Some(memory_lock_response(id, req, store).await);
             }
             if tail.starts_with("unlock ") {
-                return Some(memory_unlock_response(id, store).await);
+                return Some(memory_unlock_response(id, req, store).await);
             }
             if tail.starts_with("forget ") {
-                return Some(memory_forget_response(id, store).await);
+                return Some(memory_forget_response(id, req, store).await);
             }
             if tail.starts_with("edit ") {
                 return Some(memory_edit_response(id, req, store).await);
