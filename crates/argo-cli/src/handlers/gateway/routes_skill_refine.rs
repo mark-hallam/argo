@@ -3,9 +3,14 @@
 //! bumped version. Mirrors `argo skill refine` (#271). Lives
 //! in its own file so `routes_post_admin.rs` stays under the
 //! 500-LOC budget.
-use super::{body_from_request, store_unavailable};
-use argo_skill::{PrincipalOverride as SkillPrincipal, SkillStore};
+use super::role_gate::{enforce_role, Action};
+use super::routes_auth_principal::principal_id_for_audit;
+use super::{body_from_request, request_tenant_id, store_unavailable};
+use argo_audit::{AuditKind, AuditSink};
+use argo_skill::{PrincipalOverride as SkillPrincipal, SkillStore, PLACEHOLDER_TENANT_ID};
 use argo_store::SessionStore;
+use argo_types::SkillId;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
@@ -18,10 +23,13 @@ pub(super) async fn skill_refine_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if let Some(deny) = enforce_role(req, Action::KnowledgeWrite) {
+        return deny;
+    }
     let Some(store) = store else {
         return store_unavailable();
     };
-    let parsed: serde_json::Value = match serde_json::from_str(body_from_request(req)) {
+    let parsed: Value = match serde_json::from_str(body_from_request(req)) {
         Ok(v) => v,
         Err(e) => {
             return (
@@ -62,6 +70,19 @@ pub(super) async fn skill_refine_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    let skill_tenant = match skill_tenant_id(store, active.id).await {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"skill tenant lookup: {e}\"}}"),
+            );
+        }
+    };
+    if is_cross_tenant_request(&tenant_id, skill_tenant.as_deref()) {
+        return no_active_skill(name);
+    }
     let new_version =
         version_override.unwrap_or_else(|| bump_skill_version(&active.frontmatter.version));
     let new_body = format!("{}\n\n## Refinement\n{}\n", active.body.trim_end(), hint);
@@ -75,7 +96,28 @@ pub(super) async fn skill_refine_response(
     );
     match skills.supersede(&raw, None, SkillPrincipal::Force).await {
         Ok(new_skill) => {
-            let payload = serde_json::json!({
+            if let Some(row_tenant) = skill_tenant
+                .as_deref()
+                .filter(|t| !is_placeholder_tenant(t))
+            {
+                if let Err(e) = stamp_skill_tenant(store, new_skill.id, row_tenant).await {
+                    return (
+                        "500 Internal Server Error",
+                        format!("{{\"error\":\"skill tenant stamp: {e}\"}}"),
+                    );
+                }
+            }
+            let audit = RefineAudit {
+                tenant_id: &tenant_id,
+                name,
+                previous_skill_id: active.id,
+                skill_id: new_skill.id,
+                prev_version: &active.frontmatter.version,
+                new_version: &new_version,
+                vertical_id: active.vertical_id.as_deref(),
+            };
+            emit_refine_audit(store, req, audit).await;
+            let payload = json!({
                 "refined": true,
                 "name": name,
                 "prev_version": active.frontmatter.version,
@@ -91,6 +133,80 @@ pub(super) async fn skill_refine_response(
             "400 Bad Request",
             format!("{{\"error\":\"supersede: {e}\"}}"),
         ),
+    }
+}
+
+fn no_active_skill(name: &str) -> (&'static str, String) {
+    (
+        "404 Not Found",
+        format!("{{\"error\":\"no active skill named '{name}'\"}}"),
+    )
+}
+
+async fn skill_tenant_id(
+    store: &SessionStore,
+    skill_id: SkillId,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar("SELECT tenant_id FROM skill WHERE id = ? LIMIT 1")
+        .bind(skill_id.0.as_bytes().as_slice())
+        .fetch_optional(store.pool())
+        .await
+}
+
+async fn stamp_skill_tenant(
+    store: &SessionStore,
+    skill_id: SkillId,
+    tenant_id: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE skill SET tenant_id = ? WHERE id = ?")
+        .bind(tenant_id)
+        .bind(skill_id.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await?;
+    Ok(())
+}
+
+fn is_cross_tenant_request(request_tenant: &str, skill_tenant: Option<&str>) -> bool {
+    matches!(skill_tenant, Some(t) if !is_placeholder_tenant(t) && t != request_tenant)
+}
+
+fn is_placeholder_tenant(tenant_id: &str) -> bool {
+    tenant_id == PLACEHOLDER_TENANT_ID
+}
+
+struct RefineAudit<'a> {
+    tenant_id: &'a str,
+    name: &'a str,
+    previous_skill_id: SkillId,
+    skill_id: SkillId,
+    prev_version: &'a str,
+    new_version: &'a str,
+    vertical_id: Option<&'a str>,
+}
+
+async fn emit_refine_audit(store: &Arc<SessionStore>, req: &str, audit: RefineAudit<'_>) {
+    let principal_id = principal_id_for_audit(req);
+    let payload = json!({
+        "endpoint": "skill.refined",
+        "tenant_id": audit.tenant_id,
+        "name": audit.name,
+        "previous_skill_id": audit.previous_skill_id.to_string(),
+        "skill_id": audit.skill_id.to_string(),
+        "prev_version": audit.prev_version,
+        "new_version": audit.new_version,
+        "vertical_id": audit.vertical_id,
+        "refined_by": principal_id.as_deref(),
+    });
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), audit.tenant_id.to_string());
+    if let Err(e) = sink
+        .write(None, AuditKind::HttpRequest, payload, principal_id)
+        .await
+    {
+        tracing::warn!(target: "gateway::skill_refine", error = %e, "skill refine audit write failed");
+        return;
+    }
+    if let Err(e) = sink.flush_pending().await {
+        tracing::warn!(target: "gateway::skill_refine", error = %e, "skill refine audit flush failed");
     }
 }
 
