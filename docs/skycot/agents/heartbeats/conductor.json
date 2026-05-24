@@ -1,8 +1,8 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-24T06:46:31Z",
+  "last_run_utc": "2026-05-24T07:06:10Z",
   "expected_cadence_seconds": 3600,
   "session_label": "manual-codex-conductor-2026-05-24",
-  "run_notes": "Manual codex conductor tick: replenished mixed queue +5, then corrected Codex-only handoff prompt so Codex conductors do not run cargo/workspace-clippy gates by default.",
-  "open_prs": 10
+  "run_notes": "Manual codex conductor tick: replenished claude queue +7, spawned read-only PR triage for 13 open PRs, health sweeps clean except stale evaluator/personal-site agents.",
+  "open_prs": 13
 }
