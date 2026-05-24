@@ -1,86 +1,81 @@
-# Stream mission-demo-seed-data-bootstrap — populate the workspace with the voiceover-script personas
+# Stream mission-demo-seed-data-bootstrap — seed REAL workspace data via argo demo seed CLI
 
 **Owner**: claude.
-**Depends on**: `fix-web-mock-bypass-env-var-rename` MERGED, `fix-web-workers-api-envelope-and-id-format` MERGED.
-**Authored against**: origin/main `f3d1c66a6` on `2026-05-24`.
+**Depends on**: none (independent of the SPA-side fixes; the seeded data flows through the same gateway endpoints the SPA already consumes).
+**Authored against**: origin/main `109214a70` on `2026-05-24`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-demo-seed-data-bootstrap`.
-🔴 **P0 DEMO-BLOCKER.** The v1.0 demo voiceover (`docs/skycot/operator/demo-runbook.md`) references specific data that doesn't exist in a fresh workspace:
-- 6 named teammates (Mariah, Priya, Jamal, Nori + 2 more)
-- 7 pending approvals on `/`
-- 1,122 weekly actions / 72 hours saved KPIs on `/team`
-- Mariah's specific personality card + responsibilities + 3 today-KPIs on `/workers/{id}/overview`
-- Populated audit chain on `/audit`
-
-Currently the workspace returns `{workers: [], total_count: 0}` for /team, empty approvals, no audit rows. The demo voiceover doesn't match the on-screen reality.
+🔴 **P0 DEMO-GATE OPERATOR-LOCKED — NO-THEATER REQUIREMENT.** Per the `🚨 NO THEATER IN THE DEMO` amendment in BUILD_STATUS.md header (operator decision 2026-05-24): the v1.0 demo MP4 must be recorded against a real workspace with real data and real agent behavior — NOT against `web/lib/sample-*.ts` mock fixtures shown via `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`. This brief implements the real-backend seed path.
 
 ## Scope
 
-Two paths; implementer picks based on which makes the demo more honest:
+Add a real CLI subcommand `argo demo seed` that inserts the voiceover-aligned demo data into a real workspace via the real gateway primitives — same code paths a real customer signup would use, just with a richer initial state.
 
-**Option A (recommended) — Seed via mock-bypass mode.** Make the existing `web/lib/sample-*` fixtures (sample-personas, sample-approvals, sample-audit, sample-workflows) richer + voiceover-aligned. The operator runs the demo with `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` set, the mock fallback fires, the demo shows the SAMPLE_TEAM data. Quick + visible-to-audience-as-demo. No real backend seeding.
+The CLI populates:
+- 6 named workers (Mariah, Priya, Jamal, Nori + 2 more) — created via existing `WorkerStore::create` with real vertical pack assignments, real personas, real role/charter from the existing sample-personas data (which becomes the SEED SOURCE for the CLI, not the rendered output).
+- 7 pending approval rows — created by triggering real agent turns against sandbox accounts (the agent runner is invoked, produces real `WorkerAction` rows, the auto-approval gate creates real `approval_request` rows). NOT hand-inserted into the approvals table.
+- Mariah's "today's KPIs" (3 listings live / 11 buyer replies / 2 items flagged below floor) — emerges from real agent turns over the past N seed-days, audit_record rows reflecting each. The KPI strip on `/team` reads from `compute::activity_counts_for_worker` which already SUMs real audit rows.
+- 1000+ audit_record rows — produced by real agent turns. The seeder runs a configurable number of turns per worker (default ~150 each) over a backdated time window so the audit feed has populated history.
 
-**Option B — Real seed via Rust binary + gateway.** Add a `argo demo seed` CLI subcommand that inserts the 6 workers + 7 approvals + 1000 audit rows into the live workspace. Honest end-to-end demo. More work.
+The result: when the demo opens `/team`, the data shown is exactly what the gateway returns from real DB queries against a real workspace. When the operator clicks Approve on Slack, a real `decide_request` SQL UPDATE fires. When the audit feed loads, real `audit_record` rows render. The voiceover's claims (1,122 weekly actions, 72 hours saved) are derived from real data, not painted on.
 
-Pick A. The demo is a marketing artifact; mock-bypass is correct here.
-
-For Option A:
-1. Audit existing `web/lib/sample-personas.ts` — what's already there?
-2. Expand to include 6 personas matching the voiceover (Mariah + Priya + Jamal + Nori + 2 more — use the voiceover line "These are real AI teammates — Mariah, Priya, Jamal, Nori." as the canonical 4, then 2 more for the "6 teammates" count)
-3. Each persona needs: ULID worker ID (post-`fix-web-workers-api-envelope-and-id-format`), display_name, role, vertical, headline, traits, status, lastActiveAt, pendingApprovalCount
-4. `web/lib/sample-approvals.ts` — 7 pending approval rows, each pointing at one of the personas, with realistic action shapes
-5. `web/lib/sample-worker-overview.ts` — Mariah's full detail card: 4-trait personality (Patient, Detail-oriented, Picture-perfect listings, Polite), "great at" list (spotting price gaps, cropping photos, writing tight 60-word copy), "when she escalates" (price drops below floor, edited-looking photos, multiple competing offers), today's KPIs (3 listings live, 11 buyer replies, 2 items flagged below floor)
-6. `web/lib/sample-audit.ts` — 1000+ audit rows (synthetic, realistic kinds + timestamps + workers + statuses)
-7. `web/lib/sample-team.ts` aggregate stats: `weeklyActions=1122` and `hoursSaved=72` for the hero KPIs
+This is a **substantive backend addition** — ~600-1000 LOC in `argo-cli` + new `crates/argo-demo-seed/` library crate. NOT a fixture file edit. NOT a TypeScript change.
 
 ## Parallelism
 
-- Manager-worker allowed: no
-- Max children: 0
+- Manager-worker allowed: yes
+- Max children: 3
 - Max depth: 1
 - Auto-spawn: automatic_if_supported
-- Manager package: n/a
-- Shared hotspots: []
+- Manager package: docs/build-plan/work-packages/mission-demo-seed-data-bootstrap.md (manager creates from PROTOCOL_MANAGER_PACKAGE_TEMPLATE.md)
+- Shared hotspots: [`crates/argo-cli/src/cli.rs` (one new subcommand variant)]
 
 ## Files you may touch
 
-- `web/lib/sample-personas.ts` — expand to 6 voiceover-aligned personas
-- `web/lib/sample-team.ts` — aggregate stats
-- `web/lib/sample-approvals.ts` — 7 pending approval rows
-- `web/lib/sample-worker-overview.ts` — Mariah's full detail card
-- `web/lib/sample-audit.ts` (or wherever audit mocks live) — 1000+ rows
-- `web/lib/sample-workflows.ts` — verify `qualify_lead` exists with the React Flow nodes the voiceover demos
-- `docs/skycot/operator/demo-runbook.md` — confirm the voiceover script's data references match the seeded data (one-line edits if a name needs harmonization)
-- `web/lib/sample-*.test.ts` — update tests for the new persona inventory
+- `NEW: crates/argo-demo-seed/**` — new library crate hosting the seed orchestration. Takes a `tenant_id` + a `seed_profile` (default = "v1-demo-canonical") and orchestrates worker creation + agent turn execution + Slack channel registration.
+- `crates/argo-cli/src/cli.rs` — narrowly scoped: add `DemoCmd::Seed { ... }` variant.
+- `NEW: crates/argo-cli/src/handlers/demo_seed.rs` — CLI handler invoking `argo-demo-seed::run_canonical_v1_seed(...)`.
+- `crates/argo-cli/src/handlers/mod.rs` — narrowly scoped: add `mod demo_seed;` line.
+- `Cargo.toml` — narrowly scoped: add workspace member `crates/argo-demo-seed`.
+- `web/lib/sample-personas.ts` — read-only INPUT: the seed CLI reads the persona spine (name + role + traits + headline + vertical_id) from this file and inserts those as real worker rows. The file itself is unchanged.
+- `docs/skycot/operator/demo-runbook.md` — add a pre-flight bullet: "Run `argo demo seed --tenant <demo-tenant-id>` before the recording session. Verify `/team` shows 6 workers via curl http://127.0.0.1:7400/api/v1/team and the count matches."
+- `scripts/demo-dry-run.sh` — narrowly scoped: drop the SAMPLE_TEAM mock paths from the dry-run scene assertions. Scenes now verify real backend rows.
 
 ## Files you must NOT touch
 
-- Any `crates/argo-*/**` file — option A is web-side seed data, not real backend seeding
-- Any `web/app/(app)/` page file — the pages already render whatever the mock returns
-- `web/lib/api/*.ts` — the fetchers are correct; this brief is about the data they return
+- `web/lib/sample-personas.ts` for ANY edit (read-only input)
+- `web/lib/sample-*.ts` other than to confirm they are NOT used at runtime when seeded data is present
+- `crates/argo-store/src/migrations/**` — no new migration is in scope; the seed uses existing tables/columns
+- Anything in `crates/argo-skill/` or `crates/argo-orchestrator/` other than call-site invocations through existing public APIs
 
-## Acceptance criteria
+## Anti-theater acceptance criteria
 
-- [ ] With `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` set, `/team` renders 6 teammate cards with the voiceover-canonical names (Mariah, Priya, Jamal, Nori + 2 more)
-- [ ] `/` (approvals) shows 7 pending rows
-- [ ] `/team` hero shows "6 teammates", "1,122 actions this week", "72 hours saved"
-- [ ] `/workers/{Mariah-ID}/overview` shows Mariah's full personality card matching the voiceover script line-by-line (traits, great-at, escalate-when, today's KPIs)
-- [ ] `/audit` shows >100 audit rows (not empty)
-- [ ] `/workflows` shows the `qualify_lead` workflow as a clickable tile
-- [ ] `/workflows/sales/qualify_lead/build` renders the React Flow canvas with nodes the voiceover walks through
-- [ ] `pnpm typecheck` clean
-- [ ] `pnpm test` — no regressions; sample-*.test.ts updated
-- [ ] PR body includes a screenshot of `/team` after seeding (operator-readable)
+The PR must demonstrate that:
+- [ ] After `argo demo seed --tenant <demo>`, `curl http://127.0.0.1:7400/api/v1/team` returns 6 real `Worker` rows with ULID worker IDs
+- [ ] After seeding, `curl http://127.0.0.1:7400/api/v1/approvals` returns 7 real pending `approval_request` rows, each linked to a real `WorkerAction` row, each WorkerAction created by a real agent turn (audit-traceable to a `WorkflowStepCompleted` row)
+- [ ] After seeding, `curl http://127.0.0.1:7400/api/v1/audit?limit=100` returns 100+ real `audit_record` rows, each with a real `worker_id` + real `tenant_id` + real `created_at` + a real `payload` from a real agent turn (not synthetic JSON)
+- [ ] Mariah's `/workers/{id}/overview` page numbers (listings live, buyer replies, flagged-below-floor) derive from real SQL aggregations over real audit rows, NOT from a `sample-worker-overview.ts` fixture
+- [ ] The dry-run script's all-8 scenes pass when `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS` is UNSET — i.e. the SPA is talking to the real backend, no mock fallback
+- [ ] PR body includes a 10-line transcript of `argo demo seed --tenant <id>` showing the agent turns running and audit rows being created
+- [ ] PR body includes the vacuous-pass guard the evaluator's round-37 pattern requires: a negative test asserting that a DIFFERENT tenant sees ZERO rows after seeding (cross-tenant invisibility) AND the seeded tenant sees N>=6 (positive baseline)
+- [ ] `cargo clippy -p argo-demo-seed -p argo-cli --all-targets -- -D warnings` clean
+- [ ] `cargo test -p argo-demo-seed` passes
+- [ ] Every modified file < 500 LOC
 - [ ] BUILD_STATUS.md updated with PR number
 
 ## Branch + PR
 
 - Branch: `claude-mission-demo-seed-data-bootstrap`
-- PR title: `web(demo): seed sample fixtures with voiceover-aligned 6 personas + 7 approvals + 1k audit rows (mission-demo-seed-data-bootstrap)`
+- PR title: `demo: argo demo seed CLI for real-backend v1.0 demo workspace (mission-demo-seed-data-bootstrap)`
 
 ## Notes for the implementer
 
-- This brief is the BIG one (~600-1200 LOC, multi-file). It depends on the env var rename + worker ID format briefs landing first; otherwise the mock-bypass won't fire and the new fixtures won't be visible.
-- Take the demo voiceover script (`docs/skycot/operator/demo-runbook.md`, lines 44-117) as the source of truth for every name + number + quote. The demo is recorded against the seeded data, so the data must literally match the voiceover.
-- If you encounter ambiguity (e.g. voiceover names 4 teammates but says "6 teammates" — what are the other 2?), pick names + roles consistent with the existing SAMPLE_PERSONAS aesthetic and document in the PR.
-- The 1000+ audit rows can be synthetic — repeated patterns with varied timestamps + workers + kinds. Doesn't need to be perfectly realistic; just needs to look populated and varied on screen.
-- Once this lands + the prerequisites land + the operator records the demo MP4, the v1.0 ship gate closes.
+- **This brief was REWRITTEN 2026-05-24 from Option A (mock-bypass fixtures) to Option B (real backend seed) per the operator's `🚨 NO THEATER IN THE DEMO` amendment in BUILD_STATUS header.** Do not revert to the mock approach.
+- The agent turns the seeder triggers MUST hit real LLMs. Use a sandbox provider key configured in the seed profile. The seeder fails closed if no real provider is configured — don't fall back to canned responses.
+- For Mariah's persona (marketplace seller), use a sandbox Facebook Marketplace API or a stub that emits realistic-looking action payloads but with `is_sandbox: true` in the metadata — the agent turns are real but the external side effects are bracketed.
+- The 1000+ audit rows: spread across the past 14 days (configurable). Use the WorkerSessionRunner to actually drive each turn — don't just `INSERT INTO audit_record VALUES (...)`. That would be theater.
+- Manager-worker mode allowed because the work spans:
+  - (1) the new `argo-demo-seed` crate
+  - (2) the CLI handler wiring
+  - (3) the runbook + dry-run updates
+- Coordinate with `fix-web-mock-bypass-env-var-rename` — once that merges and the bypass mode is fixed, demo recording USES this seed CLI + the bypass mode DEFAULT-OFF (or removed entirely, operator's call).
+- The pattern is similar to how SaaS apps "seed a demo account on signup" — Stripe, Notion, Linear all do this. Look at how OSS projects like Cal.com or Plane seed their demo workspaces for prior art.

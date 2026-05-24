@@ -85,6 +85,32 @@
 > Fresh sessions: read PRODUCT_ROADMAP.md before picking up any
 > UI / UX / persona / journey row.
 >
+> **🚨🚨🚨 OPERATOR AMENDMENT 2026-05-24 — NO THEATER IN THE DEMO 🚨🚨🚨**
+>
+> Operator decision 2026-05-24 (interactive session): the v1.0 demo MP4 must be **REAL**, not theatrical. Every screen the demo shows must reflect real backend data + real agent behavior, not mocks / fixtures / sample-* files. Operator's exact words: *"I want the demo to be real, I can't be called out or embarrassed."*
+>
+> **What this rules out:**
+> - Demo running with `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` and `web/lib/sample-*.ts` fixtures showing on-screen
+> - Pre-recorded "fake" approval flows where the agent doesn't actually run
+> - Mariah's KPIs being hand-painted numbers in `sample-worker-overview.ts`
+> - Pitch Agent demonstration using a scripted "as if" recording rather than a live pitch session
+> - Any "this would happen in production" voiceover compensating for what's not on screen
+>
+> **What this requires:**
+> - Real seed data inserted into a real workspace via a real `argo demo seed` CLI subcommand (or equivalent backend-side seeding)
+> - Real agent turns running against real LLMs (throwaway provider key, sandbox accounts) during the recording
+> - Real Slack workspace + real channel + the operator actually clicking Approve
+> - Real audit-chain rows produced by real agent behavior, not synthetic test data
+> - Pitch Agent demonstration is a LIVE pitch session (rehearsal mode OK for take-1; but operator must be able to swap in a real prospect Zoom call without script changes)
+>
+> **Conductor obligations:**
+> - Reject any demo-prep brief that uses mock-bypass / sample-* fixtures as the on-screen data path. Real backend only.
+> - The `mission-demo-seed-data-bootstrap` brief (authored earlier today as Option A mock-bypass) is being rewritten in the same commit as this amendment to use Option B (real backend seed via `argo demo seed` CLI).
+> - Future demo-related briefs cite this amendment and explicitly state they produce real backend rows, not fixtures.
+> - The evaluator's existing anti-theater verification discipline (round 37/38 vacuous-pass-guard pattern) is now mandatory for any demo-touching brief, not just substrate.
+>
+> Co-applies to Track P amendment below.
+>
 > **🚨 OPERATOR AMENDMENT 2026-05-24 — TRACK P (PITCH AGENT) IS IN v1.0 MVP SCOPE 🚨**
 >
 > Operator decision 2026-05-24 (interactive session): the Pitch Agent (Track P, 8 briefs P-01 through P-08, storyboard at `docs/skycot/demos/pitch-agent-v1-storyboard.html`) is **in MVP scope** and must ship before the v1.0 demo MP4 records. This expands the v1.0 ship gate from the earlier CLAUDE.md statement that had Track P queued post-v1.0.
