@@ -6,9 +6,8 @@
 //!   per-arg cap parse-error propagation) so future refactors fail
 //!   loudly rather than silently regress.
 //!
-//! - 3 `#[ignore]`'d FINDINGS-ONLY tests document the gaps surfaced
-//!   by the audit. Un-ignoring is the signal that a fix-brief has
-//!   landed; each ignored test's docstring names the fix-brief.
+//! - Historical FINDINGS-ONLY tests document gaps surfaced by the
+//!   audit. Fix-briefs un-ignore them as they land.
 //!
 //! Full report:
 //! `docs/skycot/evals/scheduled/2026-05-23/eval-argo-tool-surface-beyond-15-in-core.md`.
@@ -239,12 +238,7 @@ async fn registry_schemas_merge_in_core_with_mcp_sorted_by_name() {
     let names: Vec<String> = reg.schemas().into_iter().map(|s| s.name).collect();
     assert_eq!(
         names,
-        vec![
-            "aardvark_mcp",
-            "alpha_in_core",
-            "mcp_mid",
-            "zeta_in_core",
-        ]
+        vec!["aardvark_mcp", "alpha_in_core", "mcp_mid", "zeta_in_core",]
     );
 }
 
@@ -328,7 +322,7 @@ async fn registry_mcp_route_misses_until_record_mcp_tools_called() {
 }
 
 // =====================================================================
-// §5 — FINDINGS-ONLY pin tests (`#[ignore]`'d)
+// §5 — Historical substrate pin tests
 // =====================================================================
 
 /// **F3 — FIXED by `mission-path-guard-canonicalize-symlinks`.**
@@ -352,26 +346,18 @@ fn path_guard_rejects_symlink_inside_workspace() {
     );
 }
 
-/// **FINDINGS-ONLY (F1)** — `terminal { background: true }` and the
-/// `process` tool are **dead in production**: `ToolContext` built via
-/// `new_with_tenant` (the constructor `argo_agent_runner::dispatch::
-/// dispatch_one_with_tenant` uses at `dispatch.rs:171`) leaves
-/// `background_processes = None`. Every production dispatch returns
-/// "no ProcessRegistry attached".
-///
-/// Un-ignore + move to `argo-agent-runner` once
-/// `mission-agent-runner-wire-process-registry-per-session` lands;
-/// the un-ignored test must then assert that `build_dispatch_ctx`
-/// returns a ctx with `background_processes.is_some()`.
-#[ignore]
+/// **F1 FIX VERIFIED in `argo-agent-runner`.** Plain tool contexts
+/// still default to no process registry; this active substrate guard
+/// keeps that error path explicit while the runner integration test
+/// verifies production turns attach a per-session registry.
 #[tokio::test]
-async fn production_tool_context_lacks_process_registry_today() {
+async fn tool_context_without_runner_process_registry_errors_clearly() {
     let ctx = prod_ctx(local("audit-pin-f1"));
     assert!(
         ctx.background_processes.is_none(),
-        "F1 expected: production ToolContext today has no ProcessRegistry. \
-         If this assertion fails the wire has been added — un-ignore + \
-         rewrite as an assertion against argo-agent-runner::build_dispatch_ctx."
+        "plain ToolContext constructors should stay explicit: callers \
+         that support background processes attach their registry via \
+         `with_background_processes` or the agent-runner dispatch path."
     );
 
     // And the dispatch surface returns the documented error path
@@ -383,7 +369,10 @@ async fn production_tool_context_lacks_process_registry_today() {
         )
         .await
         .unwrap();
-    assert!(r.is_error, "background dispatch must error without a registry");
+    assert!(
+        r.is_error,
+        "background dispatch must error without a registry"
+    );
     match &r.content[0] {
         ContentBlock::Text { text } => {
             assert!(

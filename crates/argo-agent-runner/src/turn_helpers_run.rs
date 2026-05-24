@@ -8,7 +8,7 @@
 
 use super::turn_skills_runtime::PendingAbOutcome;
 use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
-use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_tenant, provider_schemas_filtered};
+use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_runtime, provider_schemas_filtered};
 use crate::helpers::{
     build_assistant_content, emit_event, record_turn_spend, stream_one_round, RoundResp,
     RunEventSink, SpendCtx,
@@ -22,11 +22,12 @@ use argo_provider::{ProviderRequest, ToolSchema, Transport};
 use argo_store::SessionStore;
 use argo_tool::ToolRegistry;
 use argo_types::{
-    ArgoError, ArgoResult, ContentBlock, MessageRole, Principal, SessionId, ToolCallRequest,
-    ToolCallResult,
+    ArgoError, ArgoResult, ContentBlock, MessageRole, Principal, SessionId, TenantId,
+    ToolCallRequest, ToolCallResult,
 };
+use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use uuid::Uuid;
 
 /// Per-turn dispatch state — built once per call to
@@ -35,10 +36,32 @@ pub(super) struct TurnDispatchCtx {
     pub(super) registry: ToolRegistry,
     pub(super) engine: CapabilityEngine,
     pub(super) principal: Principal,
+    pub(super) background_processes: Arc<argo_tool::ProcessRegistry>,
     pub(super) tools: Vec<ToolSchema>,
     pub(super) system_prompt: Option<String>,
     pub(super) context_policy: ContextWindowPolicy,
     pub(super) orch_session_id: argo_orchestrator::SessionId,
+}
+
+type ProcessRegistryKey = (TenantId, SessionId);
+type ProcessRegistryCache = HashMap<ProcessRegistryKey, Arc<argo_tool::ProcessRegistry>>;
+
+fn process_registry_cache() -> &'static Mutex<ProcessRegistryCache> {
+    static CACHE: OnceLock<Mutex<ProcessRegistryCache>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn process_registry_for(
+    tenant_id: TenantId,
+    session_id: SessionId,
+) -> Arc<argo_tool::ProcessRegistry> {
+    let mut cache = process_registry_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    cache
+        .entry((tenant_id, session_id))
+        .or_insert_with(|| Arc::new(argo_tool::ProcessRegistry::new()))
+        .clone()
 }
 
 /// Assemble the dispatch registry, system prompt, tools, and
@@ -97,6 +120,7 @@ pub(super) async fn build_turn_dispatch_ctx(
         orchestrator_ctx,
         Arc::clone(store),
     )?;
+    let background_processes = process_registry_for(session.tenant_id, session_id);
     // #721: hide manifest-denied tools from the model's tool list.
     let tools = provider_schemas_filtered(&registry, vertical_deny);
     let (mut system_prompt, ab_pending) = build_system_prompt_with_ab(
@@ -120,6 +144,7 @@ pub(super) async fn build_turn_dispatch_ctx(
         registry,
         engine,
         principal,
+        background_processes,
         tools,
         system_prompt,
         context_policy,
@@ -296,7 +321,7 @@ async fn resolve_tool_call(
     }
     let approved_via_grant =
         vertical_approval.contains(&call.name) && session_grants.allows(&call.name);
-    let res = dispatch_one_with_tenant(
+    let res = dispatch_one_with_runtime(
         &ctx.registry,
         &ctx.engine,
         &ctx.principal,
@@ -304,18 +329,12 @@ async fn resolve_tool_call(
         cwd,
         &ctx.orch_session_id,
         call,
+        Some(ctx.background_processes.clone()),
     )
     .await;
     if approved_via_grant {
-        consume_one_shot_if_present(
-            store,
-            session_id,
-            &call.name,
-            session_grants,
-            audit,
-            events,
-        )
-        .await?;
+        consume_one_shot_if_present(store, session_id, &call.name, session_grants, audit, events)
+            .await?;
     }
     Ok(res)
 }

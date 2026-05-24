@@ -7,10 +7,12 @@ use argo_memory::MemoryStore;
 use argo_orchestrator::{OrchestratorStore, SessionId as OrchSessionId};
 use argo_provider::ToolSchema as ProviderToolSchema;
 use argo_store::SessionStore;
-use argo_tool::{builtin_tools_with_runtime, ToolContext, ToolRegistry, ToolSchema};
+use argo_tool::{
+    builtin_tools_with_runtime, ProcessRegistry, ToolContext, ToolRegistry, ToolSchema,
+};
 use argo_types::{
-    ArgoResult, Capability, ContentBlock, Principal, TenantId, ToolCallRequest, ToolCallResult,
-    WorkspaceId,
+    ArgoResult, Capability, ContentBlock, Principal, SpawnKind, TenantId, ToolCallRequest,
+    ToolCallResult, WorkspaceId,
 };
 use serde_json::Value;
 use std::collections::HashSet;
@@ -97,6 +99,12 @@ pub(crate) fn build_dispatch_ctx(
         .unwrap_or_else(|_| "argo".into());
     let principal = Principal::Local { os_user };
     engine.bind(principal.clone(), "owner".into())?;
+    engine.grant_dynamic(
+        principal.clone(),
+        Capability::Spawn {
+            spawn_kind: SpawnKind::BackgroundProcess,
+        },
+    );
     Ok((reg, engine, principal))
 }
 
@@ -158,6 +166,7 @@ pub(crate) async fn dispatch_one(
 }
 
 /// Cap-check + dispatch one tool call under an explicit tenant.
+#[cfg(test)]
 pub(crate) async fn dispatch_one_with_tenant(
     registry: &ToolRegistry,
     engine: &CapabilityEngine,
@@ -167,10 +176,30 @@ pub(crate) async fn dispatch_one_with_tenant(
     session_id: &OrchSessionId,
     call: &ToolCallRequest,
 ) -> ToolCallResult {
+    dispatch_one_with_runtime(
+        registry, engine, principal, tenant_id, cwd, session_id, call, None,
+    )
+    .await
+}
+
+/// Cap-check + dispatch one tool call with optional per-session runtime
+/// state attached to the tool context.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn dispatch_one_with_runtime(
+    registry: &ToolRegistry,
+    engine: &CapabilityEngine,
+    principal: &Principal,
+    tenant_id: TenantId,
+    cwd: &Path,
+    session_id: &OrchSessionId,
+    call: &ToolCallRequest,
+    background_processes: Option<Arc<ProcessRegistry>>,
+) -> ToolCallResult {
     let started = std::time::Instant::now();
     let mut ctx = ToolContext::new_with_tenant(principal.clone(), cwd.to_path_buf(), tenant_id);
     ctx.call_id = call.id;
     ctx.session_id = session_id.clone();
+    ctx.background_processes = background_processes;
     if registry.get(&call.name).is_none() {
         if let Some(r) =
             dispatch_mcp(registry, engine, principal, ctx.tenant_id, call, started).await
