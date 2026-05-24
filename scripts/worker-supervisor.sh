@@ -134,10 +134,13 @@ for slot in $(seq 1 "$N_SLOTS"); do
           fi
 
           if [ "$consecutive_fast_fails" -ge 5 ]; then
-            echo "[$(date +%H:%M:%S)] slot-$slot: 5 fast-fails in a row; halting THIS slot to avoid log spam." >&2
-            exit 1
+            # Long cooldown not permanent halt — root cause (ledger drift, stale lock, transient rate-limit) usually clears within minutes; permanent halt requires a supervisor restart which is a bigger blast radius than necessary.
+            echo "[$(date +%H:%M:%S)] slot-$slot: 5 fast-fails in a row; cooling down 15min then retrying." >&2
+            BACKOFF=900
+            consecutive_fast_fails=0
+          else
+            BACKOFF=$((30 * (consecutive_fast_fails + 1)))
           fi
-          BACKOFF=$((30 * (consecutive_fast_fails + 1)))
           ;;
       esac
 
