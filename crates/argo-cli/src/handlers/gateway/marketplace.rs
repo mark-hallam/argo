@@ -249,8 +249,9 @@ async fn install_action(
         );
     };
 
-    if let Err(e) = argo_store::skill_share::set_shared(
+    if let Err(e) = argo_store::skill_share::set_shared_for_tenant(
         store,
+        &auth.tenant_id,
         &skill.name,
         &skill.version,
         true,

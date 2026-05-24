@@ -3,9 +3,9 @@
 //!
 //! Two surface functions:
 //!
-//! * [`set_shared`] — toggle the `shared` flag on a `(skill_name,
-//!   version)` row and (optionally) write the `shared_with_cluster`
-//!   label.
+//! * [`set_shared_for_tenant`] — toggle the `shared` flag on a
+//!   tenant-owned `(skill_name, version)` row and optionally write the
+//!   `shared_with_cluster` label.
 //! * [`list_shared_for_tenant`] — return [`SharedSkillRow`]s that the
 //!   given viewer tenant is allowed to read. A skill is visible if
 //!   `shared = 1` and `shared_with_cluster` matches the viewer
@@ -19,12 +19,13 @@
 //! - No agent-runner integration — runtime lookup lands in a
 //!   follow-up brief (`claude-skill-share-runner-wire`).
 //! - No provenance / signing / trust gates — those land separately.
-//! - The `skill` table has no `tenant_id` column today, so there is
-//!   no notion of an "owning tenant" on a shared row. The cluster
-//!   label on the skill *is* the cross-tenant authorization marker.
-//!   `shared_with_cluster IS NULL` is treated as "no cluster
-//!   declared yet" and is invisible to every viewer; callers should
-//!   pass an explicit cluster when calling [`set_shared`].
+//! - The `skill` table has a `tenant_id` column. Share writes must bind
+//!   it so a marketplace install for one tenant cannot mutate another
+//!   tenant's same-named skill row. The cluster label on the skill is
+//!   the cross-tenant authorization marker.
+//!   `shared_with_cluster IS NULL` is treated as "no cluster declared
+//!   yet" and is invisible to every viewer; callers should pass an
+//!   explicit cluster when calling [`set_shared_for_tenant`].
 
 use crate::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
@@ -49,17 +50,13 @@ pub struct SharedSkillRow {
     pub created_at: i64,
 }
 
-/// Toggle the `shared` flag and optionally update the
-/// `shared_with_cluster` label on a single skill version row.
+const PLACEHOLDER_TENANT_ID: &str = "__migration_placeholder__";
+
+/// Backwards-compatible wrapper for legacy placeholder-tenant skill rows.
 ///
-/// `cluster = None` clears the cluster label (sets it back to NULL).
-/// `cluster = Some("X")` sets it to `"X"`. The flag and the cluster
-/// are written in a single UPDATE so the two columns can never be
-/// observed half-updated.
-///
-/// Returns `Ok(())` even when no row matches — callers can treat the
-/// API as "best effort", consistent with the other free-function
-/// helpers in this crate.
+/// New production callers must use [`set_shared_for_tenant`]. This wrapper
+/// intentionally binds the migration placeholder tenant instead of updating
+/// every `(name, version)` row, so it cannot mutate real tenant-owned rows.
 ///
 /// # Examples
 ///
@@ -75,14 +72,60 @@ pub async fn set_shared(
     shared: bool,
     cluster: Option<&str>,
 ) -> ArgoResult<()> {
+    set_shared_for_tenant(
+        store,
+        PLACEHOLDER_TENANT_ID,
+        skill_name,
+        version,
+        shared,
+        cluster,
+    )
+    .await
+}
+
+/// Toggle the `shared` flag and optionally update the
+/// `shared_with_cluster` label on a single tenant-owned skill version row.
+///
+/// `cluster = None` clears the cluster label (sets it back to NULL).
+/// `cluster = Some("X")` sets it to `"X"`. The flag and the cluster
+/// are written in a single UPDATE so the two columns can never be
+/// observed half-updated.
+///
+/// Returns `Ok(())` even when no row matches — callers can treat the
+/// API as "best effort", consistent with the other free-function
+/// helpers in this crate.
+///
+/// # Examples
+///
+/// ```no_run
+/// # async fn demo(store: &argo_store::SessionStore) -> argo_store::StoreResult<()> {
+/// argo_store::skill_share::set_shared_for_tenant(
+///     store,
+///     "tenant-a",
+///     "my-skill",
+///     "1.0.0",
+///     true,
+///     Some("acme"),
+/// ).await?;
+/// # Ok(()) }
+/// ```
+pub async fn set_shared_for_tenant(
+    store: &SessionStore,
+    tenant_id: &str,
+    skill_name: &str,
+    version: &str,
+    shared: bool,
+    cluster: Option<&str>,
+) -> ArgoResult<()> {
     sqlx::query(
         "UPDATE skill SET shared = ?, shared_with_cluster = ? \
-         WHERE name = ? AND version = ?",
+         WHERE name = ? AND version = ? AND tenant_id = ?",
     )
     .bind(i64::from(shared))
     .bind(cluster)
     .bind(skill_name)
     .bind(version)
+    .bind(tenant_id)
     .execute(store.pool())
     .await
     .map_err(|e| ArgoError::Provider(format!("set_shared: {e}")))?;
