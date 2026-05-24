@@ -1,5 +1,7 @@
 # SKYCOT v1 demo — operator recording runbook
 
+Trust register reviewed: 2026-05-24 (operator-locked-soften per wave-3 audit + PR #2125)
+
 Goal: take a clean machine to a recording-ready setup in ~30 minutes,
 then record the 5–7 minute v1 mission demo. **One happy path** —
 troubleshooting, FAQ, and alternative paths are out of scope. Narrate
