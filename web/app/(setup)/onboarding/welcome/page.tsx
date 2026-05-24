@@ -24,7 +24,7 @@ export default function OnboardingWelcomePage() {
       ]}
       sub={
         <>
-          In <strong>90 seconds</strong> you&apos;ll have hired your first AI teammate &mdash;
+          In <strong>four minutes</strong> you&apos;ll have hired your first AI teammate &mdash;
           and they&apos;ll start work the moment you finish.
         </>
       }

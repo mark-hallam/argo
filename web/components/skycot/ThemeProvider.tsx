@@ -70,7 +70,7 @@ export function ThemeProvider({ initialThemeId, registeredThemes = [], children 
     <TenantThemeContext.Provider value={ctxValue}>
       <NextThemesProvider
         attribute="class"
-        defaultTheme="light"
+        defaultTheme="system"
         enableSystem
         themes={["light", "dark"]}
         disableTransitionOnChange={false}

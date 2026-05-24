@@ -33,13 +33,44 @@ export function TeamEmptyState() {
       className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] px-4 py-10 sm:px-8 sm:py-12 space-y-8"
     >
       <header className="space-y-2 text-center">
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+        <h2
+          className="tracking-tight text-[var(--foreground)]"
+          style={{
+            fontFamily: "var(--font-audiowide)",
+            fontWeight: 400,
+            fontSize: "clamp(28px, 5vw, 44px)",
+          }}
+        >
           Hire your first AI teammate.
         </h2>
         <p className="mx-auto max-w-xl text-sm text-[var(--muted-foreground)]">
-          Pick a starting point — you can adjust everything in the next minute.
+          Describe a role in your own words, or pick a starting point — either
+          way, you&apos;ll have a teammate working in the next minute.
         </p>
       </header>
+
+      <div className="flex justify-center">
+        <Link
+          href="/hire"
+          data-testid="team-empty-state-describe-own"
+          className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:translate-y-[-1px] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--primary), var(--gradient-end))",
+          }}
+        >
+          Describe a role in plain English →
+        </Link>
+      </div>
+
+      <div
+        className="flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]"
+        aria-hidden
+      >
+        <span className="h-px flex-1 bg-[var(--border)]" />
+        <span>Or start from a template</span>
+        <span className="h-px flex-1 bg-[var(--border)]" />
+      </div>
 
       <ul
         data-testid="team-empty-state-tiles"
@@ -51,16 +82,6 @@ export function TeamEmptyState() {
           </li>
         ))}
       </ul>
-
-      <div className="flex justify-center">
-        <Link
-          href="/hire"
-          data-testid="team-empty-state-describe-own"
-          className="text-sm font-medium text-[var(--primary)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] rounded-[var(--radius-sm)]"
-        >
-          Or describe your own →
-        </Link>
-      </div>
 
       <details
         data-testid="team-empty-state-disclosure"

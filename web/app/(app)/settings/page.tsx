@@ -154,7 +154,7 @@ export default function SettingsLandingPage() {
           padding: 20px;
           border-radius: 12px;
           border: 1px solid var(--border, #ece9f5);
-          background: white;
+          background: var(--card, white);
           text-decoration: none;
           color: inherit;
           transition: all 0.15s;
@@ -180,7 +180,7 @@ export default function SettingsLandingPage() {
           border-radius: 9px;
           background: var(--background, #fafaff);
           border: 1px solid var(--border, #ece9f5);
-          color: #8b5cf6;
+          color: var(--primary, #8b5cf6);
           display: grid;
           place-items: center;
           flex-shrink: 0;
@@ -252,7 +252,7 @@ function Tile({
       <div className="settings-tile-body">
         <h2 className="settings-tile-title">
           {title}
-          {coming ? <span className="settings-coming-soon">v1.x</span> : null}
+          {coming ? <span className="settings-coming-soon">Coming soon</span> : null}
         </h2>
         <p className="settings-tile-blurb">{blurb}</p>
       </div>
