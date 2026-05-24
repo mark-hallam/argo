@@ -36,7 +36,7 @@ Worker chooses one of two paths.
 
 ## May-touch
 
-- `docs/skycot/agents/evaluator-write-side-runbook.md` (the runbook landed via #2155)
+- `docs/skycot/agents/heartbeats/WRITE_SIDE_RUNBOOK.md` (canonical runbook landed via #2155)
 - `docs/skycot/agents/SHARED.md` (if write-cadence notes drift)
 - `scripts/print-evaluator-skill-md.sh` (new, optional, Path B only)
 

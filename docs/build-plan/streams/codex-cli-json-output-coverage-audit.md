@@ -20,7 +20,9 @@
 ## May touch
 
 - `crates/argo-cli/src/handlers/**/*.rs` (any subcommand that needs `--json` added)
+- `crates/argo-cli/src/cli_*.rs` (only command-schema files needed for the audited list/show/status gaps)
 - `crates/argo-cli/src/cli_command_enum.rs` (only if a new flag needs registering on the enum)
+- `crates/argo-cli/src/main_dispatch_setup.rs` (only dispatch arms for newly-added JSON paths)
 - Tests under `crates/argo-cli/tests/` (additive only)
 
 ## Must NOT touch
