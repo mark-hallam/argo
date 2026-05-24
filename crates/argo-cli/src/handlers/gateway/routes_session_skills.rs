@@ -4,6 +4,7 @@
 //! to keep this file under the 500-LOC ceiling, and are
 //! re-exported below so the dispatcher import surface stays
 //! unchanged.
+use super::tenant_header::{assert_session_belongs_to_tenant, request_tenant_id};
 use super::{body_from_request, store_unavailable};
 use argo_skill::SkillStore;
 use argo_store::SessionStore;
@@ -37,6 +38,10 @@ pub(super) async fn session_attach_skill_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     let skill_name = match parse_skill_field(req) {
         Ok(s) => s,
         Err(resp) => return resp,
@@ -94,6 +99,10 @@ pub(super) async fn session_detach_skill_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     let skill_name = match parse_skill_field(req) {
         Ok(s) => s,
         Err(resp) => return resp,
@@ -135,6 +144,7 @@ pub(super) async fn session_detach_skill_response(
 /// skills for this session.
 pub(super) async fn session_skills_list_response(
     raw_sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -150,6 +160,10 @@ pub(super) async fn session_skills_list_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     let skills = SkillStore::new(Arc::clone(store));
     match skills.skills_for_session(sid).await {
         Ok(rows) => {
@@ -202,6 +216,7 @@ pub(super) async fn session_skills_list_response(
 /// on bad uuid.
 pub(super) async fn session_clear_skills_response(
     raw_sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -216,6 +231,10 @@ pub(super) async fn session_clear_skills_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     let skills = SkillStore::new(Arc::clone(store));
     let attached = match skills.skills_for_session(sid).await {
         Ok(rows) => rows,
@@ -260,4 +279,104 @@ fn parse_skill_field(req: &str) -> Result<String, (&'static str, String)> {
             "400 Bad Request",
             "{\"error\":\"missing or empty `skill`\"}".to_string(),
         ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use argo_types::{TenantId, WorkspaceId};
+
+    async fn mem_store() -> Arc<SessionStore> {
+        let store = SessionStore::open(":memory:").await.expect("open mem db");
+        store.migrate().await.expect("migrate");
+        Arc::new(store)
+    }
+
+    async fn seed_session(store: &Arc<SessionStore>) -> (TenantId, SessionId) {
+        let tenant = TenantId::new();
+        let workspace = WorkspaceId::new();
+        sqlx::query(
+            "INSERT INTO workspace (id, tenant_id, name, root_path, created_at)
+             VALUES (?, ?, 'cluster6', '.', strftime('%s','now'))",
+        )
+        .bind(workspace.0.as_bytes().as_slice())
+        .bind(tenant.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await
+        .expect("seed workspace");
+        let session = store
+            .create_session(tenant, workspace, "m", "p", Some("cluster6"), None)
+            .await
+            .expect("create session");
+        (tenant, session)
+    }
+
+    fn req_with_tenant(path: &str, tenant: &TenantId, body: &str) -> String {
+        format!(
+            "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {}\r\n\
+             Content-Length: {}\r\n\r\n{body}",
+            tenant.0,
+            body.len()
+        )
+    }
+
+    fn skill_doc(name: &str) -> String {
+        format!(
+            "---\nname: {name}\nversion: \"0.1\"\ndescription: d\n\
+             lock: none\nprovenance:\n  source: test\n  hash: sha256-x\n---\nbody"
+        )
+    }
+
+    #[tokio::test]
+    async fn attach_skill_matching_tenant_inserts_session_skill() {
+        let store = mem_store().await;
+        let (tenant, session) = seed_session(&store).await;
+        SkillStore::new(Arc::clone(&store))
+            .install(&skill_doc("alpha"), None)
+            .await
+            .expect("install skill");
+        let sid = session.0.to_string();
+        let req = req_with_tenant(
+            &format!("/sessions/{sid}/skills/attach"),
+            &tenant,
+            r#"{"skill":"alpha"}"#,
+        );
+
+        let (status, body) = session_attach_skill_response(&sid, &req, Some(&store)).await;
+
+        assert!(status.starts_with("200"), "status={status} body={body}");
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM session_skill WHERE session_id = ?")
+                .bind(session.0.as_bytes().as_slice())
+                .fetch_one(store.pool())
+                .await
+                .expect("count session_skill");
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn attach_skill_cross_tenant_returns_404_and_inserts_nothing() {
+        let store = mem_store().await;
+        let (_tenant, session) = seed_session(&store).await;
+        SkillStore::new(Arc::clone(&store))
+            .install(&skill_doc("alpha"), None)
+            .await
+            .expect("install skill");
+        let sid = session.0.to_string();
+        let other_tenant = TenantId::new();
+        let req = req_with_tenant(
+            &format!("/sessions/{sid}/skills/attach"),
+            &other_tenant,
+            r#"{"skill":"alpha"}"#,
+        );
+
+        let (status, _body) = session_attach_skill_response(&sid, &req, Some(&store)).await;
+
+        assert!(status.starts_with("404"), "expected 404, got {status}");
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM session_skill")
+            .fetch_one(store.pool())
+            .await
+            .expect("count session_skill");
+        assert_eq!(count, 0);
+    }
 }

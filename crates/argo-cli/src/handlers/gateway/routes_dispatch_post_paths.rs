@@ -262,19 +262,19 @@ pub(super) async fn dispatch_session_path(
         return Some(session_detach_skill_response(sid, req, store).await);
     }
     if tail.starts_with("skills/clear ") {
-        return Some(session_clear_skills_response(sid, store).await);
+        return Some(session_clear_skills_response(sid, req, store).await);
     }
     if tail.starts_with("delete ") {
-        return Some(session_delete_response(sid, store).await);
+        return Some(session_delete_response(sid, req, store).await);
     }
     if tail.starts_with("title ") {
         return Some(session_set_title_response(sid, req, store).await);
     }
     if tail.starts_with("end ") {
-        return Some(session_end_response(sid, store).await);
+        return Some(session_end_response(sid, req, store).await);
     }
     if tail.starts_with("reopen ") {
-        return Some(session_reopen_response(sid, store).await);
+        return Some(session_reopen_response(sid, req, store).await);
     }
     if tail.starts_with("clone ") {
         return Some(session_clone_response(sid, req, store).await);

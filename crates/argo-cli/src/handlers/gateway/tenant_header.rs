@@ -12,6 +12,8 @@
 //! gateway/mod.rs's LOC budget.
 
 use argo_audit::DEFAULT_AUDIT_TENANT_ID;
+use argo_store::SessionStore;
+use argo_types::{JudgeRecordId, SessionId};
 
 pub(crate) fn request_tenant_id(req: &str) -> String {
     let headers = req
@@ -28,6 +30,63 @@ pub(crate) fn request_tenant_id(req: &str) -> String {
                 .filter(|s| !s.is_empty())
         })
         .unwrap_or_else(|| DEFAULT_AUDIT_TENANT_ID.to_string())
+}
+
+pub(crate) async fn assert_session_belongs_to_tenant(
+    store: &SessionStore,
+    sid: SessionId,
+    raw_sid: &str,
+    tenant_id: &str,
+) -> Result<(), (&'static str, String)> {
+    match store.session_belongs_to_tenant(sid, tenant_id).await {
+        Ok(true) => Ok(()),
+        Ok(false) => Err((
+            "404 Not Found",
+            format!("{{\"error\":\"no session {raw_sid}\"}}"),
+        )),
+        Err(e) => Err((
+            "500 Internal Server Error",
+            format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+        )),
+    }
+}
+
+pub(crate) async fn assert_judge_record_belongs_to_tenant(
+    store: &SessionStore,
+    record_id: JudgeRecordId,
+    raw_record: &str,
+    tenant_id: &str,
+) -> Result<(), (&'static str, String)> {
+    let Ok(tenant_uuid) = uuid::Uuid::parse_str(tenant_id) else {
+        return Err((
+            "404 Not Found",
+            format!("{{\"error\":\"no judge record with id {raw_record}\"}}"),
+        ));
+    };
+    let exists: Option<i64> = sqlx::query_scalar(
+        "SELECT 1 FROM judge_record jr \
+         JOIN session s ON s.id = jr.session_id \
+         WHERE jr.id = ? AND s.tenant_id = ? LIMIT 1",
+    )
+    .bind(record_id.0.as_bytes().as_slice())
+    .bind(tenant_uuid.as_bytes().as_slice())
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| {
+        (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"judge_record_belongs_to_tenant: {e}\"}}"),
+        )
+    })?;
+
+    if exists.is_some() {
+        Ok(())
+    } else {
+        Err((
+            "404 Not Found",
+            format!("{{\"error\":\"no judge record with id {raw_record}\"}}"),
+        ))
+    }
 }
 
 #[cfg(test)]

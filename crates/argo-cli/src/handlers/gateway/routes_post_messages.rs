@@ -8,6 +8,7 @@ use argo_store::SessionStore;
 use argo_types::{MessageRole, SessionId};
 use std::sync::Arc;
 
+use super::tenant_header::{assert_session_belongs_to_tenant, request_tenant_id};
 use super::{body_from_request, store_unavailable};
 
 pub(super) async fn append_message_response(
@@ -27,6 +28,10 @@ pub(super) async fn append_message_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, id, sid, &tenant_id).await {
+        return resp;
+    }
     let body = body_from_request(req);
     let parsed: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,

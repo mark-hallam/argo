@@ -272,17 +272,103 @@ fn pin_cluster_5_forge_run_promote_leaks_across_tenants() {
     );
 }
 
-/// Cluster 6 — `SkillStore::attach_to_session` leak.
-/// Fix brief: `mission-gateway-session-skills-tenant-bind`.
-#[ignore = "FINDINGS-ONLY pin; un-ignore once mission-gateway-session-skills-tenant-bind lands"]
+/// Cluster 6 — `SkillStore::attach_to_session` leak — INVERTED.
+///
+/// Fix brief `mission-gateway-session-skills-tenant-bind` shipped
+/// gateway-side session-ownership pre-flight for the heterogeneous
+/// session mutators that cannot share a uniform store-SQL rewrite:
+/// skills attach/detach/list/clear, lifecycle end/reopen/title/delete,
+/// message append, run/steer, judge list, and judge override.
 #[test]
 fn pin_cluster_6_session_attach_skill_leaks_across_tenants() {
-    panic!(
-        "FINDINGS pin awaits fix-brief mission-gateway-session-skills-tenant-bind. \
-         See docs/skycot/evals/scheduled/2026-05-23/\
-         eval-gateway-uuid-bound-routes-tenant-ownership-sweep.md §3 cluster 6. \
-         Expected post-fix: hit POST /sessions/<tenant_a_sid>/skills/attach with \
-         x-argo-tenant-id: tenant_b, assert HTTP/1.1 404 Not Found (not 200), \
-         and verify session_skill row was NOT inserted."
-    );
+    let files = [
+        (
+            "src/handlers/gateway/routes_session_skills.rs",
+            "routes_session_skills",
+            4,
+            "assert_session_belongs_to_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_session_skills_lifecycle.rs",
+            "routes_session_skills_lifecycle",
+            4,
+            "assert_session_belongs_to_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_post_messages.rs",
+            "routes_post_messages",
+            1,
+            "assert_session_belongs_to_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_post_runs.rs",
+            "routes_post_runs",
+            2,
+            "assert_session_belongs_to_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_post_judge.rs",
+            "routes_post_judge",
+            1,
+            "assert_session_belongs_to_tenant",
+        ),
+        (
+            "src/handlers/gateway/routes_post_admin.rs",
+            "routes_post_admin",
+            1,
+            "assert_judge_record_belongs_to_tenant",
+        ),
+    ];
+
+    for (rel, label, min_count, helper) in files {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
+        let source = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        assert!(
+            source.contains("request_tenant_id(req)"),
+            "{label} no longer derives tenant via request_tenant_id(req) — \
+             cluster-6 cross-tenant pre-flight regressed. See sweep report \
+             §3 cluster 6."
+        );
+        let helper_count = source.matches(helper).count();
+        assert!(
+            helper_count >= min_count,
+            "{label} has {helper_count} `{helper}` call(s), expected at least \
+             {min_count}; a cluster-6 route likely bypasses tenant pre-flight."
+        );
+    }
+
+    let dispatch_post = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/handlers/gateway/routes_dispatch_post_paths.rs"),
+    )
+    .expect("read routes_dispatch_post_paths.rs");
+    for call in [
+        "session_clear_skills_response(sid, req, store)",
+        "session_delete_response(sid, req, store)",
+        "session_end_response(sid, req, store)",
+        "session_reopen_response(sid, req, store)",
+    ] {
+        assert!(
+            dispatch_post.contains(call),
+            "routes_dispatch_post_paths.rs must pass `req` through `{call}` \
+             so the handler can derive X-Argo-Tenant-Id."
+        );
+    }
+
+    let dispatch_get = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/handlers/gateway/routes_session_get.rs"),
+    )
+    .expect("read routes_session_get.rs");
+    for call in [
+        "session_skills_list_response(sid, req, store",
+        "session_judge_response(sid, req, store",
+    ] {
+        assert!(
+            dispatch_get.contains(call),
+            "routes_session_get.rs must pass `req` through `{call}` so the \
+             handler can derive X-Argo-Tenant-Id."
+        );
+    }
 }

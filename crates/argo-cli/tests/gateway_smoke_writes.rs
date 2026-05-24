@@ -315,13 +315,12 @@ fn session_skills_endpoints_validate_session_id_and_unknown_skill() {
     let resp = http_get_v(port, "/sessions/not-a-uuid/skills");
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
-    // GET on valid uuid with no rows → empty array.
+    // GET on valid-but-unknown uuid → existence-hiding 404.
     let resp = http_get_v(
         port,
         "/sessions/00000000-0000-0000-0000-000000000000/skills",
     );
-    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
-    assert_eq!(body_of(&resp), "[]");
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
 
     // POST attach with unknown skill → 404.
     let resp = http_post(

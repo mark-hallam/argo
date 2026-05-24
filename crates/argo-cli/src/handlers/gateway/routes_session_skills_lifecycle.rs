@@ -3,6 +3,7 @@
 //! file under the 500-LOC ceiling. The sibling
 //! `routes_session_skills.rs` re-exports each handler so
 //! `routes_dispatch_post.rs` imports stay unchanged.
+use super::tenant_header::{assert_session_belongs_to_tenant, request_tenant_id};
 use super::{body_from_request, store_unavailable};
 use argo_store::SessionStore;
 use argo_types::SessionId;
@@ -54,6 +55,7 @@ pub(super) async fn session_end_all_response(
 /// row matches.
 pub(super) async fn session_reopen_response(
     raw_sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -68,6 +70,10 @@ pub(super) async fn session_reopen_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     match store.reopen_session(sid).await {
         Ok(0) => (
             "404 Not Found",
@@ -89,6 +95,7 @@ pub(super) async fn session_reopen_response(
 /// session}`; 400 on bad uuid; 404 when no row matches.
 pub(super) async fn session_end_response(
     raw_sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -103,6 +110,10 @@ pub(super) async fn session_end_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     match store.end_session(sid).await {
         Ok(0) => (
             "404 Not Found",
@@ -140,6 +151,10 @@ pub(super) async fn session_set_title_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     let parsed: serde_json::Value = match serde_json::from_str(body_from_request(req)) {
         Ok(v) => v,
         Err(e) => {
@@ -176,6 +191,7 @@ pub(super) async fn session_set_title_response(
 /// case the same way the CLI does.
 pub(super) async fn session_delete_response(
     raw_sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -190,6 +206,10 @@ pub(super) async fn session_delete_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, sid, raw_sid, &tenant_id).await {
+        return resp;
+    }
     match store.delete_session(sid).await {
         Ok(0) => (
             "404 Not Found",
@@ -203,5 +223,60 @@ pub(super) async fn session_delete_response(
             "500 Internal Server Error",
             format!("{{\"error\":\"delete_session: {e}\"}}"),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use argo_types::{TenantId, WorkspaceId};
+
+    async fn mem_store() -> Arc<SessionStore> {
+        let store = SessionStore::open(":memory:").await.expect("open mem db");
+        store.migrate().await.expect("migrate");
+        Arc::new(store)
+    }
+
+    async fn seed_session(store: &Arc<SessionStore>) -> (TenantId, SessionId) {
+        let tenant = TenantId::new();
+        let workspace = WorkspaceId::new();
+        sqlx::query(
+            "INSERT INTO workspace (id, tenant_id, name, root_path, created_at)
+             VALUES (?, ?, 'cluster6-delete', '.', strftime('%s','now'))",
+        )
+        .bind(workspace.0.as_bytes().as_slice())
+        .bind(tenant.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await
+        .expect("seed workspace");
+        let session = store
+            .create_session(tenant, workspace, "m", "p", Some("cluster6-delete"), None)
+            .await
+            .expect("create session");
+        (tenant, session)
+    }
+
+    fn req_with_tenant(path: &str, tenant: &TenantId) -> String {
+        format!(
+            "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {}\r\n\r\n",
+            tenant.0
+        )
+    }
+
+    #[tokio::test]
+    async fn delete_session_matching_tenant_deletes_row() {
+        let store = mem_store().await;
+        let (tenant, session) = seed_session(&store).await;
+        let sid = session.0.to_string();
+        let req = req_with_tenant(&format!("/sessions/{sid}/delete"), &tenant);
+
+        let (status, body) = session_delete_response(&sid, &req, Some(&store)).await;
+
+        assert!(status.starts_with("200"), "status={status} body={body}");
+        let exists = store
+            .session_belongs_to_tenant(session, &tenant.0.to_string())
+            .await
+            .expect("session lookup");
+        assert!(!exists, "session row should be deleted");
     }
 }

@@ -7,11 +7,10 @@ mod common;
 use common::{body_of, boot, http_post, pick_free_port};
 
 #[test]
-fn session_skills_clear_returns_400_on_bad_id_and_200_on_empty_set() {
+fn session_skills_clear_returns_400_on_bad_id_and_404_on_unknown_session() {
     // Pins POST /sessions/<id>/skills/clear (the gateway-side
     // companion to `argo session clear-skills` shipped in #496).
-    // Bad uuid → 400; valid-but-unknown uuid → 200 with
-    // detached:0 since there's nothing to clear.
+    // Bad uuid → 400; valid-but-unknown uuid → existence-hiding 404.
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);
 
@@ -23,9 +22,9 @@ fn session_skills_clear_returns_400_on_bad_id_and_200_on_empty_set() {
         "/sessions/00000000-0000-0000-0000-000000000000/skills/clear",
         "",
     );
-    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
     let body = body_of(&resp);
-    assert!(body.contains("\"detached\":0"), "body={body}");
+    assert!(body.contains("no session"), "body={body}");
 
     assert!(child.wait().expect("wait").success());
 }

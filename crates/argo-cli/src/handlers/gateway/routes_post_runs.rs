@@ -8,6 +8,7 @@ use argo_store::SessionStore;
 use argo_types::{MessageRole, SessionId};
 use std::sync::Arc;
 
+use super::tenant_header::{assert_session_belongs_to_tenant, request_tenant_id};
 use super::{body_from_request, store_unavailable};
 
 pub(super) async fn run_turn_response(
@@ -27,6 +28,10 @@ pub(super) async fn run_turn_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, id, sid, &tenant_id).await {
+        return resp;
+    }
     let body = body_from_request(req);
     let parsed: serde_json::Value = if body.is_empty() {
         serde_json::Value::Null
@@ -143,6 +148,10 @@ pub(super) async fn steer_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, id, sid, &tenant_id).await {
+        return resp;
+    }
     let body = body_from_request(req);
     let parsed: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
@@ -159,12 +168,6 @@ pub(super) async fn steer_response(
             "{\"error\":\"missing 'text' field\"}".to_string(),
         );
     };
-    if let Ok(None) = store.get_session(id).await {
-        return (
-            "404 Not Found",
-            format!("{{\"error\":\"no session {sid}\"}}"),
-        );
-    }
     let content = serde_json::json!([{
         "type": "text",
         "text": format!("[steer] {text}"),
@@ -178,5 +181,65 @@ pub(super) async fn steer_response(
             "500 Internal Server Error",
             format!("{{\"error\":\"steer: {e}\"}}"),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use argo_types::{TenantId, WorkspaceId};
+
+    async fn mem_store() -> Arc<SessionStore> {
+        let store = SessionStore::open(":memory:").await.expect("open mem db");
+        store.migrate().await.expect("migrate");
+        Arc::new(store)
+    }
+
+    async fn seed_session(store: &Arc<SessionStore>) -> (TenantId, SessionId) {
+        let tenant = TenantId::new();
+        let workspace = WorkspaceId::new();
+        sqlx::query(
+            "INSERT INTO workspace (id, tenant_id, name, root_path, created_at)
+             VALUES (?, ?, 'cluster6-run', '.', strftime('%s','now'))",
+        )
+        .bind(workspace.0.as_bytes().as_slice())
+        .bind(tenant.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await
+        .expect("seed workspace");
+        let session = store
+            .create_session(
+                tenant,
+                workspace,
+                "mock",
+                "mock",
+                Some("cluster6-run"),
+                None,
+            )
+            .await
+            .expect("create session");
+        (tenant, session)
+    }
+
+    fn req_with_tenant(path: &str, tenant: &TenantId, body: &str) -> String {
+        format!(
+            "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {}\r\n\
+             Content-Length: {}\r\n\r\n{body}",
+            tenant.0,
+            body.len()
+        )
+    }
+
+    #[tokio::test]
+    async fn run_turn_matching_tenant_reaches_body_parser() {
+        let store = mem_store().await;
+        let (tenant, session) = seed_session(&store).await;
+        let sid = session.0.to_string();
+        let req = req_with_tenant(&format!("/sessions/{sid}/runs"), &tenant, "{not-json");
+
+        let (status, body) = run_turn_response(&sid, &req, Some(&store)).await;
+
+        assert!(status.starts_with("400"), "status={status} body={body}");
+        assert!(body.contains("parse body"), "body={body}");
     }
 }

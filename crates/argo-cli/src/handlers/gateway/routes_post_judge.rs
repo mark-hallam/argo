@@ -11,6 +11,7 @@ use argo_types::SessionId;
 use std::sync::Arc;
 
 use super::store_unavailable;
+use super::tenant_header::{assert_session_belongs_to_tenant, request_tenant_id};
 
 /// `GET /sessions/<id>/judge[?format=markdown]` — list
 /// judge_record rows scoped to one session. Mirrors
@@ -18,6 +19,7 @@ use super::store_unavailable;
 /// (possibly empty) or markdown table; 400 on bad uuid.
 pub(super) async fn session_judge_response(
     sid: &str,
+    req: &str,
     store: Option<&Arc<SessionStore>>,
     format: Option<&str>,
 ) -> (&'static str, String) {
@@ -33,6 +35,10 @@ pub(super) async fn session_judge_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) = assert_session_belongs_to_tenant(store, id, sid, &tenant_id).await {
+        return resp;
+    }
     match store.list_judge_records(id).await {
         Ok(rows) => {
             if matches!(format, Some("markdown")) {

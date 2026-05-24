@@ -7,6 +7,7 @@
 //! All four endpoints pass `PrincipalOverride::Force` to the
 //! underlying store API — the gateway acts as the user, not as
 //! an agent. A future tier of RBAC tokens may narrow this.
+use super::tenant_header::assert_judge_record_belongs_to_tenant;
 use super::{body_from_request, request_tenant_id, store_unavailable};
 use argo_skill::{PrincipalOverride as SkillPrincipal, SkillStore};
 use argo_store::SessionStore;
@@ -113,6 +114,12 @@ pub(super) async fn judge_override_response(
             "{\"error\":\"missing or empty `to`\"}".to_string(),
         );
     };
+    let tenant_id = request_tenant_id(req);
+    if let Err(resp) =
+        assert_judge_record_belongs_to_tenant(store, record_id, raw_record, &tenant_id).await
+    {
+        return resp;
+    }
     let reason = format!("override via gateway POST /judge/{raw_record}/override");
     match store
         .override_judge_verdict(record_id, new_verdict, Some(&reason))

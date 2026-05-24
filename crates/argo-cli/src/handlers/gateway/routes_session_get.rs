@@ -127,7 +127,7 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("skills ") || tail.starts_with("skills?") {
             let format = parse_query_kv(tail, "format");
-            return Some(session_skills_list_response(sid, store, format.as_deref()).await);
+            return Some(session_skills_list_response(sid, req, store, format.as_deref()).await);
         }
         // #666 — list active human-approval grants for this
         // session. Operator visibility into "what's currently
@@ -139,7 +139,7 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("judge ") || tail.starts_with("judge?") {
             let format = parse_query_kv(tail, "format");
-            return Some(session_judge_response(sid, store, format.as_deref()).await);
+            return Some(session_judge_response(sid, req, store, format.as_deref()).await);
         }
         if tail.starts_with("export ") || tail.starts_with("export?") {
             return Some(export_response(sid, tail, store).await);
