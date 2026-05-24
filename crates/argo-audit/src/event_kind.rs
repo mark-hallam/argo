@@ -487,4 +487,14 @@ pub enum AuditKind {
     /// `{ tenant_id, worker_id, duty_id, session_id, cron_spec,
     /// fired_at, entry_action, error }`.
     WorkerDutyFailed,
+    /// Cross-tenant orchestrator handoff refused by the substrate
+    /// (`mission-orchestrator-cross-tenant-handoff-audit-kind`, from
+    /// #2091). `insert_handoff` still returns the byte-identical
+    /// `Schema("handoff session not found")` (existence-leak contract);
+    /// when the session_id exists in another tenant the substrate also
+    /// appends one row to the victim tenant's chain. Genuine no-such-
+    /// session inserts emit no row. Payload: `{ session_id,
+    /// attempted_tenant_id, victim_tenant_id, from_worker, to_kind,
+    /// to_worker_id?, to_addr?, reason, payload_hash, attempted_at }`.
+    HandoffCrossTenantAttempt,
 }

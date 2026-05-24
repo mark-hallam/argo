@@ -84,6 +84,7 @@ impl AuditKind {
             Self::WorkflowStepFailed => "workflow.step.failed",
             Self::WorkerDutyFired => "worker_duty.fired",
             Self::WorkerDutyFailed => "worker_duty.failed",
+            Self::HandoffCrossTenantAttempt => "handoff.cross_tenant_attempt",
         }
     }
 
@@ -163,6 +164,7 @@ impl AuditKind {
             "workflow.step.failed" => Self::WorkflowStepFailed,
             "worker_duty.fired" => Self::WorkerDutyFired,
             "worker_duty.failed" => Self::WorkerDutyFailed,
+            "handoff.cross_tenant_attempt" => Self::HandoffCrossTenantAttempt,
             _ => return None,
         })
     }
@@ -242,6 +244,7 @@ impl AuditKind {
             Self::WorkflowStepFailed,
             Self::WorkerDutyFired,
             Self::WorkerDutyFailed,
+            Self::HandoffCrossTenantAttempt,
         ];
         v.sort_by_key(|k| k.label());
         v

@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 70);
+    assert_eq!(AuditKind::all().len(), 71);
 }
 
 #[test]
@@ -460,6 +460,20 @@ fn workflow_execute_dispatched_round_trips_and_listed() {
     assert_eq!(
         serde_json::to_string(&kind).unwrap(),
         "\"workflow_execute_dispatched\""
+    );
+}
+
+#[test]
+fn handoff_cross_tenant_attempt_round_trips_and_listed() {
+    let kind = AuditKind::HandoffCrossTenantAttempt;
+    let label = "handoff.cross_tenant_attempt";
+    assert_eq!(AuditKind::from_label(label), Some(kind));
+    assert_eq!(kind.label(), label);
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&label));
+    assert_eq!(
+        serde_json::to_string(&kind).unwrap(),
+        "\"handoff_cross_tenant_attempt\""
     );
 }
 

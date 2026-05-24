@@ -10,7 +10,9 @@ use crate::persist::{
     from_json, micros_to_utc, opt_micros, session_id_blob, session_id_from_blob, tenant_blob,
     to_json, ORCHESTRATOR_PROVIDER,
 };
+use crate::persist_audit::payload_hash;
 use crate::{EscalationStep, Handoff, HandoffId, HandoffStatus, OrchestratorStore, SessionId};
+use argo_audit::AuditKind;
 use argo_identity::WorkerId;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::Utc;
@@ -159,6 +161,16 @@ async fn last_session_hash(pool: &sqlx::Pool<sqlx::Sqlite>, sid: &Uuid) -> ArgoR
 
 impl OrchestratorStore {
     /// Insert a handoff for an existing tenant-scoped session.
+    ///
+    /// On the cross-tenant refusal path (the session id exists, but in a
+    /// different tenant), this method first appends a
+    /// [`AuditKind::HandoffCrossTenantAttempt`] row to the victim
+    /// tenant's session chain — operators see attempted leaks in
+    /// `argo audit show` even though the caller still gets the
+    /// byte-identical `"handoff session not found"` error (per the
+    /// existence-leak contract pinned by
+    /// `cross_tenant_handoff_test::insert_handoff_into_other_tenants_session_is_rejected_identical_to_nonexistent_session`).
+    /// Genuine "no such session in any tenant" inserts emit no row.
     pub async fn insert_handoff(&self, tenant_id: TenantId, handoff: &Handoff) -> ArgoResult<()> {
         self.ensure_schema().await?;
         if self
@@ -166,6 +178,12 @@ impl OrchestratorStore {
             .await?
             .is_none()
         {
+            try_audit_cross_tenant_handoff_attempt(
+                self.pool(),
+                tenant_id,
+                handoff,
+            )
+            .await?;
             return Err(ArgoError::Schema("handoff session not found".into()));
         }
         sqlx::query(
@@ -342,4 +360,111 @@ impl OrchestratorStore {
         write_handoff_cancelled_audit(self.pool(), &handoff, note).await?;
         Ok(handoff)
     }
+}
+
+/// Look up the owning tenant of a session by id alone (no caller-tenant
+/// constraint). Returns `None` when the session does not exist in any
+/// tenant — that is the genuine "no such session anywhere" case, which
+/// must stay silent (no audit row). Used only by the cross-tenant
+/// detection in [`OrchestratorStore::insert_handoff`].
+async fn find_session_owner_tenant(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    session_id: &SessionId,
+) -> ArgoResult<Option<TenantId>> {
+    let row: Option<Vec<u8>> = sqlx::query_scalar(
+        "SELECT tenant_id FROM session WHERE id = ? AND provider = ?",
+    )
+    .bind(session_id_blob(session_id)?.as_slice())
+    .bind(ORCHESTRATOR_PROVIDER)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("find session owner tenant: {e}")))?;
+    match row {
+        None => Ok(None),
+        Some(bytes) => Uuid::from_slice(&bytes)
+            .map(|u| Some(TenantId(u)))
+            .map_err(|e| ArgoError::Schema(format!("session.tenant_id: {e}"))),
+    }
+}
+
+/// If `insert_handoff` is being called against another tenant's
+/// session, append one [`AuditKind::HandoffCrossTenantAttempt`] row to
+/// the victim tenant's session chain so the leak attempt shows up in
+/// `argo audit show`. The caller's error path is unchanged — this
+/// helper is fire-and-forget for the public API contract: the cross-
+/// tenant insert still returns the byte-identical "handoff session not
+/// found" `Schema` error. Genuine nonexistent-session inserts (no row
+/// in any tenant) emit no audit row.
+async fn try_audit_cross_tenant_handoff_attempt(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    attempted_tenant_id: TenantId,
+    handoff: &Handoff,
+) -> ArgoResult<()> {
+    let Some(victim_tenant_id) = find_session_owner_tenant(pool, &handoff.session_id).await? else {
+        return Ok(());
+    };
+    if victim_tenant_id == attempted_tenant_id {
+        // Defence-in-depth: the find_session caller-tenant lookup
+        // already returned None, so this branch is unreachable for the
+        // normal "wrong tenant" case. Guard the audit row anyway so a
+        // future refactor that loosens find_session never produces a
+        // self-attempt row.
+        return Ok(());
+    }
+    let canonical = canonical_cross_tenant_payload(attempted_tenant_id, victim_tenant_id, handoff)?;
+    write_cross_tenant_attempt_audit(pool, &handoff.session_id, &canonical).await
+}
+
+fn canonical_cross_tenant_payload(
+    attempted_tenant_id: TenantId,
+    victim_tenant_id: TenantId,
+    handoff: &Handoff,
+) -> ArgoResult<String> {
+    let (to_kind, to_worker_id, to_addr) = match &handoff.to {
+        EscalationStep::Worker(id) => ("worker", Some(id.to_string()), None),
+        EscalationStep::Human(addr) => ("human", None, Some(addr.clone())),
+    };
+    let value = serde_json::json!({
+        "session_id": handoff.session_id.as_str(),
+        "attempted_tenant_id": attempted_tenant_id.0.to_string(),
+        "victim_tenant_id": victim_tenant_id.0.to_string(),
+        "from_worker": handoff.from.to_string(),
+        "to_kind": to_kind,
+        "to_worker_id": to_worker_id,
+        "to_addr": to_addr,
+        "reason": handoff.expected_outcome,
+        "payload_hash": payload_hash(&handoff.payload),
+        "attempted_at": Utc::now().to_rfc3339(),
+    });
+    serde_json::to_string(&value).map_err(|e| {
+        ArgoError::Schema(format!("handoff_cross_tenant_attempt payload: {e}"))
+    })
+}
+
+async fn write_cross_tenant_attempt_audit(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    victim_session_id: &SessionId,
+    canonical: &str,
+) -> ArgoResult<()> {
+    let kind = AuditKind::HandoffCrossTenantAttempt.label();
+    let sid = Uuid::parse_str(victim_session_id.as_str())
+        .map_err(|e| ArgoError::Schema(format!("handoff.session_id: {e}")))?;
+    let parent = last_session_hash(pool, &sid).await?;
+    let self_hash = argo_audit::compute_chain_hash(&parent, kind, canonical);
+    let id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO audit_record (id, session_id, kind, payload_json, \
+         parent_hash, self_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(id.as_bytes().as_slice())
+    .bind(sid.as_bytes().as_slice())
+    .bind(kind)
+    .bind(canonical)
+    .bind(parent.as_slice())
+    .bind(self_hash.as_slice())
+    .bind(Utc::now().timestamp_micros())
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("audit insert cross-tenant attempt: {e}")))?;
+    Ok(())
 }
