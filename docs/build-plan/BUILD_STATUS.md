@@ -85,6 +85,36 @@
 > Fresh sessions: read PRODUCT_ROADMAP.md before picking up any
 > UI / UX / persona / journey row.
 >
+> **🚨 OPERATOR AMENDMENT 2026-05-24 — TRACK P (PITCH AGENT) IS IN v1.0 MVP SCOPE 🚨**
+>
+> Operator decision 2026-05-24 (interactive session): the Pitch Agent (Track P, 8 briefs P-01 through P-08, storyboard at `docs/skycot/demos/pitch-agent-v1-storyboard.html`) is **in MVP scope** and must ship before the v1.0 demo MP4 records. This expands the v1.0 ship gate from the earlier CLAUDE.md statement that had Track P queued post-v1.0.
+>
+> **Revised v1.0 ship gate:**
+> 1. All Tier M MERGED ✅ (substantially complete)
+> 2. **All 8 Track P briefs MERGED** ← NEW operator-locked scope item
+> 3. `docs/skycot/demos/v1-mission-mvp.mp4` recorded against a LIVE pitch-agent demonstration per the storyboard
+> 4. Extended smoke test passes including BrowserExecutor + Slack-approval scenarios
+>
+> **Track P status snapshot (2026-05-24T17:00Z):**
+> - **P-01** `pitch-truth-boundary-capability-schema` — 🟡 IN_REVIEW PR #2214 (gate-jammed on LOC split)
+> - **P-02** `pitch-truth-boundary-runtime-enforcement` — 🚧 BLOCKED-BY P-01
+> - **P-03** `pitch-voice-io-provider-agnostic-crate` — 🟡 IN_REVIEW PR #2209 (gate-jammed)
+> - **P-04** `pitch-canonical-qa-skill` — 🚧 BLOCKED-BY P-01
+> - **P-05** `pitch-agent-worker-template` — 🚧 BLOCKED-BY P-01 + P-03 + P-04
+> - **P-06** `pitch-skycot-web-embed-channel` — 🚧 BLOCKED-BY P-02 + P-03 + P-05
+> - **P-07** `pitch-meeting-orchestrator-zoom-channel` — 🚧 BLOCKED-BY P-02 + P-03 + P-05
+> - **P-08** `pitch-eval-suite-investor-qa` — 🚧 BLOCKED-BY P-01..P-05; gates P-06+P-07 live deployment
+>
+> **Conductor obligations (every tick from now until v1.0 ships):**
+> - Track P briefs take priority equal-to or above any other v1.0 work in queue ordering. Promote unblocked Track P TODOs to the top of the DEMO-RECORDING UNBLOCK section.
+> - **Merge-wave order**: when the LOC gate clears (`codex-cli-routes-approvals-json-split-helpers` MERGED), admin-merge **#2214 (P-01) FIRST**, then **#2209 (P-03)**, then the remaining wave per the triage agent's order.
+> - **Cascade unblocks** in the SAME commit as each Track P merge:
+>   - After #2214 (P-01) merges → FLIP `pitch-truth-boundary-runtime-enforcement` (P-02) + `pitch-canonical-qa-skill` (P-04) BLOCKED → TODO.
+>   - After #2209 (P-03) merges + P-01/P-04 merged → FLIP `pitch-agent-worker-template` (P-05) BLOCKED → TODO.
+>   - After P-02 + P-05 also merge → FLIP P-06 + P-07 BLOCKED → TODO. FLIP P-08 BLOCKED → TODO once P-01..P-05 all merged.
+> - Workers preferentially claim Track P TODOs over other work when free capacity opens.
+> - Estimated ~8 weeks on full swarm to land all 8 (per project_pitch_agent_v1_demo.md memory).
+>
 > **🧭 LIVE DIRECTIVES:**
 > - **HISTORICAL (rescinded 2026-05-21 by operator)** — `conductor-prompt-deployment-path-v3.md` (2026-05-12) and its two queued successors (`conductor-prompt-post-v3-directives.md` BLOCK 1 SKILL-CANVAS-v1 + BLOCK 2 ENTERPRISE-PARITY-v1). All three are superseded by the post-25-audit / PRODUCT_ROADMAP web-* work that has been the swarm's actual workload since 2026-05-12. Track L (Skill-Canvas) is 14 MERGED / 4 DROPPED, Track M (Enterprise-Parity) is 18 MERGED / 1 BLOCKED (paddleocr operator-decisional) / 1 DROPPED. Files retained on disk for traceability only; conductors should **NOT** read these as active overrides. Normal PROTOCOL_LOOP_PROMPT step-8 replenishment applies (idea sources in priority order: MISSION_BACKLOG[NEW] → PRODUCT_ROADMAP tracks → recent PR-body deferrals → git log -100).
 > - **ACTIONED** — `conductor-advisory-{E0-E1,E2-E5,F-reconciliation,G-J}.md`:
