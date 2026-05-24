@@ -32,11 +32,11 @@ const ALLOWED_METHODS: &str = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 /// `X-Argo-Tenant-Id` is the existing dev/test tenant key the
 /// wizard uses; `X-CSRF-Token` is the double-submit value the
 /// `web/lib/api/client.ts` request wrapper stamps on every mutating
-/// request when a `__Host-csrf` cookie is present (the magic-link
-/// + demo-mint cookie pipeline mints both cookies together — without
-/// `X-CSRF-Token` in this allow-list the browser fail-closes every
-/// signed-in SPA POST to the gateway from a different origin even
-/// when the preflight succeeds). Adding more here is harmless.
+/// request when a `__Host-csrf` cookie is present. The magic-link
+/// and demo-mint cookie pipeline mints both cookies together, so
+/// without `X-CSRF-Token` in this allow-list the browser fail-closes
+/// every signed-in SPA POST to the gateway from a different origin
+/// even when the preflight succeeds. Adding more here is harmless.
 const ALLOWED_HEADERS: &str =
     "Content-Type, Authorization, X-Argo-Principal, X-Idempotency-Key, X-Argo-Tenant-Id, X-CSRF-Token";
 
