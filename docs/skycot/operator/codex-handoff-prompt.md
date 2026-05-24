@@ -17,6 +17,16 @@ You are joining the SKYCOT swarm as a CODEX session. You may be acting as:
 The operator (Mark Hallam) will tell you which mode they want. Default to
 conductor-mode if unclear.
 
+CODEX CONDUCTOR OVERRIDE — IMPORTANT:
+When operating as conductor, Codex is responsible for ledger hygiene, PR
+shape review/merge, queue replenishment, stale-row recovery, and brief
+rewrites. Do NOT run workspace clippy, cargo compiles, cargo tests, or
+`scripts/conductor-pre-merge-gate.sh` from the Codex conductor session unless
+the operator explicitly asks for a local cargo gate for a named PR. Workers
+own verification; the conductor checks that the PR body claims the required
+verification, that changed files match the brief, that acceptance/boundary
+notes are present, and that GitHub reports the PR mergeable.
+
 CONTEXT — the swarm is currently HALTED.
 
 🔧 KNOWN-STALE WARNING (2026-05-24): the original quota-handoff doc
@@ -52,8 +62,10 @@ STEP 1 — READ IN THIS EXACT ORDER (do not skip):
      CLAUDE-PREFERRED briefs explicitly reserved per the header.)
 
   4. cat docs/build-plan/PROTOCOL_LOOP_PROMPT.md
-     (the 9-step conductor tick procedure — provider-agnostic. If
-     operator asks for a conductor tick, run this exact sequence.)
+     (the 9-step conductor tick procedure. If operator asks for a
+     conductor tick, follow the sequence but apply the CODEX CONDUCTOR
+     OVERRIDE above for PR review/merge: no local cargo or workspace
+     clippy from the conductor session.)
 
   5. cat docs/build-plan/SWARM_PROTOCOL.md
      (HARD RULES section + iteration sequence. Worker side. If you're a
@@ -105,7 +117,8 @@ Print a structured report:
 
 Then ASK:
   Which mode would you like me to operate in?
-    (a) "conductor tick" — run one tick per PROTOCOL_LOOP_PROMPT.md
+    (a) "conductor tick" — run one tick per PROTOCOL_LOOP_PROMPT.md,
+        applying the CODEX CONDUCTOR OVERRIDE above
     (b) "claim a brief" — pick top-of-queue codex-eligible TODO, ship one PR
     (c) "review specific PR" — Tier-1 review a single PR you name
     (d) "resume scheduled tasks" — re-enable conductor cron + workers
@@ -119,9 +132,12 @@ CODEX-SPECIFIC NOTES:
 - Worker invocation: FAMILY=codex bash scripts/claude-worker-loop.sh
   (yes, the file is named claude-worker-loop.sh; the FAMILY env var
    switches the inner provider call from `claude -p` to `codex -p`)
-- Pre-push gate: bash scripts/codex-pre-push.sh (lighter than the
-   Claude workspace-clippy-fast-fail.sh — codex briefs are typically
-   smaller mechanical work)
+- Worker pre-push gate: bash scripts/codex-pre-push.sh. This is for
+   codex worker branches only, not conductor ticks.
+- Codex conductor mode: never run worker pre-push gates, workspace
+   clippy, cargo compiles, cargo tests, or conductor-pre-merge-gate
+   unless the operator explicitly asks for a local cargo gate for a
+   named PR.
 - Codex briefs sizing per operator amendment: 200-1200 LOC, single
    crate, mechanical, narrow may-touch. Architecturally-heavy or
    multi-crate sweeps are claude-preferred.
@@ -132,8 +148,8 @@ CODEX-SPECIFIC NOTES:
 GIT WORKFLOW (same as Claude):
 
 - Always git pull --rebase before push
-- Use --no-verify on commits to bypass brief-lint pre-commit hook
-   when conductor-edit work
+- Never use --no-verify or any hook-skip flag. If a hook warns in
+   non-failing mode, let it run and commit normally.
 - Co-Authored-By line is OPTIONAL for codex (default Claude convention
    was set when only Claude was running; the operator hasn't specified
    a codex equivalent)

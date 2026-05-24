@@ -1,8 +1,8 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-24T05:26:23Z",
+  "last_run_utc": "2026-05-24T06:46:31Z",
   "expected_cadence_seconds": 3600,
   "session_label": "manual-codex-conductor-2026-05-24",
-  "run_notes": "Manual codex conductor tick: replenished codex queue +4 and claude queue +5; PR #2172 pre-merge gate failed on argo-cli CORS doc lint so queued fix-cli-gateway-cors-doc-continuation-lints and demoted #2172; stale #2131 demoted; unblocked two gateway tenant-bind briefs by widening may-touch; no merges.",
-  "open_prs": 7
+  "run_notes": "Manual codex conductor tick: replenished mixed queue +5, then corrected Codex-only handoff prompt so Codex conductors do not run cargo/workspace-clippy gates by default.",
+  "open_prs": 10
 }
