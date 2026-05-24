@@ -12,7 +12,7 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 71);
+    assert_eq!(AuditKind::all().len(), 72);
 }
 
 #[test]

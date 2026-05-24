@@ -11,6 +11,12 @@
 //! ```text
 //! argo compliance delete --tenant <id> --confirm <id> [--dry-run]
 //! ```
+//!
+//! GDPR Article 30 records of processing activities:
+//!
+//! ```text
+//! argo compliance ropa --tenant <id> --output <path>
+//! ```
 use clap::{Args, Subcommand};
 
 #[derive(Subcommand, Debug)]
@@ -22,6 +28,8 @@ pub enum ComplianceCmd {
     /// Emit tenant-scoped compliance data with filters and an
     /// integrity stamp.
     Export(CliComplianceExportArgs),
+    /// Write a tenant-scoped GDPR Article 30 ROPA JSON document.
+    Ropa(CliComplianceRopaArgs),
     /// Cascade-delete every tenant-scoped row for GDPR right-to-
     /// erasure. Audit rows are tombstoned in place (PII fields
     /// replaced with `<erased>`, hash chain re-stitched). The whole
@@ -50,6 +58,16 @@ pub struct CliComplianceExportArgs {
     /// Write the JSON envelope to this path. Defaults to stdout.
     #[arg(long)]
     pub out: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct CliComplianceRopaArgs {
+    /// Tenant id (UUID) whose Article 30 record should be exported.
+    #[arg(long, alias = "tenant-id")]
+    pub tenant: String,
+    /// Write the Article 30 JSON document to this path.
+    #[arg(long)]
+    pub output: String,
 }
 
 #[derive(Args, Debug)]

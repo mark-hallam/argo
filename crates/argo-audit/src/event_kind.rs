@@ -1,13 +1,11 @@
 //! The [`AuditKind`] enum — variant declarations only.
 //!
-//! Inherent impls (`label`, `from_label`, `all`) live in
-//! `crates/argo-audit/src/event.rs` alongside the unit tests, so each
-//! file stays under the 500-LOC ceiling per HARD RULE 6 of the swarm
+//! Inherent impls (`label`, `from_label`, `all`) live in `event.rs`
+//! alongside tests, so each file stays under the 500-LOC ceiling per HARD RULE 6 of the swarm
 //! protocol. Callsites continue to import via `argo_audit::AuditKind`
 //! (the `pub use` in `lib.rs`) or `crate::event::AuditKind` (the
 //! re-export in `event.rs`).
 use serde::{Deserialize, Serialize};
-
 /// Stable `kind` label persisted in the `audit_record.kind` column.
 ///
 /// Adding a variant is API-stable; renaming or removing one is not —
@@ -241,6 +239,8 @@ pub enum AuditKind {
     /// `requested_at`. One row per accepted request; rate-limit
     /// rejections (HTTP 429) do not emit.
     DataExportRequested,
+    /// CLI Article 30 ROPA export; payload omits raw paths.
+    ComplianceRopaExported,
     /// A principal's role binding changed in the capability engine.
     /// Payload carries `principal`, `role_or_capability`, `actor`,
     /// `at`, and `action` (`bind` or `unbind`).

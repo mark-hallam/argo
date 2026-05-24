@@ -36,6 +36,7 @@ pub(crate) async fn compliance(cmd: cli::ComplianceCmd) -> ArgoResult<()> {
             Ok(())
         }
         cli::ComplianceCmd::Export(args) => handlers::compliance_export::run(args).await,
+        cli::ComplianceCmd::Ropa(args) => handlers::compliance_ropa::run(args).await,
         cli::ComplianceCmd::Delete(args) => {
             let rc = handlers::compliance_delete::run(args).await?;
             if rc != 0 {

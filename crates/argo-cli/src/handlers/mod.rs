@@ -59,6 +59,7 @@ pub mod completions;
 mod completions_tests;
 pub mod compliance_delete;
 pub mod compliance_export;
+pub mod compliance_ropa;
 pub mod compliance_soc2;
 pub mod compliance_tenant_tables;
 pub mod config_show;
