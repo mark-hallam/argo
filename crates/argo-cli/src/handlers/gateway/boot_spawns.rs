@@ -13,7 +13,8 @@ use std::time::{Duration, SystemTime};
 use argo_channels::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 use argo_config::SiemConfig;
 use argo_orchestrator::{
-    spawn_duty_scheduler, ClosedGate, DutyScheduler, DutyStore, OrchestratorStore, WorkerSupervisor,
+    spawn_duty_scheduler, ClosedGate, DutyAgentRunner, DutyGate, DutyRunContext, DutyScheduler,
+    DutyStore, OrchestratorStore, WorkerSupervisor,
 };
 use argo_siem::{
     spawn_siem_dispatcher, DatadogLogsSink, ElasticSink, SiemDispatcherConfig, SiemSink,
@@ -21,6 +22,8 @@ use argo_siem::{
 };
 use argo_store::attached_blob::{BlobStore, MemoryAttachedBlob};
 use argo_store::SessionStore;
+use argo_types::{ArgoError, ArgoResult};
+use async_trait::async_trait;
 use tokio::task::JoinHandle;
 
 use super::approval_reminder;
@@ -161,20 +164,82 @@ pub(super) fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnD
         .and_then(|s| s.parse::<u64>().ok())
         .filter(|secs| *secs > 0)
         .unwrap_or(DEFAULT_DUTY_SCHEDULER_SECS);
-    let duties = Arc::new(DutyStore::new(Arc::clone(&store)));
-    let orchestrator = Arc::new(OrchestratorStore::new(store));
-    // V1 fail-safe: run the autonomous duty loop but deny every
-    // fire until the live auto-approval gate is wired and verified.
-    let gate = Arc::new(ClosedGate);
-    let scheduler = Arc::new(DutyScheduler::new(duties, orchestrator, gate));
+    let scheduler = build_gateway_duty_scheduler(store);
     eprintln!(
-        "argo gateway: duty scheduler enabled (interval={}s, gate=closed)",
+        "argo gateway: duty scheduler enabled (interval={}s, gate=closed, runner=wired, sink=wired)",
         interval_secs
     );
     AbortOnDrop::new(spawn_duty_scheduler(
         scheduler,
         Duration::from_secs(interval_secs),
     ))
+}
+
+fn build_gateway_duty_scheduler(store: Arc<SessionStore>) -> Arc<DutyScheduler> {
+    let duties = Arc::new(DutyStore::new(Arc::clone(&store)));
+    let orchestrator = Arc::new(OrchestratorStore::new(Arc::clone(&store)));
+    // V1 fail-safe: run the autonomous duty loop but deny every
+    // fire until the live auto-approval gate is wired and verified.
+    let gate = Arc::new(ClosedGate);
+    let runner = Arc::new(GatewayDutyAgentRunner::new(Arc::clone(&store)));
+    let sink = Arc::new(argo_audit::AuditSink::new_with_tenant(
+        store,
+        argo_audit::SYSTEM_AUDIT_TENANT_ID.to_string(),
+    ));
+    build_gateway_duty_scheduler_with(duties, orchestrator, gate, runner, sink)
+}
+
+fn build_gateway_duty_scheduler_with(
+    duties: Arc<DutyStore>,
+    orchestrator: Arc<OrchestratorStore>,
+    gate: Arc<dyn DutyGate>,
+    runner: Arc<dyn DutyAgentRunner>,
+    sink: Arc<argo_audit::AuditSink>,
+) -> Arc<DutyScheduler> {
+    Arc::new(
+        DutyScheduler::new(duties, orchestrator, gate)
+            .with_agent_runner(runner)
+            .with_audit_sink(sink),
+    )
+}
+
+struct GatewayDutyAgentRunner {
+    store: Arc<SessionStore>,
+    cwd: PathBuf,
+}
+
+impl GatewayDutyAgentRunner {
+    fn new(store: Arc<SessionStore>) -> Self {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        Self { store, cwd }
+    }
+}
+
+#[async_trait]
+impl DutyAgentRunner for GatewayDutyAgentRunner {
+    async fn run_turn(&self, ctx: DutyRunContext) -> ArgoResult<()> {
+        let session_uuid = uuid::Uuid::parse_str(ctx.session_id.as_str()).map_err(|e| {
+            ArgoError::Schema(format!(
+                "duty scheduler session id '{}' is not a UUID: {e}",
+                ctx.session_id.as_str()
+            ))
+        })?;
+        let session_id = argo_types::SessionId(session_uuid);
+        let prompt = format!(
+            "Run scheduled duty `{}` for worker `{}`. Duty id: {}.",
+            ctx.entry_action, ctx.worker_id, ctx.duty_id
+        );
+        argo_agent_runner::run_turn(
+            &self.store,
+            &self.cwd,
+            session_id,
+            Some(&prompt),
+            false,
+            argo_agent_runner::MAX_TOOL_ROUNDS,
+        )
+        .await
+        .map(|_| ())
+    }
 }
 
 /// Build the right [`SiemSink`] for the configured backend and spawn
