@@ -387,8 +387,10 @@ unblocks a mission claim.
 179. Gateway RBAC tiers (Amendment 4).
      `[SHIPPED]`
 180. Adaptive provider timeouts (Amendment 6). `[NEW: verify]`
-181. Per-delegation fallback chain (Amendment 7). `[NEW: verify]`
-182. `model = "latest"` resolution (Amendment 8). `[NEW: verify]`
+181. Per-delegation fallback chain (Amendment 7).
+     `[BRIEF: mission-delegate-task-fallback-chain-v2]`
+182. `model = "latest"` resolution (Amendment 8).
+     `[BRIEF: mission-model-latest-runtime-wire]`
 183. `auto_continue_at_max_iterations` policy (Amendment 9). `[BRIEF: mission-auto-continue-max-iterations-policy]`
 184. ACP server multi-harness (Amendment 11). `[NEW: verify]`
 185. `/steer` mid-run nudges (Amendment 14). `[NEW: verify]`
