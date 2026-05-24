@@ -1,8 +1,8 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-24T11:59:05Z",
+  "last_run_utc": "2026-05-24T13:00:32Z",
   "expected_cadence_seconds": 3600,
   "session_label": "manual-codex-conductor-2026-05-24",
-  "run_notes": "Manual codex conductor tick complete: replenished codex+claude queues above threshold, actioned unread evaluator handoffs, and left 5 PR fix-requests after gate/acceptance blockers; no cargo/workspace-clippy/pre-merge cargo gate run by conductor.",
-  "open_prs": 9
+  "run_notes": "Manual codex conductor tick complete: replenished codex queue, actioned unread evaluator handoffs as merged/operator-only, and returned two clean PRs to TODO because the shared pre-merge gate still fails on mainline LOC drift.",
+  "open_prs": 16
 }
