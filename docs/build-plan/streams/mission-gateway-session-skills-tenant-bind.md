@@ -41,11 +41,11 @@ no per-route SQL rewrites needed.
 
 ## Scope
 
-- Add `assert_session_belongs_to_tenant` helper in the gateway's
-  handler-helpers module (most likely
-  `crates/argo-cli/src/handlers/gateway/routes_helpers.rs` if it
-  exists; otherwise inline in a small new file in the gateway
-  subdir).
+- Add `assert_session_belongs_to_tenant` as a small helper in
+  `tenant_header.rs` or as route-local helpers in the touched route
+  files. `routes_helpers.rs` does not exist on current main and
+  `mod.rs` is already close to the 500-LOC ceiling, so do not add a
+  new gateway module in this brief.
 - At each of the 13 callsites in cluster 6, derive `tenant_id` via
   `request_tenant_id(req)` and call the helper before invoking
   the mutating store fn. Early-return the 404 envelope on
@@ -77,7 +77,9 @@ no per-route SQL rewrites needed.
 - `crates/argo-cli/src/handlers/gateway/routes_post_runs.rs`
 - `crates/argo-cli/src/handlers/gateway/routes_post_judge.rs`
 - `crates/argo-cli/src/handlers/gateway/routes_post_admin.rs` (judge_override only)
-- `crates/argo-cli/src/handlers/gateway/routes_helpers.rs` (or wherever shared gateway helpers live — grep at claim-time)
+- `crates/argo-cli/src/handlers/gateway/routes_session_get.rs`
+- `crates/argo-cli/src/handlers/gateway/routes_dispatch_post_paths.rs`
+- `crates/argo-cli/src/handlers/gateway/tenant_header.rs`
 - `crates/argo-cli/tests/gateway_uuid_routes_tenant_ownership.rs` (un-ignore + invert cluster-6 pin)
 - `crates/argo-cli/tests/` — new same-tenant baseline tests
 - `docs/build-plan/BUILD_STATUS.md` — standard row flip.

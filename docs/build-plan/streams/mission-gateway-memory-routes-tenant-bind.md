@@ -58,6 +58,8 @@ observed exploiting it.
 - `crates/argo-cli/src/handlers/gateway/routes_post_admin.rs`
 - `crates/argo-cli/src/handlers/gateway/routes_lists_memory.rs`
 - `crates/argo-cli/src/handlers/gateway/routes_meta.rs`
+- `crates/argo-cli/src/handlers/gateway/routes_dispatch_get_catalog_groups.rs`
+- `crates/argo-cli/src/handlers/gateway/routes_dispatch_post_memory.rs`
 - `crates/argo-cli/src/handlers/gateway/routes_post_writes.rs` (append-memory's `parent` field is exploitable cross-tenant; same fix scope)
 - `crates/argo-cli/tests/gateway_uuid_routes_tenant_ownership.rs` (un-ignore + invert cluster-4 pin)
 - `crates/argo-cli/tests/` — new same-tenant baseline tests
