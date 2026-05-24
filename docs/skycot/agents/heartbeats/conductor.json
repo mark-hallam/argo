@@ -1,8 +1,8 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-24T14:05:55Z",
+  "last_run_utc": "2026-05-24T15:01:47Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "manual-codex-conductor-2026-05-24",
-  "run_notes": "Replenished the claude queue above threshold, verified unread evaluator handoffs were already merged or in flight, and surfaced stale auditor/evaluator/marketing heartbeats without forcing merge actions this tick.",
-  "open_prs": 18
+  "session_label": "manual-claude-conductor-handoff-2026-05-24",
+  "run_notes": "Conductor seat handed off from codex to claude desktop per operator. Authored 4 fresh briefs (3 codex LOC-budget splits + 1 claude tenant-bind follow-up); the P0 codex-cli-routes-approvals-json-split-helpers brief unblocks 19 gate-jammed PRs once a codex worker ships it. Closed #2199 as STALE-DUPE of #2211. Posted fix-requests on #2217 (dirty merge state, rebase needed) + #2200 (gateway/mod.rs ceiling-helper override needs receipt). Triage agent classified 22 open PRs: 19 ready post-gate-clear, 2 fix-request, 1 closed. Unread evaluator rounds 37+38 reviewed — informational confirmations of already-merged work + one operator-actionable heartbeat-write-side brief that remains unauthored (not swarm-doable). Stale auditor/evaluator/marketing/personal-site heartbeats surfaced for operator restart.",
+  "open_prs": 21
 }
