@@ -1,15 +1,15 @@
-# eval-document-executor-cross-tenant-scoping
+# eval-genesis-output-loads-cleanly-through-argo-vertical-v2
 
 **Owner**: claude.
 **Depends on**: none.
 **Authored against**: origin/main `5582bcba9` on `2026-05-23`.
-**Validate before claim**: `bash scripts/check-brief-freshness.sh eval-document-executor-cross-tenant-scoping`.
+**Validate before claim**: `bash scripts/check-brief-freshness.sh eval-genesis-output-loads-cleanly-through-argo-vertical`.
 
-🟢 **P2 CLAIM-5.** Document-executor cross-tenant scoping.
+🟢 **P2 CLAIM-3.** Genesis output round-trips through argo-vertical loader.
 
 ## Scope
 
-Audit the document executor (PDF/docx/text extraction tools) for per-tenant scoping — temp files, OCR cache, etc.
+Drive Genesis on 5 distinct role descriptions, write the trees to tempdirs, argo_vertical::load_dir each, assert no parse errors. Cross-claim guard for claim 3.
 
 ## Parallelism
 
@@ -22,7 +22,7 @@ Audit the document executor (PDF/docx/text extraction tools) for per-tenant scop
 
 ## Files you may touch
 
-- crates/argo-executor-document/ (if exists), or document tool in argo-tool/
+- crates/argo-genesis/tests/, crates/argo-vertical/tests/
 - `docs/build-plan/BUILD_STATUS.md` — standard row flip.
 
 ## Files you must NOT touch
@@ -40,11 +40,11 @@ Audit the document executor (PDF/docx/text extraction tools) for per-tenant scop
 
 ## Branch + PR
 
-- Branch: `eval-document-executor-cross-tenant-scoping`
-- PR title: `eval-document-executor-cross-tenant-scoping`
+- Branch: `eval-genesis-output-loads-cleanly-through-argo-vertical`
+- PR title: `eval-genesis-output-loads-cleanly-through-argo-vertical`
 
 ## Notes for the implementer
 
-- ~200-300 LOC expected.
+- ~150-250 LOC expected.
 - Cite the gap manifest `docs/skycot/evals/scheduled/2026-05-23/mission-vs-code-gap-manifest.md` verbatim in the PR body.
 - This is a queue-replenishment brief authored as a STUB — feel free to expand acceptance criteria during pre-flight.

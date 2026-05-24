@@ -1,15 +1,15 @@
-# eval-genesis-output-loads-cleanly-through-argo-vertical
+# eval-channels-inbound-coverage-v2
 
 **Owner**: claude.
 **Depends on**: none.
 **Authored against**: origin/main `5582bcba9` on `2026-05-23`.
-**Validate before claim**: `bash scripts/check-brief-freshness.sh eval-genesis-output-loads-cleanly-through-argo-vertical`.
+**Validate before claim**: `bash scripts/check-brief-freshness.sh eval-channels-inbound-coverage`.
 
-🟢 **P2 CLAIM-3.** Genesis output round-trips through argo-vertical loader.
+🟡 **P1 CLAIM-6.** Which channels have inbound (approval-reply) paths.
 
 ## Scope
 
-Drive Genesis on 5 distinct role descriptions, write the trees to tempdirs, argo_vertical::load_dir each, assert no parse errors. Cross-claim guard for claim 3.
+For each shipped channel, check if there's an inbound webhook route + signature verify + approval-token consumption. Today: email + Slack known. SMS/voice/discord/teams/etc. — gap unclear. Output: matrix + brief shapes for missing inbound paths.
 
 ## Parallelism
 
@@ -22,7 +22,7 @@ Drive Genesis on 5 distinct role descriptions, write the trees to tempdirs, argo
 
 ## Files you may touch
 
-- crates/argo-genesis/tests/, crates/argo-vertical/tests/
+- crates/argo-channels-*/, gateway routes_channels_*.rs
 - `docs/build-plan/BUILD_STATUS.md` — standard row flip.
 
 ## Files you must NOT touch
@@ -40,11 +40,11 @@ Drive Genesis on 5 distinct role descriptions, write the trees to tempdirs, argo
 
 ## Branch + PR
 
-- Branch: `eval-genesis-output-loads-cleanly-through-argo-vertical`
-- PR title: `eval-genesis-output-loads-cleanly-through-argo-vertical`
+- Branch: `eval-channels-inbound-coverage`
+- PR title: `eval-channels-inbound-coverage`
 
 ## Notes for the implementer
 
-- ~150-250 LOC expected.
+- ~200-400 LOC expected.
 - Cite the gap manifest `docs/skycot/evals/scheduled/2026-05-23/mission-vs-code-gap-manifest.md` verbatim in the PR body.
 - This is a queue-replenishment brief authored as a STUB — feel free to expand acceptance criteria during pre-flight.

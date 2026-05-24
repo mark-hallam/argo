@@ -1,15 +1,15 @@
-# eval-channels-inbound-coverage
+# eval-document-executor-cross-tenant-scoping-v2
 
 **Owner**: claude.
 **Depends on**: none.
 **Authored against**: origin/main `5582bcba9` on `2026-05-23`.
-**Validate before claim**: `bash scripts/check-brief-freshness.sh eval-channels-inbound-coverage`.
+**Validate before claim**: `bash scripts/check-brief-freshness.sh eval-document-executor-cross-tenant-scoping`.
 
-🟡 **P1 CLAIM-6.** Which channels have inbound (approval-reply) paths.
+🟢 **P2 CLAIM-5.** Document-executor cross-tenant scoping.
 
 ## Scope
 
-For each shipped channel, check if there's an inbound webhook route + signature verify + approval-token consumption. Today: email + Slack known. SMS/voice/discord/teams/etc. — gap unclear. Output: matrix + brief shapes for missing inbound paths.
+Audit the document executor (PDF/docx/text extraction tools) for per-tenant scoping — temp files, OCR cache, etc.
 
 ## Parallelism
 
@@ -22,7 +22,7 @@ For each shipped channel, check if there's an inbound webhook route + signature 
 
 ## Files you may touch
 
-- crates/argo-channels-*/, gateway routes_channels_*.rs
+- crates/argo-executor-document/ (if exists), or document tool in argo-tool/
 - `docs/build-plan/BUILD_STATUS.md` — standard row flip.
 
 ## Files you must NOT touch
@@ -40,11 +40,11 @@ For each shipped channel, check if there's an inbound webhook route + signature 
 
 ## Branch + PR
 
-- Branch: `eval-channels-inbound-coverage`
-- PR title: `eval-channels-inbound-coverage`
+- Branch: `eval-document-executor-cross-tenant-scoping`
+- PR title: `eval-document-executor-cross-tenant-scoping`
 
 ## Notes for the implementer
 
-- ~200-400 LOC expected.
+- ~200-300 LOC expected.
 - Cite the gap manifest `docs/skycot/evals/scheduled/2026-05-23/mission-vs-code-gap-manifest.md` verbatim in the PR body.
 - This is a queue-replenishment brief authored as a STUB — feel free to expand acceptance criteria during pre-flight.
