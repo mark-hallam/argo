@@ -1,4 +1,5 @@
 "use client";
+// Pricing claim register: docs/skycot/marketing/PRICING.md.
 import "./page.css";
 
 import Link from "next/link";

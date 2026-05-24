@@ -1,7 +1,7 @@
 # eval-channels-v1-config-vs-code-inventory
 
 **Authored**: 2026-05-23 (evaluator, claude worker).
-**Audited surface**: `crates/argo-channels/src/`, `crates/argo-cli/src/handlers/worker_actions_notify_*.rs`, `crates/argo-cli/src/handlers/gateway/routes_channels_*.rs`, `web/app/pricing/page.tsx`, `web/app/(app)/settings/`.
+**Audited surface**: `crates/argo-channels/src/`, `crates/argo-cli/src/handlers/worker_actions_notify_*.rs`, `crates/argo-cli/src/handlers/gateway/routes_channels_*.rs`, `web/app/pricing/page.tsx`, `docs/skycot/marketing/PRICING.md`, `web/app/(app)/settings/`.
 **Audited against**: origin/main `56015c0b9` on 2026-05-23.
 **Brief**: `docs/build-plan/streams/eval-channels-v1-config-vs-code-inventory.md`.
 **Gap-manifest row touched**: `argo-channels` (line 90 of `mission-vs-code-gap-manifest.md`).
@@ -9,8 +9,8 @@
 ## TL;DR
 
 - **Channel count is 11, not 13.** The gap-manifest's "13 channel impls" tally was wrong; `crates/argo-channels/src/` contains exactly **11** distinct channel-id implementations (discord, email, imessage, matrix, push, slack, sms, teams, voice, webinbox, whatsapp). The other `.rs` files in the directory are infrastructure (dispatch, manifest, message_dispatcher, fallback, operator_*, quiet_hours, rate_limit, token, *_format, *_payload, *_inbound).
-- **🔴 iMessage is a sales-promise gap.** Pro-tier card on `/pricing` says `"Multi-channel (Slack / iMessage / Email)"` — but the production outbound dispatcher (`worker_actions_notify_env.rs:17-31`) explicitly REFUSES iMessage with the error `"channel kind 'imessage' is not supported by dispatch_notify (... DEFERRED-v1.x: imessage, whatsapp, teams, matrix)"`. The iMessage channel impl + gateway inbound webhook + Blue Bubbles client are all shipped — but the dispatcher won't route to them. A Pro customer paying $29/seat for "multi-channel Slack/iMessage/Email" will hit `RbacDeny`-style refusal at runtime.
-- **No `/settings/connectors` SPA page exists.** The brief premise asked which channels expose a "Connect button via `/settings/connectors/page.tsx`" — that page is not in the SPA today. `web/app/(app)/settings/` ships only api-keys, data-export, knowledge, members, security. All 11 channels are configured via env vars + workspace credential file only; the operator-facing UI surface for any of them is `argo doctor channels` (CLI) and nothing else. Operator-config verdict is therefore identical for every row.
+- **🟢 iMessage sales-promise gap is closed.** The Pro-tier card still promises `"Multi-channel (Slack / iMessage / Email)"`, and the production outbound dispatcher now routes all three. The pricing claim register tracks this as a live Pro promise at `docs/skycot/marketing/PRICING.md`.
+- **No OAuth-style approval-channel Connect button exists yet.** The earlier audit pre-dated `/settings/notify-channels`, which now provides a read-mostly operator catalog and env-var copy surface. Approval channels are still configured through env vars / workspace credentials; OAuth Connect buttons wait on per-tenant secret storage.
 
 ## Method
 
@@ -19,8 +19,8 @@ For each of the 11 channel ids, I checked:
 1. **Impl present** — `crates/argo-channels/src/<channel>.rs` exists, `id() -> ChannelId::new("<channel>")` declared, `send()` performs a real provider call (HTTP POST or platform-specific client) and not `todo!()`/`unimplemented!()`.
 2. **Outbound wired** — branch exists in `worker_actions_notify_env.rs::EnvChannelSender::send_via` match.
 3. **Inbound wired** — a `*_inbound.rs` / `parse_webhook()` substrate exists in `argo-channels` AND a `routes_channels_<channel>.rs` route in `argo-cli/src/handlers/gateway/`.
-4. **Operator-configurable** — env var or `argo doctor channels` probe surface exists (all rows alike); SPA Connect button (all rows alike: 🔴 because no `/settings/connectors` page exists).
-5. **Tier** — appears in the `TIERS` constant on `/pricing` (`web/app/pricing/page.tsx:36-92`).
+4. **Operator-configurable** — env var or `argo doctor channels` probe surface exists (all rows alike); `/settings/notify-channels` is now a read-mostly catalog, not an OAuth Connect surface.
+5. **Tier** — appears in the `TIERS` constant on `/pricing` (`web/app/pricing/page.tsx:37-93`).
 
 Verdict legend:
 - 🟢 **LIVE-in-v1.0** — promised in a v1.0 tier card AND impl-wired-routed end-to-end.
@@ -49,9 +49,9 @@ Verdict legend:
 
 ## Three most-surprising findings
 
-### Finding 1 — iMessage is in the Pro-tier sales promise but the outbound dispatcher refuses it
+### Finding 1 — iMessage is now in the Pro-tier sales promise and the outbound dispatcher
 
-`/pricing` Pro card (`web/app/pricing/page.tsx:64`):
+`/pricing` Pro card (`web/app/pricing/page.tsx:65`):
 
 ```
 "Multi-channel (Slack / iMessage / Email)"
@@ -64,6 +64,7 @@ match ref_.channel.as_str() {
     "push" => send_push(n).await,
     "webinbox" => send_webinbox(n).await,
     "slack" => notify_slack::send_slack(n).await,
+    "imessage" => notify_imessage::send_imessage(ref_, n).await,
     "email" => notify_email::send_email(ref_, n).await,
     "sms" => notify_sms::send_sms(ref_, n).await,
     "discord" => notify_discord::send_discord(n).await,
@@ -72,53 +73,51 @@ match ref_.channel.as_str() {
     "voice" => notify_voice::send_voice(ref_, n).await,
     other => Err(format!(
         "channel kind '{other}' is not supported by dispatch_notify \
-         (v1 channels: push, webinbox, slack, email, sms, discord, chat, sse, voice; \
-         DEFERRED-v1.x: imessage, whatsapp, teams, matrix)"
+         (v1 channels: push, webinbox, slack, imessage, email, sms, discord, chat, sse, voice; \
+         DEFERRED-v1.x: whatsapp, teams, matrix)"
     )),
 }
 ```
 
-If a Pro customer configures iMessage via `BLUE_BUBBLES_URL` + `BLUE_BUBBLES_PASSWORD` (the env vars `imessage.rs::from_env_default` reads) and a worker tries to ask for approval on iMessage, dispatch_notify returns a string-formatted error to the worker actions handler. The `IMessageChannel` impl, `argo-bluebubbles-client` crate, and the `routes_channels_imessage` inbound webhook are all production-quality code — but the one branch in the dispatcher is missing. Wiring it is a ~5-line `"imessage" => notify_imessage::send_imessage(ref_, n).await` plus a thin handler that wraps `IMessageChannel::from_env_default()`.
+The historical finding is therefore closed by `mission-imessage-wire-pro-tier-outbound-dispatch` / PR #2161. The canonical pricing register records `"Multi-channel (Slack / iMessage / Email)"` as a green Pro claim and cites this report as the channel inventory back-stop.
 
-**Follow-up fix-brief authored**: `mission-imessage-wire-pro-tier-outbound-dispatch`.
+### Finding 2 — Inbound webhook routes exist beyond the original two-path claim
 
-### Finding 2 — Inbound webhook routes exist for channels whose outbound is DEFERRED
-
-The gateway has fully-routed inbound handlers for `whatsapp` (Twilio HMAC + keyword parser, 295 LOC) and `imessage` (Blue Bubbles webhook, 200 LOC) — even though the env-side outbound dispatcher refuses both. This is an asymmetry: a worker can't currently SEND an approval over WhatsApp or iMessage, but if one somehow arrives (replay test traffic, manual `curl`, or a different dispatch path), the gateway will accept, verify, decode the approval token, and settle the action. The two routes are exercised by integration tests (`whatsapp_smoke.rs`, `claim_6_outbound_signed_token_e2e.rs`).
+The gateway has fully-routed inbound handlers for `whatsapp` (Twilio HMAC + keyword parser, 295 LOC) and `imessage` (Blue Bubbles webhook, 200 LOC). WhatsApp remains asymmetric because outbound dispatch is still deferred; iMessage is now symmetric after #2161. The two routes are exercised by integration tests (`whatsapp_smoke.rs`, `claim_6_outbound_signed_token_e2e.rs`).
 
 This is mostly harmless (no outbound = no inbound traffic to attack), but it inflates the apparent "is wired" surface in the gap manifest's "Channel inbound paths" row, which currently claims `email_inbound.rs` + `slack_inbound.rs` are the only inbound paths. In reality the gateway has 8 inbound webhook routes (discord-decision, email-Postmark, imessage-BlueBubbles, push-button, slack-callback, voice-DTMF, webinbox-internal, whatsapp-Twilio). The sibling brief `eval-channels-inbound-coverage` should own correcting that row; this report just flags the count mismatch.
 
-### Finding 3 — There is no `/settings/connectors` page in the SPA
+### Finding 3 — Approval-channel config UI is read-mostly, not a Connect flow
 
-The brief asked whether each channel exposes a "Connect button via `/settings/connectors/page.tsx`". That page does not exist on origin/main today. `web/app/(app)/settings/` ships only `api-keys`, `data-export`, `knowledge`, `members`, `security` — no notification-channel config UI at all. The closest analog is `web/lib/connectors/registry.ts`, which lists 9 work-tool MCP connectors (Gmail, Google Calendar, Slack, Facebook Marketplace, Gumtree, eBay, Stripe, Intercom, Linear, GitHub) used by the hire wizard — **not approval channels**. The `slack` overlap is misleading: the registry entry is for the Slack work-tool MCP connector (`slack.api.postMessage` for a worker to talk in a channel), not the SLACK_APPROVALS_* approval channel.
+The brief asked whether each channel exposes a "Connect button via `/settings/connectors/page.tsx`". That exact page is for work-tool MCP connectors, not approval channels. Approval channels now have `/settings/notify-channels`, which lists the 11 channel ids, env vars, and audit fallback status, but it does not yet store per-tenant secrets or run OAuth-style Connect flows. The `slack` overlap remains easy to misread: the work-tool Slack connector is distinct from the SLACK_APPROVALS_* approval channel.
 
-Concretely: a Pro customer who needs to set up Slack-for-approvals today must:
+Concretely: a Pro customer who needs to set up Slack-for-approvals today still must:
 1. Create a separate Slack app for approvals (different from the Slack MCP work-tool app).
 2. Set `SLACK_APPROVALS_BOT_TOKEN`, `SLACK_APPROVALS_SIGNING_SECRET`, `SLACK_APPROVALS_TEST_CHANNEL` env vars.
 3. Run `argo doctor channels` to verify.
 4. Restart the gateway so `routes_channels_slack` picks up the secrets.
 
-No UI helps with any of those steps. This was implicit in the v1.0 scope (operator-locked: enterprise focus, single-binary, env-driven), but worth surfacing because the brief's premise of "matrix per /settings/connectors Connect button" doesn't hold — there is no Connect button, anywhere, for any approval channel.
+The notify-channels page makes the env-var names discoverable, but the operator still owns the credential provisioning. This was implicit in the v1.0 scope (operator-locked: enterprise focus, single-binary, env-driven), and it remains worth tracking because the brief's premise of "matrix per /settings/connectors Connect button" still does not hold for approval channels.
 
-**Follow-up fix-brief authored**: `web-settings-notify-channels-config-page`.
+**Follow-up fix-brief status**: `web-settings-notify-channels-config-page` has delivered the read-mostly catalog; per-tenant secret storage / Connect buttons remain later work.
 
 ## Cross-cutting observations
 
-- **Tier promise vs verdict count**: 3 channels are promised in v1.0 tier cards (Free: webinbox; Pro: slack + imessage + email). Of those 4 tier-card-mentioned promises, 3 are 🟢 LIVE-in-v1.0 and 1 is 🔴 (iMessage outbound). The remaining 7 channels are 🟡 SHIPPED-BUT-NOT-CONFIGURED — code-quality real impls, env-var configurable, just not part of any tier's marketing promise. The "code is ahead of marketing" pattern (4 deferred-but-routed channels) is the dominant shape.
+- **Tier promise vs verdict count**: 4 channel mentions are promised in v1.0 tier cards (Free: webinbox; Pro: slack + imessage + email). All 4 tier-card-mentioned promises are now 🟢 LIVE-in-v1.0. The remaining 7 channels are either 🟡 shipped/configurable but not promised, or 🔴 deferred by outbound dispatch. The pricing register at `docs/skycot/marketing/PRICING.md` is now the canonical sales-promise tracker.
 - **Free tier is unambiguously honest** — `"Single channel (web inbox)"` matches the implementation: webinbox is the only channel that requires no external provider keys (it writes to local JSONL) and is the default fallback target when no `[notify_channels]` is declared.
-- **Enterprise tier is silent on channels.** The Enterprise tier card lists `"SSO / SAML"`, `"Audit export"`, `"Custom verticals"`, `"On-prem"` — but no channel promises. By implication everything Pro has is in Enterprise; the matrix above assumes this.
+- **Enterprise tier is silent on channels.** The Enterprise tier card lists `"SSO / SAML"`, `"Audit export"`, `"Custom verticals"`, `"On-prem"` — but no channel promises. By implication everything Pro has is in Enterprise; the matrix above and the pricing register assume this.
 
 ## Gap-manifest row update
 
 The `argo-channels` row in `mission-vs-code-gap-manifest.md` (line ~90) has been updated:
 - "13 channel impls present" → "11 channel impls present" (counted directly from `crates/argo-channels/src/` rather than from the original brief author's tally).
-- Verdict cell flipped from generic 🟡 to: 3 🟢 / 4 🟡 / 4 🔴 with cite to this report.
-- "Pro tier promise" line: explicit call-out that iMessage is a promised channel with a 🔴 outbound verdict (sales-promise gap).
+- Verdict cell now records the post-#2161 split: 4 🟢 / 4 🟡 / 3 🔴 with cite to this report.
+- "Pro tier promise" line: explicit call-out that iMessage moved from red to green after the dispatcher branch landed.
 
 ## Follow-up briefs authored this tick
 
-- `streams/mission-imessage-wire-pro-tier-outbound-dispatch.md` — wire iMessage into the dispatcher so the Pro-tier sales promise is honest end-to-end. ~50 LOC handler + 1 env match arm + 1 doctor-channels probe verification.
-- `streams/web-settings-notify-channels-config-page.md` — author the `/settings/connectors` (or `/settings/notify-channels`) SPA page so operators don't need to read source to find env-var names. The shape of the existing `routes_channels_*` files + `doctor_channels.rs` is enough source material for a list-then-form layout.
+- `streams/mission-imessage-wire-pro-tier-outbound-dispatch.md` — shipped via #2161; iMessage is no longer a Pro-tier sales-promise gap.
+- `streams/web-settings-notify-channels-config-page.md` — shipped the `/settings/notify-channels` read-mostly catalog; per-tenant secret storage / OAuth Connect buttons remain later work.
 
 ## Pin test
 
@@ -126,7 +125,7 @@ The `argo-channels` row in `mission-vs-code-gap-manifest.md` (line ~90) has been
 
 ## Out of scope (called out explicitly)
 
-- **Fixing 🔴 channels.** The 4 🔴 rows (iMessage, WhatsApp, Teams, Matrix) are recorded for the follow-up briefs; this report doesn't touch their source.
+- **Fixing remaining 🔴 channels.** The 3 🔴 rows (WhatsApp, Teams, Matrix) are recorded for follow-up briefs; this report doesn't touch their source.
 - **Per-channel cross-tenant isolation.** Owned by sibling brief `eval-channels-cross-tenant-scope-sweep`.
 - **Per-channel inbound coverage as its own matrix.** Owned by sibling brief `eval-channels-inbound-coverage`. This report's inbound column is informational only.
-- **Pricing copy edits.** Whether iMessage should be quietly removed from the Pro card (until the dispatcher is wired) or whether the dispatcher should be wired so the copy stays honest is an operator call. The follow-up fix-brief proposes the latter (because the rest of the iMessage substrate is production-quality and only the dispatcher branch is missing).
+- **Pricing copy edits.** Pricing copy is tracked in `docs/skycot/marketing/PRICING.md`; this report only updates the channel-inventory evidence that backs it.
