@@ -46,43 +46,56 @@ fail() { printf '\033[31m[pre-merge-gate FAIL]\033[0m %s\n' "$*" >&2; fail_count
 
 log "running on $(git rev-parse --short HEAD)"
 
-# Gate 1: migration slot collision check
-log "[1/5] migration slot check"
+# Gate 1: gateway-boot tests need a SQLCipher key. Preserve any
+# operator-supplied key; otherwise generate an ephemeral per-run key.
+log "[1/6] ensure SKYCOT_DB_KEY_BASE64"
+if [[ -z "${SKYCOT_DB_KEY_BASE64:-}" ]]; then
+  if ! command -v openssl >/dev/null 2>&1; then
+    printf '\033[31m[pre-merge-gate FAIL]\033[0m openssl not found; install with: brew install openssl\n' >&2
+    exit 2
+  fi
+  export SKYCOT_DB_KEY_BASE64="$(openssl rand -base64 32)"
+else
+  export SKYCOT_DB_KEY_BASE64
+fi
+
+# Gate 2: migration slot collision check
+log "[2/6] migration slot check"
 if ! bash scripts/check-migration-slots.sh; then
   fail "migration slot collision detected — see output above"
 fi
 
-# Gate 2: LOC budget — no file > 500 LOC in crates/
-log "[2/5] LOC budget (files > 500)"
+# Gate 3: LOC budget — no file > 500 LOC in crates/
+log "[3/6] LOC budget (files > 500)"
 over_500=$(find crates -name '*.rs' -exec wc -l {} \; 2>/dev/null | awk '$1 > 500 {print $0}')
 if [[ -n "$over_500" ]]; then
   fail "files over 500 LOC ceiling:"
   echo "$over_500" >&2
 fi
 
-# Gate 3: parallel-pub-types canonicalization
-log "[3/5] parallel-pub-types lint"
+# Gate 4: parallel-pub-types canonicalization
+log "[4/6] parallel-pub-types lint"
 if ! python3 scripts/lint-parallel-pub-types.py >/dev/null 2>&1; then
   fail "parallel-pub-types violation — run python3 scripts/lint-parallel-pub-types.py"
 fi
 
-# Gate 4: zero-caller substrate — enforce CLAUDE.md "wire or defer"
+# Gate 5: zero-caller substrate — enforce CLAUDE.md "wire or defer"
 # at merge time. Cheap (one cargo metadata + bounded grep over
 # workspace src/), runs ahead of the 3-6min workspace clippy so
 # wire-or-defer drift surfaces first.
-log "[4/5] zero-caller substrate lint"
+log "[5/6] zero-caller substrate lint"
 if ! bash scripts/check-zero-caller-substrate.sh; then
   fail "zero-caller substrate lint — a crate has no \`use <name>::\` callers AND no zero-caller-allowed marker"
 fi
 
-# Gate 5: workspace clippy (slowest; ~3-6 min). Skippable.
+# Gate 6: workspace clippy (slowest; ~3-6 min). Skippable.
 if [[ "$SKIP_CLIPPY" -eq 0 ]]; then
-  log "[5/5] workspace clippy (3-6 min)"
+  log "[6/6] workspace clippy (3-6 min)"
   if ! bash scripts/workspace-clippy-fast-fail.sh; then
     fail "workspace clippy failure — see output above"
   fi
 else
-  warn "[5/5] workspace clippy SKIPPED (--skip-clippy)"
+  warn "[6/6] workspace clippy SKIPPED (--skip-clippy)"
 fi
 
 echo
