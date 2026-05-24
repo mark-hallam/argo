@@ -120,11 +120,7 @@ async fn emit_operator_approve_audit(
     // Mirror the CLI handler — read the row pre-transition for the
     // audit payload, then transition, then emit audit.
     let skills_list = skills.list_pending_review().await?;
-    let pre = skills_list
-        .into_iter()
-        .find(|s| s.id == skill_id)
-        .or_else(|| None)
-        .or(None);
+    let pre = skills_list.into_iter().find(|s| s.id == skill_id);
     // If not in pending list, try active list etc.
     let name_for_payload = pre
         .as_ref()

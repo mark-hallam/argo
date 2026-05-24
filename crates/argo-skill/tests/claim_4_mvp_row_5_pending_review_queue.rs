@@ -5,8 +5,8 @@
 //! > Skill-candidate review queue (filter on `pending_review`
 //! > lifecycle).
 //!
-//! Cite: `argo-skill` `pending_review` state + `routes_worker_skills.rs`
-//! + `cli_skill_review_cmds.rs`. Substrate found round 20; this round
+//! Cite: `argo-skill` `pending_review` state, `routes_worker_skills.rs`,
+//! and `cli_skill_review_cmds.rs`. Substrate found round 20; this round
 //! flips the row 🟢 → 🟢🟢 with a falsifiable LIVE regression that
 //! pins the queue contract the operator-facing CLI + gateway depend
 //! on.
@@ -102,7 +102,7 @@ async fn claim_4_mvp_row_5_queue_orders_oldest_first_and_filters_lifecycle() {
     // ── Phase 1: propose 3 candidates, each above threshold, with
     // a tiny sleep between so created_at differs in micros (the
     // ORDER BY is stable + deterministic).
-    assert!(DEFAULT_SUCCESS_THRESHOLD < 0.9);
+    const _: () = assert!(DEFAULT_SUCCESS_THRESHOLD < 0.9);
     let first = propose(&store, "alpha_first", VERTICAL_MARKETPLACE, 0.9, session_id).await;
     tokio::time::sleep(std::time::Duration::from_millis(3)).await;
     let second = propose(
