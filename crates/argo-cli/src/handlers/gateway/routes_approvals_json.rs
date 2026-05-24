@@ -31,14 +31,19 @@ use super::routes_auth_principal::principal_id_for_audit;
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_auto_approval::draft_content_from_payload;
 use crate::handlers::worker_actions_query::collect_latest_actions;
-use crate::handlers::worker_actions_transitions::{self, find_action, open_workspace_memory};
+use crate::handlers::worker_actions_transitions::{
+    self, find_action, open_workspace_memory, open_workspace_memory_with_store,
+};
+use argo_audit::{AuditKind, AuditSink};
 use argo_memory::MemoryFile;
 use argo_redact::{
     active_grants_for_principal, audit_payload, redact_approval_row, resolve_policy,
     ViewerPermissions,
 };
+use argo_store::SessionStore;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::sync::Arc;
 
 /// Hard cap on `?limit=`. Brief: default 50, max 100.
 const DEFAULT_LIMIT: usize = 50;
@@ -145,7 +150,7 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         "refuse" => "refuse",
         _ => return bad_request("decision must be \"approve\" or \"refuse\""),
     };
-    let (memory, ws) = match open_workspace_memory().await {
+    let (memory, ws, store) = match open_workspace_memory_with_store().await {
         Ok(p) => p,
         Err(e) => return server_error(&format!("open workspace: {e}")),
     };
@@ -194,9 +199,71 @@ pub(super) async fn decide_response(approval_id: &str, req: &str) -> (&'static s
         worker_actions_transitions::cancel(&memory, ws, approval_id, &actor, Some(&note)).await
     };
     match result {
-        Ok(_) => ok_decide(approval_id, decision),
+        Ok(decided) => {
+            if decision == "refuse" {
+                let tenant = match resolve_workspace_tenant_id(store.as_ref()).await {
+                    Ok(t) => t,
+                    Err(e) => return server_error(&e),
+                };
+                if let Err(e) =
+                    emit_approval_declined(&store, &tenant, &actor, &located.record, &decided).await
+                {
+                    return server_error(&format!("approval declined audit: {e}"));
+                }
+            }
+            ok_decide(approval_id, decision)
+        }
         Err(e) => server_error(&format!("decide: {e}")),
     }
+}
+
+async fn resolve_workspace_tenant_id(store: &SessionStore) -> Result<String, String> {
+    let cwd = std::env::current_dir().map_err(|e| format!("current_dir: {e}"))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store
+        .ensure_workspace(name, &root)
+        .await
+        .map_err(|e| format!("resolve workspace tenant: {e}"))?;
+    Ok(tenant.to_string())
+}
+
+async fn emit_approval_declined(
+    store: &Arc<SessionStore>,
+    tenant_id: &str,
+    actor: &str,
+    pending: &ActionRecord,
+    decided: &ActionRecord,
+) -> Result<(), argo_types::ArgoError> {
+    let payload = json!({
+        "approval_id": decided.action_id,
+        "decided_by": actor,
+        "decision": "refuse",
+        "decided_at": decided.created_at,
+        "request_summary": request_summary(pending),
+    });
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    sink.write(
+        None,
+        AuditKind::ApprovalDeclined,
+        payload,
+        Some(actor.to_string()),
+    )
+    .await
+}
+
+fn request_summary(rec: &ActionRecord) -> String {
+    let raw = rec
+        .payload
+        .as_object()
+        .and_then(|m| m.get("summary").or_else(|| m.get("text")))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| short_payload(&rec.payload));
+    raw.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// `POST /api/v1/approvals/<id>/undo` — reverse the decision when
