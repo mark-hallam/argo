@@ -1,6 +1,6 @@
 # Stream codex-cli-routes-approvals-json-split-helpers — extract error envelopes + cursor/parse helpers from routes_approvals_json.rs
 
-**Owner**: codex.
+**Owner**: claude (operator-directed flip 2026-05-24; codex pool busy on audit-pin wave). Brief id keeps `codex-cli-` prefix for traceability; branch may use either `claude-cli-routes-approvals-json-split-helpers` or the existing `codex-cli-` prefix.
 **Depends on**: none.
 **Authored against**: origin/main `885a761d2` on `2026-05-24`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh codex-cli-routes-approvals-json-split-helpers`.
