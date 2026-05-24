@@ -76,7 +76,7 @@ async fn read_demo_audit_payloads(home: &Path) -> Vec<String> {
         .unwrap();
     store.migrate().await.unwrap();
     let rows = sqlx::query_as::<_, (String, Option<String>)>(
-        "SELECT kind, payload FROM audit_record WHERE kind = 'auth.succeeded' ORDER BY seq ASC",
+        "SELECT kind, payload_json FROM audit_record WHERE kind = 'auth.succeeded' ORDER BY seq ASC",
     )
     .fetch_all(store.pool())
     .await
