@@ -1,8 +1,8 @@
 # mission-skill-query-tenant-pinned
 
-**Owner**: claude.
+**Owner**: codex.
 **Depends on**: nothing.
-**Authored against**: origin/main `3df52142a` on `2026-05-24`.
+**Authored against**: origin/main `4312a5ca6` on `2026-05-24`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-skill-query-tenant-pinned`.
 
 🔴 **P0 LATENT-LEAK (post-PR-#2092 sweep gap).** PR #2092 added a

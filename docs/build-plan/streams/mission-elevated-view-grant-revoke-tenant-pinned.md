@@ -1,8 +1,8 @@
 # mission-elevated-view-grant-revoke-tenant-pinned
 
-**Owner**: claude.
+**Owner**: codex.
 **Depends on**: nothing.
-**Authored against**: origin/main `3df52142a` on `2026-05-24`.
+**Authored against**: origin/main `4312a5ca6` on `2026-05-24`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-elevated-view-grant-revoke-tenant-pinned`.
 
 🟡 **P1 LATENT-LEAK.** `elevated_view_grant.rs:154` runs

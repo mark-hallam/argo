@@ -1,8 +1,8 @@
 # mission-scim-user-update-tenant-pinned
 
-**Owner**: claude.
+**Owner**: codex.
 **Depends on**: nothing.
-**Authored against**: origin/main `3df52142a` on `2026-05-24`.
+**Authored against**: origin/main `4312a5ca6` on `2026-05-24`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-scim-user-update-tenant-pinned`.
 
 🟡 **P1 LATENT-LEAK.** `scim_user.rs:226,271` runs
