@@ -7,7 +7,7 @@
 //! `export_response` and calls it directly; nothing else here is
 //! exposed beyond the gateway module.
 
-use super::routes_query::parse_query_kv;
+use super::{request_tenant_id, routes_query::parse_query_kv};
 use argo_store::{MessageRow, SessionStore};
 use argo_types::SessionId;
 use std::sync::Arc;
@@ -20,6 +20,7 @@ use std::sync::Arc;
 /// flag wording exactly.
 pub(super) async fn export_response(
     sid: &str,
+    req: &str,
     tail: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
@@ -42,6 +43,22 @@ pub(super) async fn export_response(
             );
         }
     };
+    let tenant_id = request_tenant_id(req);
+    match store.session_belongs_to_tenant(id, &tenant_id).await {
+        Ok(true) => {}
+        Ok(false) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session_belongs_to_tenant: {e}\"}}"),
+            );
+        }
+    }
     let messages = match store.list_messages(id).await {
         Ok(m) => m,
         Err(e) => {

@@ -18,9 +18,11 @@ use super::routes_audit_session::{audit_session_response, audit_session_verify_r
 use super::routes_session::{
     session_show_response_with_format, session_spend_response, session_spend_total_response,
 };
+use super::routes_session_get_export::export_response;
 use super::routes_session_stats::{session_stats_response, session_turns_response};
+use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
-use argo_types::{SessionId, TenantId, WorkspaceId};
+use argo_types::{MessageRole, SessionId, TenantId, WorkspaceId};
 use std::sync::Arc;
 
 async fn mem_store() -> Arc<SessionStore> {
@@ -52,6 +54,33 @@ async fn seed_session(store: &Arc<SessionStore>) -> (TenantId, SessionId) {
     (tenant, session)
 }
 
+async fn seed_message_and_audit(store: &Arc<SessionStore>) -> (TenantId, SessionId) {
+    let (tenant, session) = seed_session(store).await;
+    store
+        .append_message(
+            session,
+            MessageRole::User,
+            r#"{"text":"tenant-secret-message"}"#,
+        )
+        .await
+        .expect("append message");
+    store
+        .flush_pending_writes()
+        .await
+        .expect("flush message writes");
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+    sink.write(
+        Some(session),
+        AuditKind::TurnStart,
+        serde_json::json!({"event":"tenant-secret-audit"}),
+        None,
+    )
+    .await
+    .expect("write audit");
+    sink.flush_pending().await.expect("flush audit writes");
+    (tenant, session)
+}
+
 fn req_with_tenant(method: &str, path: &str, tenant: &TenantId) -> String {
     format!(
         "{method} {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {}\r\n\r\n",
@@ -61,6 +90,53 @@ fn req_with_tenant(method: &str, path: &str, tenant: &TenantId) -> String {
 
 fn req_with_raw_tenant(method: &str, path: &str, tenant_label: &str) -> String {
     format!("{method} {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant_label}\r\n\r\n")
+}
+
+#[tokio::test]
+async fn session_export_with_matching_tenant_returns_messages_and_audit_rows() {
+    let store = mem_store().await;
+    let (tenant, session) = seed_message_and_audit(&store).await;
+    let sid = session.0.to_string();
+    let req = req_with_tenant("GET", &format!("/sessions/{sid}/export"), &tenant);
+    let (status, body) = export_response(
+        &sid,
+        &req,
+        "export?include-audit=true HTTP/1.1",
+        Some(&store),
+    )
+    .await;
+
+    assert!(status.starts_with("200"), "status: {status} body: {body}");
+    assert!(
+        body.contains("tenant-secret-message"),
+        "same-tenant export should include message row: {body}"
+    );
+    assert!(
+        body.contains("tenant-secret-audit"),
+        "same-tenant export should include requested audit row: {body}"
+    );
+}
+
+#[tokio::test]
+async fn session_export_cross_tenant_returns_404_without_rows() {
+    let store = mem_store().await;
+    let (_tenant_a, session) = seed_message_and_audit(&store).await;
+    let other_tenant = TenantId::new();
+    let sid = session.0.to_string();
+    let req = req_with_tenant("GET", &format!("/sessions/{sid}/export"), &other_tenant);
+    let (status, body) = export_response(
+        &sid,
+        &req,
+        "export?include-audit=true HTTP/1.1",
+        Some(&store),
+    )
+    .await;
+
+    assert!(status.starts_with("404"), "expected 404, got {status}");
+    assert!(
+        !body.contains("tenant-secret-message") && !body.contains("tenant-secret-audit"),
+        "cross-tenant export must not leak row data: {body}"
+    );
 }
 
 #[tokio::test]
@@ -81,8 +157,7 @@ async fn session_spend_total_with_matching_tenant_returns_200() {
     let (tenant, session) = seed_session(&store).await;
     let sid = session.0.to_string();
     let req = req_with_tenant("GET", &format!("/sessions/{sid}/spend/total"), &tenant);
-    let (status, body) =
-        session_spend_total_response(&sid, &req, Some(&store), None).await;
+    let (status, body) = session_spend_total_response(&sid, &req, Some(&store), None).await;
     assert!(status.starts_with("200"), "status: {status} body: {body}");
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("json body");
     assert_eq!(parsed["session_id"], sid);
@@ -95,8 +170,7 @@ async fn session_show_cross_tenant_returns_404() {
     let other_tenant = TenantId::new(); // a different tenant UUID
     let sid = session.0.to_string();
     let req = req_with_tenant("GET", &format!("/sessions/{sid}"), &other_tenant);
-    let (status, _body) =
-        session_show_response_with_format(&sid, &req, Some(&store), None).await;
+    let (status, _body) = session_show_response_with_format(&sid, &req, Some(&store), None).await;
     assert!(status.starts_with("404"), "expected 404, got {status}");
 }
 
@@ -111,8 +185,7 @@ async fn session_show_with_non_uuid_tenant_header_returns_404() {
     let (_tenant_a, session) = seed_session(&store).await;
     let sid = session.0.to_string();
     let req = req_with_raw_tenant("GET", &format!("/sessions/{sid}"), "tenant_b");
-    let (status, _body) =
-        session_show_response_with_format(&sid, &req, Some(&store), None).await;
+    let (status, _body) = session_show_response_with_format(&sid, &req, Some(&store), None).await;
     assert!(status.starts_with("404"), "expected 404, got {status}");
 }
 
@@ -150,12 +223,31 @@ async fn session_spend_cross_tenant_returns_404() {
 }
 
 #[tokio::test]
+async fn audit_session_rows_with_matching_tenant_returns_rows() {
+    let store = mem_store().await;
+    let (tenant, session) = seed_message_and_audit(&store).await;
+    let sid = session.0.to_string();
+    let req = req_with_tenant("GET", &format!("/audit/sessions/{sid}"), &tenant);
+    let (status, body) = audit_session_response(&sid, &req, Some(&store), None, None, None).await;
+
+    assert!(status.starts_with("200"), "status: {status} body: {body}");
+    assert!(
+        body.contains("tenant-secret-audit"),
+        "same-tenant audit route should include audit row: {body}"
+    );
+}
+
+#[tokio::test]
 async fn audit_session_verify_cross_tenant_returns_404() {
     let store = mem_store().await;
     let (_tenant_a, session) = seed_session(&store).await;
     let other_tenant = TenantId::new();
     let sid = session.0.to_string();
-    let req = req_with_tenant("GET", &format!("/audit/sessions/{sid}/verify"), &other_tenant);
+    let req = req_with_tenant(
+        "GET",
+        &format!("/audit/sessions/{sid}/verify"),
+        &other_tenant,
+    );
     let (status, _body) =
         audit_session_verify_response(&sid, &req, false, Some(&store), None).await;
     assert!(status.starts_with("404"), "expected 404, got {status}");
@@ -164,11 +256,10 @@ async fn audit_session_verify_cross_tenant_returns_404() {
 #[tokio::test]
 async fn audit_session_rows_cross_tenant_returns_404() {
     let store = mem_store().await;
-    let (_tenant_a, session) = seed_session(&store).await;
+    let (_tenant_a, session) = seed_message_and_audit(&store).await;
     let other_tenant = TenantId::new();
     let sid = session.0.to_string();
     let req = req_with_tenant("GET", &format!("/audit/sessions/{sid}"), &other_tenant);
-    let (status, _body) =
-        audit_session_response(&sid, &req, Some(&store), None, None, None).await;
+    let (status, _body) = audit_session_response(&sid, &req, Some(&store), None, None, None).await;
     assert!(status.starts_with("404"), "expected 404, got {status}");
 }

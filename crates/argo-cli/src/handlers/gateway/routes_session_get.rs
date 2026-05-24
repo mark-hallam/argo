@@ -142,7 +142,7 @@ pub(super) async fn dispatch_session_get(
             return Some(session_judge_response(sid, req, store, format.as_deref()).await);
         }
         if tail.starts_with("export ") || tail.starts_with("export?") {
-            return Some(export_response(sid, tail, store).await);
+            return Some(export_response(sid, req, tail, store).await);
         }
         if tail.starts_with("stats ") || tail.starts_with("stats?") {
             let format = parse_query_kv(tail, "format");
