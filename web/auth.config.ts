@@ -47,7 +47,13 @@ export const authConfig = {
           process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:7400";
 
         try {
-          const res = await fetch(`${gatewayUrl}/healthz`, {
+          // `/readyz` is the canonical gateway health probe (the old
+          // `/healthz` route was removed in the 2026-Q2 health-router
+          // consolidation). With `gateway.auth_bypass=true` or
+          // `ARGO_GATEWAY_AUTH_BYPASS=1`, any presented Bearer is
+          // accepted; in production the bearer-token gate validates
+          // against the configured secret.
+          const res = await fetch(`${gatewayUrl}/readyz`, {
             headers: { Authorization: `Bearer ${token}` },
             cache: "no-store",
           });
@@ -74,6 +80,17 @@ declare module "next-auth" {
   interface Session {
     gatewayToken?: string;
     role?: string;
+    /**
+     * Stable `X-Argo-Principal` value (e.g. `human:demo@throwaway.test`).
+     * Populated from the `__Host-session` JWT's `sub`/`email` claim
+     * by the server-side callback in `web/auth.ts`. The SPA's API
+     * client reads it from `/api/auth/session` and stamps it as the
+     * `X-Argo-Principal` header on gateway calls so the dev-bypass
+     * auth path can scope the principal correctly. Without this,
+     * onboarding routes reject the request as
+     * `system:dev-bypass` rather than `human:<email>`.
+     */
+    principal?: string;
   }
   interface User {
     token?: string;

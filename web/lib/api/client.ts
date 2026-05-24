@@ -88,20 +88,35 @@ export interface ApiRequestInit extends Omit<RequestInit, "body"> {
   json?: unknown;
 }
 
-async function readSessionToken(): Promise<string | undefined> {
+interface SessionPeek {
+  gatewayToken?: string;
+  principal?: string;
+}
+
+async function readSessionPeek(): Promise<SessionPeek> {
   if (typeof window === "undefined") {
     const { auth } = await import("@/auth");
     const session = await auth();
-    return session?.gatewayToken;
+    return {
+      gatewayToken: session?.gatewayToken,
+      principal: session?.principal,
+    };
   }
   try {
     const res = await fetch("/api/auth/session", { credentials: "same-origin" });
-    if (!res.ok) return undefined;
-    const session = (await res.json()) as { gatewayToken?: string };
-    return session?.gatewayToken;
+    if (!res.ok) return {};
+    const session = (await res.json()) as SessionPeek;
+    return {
+      gatewayToken: session?.gatewayToken,
+      principal: session?.principal,
+    };
   } catch {
-    return undefined;
+    return {};
   }
+}
+
+async function readSessionToken(): Promise<string | undefined> {
+  return (await readSessionPeek()).gatewayToken;
 }
 
 async function parseError(res: Response): Promise<ApiError> {
@@ -134,11 +149,22 @@ async function parseError(res: Response): Promise<ApiError> {
 
 async function request<T>(method: string, path: string, init: ApiRequestInit = {}): Promise<T> {
   const { token: tokenOverride, json, headers, ...rest } = init;
-  const token = tokenOverride ?? (await readSessionToken());
+  const peek = tokenOverride ? { gatewayToken: tokenOverride, principal: undefined } : await readSessionPeek();
+  const token = peek.gatewayToken;
 
   const finalHeaders = new Headers(headers);
   if (json !== undefined) finalHeaders.set("Content-Type", "application/json");
   if (token) finalHeaders.set("Authorization", `Bearer ${token}`);
+  // Stamp X-Argo-Principal from the session's decoded JWT so the
+  // gateway's dev-bypass auth path (gateway.auth_bypass = true OR
+  // ARGO_GATEWAY_AUTH_BYPASS=1) sees a real `human:<email>`
+  // principal rather than falling back to `system:dev-bypass`.
+  // Routes like /api/v1/onboarding/* require the human:<email>
+  // shape; without this header they 401 with the X-Argo-Principal
+  // header is required message. Caller-supplied header wins.
+  if (peek.principal && !finalHeaders.has("X-Argo-Principal")) {
+    finalHeaders.set("X-Argo-Principal", peek.principal);
+  }
   finalHeaders.set("Accept", "application/json");
   // CSRF double-submit (Stream claude-rebase-pr-1835-cookies). The
   // gateway's `middleware_csrf` enforces the header on every

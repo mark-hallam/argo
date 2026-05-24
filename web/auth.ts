@@ -25,6 +25,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (magicLink) {
         if (magicLink.jwt) session.gatewayToken = magicLink.jwt;
         if (magicLink.role) session.role = magicLink.role;
+        if (magicLink.principal) session.principal = magicLink.principal;
       }
       return session;
     },

@@ -27,6 +27,15 @@
 export interface MagicLinkClaims {
   jwt: string;
   role?: string;
+  /**
+   * `X-Argo-Principal` value derived from the JWT body's `sub` or
+   * `email` claim. Format: `human:<email>` so the gateway's
+   * dev-bypass auth path scopes onboarding + workspace routes to a
+   * real user identity rather than the `system:dev-bypass` fallback.
+   * `undefined` when the JWT doesn't include either claim (legacy
+   * cookies pre-demo-mode).
+   */
+  principal?: string;
 }
 
 export async function readMagicLinkClaims(): Promise<MagicLinkClaims | null> {
@@ -43,8 +52,18 @@ export async function readMagicLinkClaims(): Promise<MagicLinkClaims | null> {
       payload.replace(/-/g, "+").replace(/_/g, "/"),
       "base64",
     ).toString("utf8");
-    const claims = JSON.parse(json) as { role?: string };
-    return { jwt: cookie, role: claims.role };
+    const claims = JSON.parse(json) as {
+      role?: string;
+      sub?: string;
+      email?: string;
+    };
+    const emailish = typeof claims.email === "string" && claims.email.length > 0
+      ? claims.email
+      : typeof claims.sub === "string" && claims.sub.includes("@")
+        ? claims.sub
+        : null;
+    const principal = emailish ? `human:${emailish}` : undefined;
+    return { jwt: cookie, role: claims.role, principal };
   } catch {
     return null;
   }

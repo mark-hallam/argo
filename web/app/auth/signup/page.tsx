@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { useSignup } from "@/lib/auth/use-signup";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
 import { SsoButtons } from "@/components/auth/SsoButtons";
@@ -24,12 +25,6 @@ import { SsoButtons } from "@/components/auth/SsoButtons";
  */
 const DEMO_MODE =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_ARGO_DEMO_MODE === "1";
-
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
-
-function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
-}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -55,24 +50,63 @@ export default function SignupPage() {
 
   async function submitDemoMint() {
     const trimmed = email.trim().toLowerCase();
-    if (trimmed.length === 0) return;
+    if (trimmed.length === 0) {
+      setDemoError("Enter an email to continue.");
+      return;
+    }
     setDemoPending(true);
     setDemoError(null);
     try {
-      const res = await fetch(`${gatewayBase()}/api/v1/demo/mint-principal`, {
+      // Call the same-origin Next.js proxy (NOT the gateway
+      // directly): the proxy lands the __Host-session + __Host-csrf
+      // cookies on the SPA origin so NextAuth surfaces the principal
+      // on subsequent calls. Hitting the gateway directly throws the
+      // JWT away and re-creates the 401-on-step-2 demo blocker.
+      const res = await fetch("/api/auth/demo-mint", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email: trimmed }),
       });
       if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as
+          | { error?: { message?: string } }
+          | null;
+        const message =
+          body?.error?.message ??
+          "We couldn't start your demo workspace. Try again in a moment.";
+        setDemoError(message);
+        return;
+      }
+      const minted = (await res.json().catch(() => null)) as
+        | { session_token?: string }
+        | null;
+      const sessionToken = minted?.session_token;
+      if (!sessionToken) {
+        setDemoError("Demo session response was malformed. Refresh and try again.");
+        return;
+      }
+      // Hand the demo JWT to NextAuth's Credentials provider so the
+      // session callback fires and surfaces `gatewayToken` + `principal`
+      // to client-side `readSessionPeek()`. Without this step, the
+      // __Host-session cookie is set but `/api/auth/session` returns
+      // null, so the API client can't stamp `X-Argo-Principal` on
+      // subsequent gateway calls and onboarding routes 401.
+      const signInRes = await signIn("gateway-bearer", {
+        token: sessionToken,
+        redirect: false,
+      });
+      if (signInRes?.error) {
         setDemoError(
-          `Demo mint failed (HTTP ${res.status}). Confirm the gateway booted with ARGO_DEMO_MODE=1.`,
+          "Couldn't sign you into the demo workspace. Refresh and try again.",
         );
         return;
       }
       router.replace("/onboarding/welcome");
     } catch {
-      setDemoError("Couldn't reach the gateway. Confirm it's running on the configured port.");
+      setDemoError(
+        "We couldn't reach SKYCOT just now. Check your internet connection and try again.",
+      );
     } finally {
       setDemoPending(false);
     }
@@ -181,9 +215,9 @@ function DemoModeBanner() {
         fontWeight: 600,
       }}
     >
-      DEMO MODE — auth bypass active. ARGO_DEMO_MODE=1 is set; signup mints a
-      verified principal without an email round-trip. Never enable this in
-      production.
+      Demo mode is active — no email round-trip and any address you enter will
+      drop you straight into onboarding. Only use this on your own machine for
+      recording or evaluation.
     </div>
   );
 }
