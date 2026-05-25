@@ -207,7 +207,15 @@ The full audit reports live in `docs/skycot/audit/`:
 - Exponential backoff: 5 min → 15 min → 30 min cap on sustained pressure
 - At the 30-min cap, supervisor appends a `[supervisor-ram-pressure]` line to `docs/skycot/agents/SHARED.md` so the operator sees sustained pressure in the next conductor tick's handoff scan
 - Tunable via `RAM_PRESSURE_THRESHOLD_MB` env var (default 1024)
-- Workers still use `CARGO_TARGET_DIR=/tmp/argo-shared-target` (NOT changed — that's a Tier-2 follow-up; the per-cargo job cap + memory gate should keep the shared dir bounded by reducing peak concurrent compile load)
+
+**Build-cache fixes applied 2026-05-25 (tier-2 #5 + #7):**
+- `CARGO_TARGET_DIR` moved off `/tmp` → `$HOME/.cache/argo-shared-target/` for the supervisor's children (gate + workspace-clippy + supervisor-side cargo). Survives reboot now — saves ~30 min cold-rebuild on every boot. Gateway plist still uses `/tmp/argo-shared-target` for its release-build (untouched; release vs debug profiles wouldn't share cache anyway).
+- Per-brief worker target dirs still live on `/tmp/$BRIEF_ID-target/` (bounded by worker lifetime + cleanup-on-exit; bigger change to move, deferred).
+- `sccache` (already installed at `/opt/homebrew/bin/sccache` via brew) now wraps rustc via `RUSTC_WRAPPER` env var in the supervisor plist. Cache lives in `~/Library/Caches/Mozilla.sccache`, capped at 20 GB via `SCCACHE_CACHE_SIZE`. `CARGO_INCREMENTAL=0` set to maximize cache hits (cargo's incremental dirs use randomized state that breaks sccache hashing). Expected: 30-60% wall-time reduction on warm cache. Cross-cargo + cross-worker sharing — first worker compiles `serde` once, subsequent workers cache-hit. Check cache stats: `sccache --show-stats`.
+
+**Not applied (deferred to dedicated sessions):**
+- Tier-2 #6 (pre-built gateway binary skip rebuild) — has correctness risk (stale binary against new schema); operator explicitly skipped.
+- Per-brief worker target dirs on `~/.cache/` instead of `/tmp/` — bigger change (hardcoded in worker-prompt strings in `scripts/claude-worker-loop.sh` lines ~330-387); revisit later if reboot-loss-of-per-brief-cache becomes painful.
 
 ## Project rename — Argo → Skycot
 
