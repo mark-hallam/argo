@@ -55,11 +55,12 @@ pub struct WorkerBudgetSummary {
 /// from the operator's perspective (UPDATE is idempotent on SQLite).
 pub async fn set_cap(
     store: &SessionStore,
+    tenant_id: &str,
     worker_id: &str,
     daily_micros: Option<u64>,
     monthly_micros: Option<u64>,
 ) -> ArgoResult<()> {
-    let mut value = load_policy_value(store.pool(), worker_id).await?;
+    let mut value = load_policy_value(store.pool(), tenant_id, worker_id).await?;
     let map = ensure_object(&mut value, worker_id)?;
     if let Some(daily) = daily_micros {
         map.insert(DAILY_KEY.into(), json!(daily));
@@ -67,13 +68,13 @@ pub async fn set_cap(
     if let Some(monthly) = monthly_micros {
         map.insert(MONTHLY_KEY.into(), json!(monthly));
     }
-    write_policy_value(store.pool(), worker_id, &value).await
+    write_policy_value(store.pool(), tenant_id, worker_id, &value).await
 }
 
 /// Drop both the daily and monthly cap fields from the worker's
 /// policy JSON. Other auto-approval settings are preserved.
-pub async fn clear_cap(store: &SessionStore, worker_id: &str) -> ArgoResult<()> {
-    let mut value = load_policy_value(store.pool(), worker_id).await?;
+pub async fn clear_cap(store: &SessionStore, tenant_id: &str, worker_id: &str) -> ArgoResult<()> {
+    let mut value = load_policy_value(store.pool(), tenant_id, worker_id).await?;
     let map = ensure_object(&mut value, worker_id)?;
     let mut changed = false;
     if map.remove(DAILY_KEY).is_some() {
@@ -85,19 +86,21 @@ pub async fn clear_cap(store: &SessionStore, worker_id: &str) -> ArgoResult<()> 
     if !changed {
         return Ok(());
     }
-    write_policy_value(store.pool(), worker_id, &value).await
+    write_policy_value(store.pool(), tenant_id, worker_id, &value).await
 }
 
 /// Read the persisted caps + the rolling charged-today /
 /// charged-this-month totals from the `worker_budget` ledger.
 pub async fn summary(
     store: &SessionStore,
+    tenant_id: &str,
     worker_id: &str,
     now: DateTime<Utc>,
 ) -> ArgoResult<WorkerBudgetSummary> {
-    let value = load_policy_value(store.pool(), worker_id).await?;
+    let value = load_policy_value(store.pool(), tenant_id, worker_id).await?;
     let caps = caps_from_value(&value);
-    let (today_micros, this_month_micros) = load_spend_totals(store.pool(), worker_id, now).await?;
+    let (today_micros, this_month_micros) =
+        load_spend_totals(store.pool(), tenant_id, worker_id, now).await?;
     Ok(WorkerBudgetSummary {
         worker_id: worker_id.to_string(),
         caps,
@@ -106,16 +109,25 @@ pub async fn summary(
     })
 }
 
-async fn load_policy_value(pool: &Pool<Sqlite>, worker_id: &str) -> ArgoResult<Value> {
-    let row: Option<(String,)> =
-        sqlx::query_as("SELECT auto_approval_json FROM worker WHERE id = ? LIMIT 1")
-            .bind(worker_id)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| ArgoError::Io(format!("read worker policy: {e}")))?;
-    let raw = row
-        .map(|(s,)| s)
-        .ok_or_else(|| ArgoError::Provider(format!("worker {worker_id} not found")))?;
+async fn load_policy_value(
+    pool: &Pool<Sqlite>,
+    tenant_id: &str,
+    worker_id: &str,
+) -> ArgoResult<Value> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT auto_approval_json FROM worker \
+         WHERE id = ? AND tenant_id = ? LIMIT 1",
+    )
+    .bind(worker_id)
+    .bind(tenant_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| ArgoError::Io(format!("read worker policy: {e}")))?;
+    let raw = row.map(|(s,)| s).ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "worker {worker_id} not found in tenant {tenant_id}"
+        ))
+    })?;
     if raw.trim().is_empty() {
         return Ok(json!({}));
     }
@@ -123,17 +135,28 @@ async fn load_policy_value(pool: &Pool<Sqlite>, worker_id: &str) -> ArgoResult<V
         .map_err(|e| ArgoError::Provider(format!("worker {worker_id} policy is not JSON: {e}")))
 }
 
-async fn write_policy_value(pool: &Pool<Sqlite>, worker_id: &str, value: &Value) -> ArgoResult<()> {
+async fn write_policy_value(
+    pool: &Pool<Sqlite>,
+    tenant_id: &str,
+    worker_id: &str,
+    value: &Value,
+) -> ArgoResult<()> {
     let serialised = serde_json::to_string(value)
         .map_err(|e| ArgoError::Provider(format!("serialise worker policy: {e}")))?;
-    let result = sqlx::query("UPDATE worker SET auto_approval_json = ? WHERE id = ?")
-        .bind(&serialised)
-        .bind(worker_id)
-        .execute(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("update worker policy: {e}")))?;
+    let result = sqlx::query(
+        "UPDATE worker SET auto_approval_json = ? \
+         WHERE id = ? AND tenant_id = ?",
+    )
+    .bind(&serialised)
+    .bind(worker_id)
+    .bind(tenant_id)
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("update worker policy: {e}")))?;
     if result.rows_affected() == 0 {
-        return Err(ArgoError::Provider(format!("worker {worker_id} not found")));
+        return Err(ArgoError::Provider(format!(
+            "worker {worker_id} not found in tenant {tenant_id}"
+        )));
     }
     Ok(())
 }
@@ -171,6 +194,7 @@ fn read_u64(map: &serde_json::Map<String, Value>, key: &str) -> Option<u64> {
 
 async fn load_spend_totals(
     pool: &Pool<Sqlite>,
+    tenant_id: &str,
     worker_id: &str,
     now: DateTime<Utc>,
 ) -> ArgoResult<(u64, u64)> {
@@ -178,8 +202,9 @@ async fn load_spend_totals(
     let month_start = month_start_seconds(now);
     let today: i64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(usd_micros), 0) FROM worker_budget \
-         WHERE worker_id = ? AND charged_at >= ?",
+         WHERE tenant_id = ? AND worker_id = ? AND charged_at >= ?",
     )
+    .bind(tenant_id.as_bytes())
     .bind(worker_id)
     .bind(day_start)
     .fetch_one(pool)
@@ -187,8 +212,9 @@ async fn load_spend_totals(
     .map_err(|e| ArgoError::Provider(format!("worker_budget today sum: {e}")))?;
     let month: i64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(usd_micros), 0) FROM worker_budget \
-         WHERE worker_id = ? AND charged_at >= ?",
+         WHERE tenant_id = ? AND worker_id = ? AND charged_at >= ?",
     )
+    .bind(tenant_id.as_bytes())
     .bind(worker_id)
     .bind(month_start)
     .fetch_one(pool)
@@ -218,30 +244,41 @@ fn month_start_seconds(now: DateTime<Utc>) -> i64 {
 mod tests {
     use super::*;
 
+    const TENANT_ID: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const OTHER_TENANT_ID: &str = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+
     async fn fresh_store() -> SessionStore {
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
         store
     }
 
-    async fn seed_worker(pool: &Pool<Sqlite>, id: &str, policy: &str) {
+    async fn seed_worker(pool: &Pool<Sqlite>, tenant_id: &str, id: &str, policy: &str) {
         sqlx::query(
             "INSERT INTO worker (id, tenant_id, vertical_id, persona_id, role_id, \
              memory_scope, auto_approval_json, channels_json, created_at) \
-             VALUES (?, 'tenant-x', 'vert-x', 'persona-x', 'role-x', 'scope-x', ?, '[]', 0)",
+             VALUES (?, ?, 'vert-x', 'persona-x', 'role-x', 'scope-x', ?, '[]', 0)",
         )
         .bind(id)
+        .bind(tenant_id)
         .bind(policy)
         .execute(pool)
         .await
         .unwrap();
     }
 
-    async fn seed_charge(pool: &Pool<Sqlite>, worker_id: &str, micros: i64, charged_at: i64) {
+    async fn seed_charge(
+        pool: &Pool<Sqlite>,
+        tenant_id: &str,
+        worker_id: &str,
+        micros: i64,
+        charged_at: i64,
+    ) {
         sqlx::query(
             "INSERT INTO worker_budget (tenant_id, worker_id, action_id, usd_micros, charged_at) \
-             VALUES (x'00', ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?)",
         )
+        .bind(tenant_id.as_bytes())
         .bind(worker_id)
         .bind(format!("act-{charged_at}"))
         .bind(micros)
@@ -263,8 +300,8 @@ mod tests {
     #[tokio::test]
     async fn set_cap_writes_both_dimensions() {
         let store = fresh_store().await;
-        seed_worker(store.pool(), "w-1", "{\"enabled\":false}").await;
-        set_cap(&store, "w-1", Some(5_000_000), Some(100_000_000))
+        seed_worker(store.pool(), TENANT_ID, "w-1", "{\"enabled\":false}").await;
+        set_cap(&store, TENANT_ID, "w-1", Some(5_000_000), Some(100_000_000))
             .await
             .unwrap();
         let policy = read_policy(store.pool(), "w-1").await;
@@ -276,8 +313,10 @@ mod tests {
     #[tokio::test]
     async fn set_cap_zero_is_allowed() {
         let store = fresh_store().await;
-        seed_worker(store.pool(), "w-2", "{\"enabled\":false}").await;
-        set_cap(&store, "w-2", Some(0), None).await.unwrap();
+        seed_worker(store.pool(), TENANT_ID, "w-2", "{\"enabled\":false}").await;
+        set_cap(&store, TENANT_ID, "w-2", Some(0), None)
+            .await
+            .unwrap();
         let policy = read_policy(store.pool(), "w-2").await;
         assert_eq!(policy[DAILY_KEY], 0);
         assert!(policy.get(MONTHLY_KEY).is_none());
@@ -286,11 +325,11 @@ mod tests {
     #[tokio::test]
     async fn set_cap_is_idempotent() {
         let store = fresh_store().await;
-        seed_worker(store.pool(), "w-3", "{\"enabled\":true}").await;
-        set_cap(&store, "w-3", Some(7_500_000), Some(50_000_000))
+        seed_worker(store.pool(), TENANT_ID, "w-3", "{\"enabled\":true}").await;
+        set_cap(&store, TENANT_ID, "w-3", Some(7_500_000), Some(50_000_000))
             .await
             .unwrap();
-        set_cap(&store, "w-3", Some(7_500_000), Some(50_000_000))
+        set_cap(&store, TENANT_ID, "w-3", Some(7_500_000), Some(50_000_000))
             .await
             .unwrap();
         let policy = read_policy(store.pool(), "w-3").await;
@@ -303,11 +342,14 @@ mod tests {
         let store = fresh_store().await;
         seed_worker(
             store.pool(),
+            TENANT_ID,
             "w-4",
             "{\"enabled\":false,\"daily_budget_usd_micros\":1000,\"monthly_budget_usd_micros\":2000}",
         )
         .await;
-        set_cap(&store, "w-4", None, Some(9_000)).await.unwrap();
+        set_cap(&store, TENANT_ID, "w-4", None, Some(9_000))
+            .await
+            .unwrap();
         let policy = read_policy(store.pool(), "w-4").await;
         assert_eq!(policy[DAILY_KEY], 1000);
         assert_eq!(policy[MONTHLY_KEY], 9000);
@@ -318,11 +360,12 @@ mod tests {
         let store = fresh_store().await;
         seed_worker(
             store.pool(),
+            TENANT_ID,
             "w-5",
             "{\"enabled\":true,\"daily_budget_usd_micros\":1,\"monthly_budget_usd_micros\":2}",
         )
         .await;
-        clear_cap(&store, "w-5").await.unwrap();
+        clear_cap(&store, TENANT_ID, "w-5").await.unwrap();
         let policy = read_policy(store.pool(), "w-5").await;
         assert!(policy.get(DAILY_KEY).is_none());
         assert!(policy.get(MONTHLY_KEY).is_none());
@@ -332,8 +375,28 @@ mod tests {
     #[tokio::test]
     async fn missing_worker_errors() {
         let store = fresh_store().await;
-        let err = set_cap(&store, "ghost", Some(1), None).await.unwrap_err();
+        let err = set_cap(&store, TENANT_ID, "ghost", Some(1), None)
+            .await
+            .unwrap_err();
         assert!(err.to_string().contains("ghost"));
+    }
+
+    #[tokio::test]
+    async fn set_cap_rejects_wrong_tenant() {
+        let store = fresh_store().await;
+        seed_worker(
+            store.pool(),
+            TENANT_ID,
+            "w-cross",
+            "{\"enabled\":true,\"daily_budget_usd_micros\":1}",
+        )
+        .await;
+        let err = set_cap(&store, OTHER_TENANT_ID, "w-cross", Some(9), None)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains(OTHER_TENANT_ID));
+        let policy = read_policy(store.pool(), "w-cross").await;
+        assert_eq!(policy[DAILY_KEY], 1);
     }
 
     #[tokio::test]
@@ -341,6 +404,7 @@ mod tests {
         let store = fresh_store().await;
         seed_worker(
             store.pool(),
+            TENANT_ID,
             "w-6",
             "{\"enabled\":true,\"daily_budget_usd_micros\":7,\"monthly_budget_usd_micros\":42}",
         )
@@ -348,13 +412,21 @@ mod tests {
         let now = Utc::now();
         let day_start = day_start_seconds(now);
         let month_start = month_start_seconds(now);
-        seed_charge(store.pool(), "w-6", 1_000, day_start + 60).await;
-        seed_charge(store.pool(), "w-6", 4_000, day_start + 120).await;
+        seed_charge(store.pool(), TENANT_ID, "w-6", 1_000, day_start + 60).await;
+        seed_charge(store.pool(), TENANT_ID, "w-6", 4_000, day_start + 120).await;
+        seed_charge(
+            store.pool(),
+            OTHER_TENANT_ID,
+            "w-6",
+            99_000,
+            day_start + 180,
+        )
+        .await;
         // earlier in month, before today
         if month_start + 30 < day_start {
-            seed_charge(store.pool(), "w-6", 500, month_start + 30).await;
+            seed_charge(store.pool(), TENANT_ID, "w-6", 500, month_start + 30).await;
         }
-        let s = summary(&store, "w-6", now).await.unwrap();
+        let s = summary(&store, TENANT_ID, "w-6", now).await.unwrap();
         assert_eq!(s.caps.daily_micros, Some(7));
         assert_eq!(s.caps.monthly_micros, Some(42));
         assert_eq!(s.today_micros, 5_000);
@@ -369,8 +441,8 @@ mod tests {
     #[tokio::test]
     async fn summary_with_no_caps_or_spend() {
         let store = fresh_store().await;
-        seed_worker(store.pool(), "w-7", "{\"enabled\":false}").await;
-        let s = summary(&store, "w-7", Utc::now()).await.unwrap();
+        seed_worker(store.pool(), TENANT_ID, "w-7", "{\"enabled\":false}").await;
+        let s = summary(&store, TENANT_ID, "w-7", Utc::now()).await.unwrap();
         assert_eq!(s.caps, WorkerBudgetCaps::default());
         assert_eq!(s.today_micros, 0);
         assert_eq!(s.this_month_micros, 0);

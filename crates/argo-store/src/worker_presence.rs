@@ -68,12 +68,49 @@ pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
 /// without coupling to identity-store reads.
 pub async fn touch_presence(pool: &SqlitePool, worker_id: &str) -> ArgoResult<()> {
     ensure_schema(pool).await?;
-    sqlx::query("UPDATE worker SET last_active_at = strftime('%s','now') WHERE id = ?")
-        .bind(worker_id)
-        .execute(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("worker_presence touch: {e}")))?;
+    if let Some(tenant_id) = tenant_id_for_worker(pool, worker_id).await? {
+        touch_presence_bound(pool, &tenant_id, worker_id).await?;
+    }
     Ok(())
+}
+
+/// Mark one worker active when the caller already has tenant context.
+/// A mismatched `(tenant_id, worker_id)` pair updates zero rows.
+pub async fn touch_presence_for_tenant(
+    pool: &SqlitePool,
+    tenant_id: &str,
+    worker_id: &str,
+) -> ArgoResult<()> {
+    ensure_schema(pool).await?;
+    touch_presence_bound(pool, tenant_id, worker_id).await
+}
+
+async fn touch_presence_bound(
+    pool: &SqlitePool,
+    tenant_id: &str,
+    worker_id: &str,
+) -> ArgoResult<()> {
+    sqlx::query(
+        "UPDATE worker SET last_active_at = strftime('%s','now') \
+         WHERE id = ? AND tenant_id = ?",
+    )
+    .bind(worker_id)
+    .bind(tenant_id)
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("worker_presence touch: {e}")))?;
+    Ok(())
+}
+
+async fn tenant_id_for_worker(pool: &SqlitePool, worker_id: &str) -> ArgoResult<Option<String>> {
+    if !table_exists(pool, "worker").await? {
+        return Ok(None);
+    }
+    sqlx::query_scalar("SELECT tenant_id FROM worker WHERE id = ? LIMIT 1")
+        .bind(worker_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker_presence tenant lookup: {e}")))
 }
 
 /// List live workers ordered by most recent activity. NULL

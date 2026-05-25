@@ -7,8 +7,8 @@
 //! `pub(crate)` and are re-imported from `sink.rs`; no public
 //! surface change.
 use crate::sink::{AuditEvent, AuditItem};
-use argo_types::{ArgoError, ArgoResult, SessionId};
 use argo_store::SessionStore;
+use argo_types::{ArgoError, ArgoResult, SessionId};
 use sha2::{Digest, Sha256};
 use sqlx::{Pool, Sqlite};
 use std::collections::HashMap;
@@ -205,7 +205,12 @@ pub(crate) async fn after_commit_fanout(
 ) -> ArgoResult<()> {
     for item in items {
         for worker_id in worker_ids_in_payload(&item.payload) {
-            argo_store::worker_presence::touch_presence(store.pool(), &worker_id).await?;
+            argo_store::worker_presence::touch_presence_for_tenant(
+                store.pool(),
+                &item.tenant_id,
+                &worker_id,
+            )
+            .await?;
         }
         // Best-effort broadcast — `send` errors only when there
         // are no live receivers, which is fine; subscribers will

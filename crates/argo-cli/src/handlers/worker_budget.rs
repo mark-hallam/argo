@@ -54,21 +54,24 @@ async fn set(
         ));
     }
     let store = open_store().await?;
+    let tenant_id = resolve_worker_tenant(&store, worker_id).await?;
     if clear {
-        worker_budget_write::clear_cap(&store, worker_id).await?;
+        worker_budget_write::clear_cap(&store, &tenant_id, worker_id).await?;
     } else {
         let daily_micros = daily.map(parse_usd).transpose()?;
         let monthly_micros = monthly.map(parse_usd).transpose()?;
-        worker_budget_write::set_cap(&store, worker_id, daily_micros, monthly_micros).await?;
+        worker_budget_write::set_cap(&store, &tenant_id, worker_id, daily_micros, monthly_micros)
+            .await?;
     }
-    let summary = worker_budget_write::summary(&store, worker_id, Utc::now()).await?;
+    let summary = worker_budget_write::summary(&store, &tenant_id, worker_id, Utc::now()).await?;
     print_summary(&summary, true, json);
     Ok(())
 }
 
 async fn show(worker_id: &str, json: bool) -> ArgoResult<()> {
     let store = open_store().await?;
-    let summary = worker_budget_write::summary(&store, worker_id, Utc::now()).await?;
+    let tenant_id = resolve_worker_tenant(&store, worker_id).await?;
+    let summary = worker_budget_write::summary(&store, &tenant_id, worker_id, Utc::now()).await?;
     print_summary(&summary, false, json);
     Ok(())
 }
@@ -80,6 +83,15 @@ async fn open_store() -> ArgoResult<SessionStore> {
     let store = SessionStore::open(db_path(&home)).await?;
     store.migrate().await?;
     Ok(store)
+}
+
+async fn resolve_worker_tenant(store: &SessionStore, worker_id: &str) -> ArgoResult<String> {
+    sqlx::query_scalar("SELECT tenant_id FROM worker WHERE id = ? LIMIT 1")
+        .bind(worker_id)
+        .fetch_optional(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker tenant lookup: {e}")))?
+        .ok_or_else(|| ArgoError::Provider(format!("worker {worker_id} not found")))
 }
 
 fn print_summary(summary: &WorkerBudgetSummary, just_set: bool, json: bool) {
