@@ -3,6 +3,7 @@ use super::OpenAiCompatTransport;
 use crate::manifest::ProviderManifest;
 use crate::transport::{ProviderRequest, Sampling, StopReason, ToolSchema, Transport};
 use argo_types::{ArgoError, Message};
+use std::time::Instant;
 
 fn user_message(text: &str) -> Message {
     let v = serde_json::json!({
@@ -37,6 +38,24 @@ format = "openai_tool_calls"
 
 fn parse_manifest() -> ProviderManifest {
     ProviderManifest::from_toml_str(manifest_str()).unwrap()
+}
+
+fn parse_discovery_manifest() -> ProviderManifest {
+    let toml = format!(
+        "{}\n[[models]]\nid = \"gpt-4o-mini\"\ncontext_window = 128000\n[discovery]\nendpoint = \"{{base_url}}/v1/models\"\ninclude_pattern = \"^gpt-[0-9]\"\nexclude_pattern = \"preview|legacy|deprecated\"\nprefer = \"highest_minor\"\nrefresh_interval_hours = 24",
+        manifest_str().trim_end()
+    );
+    ProviderManifest::from_toml_str(&toml).unwrap()
+}
+
+fn provider_request(model: &str) -> ProviderRequest {
+    ProviderRequest {
+        model: model.into(),
+        messages: vec![user_message("hello")],
+        tools: vec![],
+        system: None,
+        sampling: Sampling::default(),
+    }
 }
 
 #[test]
@@ -105,6 +124,34 @@ fn build_request_body_serializes_messages_and_tools() {
     assert!((temp - 0.2).abs() < 1e-3);
     assert_eq!(body["max_tokens"], 64);
     assert_eq!(body["tools"][0]["function"]["name"], "ls");
+}
+
+#[test]
+fn runtime_request_body_resolves_latest_from_warmed_cache() {
+    let t = OpenAiCompatTransport::from_manifest(parse_discovery_manifest(), "sk-x").unwrap();
+    t.latest_model_cache
+        .as_ref()
+        .unwrap()
+        .refresh_with_ids(Instant::now(), &["gpt-4.0", "gpt-4.1", "gpt-4.5-preview"])
+        .unwrap();
+
+    let req = t.resolve_request(&provider_request("latest"));
+    let body = build_request_body(&t.manifest, &req).unwrap();
+
+    assert_eq!(body["model"], "gpt-4.1");
+}
+
+#[test]
+fn runtime_request_body_falls_back_and_keeps_pinned_models() {
+    let t = OpenAiCompatTransport::from_manifest(parse_discovery_manifest(), "sk-x").unwrap();
+
+    let latest = t.resolve_request(&provider_request("latest"));
+    let latest_body = build_request_body(&t.manifest, &latest).unwrap();
+    let pinned = t.resolve_request(&provider_request("gpt-custom"));
+    let pinned_body = build_request_body(&t.manifest, &pinned).unwrap();
+
+    assert_eq!(latest_body["model"], "gpt-4o-mini");
+    assert_eq!(pinned_body["model"], "gpt-custom");
 }
 
 #[test]

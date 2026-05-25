@@ -3,6 +3,7 @@ use super::AnthropicTransport;
 use crate::manifest::ProviderManifest;
 use crate::transport::{ProviderRequest, Sampling, StopReason, ToolSchema};
 use argo_types::{ArgoError, Message};
+use std::time::Instant;
 
 fn user_message(text: &str) -> Message {
     let v = serde_json::json!({
@@ -40,6 +41,24 @@ format = "anthropic_tool_use"
 
 fn parse_manifest() -> ProviderManifest {
     ProviderManifest::from_toml_str(manifest_str()).unwrap()
+}
+
+fn parse_discovery_manifest() -> ProviderManifest {
+    let toml = format!(
+        "{}\n[[models]]\nid = \"claude-static\"\ncontext_window = 200000\n[discovery]\nendpoint = \"{{base_url}}/v1/models\"\ninclude_pattern = \"^claude-\"\nprefer = \"lexicographic_max\"\nrefresh_interval_hours = 24",
+        manifest_str().trim_end()
+    );
+    ProviderManifest::from_toml_str(&toml).unwrap()
+}
+
+fn provider_request(model: &str) -> ProviderRequest {
+    ProviderRequest {
+        model: model.into(),
+        messages: vec![user_message("hello")],
+        tools: vec![],
+        system: None,
+        sampling: Sampling::default(),
+    }
 }
 
 #[test]
@@ -102,6 +121,34 @@ fn build_request_serializes_with_max_tokens() {
     assert_eq!(body["messages"][0]["content"][0]["type"], "text");
     assert_eq!(body["tools"][0]["name"], "ls");
     assert_eq!(body["tools"][0]["input_schema"]["type"], "object");
+}
+
+#[test]
+fn runtime_request_body_resolves_latest_from_warmed_cache() {
+    let t = AnthropicTransport::from_manifest(parse_discovery_manifest(), "sk-ant-x").unwrap();
+    t.latest_model_cache
+        .as_ref()
+        .unwrap()
+        .refresh_with_ids(Instant::now(), &["claude-3-haiku", "claude-4-sonnet"])
+        .unwrap();
+
+    let req = t.resolve_request(&provider_request("latest"));
+    let body = build_request_body(&t.manifest, &req).unwrap();
+
+    assert_eq!(body["model"], "claude-4-sonnet");
+}
+
+#[test]
+fn runtime_request_body_falls_back_and_keeps_pinned_models() {
+    let t = AnthropicTransport::from_manifest(parse_discovery_manifest(), "sk-ant-x").unwrap();
+
+    let latest = t.resolve_request(&provider_request("latest"));
+    let latest_body = build_request_body(&t.manifest, &latest).unwrap();
+    let pinned = t.resolve_request(&provider_request("claude-pinned"));
+    let pinned_body = build_request_body(&t.manifest, &pinned).unwrap();
+
+    assert_eq!(latest_body["model"], "claude-static");
+    assert_eq!(pinned_body["model"], "claude-pinned");
 }
 
 #[test]

@@ -15,7 +15,8 @@ use crate::manifest::{ProviderFamily, ProviderManifest};
 use crate::retry::{provider_backoff_delay, provider_retries_exhausted, provider_retry_policy};
 use crate::sse::SseBuffer;
 use crate::transport::{
-    build_http_client, ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport,
+    build_http_client, resolve_latest_provider_request, LatestModelCache, ProviderRequest,
+    ProviderResponse, ProviderResponseDelta, Transport,
 };
 use crate::HeartbeatMonitor;
 use argo_types::{ArgoError, ArgoResult, CapabilitySet, Redacted, RequestId};
@@ -42,6 +43,7 @@ pub(super) const ERROR_BODY_CAP: usize = 4096;
 /// ```
 pub struct OpenAiCompatTransport {
     manifest: ProviderManifest,
+    latest_model_cache: Option<LatestModelCache>,
     api_key: Redacted<String>,
     client: Client,
     capabilities: CapabilitySet,
@@ -80,8 +82,10 @@ impl OpenAiCompatTransport {
             manifest.transport.read_timeout_ms,
         )?;
         let capabilities = manifest.capabilities.to_set(&manifest.auth.api_key_env);
+        let latest_model_cache = LatestModelCache::from_manifest(&manifest);
         Ok(Self {
             manifest,
+            latest_model_cache,
             api_key: Redacted::new(api_key.to_string()),
             client,
             capabilities,
@@ -108,6 +112,10 @@ impl OpenAiCompatTransport {
             .header_format
             .replace("{key}", self.api_key.expose())
     }
+
+    fn resolve_request(&self, req: &ProviderRequest) -> ProviderRequest {
+        resolve_latest_provider_request(self.latest_model_cache.as_ref(), req)
+    }
 }
 
 #[async_trait]
@@ -121,7 +129,8 @@ impl Transport for OpenAiCompatTransport {
     }
 
     async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
-        let body = build_request_body(&self.manifest, req)?;
+        let resolved_req = self.resolve_request(req);
+        let body = build_request_body(&self.manifest, &resolved_req)?;
         let raw = retry_post_json(
             &self.client,
             &self.endpoint(),
@@ -143,7 +152,8 @@ impl Transport for OpenAiCompatTransport {
         &self,
         req: &ProviderRequest,
     ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>> {
-        let mut body = build_request_body(&self.manifest, req)?;
+        let resolved_req = self.resolve_request(req);
+        let mut body = build_request_body(&self.manifest, &resolved_req)?;
         body["stream"] = serde_json::Value::Bool(true);
         let resp = self
             .client

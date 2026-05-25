@@ -201,6 +201,17 @@ pub fn build_http_client(
         .map_err(|e| argo_types::ArgoError::Provider(format!("reqwest client build: {e}")))
 }
 
+/// Resolve `"latest"` through the transport's runtime cache when present.
+#[must_use]
+pub fn resolve_latest_provider_request(
+    cache: Option<&LatestModelCache>,
+    req: &ProviderRequest,
+) -> ProviderRequest {
+    cache
+        .map(|cache| cache.resolve_provider_request(req))
+        .unwrap_or_else(|| req.clone())
+}
+
 #[derive(Debug, Clone, Default)]
 struct LatestModelState {
     model: Option<String>,
