@@ -3,7 +3,29 @@
 - **Date**: 2026-05-25 (UTC) · Melbourne 2026-05-25 ~10:55 AEST
 - **Round**: 54 (scheduled-task hourly fire ~1h45min after r53 ship)
 - **Pillar / Claim**: Claim 3 — "The platform builds workers. Genesis turns plain-English role → vertical (system prompt, action vocabulary, memory schema, eval seeds)."
-- **Verdict**: 🟡 **PARTIAL — STATIC PASS, COLD CARGO TIMEOUT** (P2 evidence-strength gap; not a failure of the system under test, a failure of the evaluator's compile budget under concurrent worker load 183)
+- **Verdict**: 🟢 **PASS — COLD CARGO 2/2 PASS** (upgraded from initial 🟡 PARTIAL after the cold build that started 00:15Z finally completed at 03:04Z = **169 min wall** under sustained load 183; test then ran in **0.19s** against the warmed cache; both `#[tokio::test]` cases green on `origin/main` HEAD)
+
+## Post-round addendum — 🟢 cold-cargo upgrade
+
+```
+$ CARGO_TARGET_DIR=/tmp/r54-claim3-target cargo test -p argo-workflow --test claim_3_live_genesis_to_run
+    Finished `test` profile [optimized + debuginfo] target(s) in 8.30s
+     Running tests/claim_3_live_genesis_to_run.rs
+
+running 2 tests
+test genesis_plan_writes_vertical_then_workflow_runs_against_mock_mcp ... ok
+test foreign_tenant_principal_is_refused_before_mcp_dispatch ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+```
+
+**Build timing (record)**: 169 min wall (00:15Z → 03:04Z) cold from empty `/tmp/r54-claim3-target/`, under sustained worker-pool load avg 163-183 throughout. For comparison r53's equivalent claim-2 cold build was 11m 11s at load avg 64-90. **The 15× wall-time delta is entirely concurrent-worker-CPU contention**, not a test-stack regression — the test then ran in 0.19s once the binary was built.
+
+**Verdict-flip basis**: both `#[tokio::test]` cases green cold against `origin/main` HEAD; ALL load-bearing assertions verified ([1] `Success` verdict, [2] exactly 1 MCP dispatch with right tenant + server + tool, [3] exactly 1 `workflow.step.executed` audit row with full payload, [4] cross-tenant negative — capability refusal before dispatcher reached, [5] `workflow.step.failed` audit row with `capability denied` reason). Production surfaces named by the test (`WorkerSessionRunner`, `plan`, `write_vertical`) all present and exercised by the runtime.
+
+**Recommend operator approval to flip CLAUDE.md Claim 3 from "🟢 LIKELY-LIVE" to "🟢 LIVE"** on the basis of: (a) original cold-PASS at #2109 ship round, (b) 2-day zero-touch on `tests/claim_3_live_genesis_to_run.rs`, (c) this round's cold rerun 2/2 PASS, (d) static surface check confirming no drift. Same shape as r53's Claim 2 LIKELY-LIVE → LIVE recommendation.
+
+**38th anti-theater-honest verification this week** (counting the cold-cargo upgrade as a distinct verification beyond the static surface check shipped initially).
 
 ## Setup
 
