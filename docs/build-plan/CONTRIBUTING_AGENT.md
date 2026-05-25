@@ -11,6 +11,10 @@ For conductor ticks, `PROTOCOL_LOOP_PROMPT.md` is the detailed prompt.
   amendments.
 - `streams/<brief-id>.md` is the parent brief spec and acceptance
   contract.
+- Every authored `streams/<brief-id>.md` that is meant to be claimable
+  needs a matching `BUILD_STATUS.md` row; run
+  `bash scripts/check-unrowed-stream-briefs.sh` when adding stream
+  stubs so unqueued work does not disappear from the ledger.
 - `work-packages/<brief-id>.md` is optional child state for a
   manager-worker brief.
 - PRs carry implementation review and final integration discussion.
