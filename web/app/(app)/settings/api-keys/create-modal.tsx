@@ -19,7 +19,7 @@ const SCOPE_OPTIONS: ScopeOption[] = [
   { id: "write:workers", label: "Write workers", group: "Workers" },
   { id: "read:workflows", label: "Read workflows", group: "Workflows" },
   { id: "write:workflows", label: "Write workflows", group: "Workflows" },
-  { id: "run:workflows", label: "Run workflows", group: "Workflows" },
+  { id: "run:workflows", label: "Execute workflows", group: "Workflows" },
   { id: "read:audit", label: "Read audit", group: "Audit" },
   { id: "write:audit", label: "Write audit", group: "Audit" },
   { id: "read:skills", label: "Read skills", group: "Skills" },

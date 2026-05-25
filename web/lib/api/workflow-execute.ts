@@ -3,8 +3,8 @@
  * `mission-workflow-execute-route`).
  *
  * Wraps `POST /api/v1/verticals/{verticalId}/workflows/{name}/execute`
- * — the production "Run workflow" surface backing the SPA's workflow
- * detail page Run button. The gateway resolves the workflow_definition
+ * — the production "Run now" surface backing the SPA's workflow
+ * detail page action. The gateway resolves the workflow_definition
  * head, executes the DAG against the workflow runner, persists one
  * `workflow_run` row, and emits one `WorkflowExecuteDispatched`
  * audit row.

@@ -277,7 +277,7 @@ function ViewerInner({
                   : "Available once this workflow is published to the gateway"
               }
             >
-              <Play size={13} /> {running ? "Running…" : "Run workflow"}
+              <Play size={13} /> {running ? "Running…" : "Run now"}
             </button>
           </div>
         </div>
