@@ -482,3 +482,7 @@ mod query_tests;
 #[cfg(test)]
 #[path = "routes_audit_feed_tenant_tests.rs"]
 mod tenant_tests;
+
+#[cfg(test)]
+#[path = "routes_audit_list_detail_alignment_tests.rs"]
+mod list_detail_alignment_tests;

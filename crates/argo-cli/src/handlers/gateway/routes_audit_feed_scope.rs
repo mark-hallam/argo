@@ -18,8 +18,10 @@ pub(super) struct TenantScope {
 }
 
 pub(super) fn resolve_tenant_scope(req: &str, params: &FeedParams) -> TenantScope {
-    let workspace_tenant = header_value(req, HEADER_WORKSPACE_TENANT)
-        .unwrap_or_else(|| DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string());
+    let header_tenant = header_value(req, HEADER_WORKSPACE_TENANT);
+    let explicit_workspace_tenant = header_tenant.is_some();
+    let workspace_tenant =
+        header_tenant.unwrap_or_else(|| DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string());
     // Cross-tenant audit is gated by the [`Action::AuditCrossTenant`]
     // capability (owner-only). The legacy `X-Argo-Audit-Cross-Tenant`
     // header trust path is gone — `enforce_role` derives the role
@@ -33,7 +35,7 @@ pub(super) fn resolve_tenant_scope(req: &str, params: &FeedParams) -> TenantScop
         },
         _ => TenantScope {
             effective: workspace_tenant,
-            include_legacy: true,
+            include_legacy: !explicit_workspace_tenant,
         },
     }
 }

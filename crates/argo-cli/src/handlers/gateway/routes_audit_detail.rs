@@ -24,6 +24,8 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+const LEGACY_AUDIT_TENANT_ID: &str = "__legacy__";
+
 /// `GET /api/v1/audit/<actionId>` — see module docs.
 pub(super) async fn detail_response(
     req: &str,
@@ -74,10 +76,16 @@ async fn fetch_row(
 ) -> Result<Option<DetailRow>, sqlx::Error> {
     sqlx::query_as::<_, DetailRow>(
         "SELECT id, session_id, kind, payload_json, self_hash, created_at \
-         FROM audit_record WHERE id = ? AND tenant_id = ? LIMIT 1",
+         FROM audit_record \
+         WHERE id = ? \
+           AND (tenant_id = ? OR (? = ? AND tenant_id = ?)) \
+         LIMIT 1",
     )
     .bind(id_bytes)
     .bind(tenant_id)
+    .bind(tenant_id)
+    .bind(DEFAULT_AUDIT_TENANT_ID)
+    .bind(LEGACY_AUDIT_TENANT_ID)
     .fetch_optional(store.pool())
     .await
 }
