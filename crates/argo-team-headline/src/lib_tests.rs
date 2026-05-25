@@ -161,6 +161,7 @@ fn every_brief_vertical_has_a_kpi_row() {
 
 struct SeededWorker {
     store: Arc<SessionStore>,
+    tenant: TenantId,
     worker: WorkerId,
     session: SessionId,
 }
@@ -235,6 +236,7 @@ async fn seed_worker(store: &Arc<SessionStore>) -> SeededWorker {
         .unwrap();
     SeededWorker {
         store: store.clone(),
+        tenant,
         worker,
         session,
     }
@@ -244,7 +246,7 @@ async fn seed_worker(store: &Arc<SessionStore>) -> SeededWorker {
 async fn activity_counts_zero_when_db_empty() {
     let store = fresh_store().await;
     let seed = seed_worker(&store).await;
-    let counts = activity_counts_for_worker(&seed.store, seed.worker, Utc::now())
+    let counts = activity_counts_for_worker(&seed.store, seed.tenant, seed.worker, Utc::now())
         .await
         .unwrap();
     assert_eq!(counts, ActivityCounts::default());
@@ -293,7 +295,7 @@ async fn activity_counts_aggregates_seeded_audit_events() {
     )
     .await
     .unwrap();
-    let counts = activity_counts_for_worker(&seed.store, seed.worker, Utc::now())
+    let counts = activity_counts_for_worker(&seed.store, seed.tenant, seed.worker, Utc::now())
         .await
         .unwrap();
     assert_eq!(counts.assistant_messages, 2);
@@ -316,7 +318,7 @@ async fn activity_counts_ignores_other_workers() {
     )
     .await
     .unwrap();
-    let counts = activity_counts_for_worker(&store, mine.worker, Utc::now())
+    let counts = activity_counts_for_worker(&store, mine.tenant, mine.worker, Utc::now())
         .await
         .unwrap();
     assert_eq!(counts, ActivityCounts::default());
@@ -338,7 +340,7 @@ async fn activity_counts_drops_events_outside_24h_window() {
     // Query as if 48 hours have passed — the seeded row is now
     // outside the 24-hour lookback.
     let future = Utc::now() + chrono::Duration::hours(48);
-    let counts = activity_counts_for_worker(&store, seed.worker, future)
+    let counts = activity_counts_for_worker(&store, seed.tenant, seed.worker, future)
         .await
         .unwrap();
     assert_eq!(counts.tool_calls, 0);
@@ -348,7 +350,7 @@ async fn activity_counts_drops_events_outside_24h_window() {
 async fn generate_team_headline_no_activity_returns_single_fallback() {
     let store = fresh_store().await;
     let seed = seed_worker(&store).await;
-    let headline = generate_team_headline(seed.worker, "gtm-engineer", &seed.store)
+    let headline = generate_team_headline(seed.tenant, seed.worker, "gtm-engineer", &seed.store)
         .await
         .unwrap();
     assert_eq!(headline.bullets, vec!["No activity yet.".to_string()]);
@@ -380,7 +382,7 @@ async fn generate_team_headline_renders_pr_checker_bullets() {
         .await
         .unwrap();
     }
-    let headline = generate_team_headline(seed.worker, "pr-checker", &seed.store)
+    let headline = generate_team_headline(seed.tenant, seed.worker, "pr-checker", &seed.store)
         .await
         .unwrap();
     assert!(headline.bullets.iter().any(|b| b == "6 PRs reviewed today"));
@@ -455,7 +457,7 @@ async fn generate_team_headline_threads_tomorrow_line() {
     let seed = seed_worker(&store).await;
     ensure_role_duty_schema(&seed.store).await;
     insert_duty(&seed, "d-2", "0 0 9 * * * *", "standup", true, None).await;
-    let headline = generate_team_headline(seed.worker, "gtm-engineer", &seed.store)
+    let headline = generate_team_headline(seed.tenant, seed.worker, "gtm-engineer", &seed.store)
         .await
         .unwrap();
     assert_eq!(headline.bullets, vec!["No activity yet.".to_string()]);

@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use argo_identity::WorkerId;
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Duration, Utc};
 use sqlx::Row;
 
@@ -50,10 +50,12 @@ pub const LOOKBACK: Duration = Duration::hours(24);
 /// [`crate::generate_team_headline`].
 pub async fn activity_counts_for_worker(
     store: &Arc<SessionStore>,
+    tenant_id: TenantId,
     worker_id: WorkerId,
     now: DateTime<Utc>,
 ) -> ArgoResult<ActivityCounts> {
     let since_micros = (now - LOOKBACK).timestamp_micros();
+    let tenant_blob = tenant_id.0.as_bytes().to_vec();
     let worker_blob = worker_id.0.as_bytes().to_vec();
     let row = sqlx::query(
         "SELECT \
@@ -63,9 +65,11 @@ pub async fn activity_counts_for_worker(
             SUM(CASE WHEN a.kind IN ('approval.granted', 'approval.consumed') THEN 1 ELSE 0 END) AS approvals \
          FROM audit_record a \
          JOIN session s ON s.id = a.session_id \
-         WHERE s.worker_id = ? \
+         WHERE s.tenant_id = ? \
+           AND s.worker_id = ? \
            AND a.created_at >= ?",
     )
+    .bind(tenant_blob)
     .bind(worker_blob)
     .bind(since_micros)
     .fetch_one(store.pool())

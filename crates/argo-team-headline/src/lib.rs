@@ -16,11 +16,13 @@
 //! use std::sync::Arc;
 //! use argo_identity::WorkerId;
 //! use argo_store::SessionStore;
+//! use argo_types::TenantId;
 //! use argo_team_headline::generate_team_headline;
 //! let store = Arc::new(SessionStore::open(":memory:").await?);
 //! store.migrate().await?;
+//! let tenant = TenantId::new();
 //! let worker = WorkerId::new();
-//! let headline = generate_team_headline(worker, "gtm-engineer", &store).await?;
+//! let headline = generate_team_headline(tenant, worker, "gtm-engineer", &store).await?;
 //! assert!(headline.bullets.len() <= 3);
 //! # Ok(()) }
 //! ```
@@ -31,7 +33,7 @@ use std::sync::Arc;
 
 use argo_identity::WorkerId;
 use argo_store::SessionStore;
-use argo_types::ArgoResult;
+use argo_types::{ArgoResult, TenantId};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -71,12 +73,13 @@ pub struct TeamHeadline {
 /// by the v1 hardcoded KPI table in [`bullets_for_vertical`]; any
 /// unknown vertical falls back to the generic 3-bullet shape.
 pub async fn generate_team_headline(
+    tenant_id: TenantId,
     worker_id: WorkerId,
     vertical_id: &str,
     store: &Arc<SessionStore>,
 ) -> ArgoResult<TeamHeadline> {
     let now = Utc::now();
-    let counts = compute::activity_counts_for_worker(store, worker_id, now).await?;
+    let counts = compute::activity_counts_for_worker(store, tenant_id, worker_id, now).await?;
     let bullets = render_bullets(vertical_id, &counts);
     let tomorrow = tomorrow::next_duty_for_worker(store, worker_id, now).await?;
     Ok(TeamHeadline { bullets, tomorrow })

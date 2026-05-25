@@ -204,7 +204,7 @@ pub(super) async fn show_response(
     let kpi_today = derive_kpi_today(&worker.vertical_id);
     let now = Utc::now();
     let (department, team) = build_org_refs(store, tenant, worker.id).await;
-    let headline = build_headline(store, &worker).await;
+    let headline = build_headline(store, tenant, &worker).await;
     let status_label = super::routes_team_list::derive_status(&worker, pending, now).1;
 
     let body = build_detail(
@@ -341,8 +341,14 @@ async fn build_org_refs(
     (department, team)
 }
 
-async fn build_headline(store: &Arc<SessionStore>, worker: &Worker) -> Option<Value> {
-    match argo_team_headline::generate_team_headline(worker.id, &worker.vertical_id, store).await {
+async fn build_headline(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    worker: &Worker,
+) -> Option<Value> {
+    match argo_team_headline::generate_team_headline(tenant, worker.id, &worker.vertical_id, store)
+        .await
+    {
         Ok(h) => Some(json!({ "bullets": h.bullets, "tomorrow": h.tomorrow })),
         Err(e) => {
             tracing::warn!(

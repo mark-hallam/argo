@@ -83,7 +83,7 @@ pub(super) async fn list_response(
     for w in &truncated {
         let pending = pending_by_worker.get(&w.id).copied().unwrap_or(0);
         let (priority, status_label) = derive_status(w, pending, now);
-        let headline = generate_team_headline(w.id, &w.vertical_id, store)
+        let headline = generate_team_headline(workspace_tenant, w.id, &w.vertical_id, store)
             .await
             .unwrap_or_else(|e| {
                 tracing::warn!(
