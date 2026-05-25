@@ -595,6 +595,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-demo-seed"
+version = "0.0.1"
+dependencies = [
+ "argo-identity",
+ "argo-store",
+ "argo-types",
+ "serde",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "argo-email-templates"
 version = "0.0.1"
 dependencies = [
