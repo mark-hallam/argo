@@ -130,18 +130,21 @@ pub async fn archive_worker(
     .await
     .map_err(|e| ArgoError::Provider(format!("worker_archive insert: {e}")))?;
 
-    sqlx::query("DELETE FROM duty WHERE worker_id = ?")
+    sqlx::query("DELETE FROM duty WHERE worker_id = ? AND tenant_id = ?")
         .bind(worker_id)
+        .bind(tenant_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("worker_archive delete duty: {e}")))?;
-    sqlx::query("DELETE FROM role WHERE worker_id = ?")
+    sqlx::query("DELETE FROM role WHERE worker_id = ? AND tenant_id = ?")
         .bind(worker_id)
+        .bind(tenant_id.as_bytes())
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("worker_archive delete role: {e}")))?;
-    sqlx::query("DELETE FROM persona WHERE worker_id = ?")
+    sqlx::query("DELETE FROM persona WHERE worker_id = ? AND tenant_id = ?")
         .bind(worker_id)
+        .bind(tenant_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("worker_archive delete persona: {e}")))?;
