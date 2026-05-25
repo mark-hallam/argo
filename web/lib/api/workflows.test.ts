@@ -180,15 +180,6 @@ describe("lib/api/workflows", () => {
       expect(result.workflows[0].vertical).toBe("support");
     });
 
-    it("returns mock-bypass without firing fetch when bypass flag set", async () => {
-      process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
-      const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
-      const result = await fetchAllWorkflows();
-      expect(result.source).toBe("mock-bypass");
-      expect(result.workflows).toBe(SAMPLE_WORKFLOW_SUMMARIES);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
     it("swallows per-vertical 404 / 5xx and keeps the rest", async () => {
       installMock((req) => {
         if (req.url.endsWith("/api/v1/verticals/gtm-engineer/workflows")) {

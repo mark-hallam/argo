@@ -562,7 +562,7 @@ export function CohortMagazineStyles() {
           background-size: 200% 100%;
           background-repeat: no-repeat;
           background-position: 100% 0;
-          animation: skycot-cohort-skel-shimmer 1.4s ease-in-out infinite;
+          animation: skycot-cohort-skel-shimmer 1.4s var(--motion-ease) infinite;
         }
         @keyframes skycot-cohort-skel-shimmer {
           0% {

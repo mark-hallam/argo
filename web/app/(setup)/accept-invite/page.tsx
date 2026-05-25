@@ -78,6 +78,19 @@ function AcceptInviteInner() {
   return <AcceptInviteShell state={state} onSignin={onSignin} />;
 }
 
+function headingForState(state: AcceptState): string {
+  switch (state.kind) {
+    case "loading":
+      return "Accepting your invitation…";
+    case "missing_token":
+      return "Invitation link incomplete";
+    case "ok":
+      return "You’re in.";
+    case "error":
+      return "We couldn’t accept this invitation";
+  }
+}
+
 function AcceptInviteShell({
   state,
   onSignin,
@@ -97,17 +110,14 @@ function AcceptInviteShell({
         color: "#14141C",
       }}
     >
+      <h1 style={{ fontSize: 28, fontWeight: 600, margin: "0 0 8px 0" }}>
+        {headingForState(state)}
+      </h1>
       {state.kind === "loading" ? (
-        <>
-          <h1 style={{ fontSize: 28, fontWeight: 600, margin: "0 0 8px 0" }}>
-            Accepting your invitation…
-          </h1>
-          <p style={{ color: "#6B6B7B", margin: 0 }}>One moment.</p>
-        </>
+        <p style={{ color: "#6B6B7B", margin: 0 }}>One moment.</p>
       ) : null}
       {state.kind === "missing_token" ? (
         <>
-          <h1 style={{ fontSize: 28, fontWeight: 600, margin: "0 0 8px 0" }}>Invitation link incomplete</h1>
           <p style={{ color: "#6B6B7B", margin: "0 0 24px 0" }}>
             The accept-invite URL is missing its <code>token</code> parameter. Re-open the email link or ask the
             inviter to resend.
@@ -130,7 +140,6 @@ function AcceptInviteShell({
       ) : null}
       {state.kind === "ok" ? (
         <>
-          <h1 style={{ fontSize: 28, fontWeight: 600, margin: "0 0 8px 0" }}>You&rsquo;re in.</h1>
           <p style={{ color: "#6B6B7B", margin: "0 0 24px 0" }}>
             Redirecting you to signin to finish setting up your account…
           </p>
@@ -154,9 +163,6 @@ function AcceptInviteShell({
       ) : null}
       {state.kind === "error" ? (
         <>
-          <h1 style={{ fontSize: 28, fontWeight: 600, margin: "0 0 8px 0" }}>
-            We couldn&rsquo;t accept this invitation
-          </h1>
           <p style={{ color: "#6B6B7B", margin: "0 0 24px 0" }}>{state.message}</p>
           <button
             type="button"

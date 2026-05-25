@@ -62,7 +62,7 @@ export function UnsavedBanner({ dirty, onSave, onDiscard }: Props) {
           border-bottom: 1px solid #fcd34d;
           color: #78350f;
           font-family: "Inter", sans-serif;
-          animation: builder-unsaved-banner-slide 180ms ease-out;
+          animation: builder-unsaved-banner-slide 180ms var(--motion-ease);
         }
         .builder-unsaved-banner-message {
           display: inline-flex;

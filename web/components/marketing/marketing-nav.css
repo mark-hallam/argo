@@ -154,11 +154,11 @@
 }
 
 .mk-sheet-overlay[data-state="open"] {
-  animation: mk-fade-in 160ms ease-out;
+  animation: mk-fade-in 160ms var(--motion-ease);
 }
 
 .mk-sheet-overlay[data-state="closed"] {
-  animation: mk-fade-out 140ms ease-in;
+  animation: mk-fade-out 140ms var(--motion-ease);
 }
 
 @keyframes mk-fade-in {
@@ -194,7 +194,7 @@
 }
 
 .mk-sheet[data-state="closed"] {
-  animation: mk-slide-out 180ms ease-in;
+  animation: mk-slide-out 180ms var(--motion-ease);
 }
 
 @keyframes mk-slide-in {

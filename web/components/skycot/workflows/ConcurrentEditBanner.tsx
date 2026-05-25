@@ -99,7 +99,7 @@ export function ConcurrentEditBanner({
           border-bottom: 1px solid #fca5a5;
           color: #7f1d1d;
           font-family: "Inter", sans-serif;
-          animation: builder-conflict-banner-slide 180ms ease-out;
+          animation: builder-conflict-banner-slide 180ms var(--motion-ease);
         }
         .builder-conflict-banner-message {
           display: inline-flex;

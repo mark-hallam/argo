@@ -32,7 +32,7 @@ describe("TeamEmptyState", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /pick a starting point — you can adjust everything in the next minute\./i,
+        /describe a role in your own words, or pick a starting point — either way, you'll have a teammate working in the next minute\./i,
       ),
     ).toBeInTheDocument();
   });
@@ -58,11 +58,11 @@ describe("TeamEmptyState", () => {
     }
   });
 
-  it("the secondary 'Or describe your own' link routes to /hire with no query", () => {
+  it("the 'Describe a role in plain English' link routes to /hire with no query", () => {
     render(<TeamEmptyState />);
     const fallback = screen.getByTestId("team-empty-state-describe-own");
     expect(fallback).toHaveAttribute("href", "/hire");
-    expect(fallback).toHaveTextContent(/or describe your own/i);
+    expect(fallback).toHaveTextContent(/describe a role in plain english/i);
   });
 
   it("the feature-list disclosure toggles open and surfaces the five locked bullets", async () => {
