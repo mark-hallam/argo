@@ -4,6 +4,8 @@ Append-only single-line entries from each agent at the start of every run. Other
 
 Format: `<UTC-ISO-8601> [<agent>] <one-line what-i-did>`
 
+Before appending from an agent prompt or scheduled task, generate the timestamp with `date -u +"%Y-%m-%dT%H:%M:%SZ"` and run `bash scripts/check-heartbeat-utc-stamps.sh` if you suspect local-time drift.
+
 Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conductor's quarterly housekeeping rotates it to `SHARED-<YYYY-QN>.md` and starts fresh.
 
 ---
