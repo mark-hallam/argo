@@ -33,6 +33,13 @@ const SAMPLE_APPROVAL_ACTION_IDS: Record<string, string> = {
   ap_01H9Z0: "act_01J0NORI_001",
 };
 
+type ApprovalRateSummary = {
+  total: number;
+  approved: number;
+  refused: number;
+  expired: number;
+};
+
 const TIERS: readonly SeverityTier[] = [
   { severity: "p0", label: "High", deck: "Over SLA or high-risk decisions" },
   { severity: "p1", label: "Medium", deck: "Elevated work still inside SLA" },
@@ -80,14 +87,31 @@ function workerInitials(name: string): string {
   return (letters || name.slice(0, 2)).slice(0, 2).toUpperCase();
 }
 
-function computeKpis(items: ApprovalItem[], pending: ApprovalItem[]): KpiCell[] {
+function computeApprovalRate(items: ApprovalItem[]): ApprovalRateSummary | null {
+  const decided = items.filter((item) => item.decision != null);
+  if (decided.length === 0) return null;
+  const approved = decided.filter((item) => item.decision === "approve").length;
+  const refused = decided.filter((item) => item.decision === "refuse").length;
+  return {
+    total: decided.length,
+    approved: approved / decided.length,
+    refused: refused / decided.length,
+    expired: 0,
+  };
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function computeKpis(
+  pending: ApprovalItem[],
+  approvalRate: ApprovalRateSummary | null,
+): KpiCell[] {
   const now = Date.now();
   const atRisk = pending.reduce((sum, item) => sum + (item.dollarAtRisk ?? 0), 0);
   const monetary = pending.filter((item) => (item.dollarAtRisk ?? 0) > 0).length;
   const ages = pending.map((item) => now - new Date(item.receivedAt).getTime());
-  const decided = items.filter((item) => item.decision != null);
-  const approved = decided.filter((item) => item.decision === "approve").length;
-  const approvalRate = decided.length > 0 ? approved / decided.length : 0.78;
   return [
     {
       label: "Pending",
@@ -111,15 +135,17 @@ function computeKpis(items: ApprovalItem[], pending: ApprovalItem[]): KpiCell[] 
     },
     {
       label: "Approval rate",
-      value: `${Math.round(approvalRate * 100)}%`,
-      sub: decided.length > 0 ? "from resolved rows" : "7-day baseline",
-      tone: "good",
+      value: approvalRate ? formatPercent(approvalRate.approved) : "—",
+      sub: approvalRate
+        ? `${approvalRate.total} resolved ${approvalRate.total === 1 ? "approval" : "approvals"}`
+        : "no resolved approvals",
+      tone: approvalRate ? "good" : "neutral",
       testId: "approval-rate",
     },
     {
       label: "Active reviewers",
-      value: pending.length > 0 ? "1" : "0",
-      sub: "operator queue",
+      value: "—",
+      sub: "reviewer roster pending",
       testId: "active-reviewers",
     },
   ];
@@ -138,21 +164,18 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
     () => sortBySeverityThenSla(items.filter((item) => item.decision == null)),
     [items],
   );
-  const kpis = useMemo(() => computeKpis(items, pending), [items, pending]);
+  const approvalRate = useMemo(() => computeApprovalRate(items), [items]);
+  const kpis = useMemo(
+    () => computeKpis(pending, approvalRate),
+    [pending, approvalRate],
+  );
   const totalAtRisk = pending.reduce((sum, item) => sum + (item.dollarAtRisk ?? 0), 0);
   const avgConfidence = averageConfidence(pending);
   const riskyCount = pending.filter((item) => (item.dollarAtRisk ?? 0) > 0).length;
 
   return (
     <div className="space-y-6" data-testid="approvals-ops-dashboard">
-      <KpiStrip
-        cells={kpis}
-        rate={{
-          headline: "78%",
-          slices: { approved: 0.78, refused: 0.14, expired: 0.08 },
-          animate: true,
-        }}
-      />
+      <KpiStrip cells={kpis} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-5">
@@ -173,7 +196,6 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
             subtitle={`${riskyCount} pending with monetary exposure`}
             testId="at-risk-donut"
             tone="risk"
-            percent={totalAtRisk > 0 ? 0.82 : 0}
           />
           <article className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-5">
             <div className="flex items-center justify-between gap-4">
@@ -190,13 +212,29 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
           </article>
           <article className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-5">
             <div className="flex items-center gap-4">
-              <ApprovalRateRing approved={0.78} refused={0.14} expired={0.08} animate />
+              {approvalRate ? (
+                <ApprovalRateRing
+                  approved={approvalRate.approved}
+                  refused={approvalRate.refused}
+                  expired={approvalRate.expired}
+                  animate
+                />
+              ) : (
+                <span
+                  data-testid="approval-rate-empty"
+                  className="grid size-16 place-items-center rounded-full bg-[var(--muted)] text-sm font-semibold text-[var(--muted-foreground)]"
+                >
+                  —
+                </span>
+              )}
               <div>
                 <h2 className="text-sm font-semibold text-[var(--foreground)]">
-                  7-day approval rate
+                  Approval rate
                 </h2>
                 <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                  78% approved · 14% refused · 8% expired
+                  {approvalRate
+                    ? `${formatPercent(approvalRate.approved)} approved · ${formatPercent(approvalRate.refused)} refused · ${formatPercent(approvalRate.expired)} expired`
+                    : "No resolved approvals yet"}
                 </p>
               </div>
             </div>
@@ -328,21 +366,24 @@ function MetricDonutCard({
   subtitle: string;
   testId: string;
   tone: "risk";
-  percent: number;
+  percent?: number;
 }) {
   const color = tone === "risk" ? "var(--warning)" : "var(--primary)";
-  const pct = Math.max(0, Math.min(1, percent));
+  const pct = percent == null ? null : Math.max(0, Math.min(1, percent));
+  const fill = pct == null ? "var(--muted)" : color;
+  const stop = pct == null ? 0 : pct * 100;
   return (
     <article
       className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-5"
       data-testid={testId}
+      data-percent={pct == null ? "none" : pct.toFixed(3)}
     >
       <div className="flex items-center gap-4">
         <span
           aria-hidden
           className="grid size-16 shrink-0 place-items-center rounded-full"
           style={{
-            background: `conic-gradient(${color} 0 ${pct * 100}%, var(--muted) ${pct * 100}% 100%)`,
+            background: `conic-gradient(${fill} 0 ${stop}%, var(--muted) ${stop}% 100%)`,
           }}
         >
           <span className="size-11 rounded-full bg-[var(--card)]" />
