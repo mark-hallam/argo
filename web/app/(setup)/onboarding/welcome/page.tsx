@@ -37,7 +37,7 @@ export default function OnboardingWelcomePage() {
           <li className="ob-pillar" data-testid="onboarding-pillar-audit-first">
             <p className="ob-pillar-label">Audit-first</p>
             <p className="ob-pillar-body">
-              Every action signed and replayable &mdash; SOC 2-ready from day one.
+              Every action signed and replayable &mdash; SOC 2-ready audit trail.
             </p>
           </li>
           <li className="ob-pillar" data-testid="onboarding-pillar-single-binary">

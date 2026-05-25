@@ -55,7 +55,10 @@ describe("Onboarding adoption of WizardEditorialShell", () => {
     expect(screen.getByTestId("wiz-shell-trust")).toBeInTheDocument();
     expect(screen.getByTestId("wiz-shell-brand")).toBeInTheDocument();
     expect(screen.getByTestId("wiz-shell-exit")).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-pillar-audit-first")).toBeInTheDocument();
+    expect(screen.getByTestId("onboarding-pillar-audit-first").textContent)
+      .toMatchInlineSnapshot(
+        `"Audit-firstEvery action signed and replayable — SOC 2-ready audit trail."`,
+      );
     expect(screen.getByTestId("onboarding-pillar-single-binary")).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-pillar-enterprise-grade")).toBeInTheDocument();
     const progress = screen.getByRole("progressbar");
