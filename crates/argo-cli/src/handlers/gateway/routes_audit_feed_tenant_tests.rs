@@ -198,7 +198,9 @@ async fn workflow_head_changed_event_surfaces_in_feed() {
     assert_eq!(status, "200 OK");
     let items = body["items"].as_array().expect("items array");
     assert!(
-        items.iter().any(|it| it["action_type"] == "workflow_head_changed"),
+        items
+            .iter()
+            .any(|it| it["action_type"] == "workflow_head_changed"),
         "workflow_head_changed missing from feed: {body}"
     );
 }
@@ -226,7 +228,9 @@ async fn workflow_rolled_back_event_surfaces_in_feed() {
     assert_eq!(status, "200 OK");
     let items = body["items"].as_array().expect("items array");
     assert!(
-        items.iter().any(|it| it["action_type"] == "workflow_rolled_back"),
+        items
+            .iter()
+            .any(|it| it["action_type"] == "workflow_rolled_back"),
         "workflow_rolled_back missing from feed: {body}"
     );
 }
@@ -258,9 +262,7 @@ async fn worker_hired_does_not_leak_across_tenants() {
     .await;
     assert_eq!(status, "200 OK");
     let items = body["items"].as_array().expect("items array");
-    let leaked = items
-        .iter()
-        .any(|it| it["worker"]["id"] == "wkr-alpha");
+    let leaked = items.iter().any(|it| it["worker"]["id"] == "wkr-alpha");
     assert!(
         !leaked,
         "tenant-a worker hire leaked into tenant-b feed: {body}"
@@ -268,26 +270,34 @@ async fn worker_hired_does_not_leak_across_tenants() {
 }
 
 #[tokio::test]
-async fn legacy_null_rows_fall_through_to_app_layer_filter() {
-    // Downgrade-safety: rows where the dim columns are NULL (legacy
-    // pre-v67 posture) still surface and pass the worker filter via the
+async fn null_dim_rows_fall_through_to_app_layer_filter() {
+    // Downgrade-safety: rows where the dim columns are NULL (pre-v67
+    // filter posture) still surface and pass the worker filter via the
     // app-layer fallback over payload_json. Emulated by inserting a row
-    // with NULL dim columns but payload_json carrying worker_id=w1.
+    // with NULL dim columns but payload_json carrying worker_id=w1 and
+    // an explicit tenant id.
     let store = mem_store().await;
     sqlx::query(
-        "INSERT INTO audit_record (id, kind, payload_json, parent_hash, self_hash, created_at) \
-         VALUES (?, 'http_request', ?, ?, ?, ?)",
+        "INSERT INTO audit_record \
+         (id, kind, payload_json, parent_hash, self_hash, created_at, tenant_id) \
+         VALUES (?, 'http_request', ?, ?, ?, ?, 'tenant-a')",
     )
     .bind(vec![1u8; 16])
-    .bind(r#"{"worker_id":"w1","channel":"web","action_type":"x","outcome_status":"succeeded","verb":"legacy"}"#)
+    .bind(r#"{"tenant_id":"tenant-a","worker_id":"w1","channel":"web","action_type":"x","outcome_status":"succeeded","verb":"legacy"}"#)
     .bind([0u8; 32].as_slice())
     .bind([0u8; 32].as_slice())
     .bind(1_700_000_000_000_000_i64)
     .execute(store.pool())
     .await
     .unwrap();
-    let (status, body) =
-        parse_body(list_response(&get("/api/v1/audit?worker=w1"), Some(&store)).await).await;
+    let (status, body) = parse_body(
+        list_response(
+            &get_with_tenant("/api/v1/audit?worker=w1", "tenant-a"),
+            Some(&store),
+        )
+        .await,
+    )
+    .await;
     assert_eq!(status, "200 OK");
     let items = body["items"].as_array().unwrap();
     let has_legacy = items.iter().any(|it| it["verb"] == "legacy");
