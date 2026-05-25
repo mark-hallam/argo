@@ -1,15 +1,9 @@
-// Flat-config wrapper around next-lint defaults.
-// Keep tiny — most rules ride on `next/core-web-vitals` via `pnpm lint`
-// which uses next-lint's legacy config under the hood.
-//
+import nextPlugin from "@next/eslint-plugin-next";
+
+// Keep this flat config small: compose only Next's native flat
+// core-web-vitals rules, then layer local project rules after it.
 // `no-alert` is enforced for .js/.mjs/.cjs sources here. TS coverage
-// is currently blocked on this project finishing the
-// next-lint-to-eslint-cli migration (warned by next lint itself) —
-// adding @typescript-eslint/parser to the flat config is a separate,
-// project-wide cleanup. Until then, TS regressions of `alert()` /
-// `confirm()` are caught by PR review; the migration sweep in
-// mission-spa-toast-notification-system audited and removed all
-// existing callsites.
+// remains a separate parser migration.
 
 const config = [
   {
@@ -22,6 +16,7 @@ const config = [
       "next-env.d.ts",
     ],
   },
+  nextPlugin.flatConfig.coreWebVitals,
   {
     files: ["**/*.{js,mjs,cjs}"],
     rules: {

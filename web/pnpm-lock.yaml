@@ -84,6 +84,9 @@ importers:
         specifier: ^5.0.3
         version: 5.0.13(@types/react@19.2.14)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))
     devDependencies:
+      '@next/eslint-plugin-next':
+        specifier: ^15.1.7
+        version: 15.5.18
       '@playwright/test':
         specifier: ^1.50.1
         version: 1.59.1
