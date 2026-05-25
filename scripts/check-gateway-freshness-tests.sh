@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Smoke tests for scripts/check-gateway-freshness.sh.
 #
-# A Python fake gateway serves /health with a chosen schema_version
-# (or a chosen body for the parse-error case). The script under test
-# is pointed at the fake via its first positional argument
-# (`http://127.0.0.1:PORT`).
+# The script exposes FAKE_HEALTH_BODY / FAKE_HEALTH_STATUS test hooks so
+# the smoke harness can exercise HTTP 200 / 503 / malformed bodies
+# without binding a local test server.
 #
-# Four scenarios, one per documented exit code:
+# Five scenarios, covering the documented exit codes plus HTTP 503 stale:
 #   (0) drift=0 → exit 0 (FRESH)
 #   (1) drift=3 → exit 1 (STALE)
-#   (2) port has no listener → exit 2 (UNREACHABLE)
-#   (3) /health returns malformed JSON → exit 3 (PARSE_ERROR)
+#   (2) /health returns 503 with schema_version → exit 1 (STALE-503)
+#   (3) port has no listener → exit 2 (UNREACHABLE)
+#   (4) /health returns malformed JSON → exit 3 (PARSE_ERROR)
 
 set -euo pipefail
 
@@ -34,23 +34,7 @@ CODEBASE_LATEST_N="$(
 )"
 [[ -n "$CODEBASE_LATEST_N" ]] || { echo "no migrations found on disk" >&2; exit 1; }
 
-TMPDIR="$(mktemp -d -t check-gateway-freshness-smoke.XXXXXX)"
-PID_FILE="$TMPDIR/fake.pid"
-LOG_FILE="$TMPDIR/fake.log"
 PORT=$(( (RANDOM % 5000) + 41000 ))
-
-cleanup() {
-    if [[ -f "$PID_FILE" ]]; then
-        local pid
-        pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-        [[ -n "$pid" ]] && kill -KILL "$pid" 2>/dev/null || true
-    fi
-    if port_pid=$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -n1); then
-        [[ -n "${port_pid:-}" ]] && kill -KILL "$port_pid" 2>/dev/null || true
-    fi
-    rm -rf "$TMPDIR"
-}
-trap cleanup EXIT
 
 find_free_port() {
     local p=$PORT
@@ -66,63 +50,29 @@ find_free_port() {
 }
 find_free_port
 
-# Start a fake /health endpoint. MODE=schema serves a normal JSON body
-# with the supplied schema_version; MODE=garbage serves a body without
-# the expected key so the script's parser must fail with exit 3.
-start_fake() {
-    local mode="$1" version="${2:-0}"
-    PORT_ARG="$PORT" MODE="$mode" VER="$version" PID_FILE="$PID_FILE" \
-        nohup python3 -u -c '
-import os, sys
-from http.server import HTTPServer, BaseHTTPRequestHandler
-port = int(os.environ["PORT_ARG"])
-mode = os.environ["MODE"]
-ver  = os.environ["VER"]
-with open(os.environ["PID_FILE"], "w") as f:
-    f.write(str(os.getpid()))
-class H(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == "/health":
-            if mode == "schema":
-                body = ("{\"status\":\"ok\",\"version\":\"fake\","
-                        "\"schema_version\":" + ver + ",\"uptime_seconds\":1}").encode()
-            else:
-                body = b"{\"status\":\"ok\",\"version\":\"fake\",\"oops\":\"no schema key\"}"
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        else:
-            self.send_response(404); self.end_headers()
-    def log_message(self, *a, **kw): pass
-HTTPServer(("127.0.0.1", port), H).serve_forever()
-' >"$LOG_FILE" 2>&1 < /dev/null &
-    disown 2>/dev/null || true
-    for _ in $(seq 1 10); do
-        if curl -fsS --max-time 1 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
-            return 0
-        fi
-        sleep 0.3
-    done
-    echo "fake gateway failed to start" >&2
-    cat "$LOG_FILE" >&2 || true
-    return 1
+schema_body() {
+    local version="$1"
+    printf '{"status":"ok","version":"fake","schema_version":%s,"uptime_seconds":1}' "$version"
 }
 
-stop_fake() {
-    if port_pid=$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -n1); then
-        kill -TERM "$port_pid" 2>/dev/null || true
-        for _ in $(seq 1 10); do
-            kill -0 "$port_pid" 2>/dev/null || return 0
-            sleep 0.2
-        done
-        kill -KILL "$port_pid" 2>/dev/null || true
-    fi
-    rm -f "$PID_FILE"
+schema_503_body() {
+    local version="$1"
+    printf '{"status":"degraded","reason":"schema_version_mismatch","schema_version":%s,"uptime_seconds":1}' "$version"
 }
 
-run_check() {
+garbage_body() {
+    printf '{"status":"ok","version":"fake","oops":"no schema key"}'
+}
+
+run_fake_check() {
+    local status="$1" body="$2"
+    set +e
+    OUT="$(FAKE_HEALTH_STATUS="$status" FAKE_HEALTH_BODY="$body" "$SCRIPT" "http://127.0.0.1:$PORT" 2>&1)"
+    RC=$?
+    set -e
+}
+
+run_unreachable_check() {
     set +e
     OUT="$("$SCRIPT" "http://127.0.0.1:$PORT" 2>&1)"
     RC=$?
@@ -135,45 +85,49 @@ fail() { printf '  ❌ %s\n' "$*" >&2; echo "  output was:" >&2; printf '%s\n' "
 # ---------- scenario 0: FRESH (drift=0) -----------------------------
 
 echo "Scenario 0: gateway schema == codebase latest → exit 0 (FRESH)."
-start_fake schema "$CODEBASE_LATEST_N"
-run_check
+run_fake_check 200 "$(schema_body "$CODEBASE_LATEST_N")"
 [[ $RC -eq 0 ]] || fail "expected exit 0, got $RC"
 echo "$OUT" | grep -q "gateway_schema=v${CODEBASE_LATEST_N} codebase_latest=v${CODEBASE_LATEST_N} drift=0" \
     || fail "missing machine-grepable line"
 echo "$OUT" | grep -q "STATUS: FRESH" || fail "missing STATUS: FRESH"
 pass "drift=0 → exit 0 + FRESH"
-stop_fake
 
 # ---------- scenario 1: STALE (drift=3) -----------------------------
 
 STALE_N=$(( CODEBASE_LATEST_N - 3 ))
 echo "Scenario 1: gateway 3 behind codebase → exit 1 (STALE)."
-start_fake schema "$STALE_N"
-run_check
+run_fake_check 200 "$(schema_body "$STALE_N")"
 [[ $RC -eq 1 ]] || fail "expected exit 1, got $RC"
 echo "$OUT" | grep -q "gateway_schema=v${STALE_N} codebase_latest=v${CODEBASE_LATEST_N} drift=3" \
     || fail "missing machine-grepable line with drift=3"
 echo "$OUT" | grep -q "STATUS: STALE" || fail "missing STATUS: STALE"
 pass "drift=3 → exit 1 + STALE"
-stop_fake
 
-# ---------- scenario 2: UNREACHABLE ---------------------------------
+# ---------- scenario 2: STALE-503 -----------------------------------
 
-echo "Scenario 2: nothing listening on \$PORT → exit 2 (UNREACHABLE)."
-stop_fake  # belt-and-braces
-run_check
+STALE_503_N=$(( CODEBASE_LATEST_N - 1 ))
+echo "Scenario 2: /health returns HTTP 503 with schema_version → exit 1 (STALE-503)."
+run_fake_check 503 "$(schema_503_body "$STALE_503_N")"
+[[ $RC -eq 1 ]] || fail "expected exit 1, got $RC"
+echo "$OUT" | grep -q "gateway_schema=v${STALE_503_N} codebase_latest=v${CODEBASE_LATEST_N} drift=1" \
+    || fail "missing machine-grepable line with drift=1"
+echo "$OUT" | grep -q "STATUS: STALE-503" || fail "missing STATUS: STALE-503"
+pass "HTTP 503 + schema_version → exit 1 + STALE-503"
+
+# ---------- scenario 3: UNREACHABLE ---------------------------------
+
+echo "Scenario 3: nothing listening on \$PORT → exit 2 (UNREACHABLE)."
+run_unreachable_check
 [[ $RC -eq 2 ]] || fail "expected exit 2, got $RC"
 echo "$OUT" | grep -q "STATUS: UNREACHABLE" || fail "missing STATUS: UNREACHABLE"
 pass "no listener → exit 2 + UNREACHABLE"
 
-# ---------- scenario 3: PARSE_ERROR ---------------------------------
+# ---------- scenario 4: PARSE_ERROR ---------------------------------
 
-echo "Scenario 3: /health returns body without schema_version → exit 3."
-start_fake garbage
-run_check
+echo "Scenario 4: /health returns body without schema_version → exit 3."
+run_fake_check 200 "$(garbage_body)"
 [[ $RC -eq 3 ]] || fail "expected exit 3, got $RC"
 echo "$OUT" | grep -q "STATUS: PARSE_ERROR" || fail "missing STATUS: PARSE_ERROR"
 pass "no schema_version in body → exit 3 + PARSE_ERROR"
-stop_fake
 
-echo "✅ All 4 scenarios passed."
+echo "✅ All 5 scenarios passed."

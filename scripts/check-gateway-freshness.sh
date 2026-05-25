@@ -24,7 +24,8 @@
 #
 # Exit codes (documented; conductor uses these as a stable contract):
 #   0 — FRESH. Drift <= 2. Operator does not need to act.
-#   1 — STALE. Drift > 2. Suggest `make restart-live-gateway`.
+#   1 — STALE. Drift > 2, or /health returned HTTP 503 with a
+#       schema_version body. Suggest `make restart-live-gateway`.
 #   2 — UNREACHABLE. /health did not respond. Gateway likely not
 #       running. Distinct from STALE so the conductor doesn't keep
 #       nagging when the gateway is intentionally down.
@@ -72,11 +73,23 @@ fi
 CODEBASE_LATEST_N="${CODEBASE_LATEST_RAW#v}"
 
 # Probe /health. `--max-time 3` keeps the conductor tick snappy even
-# when the gateway hangs in some half-up state. `-fsS` swallows curl's
-# transfer noise but still surfaces HTTP-error bodies via stderr.
-HEALTH_BODY="$(curl -fsS --max-time 3 "$BASE_URL/health" 2>/dev/null || true)"
+# when the gateway hangs in some half-up state. Capture the HTTP status
+# separately so degraded 503 responses can still be classified from the
+# JSON body instead of looking identical to a dead listener.
+if [[ -n "${FAKE_HEALTH_BODY+x}" || -n "${FAKE_HEALTH_STATUS+x}" ]]; then
+    HEALTH_BODY="${FAKE_HEALTH_BODY:-}"
+    HEALTH_STATUS="${FAKE_HEALTH_STATUS:-200}"
+else
+    HEALTH_RESPONSE="$(curl -sS --max-time 3 -w '\n%{http_code}' "$BASE_URL/health" 2>/dev/null || true)"
+    HEALTH_STATUS="${HEALTH_RESPONSE##*$'\n'}"
+    HEALTH_BODY="${HEALTH_RESPONSE%$'\n'*}"
+fi
 if [[ -z "$HEALTH_BODY" ]]; then
     echo "STATUS: UNREACHABLE  (no response from $BASE_URL/health — gateway not running?)" >&2
+    exit 2
+fi
+if [[ ! "$HEALTH_STATUS" =~ ^[0-9]{3}$ ]]; then
+    echo "STATUS: UNREACHABLE  (no HTTP status from $BASE_URL/health — gateway not running?)" >&2
     exit 2
 fi
 
@@ -91,9 +104,26 @@ GATEWAY_SCHEMA_N="$(
         | head -1
 )"
 if [[ -z "$GATEWAY_SCHEMA_N" ]]; then
+    if [[ "$HEALTH_STATUS" =~ ^5 ]]; then
+        echo "STATUS: UNREACHABLE  (/health returned HTTP $HEALTH_STATUS without schema_version)" >&2
+        exit 2
+    fi
     echo "STATUS: PARSE_ERROR  (/health responded but schema_version not found in JSON)" >&2
     echo "  body: $HEALTH_BODY" >&2
     exit 3
+fi
+
+if [[ "$HEALTH_STATUS" == "503" ]]; then
+    printf 'gateway_schema=v%s codebase_latest=v%s drift=%s\n' \
+        "$GATEWAY_SCHEMA_N" "$CODEBASE_LATEST_N" "$(( CODEBASE_LATEST_N > GATEWAY_SCHEMA_N ? CODEBASE_LATEST_N - GATEWAY_SCHEMA_N : 0 ))"
+    # shellcheck disable=SC2016
+    printf 'STATUS: STALE-503  (gateway up but reporting schema_version_mismatch - restart binary: `bash scripts/restart-live-gateway.sh`)\n'
+    exit 1
+fi
+
+if [[ ! "$HEALTH_STATUS" =~ ^2 ]]; then
+    echo "STATUS: UNREACHABLE  (/health returned HTTP $HEALTH_STATUS)" >&2
+    exit 2
 fi
 
 DRIFT=$(( CODEBASE_LATEST_N - GATEWAY_SCHEMA_N ))
