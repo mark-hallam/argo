@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "namespace": "status-reporter",
+  "note": "Empty seed collections. The worker populates these from real tenant connectors after the operator validates identity mapping, stakeholder ownership, and approval routing.",
+  "collections": {
+    "project_roster": [],
+    "milestone_calendar": [],
+    "decision_log": [],
+    "stakeholder_map": [],
+    "exec_comm_history": [],
+    "raid_log": [],
+    "status_report_templates": [
+      {
+        "id": "weekly-exec-default",
+        "name": "Weekly executive summary",
+        "audience": "executive",
+        "template_path": "templates/exec-summary.md.tmpl",
+        "required_sections": ["headline", "kpi_deltas", "milestones", "raid", "asks"]
+      }
+    ]
+  }
+}

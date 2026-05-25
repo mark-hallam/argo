@@ -1,0 +1,94 @@
+{
+  "schema_version": "1",
+  "namespace": "status-reporter",
+  "extends": "../project-coordinator/memory/schema.json",
+  "collections": {
+    "project_roster": {
+      "description": "Shared identity map with Project Coordinator: each teammate mapped across Linear, GitHub, Slack, and executive reporting ownership.",
+      "fields": {
+        "name": "string",
+        "role": "string",
+        "slack_id": "string",
+        "linear_user_id": "string",
+        "github_user": "string",
+        "primary_project_ids": "string[]",
+        "exec_owner": "string"
+      }
+    },
+    "milestone_calendar": {
+      "description": "Shared milestone calendar with trend and executive-reporting fields.",
+      "fields": {
+        "project_id": "string",
+        "milestone_id": "string",
+        "name": "string",
+        "due_date": "date",
+        "status": "on_track|at_risk|slipping|complete",
+        "owner": "string",
+        "slippage_days": "number",
+        "exec_visibility": "low|medium|high"
+      }
+    },
+    "decision_log": {
+      "description": "Append-only decision history shared with Project Coordinator.",
+      "append_only": true,
+      "fields": {
+        "date": "date",
+        "decision": "string",
+        "rationale": "string",
+        "owner": "string",
+        "source_url": "string",
+        "evidence_quote": "string"
+      }
+    },
+    "stakeholder_map": {
+      "description": "Stakeholder reporting preferences and topic ownership.",
+      "fields": {
+        "name": "string",
+        "role": "string",
+        "comm_preference": "async|sync",
+        "cares_about": "string[]",
+        "frequency": "weekly|biweekly|monthly|ad_hoc",
+        "tone_preference": "data-heavy|narrative|brief",
+        "preferred_channel": "email|slack|deck|none"
+      }
+    },
+    "exec_comm_history": {
+      "description": "Approved executive-tier drafts and sends used for tone calibration.",
+      "retention_days": 90,
+      "fields": {
+        "id": "string",
+        "drafted_at": "datetime",
+        "channel": "email|slack|deck|status-report",
+        "audience": "string",
+        "subject": "string",
+        "body": "string",
+        "approval_status": "draft|approved|refused|expired",
+        "sent_at": "datetime"
+      }
+    },
+    "raid_log": {
+      "description": "Append-only Risks, Assumptions, Issues, and Dependencies log.",
+      "append_only": true,
+      "fields": {
+        "date": "date",
+        "type": "risk|assumption|issue|dependency",
+        "description": "string",
+        "owner": "string",
+        "severity": "low|medium|high|critical",
+        "status": "open|mitigating|resolved|accepted",
+        "mitigation": "string",
+        "source_url": "string"
+      }
+    },
+    "status_report_templates": {
+      "description": "Operator-customized report templates and merge fields.",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "audience": "string",
+        "template_path": "string",
+        "required_sections": "string[]"
+      }
+    }
+  }
+}

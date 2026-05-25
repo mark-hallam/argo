@@ -1,0 +1,25 @@
+{
+  "entry": "select-calendar",
+  "metadata": {
+    "name": "gcal-read",
+    "version": "1.0.0",
+    "description": "Read Google Calendar events and attendee responses to prepare executive review context. Read-only.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.001,
+    "tool_scopes": ["calendar.readonly"]
+  },
+  "variables": [
+    { "name": "window", "varType": "TimeWindow", "scope": "graph" },
+    { "name": "calendar_context", "varType": "ExecCalendarContext", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "select-calendar", "label": "Select reporting cadence window", "kind": { "type": "transform", "template": "Default to current week and upcoming executive-review meetings." }, "annotations": { "policy": "auto", "confidence": 0.95 } },
+    { "id": "fetch-events", "label": "Fetch calendar events", "kind": { "type": "fetch", "target": "gcal.events", "method": "GET" }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "google-calendar", "toolName": "events.list" } } },
+    { "id": "classify", "label": "Classify executive context", "kind": { "type": "transform", "template": "Return review meetings, stakeholders present, prep deadlines, and report due times." }, "annotations": { "policy": "auto", "confidence": 0.88 } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-calendar", "to": "fetch-events", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-events", "to": "classify", "cond": { "kind": "always" } }
+  ]
+}

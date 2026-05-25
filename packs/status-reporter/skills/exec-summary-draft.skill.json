@@ -1,0 +1,25 @@
+{
+  "entry": "gather-week",
+  "metadata": {
+    "name": "exec-summary-draft",
+    "version": "1.0.0",
+    "description": "Draft a source-linked one-page weekly executive summary from delivery, communication, milestone, and RAID inputs. Always approval-gated.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.020,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "week", "varType": "ExecSummaryInputs", "scope": "graph" },
+    { "name": "summary", "varType": "ExecSummaryDraft", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "gather-week", "label": "Gather cross-tool week", "kind": { "type": "transform", "template": "Invoke linear-read, github-read, slack-read, gcal-read, notion-read, milestone-track, and raid-maintain read paths." }, "annotations": { "policy": "auto", "confidence": 0.86 } },
+    { "id": "compose-summary", "label": "Compose one-page executive summary", "kind": { "type": "transform", "template": "Use templates/exec-summary.md.tmpl. Include KPI deltas, milestone state, RAID changes, decisions, asks, and citations per bullet." }, "annotations": { "policy": "auto", "confidence": 0.82 } },
+    { "id": "approval", "label": "Await operator approval", "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 86400 }, "annotations": { "policy": "ask" } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "gather-week", "to": "compose-summary", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "compose-summary", "to": "approval", "cond": { "kind": "always" } }
+  ]
+}

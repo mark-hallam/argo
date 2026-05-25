@@ -1,0 +1,25 @@
+{
+  "entry": "select-pages",
+  "metadata": {
+    "name": "notion-read",
+    "version": "1.0.0",
+    "description": "Read Notion project docs, OKR pages, planning docs, retros, and decision records for source-cited summaries.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.005,
+    "tool_scopes": ["read_content", "read_user_with_email"]
+  },
+  "variables": [
+    { "name": "pages", "varType": "NotionPageList", "scope": "graph" },
+    { "name": "doc_context", "varType": "NotionExecContext", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "select-pages", "label": "Select OKR and project docs", "kind": { "type": "transform", "template": "Resolve pages from milestone_calendar, decision_log sources, and stakeholder_map care-about fields." }, "annotations": { "policy": "auto", "confidence": 0.9 } },
+    { "id": "fetch-pages", "label": "Fetch Notion content", "kind": { "type": "fetch", "target": "notion.pages", "method": "GET" }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "notion", "toolName": "pages.retrieve" } } },
+    { "id": "extract", "label": "Extract executive-relevant context", "kind": { "type": "transform", "template": "Return OKR links, decisions, planning assumptions, retrospective risks, and page URLs." }, "annotations": { "policy": "auto", "confidence": 0.84 } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-pages", "to": "fetch-pages", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-pages", "to": "extract", "cond": { "kind": "always" } }
+  ]
+}

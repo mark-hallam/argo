@@ -1,0 +1,29 @@
+{
+  "entry": "l4-gate",
+  "metadata": {
+    "name": "board-update",
+    "version": "1.0.0",
+    "description": "Compose board-tier updates. LOCKED at L4; L3 workers must refuse and recommend human takeover or promotion.",
+    "source": "M22 status-reporter pack",
+    "level": "L4",
+    "locked": true,
+    "unlock_requirement": "Promote worker to L4 and configure explicit board-update approval policy.",
+    "target_cost_usd_per_call": 0.018,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "request", "varType": "BoardUpdateRequest", "scope": "graph" },
+    { "name": "draft", "varType": "BoardUpdateDraft", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "l4-gate", "label": "Enforce L4 lock", "kind": { "type": "condition", "expression": "worker.level >= 'L4' && worker.policy.board_update_requires_approval == true" }, "annotations": { "policy": "ask" } },
+    { "id": "refuse-l3", "label": "Refuse below L4", "kind": { "type": "transform", "template": "If below L4, refuse the board update, explain the lock, and recommend human takeover or promotion." }, "annotations": { "policy": "ask" } },
+    { "id": "compose-board", "label": "Compose board update draft", "kind": { "type": "transform", "template": "At L4 only: draft board-tier update with source appendix, known unknowns, and approval-required status." }, "annotations": { "policy": "ask", "confidence": 0.78 } },
+    { "id": "approval", "label": "Await operator approval", "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 86400 }, "annotations": { "policy": "ask" } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "l4-gate", "to": "compose-board", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "l4-gate", "to": "refuse-l3", "cond": { "kind": "on-failure" } },
+    { "id": "e3", "from": "compose-board", "to": "approval", "cond": { "kind": "always" } }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "entry": "select-window",
+  "metadata": {
+    "name": "linear-read",
+    "version": "1.0.0",
+    "description": "Read Linear issues, projects, cycles, status history, and throughput counts for executive reporting. Read-only.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.003,
+    "tool_scopes": ["read:issues", "read:teams", "read:projects", "read:cycles"]
+  },
+  "variables": [
+    { "name": "window", "varType": "TimeWindow", "scope": "graph" },
+    { "name": "bundle", "varType": "LinearExecBundle", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "select-window", "label": "Select report window", "kind": { "type": "transform", "template": "Default to the last 7 days for exec summaries and last 24 hours for milestone snapshots." }, "annotations": { "policy": "auto", "confidence": 0.93 } },
+    { "id": "fetch-linear", "label": "Fetch Linear delivery state", "kind": { "type": "fetch", "target": "linear.exec_state", "method": "GET" }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "linear", "toolName": "list_issues" } } },
+    { "id": "normalize", "label": "Normalize counts and deltas", "kind": { "type": "transform", "template": "Return shipped_count, reopened_count, blocked_count, throughput_by_week, issue_state_changes, and source URLs." }, "annotations": { "policy": "auto", "confidence": 0.94 } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-window", "to": "fetch-linear", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-linear", "to": "normalize", "cond": { "kind": "always" } }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "entry": "ingest-signals",
+  "metadata": {
+    "name": "raid-maintain",
+    "version": "1.0.0",
+    "description": "Maintain the RAID log by classifying risks, assumptions, issues, and dependencies from delivery signals. Autonomous for internal memory only.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.005,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "signals", "varType": "RaidSignalList", "scope": "graph" },
+    { "name": "entries", "varType": "RaidEntryList", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "ingest-signals", "label": "Ingest delivery and comms signals", "kind": { "type": "transform", "template": "Collect blockers, missed dates, explicit assumptions, external dependencies, and stakeholder concerns." }, "annotations": { "policy": "auto", "confidence": 0.84 } },
+    { "id": "classify", "label": "Classify RAID type and severity", "kind": { "type": "transform", "template": "Risk might happen; issue has happened; dependency is external blocker; assumption is unverified premise. Calibrate severity from impact and date proximity." }, "annotations": { "policy": "auto", "confidence": 0.82 } },
+    { "id": "append-raid", "label": "Append RAID entries", "kind": { "type": "action", "instruction": "Append new entries to memory.raid_log with source_url and mitigation. Do not send outbound." }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "memory", "toolName": "append" } } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "ingest-signals", "to": "classify", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "classify", "to": "append-raid", "cond": { "kind": "always" } }
+  ]
+}

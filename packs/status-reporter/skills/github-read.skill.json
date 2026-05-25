@@ -1,0 +1,27 @@
+{
+  "entry": "select-repos",
+  "metadata": {
+    "name": "github-read",
+    "version": "1.0.0",
+    "description": "Read PRs, commits, deployment events, releases, and review state for source-linked executive reporting.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.003,
+    "tool_scopes": ["read:org", "read:issues", "read:pull_requests", "read:deployments", "read:releases"]
+  },
+  "variables": [
+    { "name": "repos", "varType": "GitHubRepoList", "scope": "graph" },
+    { "name": "bundle", "varType": "GitHubExecBundle", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "select-repos", "label": "Resolve repos from project roster", "kind": { "type": "transform", "template": "Map project ids to repos and release streams; refuse if a repo is not tenant-owned." }, "annotations": { "policy": "auto", "confidence": 0.92 } },
+    { "id": "fetch-prs", "label": "Fetch PR and release activity", "kind": { "type": "fetch", "target": "github.activity", "method": "GET" }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "github", "toolName": "list_pull_requests" } } },
+    { "id": "fetch-deploys", "label": "Fetch deployments", "kind": { "type": "fetch", "target": "github.deployments", "method": "GET" }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "github", "toolName": "list_deployments" } } },
+    { "id": "summarize", "label": "Summarize notable changes", "kind": { "type": "transform", "template": "Return merged_prs, releases, failed_deployments, review_bottlenecks, and source URLs." }, "annotations": { "policy": "auto", "confidence": 0.9 } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-repos", "to": "fetch-prs", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-prs", "to": "fetch-deploys", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "fetch-deploys", "to": "summarize", "cond": { "kind": "always" } }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "entry": "compose-draft",
+  "metadata": {
+    "name": "email-draft",
+    "version": "1.0.0",
+    "description": "Draft executive emails and status reports in Gmail compose form. Never sends without explicit approval.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.006,
+    "tool_scopes": ["gmail.compose"]
+  },
+  "variables": [
+    { "name": "audience", "varType": "StakeholderAudience", "scope": "graph" },
+    { "name": "draft", "varType": "EmailDraft", "scope": "graph" },
+    { "name": "approval", "varType": "ApprovalRecord", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "compose-draft", "label": "Compose approved-channel draft", "kind": { "type": "transform", "template": "Use policy-tone and exec_comm_history to draft subject, body, and source appendix. Mark send_status=draft." }, "annotations": { "policy": "auto", "confidence": 0.85 } },
+    { "id": "approval", "label": "Await operator approval before send", "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 86400 }, "annotations": { "policy": "ask" } },
+    { "id": "create-gmail-draft", "label": "Create Gmail draft", "kind": { "type": "action", "instruction": "Create a Gmail draft only; do not send. Log draft id and approval state to exec_comm_history." }, "annotations": { "policy": "ask", "toolBinding": { "mcpServer": "gmail", "toolName": "drafts.create" } } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "compose-draft", "to": "approval", "cond": { "kind": "always" } },
+    { "id": "e2", "from": "approval", "to": "create-gmail-draft", "cond": { "kind": "on-success" } }
+  ]
+}

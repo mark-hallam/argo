@@ -1,0 +1,25 @@
+{
+  "entry": "load-milestones",
+  "metadata": {
+    "name": "milestone-track",
+    "version": "1.0.0",
+    "description": "Maintain milestone status across projects and write internal snapshots. Autonomous for internal memory only.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.004,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "milestones", "varType": "MilestoneCalendar", "scope": "graph" },
+    { "name": "snapshot", "varType": "MilestoneSnapshot", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "load-milestones", "label": "Load milestone calendar", "kind": { "type": "transform", "template": "Read memory.milestone_calendar and refresh with Linear/GitHub evidence." }, "annotations": { "policy": "auto", "confidence": 0.9 } },
+    { "id": "compute-status", "label": "Compute milestone status", "kind": { "type": "transform", "template": "Set on_track, at_risk, slipping, or complete. Include slippage_days and exec_visibility." }, "annotations": { "policy": "auto", "confidence": 0.86 } },
+    { "id": "write-snapshot", "label": "Write internal milestone snapshot", "kind": { "type": "action", "instruction": "Update memory.milestone_calendar only; no outbound communications." }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "memory", "toolName": "write" } } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-milestones", "to": "compute-status", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "compute-status", "to": "write-snapshot", "cond": { "kind": "always" } }
+  ]
+}

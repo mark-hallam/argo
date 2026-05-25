@@ -1,0 +1,25 @@
+{
+  "entry": "select-channels",
+  "metadata": {
+    "name": "slack-read",
+    "version": "1.0.0",
+    "description": "Read public Slack channels and thread history for project context. DMs are intentionally excluded.",
+    "source": "M22 status-reporter pack",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.004,
+    "tool_scopes": ["channels:read", "channels:history", "users:read"]
+  },
+  "variables": [
+    { "name": "channels", "varType": "SlackChannelList", "scope": "graph" },
+    { "name": "signals", "varType": "SlackSignalBundle", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "select-channels", "label": "Select public project channels", "kind": { "type": "transform", "template": "Use stakeholder_map and project_roster to select public channels only; never read DMs." }, "annotations": { "policy": "auto", "confidence": 0.91 } },
+    { "id": "fetch-history", "label": "Fetch thread history", "kind": { "type": "fetch", "target": "slack.channel_history", "method": "GET" }, "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "slack", "toolName": "conversations_history" } } },
+    { "id": "extract-signals", "label": "Extract reportable signals", "kind": { "type": "transform", "template": "Return blockers, asks, stakeholder concerns, informal counts, and confidence per thread." }, "annotations": { "policy": "auto", "confidence": 0.82 } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-channels", "to": "fetch-history", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-history", "to": "extract-signals", "cond": { "kind": "always" } }
+  ]
+}

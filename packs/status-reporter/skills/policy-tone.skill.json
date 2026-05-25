@@ -1,0 +1,23 @@
+{
+  "entry": "load-tone-samples",
+  "metadata": {
+    "name": "policy-tone",
+    "version": "1.0.0",
+    "description": "Match both operator tone and organization executive tone using approved executive communications.",
+    "source": "M22 status-reporter pack (cohort-shared with M21 policy-tone)",
+    "level": "L3",
+    "target_cost_usd_per_call": 0.002,
+    "tool_scopes": []
+  },
+  "variables": [
+    { "name": "samples", "varType": "ToneSampleList", "scope": "graph" },
+    { "name": "style", "varType": "ExecutiveToneStyle", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "load-tone-samples", "label": "Load approved executive communications", "kind": { "type": "transform", "template": "Use last 12 approved exec_comm_history rows; fall back to operator-provided samples." }, "annotations": { "policy": "auto", "confidence": 0.9 } },
+    { "id": "infer-style", "label": "Infer executive tone features", "kind": { "type": "transform", "template": "Return formality, data_density, narrative_density, sentence length, hedge rate, banned phrases, and citation style." }, "annotations": { "policy": "auto", "confidence": 0.84 } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-tone-samples", "to": "infer-style", "cond": { "kind": "on-success" } }
+  ]
+}

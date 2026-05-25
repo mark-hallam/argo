@@ -1,0 +1,27 @@
+{
+  "entry": "select-audience",
+  "metadata": {
+    "name": "stakeholder-communicate",
+    "version": "1.0.0",
+    "description": "Draft stakeholder-specific updates from stakeholder_map. LOCKED at L4 and always approval-gated before send.",
+    "source": "M22 status-reporter pack",
+    "level": "L4",
+    "locked": true,
+    "unlock_requirement": "Promote worker to L4; outbound still requires explicit operator approval unless a named policy grant exists.",
+    "target_cost_usd_per_call": 0.014,
+    "tool_scopes": ["gmail.compose"]
+  },
+  "variables": [
+    { "name": "audience", "varType": "StakeholderAudience", "scope": "graph" },
+    { "name": "draft", "varType": "StakeholderDraft", "scope": "graph" }
+  ],
+  "nodes": [
+    { "id": "select-audience", "label": "Select stakeholder audience", "kind": { "type": "transform", "template": "Resolve audience from stakeholder_map, cares_about, tone_preference, and frequency." }, "annotations": { "policy": "auto", "confidence": 0.88 } },
+    { "id": "compose-draft", "label": "Compose stakeholder-specific draft", "kind": { "type": "transform", "template": "Include only projects the stakeholder cares about; cite sources; mark as draft_for_approval." }, "annotations": { "policy": "auto", "confidence": 0.83 } },
+    { "id": "approval", "label": "Await explicit approval", "kind": { "type": "await-approval", "approverRole": "operator", "timeoutSeconds": 86400 }, "annotations": { "policy": "ask" } }
+  ],
+  "edges": [
+    { "id": "e1", "from": "select-audience", "to": "compose-draft", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "compose-draft", "to": "approval", "cond": { "kind": "always" } }
+  ]
+}

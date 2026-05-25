@@ -1,0 +1,15 @@
+[pack]
+name = "status-reporter"
+version = "1.0.0"
+display_name = "Status Reporter"
+description = "Executive status reporter pack for engineering and operations teams: reads delivery systems, maintains a RAID log, drafts weekly exec summaries, and keeps all stakeholder outbound behind approval."
+
+[[verticals]]
+id = "status-reporter"
+path = "."
+worker_id = "status-reporter"
+persona = "status-reporter"
+default_display_name = "Status Reporter"
+role = "Executive status reporter and RAID-log maintainer"
+dry_run = true
+dry_run_reason = "Template pack default; operators disable after validating connector scopes, stakeholder map coverage, and executive outbound approval routing."
