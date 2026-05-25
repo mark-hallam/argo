@@ -16,6 +16,21 @@ use std::sync::Arc;
 
 mod audit_emit;
 
+pub mod truth_boundary;
+pub mod truth_boundary_policies;
+
+#[cfg(test)]
+mod truth_boundary_tests;
+
+pub use truth_boundary::{
+    ChannelKind, ChannelScope, ClaimCandidate, ClaimClass, ClaimDisposition, ClaimEvaluation,
+    ClaimProvenance, EscalationKind, EscalationTarget, ProvenanceSource, RefusalTemplate,
+    TruthBoundaryPolicy, evaluate_claim,
+};
+pub use truth_boundary_policies::{
+    load_policy, load_policies_from_dir, load_refusal_template, load_refusal_templates,
+};
+
 /// Capability name for the cross-tenant audit-feed override probe
 /// (Stream `mission-enterprise-cross-tenant-audit`). When a request
 /// to `GET /api/v1/audit` carries `?as_tenant=<other>`, the gateway

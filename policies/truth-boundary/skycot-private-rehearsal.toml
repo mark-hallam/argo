@@ -1,0 +1,38 @@
+# Skycot — private-rehearsal truth boundary policy
+#
+# Active when Mark is running a private rehearsal (voice loop, no
+# public surface). Permissive: financial claims allowed (the operator
+# is the audience), but the same forbid lands the moment any other
+# channel joins (the runtime swaps to skycot-public-pitch automatically
+# — see P-02 channel-routing). Roadmap is still escalated as a
+# discipline-of-rehearsal signal.
+#
+# tenant_id matches skycot-public-pitch — both policies are scoped to
+# the same Skycot tenant, distinguished by id.
+
+id = "skycot-private-rehearsal"
+tenant_id = "29f29b2b-31b4-4a14-9613-b09c0fd7da12"
+
+[[claim_classes]]
+name = "revenue"
+disposition = "Allow"
+channels = "Only:Rehearsal"
+
+[[claim_classes]]
+name = "valuation"
+disposition = "Allow"
+channels = "Only:Rehearsal"
+
+[[claim_classes]]
+name = "customer-count"
+disposition = "Allow"
+channels = "Only:Rehearsal"
+
+[[claim_classes]]
+name = "unannounced-roadmap"
+disposition = "Escalate"
+channels = "AllChannels"
+
+[claim_classes.escalate_to]
+kind = "Approver"
+address = "founder@example.com"

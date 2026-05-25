@@ -1,0 +1,41 @@
+# Skycot — public-pitch truth boundary policy
+#
+# Active when the Pitch Agent is responding on a public channel
+# (web embed, joined live meeting, chat). Locks down financial and
+# unannounced-roadmap claims; defers customer-count to the public
+# customers page on visible channels but allows it for the operator
+# on the rehearsal channel (see skycot-private-rehearsal.toml).
+#
+# Loaded by `argo_capability::load_policy`. tenant_id MUST be a UUID;
+# this file uses Skycot's canonical tenant UUID (stable, generated
+# once for v1.0).
+
+id = "skycot-public-pitch"
+tenant_id = "29f29b2b-31b4-4a14-9613-b09c0fd7da12"
+
+[[claim_classes]]
+name = "revenue"
+disposition = "Forbid"
+refusal_template_id = "defer-to-mark-financial"
+channels = "AllChannels"
+
+[[claim_classes]]
+name = "valuation"
+disposition = "Forbid"
+refusal_template_id = "defer-to-mark-financial"
+channels = "AllChannels"
+
+[[claim_classes]]
+name = "customer-count"
+disposition = "Forbid"
+refusal_template_id = "defer-to-public-customers-page"
+channels = "Only:WebEmbed,LiveMeeting"
+
+[[claim_classes]]
+name = "unannounced-roadmap"
+disposition = "Escalate"
+channels = "AllChannels"
+
+[claim_classes.escalate_to]
+kind = "Approver"
+address = "founder@example.com"
