@@ -2,6 +2,7 @@
 
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_transitions::{self, LocatedAction};
+use argo_audit::{AuditKind, AuditSink};
 use argo_memory::{MemoryFile, MemoryStore};
 use argo_types::{ArgoError, ArgoResult, WorkspaceId};
 use serde_json::json;
@@ -60,7 +61,7 @@ pub(super) async fn voice_webhook_response(req: &str) -> (&'static str, String) 
     let actor = form_param(&params, "From")
         .or_else(|| form_param(&params, "Caller"))
         .unwrap_or_else(|| claims.operator_id.clone());
-    match settle_voice(&claims, decision, &actor).await {
+    match settle_voice(&claims, decision, &actor, &digits).await {
         Ok(v) => ("200 OK", v),
         Err(e) => server_error(&e.to_string()),
     }
@@ -89,8 +90,10 @@ async fn settle_voice(
     claims: &VoiceTokenClaims,
     decision: VoiceDecision,
     actor: &str,
+    digit: &str,
 ) -> ArgoResult<String> {
-    let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    let (memory, ws, store) =
+        worker_actions_transitions::open_workspace_memory_with_store().await?;
     let located = worker_actions_transitions::find_action(&memory, ws, &claims.approval_id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no approval '{}'", claims.approval_id)))?;
@@ -102,6 +105,32 @@ async fn settle_voice(
     }
     if !located.record.requires_approval {
         return Ok(json!({"ok":true,"already_resolved":true,"approval_id":claims.approval_id,"state":located.record.state,"resolved_by":"autonomous-safe"}).to_string());
+    }
+    if decision == VoiceDecision::RequestDetails && is_duplicate_request_details(&located.record) {
+        return Ok(json!({"ok":true,"already_resolved":true,"approval_id":claims.approval_id,"state":located.record.state,"resolved_by":actor}).to_string());
+    }
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let tenant = argo_config::workspace_tenant_id(&cwd);
+    let audit = AuditSink::new_with_tenant(std::sync::Arc::clone(&store), tenant);
+    let payload = json!({
+        "action_id": &claims.approval_id,
+        "channel": "voice",
+        "replier": actor,
+        "reply_kind": decision.as_str(),
+        "reply_body": digit,
+        "reply_digit": digit,
+        "replied_at": chrono::Utc::now().to_rfc3339(),
+    });
+    if let Err(e) = audit
+        .write(None, AuditKind::ApprovalReplied, payload, None)
+        .await
+    {
+        tracing::warn!(
+            approval_id = %claims.approval_id,
+            channel = "voice",
+            error = %e,
+            "approval.replied audit write failed; continuing to gate",
+        );
     }
     let rec = match decision {
         VoiceDecision::Approve => {
@@ -120,6 +149,13 @@ async fn settle_voice(
         }
     };
     Ok(json!({"ok":true,"approval_id":rec.action_id,"decision":decision.as_str(),"state":rec.state,"resolved_by":actor}).to_string())
+}
+
+fn is_duplicate_request_details(record: &ActionRecord) -> bool {
+    record.result.as_ref().is_some_and(|v| {
+        v.get("decision").and_then(|d| d.as_str()) == Some("request-details")
+            && v.get("source").and_then(|s| s.as_str()) == Some("voice")
+    })
 }
 
 async fn deny_action(
