@@ -15,7 +15,9 @@
 # This harness sources claim-with-retry.sh (which exposes the helpers
 # above its main() guard) and exercises stash_volatile_state +
 # restore_volatile_state directly against a temp git repo. We test:
-#   1. Edits to each of the 4 protected paths survive a reset --hard.
+#   1. Edits to each of the 6 protected paths survive a reset --hard
+#      (4 original from round-37/38 + 2 added in conductor-tick T08-05:
+#      docs/build-plan/BUILD_STATUS.md + docs/build-plan/streams/).
 #   2. An edit to a NON-protected file is correctly NOT preserved
 #      (negative control — proves the scope is the protected globs, not "stash
 #      everything").
@@ -96,8 +98,8 @@ setup_repo() {
     echo "$tmp/work"
 }
 
-# ── Test 1: all 4 protected paths survive a stash → reset --hard → restore ──
-echo "[1/4] all 4 protected paths survive reset --hard"
+# ── Test 1: all 6 protected paths survive a stash → reset --hard → restore ──
+echo "[1/4] all 6 protected paths survive reset --hard"
 tmp1="$(mktemp -d)"
 work1="$(setup_repo "$tmp1")"
 
@@ -111,6 +113,14 @@ echo '# eval report CONCURRENT_EDIT_EVAL' \
     > "$work1/docs/skycot/evals/scheduled/2026-05-24/round-46/findings.md"
 echo '# shared CONCURRENT_EDIT_SHARED' \
     > "$work1/docs/skycot/agents/SHARED.md"
+# Conductor-tick T08-05 (2026-05-25) additions: BUILD_STATUS.md ledger flip
+# (tracked-file modification) + new brief file in streams/ (untracked).
+mkdir -p "$work1/docs/build-plan"
+echo '# Build status — CONCURRENT_EDIT_BUILD_STATUS' \
+    > "$work1/docs/build-plan/BUILD_STATUS.md"
+mkdir -p "$work1/docs/build-plan/streams"
+echo '# new brief CONCURRENT_EDIT_NEW_BRIEF' \
+    > "$work1/docs/build-plan/streams/fix-emergency-block.md"
 
 # Stash → reset → restore.
 stash_volatile_state "$work1"
@@ -134,6 +144,14 @@ assert_grep "$work1/docs/skycot/evals/scheduled/2026-05-24/round-46/findings.md"
 assert_grep "$work1/docs/skycot/agents/SHARED.md" "CONCURRENT_EDIT_SHARED" \
     "agents/SHARED.md edit survived reset" \
     "agents/SHARED.md was WIPED by reset (regression)"
+
+assert_grep "$work1/docs/build-plan/BUILD_STATUS.md" "CONCURRENT_EDIT_BUILD_STATUS" \
+    "BUILD_STATUS.md edit survived reset" \
+    "BUILD_STATUS.md was WIPED by reset (regression — T08-05 conductor wipe scenario)"
+
+assert_grep "$work1/docs/build-plan/streams/fix-emergency-block.md" "CONCURRENT_EDIT_NEW_BRIEF" \
+    "new brief file in streams/ survived reset" \
+    "new brief file in streams/ was WIPED by reset (regression — T08-05 conductor wipe scenario)"
 
 rm -rf "$tmp1"
 

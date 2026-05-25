@@ -33,11 +33,21 @@
 # These helpers are defined at top-level (above main()) so the hermetic
 # smoke harness in scripts/test/test-worker-loop-protects-volatile-state.sh
 # can source this script and exercise them directly.
+#
+# Conductor-tick T08-05 (2026-05-25) extension: added BUILD_STATUS.md +
+# docs/build-plan/streams/ after a live wipe-race observed during operator-
+# interactive conductor work — the emergency-block ledger flip for PR #2279
+# and the fix-kpi-rollup-preserve-charter-md brief file were repeatedly
+# wiped by a concurrent worker's claim-with-retry reset path. The conductor
+# spent ~15 min re-doing the same edits before adding BUILD_STATUS.md +
+# streams/ to the whitelist.
 VOLATILE_PATHS=(
     'docs/skycot/agents/heartbeats'
     'docs/skycot/audit/scheduled'
     'docs/skycot/evals/scheduled'
     'docs/skycot/agents/SHARED.md'
+    'docs/build-plan/BUILD_STATUS.md'
+    'docs/build-plan/streams'
 )
 
 # stash_volatile_state <repo>
@@ -48,15 +58,30 @@ VOLATILE_PATHS=(
 #       evil and exactly what the unwrapped reset already did).
 stash_volatile_state() {
     local repo="$1"
+    # Filter VOLATILE_PATHS to only those that exist on disk in this repo.
+    # `git stash push -- <pathspec>` errors with "did not match any files"
+    # if any pathspec is missing — so we filter first. This handles
+    # partial worktrees, shallow clones, and the hermetic test harness
+    # (which sets up a minimal repo without every protected path).
+    local existing=()
+    local p
+    for p in "${VOLATILE_PATHS[@]}"; do
+        if [[ -e "$repo/$p" ]]; then
+            existing+=("$p")
+        fi
+    done
+    if [[ ${#existing[@]} -eq 0 ]]; then
+        return 1
+    fi
     local dirty
     dirty=$(git -C "$repo" status --porcelain --untracked-files=normal -- \
-        "${VOLATILE_PATHS[@]}" 2>/dev/null)
+        "${existing[@]}" 2>/dev/null)
     if [[ -z "$dirty" ]]; then
         return 1
     fi
     if git -C "$repo" stash push --include-untracked --quiet \
         -m "claim-with-retry:volatile-state-pre-reset" \
-        -- "${VOLATILE_PATHS[@]}" >/dev/null 2>/tmp/argo-claim-stash-push.log; then
+        -- "${existing[@]}" >/dev/null 2>/tmp/argo-claim-stash-push.log; then
         return 0
     fi
     echo "claim-with-retry: failed to stash volatile state; reset will proceed (uncommitted dirt may be wiped):" >&2
