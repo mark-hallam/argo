@@ -329,12 +329,7 @@ impl<'a> IdentityStore<'a> {
             .collect())
     }
 
-    /// Set the tenure `level` for a worker (Stream
-    /// `claude-worker-promotion-workflow`). The promotion handler
-    /// gates eligibility before calling in; this is the persistence
-    /// primitive only and trusts the caller. Returns
-    /// `ArgoError::Provider` when the `(tenant_id, worker_id)` pair
-    /// does not match a stored row.
+    /// Set worker tenure `level`; caller enforces eligibility.
     pub async fn update_level(
         &self,
         tenant_id: TenantId,
@@ -357,10 +352,8 @@ impl<'a> IdentityStore<'a> {
         Ok(())
     }
 
-    /// Update the per-instance charter and/or KPIs for a worker
-    /// (`Stream claude-worker-charter-storage`). Either argument may be
-    /// `None` to null the column. Returns `ArgoError::Provider` when the
-    /// (`tenant_id`, `worker_id`) pair does not match a stored row.
+    /// Update the per-instance charter and/or KPIs for a worker.
+    /// Either argument may be `None` to null the column.
     pub async fn update_charter(
         &self,
         tenant_id: TenantId,
@@ -380,6 +373,29 @@ impl<'a> IdentityStore<'a> {
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("update charter: {e}")))?;
+        if result.rows_affected() == 0 {
+            return Err(ArgoError::Provider(format!(
+                "worker {worker_id} not found in tenant {tenant_id}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Update only KPI JSON, preserving the worker charter.
+    pub async fn set_kpis(
+        &self,
+        tenant_id: TenantId,
+        worker_id: WorkerId,
+        kpis: &serde_json::Value,
+    ) -> ArgoResult<()> {
+        self.ensure_schema().await?;
+        let result = sqlx::query("UPDATE worker SET kpi_json = ? WHERE id = ? AND tenant_id = ?")
+            .bind(kpis_to_json(Some(kpis))?)
+            .bind(worker_id.to_string())
+            .bind(tenant_id.to_string())
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("set kpis: {e}")))?;
         if result.rows_affected() == 0 {
             return Err(ArgoError::Provider(format!(
                 "worker {worker_id} not found in tenant {tenant_id}"

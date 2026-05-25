@@ -24,6 +24,11 @@
 //!   and resolved principal. Probe routes stay out of the chain.
 //! - `WorkerOomRestart` is a whole-process supervisor event, distinct
 //!   from per-turn `Halt` and per-action executor retry strategies.
+//! - `WorkerKpiRolled` is emitted once per worker per scheduler tick
+//!   when the KPI rollup derives KPI JSON from the audit trail and
+//!   persists it to `worker.kpi_json` through `IdentityStore::set_kpis`.
+//!   Payload carries `worker_id`, `tenant_id`, `kpis_json`,
+//!   `rolled_at`, and `rows_scanned`.
 //! - `RuntimeContextCompressed` is one row per compression pass, with
 //!   token counts matching `argo_runtime::context_compress`.
 //! - `SecurityKeyRotated` preserves the historical

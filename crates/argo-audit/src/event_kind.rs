@@ -47,6 +47,8 @@ pub enum AuditKind {
     ///
     /// See `event_kind_docs.rs` for first-reply and payload semantics.
     ApprovalReplied,
+    /// KPI-rollup scheduler persisted per-worker KPI JSON.
+    WorkerKpiRolled,
     /// Operator granted human approval for a blocked tool.
     ApprovalGranted,
     /// Operator declined an approval-request decision.

@@ -13,8 +13,9 @@ use std::time::{Duration, SystemTime};
 use argo_channels::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 use argo_config::SiemConfig;
 use argo_orchestrator::{
-    spawn_duty_scheduler, ClosedGate, DutyAgentRunner, DutyGate, DutyRunContext, DutyScheduler,
-    DutyStore, OrchestratorStore, WorkerSupervisor,
+    spawn_duty_scheduler, spawn_kpi_rollup_scheduler, ClosedGate, DutyAgentRunner, DutyGate,
+    DutyRunContext, DutyScheduler, DutyStore, KpiRollupScheduler, OrchestratorStore,
+    WorkerSupervisor, DEFAULT_KPI_ROLLUP_INTERVAL_SECS,
 };
 use argo_siem::{
     spawn_siem_dispatcher, DatadogLogsSink, ElasticSink, SiemDispatcherConfig, SiemSink,
@@ -34,6 +35,8 @@ use crate::handlers::cu_screenshots::CuScreenshotStore;
 use std::collections::BTreeMap;
 
 const DEFAULT_DUTY_SCHEDULER_SECS: u64 = 60;
+/// Env var override for the KPI rollup tick cadence.
+const KPI_ROLLUP_INTERVAL_ENV: &str = "ARGO_KPI_ROLLUP_SECS";
 /// Sweep cadence for the `cu_screenshot` retention task. Hourly is
 /// the brief's target — short enough to keep the index lean,
 /// long enough that the sweep cost is negligible against the
@@ -170,6 +173,27 @@ pub(super) fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnD
         interval_secs
     );
     AbortOnDrop::new(spawn_duty_scheduler(
+        scheduler,
+        Duration::from_secs(interval_secs),
+    ))
+}
+
+pub(super) fn spawn_gateway_kpi_rollup(store: Arc<SessionStore>) -> AbortOnDrop {
+    let interval_secs = std::env::var(KPI_ROLLUP_INTERVAL_ENV)
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .unwrap_or(DEFAULT_KPI_ROLLUP_INTERVAL_SECS);
+    let sink = Arc::new(argo_audit::AuditSink::new_with_tenant(
+        Arc::clone(&store),
+        argo_audit::SYSTEM_AUDIT_TENANT_ID.to_string(),
+    ));
+    let scheduler = Arc::new(KpiRollupScheduler::new(store, sink));
+    eprintln!(
+        "argo gateway: kpi rollup enabled (interval={}s, sink=wired)",
+        interval_secs
+    );
+    AbortOnDrop::new(spawn_kpi_rollup_scheduler(
         scheduler,
         Duration::from_secs(interval_secs),
     ))

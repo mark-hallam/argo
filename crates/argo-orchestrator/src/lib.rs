@@ -45,6 +45,9 @@ mod duty_scheduler_gate;
 mod duty_scheduler_store;
 mod escalation;
 mod handoff;
+/// Periodic per-worker KPI rollup from the audit trail
+/// (Stream `mission-kpi-rollup-from-audit-trail`, mission claim 2).
+pub mod kpi_rollup;
 pub mod persist;
 /// Audit-row writers for handoff transitions
 /// (Stream `claude-worker-handoff-record`).
@@ -82,6 +85,10 @@ pub use duty_scheduler::{
 };
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};
+pub use kpi_rollup::{
+    spawn_kpi_rollup_scheduler, KpiPayload, KpiRollupReport, KpiRollupScheduler,
+    DEFAULT_KPI_ROLLUP_INTERVAL_SECS, KPI_ROLLUP_SCHEMA_VERSION,
+};
 pub use persist::OrchestratorStore;
 pub use retry::{
     run_skill_with_retry, RetryBackoff, RetryFailure, RetryFailureClass, RetryPolicyStore,

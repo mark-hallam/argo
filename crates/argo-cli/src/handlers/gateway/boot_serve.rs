@@ -10,8 +10,8 @@ use super::boot_helpers::StartupPhases;
 use super::boot_router::{self, ConnectionCtx};
 use super::boot_spawns::{
     finish_shutdown, spawn_alerts_loop, spawn_approval_reminder, spawn_audit_watchdog,
-    spawn_cu_screenshot_sweep, spawn_gateway_duty_scheduler, spawn_siem_from_config,
-    spawn_worker_supervisor,
+    spawn_cu_screenshot_sweep, spawn_gateway_duty_scheduler, spawn_gateway_kpi_rollup,
+    spawn_siem_from_config, spawn_worker_supervisor,
 };
 use super::ip_allowlist::IpAllowlist;
 use super::lifecycle::{pid_is_alive, PidGuard};
@@ -150,6 +150,7 @@ pub(super) struct BgGuards {
     _service_token_binding_sweeper: Option<JoinHandle<()>>,
     _approval_reminder: Option<AbortOnDrop>,
     _duty_scheduler: Option<AbortOnDrop>,
+    _kpi_rollup: Option<AbortOnDrop>,
     _alerts_loop: Option<AbortOnDrop>,
     _cu_screenshot_sweep: Option<AbortOnDrop>,
     _audit_watchdog: Option<AbortOnDrop>,
@@ -175,6 +176,7 @@ pub(super) fn spawn_bg_tasks(
         }),
         _approval_reminder: bg_store.map(|s| spawn_approval_reminder(Arc::clone(s))),
         _duty_scheduler: bg_store.map(|s| spawn_gateway_duty_scheduler(Arc::clone(s))),
+        _kpi_rollup: bg_store.map(|s| spawn_gateway_kpi_rollup(Arc::clone(s))),
         _alerts_loop: bg_store.map(|s| spawn_alerts_loop(Arc::clone(s))),
         _cu_screenshot_sweep: bg_store.map(|s| spawn_cu_screenshot_sweep(Arc::clone(s))),
         _audit_watchdog: bg_store.map(|s| spawn_audit_watchdog(Arc::clone(s))),
