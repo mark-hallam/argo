@@ -109,7 +109,7 @@ export default function MembersPage() {
 
   return (
     <>
-      <style jsx global>{`${MEMBERS_PAGE_STYLES}${MEMBERS_EXPIRY_STYLES}`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `${MEMBERS_PAGE_STYLES}${MEMBERS_EXPIRY_STYLES}` }} />
 
       <div className="members-stage">
         <div className="members-header">

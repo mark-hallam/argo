@@ -3,6 +3,13 @@
 import { Clock } from "lucide-react";
 import { expiryStatus } from "@/lib/members/expiry";
 
+const EXPIRY_DATE_FORMATTER = new Intl.DateTimeFormat("en-AU", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 /** Compact pill rendered next to a member's name/email when the
  *  member has an `expires_at`. Tone tracks time-remaining bands:
  *  green (>7d), amber (≤7d), red (past). Permanent members render
@@ -31,9 +38,5 @@ export function MemberExpiryPill({
 function formatDate(iso: string): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return iso;
-  return new Date(t).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return EXPIRY_DATE_FORMATTER.format(new Date(t));
 }
