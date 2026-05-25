@@ -131,6 +131,25 @@ main() {
         exit 2
     fi
 
+    # Volatile-state pre-stash (added 2026-05-26 by watchdog as root-cause fix for
+    # the recurring hourly worker-outage pattern). Concurrent writers (evaluator
+    # heartbeat, conductor heartbeat, evaluator round reports, SHARED.md appends)
+    # frequently hold uncommitted edits to VOLATILE_PATHS during their
+    # write→commit window. Without this stash, the dirty check below kicks the
+    # worker out → worker hits same-brief-2×-fail spin-loop guard → supervisor
+    # exponential backoff → 0 workers running for tens of minutes.
+    #
+    # The downstream race-loss reset path (~line 257) already uses the same
+    # stash pattern to protect these files from being wiped by `git reset
+    # --hard`. Moving the protection upstream lets the worker claim around the
+    # write→commit window instead of dying on it. EXIT trap ensures restore
+    # happens on every exit path (success / dirty-real-operator / race-loss).
+    volatile_stashed_upfront=0
+    if stash_volatile_state "$REPO_ROOT"; then
+        volatile_stashed_upfront=1
+        trap '[[ "$volatile_stashed_upfront" == "1" ]] && restore_volatile_state "$REPO_ROOT"' EXIT
+    fi
+
     # Phantom-modifications rescue: stash-pop on already-pulled state can leave
     # files marked M whose content is byte-identical to HEAD. Refresh the index
     # (clears stat-only artefacts), then check if a real content diff remains.
