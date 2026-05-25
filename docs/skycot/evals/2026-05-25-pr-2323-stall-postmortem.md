@@ -1,0 +1,5 @@
+# PR #2323 stall postmortem
+
+Date: 2026-05-25 UTC
+
+PR #2323 stalled because the source fix was repeatedly judged sound but never crossed the conductor merge boundary. Rounds 68, 69, and 70 all re-confirmed the same pattern: the PR had a small gateway-route diff, evaluator source-PASS evidence, and live `/api/v1/skills` plus `/api/v1/workflows` still returning 404 on port 7400, but conductor ticks deferred it under Rust-gate cost, memory-pressure, and overnight-authorization ambiguity because the branch was `claude-fix-gateway-*` rather than an explicitly authorized `fix-pr-22*` rebase branch. A later rebase pushed #2323 to `c53f63424`, but the route still is not on main and the current gateway still returns 404 for both endpoints. Per the T22-07 escalation brief, #2323 should be closed as SUPERSEDED after operator approval; the replacement brief `fix-gateway-workflows-and-skills-list-endpoints-from-current-main-289d3077f` re-authors the endpoint work from current main `a84871a22` without reusing the stalled branch.
