@@ -2,13 +2,17 @@
 //! every routing decision.
 //!
 //! Spec: `docs/plan/argo-build-plan.md` §24.1.
-use argo_types::{ArgoResult, Message, ProviderModel, RoutingDecision, RoutingPolicy, SessionId};
+use argo_types::{
+    ArgoResult, Message, ProviderModel, RoutingDecision, RoutingPolicy, SessionId, TenantId,
+};
 use async_trait::async_trait;
 use std::time::Instant;
 
 /// Per-turn input to a routing decision.
 #[derive(Debug, Clone)]
 pub struct RoutingContext<'a> {
+    /// Owning tenant.
+    pub tenant_id: TenantId,
     /// Owning session.
     pub session_id: SessionId,
     /// Turn number within the session.

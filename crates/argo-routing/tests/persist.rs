@@ -19,6 +19,7 @@ impl Router for StaticTieredRouter {
     async fn route(&self, ctx: &RoutingContext<'_>) -> ArgoResult<RoutingDecision> {
         Ok(RoutingDecision {
             id: RoutingDecisionId::new(),
+            tenant_id: ctx.tenant_id,
             session_id: ctx.session_id,
             turn: ctx.turn,
             policy: "tiered".into(),
@@ -37,7 +38,7 @@ async fn fresh_store() -> Arc<SessionStore> {
     Arc::new(store)
 }
 
-async fn seed_session(store: &SessionStore) -> SessionId {
+async fn seed_session(store: &SessionStore) -> (TenantId, SessionId) {
     let tenant = TenantId::new();
     let ws = WorkspaceId::new();
     sqlx::query(
@@ -49,14 +50,21 @@ async fn seed_session(store: &SessionStore) -> SessionId {
     .execute(store.pool())
     .await
     .unwrap();
-    store
+    let session = store
         .create_session(tenant, ws, "model", "provider", Some("test"), None)
         .await
-        .unwrap()
+        .unwrap();
+    (tenant, session)
 }
 
-fn ctx<'a>(session_id: SessionId, msg: &'a str, deadline: Instant) -> RoutingContext<'a> {
+fn ctx<'a>(
+    tenant_id: TenantId,
+    session_id: SessionId,
+    msg: &'a str,
+    deadline: Instant,
+) -> RoutingContext<'a> {
     RoutingContext {
+        tenant_id,
         session_id,
         turn: 1,
         messages: &[],
@@ -74,7 +82,7 @@ fn ctx<'a>(session_id: SessionId, msg: &'a str, deadline: Instant) -> RoutingCon
 #[tokio::test]
 async fn persists_tiered_decision_to_routing_decision_table() {
     let store = fresh_store().await;
-    let session_id = seed_session(&store).await;
+    let (tenant_id, session_id) = seed_session(&store).await;
     let inner = StaticTieredRouter {
         tier: "complex",
         chosen: ProviderModel {
@@ -85,6 +93,7 @@ async fn persists_tiered_decision_to_routing_decision_table() {
     let router = PersistingRouter::new(inner, store.clone());
     let _ = router
         .route(&ctx(
+            tenant_id,
             session_id,
             "do the thing",
             Instant::now() + Duration::from_secs(60),
@@ -102,10 +111,11 @@ async fn persists_tiered_decision_to_routing_decision_table() {
 #[tokio::test]
 async fn fixed_decisions_are_not_persisted() {
     let store = fresh_store().await;
-    let session_id = seed_session(&store).await;
+    let (tenant_id, session_id) = seed_session(&store).await;
     let router = PersistingRouter::new(FixedRouter::new(), store.clone());
     let _ = router
         .route(&ctx(
+            tenant_id,
             session_id,
             "anything",
             Instant::now() + Duration::from_secs(60),
@@ -123,7 +133,7 @@ async fn fixed_decisions_are_not_persisted() {
 #[tokio::test]
 async fn persisted_row_carries_full_decision_fields() {
     let store = fresh_store().await;
-    let session_id = seed_session(&store).await;
+    let (tenant_id, session_id) = seed_session(&store).await;
     let inner = StaticTieredRouter {
         tier: "medium",
         chosen: ProviderModel {
@@ -134,21 +144,29 @@ async fn persisted_row_carries_full_decision_fields() {
     let router = PersistingRouter::new(inner, store.clone());
     let _ = router
         .route(&ctx(
+            tenant_id,
             session_id,
             "review",
             Instant::now() + Duration::from_secs(60),
         ))
         .await
         .unwrap();
-    let (policy, tier, prov, model, latency): (String, String, String, String, i64) =
-        sqlx::query_as(
-            "SELECT policy, tier, chosen_provider, chosen_model, classifier_latency_ms \
+    let (tenant, policy, tier, prov, model, latency): (
+        Vec<u8>,
+        String,
+        String,
+        String,
+        String,
+        i64,
+    ) = sqlx::query_as(
+        "SELECT tenant_id, policy, tier, chosen_provider, chosen_model, classifier_latency_ms \
              FROM routing_decision WHERE session_id = ?",
-        )
-        .bind(session_id.0.as_bytes().as_slice())
-        .fetch_one(store.pool())
-        .await
-        .unwrap();
+    )
+    .bind(session_id.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(tenant, tenant_id.0.as_bytes().to_vec());
     assert_eq!(policy, "tiered");
     assert_eq!(tier, "medium");
     assert_eq!(prov, "openai");

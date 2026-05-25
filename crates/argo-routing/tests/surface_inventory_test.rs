@@ -3,25 +3,18 @@
 //!
 //! Three load-bearing claims this file pins:
 //!
-//! 1. **Public surface stability.** The 7 re-exports advertised by
+//! 1. **Public surface stability.** The 8 re-exports advertised by
 //!    `lib.rs` — `Router`, `RoutingContext`, `FixedRouter`,
 //!    `TieredRouter`, `PersistingRouter`, `PolicyPluginRouter`,
-//!    `TierCache` — all exist with their advertised shape. The crate's
+//!    `TierCache`, `list_for_tenant` — all exist with their advertised shape. The crate's
 //!    sole consumer in production today is
 //!    `argo_agent_runner::turn_routing` (one callsite), so any rename
 //!    or shape break would cascade silently without a pin.
 //!
-//! 2. **Tenant scoping is implicit-via-session, not plumbed** (current
-//!    shape). `RoutingContext` carries `session_id` only; the `Router`
-//!    trait returns a `RoutingDecision` that carries `session_id` only;
-//!    the persistence schema (`routing_decision` table, v1.rs:145-156)
-//!    has no `tenant_id` column. A handler that blindly forwards a
-//!    caller-supplied `session_id` into
-//!    `SessionStore::list_routing_decisions` would leak cross-tenant
-//!    rows because the store layer enforces nothing. The pin captures
-//!    the current shape; the fix-brief
-//!    `fix-routing-decision-tenant-scoping` is named in the eval PR
-//!    body.
+//! 2. **Tenant scoping is explicit.** `RoutingContext` carries
+//!    `tenant_id`, `RoutingDecision` stores it, and the
+//!    `routing_decision` table has a `tenant_id` column. Tenant-scoped
+//!    reads go through `list_for_tenant`.
 //!
 //! 3. **Production persistence wire-gap** (FINDINGS-ONLY). The only
 //!    production caller in the workspace
@@ -38,8 +31,8 @@
 //! `docs/skycot/evals/scheduled/2026-05-23/eval-argo-routing-crate-surface.md`.
 
 use argo_routing::{
-    FixedRouter, PersistingRouter, PolicyPluginRouter, Router, RoutingContext, TierCache,
-    TieredRouter, DEFAULT_TTL,
+    list_for_tenant, FixedRouter, PersistingRouter, PolicyPluginRouter, Router, RoutingContext,
+    TierCache, TieredRouter, DEFAULT_TTL,
 };
 use argo_store::SessionStore;
 use argo_types::{
@@ -66,6 +59,7 @@ fn lib_reexports_match_published_surface() {
     // RoutingContext fields are publicly visible and named as
     // advertised in the rustdoc.
     let _ = RoutingContext {
+        tenant_id: TenantId::new(),
         session_id: SessionId::new(),
         turn: 0,
         messages: &[],
@@ -109,14 +103,14 @@ async fn four_routers_implement_the_router_trait() {
     }
 }
 
-/// §2 — `RoutingContext` carries `session_id` and NO `tenant_id`. The
-/// test does not assert absence (Rust has no anti-field syntax); it
-/// asserts the field set we DO have, so a future rename to
-/// `tenant_session_id` or addition of a parallel field is caught here
-/// when the construct stops type-checking.
+/// §2 — `RoutingContext` carries both `tenant_id` and `session_id`.
+/// This is the compile-time surface pin for the routing substrate's
+/// tenant-aware contract.
 #[test]
-fn routing_context_field_set_is_session_scoped_only() {
+fn routing_context_field_set_is_tenant_scoped() {
+    let tenant_id = TenantId::new();
     let ctx = RoutingContext {
+        tenant_id,
         session_id: SessionId::new(),
         turn: 1,
         messages: &[],
@@ -131,6 +125,7 @@ fn routing_context_field_set_is_session_scoped_only() {
     };
     // Field access — if any of these field names change, the test
     // fails to compile and the surface drift surfaces in CI.
+    let _ = ctx.tenant_id;
     let _ = ctx.session_id;
     let _ = ctx.turn;
     let _ = ctx.messages.len();
@@ -141,14 +136,14 @@ fn routing_context_field_set_is_session_scoped_only() {
     let _ = ctx.deadline;
 }
 
-/// §2 — `RoutingDecision` likewise has no `tenant_id` field (gap
-/// pin). The struct lives in `argo-types`; the persistence path
-/// (`SessionStore::persist_routing_decision`) binds the rows in
-/// `RoutingDecision` order with no extra tenant column.
+/// §2 — `RoutingDecision` carries `tenant_id` so persisted rows can
+/// be queried without session-only cross-tenant ambiguity.
 #[test]
-fn routing_decision_field_set_is_session_scoped_only() {
+fn routing_decision_field_set_is_tenant_scoped() {
+    let tenant_id = TenantId::new();
     let d = RoutingDecision {
         id: RoutingDecisionId::new(),
+        tenant_id,
         session_id: SessionId::new(),
         turn: 1,
         policy: "fixed".into(),
@@ -162,6 +157,7 @@ fn routing_decision_field_set_is_session_scoped_only() {
         reason: "ok".into(),
     };
     let _ = d.id;
+    let _ = d.tenant_id;
     let _ = d.session_id;
     let _ = d.turn;
     let _ = d.policy;
@@ -173,11 +169,9 @@ fn routing_decision_field_set_is_session_scoped_only() {
 }
 
 /// §2 — Runtime confirmation that the `routing_decision` table on a
-/// fresh-migrated store carries no `tenant_id` column. Passes today;
-/// fails when `fix-routing-decision-tenant-scoping` lands and adds
-/// the column — that's the desired flip signal for the fix-brief.
+/// fresh-migrated store carries the `tenant_id` column.
 #[tokio::test]
-async fn routing_decision_table_has_no_tenant_id_column() {
+async fn routing_decision_table_has_tenant_id_column() {
     let store = fresh_store().await;
     let cols: Vec<(i64, String)> =
         sqlx::query_as("SELECT cid, name FROM pragma_table_info('routing_decision')")
@@ -190,28 +184,22 @@ async fn routing_decision_table_has_no_tenant_id_column() {
         "session_id must remain; saw {names:?}"
     );
     assert!(
-        names.iter().all(|n| n != "tenant_id"),
-        "FINDINGS pin: routing_decision should not yet carry tenant_id; \
-         saw {names:?} (this assertion flips when fix-routing-decision-\
-         tenant-scoping lands)"
+        names.iter().any(|n| n == "tenant_id"),
+        "routing_decision must carry tenant_id after fix-routing-decision-tenant-scoping; \
+         saw {names:?}"
     );
 }
 
 /// §2 — Runtime confirmation that
-/// `SessionStore::persist_routing_decision` accepts a
-/// `RoutingDecision` for a session owned by tenant A even when
-/// invoked from a context that "knows" tenant B. The store enforces
-/// nothing — tenant scoping is the caller's responsibility. Pins the
-/// current contract; the fix-brief widens
-/// `persist_routing_decision` to take `&TenantId` and verify-on-write.
+/// `SessionStore::persist_routing_decision` stores the decision's
+/// tenant id and the tenant-scoped read helper returns it.
 #[tokio::test]
-async fn persist_routing_decision_does_not_check_tenant() {
+async fn persist_routing_decision_round_trips_tenant_id() {
     let store = fresh_store().await;
-    let (_tenant_a, session_a) = seed_tenant_session(&store, "a").await;
-    // No "current tenant" parameter exists — the call accepts the
-    // decision without any tenant binding the caller could pass.
+    let (tenant_a, session_a) = seed_tenant_session(&store, "a").await;
     let decision = RoutingDecision {
         id: RoutingDecisionId::new(),
+        tenant_id: tenant_a,
         session_id: session_a,
         turn: 1,
         policy: "tiered".into(),
@@ -227,37 +215,88 @@ async fn persist_routing_decision_does_not_check_tenant() {
     store
         .persist_routing_decision(&decision)
         .await
-        .expect("persist accepts decision with no tenant arg");
-    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM routing_decision WHERE session_id = ?")
-        .bind(session_a.0.as_bytes().as_slice())
-        .fetch_one(store.pool())
+        .expect("persist accepts same-tenant decision");
+    let rows = list_for_tenant(&store, tenant_a)
         .await
-        .unwrap();
+        .expect("tenant-scoped read");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].tenant_id, tenant_a);
+    assert_eq!(rows[0].session_id, session_a);
+    let n: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM routing_decision WHERE session_id = ? AND tenant_id = ?",
+    )
+    .bind(session_a.0.as_bytes().as_slice())
+    .bind(tenant_a.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
     assert_eq!(n, 1);
 }
 
-/// §2 — FINDINGS-ONLY: the desired post-fix shape. The hypothetical
-/// `persist_routing_decision_for_tenant(&tenant, &decision)` API
-/// should refuse to write when the decision's `session_id` belongs to
-/// a different tenant. Today no such method exists; this test stays
-/// `#[ignore]`'d until `fix-routing-decision-tenant-scoping` lands.
-#[ignore = "FINDINGS-ONLY: enable when fix-routing-decision-tenant-scoping lands"]
+/// §2 — A decision whose `tenant_id` disagrees with the session owner
+/// is rejected before insert.
 #[tokio::test]
 async fn persist_routing_decision_refuses_foreign_tenant() {
-    // Sketch (intentionally non-compiling reference — fix-brief lands
-    // the method, then this body switches from `unimplemented!` to a
-    // real assertion against the new API):
-    //
-    //   let store = fresh_store().await;
-    //   let (tenant_a, session_a) = seed_tenant_session(&store, "a").await;
-    //   let tenant_b = TenantId::new();
-    //   let decision = RoutingDecision { session_id: session_a, .. };
-    //   let err = store
-    //       .persist_routing_decision_for_tenant(&tenant_b, &decision)
-    //       .await
-    //       .unwrap_err();
-    //   assert!(matches!(err, ArgoError::PermissionDenied { .. }));
-    unimplemented!("requires fix-routing-decision-tenant-scoping");
+    let store = fresh_store().await;
+    let (_tenant_a, session_a) = seed_tenant_session(&store, "a").await;
+    let tenant_b = TenantId::new();
+    let decision = RoutingDecision {
+        id: RoutingDecisionId::new(),
+        tenant_id: tenant_b,
+        session_id: session_a,
+        turn: 1,
+        policy: "tiered".into(),
+        tier: "complex".into(),
+        classified_at: chrono::Utc::now(),
+        classifier_latency_ms: 7,
+        chosen_provider_model: ProviderModel {
+            provider: "anthropic".into(),
+            model: "claude-opus-4-6".into(),
+        },
+        reason: "test".into(),
+    };
+    let err = store
+        .persist_routing_decision(&decision)
+        .await
+        .expect_err("foreign tenant decision must be rejected");
+    assert!(
+        matches!(err, ArgoError::NotFound(_)),
+        "foreign tenant persist must hide session existence, got {err:?}"
+    );
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM routing_decision")
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+    assert_eq!(n, 0);
+}
+
+/// §2 — Tenant-scoped reads must not leak another tenant's routing
+/// decisions, while still returning the same tenant's baseline row.
+#[tokio::test]
+async fn list_for_tenant_excludes_other_tenant_decisions() {
+    let store = fresh_store().await;
+    let (tenant_a, session_a) = seed_tenant_session(&store, "a").await;
+    let (tenant_b, session_b) = seed_tenant_session(&store, "b").await;
+
+    store
+        .persist_routing_decision(&test_decision(tenant_a, session_a, "simple"))
+        .await
+        .expect("persist tenant a");
+    store
+        .persist_routing_decision(&test_decision(tenant_b, session_b, "complex"))
+        .await
+        .expect("persist tenant b");
+
+    let rows_b = list_for_tenant(&store, tenant_b)
+        .await
+        .expect("tenant b read");
+    assert_eq!(rows_b.len(), 1, "same-tenant baseline must be visible");
+    assert_eq!(rows_b[0].tenant_id, tenant_b);
+    assert_eq!(rows_b[0].session_id, session_b);
+    assert!(
+        rows_b.iter().all(|row| row.session_id != session_a),
+        "tenant B read leaked tenant A routing rows: {rows_b:?}"
+    );
 }
 
 /// §3 — Production wire-gap pin. Every `Router` impl can be wrapped
@@ -273,9 +312,10 @@ async fn persisting_router_wraps_tiered_with_store() {
     // This test asserts the wrapper SHAPE is available — it does NOT
     // assert that production uses it. The fix-brief is the wire.
     let store = fresh_store().await;
-    let session_id = seed_tenant_session(&store, "wrap").await.1;
+    let (tenant_id, session_id) = seed_tenant_session(&store, "wrap").await;
     let decision = RoutingDecision {
         id: RoutingDecisionId::new(),
+        tenant_id,
         session_id,
         turn: 1,
         policy: "tiered".into(),
@@ -294,14 +334,17 @@ async fn persisting_router_wraps_tiered_with_store() {
         },
         store.clone(),
     );
-    let ctx = ctx_for(session_id, "msg");
+    let ctx = ctx_for(tenant_id, session_id, "msg");
     let out = outer.route(&ctx).await.expect("route");
     assert_eq!(out.policy, "tiered");
-    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM routing_decision WHERE session_id = ?")
-        .bind(session_id.0.as_bytes().as_slice())
-        .fetch_one(store.pool())
-        .await
-        .unwrap();
+    let n: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM routing_decision WHERE session_id = ? AND tenant_id = ?",
+    )
+    .bind(session_id.0.as_bytes().as_slice())
+    .bind(tenant_id.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
     assert_eq!(n, 1, "PersistingRouter writes when policy != 'fixed'");
 }
 
@@ -332,7 +375,7 @@ fn production_turn_routing_wraps_tier_router_in_persisting_router() {
 #[tokio::test]
 async fn policy_plugin_router_is_a_stub_returning_routing_failed() {
     let router = PolicyPluginRouter::new("cost_optimizer");
-    let ctx = ctx_for(SessionId::new(), "x");
+    let ctx = ctx_for(TenantId::new(), SessionId::new(), "x");
     let err = router.route(&ctx).await.unwrap_err();
     match err {
         ArgoError::RoutingFailed { reason } => {
@@ -371,9 +414,10 @@ async fn seed_tenant_session(store: &SessionStore, label: &str) -> (TenantId, Se
     (tenant, session)
 }
 
-fn ctx_for(session_id: SessionId, msg: &str) -> RoutingContext<'_> {
+fn ctx_for(tenant_id: TenantId, session_id: SessionId, msg: &str) -> RoutingContext<'_> {
     let leaked: &'static str = Box::leak(msg.to_string().into_boxed_str());
     RoutingContext {
+        tenant_id,
         session_id,
         turn: 1,
         messages: &[],
@@ -385,6 +429,24 @@ fn ctx_for(session_id: SessionId, msg: &str) -> RoutingContext<'_> {
         },
         policy: RoutingPolicy::Fixed,
         deadline: Instant::now() + Duration::from_secs(60),
+    }
+}
+
+fn test_decision(tenant_id: TenantId, session_id: SessionId, tier: &str) -> RoutingDecision {
+    RoutingDecision {
+        id: RoutingDecisionId::new(),
+        tenant_id,
+        session_id,
+        turn: 1,
+        policy: "tiered".into(),
+        tier: tier.to_string(),
+        classified_at: chrono::Utc::now(),
+        classifier_latency_ms: 7,
+        chosen_provider_model: ProviderModel {
+            provider: "anthropic".into(),
+            model: "claude-opus-4-6".into(),
+        },
+        reason: "test".into(),
     }
 }
 

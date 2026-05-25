@@ -76,8 +76,9 @@ mod v76;
 mod v77;
 mod v78;
 mod v79;
-mod v80;
 mod v8;
+mod v80;
+mod v81;
 mod v9;
 
 mod duplicate_slot_validator;

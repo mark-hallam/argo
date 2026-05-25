@@ -141,6 +141,7 @@ fn decision_for_tier(
     };
     RoutingDecision {
         id: RoutingDecisionId::new(),
+        tenant_id: ctx.tenant_id,
         session_id: ctx.session_id,
         turn: ctx.turn,
         policy: "tiered".into(),

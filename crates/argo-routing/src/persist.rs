@@ -2,7 +2,7 @@
 //! `routing_decision` table (§24.4 acceptance).
 use crate::router::{Router, RoutingContext};
 use argo_store::SessionStore;
-use argo_types::{ArgoResult, RoutingDecision};
+use argo_types::{ArgoResult, RoutingDecision, TenantId};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -40,4 +40,16 @@ impl<R: Router + std::fmt::Debug> std::fmt::Debug for PersistingRouter<R> {
             .field("inner", &self.inner)
             .finish()
     }
+}
+
+/// List persisted routing decisions scoped to one tenant.
+///
+/// This is the read-side companion to [`PersistingRouter`]: callers
+/// that need routing analytics must start from tenant context rather
+/// than session-only identifiers.
+pub async fn list_for_tenant(
+    store: &SessionStore,
+    tenant_id: TenantId,
+) -> ArgoResult<Vec<RoutingDecision>> {
+    store.list_routing_decisions_for_tenant(tenant_id).await
 }

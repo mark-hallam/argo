@@ -87,6 +87,7 @@ pub async fn maybe_route_turn_with_transport(
     let router = TieredRouter::new(classifier);
     let deadline = Instant::now() + Duration::from_millis(DEFAULT_ROUTING_DEADLINE_MS);
     let ctx = RoutingContext {
+        tenant_id: session.tenant_id,
         session_id: session.id,
         turn,
         messages: messages.as_slice(),

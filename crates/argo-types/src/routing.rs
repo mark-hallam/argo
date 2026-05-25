@@ -1,5 +1,5 @@
 //! Cost-tier routing types (Amendment 1).
-use crate::ids::{RoutingDecisionId, SessionId};
+use crate::ids::{RoutingDecisionId, SessionId, TenantId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -75,9 +75,10 @@ pub struct TieredRouting {
 /// A persisted routing decision (one per turn when policy ≠ Fixed).
 ///
 /// ```
-/// use argo_types::{ProviderModel, RoutingDecision, RoutingDecisionId, SessionId};
+/// use argo_types::{ProviderModel, RoutingDecision, RoutingDecisionId, SessionId, TenantId};
 /// let decision = RoutingDecision {
-///     id: RoutingDecisionId::new(), session_id: SessionId::new(), turn: 1,
+///     id: RoutingDecisionId::new(), tenant_id: TenantId::new(),
+///     session_id: SessionId::new(), turn: 1,
 ///     policy: "tiered".into(), tier: "simple".into(), classified_at: chrono::Utc::now(),
 ///     classifier_latency_ms: 12,
 ///     chosen_provider_model: ProviderModel { provider: "openai".into(), model: "gpt-4.1-mini".into() },
@@ -89,6 +90,8 @@ pub struct TieredRouting {
 pub struct RoutingDecision {
     /// Stable ID.
     pub id: RoutingDecisionId,
+    /// Owning tenant.
+    pub tenant_id: TenantId,
     /// Owning session.
     pub session_id: SessionId,
     /// Turn number.

@@ -12,7 +12,7 @@
 //!   plugin host.
 //!
 //! [`PersistingRouter`] wraps any router and writes its non-Fixed
-//! decisions to the `routing_decision` table (§24.4).
+//! decisions to the tenant-scoped `routing_decision` table (§24.4).
 //!
 //! ```
 //! # use argo_routing::FixedRouter;
@@ -30,7 +30,7 @@ mod tiered;
 
 pub use cache::{TierCache, DEFAULT_TTL};
 pub use fixed::FixedRouter;
-pub use persist::PersistingRouter;
+pub use persist::{list_for_tenant, PersistingRouter};
 pub use policy_plugin::PolicyPluginRouter;
 pub use router::{Router, RoutingContext};
 pub use tiered::TieredRouter;

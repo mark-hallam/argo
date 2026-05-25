@@ -206,14 +206,13 @@ impl SessionStore {
         let Ok(tenant_uuid) = uuid::Uuid::parse_str(tenant_id_str) else {
             return Ok(false);
         };
-        let exists: Option<i64> = sqlx::query_scalar(
-            "SELECT 1 FROM session WHERE id = ? AND tenant_id = ? LIMIT 1",
-        )
-        .bind(session_id.0.as_bytes().as_slice())
-        .bind(tenant_uuid.as_bytes().as_slice())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("session_belongs_to_tenant: {e}")))?;
+        let exists: Option<i64> =
+            sqlx::query_scalar("SELECT 1 FROM session WHERE id = ? AND tenant_id = ? LIMIT 1")
+                .bind(session_id.0.as_bytes().as_slice())
+                .bind(tenant_uuid.as_bytes().as_slice())
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("session_belongs_to_tenant: {e}")))?;
         Ok(exists.is_some())
     }
 
@@ -330,13 +329,23 @@ impl SessionStore {
     /// non-Fixed decisions persisted in `routing_decision`"). The cost
     /// router calls this for every turn when policy ≠ Fixed.
     pub async fn persist_routing_decision(&self, d: &RoutingDecision) -> StoreResult<()> {
+        if !self
+            .routing_session_matches_tenant(d.session_id, d.tenant_id)
+            .await?
+        {
+            return Err(ArgoError::NotFound(format!(
+                "routing session {} for tenant {}",
+                d.session_id, d.tenant_id
+            )));
+        }
         let decided_at = d.classified_at.timestamp_micros();
         sqlx::query(
-            "INSERT INTO routing_decision (id, session_id, turn, policy, tier, \
+            "INSERT INTO routing_decision (id, tenant_id, session_id, turn, policy, tier, \
              classifier_latency_ms, chosen_provider, chosen_model, reason, decided_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(d.id.0.as_bytes().as_slice())
+        .bind(d.tenant_id.0.as_bytes().as_slice())
         .bind(d.session_id.0.as_bytes().as_slice())
         .bind(i64::from(d.turn))
         .bind(&d.policy)
@@ -352,6 +361,21 @@ impl SessionStore {
         Ok(())
     }
 
+    async fn routing_session_matches_tenant(
+        &self,
+        session_id: SessionId,
+        tenant_id: TenantId,
+    ) -> StoreResult<bool> {
+        let row: Option<i64> =
+            sqlx::query_scalar("SELECT 1 FROM session WHERE id = ? AND tenant_id = ? LIMIT 1")
+                .bind(session_id.0.as_bytes().as_slice())
+                .bind(tenant_id.0.as_bytes().as_slice())
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("routing session tenant check: {e}")))?;
+        Ok(row.is_some())
+    }
+
     /// List routing decisions for `session_id` in turn order.
     /// Used by `argo route inspect` to surface the cost-router's
     /// per-turn picks (Amendment 1, §24.4).
@@ -360,7 +384,7 @@ impl SessionStore {
         session_id: SessionId,
     ) -> StoreResult<Vec<RoutingDecision>> {
         let rows: Vec<RoutingDecisionRow> = sqlx::query_as::<_, RoutingDecisionRow>(
-            "SELECT id, session_id, turn, policy, tier, classifier_latency_ms, \
+            "SELECT id, tenant_id, session_id, turn, policy, tier, classifier_latency_ms, \
              chosen_provider, chosen_model, reason, decided_at \
              FROM routing_decision WHERE session_id = ? \
              ORDER BY turn ASC",
@@ -369,6 +393,24 @@ impl SessionStore {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("list_routing_decisions: {e}")))?;
+        Ok(rows.into_iter().map(RoutingDecision::from).collect())
+    }
+
+    /// List routing decisions for one tenant in most-recent-first order.
+    pub async fn list_routing_decisions_for_tenant(
+        &self,
+        tenant_id: TenantId,
+    ) -> StoreResult<Vec<RoutingDecision>> {
+        let rows: Vec<RoutingDecisionRow> = sqlx::query_as::<_, RoutingDecisionRow>(
+            "SELECT id, tenant_id, session_id, turn, policy, tier, classifier_latency_ms, \
+             chosen_provider, chosen_model, reason, decided_at \
+             FROM routing_decision WHERE tenant_id = ? \
+             ORDER BY decided_at DESC, turn ASC",
+        )
+        .bind(tenant_id.0.as_bytes().as_slice())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_routing_decisions_for_tenant: {e}")))?;
         Ok(rows.into_iter().map(RoutingDecision::from).collect())
     }
 }

@@ -4,7 +4,8 @@ use argo_provider::{
     ProviderRequest, ProviderResponse, ProviderResponseDelta, StopReason, Transport,
 };
 use argo_types::{
-    ArgoError, ArgoResult, CapabilitySet, ProviderModel, RoutingPolicy, SessionId, TieredRouting,
+    ArgoError, ArgoResult, CapabilitySet, ProviderModel, RoutingPolicy, SessionId, TenantId,
+    TieredRouting,
 };
 use async_trait::async_trait;
 use futures::stream::BoxStream;
@@ -110,6 +111,7 @@ fn ctx_with<'a>(
     deadline: Instant,
 ) -> RoutingContext<'a> {
     RoutingContext {
+        tenant_id: TenantId::new(),
         session_id,
         turn: 1,
         messages: &[],
@@ -245,6 +247,7 @@ async fn rejects_non_tiered_policy() {
     let classifier = MockClassifier::new(vec![]);
     let router = TieredRouter::new(classifier);
     let ctx = RoutingContext {
+        tenant_id: TenantId::new(),
         session_id: SessionId::new(),
         turn: 1,
         messages: &[],

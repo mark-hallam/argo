@@ -3,7 +3,7 @@ use crate::cli::RouteCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_routing::{FixedRouter, Router, RoutingContext};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, ProviderModel, RoutingPolicy, SessionId};
+use argo_types::{ArgoError, ArgoResult, ProviderModel, RoutingPolicy, SessionId, TenantId};
 use std::time::{Duration, Instant};
 
 pub async fn run(cmd: RouteCmd) -> ArgoResult<()> {
@@ -16,6 +16,7 @@ pub async fn run(cmd: RouteCmd) -> ArgoResult<()> {
 async fn bench() -> ArgoResult<()> {
     let iters: usize = 100_000;
     let router = FixedRouter::new();
+    let tenant_id = TenantId::new();
     let session_id = SessionId::new();
     let default_model = ProviderModel {
         provider: "anthropic".into(),
@@ -25,6 +26,7 @@ async fn bench() -> ArgoResult<()> {
     let total_start = Instant::now();
     for turn in 0..iters {
         let ctx = RoutingContext {
+            tenant_id,
             session_id,
             turn: u32::try_from(turn).unwrap_or(u32::MAX),
             messages: &[],

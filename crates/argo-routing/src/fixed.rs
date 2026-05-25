@@ -27,6 +27,7 @@ impl Router for FixedRouter {
     async fn route(&self, ctx: &RoutingContext<'_>) -> ArgoResult<RoutingDecision> {
         Ok(RoutingDecision {
             id: RoutingDecisionId::new(),
+            tenant_id: ctx.tenant_id,
             session_id: ctx.session_id,
             turn: ctx.turn,
             policy: "fixed".into(),
@@ -42,7 +43,7 @@ impl Router for FixedRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use argo_types::{ProviderModel, RoutingPolicy, SessionId};
+    use argo_types::{ProviderModel, RoutingPolicy, SessionId, TenantId};
 
     #[test]
     fn returns_default_model_with_unrouted_tier() {
@@ -52,6 +53,7 @@ mod tests {
             model: "gpt-4o".into(),
         };
         let ctx = RoutingContext {
+            tenant_id: TenantId::new(),
             session_id: SessionId::new(),
             turn: 1,
             messages: &[],

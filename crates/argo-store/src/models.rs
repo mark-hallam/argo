@@ -264,6 +264,7 @@ pub struct ForgeRunRow {
 #[derive(sqlx::FromRow)]
 pub(crate) struct RoutingDecisionRow {
     pub id: Vec<u8>,
+    pub tenant_id: Vec<u8>,
     pub session_id: Vec<u8>,
     pub turn: i64,
     pub policy: String,
@@ -279,6 +280,7 @@ impl From<RoutingDecisionRow> for RoutingDecision {
     fn from(r: RoutingDecisionRow) -> Self {
         Self {
             id: RoutingDecisionId(uuid_from_blob(&r.id)),
+            tenant_id: TenantId(uuid_from_blob(&r.tenant_id)),
             session_id: SessionId(uuid_from_blob(&r.session_id)),
             turn: u32::try_from(r.turn).unwrap_or(0),
             policy: r.policy,
