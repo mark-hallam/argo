@@ -56,6 +56,7 @@ export default function OnboardingWelcomePage() {
         <div className="ob-cta-row">
           <button
             type="button"
+            autoFocus
             className="ob-cta"
             data-testid="onboarding-welcome-continue"
             onClick={() => router.push("/onboarding/workspace")}

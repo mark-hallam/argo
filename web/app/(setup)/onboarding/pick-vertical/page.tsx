@@ -131,6 +131,19 @@ export default function OnboardingPickVerticalPage() {
       }
     >
       <div className="ob-stack mx-auto max-w-4xl">
+        <div className="ob-cta-row is-split">
+          <button
+            type="button"
+            className="ob-cta-back"
+            onClick={() => router.push("/onboarding/connect-provider")}
+            data-testid="onboarding-vertical-back"
+          >
+            ← Back
+          </button>
+          <span className="ob-field-hint">
+            Pick a template to continue &mdash; we install the skills and route you to step 5.
+          </span>
+        </div>
         <ul className="ob-roles" data-testid="onboarding-vertical-grid">
           {VERTICALS.map((v) => {
             const isSelected = selected === v.id;
@@ -171,19 +184,6 @@ export default function OnboardingPickVerticalPage() {
             {error}
           </p>
         ) : null}
-        <div className="ob-cta-row is-split">
-          <button
-            type="button"
-            className="ob-cta-back"
-            onClick={() => router.push("/onboarding/connect-provider")}
-            data-testid="onboarding-vertical-back"
-          >
-            ← Back
-          </button>
-          <span className="ob-field-hint">
-            Pick a template to continue &mdash; we install the skills and route you to step 5.
-          </span>
-        </div>
       </div>
     </OnboardingShell>
   );
