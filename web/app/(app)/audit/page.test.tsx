@@ -3,9 +3,13 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuditFeedPage, AuditRow } from "@/lib/types/audit";
+import type { ViewerPolicy } from "@/lib/redaction/types";
 
 const replaceMock = vi.fn();
 let searchParams = new URLSearchParams();
+const viewerPolicyMock = vi.hoisted(() => ({
+  current: null as ViewerPolicy | null,
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -39,7 +43,7 @@ vi.mock("@/lib/hooks/use-audit-feed", () => ({
 
 vi.mock("@/lib/hooks/use-viewer-policy", async () => {
   const { VIEWER_POLICY_OPERATOR } = await import("@/lib/redaction/types");
-  return { useViewerPolicy: () => VIEWER_POLICY_OPERATOR };
+  return { useViewerPolicy: () => viewerPolicyMock.current ?? VIEWER_POLICY_OPERATOR };
 });
 
 const toastInfoMock = vi.fn();
@@ -89,6 +93,7 @@ beforeEach(() => {
   replaceMock.mockClear();
   useFeedMock.mockReset();
   toastInfoMock.mockClear();
+  viewerPolicyMock.current = null;
 });
 
 afterEach(() => {
@@ -185,6 +190,46 @@ describe("AuditPage", () => {
     render(<AuditPage />);
     const empty = screen.getByTestId("audit-empty-pristine");
     expect(within(empty).getByText(/Quiet day/)).toBeInTheDocument();
+  });
+
+  it("does not render the redaction banner on an empty feed for a redacted viewer", async () => {
+    const { VIEWER_POLICY_DELEGATOR } = await import("@/lib/redaction/types");
+    viewerPolicyMock.current = VIEWER_POLICY_DELEGATOR;
+    useFeedMock.mockReturnValue(
+      feedState({ data: { pages: [{ rows: [], nextCursor: null, totalPages: 1 }] } }),
+    );
+
+    render(<AuditPage />);
+
+    expect(screen.getByTestId("audit-empty-pristine")).toBeInTheDocument();
+    expect(screen.queryByTestId("audit-redaction-banner")).not.toBeInTheDocument();
+  });
+
+  it("renders the redaction banner with existing copy when redacted rows are present", async () => {
+    const { VIEWER_POLICY_DELEGATOR } = await import("@/lib/redaction/types");
+    viewerPolicyMock.current = VIEWER_POLICY_DELEGATOR;
+    useFeedMock.mockReturnValue(
+      feedState({
+        data: {
+          pages: [
+            {
+              rows: [makeRow({ verb: "screened diego@example.com against JD-2024-08" })],
+              nextCursor: null,
+              totalPages: 1,
+            },
+          ],
+        },
+      }),
+    );
+
+    render(<AuditPage />);
+
+    const banner = screen.getByTestId("audit-redaction-banner");
+    expect(banner).toHaveTextContent("PII redacted");
+    expect(banner).toHaveTextContent("your role shows masked data");
+    expect(
+      within(banner).getByRole("button", { name: /Request elevated view/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders the filtered empty state when filters narrow to zero rows", () => {

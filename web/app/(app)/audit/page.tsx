@@ -175,6 +175,7 @@ function AuditPageContent() {
   const currentPageCount = feed.data?.pages.length ?? 0;
   const isPristine = isPristineState(range, q, multiFilters);
   const hasActiveFilters = !isAuditFilterEmpty(liveFilters);
+  const showRedactionBanner = rows.length > 0 && presentCategories.length > 0;
 
   return (
     <>
@@ -199,11 +200,13 @@ function AuditPageContent() {
       />
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-4">
-        <RedactionBanner
-          policy={policy}
-          presentCategories={presentCategories}
-          surface="audit-feed"
-        />
+        {showRedactionBanner ? (
+          <RedactionBanner
+            policy={policy}
+            presentCategories={presentCategories}
+            surface="audit-feed"
+          />
+        ) : null}
 
         <AuditFilterChipRail
           filters={liveFilters}
