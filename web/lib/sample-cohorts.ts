@@ -54,6 +54,24 @@ export const SAMPLE_COHORT_SUMMARIES: CohortSummary[] = [
     skill_count: 3,
   },
   {
+    cohort_id: "project-ops::project-coordinator",
+    vertical: "project-ops",
+    trust_grade_band: "developing",
+    trust_grade_min: 2,
+    trust_grade_max: 2,
+    member_count: 1,
+    skill_count: 4,
+  },
+  {
+    cohort_id: "project-ops::status-reporter",
+    vertical: "project-ops",
+    trust_grade_band: "developing",
+    trust_grade_min: 3,
+    trust_grade_max: 3,
+    member_count: 1,
+    skill_count: 5,
+  },
+  {
     cohort_id: "marketing::unknown",
     vertical: "marketing",
     trust_grade_band: "unknown",
@@ -61,6 +79,66 @@ export const SAMPLE_COHORT_SUMMARIES: CohortSummary[] = [
     trust_grade_max: 0,
     member_count: 1,
     skill_count: 1,
+  },
+];
+
+const PROJECT_COORDINATOR_SKILLS: SkillCoverage[] = [
+  {
+    skill_name: "linear_read",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "github_read",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "slack_dm",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "action_item_extract",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+];
+
+const STATUS_REPORTER_SKILLS: SkillCoverage[] = [
+  {
+    skill_name: "status_report_draft",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "raid_log_maintain",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "milestone_track",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "exec_summary_draft",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
+  },
+  {
+    skill_name: "stakeholder_outbound_draft",
+    version: "1.0.0",
+    member_coverage_pct: 100.0,
+    member_hits: 1,
   },
 ];
 
@@ -193,6 +271,34 @@ const MARKETPLACE_DEVELOPING_ACTIVITY: CohortActivityRow[] = [
   },
 ];
 
+const PROJECT_COORDINATOR_ACTIVITY: CohortActivityRow[] = [
+  {
+    seq: 4082,
+    kind: "summary.drafted",
+    action_type: "draft_summary",
+    worker_id: "wkr_01J0PETA",
+    principal_id: "human:ops-lead",
+    channel: "slack",
+    outcome_status: "pending_approval",
+    created_at_ms: NOW_MS - 36 * 60_000,
+    summary: "standup digest drafted from Linear, GitHub, and Slack updates",
+  },
+];
+
+const STATUS_REPORTER_ACTIVITY: CohortActivityRow[] = [
+  {
+    seq: 4078,
+    kind: "raid.updated",
+    action_type: "raid_log",
+    worker_id: "wkr_01J0PATRICK",
+    principal_id: "system:status-reporter",
+    channel: "internal",
+    outcome_status: "success",
+    created_at_ms: NOW_MS - 44 * 60_000,
+    summary: "RAID log refreshed; weekly executive summary remains draft-only",
+  },
+];
+
 export const SAMPLE_COHORT_DETAIL: CohortDetail = {
   cohort_id: "support::trusted",
   vertical: "support",
@@ -264,7 +370,53 @@ export const SAMPLE_MARKETPLACE_COHORT_DETAIL: CohortDetail = {
   recent_activity: MARKETPLACE_DEVELOPING_ACTIVITY,
 };
 
+export const SAMPLE_PROJECT_COORDINATOR_COHORT_DETAIL: CohortDetail = {
+  cohort_id: "project-ops::project-coordinator",
+  vertical: "project-ops",
+  trust_grade_band: "developing",
+  trust_grade_min: 2,
+  trust_grade_max: 2,
+  member_count: 1,
+  skill_count: 4,
+  members: [
+    {
+      worker_id: "wkr_01J0PETA",
+      trust_grade: 2,
+      skill_ids: ["linear_read", "github_read", "slack_dm", "action_item_extract"],
+    },
+  ],
+  skills: PROJECT_COORDINATOR_SKILLS,
+  recent_activity: PROJECT_COORDINATOR_ACTIVITY,
+};
+
+export const SAMPLE_STATUS_REPORTER_COHORT_DETAIL: CohortDetail = {
+  cohort_id: "project-ops::status-reporter",
+  vertical: "project-ops",
+  trust_grade_band: "developing",
+  trust_grade_min: 3,
+  trust_grade_max: 3,
+  member_count: 1,
+  skill_count: 5,
+  members: [
+    {
+      worker_id: "wkr_01J0PATRICK",
+      trust_grade: 3,
+      skill_ids: [
+        "status_report_draft",
+        "raid_log_maintain",
+        "milestone_track",
+        "exec_summary_draft",
+        "stakeholder_outbound_draft",
+      ],
+    },
+  ],
+  skills: STATUS_REPORTER_SKILLS,
+  recent_activity: STATUS_REPORTER_ACTIVITY,
+};
+
 export const SAMPLE_COHORT_DETAILS: Record<string, CohortDetail> = {
   "support::trusted": SAMPLE_COHORT_DETAIL,
   "marketplace::developing": SAMPLE_MARKETPLACE_COHORT_DETAIL,
+  "project-ops::project-coordinator": SAMPLE_PROJECT_COORDINATOR_COHORT_DETAIL,
+  "project-ops::status-reporter": SAMPLE_STATUS_REPORTER_COHORT_DETAIL,
 };

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { SAMPLE_COHORT_DETAILS, SAMPLE_COHORT_SUMMARIES } from "@/lib/sample-cohorts";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
+import { SAMPLE_WORKERS_DETAIL } from "@/lib/sample-workers-detail";
 
 describe("sample cohorts data integrity", () => {
-  const teamIds = new Set(SAMPLE_TEAM.map((w) => w.id));
+  const teamIds = new Set([
+    ...SAMPLE_TEAM.map((w) => w.id),
+    ...SAMPLE_WORKERS_DETAIL.map((w) => w.id),
+  ]);
 
   it("every cohort member references a worker in SAMPLE_TEAM", () => {
     const unknown: Array<{ cohortId: string; workerId: string }> = [];
@@ -22,6 +26,13 @@ describe("sample cohorts data integrity", () => {
     expect(marketplace).toBeDefined();
     const memberIds = marketplace!.members.map((m) => m.worker_id);
     expect(memberIds).toContain("018f67d0-0000-7000-8000-000000000001");
+  });
+
+  it("Project & Ops sample cohorts include Peta and Patrick", () => {
+    const peta = SAMPLE_COHORT_DETAILS["project-ops::project-coordinator"];
+    const patrick = SAMPLE_COHORT_DETAILS["project-ops::status-reporter"];
+    expect(peta?.members.map((m) => m.worker_id)).toContain("wkr_01J0PETA");
+    expect(patrick?.members.map((m) => m.worker_id)).toContain("wkr_01J0PATRICK");
   });
 
   it("each cohort detail's member_count matches its members array length", () => {

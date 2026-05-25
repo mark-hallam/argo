@@ -103,6 +103,28 @@ const SUMMARIES: CohortSummary[] = [
   },
 ];
 
+const PROJECT_OPS_SUMMARIES: CohortSummary[] = [
+  ...SUMMARIES,
+  {
+    cohort_id: "project-ops::project-coordinator",
+    vertical: "project-ops",
+    trust_grade_band: "developing",
+    trust_grade_min: 2,
+    trust_grade_max: 2,
+    member_count: 1,
+    skill_count: 4,
+  },
+  {
+    cohort_id: "project-ops::status-reporter",
+    vertical: "project-ops",
+    trust_grade_band: "developing",
+    trust_grade_min: 3,
+    trust_grade_max: 3,
+    member_count: 1,
+    skill_count: 5,
+  },
+];
+
 beforeEach(() => {
   useCohortsMock.mockReset();
 });
@@ -155,6 +177,25 @@ describe("CohortsPage", () => {
     expect(salesTab).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("cohort-card-sales::established")).toBeInTheDocument();
     expect(screen.queryByTestId("cohort-card-support::trusted")).not.toBeInTheDocument();
+  });
+
+  it("renders Peta and Patrick in the Project & Ops tab with Patrick stacked", async () => {
+    useCohortsMock.mockReturnValue({
+      data: { cohorts: PROJECT_OPS_SUMMARIES, source: "mock-offline" },
+      isPending: false,
+    });
+    render(<CohortsPage />);
+
+    const projectOpsTab = screen.getByTestId("cohort-dept-tab-project-ops");
+    await userEvent.click(projectOpsTab);
+
+    expect(projectOpsTab).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByTestId("cohort-card-project-ops::project-coordinator"),
+    ).toHaveAttribute("data-cohort-tile", "lead");
+    expect(
+      screen.getByTestId("cohort-card-project-ops::status-reporter"),
+    ).toHaveAttribute("data-cohort-tile", "stacked");
   });
 
   it("renders the empty state when the fleet has no cohorts", () => {

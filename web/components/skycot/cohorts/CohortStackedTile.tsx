@@ -5,6 +5,7 @@ import {
   cohortAvatarInitials,
   cohortDescription,
   cohortKickerLabel,
+  cohortPersonaTileMeta,
   trustBandLabel,
 } from "./tile-meta";
 
@@ -24,6 +25,7 @@ export function CohortStackedTile({ cohort, onSelect, selected }: CohortStackedT
   const bandLabel = trustBandLabel(cohort.trust_grade_band);
   const kicker = cohortKickerLabel(cohort);
   const desc = cohortDescription(cohort);
+  const persona = cohortPersonaTileMeta(cohort);
   return (
     <button
       type="button"
@@ -31,7 +33,11 @@ export function CohortStackedTile({ cohort, onSelect, selected }: CohortStackedT
       data-cohort-tile="stacked"
       data-selected={selected ? "true" : "false"}
       onClick={() => onSelect(cohort.cohort_id)}
-      aria-label={`Open cohort ${cohort.vertical} ${bandLabel}`}
+      aria-label={
+        persona
+          ? `Open cohort ${persona.name} ${persona.role}`
+          : `Open cohort ${cohort.vertical} ${bandLabel}`
+      }
       className="skycot-cohort-stacked-tile"
     >
       <div className="skycot-cohort-stacked-av" aria-hidden>
@@ -39,27 +45,47 @@ export function CohortStackedTile({ cohort, onSelect, selected }: CohortStackedT
       </div>
       <div className="skycot-cohort-stacked-kicker">{kicker}</div>
       <h3 className="skycot-cohort-stacked-title">
-        <span className="skycot-cohort-stacked-band">{bandLabel}</span>
-        <span className="skycot-cohort-stacked-vertical">{cohort.vertical}</span>
+        <span className="skycot-cohort-stacked-band">
+          {persona ? persona.name : bandLabel}
+        </span>
+        <span className="skycot-cohort-stacked-vertical">
+          {persona ? persona.role : cohort.vertical}
+        </span>
       </h3>
       <p className="skycot-cohort-stacked-desc">{desc}</p>
       <div className="skycot-cohort-stacked-stats">
-        <span>
-          Members <strong>{cohort.member_count}</strong>
-        </span>
-        <span>
-          Skills <strong>{cohort.skill_count}</strong>
-        </span>
-        <span>
-          Grade
-          <strong>
-            {" "}
-            {cohort.trust_grade_min}
-            {cohort.trust_grade_max > cohort.trust_grade_min
-              ? `–${cohort.trust_grade_max}`
-              : ""}
-          </strong>
-        </span>
+        {persona ? (
+          <>
+            <span>
+              Stack <strong>{persona.stack}</strong>
+            </span>
+            <span>
+              Great at <strong>{persona.greatAt[0]}</strong>
+            </span>
+            <span>
+              Escalates when <strong>{persona.escalatesWhen[0]}</strong>
+            </span>
+          </>
+        ) : (
+          <>
+            <span>
+              Members <strong>{cohort.member_count}</strong>
+            </span>
+            <span>
+              Skills <strong>{cohort.skill_count}</strong>
+            </span>
+            <span>
+              Grade
+              <strong>
+                {" "}
+                {cohort.trust_grade_min}
+                {cohort.trust_grade_max > cohort.trust_grade_min
+                  ? `–${cohort.trust_grade_max}`
+                  : ""}
+              </strong>
+            </span>
+          </>
+        )}
       </div>
     </button>
   );

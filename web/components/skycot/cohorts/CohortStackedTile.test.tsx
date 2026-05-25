@@ -14,6 +14,16 @@ const COHORT: CohortSummary = {
   skill_count: 4,
 };
 
+const PATRICK: CohortSummary = {
+  cohort_id: "project-ops::status-reporter",
+  vertical: "project-ops",
+  trust_grade_band: "developing",
+  trust_grade_min: 3,
+  trust_grade_max: 3,
+  member_count: 1,
+  skill_count: 5,
+};
+
 describe("CohortStackedTile", () => {
   it("renders cohort summary fields and invokes onSelect on click", async () => {
     const onSelect = vi.fn();
@@ -27,5 +37,18 @@ describe("CohortStackedTile", () => {
     expect(screen.getByText("4")).toBeInTheDocument();
     await userEvent.click(tile);
     expect(onSelect).toHaveBeenCalledWith(COHORT.cohort_id);
+  });
+
+  it("renders Patrick's Status Reporter metadata from the M22 pack", () => {
+    render(<CohortStackedTile cohort={PATRICK} onSelect={() => undefined} />);
+    expect(screen.getByText("L3 · Status Reporter")).toBeInTheDocument();
+    expect(screen.getByText("Patrick")).toBeInTheDocument();
+    expect(screen.getByText("Status Reporter")).toBeInTheDocument();
+    expect(
+      screen.getByText("Reports work, status, and risks weekly across teams."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Linear · GitHub · Slack")).toBeInTheDocument();
+    expect(screen.getByText("Weekly exec summaries")).toBeInTheDocument();
+    expect(screen.getByText("Stakeholder outbound")).toBeInTheDocument();
   });
 });

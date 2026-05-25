@@ -15,11 +15,53 @@ export const TRUST_BAND_COPY: Record<string, string> = {
   principal: "Principal",
 };
 
+export interface CohortPersonaTileMeta {
+  name: string;
+  level: string;
+  role: string;
+  stack: string;
+  hero: string;
+  initials: string;
+  greatAt: readonly string[];
+  escalatesWhen: readonly string[];
+}
+
+const PERSONA_TILE_META: Record<string, CohortPersonaTileMeta> = {
+  "project-ops::project-coordinator": {
+    name: "Peta",
+    level: "L2",
+    role: "Project Coordinator",
+    stack: "Linear · GitHub · Slack",
+    hero: "Coordinates work, action items, and standups across teams.",
+    initials: "PE",
+    greatAt: ["Action-item chase", "Standup digests"],
+    escalatesWhen: ["Slipping milestones", "Outbound sends"],
+  },
+  "project-ops::status-reporter": {
+    name: "Patrick",
+    level: "L3",
+    role: "Status Reporter",
+    stack: "Linear · GitHub · Slack",
+    hero: "Reports work, status, and risks weekly across teams.",
+    initials: "PA",
+    greatAt: ["Weekly exec summaries", "RAID log upkeep"],
+    escalatesWhen: ["Stakeholder outbound", "Board updates"],
+  },
+};
+
+export function cohortPersonaTileMeta(
+  cohort: CohortSummary,
+): CohortPersonaTileMeta | null {
+  return PERSONA_TILE_META[cohort.cohort_id] ?? null;
+}
+
 export function trustBandLabel(band: string): string {
   return TRUST_BAND_COPY[band] ?? band;
 }
 
 export function cohortAvatarInitials(cohort: CohortSummary): string {
+  const persona = cohortPersonaTileMeta(cohort);
+  if (persona) return persona.initials;
   const vertical = (cohort.vertical || "?").trim();
   const band = (cohort.trust_grade_band || "?").trim();
   const v = vertical.charAt(0).toUpperCase() || "?";
@@ -28,6 +70,8 @@ export function cohortAvatarInitials(cohort: CohortSummary): string {
 }
 
 export function cohortKickerLabel(cohort: CohortSummary): string {
+  const persona = cohortPersonaTileMeta(cohort);
+  if (persona) return `${persona.level} · ${persona.role}`;
   const band = trustBandLabel(cohort.trust_grade_band).toUpperCase();
   return `★ ${band} COHORT`;
 }
@@ -41,6 +85,8 @@ export function cohortDisplayTitle(cohort: CohortSummary): {
   plain: string;
   accent: string;
 } {
+  const persona = cohortPersonaTileMeta(cohort);
+  if (persona) return { plain: `${persona.name} `, accent: persona.role };
   const band = trustBandLabel(cohort.trust_grade_band);
   const grade =
     cohort.trust_grade_max > cohort.trust_grade_min
@@ -55,6 +101,8 @@ export function cohortDisplayTitle(cohort: CohortSummary): {
  * tile reads as an editorial blurb rather than a stats card.
  */
 export function cohortDescription(cohort: CohortSummary): string {
+  const persona = cohortPersonaTileMeta(cohort);
+  if (persona) return persona.hero;
   const band = cohort.trust_grade_band;
   const vertical = cohort.vertical;
   const members = cohort.member_count;

@@ -14,6 +14,16 @@ const COHORT: CohortSummary = {
   skill_count: 8,
 };
 
+const PETA: CohortSummary = {
+  cohort_id: "project-ops::project-coordinator",
+  vertical: "project-ops",
+  trust_grade_band: "developing",
+  trust_grade_min: 2,
+  trust_grade_max: 2,
+  member_count: 1,
+  skill_count: 4,
+};
+
 describe("CohortLeadTile", () => {
   it("renders trust-band, member/skill counts, grade range, and invokes onSelect", async () => {
     const onSelect = vi.fn();
@@ -46,5 +56,18 @@ describe("CohortLeadTile", () => {
     render(<CohortLeadTile cohort={COHORT} onSelect={() => undefined} selected />);
     const tile = screen.getByTestId(`cohort-card-${COHORT.cohort_id}`);
     expect(tile.getAttribute("data-selected")).toBe("true");
+  });
+
+  it("renders Peta's Project Coordinator persona when used as the lead tile", () => {
+    render(<CohortLeadTile cohort={PETA} onSelect={() => undefined} />);
+    expect(screen.getByText("L2 · Project Coordinator")).toBeInTheDocument();
+    expect(screen.getByText("Peta")).toBeInTheDocument();
+    expect(screen.getByText("Project Coordinator")).toBeInTheDocument();
+    expect(
+      screen.getByText("Coordinates work, action items, and standups across teams."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Linear · GitHub · Slack")).toBeInTheDocument();
+    expect(screen.getByText("Action-item chase")).toBeInTheDocument();
+    expect(screen.getByText("Slipping milestones")).toBeInTheDocument();
   });
 });
