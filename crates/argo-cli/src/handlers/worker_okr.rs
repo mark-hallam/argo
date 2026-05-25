@@ -59,6 +59,7 @@ pub async fn show(
     worker_id: &str,
     tenant: &str,
     period: Option<&str>,
+    json_out: bool,
     format: &str,
 ) -> ArgoResult<()> {
     let pool = open_pool().await?;
@@ -68,7 +69,8 @@ pub async fn show(
         let krs = worker_okr::key_results(&pool, objective.id).await?;
         bundles.push((objective, krs));
     }
-    match format {
+    let pick = if json_out { "json" } else { format };
+    match pick {
         "json" => {
             let payload = json!({
                 "ok": true,

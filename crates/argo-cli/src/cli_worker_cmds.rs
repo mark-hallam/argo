@@ -416,8 +416,12 @@ pub enum WorkerCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum WorkerElasticityCmd {
-    /// Current pool snapshot + most recent recommendation as JSON.
+    /// Current pool snapshot + most recent recommendation.
     Status {
+        /// Render as JSON. This is the default and exists for the
+        /// CLI-wide list/show/status JSON contract.
+        #[arg(long)]
+        json: bool,
         /// Render as human-readable text instead of JSON.
         #[arg(long)]
         text: bool,

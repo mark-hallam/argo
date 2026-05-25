@@ -13,10 +13,14 @@ pub enum CredCmd {
     /// List stored credential keys; values are masked by default.
     #[command(after_help = "Examples:\n  \
         argo cred list\n  \
-        argo cred list --reveal")]
+        argo cred list --reveal\n  \
+        argo cred list --json")]
     List {
         #[arg(long)]
         reveal: bool,
+        /// Emit `{ok,count,credentials}` as JSON.
+        #[arg(long)]
+        json: bool,
     },
     /// Remove one stored credential.
     #[command(after_help = "Examples:\n  \
@@ -75,4 +79,63 @@ pub enum CredCmd {
         #[arg(long)]
         json: bool,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    use crate::cli::Cli;
+
+    fn parsed_debug(args: &[&str]) -> String {
+        let mut argv = vec!["argo"];
+        argv.extend_from_slice(args);
+        format!("{:?}", Cli::try_parse_from(argv).expect("parse CLI args"))
+    }
+
+    #[test]
+    fn former_list_show_status_gaps_accept_json_flag() {
+        let commands: &[&[&str]] = &[
+            &["cred", "list", "--json"],
+            &[
+                "team",
+                "list",
+                "--tenant",
+                "00000000-0000-0000-0000-000000000001",
+                "--json",
+            ],
+            &[
+                "team",
+                "show",
+                "--tenant",
+                "00000000-0000-0000-0000-000000000001",
+                "00000000-0000-0000-0000-000000000002",
+                "--json",
+            ],
+            &[
+                "worker",
+                "okr",
+                "show",
+                "00000000-0000-0000-0000-000000000003",
+                "--tenant",
+                "00000000-0000-0000-0000-000000000001",
+                "--json",
+            ],
+            &["worker", "deps", "list", "worker-1", "--json"],
+            &["worker", "elasticity", "status", "--json"],
+            &["sandbox", "e2b", "list", "--json"],
+            &[
+                "forge",
+                "runs",
+                "show",
+                "00000000-0000-0000-0000-000000000004",
+                "--json",
+            ],
+        ];
+
+        for args in commands {
+            let parsed = parsed_debug(args);
+            assert!(parsed.contains("json: true"), "{args:?} parsed as {parsed}");
+        }
+    }
 }

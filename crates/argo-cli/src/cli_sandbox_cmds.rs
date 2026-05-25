@@ -19,7 +19,12 @@ pub enum SandboxCmd {
 #[derive(Subcommand, Debug)]
 pub enum E2bSandboxCmd {
     /// JSON-line list of all sandboxes the configured E2B API key owns.
-    List,
+    List {
+        /// Emit JSON lines. Accepted explicitly for the CLI-wide
+        /// list/show/status JSON contract.
+        #[arg(long)]
+        json: bool,
+    },
     /// One-shot reap of sandboxes idle longer than `--max-age` seconds.
     /// Emits a single JSON summary object.
     ReapIdle {

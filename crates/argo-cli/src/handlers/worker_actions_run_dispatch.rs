@@ -215,7 +215,9 @@ async fn dispatch_reporting(cmd: WorkerCmd) -> ArgoResult<()> {
         } => super::worker_review::run(&worker_id, &period, since.as_deref(), &format).await,
         WorkerCmd::Budget(budget_cmd) => super::worker_budget::run(budget_cmd).await,
         WorkerCmd::Elasticity(cmd) => match cmd {
-            WorkerElasticityCmd::Status { text } => super::worker_elasticity::status(!text),
+            WorkerElasticityCmd::Status { json, text } => {
+                super::worker_elasticity::status(json || !text)
+            }
             WorkerElasticityCmd::Config { text } => super::worker_elasticity::config(!text),
         },
         _ => unreachable!("dispatch_reporting called with non-reporting WorkerCmd variant"),
@@ -322,7 +324,9 @@ async fn dispatch_kpi(cmd: WorkerKpiCmd) -> ArgoResult<()> {
             tenant,
             note,
             json,
-        } => super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await,
+        } => {
+            super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await
+        }
         WorkerKpiCmd::List {
             worker_id,
             tenant,
@@ -359,7 +363,8 @@ async fn dispatch_deps(cmd: WorkerDepsCmd) -> ArgoResult<()> {
             worker_id,
             direction,
             format,
-        } => super::worker_deps::list(&worker_id, &direction, &format).await,
+            json,
+        } => super::worker_deps::list(&worker_id, &direction, json, &format).await,
         WorkerDepsCmd::Graph { format } => super::worker_deps::graph(&format).await,
         WorkerDepsCmd::Impact { worker_id, json } => {
             super::worker_deps::impact(&worker_id, json).await
@@ -394,7 +399,8 @@ async fn dispatch_okr(cmd: WorkerOkrCmd) -> ArgoResult<()> {
             tenant,
             period,
             format,
-        } => super::worker_okr::show(&worker_id, &tenant, period.as_deref(), &format).await,
+            json,
+        } => super::worker_okr::show(&worker_id, &tenant, period.as_deref(), json, &format).await,
         WorkerOkrCmd::Progress {
             worker_id,
             tenant,
@@ -419,4 +425,3 @@ async fn dispatch_items(cmd: WorkerItemsCmd) -> ArgoResult<()> {
         } => super::worker_actions_items::show(&item_id, vertical.as_deref(), json).await,
     }
 }
-

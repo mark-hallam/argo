@@ -50,6 +50,9 @@ pub enum WorkerDepsCmd {
         /// Output format: `markdown` (default) or `json`.
         #[arg(long, default_value = "markdown")]
         format: String,
+        /// Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
     },
     /// Dump the entire workspace dependency graph.
     Graph {

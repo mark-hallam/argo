@@ -55,7 +55,7 @@ pub(crate) async fn route(cmd: cli::RouteCmd) -> ArgoResult<()> {
 pub(crate) fn cred(cmd: cli::CredCmd) -> ArgoResult<()> {
     match cmd {
         cli::CredCmd::Set { key, value } => handlers::cred_set::run(&key, value.as_deref()),
-        cli::CredCmd::List { reveal } => handlers::cred_list::run(reveal),
+        cli::CredCmd::List { reveal, json } => handlers::cred_list::run(reveal, json),
         cli::CredCmd::Clear { key } => handlers::cred_clear::clear(&key),
         cli::CredCmd::ClearAll => handlers::cred_clear::clear_all(),
         cli::CredCmd::Export { shell } => handlers::cred_export::run(&shell),

@@ -38,7 +38,7 @@ pub async fn run(cmd: SandboxCmd) -> ArgoResult<()> {
 async fn dispatch_e2b(cmd: E2bSandboxCmd) -> ArgoResult<()> {
     let client = build_client()?;
     match cmd {
-        E2bSandboxCmd::List => list(&client).await,
+        E2bSandboxCmd::List { json } => list(&client, json).await,
         E2bSandboxCmd::ReapIdle { max_age, dry_run } => {
             if dry_run {
                 reap_dry_run(&client, max_age).await
@@ -65,7 +65,7 @@ fn build_client() -> ArgoResult<E2bClient> {
     E2bClient::new(base_url, key, REQUEST_TIMEOUT_SECS).map_err(Into::into)
 }
 
-async fn list(client: &E2bClient) -> ArgoResult<()> {
+async fn list(client: &E2bClient, _json: bool) -> ArgoResult<()> {
     let sandboxes = client.list_sandboxes().await?;
     for info in &sandboxes {
         let line = serde_json::to_string(info)

@@ -75,3 +75,13 @@ fn render_impact_markdown_renders_depths() {
     assert!(md.contains("| 1 | B |"));
     assert!(md.contains("| 2 | C |"));
 }
+
+#[test]
+fn dep_row_json_shape_matches_list_output() {
+    let body = dep_row_json(&row("A", "B", DepKind::Skill, Some("handoff seed")));
+    assert_eq!(body["a"], "A");
+    assert_eq!(body["b"], "B");
+    assert_eq!(body["kind"], "skill");
+    assert_eq!(body["declared_at"], 1_700_000_000_000_000i64);
+    assert_eq!(body["note"], "handoff seed");
+}

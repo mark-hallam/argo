@@ -19,6 +19,9 @@ pub enum TeamCmd {
         /// Output format: `markdown` (default) or `json`.
         #[arg(long, default_value = "markdown")]
         format: String,
+        /// Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
     },
     /// Show one team's metadata and active members.
     Show {
@@ -30,6 +33,9 @@ pub enum TeamCmd {
         /// Output format: `markdown` (default) or `json`.
         #[arg(long, default_value = "markdown")]
         format: String,
+        /// Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
     },
     /// Add a worker to a team. Idempotent: re-adding an active
     /// member updates only the role; re-adding a removed member

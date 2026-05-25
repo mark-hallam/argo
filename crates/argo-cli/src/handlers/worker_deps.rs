@@ -72,11 +72,17 @@ pub async fn remove(a: &str, b: &str, kind_token: &str, json_out: bool) -> ArgoR
 }
 
 /// `argo worker deps list <id> [--direction in|out|both] [--format ...]`.
-pub async fn list(worker_id: &str, direction_token: &str, format: &str) -> ArgoResult<()> {
+pub async fn list(
+    worker_id: &str,
+    direction_token: &str,
+    json_out: bool,
+    format: &str,
+) -> ArgoResult<()> {
     let direction = Direction::parse(direction_token)?;
     let pool = open_pool().await?;
     let rows = worker_deps::list_for_worker(&pool, worker_id, direction).await?;
-    match format {
+    let pick = if json_out { "json" } else { format };
+    match pick {
         "json" => {
             println!(
                 "{}",

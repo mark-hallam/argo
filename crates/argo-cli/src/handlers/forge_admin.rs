@@ -5,17 +5,25 @@
 
 use super::forge_subject::open_store;
 use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
+use argo_store::ForgeRunRow;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
-pub(super) async fn show_run(raw: &str) -> ArgoResult<()> {
+pub(super) async fn show_run(raw: &str, json: bool) -> ArgoResult<()> {
     let store = open_store().await?;
     let id = parse_run_id(raw)?;
     let row = store
         .get_forge_run(id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no forge run with id {raw}")))?;
+    if json {
+        let payload = forge_run_json(&row);
+        let body = serde_json::to_string_pretty(&payload)
+            .map_err(|e| ArgoError::Provider(format!("serialize forge run: {e}")))?;
+        println!("{body}");
+        return Ok(());
+    }
     let started = ts(row.started_at);
     let ended = row
         .ended_at
@@ -43,6 +51,23 @@ pub(super) async fn show_run(raw: &str) -> ArgoResult<()> {
     println!("  started_at:   {started}");
     println!("  ended_at:     {ended}");
     Ok(())
+}
+
+fn forge_run_json(row: &ForgeRunRow) -> serde_json::Value {
+    serde_json::json!({
+        "id": hex::encode(&row.id),
+        "skill_name": row.skill_name,
+        "status": row.status,
+        "base_version": row.base_version,
+        "candidate_version": row.candidate_version,
+        "iterations": row.iterations,
+        "spend_usd_micros": row.spend_usd_micros,
+        "final_score": row.final_score,
+        "started_at": row.started_at,
+        "started_at_iso": ts(row.started_at),
+        "ended_at": row.ended_at,
+        "ended_at_iso": row.ended_at.map(ts),
+    })
 }
 
 /// `argo forge runs abort-all` — flip every running forge_run to
@@ -267,4 +292,34 @@ pub(super) async fn show_audit(raw: &str, json: bool) -> ArgoResult<()> {
         println!("  [{seq:>4}] {kind:<24} ts={ts}");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn forge_run_json_shape_matches_show_output() {
+        let row = ForgeRunRow {
+            id: uuid::Uuid::nil().as_bytes().to_vec(),
+            skill_name: "follow-up".into(),
+            started_at: 1_700_000_000_000_000,
+            ended_at: Some(1_700_000_001_000_000),
+            base_version: "1.0.0".into(),
+            candidate_version: Some("1.0.1".into()),
+            iterations: 3,
+            spend_usd_micros: 123_456,
+            final_score: Some(0.82),
+            status: "succeeded".into(),
+        };
+        let body = forge_run_json(&row);
+        assert_eq!(body["id"], "00000000000000000000000000000000");
+        assert_eq!(body["skill_name"], "follow-up");
+        assert_eq!(body["candidate_version"], "1.0.1");
+        assert_eq!(body["iterations"], 3);
+        assert_eq!(body["spend_usd_micros"], 123_456);
+        assert_eq!(body["final_score"], 0.82);
+        assert_eq!(body["ended_at"], 1_700_000_001_000_000i64);
+        assert!(body["started_at_iso"].as_str().unwrap().ends_with('Z'));
+    }
 }

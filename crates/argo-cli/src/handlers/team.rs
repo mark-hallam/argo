@@ -31,12 +31,17 @@ use super::team_mutations;
 /// Top-level dispatch for `argo team ...`.
 pub async fn run(cmd: TeamCmd) -> ArgoResult<()> {
     match cmd {
-        TeamCmd::List { tenant, format } => list(&tenant, &format).await,
+        TeamCmd::List {
+            tenant,
+            format,
+            json,
+        } => list(&tenant, effective_format(json, &format)).await,
         TeamCmd::Show {
             tenant,
             team_id,
             format,
-        } => show(&tenant, &team_id, &format).await,
+            json,
+        } => show(&tenant, &team_id, effective_format(json, &format)).await,
         TeamCmd::Add {
             tenant,
             team_id,
@@ -229,6 +234,14 @@ pub(super) fn print_json<T: Serialize>(payload: &T) -> ArgoResult<()> {
         .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?;
     println!("{s}");
     Ok(())
+}
+
+fn effective_format(json: bool, format: &str) -> &str {
+    if json {
+        "json"
+    } else {
+        format
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

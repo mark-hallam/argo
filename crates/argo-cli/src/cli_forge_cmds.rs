@@ -184,6 +184,9 @@ pub enum ForgeRunsCmd {
     },
     Show {
         id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
     },
     Abort {
         id: String,

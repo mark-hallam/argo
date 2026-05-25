@@ -45,6 +45,9 @@ pub enum WorkerOkrCmd {
         /// Output format: `markdown` (default) or `json`.
         #[arg(long, default_value = "markdown")]
         format: String,
+        /// Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
     },
     /// Score each objective against the latest `worker_kpi_value` row.
     Progress {

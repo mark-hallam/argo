@@ -52,7 +52,7 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
                 )
                 .await
             }
-            ForgeRunsCmd::Show { id } => super::forge_admin::show_run(&id).await,
+            ForgeRunsCmd::Show { id, json } => super::forge_admin::show_run(&id, json).await,
             ForgeRunsCmd::Abort { id } => super::forge_admin::abort_run(&id).await,
             ForgeRunsCmd::AbortAll => super::forge_admin::abort_all_runs().await,
             ForgeRunsCmd::Sweep { older_than_minutes } => {
