@@ -107,6 +107,20 @@ commit that adds the brief file.
      - **Tier 3 (~10min, full local verify)**: only when Tier 1 surfaces a red flag: missing PR body, no acceptance ticks, out-of-may-touch edits, brand-new crate added, security-sensitive code, or worker history of broken submissions. Spin worktree + `cargo clippy --workspace`.
    - If clean: **run `bash scripts/conductor-pre-merge-gate.sh` BEFORE the admin-merge** (2026-05-18 amendment: while GHA is operator-disabled, this script reproduces the workspace-clippy + LOC budget + migration-slot + parallel-pub-types gates locally). Then `gh pr merge <num> --squash --delete-branch --admin`, then update BUILD_STATUS.md row to MERGED with PR num, commit "status: <brief-id> merged (#<num>)", push to main. If the pre-merge gate FAILS: do NOT merge; comment on the PR with the failing gate output, demote the row to TODO with a fix-request note, and ping the next conductor.
    - If issues: gh pr comment <num> --body "<specific issue>", note in BUILD_STATUS.md
+   - **Stale generated doc-tree fix-request template.** Use this when a
+     worker PR accidentally carries stale generated auditor/evaluator/
+     heartbeat docs that are outside the brief. First identify the exact
+     stale paths from `gh pr diff`; do not include legitimate documentation
+     files the brief explicitly edits. Copy-ready comment body:
+     "This PR includes stale generated doc-tree changes outside the brief.
+     Please restore only those generated paths from `origin/main`, keep your
+     intended code/docs edits, then re-run verification:
+     `git fetch origin main`
+     `git checkout origin/main -- docs/skycot/audit/scheduled/LATEST.md docs/skycot/evals/scheduled/<stale-file>.md docs/skycot/agents/heartbeats/<stale-agent>.json docs/skycot/agents/SHARED.md`
+     `git status --short`
+     Replace the example path list with the exact stale paths in this PR.
+     Do not run `git checkout origin/main -- .`, `git reset --hard`, or broad
+     glob restores; those can erase the worker's intended changes."
    - Track which PRs I've already reviewed across ticks (use git log to see my own merge commits)
    - **Stale-IN_REVIEW sweep (tick465 amendment).** A worker that opens a PR, gets a fix-request comment, then exits without re-pushing leaves the PR + ledger row stuck IN_REVIEW indefinitely. After handling NEW PRs above, sweep stuck ones:
      ```
