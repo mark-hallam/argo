@@ -41,6 +41,37 @@ Memory `feedback_styled_jsx_requires_use_client` documents a 2026-05-20 wave-2 t
 
 6. **Stop dev server cleanly** — `kill $DEV_PID` and confirm port 3000 freed.
 
+## Verification status — 2026-05-25 codex run
+
+Post-#2242 smoke run completed with
+`NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 pnpm --dir web dev`.
+All enumerated routes avoided HTTP 500; final status after redirects
+was 200 for every route. `/onboarding` intentionally returns a raw
+307 to `/onboarding/welcome`, whose final status is 200.
+
+```text
+/                                      raw=200 final=200
+/landing                               raw=200 final=200
+/customers                             raw=200 final=200
+/customers/northwind-commerce          raw=200 final=200
+/customers/beacon-health-ops           raw=200 final=200
+/customers/maple-finance               raw=200 final=200
+/customers/apex-recruiting             raw=200 final=200
+/customers/skyline-engineering         raw=200 final=200
+/customers/polaris-marketing           raw=200 final=200
+/compare                               raw=200 final=200
+/onboarding                            raw=307 final=200
+/onboarding/welcome                    raw=200 final=200
+/onboarding/workspace                  raw=200 final=200
+/onboarding/pick-vertical              raw=200 final=200
+/onboarding/connect-provider           raw=200 final=200
+/onboarding/first-hire                 raw=200 final=200
+/skills                                raw=200 final=200
+/for/marketing                         raw=200 final=200
+```
+
+Captured dev-server output contained no `styled-jsx` warnings.
+
 ## Acceptance criteria
 
 - Every enumerated marketing page returns HTTP 200 (not 500).
