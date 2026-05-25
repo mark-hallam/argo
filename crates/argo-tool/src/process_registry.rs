@@ -266,13 +266,13 @@ impl ProcessRegistry {
         tenant_id: TenantId,
         grace: Duration,
     ) -> ArgoResult<()> {
-        let handle = self
-            .lookup_for_tenant(id, tenant_id)
-            .await
-            .ok_or_else(|| ArgoError::Tool {
-                tool: "process_registry".into(),
-                msg: format!("no such process: {id}"),
-            })?;
+        let handle =
+            self.lookup_for_tenant(id, tenant_id)
+                .await
+                .ok_or_else(|| ArgoError::Tool {
+                    tool: "process_registry".into(),
+                    msg: format!("no such process: {id}"),
+                })?;
         let mut child_slot = handle.child.lock().await;
         let Some(mut child) = child_slot.take() else {
             self.remove_if_tenant_matches(id, tenant_id).await;
@@ -341,14 +341,6 @@ impl ProcessRegistry {
     /// tenants' entries don't affect the answer.
     pub async fn is_empty(&self, tenant_id: TenantId) -> bool {
         self.len(tenant_id).await == 0
-    }
-
-    /// Total number of registry entries across all tenants. Intended
-    /// for admin / observability / test-fixture use, not for
-    /// tenant-facing tools (which must always pass through
-    /// [`Self::len`]).
-    pub async fn total_len(&self) -> usize {
-        self.inner.read().await.len()
     }
 
     /// Lookup a handle by id, returning `None` if missing OR owned by

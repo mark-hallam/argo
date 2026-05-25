@@ -58,9 +58,6 @@ async fn list_returns_only_own_tenants_entries() {
     assert_eq!(live_a[0].id, id_a);
     assert_eq!(live_b[0].id, id_b);
 
-    // total_len() is the admin-only sum across tenants.
-    assert_eq!(reg.total_len().await, 2);
-
     // Cleanup.
     reg.kill(&id_a, tenant_a(), Duration::from_secs(2))
         .await
