@@ -12,7 +12,7 @@
  * 404 or network error surfaces to the caller so SREs see real
  * gateway breakage rather than mocks that pretend to work.
  *
- * The auth-bypass dev shortcut (ARGO_GATEWAY_AUTH_BYPASS=1)
+ * The auth-bypass dev shortcut (NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1)
  * short-circuits to the mock, matching the rest of the audit feed.
  */
 import { apiPost } from "@/lib/api/client";
@@ -77,7 +77,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

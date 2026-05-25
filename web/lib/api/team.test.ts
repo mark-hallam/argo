@@ -43,7 +43,7 @@ describe("lib/api/team", () => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
-    delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
     delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_MODE;
   });
 
@@ -100,7 +100,7 @@ describe("lib/api/team", () => {
   });
 
   it("short-circuits to mock immediately when auth-bypass flag is set", async () => {
-    process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
     const fetchMock = installMock(() => makeResponse({ status: 200, body: [] }));
     const result = await fetchTeam();
     expect(result.source).toBe("mock-bypass");

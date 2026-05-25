@@ -8,7 +8,7 @@
  * Overview tab renders without a running gateway.
  *
  * Mirrors the fallback contract of `lib/api/team.ts`:
- * - `ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately.
+ * - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately.
  * - 404 / network error in dev → bundled mock.
  * - Strict production (`NODE_ENV === 'production'` AND
  *   `NEXT_PUBLIC_ENV === 'production'`) propagates all errors.
@@ -91,7 +91,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

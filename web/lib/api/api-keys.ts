@@ -14,7 +14,7 @@
  *   token (the reveal panel reads this once then forgets it).
  * - `revokeApiKey` returns a `{ ok: true, id }` envelope.
  * - 404 from the gateway → mock fallback in dev (`source = "mock-offline"`).
- * - `ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately, no network call.
+ * - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately, no network call.
  * - Strict production (`NODE_ENV === "production"` AND
  *   `NEXT_PUBLIC_ENV === "production"`): no mock fallback. 404 and any
  *   other `ApiError` propagate.
@@ -86,7 +86,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

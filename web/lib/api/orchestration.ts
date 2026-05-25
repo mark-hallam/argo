@@ -90,7 +90,7 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
-  return process.env.NODE_ENV !== "production" && process.env.ARGO_GATEWAY_AUTH_BYPASS === "1";
+  return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1";
 }
 
 function isMissingOrUnreachable(err: unknown): boolean {

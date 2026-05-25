@@ -26,7 +26,7 @@ vi.mock("sonner", () => ({
 }));
 
 const ORIGINAL_FETCH = globalThis.fetch;
-const ORIGINAL_BYPASS = process.env.ARGO_GATEWAY_AUTH_BYPASS;
+const ORIGINAL_BYPASS = process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
 
 function makeResponse({
   status = 200,
@@ -71,15 +71,15 @@ function installMock(gatewayResponder: (req: Request) => Response | Promise<Resp
 describe("lib/api/approvals", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
-    delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
     toastErrorMock.mockClear();
   });
   afterEach(() => {
     globalThis.fetch = ORIGINAL_FETCH;
     if (ORIGINAL_BYPASS === undefined) {
-      delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+      delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
     } else {
-      process.env.ARGO_GATEWAY_AUTH_BYPASS = ORIGINAL_BYPASS;
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = ORIGINAL_BYPASS;
     }
     vi.restoreAllMocks();
   });
@@ -205,8 +205,8 @@ describe("lib/api/approvals", () => {
     expect(title).toMatch(/permission to undo/i);
   });
 
-  it("short-circuits to mock when ARGO_GATEWAY_AUTH_BYPASS=1 (no fetch made)", async () => {
-    process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
+  it("short-circuits to mock when NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 (no fetch made)", async () => {
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
     const fetchMock = installMock(() => {
       throw new Error("auth-bypass must not call fetch");
     });

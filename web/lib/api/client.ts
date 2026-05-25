@@ -156,8 +156,7 @@ async function request<T>(method: string, path: string, init: ApiRequestInit = {
   if (json !== undefined) finalHeaders.set("Content-Type", "application/json");
   if (token) finalHeaders.set("Authorization", `Bearer ${token}`);
   // Stamp X-Argo-Principal from the session's decoded JWT so the
-  // gateway's dev-bypass auth path (gateway.auth_bypass = true OR
-  // ARGO_GATEWAY_AUTH_BYPASS=1) sees a real `human:<email>`
+  // gateway's dev-bypass auth path sees a real `human:<email>`
   // principal rather than falling back to `system:dev-bypass`.
   // Routes like /api/v1/onboarding/* require the human:<email>
   // shape; without this header they 401 with the X-Argo-Principal

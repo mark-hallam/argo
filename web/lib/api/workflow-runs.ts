@@ -16,7 +16,7 @@
  * Fallback model (mirrors `workflows.ts` for consistency):
  *
  * - 404 / `TypeError` in non-strict-prod → mock-offline sample.
- * - `ARGO_GATEWAY_AUTH_BYPASS=1` in non-prod → mock-bypass sample.
+ * - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` in non-prod → mock-bypass sample.
  * - Any other error in strict prod propagates so the demo recording
  *   surfaces the failure (per the wave-2 audit).
  */
@@ -108,7 +108,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.ARGO_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 

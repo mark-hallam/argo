@@ -52,7 +52,7 @@ describe("lib/api/skills", () => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
-    delete process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
   });
 
   afterEach(() => {
@@ -109,7 +109,7 @@ describe("lib/api/skills", () => {
   });
 
   it("returns SEED_SKILLS immediately when the auth-bypass flag is set", async () => {
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS = "1";
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
     const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
     const result = await fetchSkills();
     expect(result.source).toBe("mock-bypass");

@@ -85,7 +85,7 @@ describe("lib/api/workflows", () => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
-    delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
   });
 
   afterEach(() => {
@@ -178,7 +178,7 @@ describe("lib/api/workflows", () => {
     });
 
     it("returns mock-bypass without firing fetch when bypass flag set", async () => {
-      process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
       const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
       const result = await fetchAllWorkflows();
       expect(result.source).toBe("mock-bypass");
@@ -233,7 +233,7 @@ describe("lib/api/workflows", () => {
     });
 
     it("returns mock-bypass without firing fetch when bypass flag set", async () => {
-      process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
       const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
       const result = await fetchWorkflow("support", "triage_ticket");
       expect(result.source).toBe("mock-bypass");

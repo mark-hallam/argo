@@ -43,7 +43,7 @@ describe("lib/api/api-keys", () => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
     vi.stubEnv("NODE_ENV", "test");
     delete process.env.NEXT_PUBLIC_ENV;
-    delete process.env.ARGO_GATEWAY_AUTH_BYPASS;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
   });
 
   afterEach(() => {
@@ -88,8 +88,8 @@ describe("lib/api/api-keys", () => {
       expect((caught as ApiError).status).toBe(503);
     });
 
-    it("short-circuits to mock immediately when ARGO_GATEWAY_AUTH_BYPASS=1", async () => {
-      process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
+    it("short-circuits to mock immediately when NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
       const fetchMock = installMock(() => makeResponse({ status: 200, body: [] }));
       const result = await fetchApiKeys();
       expect(result.source).toBe("mock-bypass");

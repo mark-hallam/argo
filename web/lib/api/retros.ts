@@ -16,7 +16,7 @@
  * - `GET    /api/v1/retros[?q=...]` → tenant-scoped index.
  *
  * Fallback: 404 from the gateway → empty list + `mock-offline`
- * source. Mirrors `approvals.ts`. `ARGO_GATEWAY_AUTH_BYPASS=1`
+ * source. Mirrors `approvals.ts`. `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`
  * short-circuits with an empty mock dataset so local-dev pages work
  * without a running gateway.
  */
@@ -77,7 +77,7 @@ interface RetroJson {
 }
 
 function authBypassEnabled(): boolean {
-  return process.env.ARGO_GATEWAY_AUTH_BYPASS === "1";
+  return process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1";
 }
 
 function emptySections(): RetroSections {

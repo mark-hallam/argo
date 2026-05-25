@@ -17,6 +17,7 @@ CLAUDE.md).
 
 - [ ] Next.js dev server running at http://localhost:3000
 - [ ] Gateway running at http://127.0.0.1:7400
+- [ ] `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` set for local/demo mock bypass
 - [ ] **Gateway schema_version matches codebase** — see one-liner below
 - [ ] Disk has >50GiB free (cargo cache contention)
 - [ ] Browser zoomed to 100%

@@ -49,9 +49,9 @@ export const authConfig = {
         try {
           // `/readyz` is the canonical gateway health probe (the old
           // `/healthz` route was removed in the 2026-Q2 health-router
-          // consolidation). With `gateway.auth_bypass=true` or
-          // `ARGO_GATEWAY_AUTH_BYPASS=1`, any presented Bearer is
-          // accepted; in production the bearer-token gate validates
+          // consolidation). With the gateway auth bypass enabled
+          // (for example `gateway.auth_bypass=true`), any presented
+          // Bearer is accepted; in production the bearer-token gate validates
           // against the configured secret.
           const res = await fetch(`${gatewayUrl}/readyz`, {
             headers: { Authorization: `Bearer ${token}` },

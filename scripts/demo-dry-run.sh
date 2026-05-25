@@ -121,7 +121,7 @@ done
 if [[ ${KEEP_SERVER} -eq 0 ]]; then
   echo ">> launching next dev on :3000"
   ( cd "${WEB_DIR}" \
-    && NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1 \
+    && NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 \
        NEXT_PUBLIC_GATEWAY_URL="${GATEWAY}" \
        SLACK_API_BASE_URL="http://127.0.0.1:${SLACK_STUB_PORT}" \
        pnpm dev >"${OUT_DIR}/dev.log" 2>&1 ) &

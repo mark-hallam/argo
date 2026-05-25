@@ -10,7 +10,7 @@
  * Acceptance contract (mirrors `lib/api/skills.ts`):
  * - 404 from the gateway → fall back to a seed catalog in dev so the
  *   marketplace landing still renders.
- * - `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` → mock immediately.
+ * - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` → mock immediately.
  * - Strict prod (`NODE_ENV === 'production'` AND `NEXT_PUBLIC_ENV ===
  *   'production'`): no mock fallback; ApiError propagates.
  * - NetworkError (gateway unreachable) → mock in dev, propagate in prod.
@@ -184,7 +184,7 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 
