@@ -4,18 +4,28 @@
  * Wires the `/workflows` catalog + `/workflows/<v>/<n>` visual viewer
  * to the gateway CRUD routes shipped in PR #1860:
  *
- *   GET /verticals                                     → discovery
  *   GET /api/v1/verticals/<v>/workflows                → catalog per vertical
  *   GET /api/v1/verticals/<v>/workflows/<n>            → workflow head
  *   GET /api/v1/verticals/<v>/workflows/<n>/versions   → version list (#1980)
  *   POST /api/v1/verticals/<v>/workflows/<n>/rollback  → rollback (#1980)
  *
+ * The gateway's `/verticals` discovery endpoint lives at the root
+ * path (not under `/api/v1/`) and the CORS preflight handler only
+ * matches `/api/v1/*` — so signed-in browser calls to `/verticals`
+ * fail the preflight (404 on OPTIONS) before the actual GET ever
+ * fires. To keep `/workflows` rendering in the browser we skip the
+ * discovery round-trip entirely and derive the vertical list from
+ * the local seed in `lib/sample-workflows`. Every canonical vertical
+ * the catalog cares about is already represented there, and the
+ * gateway-side reconcile (CORS-mounting `/api/v1/verticals` or
+ * adding a flat `/api/v1/workflows` list) is a separate brief.
+ *
  * `fetchAllWorkflows` fans the per-vertical call out in parallel and
- * folds the results into a single summary list. Per-vertical 404/5xx
- * are swallowed to an empty bucket so one missing vertical does not
- * blank the whole catalog. Discovery 404 (no `/verticals` endpoint in
- * non-prod dev) and network errors fall through to the local seed in
- * `lib/sample-workflows`, marked `mock-offline`.
+ * folds the results into a single summary list. Per-vertical errors
+ * (auth 401/403, 404, 5xx, network) are swallowed to an empty bucket
+ * so one missing/forbidden vertical does not blank the whole
+ * catalog. When every bucket comes back empty the function falls
+ * through to the local seed, marked `mock-offline`.
  *
  * Strict prod (`NODE_ENV=production` + `NEXT_PUBLIC_ENV=production`)
  * propagates 5xx; the dev fall-through never fires.
@@ -55,12 +65,6 @@ export interface FetchAllWorkflowsResult {
 export interface FetchWorkflowResult {
   workflow: WorkflowSpec | null;
   source: WorkflowDataSource;
-}
-
-interface VerticalsEnvelope {
-  ok?: boolean;
-  loaded?: Array<{ id: string }>;
-  errors?: unknown;
 }
 
 interface WorkflowListEnvelope {
@@ -104,25 +108,29 @@ function isAuthBypassed(): boolean {
   );
 }
 
-function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
-  return err instanceof TypeError;
+function isRecoverable(err: unknown): boolean {
+  return err instanceof ApiError || err instanceof TypeError;
+}
+
+/**
+ * Unique vertical IDs the catalog should fan out to. Derived from the
+ * local seed so the canonical list lives in one place — adding a new
+ * sample workflow under a fresh vertical automatically widens the
+ * gateway query without a second edit here.
+ */
+function discoverVerticalIds(): string[] {
+  const seen = new Set<string>();
+  for (const wf of SAMPLE_WORKFLOW_SUMMARIES) {
+    if (wf.vertical) seen.add(wf.vertical);
+  }
+  return Array.from(seen);
 }
 
 export async function fetchAllWorkflows(): Promise<FetchAllWorkflowsResult> {
   if (isAuthBypassed()) {
     return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-bypass" };
   }
-  let envelope: VerticalsEnvelope;
-  try {
-    envelope = await apiGet<VerticalsEnvelope>("/verticals");
-  } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
-      return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
-    }
-    throw err;
-  }
-  const verticals = (envelope.loaded ?? []).map((v) => v.id).filter((id) => !!id);
+  const verticals = discoverVerticalIds();
   if (verticals.length === 0) {
     return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
   }
@@ -133,10 +141,12 @@ export async function fetchAllWorkflows(): Promise<FetchAllWorkflowsResult> {
         const list = await apiGet<WorkflowListEnvelope>(path);
         return list.items ?? [];
       } catch (err) {
-        if (err instanceof ApiError && (err.status === 404 || err.status >= 500)) {
-          return [];
-        }
-        if (err instanceof TypeError) return [];
+        // In dev / demo, any per-vertical failure (auth 401/403, 404,
+        // 5xx, network) becomes an empty bucket so one missing or
+        // forbidden vertical never blanks the whole catalog. Strict
+        // prod still propagates so a broken deploy fails loudly
+        // instead of masking the regression with seed data.
+        if (!isStrictProduction() && isRecoverable(err)) return [];
         throw err;
       }
     }),
@@ -167,7 +177,7 @@ export async function fetchWorkflow(
     const item = await apiGet<GatewayWorkflowItem>(path);
     return { workflow: specFromGatewayItem(item), source: "gateway" };
   } catch (err) {
-    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+    if (!isStrictProduction() && isRecoverable(err)) {
       return {
         workflow: SAMPLE_WORKFLOW_SPECS[key] ?? null,
         source: "mock-offline",

@@ -96,18 +96,8 @@ describe("lib/api/workflows", () => {
   });
 
   describe("fetchAllWorkflows", () => {
-    it("fans out across verticals and aggregates items on happy path", async () => {
+    it("fans out across seed verticals and aggregates items on happy path", async () => {
       installMock((req) => {
-        if (req.url.endsWith("/verticals")) {
-          return makeResponse({
-            status: 200,
-            body: {
-              ok: true,
-              loaded: [{ id: "gtm-engineer" }, { id: "support" }],
-              errors: [],
-            },
-          });
-        }
         if (req.url.endsWith("/api/v1/verticals/gtm-engineer/workflows")) {
           return makeResponse({
             status: 200,
@@ -124,36 +114,29 @@ describe("lib/api/workflows", () => {
             },
           });
         }
-        return makeResponse({ status: 404, body: { error: { code: "x" } } });
+        // Every other seed vertical returns an empty bucket.
+        return makeResponse({
+          status: 200,
+          body: { vertical_id: "x", count: 0, items: [] },
+        });
       });
       const result = await fetchAllWorkflows();
       expect(result.source).toBe("gateway");
-      expect(result.workflows.map((w) => `${w.vertical}/${w.name}`)).toEqual([
-        "gtm-engineer/post_listing",
-        "support/triage_ticket",
-      ]);
-      expect(result.workflows[0].steps).toBe(3);
-      expect(result.workflows[0].risk).toBe("approval-required");
-      expect(result.workflows[0].versions).toBe(3);
+      const keys = result.workflows.map((w) => `${w.vertical}/${w.name}`).sort();
+      expect(keys).toEqual(
+        ["gtm-engineer/post_listing", "support/triage_ticket"].sort(),
+      );
+      const post = result.workflows.find((w) => w.name === "post_listing");
+      expect(post?.steps).toBe(3);
+      expect(post?.risk).toBe("approval-required");
+      expect(post?.versions).toBe(3);
     });
 
-    it("falls back to seed when /verticals returns empty loaded[]", async () => {
-      installMock((req) => {
-        if (req.url.endsWith("/verticals")) {
-          return makeResponse({ status: 200, body: { ok: true, loaded: [] } });
-        }
-        return makeResponse({ status: 200, body: {} });
-      });
-      const result = await fetchAllWorkflows();
-      expect(result.source).toBe("mock-offline");
-      expect(result.workflows).toBe(SAMPLE_WORKFLOW_SUMMARIES);
-    });
-
-    it("falls back to seed when /verticals 404s in non-strict env", async () => {
+    it("falls back to seed when every per-vertical bucket is empty", async () => {
       installMock(() =>
         makeResponse({
-          status: 404,
-          body: { error: { code: "not_found", message: "no verticals route" } },
+          status: 200,
+          body: { vertical_id: "x", count: 0, items: [] },
         }),
       );
       const result = await fetchAllWorkflows();
@@ -161,7 +144,75 @@ describe("lib/api/workflows", () => {
       expect(result.workflows).toBe(SAMPLE_WORKFLOW_SUMMARIES);
     });
 
-    it("propagates /verticals 5xx in strict production", async () => {
+    it("falls back to seed when every vertical 404s in non-strict env", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 404,
+          body: { error: { code: "not_found", message: "no head" } },
+        }),
+      );
+      const result = await fetchAllWorkflows();
+      expect(result.source).toBe("mock-offline");
+      expect(result.workflows).toBe(SAMPLE_WORKFLOW_SUMMARIES);
+    });
+
+    it("treats per-vertical 401 / 403 as empty so the catalog still renders", async () => {
+      installMock((req) => {
+        if (req.url.includes("/api/v1/verticals/support/workflows")) {
+          return makeResponse({
+            status: 200,
+            body: {
+              vertical_id: "support",
+              count: 1,
+              items: [makeItem({ vertical_id: "support", name: "triage_ticket" })],
+            },
+          });
+        }
+        // Every other seed vertical 401s — must not blank the catalog.
+        return makeResponse({
+          status: 401,
+          body: { error: { code: "unauthorized", message: "missing principal" } },
+        });
+      });
+      const result = await fetchAllWorkflows();
+      expect(result.source).toBe("gateway");
+      expect(result.workflows).toHaveLength(1);
+      expect(result.workflows[0].vertical).toBe("support");
+    });
+
+    it("returns mock-bypass without firing fetch when bypass flag set", async () => {
+      process.env.ARGO_GATEWAY_AUTH_BYPASS = "1";
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
+      const result = await fetchAllWorkflows();
+      expect(result.source).toBe("mock-bypass");
+      expect(result.workflows).toBe(SAMPLE_WORKFLOW_SUMMARIES);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("swallows per-vertical 404 / 5xx and keeps the rest", async () => {
+      installMock((req) => {
+        if (req.url.endsWith("/api/v1/verticals/gtm-engineer/workflows")) {
+          return makeResponse({ status: 404, body: { error: { code: "not_found" } } });
+        }
+        if (req.url.endsWith("/api/v1/verticals/support/workflows")) {
+          return makeResponse({
+            status: 200,
+            body: {
+              vertical_id: "support",
+              count: 1,
+              items: [makeItem({ vertical_id: "support" })],
+            },
+          });
+        }
+        return makeResponse({ status: 500, body: "x", contentType: "text/plain" });
+      });
+      const result = await fetchAllWorkflows();
+      expect(result.source).toBe("gateway");
+      expect(result.workflows).toHaveLength(1);
+      expect(result.workflows[0].vertical).toBe("support");
+    });
+
+    it("propagates per-vertical 5xx in strict production", async () => {
       vi.stubEnv("NODE_ENV", "production");
       process.env.NEXT_PUBLIC_ENV = "production";
       installMock(() =>
@@ -186,29 +237,24 @@ describe("lib/api/workflows", () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it("swallows per-vertical 404 / 5xx and keeps the rest", async () => {
-      installMock((req) => {
-        if (req.url.endsWith("/verticals")) {
-          return makeResponse({
-            status: 200,
-            body: { loaded: [{ id: "alpha" }, { id: "beta" }] },
-          });
-        }
-        if (req.url.endsWith("/api/v1/verticals/alpha/workflows")) {
-          return makeResponse({ status: 404, body: { error: { code: "not_found" } } });
-        }
-        if (req.url.endsWith("/api/v1/verticals/beta/workflows")) {
-          return makeResponse({
-            status: 200,
-            body: { vertical_id: "beta", count: 1, items: [makeItem({ vertical_id: "beta" })] },
-          });
-        }
-        return makeResponse({ status: 500, body: "x", contentType: "text/plain" });
+    it("never hits the legacy /verticals discovery endpoint", async () => {
+      const fetchMock = installMock(() =>
+        makeResponse({
+          status: 200,
+          body: { vertical_id: "x", count: 0, items: [] },
+        }),
+      );
+      await fetchAllWorkflows();
+      const urls = fetchMock.mock.calls.map((call) => {
+        const input = call[0];
+        if (typeof input === "string") return input;
+        if (input instanceof URL) return input.toString();
+        return (input as Request).url;
       });
-      const result = await fetchAllWorkflows();
-      expect(result.source).toBe("gateway");
-      expect(result.workflows).toHaveLength(1);
-      expect(result.workflows[0].vertical).toBe("beta");
+      const hitDiscovery = urls.some(
+        (u) => u.endsWith("/verticals") || /\/verticals(\?|$)/.test(u),
+      );
+      expect(hitDiscovery).toBe(false);
     });
   });
 
@@ -226,6 +272,18 @@ describe("lib/api/workflows", () => {
     it("falls back to seed when gateway 404s in non-strict env", async () => {
       installMock(() =>
         makeResponse({ status: 404, body: { error: { code: "not_found" } } }),
+      );
+      const result = await fetchWorkflow("support", "triage_ticket");
+      expect(result.source).toBe("mock-offline");
+      expect(result.workflow).toBe(SAMPLE_WORKFLOW_SPECS["support/triage_ticket"]);
+    });
+
+    it("falls back to seed when gateway 401s in non-strict env", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 401,
+          body: { error: { code: "unauthorized", message: "missing principal" } },
+        }),
       );
       const result = await fetchWorkflow("support", "triage_ticket");
       expect(result.source).toBe("mock-offline");
