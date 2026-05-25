@@ -416,6 +416,7 @@ dependencies = [
  "argo-config",
  "argo-credentials",
  "argo-cron",
+ "argo-demo-seed",
  "argo-email-templates",
  "argo-eval",
  "argo-executor-computer-use",
@@ -598,13 +599,21 @@ dependencies = [
 name = "argo-demo-seed"
 version = "0.0.1"
 dependencies = [
+ "argo-audit",
  "argo-identity",
+ "argo-skill",
  "argo-store",
  "argo-types",
+ "argo-vertical",
+ "async-trait",
+ "chrono",
  "serde",
- "tempfile",
+ "serde_json",
+ "sqlx",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

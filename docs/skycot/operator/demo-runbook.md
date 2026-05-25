@@ -17,7 +17,25 @@ CLAUDE.md).
 
 - [ ] Next.js dev server running at http://localhost:3000
 - [ ] Gateway running at http://127.0.0.1:7400
-- [ ] `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` set for local/demo mock bypass
+- [ ] **Demo workspace seeded with real backend rows.** Run
+  `argo demo seed --tenant <demo-tenant-id>` before recording. After
+  the seed exits, verify `/team` returns the five canonical workers
+  with real `worker_id`s:
+
+  ```bash
+  curl -s http://127.0.0.1:7400/api/v1/team | jq '.workers | length'
+  # → 5
+  ```
+
+  Pass A real-LLM turns require `ARGO_DEMO_SEED_PROVIDER_KEY` (a
+  sandbox provider key). Without that env var the command refuses
+  to advance Pass A; re-run with `--skip-pass-a-turns` if you only
+  need Pass B dressing rows for a smoke take. Brief:
+  `docs/build-plan/streams/mission-demo-seed-data-bootstrap.md`.
+- [ ] **Auth-bypass mode no longer required.** The SPA can render
+  the seeded workspace without `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS`
+  set. Leave the env var UNSET — `scripts/demo-dry-run.sh` asserts
+  the real-backend path stays green for all eight scenes.
 - [ ] **Gateway schema_version matches codebase** — see one-liner below
 - [ ] Disk has >50GiB free (cargo cache contention)
 - [ ] Browser zoomed to 100%

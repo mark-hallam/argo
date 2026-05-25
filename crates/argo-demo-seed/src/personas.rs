@@ -1,56 +1,46 @@
-//! Canonical six-worker spine for the v1.0 demo workspace.
+//! Demo persona spine for the v1.0 demo seed.
 //!
-//! The spine is hard-coded as compile-time constants. The
-//! human-readable design source lives at
-//! `web/lib/sample-personas.ts` + `web/lib/sample-workers-detail.ts`;
-//! that file is consumed by humans only — the Rust constants here
-//! are the runtime input, so there is no runtime dependency on the
-//! SPA fixture.
-//!
-//! Naming + vertical alignment (locked 2026-05-19 per operator memory
-//! `project_pm_cohorts_peta_patrick.md` + the locked design mockups in
-//! `docs/skycot/design-explorations/2026-05-18/worker-detail/`):
-//! Mariah · Priya · Jamal · Nori · Peta · Patrick.
-//!
-//! Sam and Rio (in `sample-personas.ts`) are intentionally excluded —
-//! Peta + Patrick replaced them when the Project & Ops cohort family
-//! shipped (briefs M21 + M22, 2026-05-19).
+//! The persona text (name + role + vertical + headline + traits)
+//! mirrors `web/lib/sample-personas.ts` so the seeded workers display
+//! the same names and copy the SPA mocks render today. PR #2284
+//! ("demo: canonize seed worker roster with Peta") canonized this
+//! roster to the Scene-1 runbook five — Mariah / Peta / Priya /
+//! Jamal / Nori — and authored `DEMO_SEED_PERSONAS` on the TypeScript
+//! side. Rust cannot import TS at runtime, so the spine is mirrored
+//! here as the single Rust-side source of truth for the seed CLI.
+//! Both sides must stay aligned; the field set is small and stable.
 
-/// Compile-time spec for one demo worker. Materialised into an
-/// `argo_identity::Worker` by [`crate::seed_workers`].
-#[derive(Debug, Clone, Copy)]
+/// One persona spine row used by the seed CLI to instantiate a real
+/// `worker` row via `IdentityStore::create_worker`.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DemoPersona {
-    /// Human-facing first name. Doubles as the idempotency key
-    /// `(tenant_id, name)` for the seeder.
+    /// Display name (e.g. "Mariah"). Persisted in `persona.name`.
     pub name: &'static str,
-    /// Vertical template id this worker instantiates.
-    pub vertical_id: &'static str,
-    /// One-line public-facing role tagline ("books showings").
+    /// Compact role title (e.g. "Marketplace Lister").
+    pub title: &'static str,
+    /// Free-text tagline describing the worker's job
+    /// (e.g. "lists and re-prices items for sale").
     pub tagline: &'static str,
-    /// Free-text operating charter assigned to the role.
-    pub charter: &'static str,
-    /// Short personality adjectives — composed into the voice
-    /// preamble so the model can match the demo runbook's narrated
-    /// behaviors.
+    /// Vertical id slug consumed by `Worker::draft` and the routing
+    /// layer (e.g. "marketplace", "recruiting").
+    pub vertical_id: &'static str,
+    /// Team / department label rendered on the worker-overview
+    /// charter page.
+    pub team: &'static str,
+    /// Short adjective list used by the worker-personality card and
+    /// the audit-row colouring heuristic.
     pub traits: &'static [&'static str],
 }
 
-/// The six canonical demo personas, in display order.
-///
-/// Order is load-bearing: callers pin downstream rows (audit
-/// scenes, approval queues, runbook timestamps) to specific personas
-/// by index, so reshuffling this array is a breaking change to brief
-/// `mission-demo-seed-real-llm-driver` (#2) and brief
-/// `mission-demo-seed-runbook-integration` (#3).
-pub const DEMO_PERSONAS: &[DemoPersona] = &[
+/// The five Scene-1 canonical demo personas, in `/team` display
+/// order (Mariah is the demo "headliner" the camera lands on first).
+pub const DEMO_SEED_PERSONAS: &[DemoPersona] = &[
     DemoPersona {
         name: "Mariah",
-        vertical_id: "marketplace",
+        title: "Marketplace Lister",
         tagline: "lists and re-prices items for sale",
-        charter: "Own end-to-end marketplace listings: write the copy, \
-                  pick the price, monitor competitor moves, and surface \
-                  re-price recommendations on the morning sweep. Never \
-                  reprice autonomously — always ask the operator first.",
+        vertical_id: "marketplace",
+        team: "Procurement",
         traits: &[
             "Patient",
             "Detail-oriented",
@@ -59,38 +49,35 @@ pub const DEMO_PERSONAS: &[DemoPersona] = &[
         ],
     },
     DemoPersona {
+        name: "Peta",
+        title: "Project Coordinator L2",
+        tagline: "tracks delivery dates and unblocks ICs",
+        vertical_id: "project-coordination",
+        team: "Project & Ops",
+        traits: &["Organized", "Calm", "Deadline-aware", "Diplomatic"],
+    },
+    DemoPersona {
         name: "Priya",
-        vertical_id: "recruiting",
+        title: "Recruiter",
         tagline: "screens candidates and books interviews",
-        charter: "Run inbound candidate triage: read CVs, screen against \
-                  the rubric, draft outreach, hold interview slots on the \
-                  operator's calendar. Escalate any non-rubric judgment \
-                  call.",
+        vertical_id: "recruiting",
+        team: "People Ops",
         traits: &["Thorough", "Respectful", "Fast", "Calibrated"],
     },
     DemoPersona {
         name: "Jamal",
-        vertical_id: "support",
+        title: "Tier-1 Support",
         tagline: "handles customer support tickets",
-        charter: "Cover tier-1 customer support: triage incoming tickets, \
-                  reply within the SLA, escalate anything that touches \
-                  billing, security, or a named-account customer. Keep \
-                  the tone warm even when the customer is not.",
-        traits: &[
-            "Calm under pressure",
-            "Empathic",
-            "Quick",
-            "Honest",
-        ],
+        vertical_id: "support",
+        team: "Customer Experience",
+        traits: &["Calm under pressure", "Empathic", "Quick", "Honest"],
     },
     DemoPersona {
         name: "Nori",
-        vertical_id: "marketing",
+        title: "Brand Comms",
         tagline: "drafts product comms and announcements",
-        charter: "Draft product communications: changelog posts, \
-                  launch announcements, the weekly product digest. \
-                  Always draft, never publish — the operator owns the \
-                  send button.",
+        vertical_id: "marketing",
+        team: "Brand",
         traits: &[
             "On-voice",
             "Considered",
@@ -98,36 +85,38 @@ pub const DEMO_PERSONAS: &[DemoPersona] = &[
             "Reach-tracking",
         ],
     },
-    DemoPersona {
-        name: "Peta",
-        vertical_id: "project-ops",
-        tagline: "keeps the cadence — standups, action items, status",
-        charter: "Coordinate project rhythms: draft standup digests, \
-                  chase action items across Slack and Linear, surface \
-                  slippage, hand off the weekly exec status to Patrick. \
-                  Never send exec updates autonomously — that is \
-                  Patrick's job at L3.",
-        traits: &[
-            "Cadence-keeping",
-            "Memory-perfect",
-            "Slippage-spotting",
-            "Patient",
-        ],
-    },
-    DemoPersona {
-        name: "Patrick",
-        vertical_id: "project-ops",
-        tagline: "writes the weekly exec status report",
-        charter: "Author the weekly exec status: synthesize Peta's \
-                  standup digests, the RAID log, and the project \
-                  roster into a one-page exec narrative. Draft for \
-                  Thursday 5pm; operator reviews Friday morning before \
-                  send.",
-        traits: &[
-            "Narrative-first",
-            "Exec-pitched",
-            "RAID-aware",
-            "Deadline-true",
-        ],
-    },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roster_is_scene_one_canon() {
+        let names: Vec<_> = DEMO_SEED_PERSONAS.iter().map(|p| p.name).collect();
+        assert_eq!(names, vec!["Mariah", "Peta", "Priya", "Jamal", "Nori"]);
+    }
+
+    #[test]
+    fn roster_has_no_duplicates() {
+        let mut seen = std::collections::HashSet::new();
+        for p in DEMO_SEED_PERSONAS {
+            assert!(
+                seen.insert(p.name),
+                "persona {} appears twice in DEMO_SEED_PERSONAS",
+                p.name
+            );
+        }
+    }
+
+    #[test]
+    fn every_persona_has_traits() {
+        for p in DEMO_SEED_PERSONAS {
+            assert!(
+                !p.traits.is_empty(),
+                "persona {} has no traits",
+                p.name
+            );
+        }
+    }
+}

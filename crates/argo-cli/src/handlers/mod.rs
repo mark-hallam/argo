@@ -102,6 +102,7 @@ pub mod daemon_install;
 pub mod daemon_uninstall;
 pub mod db;
 pub mod db_rekey;
+pub mod demo_seed;
 pub mod doctor;
 pub mod doctor_approvals;
 mod doctor_env;

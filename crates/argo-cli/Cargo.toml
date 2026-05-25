@@ -40,6 +40,7 @@ argo-compliance = { path = "../argo-compliance" }
 argo-config = { path = "../argo-config" }
 argo-credentials = { path = "../argo-credentials" }
 argo-cron = { path = "../argo-cron" }
+argo-demo-seed = { path = "../argo-demo-seed" }
 argo-eval = { path = "../argo-eval" }
 argo-forge = { path = "../argo-forge" }
 argo-judge = { path = "../argo-judge" }

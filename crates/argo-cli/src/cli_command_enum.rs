@@ -476,4 +476,12 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_billing_cmds::BillingCmd,
     },
+    /// Demo workspace primitives (`argo demo seed` etc.). Seeds a
+    /// real workspace with the canonical v1.0 demo data backing the
+    /// `docs/skycot/demos/v1-mission-mvp.mp4` recording. Pure
+    /// scaffolding tool — never invoked on a production tenant.
+    Demo {
+        #[command(subcommand)]
+        cmd: super::cli_demo_cmds::DemoCmd,
+    },
 }

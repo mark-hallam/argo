@@ -9,6 +9,8 @@ pub use cli_reexports::{
 };
 #[path = "cli_command_enum.rs"]
 mod cli_command_enum;
+#[path = "cli_demo_cmds.rs"]
+pub mod cli_demo_cmds;
 #[path = "cli_release_cmds.rs"]
 pub mod cli_release_cmds;
 #[path = "cli_runtime_cmds.rs"]
@@ -19,6 +21,7 @@ pub mod cli_sandbox_cmds;
 pub mod cli_security_cmds;
 use clap::{Args, Parser, Subcommand};
 pub use cli_command_enum::Command;
+pub use cli_demo_cmds::DemoCmd;
 pub use cli_release_cmds::ReleaseCmd;
 pub use cli_sandbox_cmds::{E2bSandboxCmd, SandboxCmd};
 pub use cli_security_cmds::SecurityCmd;

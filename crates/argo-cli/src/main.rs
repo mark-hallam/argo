@@ -130,6 +130,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Sandbox { cmd } => main_dispatch_gateway::sandbox(cmd).await,
         Command::Security { cmd } => main_dispatch_gateway::security(cmd).await,
         Command::Billing { cmd } => billing_dispatch(cmd).await,
+        Command::Demo { cmd } => demo_dispatch(cmd).await,
         // Bootstrap / installer / packaging surfaces.
         Command::Wizard { cmd } => main_dispatch_setup::wizard(cmd).await,
         Command::Provider { cmd } => main_dispatch_setup::provider(cmd).await,
@@ -262,5 +263,28 @@ async fn billing_dispatch(cmd: cli::BillingCmd) -> ArgoResult<()> {
     match cmd {
         cli::BillingCmd::Replay(args) => handlers::billing_replay::run(args).await,
         cli::BillingCmd::Dlq { cmd } => handlers::billing_dlq::dispatch(cmd).await,
+    }
+}
+
+async fn demo_dispatch(cmd: cli::DemoCmd) -> ArgoResult<()> {
+    match cmd {
+        cli::DemoCmd::Seed {
+            tenant,
+            profile,
+            pass_a_turns,
+            dressing_rows,
+            skip_pass_a_turns,
+            json,
+        } => {
+            handlers::demo_seed::run(handlers::demo_seed::DemoSeedArgs {
+                tenant_id: tenant,
+                profile,
+                pass_a_turns,
+                dressing_rows,
+                skip_pass_a: skip_pass_a_turns,
+                json,
+            })
+            .await
+        }
     }
 }

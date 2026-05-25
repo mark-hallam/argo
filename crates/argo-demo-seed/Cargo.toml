@@ -1,4 +1,3 @@
-# zero-caller-allowed: split-child #1 of 3 (mission-demo-seed-data-bootstrap); brief #2 `mission-demo-seed-real-llm-driver` is the first caller, wired in its own PR.
 [package]
 name = "argo-demo-seed"
 version.workspace = true
@@ -6,16 +5,23 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Demo workspace seed — six canonical workers for the v1.0 demo MP4"
+description = "Argo — canonical v1.0 demo workspace seeder (real backend rows for the v1 mission demo MP4)"
 
 [dependencies]
-argo-identity = { path = "../argo-identity" }
-argo-store = { path = "../argo-store" }
 argo-types = { path = "../argo-types" }
+argo-store = { path = "../argo-store" }
+argo-identity = { path = "../argo-identity" }
+argo-audit = { path = "../argo-audit" }
+argo-skill = { path = "../argo-skill" }
+argo-vertical = { path = "../argo-vertical" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
 serde = { workspace = true }
-tokio = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
-tempfile = "3"
 tokio = { workspace = true }

@@ -118,11 +118,20 @@ for _ in $(seq 1 10); do
 done
 
 # --- 2. SPA dev server (with gateway pointed at the real-or-stub backend).
+#
+# Per `mission-demo-seed-data-bootstrap`: the SPA must talk to the
+# real seeded backend, NOT the mock-bypass path. We deliberately do
+# NOT set `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` here — the
+# operator runs `argo demo seed --tenant <id>` before the recording
+# session so /team / /audit / /workflows render real DB rows.
+# `--demo-mode` still sets `ARGO_GATEWAY_AUTH_BYPASS=1` on the
+# GATEWAY side (a distinct env var) so the operator-only
+# `/api/v1/demo/mint-principal` route resolves; that's an audit
+# bypass, not a SPA mock bypass.
 if [[ ${KEEP_SERVER} -eq 0 ]]; then
-  echo ">> launching next dev on :3000"
+  echo ">> launching next dev on :3000 (real-backend mode, no SPA auth-bypass)"
   ( cd "${WEB_DIR}" \
-    && NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 \
-       NEXT_PUBLIC_GATEWAY_URL="${GATEWAY}" \
+    && NEXT_PUBLIC_GATEWAY_URL="${GATEWAY}" \
        SLACK_API_BASE_URL="http://127.0.0.1:${SLACK_STUB_PORT}" \
        pnpm dev >"${OUT_DIR}/dev.log" 2>&1 ) &
   SERVER_PID=$!
