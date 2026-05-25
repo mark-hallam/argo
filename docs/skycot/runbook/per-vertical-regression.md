@@ -21,6 +21,14 @@ Run it with:
 cargo test -p argo-vertical-regression --test regression_all
 ```
 
+The codex pre-push gate (`scripts/codex-pre-push.sh`) now runs the
+same command automatically whenever the branch (committed against
+`origin/main`) or the local working tree (staged or unstaged) touches
+any path under `verticals/`. Branches that do not change vertical
+content skip the harness so the no-op pre-push stays cheap. The
+script keeps the cargo invocation literal — if this runbook command
+changes, update the script in the same PR so the two cannot drift.
+
 Pre-existing fixture↔manifest drift is pinned via `KNOWN_DRIFT`
 in `crates/argo-vertical-regression/src/lib.rs`. New drift fails
 the test; if a fix lands for one of those rows, delete the
