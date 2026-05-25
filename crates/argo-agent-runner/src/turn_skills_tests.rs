@@ -99,6 +99,12 @@ async fn legacy_worker_treated_as_lowest_grade() {
     // Worker.draft() defaults trust_grade to 0 (legacy / fresh ladder
     // floor — migration 50). With one NULL-floor and one Tenant-floor
     // skill installed, only the NULL-floor skill should surface.
+    //
+    // Skills are installed via `install_for_tenant` so they carry the
+    // test's tenant_id. Post mission-skill-table-add-tenant-id-column
+    // (v79), legacy `install()` stamps the migration placeholder which
+    // is intentionally filtered out by `available_for_worker`'s
+    // `s.tenant_id = ?` clause for any real tenant.
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
     let identity = IdentityStore::new(&store);
@@ -113,11 +119,19 @@ async fn legacy_worker_treated_as_lowest_grade() {
 
     let skills = SkillStore::new(Arc::clone(&store));
     skills
-        .install(&skill_md("open", "0.1.0", "no floor"), None)
+        .install_for_tenant(
+            &skill_md("open", "0.1.0", "no floor"),
+            &tenant.to_string(),
+            None,
+        )
         .await
         .unwrap();
     skills
-        .install(&skill_md("locked", "0.1.0", "tenant only"), None)
+        .install_for_tenant(
+            &skill_md("locked", "0.1.0", "tenant only"),
+            &tenant.to_string(),
+            None,
+        )
         .await
         .unwrap();
     skills
