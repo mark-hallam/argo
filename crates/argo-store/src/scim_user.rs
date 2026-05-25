@@ -135,9 +135,10 @@ impl<'a> ScimUserStore<'a> {
     ///
     /// # Errors
     /// Returns [`ArgoError::Provider`] on SQL or decode failure.
-    pub async fn get(&self, id: Uuid) -> StoreResult<Option<ScimUserRow>> {
-        let row: Option<RawRow> = sqlx::query_as(SELECT_BY_ID)
+    pub async fn get(&self, tenant_id: TenantId, id: Uuid) -> StoreResult<Option<ScimUserRow>> {
+        let row: Option<RawRow> = sqlx::query_as(SELECT_BY_ID_AND_TENANT)
             .bind(id.as_bytes().as_slice())
+            .bind(tenant_id.0.as_bytes().as_slice())
             .fetch_optional(self.pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("scim_user get: {e}")))?;
@@ -149,9 +150,14 @@ impl<'a> ScimUserStore<'a> {
     ///
     /// # Errors
     /// Returns [`ArgoError::Provider`] on SQL or decode failure.
-    pub async fn get_including_deleted(&self, id: Uuid) -> StoreResult<Option<ScimUserRow>> {
-        let row: Option<RawRow> = sqlx::query_as(SELECT_BY_ID)
+    pub async fn get_including_deleted(
+        &self,
+        tenant_id: TenantId,
+        id: Uuid,
+    ) -> StoreResult<Option<ScimUserRow>> {
+        let row: Option<RawRow> = sqlx::query_as(SELECT_BY_ID_AND_TENANT)
             .bind(id.as_bytes().as_slice())
+            .bind(tenant_id.0.as_bytes().as_slice())
             .fetch_optional(self.pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("scim_user get: {e}")))?;
@@ -215,7 +221,12 @@ impl<'a> ScimUserStore<'a> {
     ///
     /// # Errors
     /// Returns [`ArgoError::Provider`] on SQL or JSON-encoding failure.
-    pub async fn update(&self, id: Uuid, patch: ScimUserPatch) -> StoreResult<bool> {
+    pub async fn update(
+        &self,
+        tenant_id: TenantId,
+        id: Uuid,
+        patch: ScimUserPatch,
+    ) -> StoreResult<bool> {
         let emails_json = match patch.emails.as_ref() {
             Some(v) => Some(
                 serde_json::to_string(v)
@@ -230,7 +241,7 @@ impl<'a> ScimUserStore<'a> {
                 external_id  = COALESCE(?, external_id),
                 active       = COALESCE(?, active),
                 updated_at   = ?
-             WHERE id = ? AND deleted_at IS NULL",
+             WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL",
         )
         .bind(patch.display_name.as_deref())
         .bind(emails_json.as_deref())
@@ -238,6 +249,7 @@ impl<'a> ScimUserStore<'a> {
         .bind(patch.active.map(i64::from))
         .bind(patch.updated_at.timestamp())
         .bind(id.as_bytes().as_slice())
+        .bind(tenant_id.0.as_bytes().as_slice())
         .execute(self.pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("scim_user update: {e}")))?;
@@ -251,14 +263,20 @@ impl<'a> ScimUserStore<'a> {
     /// # Errors
     /// Returns [`ArgoError::Provider`] on SQL execution failure at any
     /// step. The transaction rolls back; no partial state.
-    pub async fn soft_delete(&self, id: Uuid, now: DateTime<Utc>) -> StoreResult<bool> {
+    pub async fn soft_delete(
+        &self,
+        tenant_id: TenantId,
+        id: Uuid,
+        now: DateTime<Utc>,
+    ) -> StoreResult<bool> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(|e| ArgoError::Provider(format!("scim_user delete tx: {e}")))?;
-        let row: Option<RawRow> = sqlx::query_as(SELECT_BY_ID)
+        let row: Option<RawRow> = sqlx::query_as(SELECT_BY_ID_AND_TENANT)
             .bind(id.as_bytes().as_slice())
+            .bind(tenant_id.0.as_bytes().as_slice())
             .fetch_optional(&mut *tx)
             .await
             .map_err(|e| ArgoError::Provider(format!("scim_user delete lookup: {e}")))?;
@@ -268,13 +286,17 @@ impl<'a> ScimUserStore<'a> {
         if existing.9.is_some() {
             return Ok(false);
         }
-        sqlx::query("UPDATE scim_user SET deleted_at = ?, active = 0, updated_at = ? WHERE id = ?")
-            .bind(now.timestamp())
-            .bind(now.timestamp())
-            .bind(id.as_bytes().as_slice())
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("scim_user soft-delete: {e}")))?;
+        sqlx::query(
+            "UPDATE scim_user SET deleted_at = ?, active = 0, updated_at = ? \
+             WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(now.timestamp())
+        .bind(now.timestamp())
+        .bind(id.as_bytes().as_slice())
+        .bind(tenant_id.0.as_bytes().as_slice())
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("scim_user soft-delete: {e}")))?;
         sqlx::query(
             "INSERT INTO scim_provisioned_tombstones
                 (id, tenant_id, user_name, deleted_at, reason)
@@ -345,9 +367,10 @@ type RawRow = (
 
 type RawTombstoneRow = (Vec<u8>, Vec<u8>, String, i64, String);
 
-const SELECT_BY_ID: &str = "SELECT id, tenant_id, external_id, user_name, display_name, \
+const SELECT_BY_ID_AND_TENANT: &str =
+    "SELECT id, tenant_id, external_id, user_name, display_name, \
             emails_json, active, created_at, updated_at, deleted_at \
-     FROM scim_user WHERE id = ?";
+     FROM scim_user WHERE id = ? AND tenant_id = ?";
 
 const SELECT_BY_USER_NAME: &str = "SELECT id, tenant_id, external_id, user_name, display_name, \
             emails_json, active, created_at, updated_at, deleted_at \

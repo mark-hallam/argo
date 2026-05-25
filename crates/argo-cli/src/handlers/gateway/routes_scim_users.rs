@@ -63,9 +63,9 @@ pub(super) async fn dispatch(
     match (verb, route_segments(path).as_slice()) {
         ("GET", ["scim", "v2", "Users"]) => Some(list_users(&scim, tenant_id, path).await),
         ("POST", ["scim", "v2", "Users"]) => Some(create_user(&scim, tenant_id, req).await),
-        ("GET", ["scim", "v2", "Users", id]) => Some(get_user(&scim, id).await),
-        ("PATCH", ["scim", "v2", "Users", id]) => Some(patch_user(&scim, id, req).await),
-        ("DELETE", ["scim", "v2", "Users", id]) => Some(delete_user(&scim, id).await),
+        ("GET", ["scim", "v2", "Users", id]) => Some(get_user(&scim, tenant_id, id).await),
+        ("PATCH", ["scim", "v2", "Users", id]) => Some(patch_user(&scim, tenant_id, id, req).await),
+        ("DELETE", ["scim", "v2", "Users", id]) => Some(delete_user(&scim, tenant_id, id).await),
         ("GET" | "POST" | "PATCH" | "DELETE", _) => {
             Some(scim_error(404, &format!("no SCIM route for {verb} {path}")))
         }
@@ -145,7 +145,7 @@ async fn create_user(
         Ok(id) => id,
         Err(e) => return scim_error(500, &format!("insert: {e}")),
     };
-    match scim.get(id).await {
+    match scim.get(tenant_id, id).await {
         Ok(Some(row)) => ("201 Created", user_to_envelope(&row).to_string()),
         Ok(None) => scim_error(500, "user vanished after insert"),
         Err(e) => scim_error(500, &format!("re-read: {e}")),
@@ -153,12 +153,16 @@ async fn create_user(
 }
 
 /// `GET /scim/v2/Users/<id>`.
-async fn get_user(scim: &ScimUserStore<'_>, id: &str) -> (&'static str, String) {
+async fn get_user(
+    scim: &ScimUserStore<'_>,
+    tenant_id: TenantId,
+    id: &str,
+) -> (&'static str, String) {
     let parsed = match Uuid::parse_str(id) {
         Ok(u) => u,
         Err(_) => return scim_error(400, "invalid user id (expected UUID)"),
     };
-    match scim.get(parsed).await {
+    match scim.get(tenant_id, parsed).await {
         Ok(Some(row)) => ok_json(user_to_envelope(&row)),
         Ok(None) => scim_error(404, &format!("no user with id '{id}'")),
         Err(e) => scim_error(500, &format!("get: {e}")),
@@ -171,7 +175,12 @@ async fn get_user(scim: &ScimUserStore<'_>, id: &str) -> (&'static str, String) 
 /// Operations: [...]`) and a plain-attribute body (`{ active: false,
 /// displayName: "..." }`). The plain form is what Okta sends in
 /// some integration profiles; supporting both keeps interop wide.
-async fn patch_user(scim: &ScimUserStore<'_>, id: &str, req: &str) -> (&'static str, String) {
+async fn patch_user(
+    scim: &ScimUserStore<'_>,
+    tenant_id: TenantId,
+    id: &str,
+    req: &str,
+) -> (&'static str, String) {
     let parsed = match Uuid::parse_str(id) {
         Ok(u) => u,
         Err(_) => return scim_error(400, "invalid user id (expected UUID)"),
@@ -186,18 +195,18 @@ async fn patch_user(scim: &ScimUserStore<'_>, id: &str, req: &str) -> (&'static 
         Err(msg) => return scim_error(400, &msg),
     };
     if !patch_changes_anything(&patch) {
-        return match scim.get(parsed).await {
+        return match scim.get(tenant_id, parsed).await {
             Ok(Some(row)) => ok_json(user_to_envelope(&row)),
             Ok(None) => scim_error(404, &format!("no user with id '{id}'")),
             Err(e) => scim_error(500, &format!("patch read: {e}")),
         };
     }
-    match scim.update(parsed, patch).await {
+    match scim.update(tenant_id, parsed, patch).await {
         Ok(true) => {}
         Ok(false) => return scim_error(404, &format!("no user with id '{id}'")),
         Err(e) => return scim_error(500, &format!("patch: {e}")),
     }
-    match scim.get(parsed).await {
+    match scim.get(tenant_id, parsed).await {
         Ok(Some(row)) => ok_json(user_to_envelope(&row)),
         Ok(None) => scim_error(404, &format!("no user with id '{id}'")),
         Err(e) => scim_error(500, &format!("patch re-read: {e}")),
@@ -205,12 +214,16 @@ async fn patch_user(scim: &ScimUserStore<'_>, id: &str, req: &str) -> (&'static 
 }
 
 /// `DELETE /scim/v2/Users/<id>` — soft-delete + tombstone insert.
-async fn delete_user(scim: &ScimUserStore<'_>, id: &str) -> (&'static str, String) {
+async fn delete_user(
+    scim: &ScimUserStore<'_>,
+    tenant_id: TenantId,
+    id: &str,
+) -> (&'static str, String) {
     let parsed = match Uuid::parse_str(id) {
         Ok(u) => u,
         Err(_) => return scim_error(400, "invalid user id (expected UUID)"),
     };
-    match scim.soft_delete(parsed, Utc::now()).await {
+    match scim.soft_delete(tenant_id, parsed, Utc::now()).await {
         Ok(true) => ("204 No Content", String::new()),
         Ok(false) => scim_error(404, &format!("no live user with id '{id}'")),
         Err(e) => scim_error(500, &format!("delete: {e}")),
