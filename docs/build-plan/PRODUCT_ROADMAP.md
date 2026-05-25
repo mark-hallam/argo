@@ -1,23 +1,29 @@
 # Product Roadmap — post-MVP path to every mission claim
 
 **Authored against**: origin/main `70e4b020` on `2026-05-11`.
-**Status**: operative. Supersedes the v1.4-and-beyond sections of
-`BUILD_PLAN_V11.md` for the product-surface program; backend tracks
-in V11 (v1.1 production hardening, v1.3 multi-worker, v2.0 self-
-improvement) remain authoritative for their scopes.
+**Current-state refresh**: `2026-05-24`.
+**Status**: roadmap index and historical track map. The live queue,
+current claim state, and operator-locked frontend instructions live in
+[`BUILD_STATUS.md`](BUILD_STATUS.md). Supersedes the old v1.4-and-
+beyond sections of `BUILD_PLAN_V11.md` only as product-surface context;
+do not treat the 2026-05-11 status text below as the current brief queue.
 
-> Fresh Claude sessions: this document is the operative plan for
-> the product-surface phase. Read this **after** `BUILD_STATUS.md`
-> header and `MISSION.md`, **before** picking up any UI / UX /
-> persona / journey work.
+> Fresh web/UX sessions: read the [`BUILD_STATUS.md`](BUILD_STATUS.md)
+> header first. If the ledger header or row text says frontend work is
+> operator-locked, do not brainstorm new screens from this roadmap; pick
+> up the named `web-*`, `web-port-*`, or polish stream row and follow its
+> current brief.
 
 ## What this document is
 
 The path from v1 MVP (mock-mode smoke green, all mission backend
 wires merged, no polished UX) to **every mission claim landed in
-a felt user experience.** Captures seven sequenced tracks (A–G),
-their dependencies, their status, and which mission claim each
-closes.
+a felt user experience.** Captures seven sequenced tracks (A-G),
+their dependencies, their historical status, and which mission claim
+each was meant to close. The tracks are still useful for orientation,
+but the repo has since moved through design-system, demo SWOT, and
+web-port passes. Current implementation authority is the live ledger
+row plus its stream brief.
 
 Authored 2026-05-11 after coverage audit of
 [BUILD_PLAN_V11.md](BUILD_PLAN_V11.md) + [MISSION_BACKLOG.md](MISSION_BACKLOG.md)
@@ -33,12 +39,34 @@ surface.
 |---|---|---|---|---|
 | A | UX research — personas + journey maps | operator + claude | **DONE** 2026-05-11 | design brief for B/C/D/E |
 | B | Capability fill-ins (Windows native CU + real-LLM journey test) | swarm | **DONE** 2026-05-12 — both briefs MERGED (mission-cu-native-windows-poc #1332, mission-real-llm-operator-journey-test #1333) | mission claim 5 (Windows leg) |
-| C | Design language — stack pick, brand tokens, component primitives | operator + 1 focused thread | **IN PROGRESS** 2026-05-11 — ADR + scaffold + 8 primitives + theming layer landed in [web/](../../web/); typecheck + build + 6/6 unit tests green | foundation for D + E |
-| D | Wireframes for the 5 surfaces (hire / team / worker profile / approvals inbox / audit timeline) | operator + claude, validated against real users | **DONE** 2026-05-11 — README + 5 surface specs in [skycot/ux-research/wireframes/](../skycot/ux-research/wireframes/); each wireframe carries ASCII layouts, exact strings, mobile reflow, and 5-10 Track-E brief slicing hints | implementation brief for E |
-| E | Frontend implementation, sliced thin (approvals inbox → hire → team → worker profile → audit) | swarm, after C+D land | **IN PROGRESS** 2026-05-11 — all 38 briefs authored across E0/E1/E2/E3/E4/E5 in [streams/](streams/); two conductor advisories queued ([E0-E1](conductor-advisory-E0-E1.md) + [E2-E5](conductor-advisory-E2-E5.md)). Flips to DONE only after merges land. | mission claims 1, 2, 3, 6 |
-| F | Backend fill-ins for claim 4 — 6 outstanding skill/marketplace TODOs | swarm, parallel to E | **IN PROGRESS** 2026-05-11 — substantially complete: 11 of 14 ledger rows MERGED. 3 outstanding (1 TODO, 2 BLOCKED→TODO via [advisory](conductor-advisory-F-reconciliation.md)). Mission claim 4 substantially met. | mission claim 4 |
+| C | Design language — stack pick, brand tokens, component primitives | operator + focused threads | **CURRENT HANDOFF** 2026-05-24 — design-system foundation is in [web/](../../web/); remaining coverage is tracked by live rows such as `web-storybook-core-ui-coverage`, not by this historical table | foundation for D + E |
+| D | Wireframes and locked visual directions | operator + claude, validated against product passes | **DONE / SUPERSEDED BY LOCKED MOCKUPS** 2026-05-24 — original wireframes remain context, but current web-port source material is under [design-explorations/2026-05-18](../skycot/design-explorations/2026-05-18/) and named in each ledger row | implementation brief for E |
+| E | Frontend implementation and polish | swarm, after C+D land | **LIVE LEDGER** 2026-05-24 — post-25-audit and demo SWOT work is carried by `web-*`, `web-port-*`, and fix-request rows in [`BUILD_STATUS.md`](BUILD_STATUS.md); do not infer "not started" from the 2026-05-11 slice list | mission claims 1, 2, 3, 6 |
+| F | Backend fill-ins for claim 4 — skill/marketplace/workplace-knowledge TODOs | swarm, parallel to E | **LIVE LEDGER / GAP-MANIFEST DRIVEN** 2026-05-24 — use live `mission-*` rows and `docs/skycot/evals/scheduled/2026-05-23/mission-vs-code-gap-manifest.md`, not the old 14-row advisory snapshot | mission claim 4 |
 | G | Mission-5 finish: Windows dispatch wiring + Wayland Linux + real-LLM-test CI integration | swarm, parallel to E | **IN PROGRESS** 2026-05-12 — 3 briefs authored in [streams/](streams/); advisory queued ([G+J](conductor-advisory-G-J.md)). Flips to DONE only after merges land. | mission claim 5 (full) |
 | J | Gateway endpoints sibling to Track E — JSON APIs that the frontend briefs assume (replace mock fallbacks with real backends) | swarm, parallel to E | **IN PROGRESS** 2026-05-12 — all 18 backend briefs authored in [streams/](streams/); advisory queued ([G+J](conductor-advisory-G-J.md)). Flips to DONE only after merges land. | mission claims 1-6 backend completeness |
+
+## Current Handoff — 2026-05-24
+
+Use this section before interpreting any older track notes:
+
+- [`BUILD_STATUS.md`](BUILD_STATUS.md) is the live queue. Its header
+  carries current operator directives, including when design-language or
+  demo-SWOT work is operator-locked.
+- Current web/UX implementation is mostly expressed as `web-*`,
+  `web-port-*`, and fix-request rows. Examples at this refresh include
+  `web-port-approvals-e-ops-dashboard`, `web-skills-mobile-and-search-dark-mode-polish`,
+  and `web-storybook-core-ui-coverage`.
+- Operator-locked mockups and visual source material live under
+  [design-explorations/2026-05-18](../skycot/design-explorations/2026-05-18/).
+  A brief row may cite a narrower source path; if the cited path is stale,
+  use the real on-disk design-explorations path and document the deviation.
+- Demo SWOT and cold-walk follow-ups are first-class product work when they
+  appear as live ledger rows. Treat the row status and stream brief as the
+  operative source, not this roadmap's 2026-05-11 estimates.
+- Backend product-surface gaps now flow from live `mission-*` stream rows
+  and the mission-vs-code gap manifest. Old advisory files are historical
+  unless a current ledger row explicitly points at one.
 
 ## Track A — UX research (DONE)
 
@@ -100,6 +128,12 @@ integration (Windows-only).
 
 ## Track C — design language (IN PROGRESS)
 
+**Current handoff 2026-05-24:** the design-system substrate exists in
+`web/`, and the active design-system work should be read from
+[`BUILD_STATUS.md`](BUILD_STATUS.md). At this refresh the live queue
+contains `web-storybook-core-ui-coverage`; claim that stream row rather
+than opening an ad hoc Storybook or primitive sweep from this section.
+
 **Status update 2026-05-11:** ADR locked
 ([streams/adr-frontend-design-language.md](streams/adr-frontend-design-language.md)),
 `web/` Next.js 15 scaffold landed, all 8 primitives + the load-
@@ -109,14 +143,9 @@ synthesizer for arbitrary brand hues) wired end-to-end. Production
 build green (29.5KB demo page, 131KB First Load JS); typecheck
 clean; 6/6 ApprovalCard unit tests passing.
 
-**What's left for DONE:**
-- Storybook stories per primitive (TODO — next thin slice).
-- Playwright e2e smoke (TODO).
-- Real gateway wire-up against `/inbox` endpoint to replace the
-  static demo page (handover point to Track E).
-- Operator validation pass: open `pnpm dev` at
-  `http://localhost:3000`, hit the page, react. This is the
-  build-then-validate moment.
+**Historical "what's left" note:** Storybook, Playwright smoke, and
+gateway wire-up were the 2026-05-11 next slices. Do not use this list
+as an open queue; use the current ledger header and rows.
 
 Single irreversible-decision phase. Owner-driven. Defaults:
 
@@ -144,6 +173,14 @@ claude thread.
 
 ## Track D — wireframes (DONE 2026-05-11)
 
+**Current handoff 2026-05-24:** the low-fi wireframes remain useful
+research context. For current web-port work, prefer the operator-locked
+mockups in [design-explorations/2026-05-18](../skycot/design-explorations/2026-05-18/)
+and the exact source path named in the live row. Known directories
+include `approvals-inbox`, `audit-page`, `cohorts-page`, `skills-page`,
+`worker-detail`, `workers-page`, `settings-page`, `onboarding-wizard`,
+and `auth-pages`.
+
 Five surfaces, low-fi in Figma or paper, validated against the
 Track A personas with real users before locking. Order matters —
 each surface is a single Figma file linked from this section:
@@ -162,6 +199,15 @@ Sizing: ~1–2 weeks. Operator + claude in a focused thread, with
 2–3 user-validation passes per surface.
 
 ## Track E — frontend implementation (IN PROGRESS — E1 closed, E3 closed, E2/E4/E5 in flight)
+
+**Current handoff 2026-05-24:** this section is historical slice
+planning. The active frontend queue is the live ledger's `web-*`,
+`web-port-*`, and demo SWOT/fix-request rows. Examples at this refresh:
+`web-port-approvals-e-ops-dashboard` is in review, `web-skills-mobile-and-search-dark-mode-polish`
+is in review, and `web-storybook-core-ui-coverage` remains TODO. Web/UX
+workers should check the ledger header before starting new frontend work
+because current design-language and roadmap decisions may be explicitly
+operator-driven.
 
 Sliced thin by surface, in the order above. Each slice is
 5–10 swarmable briefs once the C+D foundation is locked.
@@ -190,7 +236,16 @@ within a slice parallelize.
 
 ## Track F — backend fill-ins for mission claim 4 (substantively MERGED 2026-05-12)
 
-Six outstanding TODO mission rows in the ledger that close the
+**Current handoff 2026-05-24:** this row list is historical. The
+operative backend fill-in source is the live `mission-*` ledger queue
+plus `docs/skycot/evals/scheduled/2026-05-23/mission-vs-code-gap-manifest.md`.
+Current product-surface backend work includes claim-4 skill and
+marketplace follow-ups, workplace-knowledge rows already shipped through
+Wave A, and tenant-pinning rows such as `mission-skill-query-tenant-pinned`
+when they appear in [`BUILD_STATUS.md`](BUILD_STATUS.md). Do not revive
+an old row below unless the current ledger says it is TODO.
+
+Historical six outstanding TODO mission rows that closed the
 "skills shared and learned" claim:
 
 - `mission-skill-publish-verified-ingest`
@@ -226,6 +281,16 @@ Follow-ups after Track B lands:
   noted in the Track B brief).
 
 Sizing: ~1 week of swarm work.
+
+## Track J — gateway endpoints sibling to Track E (LIVE LEDGER)
+
+**Current handoff 2026-05-24:** the 2026-05-12 G+J advisory is
+historical. Backend endpoints that unblock product surfaces now appear
+as named `mission-*`, `web-gateway-endpoints-*`, or tenant-bind rows in
+[`BUILD_STATUS.md`](BUILD_STATUS.md), with stream files under
+[`streams/`](streams/). For new product-surface backend fill-in work,
+start from the live ledger row and the mission-vs-code gap manifest,
+then verify the handler and client paths on disk before claiming.
 
 
 ## Track L — Skill Canvas (fine-tuner) (IN PROGRESS — phase 1 briefs landing 2026-05-14)
@@ -264,54 +329,49 @@ Total: ~20 briefs, ~9000 LOC. Runs PARALLEL to Track L Phases 3-5.
 
 ## Mission-claim coverage map
 
-> **Refreshed 2026-05-12** — reflects the live ledger
-> (BUILD_STATUS.md). Track A (research) and B (capability fill-ins)
-> are DONE. Track E slice E1 (approvals) is DONE (6/6); E3 (team)
-> is DONE (5/5); E2/E4/E5 in flight. Track F substantively MERGED
-> (claim 4 backend). Track G fully MERGED (claim 5). Track J
-> substantively in flight (J1/J3/J4/J5/J14 MERGED).
+> **Refreshed 2026-05-24** — this table is orientation only. Mission
+> definitions and LIVE criteria live in [`../skycot/MISSION.md`](../skycot/MISSION.md)
+> and the claim dashboards under `docs/skycot/evals/scheduled/`.
+> Product and backend work state lives in [`BUILD_STATUS.md`](BUILD_STATUS.md)
+> rows and the mission-vs-code gap manifest.
 
 | Claim | Tracks that close it | Status |
 |---|---|---|
-| 1. Teammate, not tool | A (design) → C → D → E (team page + worker profile) | A+B+D done; C in progress; E partial (E3 closed; E4 in flight) |
-| 2. Delegation is the unit | A (design) → C → D → E (hire flow + delegate-ongoing) | A+B+D done; E partial (E2 in flight) |
-| 3. Platform builds workers | Backend MERGED; A → D → E (hire-flow UI) | A+D done; E partial (E2 in flight) |
-| 4. Skills shared and learned | F (backend) + E (skill library UI, deferred slice) | F substantively MERGED; E partial (E4-e Skills tab MERGED) |
-| 5. MCP + computer-use | B (Windows POC) -> G (dispatch + Wayland) | B+G fully MERGED; macOS is v1 primary, non-macOS paths DEFERRED-v1.x |
-| 6. Multi-channel approval gates | All channels wired; A → D → E (approvals inbox) | A+D done; E1 closed (6/6 MERGED) |
+| 1. Teammate, not tool | A (research) + C/D/E product surface | Check live `web-*` rows plus claim-dashboard evidence; do not infer from old E3/E4 labels. |
+| 2. Delegation is the unit | A + C/D/E hire/delegation surface | Check live hire/workflow rows and current demo-runbook gates. |
+| 3. Platform builds workers | Backend + hire/workflow product surface | Check current `mission-*`, workflow, onboarding, and demo-SWOT rows. |
+| 4. Skills shared and learned | F backend + Skills/workplace product surface | Check live skill/workplace rows and the mission-vs-code gap manifest. |
+| 5. MCP + computer-use | B/G plus current macOS-first demo path | MISSION.md says macOS is v1 primary; Linux/Windows/E2B CU remain DEFERRED-v1.x unless a current row says otherwise. |
+| 6. Multi-channel approval gates | Channel backend + approvals inbox surface | Check live channel/approval rows; `/approvals` design parity is now tracked by web-port rows such as `web-port-approvals-e-ops-dashboard`. |
 
 ## Sequencing rules
 
-- **A blocks D.** Do not wireframe surfaces against unvalidated
-  personas. Run user interviews before locking D.
-- **C blocks E.** Do not implement frontend slices against an
-  unlocked design language. Locking C is irreversible — get it
-  right with the operator in the loop.
-- **D blocks E for the slice it covers.** A slice cannot ship
-  without its wireframe; do not improvise the surface from the
-  persona doc alone.
-- **F and G parallelize with E.** Both are backend; both are
-  swarm-friendly; no UI dependency.
-- **B is independent.** Already queued; do not block any other
-  track on it.
+- **Ledger header wins.** Check it before starting new frontend work;
+  it may mark design-language or roadmap decisions as operator-driven.
+- **Do not improvise locked UI.** For web-port work, use the row's
+  stream brief plus the on-disk design-explorations source.
+- **Backend fill-ins are row-driven.** Use current `mission-*` and
+  gap-manifest rows, not the old advisory snapshots in this roadmap.
+- **Historical sequencing remains context.** A/C/D still explain why
+  the product slices exist, but they are not a standalone task queue.
 
 ## Status tracking
 
-The roadmap document is updated when a track flips state.
-Status values per track: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`,
-`DONE`. Per-brief status continues to live in
-[BUILD_STATUS.md](BUILD_STATUS.md) ledger rows.
+The roadmap document is updated only for strategic drift. Per-brief
+status lives in [BUILD_STATUS.md](BUILD_STATUS.md), and its status values
+(`TODO`, `CLAIMED`, `IN_REVIEW`, `MERGED`, `BLOCKED`) are the source of
+truth for worker action.
 
 When a fresh session picks this up, the way to read it is:
 
-1. Confirm the freshness anchor at the top against
-   `git rev-parse --short origin/main`. If the SHA is > 30 days
-   old, the operator should re-validate the track statuses
-   before queuing new work.
-2. Read the table at the top — that's the operative state.
-3. Drill into the section for the track you're working on.
-4. Cross-reference [BUILD_STATUS.md](BUILD_STATUS.md) for the
-   live brief-level status inside the relevant track.
+1. Read the [`BUILD_STATUS.md`](BUILD_STATUS.md) header and the row you
+   intend to claim.
+2. Read the stream brief named by that row.
+3. Use this roadmap only to understand which product track the row
+   belongs to.
+4. If this document conflicts with `MISSION.md`, the ledger header, or
+   an operator-locked design brief, follow the current source and note
+   the discrepancy in your PR.
 
 ## What this document REPLACES
 
