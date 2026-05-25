@@ -211,6 +211,7 @@ mod routes_knowledge_handlers;
 mod routes_workflows;
 mod routes_workflows_audit;
 mod routes_workflows_handlers;
+mod routes_workflows_handlers_helpers;
 mod routes_workflows_test_runs;
 mod routes_workspace;
 mod routes_workspace_members;
