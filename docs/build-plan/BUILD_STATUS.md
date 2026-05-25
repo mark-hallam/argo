@@ -73,10 +73,9 @@
 > language → wireframes → frontend implementation + parallel
 > backend fill-ins for mission claims 4 and 5). Track A is DONE
 > (persona + journey docs under `docs/skycot/ux-research/`).
-> Track B is QUEUED — two new TODO rows
-> (`mission-cu-native-windows-poc`, `mission-real-llm-operator-
-> journey-test`) are authored in `streams/` and pending ledger
-> insertion this tick. Tracks C–G are not started; do NOT
+> Track B is DONE — `mission-cu-native-windows-poc` (#1332) and
+> `mission-real-llm-operator-journey-test` (#1333) are MERGED.
+> Tracks C–G are not started; do NOT
 > brainstorm frontend briefs against Tracks C/D/E until the
 > design-language ADR lands — that locking decision is operator-
 > driven, NOT swarm work. Backend fill-in tracks F (mission claim 4
