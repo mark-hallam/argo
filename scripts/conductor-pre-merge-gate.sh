@@ -33,10 +33,12 @@ set -euo pipefail
 
 SKIP_CLIPPY=0
 SKIP_TESTS=0
+LOC_CEILING=500
 for arg in "$@"; do
   case "$arg" in
     --skip-clippy) SKIP_CLIPPY=1 ;;
     --skip-tests)  SKIP_TESTS=1 ;;
+    --allow-loc-overage=*) LOC_CEILING="${arg#*=}" ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'
       exit 0
@@ -47,6 +49,14 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# Hard cap on LOC_CEILING (operator-locked slippery-slope guard per
+# OVERNIGHT DIRECTIVE §10 / memory
+# feedback_loc_overage_550_soft_ceiling_mvp_window_2026_05_25.md).
+if [[ "$LOC_CEILING" -gt 550 ]]; then
+  echo "[pre-merge-gate FAIL] --allow-loc-overage=$LOC_CEILING exceeds 550 hard cap" >&2
+  exit 2
+fi
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
@@ -77,12 +87,20 @@ if ! bash scripts/check-migration-slots.sh; then
   fail "migration slot collision detected — see output above"
 fi
 
-# Gate 3: LOC budget — no file > 500 LOC in crates/
-log "[3/7] LOC budget (files > 500)"
-over_500=$(find crates -name '*.rs' -exec wc -l {} \; 2>/dev/null | awk '$1 > 500 {print $0}')
-if [[ -n "$over_500" ]]; then
-  fail "files over 500 LOC ceiling:"
-  echo "$over_500" >&2
+# Gate 3: LOC budget — files > LOC_CEILING (default 500, max 550) hard-fail;
+# files in (500, LOC_CEILING] log WARN (tracked overage per OVERNIGHT DIRECTIVE §10).
+log "[3/7] LOC budget (hard ceiling $LOC_CEILING; soft ceiling 500)"
+over_ceiling=$(find crates -name '*.rs' -exec wc -l {} \; 2>/dev/null | awk -v cap="$LOC_CEILING" '$1 > cap {print $0}')
+if [[ -n "$over_ceiling" ]]; then
+  fail "files over $LOC_CEILING LOC hard ceiling:"
+  echo "$over_ceiling" >&2
+fi
+if [[ "$LOC_CEILING" -gt 500 ]]; then
+  over_500_under_cap=$(find crates -name '*.rs' -exec wc -l {} \; 2>/dev/null | awk -v cap="$LOC_CEILING" '$1 > 500 && $1 <= cap {print $0}')
+  if [[ -n "$over_500_under_cap" ]]; then
+    warn "LOC overage 500-${LOC_CEILING} (tracked at docs/skycot/agents/heartbeats/loc-overage-tracking.md):"
+    echo "$over_500_under_cap" >&2
+  fi
 fi
 
 # Gate 4: parallel-pub-types canonicalization
