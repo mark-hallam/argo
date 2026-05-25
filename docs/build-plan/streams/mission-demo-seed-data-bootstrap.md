@@ -14,6 +14,11 @@ Add a real CLI subcommand `argo demo seed` that inserts the voiceover-aligned de
 
 **Pass A — FUNCTION-SIDE (real, no theater):**
 - 5 named workers Mariah / Peta / Priya / Jamal / Nori (per `v1-mission-mvp-runbook.md` Scene 1 canon, NOT "6 workers + 2 more" from the original spec — see fix-brief `mission-demo-seed-worker-roster-canon-peta-included` for the open Option A/B decision on whether to include Patrick as a 6th). Created via existing `WorkerStore::create` with real vertical pack assignments. Persona text (role / headline / traits) sourced from `web/lib/sample-personas.ts` — fictional characters are dressing-layer, fine.
+  - Mariah — Marketplace seller; Scene 1 narration anchor and audit drill-in worker.
+  - Peta — Project Coordinator L2; first non-vertical PM cohort worker per memory `project_pm_cohorts_peta_patrick`.
+  - Priya — Customer Success / recruiting-adjacent operator; Scene 5 narration anchor.
+  - Jamal — Sales SDR / support-facing collaborator for Scene 4 marketplace-search beats.
+  - Nori — fifth persistent identity card for the Scene 1 restart proof.
 - 10-20 real agent turns spread across the workers that the demo navigates into — enough to populate (a) the audit-row drill-in beat in Scene 6, (b) the Slack-approval audit chain in Scene 2, (c) the workflow-execution audit rows in Scene 5 if Scene 5's workflow run is pre-staged rather than live-fired. Each is a real `AgentRunner::run_turn` call producing real `WorkerAction` + `audit_record` rows.
 - The MCP+computer-use combo workflow `customer_research_followup` (per `mission-demo-seed-scene-5-zendesk-to-macos-notes-combo-workflow`) — definition inserted. Workflow execution at recording time is **live** (Scene 5 runs it on camera), not pre-baked.
 - The Scene 4 marketplace skill catalog `competitor pricing scrape` + 2 siblings (per `mission-demo-seed-scene-4-competitor-pricing-scrape-skill`).
@@ -45,13 +50,13 @@ This is a **substantive backend addition** — ~400-700 LOC in `argo-cli` + new 
 - `NEW: crates/argo-cli/src/handlers/demo_seed.rs` — CLI handler invoking `argo-demo-seed::run_canonical_v1_seed(...)`.
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly scoped: add `mod demo_seed;` line.
 - `Cargo.toml` — narrowly scoped: add workspace member `crates/argo-demo-seed`.
-- `web/lib/sample-personas.ts` — read-only INPUT: the seed CLI reads the persona spine (name + role + traits + headline + vertical_id) from this file and inserts those as real worker rows. The file itself is unchanged.
-- `docs/skycot/operator/demo-runbook.md` — add a pre-flight bullet: "Run `argo demo seed --tenant <demo-tenant-id>` before the recording session. Verify `/team` shows 6 workers via curl http://127.0.0.1:7400/api/v1/team and the count matches."
+- `web/lib/sample-personas.ts` — read-only INPUT after `mission-demo-seed-worker-roster-canon-peta-included` lands: the seed CLI reads the `DEMO_SEED_PERSONAS` spine (name + role + traits + headline + vertical_id) from this file and inserts those as real worker rows. The runtime mock roster remains separate and must not be used as rendered demo truth.
+- `docs/skycot/operator/demo-runbook.md` — add a pre-flight bullet: "Run `argo demo seed --tenant <demo-tenant-id>` before the recording session. Verify `/team` shows 5 workers via curl http://127.0.0.1:7400/api/v1/team and the count matches."
 - `scripts/demo-dry-run.sh` — narrowly scoped: drop the SAMPLE_TEAM mock paths from the dry-run scene assertions. Scenes now verify real backend rows.
 
 ## Files you must NOT touch
 
-- `web/lib/sample-personas.ts` for ANY edit (read-only input)
+- `web/lib/sample-personas.ts` for ANY edit after the roster-canon pre-brief has landed (read-only input)
 - `web/lib/sample-*.ts` other than to confirm they are NOT used at runtime when seeded data is present
 - `crates/argo-store/src/migrations/**` — no new migration is in scope; the seed uses existing tables/columns
 - Anything in `crates/argo-skill/` or `crates/argo-orchestrator/` other than call-site invocations through existing public APIs

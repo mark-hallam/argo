@@ -43,6 +43,15 @@ export interface SamplePersona {
   traits: string[];
 }
 
+export interface DemoSeedPersona {
+  id: string;
+  name: string;
+  role: string;
+  headline: SamplePersonaHeadline;
+  vertical_id: string;
+  traits: string[];
+}
+
 const PRIYA: SamplePersona = {
   id: "018f67d0-0000-7000-8000-000000000002",
   name: "Priya",
@@ -110,6 +119,23 @@ const NORI: SamplePersona = {
   traits: ["On-voice", "Considered", "Schedule-respecting", "Reach-tracking"],
 };
 
+const PETA: SamplePersona = {
+  id: "018f67d0-0000-7000-8000-000000000007",
+  name: "Peta",
+  initials: "PE",
+  role: {
+    tagline: "keeps standups, action items, and status moving",
+    vertical: "project-ops",
+    title: "Project Coordinator L2",
+    team: "Project Management",
+  },
+  headline: {
+    bullets: ["3 action items chased today", "2 standup digests drafted"],
+    tomorrow: "morning standup digest at 09:00",
+  },
+  traits: ["Cadence-true", "Follow-through", "Calm escalator", "Context keeper"],
+};
+
 const SAM: SamplePersona = {
   id: "018f67d0-0000-7000-8000-000000000005",
   name: "Sam",
@@ -159,6 +185,26 @@ export const SAMPLE_PERSONA_IDS: readonly string[] = [
   NORI.id,
   SAM.id,
   RIO.id,
+];
+
+function toDemoSeedPersona(persona: SamplePersona): DemoSeedPersona {
+  return {
+    id: persona.id,
+    name: persona.name,
+    role: persona.role.title,
+    headline: persona.headline ?? { bullets: [] },
+    vertical_id: persona.role.vertical,
+    traits: persona.traits,
+  };
+}
+
+/** Canonical v1 demo seed roster. Scene 1 narrates exactly these five. */
+export const DEMO_SEED_PERSONAS: readonly DemoSeedPersona[] = [
+  toDemoSeedPersona(MARIAH),
+  toDemoSeedPersona(PETA),
+  toDemoSeedPersona(PRIYA),
+  toDemoSeedPersona(JAMAL),
+  toDemoSeedPersona(NORI),
 ];
 
 /** Lookup with a fall-through that throws on unknown id — seeds */
