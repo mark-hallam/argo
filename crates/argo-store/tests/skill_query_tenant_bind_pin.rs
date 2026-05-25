@@ -82,6 +82,24 @@ async fn direct_and_distinct_queries_do_not_cross_tenant_leak() {
     .await;
     insert_skill(
         &store,
+        &tenant_a,
+        Uuid::now_v7(),
+        "tenant-a-private-skill",
+        "tenant-a-only",
+        11,
+    )
+    .await;
+    insert_skill(
+        &store,
+        &tenant_b,
+        Uuid::now_v7(),
+        "tenant-b-private-skill",
+        "tenant-b-only",
+        21,
+    )
+    .await;
+    insert_skill(
+        &store,
         "__migration_placeholder__",
         Uuid::now_v7(),
         "legacy-skill",
@@ -99,7 +117,19 @@ async fn direct_and_distinct_queries_do_not_cross_tenant_leak() {
     let verticals = distinct_skill_verticals(store.pool(), &tenant_a)
         .await
         .unwrap();
-    assert_eq!(verticals, vec!["shared-vertical".to_string()]);
+    assert_eq!(
+        verticals,
+        vec!["shared-vertical".to_string(), "tenant-a-only".to_string()]
+    );
+
+    let tenant_b_verticals = distinct_skill_verticals(store.pool(), &tenant_b)
+        .await
+        .unwrap();
+    assert_eq!(
+        tenant_b_verticals,
+        vec!["shared-vertical".to_string(), "tenant-b-only".to_string()]
+    );
+    assert!(!tenant_b_verticals.contains(&"tenant-a-only".to_string()));
 }
 
 #[tokio::test]
