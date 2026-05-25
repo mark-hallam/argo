@@ -1,13 +1,16 @@
 # Build plan beyond v1 — toward the SKYCOT mission
 
-> **STATUS 2026-05-12 (refreshed):** the tick-57 e2e demo gate
-> (referenced below as "v1 demo gate") shipped long ago; backend
-> mission claims are substantively wired (Phase A drained, Phase B
-> well in flight). **The OPERATIVE ship gate for v1.0 is now the
-> mission-MVP demo recording + extended smoke** — see
-> BUILD_STATUS.md header. The tick-57 framing below is retained
-> for the strategic plan's structure but is no longer the gating
-> milestone. Live state: `docs/build-plan/BUILD_STATUS.md`.
+> **STATUS 2026-05-24 (current-state refresh):** this is a
+> historical / strategic map, not the live queue. The operative
+> claim state, TODO rows, PR numbers, and ship-gate amendments live
+> in [`BUILD_STATUS.md`](BUILD_STATUS.md); fresh-session handoff
+> lives in [`RESUME.md`](RESUME.md). Current mission truth,
+> including the stricter LIVE criteria for all six claims, lives in
+> [`MISSION.md`](../skycot/MISSION.md). Product-surface sequencing
+> lives in [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md) plus current
+> stream rows. The v1.0 ship gate is the mission demo recording /
+> MP4 plus extended [`smoke-skycot`](../../scripts/smoke-skycot.sh),
+> including BrowserExecutor and Slack-approval scenarios.
 
 **Status as of tick 57 (historical):** v1 demo gate is GREEN
 (9/9). 58 PRs merged. The platform shows a Genesis-output
@@ -15,8 +18,10 @@ vertical going through the full stack: action emission →
 auto-approval gate → channel notify → executor → audit. **But
 that's the demo. The mission is bigger.**
 
-This document plans the work between v1 (a green e2e test) and
-"AI workers as teammates that humans can delegate to."
+This document preserves the strategic gap taxonomy between the
+historical tick-57 green e2e test and "AI workers as teammates
+that humans can delegate to." Do not claim work from this file
+directly; use live rows in `BUILD_STATUS.md`.
 
 ## Mission recap (from MISSION.md)
 
@@ -40,20 +45,26 @@ Six load-bearing claims:
 6. **Autonomous + multi-channel approvals** — workers act
    independently OR ask via the appropriate channel
 
-## What v1 delivers
+## What the historical v1 substrate delivered
 
-| Claim | v1 status |
+This table is a substrate snapshot from the tick-57 / V11 era. It
+does **not** assert that the six mission claims are LIVE today.
+Current LIVE criteria and evidence are in `MISSION.md`, scheduled
+eval dashboards, and the ledger rows in `BUILD_STATUS.md`.
+
+| Claim | historical v1 substrate status |
 |---|---|
-| Real teammates | ⏳ Identity primitives (Worker/Persona/Role) ✓; teammate-feel UX ✗ |
-| Platform-built workers | ✅ Genesis offline pipeline + 12 archetypes + LLM refinement (`--refine`) |
-| Shared skills library | ✅ TrustGrade ladder + LayeredLookup + `vertical publish/pull` (OCI) |
-| Self-learning skills | ✅ `should_propose` + `SkillCandidate::from_cu_trajectory` + `propose_for_review` |
-| Persistent memory | ✅ 3-layer (recent/indexed/summary) + sqlite-vec/Voyage-3 + shared-team namespace |
-| Autonomous + multi-channel | ✅ AutoApprovalPolicy gate + 5 NotifyChannels (email/slack/sms/push/webinbox) + escalation walker |
+| Real teammates | Identity primitives (Worker/Persona/Role) existed; teammate-feel UX and LIVE persistence proof continued through later rows. |
+| Platform-built workers | Genesis offline pipeline + archetypes + LLM refinement (`--refine`) existed; current worker-generation proof is tracked in mission/eval rows. |
+| Shared skills library | TrustGrade ladder + LayeredLookup + `vertical publish/pull` (OCI) existed; marketplace install/use evidence is tracked in claim-4 dashboards. |
+| Self-learning skills | `should_propose` + `SkillCandidate::from_cu_trajectory` + `propose_for_review` existed; review/ratchet evidence is tracked against current `MISSION.md`. |
+| Persistent memory | 3-layer memory substrate existed; current LIVE requirement is gateway-restart and cross-worker visibility evidence. |
+| Autonomous + multi-channel | AutoApprovalPolicy + notify-channel substrate existed; current LIVE requirement is signed end-to-end channel approval with audit verification. |
 
-**Headline:** all six claims have a v1 implementation. The
-remaining work is making each one **production-real** rather
-than demo-real.
+**Current caveat:** V11's original "all six claims have a v1
+implementation" language meant "there is substrate for each
+claim." It should not be read as "all six claims are LIVE" under
+the 2026-05-23/2026-05-24 `MISSION.md` criteria.
 
 ## The gap
 
@@ -96,7 +107,7 @@ A teammate's operator needs to SEE what's happening. v1 has:
 - `argo audit query/replay` for after-the-fact investigation
 - `GET /audit/stream` snapshot
 
-What's missing:
+What's missing in the original V11 framing:
 - Web UI dashboard (everyone has a browser; not everyone has
   a terminal)
 - Real-time activity feed (what is each worker doing RIGHT
@@ -104,6 +115,11 @@ What's missing:
 - Worker portrait pages (personality, history, current
   state)
 - Mobile companion app (push-driven approvals are partial)
+
+Current product-surface work is no longer planned from this list.
+Use `PRODUCT_ROADMAP.md` and current `BUILD_STATUS.md` stream rows
+for approvals, hire/onboarding, team, worker profile, cohorts, and
+audit surface work.
 
 ### Gap 4: Multi-worker orchestration
 
@@ -181,7 +197,7 @@ Goal: teams of workers, not solo workers.
   restarts)
 - claude-org-awareness (org chart + addressable names)
 
-### Phase v1.4 — Operator UX
+### Phase v1.4 — Operator UX (historical framing)
 
 Goal: a non-terminal operator can use this.
 
@@ -191,6 +207,10 @@ Goal: a non-terminal operator can use this.
 - codex-worker-portrait-page (web URL per worker)
 - codex-activity-feed-stream (real-time worker activity)
 - claude-voice-cli (voice-driven commands; precursor)
+
+For product-surface implementation after 2026-05-11, prefer
+`PRODUCT_ROADMAP.md` and active `web-*` / `mission-*` stream rows.
+Those sources supersede this phase list for UI/UX sequencing.
 
 ### Phase v2.0 — Self-improvement
 
@@ -247,23 +267,22 @@ Goal: prove the platform works for >1 use case.
 
 ## What to put in the queue NOW
 
-This document is the strategic plan; the immediate-action
-items are 12 briefs added to BUILD_STATUS.md as TODO rows
-this tick. They span v1.1 reliability + v1.2 capability +
-v2.2 demo verticals — the highest-impact-now slice of the
-plan above.
+This document is a strategic archive. Do not add TODO rows from it
+directly. The immediate action queue is `BUILD_STATUS.md`; product
+surface work should additionally consult `PRODUCT_ROADMAP.md` and
+the current stream brief before implementation.
 
 The conductor's standing replenishment loop continues to
 fire whenever the claude queue dips ≤25 (per operator
 amendment 2026-05-10; target depth 30-40 — verify the live
-threshold in `BUILD_STATUS.md` header), drawing from this
-plan + MISSION_BACKLOG.md + recent PR-body deferrals + git-log
-direction.
+threshold in `BUILD_STATUS.md` header), drawing from current mission
+gaps, product-roadmap gaps, PR-body deferrals, git-log direction,
+and any still-relevant V11 gap taxonomy.
 
 ## Stop condition
 
 The OPERATIVE v1.0 ship gate is per BUILD_STATUS.md header:
-**`docs/skycot/demos/v1-mission-mvp.mp4` exists AND
+**the mission demo recording / MP4 exists AND
 `./scripts/smoke-skycot.sh` passes including BrowserExecutor +
 Slack-approval scenarios**. The historical tick-57
 "claude-e2e-integration-test green" milestone is shipped and
