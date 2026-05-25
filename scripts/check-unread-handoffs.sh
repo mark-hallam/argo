@@ -12,7 +12,9 @@
 # explicit.
 #
 # Exit codes:
-#   0  no unread handoffs from non-conductor agents
+#   0  no unread handoffs from non-conductor agents, or unread handoffs
+#      are already-landed / operator-only / informational and can be
+#      acknowledged by the Step 4.6 heartbeat refresh
 #   1  >=1 unread handoff from a non-conductor agent (BLOCK the tick
 #      from declaring complete until each is actioned)
 #   2  internal / parse error (proceed cautiously)
@@ -26,8 +28,23 @@
 set -euo pipefail
 
 REPO="${ARGO_REPO_ROOT:-$(pwd)}"
-SHARED="$REPO/docs/skycot/agents/SHARED.md"
-HEARTBEAT="$REPO/docs/skycot/agents/heartbeats/conductor.json"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SHARED="${ARGO_SHARED_PATH:-$REPO/docs/skycot/agents/SHARED.md}"
+HEARTBEAT="${ARGO_CONDUCTOR_HEARTBEAT:-$REPO/docs/skycot/agents/heartbeats/conductor.json}"
+CUTOFF_CHECK="${ARGO_CUTOFF_STALENESS_SCRIPT:-$SCRIPT_DIR/check-conductor-cutoff-staleness.sh}"
+CLASSIFIER="${ARGO_CLASSIFY_HANDOFFS_SCRIPT:-$SCRIPT_DIR/classify-unread-handoffs.sh}"
+
+if [ "${1:-}" != "--since" ] && [ -x "$CUTOFF_CHECK" ]; then
+  set +e
+  CUTOFF_STALENESS="$("$CUTOFF_CHECK" --heartbeat "$HEARTBEAT" 2>&1)"
+  CUTOFF_STALENESS_RC=$?
+  set -e
+  if [ "$CUTOFF_STALENESS_RC" -eq 1 ]; then
+    printf '%s\n' "$CUTOFF_STALENESS"
+  elif [ "$CUTOFF_STALENESS_RC" -eq 2 ]; then
+    printf '⚠️ conductor cutoff staleness check failed: %s\n' "$CUTOFF_STALENESS" >&2
+  fi
+fi
 
 # Resolve the cutoff timestamp.
 if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then
@@ -103,6 +120,31 @@ if [ "$UNREAD_COUNT" -gt 0 ]; then
   printf '\033[1;31m🔴 UNREAD HANDOFFS (%d) in SHARED.md, newer than conductor cutoff %s:\033[0m\n\n' \
     "$UNREAD_COUNT" "$CUTOFF_UTC"
   printf '%s\n' "$UNREAD_BUFFER"
+
+  if [ -n "$CUTOFF_UTC" ] && [ -x "$CLASSIFIER" ]; then
+    set +e
+    CLASSIFY_OUTPUT="$(ARGO_REPO_ROOT="$REPO" "$CLASSIFIER" --since "$CUTOFF_UTC" 2>&1)"
+    CLASSIFY_RC=$?
+    set -e
+
+    # Keep the ack path narrow: long evaluator reports can mention an
+    # operator-only item while also recommending new queue work.
+    if [ "$CLASSIFY_RC" -eq 0 ] \
+      && printf '%s\n' "$CLASSIFY_OUTPUT" | grep -Eq '^(already-landed|operator-only|informational)[[:space:]]' \
+      && ! printf '%s\n' "$CLASSIFY_OUTPUT" | grep -Eq '^queue-needed[[:space:]]' \
+      && ! printf '%s\n' "$UNREAD_BUFFER" | grep -Eiq 'recommend|new .*finding|unauthored|author .*brief|queue-needed'; then
+      printf '%s\n\n' "$CLASSIFY_OUTPUT"
+      cat <<'EOF'
+ACK PATH:
+  All unread handoffs are already-landed, operator-only, or informational.
+  Surface/summarize them in this tick, then continue to Step 4.6; the
+  heartbeat refresh is the read-only acknowledgement that marks them read.
+
+EOF
+      exit 0
+    fi
+  fi
+
   cat <<'EOF'
 ACTION REQUIRED before this tick can declare complete:
   1. For each entry above, decide: author a brief / flip ledger row / surface to operator.
