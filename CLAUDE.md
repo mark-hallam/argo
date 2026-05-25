@@ -92,10 +92,14 @@ Plan documents, in order of operative precedence:
 The vertical-template system is documented in its own design doc
 once Phase 1 lands.
 
-**🛑 IF YOU'RE A FRESH AGENT JOINING POST-2026-05-23**: read this FIRST →
-[`docs/skycot/operator/quota-conservation-handoff-2026-05-23.md`](docs/skycot/operator/quota-conservation-handoff-2026-05-23.md).
-The swarm was deliberately halted at 98% Claude quota; do NOT spawn workers
-or run ticks autonomously until you've read it and reported state to operator.
+**🛑 IF YOU'RE A FRESH AGENT JOINING POST-2026-05-25**: the swarm is currently
+**PAUSED** (`/tmp/argo-stop` in place; supervisor PID 3791 + 4 worker
+loops + claude/cargo subprocesses all killed in the 2026-05-25 interactive
+recovery session). Do NOT relight workers without operator approval. The
+older [`quota-conservation-handoff-2026-05-23.md`](docs/skycot/operator/quota-conservation-handoff-2026-05-23.md)
+doc is now ~2 days stale — its specific PR lists were corrected the same
+day, and substantial merge activity (66 PRs + 1 closed-as-dup in the
+2026-05-25 session) has moved main far ahead of the state it describes.
 
 **Fresh agents (any time): start at [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)** — a single-page primer pointing you at the
 5 files to read (in order) to pick up the swarm. The
@@ -109,19 +113,24 @@ authoritative; the live ledger is.
 the following entry-point docs are KNOWN STALE; check the date in the
 section before relying on what they say:
 
-- **CLAUDE.md "Status" block below** was CORRECTED 2026-05-24 after codex caught the original handoff listing MERGED PRs as "P0 TODO". The 8 LIVE-test wave PRs (#2088, #2092, #2109, #2110, #2112, #2113, #2133, #2137) are all MERGED — verify with `gh pr view <num>` before reporting otherwise.
-- `docs/build-plan/RESUME.md` "Last sweep" claims 2026-05-20; truthful as of 2026-05-23 but flagged for next sweep.
-- `docs/build-plan/BUILD_PLAN_V11.md` (2026-05-12) — operative for backend track only; product-surface moved to `docs/build-plan/PRODUCT_ROADMAP.md`.
+- **CLAUDE.md "Status" block below** refreshed 2026-05-25 after the interactive merge-train session shipped 66 PRs + closed 1 as duplicate. Prior corrections (2026-05-24) about the 8 LIVE-test wave PRs being MERGED (#2088, #2092, #2109, #2110, #2112, #2113, #2133, #2137) remain accurate.
+- `docs/skycot/operator/quota-conservation-handoff-2026-05-23.md` — ~2 days old; superseded by 2026-05-25 session activity. Treat as historical context only.
+- `docs/build-plan/RESUME.md` "Last sweep" claims 2026-05-20; flagged for refresh.
+- `docs/build-plan/BUILD_PLAN_V11.md` — refreshed 2026-05-24 via PR #2213, now points at current mission gate; operative for backend track only; product-surface in `docs/build-plan/PRODUCT_ROADMAP.md`.
+- `docs/build-plan/PRODUCT_ROADMAP.md` — refreshed 2026-05-24 via PR #2216.
+- `docs/build-plan/CONTRIBUTING_AGENT.md` — refreshed 2026-05-24 via PR #2215.
+- `docs/skycot/demos/v1-mission-mvp-runbook.md` — consolidated 2026-05-24 via PR #2205 (canonical 6-scene runbook).
 - `docs/plan/argo-build-plan.md` (v0.2) — **HISTORICAL.** Not the operative plan. Reference only.
 - `docs/build-plan/MISSION_BACKLOG.md` (2026-05-19) — items marked `[NEW]` may have shipped; cross-check against `git log`.
-- The 1,015 brief files in `docs/build-plan/streams/` — many shipped or stale; **always check the ledger row in BUILD_STATUS.md** for the brief's current status before claiming.
+- The ~1,015 brief files in `docs/build-plan/streams/` — many shipped or stale; **always check the ledger row in BUILD_STATUS.md** for the brief's current status before claiming.
 
 **Source of truth, in order**:
-1. The handoff doc (post-2026-05-23)
+1. `git log -20 origin/main` (what actually shipped — the merge-train of 2026-05-25 moved main substantially; trust git over any narrative doc)
 2. `docs/build-plan/BUILD_STATUS.md` header + ledger rows
 3. `docs/skycot/MISSION.md` (operator-locked LIVE criteria, latest 2026-05-24)
 4. `docs/skycot/agents/heartbeats/conductor.json` (latest tick state)
-5. `git log -20 origin/main` (what actually shipped)
+5. `docs/skycot/agents/SHARED.md` (recent evaluator/conductor/supervisor handoffs)
+6. The 2026-05-23 quota-conservation handoff doc (historical context only)
 
 PR title format: `<phase> — <section> — <one-line summary>`
 
@@ -131,7 +140,7 @@ These are not architectural preferences; they are operator decisions that scope 
 
 - **macOS is the v1 demo path for computer-use.** `argo-executor-computer-use-macos` is the only OS-native executor v1 hardens. E2B, Linux, and Windows executors are DEFERRED-v1.x — they stay shipped, just not v1-polished. See `streams/claude-defer-non-macos-computer-use.md`. Demo recording `docs/skycot/demos/v1-mission-mvp.mp4` is macOS.
 - **Enterprise focus, not consumer.** SKYCOT serves enterprise customers. MCP connector priority and authoring decisions reflect this. The 4 consumer/redundant connector stubs (signal, telegram, mailgun, resend) are being deleted; the 3 enterprise stubs (apollo, zoominfo, zoom) stay as DEFERRED-v1.x placeholders. When in doubt about a connector, ask "is this enterprise?"
-- **Type canonicalization is in progress.** Phase A audit found 11+ duplicate `pub struct/enum` definitions across crates (worst: `AuditRow` in 4 crates, real data-integrity risk). 4 canonicalization briefs + 1 CI-lint brief are authored; do not introduce new parallel `pub` types until the canonical home is established. Re-export from `argo-types` is the preferred pattern when in doubt.
+- **Type canonicalization mostly done, surfaces now contract-locked.** Phase A audit found 11+ duplicate `pub struct/enum` definitions across crates (worst: `AuditRow` in 4 crates, real data-integrity risk). All 4 canonicalization briefs + 1 CI-lint brief have shipped. As of 2026-05-25, the 16-PR eval surface-pin wave (`tests/surface_contract.rs` per crate) has locked public surfaces for argo-runtime / argo-acp / argo-forge / argo-core / argo-config / argo-security / argo-siem / argo-telemetry / argo-eval / argo-marketplace / test-cassette / e2b substrate / credentials / process-registry / team-headline. Continue: do not introduce new parallel `pub` types until the canonical home is established. Re-export from `argo-types` is the preferred pattern when in doubt.
 - **Skill-library worker load: SHIPPED** (#1682 + cross-tenant negative test #1702). `LayeredLookup::with_library` is wired at `crates/argo-agent-runner/src/turn_helpers.rs:65`. MISSION.md success scenario #2 is now runtime-live.
 - **Migration slot collisions: GUARDED** (post #1735). `scripts/check-migration-slots.sh` runs in CI; `crates/argo-store/src/migrations/registry.rs:21` calls `duplicate_slot_validator::validate_no_duplicate_slots()` at boot. Last admin-wave-6 added migrations 109-114 cleanly.
 
@@ -142,23 +151,51 @@ The full audit reports live in `docs/skycot/audit/`:
 - `2026-05-17-readonly-codebase-audit.md` — codex audit (13 findings)
 - `2026-05-17-claude-conductor-audit.md` — claude audit (13 findings + closure verification)
 
-**Status 2026-05-24 (post-quota-halt, CORRECTED after codex caught stale handoff):** **Swarm halted at 98% quota — see handoff doc above.** Mission state per MISSION.md operator-locked LIVE criteria + evaluator rounds 1-34, post the 2026-05-23 LIVE-test chain-merge wave:
+**Status 2026-05-25 (post interactive merge-train session):** Mission state per MISSION.md operator-locked LIVE criteria + evaluator rounds 1-54, post the 2026-05-25 merge-train (66 PRs shipped, 1 closed-as-duplicate):
 
-- Claim 1 (Teammate, not tool) — 🟢 **LIVE** (regression test passes cold per round-19)
-- Claim 2 (Delegation is the unit) — 🟢 **LIKELY-LIVE** (#2088 + #2137 merged 2026-05-23; needs cold rerun of `claim_2_live_duty_runs` to confirm no flakes)
-- Claim 3 (Platform builds workers) — 🟢 **LIKELY-LIVE** (#2089 + #2106 + #2109 merged; needs cold rerun of `claim_3_live_genesis_to_run`)
-- Claim 4 (Skills shared + learned) — 🟢 **LIKELY-LIVE** (#2092 + #2110 merged; criteria operator-locked round 19; needs cold rerun of `claim_4_live_install_invoke`)
-- Claim 5 (Any-PC execution) — 🟡 **LIKELY-LIVE-pending-perms** (#2112 merged; needs operator macOS perms on argo binary + cold rerun of `claim_5_live_mcp_and_cu`)
-- Claim 6 (Multi-channel + multi-tenant) — 🟢 **LIKELY-LIVE** (#2113 merged; criteria operator-locked round 19; needs cold rerun of `claim_6_live_cross_tenant`)
+- Claim 1 (Teammate, not tool) — 🟢 **LIVE** (regression test passes cold per round-19; SQL tenant gate for team-headline now wired via #2261)
+- Claim 2 (Delegation is the unit) — 🟢 **LIVE** (delegate-task fallback-chain inheritance now wired in live runner dispatch via #2256; evaluator round-54 PRE-MERGE PASS confirmed cold cargo; runtime is now carrying the active handoff chain through `ToolContext.current_handoff_id`)
+- Claim 3 (Platform builds workers) — 🟢 **LIVE** (evaluator round-54 addendum: cold cargo 2/2 PASS, 169min wall under load 183; verdict 🟡→🟢; LIKELY-LIVE→LIVE flip recommended; #2089 + #2106 + #2109 wire complete)
+- Claim 4 (Skills shared + learned) — 🟢 **LIKELY-LIVE** (#2092 + #2110 merged; criteria operator-locked round 19; cold rerun of `claim_4_live_install_invoke` still recommended to confirm)
+- Claim 5 (Any-PC execution) — 🟡 **LIKELY-LIVE-pending-perms** (#2112 merged + evaluator round 51 confirmed claim-5 substrate 47/47 cold cargo PASS; #2231 added cu(macos) screenshot compression config; #2264 added routing decision tenant-scope; #2218 added document executor bundle tenant-segment; still needs operator macOS perms on argo binary + cold rerun of `claim_5_live_mcp_and_cu`)
+- Claim 6 (Multi-channel + multi-tenant) — 🟢 **LIKELY-LIVE** (#2113 merged; cross-tenant negative pins shipped via #2257; inbound SMS approval route via #2224; Discord interaction signature verify via #2222; voice DTMF audit via #2208)
 - v1.0 demo MP4 — ❌ NOT RECORDED (operator-only artifact)
 
-**2026-05-23 LIVE-test chain-merge wave** shipped 8 PRs 08:34-12:42 UTC: #2088 + #2092 (substrate); #2109 + #2110 + #2112 + #2113 + #2137 (the 5 claim-N-LIVE regression tests); #2133 (conductor block-history guard). Original handoff doc listed these as "P0 TODO" — corrected 2026-05-24 after codex cross-checked `gh pr view` against the doc.
+**🚀 2026-05-25 INTERACTIVE MERGE-TRAIN — 66 PRs MERGED + 1 CLOSED-AS-DUP** in one operator-driven recovery session:
 
-**Earlier 2026-05-23 tick-91 chain-merge wave** shipped 8 unrelated PRs in one tick — #2089 WorkerSessionRunner (claim-3 broken-wire closed), #2090 per-tenant master key, #2098 workflow-runs pagination, #2100 orchestrator duty-store tenant-args, #2101 skill-ab-test tenant-id (schema bumped to v79), #2102 rebase-cluster, #2103 mcp-connector token-cache, #2105 memory per-worker-scope, #2106 workflow-execute route.
+- **Conductor LOC unblock** (1): #2265 (conductor-authored mechanical extraction of `routes_approvals_json_helpers.rs` sibling — the brief had been zombie-claimed 3× over 6h without shipping; conductor took over inline and shipped, unblocking the entire merge queue)
+- **Evaluator pre-verified cluster** (5): #2244 #2248 #2256 (claim-2 LIVE wire) #2257 (claim-6 regression-pin) #2259 (M22 Status Reporter pack — Patrick joins Peta)
+- **Track P (v1.0 demo headline)** (2): #2214 (P-01 truth-boundary capability schema) + #2209 (P-03 voice-io crate) — operator-locked priority-1; unblocks P-02/P-04/P-05/P-06/P-07/P-08
+- **Tenant-binding security wave** (6): #2218 #2245 #2246 #2260 #2261 #2264 — post-#2167 sweep complete; SCIM mutations, elevated-view grant revoke, skill query, document executor bundles, team-headline, routing decisions all tenant-bound
+- **Docs batch** (4): #2205 #2213 #2215 #2216 — v1 demo runbook + BUILD_PLAN_V11 + CONTRIBUTING_AGENT + PRODUCT_ROADMAP all refreshed against current mission gate
+- **Web demo-blockers** (3 first-pass + 1 rebased): #2241 #2242 #2243 #2247 — SPA workers/audit/workflows/env-var fixes ship; **⚠️ post-merge curl-check needed on #2242 (NEXT_PUBLIC_ env var rename) per `feedback_styled_jsx_requires_use_client.md` — landing/marketing pages must not 500**
+- **Ops lint wave** (11): #2201 #2202 #2203 #2219 #2223 #2239 #2249 #2250 #2251 #2252 #2254 — conductor singleton preflight guard, heartbeat UTC stamp lint, unread-handoffs action lint, ledger-unrowed-stream lint, build-status stale-claim lint, open-PR overlap triage, vertical-regression gate, brief-file existence check + more
+- **Eval surface-pin wave** (16): #2211 #2221 #2226 #2227 #2228 #2229 #2230 #2232 #2233 #2234 #2235 #2236 #2237 #2238 #2240 #2263 — all critical-crate public surfaces locked via tests/surface_contract.rs (argo-runtime, argo-acp, argo-forge, argo-core, argo-config, argo-security, argo-siem, argo-telemetry, argo-eval, argo-marketplace, test-cassette, e2b-substrate, credentials migrate-on-read, process-registry escape-hatch removal, team-headline)
+- **Misc CLEAN** (15): #2204 #2206 #2207 #2208 #2210 #2212 #2220 #2222 #2224 #2225 #2231 #2255 #2258 #2262 #2266 — packs marketplace listing, Skills mobile dark-mode, SPA error pages, PDF .staging cleanup, Discord sig verify, SMS inbound route, storybook coverage, cu(macos) compression, model=latest runtime, ESLint plugin, preventive split, tenant vertical discovery + more
+- **Rebase wave** (3): #2253 (CONTRIBUTING_AGENT.md conflict resolved) + #2247 (workflows.test.ts conflict resolved — kept #2242 mock-bypass test + replaced legacy multi-endpoint test with #2247 never-hits-verticals test) + #2217 (document-csv executor: combined #2218 ensure_document_bundle_dir API with #2217 tenant_id threading)
+- **Closed as duplicate** (1): #2200 closed-of-#2224 (both wired inbound SMS approval; same file `routes_channels_sms.rs`)
 
-**Earlier history (2026-05-18 state, KEPT for context):** Magic-link signup+verify LIVE on main via #1823. CI gates GREEN locally (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool at full Pro 20x. SQLCipher 4-PR sequence MERGED.
+**Operator authorizations granted this session** (saved to global memory):
+- `--skip-clippy` on `conductor-pre-merge-gate.sh` authorized for: (a) evaluator-pre-verified PRs (cold cargo PASS within ~6h on PR head SHA), (b) conductor-authored mechanical-extraction PRs where conductor has personally `cargo check -p <crate>` exit-0 on the PR head, (c) Track P PRs (operator-locked v1.0 demo scope), (d) tenant-binding security wave + doc-only PRs (operator categorized-cluster directive "go merge cluster those")
+- Diagnostic discovery: the prior 5 consecutive scheduled-tick merge-deferrals (T18-06 / T19-08 / T20-08 / T21-11 / T22-10) were rooted in macOS jetsam killing cargo under memory pressure (workers' shared `/tmp/argo-shared-target` grew to 328 GB; tmpfs-like file-cache pressure pegged free RAM at ~30 MB). Fix: kill workers + remove 9.8 GB zombie + 328 GB shared cache; use real-disk target dirs (NOT `/tmp`) for any future cargo runs while workers are running.
 
-**Remaining for v1.0 launch** (CORRECTED 2026-05-24): (a) agent: cold-rerun the 5 claim-N-LIVE regression tests on current main to confirm no flakes, (b) agent: restart gateway (LaunchAgent loaded but no process; KeepAlive=false), (c) operator: grant macOS permissions on `argo` binary (Accessibility + Screen Recording) for claim-5, (d) operator: record demo MP4 per `docs/skycot/demos/v1-mission-mvp-runbook.md`, (e) agent: triage PR #2131 (4× demoted for doc-tree clobbers; reclaim or close). Items (a)/(b)/(e) are agent-doable; (c)/(d) are operator-only. **NOT pending: Claim 4/5/6 LIVE criteria signoff (already locked round 19), #2088/#2092 rebase (both MERGED), fix-cu-macos brief (MERGED-as-collateral via #2112).**
+**Open PR count after session: 0.** No DIRTY, no stuck, no stale. First time in this swarm cycle.
+
+**Earlier history (preserved for context):**
+- **2026-05-23 LIVE-test chain-merge wave** shipped 8 PRs 08:34-12:42 UTC: #2088 + #2092 (substrate); #2109 + #2110 + #2112 + #2113 + #2137 (the 5 claim-N-LIVE regression tests); #2133 (conductor block-history guard).
+- **2026-05-23 tick-91 chain-merge wave** shipped 8 unrelated PRs in one tick — #2089 WorkerSessionRunner (claim-3 broken-wire closed), #2090 per-tenant master key, #2098 workflow-runs pagination, #2100 orchestrator duty-store tenant-args, #2101 skill-ab-test tenant-id (schema bumped to v79), #2102 rebase-cluster, #2103 mcp-connector token-cache, #2105 memory per-worker-scope, #2106 workflow-execute route.
+- **2026-05-18 state:** Magic-link signup+verify LIVE on main via #1823. CI gates GREEN locally (parallel-pub-types-enforce + loc-budget + prepared-statements + unsafe-safety + audit-sink-tenant-guard). All 11 disabled GHA workflows intentionally kept disabled per `.github/workflows/DISABLED_WORKFLOWS_POLICY.md` (v1 strategy: admin-merge bypass while GHA billing is operator-blocked). Codex pool at full Pro 20x. SQLCipher 4-PR sequence MERGED.
+- PR #2131 (mission-orchestrator-cross-tenant-handoff-audit-kind) MERGED 2026-05-24T07:11Z.
+
+**Remaining for v1.0 launch (2026-05-25 updated):**
+- (a) **agent**: cold-rerun the remaining claim-N-LIVE regression tests on current main — claims 2/3/5 now have evaluator-round-51/53/54 PASSes; claim-4 still needs `claim_4_live_install_invoke` cold rerun; claim-6 still needs `claim_6_live_cross_tenant` cold rerun
+- (b) **agent**: restart gateway (`launchctl list com.skycot.gateway` shows last exit 0; no process running; nothing listening on port 8088)
+- (c) **operator-only**: grant macOS permissions on `argo` binary (Accessibility + Screen Recording) for claim-5
+- (d) **operator-only**: record demo MP4 per `docs/skycot/demos/v1-mission-mvp-runbook.md`
+- (e) **agent**: Track P briefs P-02 / P-04 / P-05 / P-06 / P-07 / P-08 still need worker implementation (operator-locked Track P scope per memory `track_p_v1_mvp_scope`). P-01 (#2214) + P-03 (#2209) shipped today and unblock the cascade. ~6-8 weeks total on full swarm per memory `pitch_agent_v1_demo`.
+- (f) **agent (post-relight)**: curl-check landing/marketing pages after #2242 `NEXT_PUBLIC_` env-var rename — must not 500 (per memory `styled_jsx_requires_use_client`)
+
+**Items (a)/(b)/(e)/(f) are agent-doable but the swarm is currently PAUSED.** Items (c)/(d) are operator-only. To relight the swarm: remove `/tmp/argo-stop`, restart `scripts/worker-supervisor.sh 4`. NOTE: do not relight cargo workers using `/tmp` target dirs — they will jetsam under load again; switch to `~/code/argo-cargo-targets/<brief-id>` or similar real-disk path.
 
 ## Project rename — Argo → Skycot
 
@@ -168,9 +205,17 @@ Continue using `argo` everywhere for now (binary, crates, env vars,
 
 ## Multi-agent swarm protocol
 
-**The swarm is currently active.** Any session opened in this repo
-is presumed to be a worker or conductor unless explicitly invoked
-otherwise. Follow [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)
+**🛑 The swarm is currently PAUSED as of 2026-05-25** (`/tmp/argo-stop`
+in place; supervisor + 4 worker bash loops + claude/cargo subprocesses
+all killed during the 2026-05-25 interactive recovery session). Do NOT
+relight workers without operator approval. New sessions opened in this
+repo while the swarm is paused are operator-driven interactive sessions,
+NOT autonomous swarm workers — read what the operator typed, do not
+auto-claim briefs.
+
+When the swarm WAS active (and once it's relit), any session opened
+in this repo is presumed to be a worker or conductor unless explicitly
+invoked otherwise. Follow [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)
 to pick up.
 
 [`docs/build-plan/SWARM_PROTOCOL.md`](docs/build-plan/SWARM_PROTOCOL.md)
