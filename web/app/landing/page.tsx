@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Check, Shield, MessageSquareText, Sparkles, GitBranch, Users2 } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { SEED_CUSTOMERS } from "@/lib/content/customers";
 import "./page.css";
 
 /**
@@ -60,39 +61,32 @@ const FEATURES = [
   },
 ];
 
-const LOGOS = [
-  "Northwind Commerce",
-  "Acmeco Retail",
-  "Skyline Engineering",
-  "Apex Recruiting",
-  "Beacon Health Ops",
-  "Maple Finance",
-  "Polaris Marketing",
-  "Zenith Support",
-  "Harbour Legal",
-  "Meridian Logistics",
-  "Atlas Manufacturing",
-  "Lumen Education",
-];
+const CUSTOMER_STORIES = SEED_CUSTOMERS.slice(0, 5);
+
+const LOGOS = CUSTOMER_STORIES.map((customer) => ({
+  href: `/customers/${customer.slug}`,
+  initials: customer.logoInitials,
+  name: customer.name,
+}));
 
 const TESTIMONIALS = [
   {
-    quote: "Mariah replied to 12,400 buyers our human team didn't have to. She knows when to escalate.",
-    name: "Daniela Reyes",
-    role: "Head of CX",
-    company: "Northwind Commerce",
+    quote: CUSTOMER_STORIES[0].cardQuote,
+    name: "Priya Subramaniam",
+    role: "VP Support",
+    company: CUSTOMER_STORIES[0].name,
   },
   {
-    quote: "Approval-first was the deal-breaker. Every action audit-logged, every decision traced. Our compliance team finally relaxed.",
-    name: "Marcus Lin",
+    quote: CUSTOMER_STORIES[1].cardQuote,
+    name: "Dr Mei Lin",
     role: "Chief Compliance Officer",
-    company: "Beacon Health Ops",
+    company: CUSTOMER_STORIES[1].name,
   },
   {
-    quote: "Patrick chases status across 14 client engagements at once. He remembers what every project needs.",
-    name: "Aisha Patel",
-    role: "Operations Director",
-    company: "Polaris Marketing",
+    quote: CUSTOMER_STORIES[3].cardQuote,
+    name: "Liam Cheng",
+    role: "Founder",
+    company: CUSTOMER_STORIES[3].name,
   },
 ];
 
@@ -107,7 +101,7 @@ const HOW = [
     n: "02",
     title: "Meet your new teammate",
     blurb:
-      "SKYCOT spins up a named worker (Priya, Jamal, Mariah, etc.) with the right skills, joins your Slack, and introduces themselves.",
+      "SKYCOT spins up a named worker (Mariah, Peta, Priya, Jamal, or Nori) with the right skills, joins your Slack, and introduces themselves.",
   },
   {
     n: "03",
@@ -174,22 +168,76 @@ export default function MarketingLandingPage() {
               </span>
               <span className="land-trust-item">
                 <span className="land-trust-dot" />
-                2,847 teams this month
+                EARLY ACCESS · APPLY
               </span>
             </div>
           </div>
 
-          <div className="land-hero-art">
-            <div className="land-art-bubble land-art-bubble-1">
+          <div className="land-hero-art" style={{ width: "min(100%, 520px)" }}>
+            <div
+              className="land-art-bubble land-art-bubble-1"
+              style={{
+                top: "2%",
+                left: "58%",
+                minWidth: 160,
+                maxWidth: 180,
+                padding: "10px 12px",
+                zIndex: 2,
+              }}
+            >
               <strong style={{ color: "#8b5cf6" }}>Mariah</strong>: 3 listings live, 2 buyers waiting on you.
             </div>
-            <div className="land-art-bubble land-art-bubble-2">
-              <strong style={{ color: "#ec4899" }}>Priya</strong>: 8 candidates screened today.
+            <div
+              className="land-art-bubble land-art-bubble-2"
+              style={{
+                top: "20%",
+                left: "58%",
+                minWidth: 160,
+                maxWidth: 180,
+                padding: "10px 12px",
+                zIndex: 2,
+              }}
+            >
+              <strong style={{ color: "#ec4899" }}>Peta</strong>: standup digest drafted, 3 action items chased.
             </div>
-            <div className="land-art-bubble land-art-bubble-3">
-              <strong style={{ color: "#8b5cf6" }}>Jamal</strong>: 12 tickets resolved, median reply 4m.
+            <div
+              className="land-art-bubble land-art-bubble-3"
+              style={{
+                top: "38%",
+                left: "58%",
+                minWidth: 160,
+                maxWidth: 180,
+                padding: "10px 12px",
+                zIndex: 2,
+              }}
+            >
+              <strong style={{ color: "#8b5cf6" }}>Priya</strong>: 8 candidates screened today.
             </div>
-            <div className="land-art-bubble land-art-bubble-4">
+            <div
+              className="land-art-bubble land-art-bubble-4"
+              style={{
+                top: "56%",
+                left: "58%",
+                minWidth: 160,
+                maxWidth: 180,
+                padding: "10px 12px",
+                zIndex: 2,
+              }}
+            >
+              <strong style={{ color: "#14b8a6" }}>Jamal</strong>: 12 tickets resolved, median reply 4m.
+            </div>
+            <div
+              className="land-art-bubble"
+              style={{
+                top: "74%",
+                left: "58%",
+                fontSize: 12.5,
+                minWidth: 160,
+                maxWidth: 180,
+                padding: "10px 12px",
+                zIndex: 2,
+              }}
+            >
               <strong style={{ color: "#14b8a6" }}>Nori</strong>: Q2 update draft ready for review.
             </div>
             <div className="land-art-center">SKYCOT</div>
@@ -237,11 +285,17 @@ export default function MarketingLandingPage() {
             Already shipping with <strong>SKYCOT</strong>.
           </h2>
           <div className="land-social-strip">
-            {[...LOGOS, ...LOGOS].map((logo, i) => (
-              <div key={`${logo}-${i}`} className="land-social-card">
-                <span className="land-social-logo">{logo.split(" ").map((w) => w[0]).join("").slice(0, 2)}</span>
-                <span>{logo}</span>
-              </div>
+            {LOGOS.map((logo) => (
+              <Link
+                key={logo.name}
+                href={logo.href}
+                className="land-social-card"
+                aria-label={`Read ${logo.name} customer story`}
+                style={{ textDecoration: "none" }}
+              >
+                <span className="land-social-logo">{logo.initials}</span>
+                <span>{logo.name}</span>
+              </Link>
             ))}
           </div>
           <div className="land-quote-grid">
