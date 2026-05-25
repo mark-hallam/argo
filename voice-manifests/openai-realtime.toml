@@ -1,0 +1,15 @@
+id = "openai-realtime"
+provider = "openai-realtime"
+
+[stt]
+language = "en-AU"
+interim_results = true
+
+[tts]
+voice_id = "alloy"
+speed = 1.0
+
+[turn_taking]
+endpoint_silence_ms = 600
+allow_user_interrupt = true
+allow_agent_barge = false

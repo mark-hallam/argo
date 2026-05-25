@@ -1769,6 +1769,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-voice-io"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "futures",
+ "serde",
+ "tokio",
+ "toml 0.8.23",
+]
+
+[[package]]
 name = "argo-voice-tui"
 version = "0.0.1"
 dependencies = [

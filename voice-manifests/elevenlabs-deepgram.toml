@@ -1,0 +1,15 @@
+id = "elevenlabs-deepgram"
+provider = "elevenlabs-deepgram"
+
+[stt]
+language = "en-AU"
+interim_results = true
+
+[tts]
+voice_id = "elevenlabs-placeholder"
+speed = 1.0
+
+[turn_taking]
+endpoint_silence_ms = 650
+allow_user_interrupt = true
+allow_agent_barge = false

@@ -1,0 +1,15 @@
+id = "cartesia"
+provider = "cartesia"
+
+[stt]
+language = "en-AU"
+interim_results = true
+
+[tts]
+voice_id = "sonic-placeholder"
+speed = 1.0
+
+[turn_taking]
+endpoint_silence_ms = 550
+allow_user_interrupt = true
+allow_agent_barge = false

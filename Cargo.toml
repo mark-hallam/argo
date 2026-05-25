@@ -24,6 +24,7 @@ members = [
   "crates/argo-cli",
   "crates/argo-tui",
   "crates/argo-voice-tui",
+  "crates/argo-voice-io",
   "crates/argo-audit",
   "crates/argo-security",
   "crates/argo-telemetry",
