@@ -42,6 +42,57 @@ interface GatewayError {
   error?: string | { code?: string; message?: string };
 }
 
+interface GatewayTeamList {
+  workers?: unknown[];
+  total_count?: number;
+}
+
+interface GatewayVerticalsList {
+  verticals?: unknown[];
+}
+
+/**
+ * Probe the gateway to decide whether the just-minted tenant has
+ * already completed onboarding. The tenant is "onboarded" when it
+ * has at least one worker AND at least one installed vertical
+ * (matches the runbook's Scene 1 entry path: `/workers` populated
+ * with the 5-persona deck after `demo-seed` has been run).
+ *
+ * Defaults to `needs_onboarding: true` on any gateway error so the
+ * wizard remains the safe fallback for unseeded / unreachable
+ * tenants — never silently skip onboarding.
+ */
+async function deriveNeedsOnboarding(sessionToken: string): Promise<boolean> {
+  const base = gatewayBase();
+  const headers = {
+    Accept: "application/json",
+    Authorization: `Bearer ${sessionToken}`,
+  };
+  try {
+    const [teamRes, verticalsRes] = await Promise.all([
+      fetch(`${base}/api/v1/team`, { headers, cache: "no-store" }),
+      fetch(`${base}/api/v1/verticals`, { headers, cache: "no-store" }),
+    ]);
+    if (!teamRes.ok || !verticalsRes.ok) return true;
+    const team = (await teamRes.json().catch(() => null)) as GatewayTeamList | null;
+    const verticals = (await verticalsRes
+      .json()
+      .catch(() => null)) as GatewayVerticalsList | null;
+    const workerCount =
+      typeof team?.total_count === "number"
+        ? team.total_count
+        : Array.isArray(team?.workers)
+          ? team.workers.length
+          : 0;
+    const verticalCount = Array.isArray(verticals?.verticals)
+      ? verticals.verticals.length
+      : 0;
+    return !(workerCount > 0 && verticalCount > 0);
+  } catch {
+    return true;
+  }
+}
+
 function isProd(): boolean {
   return process.env.NODE_ENV === "production";
 }
@@ -151,11 +202,19 @@ export async function POST(req: NextRequest) {
   // the gate's exact rules.
   const csrfValue = minted.session_token.slice(0, 32);
 
+  // Derive from real tenant state: workers + vertical installed = no
+  // wizard needed. The demo-seed CLI provisions both, so a seeded
+  // recording tenant lands on `/workers` (Scene 1 entry path) instead
+  // of being bounced into the 4-step onboarding flow. Never-seeded
+  // tenants — and any gateway failure — fall back to `true` so the
+  // wizard remains the safe default.
+  const needsOnboarding = await deriveNeedsOnboarding(minted.session_token);
+
   const res = NextResponse.json({
     ok: true,
     principal: minted.principal,
     session_token: minted.session_token,
-    needs_onboarding: true,
+    needs_onboarding: needsOnboarding,
   });
   res.headers.append(
     "set-cookie",
