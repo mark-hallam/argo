@@ -1,9 +1,18 @@
-# v1.0 mission demo — recording checklist
+# v1.0 mission demo — recording checklist (historical, archived)
+
+> **Historical archived 2026-05-24.** The canonical recording runbook
+> — including pre-flight, scene-by-scene narration, and post-recording
+> steps — is now [`v1-mission-mvp-runbook.md`](v1-mission-mvp-runbook.md).
+> The pre-recording, during-recording, and post-recording checklists
+> below were merged into the canonical runbook's checklist sections;
+> this file is kept only for reference to the older 5–7 minute
+> single-take format. Use the canonical runbook for the actual
+> recording session.
 
 Operator playbook for recording `docs/skycot/demos/v1-mission-mvp.mp4`.
 
-The companion script is [`docs/skycot/demo_script.md`](../demo_script.md).
-The dry-run gate is [`scripts/demo-dry-run.sh`](../../../scripts/demo-dry-run.sh).
+The companion script (also historical) is [`../demo_script.md`](../demo_script.md).
+The dry-run gate is [`../../../scripts/demo-dry-run.sh`](../../../scripts/demo-dry-run.sh) — for the canonical recording, use `bash scripts/demo-dry-run.sh --demo-mode`.
 
 ## Pre-recording (T-1 day)
 

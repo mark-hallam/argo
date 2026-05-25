@@ -1,6 +1,15 @@
-# SKYCOT v1.0 demo runbook — Mark Hallam
+# SKYCOT v1.0 demo runbook — historical 8-minute voiceover (archived)
 
-8-minute target. Voiceover + screen capture. Save as
+> **Historical archived 2026-05-24.** The canonical v1.0 demo runbook
+> is [`../demos/v1-mission-mvp-runbook.md`](../demos/v1-mission-mvp-runbook.md)
+> — six scenes, one per MISSION.md claim, 8-minute target. This file
+> is kept only as source material for talk-track lines that were
+> folded into the canonical runbook's `Talk track` callouts. Routes
+> referenced here (`/team`, `/landing` worker bubbles, the old
+> Mariah personality copy) are not authoritative anywhere; use the
+> canonical runbook for the live recording.
+
+8-minute target. Voiceover + screen capture. Saved as
 `docs/skycot/demos/v1-mission-mvp.mp4` (last v1.0 ship-gate blocker per
 CLAUDE.md).
 
@@ -110,7 +119,10 @@ echo "gateway=$GATEWAY_VER codebase=$CODE_VER"
 > **07:30 — Navigate to /audit**
 > [Etherscan-style log]
 > "And finally — forensic. Every action is here. Worker, skill, status, cost. Even
-> mistakes are traceable. SOC 2, ISO 27001, GDPR, HIPAA, AFSL on day one."
+> mistakes are traceable. SOC 2-ready audit trail by construction; external SOC 2
+> Type II attestation is in progress." (Trust register: match `/security`; do not
+> over-claim certification status. See canonical runbook §"Trust register" for the
+> allowed phrasings.)
 
 > **08:00 — Final hold on /audit**
 > "Don't buy another tool. Hire a teammate. SKYCOT. Sign up at skycot.com, hire your

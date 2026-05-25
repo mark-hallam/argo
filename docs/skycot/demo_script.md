@@ -1,13 +1,20 @@
-# SKYCOT v1.0 mission demo — script
+# SKYCOT v1.0 mission demo — script (historical, archived)
+
+> **Historical archived 2026-05-24.** The canonical v1.0 demo runbook
+> is now [`demos/v1-mission-mvp-runbook.md`](demos/v1-mission-mvp-runbook.md)
+> — six scenes, one per MISSION.md claim, 8-minute target. The
+> single-vertical happy path captured below predates the six-claim
+> structure and the demo-mode auth bypass (#2164). If anything below
+> contradicts the canonical runbook, the canonical runbook wins.
 
 A 5–7 minute single-take walkthrough of the v1.0 product surface,
 from a fresh browser through hiring the first worker, getting an
 approval round-trip on Slack, and inspecting the audit chain.
 
-This is the recording script for `docs/skycot/demos/v1-mission-mvp.mp4`.
-The recording exercises the shipped product — there is no demo-mode
-code path. See `recording-checklist.md` for the operator playbook
-and `scripts/demo-dry-run.sh` for the pre-recording validator.
+Originally written as the recording script for
+`docs/skycot/demos/v1-mission-mvp.mp4`. See `recording-checklist.md`
+(also historical) for the operator playbook and
+`scripts/demo-dry-run.sh` for the pre-recording validator.
 
 ## Required surfaces (must be green before recording)
 
@@ -64,8 +71,9 @@ email is single-use and short-lived; that's the auth model."
    > briefs and asks for approval before publishing.
 
    Click "Hire Maya". Wizard finalizes; lands on
-   `/workers/maya` (dynamic route, `workerId` resolved from the
-   draft).
+   `/workers/${workerId}` (dynamic route; `workerId` is resolved
+   from the draft — Maya is the display name, not a hard-coded
+   URL slug).
 
 **Talk track:** "The vertical is a template — manifest, skills,
 prompt pack, escalation policy. The free-text description becomes
@@ -73,7 +81,7 @@ the worker's charter; the manifest defines the rails."
 
 ### Scene 3 — Brief + auto-approval ASK (3:30 – 5:00)
 
-**Visual:** `/workers/maya` overview tab → activity tab.
+**Visual:** `/workers/${workerId}` overview tab → activity tab.
 
 **Actions:**
 1. Operator types into the chat composer:
@@ -130,11 +138,20 @@ gate — is on this page. End."
   `recording-checklist.md`). Mid-scene loads must stay under 2 s.
 - **Real Slack, real email.** Throwaway addresses only. No live
   customer data.
-- **No demo-mode code paths.** If the approval gate ever skips on a
-  flag, the demo would be lying. Don't introduce one.
-- **Browser-computer-use is NOT in this demo.** Maya drafts via
+- **Demo-mode is now an audited operator-only auth bypass.** Demo
+  mode (`ARGO_DEMO_MODE=1` + `ARGO_GATEWAY_AUTH_BYPASS=1`) mounts a
+  single dev-only route — `POST /api/v1/demo/mint-principal` — that
+  skips the SMTP magic-link round-trip so the recording can finish
+  in one take. It does NOT skip approval gates, capability checks,
+  or any other production rail. Every mint writes an `auth.succeeded`
+  audit row tagged `payload.demo_mode_bypass: true`. The gateway
+  refuses to bind in production if `ARGO_DEMO_MODE=1` is set
+  without `ARGO_GATEWAY_AUTH_BYPASS=1`. Full safety rails in
+  `docs/skycot/runbook/v1-demo-recording.md` §3.5.
+- **Browser-computer-use is NOT in this script.** Maya drafts via
   prompts + Notion sink, not via BrowserExecutor. The CU demo is a
-  separate per-vertical script.
+  separate per-vertical script. The macOS-native CU half is now
+  covered by Scene 5 in the canonical six-claim runbook.
 
 ## Dry-run gate
 

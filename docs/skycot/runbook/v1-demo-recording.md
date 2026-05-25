@@ -1,12 +1,24 @@
-# SKYCOT v1 demo — operator recording runbook
+# SKYCOT v1 demo — operator machine setup runbook
 
-Trust register reviewed: 2026-05-24 (operator-locked-soften per wave-3 audit + PR #2125)
+> **Canonical scene-by-scene narration lives in
+> [`../demos/v1-mission-mvp-runbook.md`](../demos/v1-mission-mvp-runbook.md).**
+> This doc has been narrowed to the machine setup half — Slack app,
+> tunnel, env vars, SQLCipher key, demo-mode env vars. The six-scene
+> talk track and timings are owned by the canonical runbook and are
+> not duplicated here.
+
+Trust register reviewed: 2026-05-24 (operator-locked-soften per wave-3 audit + PR #2125 + this consolidation pass).
 
 Goal: take a clean machine to a recording-ready setup in ~30 minutes,
-then record the 5–7 minute v1 mission demo. **One happy path** —
-troubleshooting, FAQ, and alternative paths are out of scope. Narrate
-against [`../demo_script.md`](../demo_script.md); this doc covers
-everything the script assumes is wired up.
+then narrate the canonical eight-minute v1 mission demo from
+[`../demos/v1-mission-mvp-runbook.md`](../demos/v1-mission-mvp-runbook.md).
+**One happy path** — troubleshooting, FAQ, and alternative paths are
+out of scope.
+
+The §1 marketplace-seller-browser flow below pre-dates the six-claim
+mission structure. Use it as a worked example for env-var wiring and
+Slack-approval round-trip ergonomics; the actual on-camera narration
+follows the canonical runbook's six scenes.
 
 ---
 

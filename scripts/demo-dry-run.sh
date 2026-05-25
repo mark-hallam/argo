@@ -13,6 +13,19 @@
 # Usage:  ./scripts/demo-dry-run.sh
 #         ./scripts/demo-dry-run.sh --keep-server
 #         ./scripts/demo-dry-run.sh --gateway http://127.0.0.1:8787
+#         ./scripts/demo-dry-run.sh --demo-mode
+#
+# --demo-mode is the branch for actual v1.0 recording sessions. It:
+#   * Validates SKYCOT_DB_KEY_BASE64 is exported BEFORE any gateway
+#     boot or boot-equivalent step. If missing, exits non-zero with
+#     an `openssl rand -base64 32` remediation in stderr.
+#   * Asserts POST /api/v1/demo/mint-principal on the configured
+#     gateway returns { ok: true, principal: "...", session_token: "..." }.
+#   * Does NOT touch macOS Keychain, recover an existing DB key, or
+#     prompt for a local password. Recording uses a fresh throwaway
+#     SKYCOT_DB_KEY_BASE64 for a fresh demo store.
+#
+# Non-demo-mode behaviour (the default) is unchanged.
 #
 # What it verifies (one row per acceptance bullet in the brief):
 #   1. marketing CTA reachable, has "Hire your first worker" text
@@ -41,14 +54,41 @@ SPA="http://localhost:3000"
 SLACK_STUB_PORT=4455
 
 KEEP_SERVER=0
+DEMO_MODE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --keep-server) KEEP_SERVER=1; shift ;;
     --gateway) GATEWAY="$2"; shift 2 ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    --demo-mode) DEMO_MODE=1; shift ;;
+    -h|--help) sed -n '2,42p' "$0"; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+
+# --- 0. Demo-mode pre-flight (runs BEFORE any gateway-boot or stub launch).
+# The brief contract: with --demo-mode, SKYCOT_DB_KEY_BASE64 must be
+# exported before anything that could touch a gateway, including the
+# Slack stub or the SPA dev server (which inherit the env). Failure
+# here is non-zero exit with a clear remediation in stderr.
+if [[ ${DEMO_MODE} -eq 1 ]]; then
+  if [[ -z "${SKYCOT_DB_KEY_BASE64:-}" ]]; then
+    {
+      echo "FAIL: --demo-mode requires SKYCOT_DB_KEY_BASE64 to be set"
+      echo "      BEFORE any gateway boot or boot-equivalent step."
+      echo ""
+      echo "      The recording-session path uses a fresh throwaway"
+      echo "      32-byte secret for a fresh demo store — it does NOT"
+      echo "      read the macOS Keychain, recover an existing DB"
+      echo "      key, or prompt for a local password."
+      echo ""
+      echo "      Generate one and re-run:"
+      echo ""
+      echo "      export SKYCOT_DB_KEY_BASE64=\"\$(openssl rand -base64 32)\""
+    } >&2
+    exit 2
+  fi
+  echo ">> demo-mode: SKYCOT_DB_KEY_BASE64 present (${#SKYCOT_DB_KEY_BASE64} chars)"
+fi
 
 command -v pnpm >/dev/null 2>&1 || { echo "FAIL: pnpm not on PATH" >&2; exit 2; }
 command -v jq   >/dev/null 2>&1 || { echo "FAIL: jq not on PATH (brew install jq)" >&2; exit 2; }
@@ -108,6 +148,34 @@ if [[ ${KEEP_SERVER} -eq 0 && -d "${MARKETING_DIR}" ]]; then
   done
 fi
 
+# --- 2c. Demo-mode mint-principal probe. Run AFTER the gateway is
+# reachable (we treat ${GATEWAY} as the live endpoint here) but
+# BEFORE the playwright walker. Validates that the operator-only
+# audit-bypass route is mounted and returns the documented envelope.
+if [[ ${DEMO_MODE} -eq 1 ]]; then
+  echo ">> demo-mode: probing POST ${GATEWAY}/api/v1/demo/mint-principal"
+  MINT_BODY='{"email":"demo+dryrun@throwaway.cc"}'
+  MINT_RESP="$(curl -sS -X POST \
+    -H 'content-type: application/json' \
+    -d "${MINT_BODY}" \
+    "${GATEWAY}/api/v1/demo/mint-principal" 2>&1)" || {
+      echo "FAIL: --demo-mode: curl to ${GATEWAY}/api/v1/demo/mint-principal failed: ${MINT_RESP}" >&2
+      exit 1
+    }
+  echo "${MINT_RESP}" | jq -e '.ok == true and (.principal | type == "string") and (.session_token | type == "string")' >/dev/null 2>&1 || {
+    {
+      echo "FAIL: --demo-mode: /api/v1/demo/mint-principal response did not match {ok:true, principal:string, session_token:string}."
+      echo "      Response was:"
+      echo "      ${MINT_RESP}"
+      echo ""
+      echo "      Check that the gateway booted with both"
+      echo "      ARGO_DEMO_MODE=1 AND ARGO_GATEWAY_AUTH_BYPASS=1."
+    } >&2
+    exit 1
+  }
+  echo ">> demo-mode: mint-principal probe GREEN"
+fi
+
 # --- 3. Playwright scene walker.
 SPEC="${WEB_DIR}/dry-run.mjs"
 cp "${FIXTURES}/dry-run.mjs" "${SPEC}"
@@ -117,6 +185,7 @@ SCENES_JSON="${RESULTS}.scenes"
 STUB_LOG="${OUT_DIR}/.slack-stub.log"
 export SPA GATEWAY FIXTURES MARKETING
 export OUT_DIR RESULTS_FILE="${SCENES_JSON}" SLACK_STUB_LOG="${STUB_LOG}"
+export DEMO_MODE
 ( cd "${WEB_DIR}" && RESULTS="${RESULTS_FILE}" \
     node --experimental-vm-modules "${SPEC}" )
 walker_rc=$?

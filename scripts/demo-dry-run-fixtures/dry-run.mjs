@@ -10,6 +10,13 @@ const { SPA, GATEWAY, OUT_DIR, RESULTS, SLACK_STUB_LOG, FIXTURES } = process.env
 // hits it directly because the SPA's root redirects unauthed users to
 // /auth/signin via middleware — the marketing CTA lives only in marketing/.
 const MARKETING = process.env.MARKETING || SPA;
+// DEMO_MODE === "1" means the shell wrapper was invoked with --demo-mode.
+// We then add the "0-demo-mint-principal" scene that asserts the
+// operator-only audit-bypass route is mounted and returns the documented
+// envelope. The shell wrapper already runs a parallel curl/jq probe in
+// step 2c; this scene is the Playwright-side pin so dry-run-results JSON
+// has a row for it.
+const DEMO_MODE = process.env.DEMO_MODE === "1";
 const T = 8000;
 const rows = [];
 
@@ -23,6 +30,21 @@ async function run(id, fn) {
 const browser = await chromium.launch();
 const page = await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
 try {
+  if (DEMO_MODE) {
+    await run("0-demo-mint-principal", async () => {
+      const r = await http(`${GATEWAY}/api/v1/demo/mint-principal`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "demo+dryrun@throwaway.cc" }),
+      });
+      if (!r.ok) throw new Error(`mint-principal status ${r.status} ${r._e ?? ""}`);
+      let body;
+      try { body = await r.json(); } catch (e) { throw new Error(`mint-principal returned non-JSON: ${e.message}`); }
+      if (body?.ok !== true) throw new Error(`mint-principal ok != true (got ${JSON.stringify(body?.ok)})`);
+      if (typeof body?.principal !== "string" || body.principal.length === 0) throw new Error(`mint-principal missing string principal (got ${typeof body?.principal})`);
+      if (typeof body?.session_token !== "string" || body.session_token.length === 0) throw new Error(`mint-principal missing string session_token (got ${typeof body?.session_token})`);
+    });
+  }
   await run("1-marketing-cta", async () => {
     await page.goto(MARKETING, { timeout: T });
     if (!(await page.getByText(/hire your first worker/i).first().isVisible())) throw new Error("CTA missing on landing");
