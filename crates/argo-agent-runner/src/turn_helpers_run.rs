@@ -18,6 +18,7 @@ use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
 use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
 use argo_identity::{MemoryNs, MemoryScope};
+use argo_orchestrator::{EscalationStep, HandoffId, HandoffStatus};
 use argo_provider::{ProviderRequest, ToolSchema, Transport};
 use argo_store::SessionStore;
 use argo_tool::ToolRegistry;
@@ -41,6 +42,7 @@ pub(super) struct TurnDispatchCtx {
     pub(super) system_prompt: Option<String>,
     pub(super) context_policy: ContextWindowPolicy,
     pub(super) orch_session_id: argo_orchestrator::SessionId,
+    pub(super) current_handoff_id: Option<HandoffId>,
 }
 
 type ProcessRegistryKey = (TenantId, SessionId);
@@ -113,11 +115,18 @@ pub(super) async fn build_turn_dispatch_ctx(
         worker_id.map(|wid| MemoryNs::new(session.tenant_id, wid, MemoryScope::WorkerSelf));
     let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
     let orch_session_id = argo_orchestrator::SessionId::from_string(session_id.to_string());
+    let current_handoff_id = current_inbound_handoff_id(
+        &orchestrator_ctx,
+        session.tenant_id,
+        &orch_session_id,
+        worker_id,
+    )
+    .await?;
     let (registry, engine, principal) = build_dispatch_ctx(
         cwd,
         memory_ctx,
         memory_namespace,
-        orchestrator_ctx,
+        Arc::clone(&orchestrator_ctx),
         Arc::clone(store),
     )?;
     let background_processes = process_registry_for(session.tenant_id, session_id);
@@ -149,7 +158,31 @@ pub(super) async fn build_turn_dispatch_ctx(
         system_prompt,
         context_policy,
         orch_session_id,
+        current_handoff_id,
     })
+}
+
+async fn current_inbound_handoff_id(
+    orchestrator: &argo_orchestrator::OrchestratorStore,
+    tenant_id: TenantId,
+    session_id: &argo_orchestrator::SessionId,
+    worker_id: Option<argo_store::WorkerId>,
+) -> ArgoResult<Option<HandoffId>> {
+    let Some(worker_id) = worker_id else {
+        return Ok(None);
+    };
+    let handoffs = orchestrator
+        .list_handoffs_for_session(tenant_id, session_id)
+        .await?;
+    Ok(handoffs.into_iter().rev().find_map(|handoff| {
+        let active = matches!(
+            handoff.status,
+            HandoffStatus::Pending | HandoffStatus::Acknowledged
+        );
+        let assigned_to_worker =
+            matches!(&handoff.to, EscalationStep::Worker(id) if id == &worker_id);
+        (active && assigned_to_worker).then_some(handoff.id)
+    }))
 }
 
 /// Outcome of a single provider call — either the assistant gave a
@@ -330,6 +363,7 @@ async fn resolve_tool_call(
         &ctx.orch_session_id,
         call,
         Some(ctx.background_processes.clone()),
+        ctx.current_handoff_id.clone(),
     )
     .await;
     if approved_via_grant {

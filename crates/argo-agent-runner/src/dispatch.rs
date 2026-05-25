@@ -4,7 +4,7 @@ use argo_capability::CapabilityEngine;
 use argo_identity::MemoryNs;
 use argo_mcp::{McpClient, McpClientPool, McpContent, PoolConfig};
 use argo_memory::MemoryStore;
-use argo_orchestrator::{OrchestratorStore, SessionId as OrchSessionId};
+use argo_orchestrator::{HandoffId, OrchestratorStore, SessionId as OrchSessionId};
 use argo_provider::ToolSchema as ProviderToolSchema;
 use argo_store::SessionStore;
 use argo_tool::{
@@ -177,7 +177,7 @@ pub(crate) async fn dispatch_one_with_tenant(
     call: &ToolCallRequest,
 ) -> ToolCallResult {
     dispatch_one_with_runtime(
-        registry, engine, principal, tenant_id, cwd, session_id, call, None,
+        registry, engine, principal, tenant_id, cwd, session_id, call, None, None,
     )
     .await
 }
@@ -194,12 +194,14 @@ pub(crate) async fn dispatch_one_with_runtime(
     session_id: &OrchSessionId,
     call: &ToolCallRequest,
     background_processes: Option<Arc<ProcessRegistry>>,
+    current_handoff_id: Option<HandoffId>,
 ) -> ToolCallResult {
     let started = std::time::Instant::now();
     let mut ctx = ToolContext::new_with_tenant(principal.clone(), cwd.to_path_buf(), tenant_id);
     ctx.call_id = call.id;
     ctx.session_id = session_id.clone();
     ctx.background_processes = background_processes;
+    ctx.current_handoff_id = current_handoff_id;
     if registry.get(&call.name).is_none() {
         if let Some(r) =
             dispatch_mcp(registry, engine, principal, ctx.tenant_id, call, started).await
@@ -207,10 +209,6 @@ pub(crate) async fn dispatch_one_with_runtime(
             return r;
         }
     }
-    // `current_handoff_id` stays `None` here; the upstream agent loop
-    // does not yet track which inbound handoff (if any) is being
-    // serviced this turn. `mission-delegate-task-fallback-chain-v2`
-    // is the brief that plumbs it.
     match registry
         .dispatch(&call.name, call.arguments.clone(), &ctx, engine)
         .await
