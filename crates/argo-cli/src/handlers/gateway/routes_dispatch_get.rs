@@ -27,6 +27,20 @@ pub(super) async fn dispatch_get(
     {
         return Some(resp);
     }
+    // fix-gateway-workflows-and-skills-marketplace-endpoints-404 —
+    // top-level aggregations the SPA's `/skills` + `/workflows` pages
+    // call before falling back to local seed fixtures. Mounted ahead
+    // of the per-vertical workflow dispatcher because they share the
+    // `/api/v1/workflows` prefix, but the per-vertical matcher only
+    // hits `/api/v1/verticals/...`, so order is defensive.
+    if let Some(resp) = super::routes_skills_list_get::dispatch_get(req, store).await {
+        return Some(resp);
+    }
+    if let Some(resp) =
+        super::routes_workflows_list_top_get::dispatch_get(req, store).await
+    {
+        return Some(resp);
+    }
     // mission-pm-workflow-edit-api — workflow-definition CRUD reads
     // under `/api/v1/verticals/{vertical_id}/workflows/...`. The
     // dispatcher recognises all four GET shapes (list / head / versions

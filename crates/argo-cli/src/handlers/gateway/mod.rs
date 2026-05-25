@@ -1,6 +1,5 @@
 //! `argo gateway` — start / stop / status. PID file at
 //! `<ARGO_HOME>/gateway.pid` mediates the start↔stop handshake.
-//!
 //! Sub-modules:
 //!   - `lifecycle`:            PidGuard + signal helpers (SIGTERM/SIGINT).
 //!   - `boot`:                 start/stop command bodies + supporting helpers.
@@ -180,6 +179,7 @@ mod routes_skill_ir;
 mod routes_skill_ir_helpers;
 mod routes_skill_refine;
 mod routes_skills;
+mod routes_skills_list_get;
 mod routes_skills_quality;
 mod routes_skills_show;
 mod routes_support_tickets;
@@ -216,6 +216,7 @@ mod routes_workflows;
 mod routes_workflows_audit;
 mod routes_workflows_handlers;
 mod routes_workflows_handlers_helpers;
+mod routes_workflows_list_top_get;
 mod routes_workflows_test_runs;
 mod routes_workspace;
 mod routes_workspace_members;
@@ -243,7 +244,6 @@ mod tier_capability_filter;
 mod ws_inbox_events;
 mod ws_skill_trace;
 mod ws_upgrade;
-
 use crate::cli::cli_gateway_cmds::GatewayBootstrapCmd;
 use crate::cli::GatewayCmd;
 use argo_config::ArgoConfig;
