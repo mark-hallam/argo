@@ -82,11 +82,26 @@ commit that adds the brief file.
    has passed.
 
 1. cd <REPO_PATH> && git checkout main && git pull --ff-only origin main 2>&1 | tail -3
-   Then run `bash scripts/check-conductor-singleton.sh; SINGLETON_RC=$?` before the
-   first conductor mutation (queue replenishment, BUILD_STATUS flip, merge, or heartbeat
-   write). Exit 0 (`missing`/`stale`) means proceed. Exit 1 with `alive` or `newer`
-   means another conductor is live/newer: stop and surface to the operator. Exit 1 with
-   `invalid` means fix or escalate the heartbeat parse state before mutating.
+   Then run TWO preflight checks before the first conductor mutation (queue
+   replenishment, BUILD_STATUS flip, merge, or heartbeat write):
+
+   (a) `bash scripts/check-conductor-singleton.sh; SINGLETON_RC=$?` — checks
+       the heartbeat file. Exit 0 (`missing`/`stale`) means proceed. Exit 1
+       with `alive` or `newer` means another conductor is live/newer: stop
+       and surface to the operator. Exit 1 with `invalid` means fix or
+       escalate the heartbeat parse state before mutating.
+
+   (b) `bash scripts/check-recent-conductor-commit.sh; RECENT_RC=$?` —
+       checks `git log` on `origin/main` for a peer conductor commit in
+       the last 10 minutes. Exit 0 means no recent peer commit; proceed.
+       Exit 1 means another conductor JUST landed work; **short-circuit
+       this tick** to avoid colliding mid-edit (the worker-supervisor
+       watchdog stashes mid-edit trees every ~2 min, which can orphan
+       untracked brief files from their ledger rows when two conductor
+       sessions overlap). Heartbeat refresh + read-only status report
+       are still OK on short-circuit; merge/replenishment/brief-author
+       mutations are not. Lesson added 2026-05-25 after a cross-conductor
+       near-miss in the T07-40/T09-15 session.
 
 2. git log --oneline origin/main -8  (see what landed since last tick)
 
