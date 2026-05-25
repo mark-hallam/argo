@@ -98,45 +98,7 @@ pub(super) fn check_memory_schema(root: &Path, findings: &mut Vec<LintFinding>) 
             return;
         }
     };
-    if let Some(cols) = value.get("collections").and_then(|c| c.as_array()) {
-        for col in cols {
-            let col_name = col
-                .get("name")
-                .and_then(|n| n.as_str())
-                .unwrap_or("<unnamed>");
-            let Some(fields) = col.get("fields").and_then(|f| f.as_object()) else {
-                continue;
-            };
-            for (field, ty) in fields {
-                let bad = !ty.is_string() || ty.as_str().map(str::is_empty).unwrap_or(true);
-                if bad {
-                    push(
-                        findings,
-                        CheckId::MemorySchema,
-                        PackLintSeverity::Error,
-                        &format!(
-                            "{}: collection \"{col_name}\" field \"{field}\" missing type",
-                            path.display()
-                        ),
-                    );
-                }
-            }
-        }
-        return;
-    }
-    if let Some(fields) = value.get("fields").and_then(|f| f.as_object()) {
-        for (field, def) in fields {
-            let ty = def.get("type").and_then(|t| t.as_str()).unwrap_or("");
-            if ty.is_empty() {
-                push(
-                    findings,
-                    CheckId::MemorySchema,
-                    PackLintSeverity::Error,
-                    &format!("{}: field \"{field}\" missing type", path.display()),
-                );
-            }
-        }
-    }
+    crate::pack_lint_memory_schema::check_json(&path, &value, findings);
 }
 
 pub(super) fn check_skill_irs(root: &Path, findings: &mut Vec<LintFinding>) -> Vec<String> {
@@ -298,10 +260,7 @@ fn check_one_eval_case(
     skill_names: &[String],
     findings: &mut Vec<LintFinding>,
 ) {
-    let id = case
-        .get("id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("<no-id>");
+    let id = case.get("id").and_then(|v| v.as_str()).unwrap_or("<no-id>");
     let outcome = case
         .get("expected_outcome")
         .and_then(|v| v.as_str())

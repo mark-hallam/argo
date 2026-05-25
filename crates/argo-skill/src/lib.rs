@@ -41,6 +41,7 @@ pub mod library;
 pub mod marketplace;
 pub mod pack_lint;
 mod pack_lint_checks;
+mod pack_lint_memory_schema;
 mod parse;
 pub mod per_worker_learning_cron;
 pub mod per_worker_learning_registry;
