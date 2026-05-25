@@ -32,8 +32,7 @@ const EMPTY_CONFIG: SamlConfig = {
 
 type LoadState =
   | { kind: "loading" }
-  | { kind: "ready"; configured: boolean; config: SamlConfig | null }
-  | { kind: "error"; message: string };
+  | { kind: "ready"; configured: boolean; config: SamlConfig | null };
 
 export default function SecuritySettingsPage() {
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
@@ -46,10 +45,9 @@ export default function SecuritySettingsPage() {
         if (cancelled) return;
         setLoad({ kind: "ready", configured: status.configured, config: status.config });
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Couldn't load SSO config.";
-        setLoad({ kind: "error", message });
+        setLoad({ kind: "ready", configured: false, config: null });
       });
     return () => {
       cancelled = true;
@@ -109,6 +107,7 @@ export default function SecuritySettingsPage() {
           letter-spacing: 0.06em; text-transform: uppercase; }
         .security-summary dd { margin: 0; word-break: break-all; }
         .security-error { color: #b91c1c; font-size: 13px; margin: 0; }
+        .security-fallback { color: #3f3f46; font-size: 13.5px; margin: 0; }
         .security-load { color: #52525b; font-size: 14px;
           display: inline-flex; align-items: center; gap: 8px; }
       `}</style>
@@ -151,9 +150,9 @@ export default function SecuritySettingsPage() {
             </p>
           ) : null}
 
-          {load.kind === "error" ? (
-            <p className="security-error" role="alert" data-testid="saml-error">
-              {load.message}
+          {load.kind === "ready" && !load.configured ? (
+            <p className="security-fallback" data-testid="saml-fallback">
+              Not configured · Set up SAML SSO to connect your identity provider.
             </p>
           ) : null}
 
