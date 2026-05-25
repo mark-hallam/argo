@@ -15,7 +15,10 @@ follows the conductor role from `PROTOCOL_LOOP_PROMPT.md`: review/merge
 PRs, maintain the ledger, unblock/rewrite briefs, and replenish queues.
 A conductor tab must not write feature code; if it previously claimed
 worker work, release or finish that worker state before making
-conductor mutations.
+conductor mutations. Before any conductor mutation, run
+`bash scripts/check-conductor-singleton.sh`; proceed only on
+`missing`/`stale`, stop on `alive`/`newer`, and fix or escalate
+`invalid`.
 
 > **Note (2026-05-13 — historical 2026-05-09 banner superseded):**
 > Codex agent family is ACTIVE again (resumed 2026-05-13, fully back

@@ -78,8 +78,15 @@ commit that adds the brief file.
    If this tab previously acted as a worker and has a CLAIMED row or feature-code WIP,
    cleanly release/finish that worker state before doing conductor mutations. Never mix
    worker implementation with conductor review/replenishment in the same tick.
+   Do not perform any Step 8 ledger/brief mutation until Step 1's singleton preflight
+   has passed.
 
 1. cd <REPO_PATH> && git checkout main && git pull --ff-only origin main 2>&1 | tail -3
+   Then run `bash scripts/check-conductor-singleton.sh; SINGLETON_RC=$?` before the
+   first conductor mutation (queue replenishment, BUILD_STATUS flip, merge, or heartbeat
+   write). Exit 0 (`missing`/`stale`) means proceed. Exit 1 with `alive` or `newer`
+   means another conductor is live/newer: stop and surface to the operator. Exit 1 with
+   `invalid` means fix or escalate the heartbeat parse state before mutating.
 
 2. git log --oneline origin/main -8  (see what landed since last tick)
 
