@@ -21,7 +21,6 @@ use sqlx::{Pool, Row, Sqlite};
 
 use crate::models::uuid_from_blob;
 
-#[cfg(test)]
 const PLACEHOLDER_TENANT_ID: &str = "__migration_placeholder__";
 
 /// One skill row returned by [`search_by_vertical`].
@@ -113,6 +112,9 @@ async fn search_indirect(
     vertical_id: &str,
     limit: i64,
 ) -> ArgoResult<Vec<SkillVerticalRow>> {
+    if tenant_id == PLACEHOLDER_TENANT_ID && !has_session_for_vertical(pool, vertical_id).await? {
+        return Err(no_sessions_for_vertical(vertical_id));
+    }
     let tenant_uuid = uuid::Uuid::parse_str(tenant_id)
         .map_err(|e| ArgoError::Provider(format!("skill_search tenant_id: {e}")))?;
     let rows = sqlx::query(
@@ -133,6 +135,26 @@ async fn search_indirect(
     .await
     .map_err(|e| ArgoError::Provider(format!("skill_search indirect: {e}")))?;
     rows.into_iter().map(indirect_row).collect()
+}
+
+async fn has_session_for_vertical(pool: &Pool<Sqlite>, vertical_id: &str) -> ArgoResult<bool> {
+    let found: Option<i64> = sqlx::query_scalar(
+        "SELECT 1 FROM session \
+         WHERE vertical_id = ? \
+         LIMIT 1",
+    )
+    .bind(vertical_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("skill_search session lookup: {e}")))?;
+    Ok(found.is_some())
+}
+
+fn no_sessions_for_vertical(vertical_id: &str) -> ArgoError {
+    ArgoError::Schema(format!(
+        "no sessions found for vertical '{vertical_id}'. Pass --tenant <tenant_id> explicitly, \
+         or create a session for this vertical first via `argo session create -v {vertical_id}`"
+    ))
 }
 
 fn direct_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<SkillVerticalRow> {

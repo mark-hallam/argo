@@ -2,7 +2,7 @@
 
 use argo_store::skill_query::{distinct_skill_verticals, search_by_vertical};
 use argo_store::SessionStore;
-use argo_types::{SessionId, TenantId, WorkspaceId};
+use argo_types::{ArgoError, SessionId, TenantId, WorkspaceId};
 use uuid::Uuid;
 
 async fn store() -> SessionStore {
@@ -190,4 +190,24 @@ async fn indirect_query_binds_session_tenant() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].skill_name, "attached-to-tenant-a");
     assert_eq!(rows[0].last_activity_micros, 11);
+}
+
+#[tokio::test]
+async fn indirect_query_without_sessions_reports_actionable_error() {
+    let store = store().await;
+    let err = search_by_vertical(
+        store.pool(),
+        "__migration_placeholder__",
+        "missing-vertical",
+        10,
+        true,
+    )
+    .await
+    .unwrap_err();
+
+    let message = err.to_string();
+    assert!(matches!(err, ArgoError::Schema(_)));
+    assert!(message.contains("no sessions found for vertical 'missing-vertical'"));
+    assert!(message.contains("Pass --tenant <tenant_id> explicitly"));
+    assert!(!message.contains("invalid UUID"));
 }

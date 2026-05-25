@@ -108,6 +108,10 @@ async fn resolve_vertical_tenant(
         if let Some(tenant) = infer_session_tenant(pool, vertical_id).await? {
             return Ok(tenant);
         }
+        return Err(ArgoError::Schema(format!(
+            "no sessions found for vertical '{vertical_id}'. Pass --tenant <tenant_id> explicitly, \
+             or create a session for this vertical first via `argo session create -v {vertical_id}`"
+        )));
     }
     Ok(PLACEHOLDER_TENANT_ID.to_string())
 }
