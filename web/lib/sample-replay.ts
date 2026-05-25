@@ -2,8 +2,9 @@
  * Hand-crafted replay outcomes for the 5 canonical persona actions
  * (Priya / Sam / Mariah / Jamal / Nori) plus dedicated entries for
  * the decommissioned-model and side-effect-leak failure modes. Any
- * other action id falls through to `mockOutcomeForActionId` which
- * hashes the id to one of the three verdicts deterministically.
+ * other action id returns `undefined` from `findSampleReplay`, which
+ * the API client maps to a real `{ kind: "failed" }` envelope — the
+ * page must not synthesise forensic content for unknown ids.
  *
  * These mocks are *visual fixtures*. The wire shape is the CONTRACT
  * the eventual server-side replay sandbox must emit; the field
@@ -11,7 +12,6 @@
  * skill-version-bump drift, policy-tightening misalignment).
  */
 import type { ReplayOutcome } from "@/lib/api/replay";
-import { mockVerdict } from "@/lib/api/replay";
 
 /** Anchor id used by tests to exercise the model-decommissioned path. */
 export const REPLAY_DECOMMISSIONED_ACTION_ID = "act_legacy_decommissioned";
@@ -133,69 +133,4 @@ const TABLE: Record<string, ReplayOutcome> = {
 
 export function findSampleReplay(actionId: string): ReplayOutcome | undefined {
   return TABLE[actionId];
-}
-
-/** Fall-back when no hand-crafted sample matches: deterministic
- *  verdict from the action id. Synthesises an output diff + provenance
- *  diff appropriate to the verdict so the page always has something
- *  to render. */
-export function mockOutcomeForActionId(actionId: string): ReplayOutcome {
-  const verdict = mockVerdict(actionId);
-  const baseOriginal = `Reconstructed original output for ${actionId}.`;
-  switch (verdict) {
-    case "reproducible":
-      return {
-        kind: "success",
-        verdict,
-        result: {
-          originalOutput: { kind: "text", body: baseOriginal },
-          replayedOutput: { kind: "text", body: baseOriginal },
-          provenanceDiff: {
-            model: { changed: false },
-            promptTemplate: { changed: false },
-            skill: { changed: false },
-            memorySnapshot: { changed: false },
-            policy: { changed: false },
-          },
-        },
-      };
-    case "drifted-aligned":
-      return {
-        kind: "success",
-        verdict,
-        result: {
-          originalOutput: { kind: "text", body: baseOriginal },
-          replayedOutput: {
-            kind: "text",
-            body: `${baseOriginal}\nSkill update produced a slightly different phrasing.`,
-          },
-          provenanceDiff: {
-            model: { changed: false },
-            promptTemplate: { changed: false },
-            skill: { changed: true, from: "generic-skill v1.0.0", to: "generic-skill v1.0.2" },
-            memorySnapshot: { changed: false },
-            policy: { changed: false },
-          },
-        },
-      };
-    case "drifted-misaligned":
-      return {
-        kind: "success",
-        verdict,
-        result: {
-          originalOutput: { kind: "text", body: baseOriginal },
-          replayedOutput: {
-            kind: "text",
-            body: `${baseOriginal}\nPolicy tightening would block this output today.`,
-          },
-          provenanceDiff: {
-            model: { changed: false },
-            promptTemplate: { changed: false },
-            skill: { changed: false },
-            memorySnapshot: { changed: false },
-            policy: { changed: true, from: "generic-policy v1.0", to: "generic-policy v1.1" },
-          },
-        },
-      };
-  }
 }

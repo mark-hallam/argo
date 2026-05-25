@@ -1,9 +1,16 @@
 /**
  * Replay sandbox API client. POSTs to
  * `/api/v1/audit/<actionId>/replay` and returns a discriminated
- * `ReplayOutcome`. In dev (auth-bypass or gateway 404) returns a
- * deterministic mock outcome derived from the action id so the
- * `/audit/action/<id>/replay` route is usable without a backend.
+ * `ReplayOutcome`.
+ *
+ * Mock outcomes are returned ONLY for action ids in the canonical
+ * sample-replay TABLE, AND ONLY when `isDemoMode()` is true OR the
+ * gateway is auth-bypassed. Any other action id — including unknown
+ * 32-char-hex ids that the gateway 404s on — returns a
+ * `{ kind: "failed" }` envelope so the page renders `<FailedView>`
+ * with a real error instead of a synthesised forensic report. This
+ * closes the Scene-6 demo-gate (an unknown id used to fabricate a
+ * "Policy regression detected" banner derived from the URL).
  *
  * The discriminated union is the CONTRACT shape locked by the E5-d
  * brief — server-side replay execution is owned by the sibling
@@ -14,7 +21,8 @@
  */
 import { apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
-import { findSampleReplay, mockOutcomeForActionId } from "@/lib/sample-replay";
+import { findSampleReplay } from "@/lib/sample-replay";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 export type Verdict = "reproducible" | "drifted-aligned" | "drifted-misaligned";
 
@@ -55,16 +63,28 @@ function isMissingOrUnreachable(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
-function mockOutcome(actionId: string): ReplayOutcome {
-  const explicit = findSampleReplay(actionId);
-  if (explicit) return explicit;
-  return mockOutcomeForActionId(actionId);
+const UNKNOWN_ACTION_FAILED: ReplayOutcome = {
+  kind: "failed",
+  reason:
+    "Action not found — the replay sandbox only covers the seeded demo personas.",
+};
+
+/**
+ * Returns a canonical sample-replay outcome for `actionId` IF demo
+ * mode or auth-bypass is enabled AND the id is in the hand-crafted
+ * TABLE. Otherwise returns a real `failed` envelope so the page
+ * renders `<FailedView>` instead of fabricating content from the URL.
+ */
+function sampleOrFailed(actionId: string): ReplayOutcome {
+  if (!isDemoMode() && !isAuthBypassed()) return UNKNOWN_ACTION_FAILED;
+  return findSampleReplay(actionId) ?? UNKNOWN_ACTION_FAILED;
 }
 
 /**
  * Kick off a replay. Returns the outcome envelope; never throws on a
- * 404 in dev (falls through to the mock). Surfaces network / 5xx
- * errors to the caller, which the mutation hook maps to the
+ * 404 (falls through to a `failed` envelope, or to a canonical sample
+ * when one exists in demo / auth-bypass mode). Surfaces network /
+ * 5xx errors to the caller, which the mutation hook maps to the
  * `{ kind: "failed" }` UI state via its `onError` handler.
  */
 export async function replayAction(actionId: string): Promise<ReplayOutcome> {
@@ -73,7 +93,7 @@ export async function replayAction(actionId: string): Promise<ReplayOutcome> {
   }
 
   if (isAuthBypassed()) {
-    return mockOutcome(actionId);
+    return sampleOrFailed(actionId);
   }
 
   const path = `/api/v1/audit/${encodeURIComponent(actionId)}/replay`;
@@ -81,19 +101,9 @@ export async function replayAction(actionId: string): Promise<ReplayOutcome> {
     return await apiPost<ReplayOutcome>(path);
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
-      return mockOutcome(actionId);
+      return sampleOrFailed(actionId);
     }
     throw err;
   }
 }
 
-/**
- * Deterministic verdict picker — used by the mock fallback and the
- * page tests. Hashes the action id to one of the three verdicts so
- * the same id always returns the same result.
- */
-export function mockVerdict(actionId: string): Verdict {
-  if (actionId.length === 0) return "reproducible";
-  const h = actionId.charCodeAt(actionId.length - 1) % 3;
-  return (["reproducible", "drifted-aligned", "drifted-misaligned"] as const)[h];
-}
