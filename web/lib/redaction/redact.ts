@@ -39,7 +39,7 @@ import {
   shouldRedactCounterparty,
 } from "./audit-rules";
 import type { ViewerPolicy } from "./types";
-import type { AuditRow } from "@/lib/types/audit";
+import { AUDIT_STATUSES, type AuditRow, type AuditStatus } from "@/lib/types/audit";
 import type { AuditDetail } from "@/lib/types/audit-detail";
 
 export type RedactionMode = "mask" | "show";
@@ -184,6 +184,51 @@ function redactAuditValue(value: unknown, policy: ViewerPolicy): unknown {
   return value;
 }
 
+type LegacyAuditRowInput = Partial<AuditRow> & Record<string, unknown>;
+type AuditRowInput = AuditRow | LegacyAuditRowInput;
+
+const FALLBACK_AUDIT_TIMESTAMP = "1970-01-01T00:00:00.000Z";
+
+function stringField(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+function isAuditStatus(value: unknown): value is AuditStatus {
+  return typeof value === "string" && (AUDIT_STATUSES as readonly string[]).includes(value);
+}
+
+function normalizeAuditRow(row: AuditRowInput | null | undefined): AuditRow & Record<string, unknown> {
+  const source = (row ?? {}) as LegacyAuditRowInput;
+  const worker =
+    source.worker !== null && typeof source.worker === "object"
+      ? (source.worker as Partial<AuditRow["worker"]>)
+      : {};
+  const actionType =
+    stringField(source.actionType) ??
+    stringField(source.action_type) ??
+    stringField(source.kind) ??
+    "unknown";
+  const verb =
+    stringField(source.verb) ??
+    stringField(source.action_type) ??
+    stringField(source.kind) ??
+    actionType;
+
+  return {
+    ...source,
+    id: stringField(source.id) ?? "unknown",
+    timestamp: stringField(source.timestamp) ?? FALLBACK_AUDIT_TIMESTAMP,
+    worker: {
+      ...worker,
+      id: stringField(worker.id) ?? "unknown",
+      name: stringField(worker.name) ?? "Unknown worker",
+    },
+    actionType,
+    verb,
+    status: isAuditStatus(source.status) ? source.status : "failed",
+  };
+}
+
 /**
  * RBAC-aware audit-row redaction. Applies PII patterns to `verb`,
  * masks the approver name when the viewer lacks `unredactedApprover`,
@@ -195,15 +240,19 @@ function redactAuditValue(value: unknown, policy: ViewerPolicy): unknown {
  * `ViewerPolicy` already carries the role — see PR "Sensible
  * deviations".
  */
-export function redactAuditRow(row: AuditRow, policy: ViewerPolicy): AuditRow {
-  const verb = redactAuditString(row.verb, policy);
-  const approver = row.approver
-    ? { ...row.approver, name: redactApproverName(row.approver.name, policy.permissions) }
-    : row.approver;
+export function redactAuditRow(
+  row: AuditRowInput | null | undefined,
+  policy: ViewerPolicy,
+): AuditRow {
+  const safeRow = normalizeAuditRow(row);
+  const verb = redactAuditString(safeRow.verb, policy);
+  const approver = safeRow.approver
+    ? { ...safeRow.approver, name: redactApproverName(safeRow.approver.name, policy.permissions) }
+    : safeRow.approver;
   const dataClassification = shouldHideClassification(policy.permissions)
     ? undefined
-    : row.dataClassification;
-  return { ...row, verb, approver, dataClassification };
+    : safeRow.dataClassification;
+  return { ...safeRow, verb, approver, dataClassification };
 }
 
 /**

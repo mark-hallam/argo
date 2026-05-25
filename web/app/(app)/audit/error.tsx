@@ -21,6 +21,7 @@ export default function AuditError({
   return (
     <ErrorShell
       code="500"
+      layout="contained"
       variant="server-error"
       title="The audit feed couldn't load."
       description="We hit a problem fetching the audit ledger. Try again, or jump to your team's home while we recover."

@@ -23,9 +23,12 @@ type FetchTeamResultShape = { workers: Worker[]; source: "gateway" | "mock-offli
 type QueryShape = {
   data: FetchTeamResultShape | undefined;
   isPending: boolean;
+  isError?: boolean;
+  refetch?: () => void;
 };
 
 const useTeamMock = vi.fn<() => QueryShape>();
+const refetchMock = vi.fn();
 
 vi.mock("@/lib/hooks/use-team", () => ({
   useTeam: () => useTeamMock(),
@@ -79,6 +82,8 @@ beforeEach(() => {
   useTeamMock.mockReturnValue({
     data: { workers: SAMPLE_WORKERS, source: "mock-offline" },
     isPending: false,
+    isError: false,
+    refetch: refetchMock,
   });
 });
 
@@ -113,6 +118,23 @@ describe("TeamPage", () => {
     expect(screen.queryByTestId("team-empty-state")).not.toBeInTheDocument();
   });
 
+  it("renders a contained retry state when the team query errors", async () => {
+    const user = userEvent.setup();
+    useTeamMock.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+      refetch: refetchMock,
+    });
+    render(<TeamPage />);
+    const state = screen.getByTestId("team-error-state");
+    expect(
+      within(state).getByText(/we're having trouble loading your team/i),
+    ).toBeInTheDocument();
+    await user.click(within(state).getByRole("button", { name: /try again/i }));
+    expect(refetchMock).toHaveBeenCalled();
+  });
+
   it("renders the first-hire empty state when the roster has zero workers", () => {
     useTeamMock.mockReturnValue({
       data: { workers: [], source: "mock-offline" },
@@ -122,7 +144,7 @@ describe("TeamPage", () => {
     const empty = screen.getByTestId("team-empty-state");
     expect(within(empty).getByText(/hire your first ai teammate\./i)).toBeInTheDocument();
     expect(
-      within(empty).getByText(/pick a starting point — you can adjust everything/i),
+      within(empty).getByText(/pick a starting point — either way/i),
     ).toBeInTheDocument();
     expect(within(empty).getByTestId("team-empty-state-tiles")).toBeInTheDocument();
     expect(within(empty).getByTestId("team-empty-state-describe-own")).toHaveAttribute(
@@ -130,6 +152,16 @@ describe("TeamPage", () => {
       "/hire",
     );
     expect(screen.queryByTestId("team-subtitle")).not.toBeInTheDocument();
+  });
+
+  it("treats a malformed team payload as an empty roster", () => {
+    useTeamMock.mockReturnValue({
+      data: { workers: { rows: [] }, source: "gateway" } as unknown as FetchTeamResultShape,
+      isPending: false,
+    });
+    render(<TeamPage />);
+    expect(screen.getByTestId("team-empty-state")).toBeInTheDocument();
+    expect(screen.queryByTestId("team-error-state")).not.toBeInTheDocument();
   });
 
   it("filters the grid client-side when ?q= matches a worker name", () => {

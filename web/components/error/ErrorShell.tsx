@@ -31,6 +31,8 @@ export interface ErrorShellProps {
   variant: ErrorIllustrationVariant;
   /** Optional action row — links/buttons. */
   actions?: ReactNode;
+  /** Route-boundary errors inside app chrome should not reserve a full viewport. */
+  layout?: "contained" | "full-page";
   /** Apply the locked D3 brand recipe (Audiowide hero, gradient, radial-blob bg). */
   brandLoud?: boolean;
 }
@@ -41,6 +43,7 @@ export function ErrorShell({
   description,
   variant,
   actions,
+  layout = "full-page",
   brandLoud,
 }: ErrorShellProps) {
   if (brandLoud) {
@@ -53,13 +56,18 @@ export function ErrorShell({
       />
     );
   }
+  const layoutClassName =
+    layout === "contained"
+      ? "min-h-[420px] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 focus:outline-none"
+      : "min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-16 focus:outline-none";
   return (
     <main
       id="main"
       tabIndex={-1}
       role="main"
       data-testid="error-shell"
-      className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 py-16 focus:outline-none"
+      data-layout={layout}
+      className={layoutClassName}
     >
       <div className="w-full max-w-[65ch] text-center space-y-6">
         <ErrorIllustration variant={variant} />

@@ -28,6 +28,7 @@ export default function BuilderError({
   return (
     <ErrorShell
       code="500"
+      layout="contained"
       variant="server-error"
       title="The builder couldn't open this workflow."
       description="The visual canvas ran into a problem rendering this workflow. Reloading the canvas usually fixes it; if not, the read-only timeline view always works."
