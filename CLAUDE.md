@@ -195,7 +195,19 @@ The full audit reports live in `docs/skycot/audit/`:
 - (e) **agent**: Track P briefs P-02 / P-04 / P-05 / P-06 / P-07 / P-08 still need worker implementation (operator-locked Track P scope per memory `track_p_v1_mvp_scope`). P-01 (#2214) + P-03 (#2209) shipped today and unblock the cascade. ~6-8 weeks total on full swarm per memory `pitch_agent_v1_demo`.
 - (f) **agent (post-relight)**: curl-check landing/marketing pages after #2242 `NEXT_PUBLIC_` env-var rename — must not 500 (per memory `styled_jsx_requires_use_client`)
 
-**Items (a)/(b)/(e)/(f) are agent-doable but the swarm is currently PAUSED.** Items (c)/(d) are operator-only. To relight the swarm: remove `/tmp/argo-stop`, restart `scripts/worker-supervisor.sh 4`. NOTE: do not relight cargo workers using `/tmp` target dirs — they will jetsam under load again; switch to `~/code/argo-cargo-targets/<brief-id>` or similar real-disk path.
+**Items (a)/(b)/(e)/(f) are agent-doable but the swarm is currently PAUSED.** Items (c)/(d) are operator-only.
+
+**To relight the swarm (post tier-1+2 memory-pressure fixes 2026-05-25):**
+1. `rm /tmp/argo-stop ~/.argo/stop` (clears both transient + persistent halt signals — added in commit `a352b4bfb`)
+2. `launchctl load ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` (will auto-load on next login via `RunAtLoad=true`)
+3. The plist now launches `worker-supervisor.sh 2` (was 4) with `CARGO_BUILD_JOBS=4` env var to cap rustc parallelism
+
+**Memory-pressure safeguards now in place** (kick in automatically post-relight):
+- Supervisor refuses to spawn a new worker iteration when `vm_stat` free+speculative < 1 GB
+- Exponential backoff: 5 min → 15 min → 30 min cap on sustained pressure
+- At the 30-min cap, supervisor appends a `[supervisor-ram-pressure]` line to `docs/skycot/agents/SHARED.md` so the operator sees sustained pressure in the next conductor tick's handoff scan
+- Tunable via `RAM_PRESSURE_THRESHOLD_MB` env var (default 1024)
+- Workers still use `CARGO_TARGET_DIR=/tmp/argo-shared-target` (NOT changed — that's a Tier-2 follow-up; the per-cargo job cap + memory gate should keep the shared dir bounded by reducing peak concurrent compile load)
 
 ## Project rename — Argo → Skycot
 
