@@ -139,6 +139,18 @@ async fn try_dispatch_gates(
         let _ = stream.shutdown().await;
         return Some(200);
     }
+    // mission-genesis-gateway-route-streaming-api — Genesis pipeline
+    // as SSE. Stream-owning so the `Content-Type: text/event-stream`
+    // header can be emitted (the generic `(status, body)` dispatcher
+    // hardcodes `application/json`). Bearer + principal validation
+    // happen inside the handler; mounted ahead of the dispatch
+    // fall-through so the SSE path peels off cleanly.
+    if super::routes_genesis_stream::is_genesis_streaming_request(req) {
+        let _ = super::routes_genesis_stream::serve_genesis_stream(req, ctx.store, stream).await;
+        request_audit::spawn_record(audit.take(), ctx.store, "200 OK", 0);
+        let _ = stream.shutdown().await;
+        return Some(200);
+    }
     if streaming::is_streaming_list_request(req) {
         let _ = streaming::serve_streamed_list(req, ctx.store, stream).await;
         request_audit::spawn_record(audit.take(), ctx.store, "200 OK", 0);
