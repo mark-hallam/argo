@@ -40,7 +40,7 @@
 #
 # What this script DOES NOT do
 # ----------------------------
-# - It does NOT kill any process. Kill authority stays with the conductor.
+# - It does NOT kill claude workers. Kill authority stays with the conductor.
 # - It does NOT mutate BUILD_STATUS.md. Row releases stay with the worker
 #   loop (post-iteration ship-check) or the conductor's sweep tools.
 # - It does NOT touch other workers' worktrees or pulse files.
@@ -58,6 +58,7 @@
 # -----
 #   scripts/check-zombie-workers.sh
 #   scripts/check-zombie-workers.sh --fixture <tsv-file>     # test mode
+#   scripts/check-zombie-workers.sh --self-cleanup-only      # test helper
 #   scripts/check-zombie-workers.sh --help
 #
 # Output format
@@ -75,6 +76,11 @@ set -uo pipefail
 
 LOG_DIR="${HOME}/.argo/worker-logs"
 FIXTURE=""
+SELF_CLEANUP_ONLY=0
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WATCHDOG_SELF_CLEANUP_THRESHOLD_SECONDS="${WATCHDOG_SELF_CLEANUP_THRESHOLD_SECONDS:-60}"
+WATCHDOG_SELF_CLEANUP_SHARED_PATH="${WATCHDOG_SELF_CLEANUP_SHARED_PATH:-$REPO_ROOT/docs/skycot/agents/SHARED.md}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -90,6 +96,10 @@ while [[ $# -gt 0 ]]; do
       FIXTURE="${1#--fixture=}"
       shift
       ;;
+    --self-cleanup-only)
+      SELF_CLEANUP_ONLY=1
+      shift
+      ;;
     *)
       echo "unknown arg: $1" >&2
       exit 2
@@ -102,6 +112,85 @@ mtime_epoch() {
   local f="$1"
   [[ -e "$f" ]] || { echo 0; return; }
   stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0
+}
+
+# Convert ps etime values (`MM:SS`, `HH:MM:SS`, or `D-HH:MM:SS`) to seconds.
+etime_to_seconds() {
+  local etime="$1" days=0 time_part a b c
+  if [[ "$etime" == *-* ]]; then
+    days="${etime%%-*}"
+    time_part="${etime#*-}"
+  else
+    time_part="$etime"
+  fi
+
+  IFS=: read -r a b c <<< "$time_part"
+  if [[ -n "${c:-}" ]]; then
+    echo $((10#$days * 86400 + 10#$a * 3600 + 10#$b * 60 + 10#$c))
+  elif [[ -n "${b:-}" ]]; then
+    echo $((10#$days * 86400 + 10#$a * 60 + 10#$b))
+  else
+    echo 0
+  fi
+}
+
+# Kill stale watchdog-owned `zsh -c` helper shells before the live sweep.
+#
+# Scope is deliberately narrow: only zsh command lines containing all of the
+# watchdog inline-script fingerprints are eligible:
+#   zsh -c ... pgrep ... claude ... --dangerously-skip-permissions
+# This excludes interactive zsh shells and unrelated user scripts. A process
+# is stale if its parent is launchd/init (ppid=1) or it has exceeded the
+# normal short-lived hang-detection budget.
+self_cleanup_watchdog_zsh() {
+  local threshold="$WATCHDOG_SELF_CLEANUP_THRESHOLD_SECONDS"
+  local shared="$WATCHDOG_SELF_CLEANUP_SHARED_PATH"
+  local killed=0
+
+  if ! [[ "$threshold" =~ ^[0-9]+$ ]]; then
+    echo "invalid WATCHDOG_SELF_CLEANUP_THRESHOLD_SECONDS: $threshold" >&2
+    return 2
+  fi
+
+  while read -r pid ppid etime command; do
+    [[ -n "${pid:-}" && -n "${ppid:-}" && -n "${etime:-}" && -n "${command:-}" ]] || continue
+    [[ "$pid" =~ ^[0-9]+$ && "$ppid" =~ ^[0-9]+$ ]] || continue
+    local elapsed
+    elapsed=$(etime_to_seconds "$etime")
+
+    case "$command" in
+      *"zsh -c"*pgrep*claude*"--dangerously-skip-permissions"*) ;;
+      *) continue ;;
+    esac
+
+    if [[ "$ppid" -ne 1 && "$elapsed" -le "$threshold" ]]; then
+      continue
+    fi
+
+    kill -TERM "$pid" 2>/dev/null || continue
+    local signal="TERM"
+    for _ in 1 2 3 4 5; do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -KILL "$pid" 2>/dev/null || true
+      signal="KILL"
+    fi
+
+    killed=$((killed + 1))
+    if [[ -n "$shared" ]]; then
+      mkdir -p "$(dirname "$shared")" 2>/dev/null || true
+      local ts safe_command
+      ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+      safe_command=$(printf '%s' "$command" | tr '\t\r\n' '   ' | cut -c1-240)
+      printf '%s [watchdog-self-cleanup] pid=%s ppid=%s elapsed=%ss signal=%s command=%s\n' \
+        "$ts" "$pid" "$ppid" "$elapsed" "$signal" "$safe_command" >> "$shared" 2>/dev/null || true
+    fi
+  done < <(ps -axo pid=,ppid=,etime=,command= 2>/dev/null || true)
+
+  [[ "$killed" -gt 0 ]] && echo "watchdog-self-cleanup: killed $killed stale zsh helper(s)" >&2
+  return 0
 }
 
 # Classify a worker into 🟢/🟡/🔴 from (state, log_age_min, last_event).
@@ -171,7 +260,14 @@ if [[ -n "$FIXTURE" ]]; then
   [[ "$zombie_count" -gt 0 ]] && exit 1 || exit 0
 fi
 
+if [[ "$SELF_CLEANUP_ONLY" -eq 1 ]]; then
+  self_cleanup_watchdog_zsh
+  exit $?
+fi
+
 # Live mode.
+self_cleanup_watchdog_zsh
+
 PIDS=$(pgrep -f "claude --dangerously-skip-permissions" 2>/dev/null || true)
 if [[ -z "$PIDS" ]]; then
   echo "(no claude workers alive)"
