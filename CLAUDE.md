@@ -150,6 +150,7 @@ section before relying on what they say:
 - `docs/plan/argo-build-plan.md` (v0.2) — **HISTORICAL.** Not the operative plan. Reference only.
 - `docs/build-plan/MISSION_BACKLOG.md` (2026-05-19) — items marked `[NEW]` may have shipped; cross-check against `git log`.
 - The ~1,015 brief files in `docs/build-plan/streams/` — many shipped or stale; **always check the ledger row in BUILD_STATUS.md** for the brief's current status before claiming.
+- `docs/skycot/demos/pre-record-ux-audit-2026-05-25.md` (uncommitted working-tree file) — **DO NOT USE** as a source of demo-blocker briefs. Operator rejected 2026-05-25T07:50Z ("it's shit"); doc was scoped to a public-release demo. For the v1.0 demo MP4 — which is **POC + investor demo, NOT public release** — see [`docs/skycot/demos/v1-demo-positioning-poc-vs-public.md`](docs/skycot/demos/v1-demo-positioning-poc-vs-public.md) for what IS / ISN'T a recording blocker. The rule of thumb: theater the camera doesn't see is not a POC blocker; theater the camera DOES see is.
 
 **Source of truth, in order**:
 1. `git log -20 origin/main` (what actually shipped — the merge-train of 2026-05-25 moved main substantially; trust git over any narrative doc)
