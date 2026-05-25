@@ -146,7 +146,7 @@ export default function MarketingLandingPage() {
                 Hire your first teammate <ArrowRight size={16} />
               </Link>
               <a href="#how" className="land-btn-secondary">
-                Watch a 90-second demo
+                See how it works
               </a>
             </div>
             <div className="land-trust-strip">
@@ -240,7 +240,9 @@ export default function MarketingLandingPage() {
             >
               <strong style={{ color: "#14b8a6" }}>Nori</strong>: Q2 update draft ready for review.
             </div>
-            <div className="land-art-center">SKYCOT</div>
+            <div className="land-art-center" style={{ left: "40%", zIndex: 1 }}>
+              SKYCOT
+            </div>
           </div>
         </section>
 
