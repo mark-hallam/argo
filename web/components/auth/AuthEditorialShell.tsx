@@ -1,7 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useLayoutEffect, type ReactNode } from "react";
+
+type AuthLightThemeLock = {
+  apply?: () => void;
+  release?: () => void;
+};
+
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+const authLightInlineStyle = {
+  background: "#fafaff",
+  color: "#1e1b4b",
+  colorScheme: "light",
+} as const;
+
+function forceAuthLightDocumentTheme() {
+  const html = document.documentElement;
+  const previousClassName = html.className;
+  const previousDataTheme = html.getAttribute("data-theme");
+  const previousColorScheme = html.style.colorScheme;
+
+  html.classList.remove("dark");
+  html.classList.add("light");
+  html.setAttribute("data-theme", "skycot-light");
+  html.style.colorScheme = "light";
+
+  return () => {
+    html.className = previousClassName;
+    if (previousDataTheme === null) {
+      html.removeAttribute("data-theme");
+    } else {
+      html.setAttribute("data-theme", previousDataTheme);
+    }
+    html.style.colorScheme = previousColorScheme;
+  };
+}
 
 /**
  * Locked editorial-A auth shell (2026-05-18 design lock).
@@ -33,22 +69,36 @@ export function AuthEditorialShell({
   topRightCta: string;
   showTrustFoot?: boolean;
 }) {
+  useIsomorphicLayoutEffect(() => {
+    const windowWithLock = window as Window &
+      typeof globalThis & {
+        __skycotAuthLightThemeLock?: AuthLightThemeLock;
+      };
+    const routeLock = windowWithLock.__skycotAuthLightThemeLock;
+    if (routeLock) {
+      routeLock.apply?.();
+      return () => routeLock.release?.();
+    }
+
+    return forceAuthLightDocumentTheme();
+  }, []);
+
   return (
     <>
-      <style jsx global>{`
+      <style>{`
         .auth-editorial {
-          --purple: var(--brand-primary);
+          --purple: #8b5cf6;
           --purple-deep: #6d28d9;
-          --pink: var(--brand-pink);
-          --coral: var(--brand-coral);
-          --teal: var(--brand-teal);
-          --ink: var(--foreground);
-          --ink-2: var(--muted-foreground);
-          --ink-3: var(--muted-foreground);
-          --ink-4: var(--muted-foreground);
-          --bg: var(--background);
-          --line: var(--border);
-          --line-2: var(--border);
+          --pink: #ec4899;
+          --coral: #ff6b6b;
+          --teal: #14b8a6;
+          --ink: #1e1b4b;
+          --ink-2: #3f3f46;
+          --ink-3: #52525b;
+          --ink-4: #a1a1aa;
+          --bg: #fafaff;
+          --line: #ece9f5;
+          --line-2: #d1d1d1;
           --gradient: linear-gradient(135deg, var(--purple), var(--pink));
           --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
           font-family: "Inter", sans-serif;
@@ -431,7 +481,12 @@ export function AuthEditorialShell({
           }
         }
       `}</style>
-      <div className="auth-editorial">
+      <div
+        className="auth-editorial"
+        data-testid="auth-editorial"
+        data-theme="skycot-light"
+        style={authLightInlineStyle}
+      >
         <header className="auth-top">
           <div className="auth-brand">
             <div className="auth-brand-mark" />
