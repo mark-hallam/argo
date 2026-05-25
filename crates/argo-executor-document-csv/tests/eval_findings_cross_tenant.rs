@@ -17,39 +17,33 @@ use argo_executor_document_csv::{
     DEFAULT_OUTPUT_ROOT,
 };
 
-/// **F-5 P2** — `DEFAULT_OUTPUT_ROOT` is a single string with no
-/// per-tenant interpolation point. Every tenant's CSV writes resolve
-/// against the same root.
-///
-/// **Closed when**: `mission-document-csv-output-root-per-tenant`
-/// adds either (a) a `DEFAULT_OUTPUT_ROOT_TEMPLATE` with a
-/// `{tenant_id}` placeholder, or (b) a `Sandbox::open_for_tenant`
-/// primitive that auto-prefixes the tenant id. At that point this
-/// test's assertion on the literal string flips.
+/// **F-5 P2 regression** — the configured root remains an operator
+/// root, but the writer auto-prefixes a tenant segment under it.
 #[test]
-#[ignore = "FINDINGS-ONLY: F-5 — DEFAULT_OUTPUT_ROOT has no tenant segment"]
-fn csv_default_output_root_has_no_tenant_segment() {
+fn csv_default_output_root_is_tenant_scoped_at_resolution() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let report = DocumentCsv::for_tenant("tenant-a")
+        .write(CsvWriteRequest {
+            output_root: root.path().to_path_buf(),
+            path: "out.csv".into(),
+            schema: Vec::new(),
+            rows: Vec::new(),
+            include_header: false,
+            line_terminator: LineTerminator::Lf,
+            quote_minimal: true,
+            write_bom: false,
+        })
+        .expect("tenant-scoped write");
+
+    let root_canon = root.path().canonicalize().expect("canonical root");
     assert_eq!(DEFAULT_OUTPUT_ROOT, "~/.argo/exports/csv/");
-    // The literal string contains no `{tenant_id}`, no `<tenant>`, no
-    // `${TENANT}` placeholder. The finding is structural.
-    assert!(!DEFAULT_OUTPUT_ROOT.contains("tenant"));
-    assert!(!DEFAULT_OUTPUT_ROOT.contains("TENANT"));
-    assert!(!DEFAULT_OUTPUT_ROOT.contains("{"));
+    assert!(report.path.starts_with(root_canon.join("tenant-a")));
 }
 
-/// **F-5 P2 — behaviour codification** — two notional tenants write
-/// CSVs to the same `output_root`. The sandbox accepts both (it has
-/// no tenant axis), and `DocumentCsv::write` produces files whose
-/// resolved paths are siblings — i.e. tenant A's CSV is one
-/// `read_to_string` away from tenant B.
-///
-/// **Closed when**: as above. The fix-brief will either reject the
-/// second tenant's call (because the sandbox refuses to open the
-/// shared root without a tenant id) or place the two outputs in
-/// disjoint subtrees automatically.
+/// **F-5 P2 regression** — two tenants using the same relative path
+/// land in disjoint tenant subtrees, so there is no in-root collision.
 #[test]
-#[ignore = "FINDINGS-ONLY: F-5 — DocumentCsv writes from two tenants land siblings under shared output_root"]
-fn csv_two_tenants_write_to_shared_output_root() {
+fn csv_two_tenants_same_relative_path_get_distinct_output_roots() {
     let shared_root = tempfile::tempdir().expect("tempdir");
 
     let schema = vec![CsvColumnSchema {
@@ -61,7 +55,7 @@ fn csv_two_tenants_write_to_shared_output_root() {
 
     let req_a = CsvWriteRequest {
         output_root: shared_root.path().to_path_buf(),
-        path: "tenant-a-output.csv".into(),
+        path: "shared-output.csv".into(),
         schema: schema.clone(),
         rows: vec![[("k".to_string(), serde_json::json!("A-secret"))]
             .into_iter()
@@ -73,7 +67,7 @@ fn csv_two_tenants_write_to_shared_output_root() {
     };
     let req_b = CsvWriteRequest {
         output_root: shared_root.path().to_path_buf(),
-        path: "tenant-b-output.csv".into(),
+        path: "shared-output.csv".into(),
         schema,
         rows: vec![[("k".to_string(), serde_json::json!("B-secret"))]
             .into_iter()
@@ -84,23 +78,21 @@ fn csv_two_tenants_write_to_shared_output_root() {
         write_bom: false,
     };
 
-    let doc = DocumentCsv::new();
-    let report_a = doc.write(req_a).expect("tenant A write");
-    let report_b = doc.write(req_b).expect("tenant B write");
+    let report_a = DocumentCsv::for_tenant("tenant-a")
+        .write(req_a)
+        .expect("tenant A write");
+    let report_b = DocumentCsv::for_tenant("tenant-b")
+        .write(req_b)
+        .expect("tenant B write");
 
-    // The audit finding: both resolved paths share the same parent
-    // directory with no tenant segment in between. (The sandbox
-    // canonicalises the root, so on macOS the resolved path lives
-    // under `/private/var/folders/...` even when the input
-    // `shared_root` is `/var/folders/...`; comparing parents avoids
-    // the symlink surprise without weakening the finding.)
-    assert_eq!(
+    assert_ne!(report_a.path, report_b.path);
+    assert_eq!(report_a.path.file_name().unwrap(), "shared-output.csv");
+    assert_eq!(report_b.path.file_name().unwrap(), "shared-output.csv");
+    assert_ne!(
         report_a.path.parent().unwrap(),
-        report_b.path.parent().unwrap(),
-        "F-5: tenant A + B CSVs land in the SAME directory — that is the finding"
+        report_b.path.parent().unwrap()
     );
 
-    // And the cross-tenant read is trivial.
     let a_contents = std::fs::read_to_string(&report_a.path).expect("read A");
     let b_contents = std::fs::read_to_string(&report_b.path).expect("read B");
     assert!(a_contents.contains("A-secret"));

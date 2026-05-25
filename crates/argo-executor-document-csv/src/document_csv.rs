@@ -15,7 +15,7 @@
 //! returned [`CsvWriteReport`] carries one [`RowRejection`] per
 //! offending row.
 
-use crate::sandbox::{resolve_sandboxed_path, CsvSandboxError};
+use crate::sandbox::{resolve_tenant_sandboxed_path, CsvSandboxError, DEFAULT_TENANT_SEGMENT};
 use crate::types::{CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason, RowRejection};
 use argo_types::{ArgoError, ArgoResult};
 use csv::{QuoteStyle, Terminator, WriterBuilder};
@@ -72,16 +72,28 @@ pub struct CsvWriteReport {
     pub sha256: String,
 }
 
-/// Stateless dispatch handle. Holds nothing — construct once and
-/// reuse per write.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct DocumentCsv;
+/// Dispatch handle carrying the tenant segment used for output
+/// isolation. Construct once per tenant and reuse per write.
+#[derive(Debug, Clone)]
+pub struct DocumentCsv {
+    tenant_id: String,
+}
 
 impl DocumentCsv {
-    /// Constructor.
+    /// Backwards-compatible constructor using a default tenant
+    /// segment. CLI dispatch should prefer [`DocumentCsv::for_tenant`]
+    /// with the workspace tenant id.
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self::for_tenant(DEFAULT_TENANT_SEGMENT)
+    }
+
+    /// Constructor for a tenant-scoped CSV writer.
+    #[must_use]
+    pub fn for_tenant(tenant_id: impl Into<String>) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+        }
     }
 
     /// Render `req` to disk and return the report. See the module
@@ -93,7 +105,7 @@ impl DocumentCsv {
     /// failures are NOT errors — they appear in the report's
     /// `rejections` list.
     pub fn write(&self, req: CsvWriteRequest) -> ArgoResult<CsvWriteReport> {
-        let target = resolve_sandboxed_path(&req.output_root, &req.path)
+        let target = resolve_tenant_sandboxed_path(&req.output_root, &self.tenant_id, &req.path)
             .map_err(<CsvSandboxError as Into<ArgoError>>::into)?;
 
         let mut body: Vec<u8> = Vec::new();
@@ -168,6 +180,12 @@ impl DocumentCsv {
             rejections,
             sha256: sha256_hex,
         })
+    }
+}
+
+impl Default for DocumentCsv {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

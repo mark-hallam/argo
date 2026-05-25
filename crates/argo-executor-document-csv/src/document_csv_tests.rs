@@ -2,7 +2,7 @@
 
 use crate::sandbox::CsvSandboxError;
 use crate::types::{CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason};
-use crate::{CsvWriteRequest, DocumentCsv};
+use crate::{CsvWriteRequest, DocumentCsv, DEFAULT_TENANT_SEGMENT};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -250,12 +250,55 @@ fn path_traversal_variants_are_rejected() {
         let outside = TempDir::new().unwrap();
         let outside_target = outside.path().join("treasure.csv");
         std::fs::write(&outside_target, b"hi").unwrap();
-        let link_in_root = root.path().join("evil-link.csv");
+        let tenant_root = root.path().join(DEFAULT_TENANT_SEGMENT);
+        std::fs::create_dir_all(&tenant_root).unwrap();
+        let link_in_root = tenant_root.join("evil-link.csv");
         symlink(&outside_target, &link_in_root).unwrap();
         let req = base_req(&root, "evil-link.csv", schema_basic(), vec![]);
         let err = DocumentCsv::new().write(req).unwrap_err();
         assert!(format!("{err}").contains("sandbox"));
     }
+}
+
+#[test]
+fn same_relative_path_isolated_by_tenant_segment() {
+    let root = TempDir::new().unwrap();
+    let req_a = base_req(&root, "shared/out.csv", schema_basic(), vec![]);
+    let req_b = base_req(&root, "shared/out.csv", schema_basic(), vec![]);
+
+    let report_a = DocumentCsv::for_tenant("tenant-a").write(req_a).unwrap();
+    let report_b = DocumentCsv::for_tenant("tenant-b").write(req_b).unwrap();
+
+    assert_ne!(report_a.path, report_b.path);
+    let root_canon = root.path().canonicalize().unwrap();
+    assert!(report_a.path.starts_with(root_canon.join("tenant-a")));
+    assert!(report_b.path.starts_with(root_canon.join("tenant-b")));
+}
+
+#[test]
+fn absolute_path_under_other_tenant_is_rejected() {
+    let root = TempDir::new().unwrap();
+    let other_tenant_path = root.path().join("tenant-b").join("shared.csv");
+    let req = base_req(
+        &root,
+        other_tenant_path.to_str().unwrap(),
+        schema_basic(),
+        vec![],
+    );
+
+    let err = DocumentCsv::for_tenant("tenant-a").write(req).unwrap_err();
+
+    assert!(format!("{err}").contains("sandbox"));
+}
+
+#[test]
+fn traversal_into_other_tenant_is_rejected() {
+    let root = TempDir::new().unwrap();
+    let req = base_req(&root, "../tenant-b/shared.csv", schema_basic(), vec![]);
+
+    let err = DocumentCsv::for_tenant("tenant-a").write(req).unwrap_err();
+
+    assert!(format!("{err}").contains("sandbox"));
 }
 
 #[test]

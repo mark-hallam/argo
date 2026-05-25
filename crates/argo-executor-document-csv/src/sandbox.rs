@@ -1,7 +1,8 @@
 //! Sandbox enforcement for CSV output paths.
 //!
-//! Resolves a caller-supplied `path` beneath the operator-configured
-//! `output_root` (default `~/.argo/exports/csv/`). Path-traversal
+//! Resolves a caller-supplied `path` beneath a tenant segment inside
+//! the operator-configured `output_root` (default
+//! `~/.argo/exports/csv/`). Path-traversal
 //! attempts (`..`, absolute paths pointing outside the root,
 //! symlinks targeting outside the root) raise
 //! [`CsvSandboxError::SandboxViolation`].
@@ -14,7 +15,7 @@
 //!     `~/.argo/exports/csv/` actually works without the caller
 //!     pre-expanding).
 //!   * acceptance of an *absolute* path whose canonical prefix is the
-//!     output root (the underlying Sandbox primitive only accepts
+//!     tenant-scoped output root (the underlying Sandbox primitive only accepts
 //!     relative paths; this layer strips the root prefix first).
 
 use argo_executor_filesystem::{FsExecutorError, Sandbox};
@@ -25,6 +26,14 @@ use thiserror::Error;
 /// Default operator-side output root. Mirrors the brief and the
 /// `[document_csv].output_root` default in argo-config.
 pub const DEFAULT_OUTPUT_ROOT: &str = "~/.argo/exports/csv/";
+
+/// Backwards-compatible tenant segment used by
+/// [`DocumentCsv::new`](crate::DocumentCsv::new).
+///
+/// CLI dispatch constructs a tenant-specific handle; direct callers
+/// using the legacy constructor still get an isolated subtree instead
+/// of writing directly into the shared root.
+pub const DEFAULT_TENANT_SEGMENT: &str = "__default__";
 
 /// Sandbox-violation surfaced by [`resolve_sandboxed_path`]. A typed
 /// enum so the audit ledger can tell traversal apart from a generic
@@ -75,6 +84,35 @@ pub fn resolve_sandboxed_path(output_root: &Path, path: &Path) -> Result<PathBuf
     sb.assert_no_symlink_escape(&resolved)
         .map_err(fs_err_to_sandbox)?;
     Ok(resolved)
+}
+
+/// Resolve `path` beneath `<output_root>/<tenant_id>`. Absolute
+/// paths are accepted only when they already point inside that
+/// tenant-scoped root.
+///
+/// # Errors
+/// Returns [`CsvSandboxError::SandboxViolation`] when `tenant_id` is
+/// not a single safe path segment, or when `path` escapes the tenant
+/// root.
+pub fn resolve_tenant_sandboxed_path(
+    output_root: &Path,
+    tenant_id: &str,
+    path: &Path,
+) -> Result<PathBuf, CsvSandboxError> {
+    let segment = tenant_path_segment(tenant_id)?;
+    let tenant_root = output_root.join(segment);
+    resolve_sandboxed_path(&tenant_root, path)
+}
+
+fn tenant_path_segment(tenant_id: &str) -> Result<&str, CsvSandboxError> {
+    let path = Path::new(tenant_id);
+    let mut components = path.components();
+    match (components.next(), components.next()) {
+        (Some(std::path::Component::Normal(_)), None) if !tenant_id.is_empty() => Ok(tenant_id),
+        _ => Err(CsvSandboxError::SandboxViolation(format!(
+            "tenant_id {tenant_id:?} is not a safe path segment"
+        ))),
+    }
 }
 
 /// Expand a leading `~/` against `$HOME` (or accept the value

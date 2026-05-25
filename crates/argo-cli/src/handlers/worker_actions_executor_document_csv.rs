@@ -26,9 +26,9 @@
 //! ```
 //!
 //! `output_root` is optional in the payload; absence falls through to
-//! the `[document_csv].output_root` config default. The dispatch
-//! shim resolves the config lookup before calling `dispatch` so the
-//! adapter stays config-free.
+//! the `[document_csv].output_root` config default. The dispatch shim
+//! stamps the current workspace tenant onto the CSV writer so outputs
+//! resolve beneath `<output_root>/<tenant_id>/...`.
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
@@ -59,7 +59,8 @@ impl Executor for DocumentCsvExecutor {
         let request = parse_request(&action.payload)?;
         let bundle =
             ensure_document_bundle_dir(cwd, &action.job_id, &action.action_id, "document-csv")?;
-        let report = DocumentCsv::new()
+        let tenant_id = argo_config::workspace_tenant_id(cwd);
+        let report = DocumentCsv::for_tenant(tenant_id.clone())
             .write(request)
             .map_err(|e| ArgoError::Provider(format!("document-csv executor: {e}")))?;
         let rejections_json = serde_json::to_value(&report.rejections)
@@ -69,6 +70,7 @@ impl Executor for DocumentCsvExecutor {
             result_json: serde_json::json!({
                 "outcome": "completed",
                 "executor": "document_csv",
+                "tenant_id": tenant_id,
                 "output_path": report.path.display().to_string(),
                 "bytes_written": report.bytes_written,
                 "rows_written": report.rows_written,

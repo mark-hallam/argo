@@ -22,9 +22,10 @@
 //! - Six column kinds with a coercion table: Text, Integer, Decimal,
 //!   Date (RFC 3339 → YYYY-MM-DD), Boolean, EmailAddress (shape
 //!   check only).
-//! - Sandbox: `path` is resolved beneath the operator-configured
-//!   `[document_csv].output_root` (default `~/.argo/exports/csv/`).
-//!   Path-traversal returns a typed sandbox-violation error.
+//! - Sandbox: `path` is resolved beneath a tenant segment inside the
+//!   operator-configured `[document_csv].output_root` (default
+//!   `~/.argo/exports/csv/`). Path-traversal returns a typed
+//!   sandbox-violation error.
 //!
 //! ## In-memory cap (v1)
 //!
@@ -56,7 +57,7 @@
 //!     quote_minimal: true,
 //!     write_bom: false,
 //! };
-//! let report = DocumentCsv::new().write(req).unwrap();
+//! let report = DocumentCsv::for_tenant("tenant-a").write(req).unwrap();
 //! assert_eq!(report.rows_written, 0);
 //! ```
 
@@ -69,7 +70,10 @@ pub mod types;
 
 pub use document_csv::{CsvWriteReport, CsvWriteRequest, DocumentCsv};
 pub use render::render_rfc4180;
-pub use sandbox::{resolve_sandboxed_path, CsvSandboxError, DEFAULT_OUTPUT_ROOT};
+pub use sandbox::{
+    resolve_sandboxed_path, resolve_tenant_sandboxed_path, CsvSandboxError, DEFAULT_OUTPUT_ROOT,
+    DEFAULT_TENANT_SEGMENT,
+};
 pub use types::{CsvColumnKind, CsvColumnSchema, LineTerminator, RejectionReason, RowRejection};
 
 #[cfg(test)]
