@@ -1,3 +1,4 @@
+# zero-caller-allowed: scaffold for Track P pitch-agent v1.0 demo (operator-locked v1.0 scope per CLAUDE.md track_p_v1_mvp_scope memory); wired by P-04/P-05/P-06 (rehearsal/web-embed/Zoom executors)
 [package]
 name = "argo-voice-io"
 version.workspace = true
