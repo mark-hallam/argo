@@ -37,6 +37,20 @@ const VERTICALS: ReadonlyArray<VerticalCard> = [
     sampleDuties: ["Draft blog posts", "Schedule social posts", "Weekly competitive scan"],
   },
   {
+    id: "marketplace-seller",
+    displayName: "Marketplace Seller",
+    summary: "Inventory readiness, listing drafts, buyer replies, and price checks.",
+    skillCount: 6,
+    sampleDuties: ["Audit inventory", "Draft marketplace listings", "Negotiate offers"],
+  },
+  {
+    id: "recruiter",
+    displayName: "Recruiter",
+    summary: "Resume screening, candidate outreach, interview scheduling, and offer handoff.",
+    skillCount: 6,
+    sampleDuties: ["Score resumes", "Draft screening emails", "Schedule interviews"],
+  },
+  {
     id: "sales-sdr",
     displayName: "Sales SDR",
     summary: "Outbound prospecting and meeting booking with approval gates.",
