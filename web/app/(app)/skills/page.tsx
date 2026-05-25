@@ -109,10 +109,12 @@ export default function SkillsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <span className="count-pill" data-testid="skills-count">
-            {skills.length} skills · {filtered.length} shown
-          </span>
-          <span className="search-kbd">⌘K</span>
+          <div className="search-meta">
+            <span className="count-pill" data-testid="skills-count">
+              {skills.length} skills · {filtered.length} shown
+            </span>
+            <span className="search-kbd">⌘K</span>
+          </div>
         </div>
 
         <div className="try-row">

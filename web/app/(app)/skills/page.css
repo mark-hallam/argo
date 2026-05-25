@@ -56,9 +56,30 @@
   padding: 16px 20px;
   border-radius: 14px;
   border: 1px solid var(--border, #ece9f5);
-  background: white;
+  background: var(--card, white);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
   margin-bottom: 14px;
+}
+.search-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  .search-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .search-input {
+    flex: 1 1 calc(100% - 42px);
+    min-width: 0;
+  }
+  .search-meta {
+    flex-basis: 100%;
+    margin-left: 42px;
+    justify-content: flex-start;
+  }
 }
 .search-icon {
   width: 28px;
@@ -117,7 +138,7 @@
 .try-chip {
   padding: 6px 12px;
   border-radius: 999px;
-  background: white;
+  background: var(--card, white);
   border: 1px solid var(--border, #ece9f5);
   color: var(--foreground, #1e1b4b);
   font-size: 13px;
@@ -152,7 +173,7 @@
   }
 }
 .skill-card {
-  background: white;
+  background: var(--card, white);
   border: 1px solid var(--border, #ece9f5);
   border-radius: 14px;
   padding: 20px;
