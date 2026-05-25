@@ -42,6 +42,20 @@ The gateway being down blocks: web SPA dev-mode against the real backend, any co
 - `bash scripts/check-gateway-freshness.sh` exits 0 with `FRESH` status.
 - PR body has full before/after state per the Report step above.
 
+## Worker result 2026-05-25
+
+- Interpreted the listener check on the repo-canonical gateway port `7400`:
+  `Makefile`, `scripts/restart-live-gateway.sh`, and
+  `scripts/check-gateway-freshness.sh` all default to
+  `http://127.0.0.1:7400`; the `8088` references in this brief are stale.
+- Ran `launchctl kickstart -k gui/$(id -u)/com.skycot.gateway`; launchd
+  executed `make restart-live-gateway` from `~/code/argo`.
+- The restart helper detected a current gateway at schema v81 and exited
+  cleanly as a no-op. Post-checks show PID 37695 listening on
+  `127.0.0.1:7400`, `/health` returning schema v81, and
+  `scripts/check-gateway-freshness.sh` reporting `FRESH`.
+- No plist changes were required.
+
 ## May-touch
 
 - `Library/LaunchAgents/com.skycot.gateway.plist` (ONLY if the plist itself is stale; if so, also copy the change into `scripts/launchd/com.skycot.gateway.plist` if a canonical copy exists in the repo, and explain why in PR body)
