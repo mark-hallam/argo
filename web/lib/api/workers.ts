@@ -58,6 +58,28 @@ export class WorkerNotFoundError extends Error {
   }
 }
 
+/**
+ * Thrown when a worker fetch races the SPA's session-token hydration
+ * and the gateway returns 401. The session peek (`/api/auth/session`)
+ * is asynchronous; on a fresh navigation the first React-Query fetch
+ * can fire before the cookie-derived token is in memory, so the
+ * Authorization header is absent and the gateway rejects the request.
+ *
+ * Surfacing this as its own error lets the React-Query layer retry
+ * the request after a short backoff (by which time the session peek
+ * has resolved) and lets the layout keep showing the loading skeleton
+ * rather than the not-found shell. See brief
+ * `fix-worker-detail-session-token-race-not-found`.
+ */
+export class AuthNotReadyError extends Error {
+  readonly workerId: string;
+  constructor(workerId: string) {
+    super(`Auth not ready for worker '${workerId}'`);
+    this.name = "AuthNotReadyError";
+    this.workerId = workerId;
+  }
+}
+
 export interface WorkerActionResult {
   ok: true;
   workerId: string;
@@ -105,6 +127,15 @@ export async function fetchWorker(workerId: string): Promise<Worker> {
     }
     return response;
   } catch (err) {
+    // 401 on a worker fetch is almost always the session-token race
+    // (`/api/auth/session` hasn't resolved yet on this navigation).
+    // Translate to AuthNotReadyError so `useWorker` retries instead
+    // of the layout falling through to the not-found shell. Real
+    // expired-session 401s redirect to /auth/signin inside
+    // `parseError` before they reach here.
+    if (err instanceof ApiError && err.status === 401) {
+      throw new AuthNotReadyError(workerId);
+    }
     if (shouldFallBackToMock(err)) {
       const sample = findSampleWorker(workerId);
       if (sample) {

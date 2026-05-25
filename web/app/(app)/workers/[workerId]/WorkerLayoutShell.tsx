@@ -7,7 +7,7 @@ import { WorkerHero, type WorkerHeroAction } from "@/components/skycot/WorkerHer
 import { WorkerTabs } from "@/components/skycot/WorkerTabs";
 import { WorkerNotFound } from "@/components/skycot/WorkerNotFound";
 import { useWorker } from "@/lib/hooks/use-worker";
-import { WorkerNotFoundError } from "@/lib/api/workers";
+import { AuthNotReadyError, WorkerNotFoundError } from "@/lib/api/workers";
 import { FreezeBanner } from "./FreezeBanner";
 import { FreezeButton } from "./FreezeButton";
 import type { FreezeState } from "./fetchFreezeState";
@@ -38,7 +38,14 @@ export function WorkerLayoutShell({
 }: WorkerLayoutShellProps) {
   const workerQuery = useWorker(workerId);
 
-  if (workerQuery.isPending) return <LoadingState />;
+  // While the cookie-derived bearer token is still hydrating on the
+  // client, `fetchWorker` raises AuthNotReadyError and `useWorker`
+  // retries. Keep the skeleton up rather than flashing the
+  // not-found shell — the recovery is sub-second and the brief's
+  // acceptance criteria require we never render "Worker not found"
+  // against a real worker on cold navigation.
+  const authNotReady = workerQuery.error instanceof AuthNotReadyError;
+  if (workerQuery.isPending || authNotReady) return <LoadingState />;
 
   const notFound =
     workerQuery.error instanceof WorkerNotFoundError ||
