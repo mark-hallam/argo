@@ -21,6 +21,9 @@ use sqlx::{Pool, Row, Sqlite};
 
 use crate::models::uuid_from_blob;
 
+#[cfg(test)]
+const PLACEHOLDER_TENANT_ID: &str = "__migration_placeholder__";
+
 /// One skill row returned by [`search_by_vertical`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SkillVerticalRow {
@@ -48,26 +51,31 @@ pub struct SkillVerticalRow {
 /// `limit` is clamped to `[1, 500]`.
 pub async fn search_by_vertical(
     pool: &Pool<Sqlite>,
+    tenant_id: &str,
     vertical_id: &str,
     limit: u32,
     indirect: bool,
 ) -> ArgoResult<Vec<SkillVerticalRow>> {
     let limit = i64::from(limit.clamp(1, 500));
     if indirect {
-        search_indirect(pool, vertical_id, limit).await
+        search_indirect(pool, tenant_id, vertical_id, limit).await
     } else {
-        search_direct(pool, vertical_id, limit).await
+        search_direct(pool, tenant_id, vertical_id, limit).await
     }
 }
 
 /// Return the distinct set of `skill.vertical_id` values currently
 /// stored — handy for the CLI's "vertical-not-found, here are valid
 /// ids" error message.
-pub async fn distinct_skill_verticals(pool: &Pool<Sqlite>) -> ArgoResult<Vec<String>> {
+pub async fn distinct_skill_verticals(
+    pool: &Pool<Sqlite>,
+    tenant_id: &str,
+) -> ArgoResult<Vec<String>> {
     let rows = sqlx::query(
         "SELECT DISTINCT vertical_id FROM skill \
-         WHERE vertical_id IS NOT NULL ORDER BY vertical_id",
+         WHERE vertical_id IS NOT NULL AND tenant_id = ? ORDER BY vertical_id",
     )
+    .bind(tenant_id)
     .fetch_all(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("distinct_skill_verticals: {e}")))?;
@@ -79,17 +87,19 @@ pub async fn distinct_skill_verticals(pool: &Pool<Sqlite>) -> ArgoResult<Vec<Str
 
 async fn search_direct(
     pool: &Pool<Sqlite>,
+    tenant_id: &str,
     vertical_id: &str,
     limit: i64,
 ) -> ArgoResult<Vec<SkillVerticalRow>> {
     let rows = sqlx::query(
         "SELECT id, name, version, vertical_id, created_at \
          FROM skill \
-         WHERE vertical_id = ? \
+         WHERE vertical_id = ? AND tenant_id = ? \
          ORDER BY created_at DESC, name ASC, version ASC \
          LIMIT ?",
     )
     .bind(vertical_id)
+    .bind(tenant_id)
     .bind(limit)
     .fetch_all(pool)
     .await
@@ -99,21 +109,25 @@ async fn search_direct(
 
 async fn search_indirect(
     pool: &Pool<Sqlite>,
+    tenant_id: &str,
     vertical_id: &str,
     limit: i64,
 ) -> ArgoResult<Vec<SkillVerticalRow>> {
+    let tenant_uuid = uuid::Uuid::parse_str(tenant_id)
+        .map_err(|e| ArgoError::Provider(format!("skill_search tenant_id: {e}")))?;
     let rows = sqlx::query(
         "SELECT s.id, s.name, s.version, s.vertical_id, \
                 MAX(ss.attached_at) AS last_attached \
          FROM skill s \
          JOIN session_skill ss ON ss.skill_id = s.id \
          JOIN session sess ON sess.id = ss.session_id \
-         WHERE sess.vertical_id = ? \
+         WHERE sess.vertical_id = ? AND sess.tenant_id = ? \
          GROUP BY s.id, s.name, s.version, s.vertical_id \
          ORDER BY last_attached DESC, s.name ASC, s.version ASC \
          LIMIT ?",
     )
     .bind(vertical_id)
+    .bind(tenant_uuid.as_bytes().as_slice())
     .bind(limit)
     .fetch_all(pool)
     .await
@@ -163,7 +177,6 @@ fn indirect_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<SkillVerticalRow> {
 mod tests {
     use super::*;
     use crate::SessionStore;
-    use argo_types::TenantId;
     use uuid::Uuid;
 
     async fn seed_store() -> SessionStore {
@@ -178,17 +191,19 @@ mod tests {
         name: &str,
         version: &str,
         vertical_id: Option<&str>,
+        tenant_id: &str,
         created_at: i64,
     ) {
         sqlx::query(
-            "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, created_at, vertical_id) \
-             VALUES (?, ?, ?, '', '', 'inline', randomblob(8), ?, ?)",
+            "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, created_at, vertical_id, tenant_id) \
+             VALUES (?, ?, ?, '', '', 'inline', randomblob(8), ?, ?, ?)",
         )
         .bind(id.as_bytes().as_slice())
         .bind(name)
         .bind(version)
         .bind(created_at)
         .bind(vertical_id)
+        .bind(tenant_id)
         .execute(pool)
         .await
         .unwrap();
@@ -208,13 +223,32 @@ mod tests {
             "alpha",
             "1.0",
             Some("vertical-a"),
+            PLACEHOLDER_TENANT_ID,
             now - 1_000,
         )
         .await;
-        insert_skill(pool, v_a_new, "beta", "1.0", Some("vertical-a"), now).await;
-        insert_skill(pool, v_b, "gamma", "1.0", Some("vertical-b"), now).await;
+        insert_skill(
+            pool,
+            v_a_new,
+            "beta",
+            "1.0",
+            Some("vertical-a"),
+            PLACEHOLDER_TENANT_ID,
+            now,
+        )
+        .await;
+        insert_skill(
+            pool,
+            v_b,
+            "gamma",
+            "1.0",
+            Some("vertical-b"),
+            PLACEHOLDER_TENANT_ID,
+            now,
+        )
+        .await;
 
-        let rows = search_by_vertical(pool, "vertical-a", 10, false)
+        let rows = search_by_vertical(pool, PLACEHOLDER_TENANT_ID, "vertical-a", 10, false)
             .await
             .unwrap();
         assert_eq!(rows.len(), 2);
@@ -226,8 +260,17 @@ mod tests {
     async fn direct_returns_empty_for_unknown_vertical() {
         let store = seed_store().await;
         let pool = store.pool();
-        insert_skill(pool, Uuid::now_v7(), "alpha", "1.0", Some("vertical-a"), 0).await;
-        let rows = search_by_vertical(pool, "vertical-z", 10, false)
+        insert_skill(
+            pool,
+            Uuid::now_v7(),
+            "alpha",
+            "1.0",
+            Some("vertical-a"),
+            PLACEHOLDER_TENANT_ID,
+            0,
+        )
+        .await;
+        let rows = search_by_vertical(pool, PLACEHOLDER_TENANT_ID, "vertical-z", 10, false)
             .await
             .unwrap();
         assert!(rows.is_empty());
@@ -245,11 +288,12 @@ mod tests {
                 &name,
                 "1.0",
                 Some("vertical-a"),
+                PLACEHOLDER_TENANT_ID,
                 i as i64,
             )
             .await;
         }
-        let rows = search_by_vertical(pool, "vertical-a", 2, false)
+        let rows = search_by_vertical(pool, PLACEHOLDER_TENANT_ID, "vertical-a", 2, false)
             .await
             .unwrap();
         assert_eq!(rows.len(), 2);
@@ -259,10 +303,39 @@ mod tests {
     async fn distinct_lists_skill_vertical_ids() {
         let store = seed_store().await;
         let pool = store.pool();
-        insert_skill(pool, Uuid::now_v7(), "a", "1", Some("v-a"), 0).await;
-        insert_skill(pool, Uuid::now_v7(), "b", "1", Some("v-b"), 0).await;
-        insert_skill(pool, Uuid::now_v7(), "c", "1", None, 0).await;
-        let verticals = distinct_skill_verticals(pool).await.unwrap();
+        insert_skill(
+            pool,
+            Uuid::now_v7(),
+            "a",
+            "1",
+            Some("v-a"),
+            PLACEHOLDER_TENANT_ID,
+            0,
+        )
+        .await;
+        insert_skill(
+            pool,
+            Uuid::now_v7(),
+            "b",
+            "1",
+            Some("v-b"),
+            PLACEHOLDER_TENANT_ID,
+            0,
+        )
+        .await;
+        insert_skill(
+            pool,
+            Uuid::now_v7(),
+            "c",
+            "1",
+            None,
+            PLACEHOLDER_TENANT_ID,
+            0,
+        )
+        .await;
+        let verticals = distinct_skill_verticals(pool, PLACEHOLDER_TENANT_ID)
+            .await
+            .unwrap();
         assert_eq!(verticals, vec!["v-a".to_string(), "v-b".to_string()]);
     }
 
@@ -270,12 +343,11 @@ mod tests {
     async fn indirect_surfaces_attached_skills_via_session_vertical() {
         let store = seed_store().await;
         let pool = store.pool();
-        let tenant = TenantId::new();
         let (_t, ws) = store
             .ensure_workspace("skill-search", "/tmp/skill-search-test")
             .await
             .unwrap();
-        let _ = tenant;
+        let tenant_id = _t.to_string();
 
         // Create one session bound to vertical-a, one to vertical-b.
         let session_a = argo_types::SessionId::new();
@@ -307,7 +379,16 @@ mod tests {
 
         // Skill bound to vertical-b but used by a session in vertical-a.
         let skill = Uuid::now_v7();
-        insert_skill(pool, skill, "shared", "1.0", Some("vertical-b"), 0).await;
+        insert_skill(
+            pool,
+            skill,
+            "shared",
+            "1.0",
+            Some("vertical-b"),
+            PLACEHOLDER_TENANT_ID,
+            0,
+        )
+        .await;
         sqlx::query(
             "INSERT INTO session_skill (session_id, skill_id, attached_at) VALUES (?, ?, ?)",
         )
@@ -319,13 +400,13 @@ mod tests {
         .unwrap();
 
         // Direct mode for vertical-a → empty (skill row says vertical-b).
-        let direct = search_by_vertical(pool, "vertical-a", 10, false)
+        let direct = search_by_vertical(pool, PLACEHOLDER_TENANT_ID, "vertical-a", 10, false)
             .await
             .unwrap();
         assert!(direct.is_empty());
 
         // Indirect mode for vertical-a → finds the shared skill.
-        let indirect = search_by_vertical(pool, "vertical-a", 10, true)
+        let indirect = search_by_vertical(pool, &tenant_id, "vertical-a", 10, true)
             .await
             .unwrap();
         assert_eq!(indirect.len(), 1);

@@ -16,6 +16,8 @@ use argo_store::skill_query::{distinct_skill_verticals, search_by_vertical, Skil
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
+const PLACEHOLDER_TENANT_ID: &str = "__migration_placeholder__";
+
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     query: &str,
@@ -27,7 +29,7 @@ pub async fn run(
     include_used_by_sessions: bool,
 ) -> ArgoResult<()> {
     if let Some(vid) = vertical {
-        return run_vertical(vid, limit, include_used_by_sessions, json).await;
+        return run_vertical(vid, tenant, limit, include_used_by_sessions, json).await;
     }
     let trust_min = trust_min
         .map(parse_trust_grade)
@@ -51,6 +53,7 @@ pub async fn run(
 
 async fn run_vertical(
     vertical_id: &str,
+    tenant: Option<&str>,
     limit: usize,
     indirect: bool,
     json: bool,
@@ -58,9 +61,12 @@ async fn run_vertical(
     let store = open_store().await?;
     let pool = store.pool();
     let limit_u32 = u32::try_from(limit.clamp(1, 500)).unwrap_or(500);
-    let rows = search_by_vertical(pool, vertical_id, limit_u32, indirect).await?;
-    if rows.is_empty() && !known_vertical(pool, vertical_id).await? {
-        let valid = distinct_skill_verticals(pool).await.unwrap_or_default();
+    let tenant_id = resolve_vertical_tenant(pool, vertical_id, tenant, indirect).await?;
+    let rows = search_by_vertical(pool, &tenant_id, vertical_id, limit_u32, indirect).await?;
+    if rows.is_empty() && !known_vertical(pool, &tenant_id, vertical_id).await? {
+        let valid = distinct_skill_verticals(pool, &tenant_id)
+            .await
+            .unwrap_or_default();
         let known = if valid.is_empty() {
             "(no skills currently tagged with a vertical)".to_string()
         } else {
@@ -89,8 +95,51 @@ async fn open_store() -> ArgoResult<SessionStore> {
     Ok(store)
 }
 
-async fn known_vertical(pool: &sqlx::Pool<sqlx::Sqlite>, vertical_id: &str) -> ArgoResult<bool> {
-    let verticals = distinct_skill_verticals(pool).await?;
+async fn resolve_vertical_tenant(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    vertical_id: &str,
+    tenant: Option<&str>,
+    indirect: bool,
+) -> ArgoResult<String> {
+    if let Some(tenant) = tenant.filter(|t| !t.trim().is_empty()) {
+        return Ok(tenant.to_string());
+    }
+    if indirect {
+        if let Some(tenant) = infer_session_tenant(pool, vertical_id).await? {
+            return Ok(tenant);
+        }
+    }
+    Ok(PLACEHOLDER_TENANT_ID.to_string())
+}
+
+async fn infer_session_tenant(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    vertical_id: &str,
+) -> ArgoResult<Option<String>> {
+    let blob: Option<Vec<u8>> = sqlx::query_scalar(
+        "SELECT tenant_id FROM session \
+         WHERE vertical_id = ? \
+         ORDER BY started_at DESC, tenant_id ASC \
+         LIMIT 1",
+    )
+    .bind(vertical_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("skill_search tenant lookup: {e}")))?;
+    blob.map(|bytes| {
+        uuid::Uuid::from_slice(&bytes)
+            .map(|id| id.to_string())
+            .map_err(|e| ArgoError::Provider(format!("skill_search tenant decode: {e}")))
+    })
+    .transpose()
+}
+
+async fn known_vertical(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    tenant_id: &str,
+    vertical_id: &str,
+) -> ArgoResult<bool> {
+    let verticals = distinct_skill_verticals(pool, tenant_id).await?;
     Ok(verticals.iter().any(|v| v == vertical_id))
 }
 
