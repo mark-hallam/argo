@@ -1,0 +1,35 @@
+# pre-merge-test-carry-allowlist.txt — explicit-carry list for
+# `scripts/pre-merge-test-compile.sh` (pre-merge gate 6).
+#
+# Format: one path-substring per line; blank lines and lines starting
+# with '#' are ignored. Substring match runs against the source path in
+# each `cargo check` "--> path/to/file.rs:LINE:COL" pointer. If EVERY
+# failing file matches at least one entry here, the gate prints
+# PASS-WITH-WARNING and exits 0. Otherwise it FAILS.
+#
+# When to add an entry:
+#   - A test file is known-broken on origin/main pending a tracked fix
+#     (link the brief id / PR in the comment above the entry).
+#   - You are merging an unrelated PR that needs the gate to stop
+#     blocking traffic while the fix lands.
+#
+# When NOT to add an entry:
+#   - Your own PR introduced the break. Fix it; do not allowlist it.
+#   - The test compiles but fails at runtime. This gate is compile-only;
+#     runtime carries belong in the brief's Notes / KNOWN_FLAKES.md, not
+#     here.
+#   - You want a permanent bypass. Use `--skip-tests` with a justified
+#     PR-body note instead; carry entries are debt and should clear.
+#
+# Carry hygiene:
+#   - Each entry SHOULD have an above-it comment linking the clearing
+#     brief or PR.
+#   - The conductor periodically prunes entries whose linked PR has
+#     merged.
+#
+# Example:
+#   # cleared by PR #2271 (fix-agent-runner-legacy-worker-treated-as-lowest-grade-test)
+#   crates/argo-agent-runner/src/turn_skills_tests.rs
+
+# --- active carries ---
+# (none — keep this section authoritative; add fresh carries above this line)
