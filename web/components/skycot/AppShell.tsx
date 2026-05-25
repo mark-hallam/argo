@@ -40,6 +40,7 @@ export function AppShell({ children, breadcrumb }: AppShellProps) {
         <AppNav />
       </NavDrawer>
       <main id="main" tabIndex={-1} className="md:pl-64 focus:outline-none">
+        <WideRailStyles />
         {breadcrumb ? (
           <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
             <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-3">{breadcrumb}</div>
@@ -48,6 +49,20 @@ export function AppShell({ children, breadcrumb }: AppShellProps) {
         {children}
       </main>
     </div>
+  );
+}
+
+function WideRailStyles() {
+  return (
+    <style jsx global>{`
+      @media (min-width: 1800px) {
+        #main .max-w-5xl,
+        #main .max-w-6xl,
+        #main .settings-shell {
+          max-width: 1440px;
+        }
+      }
+    `}</style>
   );
 }
 
