@@ -27,6 +27,10 @@
 //! is closed by `mission-enterprise-approvals-rbac`.
 
 use super::role_gate::{enforce_role, resolve_role, Action as RbacAction};
+use super::routes_approvals_json_helpers::{
+    bad_request, conflict, decode_cursor, encode_cursor, gone, not_found, ok_decide, parse_limit,
+    parse_query, server_error, short_payload,
+};
 use super::routes_auth_principal::principal_id_for_audit;
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_auto_approval::draft_content_from_payload;
@@ -45,9 +49,6 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-/// Hard cap on `?limit=`. Brief: default 50, max 100.
-const DEFAULT_LIMIT: usize = 50;
-const MAX_LIMIT: usize = 100;
 /// Window during which a decision is reversible via `POST /undo`.
 const UNDO_WINDOW_SECS: i64 = 30;
 
@@ -359,15 +360,6 @@ fn approval_row_json(rec: &ActionRecord) -> Value {
     })
 }
 
-fn short_payload(v: &Value) -> String {
-    let s = serde_json::to_string(v).unwrap_or_default();
-    if s.len() > 200 {
-        format!("{}…", &s[..199])
-    } else {
-        s
-    }
-}
-
 fn decision_from_record(rec: &ActionRecord) -> Option<String> {
     match rec.state.as_str() {
         s if s == ActionState::Approved.as_str() => Some("approve".to_string()),
@@ -423,98 +415,6 @@ pub(super) fn decider_role_from_record(rec: &ActionRecord) -> Option<String> {
                 .and_then(Value::as_str)
                 .map(String::from)
         })
-}
-
-fn parse_limit(tail: &str) -> Result<usize, (&'static str, String)> {
-    let Some(raw) = parse_query(tail, "limit") else {
-        return Ok(DEFAULT_LIMIT);
-    };
-    let Ok(n) = raw.parse::<usize>() else {
-        return Err(bad_request(&format!("limit '{raw}' not a number")));
-    };
-    if n == 0 || n > MAX_LIMIT {
-        return Err(bad_request(&format!("limit must be 1..={MAX_LIMIT}")));
-    }
-    Ok(n)
-}
-
-fn parse_query(tail: &str, key: &str) -> Option<String> {
-    let head = tail.split_once(' ').map(|(p, _)| p).unwrap_or(tail);
-    let qs = head.split_once('?').map(|(_, q)| q)?;
-    qs.split('&').find_map(|kv| {
-        let (k, v) = kv.split_once('=')?;
-        (k == key).then(|| v.to_string())
-    })
-}
-
-fn encode_cursor(ts: &str, id: &str) -> String {
-    use base64::{engine::general_purpose, Engine as _};
-    general_purpose::URL_SAFE_NO_PAD.encode(format!("{ts}|{id}"))
-}
-
-fn decode_cursor(c: &str) -> Option<(String, String)> {
-    use base64::{engine::general_purpose, Engine as _};
-    let bytes = general_purpose::URL_SAFE_NO_PAD.decode(c).ok()?;
-    let s = String::from_utf8(bytes).ok()?;
-    let (ts, id) = s.split_once('|')?;
-    Some((ts.to_string(), id.to_string()))
-}
-
-fn ok_decide(approval_id: &str, decision: &str) -> (&'static str, String) {
-    (
-        "200 OK",
-        json!({
-            "ok": true,
-            "approval_id": approval_id,
-            "decision": decision,
-        })
-        .to_string(),
-    )
-}
-
-fn bad_request(message: &str) -> (&'static str, String) {
-    error_envelope("400 Bad Request", "bad_request", message)
-}
-
-fn not_found(id: &str) -> (&'static str, String) {
-    error_envelope(
-        "404 Not Found",
-        "approval_not_found",
-        &format!("no approval with id '{id}'"),
-    )
-}
-
-fn conflict(id: &str, current: &str) -> (&'static str, String) {
-    error_envelope(
-        "409 Conflict",
-        "already_decided",
-        &format!("approval '{id}' already decided ({current})"),
-    )
-}
-
-fn gone(id: &str) -> (&'static str, String) {
-    error_envelope(
-        "410 Gone",
-        "undo_window_expired",
-        &format!("approval '{id}': undo window has expired"),
-    )
-}
-
-fn server_error(message: &str) -> (&'static str, String) {
-    error_envelope("500 Internal Server Error", "internal_error", message)
-}
-
-fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
-    (
-        status,
-        json!({
-            "error": {
-                "code": code,
-                "message": message,
-            }
-        })
-        .to_string(),
-    )
 }
 
 #[cfg(test)]
