@@ -2,6 +2,8 @@
 //! two files sharing the same numeric slot prefix. Also emits a static
 //! `MIGRATION_FILES` list consumed by
 //! `src/migrations/duplicate_slot_validator.rs` as a runtime safety net.
+//! Note: this is the slot-collision corpus, not the schema-apply path;
+//! see `src/migrations/README.md` for the schema-apply story.
 
 use std::collections::BTreeMap;
 use std::env;

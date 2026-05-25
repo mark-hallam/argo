@@ -12,6 +12,25 @@ an operator asks when a new migration lands on their box.
 > in-progress disaster is restoring the backup taken **before** the
 > upgrade.
 
+## Two migration directories
+
+`argo-store` intentionally has two migration-shaped directories with
+different contracts:
+
+- `crates/argo-store/src/migrations/` is the runtime schema-apply path.
+  Its `vN.rs` modules are what the binary applies on startup, and the
+  highest registered `vN` is what `EXPECTED_SCHEMA_VERSION` must match.
+  See `crates/argo-store/src/migrations/README.md`.
+- `crates/argo-store/migrations/` is the raw SQL slot-collision corpus.
+  Its `NN__name.sql` filenames are read by `crates/argo-store/build.rs`
+  and embedded for duplicate-slot validation. The highest `NN__` prefix
+  is not a schema version and does not control startup migration
+  application. See `crates/argo-store/migrations/README.md`.
+
+When checking whether the running binary is current, compare
+`EXPECTED_SCHEMA_VERSION` to the Rust `vN.rs` tip, not to raw SQL slot
+numbers.
+
 ## 1. The migration model
 
 The runner in `crates/argo-store/src/migrations/mod.rs` is intentionally
