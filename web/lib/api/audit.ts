@@ -27,6 +27,26 @@ import {
 
 export const PAGE_SIZE = 50;
 
+interface GatewayAuditRow
+  extends Omit<AuditRow, "actionType" | "approver" | "cost" | "dataClassification"> {
+  action_type?: string;
+  actionType?: string;
+  approver?: AuditRow["approver"] | null;
+  cost?: AuditRow["cost"] | null;
+  data_classification?: AuditRow["dataClassification"];
+  dataClassification?: AuditRow["dataClassification"];
+}
+
+interface GatewayAuditFeedEnvelope {
+  items: GatewayAuditRow[];
+  next_cursor?: AuditCursor;
+  nextCursor?: AuditCursor;
+  total_pages?: number;
+  totalPages?: number;
+}
+
+type AuditFeedResponse = AuditFeedPage | GatewayAuditFeedEnvelope;
+
 function isStrictProduction(): boolean {
   return (
     process.env.NODE_ENV === "production" &&
@@ -163,6 +183,44 @@ function emptyPage(): AuditFeedPage {
   return { rows: [], nextCursor: null, totalPages: 1 };
 }
 
+function isGatewayEnvelope(response: AuditFeedResponse): response is GatewayAuditFeedEnvelope {
+  return "items" in response;
+}
+
+function normalizeAuditRow(row: AuditRow | GatewayAuditRow): AuditRow {
+  const gatewayRow = row as GatewayAuditRow;
+  return {
+    id: gatewayRow.id,
+    timestamp: gatewayRow.timestamp,
+    worker: gatewayRow.worker,
+    actionType: gatewayRow.actionType ?? gatewayRow.action_type ?? "",
+    verb: gatewayRow.verb,
+    status: gatewayRow.status,
+    approver: gatewayRow.approver ?? undefined,
+    decider_role: gatewayRow.decider_role,
+    channel: gatewayRow.channel,
+    cost: gatewayRow.cost ?? undefined,
+    dataClassification:
+      gatewayRow.dataClassification ?? gatewayRow.data_classification,
+    hash: gatewayRow.hash,
+  };
+}
+
+function normalizeAuditFeed(response: AuditFeedResponse): AuditFeedPage {
+  if (isGatewayEnvelope(response)) {
+    return {
+      rows: response.items.map(normalizeAuditRow),
+      nextCursor: response.nextCursor ?? response.next_cursor ?? null,
+      totalPages: response.totalPages ?? response.total_pages,
+    };
+  }
+  return {
+    rows: response.rows.map(normalizeAuditRow),
+    nextCursor: response.nextCursor ?? null,
+    totalPages: response.totalPages,
+  };
+}
+
 function buildQueryString(filters: AuditFilters): string {
   const params = new URLSearchParams();
   const range = effectiveRange(filters.range);
@@ -244,7 +302,8 @@ export async function fetchAuditFeed(filters: AuditFilters): Promise<AuditFeedPa
   const qs = buildQueryString(filters);
   const path = `/api/v1/audit?${qs}`;
   try {
-    return await apiGet<AuditFeedPage>(path);
+    const response = await apiGet<AuditFeedResponse>(path);
+    return normalizeAuditFeed(response);
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       // Demo mode keeps the seeded SAMPLE_AUDIT_ROWS for the recorded
