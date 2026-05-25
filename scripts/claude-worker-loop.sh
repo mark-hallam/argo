@@ -171,18 +171,22 @@ LAST_BRIEF_FAILS=0
 MAX_SAME_BRIEF_FAILS=2
 
 while true; do
-  if [ -f /tmp/argo-stop ]; then
-    echo "[$(date +%H:%M:%S)] /tmp/argo-stop sentinel found. Exiting."
+  # Halt sentinels: /tmp/argo-stop is transient (wiped by macOS reboot),
+  # ~/.argo/stop is persistent (survives reboot). Either halts the worker.
+  # The persistent path was added 2026-05-25 after the recovery session
+  # discovered halt-by-/tmp was lost over the upcoming reboot.
+  if [ -f /tmp/argo-stop ] || [ -f "$HOME/.argo/stop" ]; then
+    echo "[$(date +%H:%M:%S)] STOP sentinel found (/tmp/argo-stop or ~/.argo/stop). Exiting."
     exit 0
   fi
 
   # Graceful pause: idle-sleep without releasing claims. Distinct from
-  # /tmp/argo-stop (kill switch). Useful when the operator wants to halt
+  # STOP sentinels (kill switch). Useful when the operator wants to halt
   # new claims temporarily — e.g., before a manual merge sweep, during a
   # ledger refactor, or while fixing the swarm tooling. Resume via
-  # `rm /tmp/argo-pause`.
-  if [ -f /tmp/argo-pause ]; then
-    echo "[$(date +%H:%M:%S)] /tmp/argo-pause sentinel found. Idle-sleeping 60s. (rm to resume)"
+  # `rm /tmp/argo-pause` or `rm ~/.argo/pause`.
+  if [ -f /tmp/argo-pause ] || [ -f "$HOME/.argo/pause" ]; then
+    echo "[$(date +%H:%M:%S)] PAUSE sentinel found. Idle-sleeping 60s. (rm to resume)"
     sleep 60
     continue
   fi

@@ -23,16 +23,49 @@
 #   exit 2       — ANTHROPIC_API_KEY hard guard. **DO NOT respawn** (real config error; operator must fix).
 #   exit other   — unexpected. Respawn with backoff.
 #
-# Stop sentinel:
-#   /tmp/argo-stop — if present, supervisor halts all slots cleanly.
+# Stop sentinels (checked together via stop_present helper below):
+#   /tmp/argo-stop   — transient halt (wiped by macOS reboot).
+#   ~/.argo/stop     — persistent halt (survives reboot). Added 2026-05-25
+#                      tier-1 fix after the 2026-05-25 recovery session
+#                      lost the /tmp halt over the upcoming reboot.
 
 set -euo pipefail
 
 REPO="${REPO:-~/code/argo}"
 N_SLOTS="${1:-4}"
 WORKER_SCRIPT="$REPO/scripts/claude-worker-loop.sh"
-STOP_SENTINEL="/tmp/argo-stop"
+STOP_SENTINEL_TMP="/tmp/argo-stop"
+STOP_SENTINEL_HOME="$HOME/.argo/stop"
 SUPERVISOR_PID_FILE="/tmp/argo-worker-supervisor.pid"
+
+# Returns 0 (true) when either halt sentinel is present. Use as
+# `if stop_present; then ... fi` everywhere the old `[ -f $STOP_SENTINEL ]`
+# check appeared.
+stop_present() {
+  [ -f "$STOP_SENTINEL_TMP" ] || [ -f "$STOP_SENTINEL_HOME" ]
+}
+
+# Returns 0 (true) when free RAM is below RAM_PRESSURE_THRESHOLD_MB.
+# Used by slots to back off before launching a new worker iteration
+# when the system is already under pressure (prevents the jetsam
+# death-spiral that ran 2026-05-24 → 2026-05-25). Tier-2 fix.
+#
+# Implementation: vm_stat returns page counts; on macOS the page size
+# is reported in the header. We multiply free + speculative pages
+# by page size to get bytes, then compare against threshold.
+RAM_PRESSURE_THRESHOLD_MB="${RAM_PRESSURE_THRESHOLD_MB:-1024}"  # 1 GB default
+ram_under_pressure() {
+  local page_size free_pages spec_pages avail_mb
+  # macOS page size lives in `vm_stat`'s first line: "page size of N bytes".
+  page_size=$(vm_stat | awk '/page size of/ {print $8}')
+  [ -z "$page_size" ] && return 1   # vm_stat unavailable → don't gate
+  free_pages=$(vm_stat | awk '/Pages free/ {gsub(/\./,"",$3); print $3}')
+  spec_pages=$(vm_stat | awk '/Pages speculative/ {gsub(/\./,"",$3); print $3}')
+  [ -z "$free_pages" ] && return 1
+  [ -z "$spec_pages" ] && spec_pages=0
+  avail_mb=$(( (free_pages + spec_pages) * page_size / 1024 / 1024 ))
+  [ "$avail_mb" -lt "$RAM_PRESSURE_THRESHOLD_MB" ]
+}
 
 # Fail-fast guards
 if [ ! -x "$WORKER_SCRIPT" ]; then
@@ -73,7 +106,10 @@ echo "════════════════════════�
 echo "  worker-supervisor.sh — keeping $N_SLOTS workers alive"
 echo "  pid:        $$"
 echo "  worker:     $WORKER_SCRIPT"
-echo "  stop:       touch $STOP_SENTINEL"
+echo "  stop:       touch $STOP_SENTINEL_TMP  (transient)"
+echo "              touch $STOP_SENTINEL_HOME  (persistent across reboot)"
+echo "  ram-gate:   pause slot iteration when avail RAM < ${RAM_PRESSURE_THRESHOLD_MB}MB"
+echo "              (exponential backoff: 5min → 15min → 30min cap)"
 echo "═══════════════════════════════════════════════════════════════════"
 
 # One supervisor child per slot. Each child loops: launch worker, wait,
@@ -82,13 +118,44 @@ for slot in $(seq 1 "$N_SLOTS"); do
   (
     consecutive_fast_fails=0
     LAST_LAUNCH_TS=0
+    ram_backoff_step=0   # 0=initial, 1=5min waited, 2=15min waited, 3=30min cap
 
     while true; do
-      # Check stop sentinel.
-      if [ -f "$STOP_SENTINEL" ]; then
+      # Check stop sentinel (transient + persistent).
+      if stop_present; then
         echo "[$(date +%H:%M:%S)] slot-$slot: STOP sentinel present, halting." >&2
         exit 0
       fi
+
+      # Memory-pressure gate. If avail RAM is below the threshold, the
+      # system is likely to jetsam our cargo as soon as we spawn one.
+      # Wait progressively longer between re-checks so a transient spike
+      # gets a fast retry but a sustained-pressure state doesn't burn
+      # tokens spinning.
+      while ram_under_pressure; do
+        case "$ram_backoff_step" in
+          0) ram_wait=300 ;;    # 5 min — first hit
+          1) ram_wait=900 ;;    # 15 min — second hit
+          *) ram_wait=1800 ;;   # 30 min cap — sustained pressure
+        esac
+        avail_mb=$(( ($(vm_stat | awk '/Pages free/ {gsub(/\./,"",$3); print $3}') + $(vm_stat | awk '/Pages speculative/ {gsub(/\./,"",$3); print $3}')) * $(vm_stat | awk '/page size of/ {print $8}') / 1024 / 1024 ))
+        echo "[$(date +%H:%M:%S)] slot-$slot: RAM-PRESSURE (avail ${avail_mb}MB < ${RAM_PRESSURE_THRESHOLD_MB}MB threshold), sleeping ${ram_wait}s before re-check" >&2
+        # At step 3 (30 min cap), also append an alert to SHARED.md so the
+        # operator sees sustained pressure in their heartbeat scan.
+        if [ "$ram_backoff_step" -ge 3 ] && [ -f "$REPO/docs/skycot/agents/SHARED.md" ]; then
+          ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "- $ts [supervisor-ram-pressure] slot-$slot avail=${avail_mb}MB sustained-low for $ram_backoff_step backoff cycles; manual operator attention may be warranted (close apps, kill cargo, or relight workers after pressure clears)." >> "$REPO/docs/skycot/agents/SHARED.md"
+        fi
+        sleep "$ram_wait"
+        ram_backoff_step=$((ram_backoff_step + 1))
+        # Re-check stop sentinel mid-pressure-wait so operator can halt.
+        if stop_present; then
+          echo "[$(date +%H:%M:%S)] slot-$slot: STOP sentinel present during ram-pressure wait, halting." >&2
+          exit 0
+        fi
+      done
+      # Pressure cleared — reset backoff counter for next event.
+      ram_backoff_step=0
 
       # Stagger initial launches by ~3s so all N slots don't race the
       # ledger at the same moment.
@@ -145,7 +212,7 @@ for slot in $(seq 1 "$N_SLOTS"); do
       esac
 
       # Re-check stop sentinel before sleeping.
-      if [ -f "$STOP_SENTINEL" ]; then
+      if stop_present; then
         echo "[$(date +%H:%M:%S)] slot-$slot: STOP sentinel present (mid-backoff), halting." >&2
         exit 0
       fi
