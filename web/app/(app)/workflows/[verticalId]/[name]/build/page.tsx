@@ -65,27 +65,9 @@ import {
 } from "./types";
 import { usePaletteHandlers } from "./use-palette-handlers";
 
-/**
- * Class-leading visual workflow builder — `/workflows/<v>/<name>/build`.
- *
- * Two editing modalities sit side-by-side:
- *
- *   1. Natural-language AI prompt area at the top — describe a change
- *      in plain English ("add an approval step before posting") and
- *      the AI proposes the diff.
- *   2. Full visual canvas powered by React Flow (@xyflow/react), with
- *      draggable nodes, decision branches, loops, approval gates, and
- *      a side inspector for the currently-selected step.
- *
- * This file is the orchestrator: it loads the workflow spec, owns the
- * `useWorkflowBuilderState` hook, and threads handlers (extracted into
- * `builder-handlers/` sibling files) into the canvas / toolbar /
- * inspector components.
- */
+const [NEW_WORKFLOW_SENTINEL, DEFAULT_NEW_WORKFLOW_NAME] = ["__new__", "new_workflow"];
 
-export default function WorkflowBuilderPage({
-  params,
-}: {
+export default function WorkflowBuilderPage({ params }: {
   params: Promise<{ verticalId: string; name: string }>;
 }) {
   return (
@@ -97,37 +79,46 @@ export default function WorkflowBuilderPage({
   );
 }
 
-function BuilderInner({
-  params,
-}: {
+function BuilderInner({ params }: {
   params: Promise<{ verticalId: string; name: string }>;
 }) {
   const { verticalId, name } = use(params);
+  const isNewWorkflow = name === NEW_WORKFLOW_SENTINEL;
   const router = useRouter();
   const pathname = usePathname() ?? `/workflows/${verticalId}/${name}/build`;
   const searchParams = useSearchParams();
   const templateId = searchParams.get("from_template");
-  // `?state=loading|error|empty` is the gateway-fetch-state simulator
-  // kept alongside the real hook signals so tests + dev/screenshot
-  // flows can land each branch without standing up a flaky backend.
-  // Empty also fires naturally when the live workflow has zero steps.
   const stateFlag = searchParams.get("state");
-  // Templates are an in-memory copy-from-catalog (never hits gateway),
-  // so we disable the query while a template is being applied.
+  const [draftName, setDraftName] = useState(DEFAULT_NEW_WORKFLOW_NAME);
+  const workflowName = useMemo(() => {
+    if (!isNewWorkflow) return name;
+    return draftName.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "")
+      || DEFAULT_NEW_WORKFLOW_NAME;
+  }, [draftName, isNewWorkflow, name]);
   const workflowQuery = useWorkflow(
-    templateId ? null : verticalId,
-    templateId ? null : name,
+    templateId || isNewWorkflow ? null : verticalId,
+    templateId || isNewWorkflow ? null : name,
   );
-  const workflow = useMemo<WorkflowSpec | undefined>(
-    () =>
-      resolveBuilderWorkflowSource({
+  const workflow = useMemo<WorkflowSpec | undefined>(() => {
+      if (isNewWorkflow) {
+        return {
+          name: workflowName,
+          vertical: verticalId,
+          description: "New workflow draft.",
+          version: "draft",
+          risk: "autonomous",
+          steps: [],
+        };
+      }
+      return resolveBuilderWorkflowSource({
         verticalId,
         name,
         templateId,
         data: workflowQuery.data as { workflow: WorkflowSpec | null } | undefined,
         demoMode: isDemoMode(),
-      }),
-    [templateId, verticalId, name, workflowQuery.data],
+      });
+    },
+    [isNewWorkflow, workflowName, templateId, verticalId, name, workflowQuery.data],
   );
   const initial = useMemo(
     () => (workflow ? stepsToFlow(workflow.steps) : { nodes: [], edges: [] }),
@@ -155,16 +146,11 @@ function BuilderInner({
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [triggerConfigOpen, setTriggerConfigOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  // Step id whose Pin-data modal is currently open, or null when closed.
   const [pinModalStepId, setPinModalStepId] = useState<string | null>(null);
-  // One config per step id. Persisted client-side for v1; wired to the
-  // gateway step-config save path in a follow-up brief.
   const [triggerConfigs, setTriggerConfigs] = useState<Record<string, TriggerConfig>>({});
   const annotations = useBuilderAnnotations();
-  const workflowId = `${verticalId}/${name}`;
+  const workflowId = `${verticalId}/${workflowName}`;
 
-  // useReactFlow + history hook only function when the page is wrapped
-  // by <ReactFlowProvider> (see WorkflowBuilderPage above).
   const reactFlow = useReactFlow();
 
   const historyHandlers = useHistoryHandlers(
@@ -213,10 +199,6 @@ function BuilderInner({
     true,
   );
 
-  // Re-derive `selectedStep` from the live `builder.nodes` so inline
-  // edits to the selected step (HTTP / Code config) flow back into the
-  // inspector immediately — `selectedNode` itself is a snapshot taken
-  // at click time and would otherwise show stale values.
   const selectedStep = selectedNode
     ? ((builder.nodes.find((n) => n.id === selectedNode.id)?.data as SkyNodeData | undefined)?.step
         ?? (selectedNode.data as SkyNodeData).step)
@@ -233,7 +215,7 @@ function BuilderInner({
 
   const { testRun, stepInputs, nodesWithRunState, handleTestRun } = useTestRunHandlers({
     verticalId,
-    name,
+    name: workflowName,
     nodes: builder.nodes,
     currentSteps,
     annotations,
@@ -243,7 +225,7 @@ function BuilderInner({
   const savePublishHandlers = useSavePublishHandlers({
     workflow,
     verticalId,
-    name,
+    name: workflowName,
     currentSteps,
     nodes: builder.nodes,
     edges: builder.edges,
@@ -332,7 +314,7 @@ function BuilderInner({
     );
   }
 
-  if (workflow.steps.length === 0 || stateFlag === "empty") {
+  if (!isNewWorkflow && (workflow.steps.length === 0 || stateFlag === "empty")) {
     return (
       <WorkflowBuilderEmptyState
         onAddStep={() => {
@@ -350,7 +332,7 @@ function BuilderInner({
         <BuilderToolbar
           workflow={workflow}
           verticalId={verticalId}
-          name={name}
+          name={workflowName}
           dirty={builder.dirty}
           saving={savePublish.isSaving}
           publishing={savePublish.isPublishing}
@@ -386,7 +368,7 @@ function BuilderInner({
             onSelectStepKind={handleAddStep}
             onPaletteDrop={handlePaletteDrop}
             currentVerticalId={verticalId}
-            currentName={name}
+            currentName={workflowName}
             onNodesDelete={deleteDuplicate.onNodesDelete}
             onEdgesDelete={deleteDuplicate.onEdgesDelete}
             onNodeContextMenu={deleteDuplicate.onNodeContextMenu}
@@ -424,6 +406,23 @@ function BuilderInner({
                 );
               }}
             />
+          ) : isNewWorkflow ? (
+            <aside className="builder-panel">
+              <div className="builder-panel-head">
+                <span className="builder-panel-eyebrow">Draft setup</span>
+              </div>
+              <h2 className="builder-panel-title">Name workflow</h2>
+              <label className="builder-panel-section">
+                <span className="builder-panel-section-label">Workflow name</span>
+                <input
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  data-testid="builder-new-workflow-name"
+                  aria-label="Workflow name"
+                  className="mt-1.5 block w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm font-medium normal-case text-[var(--foreground)]"
+                />
+              </label>
+            </aside>
           ) : null}
           {pinModalStepId
             ? (() => {
@@ -462,7 +461,7 @@ function BuilderInner({
             <BuilderAiProposal
               prompt={proposal.activeProposalPrompt}
               verticalId={verticalId}
-              workerId={`${verticalId}-${name}`}
+              workerId={`${verticalId}-${workflowName}`}
               currentSteps={currentSteps}
               onApprove={proposal.handleProposalApprove}
               onCancel={proposal.handleProposalCancel}
