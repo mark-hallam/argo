@@ -57,6 +57,35 @@ stop_present() {
   [ -f "$STOP_SENTINEL_TMP" ] || [ -f "$STOP_SENTINEL_HOME" ]
 }
 
+# STOP sentinel = PAUSE this slot until operator clears it (not a permanent
+# halt). Slot subshell stays alive throughout the pause and resumes when the
+# sentinel is removed. Operator's relight procedure simplifies to just
+# `rm /tmp/argo-stop ~/.argo/stop`; no `launchctl load` needed.
+#
+# Reason this exists: prior behavior was `exit 0` whenever a slot saw the
+# sentinel (at top-of-loop, mid-RAM-wait, or mid-respawn-backoff). That
+# permanently killed the slot subshell, and because the supervisor script
+# doesn't auto-respawn slot subshells (only launchd auto-restarts the whole
+# supervisor process when its PID dies), losing a slot subshell meant losing
+# that slot until the next `launchctl load`. Slots ALSO died asymmetrically:
+# whichever slot happened to be deep inside `wait "$WORKER_PID"` when the
+# operator paused-then-cleared survived; the others didn't. 2026-05-26
+# incident: slot-1 died at 01:02:33 local while slot-2 happened to be inside
+# a 4h cargo iteration and survived. Operator lost slot-1 for ~7h overnight.
+wait_for_stop_to_clear() {
+  local logged=0 slot_arg="${1:-?}"
+  while stop_present; do
+    if [ "$logged" -eq 0 ]; then
+      echo "[$(date +%H:%M:%S)] slot-${slot_arg}: STOP sentinel present, pausing (will auto-resume when cleared)." >&2
+      logged=1
+    fi
+    sleep 30
+  done
+  if [ "$logged" -eq 1 ]; then
+    echo "[$(date +%H:%M:%S)] slot-${slot_arg}: STOP sentinel cleared, resuming." >&2
+  fi
+}
+
 # Returns 0 (true) when free RAM is below RAM_PRESSURE_THRESHOLD_MB.
 # Used by slots to back off before launching a new worker iteration
 # when the system is already under pressure (prevents the jetsam
@@ -306,11 +335,10 @@ for slot in $(seq 1 "$N_SLOTS"); do
     ram_backoff_step=0   # 0=initial, 1=5min waited, 2=15min waited, 3=30min cap
 
     while true; do
-      # Check stop sentinel (transient + persistent).
-      if stop_present; then
-        echo "[$(date +%H:%M:%S)] slot-$slot: STOP sentinel present, halting." >&2
-        exit 0
-      fi
+      # Check stop sentinel (transient + persistent). PAUSE not HALT — slot
+      # subshell stays alive across the operator's pause and resumes on its
+      # own when sentinel is cleared.
+      wait_for_stop_to_clear "$slot"
 
       # Memory-pressure gate. If avail RAM is below the threshold, the
       # system is likely to jetsam our cargo as soon as we spawn one.
@@ -333,11 +361,8 @@ for slot in $(seq 1 "$N_SLOTS"); do
         fi
         sleep "$ram_wait"
         ram_backoff_step=$((ram_backoff_step + 1))
-        # Re-check stop sentinel mid-pressure-wait so operator can halt.
-        if stop_present; then
-          echo "[$(date +%H:%M:%S)] slot-$slot: STOP sentinel present during ram-pressure wait, halting." >&2
-          exit 0
-        fi
+        # Re-check stop sentinel mid-pressure-wait — pause if set.
+        wait_for_stop_to_clear "$slot"
       done
       # Pressure cleared — reset backoff counter for next event.
       ram_backoff_step=0
@@ -402,11 +427,8 @@ for slot in $(seq 1 "$N_SLOTS"); do
           ;;
       esac
 
-      # Re-check stop sentinel before sleeping.
-      if stop_present; then
-        echo "[$(date +%H:%M:%S)] slot-$slot: STOP sentinel present (mid-backoff), halting." >&2
-        exit 0
-      fi
+      # Re-check stop sentinel before sleeping — pause if set.
+      wait_for_stop_to_clear "$slot"
 
       echo "[$(date +%H:%M:%S)] slot-$slot: respawn in ${BACKOFF}s..."
       sleep "$BACKOFF"
