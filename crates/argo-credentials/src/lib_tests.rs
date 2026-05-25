@@ -28,6 +28,25 @@ fn write_plain_legacy(path: &Path, entries: &[(&str, &str)]) {
     fs::write(path, body).expect("write legacy file");
 }
 
+fn wrapped_value_from_body(body: &str) -> String {
+    body.lines()
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix("value = \"")
+                .and_then(|rest| rest.strip_suffix('"'))
+        })
+        .expect("wrapped value")
+        .to_string()
+}
+
+fn write_mixed_legacy_and_wrapped(path: &Path, wrapped_value: &str) {
+    let body = format!(
+        "[credentials]\nLEGACY_TOKEN = \"legacy-secret-that-must-disappear\"\n\n\
+         [credentials.ALREADY]\nvalue = \"{wrapped_value}\"\n"
+    );
+    fs::write(path, body).expect("write mixed credentials file");
+}
+
 #[test]
 fn round_trip_preserves_map() {
     let dir = tempfile::tempdir().unwrap();
@@ -43,7 +62,7 @@ fn round_trip_preserves_map() {
 }
 
 #[test]
-fn mixed_plaintext_and_encrypted_supported() {
+fn read_encrypted_migrates_plaintext_entries_on_normal_read() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("credentials.toml");
     let key = make_key();
@@ -54,6 +73,9 @@ fn mixed_plaintext_and_encrypted_supported() {
             ("OTHER_TOKEN", "another-plain"),
         ],
     );
+    #[cfg(unix)]
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+
     let loaded = read_encrypted(&path, &key).unwrap();
     assert_eq!(
         loaded.get("LEGACY_TOKEN").map(String::as_str),
@@ -62,6 +84,91 @@ fn mixed_plaintext_and_encrypted_supported() {
     assert_eq!(
         loaded.get("OTHER_TOKEN").map(String::as_str),
         Some("another-plain")
+    );
+
+    let body = fs::read_to_string(&path).unwrap();
+    assert!(!body.contains("plain-value"), "plaintext leaked: {body}");
+    assert!(
+        body.contains("[credentials.LEGACY_TOKEN]"),
+        "legacy key was not rewritten as wrapped entry: {body}"
+    );
+    assert!(
+        body.contains("[credentials.OTHER_TOKEN]"),
+        "second legacy key was not rewritten as wrapped entry: {body}"
+    );
+    assert!(
+        fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .all(|entry| !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".tmp")),
+        "atomic temp file left behind"
+    );
+    #[cfg(unix)]
+    {
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+}
+
+#[test]
+fn read_encrypted_preserves_already_encrypted_file_byte_for_byte() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("credentials.toml");
+    let key = make_key();
+    let mut credentials = CredentialMap::new();
+    credentials.insert("ALREADY".into(), "encrypted-value".into());
+    write_encrypted(&path, &credentials, &key).unwrap();
+    let before = fs::read_to_string(&path).unwrap();
+
+    let loaded = read_encrypted(&path, &key).unwrap();
+    assert_eq!(
+        loaded.get("ALREADY").map(String::as_str),
+        Some("encrypted-value")
+    );
+    let after = fs::read_to_string(&path).unwrap();
+    assert_eq!(
+        after, before,
+        "already encrypted file should not be rewritten"
+    );
+}
+
+#[test]
+fn read_encrypted_migrates_mixed_file_preserving_wrapped_entries() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("credentials.toml");
+    let key = make_key();
+    let mut credentials = CredentialMap::new();
+    credentials.insert("ALREADY".into(), "encrypted-value".into());
+    write_encrypted(&path, &credentials, &key).unwrap();
+    let original_body = fs::read_to_string(&path).unwrap();
+    let original_blob = wrapped_value_from_body(&original_body);
+    write_mixed_legacy_and_wrapped(&path, &original_blob);
+
+    let loaded = read_encrypted(&path, &key).unwrap();
+    assert_eq!(
+        loaded.get("ALREADY").map(String::as_str),
+        Some("encrypted-value")
+    );
+    assert_eq!(
+        loaded.get("LEGACY_TOKEN").map(String::as_str),
+        Some("legacy-secret-that-must-disappear")
+    );
+
+    let migrated = fs::read_to_string(&path).unwrap();
+    assert!(
+        migrated.contains(&original_blob),
+        "existing encrypted entry should keep its wrapped blob: {migrated}"
+    );
+    assert!(
+        !migrated.contains("legacy-secret-that-must-disappear"),
+        "legacy plaintext leaked: {migrated}"
+    );
+    assert!(
+        migrated.contains("[credentials.LEGACY_TOKEN]"),
+        "legacy entry should now be wrapped: {migrated}"
     );
 }
 

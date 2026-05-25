@@ -18,16 +18,17 @@
 //! ```
 //!
 //! Legacy plaintext entries (bare strings) are still accepted on read
-//! to keep single-tenant deployments compiling without forced
-//! migration:
+//! for backward compatibility; the same read rewrites them to encrypted
+//! wrapped entries before returning:
 //!
 //! ```toml
 //! [credentials]
 //! SLACK_BOT_TOKEN = "xoxb-…"
 //! ```
 //!
-//! [`migrate_plaintext_in_place`] rewrites a mixed file so that every
-//! entry is encrypted; subsequent reads return only encrypted entries.
+//! [`migrate_plaintext_in_place`] exposes the same rewrite as an
+//! explicit operator command; subsequent reads return only encrypted
+//! entries.
 
 mod age_wrap;
 mod master_key;
@@ -51,10 +52,11 @@ use argo_types::{ArgoError, ArgoResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Map of credential key → plaintext value.
 pub type CredentialMap = BTreeMap<String, String>;
@@ -86,8 +88,11 @@ enum EncryptedEntry {
     Plain(String),
 }
 
-/// Read and decrypt a credentials file. Plaintext entries are passed
-/// through unchanged, encrypted entries are unwrapped with `key`.
+/// Read and decrypt a credentials file. Plaintext entries are returned
+/// unchanged for this read, then opportunistically rewritten in the
+/// existing encrypted wrapped-entry format. Encrypted entries are
+/// unwrapped with `key` and left byte-for-byte preserved unless the file
+/// also contained plaintext entries.
 ///
 /// Returns an empty map when the file does not exist. The caller can
 /// rely on that for "no credentials configured yet" flows without
@@ -96,7 +101,8 @@ enum EncryptedEntry {
 /// # Errors
 /// Returns [`ArgoError::Io`] on read failure, [`ArgoError::Schema`]
 /// on malformed TOML or base64, [`ArgoError::Provider`] when an
-/// encrypted entry fails to unwrap (wrong master key, corrupted blob).
+/// encrypted entry fails to unwrap (wrong master key, corrupted blob),
+/// and [`ArgoError::Io`] when a plaintext migration rewrite fails.
 pub fn read_encrypted(path: &Path, key: &MasterKey) -> ArgoResult<CredentialMap> {
     if !path.exists() {
         return Ok(CredentialMap::new());
@@ -106,12 +112,26 @@ pub fn read_encrypted(path: &Path, key: &MasterKey) -> ArgoResult<CredentialMap>
     let document: EncryptedDocument = toml::from_str(&body)
         .map_err(|e| ArgoError::Schema(format!("parse {}: {e}", path.display())))?;
     let mut out = CredentialMap::new();
+    let mut next: BTreeMap<String, EncryptedEntry> = BTreeMap::new();
+    let mut should_migrate = false;
     for (k, entry) in document.credentials {
-        let plain = match entry {
-            EncryptedEntry::Plain(s) => s,
-            EncryptedEntry::Wrapped { value } => age_wrap::decrypt_value(&value, key)?,
+        match entry {
+            EncryptedEntry::Plain(plain) => {
+                let blob = age_wrap::encrypt_value(&plain, key)?;
+                next.insert(k.clone(), EncryptedEntry::Wrapped { value: blob });
+                out.insert(k, plain);
+                should_migrate = true;
+            }
+            EncryptedEntry::Wrapped { value } => {
+                let plain = age_wrap::decrypt_value(&value, key)?;
+                next.insert(k.clone(), EncryptedEntry::Wrapped { value });
+                out.insert(k, plain);
+            }
         };
-        out.insert(k, plain);
+    }
+    if should_migrate {
+        let _ = warn_loose_perms(path)?;
+        write_document(path, &next)?;
     }
     Ok(out)
 }
@@ -193,19 +213,73 @@ fn write_document(path: &Path, wrapped: &BTreeMap<String, EncryptedEntry>) -> Ar
     };
     let body = toml::to_string_pretty(&document)
         .map_err(|e| ArgoError::Schema(format!("serialize {}: {e}", path.display())))?;
-    let mut options = OpenOptions::new();
-    options.create(true).truncate(true).write(true);
-    #[cfg(unix)]
-    options.mode(0o600);
-    let mut file = options
-        .open(path)
-        .map_err(|e| ArgoError::Io(format!("open {}: {e}", path.display())))?;
-    file.write_all(body.as_bytes())
-        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
+    write_body_atomically(path, body.as_bytes())?;
     #[cfg(unix)]
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
         .map_err(|e| ArgoError::Io(format!("chmod 0600 {}: {e}", path.display())))?;
     Ok(())
+}
+
+fn write_body_atomically(path: &Path, body: &[u8]) -> ArgoResult<()> {
+    for attempt in 0..16 {
+        let tmp_path = temp_path_for(path, attempt);
+        let mut options = OpenOptions::new();
+        options.create_new(true).write(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let mut file = match options.open(&tmp_path) {
+            Ok(file) => file,
+            Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
+            Err(err) => {
+                return Err(ArgoError::Io(format!(
+                    "open temp {}: {err}",
+                    tmp_path.display()
+                )));
+            }
+        };
+        let write_result = (|| -> ArgoResult<()> {
+            file.write_all(body)
+                .map_err(|e| ArgoError::Io(format!("write {}: {e}", tmp_path.display())))?;
+            file.sync_all()
+                .map_err(|e| ArgoError::Io(format!("sync {}: {e}", tmp_path.display())))?;
+            Ok(())
+        })();
+        drop(file);
+        if let Err(err) = write_result {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(err);
+        }
+        if let Err(err) = fs::rename(&tmp_path, path) {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(ArgoError::Io(format!(
+                "rename {} to {}: {err}",
+                tmp_path.display(),
+                path.display()
+            )));
+        }
+        return Ok(());
+    }
+    Err(ArgoError::Io(format!(
+        "create temp file for {}: too many name collisions",
+        path.display()
+    )))
+}
+
+fn temp_path_for(path: &Path, attempt: u8) -> PathBuf {
+    let parent = path.parent().unwrap_or_else(|| Path::new(""));
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("credentials.toml");
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    parent.join(format!(
+        ".{file_name}.{}.{}.{attempt}.tmp",
+        std::process::id(),
+        nanos
+    ))
 }
 
 fn warn_loose_perms(path: &Path) -> ArgoResult<bool> {
