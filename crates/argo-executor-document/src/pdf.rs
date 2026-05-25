@@ -72,10 +72,23 @@ pub fn resolve_chrome_path() -> PathBuf {
     PathBuf::from(DEFAULT_CHROME_PATH)
 }
 
-/// Render markdown to a PDF at `target`. The intermediate HTML
-/// goes through `<bundle>/.staging/render.html` so the operator can
-/// inspect it post-mortem if Chrome's rendering surprises them.
+/// Render markdown to a PDF at `target`. The intermediate HTML is
+/// written to `<bundle>/.staging/render.html` so Chrome has a stable
+/// file URL to print from, then removed on successful render so a
+/// plaintext duplicate of the generated document is not left on
+/// disk. A failed render preserves the file so operators can inspect
+/// what Chrome was asked to print.
 pub fn render_pdf(target: &Path, markdown: &str, title: &str) -> DocResult<u64> {
+    render_pdf_with(target, markdown, title, invoke_chrome)
+}
+
+/// Testable seam behind [`render_pdf`]. The closure stands in for
+/// the headless Chrome invocation so the staging-cleanup contract
+/// can be exercised without a real Chrome on PATH.
+fn render_pdf_with<F>(target: &Path, markdown: &str, title: &str, invoke: F) -> DocResult<u64>
+where
+    F: FnOnce(&Path, &Path) -> DocResult<()>,
+{
     let html = markdown_to_html(markdown, title);
     let staging = match target.parent() {
         Some(p) => p.join(".staging"),
@@ -86,11 +99,31 @@ pub fn render_pdf(target: &Path, markdown: &str, title: &str) -> DocResult<u64> 
     let html_path = staging.join("render.html");
     std::fs::write(&html_path, html.as_bytes())
         .map_err(|e| DocExecutorError::io(format!("pdf: write {}", html_path.display()), e))?;
-    invoke_chrome(&html_path, target)?;
+    // Chrome failure short-circuits via `?`, which preserves the
+    // staging HTML for post-mortem inspection. The cleanup below
+    // runs only when Chrome reported success.
+    invoke(&html_path, target)?;
     let bytes = std::fs::metadata(target)
         .map(|m| m.len())
         .map_err(|e| DocExecutorError::io(format!("pdf: stat output {}", target.display()), e))?;
+    cleanup_staging_html(&html_path, &staging)?;
     Ok(bytes)
+}
+
+/// Remove the staging HTML after a successful render. Surfaces any
+/// cleanup failure as an executor error rather than silently leaving
+/// the plaintext on disk — the privacy invariant (no duplicate of
+/// the generated document) is the whole reason the cleanup exists,
+/// so an audit trail when it fails beats a quiet leak.
+fn cleanup_staging_html(html_path: &Path, staging: &Path) -> DocResult<()> {
+    std::fs::remove_file(html_path)
+        .map_err(|e| DocExecutorError::io(format!("pdf: cleanup {}", html_path.display()), e))?;
+    // Drop the now-empty `.staging` dir as a best-effort tidy-up.
+    // We do not bubble errors here: a concurrent writer may have
+    // placed another file in the dir, and the render.html removal
+    // is the load-bearing invariant.
+    let _ = std::fs::remove_dir(staging);
+    Ok(())
 }
 
 fn invoke_chrome(html_path: &Path, pdf_path: &Path) -> DocResult<()> {
@@ -149,6 +182,78 @@ mod tests {
             matches!(err, DocExecutorError::ChromeMissing { .. }),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn render_pdf_removes_staging_html_on_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("out.pdf");
+        let staging_html = dir.path().join(".staging").join("render.html");
+        let bytes = render_pdf_with(&target, "# Body", "T", |html_path, pdf_path| {
+            assert!(
+                html_path.exists(),
+                "fake-chrome should see the staging html before render"
+            );
+            std::fs::write(pdf_path, b"%PDF-stub").unwrap();
+            Ok(())
+        })
+        .unwrap();
+        assert!(bytes > 0);
+        assert!(
+            !staging_html.exists(),
+            "staging render.html must be removed after a successful render"
+        );
+        assert!(
+            !staging_html.parent().unwrap().exists(),
+            "now-empty .staging dir should be tidied up too"
+        );
+    }
+
+    #[test]
+    fn render_pdf_preserves_staging_html_when_chrome_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("out.pdf");
+        let staging_html = dir.path().join(".staging").join("render.html");
+        let err = render_pdf_with(&target, "# Body", "T", |_html, _pdf| {
+            Err(DocExecutorError::ChromeFailed {
+                code: 1,
+                stderr: "synthetic".into(),
+            })
+        })
+        .unwrap_err();
+        assert!(matches!(err, DocExecutorError::ChromeFailed { .. }));
+        assert!(
+            staging_html.exists(),
+            "failed renders must preserve the staging html for post-mortem"
+        );
+        let content = std::fs::read_to_string(&staging_html).unwrap();
+        assert!(content.contains("<h1>Body</h1>"));
+    }
+
+    #[test]
+    fn render_pdf_surfaces_cleanup_failure_as_io_error() {
+        // Simulate cleanup-time failure by having the fake "chrome"
+        // delete the staging file out from under us. The subsequent
+        // remove_file inside render_pdf_with hits NotFound and the
+        // function must surface that as DocExecutorError::Io rather
+        // than silently returning Ok.
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("out.pdf");
+        let err = render_pdf_with(&target, "# Body", "T", |html_path, pdf_path| {
+            std::fs::write(pdf_path, b"%PDF-stub").unwrap();
+            std::fs::remove_file(html_path).unwrap();
+            Ok(())
+        })
+        .unwrap_err();
+        match err {
+            DocExecutorError::Io { context, .. } => {
+                assert!(
+                    context.starts_with("pdf: cleanup"),
+                    "unexpected io context: {context}"
+                );
+            }
+            other => panic!("expected Io cleanup error, got {other}"),
+        }
     }
 
     #[test]
