@@ -1,9 +1,11 @@
 //! Pack install, cache, and resolution logic.
 
+use crate::adapter::adapt_pack_entry;
 use crate::dev_link::DevLinkStore;
 use crate::fetcher::{FetchRequest, GitHubReleaseFetcher, PackFetcher};
 use crate::manifest::{FetcherConfig, PackManifest};
 use argo_types::{ArgoError, ArgoResult};
+use argo_vertical::LoadedVertical;
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
@@ -180,6 +182,35 @@ impl<F: PackFetcher> PackLoader<F> {
             root: path.to_path_buf(),
             dev_link: true,
         })
+    }
+
+    /// Resolve a pack and adapt each of its `[[verticals]]` entries
+    /// into the `argo_vertical::LoadedVertical` shape the runtime
+    /// template loader registers.
+    ///
+    /// This is the narrow bridge that lets a pack feed the vertical
+    /// loader without a parallel `verticals/` entry — see
+    /// `crate::adapter` for translation rules.
+    ///
+    /// Returns `Ok(None)` when no pack is resolved (no dev-link, no
+    /// cached version matches). Returns `Err` if the pack manifest
+    /// fails to load or any entry fails to adapt — adapter errors
+    /// surface verbatim so the operator can fix the offending
+    /// `worker.toml`.
+    pub fn load_as_vertical(
+        &self,
+        name: &str,
+        version: Option<&str>,
+    ) -> ArgoResult<Option<Vec<LoadedVertical>>> {
+        let Some(installed) = self.resolve(name, version)? else {
+            return Ok(None);
+        };
+        let manifest = PackManifest::load(&installed.root)?;
+        let mut out = Vec::with_capacity(manifest.verticals.len());
+        for entry in &manifest.verticals {
+            out.push(adapt_pack_entry(&installed.root, &manifest, entry)?);
+        }
+        Ok(Some(out))
     }
 
     /// Remove a cached version, or all versions if `version` is `None`.

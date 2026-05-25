@@ -9,6 +9,7 @@ description = "Vertical template pack loader and cache"
 
 [dependencies]
 argo-types = { path = "../argo-types" }
+argo-vertical = { path = "../argo-vertical" }
 flate2 = "1"
 reqwest = { workspace = true }
 serde = { workspace = true }

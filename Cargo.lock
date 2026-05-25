@@ -1762,6 +1762,7 @@ name = "argo-vertical-packs"
 version = "0.0.1"
 dependencies = [
  "argo-types",
+ "argo-vertical",
  "flate2",
  "reqwest 0.12.28",
  "serde",

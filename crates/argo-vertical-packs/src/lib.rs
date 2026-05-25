@@ -1,15 +1,19 @@
 //! Vertical template pack loading, caching, and dev-link overrides.
 //!
-//! The crate is intentionally independent of `argo-vertical`: it manages
-//! pack distribution and resolves a pack root on disk. Later Track M briefs
-//! consume that root to install the named vertical templates.
+//! Distribution mechanics (fetch / cache / dev-link / resolve) are
+//! self-contained here. The crate also exposes a narrow bridge —
+//! see [`adapter`] — that translates a cached pack into the shape
+//! the runtime `argo_vertical` loader registers, so one pack can
+//! be loaded without a parallel `verticals/` entry.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod adapter;
 pub mod dev_link;
 pub mod fetcher;
 pub mod loader;
 pub mod manifest;
 
+pub use adapter::adapt_pack_entry;
 pub use dev_link::DevLinkStore;
 pub use fetcher::{FetchRequest, GitHubReleaseFetcher, PackFetcher};
 pub use loader::{InstalledPack, PackLoader, PackLoaderConfig};
