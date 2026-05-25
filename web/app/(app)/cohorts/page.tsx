@@ -1,16 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { CohortDeptTabs } from "@/components/skycot/cohorts/CohortDeptTabs";
 import { CohortMagazineGrid } from "@/components/skycot/cohorts/CohortMagazineGrid";
 import { CohortMagazineSkeleton } from "@/components/skycot/cohorts/CohortMagazineSkeleton";
 import { CohortMagazineStyles } from "@/components/skycot/cohorts/CohortMagazineStyles";
-import { groupCohortsByDepartment } from "@/components/skycot/cohorts/dept-registry";
+import {
+  groupCohortsByDepartment,
+  type DeptGroup,
+} from "@/components/skycot/cohorts/dept-registry";
 import { CohortDetailDrawer } from "@/components/skycot/CohortDetailDrawer";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { CohortsIllustration } from "@/components/empty-state/illustrations/CohortsIllustration";
+import { buttonVariants } from "@/components/ui/Button";
 import { useCohorts } from "@/lib/hooks/use-cohorts";
+import { SAMPLE_COHORT_SUMMARIES } from "@/lib/sample-cohorts";
+
+const EMPTY_PREVIEW_GROUPS = groupCohortsByDepartment(SAMPLE_COHORT_SUMMARIES);
 
 /**
  * /cohorts — locked D3 magazine-tile editorial layout.
@@ -47,6 +53,14 @@ export default function CohortsPage() {
       : (groups[0]?.dept.id ?? null);
   const activeGroup =
     groups.find((g) => g.dept.id === resolvedActive) ?? groups[0] ?? null;
+  const previewActive =
+    activeDeptId && EMPTY_PREVIEW_GROUPS.some((g) => g.dept.id === activeDeptId)
+      ? activeDeptId
+      : (EMPTY_PREVIEW_GROUPS[0]?.dept.id ?? "");
+  const previewGroup =
+    EMPTY_PREVIEW_GROUPS.find((g) => g.dept.id === previewActive) ??
+    EMPTY_PREVIEW_GROUPS[0] ??
+    null;
 
   return (
     <>
@@ -82,12 +96,11 @@ export default function CohortsPage() {
         {cohortsQuery.isPending ? (
           <CohortMagazineSkeleton />
         ) : cohorts.length === 0 ? (
-          <EmptyState
-            data-testid="cohorts-empty"
-            illustration={CohortsIllustration}
-            headline="No cohorts"
-            body="Group similar tasks into a cohort to share context across workers."
-            cta={{ label: "Create cohort", href: "/cohorts/new" }}
+          <CohortsEmptyPreview
+            groups={EMPTY_PREVIEW_GROUPS}
+            activeId={previewActive}
+            activeGroup={previewGroup}
+            onDeptChange={setActiveDeptId}
           />
         ) : (
           <div data-testid="cohort-grid" role="region" aria-label="Cohorts by department">
@@ -109,6 +122,72 @@ export default function CohortsPage() {
 
       <CohortDetailDrawer cohortId={openCohortId} onClose={onClose} />
     </>
+  );
+}
+
+function CohortsEmptyPreview({
+  groups,
+  activeId,
+  activeGroup,
+  onDeptChange,
+}: {
+  groups: DeptGroup[];
+  activeId: string;
+  activeGroup: DeptGroup | null;
+  onDeptChange: (id: string) => void;
+}) {
+  return (
+    <section
+      className="space-y-6"
+      data-testid="cohorts-empty"
+      aria-label="Cohort layout preview"
+    >
+      <div className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-5 text-[var(--card-foreground)] shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+            Preview examples
+          </p>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Create your first cohort
+            </h2>
+            <p className="max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
+              Your workspace has no cohort rows yet. The marked examples below show
+              how departments will arrange once real workers are assigned.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/cohorts/new"
+          className={buttonVariants({ size: "sm" })}
+          data-testid="cohorts-create-cta"
+        >
+          Create cohort
+        </Link>
+      </div>
+
+      <div
+        className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] p-4 sm:p-5"
+        data-testid="cohort-preview-grid"
+      >
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <span className="rounded-[var(--radius-sm)] bg-[var(--muted)] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+            Example data
+          </span>
+          <span className="text-xs text-[var(--muted-foreground)]">
+            Not counted in your workspace
+          </span>
+        </div>
+        <CohortDeptTabs groups={groups} activeId={activeId} onChange={onDeptChange} />
+        {activeGroup ? (
+          <CohortMagazineGrid
+            group={activeGroup}
+            onSelect={() => undefined}
+            selectedId={null}
+          />
+        ) : null}
+      </div>
+    </section>
   );
 }
 
