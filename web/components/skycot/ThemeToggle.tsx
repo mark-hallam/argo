@@ -7,8 +7,8 @@ import { useEffect, useState } from "react";
 /**
  * Sidebar light/dark toggle. Placed next to the UserPill so it sits in
  * a discoverable, persistent spot (operator memory:
- * project_multi_tenant_theming.md). Persists user choice via
- * next-themes' default localStorage mechanism. We render a stable
+ * project_multi_tenant_theming.md). Persists user choice via the
+ * provider's explicit `theme` localStorage key. We render a stable
  * placeholder before mount to avoid a hydration mismatch — `resolvedTheme`
  * is undefined during SSR.
  */
@@ -20,13 +20,18 @@ export function ThemeToggle() {
   const isDark = mounted && resolvedTheme === "dark";
   const nextLabel = isDark ? "Switch to light theme" : "Switch to dark theme";
 
+  function handleToggle() {
+    const htmlIsDark = document.documentElement.classList.contains("dark");
+    setTheme(htmlIsDark ? "light" : "dark");
+  }
+
   return (
     <button
       type="button"
       data-testid="appshell-theme-toggle"
       aria-label={nextLabel}
       title={nextLabel}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={handleToggle}
       className="mt-1 inline-flex h-9 w-9 items-center justify-center self-end rounded-[var(--radius-md)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] transition-colors duration-[var(--duration-fast)]"
     >
       {mounted ? (

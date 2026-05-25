@@ -4,6 +4,8 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BUILTIN_THEMES, SKYCOT_THEME, getThemeById, resolveDataTheme, type ThemePair } from "@/lib/theme/themes";
 
+const COLOR_MODE_STORAGE_KEY = "theme";
+
 interface TenantThemeContextValue {
   theme: ThemePair;
   setThemeById: (id: string) => void;
@@ -70,8 +72,10 @@ export function ThemeProvider({ initialThemeId, registeredThemes = [], children 
     <TenantThemeContext.Provider value={ctxValue}>
       <NextThemesProvider
         attribute="class"
+        storageKey={COLOR_MODE_STORAGE_KEY}
         defaultTheme="system"
         enableSystem
+        enableColorScheme
         themes={["light", "dark"]}
         disableTransitionOnChange={false}
       >
