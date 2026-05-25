@@ -7,6 +7,88 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+/// Optional post-capture transform for screenshots persisted to the
+/// audit bundle and sent to the Anthropic CU loop. Native macOS
+/// Retina captures land at 5-10× the size of an E2B browser
+/// screenshot (see `docs/skycot/COMPUTER_USE_NATIVE_MACOS.md` open
+/// question #3), which becomes GB-per-day per worker on long
+/// trajectories.
+///
+/// Default ([`ScreenshotCompression::Png`] with `max_edge: None`)
+/// preserves the V1.5 PoC behavior: native PNG, no resample, no
+/// re-encode. Operators opt into a downscale and/or JPEG conversion
+/// by setting an explicit variant. The transform runs through the
+/// macOS `sips` binary so the crate stays dependency-free.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "format", rename_all = "snake_case")]
+pub enum ScreenshotCompression {
+    /// Keep PNG encoding. With `max_edge = None` the capture is
+    /// passed through untouched; with `Some(edge)` the image is
+    /// resampled so its longest side is `edge` pixels.
+    Png { max_edge: Option<u32> },
+    /// Re-encode to JPEG at `quality` (1..=100). `max_edge` is
+    /// optional; when set the resample runs before the re-encode.
+    Jpeg {
+        max_edge: Option<u32>,
+        quality: u8,
+    },
+}
+
+impl Default for ScreenshotCompression {
+    fn default() -> Self {
+        Self::Png { max_edge: None }
+    }
+}
+
+impl ScreenshotCompression {
+    /// `true` when this setting requires any post-capture work
+    /// (downscale and/or re-encode). The pass-through default
+    /// returns `false`.
+    #[must_use]
+    pub const fn is_transform(&self) -> bool {
+        match self {
+            Self::Png { max_edge } => max_edge.is_some(),
+            Self::Jpeg { .. } => true,
+        }
+    }
+
+    /// File extension the transform writes (without the leading
+    /// dot). The audit-bundle filename stays `step-NNN.png`
+    /// regardless — this is the extension a caller would pick for
+    /// a sibling temp file if it wanted truthful naming.
+    #[must_use]
+    pub const fn extension(&self) -> &'static str {
+        match self {
+            Self::Png { .. } => "png",
+            Self::Jpeg { .. } => "jpg",
+        }
+    }
+
+    /// Validates the variant in isolation. Returns the same error
+    /// strings [`MacosCuConfig::validate`] surfaces.
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::Png { max_edge } => check_max_edge(*max_edge),
+            Self::Jpeg { max_edge, quality } => {
+                check_max_edge(*max_edge)?;
+                if !(1..=100).contains(quality) {
+                    return Err(format!(
+                        "screenshot_compression.jpeg.quality `{quality}` must be in 1..=100"
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+fn check_max_edge(edge: Option<u32>) -> Result<(), String> {
+    match edge {
+        Some(0) => Err("screenshot_compression.max_edge `0` must be > 0".to_string()),
+        _ => Ok(()),
+    }
+}
+
 /// Static configuration for one [`crate::MacosCuExecutor`]
 /// instance. Cloneable so the same config can drive multiple
 /// concurrent dispatches.
@@ -41,6 +123,13 @@ pub struct MacosCuConfig {
     pub max_steps: u32,
     /// Hard upper bound on wallclock per dispatch, seconds.
     pub max_wallclock_seconds: u32,
+    /// Post-capture screenshot transform. Default
+    /// [`ScreenshotCompression::default`] preserves V1.5 PoC
+    /// behavior (PNG, no downscale, no re-encode). Operators opt
+    /// into a max-edge resample and/or JPEG conversion to bound
+    /// audit storage cost on long native trajectories.
+    #[serde(default)]
+    pub screenshot_compression: ScreenshotCompression,
 }
 
 impl MacosCuConfig {
@@ -77,6 +166,7 @@ impl MacosCuConfig {
             anthropic_timeout_seconds: 60,
             max_steps: 25,
             max_wallclock_seconds: 600,
+            screenshot_compression: ScreenshotCompression::default(),
         }
     }
 
@@ -98,6 +188,7 @@ impl MacosCuConfig {
         if self.max_wallclock_seconds == 0 {
             return Err("max_wallclock_seconds must be > 0".to_string());
         }
+        self.screenshot_compression.validate()?;
         Ok(())
     }
 
@@ -158,5 +249,113 @@ mod tests {
         cfg.max_steps = 0;
         let err = cfg.validate().unwrap_err();
         assert!(err.contains("max_steps"));
+    }
+
+    #[test]
+    fn notes_default_uses_pass_through_compression() {
+        let cfg = MacosCuConfig::for_notes_app();
+        assert_eq!(
+            cfg.screenshot_compression,
+            ScreenshotCompression::Png { max_edge: None }
+        );
+        assert!(!cfg.screenshot_compression.is_transform());
+        assert_eq!(cfg.screenshot_compression.extension(), "png");
+    }
+
+    #[test]
+    fn screenshot_compression_default_matches_pass_through() {
+        assert_eq!(
+            ScreenshotCompression::default(),
+            ScreenshotCompression::Png { max_edge: None }
+        );
+    }
+
+    #[test]
+    fn png_with_max_edge_is_transform() {
+        let c = ScreenshotCompression::Png {
+            max_edge: Some(1280),
+        };
+        assert!(c.is_transform());
+        c.validate().unwrap();
+    }
+
+    #[test]
+    fn jpeg_is_always_transform() {
+        let c = ScreenshotCompression::Jpeg {
+            max_edge: None,
+            quality: 80,
+        };
+        assert!(c.is_transform());
+        assert_eq!(c.extension(), "jpg");
+        c.validate().unwrap();
+    }
+
+    #[test]
+    fn zero_max_edge_fails_validate() {
+        let err = ScreenshotCompression::Png { max_edge: Some(0) }
+            .validate()
+            .unwrap_err();
+        assert!(err.contains("max_edge"));
+        let err = ScreenshotCompression::Jpeg {
+            max_edge: Some(0),
+            quality: 80,
+        }
+        .validate()
+        .unwrap_err();
+        assert!(err.contains("max_edge"));
+    }
+
+    #[test]
+    fn jpeg_quality_outside_range_fails_validate() {
+        for q in [0u8, 101u8, 200u8] {
+            let err = ScreenshotCompression::Jpeg {
+                max_edge: None,
+                quality: q,
+            }
+            .validate()
+            .unwrap_err();
+            assert!(err.contains("quality"), "quality={q} should fail: {err}");
+        }
+    }
+
+    #[test]
+    fn jpeg_quality_boundary_values_validate() {
+        for q in [1u8, 50u8, 100u8] {
+            ScreenshotCompression::Jpeg {
+                max_edge: None,
+                quality: q,
+            }
+            .validate()
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn config_validate_surfaces_compression_error() {
+        let mut cfg = MacosCuConfig::for_notes_app();
+        cfg.screenshot_compression = ScreenshotCompression::Jpeg {
+            max_edge: None,
+            quality: 0,
+        };
+        let err = cfg.validate().unwrap_err();
+        assert!(err.contains("quality"));
+    }
+
+    #[test]
+    fn screenshot_compression_omitted_from_toml_uses_default() {
+        // Round-trip a config missing `screenshot_compression` to
+        // confirm the `#[serde(default)]` lands the pass-through
+        // variant rather than failing deserialization.
+        let cfg = MacosCuConfig::for_notes_app();
+        let mut value = serde_json::to_value(&cfg).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("screenshot_compression");
+        let round_tripped: MacosCuConfig = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            round_tripped.screenshot_compression,
+            ScreenshotCompression::Png { max_edge: None }
+        );
     }
 }

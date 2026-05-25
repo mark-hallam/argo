@@ -8,8 +8,10 @@
 //! permission as `CGWindowListCreateImage` — equivalent
 //! security, simpler glue.
 
+use crate::config::ScreenshotCompression;
 use crate::error::{truncate_stderr, MacosCuError};
 use crate::MacosCuResult;
+use std::ffi::OsString;
 use std::path::Path;
 
 /// Capture the foreground window of the current display to a PNG
@@ -89,6 +91,92 @@ fn front_window_id_arg() -> MacosCuResult<String> {
 /// payload). Caller is responsible for path management.
 pub fn read_png(path: &Path) -> MacosCuResult<Vec<u8>> {
     Ok(std::fs::read(path)?)
+}
+
+/// Build the `sips` argv that applies `compression` to the file at
+/// `src` in place. Returns `None` for the pass-through default
+/// ([`ScreenshotCompression::Png`] with `max_edge: None`), signaling
+/// "no subprocess to run."
+///
+/// Pure function — does not touch the filesystem or spawn a process,
+/// so it can be unit-tested off-macOS. `apply_compression` is the
+/// thin runner that actually invokes `sips`.
+///
+/// `sips` flags used:
+/// - `-s format jpeg` — re-encode to JPEG.
+/// - `-s formatOptions <q>` — JPEG quality (0..=100; we restrict to
+///   1..=100 in [`ScreenshotCompression::validate`]).
+/// - `-Z <edge>` — resample so the longest edge becomes `edge` px,
+///   preserving aspect ratio.
+///
+/// The output file is the same path as `src`; `sips` rewrites in
+/// place. The extension stays whatever the caller picked
+/// (typically `.png`) even when the bytes become JPEG — see
+/// [`ScreenshotCompression::extension`] for the truthful name when
+/// callers want it.
+pub(crate) fn build_sips_argv(
+    compression: ScreenshotCompression,
+    src: &Path,
+) -> Option<Vec<OsString>> {
+    let mut args: Vec<OsString> = Vec::new();
+    match compression {
+        ScreenshotCompression::Png { max_edge: None } => return None,
+        ScreenshotCompression::Png {
+            max_edge: Some(edge),
+        } => {
+            args.push("-Z".into());
+            args.push(edge.to_string().into());
+        }
+        ScreenshotCompression::Jpeg { max_edge, quality } => {
+            args.push("-s".into());
+            args.push("format".into());
+            args.push("jpeg".into());
+            args.push("-s".into());
+            args.push("formatOptions".into());
+            args.push(quality.to_string().into());
+            if let Some(edge) = max_edge {
+                args.push("-Z".into());
+                args.push(edge.to_string().into());
+            }
+        }
+    }
+    args.push(src.as_os_str().to_os_string());
+    Some(args)
+}
+
+/// Apply `compression` to the file at `src` in place, via `sips`.
+/// No-op (returns `Ok(())`) for the pass-through default.
+///
+/// macOS-only — returns [`MacosCuError::NotMacos`] off-platform if
+/// the caller asked for a real transform. The pass-through default
+/// short-circuits before the platform check so off-macOS unit tests
+/// can call this freely.
+pub fn apply_compression(src: &Path, compression: ScreenshotCompression) -> MacosCuResult<()> {
+    let Some(args) = build_sips_argv(compression, src) else {
+        return Ok(());
+    };
+    if !cfg!(target_os = "macos") {
+        return Err(MacosCuError::NotMacos);
+    }
+    apply_compression_impl(&args)
+}
+
+#[cfg(target_os = "macos")]
+fn apply_compression_impl(args: &[OsString]) -> MacosCuResult<()> {
+    use std::process::Command;
+    let output = Command::new("sips").args(args).output()?;
+    if !output.status.success() {
+        return Err(MacosCuError::Subprocess {
+            command: "sips".to_string(),
+            stderr: truncate_stderr(&output.stderr),
+        });
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn apply_compression_impl(_args: &[OsString]) -> MacosCuResult<()> {
+    Err(MacosCuError::NotMacos)
 }
 
 /// Capture the screen size in pixels — needed by Anthropic's CU
@@ -187,6 +275,125 @@ mod tests {
     #[test]
     fn screen_size_returns_not_macos_off_platform() {
         let err = screen_size().unwrap_err();
+        assert!(matches!(err, MacosCuError::NotMacos));
+    }
+
+    fn argv_strings(argv: &Option<Vec<OsString>>) -> Vec<String> {
+        argv.as_ref()
+            .map(|v| v.iter().map(|s| s.to_string_lossy().into_owned()).collect())
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn pass_through_default_emits_no_argv() {
+        let argv = build_sips_argv(
+            ScreenshotCompression::Png { max_edge: None },
+            Path::new("/tmp/cap.png"),
+        );
+        assert!(argv.is_none());
+    }
+
+    #[test]
+    fn png_downscale_emits_resample_argv_only() {
+        let argv = build_sips_argv(
+            ScreenshotCompression::Png {
+                max_edge: Some(1280),
+            },
+            Path::new("/tmp/cap.png"),
+        );
+        let argv = argv.expect("downscale must emit argv");
+        let strs: Vec<String> = argv.iter().map(|s| s.to_string_lossy().into_owned()).collect();
+        assert_eq!(
+            strs,
+            vec!["-Z", "1280", "/tmp/cap.png"]
+                .into_iter()
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn jpeg_without_max_edge_emits_format_argv_only() {
+        let argv = build_sips_argv(
+            ScreenshotCompression::Jpeg {
+                max_edge: None,
+                quality: 80,
+            },
+            Path::new("/tmp/cap.png"),
+        );
+        let strs = argv_strings(&argv);
+        assert_eq!(strs[0], "-s");
+        assert_eq!(strs[1], "format");
+        assert_eq!(strs[2], "jpeg");
+        assert_eq!(strs[3], "-s");
+        assert_eq!(strs[4], "formatOptions");
+        assert_eq!(strs[5], "80");
+        assert_eq!(strs[6], "/tmp/cap.png");
+        assert_eq!(strs.len(), 7);
+    }
+
+    #[test]
+    fn jpeg_with_max_edge_emits_both_in_canonical_order() {
+        let argv = build_sips_argv(
+            ScreenshotCompression::Jpeg {
+                max_edge: Some(1600),
+                quality: 70,
+            },
+            Path::new("/tmp/cap.png"),
+        );
+        let strs = argv_strings(&argv);
+        assert_eq!(strs[0], "-s");
+        assert_eq!(strs[1], "format");
+        assert_eq!(strs[2], "jpeg");
+        assert_eq!(strs[3], "-s");
+        assert_eq!(strs[4], "formatOptions");
+        assert_eq!(strs[5], "70");
+        assert_eq!(strs[6], "-Z");
+        assert_eq!(strs[7], "1600");
+        assert_eq!(strs[8], "/tmp/cap.png");
+        assert_eq!(strs.len(), 9);
+    }
+
+    #[test]
+    fn argv_preserves_path_with_spaces() {
+        let path = Path::new("/tmp/argo cu/front window.png");
+        let argv = build_sips_argv(
+            ScreenshotCompression::Png {
+                max_edge: Some(640),
+            },
+            path,
+        );
+        let argv = argv.expect("downscale must emit argv");
+        let last = argv.last().unwrap();
+        // The argv vector retains the raw OsString, so a quoted
+        // path round-trips intact — the subprocess call below does
+        // not go through a shell.
+        assert_eq!(last.as_os_str(), path.as_os_str());
+    }
+
+    #[test]
+    fn apply_compression_is_noop_for_default() {
+        // Pass-through default short-circuits before the platform
+        // check, so this must succeed even off-macOS and without a
+        // real file on disk.
+        let result = apply_compression(
+            Path::new("/dev/null/does-not-exist.png"),
+            ScreenshotCompression::default(),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn apply_compression_off_macos_returns_not_macos_when_transform_requested() {
+        let err = apply_compression(
+            Path::new("/tmp/cap.png"),
+            ScreenshotCompression::Jpeg {
+                max_edge: None,
+                quality: 80,
+            },
+        )
+        .unwrap_err();
         assert!(matches!(err, MacosCuError::NotMacos));
     }
 }

@@ -8,7 +8,7 @@ use crate::error::MacosCuError;
 use crate::events::{action_kind, post, MacosActionResult};
 use crate::executor_loop::run_loop_with_client;
 use crate::preflight::{probe, PermissionReport};
-use crate::screenshot::{capture_front_window, read_png, screen_size};
+use crate::screenshot::{apply_compression, capture_front_window, read_png, screen_size};
 use crate::tenant::{noop_tenant_lookup, TenantWorkerLookup};
 use crate::MacosCuResult;
 use argo_executor_computer_use::anthropic::AnthropicClient;
@@ -204,6 +204,7 @@ impl MacosCuExecutor {
     pub async fn warm_up(&self, screenshot_dest: &std::path::Path) -> MacosCuResult<Vec<u8>> {
         activate_app(&self.config.target_app, &self.config).await?;
         capture_front_window(screenshot_dest)?;
+        apply_compression(screenshot_dest, self.config.screenshot_compression)?;
         read_png(screenshot_dest)
     }
 
@@ -292,6 +293,8 @@ impl CuStepRunner for MacosCuExecutor {
     async fn capture_screenshot(&self, session: &Self::Session) -> Result<Vec<u8>, CuError> {
         capture_front_window(&session.screenshot_path)
             .map_err(|e| macos_to_cu(e, "macos.screenshot"))?;
+        apply_compression(&session.screenshot_path, self.config.screenshot_compression)
+            .map_err(|e| macos_to_cu(e, "macos.screenshot.compress"))?;
         read_png(&session.screenshot_path).map_err(|e| macos_to_cu(e, "macos.screenshot.read"))
     }
 

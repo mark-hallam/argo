@@ -65,7 +65,7 @@ mod run_loop_tests;
 pub mod screenshot;
 pub mod tenant;
 
-pub use config::MacosCuConfig;
+pub use config::{MacosCuConfig, ScreenshotCompression};
 pub use error::MacosCuError;
 pub use executor::MacosStepRecord as StepRecord;
 pub use executor::{
