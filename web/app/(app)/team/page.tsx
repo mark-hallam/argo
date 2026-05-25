@@ -21,6 +21,8 @@ import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
 import { TeamFilterChipRail } from "@/components/skycot/TeamFilterChipRail";
 import { useTeam } from "@/lib/hooks/use-team";
+import type { UseQueryResult } from "@tanstack/react-query";
+import type { FetchTeamResult } from "@/lib/api/team";
 import {
   applyTeamFilters,
   parseTeamFilters,
@@ -133,16 +135,18 @@ function TeamPageContent() {
 
   const workers = Array.isArray(teamQuery.data?.workers) ? teamQuery.data.workers : [];
   const total = workers.length;
+  const dataSource = teamQuery.isPending
+    ? "loading"
+    : teamQuery.isError
+      ? "error"
+      : (teamQuery.data?.source ?? "loading");
 
   const filtered = useMemo<Worker[]>(
     () => [...applyTeamFilters(workers, filters)].sort(compareWorkersForGrid),
     [workers, filters],
   );
 
-  // Team hero stats — surface aggregate workforce KPIs in the
-  // brand-loud register the C2 holographic-showcase design calls for.
-  // Static derivations from the loaded roster; richer aggregations
-  // (real action counts, actual hours-saved) wire in a follow-up.
+  // C2 holographic-showcase KPIs; richer aggregations wire in later.
   const workingCount = workers.filter((w) => w.status === "working").length;
   const weeklyActions = workers.length > 0 ? workers.length * 187 : 0;
   const hoursSaved = workers.length > 0 ? workers.length * 12 : 0;
@@ -165,28 +169,50 @@ function TeamPageContent() {
         onStatusChange={onStatusChange}
         onClearDimension={onClearDimension}
         onClearAll={onClearAll}
+        dataSource={dataSource}
       />
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
-        {teamQuery.isPending ? (
-          <LoadingGrid />
-        ) : teamQuery.isError ? (
-          <TeamErrorState onRetry={() => teamQuery.refetch()} />
-        ) : total === 0 ? (
-          <TeamEmptyState />
-        ) : filtered.length === 0 ? (
-          <NoMatchesState filters={filters} onClearAll={onClearAll} />
-        ) : (
-          <TeammateGrid>
-            {filtered.map((w) => (
-              <TeammateCard key={w.id} worker={w} />
-            ))}
-          </TeammateGrid>
-        )}
+        {renderTeamBody({
+          query: teamQuery,
+          total,
+          filtered,
+          filters,
+          onClearAll,
+        })}
       </div>
     </>
   );
 }
+
+// Loading / error states never collapse into the "Hire your first AI
+// teammate" empty grid — that's the camera-visible defect this brief
+// closes. Empty state only when the query has actually succeeded with
+// zero workers.
+function renderTeamBody(args: {
+  query: UseQueryResult<FetchTeamResult>;
+  total: number;
+  filtered: Worker[];
+  filters: TeamFilters;
+  onClearAll: () => void;
+}) {
+  const { query, total, filtered, filters, onClearAll } = args;
+  if (query.isPending) return <LoadingGrid />;
+  if (query.isError) return <TeamErrorState onRetry={() => query.refetch()} />;
+  if (total === 0) return <TeamEmptyState />;
+  if (filtered.length === 0)
+    return <NoMatchesState filters={filters} onClearAll={onClearAll} />;
+  return (
+    <TeammateGrid>
+      {filtered.map((w) => (
+        <TeammateCard key={w.id} worker={w} />
+      ))}
+    </TeammateGrid>
+  );
+}
+
+type TeamDataSourceLabel =
+  | "loading" | "error" | "gateway" | "mock-offline" | "mock-bypass" | "unreachable";
 
 interface PageHeaderProps {
   total: number;
@@ -198,6 +224,7 @@ interface PageHeaderProps {
   onStatusChange: (e: ChangeEvent<HTMLSelectElement>) => void;
   onClearDimension: (dimension: keyof TeamFilters) => void;
   onClearAll: () => void;
+  dataSource: TeamDataSourceLabel;
 }
 
 function PageHeader({
@@ -210,6 +237,7 @@ function PageHeader({
   onStatusChange,
   onClearDimension,
   onClearAll,
+  dataSource,
 }: PageHeaderProps) {
   const filterActive = filters.status !== null || filters.q.length > 0;
   const subtitleCount = filterActive ? filteredCount : total;
@@ -218,9 +246,12 @@ function PageHeader({
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
-              Team
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+                Team
+              </h1>
+              <TeamDataSourceChip source={dataSource} />
+            </div>
             {total > 0 ? (
               <p
                 className="text-sm text-[var(--muted-foreground)]"
@@ -279,6 +310,21 @@ function PageHeader({
         />
       </div>
     </div>
+  );
+}
+
+// Dev-only diagnostic chip; hidden in production so the demo MP4
+// doesn't catch a stray chip.
+function TeamDataSourceChip({ source }: { source: TeamDataSourceLabel }) {
+  if (process.env.NODE_ENV === "production") return null;
+  return (
+    <span
+      data-testid="team-data-source-chip"
+      data-source={source}
+      className="rounded-full border border-[var(--border)] bg-[var(--muted)]/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--muted-foreground)]"
+    >
+      {source}
+    </span>
   );
 }
 

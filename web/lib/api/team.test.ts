@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchTeam } from "./team";
 import { ApiError } from "./types";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
+import type { Worker } from "@/lib/types/worker";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -62,7 +63,7 @@ describe("lib/api/team", () => {
     expect(result.workers).toEqual(payload);
   });
 
-  it("returns empty roster on 404 outside demo mode (fresh workspace empty state)", async () => {
+  it("returns empty roster + source='unreachable' on 404 outside demo mode", async () => {
     installMock(() =>
       makeResponse({
         status: 404,
@@ -70,7 +71,10 @@ describe("lib/api/team", () => {
       }),
     );
     const result = await fetchTeam();
-    expect(result.source).toBe("gateway");
+    // Source must NOT be 'gateway' when the gateway is down — that
+    // was the silent lie that made the empty-state defect impossible
+    // to diagnose in dev tools.
+    expect(result.source).toBe("unreachable");
     expect(result.workers).toEqual([]);
   });
 
@@ -118,5 +122,45 @@ describe("lib/api/team", () => {
       }),
     );
     await expect(fetchTeam()).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("parses the {workers,total_count} envelope returned by the gateway", async () => {
+    const maya: Worker = SAMPLE_TEAM[0];
+    installMock(() =>
+      makeResponse({ status: 200, body: { workers: [maya], total_count: 1 } }),
+    );
+    const result = await fetchTeam();
+    expect(result.source).toBe("gateway");
+    expect(result.workers).toEqual([maya]);
+    expect(result.workers.length).toBe(1);
+  });
+
+  it("reports source='unreachable' when fetch throws a network TypeError", async () => {
+    // CORS preflight failure / DNS error / refused connection all surface
+    // as a TypeError in the browser. The team-page bug was the catch
+    // block swallowing this and reporting source='gateway' — a lie that
+    // hid the failure from the operator's dev tools.
+    globalThis.fetch = vi.fn(() => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+    const result = await fetchTeam();
+    expect(result.source).toBe("unreachable");
+    expect(result.workers).toEqual([]);
+  });
+
+  it("flags a malformed envelope as an ApiError instead of silently returning []", async () => {
+    // Older gateway builds (or a buggy redeploy) might return a
+    // payload that's neither an array nor `{workers: []}`. Treating
+    // it as empty was a contributing cause to the silent
+    // empty-state defect — surface it as an error instead.
+    installMock(() => makeResponse({ status: 200, body: { rows: [], total: 0 } }));
+    let caught: unknown;
+    try {
+      await fetchTeam();
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).code).toBe("malformed_envelope");
   });
 });

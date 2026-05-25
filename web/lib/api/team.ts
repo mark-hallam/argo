@@ -26,7 +26,11 @@ import { SAMPLE_TEAM } from "@/lib/sample-team";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import type { Worker } from "@/lib/types/worker";
 
-export type TeamDataSource = "gateway" | "mock-offline" | "mock-bypass";
+export type TeamDataSource =
+  | "gateway"
+  | "mock-offline"
+  | "mock-bypass"
+  | "unreachable";
 
 export interface FetchTeamResult {
   workers: Worker[];
@@ -60,12 +64,24 @@ export async function fetchTeam(): Promise<FetchTeamResult> {
   try {
     // Gateway returns { workers: Worker[], total_count: number } envelope.
     // Fall back to treating a bare-array response as Worker[] for any older
-    // gateway build that hasn't been redeployed.
+    // gateway build that hasn't been redeployed. Guard against a malformed
+    // envelope (missing `workers` field) so a server bug doesn't silently
+    // collapse the roster to empty.
     const response = await apiGet<{ workers: Worker[]; total_count?: number } | Worker[]>(
       "/api/v1/team",
     );
-    const workers = Array.isArray(response) ? response : response.workers;
-    return { workers, source: "gateway" };
+    if (Array.isArray(response)) {
+      return { workers: response, source: "gateway" };
+    }
+    if (response && Array.isArray(response.workers)) {
+      return { workers: response.workers, source: "gateway" };
+    }
+    throw new ApiError(
+      200,
+      "Malformed team envelope: missing workers array",
+      "malformed_envelope",
+      response,
+    );
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       // Real signed-in users get an empty roster + the "hire your first
@@ -74,7 +90,10 @@ export async function fetchTeam(): Promise<FetchTeamResult> {
       if (isDemoMode()) {
         return { workers: SAMPLE_TEAM, source: "mock-offline" };
       }
-      return { workers: [], source: "gateway" };
+      // Source `unreachable` (not `gateway`) so the diagnostic chip on
+      // /team and any future operator surface can tell "gateway said
+      // zero" apart from "gateway never answered".
+      return { workers: [], source: "unreachable" };
     }
     throw err;
   }
