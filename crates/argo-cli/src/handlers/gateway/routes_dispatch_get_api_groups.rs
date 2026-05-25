@@ -32,6 +32,9 @@ pub(super) async fn dispatch_auth_and_meta(
     {
         return Some(super::routes_approval_bundles::list_response(req, store).await);
     }
+    if req.starts_with("GET /api/v1/verticals ") || req.starts_with("GET /api/v1/verticals?") {
+        return Some(super::routes_verticals_list_get::list_response(req, store).await);
+    }
     None
 }
 

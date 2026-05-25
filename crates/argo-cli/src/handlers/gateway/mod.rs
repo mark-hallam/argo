@@ -187,6 +187,7 @@ mod routes_trust_streaks;
 mod routes_verticals;
 mod routes_verticals_doctor;
 mod routes_verticals_lint;
+mod routes_verticals_list_get;
 mod routes_verticals_run;
 mod routes_voice;
 mod routes_voice_auth;
