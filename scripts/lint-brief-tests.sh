@@ -3,6 +3,7 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$REPO_ROOT/scripts/lint-brief.sh"
+BRIEF_FILE_SCRIPT="$REPO_ROOT/scripts/check-brief-files-exist.sh"
 
 failures=0
 fail() {
@@ -129,7 +130,43 @@ assert_grep "usage:" "$SCRIPT" --help
 # 7. Missing brief errors with exit 2
 assert_exit 2 "$SCRIPT" lint-brief-test-nonexistent-brief
 
+# 8. Active ledger rows fail when their stream brief file is missing.
+TMP_LEDGER_DIR="$(mktemp -d)"
+mkdir -p "$TMP_LEDGER_DIR/streams"
+cat >"$TMP_LEDGER_DIR/streams/valid-row.md" <<EOF
+# valid-row
+EOF
+cat >"$TMP_LEDGER_DIR/BUILD_STATUS.md" <<EOF
+| Brief | Owner | Status | PR | Notes |
+|---|---|---|---|---|
+| valid-row | codex | TODO | — | Brief: streams/valid-row.md. |
+| missing-active-row | codex | TODO | — | Previous note. Brief: streams/missing-active-row.md. |
+| missing-claimed-row | claude | CLAIMED | — | Multi sentence note. Brief: streams/missing-claimed-row.md. |
+| missing-blocked-row | codex | BLOCKED | — | Brief: streams/missing-blocked-row.md. |
+| missing-merged-row | codex | MERGED | #1 | Brief: streams/missing-merged-row.md. |
+| missing-dropped-row | codex | DROPPED | — | Brief: streams/missing-dropped-row.md. |
+| missing-superseded-row | codex | SUPERSEDED | — | Brief: streams/missing-superseded-row.md. |
+| archived-path-row | codex | TODO | — | Brief: streams/archive/old-row.md. |
+EOF
+assert_exit 1 "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+assert_grep "brief=missing-active-row status=TODO path=streams/missing-active-row.md" "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+assert_grep "brief=missing-claimed-row status=CLAIMED path=streams/missing-claimed-row.md" "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+assert_not_grep "missing-blocked-row" "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+assert_not_grep "missing-merged-row" "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+assert_not_grep "missing-dropped-row" "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+assert_not_grep "missing-superseded-row" "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+assert_not_grep "archived-path-row" "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+
+cat >"$TMP_LEDGER_DIR/BUILD_STATUS.md" <<EOF
+| Brief | Owner | Status | PR | Notes |
+|---|---|---|---|---|
+| valid-row | codex | TODO | — | Brief: streams/valid-row.md. |
+| missing-merged-row | codex | MERGED | #1 | Brief: streams/missing-merged-row.md. |
+EOF
+assert_exit 0 "$BRIEF_FILE_SCRIPT" --ledger="$TMP_LEDGER_DIR/BUILD_STATUS.md" --streams-dir="$TMP_LEDGER_DIR/streams"
+
 # Cleanup
+rm -rf "$TMP_LEDGER_DIR"
 rm -f "$GOOD_PATH" "$BAD_PATH" "$PARALLEL_PATH" "$V2_PATH" /tmp/lint-brief-test.out
 
 if [[ "$failures" -gt 0 ]]; then

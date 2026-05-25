@@ -210,6 +210,12 @@ if ! python3 "${REPO_ROOT}/scripts/lint-parallel-pub-types.py" "${parallel_args[
   warn "parallel pub types lint found duplicate public type names in staged Rust files"
 fi
 
+# --- Check 6: active ledger rows must cite existing stream files ---
+if ! brief_files_output="$("${REPO_ROOT}/scripts/check-brief-files-exist.sh" --quiet 2>&1)"; then
+  echo "$brief_files_output" >&2
+  warn "active BUILD_STATUS.md rows cite missing docs/build-plan/streams/*.md files"
+fi
+
 # --- Summary ---
 if [[ "$findings" -gt 0 ]]; then
   if [[ "$ENFORCE" -eq 1 ]]; then
