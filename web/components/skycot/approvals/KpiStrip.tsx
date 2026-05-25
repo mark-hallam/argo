@@ -14,13 +14,36 @@ function formatUsd(amount: number): string {
   }).format(amount);
 }
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const SLA_TARGET_MS = 2 * 60 * 60 * 1000;
+
+function parseTimestamp(iso?: string | null): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+function formatDuration(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+}
+
+function mean(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((acc, v) => acc + v, 0) / values.length;
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 /**
  * Roll-up of the 5 KPI cells from an in-memory ApprovalItem list.
- * "Pending" and "$ at risk" are derived live so they stay in sync
- * with filters/search. "Resolved / week", "Avg response", and the
- * 7-day approval rate flow from the gateway aggregation endpoint
- * once shipped; until then the strip surfaces stable demo values
- * matching the locked option-E HTML.
+ * Every value is derived from the visible approval rows so brand-new
+ * tenants do not inherit stale demo baselines.
  *
  * Lives in the KpiStrip module so the heavy compute stays out of
  * `app/(app)/page.tsx` (LOC budget).
@@ -31,6 +54,27 @@ export function computeKpiCells(
   now: number = Date.now(),
 ): KpiCell[] {
   const pendingItems = items.filter((a) => a.decision == null);
+  const recentItems = items.filter((a) => {
+    const receivedAt = parseTimestamp(a.receivedAt);
+    return receivedAt != null && receivedAt >= now - WEEK_MS && receivedAt <= now;
+  });
+  const decidedItems = recentItems.filter((a) => a.decision != null);
+  const approvedCount = decidedItems.filter((a) => a.decision === "approve").length;
+  const refusedCount = decidedItems.filter((a) => a.decision === "refuse").length;
+  const expiredCount = recentItems.filter((a) => {
+    if (a.decision != null) return false;
+    const expiresAt = parseTimestamp(a.slaExpiresAt);
+    return expiresAt != null && expiresAt <= now;
+  }).length;
+  const approvalRate =
+    decidedItems.length > 0 ? approvedCount / decidedItems.length : null;
+  const rateSliceTotal = Math.max(1, approvedCount + refusedCount + expiredCount);
+  const responseMs = mean(
+    decidedItems.flatMap((a) => {
+      const receivedAt = parseTimestamp(a.receivedAt);
+      return receivedAt == null ? [] : [Math.max(0, now - receivedAt)];
+    }),
+  );
   const totalAtRisk = pendingItems.reduce(
     (acc, a) => acc + (a.dollarAtRisk ?? 0),
     0,
@@ -38,7 +82,9 @@ export function computeKpiCells(
   const overSla = pendingItems.filter(
     (a) => a.slaExpiresAt && new Date(a.slaExpiresAt).getTime() <= now,
   ).length;
-  const monetaryCount = pendingItems.filter((a) => (a.dollarAtRisk ?? 0) > 0).length;
+  const monetaryCount = pendingItems.filter(
+    (a) => (a.dollarAtRisk ?? 0) > 0,
+  ).length;
 
   return [
     {
@@ -50,15 +96,23 @@ export function computeKpiCells(
     },
     {
       label: "Resolved / wk",
-      value: "42",
-      sub: "rolling 7-day total",
+      value: decidedItems.length > 0 ? String(decidedItems.length) : "—",
+      sub:
+        decidedItems.length > 0
+          ? "from resolved rows"
+          : "no decisions in 7 days",
       testId: "resolved",
     },
     {
       label: "Avg response",
-      value: "8m",
-      sub: "SLA target 2h",
-      tone: "good",
+      value: responseMs == null ? "—" : formatDuration(responseMs),
+      sub: responseMs == null ? "no response history" : "from resolved rows",
+      tone:
+        responseMs == null
+          ? "neutral"
+          : responseMs <= SLA_TARGET_MS
+            ? "good"
+            : "warn",
       testId: "avg-response",
     },
     {
@@ -73,10 +127,22 @@ export function computeKpiCells(
     },
     {
       label: "Approval rate",
-      value: "78%",
-      sub: "7-day rolling",
-      tone: "good",
+      value: approvalRate == null ? "—" : formatPercent(approvalRate),
+      sub: approvalRate == null ? "no decision history" : "from resolved rows",
+      tone:
+        approvalRate == null ? "neutral" : approvalRate >= 0.5 ? "good" : "warn",
       testId: "approval-rate",
+      rate:
+        approvalRate == null
+          ? undefined
+          : {
+              headline: formatPercent(approvalRate),
+              slices: {
+                approved: approvedCount / rateSliceTotal,
+                refused: refusedCount / rateSliceTotal,
+                expired: expiredCount / rateSliceTotal,
+              },
+            },
     },
   ];
 }
@@ -105,6 +171,11 @@ export interface KpiCell {
   tone?: KpiTone;
   /** Stable testid suffix so callers/tests can target specific cells. */
   testId?: string;
+  /** Optional derived ring data for the approval-rate summary row. */
+  rate?: {
+    headline: string;
+    slices: ApprovalRateSlices;
+  };
 }
 
 export interface ApprovalRateSlices {
@@ -131,6 +202,9 @@ const TONE_CLS: Record<KpiTone, string> = {
 };
 
 export function KpiStrip({ cells, rate, className }: KpiStripProps) {
+  const approvalRateCell = cells.find((c) => c.testId === "approval-rate");
+  const displayRate = approvalRateCell ? approvalRateCell.rate : rate;
+
   return (
     <section
       aria-label="Approval workload metrics"
@@ -169,7 +243,7 @@ export function KpiStrip({ cells, rate, className }: KpiStripProps) {
         </article>
       ))}
 
-      {rate ? (
+      {displayRate ? (
         <article
           data-testid="kpi-rate-ring"
           className={cn(
@@ -178,10 +252,10 @@ export function KpiStrip({ cells, rate, className }: KpiStripProps) {
           )}
         >
           <ApprovalRateRing
-            approved={rate.slices.approved}
-            refused={rate.slices.refused}
-            expired={rate.slices.expired}
-            animate={rate.animate}
+            approved={displayRate.slices.approved}
+            refused={displayRate.slices.refused}
+            expired={displayRate.slices.expired}
+            animate={approvalRateCell ? false : rate?.animate}
             size={56}
           />
           <div className="flex flex-col gap-0.5 min-w-0">
@@ -189,19 +263,19 @@ export function KpiStrip({ cells, rate, className }: KpiStripProps) {
               7-day approval rate
             </div>
             <div className="text-[22px] font-light leading-none tabular-nums text-[var(--foreground)]">
-              {rate.headline}
+              {displayRate.headline}
             </div>
             <div className="text-[11.5px] text-[var(--muted-foreground)] leading-tight">
               <span className="text-[var(--success)] font-semibold">
-                {Math.round(rate.slices.approved * 100)}%
+                {Math.round(displayRate.slices.approved * 100)}%
               </span>{" "}
               approved ·{" "}
               <span className="text-[var(--destructive)] font-semibold">
-                {Math.round(rate.slices.refused * 100)}%
+                {Math.round(displayRate.slices.refused * 100)}%
               </span>{" "}
               refused ·{" "}
               <span className="text-[var(--muted-foreground)] font-semibold">
-                {Math.round(rate.slices.expired * 100)}%
+                {Math.round(displayRate.slices.expired * 100)}%
               </span>{" "}
               expired
             </div>
