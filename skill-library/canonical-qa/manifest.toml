@@ -1,0 +1,29 @@
+# Hot-path canonical-Q&A skill — Track P brief P-04.
+#
+# Maps incoming questions to pre-warmed canonical answers using an
+# in-process IDF-weighted lexical matcher (no LLM round-trip, no
+# external embedding API call). Returns the matched answer together
+# with `declared_claim_classes`, which the truth-boundary evaluator
+# from P-01 consumes as `ClaimCandidate.declared_classes` to
+# short-circuit semantic classification.
+#
+# Corpora are per-tenant; the loader walks every `*.toml` file under
+# `corpora/<tenant-slug>/` at load time. See
+# `crates/argo-skill/src/canonical_qa.rs` for the loader.
+
+id = "canonical-qa"
+version = "0.1.0"
+description = "Hot-path matcher: maps incoming questions to pre-warmed canonical answers with declared claim classes."
+shared = true
+input_schema = "schemas/input.schema.json"
+output_schema = "schemas/output.schema.json"
+
+[matcher]
+backend = "lexical-idf"
+similarity_threshold = 0.45
+min_prompts_per_entry = 3
+
+[corpora]
+# Each tenant has its own corpus directory. The loader picks the
+# directory matching the active tenant's slug at engine boot.
+skycot = "corpora/skycot"

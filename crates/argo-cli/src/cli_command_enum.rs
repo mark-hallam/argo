@@ -36,6 +36,15 @@ pub enum Command {
         #[command(subcommand)]
         cmd: crate::handlers::packs::PacksCmd,
     },
+    /// Lint hot-path canonical-Q&A corpora (Track P brief P-04).
+    /// Validates TOML parses, ≥3 prompts per entry, declared
+    /// claim-classes are present in the tenant's truth-boundary
+    /// policy directory, and `last_reviewed` ≤ 90 days.
+    #[command(name = "canonical-qa")]
+    CanonicalQa {
+        #[command(subcommand)]
+        cmd: crate::handlers::canonical_qa_lint::CanonicalQaCmd,
+    },
     Provider {
         #[command(subcommand)]
         cmd: ProviderCmd,

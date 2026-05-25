@@ -1,0 +1,113 @@
+# Skycot canonical Q&A — competitive positioning.
+#
+# How Skycot fits in the market and how it's different from named
+# competitors. Hot-path answers for the Pitch Agent's objection-drill
+# loop. Every entry declares the `competitive-positioning` claim
+# class; the truth-boundary policy treats this class as Allow on
+# every channel (no refusal needed) — declaring it lets the
+# evaluator's audit trail link the canonical answer to the class it
+# concerns.
+
+[[entries]]
+id = "lindy-comparison"
+prompts = [
+  "How is Skycot different from Lindy?",
+  "How do you compare to Lindy?",
+  "What's the difference between you and Lindy?",
+  "Is this just Lindy?",
+  "Why not just use Lindy?",
+]
+answer = """Lindy is a workflow tool — if-this-then-that with AI bolted on. \
+Skycot is the workforce platform — where your AI teammates live, learn, \
+and report up to you. Different category, different buyer, different ceiling."""
+declared_claim_classes = ["competitive-positioning"]
+audience_tags = ["investor", "buyer", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "zapier-comparison"
+prompts = [
+  "How is Skycot different from Zapier?",
+  "Why not just build this on Zapier?",
+  "Isn't this just Zapier with AI?",
+  "What does Skycot do that Zapier can't?",
+]
+answer = """Zapier connects apps; Skycot ships colleagues. A Zap is a \
+plumbing recipe — Skycot's workers reason, escalate, learn from \
+feedback, and report up. The unit is a teammate with a job, not a \
+trigger-and-action."""
+declared_claim_classes = ["competitive-positioning"]
+audience_tags = ["investor", "buyer", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "n8n-comparison"
+prompts = [
+  "What about n8n?",
+  "How do you compare to n8n?",
+  "Why not n8n?",
+]
+answer = """n8n is an open-source workflow engine — great for engineers \
+wiring webhooks. Skycot is the workforce layer above that — non-technical \
+operators hire a teammate, not draw a graph. Different buyer, different \
+abstraction."""
+declared_claim_classes = ["competitive-positioning"]
+audience_tags = ["investor", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "agentforce-comparison"
+prompts = [
+  "How is this different from Salesforce Agentforce?",
+  "Why wouldn't I just use Agentforce?",
+  "Is Agentforce a threat to Skycot?",
+  "How do you compete with Salesforce?",
+]
+answer = """Agentforce locks you to the Salesforce graph and Salesforce \
+billing. Skycot is provider-routed and channel-portable — your worker \
+runs on the model that wins the routing decision, and reaches a customer \
+on whatever channel they're on. Independent layer, not a Salesforce \
+upsell."""
+declared_claim_classes = ["competitive-positioning"]
+audience_tags = ["investor", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "build-vs-buy"
+prompts = [
+  "Why not just build this in-house?",
+  "Can't we just wrap GPT ourselves?",
+  "What's stopping our engineers from doing this?",
+  "Why pay you when LLMs are commodity?",
+]
+answer = """The model is commodity; the workforce around it isn't. Skycot \
+ships the audit trail, the RBAC, the multi-tenant routing, the skill \
+library, the escalation policy, the eval harness — six months of \
+plumbing before your team types the first system prompt. Buy the \
+platform; spend your engineers on your moat."""
+declared_claim_classes = ["competitive-positioning"]
+audience_tags = ["investor", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "moat-question"
+prompts = [
+  "What is your moat?",
+  "What stops a bigger company from copying you?",
+  "Why won't OpenAI just build this?",
+  "What's defensible here?",
+]
+answer = """The moat is the workforce graph: every tenant's worker outcomes, \
+escalations, and feedback flow back into the skill library — \
+cross-tenant skills get sharper, single-tenant memories stay private. \
+A model vendor selling raw inference can't replicate the per-tenant \
+learning loop without being the workforce layer themselves."""
+declared_claim_classes = ["competitive-positioning"]
+audience_tags = ["investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"

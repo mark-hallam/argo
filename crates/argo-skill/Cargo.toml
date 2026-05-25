@@ -37,6 +37,10 @@ semver = "1"
 name = "select_variant"
 harness = false
 
+[[bench]]
+name = "canonical_qa_lookup"
+harness = false
+
 [dev-dependencies]
 tokio = { workspace = true }
 criterion = { workspace = true }

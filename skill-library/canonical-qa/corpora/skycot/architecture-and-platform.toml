@@ -1,0 +1,129 @@
+# Skycot canonical Q&A — architecture + platform.
+#
+# Hot-path answers about how Skycot is built. Targets the
+# technical-investor and CTO buyer personas — questions about the
+# stack, security, audit, multi-tenancy, and provider routing.
+
+[[entries]]
+id = "tech-stack"
+prompts = [
+  "What's the tech stack?",
+  "What is Skycot built on?",
+  "What language is the platform written in?",
+  "What's the architecture?",
+]
+answer = """Rust single-binary core with a JSON-RPC plugin ABI for any \
+non-core tool. Tenant-aware from the storage layer up; capability-based \
+security; provider manifests as TOML — no per-provider Rust adapters. \
+The whole thing is one statically-linked binary plus subprocess plugins."""
+declared_claim_classes = ["architecture"]
+audience_tags = ["investor", "buyer", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "why-rust"
+prompts = [
+  "Why Rust?",
+  "Why did you build it in Rust?",
+  "Why not Python or Go?",
+  "What's the case for Rust here?",
+]
+answer = """Three reasons: a hot-path agent loop that has to stay tight \
+on memory and latency; a security perimeter where unwrap-and-pray \
+isn't acceptable; and a single-binary deployment story we couldn't \
+get from a managed runtime. The 500-LOC core invariants only work \
+in a language where the compiler enforces them."""
+declared_claim_classes = ["architecture"]
+audience_tags = ["investor", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "multi-tenancy"
+prompts = [
+  "How does multi-tenancy work?",
+  "How do you isolate customers?",
+  "Is the platform multi-tenant?",
+  "How is tenant data separated?",
+]
+answer = """Tenant ID is plumbed through every primitive — storage, \
+audit, routing, skill lookup, capability check. Cross-tenant queries \
+get rejected at the storage layer, not the application layer. Each \
+tenant gets its own per-worker scope and its own master key for \
+secret material."""
+declared_claim_classes = ["architecture", "security"]
+audience_tags = ["buyer", "investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "provider-routing"
+prompts = [
+  "How do you choose which model to use?",
+  "How does provider routing work?",
+  "Which LLM do you run on?",
+  "What about model lock-in?",
+]
+answer = """Every task carries a routing policy — cost ceiling, latency \
+budget, risk class, capability requirements. The router picks the \
+best-fit provider/model per call, not per tenant or per worker. No \
+lock-in — provider manifests are TOML; adding a model is a config \
+change, not a release."""
+declared_claim_classes = ["architecture"]
+audience_tags = ["investor", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "security-posture"
+prompts = [
+  "How secure is the platform?",
+  "What's your security posture?",
+  "Do you do penetration testing?",
+  "How do you handle secrets?",
+]
+answer = """Capability-based security with first-class RBAC; per-tenant \
+master keys for secret material; SQLCipher-encrypted state at rest; \
+every tool call gates through an explicit capability check. We \
+ship without unsafe Rust outside marked FFI shims, and CI rejects \
+unwrap/expect in non-test code."""
+declared_claim_classes = ["security"]
+audience_tags = ["buyer", "investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "audit-trail"
+prompts = [
+  "How does auditing work?",
+  "Can I see what the agent did?",
+  "What's the audit story?",
+  "How do you handle compliance?",
+]
+answer = """Every tool call, every escalation, every refusal lands in \
+a per-tenant append-only audit log. Operators get a per-session \
+timeline view; compliance teams get exportable per-day, per-kind, \
+per-vertical rollups. The audit log is the source of truth — even \
+the agent's own reasoning gets cross-referenced."""
+declared_claim_classes = ["security"]
+audience_tags = ["buyer", "investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "deployment-model"
+prompts = [
+  "How is it deployed?",
+  "Is this self-hosted or cloud?",
+  "Can we run it on-prem?",
+  "What about deployment options?",
+]
+answer = """Single binary — runs on a Mac for development, on a Linux \
+VM for production, in a container if that's how you ship. Skycot \
+Cloud is our managed multi-tenant version; on-prem is a packaging \
+choice, not a fork."""
+declared_claim_classes = ["architecture"]
+audience_tags = ["buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"

@@ -25,6 +25,8 @@ mod ab_test_stats;
 mod artifact;
 pub mod audit_reader;
 pub mod canary;
+pub mod canonical_qa;
+pub mod canonical_qa_score;
 pub mod conflicts;
 pub mod deps;
 pub mod dreams_distillation;
@@ -69,6 +71,8 @@ pub mod version;
 pub mod version_migration;
 
 #[cfg(test)]
+mod canonical_qa_tests;
+#[cfg(test)]
 mod sign_dep_smoke;
 #[cfg(test)]
 mod store_available_tests;
@@ -99,6 +103,12 @@ pub use canary::{
     hash_seed, is_canary, load_body as load_canary_body, new_config as new_canary_config,
     pick_for_skill as pick_canary_for_skill, pick_version, seed_for_session_skill, CanaryConfig,
     CanaryDecision, CanaryStore,
+};
+pub use canonical_qa::{
+    CanonicalEntry, CanonicalMatch, CanonicalQaIndex, CanonicalQaInput, CanonicalQaOutput,
+    DEFAULT_SIMILARITY_THRESHOLD as CANONICAL_QA_DEFAULT_THRESHOLD,
+    MAX_REVIEW_AGE_DAYS as CANONICAL_QA_MAX_REVIEW_AGE_DAYS,
+    MIN_PROMPTS_PER_ENTRY as CANONICAL_QA_MIN_PROMPTS_PER_ENTRY,
 };
 pub use conflicts::{detect_conflicts, parse_keep_flag, render_diff, SkillConflict};
 pub use deps::{

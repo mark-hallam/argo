@@ -1,0 +1,107 @@
+# Skycot canonical Q&A — team + traction.
+#
+# Team background, traction questions, and the customer-count
+# deferral pattern. Customer count maps to the P-01 truth-boundary
+# Forbid disposition on the public web channel (per
+# `policies/truth-boundary/skycot-public-pitch.toml`); the canonical
+# entry defers to the public customers page rather than quoting a
+# number that might drift.
+
+[[entries]]
+id = "founding-team"
+prompts = [
+  "Who founded Skycot?",
+  "Who's on the team?",
+  "Tell me about the founders.",
+  "Who started this?",
+]
+answer = """Mark Hallam founded Skycot in Melbourne in 2026. Mark's the \
+CEO; the engineering team works across Melbourne and remote. Full \
+team bios live on the about page; happy to make a warm intro to any \
+specific person."""
+declared_claim_classes = ["team"]
+audience_tags = ["investor", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "where-based"
+prompts = [
+  "Where is the company based?",
+  "Where are you based?",
+  "Where's the team located?",
+  "Are you in Sydney?",
+]
+answer = """Skycot is built in Melbourne, Australia — not Sydney. The \
+operator's based here; engineering works across Melbourne and remote."""
+declared_claim_classes = ["team"]
+audience_tags = ["investor", "press", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "founding-story"
+prompts = [
+  "Why did you start Skycot?",
+  "What's the founding story?",
+  "What's the origin story?",
+  "What problem are you solving?",
+]
+answer = """The trigger was watching a CEO friend lose six hours a \
+week to status-reporter work an AI teammate could do better. The \
+gap wasn't another chatbot — it was the workforce layer above the \
+model. Skycot is the platform we wished existed."""
+declared_claim_classes = ["team"]
+audience_tags = ["investor", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "customer-list-deferral"
+prompts = [
+  "Who are your customers?",
+  "Can you name some customers?",
+  "What companies use Skycot?",
+  "Who's on the customer list?",
+]
+answer = """The public customers list is on skycot.com — that's the \
+canonical source. I won't quote a list here that might drift from \
+what's published. Happy to walk through case studies if there's a \
+specific vertical you care about."""
+declared_claim_classes = ["customer-count"]
+audience_tags = ["investor", "press", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "traction-positioning"
+prompts = [
+  "How's traction?",
+  "How are you doing on growth?",
+  "What's the growth story?",
+  "How is the business performing?",
+]
+answer = """I won't share specific traction numbers here. What I can \
+say: the platform is shipping verticals at the cadence we planned, \
+the workforce graph is growing, and Mark publishes a quarterly \
+operator letter for the detailed numbers. Want me to send it to you?"""
+declared_claim_classes = ["revenue", "customer-count"]
+audience_tags = ["investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "advisors-and-investors"
+prompts = [
+  "Who are your investors?",
+  "Who's backing Skycot?",
+  "Do you have advisors?",
+  "Any notable backers?",
+]
+answer = """The investor and advisor list is published on skycot.com. \
+I'll refer you there rather than quote names that might be out of \
+date."""
+declared_claim_classes = ["team"]
+audience_tags = ["investor", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"

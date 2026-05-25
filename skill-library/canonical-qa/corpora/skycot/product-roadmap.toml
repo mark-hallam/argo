@@ -1,0 +1,113 @@
+# Skycot canonical Q&A — product + roadmap.
+#
+# What's shipped, what's coming, and the deferral pattern for
+# unannounced-roadmap questions. The `unannounced-roadmap` claim
+# maps to the P-01 truth-boundary Escalate disposition (per
+# `policies/truth-boundary/skycot-public-pitch.toml`); these
+# canonical entries answer in the shipped / publicly-announced
+# frame so the Escalate path stays cold during a normal pitch.
+
+[[entries]]
+id = "what-is-shipped"
+prompts = [
+  "What's actually shipped?",
+  "What can the platform do today?",
+  "What's live in v1?",
+  "What's working right now?",
+]
+answer = """v1 ships the workforce platform — runtime, tools, provider \
+routing, memory, skill library, audit, RBAC, multi-tenant gateway, \
+eval harness, MCP plugin layer — plus two vertical templates \
+(receptionist and project coordinator). Real workers, real audit \
+trail, real escalations. Computer-use on macOS is the v1 demo path."""
+declared_claim_classes = ["product"]
+audience_tags = ["investor", "buyer", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "verticals-available"
+prompts = [
+  "What verticals do you support?",
+  "Which industries have templates?",
+  "What's available out of the box?",
+  "What verticals can I hire today?",
+]
+answer = """Two production verticals at v1 launch — Receptionist \
+(inbound triage, scheduling, escalation) and Project Coordinator \
+(status reporting, follow-ups, blocker triage). New verticals ship \
+as templates — manifest plus prompts plus eval cases — not runtime \
+forks."""
+declared_claim_classes = ["product"]
+audience_tags = ["buyer", "investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "roadmap-deferral"
+prompts = [
+  "What's on the roadmap?",
+  "What's coming next?",
+  "What are you building next?",
+  "Tell me about future features.",
+]
+answer = """I'll defer to the published roadmap on skycot.com rather \
+than commit to anything that isn't yet announced. Mark publishes a \
+quarterly operator letter with the directional picture — happy to \
+send that along."""
+declared_claim_classes = ["unannounced-roadmap"]
+audience_tags = ["investor", "buyer", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "integrations-available"
+prompts = [
+  "What integrations do you support?",
+  "What tools does Skycot connect to?",
+  "Which apps integrate?",
+  "What does it work with?",
+]
+answer = """The MCP layer plus first-party connectors cover the common \
+enterprise stack — Slack, email, calendar, document storage, CRMs. \
+New tools land as MCP plugins; we don't fork the core for an \
+integration. The current list is on the integrations page."""
+declared_claim_classes = ["product"]
+audience_tags = ["buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "computer-use-status"
+prompts = [
+  "Can the agent use a computer?",
+  "Do you have computer-use?",
+  "Can the worker browse the web?",
+  "What about UI automation?",
+]
+answer = """Yes — computer-use is shipped, macOS-native at v1, with \
+Linux and Windows on the platform-DEFERRED list for v1.x. The \
+executor is gated by a per-tenant capability check; computer-use \
+actions land in the audit log with the same provenance as any other \
+tool call."""
+declared_claim_classes = ["product"]
+audience_tags = ["buyer", "investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "voice-channel"
+prompts = [
+  "Can workers do voice?",
+  "Do you support voice calls?",
+  "Can the agent answer the phone?",
+  "Is there a voice channel?",
+]
+answer = """The Pitch Agent demo uses live voice with a sub-300ms hot \
+path. Voice as a general worker channel ships behind the same \
+capability gate as text — a worker that needs to answer the phone \
+gets voice permissions in its manifest, not a different runtime."""
+declared_claim_classes = ["product"]
+audience_tags = ["buyer", "investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"

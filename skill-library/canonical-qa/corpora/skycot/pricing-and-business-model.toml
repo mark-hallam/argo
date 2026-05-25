@@ -1,0 +1,124 @@
+# Skycot canonical Q&A — pricing + business model.
+#
+# Hot-path answers about how Skycot charges, what tiers exist, and
+# the deferral pattern for revenue/valuation questions. The
+# `valuation` and `revenue` claims map to the P-01 truth-boundary
+# policy's Forbid+defer-to-mark refusal — the canonical entries
+# render the operator-approved refusal so the gate's defense-in-depth
+# layer never has to fire.
+
+[[entries]]
+id = "pricing-basics"
+prompts = [
+  "How much does Skycot cost?",
+  "What is the pricing model?",
+  "How do you charge?",
+  "What does it cost?",
+  "Tell me about Skycot pricing.",
+]
+answer = """Per-worker monthly subscription plus usage-based overage on \
+provider tokens above each tier's included pool. Pricing scales \
+linearly with worker count; the platform itself doesn't penalize \
+growth."""
+declared_claim_classes = ["pricing"]
+audience_tags = ["buyer", "investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "tier-structure"
+prompts = [
+  "What tiers do you offer?",
+  "What are the pricing tiers?",
+  "Do you have a starter plan?",
+  "Is there a free tier?",
+]
+answer = """Three tiers: Solo (1-3 workers, prepaid token pool), Team \
+(up to 25 workers, dedicated tenant, SSO), and Enterprise (unlimited \
+workers, RBAC, custom truth-boundary policies, dedicated routing). \
+No free tier — every account is provisioned with real provider \
+credentials."""
+declared_claim_classes = ["pricing"]
+audience_tags = ["buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "valuation-deferral"
+prompts = [
+  "What's your valuation?",
+  "What are you valued at?",
+  "What's the round at?",
+  "What's the company worth?",
+  "Tell me about your valuation.",
+]
+answer = """I'm not authorized to share valuation publicly. Mark, do you \
+want to take that one?"""
+declared_claim_classes = ["valuation"]
+audience_tags = ["investor", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "revenue-deferral"
+prompts = [
+  "What's your ARR?",
+  "What's your revenue?",
+  "How much revenue did you do last year?",
+  "Tell me about your numbers.",
+  "What's your annual recurring revenue?",
+]
+answer = """I won't share specific revenue figures on a public channel. \
+Mark handles those conversations directly — happy to put you in touch."""
+declared_claim_classes = ["revenue"]
+audience_tags = ["investor", "press"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "customer-count-deferral"
+prompts = [
+  "How many customers do you have?",
+  "What's your customer count?",
+  "How many companies use Skycot?",
+  "How big is your user base?",
+]
+answer = """The public customers list is on skycot.com — that's the \
+authoritative source. I won't quote a number here that might drift \
+from what's published."""
+declared_claim_classes = ["customer-count"]
+audience_tags = ["investor", "press", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "fundraising-status"
+prompts = [
+  "Are you raising?",
+  "Are you fundraising right now?",
+  "When's your next round?",
+  "Are you open to investment?",
+]
+answer = """I'm not the right surface for fundraising conversations. \
+Mark handles those directly — happy to put you in touch with him."""
+declared_claim_classes = ["valuation"]
+audience_tags = ["investor"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
+
+[[entries]]
+id = "business-model-positioning"
+prompts = [
+  "What's your business model?",
+  "How do you make money?",
+  "Where does revenue come from?",
+  "Explain the business model.",
+]
+answer = """B2B SaaS — subscription plus usage. The business model is \
+the workforce layer, not the model layer. We don't sell tokens; we \
+sell teammates that use tokens. As the workforce scales, the platform \
+takes a fixed percentage; the provider takes the variable cost."""
+declared_claim_classes = ["pricing"]
+audience_tags = ["investor", "buyer"]
+last_reviewed = "2026-05-25"
+review_owner = "founder@example.com"
