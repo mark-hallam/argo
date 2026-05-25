@@ -23,9 +23,14 @@ vertical representation and prove one real pack can load without a parallel
 - `crates/argo-vertical-packs/src/adapter.rs` (NEW)
 - `crates/argo-vertical-packs/src/lib.rs`
 - `crates/argo-vertical-packs/src/loader.rs`
+- `crates/argo-vertical-packs/Cargo.toml` (ONLY to add the `argo-vertical` workspace dep — exact 2-3 lines under `[dependencies]`; do NOT touch other Cargo.toml sections; do NOT touch workspace Cargo.toml)
 - `crates/argo-vertical-packs/tests/pack_adapter_round_trip_test.rs` (NEW)
 - `packs/**` only for a minimal fixture correction if required
 - `docs/build-plan/BUILD_STATUS.md`
+
+## Amendment 2026-05-25T00-11Z (claude conductor scheduled-tick T00-08)
+
+Prior BLOCKED reason (codex 2026-05-24T09:54:45Z): `argo-vertical-packs/Cargo.toml` not in may-touch list. **Amended above** — narrowly permits adding the `argo-vertical` dep line under `[dependencies]` (≤3 LOC delta). This is the minimum surface to unblock; any wider Cargo edit is still out-of-scope.
 
 ## Must Not Touch
 
