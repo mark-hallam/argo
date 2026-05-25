@@ -127,9 +127,21 @@ export function AuthEditorialShell({
           text-decoration: none;
         }
         .auth-stage {
-          max-width: 460px;
+          box-sizing: border-box;
+          width: 100%;
+          max-width: 720px;
           margin: 0 auto;
-          padding: 64px 48px 100px;
+          padding: 64px 24px 100px;
+          text-align: center;
+        }
+        .auth-stage form,
+        .auth-stage .sso-row,
+        .auth-stage .divider,
+        .auth-stage .below-form,
+        .auth-stage .trouble {
+          max-width: 460px;
+          margin-left: auto;
+          margin-right: auto;
         }
         .eyebrow {
           display: inline-flex;
@@ -274,6 +286,7 @@ export function AuthEditorialShell({
         }
         .field-block {
           margin-bottom: 16px;
+          text-align: left;
         }
         .field-label {
           display: block;
@@ -429,7 +442,7 @@ export function AuthEditorialShell({
             <Link href={topRightHref}>{topRightCta}</Link>
           </div>
         </header>
-        <main id="main" tabIndex={-1} className="auth-stage">
+        <main id="main" tabIndex={-1} className="auth-stage" data-testid="auth-stage">
           {children}
           {showTrustFoot ? (
             <div className="foot">
@@ -443,4 +456,3 @@ export function AuthEditorialShell({
     </>
   );
 }
-
