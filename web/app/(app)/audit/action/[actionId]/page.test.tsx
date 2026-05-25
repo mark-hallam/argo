@@ -53,7 +53,7 @@ function sampleDetail(overrides: Partial<AuditDetail> = {}): AuditDetail {
   return {
     id: "act_priya_001",
     timestamp: ts,
-    worker: { id: "wkr_01J0PRIYA", name: "Priya Mehra" },
+    worker: { id: "018f67d0-0000-7000-8000-000000000002", name: "Priya Mehra" },
     actionType: "candidate_screened",
     verb: "screened candidate Diego Alvarez (diego@example.com) against JD-2024-08",
     status: "succeeded",

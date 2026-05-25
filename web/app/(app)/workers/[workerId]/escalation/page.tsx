@@ -61,7 +61,7 @@ const DEFAULT_SEED: WorkerEscalationSeed = {
 };
 
 const SEEDS: Record<string, WorkerEscalationSeed> = {
-  wkr_01J0MARIAH: {
+  "018f67d0-0000-7000-8000-000000000001": {
     rules: [
       {
         action: "Re-price a listing",
@@ -111,7 +111,7 @@ const SEEDS: Record<string, WorkerEscalationSeed> = {
       },
     ],
   },
-  wkr_01J0PRIYA: {
+  "018f67d0-0000-7000-8000-000000000002": {
     rules: [
       {
         action: "Send a rejection email",
@@ -148,7 +148,7 @@ const SEEDS: Record<string, WorkerEscalationSeed> = {
       },
     ],
   },
-  wkr_01J0JAMAL: {
+  "018f67d0-0000-7000-8000-000000000003": {
     rules: [
       {
         action: "Close a customer ticket",

@@ -80,7 +80,7 @@ echo "gateway=$GATEWAY_VER codebase=$CODE_VER"
 > "Your workforce, alive. Six teammates, 1,122 actions this week, saving you 72 hours."
 > [Click Mariah's card]
 
-> **02:30 — On /workers/wkr_01J0MARIAH/overview**
+> **02:30 — On /workers/018f67d0-0000-7000-8000-000000000001/overview**
 > [Personality card visible]
 > "Mariah is Patient, Detail-oriented, Picture-perfect listings, Polite. Here's
 > what she's great at: spotting price gaps. Cropping photos. Writing tight 60-word

@@ -44,7 +44,7 @@ export interface SamplePersona {
 }
 
 const PRIYA: SamplePersona = {
-  id: "wkr_01J0PRIYA",
+  id: "018f67d0-0000-7000-8000-000000000002",
   name: "Priya",
   initials: "PR",
   role: {
@@ -61,7 +61,7 @@ const PRIYA: SamplePersona = {
 };
 
 const MARIAH: SamplePersona = {
-  id: "wkr_01J0MARIAH",
+  id: "018f67d0-0000-7000-8000-000000000001",
   name: "Mariah",
   initials: "MA",
   role: {
@@ -78,7 +78,7 @@ const MARIAH: SamplePersona = {
 };
 
 const JAMAL: SamplePersona = {
-  id: "wkr_01J0JAMAL",
+  id: "018f67d0-0000-7000-8000-000000000003",
   name: "Jamal",
   initials: "JA",
   role: {
@@ -94,7 +94,7 @@ const JAMAL: SamplePersona = {
 };
 
 const NORI: SamplePersona = {
-  id: "wkr_01J0NORI",
+  id: "018f67d0-0000-7000-8000-000000000004",
   name: "Nori",
   initials: "NO",
   role: {
@@ -111,7 +111,7 @@ const NORI: SamplePersona = {
 };
 
 const SAM: SamplePersona = {
-  id: "wkr_01J0SAM",
+  id: "018f67d0-0000-7000-8000-000000000005",
   name: "Sam",
   initials: "SA",
   role: {
@@ -127,7 +127,7 @@ const SAM: SamplePersona = {
 };
 
 const RIO: SamplePersona = {
-  id: "wkr_01J0RIO",
+  id: "018f67d0-0000-7000-8000-000000000006",
   name: "Rio",
   initials: "RI",
   role: {

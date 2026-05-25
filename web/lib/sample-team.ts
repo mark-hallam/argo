@@ -35,29 +35,29 @@ interface RuntimeOverlay {
 }
 
 const RUNTIME_OVERLAY: Record<string, RuntimeOverlay> = {
-  wkr_01J0MARIAH: {
+  "018f67d0-0000-7000-8000-000000000001": {
     status: "waiting",
     lastActiveAt: new Date(now - 2 * minute).toISOString(),
     pendingApprovalCount: 2,
   },
-  wkr_01J0PRIYA: {
+  "018f67d0-0000-7000-8000-000000000002": {
     status: "waiting",
     lastActiveAt: new Date(now - 14 * minute).toISOString(),
     pendingApprovalCount: 1,
   },
-  wkr_01J0JAMAL: {
+  "018f67d0-0000-7000-8000-000000000003": {
     status: "working",
     lastActiveAt: new Date(now - 32 * minute).toISOString(),
   },
-  wkr_01J0NORI: {
+  "018f67d0-0000-7000-8000-000000000004": {
     status: "idle",
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
-  wkr_01J0SAM: {
+  "018f67d0-0000-7000-8000-000000000005": {
     status: "blocked",
     lastActiveAt: new Date(now - 5 * hour).toISOString(),
   },
-  wkr_01J0RIO: {
+  "018f67d0-0000-7000-8000-000000000006": {
     status: "paused",
     lastActiveAt: new Date(now - 22 * hour).toISOString(),
   },

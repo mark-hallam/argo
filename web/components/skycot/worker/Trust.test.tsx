@@ -11,7 +11,7 @@ import { findSampleWorkerTrust } from "@/lib/sample-worker-trust";
 import type { Worker } from "@/lib/types/worker";
 
 vi.mock("next/navigation", () => ({
-  useParams: () => ({ workerId: "wkr_01J0PRIYA" }),
+  useParams: () => ({ workerId: "018f67d0-0000-7000-8000-000000000002" }),
   useRouter: () => ({
     replace: vi.fn(),
     push: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock("next/navigation", () => ({
     back: vi.fn(),
     forward: vi.fn(),
   }),
-  usePathname: () => "/workers/wkr_01J0PRIYA/trust",
+  usePathname: () => "/workers/018f67d0-0000-7000-8000-000000000002/trust",
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -64,14 +64,14 @@ vi.mock("@/lib/hooks/use-viewer-policy", async () => {
 import WorkerTrustPage from "@/app/(app)/workers/[workerId]/trust/page";
 
 const PRIYA: Worker = {
-  id: "wkr_01J0PRIYA",
+  id: "018f67d0-0000-7000-8000-000000000002",
   name: "Priya",
   role: { tagline: "screens candidates and books interviews", vertical: "recruiting" },
   status: "waiting",
 };
 
 function trustState(overrides: Partial<TrustQueryShape> = {}): TrustQueryShape {
-  const snapshot = findSampleWorkerTrust("wkr_01J0PRIYA");
+  const snapshot = findSampleWorkerTrust("018f67d0-0000-7000-8000-000000000002");
   return {
     data: { snapshot, source: "gateway" },
     isPending: false,
@@ -114,7 +114,7 @@ describe("WorkerTrustPage", () => {
 
   it("shows the at-max banner and hides the criteria list when at the top rung", () => {
     const max: TrustGradeSnapshot = {
-      ...findSampleWorkerTrust("wkr_01J0NORI"),
+      ...findSampleWorkerTrust("018f67d0-0000-7000-8000-000000000004"),
     };
     useTrustMock.mockReturnValue(trustState({ data: { snapshot: max, source: "gateway" } }));
     render(<WorkerTrustPage />);
@@ -207,14 +207,14 @@ describe("normalizeTrustGrade", () => {
 
 describe("TrustGradeCard / TrustGradeProgress (unit)", () => {
   it("renders the active rung in the 5-step ladder", () => {
-    const snap = findSampleWorkerTrust("wkr_01J0MARIAH");
+    const snap = findSampleWorkerTrust("018f67d0-0000-7000-8000-000000000001");
     render(<TrustGradeCard snapshot={snap} workerName="Mariah" />);
     const rung = screen.getByTestId(`trust-grade-rung-${snap.currentGrade}`);
     expect(rung).toHaveAttribute("data-active", "true");
   });
 
   it("the progress component reports a met-count summary derived from criteria", () => {
-    const snap = findSampleWorkerTrust("wkr_01J0PRIYA");
+    const snap = findSampleWorkerTrust("018f67d0-0000-7000-8000-000000000002");
     render(
       <TrustGradeProgress
         currentGrade={snap.currentGrade}

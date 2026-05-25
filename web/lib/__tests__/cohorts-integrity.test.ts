@@ -21,7 +21,7 @@ describe("sample cohorts data integrity", () => {
     const marketplace = SAMPLE_COHORT_DETAILS["marketplace::developing"];
     expect(marketplace).toBeDefined();
     const memberIds = marketplace!.members.map((m) => m.worker_id);
-    expect(memberIds).toContain("wkr_01J0MARIAH");
+    expect(memberIds).toContain("018f67d0-0000-7000-8000-000000000001");
   });
 
   it("each cohort detail's member_count matches its members array length", () => {

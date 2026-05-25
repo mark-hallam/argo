@@ -52,7 +52,7 @@ test("add-as-schedule: header CTA → 3-step drawer → POST → success toast",
   );
 
   // Step 1: pick Jamal (the lone support-vertical sample worker).
-  const jamalRow = page.getByTestId("add-as-schedule-worker-wkr_01J0JAMAL");
+  const jamalRow = page.getByTestId("add-as-schedule-worker-018f67d0-0000-7000-8000-000000000003");
   await expect(jamalRow).toBeVisible();
   await jamalRow.click();
   await page.getByTestId("add-as-schedule-next").click();

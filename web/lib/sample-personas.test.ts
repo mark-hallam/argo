@@ -23,18 +23,18 @@ import { findSampleWorkerOverview } from "./sample-worker-overview";
  */
 
 const ROLE_KEYWORDS: Record<string, string[]> = {
-  wkr_01J0PRIYA: ["candidate", "interview", "JD", "shortlist"],
-  wkr_01J0MARIAH: ["listing", "buyer", "re-price", "inventory"],
-  wkr_01J0JAMAL: ["ticket", "refund", "KB", "support"],
-  wkr_01J0NORI: ["draft", "brand", "newsletter", "post", "voice"],
-  wkr_01J0SAM: ["alert", "runbook", "incident", "on-call"],
-  wkr_01J0RIO: ["showing", "agent", "buyer", "listing"],
+  "018f67d0-0000-7000-8000-000000000002": ["candidate", "interview", "JD", "shortlist"],
+  "018f67d0-0000-7000-8000-000000000001": ["listing", "buyer", "re-price", "inventory"],
+  "018f67d0-0000-7000-8000-000000000003": ["ticket", "refund", "KB", "support"],
+  "018f67d0-0000-7000-8000-000000000004": ["draft", "brand", "newsletter", "post", "voice"],
+  "018f67d0-0000-7000-8000-000000000005": ["alert", "runbook", "incident", "on-call"],
+  "018f67d0-0000-7000-8000-000000000006": ["showing", "agent", "buyer", "listing"],
 };
 
 const FORBIDDEN_OLD_VERBS: Record<string, string[]> = {
-  wkr_01J0SAM: ["invoice", "INV-2024", "reconciliation"],
-  wkr_01J0MARIAH: ["RFP", "vendor quote", "renewal review"],
-  wkr_01J0NORI: ["pricing rules", "salesforce", "deal-stage", "commission"],
+  "018f67d0-0000-7000-8000-000000000005": ["invoice", "INV-2024", "reconciliation"],
+  "018f67d0-0000-7000-8000-000000000001": ["RFP", "vendor quote", "renewal review"],
+  "018f67d0-0000-7000-8000-000000000004": ["pricing rules", "salesforce", "deal-stage", "commission"],
 };
 
 describe("sample-personas as the canonical persona spine", () => {
@@ -43,6 +43,14 @@ describe("sample-personas as the canonical persona spine", () => {
     expect(new Set(Object.keys(SAMPLE_PERSONAS))).toEqual(
       new Set(SAMPLE_PERSONA_IDS),
     );
+  });
+
+  it("uses gateway-parseable UUID ids for canonical demo personas", () => {
+    for (const id of SAMPLE_PERSONA_IDS) {
+      expect(id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+    }
   });
 
   it("matches /team — every Worker row reads role + name from canonical", () => {

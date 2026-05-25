@@ -61,7 +61,7 @@ function makeRow(overrides: Partial<AuditRow> = {}): AuditRow {
   return {
     id: "act_xyz_001",
     timestamp: new Date(Date.now() - 7 * 60_000).toISOString(),
-    worker: { id: "wkr_01J0PRIYA", name: "Priya" },
+    worker: { id: "018f67d0-0000-7000-8000-000000000002", name: "Priya" },
     actionType: "candidate_screened",
     verb: "screened Diego Alvarez against JD-2024-08",
     status: "succeeded",
@@ -217,11 +217,11 @@ describe("AuditPage", () => {
 
   it("renders deep-link chips for ?worker / ?action_type / ?status and clears on click", async () => {
     const user = userEvent.setup();
-    searchParams = new URLSearchParams("worker=wkr_01J0PRIYA&action_type=email_drafted&status=pending");
+    searchParams = new URLSearchParams("worker=018f67d0-0000-7000-8000-000000000002&action_type=email_drafted&status=pending");
     useFeedMock.mockReturnValue(feedState());
     render(<AuditPage />);
     expect(screen.getByTestId("audit-chip-rail")).toBeInTheDocument();
-    expect(screen.getByTestId("audit-chip-worker")).toHaveTextContent(/wkr_01J0PRIYA/);
+    expect(screen.getByTestId("audit-chip-worker")).toHaveTextContent(/018f67d0-0000-7000-8000-000000000002/);
     expect(screen.getByTestId("audit-chip-action_type")).toHaveTextContent(/email_drafted/);
     expect(screen.getByTestId("audit-chip-status")).toHaveTextContent(/pending/);
     await user.click(screen.getByTestId("audit-chip-worker"));

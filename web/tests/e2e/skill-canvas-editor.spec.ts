@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("skill canvas edit mode can add and save under mock fallback", async ({ page }) => {
-  await page.goto("/workers/wkr_01J0PRIYA/skills/skill_screen_applications/canvas");
+  await page.goto("/workers/018f67d0-0000-7000-8000-000000000002/skills/skill_screen_applications/canvas");
 
   await page.getByTestId("mode-edit").click();
   await expect(page.getByTestId("skill-canvas-edit-mode")).toBeVisible();

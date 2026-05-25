@@ -199,11 +199,11 @@ function build(workerId: string, seeds: Seed[]): WorkerActivity[] {
 }
 
 export const SAMPLE_WORKER_ACTIVITY: Record<string, WorkerActivity[]> = {
-  wkr_01J0PRIYA: build("wkr_01J0PRIYA", PRIYA),
-  wkr_01J0SAM: build("wkr_01J0SAM", SAM),
-  wkr_01J0MARIAH: build("wkr_01J0MARIAH", MARIAH),
-  wkr_01J0JAMAL: build("wkr_01J0JAMAL", JAMAL),
-  wkr_01J0NORI: build("wkr_01J0NORI", NORI),
+  "018f67d0-0000-7000-8000-000000000002": build("018f67d0-0000-7000-8000-000000000002", PRIYA),
+  "018f67d0-0000-7000-8000-000000000005": build("018f67d0-0000-7000-8000-000000000005", SAM),
+  "018f67d0-0000-7000-8000-000000000001": build("018f67d0-0000-7000-8000-000000000001", MARIAH),
+  "018f67d0-0000-7000-8000-000000000003": build("018f67d0-0000-7000-8000-000000000003", JAMAL),
+  "018f67d0-0000-7000-8000-000000000004": build("018f67d0-0000-7000-8000-000000000004", NORI),
 };
 
 /** Look up the canonical sample feed for a worker id (newest first). */

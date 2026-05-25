@@ -29,7 +29,7 @@ const hour = 60 * minute;
 
 export const SAMPLE_WORKERS_DETAIL: Worker[] = [
   {
-    id: "wkr_01J0MARIAH",
+    id: "018f67d0-0000-7000-8000-000000000001",
     name: "Mariah",
     role: { tagline: "lists and re-prices items for sale", vertical: "marketplace" },
     status: "waiting",
@@ -45,7 +45,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     pendingApprovalCount: 2,
   },
   {
-    id: "wkr_01J0PRIYA",
+    id: "018f67d0-0000-7000-8000-000000000002",
     name: "Priya",
     role: { tagline: "screens candidates and books interviews", vertical: "recruiting" },
     status: "waiting",
@@ -61,7 +61,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     pendingApprovalCount: 1,
   },
   {
-    id: "wkr_01J0JAMAL",
+    id: "018f67d0-0000-7000-8000-000000000003",
     name: "Jamal",
     role: { tagline: "handles customer support tickets", vertical: "support" },
     status: "working",
@@ -75,7 +75,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     lastActiveAt: new Date(now - 32 * minute).toISOString(),
   },
   {
-    id: "wkr_01J0NORI",
+    id: "018f67d0-0000-7000-8000-000000000004",
     name: "Nori",
     role: { tagline: "drafts product comms and announcements", vertical: "marketing" },
     status: "idle",
@@ -90,7 +90,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
   {
-    id: "wkr_01J0SAM",
+    id: "018f67d0-0000-7000-8000-000000000005",
     name: "Sam",
     role: { tagline: "watches the on-call queue", vertical: "ops" },
     status: "blocked",
@@ -104,7 +104,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     lastActiveAt: new Date(now - 5 * hour).toISOString(),
   },
   {
-    id: "wkr_01J0RIO",
+    id: "018f67d0-0000-7000-8000-000000000006",
     name: "Rio",
     role: { tagline: "books showings for the listing agent", vertical: "real-estate" },
     status: "paused",

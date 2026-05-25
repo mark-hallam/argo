@@ -64,6 +64,10 @@ export interface WorkerActionResult {
   status: WorkerStatus;
 }
 
+interface WorkerEnvelope {
+  worker: Worker;
+}
+
 function isStrictProduction(): boolean {
   return (
     process.env.NODE_ENV === "production" &&
@@ -92,7 +96,14 @@ function shouldFallBackToMock(err: unknown): boolean {
 
 export async function fetchWorker(workerId: string): Promise<Worker> {
   try {
-    return await apiGet<Worker>(`/api/v1/workers/${encodeURIComponent(workerId)}`);
+    const response = await apiGet<Worker | WorkerEnvelope>(
+      `/api/v1/workers/${encodeURIComponent(workerId)}`,
+    );
+    // Gateway handlers may return either a bare Worker or a { worker } envelope.
+    if (response && typeof response === "object" && "worker" in response) {
+      return response.worker;
+    }
+    return response;
   } catch (err) {
     if (shouldFallBackToMock(err)) {
       const sample = findSampleWorker(workerId);

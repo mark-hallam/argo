@@ -25,8 +25,8 @@ test("multi-dimension filter popover → chip rail → clear", async ({ page }) 
   await expect(page.getByTestId("audit-filter-section-status")).toBeVisible();
 
   // Select a worker dimension value (Priya).
-  await page.getByTestId("audit-filter-worker-wkr_01J0PRIYA").click();
-  await expect(page).toHaveURL(/worker=wkr_01J0PRIYA/);
+  await page.getByTestId("audit-filter-worker-018f67d0-0000-7000-8000-000000000002").click();
+  await expect(page).toHaveURL(/worker=018f67d0-0000-7000-8000-000000000002/);
 
   // Expand the channel section and select Slack.
   await page.getByTestId("audit-filter-section-toggle-channel").click();
@@ -45,7 +45,7 @@ test("multi-dimension filter popover → chip rail → clear", async ({ page }) 
   // Click the channel chip to remove just that dimension.
   await page.getByTestId("audit-chip-channel").click();
   await expect(page).not.toHaveURL(/channel=slack/);
-  await expect(page).toHaveURL(/worker=wkr_01J0PRIYA/);
+  await expect(page).toHaveURL(/worker=018f67d0-0000-7000-8000-000000000002/);
   await expect(page.getByTestId("audit-chip-channel")).toBeHidden();
 
   // "Clear all" wipes the rail.

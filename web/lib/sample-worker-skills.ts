@@ -160,12 +160,12 @@ const RIO: WorkerSkills = {
 };
 
 export const SAMPLE_WORKER_SKILLS: Record<string, WorkerSkills> = {
-  wkr_01J0PRIYA: PRIYA,
-  wkr_01J0SAM: SAM,
-  wkr_01J0MARIAH: MARIAH,
-  wkr_01J0JAMAL: JAMAL,
-  wkr_01J0NORI: NORI,
-  wkr_01J0RIO: RIO,
+  "018f67d0-0000-7000-8000-000000000002": PRIYA,
+  "018f67d0-0000-7000-8000-000000000005": SAM,
+  "018f67d0-0000-7000-8000-000000000001": MARIAH,
+  "018f67d0-0000-7000-8000-000000000003": JAMAL,
+  "018f67d0-0000-7000-8000-000000000004": NORI,
+  "018f67d0-0000-7000-8000-000000000006": RIO,
 };
 
 export function findSampleWorkerSkills(workerId: string): WorkerSkills | undefined {

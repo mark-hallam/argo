@@ -14,11 +14,11 @@ import { SAMPLE_AUDIT_ROWS } from "@/lib/sample-audit";
 import type { AuditDetail, DecisionStep } from "@/lib/types/audit-detail";
 import type { AuditRow } from "@/lib/types/audit";
 
-const PRIYA = { id: "wkr_01J0PRIYA", name: "Priya" };
-const SAM = { id: "wkr_01J0SAM", name: "Sam" };
-const MARIAH = { id: "wkr_01J0MARIAH", name: "Mariah" };
-const JAMAL = { id: "wkr_01J0JAMAL", name: "Jamal" };
-const NORI = { id: "wkr_01J0NORI", name: "Nori" };
+const PRIYA = { id: "018f67d0-0000-7000-8000-000000000002", name: "Priya" };
+const SAM = { id: "018f67d0-0000-7000-8000-000000000005", name: "Sam" };
+const MARIAH = { id: "018f67d0-0000-7000-8000-000000000001", name: "Mariah" };
+const JAMAL = { id: "018f67d0-0000-7000-8000-000000000003", name: "Jamal" };
+const NORI = { id: "018f67d0-0000-7000-8000-000000000004", name: "Nori" };
 
 const OPERATOR = { id: "usr_op_mark", name: "Mark" };
 const CFO = { id: "usr_cfo_jenna", name: "Jenna" };
