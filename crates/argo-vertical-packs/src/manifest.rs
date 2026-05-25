@@ -31,6 +31,9 @@ pub struct PackMetadata {
     pub name: String,
     /// Semantic version or release tag version.
     pub version: String,
+    /// Pack publisher or source organization.
+    #[serde(default)]
+    pub author: Option<String>,
     /// Human-friendly display name.
     #[serde(default)]
     pub display_name: Option<String>,
