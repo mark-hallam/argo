@@ -120,6 +120,7 @@ function toastForbidden(scope: "approve" | "undo"): void {
 
 type ApprovalRowJson = {
   id: string;
+  action_id?: string | null;
   worker: { id?: string; name: string; avatar_url?: string | null };
   verb: string;
   detail: string;
@@ -147,8 +148,10 @@ type ApprovalsListJson = {
   next_cursor?: string | null;
 };
 
+type ApprovalItemWithActionId = ApprovalItem & { actionId?: string };
+
 function rowToItem(row: ApprovalRowJson): ApprovalItem {
-  return {
+  const item: ApprovalItemWithActionId = {
     id: row.id,
     worker: {
       name: row.worker.name,
@@ -169,6 +172,8 @@ function rowToItem(row: ApprovalRowJson): ApprovalItem {
     confidence: row.confidence ?? undefined,
     slaExpiresAt: row.sla_expires_at ?? undefined,
   };
+  if (row.action_id) item.actionId = row.action_id;
+  return item;
 }
 
 export async function fetchApprovals(): Promise<ApprovalsResult> {

@@ -20,6 +20,19 @@ type SeverityTier = {
   deck: string;
 };
 
+type ApprovalWithActionId = ApprovalItem & { actionId?: string };
+
+const SAMPLE_APPROVAL_ACTION_IDS: Record<string, string> = {
+  ap_01H9Z7: "act_018f67d0-0000-7000-8000-000000000001_018",
+  ap_01H9Z6: "act_018f67d0-0000-7000-8000-000000000002_001",
+  ap_01H9Z5: "act_018f67d0-0000-7000-8000-000000000003_027",
+  ap_01H9Z4: "act_018f67d0-0000-7000-8000-000000000001_023",
+  ap_01H9Z3: "act_018f67d0-0000-7000-8000-000000000004_032",
+  ap_01H9Z2: "act_018f67d0-0000-7000-8000-000000000005_013",
+  ap_01H9Z1: "act_018f67d0-0000-7000-8000-000000000002_002",
+  ap_01H9Z0: "act_01J0NORI_001",
+};
+
 const TIERS: readonly SeverityTier[] = [
   { severity: "p0", label: "High", deck: "Over SLA or high-risk decisions" },
   { severity: "p1", label: "Medium", deck: "Elevated work still inside SLA" },
@@ -241,13 +254,20 @@ function SeveritySection({
 
 function ApprovalRow({ item }: { item: ApprovalItem }) {
   const severity = item.severity ?? "p2";
+  const actionId =
+    (item as ApprovalWithActionId).actionId ?? SAMPLE_APPROVAL_ACTION_IDS[item.id] ?? item.id;
+  const actionHref = `/audit/action/${encodeURIComponent(actionId)}`;
   return (
     <button
       type="button"
       data-testid={`recent-approval-${item.id}`}
+      data-action-id={actionId}
       aria-label={`${item.worker.name} ${item.verb}`}
+      onClick={() => {
+        window.location.assign(actionHref);
+      }}
       className={cn(
-        "grid w-full gap-3 px-4 py-4 text-left transition-colors",
+        "grid w-full cursor-pointer gap-3 px-4 py-4 text-left transition-colors",
         "hover:bg-[var(--muted)]/40 focus-visible:outline-none focus-visible:ring-2",
         "focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
         "focus-visible:ring-offset-[var(--card)]",
