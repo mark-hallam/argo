@@ -122,6 +122,18 @@ describe("Workspace step", () => {
 });
 
 describe("Connect-provider step", () => {
+  it("keeps the v1 provider scope Anthropic-only and preserves the mock skip warning", () => {
+    render(wrap(<ConnectProviderPage />));
+
+    expect(screen.getByLabelText("Anthropic API key")).toBeInTheDocument();
+    expect(screen.queryByText(/OpenAI/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bedrock/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Vertex/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("onboarding-provider-skip-warning")).toHaveTextContent(
+      /Skipping uses a mock provider/i,
+    );
+  });
+
   it("rejects keys that don't start with sk-ant-", async () => {
     const user = userEvent.setup();
     render(wrap(<ConnectProviderPage />));
