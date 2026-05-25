@@ -2,7 +2,7 @@
 //! shared primitives. Per-channel handlers live in sibling files
 //! (`routes_channels_email`, `routes_channels_slack`, `routes_channels_discord`,
 //! `routes_channels_webinbox`, `routes_channels_push`,
-//! `routes_channels_whatsapp`, `routes_channels_voice`).
+//! `routes_channels_sms`, `routes_channels_whatsapp`, `routes_channels_voice`).
 //!
 //! Adding a new channel: implement `is_X` + `X_response` in a new
 //! `routes_channels_<channel>.rs`, then add a branch to
@@ -13,6 +13,7 @@ use super::routes_channels_email::handle_email_webhook;
 use super::routes_channels_imessage::{imessage_webhook_response, is_imessage_webhook};
 use super::routes_channels_push::{is_push, push_response};
 use super::routes_channels_slack::{is_slack_webhook, slack_webhook_response};
+use super::routes_channels_sms::{is_sms_webhook, sms_webhook_response};
 use super::routes_channels_voice::{is_voice_webhook, voice_webhook_response};
 use super::routes_channels_webinbox::{is_webinbox, webinbox_response};
 use super::routes_channels_whatsapp::{is_whatsapp_webhook, whatsapp_webhook_response};
@@ -45,6 +46,7 @@ pub(super) fn is_email_webhook(req: &str) -> bool {
         || is_discord_decision(req)
         || is_webinbox(req)
         || is_push(req)
+        || is_sms_webhook(req)
         || is_whatsapp_webhook(req)
         || is_imessage_webhook(req)
         || is_voice_webhook(req)
@@ -64,6 +66,9 @@ pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) 
     }
     if is_push(req) {
         return push_response(req).await;
+    }
+    if is_sms_webhook(req) {
+        return sms_webhook_response(req).await;
     }
     if is_whatsapp_webhook(req) {
         return whatsapp_webhook_response(req).await;

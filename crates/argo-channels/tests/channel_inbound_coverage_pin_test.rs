@@ -12,7 +12,7 @@
 //! | matrix | no | no | no | no |
 //! | push | yes | yes | yes | yes |
 //! | slack | yes | yes | yes | yes |
-//! | sms | yes | no | no | no |
+//! | sms | yes | yes | yes | yes |
 //! | teams | no | no | no | no |
 //! | voice | yes | yes | yes | yes |
 //! | webinbox | yes | yes | yes | yes |
@@ -20,11 +20,8 @@
 //!
 //! Findings / brief shapes:
 //!
-//! - `mission-sms-inbound-approval-reply-route`: add
-//!   `routes_channels_sms.rs`, verify Twilio request signatures,
-//!   parse yes/no SMS replies carrying signed approval tokens, add
-//!   the dispatcher branch in `routes_channels.rs`, and smoke-test
-//!   settlement into the approval state machine.
+//! - `mission-sms-inbound-approval-reply-route`: shipped SMS inbound
+//!   settlement through `routes_channels_sms.rs`.
 //! - `mission-whatsapp-wire-outbound-dispatch`: WhatsApp already has
 //!   inbound settlement, but `EnvChannelSender` refuses outbound.
 //! - `mission-teams-inbound-approval-route` and
@@ -43,6 +40,7 @@ const ROUTE_PUSH: &str =
     include_str!("../../argo-cli/src/handlers/gateway/routes_channels_push.rs");
 const ROUTE_SLACK: &str =
     include_str!("../../argo-cli/src/handlers/gateway/routes_channels_slack.rs");
+const ROUTE_SMS: &str = include_str!("../../argo-cli/src/handlers/gateway/routes_channels_sms.rs");
 const ROUTE_VOICE: &str =
     include_str!("../../argo-cli/src/handlers/gateway/routes_channels_voice.rs");
 const ROUTE_WEBINBOX: &str =
@@ -66,7 +64,7 @@ const COVERAGE: &[Coverage] = &[
     Coverage::new("matrix", false, false, false, false),
     Coverage::new("push", true, true, true, true),
     Coverage::new("slack", true, true, true, true),
-    Coverage::new("sms", true, false, false, false),
+    Coverage::new("sms", true, true, true, true),
     Coverage::new("teams", false, false, false, false),
     Coverage::new("voice", true, true, true, true),
     Coverage::new("webinbox", true, true, true, true),
@@ -124,24 +122,17 @@ fn inbound_coverage_matrix_matches_current_source() {
 #[test]
 fn route_and_sink_counts_pin_the_actual_gateway_surface() {
     assert_eq!(count_where(|row| row.outbound_arm), 8);
-    assert_eq!(count_where(|row| row.inbound_route), 8);
-    assert_eq!(count_where(|row| row.token_handler), 8);
-    assert_eq!(count_where(|row| row.decision_sink), 8);
+    assert_eq!(count_where(|row| row.inbound_route), 9);
+    assert_eq!(count_where(|row| row.token_handler), 9);
+    assert_eq!(count_where(|row| row.decision_sink), 9);
 }
 
 #[test]
-fn sms_is_the_only_outbound_channel_without_inbound_settlement() {
-    assert_eq!(outbound_without_inbound(), vec!["sms"]);
-}
-
-#[test]
-#[ignore = "FINDINGS-ONLY: fix brief mission-sms-inbound-approval-reply-route"]
-fn findings_only_no_outbound_channel_lacks_inbound_settlement() {
+fn no_outbound_channel_lacks_inbound_settlement() {
     let gaps = outbound_without_inbound();
     assert!(
         gaps.is_empty(),
-        "FINDINGS-ONLY: outbound channels lacking inbound settlement: {gaps:?}; \
-         fix brief: mission-sms-inbound-approval-reply-route",
+        "outbound channels lacking inbound settlement: {gaps:?}",
     );
 }
 
@@ -192,6 +183,7 @@ fn route_source(id: &str) -> Option<&'static str> {
         "imessage" => Some(ROUTE_IMESSAGE),
         "push" => Some(ROUTE_PUSH),
         "slack" => Some(ROUTE_SLACK),
+        "sms" => Some(ROUTE_SMS),
         "voice" => Some(ROUTE_VOICE),
         "webinbox" => Some(ROUTE_WEBINBOX),
         "whatsapp" => Some(ROUTE_WHATSAPP),

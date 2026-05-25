@@ -85,6 +85,7 @@ mod routes_channels_email;
 mod routes_channels_imessage;
 mod routes_channels_push;
 mod routes_channels_slack;
+mod routes_channels_sms;
 mod routes_channels_voice;
 mod routes_channels_webinbox;
 mod routes_channels_whatsapp;
