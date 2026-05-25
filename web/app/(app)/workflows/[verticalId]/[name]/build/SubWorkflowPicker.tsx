@@ -2,8 +2,10 @@
 import { Layers, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { useWorkflows } from "@/lib/hooks/use-workflows";
+import type { WorkflowRisk, WorkflowSummary } from "@/lib/sample-workflows";
 import { SEED_WORKFLOWS } from "./seed-workflows";
-import type { SubWorkflowRef, WorkflowSpec } from "./types";
+import type { SubWorkflowRef } from "./types";
 
 interface SubWorkflowPickerProps {
   // Workflow that the picker is rendered inside — excluded from results
@@ -17,19 +19,51 @@ interface SubWorkflowPickerProps {
 interface PickerCandidate {
   key: string;
   ref: SubWorkflowRef;
-  spec: WorkflowSpec;
+  description: string;
+  risk: WorkflowRisk;
 }
 
-function buildCandidates(currentVerticalId: string, currentName: string): PickerCandidate[] {
+function displayName(name: string): string {
+  return name.replace(/_/g, " ");
+}
+
+function buildWorkflowCandidates(
+  workflows: WorkflowSummary[],
+  currentVerticalId: string,
+  currentName: string,
+): PickerCandidate[] {
+  return workflows
+    .filter(
+      (workflow) =>
+        !(workflow.vertical === currentVerticalId && workflow.name === currentName),
+    )
+    .map((workflow) => ({
+      key: `${workflow.vertical}/${workflow.name}`,
+      description: workflow.description,
+      risk: workflow.risk,
+      ref: {
+        verticalId: workflow.vertical,
+        name: workflow.name,
+        displayName: displayName(workflow.name),
+        stepCount: workflow.steps,
+      },
+    }));
+}
+
+function buildFallbackCandidates(
+  currentVerticalId: string,
+  currentName: string,
+): PickerCandidate[] {
   return Object.entries(SEED_WORKFLOWS)
     .filter(([, spec]) => !(spec.vertical === currentVerticalId && spec.name === currentName))
     .map(([key, spec]) => ({
       key,
-      spec,
+      description: spec.description,
+      risk: spec.risk,
       ref: {
         verticalId: spec.vertical,
         name: spec.name,
-        displayName: spec.name.replace(/_/g, " "),
+        displayName: displayName(spec.name),
         stepCount: spec.steps.length,
       },
     }));
@@ -42,6 +76,7 @@ export function SubWorkflowPicker({
   onClose,
 }: SubWorkflowPickerProps) {
   const [query, setQuery] = useState("");
+  const { data, isLoading } = useWorkflows();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -51,10 +86,13 @@ export function SubWorkflowPicker({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const candidates = useMemo(
-    () => buildCandidates(currentVerticalId, currentName),
-    [currentVerticalId, currentName],
-  );
+  const candidates = useMemo(() => {
+    if (data?.workflows.length) {
+      return buildWorkflowCandidates(data.workflows, currentVerticalId, currentName);
+    }
+    if (isLoading) return [];
+    return buildFallbackCandidates(currentVerticalId, currentName);
+  }, [currentVerticalId, currentName, data?.workflows, isLoading]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -64,7 +102,7 @@ export function SubWorkflowPicker({
         c.ref.displayName.toLowerCase().includes(q)
         || c.ref.name.toLowerCase().includes(q)
         || c.ref.verticalId.toLowerCase().includes(q)
-        || c.spec.description.toLowerCase().includes(q)
+        || c.description.toLowerCase().includes(q)
       );
     });
   }, [candidates, query]);
@@ -184,7 +222,18 @@ export function SubWorkflowPicker({
             gap: 6,
           }}
         >
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div
+              data-testid="sub-workflow-picker-loading"
+              style={{
+                padding: 16,
+                color: "#52525b",
+                fontSize: 13,
+              }}
+            >
+              Loading workflows…
+            </div>
+          ) : filtered.length === 0 ? (
             <div
               data-testid="sub-workflow-picker-empty"
               style={{
@@ -194,7 +243,9 @@ export function SubWorkflowPicker({
                 fontSize: 13,
               }}
             >
-              No workflows match. Try a different search.
+              {query.trim()
+                ? "No workflows match. Try a different search."
+                : "No workflows available yet."}
             </div>
           ) : (
             filtered.map((c) => (
@@ -247,7 +298,7 @@ export function SubWorkflowPicker({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{c.ref.displayName}</div>
                   <div style={{ fontSize: 12, color: "#52525b", marginTop: 2, lineHeight: 1.4 }}>
-                    {c.spec.description}
+                    {c.description}
                   </div>
                   <div
                     style={{
@@ -257,7 +308,7 @@ export function SubWorkflowPicker({
                       color: "#52525b",
                     }}
                   >
-                    {c.ref.stepCount} step{c.ref.stepCount === 1 ? "" : "s"} · {c.spec.risk}
+                    {c.ref.stepCount} step{c.ref.stepCount === 1 ? "" : "s"} · {c.risk}
                   </div>
                 </div>
               </button>
