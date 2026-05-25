@@ -68,6 +68,13 @@ fail() { printf '\033[31m[pre-merge-gate FAIL]\033[0m %s\n' "$*" >&2; fail_count
 
 log "running on $(git rev-parse --short HEAD)"
 
+# Fast preflight: catch the v83-class failure where a migration lands
+# without bumping the runtime EXPECTED_SCHEMA_VERSION constant.
+log "[preflight] expected schema version matches tip migration"
+if ! bash scripts/check-expected-schema-version-matches-tip.sh; then
+  fail "EXPECTED_SCHEMA_VERSION does not match the tip migration — see output above"
+fi
+
 # Gate 1: gateway-boot tests need a SQLCipher key. Preserve any
 # operator-supplied key; otherwise generate an ephemeral per-run key.
 log "[1/7] ensure SKYCOT_DB_KEY_BASE64"
