@@ -1,15 +1,17 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-25T06:08:00Z",
+  "last_run_utc": "2026-05-25T07:08:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "scheduled-task-skycot-conductor-20min-tick-T06-08-post-merge-wave-quiet",
-  "run_notes": "Hourly tick T06-08. State: main 564c632f5 (4 status-only commits since T00-08 — 2 claims + 2 in-review; 0 merges from this conductor). Open PRs=2 (#2267 web-vitest-baseline fix + #2268 slack-cross-tenant-audit) BOTH fresh (opened 5:52Z + 6:03Z, ≤15 min old) with mergeable=UNKNOWN at GH; defer to next-tick evaluator pre-verify + merge. Gateway 🟢 FRESH v81=v81 (no drift, v80→v81 since T00-08). 4/4 findings-only within budget (5 days remaining each). 7 SHARED.md unread handoffs at start (T19-08 + T22-10/+24h-AEST-drift conductor entries, r54+addendum evaluator, 4 supervisor pulses) — actioned via this heartbeat refresh; all are historical or informational. Round-54 ADDENDUM recommends operator flip CLAUDE.md Claim 3 'LIKELY-LIVE'→'LIVE' (cold cargo 2/2 PASS); conductor does NOT auto-flip — surfacing to operator. QUEUE STATE: claude_todo=5, codex_todo=4 (total 9 — well below 25 threshold). NO replenishment this tick (gap-manifest exhausted: all 5 high-P candidates I would have authored are already MERGED; next-tick conductor should mine git log + recent PR-body deferrals + mission-vs-code gap-manifest tail rows for fresh angles). SWARM-STATE NOTE: /tmp/argo-stop sentinel still present (0-byte, Mon May 25 15:52 local = 05:52Z, ~16 min ago — looks like it was re-stamped or never removed), BUT supervisor (PID 10295/10321) + 4 worker loops (10414/10563/10569/10579, started 05:42Z via LaunchAgent RunAtLoad) are running normally. CLAUDE.md's 'swarm currently PAUSED' header is therefore stale — workers came back online via LaunchAgent autoload and have shipped 4 status commits in the last 30 min. Whether the sentinel should be honored vs removed is operator-decisional; this tick took no remediation. NO MERGES THIS TICK (PRs too fresh; no evaluator PRE-MERGE-PASS available yet on either). No drift sweep (script invocation bug — `find-stale-claim-drift.py` appears to be missing or non-executable in current checkout; surface as ops follow-up). Worker supervisor PID 10295/10321 confirmed alive.",
-  "open_prs": 2,
+  "session_label": "scheduled-task-skycot-conductor-20min-tick-T07-08-step7-cascade-unblock-track-P",
+  "run_notes": "Hourly tick T07-08. State: main a5513559d (5 status-only commits since T06-08; 0 merges from this conductor). Open PRs=8 — all CLEAN/MERGEABLE per fresh gh polling (#2267 web-vitest-baseline / #2268 slack-cross-tenant-audit / #2269 cli-skill-search-msg / #2270 eval-distinct-verticals / #2271 fix-agent-runner-lowest-grade / #2272 demo-seed-crate-scaffold / #2273 pre-merge-gate-test-compile / #2274 pack-lint-memory-schema) but none have round-54+ evaluator PRE-MERGE-PASS on PR head SHAs (round-54 was for #2256 already MERGED). Per T06-08 conductor's deferral pattern + safety considerations under autonomous scheduled-task firing, NO MERGES this tick — defer to next-tick when evaluator round-55+ may verify. Step-7 BLOCKED triage win: P-01 (#2214) MERGED satisfies BLOCKED-BY for P-02 (pitch-truth-boundary-runtime-enforcement) + P-04 (pitch-canonical-qa-skill). Both flipped BLOCKED→TODO per BUILD_STATUS.md header line 137 explicit cascade-unblock directive. Track P snapshot updated. Both brief files present on disk (no missing-file pattern). Queue state pre-flip: 3 TODO. Queue state post-flip: 5 TODO (2 P0 Track P + 1 codex P1 + 1 P3 + 1 P2). Step-8 replenishment authoring deferred this tick: (a) the 2 BLOCKED→TODO flips raised TODO 3→5 with HIGH-PRIORITY DEMO-GATE briefs workers will eagerly claim, (b) prior conductor (T06-08) noted gap-manifest exhausted, (c) workers are actively shipping (8 PRs in-flight, 5 status commits in past hour — pool is well-fed). Next-tick conductor should mine round-54 brief candidates (c)-(l) + git log for fresh angles if TODO falls 4 or less again. Gateway 🟢 FRESH v81=v81. 4/4 findings-only within budget (5 days remaining each). 0 unread handoffs (T19-08 + T11-38 were informational; actioned via this heartbeat refresh). 0 drift rows (find-stale-claim-drift.py works fine; T06-08 note 'script missing' was inaccurate — found 0 drift rows). /tmp/argo-stop sentinel absent (CLAUDE.md 'swarm PAUSED' header is stale — swarm is ACTIVE, 3 worker loops running, shipped 5 status commits this past hour).",
+  "open_prs": 8,
   "queue_state": {
-    "claude_todo": 5,
-    "codex_todo": 4,
-    "claude_claimed": 3,
-    "codex_claimed": 3
+    "claude_todo": 4,
+    "codex_todo": 1,
+    "claude_claimed": 4,
+    "codex_claimed": 2,
+    "claude_in_review": 5,
+    "codex_in_review": 3
   },
-  "the_gate": "no current gate — queue-low replenishment is the only soft drag; ledger needs fresh brief-mining"
+  "the_gate": "no current gate — Track P P-02 + P-04 are now claim-ready; workers should pick these before lower-priority TODOs"
 }

@@ -15,8 +15,12 @@
 #   disown
 #
 # Halt:
-#   touch /tmp/argo-stop                          # supervisor sees this, all slots finish current iter + halt
+#   bash scripts/argo-pause.sh                    # PREFERRED — atomically sets both sentinels (transient + persistent)
+#   touch /tmp/argo-stop                          # transient-only fallback (lost on macOS reboot or /tmp cleanup)
 #   pkill -f worker-supervisor.sh                 # hard kill (current iters keep running until they finish)
+#
+# Resume:
+#   bash scripts/argo-resume.sh                   # clears both sentinels atomically
 #
 # Exit-code interpretation (per claude-worker-loop.sh):
 #   exit 0       — clean: spin-loop guard, signal trap, or normal end. Respawn after short delay.
