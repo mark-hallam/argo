@@ -102,7 +102,9 @@ export default function SignupPage() {
         );
         return;
       }
-      router.replace("/onboarding/welcome");
+      // Use a document-level replace so no NextAuth/session router callback can
+      // win the race and send the demo operator to the post-login app shell.
+      window.location.replace("/onboarding/welcome");
     } catch {
       setDemoError(
         "We couldn't reach SKYCOT just now. Check your internet connection and try again.",
