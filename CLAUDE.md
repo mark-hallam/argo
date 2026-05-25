@@ -92,14 +92,41 @@ Plan documents, in order of operative precedence:
 The vertical-template system is documented in its own design doc
 once Phase 1 lands.
 
-**🛑 IF YOU'RE A FRESH AGENT JOINING POST-2026-05-25**: the swarm is currently
-**PAUSED** (`/tmp/argo-stop` in place; supervisor PID 3791 + 4 worker
-loops + claude/cargo subprocesses all killed in the 2026-05-25 interactive
-recovery session). Do NOT relight workers without operator approval. The
-older [`quota-conservation-handoff-2026-05-23.md`](docs/skycot/operator/quota-conservation-handoff-2026-05-23.md)
-doc is now ~2 days stale — its specific PR lists were corrected the same
-day, and substantial merge activity (66 PRs + 1 closed-as-dup in the
-2026-05-25 session) has moved main far ahead of the state it describes.
+**🟢 SWARM STATE AS OF 2026-05-25T07:40Z** (refreshed by hourly scheduled-task conductor tick):
+the swarm has been RELIT and is **ACTIVE**. Supervisor LaunchAgent
+`com.skycot.worker-supervisor` (PID 68295) is running with 3 worker bash loops
+(PIDs 8485 / 8491 / 8501) + the cron-fired watchdog. Both `/tmp/argo-stop` and
+`~/.argo/stop` halt sentinels are ABSENT. This tick (T07-40): 14 open PRs (all
+MERGEABLE); TODO queue 0/0 (claude/codex — **replenishment urgent**, well
+below threshold 25); gateway schema v81=v81 (FRESH); 0 drift rows; 0
+findings-only overdue. The 2026-05-25 morning recovery session (the stop-the-
+bleed interactive run described in the §"Status" block further down) was the
+PAUSE event; some time after, halt was lifted and supervisor + workers are
+back online. The older
+[`quota-conservation-handoff-2026-05-23.md`](docs/skycot/operator/quota-conservation-handoff-2026-05-23.md)
+doc is now ~2 days stale — substantial merge activity (66 PRs + 1
+closed-as-dup in the 2026-05-25 morning session + more since) has moved main
+far ahead of the state it describes.
+
+**🎯 How to prioritise a TODO so workers pick it up first**: workers claim the
+**first eligible `TODO` row by document order** in
+[`docs/build-plan/BUILD_STATUS.md`](docs/build-plan/BUILD_STATUS.md) (per
+[`CONTRIBUTING_AGENT.md`](docs/build-plan/CONTRIBUTING_AGENT.md) step 2: "Pick
+the first eligible `TODO` row whose dependencies are satisfied."). Priority is
+enforced by **bold-marker section headers** inserted as table rows. Current
+top-of-queue headers (visible at BUILD_STATUS.md lines 196-198 + 208):
+
+1. `▼ PHASE A — stop bleeding credibility (highest priority)`
+2. `▼ ▼ ▼ MISSION-LIVE CRITICAL PATH — 5 LIVE-test briefs MUST ship before v1.0 demo MP4 ▼ ▼ ▼`
+3. `🚨🚨🚨 DEMO-RECORDING UNBLOCK — operator-promoted 2026-05-24 — CLAIM THESE FIRST 🚨🚨🚨`
+4. `▼ ▼ ▼ PRIORITY REORDER <ts> — claude conductor — workers pick first-TODO by doc order, so highest-priority rows surfaced here to be claimed next ▼ ▼ ▼` … `▲ ▲ ▲ END PRIORITY REORDER ▲ ▲ ▲`
+
+To bump a brief: **move its row** in BUILD_STATUS.md up to sit immediately
+under one of those headers (or insert a new `PRIORITY REORDER <ts>` header
+above it). Re-saving the file isn't enough — must `git commit && git push`
+because workers read `origin/main`. NB: TODO count is currently 0/0, so until
+new briefs are authored (Step 8 replenishment) no row will be claimed
+regardless of where it sits.
 
 **Fresh agents (any time): start at [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)** — a single-page primer pointing you at the
 5 files to read (in order) to pick up the swarm. The
@@ -195,7 +222,7 @@ The full audit reports live in `docs/skycot/audit/`:
 - (e) **agent**: Track P briefs P-02 / P-04 / P-05 / P-06 / P-07 / P-08 still need worker implementation (operator-locked Track P scope per memory `track_p_v1_mvp_scope`). P-01 (#2214) + P-03 (#2209) shipped today and unblock the cascade. ~6-8 weeks total on full swarm per memory `pitch_agent_v1_demo`.
 - (f) **agent (post-relight)**: curl-check landing/marketing pages after #2242 `NEXT_PUBLIC_` env-var rename — must not 500 (per memory `styled_jsx_requires_use_client`)
 
-**Items (a)/(b)/(e)/(f) are agent-doable but the swarm is currently PAUSED.** Items (c)/(d) are operator-only.
+**Items (a)/(b)/(e)/(f) are agent-doable; swarm is now ACTIVE (per top-of-file state block) so workers may pick them up as TODO rows when authored.** Items (c)/(d) are operator-only.
 
 **To relight the swarm (post tier-1+2 memory-pressure fixes 2026-05-25):**
 1. `rm /tmp/argo-stop ~/.argo/stop` (clears both transient + persistent halt signals — added in commit `a352b4bfb`)
@@ -225,18 +252,12 @@ Continue using `argo` everywhere for now (binary, crates, env vars,
 
 ## Multi-agent swarm protocol
 
-**🛑 The swarm is currently PAUSED as of 2026-05-25** (`/tmp/argo-stop`
-in place; supervisor + 4 worker bash loops + claude/cargo subprocesses
-all killed during the 2026-05-25 interactive recovery session). Do NOT
-relight workers without operator approval. New sessions opened in this
-repo while the swarm is paused are operator-driven interactive sessions,
-NOT autonomous swarm workers — read what the operator typed, do not
-auto-claim briefs.
-
-When the swarm WAS active (and once it's relit), any session opened
-in this repo is presumed to be a worker or conductor unless explicitly
-invoked otherwise. Follow [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)
-to pick up.
+**🟢 The swarm is ACTIVE as of 2026-05-25T07:40Z** (relit some time after the
+morning 2026-05-25 interactive recovery session described above; halt
+sentinels `/tmp/argo-stop` + `~/.argo/stop` absent; supervisor LaunchAgent +
+3 worker bash loops + watchdog all running). Any session opened in this repo
+is presumed to be a worker or conductor unless explicitly invoked otherwise.
+Follow [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md) to pick up.
 
 [`docs/build-plan/SWARM_PROTOCOL.md`](docs/build-plan/SWARM_PROTOCOL.md)
 is the source of truth for: iteration sequence, hard rules,
