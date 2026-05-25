@@ -260,3 +260,15 @@ impl AuditKind {
 #[cfg(test)]
 #[path = "event_tests.rs"]
 mod event_tests;
+
+#[cfg(test)]
+#[path = "event_tests_approval_and_genesis.rs"]
+mod event_tests_approval_and_genesis;
+
+#[cfg(test)]
+#[path = "event_tests_cross_tenant.rs"]
+mod event_tests_cross_tenant;
+
+#[cfg(test)]
+#[path = "event_tests_workflow_and_worker_duty.rs"]
+mod event_tests_workflow_and_worker_duty;

@@ -16,60 +16,6 @@ fn all_kind_count_tracks_declared_variants() {
 }
 
 #[test]
-fn approval_declined_round_trips_and_listed() {
-    let kind = AuditKind::ApprovalDeclined;
-    assert_eq!(AuditKind::from_label("approval.declined"), Some(kind));
-    assert_eq!(kind.label(), "approval.declined");
-    assert_eq!(
-        serde_json::to_string(&kind).unwrap(),
-        "\"approval_declined\""
-    );
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"approval.declined"));
-}
-
-#[test]
-fn workflow_step_executed_and_failed_round_trip_and_listed() {
-    for (label, kind) in [
-        ("workflow.step.executed", AuditKind::WorkflowStepExecuted),
-        ("workflow.step.failed", AuditKind::WorkflowStepFailed),
-    ] {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"workflow.step.executed"));
-    assert!(labels.contains(&"workflow.step.failed"));
-}
-
-#[test]
-fn worker_duty_kinds_round_trip_and_listed() {
-    for (label, kind) in [
-        ("worker_duty.fired", AuditKind::WorkerDutyFired),
-        ("worker_duty.failed", AuditKind::WorkerDutyFailed),
-    ] {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"worker_duty.fired"));
-    assert!(labels.contains(&"worker_duty.failed"));
-}
-
-#[test]
-fn genesis_fallback_used_round_trips_and_listed() {
-    let kind = AuditKind::GenesisFallbackUsed;
-    assert_eq!(AuditKind::from_label("genesis.fallback_used"), Some(kind));
-    assert_eq!(kind.label(), "genesis.fallback_used");
-    assert_eq!(
-        serde_json::to_string(&kind).unwrap(),
-        "\"genesis_fallback_used\""
-    );
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"genesis.fallback_used"));
-}
-
-#[test]
 fn trust_grade_changed_kind_round_trips_and_listed() {
     assert_eq!(
         AuditKind::from_label("trust_grade_changed"),
@@ -82,48 +28,6 @@ fn trust_grade_changed_kind_round_trips_and_listed() {
         serde_json::to_string(&AuditKind::TrustGradeChanged).unwrap(),
         "\"trust_grade_changed\""
     );
-}
-
-#[test]
-fn workflow_definition_kinds_round_trip_and_listed() {
-    for (label, kind) in [
-        (
-            "workflow_definition_created",
-            AuditKind::WorkflowDefinitionCreated,
-        ),
-        ("workflow_head_changed", AuditKind::WorkflowHeadChanged),
-        (
-            "workflow_version_archived",
-            AuditKind::WorkflowVersionArchived,
-        ),
-        ("workflow_rolled_back", AuditKind::WorkflowRolledBack),
-    ] {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-        assert_eq!(
-            serde_json::to_string(&kind).unwrap(),
-            format!("\"{label}\"")
-        );
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"workflow_definition_created"));
-    assert!(labels.contains(&"workflow_head_changed"));
-    assert!(labels.contains(&"workflow_version_archived"));
-    assert!(labels.contains(&"workflow_rolled_back"));
-}
-
-#[test]
-fn workflow_step_kinds_round_trip_and_listed() {
-    for (label, kind) in [
-        ("workflow.step.started", AuditKind::WorkflowStepStarted),
-        ("workflow.step.completed", AuditKind::WorkflowStepCompleted),
-    ] {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"workflow.step.started"));
-    assert!(labels.contains(&"workflow.step.completed"));
 }
 
 #[test]
@@ -142,48 +46,6 @@ fn escalation_required_is_listed() {
         AuditKind::from_label("escalation.required"),
         Some(AuditKind::EscalationRequired)
     );
-}
-
-#[test]
-fn approval_kinds_round_trip() {
-    for (label, kind) in [
-        ("approval.asked", AuditKind::ApprovalAsked),
-        ("approval.replied", AuditKind::ApprovalReplied),
-        ("approval.granted", AuditKind::ApprovalGranted),
-        ("approval.revoked", AuditKind::ApprovalRevoked),
-        ("approval.consumed", AuditKind::ApprovalConsumed),
-    ] {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"approval.asked"));
-    assert!(labels.contains(&"approval.replied"));
-    assert!(labels.contains(&"approval.granted"));
-    assert!(labels.contains(&"approval.revoked"));
-    assert!(labels.contains(&"approval.consumed"));
-}
-
-#[test]
-fn approval_asked_and_replied_round_trip_and_listed() {
-    // Audit finding P0-2 — the ask/reply variants document the
-    // notify-dispatch → channel-reply round-trip that the chain
-    // forensic trail otherwise lost. Both must round-trip and
-    // appear in `all()` so the verifier and gateway rollups
-    // categorise them as first-class kinds (not via the legacy
-    // `HttpRequest + event_type=` workaround).
-    let kinds = [
-        ("approval.asked", AuditKind::ApprovalAsked),
-        ("approval.replied", AuditKind::ApprovalReplied),
-    ];
-    for (label, kind) in kinds {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    for (label, _) in kinds {
-        assert!(labels.contains(&label), "missing label {label}: {labels:?}");
-    }
 }
 
 #[test]
@@ -257,18 +119,6 @@ fn security_key_rotated_round_trips_and_listed() {
 }
 
 #[test]
-fn approval_expired_by_timeout_round_trips_and_listed() {
-    let kind = AuditKind::ApprovalExpiredByTimeout;
-    assert_eq!(
-        AuditKind::from_label("approval.expired_by_timeout"),
-        Some(kind)
-    );
-    assert_eq!(kind.label(), "approval.expired_by_timeout");
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"approval.expired_by_timeout"));
-}
-
-#[test]
 fn service_token_binding_expired_round_trips_and_listed() {
     let kind = AuditKind::ServiceTokenBindingExpired;
     assert_eq!(
@@ -287,26 +137,6 @@ fn tenant_provisioned_round_trips_and_listed() {
     assert_eq!(kind.label(), "tenant.provisioned");
     let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
     assert!(labels.contains(&"tenant.provisioned"));
-}
-
-#[test]
-fn onboarding_kinds_round_trip_and_listed() {
-    for (label, kind) in [
-        (
-            "onboarding.provider_key_configured",
-            AuditKind::ProviderKeyConfigured,
-        ),
-        (
-            "onboarding.vertical_installed",
-            AuditKind::VerticalInstalled,
-        ),
-    ] {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"onboarding.provider_key_configured"));
-    assert!(labels.contains(&"onboarding.vertical_installed"));
 }
 
 #[test]
@@ -370,32 +200,6 @@ fn legacy_http_request_event_type_strings_still_parse_as_labels() {
 }
 
 #[test]
-fn journey_event_kinds_round_trip_and_listed() {
-    // Stream `web-audit-kinds-for-journey-events` — operator audit
-    // feed promotes worker-hire / vertical-run / cron rows from the
-    // generic `HttpRequest` bucket to named domain events. Mixed
-    // label style (dot for vertical/worker, underscore for cron)
-    // mirrors the existing precedent — `workflow.step.started`
-    // uses dots; `workflow_definition_created` uses underscores.
-    let kinds = [
-        ("worker.hired", AuditKind::WorkerHired),
-        ("vertical.run.requested", AuditKind::VerticalRunRequested),
-        ("vertical.run.completed", AuditKind::VerticalRunCompleted),
-        ("cron_job_created", AuditKind::CronJobCreated),
-        ("cron_job_deleted", AuditKind::CronJobDeleted),
-        ("cron_job_fired", AuditKind::CronJobFired),
-    ];
-    for (label, kind) in kinds {
-        assert_eq!(AuditKind::from_label(label), Some(kind));
-        assert_eq!(kind.label(), label);
-    }
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    for (label, _) in kinds {
-        assert!(labels.contains(&label), "missing {label}: {labels:?}");
-    }
-}
-
-#[test]
 fn workplace_knowledge_doc_kinds_round_trip_and_listed() {
     // Stream `mission-workplace-knowledge-audit-kinds` — wiki doc
     // lifecycle (create / update / delete) promoted out of the
@@ -424,57 +228,6 @@ fn workplace_knowledge_doc_kinds_round_trip_and_listed() {
     for (label, _) in kinds {
         assert!(labels.contains(&label), "missing {label}: {labels:?}");
     }
-}
-
-#[test]
-fn workflow_test_run_persisted_round_trips_and_listed() {
-    // Stream `claude-followup-pr-2021-test-run-gateway-persist` —
-    // re-author of closed PR #2021. The builder's "Test run" overlay
-    // POSTs each completed run to the gateway, which emits this row
-    // alongside the existing `HttpRequest` so audit consumers can
-    // filter on a first-class kind.
-    let kind = AuditKind::WorkflowTestRunPersisted;
-    assert_eq!(
-        AuditKind::from_label("workflow_test_run.persisted"),
-        Some(kind)
-    );
-    assert_eq!(kind.label(), "workflow_test_run.persisted");
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"workflow_test_run.persisted"));
-    assert_eq!(
-        serde_json::to_string(&kind).unwrap(),
-        "\"workflow_test_run_persisted\""
-    );
-}
-
-#[test]
-fn workflow_execute_dispatched_round_trips_and_listed() {
-    let kind = AuditKind::WorkflowExecuteDispatched;
-    assert_eq!(
-        AuditKind::from_label("workflow.execute.dispatched"),
-        Some(kind)
-    );
-    assert_eq!(kind.label(), "workflow.execute.dispatched");
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&"workflow.execute.dispatched"));
-    assert_eq!(
-        serde_json::to_string(&kind).unwrap(),
-        "\"workflow_execute_dispatched\""
-    );
-}
-
-#[test]
-fn handoff_cross_tenant_attempt_round_trips_and_listed() {
-    let kind = AuditKind::HandoffCrossTenantAttempt;
-    let label = "handoff.cross_tenant_attempt";
-    assert_eq!(AuditKind::from_label(label), Some(kind));
-    assert_eq!(kind.label(), label);
-    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-    assert!(labels.contains(&label));
-    assert_eq!(
-        serde_json::to_string(&kind).unwrap(),
-        "\"handoff_cross_tenant_attempt\""
-    );
 }
 
 #[test]
