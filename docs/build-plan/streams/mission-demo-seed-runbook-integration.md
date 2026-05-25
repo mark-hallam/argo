@@ -72,9 +72,18 @@ edit + dry-run script alignment + all-8-scenes GREEN verification.
    includes the dry-run results JSON showing 0 failures.
 5. Audit chain repair sub-check: `argo audit verify` against the
    seeded tenant prints `OK` with non-zero rows + zero breaks.
-   (Scene 6's pass cue per runbook). If the seed produces breaks,
-   either fix the seed's row-emission ordering OR flag a sibling
-   fix-brief — do not ship with `breaks > 0`.
+   (Scene 6's pass cue per runbook). Both Pass A (real-LLM) and
+   Pass B (dressing-tier fixture rows) flow through
+   `AuditSink::emit` per brief #2's relaxed spec, so the hash
+   chain stays intact across both passes. If the seed produces
+   breaks, either fix the seed's row-emission ordering OR flag a
+   sibling fix-brief — do not ship with `breaks > 0`.
+
+   The function-vs-dressing rule note: chain integrity is a
+   FUNCTION-side concern (verifier must work end-to-end), so even
+   though Pass B rows are dressing-tier in payload origin, they
+   must still chain correctly. This is the seam the brief #2
+   re-author 2026-05-25T08:15Z preserved.
 6. `cargo clippy -p argo-cli --all-targets -- -D warnings` clean.
 7. `cargo test -p argo-cli -- demo_seed` passes (handler smoke
    test).
