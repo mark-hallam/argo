@@ -217,7 +217,7 @@ The full audit reports live in `docs/skycot/audit/`:
 
 **Remaining for v1.0 launch (2026-05-25 updated):**
 - (a) **agent — DONE 2026-05-25**: cold-rerun of the remaining claim-N-LIVE regression tests passed via `ops-claim-4-and-6-live-cold-rerun-on-current-main`; claims 4 and 6 are now LIVE in the status block above
-- (b) **agent**: restart gateway (`launchctl list com.skycot.gateway` shows last exit 0; no process running; nothing listening on port 8088)
+- (b) **agent**: ✅ MERGED #2283 by conductor T09-30 — but worker (#2283 body) corrected the port assumption: canonical port is **7400** not 8088. `Makefile` / `scripts/restart-live-gateway.sh` / `scripts/check-gateway-freshness.sh` all default to `http://127.0.0.1:7400`. Gateway was already alive on 7400, schema v81 FRESH; the restart was a NO_OP. (Briefs that inherited the 8088 reference should be refreshed — see `fix-claude-md-status-block-port-and-staleness-sweep` for the broader sweep.)
 - (c) **operator-only**: grant macOS permissions on `argo` binary (Accessibility + Screen Recording) for claim-5
 - (d) **operator-only**: record demo MP4 per `docs/skycot/demos/v1-mission-mvp-runbook.md`
 - (e) **agent**: Track P briefs P-02 / P-04 / P-05 / P-06 / P-07 / P-08 still need worker implementation (operator-locked Track P scope per memory `track_p_v1_mvp_scope`). P-01 (#2214) + P-03 (#2209) shipped today and unblock the cascade. ~6-8 weeks total on full swarm per memory `pitch_agent_v1_demo`.
