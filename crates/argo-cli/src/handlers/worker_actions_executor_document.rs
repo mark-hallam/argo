@@ -5,7 +5,7 @@
 //! CSV, PDF (markdown→headless-Chrome), or slides (markdown with
 //! `---` separators → reveal.js HTML). Outputs land beneath the
 //! per-action bundle dir
-//! (`<cwd>/.skycot/outputs/<job_id>/<action_id>/`); the
+//! (`<cwd>/.skycot/outputs/<tenant_id>/<job_id>/actions/<action_id>/`); the
 //! `argo-executor-document` crate's `OutputPath::resolve` rejects
 //! absolute paths + parent traversal so a poisoned manifest can't
 //! escape the bundle.
@@ -56,7 +56,12 @@ impl Executor for DocumentExecutor {
 
     fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
         let request = parse_request(&action.payload)?;
-        let bundle = ensure_bundle_dir(cwd, &action.job_id, &action.action_id)?;
+        let bundle = ensure_document_bundle_dir(
+            cwd,
+            &action.job_id,
+            &action.action_id,
+            "document-creation",
+        )?;
         let exec = DocExecutor::new();
         let outcome = exec
             .run(&request, &bundle)
@@ -98,22 +103,33 @@ pub(crate) fn parse_request(payload: &serde_json::Value) -> ArgoResult<DocReques
     })
 }
 
-/// Build the per-action bundle dir on disk. Mirrors
-/// `worker_actions_executor_code::ensure_bundle_dir`.
-fn ensure_bundle_dir(cwd: &Path, job_id: &str, action_id: &str) -> ArgoResult<PathBuf> {
-    let dir = cwd
-        .join(".skycot")
-        .join("outputs")
-        .join(job_id)
-        .join("actions")
-        .join(action_id);
+/// Build the per-action document bundle dir on disk. Document-family
+/// executors include the workspace tenant id before `job_id` so
+/// colliding job/action ids from two tenants cannot share a bundle.
+pub(super) fn ensure_document_bundle_dir(
+    cwd: &Path,
+    job_id: &str,
+    action_id: &str,
+    executor_label: &str,
+) -> ArgoResult<PathBuf> {
+    let tenant_id = argo_config::workspace_tenant_id(cwd);
+    let dir = document_bundle_dir(cwd, &tenant_id, job_id, action_id);
     std::fs::create_dir_all(&dir).map_err(|e| {
         ArgoError::Provider(format!(
-            "document-creation: create bundle dir {}: {e}",
+            "{executor_label}: create bundle dir {}: {e}",
             dir.display()
         ))
     })?;
     Ok(dir)
+}
+
+fn document_bundle_dir(cwd: &Path, tenant_id: &str, job_id: &str, action_id: &str) -> PathBuf {
+    cwd.join(".skycot")
+        .join("outputs")
+        .join(tenant_id)
+        .join(job_id)
+        .join("actions")
+        .join(action_id)
 }
 
 #[cfg(test)]
@@ -191,6 +207,7 @@ mod tests {
     #[test]
     fn dispatch_completes_markdown_action_into_bundle() {
         let cwd = tempfile::tempdir().unwrap();
+        let tenant_id = argo_config::workspace_tenant_id(cwd.path());
         let action = make_action(json!({
             "kind": "markdown",
             "output_path": "out.md",
@@ -203,7 +220,14 @@ mod tests {
                 bundle_path,
                 result_json,
             } => {
-                assert!(bundle_path.ends_with(".skycot/outputs/job-1/actions/act-1"));
+                assert!(bundle_path.ends_with(
+                    Path::new(".skycot")
+                        .join("outputs")
+                        .join(&tenant_id)
+                        .join("job-1")
+                        .join("actions")
+                        .join("act-1")
+                ));
                 assert_eq!(
                     result_json["executor"].as_str().unwrap(),
                     "document_creation"
@@ -213,6 +237,33 @@ mod tests {
             }
             ActionOutcome::HumanHandoff { .. } => panic!("expected Completed"),
         }
+    }
+
+    #[test]
+    fn bundle_dirs_diverge_by_tenant_for_same_job_and_action_ids() {
+        let cwd = tempfile::tempdir().unwrap();
+        let tenant_a = "tenant-a";
+        let tenant_b = "tenant-b";
+        let bundle_a = document_bundle_dir(cwd.path(), tenant_a, "job-1", "act-1");
+        let bundle_b = document_bundle_dir(cwd.path(), tenant_b, "job-1", "act-1");
+
+        assert_ne!(bundle_a, bundle_b);
+        assert!(bundle_a.ends_with(
+            Path::new(".skycot")
+                .join("outputs")
+                .join(tenant_a)
+                .join("job-1")
+                .join("actions")
+                .join("act-1")
+        ));
+        assert!(bundle_b.ends_with(
+            Path::new(".skycot")
+                .join("outputs")
+                .join(tenant_b)
+                .join("job-1")
+                .join("actions")
+                .join("act-1")
+        ));
     }
 
     #[test]

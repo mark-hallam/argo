@@ -4,9 +4,9 @@
 //! The dispatch shim in `argo-cli` calls `DocExecutor::run` with the
 //! per-action bundle dir + parsed [`DocRequest`]. The bundle dir
 //! has already been built under
-//! `<cwd>/.skycot/outputs/<job_id>/<action_id>/` (the same shape
-//! every other executor uses), so the executor only needs to
-//! resolve the request's `output_path` *relative* to that bundle.
+//! `<cwd>/.skycot/outputs/<tenant_id>/<job_id>/actions/<action_id>/`,
+//! so the executor only needs to resolve the request's `output_path`
+//! *relative* to that bundle.
 //!
 //! Path-escape guard:
 //!   * absolute paths are rejected (`/etc/passwd`)

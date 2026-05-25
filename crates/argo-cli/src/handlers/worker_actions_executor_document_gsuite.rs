@@ -29,9 +29,10 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
+use super::worker_actions_executor_document::ensure_document_bundle_dir;
 use argo_executor_document_gsuite::{DocumentGsuite, GsuiteAuthConfig, GsuiteWriteRequest};
 use argo_types::{ArgoError, ArgoResult};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// `Executor` impl. Stateless — auth is rebuilt from env per dispatch
 /// so credential rotation takes effect without a process restart.
@@ -50,7 +51,8 @@ impl Executor for DocumentGsuiteExecutor {
 
     fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
         let request = parse_request(&action.payload)?;
-        let bundle = ensure_bundle_dir(cwd, &action.job_id, &action.action_id)?;
+        let bundle =
+            ensure_document_bundle_dir(cwd, &action.job_id, &action.action_id, "document-gsuite")?;
         let auth = GsuiteAuthConfig::from_env().map_err(|e| {
             ArgoError::Provider(format!(
                 "document-gsuite executor not configured: {e}; set \
@@ -88,24 +90,6 @@ pub(crate) fn parse_request(payload: &serde_json::Value) -> ArgoResult<GsuiteWri
             "document-gsuite payload: {e} (need {{ kind, title, ... }})"
         ))
     })
-}
-
-/// Build the per-action bundle dir on disk. Mirrors the CSV adapter's
-/// shape so the bundle path layout is identical across executors.
-fn ensure_bundle_dir(cwd: &Path, job_id: &str, action_id: &str) -> ArgoResult<PathBuf> {
-    let dir = cwd
-        .join(".skycot")
-        .join("outputs")
-        .join(job_id)
-        .join("actions")
-        .join(action_id);
-    std::fs::create_dir_all(&dir).map_err(|e| {
-        ArgoError::Provider(format!(
-            "document-gsuite: create bundle dir {}: {e}",
-            dir.display()
-        ))
-    })?;
-    Ok(dir)
 }
 
 /// Bridge sync `Executor::dispatch` to the async

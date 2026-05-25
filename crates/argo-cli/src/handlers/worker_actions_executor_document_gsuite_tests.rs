@@ -85,6 +85,7 @@ fn dispatch_without_env_surfaces_clean_provider_error() {
     });
     let action = make_action(payload);
     let cwd = TempDir::new().unwrap();
+    let tenant_id = argo_config::workspace_tenant_id(cwd.path());
     let err = DocumentGsuiteExecutor::new()
         .dispatch(&action, cwd.path())
         .unwrap_err();
@@ -102,6 +103,15 @@ fn dispatch_without_env_surfaces_clean_provider_error() {
         msg.contains("ARGO_GSUITE_SERVICE_ACCOUNT_EMAIL") || msg.contains("not configured"),
         "msg: {msg}"
     );
+    assert!(cwd
+        .path()
+        .join(".skycot")
+        .join("outputs")
+        .join(tenant_id)
+        .join("job-g1")
+        .join("actions")
+        .join("act-g1")
+        .is_dir());
 }
 
 #[test]

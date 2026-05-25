@@ -103,6 +103,8 @@ fn dispatch_surfaces_typed_rejection_in_bundle_result() {
 #[test]
 fn dispatch_bundle_carries_sha256_path_and_row_counts() {
     let root = TempDir::new().unwrap();
+    let cwd = TempDir::new().unwrap();
+    let tenant_id = argo_config::workspace_tenant_id(cwd.path());
     let payload = json!({
         "output_root": root.path().display().to_string(),
         "path": "out.csv",
@@ -112,7 +114,6 @@ fn dispatch_bundle_carries_sha256_path_and_row_counts() {
         "rows": [ { "a": "x" }, { "a": "y" } ]
     });
     let action = make_action(payload);
-    let cwd = TempDir::new().unwrap();
     let outcome = DocumentCsvExecutor::new()
         .dispatch(&action, cwd.path())
         .unwrap();
@@ -121,7 +122,14 @@ fn dispatch_bundle_carries_sha256_path_and_row_counts() {
             bundle_path,
             result_json,
         } => {
-            assert!(bundle_path.ends_with(".skycot/outputs/job-1/actions/act-1"));
+            assert!(bundle_path.ends_with(
+                std::path::Path::new(".skycot")
+                    .join("outputs")
+                    .join(tenant_id)
+                    .join("job-1")
+                    .join("actions")
+                    .join("act-1")
+            ));
             assert_eq!(result_json["executor"].as_str().unwrap(), "document_csv");
             assert!(result_json["sha256"].as_str().unwrap().len() == 64);
             assert!(result_json["bytes_written"].as_u64().unwrap() > 0);

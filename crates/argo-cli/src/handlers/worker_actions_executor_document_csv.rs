@@ -32,6 +32,7 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
+use super::worker_actions_executor_document::ensure_document_bundle_dir;
 use argo_executor_document_csv::{
     CsvColumnSchema, CsvWriteRequest, DocumentCsv, LineTerminator, DEFAULT_OUTPUT_ROOT,
 };
@@ -56,7 +57,8 @@ impl Executor for DocumentCsvExecutor {
 
     fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
         let request = parse_request(&action.payload)?;
-        let bundle = ensure_bundle_dir(cwd, &action.job_id, &action.action_id)?;
+        let bundle =
+            ensure_document_bundle_dir(cwd, &action.job_id, &action.action_id, "document-csv")?;
         let report = DocumentCsv::new()
             .write(request)
             .map_err(|e| ArgoError::Provider(format!("document-csv executor: {e}")))?;
@@ -132,25 +134,6 @@ pub(crate) fn parse_request(payload: &serde_json::Value) -> ArgoResult<CsvWriteR
         quote_minimal: parsed.quote_minimal,
         write_bom: parsed.write_bom,
     })
-}
-
-/// Build the per-action bundle dir on disk. Mirrors
-/// `worker_actions_executor_document::ensure_bundle_dir` so the
-/// bundle path is shaped consistently across executors.
-fn ensure_bundle_dir(cwd: &Path, job_id: &str, action_id: &str) -> ArgoResult<PathBuf> {
-    let dir = cwd
-        .join(".skycot")
-        .join("outputs")
-        .join(job_id)
-        .join("actions")
-        .join(action_id);
-    std::fs::create_dir_all(&dir).map_err(|e| {
-        ArgoError::Provider(format!(
-            "document-csv: create bundle dir {}: {e}",
-            dir.display()
-        ))
-    })?;
-    Ok(dir)
 }
 
 #[cfg(test)]
