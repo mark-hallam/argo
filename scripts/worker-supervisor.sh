@@ -41,6 +41,14 @@ WORKER_SCRIPT="$REPO/scripts/claude-worker-loop.sh"
 STOP_SENTINEL_TMP="/tmp/argo-stop"
 STOP_SENTINEL_HOME="$HOME/.argo/stop"
 SUPERVISOR_PID_FILE="/tmp/argo-worker-supervisor.pid"
+# Extend WAIT_LOOP_REGEX when future worker-loop stalls settle into
+# another repeated no-progress result phrase.
+WAIT_LOOP_REGEX="${WAIT_LOOP_REGEX:-^(Waiting for|Still waiting|Monitor is armed|Build cache is huge)}"
+WAIT_LOOP_MIN_CONSECUTIVE="${WAIT_LOOP_MIN_CONSECUTIVE:-3}"
+WAIT_LOOP_MIN_ETIME_SECS="${WAIT_LOOP_MIN_ETIME_SECS:-7200}"
+WAIT_LOOP_WATCHDOG_INTERVAL_SECS="${WAIT_LOOP_WATCHDOG_INTERVAL_SECS:-60}"
+WAIT_LOOP_WATCHDOG_ARTIFACT="${WAIT_LOOP_WATCHDOG_ARTIFACT:-/tmp/argo-watchdog-wait-loop-this-run}"
+WAIT_LOOP_RELEASE_CLAIM="${WAIT_LOOP_RELEASE_CLAIM:-1}"
 
 # Returns 0 (true) when either halt sentinel is present. Use as
 # `if stop_present; then ... fi` everywhere the old `[ -f $STOP_SENTINEL ]`
@@ -70,6 +78,179 @@ ram_under_pressure() {
   avail_mb=$(( (free_pages + spec_pages) * page_size / 1024 / 1024 ))
   [ "$avail_mb" -lt "$RAM_PRESSURE_THRESHOLD_MB" ]
 }
+
+active_worker_ndjson_log() {
+  local slot_log="$1"
+  [ -f "$slot_log" ] || return 1
+  grep -Eo 'Log: .+\.ndjson' "$slot_log" 2>/dev/null | tail -1 | sed 's/^Log: //'
+}
+
+wait_loop_brief_id() {
+  basename "$1" | sed -E 's/^[0-9]{8}T[0-9]{6}Z-(.*)\.ndjson$/\1/'
+}
+
+wait_loop_log_start_epoch() {
+  basename "$1" | python3 -c 'import datetime, re, sys
+name = sys.stdin.read().strip()
+m = re.match(r"^(\d{8}T\d{6}Z)-.+\.ndjson$", name)
+if not m:
+    sys.exit(1)
+dt = datetime.datetime.strptime(m.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
+print(int(dt.timestamp()))'
+}
+
+wait_loop_consecutive_count() {
+  local ndjson_log="$1"
+  [ -f "$ndjson_log" ] || return 1
+  python3 - "$ndjson_log" "$WAIT_LOOP_REGEX" <<'PY'
+import json
+import re
+import sys
+
+path, pattern = sys.argv[1:3]
+regex = re.compile(pattern)
+consecutive = 0
+
+with open(path, encoding="utf-8") as handle:
+    for line in handle:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") != "result" or event.get("subtype") != "success":
+            continue
+        result = event.get("result") or ""
+        if not result.strip():
+            continue
+        if regex.search(result):
+            consecutive += 1
+        else:
+            consecutive = 0
+
+print(consecutive)
+PY
+}
+
+wait_loop_should_fire() {
+  local ndjson_log="$1"
+  local now_epoch="${2:-$(date +%s)}"
+  [ -f "$ndjson_log" ] || return 1
+
+  local start_epoch count etime
+  start_epoch="$(wait_loop_log_start_epoch "$ndjson_log" 2>/dev/null || true)"
+  [ -n "$start_epoch" ] || return 1
+  etime=$((now_epoch - start_epoch))
+  [ "$etime" -ge "$WAIT_LOOP_MIN_ETIME_SECS" ] || return 1
+
+  count="$(wait_loop_consecutive_count "$ndjson_log" 2>/dev/null || echo 0)"
+  [ "$count" -ge "$WAIT_LOOP_MIN_CONSECUTIVE" ]
+}
+
+terminate_process_tree() {
+  local root_pid="$1"
+  local child
+  for child in $(pgrep -P "$root_pid" 2>/dev/null || true); do
+    terminate_process_tree "$child"
+  done
+  kill -TERM "$root_pid" 2>/dev/null || true
+}
+
+kill_process_tree_after_grace() {
+  local root_pid="$1"
+  local child
+  sleep 5
+  for child in $(pgrep -P "$root_pid" 2>/dev/null || true); do
+    kill_process_tree_after_grace "$child"
+  done
+  kill -KILL "$root_pid" 2>/dev/null || true
+}
+
+release_wait_loop_claim() {
+  local brief_id="$1"
+  local ndjson_log="$2"
+
+  [ "$WAIT_LOOP_RELEASE_CLAIM" = "1" ] || return 0
+  [ -n "$brief_id" ] || return 0
+  [ -d "$REPO/.git" ] || return 0
+
+  set +e
+  git -C "$REPO" fetch origin main >/dev/null 2>&1
+  git -C "$REPO" checkout main >/dev/null 2>&1
+  git -C "$REPO" pull --ff-only origin main >/dev/null 2>&1
+
+  if grep -qE "^\| ${brief_id} \| (claude|codex) \| CLAIMED \|" "$REPO/docs/build-plan/BUILD_STATUS.md" 2>/dev/null; then
+    python3 - "$brief_id" "$REPO/docs/build-plan/BUILD_STATUS.md" "$ndjson_log" <<'PY'
+import pathlib
+import re
+import sys
+
+brief_id, ledger_path, ndjson_log = sys.argv[1:4]
+path = pathlib.Path(ledger_path)
+text = path.read_text()
+note = (
+    " **RELEASED by worker-supervisor wait-loop watchdog:** "
+    "3+ consecutive no-progress result events after >2h; "
+    f"/tmp/{brief_id} may have salvageable WIP. Log: {ndjson_log}."
+)
+pattern = re.compile(
+    rf"^(\| {re.escape(brief_id)} \| (?:claude|codex)) \| CLAIMED \|(.*) \|$",
+    re.MULTILINE,
+)
+new, count = pattern.subn(
+    lambda m: f"{m.group(1)} | TODO |{m.group(2)}{note} |",
+    text,
+    count=1,
+)
+if count:
+    path.write_text(new)
+PY
+    git -C "$REPO" add docs/build-plan/BUILD_STATUS.md >/dev/null 2>&1
+    if ! git -C "$REPO" diff --cached --quiet >/dev/null 2>&1; then
+      git -C "$REPO" commit -m "status: release $brief_id (wait-loop watchdog)" >/dev/null 2>&1
+      git -C "$REPO" pull --rebase origin main >/dev/null 2>&1
+      git -C "$REPO" push origin main >/dev/null 2>&1
+    fi
+  fi
+  set -e
+}
+
+monitor_wait_loop_watchdog() {
+  local worker_pid="$1"
+  local slot_log="$2"
+
+  while kill -0 "$worker_pid" 2>/dev/null; do
+    sleep "$WAIT_LOOP_WATCHDOG_INTERVAL_SECS"
+    kill -0 "$worker_pid" 2>/dev/null || break
+
+    local ndjson_log brief_id count start_epoch etime ts
+    ndjson_log="$(active_worker_ndjson_log "$slot_log" || true)"
+    [ -n "$ndjson_log" ] && [ -f "$ndjson_log" ] || continue
+    wait_loop_should_fire "$ndjson_log" || continue
+
+    brief_id="$(wait_loop_brief_id "$ndjson_log")"
+    count="$(wait_loop_consecutive_count "$ndjson_log" 2>/dev/null || echo 0)"
+    start_epoch="$(wait_loop_log_start_epoch "$ndjson_log" 2>/dev/null || date +%s)"
+    etime=$(($(date +%s) - start_epoch))
+    ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '%s wait-loop brief=%s worker_pid=%s count=%s etime=%ss log=%s\n' \
+      "$ts" "$brief_id" "$worker_pid" "$count" "$etime" "$ndjson_log" >> "$WAIT_LOOP_WATCHDOG_ARTIFACT"
+
+    echo "[$(date +%H:%M:%S)] slot watchdog: wait-loop detected for $brief_id (count=$count etime=${etime}s); sending SIGTERM..." >&2
+    terminate_process_tree "$worker_pid"
+    kill_process_tree_after_grace "$worker_pid" &
+    release_wait_loop_claim "$brief_id" "$ndjson_log"
+    break
+  done
+}
+
+# Test harnesses source this file to exercise the wait-loop helpers
+# without starting the long-running supervisor.
+if [ "${ARGO_SUPERVISOR_SOURCE_ONLY:-0}" = "1" ]; then
+  if [ "${BASH_SOURCE[0]:-$0}" != "$0" ]; then
+    return 0
+  fi
+  exit 0
+fi
 
 # Fail-fast guards
 if [ ! -x "$WORKER_SCRIPT" ]; then
@@ -175,8 +356,14 @@ for slot in $(seq 1 "$N_SLOTS"); do
       # Run the worker. Worker writes its own logs to stderr/stdout;
       # we tee everything into the slot's log file too.
       set +e
-      bash "$WORKER_SCRIPT" > "$LOG" 2>&1
+      bash "$WORKER_SCRIPT" > "$LOG" 2>&1 &
+      WORKER_PID=$!
+      monitor_wait_loop_watchdog "$WORKER_PID" "$LOG" &
+      WAIT_LOOP_WATCHDOG_PID=$!
+      wait "$WORKER_PID"
       RC=$?
+      kill "$WAIT_LOOP_WATCHDOG_PID" 2>/dev/null || true
+      wait "$WAIT_LOOP_WATCHDOG_PID" 2>/dev/null || true
       set -e
 
       EXIT_TS=$(date +%s)
