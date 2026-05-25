@@ -204,7 +204,7 @@ pub(super) async fn revoke_response(
     if row.tenant_id != caller_tenant {
         return forbidden("grant belongs to a different tenant");
     }
-    match grant_store.revoke(id, Utc::now()).await {
+    match grant_store.revoke(id, caller_tenant, Utc::now()).await {
         Ok(_) => {}
         Err(e) => return server_error(&format!("revoke: {e}")),
     }

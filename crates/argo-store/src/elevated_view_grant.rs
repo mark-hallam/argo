@@ -147,16 +147,22 @@ impl<'a> ElevatedViewGrantStore<'a> {
         rows.into_iter().map(decode_row).collect()
     }
 
-    /// Mark one grant revoked. Returns `true` when a row changed
-    /// state (idempotency: revoking a revoked row returns `false`,
-    /// the caller turns that into 204 anyway).
-    pub async fn revoke(&self, id: Uuid, now: DateTime<Utc>) -> StoreResult<bool> {
+    /// Mark one tenant-owned grant revoked. Returns `true` when a row
+    /// changed state (idempotency: revoking a revoked row returns
+    /// `false`, the caller turns that into 204 anyway).
+    pub async fn revoke(
+        &self,
+        id: Uuid,
+        tenant_id: TenantId,
+        now: DateTime<Utc>,
+    ) -> StoreResult<bool> {
         let result = sqlx::query(
             "UPDATE elevated_view_grant SET revoked_at = ? \
-             WHERE id = ? AND revoked_at IS NULL",
+             WHERE id = ? AND tenant_id = ? AND revoked_at IS NULL",
         )
         .bind(now.timestamp())
         .bind(id.as_bytes().as_slice())
+        .bind(tenant_id.0.as_bytes().as_slice())
         .execute(self.pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("elevated_view_grant revoke: {e}")))?;
