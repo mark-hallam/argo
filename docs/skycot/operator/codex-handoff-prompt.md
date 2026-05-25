@@ -187,3 +187,4 @@ End of prompt. Begin Step 1.
 - Once codex has read the context, it stays in scope for the session — you can give short follow-ups like `run a conductor tick` or `claim eval-claim-2-live-duty-cron-fires-runner-test` and it'll know what to do.
 - Codex sessions don't persist across CLI invocations — each fresh `codex` invocation re-reads. Paste this prompt every fresh session, OR (later) wire codex's equivalent of scheduled-tasks to read it on launch.
 - The 5 LIVE-test briefs (mostly claude-tagged at the moment) can be re-tagged as `codex|claude` either-pool if you want codex to claim them. Just say the word.
+- The CODEX CONDUCTOR OVERRIDE (no cargo / no workspace clippy / no `conductor-pre-merge-gate.sh` from the conductor session) is guarded by `scripts/check-codex-handoff-no-cargo-gate.sh`. If you need to amend that boundary, update the lint at the same time — the lint asserts both the prohibition text and the absence of imperative cargo/clippy/gate directives.
