@@ -1,7 +1,7 @@
 /**
  * Skills marketplace API client.
  *
- * The gateway exposes the layered skill registry under `/skills`
+ * The gateway exposes the layered skill registry under `/api/v1/skills`
  * (`crates/argo-cli/src/handlers/gateway/routes_skills.rs`). Response
  * envelope: `{ risk, risk_defaulted, count, skills: LayeredSkillRow[] }`.
  *
@@ -139,7 +139,7 @@ export async function fetchSkills(): Promise<FetchSkillsResult> {
     return { skills: SEED_SKILLS, source: "mock-bypass" };
   }
   try {
-    const envelope = await apiGet<SkillsEnvelope>("/skills");
+    const envelope = await apiGet<SkillsEnvelope>("/api/v1/skills");
     const skills = envelope.skills ?? [];
     if (skills.length === 0 && !isStrictProduction()) {
       return { skills: SEED_SKILLS, source: "mock-offline" };
@@ -196,7 +196,7 @@ function seedUsage(name: string): SkillUsage {
   };
 }
 
-/** GET `/skills/<name>/usage` — provenance + workers-using + adoption. */
+/** GET `/api/v1/skills/<name>/usage` — provenance + workers-using + adoption. */
 export async function fetchSkillUsage(
   skillName: string,
 ): Promise<FetchSkillUsageResult> {
@@ -205,7 +205,7 @@ export async function fetchSkillUsage(
   }
   try {
     const usage = await apiGet<SkillUsage>(
-      `/skills/${encodeURIComponent(skillName)}/usage`,
+      `/api/v1/skills/${encodeURIComponent(skillName)}/usage`,
     );
     return { usage, source: "gateway" };
   } catch (err) {
@@ -216,7 +216,7 @@ export async function fetchSkillUsage(
   }
 }
 
-/** Response envelope for `/skills/learned-this-month`. */
+/** Response envelope for `/api/v1/skills/learned-this-month`. */
 export interface LearnedThisMonth {
   /** RFC3339 cutoff the server picked (first-of-month UTC). */
   since: string;
@@ -229,7 +229,7 @@ export interface FetchLearnedThisMonthResult {
   source: SkillUsageSource;
 }
 
-/** GET `/skills/learned-this-month` — drives the marketplace filter chip. */
+/** GET `/api/v1/skills/learned-this-month` — drives the marketplace filter chip. */
 export async function fetchLearnedThisMonth(): Promise<FetchLearnedThisMonthResult> {
   const empty: LearnedThisMonth = {
     since: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString(),
@@ -240,7 +240,9 @@ export async function fetchLearnedThisMonth(): Promise<FetchLearnedThisMonthResu
     return { learned: empty, source: "mock-bypass" };
   }
   try {
-    const learned = await apiGet<LearnedThisMonth>("/skills/learned-this-month");
+    const learned = await apiGet<LearnedThisMonth>(
+      "/api/v1/skills/learned-this-month",
+    );
     return { learned, source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {

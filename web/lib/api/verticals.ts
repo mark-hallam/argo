@@ -193,13 +193,13 @@ function isMissingOrUnreachable(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
-/** GET `/verticals` — list every vertical-template the gateway has loaded. */
+/** GET `/api/v1/verticals` — list every vertical-template the gateway has loaded. */
 export async function fetchVerticals(): Promise<FetchVerticalsResult> {
   if (isAuthBypassed()) {
     return { verticals: SEED_VERTICALS, source: "mock-bypass" };
   }
   try {
-    const envelope = await apiGet<VerticalsEnvelope>("/verticals");
+    const envelope = await apiGet<VerticalsEnvelope>("/api/v1/verticals");
     const verticals = envelope.loaded ?? [];
     if (verticals.length === 0 && !isStrictProduction()) {
       return { verticals: SEED_VERTICALS, source: "mock-offline" };
@@ -235,14 +235,14 @@ function seedDetail(id: string): VerticalDetail {
   };
 }
 
-/** GET `/verticals/<id>` — manifest summary plus marketplace envelope. */
+/** GET `/api/v1/verticals/<id>` — manifest summary plus marketplace envelope. */
 export async function fetchVertical(id: string): Promise<FetchVerticalResult> {
   if (isAuthBypassed()) {
     return { vertical: seedDetail(id), source: "mock-bypass" };
   }
   try {
     const detail = await apiGet<VerticalDetail>(
-      `/verticals/${encodeURIComponent(id)}`,
+      `/api/v1/verticals/${encodeURIComponent(id)}`,
     );
     return { vertical: detail, source: "gateway" };
   } catch (err) {
