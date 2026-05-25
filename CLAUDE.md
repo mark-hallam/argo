@@ -184,9 +184,9 @@ The full audit reports live in `docs/skycot/audit/`:
 - Claim 1 (Teammate, not tool) — 🟢 **LIVE** (regression test passes cold per round-19; SQL tenant gate for team-headline now wired via #2261)
 - Claim 2 (Delegation is the unit) — 🟢 **LIVE** (delegate-task fallback-chain inheritance now wired in live runner dispatch via #2256; evaluator round-54 PRE-MERGE PASS confirmed cold cargo; runtime is now carrying the active handoff chain through `ToolContext.current_handoff_id`)
 - Claim 3 (Platform builds workers) — 🟢 **LIVE** (evaluator round-54 addendum: cold cargo 2/2 PASS, 169min wall under load 183; verdict 🟡→🟢; LIKELY-LIVE→LIVE flip recommended; #2089 + #2106 + #2109 wire complete)
-- Claim 4 (Skills shared + learned) — 🟢 **LIKELY-LIVE** (#2092 + #2110 merged; criteria operator-locked round 19; cold rerun of `claim_4_live_install_invoke` still recommended to confirm)
+- Claim 4 (Skills shared + learned) — 🟢 **LIVE** (#2092 + #2110 merged; criteria operator-locked round 19; cold rerun passed 2026-05-25 via `ops-claim-4-and-6-live-cold-rerun-on-current-main`: `claim_4_live_install_invoke` cargo finished in 1m53s, test runtime 0.10s)
 - Claim 5 (Any-PC execution) — 🟡 **LIKELY-LIVE-pending-perms** (#2112 merged + evaluator round 51 confirmed claim-5 substrate 47/47 cold cargo PASS; #2231 added cu(macos) screenshot compression config; #2264 added routing decision tenant-scope; #2218 added document executor bundle tenant-segment; still needs operator macOS perms on argo binary + cold rerun of `claim_5_live_mcp_and_cu`)
-- Claim 6 (Multi-channel + multi-tenant) — 🟢 **LIKELY-LIVE** (#2113 merged; cross-tenant negative pins shipped via #2257; inbound SMS approval route via #2224; Discord interaction signature verify via #2222; voice DTMF audit via #2208)
+- Claim 6 (Multi-channel + multi-tenant) — 🟢 **LIVE** (#2113 merged; cross-tenant negative pins shipped via #2257; inbound SMS approval route via #2224; Discord interaction signature verify via #2222; voice DTMF audit via #2208; cold rerun passed 2026-05-25 via `ops-claim-4-and-6-live-cold-rerun-on-current-main`: `claim_6_live_cross_tenant` cargo finished in 52.42s, test runtime 0.13s)
 - v1.0 demo MP4 — ❌ NOT RECORDED (operator-only artifact)
 
 **🚀 2026-05-25 INTERACTIVE MERGE-TRAIN — 66 PRs MERGED + 1 CLOSED-AS-DUP** in one operator-driven recovery session:
@@ -216,14 +216,14 @@ The full audit reports live in `docs/skycot/audit/`:
 - PR #2131 (mission-orchestrator-cross-tenant-handoff-audit-kind) MERGED 2026-05-24T07:11Z.
 
 **Remaining for v1.0 launch (2026-05-25 updated):**
-- (a) **agent**: cold-rerun the remaining claim-N-LIVE regression tests on current main — claims 2/3/5 now have evaluator-round-51/53/54 PASSes; claim-4 still needs `claim_4_live_install_invoke` cold rerun; claim-6 still needs `claim_6_live_cross_tenant` cold rerun
+- (a) **agent — DONE 2026-05-25**: cold-rerun of the remaining claim-N-LIVE regression tests passed via `ops-claim-4-and-6-live-cold-rerun-on-current-main`; claims 4 and 6 are now LIVE in the status block above
 - (b) **agent**: restart gateway (`launchctl list com.skycot.gateway` shows last exit 0; no process running; nothing listening on port 8088)
 - (c) **operator-only**: grant macOS permissions on `argo` binary (Accessibility + Screen Recording) for claim-5
 - (d) **operator-only**: record demo MP4 per `docs/skycot/demos/v1-mission-mvp-runbook.md`
 - (e) **agent**: Track P briefs P-02 / P-04 / P-05 / P-06 / P-07 / P-08 still need worker implementation (operator-locked Track P scope per memory `track_p_v1_mvp_scope`). P-01 (#2214) + P-03 (#2209) shipped today and unblock the cascade. ~6-8 weeks total on full swarm per memory `pitch_agent_v1_demo`.
 - (f) **agent (post-relight)**: curl-check landing/marketing pages after #2242 `NEXT_PUBLIC_` env-var rename — must not 500 (per memory `styled_jsx_requires_use_client`)
 
-**Items (a)/(b)/(e)/(f) are agent-doable; swarm is now ACTIVE (per top-of-file state block) so workers may pick them up as TODO rows when authored.** Items (c)/(d) are operator-only.
+**Items (b)/(e)/(f) are agent-doable; swarm is now ACTIVE (per top-of-file state block) so workers may pick them up as TODO rows when authored.** Item (a) is complete. Items (c)/(d) are operator-only.
 
 **To relight the swarm (post tier-1+2 memory-pressure fixes 2026-05-25):**
 1. `rm /tmp/argo-stop ~/.argo/stop` (clears both transient + persistent halt signals — added in commit `a352b4bfb`)
