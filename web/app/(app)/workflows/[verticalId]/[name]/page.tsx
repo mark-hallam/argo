@@ -227,11 +227,11 @@ function ViewerInner({
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
-                background: isLive ? "#dcfce7" : "#fef3c7",
-                color: isLive ? "#166534" : "#92400e",
+                background: "#eef2ff",
+                color: "#3730a3",
               }}
             >
-              {isLive ? "Live" : "Mock"}
+              Workflow
             </span>
           </div>
           <h1 className="wfd-name">{workflow.name}</h1>
@@ -412,4 +412,3 @@ function ViewerInner({
     </>
   );
 }
-

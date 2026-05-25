@@ -16,8 +16,8 @@ import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
  * out in parallel (`GET /api/v1/verticals/<v>/workflows`). When the
  * gateway has no live data (offline dev, cold store, demo recording)
  * the hook falls through to the local seed in
- * `lib/sample-workflows` and surfaces `dataSource: "mock"` so the
- * hero pill flips LIVE → MOCK.
+ * `lib/sample-workflows` and preserves the data source on the
+ * eyebrow's `data-source` attribute for diagnostics only.
  *
  * The per-card surface is unchanged from the seed-only version — the
  * data binding is the only swap; visual / interaction tests against
@@ -43,7 +43,6 @@ export default function WorkflowsPage() {
 
   const workflows = data?.workflows ?? SAMPLE_WORKFLOW_SUMMARIES;
   const source = data?.source ?? "mock-offline";
-  const isLive = source === "gateway";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,7 +64,7 @@ export default function WorkflowsPage() {
           data-source={source}
         >
           <span className="workflows-eyebrow-dot" />
-          WORKFLOWS · {isLive ? "LIVE" : "MOCK"}
+          WORKFLOWS · v0.1
         </div>
 
         <h1 className="workflows-hero">
