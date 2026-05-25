@@ -120,11 +120,11 @@
 > 3. `docs/skycot/demos/v1-mission-mvp.mp4` recorded against a LIVE pitch-agent demonstration per the storyboard
 > 4. Extended smoke test passes including BrowserExecutor + Slack-approval scenarios
 >
-> **Track P status snapshot (updated 2026-05-25T07:30Z by codex heartbeat — P-02 blocked on stale brief drift; P-04 claimed):**
+> **Track P status snapshot (updated 2026-05-25T08:24Z by codex heartbeat — P-02 blocked on stale brief drift; P-04 in review):**
 > - **P-01** `pitch-truth-boundary-capability-schema` — 🟢 MERGED #2214 (squash a8b944ed6)
 > - **P-02** `pitch-truth-boundary-runtime-enforcement` — 🚧 BLOCKED (stale may-touch/API drift; re-author needed)
 > - **P-03** `pitch-voice-io-provider-agnostic-crate` — 🟢 MERGED #2209 (squash b901b3122)
-> - **P-04** `pitch-canonical-qa-skill` — 🟡 CLAIMED (mac-host 2026-05-25T07:26Z)
+> - **P-04** `pitch-canonical-qa-skill` — 🟡 IN_REVIEW #2281
 > - **P-05** `pitch-agent-worker-template` — 🚧 BLOCKED-BY P-01 + P-03 + P-04
 > - **P-06** `pitch-skycot-web-embed-channel` — 🚧 BLOCKED-BY P-02 + P-03 + P-05
 > - **P-07** `pitch-meeting-orchestrator-zoom-channel` — 🚧 BLOCKED-BY P-02 + P-03 + P-05
