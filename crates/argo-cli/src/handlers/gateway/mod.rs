@@ -176,6 +176,7 @@ mod routes_session_skills_lifecycle;
 mod routes_session_stats;
 mod routes_sessions_rollups;
 mod routes_skill_ir;
+mod routes_skill_ir_helpers;
 mod routes_skill_refine;
 mod routes_skills;
 mod routes_skills_quality;
