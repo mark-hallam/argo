@@ -34,6 +34,7 @@ pub mod archive;
 pub mod csv;
 mod event;
 mod event_kind;
+mod event_kind_docs;
 mod export;
 /// Evidence-bundle assembly (NDJSON / CSV / tar.gz) for the gateway
 /// `POST /api/v1/audit/export` endpoint
