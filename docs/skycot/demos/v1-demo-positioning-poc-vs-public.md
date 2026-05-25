@@ -15,9 +15,24 @@
 - **NOT a marketing reel.** No "trusted by 100+ teams" social-proof framing required.
 - **NOT a tutorial** for new customers signing up.
 
+## The function-vs-dressing rule (LOAD-BEARING — read this before authoring any demo brief)
+
+Operator clarification 2026-05-25T08:10Z narrowed [[no-theater-in-demo]] (auto-memory) into two layers. **The no-theater rule applies to ONE of them, not both.**
+
+| Layer | Rule | Examples |
+|---|---|---|
+| **FUNCTION — what the agents DO** | **REAL — no theater** | Pitch agent really pitches (real LLM, real voice synth, real truth-boundary gate firing live). MCP connectors really call upstream APIs (Zendesk, Slack — sandbox accounts OK, but real network round-trip). Computer-use really opens Notes.app. Workflow runtime really executes both steps. Audit rows the camera DRILLS INTO are from real agent turns. Cross-tenant isolation queries hit real SQL. |
+| **DRESSING — context around the demo** | **FAKE OK — theatrical fixtures fine** | Social proof ("2,847 companies this month"). Customer logos on /landing. Fake testimonials. Workspace names ("Acme Co"). Historical KPI numbers ("1,122 weekly actions", "72 hours saved"). Worker personas (Mariah/Peta/etc are fictional characters; their visible business context is fixture data). Hardcoded fictional company stats. |
+
+**The drill-in test:** if the camera clicks a number / row / link, the destination must be real. If the number is decorative (visible on a card the camera doesn't drill into), it can be a fixture label.
+
+**Operator's words 2026-05-25T08:10Z**: *"the main things that the POC demo can show are fake socials, fake company stuff, fake testimonials, fake business usage. The POC has to have no theater in turns of the function of what we will be showing, which is the built pitch agent and other initial agents, there integrations and ability to do there workflows must be real in whats shown."*
+
+This narrows the 2026-05-24 blanket no-theater rule. It does NOT relax function-side enforcement; it acknowledges that dressing-side theater is a normal POC pattern and shouldn't drive brief overengineering. The 2026-05-24 master brief `mission-demo-seed-data-bootstrap` was over-engineered under the blanket rule (mandated ~750 real LLM turns for historical filler audit rows); under the clarified rule, that cost drops ~10× — only the rows the camera drills into need to be real.
+
 ## What this means for "demo-blocker" classification
 
-When an item is flagged as a "demo blocker," the test is: **does this prevent the 6-scene MP4 from being recorded as scripted?**
+When an item is flagged as a "demo blocker," the test is: **does this prevent the 6-scene MP4 from being recorded as scripted?** AND **is the affected element function-side or dressing-side?**
 
 | Type of issue | POC/investor demo (this) | Public release demo (future, different artefact) |
 |---|---|---|
