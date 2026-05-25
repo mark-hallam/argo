@@ -193,10 +193,10 @@ The full audit reports live in `docs/skycot/audit/`:
 
 - **Conductor LOC unblock** (1): #2265 (conductor-authored mechanical extraction of `routes_approvals_json_helpers.rs` sibling — the brief had been zombie-claimed 3× over 6h without shipping; conductor took over inline and shipped, unblocking the entire merge queue)
 - **Evaluator pre-verified cluster** (5): #2244 #2248 #2256 (claim-2 LIVE wire) #2257 (claim-6 regression-pin) #2259 (M22 Status Reporter pack — Patrick joins Peta)
-- **Track P (v1.0 demo headline)** (2): #2214 (P-01 truth-boundary capability schema) + #2209 (P-03 voice-io crate) — operator-locked priority-1; unblocks P-02/P-04/P-05/P-06/P-07/P-08
+- **Track P (v1.0 demo headline)** (4): #2214 (P-01 truth-boundary capability schema) + #2209 (P-03 voice-io crate) + #2282 (P-02 brief refresh) + #2281 (P-04 canonical Q&A skill). Current queue state: P-02 implementation is BLOCKED on audit `event_kind.rs` split/headroom; P-05 is TODO/unblocked; P-06/P-07 remain blocked on P-02 + P-05.
 - **Tenant-binding security wave** (6): #2218 #2245 #2246 #2260 #2261 #2264 — post-#2167 sweep complete; SCIM mutations, elevated-view grant revoke, skill query, document executor bundles, team-headline, routing decisions all tenant-bound
 - **Docs batch** (4): #2205 #2213 #2215 #2216 — v1 demo runbook + BUILD_PLAN_V11 + CONTRIBUTING_AGENT + PRODUCT_ROADMAP all refreshed against current mission gate
-- **Web demo-blockers** (3 first-pass + 1 rebased): #2241 #2242 #2243 #2247 — SPA workers/audit/workflows/env-var fixes ship; **⚠️ post-merge curl-check needed on #2242 (NEXT_PUBLIC_ env var rename) per `feedback_styled_jsx_requires_use_client.md` — landing/marketing pages must not 500**
+- **Web demo-blockers** (3 first-pass + 1 rebased + smoke): #2241 #2242 #2243 #2247 shipped SPA workers/audit/workflows/env-var fixes; #2286 later smoke-tested the post-#2242 marketing/onboarding/skills routes with all checked routes returning final 200 and no `styled-jsx` warning.
 - **Ops lint wave** (11): #2201 #2202 #2203 #2219 #2223 #2239 #2249 #2250 #2251 #2252 #2254 — conductor singleton preflight guard, heartbeat UTC stamp lint, unread-handoffs action lint, ledger-unrowed-stream lint, build-status stale-claim lint, open-PR overlap triage, vertical-regression gate, brief-file existence check + more
 - **Eval surface-pin wave** (16): #2211 #2221 #2226 #2227 #2228 #2229 #2230 #2232 #2233 #2234 #2235 #2236 #2237 #2238 #2240 #2263 — all critical-crate public surfaces locked via tests/surface_contract.rs (argo-runtime, argo-acp, argo-forge, argo-core, argo-config, argo-security, argo-siem, argo-telemetry, argo-eval, argo-marketplace, test-cassette, e2b-substrate, credentials migrate-on-read, process-registry escape-hatch removal, team-headline)
 - **Misc CLEAN** (15): #2204 #2206 #2207 #2208 #2210 #2212 #2220 #2222 #2224 #2225 #2231 #2255 #2258 #2262 #2266 — packs marketplace listing, Skills mobile dark-mode, SPA error pages, PDF .staging cleanup, Discord sig verify, SMS inbound route, storybook coverage, cu(macos) compression, model=latest runtime, ESLint plugin, preventive split, tenant vertical discovery + more
@@ -207,7 +207,7 @@ The full audit reports live in `docs/skycot/audit/`:
 - `--skip-clippy` on `conductor-pre-merge-gate.sh` authorized for: (a) evaluator-pre-verified PRs (cold cargo PASS within ~6h on PR head SHA), (b) conductor-authored mechanical-extraction PRs where conductor has personally `cargo check -p <crate>` exit-0 on the PR head, (c) Track P PRs (operator-locked v1.0 demo scope), (d) tenant-binding security wave + doc-only PRs (operator categorized-cluster directive "go merge cluster those")
 - Diagnostic discovery: the prior 5 consecutive scheduled-tick merge-deferrals (T18-06 / T19-08 / T20-08 / T21-11 / T22-10) were rooted in macOS jetsam killing cargo under memory pressure (workers' shared `/tmp/argo-shared-target` grew to 328 GB; tmpfs-like file-cache pressure pegged free RAM at ~30 MB). Fix: kill workers + remove 9.8 GB zombie + 328 GB shared cache; use real-disk target dirs (NOT `/tmp`) for any future cargo runs while workers are running.
 
-**Open PR count after session: 0.** No DIRTY, no stuck, no stale. First time in this swarm cycle.
+**Open PR count immediately after that merge-train session: 0.** Later T07-40/T09-50 replenishment reopened the queue; trust BUILD_STATUS.md for current open PRs and TODOs.
 
 **Earlier history (preserved for context):**
 - **2026-05-23 LIVE-test chain-merge wave** shipped 8 PRs 08:34-12:42 UTC: #2088 + #2092 (substrate); #2109 + #2110 + #2112 + #2113 + #2137 (the 5 claim-N-LIVE regression tests); #2133 (conductor block-history guard).
@@ -217,13 +217,13 @@ The full audit reports live in `docs/skycot/audit/`:
 
 **Remaining for v1.0 launch (2026-05-25 updated):**
 - (a) **agent — DONE 2026-05-25**: cold-rerun of the remaining claim-N-LIVE regression tests passed via `ops-claim-4-and-6-live-cold-rerun-on-current-main`; claims 4 and 6 are now LIVE in the status block above
-- (b) **agent**: ✅ MERGED #2283 by conductor T09-30 — but worker (#2283 body) corrected the port assumption: canonical port is **7400** not 8088. `Makefile` / `scripts/restart-live-gateway.sh` / `scripts/check-gateway-freshness.sh` all default to `http://127.0.0.1:7400`. Gateway was already alive on 7400, schema v81 FRESH; the restart was a NO_OP. (Briefs that inherited the 8088 reference should be refreshed — see `fix-claude-md-status-block-port-and-staleness-sweep` for the broader sweep.)
+- (b) **agent — DONE 2026-05-25**: ✅ MERGED #2283 by conductor T09-30. Canonical gateway port is **7400**; `Makefile`, `scripts/restart-live-gateway.sh`, and `scripts/check-gateway-freshness.sh` all default to `http://127.0.0.1:7400`. Gateway was already alive on 7400, schema v81 FRESH; the restart was a NO_OP.
 - (c) **operator-only**: grant macOS permissions on `argo` binary (Accessibility + Screen Recording) for claim-5
 - (d) **operator-only**: record demo MP4 per `docs/skycot/demos/v1-mission-mvp-runbook.md`
-- (e) **agent**: Track P briefs P-02 / P-04 / P-05 / P-06 / P-07 / P-08 still need worker implementation (operator-locked Track P scope per memory `track_p_v1_mvp_scope`). P-01 (#2214) + P-03 (#2209) shipped today and unblock the cascade. ~6-8 weeks total on full swarm per memory `pitch_agent_v1_demo`.
-- (f) **agent (post-relight)**: curl-check landing/marketing pages after #2242 `NEXT_PUBLIC_` env-var rename — must not 500 (per memory `styled_jsx_requires_use_client`)
+- (e) **agent**: Track P P-05 is now TODO/unblocked after P-01 (#2214), P-03 (#2209), and P-04 (#2281) merged. P-02 implementation is currently BLOCKED on the audit event-kind split/headroom issue; P-06/P-07 remain blocked on P-02 + P-05, and P-08 remains blocked until P-01..P-05 are all landed.
+- (f) **agent — DONE 2026-05-25**: ✅ MERGED #2286. Marketing/onboarding/skills smoke after #2242 `NEXT_PUBLIC_` env-var rename found all checked routes returning final 200 and no `styled-jsx` warning.
 
-**Items (b)/(e)/(f) are agent-doable; swarm is now ACTIVE (per top-of-file state block) so workers may pick them up as TODO rows when authored.** Item (a) is complete. Items (c)/(d) are operator-only.
+**Item (e) is agent-doable; swarm is now ACTIVE (per top-of-file state block) so workers may pick it up as TODO rows when authored/unblocked.** Items (a)/(b)/(f) are complete. Items (c)/(d) are operator-only.
 
 **To relight the swarm (post tier-1+2 memory-pressure fixes 2026-05-25):**
 1. `rm /tmp/argo-stop ~/.argo/stop` (clears both transient + persistent halt signals — added in commit `a352b4bfb`)
