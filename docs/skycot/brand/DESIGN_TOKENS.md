@@ -14,24 +14,33 @@ All tokens are themeable. The contract is:
 - Component code never hardcodes a color, radius, font size, or
   duration literal.
 
+Internal brand-specimen pages may display locked token literals as
+reference data; reusable product UI still consumes runtime tokens.
+
 ---
 
 ## Color
 
-One brand accent. One. Multiple accent colors signal a brand that
-doesn't know what it stands for.
+One primary brand gradient. Secondary palette colors exist for worker
+avatars and semantic product moments, not for competing page chrome.
 
 ### Brand
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--brand-primary` | `oklch(0.55 0.18 256)` deep indigo | `oklch(0.72 0.16 256)` lighter indigo | Single brand accent. Wordmark, primary CTAs, focus rings, brand chrome. |
-| `--brand-primary-foreground` | `oklch(0.99 0.005 256)` near-white | `oklch(0.14 0.020 256)` near-black | Foreground color on `--brand-primary` fills. |
+| `--brand-primary` | `#8B5CF6` SKYCOT purple | lifted purple for dark mode | Primary chrome, focus rings, active states, gradient start. |
+| `--brand-primary-foreground` | `#FFFFFF` | near-black on lifted fills | Foreground color on `--brand-primary` fills. |
+| `--brand-pink` / `--gradient-end` | `#EC4899` | lifted pink for dark mode | Gradient partner for brand marks, CTAs, and hero emphasis. |
+| `--brand-coral` | `#FF6B6B` | lifted coral for dark mode | Third stop for high-energy hero emphasis gradients. |
+| `--brand-teal` | `#14B8A6` | lifted teal for dark mode | Worker/cohort palette accent, not primary page chrome. |
+| `--brand-ink` | `#1E1B4B` | light ink in dark mode | Warm deep-navy ink on light product surfaces. |
+| `--brand-gradient` | `linear-gradient(135deg, #8B5CF6, #EC4899)` | theme-adjusted equivalent | Brand marks, primary CTAs, and canonical wordmark panels. |
+| `--brand-gradient-3` | `linear-gradient(135deg, #8B5CF6, #EC4899, #FF6B6B)` | theme-adjusted equivalent | Hero emphasis text and deliberate high-energy moments. |
 
-Hue 256° (deep indigo) is the operator default. The decision was
-indigo vs warm-coral; indigo wins for enterprise neutrality and
-better dark-mode contrast. See `IDENTITY.md` for forbidden patterns
-(no rainbow gradients, no secondary accent).
+The 2026-05-19 D3 brand-consistency pass supersedes the older indigo
+single-accent treatment. SKYCOT v1.0 uses the warm purple -> pink
+gradient across brand-loud surfaces. The older purple -> cyan gradient
+from the 2026-04 spec is not used for v1.0 page chrome.
 
 `--primary` (the existing token in `globals.css`) is wired to
 `--brand-primary` — they refer to the same color. The brand-* alias
@@ -45,8 +54,8 @@ Defined per-theme in `globals.css` as `--background`, `--foreground`,
 `--muted`, `--muted-foreground`, `--secondary`, `--secondary-foreground`,
 `--accent`, `--accent-foreground`, `--border`, `--input`, `--ring`.
 
-The neutrals are cool-leaning (hue ≈ 248°–250°) to harmonize with
-the indigo brand accent.
+The light neutral surface is warm near-white (`#FAFAFF`) with
+`#1E1B4B` foreground ink so product pages read warm rather than cold.
 
 ### Semantic
 
@@ -59,28 +68,29 @@ Reserve these for meaning, never decoration.
 | `--warning` / `--warning-foreground` | Soft failures, degraded state, quota close. |
 | `--info` / `--info-foreground` | Neutral system messages, inline notes. |
 
-If you need two states in a view, use these — not two brand
+If you need two states in a view, use these — not two competing page
 accents. See `IDENTITY.md` § Forbidden visual patterns.
 
 ---
 
 ## Typography
 
-Two families. No more.
+Three loaded families. No more.
 
 - **Sans (`--font-sans`)** — Inter. Loaded via `next/font/google`
   in `web/app/layout.tsx` with `--font-sans-loaded`. Weights 400,
   500, 600, 700.
 - **Mono (`--font-mono`)** — JetBrains Mono. Same loader pattern.
   Weights 400, 500, 600.
+- **Display (`--font-audiowide`)** — Audiowide. Loaded via
+  `next/font/google` with `--font-display-audiowide`. Weight 400.
 
 ### Display family
 
-`--font-display` is an alias for `--font-sans`. Display surfaces
-(hero headings, marketing-page H1s) use the same Inter family at
-heavier weights and tighter tracking; we don't ship a separate
-display face. Treat "Inter at 60px tracking -0.02em" as our display
-type rather than introducing a second family.
+Brand-loud display surfaces use `--font-audiowide`: wordmarks,
+page-level hero statements, and deliberate editorial display moments.
+The size changes by surface; the display voice does not. Inter remains
+the body and dense-product family.
 
 ### Scale
 
@@ -89,10 +99,10 @@ weights are scale-locked.
 
 | Token | Size | Line height | Weight | Use |
 |---|---|---|---|---|
-| `--text-display-xl` | 72px | 1.0  | 700 | Marketing hero only. |
-| `--text-display-lg` | 60px | 1.05 | 700 | Marketing section headers. |
-| `--text-display-md` | 48px | 1.1  | 700 | Landing-page H1 in-app. |
-| `--text-display-sm` | 36px | 1.15 | 600 | Major page titles (`/team` empty state hero). |
+| `--text-display-xl` | 72px | 1.0  | 400 | Marketing hero only; Audiowide. |
+| `--text-display-lg` | 60px | 1.05 | 400 | Marketing section headers; Audiowide. |
+| `--text-display-md` | 48px | 1.1  | 400 | Brand-loud in-product hero; Audiowide. |
+| `--text-display-sm` | 36px | 1.15 | 400 | Compact page hero; Audiowide. |
 | `--text-heading-xl` | 30px | 1.2  | 600 | Section headers in app pages. |
 | `--text-heading-lg` | 24px | 1.25 | 600 | Subsection headers. |
 | `--text-heading-md` | 20px | 1.3  | 600 | Card titles, modal headers. |
@@ -103,8 +113,7 @@ weights are scale-locked.
 | `--text-mono-md` | 14px | 1.5  | 400 | Code, IDs, timestamps. |
 | `--text-mono-sm` | 12px | 1.4  | 400 | Inline IDs, log lines. |
 
-Tracking: display sizes (`-display-*`) use `letter-spacing: -0.02em`;
-headings (`-heading-*`) use `-0.01em`; body uses `0`; mono uses `0`.
+Tracking: display, body, and mono all use `letter-spacing: 0`.
 
 **Do not** introduce sizes outside this scale. If you need a size
 that isn't here, raise it as a follow-up brief that updates this
@@ -190,24 +199,21 @@ rules.
 
 ## Wordmark
 
-- File: `web/public/brand/skycot-wordmark.svg` (light variant —
-  ink on transparent for use on `--background`).
-- Dark variant: `web/public/brand/skycot-wordmark-dark.svg`
-  (light-on-transparent for use on dark surfaces).
-- Letterform: Inter Display weight 700, all lowercase "skycot",
-  tracking 0.
-- Color: fills with `currentColor` so the wordmark inherits from
-  its parent — the brand surfaces use `--brand-primary`, the
-  chrome surfaces use `--foreground`.
-- Aspect ratio: ~3.6:1 (approx 360 × 100 in the SVG viewBox).
+- Canonical page-level wordmark: `SKYCOT` rendered in Audiowide 400,
+  uppercase, `letter-spacing: 0`.
+- Canonical wordmark panel: white Audiowide wordmark on
+  `--brand-gradient` (`#8B5CF6` -> `#EC4899`).
+- Legacy SVG assets under `web/public/brand/` remain available for
+  small chrome slots that still need an image asset, but new brand
+  references should render the D3 Audiowide lockup directly.
 - Minimum legible size: 16px tall. Below that, use the favicon
   shape instead.
 
 **Don't:**
 
-- Place the wordmark over a photographic or gradient background.
-- Recolor the wordmark to anything other than `--brand-primary`,
-  `--foreground`, or pure `currentColor`-from-context.
+- Place the wordmark over photography or a non-brand gradient.
+- Recolor the wordmark away from white-on-gradient or brand-ink on
+  light surfaces.
 - Add a tagline lockup with the wordmark — the wordmark stands
   alone. Taglines live in adjacent type.
 - Rotate, skew, distort, outline, drop-shadow, or 3D-extrude it.

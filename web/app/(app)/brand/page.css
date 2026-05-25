@@ -1,0 +1,412 @@
+.brand-reference-stage {
+  position: relative;
+  isolation: isolate;
+  --foreground: #1e1b4b;
+  --muted-foreground: #52525b;
+  --border: #ece9f5;
+  --brand-primary: #8b5cf6;
+  --brand-gradient: linear-gradient(135deg, #8b5cf6, #ec4899);
+  --brand-gradient-3: linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b);
+  min-height: 100vh;
+  max-width: none;
+  margin: 0;
+  padding: 48px 32px 88px;
+  color: #1e1b4b;
+  background: #fafaff;
+  overflow: hidden;
+}
+
+.brand-reference-stage::before,
+.brand-reference-stage::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.54;
+  z-index: -1;
+}
+
+.brand-reference-stage::before {
+  top: -140px;
+  right: -120px;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.32), transparent 70%);
+}
+
+.brand-reference-stage::after {
+  top: 220px;
+  left: -160px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.28), transparent 70%);
+}
+
+.brand-reference-header {
+  max-width: 720px;
+  margin-right: auto;
+  margin-left: auto;
+  margin-bottom: 32px;
+}
+
+.brand-reference-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 5px 14px;
+  border: 1px solid var(--border, #ece9f5);
+  background: rgba(255, 255, 255, 0.74);
+  border-radius: 8px;
+  color: var(--muted-foreground, #52525b);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.brand-reference-eyebrow span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-gradient, linear-gradient(135deg, #8b5cf6, #ec4899));
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.55);
+}
+
+.brand-reference-header h1 {
+  margin: 0;
+  color: var(--foreground, #1e1b4b);
+  font-family: var(--font-audiowide);
+  font-size: 64px;
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.brand-reference-header h1 strong {
+  font-weight: 400;
+  background: var(--brand-gradient-3, linear-gradient(135deg, #8b5cf6, #ec4899, #ff6b6b));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.brand-reference-mobile-break {
+  display: inline;
+}
+
+.brand-reference-header p,
+.brand-reference-wordmark p,
+.brand-reference-section-head p {
+  color: var(--muted-foreground, #3f3f46);
+  font-size: 16px;
+  font-weight: 200;
+  line-height: 1.65;
+}
+
+.brand-reference-wordmark {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 260px;
+  max-width: 1120px;
+  margin-right: auto;
+  margin-bottom: 40px;
+  margin-left: auto;
+  padding: 40px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.24), transparent 34%),
+    var(--brand-gradient, linear-gradient(135deg, #8b5cf6, #ec4899));
+  color: white;
+  overflow: hidden;
+}
+
+.brand-reference-panel-label {
+  margin: 0 0 22px;
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-family: var(--font-mono);
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.brand-reference-wordmark h2 {
+  margin: 0;
+  color: white;
+  font-family: var(--font-audiowide);
+  font-size: 96px;
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.brand-reference-wordmark p:last-child {
+  max-width: 440px;
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.brand-reference-logo-mark {
+  display: grid;
+  place-items: center;
+  width: 164px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  font-family: var(--font-audiowide);
+  font-size: 84px;
+  line-height: 1;
+}
+
+.brand-reference-section {
+  max-width: 1120px;
+  margin-right: auto;
+  margin-top: 44px;
+  margin-left: auto;
+}
+
+.brand-reference-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.brand-reference-section-head h2 {
+  margin: 0;
+  color: var(--foreground, #1e1b4b);
+  font-family: var(--font-audiowide);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.brand-reference-section-head p {
+  max-width: 420px;
+  margin: 0;
+  text-align: right;
+}
+
+.brand-reference-color-grid,
+.brand-reference-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.brand-reference-color-card,
+.brand-reference-icon-card,
+.brand-reference-type-row,
+.brand-reference-guardrails p {
+  border: 1px solid var(--border, #ece9f5);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.brand-reference-color-card {
+  overflow: hidden;
+}
+
+.brand-reference-swatch {
+  display: flex;
+  align-items: flex-end;
+  min-height: 112px;
+  padding: 12px;
+  color: #1e1b4b;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.brand-reference-swatch[data-tone="light"] {
+  color: white;
+}
+
+.brand-reference-color-copy {
+  min-height: 128px;
+  padding: 14px;
+}
+
+.brand-reference-color-copy code,
+.brand-reference-icon-card code {
+  color: var(--foreground, #1e1b4b);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.brand-reference-color-copy span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted-foreground, #52525b);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.brand-reference-type-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.brand-reference-type-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  padding: 20px;
+}
+
+.brand-reference-type-row p {
+  margin: 0 0 6px;
+  color: var(--foreground, #1e1b4b);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.brand-reference-type-row span {
+  color: var(--muted-foreground, #52525b);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.brand-reference-type-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.brand-reference-type-wordmark,
+.brand-reference-type-hero {
+  color: var(--foreground, #1e1b4b);
+  font-family: var(--font-audiowide);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.brand-reference-type-wordmark {
+  font-size: 60px;
+  letter-spacing: 0;
+}
+
+.brand-reference-type-hero {
+  font-size: 46px;
+  line-height: 1.1;
+}
+
+.brand-reference-type-subcopy {
+  color: var(--foreground, #1e1b4b);
+  font-size: 34px;
+  font-weight: 200;
+  line-height: 1.25;
+}
+
+.brand-reference-icon-grid {
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+.brand-reference-icon-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 16px 8px;
+  color: var(--foreground, #1e1b4b);
+}
+
+.brand-reference-guardrails {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.brand-reference-guardrails p {
+  margin: 0;
+  padding: 16px;
+  color: var(--foreground, #1e1b4b);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .brand-reference-color-grid,
+  .brand-reference-guardrails {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .brand-reference-icon-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .brand-reference-stage {
+    padding: 32px 20px 64px;
+  }
+
+  .brand-reference-wordmark,
+  .brand-reference-section-head,
+  .brand-reference-type-row {
+    display: block;
+  }
+
+  .brand-reference-logo-mark {
+    margin-top: 28px;
+    width: 104px;
+    border-radius: 8px;
+    font-size: 52px;
+  }
+
+  .brand-reference-section-head p {
+    margin-top: 10px;
+    text-align: left;
+  }
+
+  .brand-reference-type-row strong {
+    display: block;
+    margin-top: 18px;
+  }
+
+  .brand-reference-header h1 {
+    font-size: 36px;
+  }
+
+  .brand-reference-mobile-break {
+    display: block;
+  }
+
+  .brand-reference-reference-break {
+    display: none;
+  }
+
+  .brand-reference-wordmark h2 {
+    font-size: 52px;
+  }
+
+  .brand-reference-section-head h2 {
+    font-size: 28px;
+  }
+
+  .brand-reference-type-wordmark {
+    font-size: 34px;
+  }
+
+  .brand-reference-type-hero {
+    font-size: 30px;
+  }
+
+  .brand-reference-type-subcopy {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 520px) {
+  .brand-reference-color-grid,
+  .brand-reference-guardrails {
+    grid-template-columns: 1fr;
+  }
+}
