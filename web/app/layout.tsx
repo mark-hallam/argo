@@ -105,7 +105,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       className={`${inter.variable} ${mono.variable} ${audiowide.variable}`}
     >
-      <body>
+      <body suppressHydrationWarning>
         <JsonLd data={organizationSchema()} />
         <SkipToContent />
         <AuthProvider>
