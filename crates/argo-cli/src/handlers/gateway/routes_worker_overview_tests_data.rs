@@ -4,7 +4,40 @@
 
 use super::*;
 use chrono::{Duration, Utc};
+use jsonwebtoken::{EncodingKey, Header};
 use uuid::Uuid;
+
+fn req_for_auth(id: &str, role: Option<&str>, principal: Option<&str>, token: &str) -> String {
+    let mut req = req_for(id, role, principal);
+    let insert_at = req.find("\r\n\r\n").expect("headers terminator");
+    req.insert_str(insert_at, &format!("\r\nAuthorization: Bearer {token}"));
+    req
+}
+
+fn mint_demo_jwt(email: &str) -> String {
+    #[derive(serde::Serialize)]
+    struct Claims<'a> {
+        sub: &'a str,
+        email: &'a str,
+        iat: i64,
+        exp: i64,
+        demo: bool,
+    }
+    std::env::set_var("SKYCOT_AUTH_JWT_SECRET", "overview-demo-permission-secret");
+    let now = Utc::now().timestamp();
+    jsonwebtoken::encode(
+        &Header::new(jsonwebtoken::Algorithm::HS256),
+        &Claims {
+            sub: email,
+            email,
+            iat: now,
+            exp: now + 3600,
+            demo: true,
+        },
+        &EncodingKey::from_secret(&super::super::super::auth_magic_link::jwt_secret()),
+    )
+    .expect("mint demo jwt")
+}
 
 #[tokio::test]
 async fn happy_path_returns_all_top_level_fields() {
@@ -262,4 +295,90 @@ async fn permissions_resolve_per_role_table() {
         Value::Bool(false)
     );
     assert_eq!(v_mine["permissions"]["can_delete"], Value::Bool(false));
+}
+
+#[tokio::test]
+async fn compute_permissions_demo_grants_all_only_for_demo_principal() {
+    let env = prep().await;
+    let worker = add_worker(&env.store, env.tenant, "human:owner").await;
+    let token = mint_demo_jwt("demo@example.com");
+    std::env::set_var(super::super::super::demo_mode::DEMO_MODE_ENV, "1");
+
+    let demo_req = req_for_auth(
+        &worker.id.to_string(),
+        Some("delegator"),
+        Some("human:demo@example.com"),
+        &token,
+    );
+    let demo = parse_ok(&demo_req, &worker.id.to_string(), &env.store).await;
+    for key in super::super::WORKER_OVERVIEW_PERMISSION_NAMES {
+        assert_eq!(
+            demo["permissions"][key],
+            Value::Bool(true),
+            "demo override must grant {key}"
+        );
+    }
+
+    let sink = AuditSink::new(env.store.clone());
+    sink.flush_pending().await.unwrap();
+    let (payload_raw, principal_id): (String, Option<String>) = sqlx::query_as(
+        "SELECT payload_json, principal_id FROM audit_record \
+         WHERE kind = 'permission.demo_override_granted' \
+         ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_one(env.store.pool())
+    .await
+    .expect("demo override audit row");
+    let payload: Value = serde_json::from_str(&payload_raw).expect("payload json");
+    assert_eq!(principal_id.as_deref(), Some("human:demo@example.com"));
+    assert_eq!(payload["principal_id"], "human:demo@example.com");
+    assert_eq!(payload["worker_id"], worker.id.to_string());
+    for key in super::super::WORKER_OVERVIEW_PERMISSION_NAMES {
+        assert!(
+            payload["permissions"]
+                .as_array()
+                .expect("permissions array")
+                .iter()
+                .any(|v| v.as_str() == Some(key)),
+            "audit payload must include {key}: {payload}"
+        );
+    }
+
+    let non_demo = parse_ok(
+        &req_for(
+            &worker.id.to_string(),
+            Some("delegator"),
+            Some("human:demo@example.com"),
+        ),
+        &worker.id.to_string(),
+        &env.store,
+    )
+    .await;
+    assert_eq!(
+        non_demo["permissions"]["can_edit_charter"],
+        Value::Bool(false)
+    );
+
+    let forged = parse_ok(
+        &req_for_auth(
+            &worker.id.to_string(),
+            Some("delegator"),
+            Some("human:other@example.com"),
+            &token,
+        ),
+        &worker.id.to_string(),
+        &env.store,
+    )
+    .await;
+    assert_eq!(
+        forged["permissions"]["can_edit_charter"],
+        Value::Bool(false)
+    );
+
+    std::env::remove_var(super::super::super::demo_mode::DEMO_MODE_ENV);
+    let demo_mode_off = parse_ok(&demo_req, &worker.id.to_string(), &env.store).await;
+    assert_eq!(
+        demo_mode_off["permissions"]["can_edit_charter"],
+        Value::Bool(false)
+    );
 }

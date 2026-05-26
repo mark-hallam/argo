@@ -30,14 +30,42 @@ use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Duration, TimeZone, Utc};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::Row;
 use std::sync::Arc;
 
 const ROLE_HEADER: &str = "X-Argo-Role";
 const RECOVERABLE_DAYS: i64 = 30;
+const WORKER_OVERVIEW_PERMISSION_NAMES: [&str; 7] = [
+    "can_edit_charter",
+    "can_edit_duties",
+    "can_pause_resume",
+    "can_archive",
+    "can_delete",
+    "can_view_audit",
+    "can_view_settings",
+];
 
 type Resp = (&'static str, String);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DemoPrincipal {
+    principal_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DemoSessionClaims {
+    #[serde(default)]
+    email: String,
+    #[serde(default)]
+    demo: bool,
+    #[serde(rename = "iat")]
+    _iat: i64,
+    #[serde(rename = "exp")]
+    _exp: i64,
+}
 
 pub(super) async fn show_response(
     worker_id_raw: &str,
@@ -94,11 +122,22 @@ async fn build_overview(
     if let Some(ts) = archived_at {
         return Err(gone_response(worker_id, &ts));
     }
-    let actor = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
+    let header_actor = principal_id_for_audit(req);
+    let demo_principal = demo_principal_for_request(req);
+    let actor = header_actor
+        .clone()
+        .or_else(|| demo_principal.as_ref().map(|p| p.principal_id.clone()))
+        .unwrap_or_else(|| "anonymous".to_string());
     let role = parse_role_header(req).unwrap_or(PrincipalRole::Delegator);
     let is_hire_author = !worker.persona.builder_attribution.is_empty()
         && worker.persona.builder_attribution == actor;
-    let perms = resolve_permissions(role, is_hire_author);
+    let demo_override_allowed = demo_permission_override_allowed(
+        demo_mode_enabled_for_permissions(),
+        header_actor.as_deref(),
+        demo_principal.as_ref(),
+    );
+    let (perms, demo_override_granted) =
+        compute_permissions_demo(role, is_hire_author, demo_override_allowed);
     let now = Utc::now();
     let audit_rows = fetch_audit_rows(store, tenant, worker_id, now)
         .await
@@ -114,6 +153,9 @@ async fn build_overview(
         "permissions": permissions_json(perms),
     });
     emit_audit(store, tenant, &worker, &actor, role).await;
+    if demo_override_granted {
+        emit_demo_override_audit(store, tenant, &worker, &actor).await;
+    }
     Ok(("200 OK", body.to_string()))
 }
 
@@ -137,6 +179,93 @@ fn permissions_json(p: Permissions) -> Value {
         "can_delete": p.can_delete, "can_view_audit": p.can_view_audit,
         "can_view_settings": p.can_view_settings,
     })
+}
+
+fn compute_permissions_demo(
+    role: PrincipalRole,
+    is_hire_author: bool,
+    demo_override_allowed: bool,
+) -> (Permissions, bool) {
+    if demo_override_allowed {
+        return (
+            Permissions {
+                can_edit_charter: true,
+                can_edit_duties: true,
+                can_pause_resume: true,
+                can_archive: true,
+                can_delete: true,
+                can_view_audit: true,
+                can_view_settings: true,
+            },
+            true,
+        );
+    }
+    (resolve_permissions(role, is_hire_author), false)
+}
+
+fn demo_permission_override_allowed(
+    demo_mode_enabled: bool,
+    header_principal: Option<&str>,
+    demo_principal: Option<&DemoPrincipal>,
+) -> bool {
+    if !demo_mode_enabled {
+        return false;
+    }
+    let Some(demo_principal) = demo_principal else {
+        return false;
+    };
+    header_principal
+        .map(|p| p == demo_principal.principal_id)
+        .unwrap_or(true)
+}
+
+fn demo_principal_for_request(req: &str) -> Option<DemoPrincipal> {
+    if let Some(token) = super::session_jwt::bearer_from_request(req) {
+        if let Some(principal) = demo_principal_from_token(&token) {
+            return Some(principal);
+        }
+    }
+    super::session_jwt::session_cookie_from_request(req)
+        .and_then(|token| demo_principal_from_token(&token))
+}
+
+fn demo_principal_from_token(token: &str) -> Option<DemoPrincipal> {
+    if token.split('.').count() != 3 {
+        return None;
+    }
+    let key = DecodingKey::from_secret(&super::auth_magic_link::jwt_secret());
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = true;
+    validation.required_spec_claims.clear();
+    validation.required_spec_claims.insert("exp".into());
+    validation.required_spec_claims.insert("iat".into());
+    validation.leeway = 60;
+    let claims = decode::<DemoSessionClaims>(token, &key, &validation)
+        .ok()?
+        .claims;
+    if !claims.demo {
+        return None;
+    }
+    let email = claims.email.trim().to_ascii_lowercase();
+    if !super::auth_magic_link::looks_like_email(&email) {
+        return None;
+    }
+    Some(DemoPrincipal {
+        principal_id: format!("human:{email}"),
+    })
+}
+
+fn demo_mode_enabled_for_permissions() -> bool {
+    #[cfg(test)]
+    {
+        std::env::var(super::demo_mode::DEMO_MODE_ENV)
+            .map(|v| v == "1")
+            .unwrap_or(false)
+    }
+    #[cfg(not(test))]
+    {
+        super::demo_mode::is_enabled()
+    }
 }
 
 /// Parse `X-Argo-Role`. Duplicated from `routes_worker_detail`
@@ -245,6 +374,33 @@ async fn emit_audit(
     {
         tracing::warn!(target: "gateway::worker_overview", error = %e, actor = %actor,
             "worker.overview.viewed audit write failed");
+    }
+}
+
+async fn emit_demo_override_audit(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    worker: &Worker,
+    principal_id: &str,
+) {
+    let payload = json!({
+        "principal_id": principal_id,
+        "tenant_id": tenant.to_string(),
+        "worker_id": worker.id.to_string(),
+        "permissions": WORKER_OVERVIEW_PERMISSION_NAMES,
+    });
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
+    if let Err(e) = sink
+        .write(
+            None,
+            AuditKind::PermissionDemoOverrideGranted,
+            payload,
+            Some(principal_id.to_string()),
+        )
+        .await
+    {
+        tracing::warn!(target: "gateway::worker_overview", error = %e, principal_id = %principal_id,
+            "worker overview demo permission override audit write failed");
     }
 }
 
