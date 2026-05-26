@@ -622,14 +622,12 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
             </Link>
           </div>
           <div className="vland-trust">
-            <span className="vland-trust-item">
-              <span className="vland-trust-dot" />
-              SOC 2-READY AUDIT TRAIL
-            </span>
-            <span className="vland-trust-item">
-              <span className="vland-trust-dot" />
-              GDPR · HIPAA · AFSL
-            </span>
+            {vertical.compliance.map((claim) => (
+              <span key={claim} className="vland-trust-item">
+                <span className="vland-trust-dot" />
+                {claim}
+              </span>
+            ))}
             <span className="vland-trust-item">
               <span className="vland-trust-dot" />
               2,847 teams this month

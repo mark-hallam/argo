@@ -54,6 +54,16 @@ export type VerticalConfig = {
   };
   /** CTA strip copy */
   ctaStrip: { headline: string; sub: string };
+  /**
+   * Per-vertical compliance claims shown in the hero trust strip.
+   *
+   * Every entry MUST be cross-referenced against the `/security` page —
+   * the regression test in
+   * `web/lib/__tests__/compliance-claims-consistency.test.ts` lists the
+   * regulated/formal badges that must be backed by `/security` before
+   * they can appear here, and fails if a vertical over-claims.
+   */
+  compliance: string[];
 };
 
 const SALES: VerticalConfig = {
@@ -103,6 +113,7 @@ const SALES: VerticalConfig = {
     headline: "Hire your first sales teammate",
     sub: "Live in Slack in under four minutes. No credit card.",
   },
+  compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };
 
 const RECRUITING: VerticalConfig = {
@@ -155,6 +166,11 @@ const RECRUITING: VerticalConfig = {
     headline: "Hire your first recruiting teammate",
     sub: "Live in Slack in under four minutes. No credit card.",
   },
+  compliance: [
+    "SOC 2-ready audit trail",
+    "GDPR-aligned data export",
+    "EEOC-aware policy gates",
+  ],
 };
 
 const SUPPORT: VerticalConfig = {
@@ -207,6 +223,7 @@ const SUPPORT: VerticalConfig = {
     headline: "Hire your first support teammate",
     sub: "Live in Slack in under four minutes. No credit card.",
   },
+  compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };
 
 const FINANCE: VerticalConfig = {
@@ -259,6 +276,11 @@ const FINANCE: VerticalConfig = {
     headline: "Hire your first finance teammate",
     sub: "Live in Slack in under four minutes. No credit card.",
   },
+  compliance: [
+    "SOC 2-ready audit trail",
+    "GDPR-aligned data export",
+    "SOX-aligned audit retention",
+  ],
 };
 
 const MARKETING: VerticalConfig = {
@@ -311,6 +333,7 @@ const MARKETING: VerticalConfig = {
     headline: "Hire your first marketing teammate",
     sub: "Live in Slack in under four minutes. No credit card.",
   },
+  compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };
 
 const OPS: VerticalConfig = {
@@ -360,6 +383,7 @@ const OPS: VerticalConfig = {
     headline: "Hire your first ops teammate",
     sub: "Live in Slack in under four minutes. No credit card.",
   },
+  compliance: ["SOC 2-ready audit trail", "GDPR-aligned data export"],
 };
 
 export const VERTICALS: Record<VerticalSlug, VerticalConfig> = {
