@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useElevatedViewGrants } from "./use-elevated-view-grant";
+import { deriveSession } from "@/lib/skycot/use-session";
 import {
   ALL_PERMISSIONS,
   PERMISSION_KEY,
@@ -36,14 +37,30 @@ import {
  * underlying caches (NextAuth session, localStorage grants) live
  * elsewhere.
  */
-export function useViewerPolicy(): ViewerPolicy {
-  const { data: session } = useSession();
+export interface ViewerSessionScope {
+  tenantId: string | null;
+  tenantLabel: string;
+}
+
+export type ViewerPolicyWithSession = ViewerPolicy & ViewerSessionScope;
+
+export function useViewerPolicy(): ViewerPolicyWithSession {
+  const { data: session, status } = useSession();
   const { activeGrants } = useElevatedViewGrants();
 
-  return useMemo(
-    () => resolveViewerPolicy(session?.permissions ?? [], session?.role, activeGrants),
-    [session?.permissions, session?.role, activeGrants],
-  );
+  return useMemo(() => {
+    const policy = resolveViewerPolicy(
+      session?.permissions ?? [],
+      session?.role,
+      activeGrants,
+    );
+    const skycotSession = deriveSession(session, status);
+    return {
+      ...policy,
+      tenantId: skycotSession.tenantId,
+      tenantLabel: skycotSession.workspaceLabel,
+    };
+  }, [session, status, activeGrants]);
 }
 
 /** Pure resolver — exported so tests can drive it without a session
@@ -114,6 +131,7 @@ function normalizeRole(raw: string | undefined): ViewerRole {
  *  forcing a non-may-touch edit on `auth.config.ts`. */
 declare module "next-auth" {
   interface Session {
+    gatewayToken?: string;
     role?: string;
     permissions?: string[];
   }

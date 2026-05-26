@@ -12,8 +12,8 @@
 //! - `GET /api/v1/audit/export/<bundle_id>?format=…&expires=…&tenant=…&sig=…` —
 //!   download a previously-built bundle. Verifies the HMAC over
 //!   `bundle_id|format|expires|tenant_id`, matches the URL's `tenant`
-//!   query against the caller's `X-Argo-Tenant-Id` header
-//!   (existence-hide 404 on mismatch — see
+//!   query against the caller's resolved session tenant
+//!   (existence-hide 404 on mismatch - see
 //!   `mission-audit-export-tenant-scope-fix`), then reads bytes from
 //!   a per-tenant subdirectory of the export root. Refuses expired
 //!   or unsigned URLs.
@@ -29,7 +29,7 @@ use super::store_unavailable;
 use argo_audit::export_bundle::{
     build_bundle, fetch_preview, fetch_rows_for_export, BundleFormat, ExportPreview, ExportWindow,
 };
-use argo_audit::{AuditKind, AuditSink, DEFAULT_AUDIT_TENANT_ID};
+use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Utc};
@@ -68,7 +68,7 @@ pub(super) async fn export_response(
         Ok(w) => w,
         Err(msg) => return bad_request(&msg),
     };
-    let tenant_id = request_tenant_id(req);
+    let tenant_id = resolved_request_tenant_id(req);
     let rows = match fetch_rows_for_export(store, &tenant_id, &window).await {
         Ok(r) => r,
         Err(e) => return server_error(&format!("fetch rows: {e}")),
@@ -87,10 +87,7 @@ pub(super) async fn export_response(
         return bad_request("invalid tenant id");
     };
     if let Err(e) = std::fs::create_dir_all(&tenant_dir) {
-        return server_error(&format!(
-            "create export dir {}: {e}",
-            tenant_dir.display()
-        ));
+        return server_error(&format!("create export dir {}: {e}", tenant_dir.display()));
     }
     let filename = format!("{bundle_id}.{}", format.extension());
     let bundle_path = tenant_dir.join(&filename);
@@ -99,7 +96,16 @@ pub(super) async fn export_response(
     }
     let expires = Utc::now().timestamp() + EXPORT_URL_TTL_SECS;
     let download_url = sign_export_url(&bundle_id, format, expires, &tenant_id);
-    emit_export_audit(store, req, &bundle_id, format, rows.len(), &sha256).await;
+    emit_export_audit(
+        store,
+        req,
+        &tenant_id,
+        &bundle_id,
+        format,
+        rows.len(),
+        &sha256,
+    )
+    .await;
     let body = json!({
         "bundle_id": bundle_id,
         "format": format,
@@ -107,6 +113,7 @@ pub(super) async fn export_response(
         "byte_size": bytes.len(),
         "sha256": sha256,
         "download_url": download_url,
+        "tenant_id": tenant_id,
         "expires_at": DateTime::<Utc>::from_timestamp(expires, 0)
             .map(|t| t.to_rfc3339())
             .unwrap_or_default(),
@@ -139,7 +146,7 @@ pub(super) async fn preview_response(
         Ok(w) => w,
         Err(msg) => return bad_request(&msg),
     };
-    let tenant_id = request_tenant_id(req);
+    let tenant_id = resolved_request_tenant_id(req);
     let preview: ExportPreview = match fetch_preview(store, &tenant_id, &window).await {
         Ok(p) => p,
         Err(e) => return server_error(&format!("fetch preview: {e}")),
@@ -148,6 +155,7 @@ pub(super) async fn preview_response(
         "row_count": preview.row_count,
         "byte_estimate": preview.byte_estimate,
         "format": format,
+        "tenant_id": tenant_id,
         "sample": preview.sample,
     });
     ("200 OK", body.to_string())
@@ -159,17 +167,20 @@ pub(super) async fn preview_response(
 ///
 /// Cross-tenant defense (`mission-audit-export-tenant-scope-fix`): the
 /// signed `tenant` query value is the tenant the bundle was issued
-/// for; the caller's `X-Argo-Tenant-Id` request header must match it,
-/// otherwise the handler returns 404 (existence-hide pattern, per
-/// #2040). The HMAC also incorporates the tenant, so a cross-tenant
-/// forgery without the export secret fails signature verification.
+/// for; the caller's session tenant must match it, otherwise the
+/// handler returns 404 (existence-hide pattern, per #2040). The HMAC
+/// also incorporates the tenant, so a cross-tenant forgery without
+/// the export secret fails signature verification.
 pub(super) async fn download_response(
     req: &str,
     bundle_id: &str,
     query: &str,
     _store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
-    let format = match query_kv(query, "format").as_deref().and_then(BundleFormat::parse) {
+    let format = match query_kv(query, "format")
+        .as_deref()
+        .and_then(BundleFormat::parse)
+    {
         Some(f) => f,
         None => return bad_request("missing or invalid format query"),
     };
@@ -185,7 +196,7 @@ pub(super) async fn download_response(
     // Caller-tenant binding check (mission-audit-export-tenant-scope-fix).
     // Mismatch is 404, not 403 — same existence-hide pattern used by
     // routes_worker_skills per #2040.
-    let caller_tenant = request_tenant_id(req);
+    let caller_tenant = resolved_request_tenant_id(req);
     if caller_tenant != signed_tenant {
         return not_found(bundle_id);
     }
@@ -216,9 +227,20 @@ pub(super) async fn download_response(
         "content_type": format.content_type(),
         "size_bytes": bytes.len(),
         "sha256": sha256_hex(&bytes),
+        "tenant_id": caller_tenant,
         "b64": general_purpose::STANDARD.encode(&bytes),
     });
     ("200 OK", body.to_string())
+}
+
+fn resolved_request_tenant_id(req: &str) -> String {
+    session_tenant_id(req).unwrap_or_else(|| request_tenant_id(req))
+}
+
+fn session_tenant_id(req: &str) -> Option<String> {
+    super::session_jwt::extract_session_claims(req)
+        .and_then(|claims| claims.tnt)
+        .filter(|tenant| !tenant.trim().is_empty())
 }
 
 fn parse_format(body: &Value) -> Result<BundleFormat, String> {
@@ -241,7 +263,10 @@ fn parse_window(body: &Value) -> Result<ExportWindow, String> {
     Ok(ExportWindow { from, to })
 }
 
-fn parse_optional_timestamp(v: Option<&Value>, label: &str) -> Result<Option<DateTime<Utc>>, String> {
+fn parse_optional_timestamp(
+    v: Option<&Value>,
+    label: &str,
+) -> Result<Option<DateTime<Utc>>, String> {
     let Some(v) = v else {
         return Ok(None);
     };
@@ -251,15 +276,14 @@ fn parse_optional_timestamp(v: Option<&Value>, label: &str) -> Result<Option<Dat
     let s = v
         .as_str()
         .ok_or_else(|| format!("`{label}` must be an RFC-3339 string"))?;
-    let parsed: DateTime<Utc> = s
-        .parse()
-        .map_err(|e| format!("`{label}` parse: {e}"))?;
+    let parsed: DateTime<Utc> = s.parse().map_err(|e| format!("`{label}` parse: {e}"))?;
     Ok(Some(parsed))
 }
 
 async fn emit_export_audit(
     store: &Arc<SessionStore>,
     req: &str,
+    tenant_id: &str,
     bundle_id: &str,
     format: BundleFormat,
     row_count: usize,
@@ -271,11 +295,9 @@ async fn emit_export_audit(
         "format": format,
         "row_count": row_count,
         "sha256": sha256,
+        "tenant_id": tenant_id,
     });
-    let tenant = resolve_tenant(store)
-        .await
-        .unwrap_or_else(|| DEFAULT_AUDIT_TENANT_ID.to_string());
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant);
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
     if let Err(e) = sink
         .write(
             None,
@@ -291,17 +313,6 @@ async fn emit_export_audit(
             "audit.export write failed",
         );
     }
-}
-
-async fn resolve_tenant(store: &Arc<SessionStore>) -> Option<String> {
-    let cwd = std::env::current_dir().ok()?;
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
-    Some(tenant.0.to_string())
 }
 
 fn bad_request(message: &str) -> (&'static str, String) {
