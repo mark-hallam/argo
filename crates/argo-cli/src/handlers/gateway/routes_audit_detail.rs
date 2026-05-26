@@ -50,13 +50,112 @@ pub(super) async fn detail_response(
     };
     let payload: Value = serde_json::from_str(&row.payload_json).unwrap_or(Value::Null);
     let policy = RedactionPolicy::default();
+    let delegation_chain = match build_delegation_chain(store, &tenant_id, &row, &payload).await {
+        Ok(chain) => chain,
+        Err(e) => return server_error(&format!("audit delegation chain fetch: {e}")),
+    };
+    let mut detail = build_detail(action_id, &row, &payload, &policy);
+    if let Value::Object(obj) = &mut detail {
+        obj.insert("delegation_chain".into(), delegation_chain);
+    }
     let body = json!({
-        "detail": build_detail(action_id, &row, &payload, &policy),
+        "detail": detail,
     });
     let audit_tenant =
         payload_str(&payload, "tenant_id").unwrap_or_else(|| rate_limit::extract_tenant(req));
     emit_view_audit(store, req, &audit_tenant, action_id).await;
     ("200 OK", body.to_string())
+}
+
+async fn build_delegation_chain(
+    store: &Arc<SessionStore>,
+    tenant_id: &str,
+    row: &DetailRow,
+    payload: &Value,
+) -> Result<Value, sqlx::Error> {
+    let Some(handoff_id) = handoff_id(payload) else {
+        return Ok(Value::Array(Vec::new()));
+    };
+    let rows = fetch_handoff_rows(store, tenant_id, &handoff_id).await?;
+    if rows.is_empty() {
+        return Ok(Value::Array(vec![delegation_step(
+            row, payload, "executed",
+        )]));
+    }
+    let last_id = rows.last().map(|r| r.id.as_slice());
+    Ok(Value::Array(
+        rows.iter()
+            .enumerate()
+            .map(|(idx, r)| {
+                let row_payload: Value =
+                    serde_json::from_str(&r.payload_json).unwrap_or(Value::Null);
+                let role = delegation_role(idx, r.id.as_slice(), last_id);
+                delegation_step(r, &row_payload, role)
+            })
+            .collect(),
+    ))
+}
+
+async fn fetch_handoff_rows(
+    store: &Arc<SessionStore>,
+    tenant_id: &str,
+    handoff_id: &str,
+) -> Result<Vec<DetailRow>, sqlx::Error> {
+    sqlx::query_as::<_, DetailRow>(
+        "SELECT id, session_id, kind, payload_json, self_hash, created_at \
+         FROM audit_record \
+         WHERE (tenant_id = ? OR (? = ? AND tenant_id = ?)) \
+           AND (json_extract(payload_json, '$.current_handoff_id') = ? \
+                OR json_extract(payload_json, '$.handoff_id') = ? \
+                OR json_extract(payload_json, '$.handoffId') = ?) \
+         ORDER BY created_at ASC, seq ASC \
+         LIMIT 10",
+    )
+    .bind(tenant_id)
+    .bind(tenant_id)
+    .bind(DEFAULT_AUDIT_TENANT_ID)
+    .bind(LEGACY_AUDIT_TENANT_ID)
+    .bind(handoff_id)
+    .bind(handoff_id)
+    .bind(handoff_id)
+    .fetch_all(store.pool())
+    .await
+}
+
+fn handoff_id(payload: &Value) -> Option<String> {
+    payload_str(payload, "current_handoff_id")
+        .or_else(|| payload_str(payload, "handoff_id"))
+        .or_else(|| payload_str(payload, "handoffId"))
+}
+
+fn delegation_role(idx: usize, id: &[u8], last_id: Option<&[u8]>) -> &'static str {
+    if idx == 0 {
+        "originator"
+    } else if Some(id) == last_id {
+        "executed"
+    } else {
+        "delegated_to"
+    }
+}
+
+fn delegation_step(row: &DetailRow, payload: &Value, role: &str) -> Value {
+    let worker_id = payload_str(payload, "worker_id").unwrap_or_default();
+    let worker_name = payload_str(payload, "worker_name").unwrap_or_else(|| {
+        if worker_id.is_empty() {
+            "unknown".into()
+        } else {
+            worker_id.clone()
+        }
+    });
+    let timestamp = chrono::DateTime::<chrono::Utc>::from_timestamp_micros(row.created_at)
+        .map_or_else(|| row.created_at.to_string(), |dt| dt.to_rfc3339());
+    json!({
+        "worker_id": worker_id,
+        "worker_name": worker_name,
+        "action_id": hex::encode(&row.id),
+        "role": role,
+        "ts": timestamp,
+    })
 }
 
 #[derive(sqlx::FromRow)]

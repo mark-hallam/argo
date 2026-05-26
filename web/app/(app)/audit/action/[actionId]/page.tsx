@@ -8,6 +8,7 @@ import { ActionOutputCard } from "@/components/skycot/audit/ActionOutputCard";
 import { ActionSummaryHero } from "@/components/skycot/audit/ActionSummaryHero";
 import { AuditActionNotFound } from "@/components/skycot/audit/AuditActionNotFound";
 import { DecisionChainCard } from "@/components/skycot/audit/DecisionChainCard";
+import { DelegationChainCard } from "@/components/skycot/audit/DelegationChainCard";
 import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
 import { ProvenanceBlock } from "@/components/skycot/audit/ProvenanceBlock";
 import { RedactionBanner } from "@/components/skycot/audit/RedactionBanner";
@@ -19,6 +20,7 @@ import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
 import { useToast } from "@/lib/ui/use-toast";
 import { redactAuditDetail } from "@/lib/redaction/redact";
 import { categoriesLackedBy } from "@/lib/redaction/audit-rules";
+import type { AuditDetailWithDelegation } from "@/lib/api/audit-detail";
 import type { RbacPermission } from "@/lib/redaction/types";
 
 /**
@@ -108,6 +110,8 @@ function AuditActionDetailContent() {
   }
 
   const verbSummary = truncate(detail.verb, 64);
+  const delegationChain =
+    (detail as AuditDetailWithDelegation).delegationChain ?? [];
 
   return (
     <div
@@ -142,6 +146,10 @@ function AuditActionDetailContent() {
         <ActionInputsCard inputs={detail.inputs} policy={policy} />
         <ProvenanceBlock data={detail.provenance} detail={detail} />
       </div>
+
+      {delegationChain.length > 1 ? (
+        <DelegationChainCard chain={delegationChain} />
+      ) : null}
 
       <DecisionChainCard steps={detail.decisionChain} policy={policy} />
 

@@ -24,16 +24,23 @@ import type {
  */
 
 export interface ActivityRowProps {
-  activity: WorkerActivity;
+  activity: WorkerActivityWithDelegation;
   /** Hide the worker avatar (E5-a may decide to dedupe by worker). */
   hideWorker?: boolean;
   className?: string;
 }
 
+type DelegatedBy = { workerId: string; workerName: string };
+type WorkerActivityWithDelegation = WorkerActivity & {
+  delegatedBy?: DelegatedBy;
+  delegated_by?: { worker_id?: string; worker_name?: string };
+};
+
 export function ActivityRow({ activity, hideWorker, className }: ActivityRowProps) {
   const href = `/audit/action/${encodeURIComponent(activity.id)}`;
   const relative = relativeTime(activity.timestamp);
   const tone = STATUS_TONE[activity.status];
+  const delegatedBy = normalizedDelegatedBy(activity);
 
   return (
     <Link
@@ -71,7 +78,12 @@ export function ActivityRow({ activity, hideWorker, className }: ActivityRowProp
         <p className="truncate text-[var(--foreground)]" data-testid={`activity-row-verb-${activity.id}`}>
           {redactInlineSentinels(activity.verb)}
         </p>
-        <ActionIdCopy actionId={activity.id} />
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
+          <ActionIdCopy actionId={activity.id} />
+          {delegatedBy ? (
+            <DelegatedByChip actionId={activity.id} delegatedBy={delegatedBy} />
+          ) : null}
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -99,6 +111,19 @@ export function ActivityRow({ activity, hideWorker, className }: ActivityRowProp
       />
     </Link>
   );
+}
+
+function normalizedDelegatedBy(activity: WorkerActivityWithDelegation): DelegatedBy | null {
+  if (activity.delegatedBy?.workerId && activity.delegatedBy.workerName) {
+    return activity.delegatedBy;
+  }
+  if (activity.delegated_by?.worker_id && activity.delegated_by.worker_name) {
+    return {
+      workerId: activity.delegated_by.worker_id,
+      workerName: activity.delegated_by.worker_name,
+    };
+  }
+  return null;
 }
 
 const STATUS_TONE: Record<WorkerActivityStatus, StatusPillProps["tone"]> = {
@@ -136,6 +161,31 @@ function ActionIdCopy({ actionId }: { actionId: string }) {
     >
       <span>{actionId}</span>
       {copied ? <Check className="size-3" /> : <Copy className="size-3 opacity-0 group-hover:opacity-100" />}
+    </button>
+  );
+}
+
+function DelegatedByChip({
+  actionId,
+  delegatedBy,
+}: {
+  actionId: string;
+  delegatedBy: DelegatedBy;
+}) {
+  const href = `/workers/${encodeURIComponent(delegatedBy.workerId)}/overview`;
+  return (
+    <button
+      type="button"
+      data-testid={`activity-row-delegated-by-${actionId}`}
+      title={`Delegated by ${delegatedBy.workerName}`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.assign(href);
+      }}
+      className="inline-flex items-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--muted)]/40 px-1.5 py-0.5 text-[11px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+    >
+      via {delegatedBy.workerName}
     </button>
   );
 }
