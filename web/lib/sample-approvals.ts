@@ -62,6 +62,7 @@ function stableNow(): number {
 const now = stableNow();
 const minute = 60_000;
 const hour = 60 * minute;
+const day = 24 * hour;
 
 export const SAMPLE_APPROVALS: ApprovalItem[] = [
   {
@@ -113,34 +114,38 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   {
     id: "ap_01H9Z4",
     worker: { name: "Mariah" },
-    verb: "wants to counter-offer at $85",
+    verb: "countered at $85",
     detail:
-      "Buyer asked $75 for the CCM helmet (your floor is $80). Mariah proposes meeting in the middle at $85 with free local pickup.",
+      "Buyer asked $75 for the CCM helmet (your floor is $80). Mariah proposed meeting in the middle at $85 with free local pickup.",
     consequenceIfYes: "counter sent to buyer; deal expected to close today.",
     consequenceIfNo: "I'll hold firm at the $80 floor and decline.",
     reason: "Counter-offers below 90% of asking always need your OK.",
     channel: "push",
-    receivedAt: new Date(now - 1 * hour - 18 * minute).toISOString(),
+    // Decided ~2 days ago so it sits inside the 7-day approval-rate window.
+    receivedAt: new Date(now - 2 * day - 1 * hour - 18 * minute).toISOString(),
     severity: "p2",
     dollarAtRisk: 85,
     confidence: 0.7,
-    slaExpiresAt: new Date(now + 6 * hour + 41 * minute).toISOString(),
+    slaExpiresAt: new Date(now - 2 * day + 5 * hour + 23 * minute).toISOString(),
+    decision: "approve",
   },
   {
     id: "ap_01H9Z3",
     worker: { name: "Nori" },
-    verb: "wants to publish the Q2 product update",
+    verb: "published the Q2 product update",
     detail:
-      "Drafted email + in-app banner announcing the new audit-log export feature. Sends to 12,400 customers Tuesday at 09:00 PST.",
+      "Drafted email + in-app banner announcing the new audit-log export feature. Scheduled to 12,400 customers Tuesday at 09:00 PST.",
     consequenceIfYes: "scheduled; you'll see the draft once more before send time.",
     consequenceIfNo: "I'll park it as draft and ping you to revise tomorrow.",
     reason: "All-customer broadcasts always require your sign-off.",
     channel: "slack",
-    receivedAt: new Date(now - 3 * hour - 22 * minute).toISOString(),
+    // Decided ~3 days ago.
+    receivedAt: new Date(now - 3 * day - 3 * hour - 22 * minute).toISOString(),
     severity: "p1",
     dollarAtRisk: 32837,
     confidence: 0.88,
-    slaExpiresAt: new Date(now + 3 * hour + 12 * minute).toISOString(),
+    slaExpiresAt: new Date(now - 3 * day + 3 * hour + 12 * minute).toISOString(),
+    decision: "approve",
   },
   {
     id: "ap_01H9Z2",
@@ -160,17 +165,19 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   {
     id: "ap_01H9Z1",
     worker: { name: "Priya" },
-    verb: "wants to send a rejection email",
+    verb: "held the rejection email",
     detail:
-      "Candidate Sara Lin — backend role, was a near-miss but team picked a stronger candidate. Drafted a warm rejection with feedback.",
+      "Candidate Sara Lin — backend role, was a near-miss but team picked a stronger candidate. Drafted a warm rejection with feedback; you asked to revise the wording before sending.",
     consequenceIfYes: "email sent; candidate moved to 'rejected — warm pool' for future roles.",
     consequenceIfNo: "I'll hold and you can review the wording first.",
     reason: "Rejection emails always require your eyes — these are sensitive.",
     channel: "imessage",
-    receivedAt: new Date(now - 22 * hour).toISOString(),
-    severity: "p0",
+    // Decided ~1 day ago — you held it back to revise the wording.
+    receivedAt: new Date(now - 1 * day - 22 * hour).toISOString(),
+    severity: "p1",
     confidence: 0.92,
-    slaExpiresAt: new Date(now - 1 * hour).toISOString(),
+    slaExpiresAt: new Date(now - 1 * day + 23 * hour).toISOString(),
+    decision: "refuse",
   },
   {
     id: "ap_01H9Z0",

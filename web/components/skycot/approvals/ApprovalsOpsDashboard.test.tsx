@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApprovalsOpsDashboard } from "./ApprovalsOpsDashboard";
-import type { ApprovalItem } from "@/lib/sample-approvals";
+import { SAMPLE_APPROVALS, type ApprovalItem } from "@/lib/sample-approvals";
 
 const NOW = new Date("2026-05-25T12:00:00Z").getTime();
 const assignMock = vi.fn();
@@ -113,6 +113,30 @@ describe("ApprovalsOpsDashboard", () => {
     expect(screen.queryByText(/78% approved/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/14% refused/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/8% expired/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the seeded SAMPLE_APPROVALS as 5 pending + 3 resolved (ring ≈ 67%)", () => {
+    render(<ApprovalsOpsDashboard items={SAMPLE_APPROVALS} />);
+
+    // 2 of the 3 resolved rows are approved → 67% headline.
+    expect(screen.getByTestId("kpi-approval-rate")).toHaveTextContent("67%");
+    expect(screen.getByTestId("kpi-approval-rate")).toHaveTextContent(
+      "3 resolved approvals",
+    );
+    expect(screen.getByTestId("approval-rate-ring")).toHaveAttribute(
+      "data-approved",
+      "67",
+    );
+    expect(screen.getByTestId("approval-rate-ring")).toHaveAttribute(
+      "data-refused",
+      "33",
+    );
+
+    // The 5 remaining rows stay actionable in the inbox tiers.
+    const p0Rows = screen.getByTestId("severity-tier-p0").querySelectorAll("li");
+    const p1Rows = screen.getByTestId("severity-tier-p1").querySelectorAll("li");
+    const p2Rows = screen.getByTestId("severity-tier-p2").querySelectorAll("li");
+    expect(p0Rows.length + p1Rows.length + p2Rows.length).toBe(5);
   });
 
   it("navigates pending approval rows to audit action detail", async () => {

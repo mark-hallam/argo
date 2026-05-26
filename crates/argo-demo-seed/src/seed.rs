@@ -7,7 +7,9 @@ use std::sync::Arc;
 
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, Persona, Role, Worker};
-use argo_store::approvals::{create_request, DefaultDecision, NewApprovalRequest};
+use argo_store::approvals::{
+    create_request, decide_request, ApprovalDecision, DefaultDecision, NewApprovalRequest,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoResult, TenantId};
 use chrono::Utc;
@@ -296,10 +298,15 @@ async fn seed_foreign_audit_row(
     Ok(1)
 }
 
-/// Insert 3 `approval_request` rows + 3 `ApprovalAsked` audit rows
-/// so Scene 2's Slack-approval drill-in beat has real targets to
-/// click. The deadline is +24h so the timeout sweeper does not
-/// auto-expire them mid-recording.
+/// Insert 8 `approval_request` rows — 5 pending + 3 resolved — so the
+/// /approvals dashboard's 7-day approval-rate ring has real history to
+/// render on first paint instead of an empty "—". The 5 pending rows
+/// also feed Scene 2's Slack-approval drill-in beat with deadline +24h
+/// so the timeout sweeper does not auto-expire them mid-recording.
+///
+/// The 3:5 decided:pending ratio mirrors `web/lib/sample-approvals.ts`,
+/// so live-mode and mock-mode demos see the same shape (~67% approval
+/// rate). Two of the three decided rows are approved, one is refused.
 async fn seed_approval_requests(
     store: &Arc<SessionStore>,
     tenant_id: TenantId,
@@ -312,22 +319,53 @@ async fn seed_approval_requests(
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
     let pool = store.pool();
     let deadline_at = (Utc::now() + chrono::Duration::hours(24)).timestamp_micros();
-    let labels = [
+    // (label, summary, optional pre-decided decision)
+    let labels: [(&str, &str, Option<ApprovalDecision>); 8] = [
+        // 5 pending — actionable in the demo inbox.
         (
             "listing repost > $200",
             "Repost listing #4912 at $215 (was $189).",
+            None,
         ),
         (
             "buyer-discount approval",
             "Apply 10% buyer discount on listing #3120.",
+            None,
         ),
         (
             "photo-touchup spend cap",
             "Run touch-up batch (12 photos, $4.80).",
+            None,
+        ),
+        (
+            "candidate interview slot",
+            "Book Diego Alvarez interview Thursday 10:30 AM NZST (45 min).",
+            None,
+        ),
+        (
+            "discount above policy ceiling",
+            "Apply 32% discount on Tomás Industries renewal QT-2024-7283.",
+            None,
+        ),
+        // 3 resolved — feed the 7-day approval-rate ring on /approvals.
+        (
+            "buyer counter-offer at $85",
+            "Counter CCM helmet offer from $75 to $85 with free local pickup.",
+            Some(ApprovalDecision::Approve),
+        ),
+        (
+            "Q2 product update broadcast",
+            "Announce audit-log export to 12,400 customers Tuesday 09:00 PST.",
+            Some(ApprovalDecision::Approve),
+        ),
+        (
+            "candidate rejection email",
+            "Send warm rejection to Sara Lin with feedback (held to revise wording).",
+            Some(ApprovalDecision::Reject),
         ),
     ];
     let mut inserted = 0;
-    for (i, (label, summary)) in labels.iter().enumerate() {
+    for (i, (label, summary, prior_decision)) in labels.iter().enumerate() {
         let worker_id = worker_ids[i % worker_ids.len()];
         let action_id = Uuid::now_v7().as_bytes().to_vec();
         let new_req = NewApprovalRequest {
@@ -352,6 +390,9 @@ async fn seed_approval_requests(
             None,
         )
         .await?;
+        if let Some(decision) = prior_decision {
+            decide_request(pool, &approval_id, tenant_id, actor, *decision).await?;
+        }
         inserted += 1;
     }
     sink.flush_pending().await?;
@@ -397,7 +438,10 @@ mod tests {
         assert_eq!(report.pass_a_audit_rows, 0);
         assert_eq!(report.pass_b_audit_rows, 25);
         assert_eq!(report.foreign_audit_rows, 1);
-        assert_eq!(report.approval_requests, 3);
+        // 5 pending + 3 pre-decided rows so the /approvals ring renders
+        // a real percentage on first paint (see the brief
+        // `fix-approvals-seed-decided-approvals-for-ring`).
+        assert_eq!(report.approval_requests, 8);
         assert!(!report.pass_a_real_llm);
 
         // Vacuous-pass guard (round-37 pattern): a DIFFERENT tenant
