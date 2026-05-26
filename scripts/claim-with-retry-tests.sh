@@ -4,8 +4,8 @@
 #
 # Sets up a temp bare repo as `origin`, clones a worker checkout, and
 # exercises the script's branches: happy path, not-found, BLOCKED,
-# already-CLAIMED, dirty tree, and a deterministic non-fast-forward
-# retry that recovers via pull --rebase.
+# already-CLAIMED, dirty tree, operator-asset volatile dirt, and a
+# deterministic non-fast-forward retry that recovers via pull --rebase.
 
 set -uo pipefail
 
@@ -46,6 +46,7 @@ setup_remote() {
     git -C "$tmp/seed" config user.email "seed@test.invalid"
     git -C "$tmp/seed" config commit.gpgsign false
     mkdir -p "$tmp/seed/docs/build-plan" "$tmp/seed/scripts"
+    echo "tracked fixture" > "$tmp/seed/TRACKED.txt"
     cat > "$tmp/seed/docs/build-plan/BUILD_STATUS.md" <<EOF
 # Build status
 
@@ -77,7 +78,7 @@ run_script() {
 }
 
 # ── Test 1: happy path ────────────────────────────────────────────
-echo "[1/6] happy path"
+echo "[1/9] happy path"
 tmp="$(mktemp -d)"
 setup_remote "$tmp"
 clone_worker "$tmp" "w1"
@@ -89,7 +90,7 @@ assert_grep "$tmp/w1/docs/build-plan/BUILD_STATUS.md" "test-todo-row.*CLAIMED" "
 rm -rf "$tmp"
 
 # ── Test 2: brief not found ───────────────────────────────────────
-echo "[2/6] brief not found"
+echo "[2/9] brief not found"
 tmp="$(mktemp -d)"
 setup_remote "$tmp"
 clone_worker "$tmp" "w1"
@@ -99,7 +100,7 @@ assert_eq "$rc" "2" "not-found: rc=2"
 rm -rf "$tmp"
 
 # ── Test 3: BLOCKED row ───────────────────────────────────────────
-echo "[3/6] BLOCKED row"
+echo "[3/9] BLOCKED row"
 tmp="$(mktemp -d)"
 setup_remote "$tmp"
 clone_worker "$tmp" "w1"
@@ -110,7 +111,7 @@ assert_grep /tmp/argo-test3.out "BLOCKED" "blocked: surfaces BLOCKED"
 rm -rf "$tmp"
 
 # ── Test 4: CLAIMED by other ──────────────────────────────────────
-echo "[4/6] CLAIMED by other"
+echo "[4/9] CLAIMED by other"
 tmp="$(mktemp -d)"
 setup_remote "$tmp"
 clone_worker "$tmp" "w1"
@@ -121,22 +122,61 @@ assert_grep /tmp/argo-test4.out "falling through" "claimed-by-other: HARD RULE 7
 rm -rf "$tmp"
 
 # ── Test 5: dirty tree refusal ────────────────────────────────────
-echo "[5/6] dirty tree refusal"
+echo "[5/9] dirty tree refusal"
 tmp="$(mktemp -d)"
 setup_remote "$tmp"
 clone_worker "$tmp" "w1"
-echo "uncommitted edit" >> "$tmp/w1/docs/build-plan/BUILD_STATUS.md"
+echo "uncommitted edit" >> "$tmp/w1/TRACKED.txt"
 rc=0
 run_script "$tmp/w1" test-todo-row >/tmp/argo-test5.out 2>&1 || rc=$?
 assert_eq "$rc" "2" "dirty-tree: rc=2"
 assert_grep /tmp/argo-test5.out "dirty" "dirty-tree: surfaces 'dirty'"
 rm -rf "$tmp"
 
-# ── Test 6: non-fast-forward race recovers via pull --rebase ──────
+# ── Test 6: operator marketing dirt is stashed/restored ───────────
+echo "[6/9] operator marketing dirt survives"
+tmp="$(mktemp -d)"
+setup_remote "$tmp"
+clone_worker "$tmp" "w1"
+mkdir -p "$tmp/w1/docs/skycot/marketing"
+echo "mockup" > "$tmp/w1/docs/skycot/marketing/foo.md"
+rc=0
+run_script "$tmp/w1" test-todo-row >/tmp/argo-test6.out 2>&1 || rc=$?
+assert_eq "$rc" "0" "marketing-dirt: rc=0"
+[[ -f "$tmp/w1/docs/skycot/marketing/foo.md" ]] && { echo "✓ marketing-dirt: operator file restored"; PASSED=$((PASSED+1)); } || { echo "✗ marketing-dirt: operator file missing"; FAILED=$((FAILED+1)); }
+rm -rf "$tmp"
+
+# ── Test 7: web brand dirt is stashed/restored ────────────────────
+echo "[7/9] web brand dirt survives"
+tmp="$(mktemp -d)"
+setup_remote "$tmp"
+clone_worker "$tmp" "w1"
+mkdir -p "$tmp/w1/web/public/brand/social"
+echo "png" > "$tmp/w1/web/public/brand/social/x.png"
+rc=0
+run_script "$tmp/w1" test-todo-row >/tmp/argo-test7.out 2>&1 || rc=$?
+assert_eq "$rc" "0" "brand-dirt: rc=0"
+[[ -f "$tmp/w1/web/public/brand/social/x.png" ]] && { echo "✓ brand-dirt: operator file restored"; PASSED=$((PASSED+1)); } || { echo "✗ brand-dirt: operator file missing"; FAILED=$((FAILED+1)); }
+rm -rf "$tmp"
+
+# ── Test 8: operator demo dirt is stashed/restored ────────────────
+echo "[8/9] operator demo dirt survives"
+tmp="$(mktemp -d)"
+setup_remote "$tmp"
+clone_worker "$tmp" "w1"
+mkdir -p "$tmp/w1/docs/skycot/demos"
+echo "audit" > "$tmp/w1/docs/skycot/demos/pre-record-ux-audit-2026-05-25.md"
+rc=0
+run_script "$tmp/w1" test-todo-row >/tmp/argo-test8.out 2>&1 || rc=$?
+assert_eq "$rc" "0" "demo-dirt: rc=0"
+[[ -f "$tmp/w1/docs/skycot/demos/pre-record-ux-audit-2026-05-25.md" ]] && { echo "✓ demo-dirt: operator file restored"; PASSED=$((PASSED+1)); } || { echo "✗ demo-dirt: operator file missing"; FAILED=$((FAILED+1)); }
+rm -rf "$tmp"
+
+# ── Test 9: non-fast-forward race recovers via pull --rebase ──────
 # Setup: w1 starts to claim test-todo-row. Before w1 pushes, w2 pushes
 # an unrelated commit. w1's first push fails non-fast-forward; w1's
 # retry rebases w2's commit and pushes successfully.
-echo "[6/6] non-fast-forward race recovers"
+echo "[9/9] non-fast-forward race recovers"
 tmp="$(mktemp -d)"
 setup_remote "$tmp"
 clone_worker "$tmp" "w1"
@@ -157,7 +197,7 @@ exit 0
 EOH
 chmod +x "$tmp/w1/.git/hooks/pre-push"
 rc=0
-run_script "$tmp/w1" test-todo-row >/tmp/argo-test6.out 2>&1 || rc=$?
+run_script "$tmp/w1" test-todo-row >/tmp/argo-test9.out 2>&1 || rc=$?
 assert_eq "$rc" "0" "race-recover: rc=0"
 git -C "$tmp/w1" pull --ff-only origin main >/dev/null 2>&1
 assert_grep "$tmp/w1/docs/build-plan/BUILD_STATUS.md" "test-todo-row.*CLAIMED" "race-recover: row CLAIMED after retry"

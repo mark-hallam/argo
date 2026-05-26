@@ -47,6 +47,9 @@ branch prefix and the same protocol roles.
    claiming and handle any drift before implementation.
 4. Claim through the live protocol, read `streams/<brief-id>.md`, then
    implement only inside the brief's may-touch list.
+   `scripts/claim-with-retry.sh` temporarily stashes protocol paths
+   plus operator artifact roots (`docs/skycot/demos`,
+   `docs/skycot/marketing`, `web/public/brand`) during claims.
 5. Run the brief checks plus the crate-scoped verification required by
    `SWARM_PROTOCOL.md`.
 6. Codex workers must also run `bash scripts/codex-pre-push.sh` before

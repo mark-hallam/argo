@@ -48,6 +48,12 @@ VOLATILE_PATHS=(
     'docs/skycot/agents/SHARED.md'
     'docs/build-plan/BUILD_STATUS.md'
     'docs/build-plan/streams'
+    # Operator work-product roots can sit untracked between recording
+    # or branding sessions. Treat them like volatile state so worker
+    # claim loops do not stall on unrelated operator artifacts.
+    'docs/skycot/demos'
+    'docs/skycot/marketing'
+    'web/public/brand'
 )
 
 # stash_volatile_state <repo>
