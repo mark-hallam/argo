@@ -1,3 +1,5 @@
+import { ThemePicker } from "@/components/skycot/ThemePicker";
+
 export default function WorkspaceSettingsPage() {
   return (
     <section className="settings-panel" data-testid="settings-workspace-panel">
@@ -13,6 +15,13 @@ export default function WorkspaceSettingsPage() {
       </div>
 
       <div className="settings-fields">
+        <div className="settings-field" data-testid="settings-workspace-theme-picker">
+          <div>
+            <span className="settings-field-label">Appearance</span>
+            <p>Set the console color mode and tenant brand preview for this browser.</p>
+          </div>
+          <ThemePicker />
+        </div>
         <div className="settings-field">
           <div>
             <span className="settings-field-label">Display name</span>
