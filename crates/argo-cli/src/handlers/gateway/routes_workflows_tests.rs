@@ -85,6 +85,19 @@ kind = "skill_invoke"
 skill = "reviewer-v2"
 "#;
 
+const TOML_CU: &str = r#"
+schema_version = "1"
+
+[workflow]
+name = "open_pr_review"
+
+[[step]]
+name = "drop_note"
+kind = "tool_call"
+tool = "cu.run_macro"
+args = { app = "Notes", action = "new_note" }
+"#;
+
 async fn fixture_store_with_head(version_count: usize) -> (Arc<SessionStore>, TenantId) {
     let store = SessionStore::open(":memory:").await.expect("open mem db");
     store.migrate().await.expect("migrate");
@@ -112,6 +125,25 @@ async fn fixture_store_with_head(version_count: usize) -> (Arc<SessionStore>, Te
             .expect("set head");
     }
     (store, tenant)
+}
+
+#[tokio::test]
+async fn fetch_head_includes_inferred_substrate() {
+    let store = SessionStore::open(":memory:").await.expect("open mem db");
+    store.migrate().await.expect("migrate");
+    let store = Arc::new(store);
+    let tenant = TenantId::new();
+    let id = wd::create(store.pool(), tenant, VERTICAL, WORKFLOW, TOML_CU, None, "seed")
+        .await
+        .expect("seed cu workflow");
+    wd::set_head(store.pool(), tenant, VERTICAL, WORKFLOW, &id)
+        .await
+        .expect("set head");
+
+    let resp = hh::fetch_head(&store, tenant, VERTICAL, WORKFLOW).await;
+    assert!(resp.0.starts_with("200"), "status: {} body: {}", resp.0, resp.1);
+    let parsed: Value = serde_json::from_str(&resp.1).expect("parse body");
+    assert_eq!(parsed["substrate"], "macos");
 }
 
 #[tokio::test]

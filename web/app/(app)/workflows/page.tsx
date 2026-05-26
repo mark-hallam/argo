@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GitBranch, ArrowRight, Plus, Search, Clock, Sparkles } from "lucide-react";
 import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
+import { SubstrateChip } from "@/components/skycot/workflow/SubstrateChip";
 import { HoverHint } from "@/components/ui/Tooltip";
+import { resolveWorkflowSubstrate } from "@/lib/api/workflows";
 import { useWorkflows } from "@/lib/hooks/use-workflows";
 import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
 
@@ -228,12 +230,14 @@ export default function WorkflowsPage() {
         ) : null}
 
         <div className="workflows-grid">
-          {filtered.map((wf) => (
-            <Link
-              key={`${wf.vertical}/${wf.name}`}
-              href={`/workflows/${wf.vertical}/${wf.name}`}
-              className="workflow-card"
-            >
+          {filtered.map((wf) => {
+            const substrate = resolveWorkflowSubstrate(wf);
+            return (
+              <Link
+                key={`${wf.vertical}/${wf.name}`}
+                href={`/workflows/${wf.vertical}/${wf.name}`}
+                className="workflow-card"
+              >
               <div className="workflow-card-top">
                 <span className="workflow-card-vertical">{wf.vertical}</span>
                 <span
@@ -252,19 +256,21 @@ export default function WorkflowsPage() {
                 <span className="workflow-step-count">{wf.steps} steps</span>
               </div>
 
-              <div className="workflow-card-meta">
+              <div className="workflow-card-meta" style={{ flexWrap: "wrap", rowGap: 8 }}>
                 <span className="workflow-card-meta-item">
                   <GitBranch size={11} /> v{wf.versions}
                 </span>
                 <span className="workflow-card-meta-item">
                   <Clock size={11} /> {wf.lastEdited}
                 </span>
+                <SubstrateChip substrate={substrate} status="idle" compact />
                 <span className="workflow-card-meta-item">by {wf.lastEditor}</span>
               </div>
 
               <ArrowRight size={18} className="workflow-card-arrow" />
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </div>
       <WorkflowProposeModal open={proposeOpen} onOpenChange={setProposeOpen} />

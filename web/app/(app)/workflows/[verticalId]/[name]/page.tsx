@@ -31,7 +31,9 @@ import {
   fetchWorkflowRuns,
   type FetchWorkflowRunsResult,
 } from "@/lib/api/workflow-runs";
+import { resolveWorkflowSubstrate, stepUsesSubstrate } from "@/lib/api/workflows";
 import type { WorkflowStepKind } from "@/lib/sample-workflows";
+import { SubstrateChip } from "@/components/skycot/workflow/SubstrateChip";
 import { WorkflowRunStats, WorkflowRunsTable } from "./run-history";
 import {
   WorkflowRunsFilterBar,
@@ -195,6 +197,9 @@ function ViewerInner({
     );
   }
 
+  const substrate = resolveWorkflowSubstrate(workflow);
+  const substrateStatus = running ? "running" : "idle";
+
   return (
     <>
       <div className="wfd-stage">
@@ -216,6 +221,11 @@ function ViewerInner({
               {workflow.risk === "approval-required" ? "Approval required" : "Autonomous"}
             </span>
             <span className="wfd-version">version {workflow.version}</span>
+            <SubstrateChip
+              substrate={substrate}
+              status={substrateStatus}
+              compact
+            />
             <span
               data-testid="wfd-source-pill"
               data-source={source ?? "unknown"}
@@ -325,6 +335,13 @@ function ViewerInner({
                         {idx + 1}. {meta.label}
                       </span>
                       <h2 className="wfd-step-name">{step.name}</h2>
+                      {stepUsesSubstrate(step, substrate) ? (
+                        <SubstrateChip
+                          substrate={substrate}
+                          status={substrateStatus}
+                          compact
+                        />
+                      ) : null}
                       <button
                         type="button"
                         className="wfd-step-edit"

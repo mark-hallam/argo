@@ -51,7 +51,70 @@ pub(super) fn definition_json(def: &WorkflowDefinition) -> Value {
         "created_at": def.created_at,
         "modified_by": def.modified_by,
         "definition_toml": def.definition_toml,
+        "substrate": substrate_from_definition_toml(&def.definition_toml),
     })
+}
+
+fn substrate_from_definition_toml(toml: &str) -> &'static str {
+    if let Some(explicit) = explicit_substrate(toml) {
+        return explicit;
+    }
+    let lower = toml.to_ascii_lowercase();
+    if lower.contains("cu_action")
+        || lower.contains("cu.")
+        || lower.contains("cu_")
+        || lower.contains("computer-use")
+        || lower.contains("computer use")
+        || lower.contains("macos")
+        || lower.contains("macos_notes")
+        || lower.contains("notes app")
+    {
+        return "macos";
+    }
+    if lower.contains("windows") {
+        return "windows";
+    }
+    if lower.contains("linux") {
+        return "linux";
+    }
+    if lower.contains("e2b") || lower.contains("sandbox") {
+        return "e2b";
+    }
+    if lower.contains("browser") || lower.contains("web page") {
+        return "browser";
+    }
+    "headless"
+}
+
+fn explicit_substrate(toml: &str) -> Option<&'static str> {
+    for line in toml.lines() {
+        let trimmed = line.split('#').next().unwrap_or("").trim();
+        let Some((key, raw_value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key != "substrate" && key != "default_substrate" {
+            continue;
+        }
+        let value = raw_value
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'')
+            .to_ascii_lowercase()
+            .replace(['_', ' '], "-");
+        match value.as_str() {
+            "macos" | "mac" | "darwin" | "computer-use-macos" | "cu-macos" => {
+                return Some("macos");
+            }
+            "linux" => return Some("linux"),
+            "windows" | "win32" => return Some("windows"),
+            "e2b" | "sandbox" => return Some("e2b"),
+            "browser" | "web" => return Some("browser"),
+            "headless" | "none" => return Some("headless"),
+            _ => {}
+        }
+    }
+    None
 }
 
 pub(super) fn decode_index_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<WorkflowDefinition> {

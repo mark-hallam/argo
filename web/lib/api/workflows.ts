@@ -56,14 +56,17 @@ import {
 } from "@/lib/sample-workflows";
 
 export type WorkflowDataSource = "gateway" | "mock-offline" | "mock-bypass";
+export type WorkflowSubstrate = "macos" | "linux" | "windows" | "e2b" | "browser" | "headless";
+export type WorkflowSummaryWithSubstrate = WorkflowSummary & { substrate?: WorkflowSubstrate };
+export type WorkflowSpecWithSubstrate = WorkflowSpec & { substrate?: WorkflowSubstrate };
 
 export interface FetchAllWorkflowsResult {
-  workflows: WorkflowSummary[];
+  workflows: WorkflowSummaryWithSubstrate[];
   source: WorkflowDataSource;
 }
 
 export interface FetchWorkflowResult {
-  workflow: WorkflowSpec | null;
+  workflow: WorkflowSpecWithSubstrate | null;
   source: WorkflowDataSource;
 }
 
@@ -84,6 +87,7 @@ export interface GatewayWorkflowItem {
   created_at?: string;
   modified_by?: string;
   definition_toml?: string;
+  substrate?: string | null;
 }
 
 const VALID_STEP_KINDS: ReadonlySet<WorkflowStepKind> = new Set([
@@ -187,7 +191,7 @@ export async function fetchWorkflow(
   }
 }
 
-export function summaryFromGatewayItem(item: GatewayWorkflowItem): WorkflowSummary {
+export function summaryFromGatewayItem(item: GatewayWorkflowItem): WorkflowSummaryWithSubstrate {
   const parsed = parseStepsFromToml(item.definition_toml ?? "");
   const description = parsed.description || `Workflow ${item.name} in ${item.vertical_id}.`;
   return {
@@ -199,10 +203,11 @@ export function summaryFromGatewayItem(item: GatewayWorkflowItem): WorkflowSumma
     lastEdited: item.created_at ?? "—",
     lastEditor: item.modified_by ?? "—",
     risk: parsed.risk,
+    substrate: normalizeWorkflowSubstrate(item.substrate) ?? parsed.substrate,
   };
 }
 
-export function specFromGatewayItem(item: GatewayWorkflowItem): WorkflowSpec {
+export function specFromGatewayItem(item: GatewayWorkflowItem): WorkflowSpecWithSubstrate {
   const parsed = parseStepsFromToml(item.definition_toml ?? "");
   return {
     name: item.name,
@@ -211,6 +216,7 @@ export function specFromGatewayItem(item: GatewayWorkflowItem): WorkflowSpec {
     version: `v${Math.max(1, Number(item.version) || 1)}`,
     steps: parsed.steps,
     risk: parsed.risk,
+    substrate: normalizeWorkflowSubstrate(item.substrate) ?? parsed.substrate,
   };
 }
 
@@ -218,13 +224,15 @@ export interface ParsedWorkflowToml {
   description: string;
   steps: WorkflowStep[];
   risk: WorkflowRisk;
+  substrate: WorkflowSubstrate;
 }
 
 /**
  * Minimal decoder for the `workflow.toml` schema we own. Handles the
- * fields the visual viewer needs (workflow.description, step.name,
- * step.kind, step.description). Inline tables (e.g. `args = {...}`)
- * are ignored; comments are stripped; unknown sections do not abort.
+ * fields the visual viewer needs (workflow.description,
+ * workflow.default_substrate, step.name/kind/description/tool).
+ * Inline tables are ignored; comments are stripped; unknown sections
+ * do not abort.
  */
 export function parseStepsFromToml(toml: string): ParsedWorkflowToml {
   let workflowDescription = "";
@@ -232,9 +240,12 @@ export function parseStepsFromToml(toml: string): ParsedWorkflowToml {
     name?: string;
     kind?: string;
     description?: string;
+    tool?: string;
   }> = [];
+  let explicitSubstrate: WorkflowSubstrate | null = null;
   let section: "none" | "workflow" | "step" = "none";
-  let current: { name?: string; kind?: string; description?: string } | null = null;
+  let current: { name?: string; kind?: string; description?: string; tool?: string } | null =
+    null;
 
   for (const rawLine of toml.split(/\r?\n/)) {
     const stripped = rawLine.replace(/\s+#.*$/, "").replace(/^\s*#.*$/, "").trimEnd();
@@ -269,10 +280,14 @@ export function parseStepsFromToml(toml: string): ParsedWorkflowToml {
     const value = stripQuoted(rawValue);
     if (section === "workflow") {
       if (key === "description") workflowDescription = value;
+      else if (key === "substrate" || key === "default_substrate") {
+        explicitSubstrate = normalizeWorkflowSubstrate(value) ?? explicitSubstrate;
+      }
     } else if (section === "step" && current) {
       if (key === "name") current.name = value;
       else if (key === "kind") current.kind = value;
       else if (key === "description") current.description = value;
+      else if (key === "tool") current.tool = value;
     }
   }
   if (current) stepDrafts.push(current);
@@ -291,7 +306,87 @@ export function parseStepsFromToml(toml: string): ParsedWorkflowToml {
   const risk: WorkflowRisk = steps.some((s) => s.kind === "approval")
     ? "approval-required"
     : "autonomous";
-  return { description: workflowDescription, steps, risk };
+  return {
+    description: workflowDescription,
+    steps,
+    risk,
+    substrate: explicitSubstrate ?? inferSubstrateFromDrafts(stepDrafts),
+  };
+}
+
+export function normalizeWorkflowSubstrate(value: unknown): WorkflowSubstrate | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, "-");
+  if (["macos", "mac", "darwin", "computer-use-macos", "cu-macos"].includes(normalized)) {
+    return "macos";
+  }
+  if (normalized === "linux") return "linux";
+  if (normalized === "windows" || normalized === "win32") return "windows";
+  if (normalized === "e2b" || normalized === "sandbox") return "e2b";
+  if (normalized === "browser" || normalized === "web") return "browser";
+  if (normalized === "headless" || normalized === "none") return "headless";
+  return null;
+}
+
+export function resolveWorkflowSubstrate(
+  workflow:
+    | { substrate?: unknown; name?: string; description?: string; steps?: unknown }
+    | null
+    | undefined,
+): WorkflowSubstrate {
+  if (!workflow) return "headless";
+  const explicit = normalizeWorkflowSubstrate(workflow.substrate);
+  if (explicit) return explicit;
+  const steps = Array.isArray(workflow.steps) ? workflow.steps : [];
+  const joined = [
+    workflow.name,
+    workflow.description,
+    ...steps.flatMap((step) => {
+      if (!step || typeof step !== "object") return [];
+      const s = step as { kind?: string; name?: string; description?: string; tool?: string };
+      return [s.kind, s.name, s.description, s.tool];
+    }),
+  ].join(" ");
+  return inferSubstrateFromText(joined);
+}
+
+export function stepUsesSubstrate(
+  step: { kind?: string; name?: string; description?: string },
+  substrate: WorkflowSubstrate,
+): boolean {
+  if (substrate === "headless") return false;
+  const text = `${step.kind ?? ""} ${step.name ?? ""} ${step.description ?? ""}`;
+  if (inferSubstrateFromText(text) === substrate) return true;
+  return ["tool_call", "http_request", "code"].includes(step.kind ?? "");
+}
+
+function inferSubstrateFromDrafts(
+  drafts: Array<{ kind?: string; name?: string; description?: string; tool?: string }>,
+): WorkflowSubstrate {
+  return inferSubstrateFromText(
+    drafts.flatMap((draft) => [draft.kind, draft.name, draft.description, draft.tool]).join(" "),
+  );
+}
+
+function inferSubstrateFromText(text: string): WorkflowSubstrate {
+  const lower = text.toLowerCase();
+  if (
+    lower.includes("cu_action") ||
+    lower.includes("cu.") ||
+    lower.includes("cu_") ||
+    lower.includes("computer-use") ||
+    lower.includes("computer use") ||
+    lower.includes("macos") ||
+    lower.includes("macos_notes") ||
+    lower.includes("notes app")
+  ) {
+    return "macos";
+  }
+  if (lower.includes("windows")) return "windows";
+  if (lower.includes("linux")) return "linux";
+  if (lower.includes("e2b") || lower.includes("sandbox")) return "e2b";
+  if (lower.includes("browser") || lower.includes("web page")) return "browser";
+  return "headless";
 }
 
 function stripQuoted(value: string): string {
