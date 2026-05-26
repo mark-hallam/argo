@@ -146,7 +146,7 @@ function OutcomeView({
   if (outcome.kind === "unavailable") {
     return (
       <UnavailableView
-        modelName={outcome.modelName}
+        outcome={outcome}
         originalAvailable={originalOutputAvailable}
         originalBody={originalOutputBody}
       />
@@ -159,14 +159,23 @@ function OutcomeView({
 }
 
 function UnavailableView({
-  modelName,
+  outcome,
   originalAvailable,
   originalBody,
 }: {
-  modelName: string;
+  outcome: Extract<ReplayOutcome, { kind: "unavailable" }>;
   originalAvailable: boolean;
   originalBody: string | undefined;
 }) {
+  const reason =
+    outcome.reason === "model-decommissioned" ? (
+      <>
+        <span className="font-mono text-[var(--foreground)]">{outcome.modelName}</span> is no
+        longer deployable in the sandbox. Original output preserved below.
+      </>
+    ) : (
+      outcome.details
+    );
   return (
     <section
       data-testid="replay-unavailable"
@@ -176,8 +185,7 @@ function UnavailableView({
         Replay unavailable
       </h2>
       <p data-testid="replay-unavailable-reason" className="text-sm text-[var(--muted-foreground)]">
-        <span className="font-mono text-[var(--foreground)]">{modelName}</span> is no
-        longer deployable in the sandbox. Original output preserved below.
+        {reason}
       </p>
       {originalAvailable && originalBody ? (
         <pre

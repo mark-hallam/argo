@@ -132,4 +132,108 @@ describe("replayAction — Scene-6 fabrication gate", () => {
 
     expect(outcome).toEqual(live);
   });
+
+  it("adapts a gateway hash `same` verdict to a reproducible success", async () => {
+    const { replayAction } = await import("@/lib/api/replay");
+    apiPostMock.mockResolvedValueOnce({
+      audit_id: "audit_123",
+      seq: 1840,
+      kind: "http.request",
+      verdict: "same",
+      expected_self_hash: "hash_same",
+      actual_self_hash: "hash_same",
+      diff: {},
+    });
+
+    const outcome = await replayAction("audit_123");
+
+    expect(outcome.kind).toBe("success");
+    if (outcome.kind === "success") {
+      expect(outcome.verdict).toBe("reproducible");
+      expect(outcome.result.originalOutput.body).toContain("hash_same");
+      expect(outcome.result.replayedOutput.body).toContain("hash_same");
+      expect(outcome.result.provenanceDiff.model.changed).toBe(false);
+      expect(outcome.result.provenanceDiff.policy.changed).toBe(false);
+    }
+  });
+
+  it("adapts a gateway hash `drifted` verdict to a drifted success with diff details", async () => {
+    const { replayAction } = await import("@/lib/api/replay");
+    apiPostMock.mockResolvedValueOnce({
+      audit_id: "audit_456",
+      seq: 1841,
+      kind: "http.request",
+      verdict: "drifted",
+      expected_self_hash: "hash_before",
+      actual_self_hash: "hash_after",
+      diff: {
+        skill: { from: "skill v1", to: "skill v2" },
+      },
+    });
+
+    const outcome = await replayAction("audit_456");
+
+    expect(outcome.kind).toBe("success");
+    if (outcome.kind === "success") {
+      expect(outcome.verdict).toBe("drifted-aligned");
+      expect(outcome.result.originalOutput.body).toContain("hash_before");
+      expect(outcome.result.replayedOutput.body).toContain("hash_after");
+      expect(outcome.result.provenanceDiff.skill).toEqual({
+        changed: true,
+        from: "skill v1",
+        to: "skill v2",
+      });
+    }
+  });
+
+  it("marks policy drift from the gateway hash envelope as drifted-misaligned", async () => {
+    const { replayAction } = await import("@/lib/api/replay");
+    apiPostMock.mockResolvedValueOnce({
+      verdict: "drifted",
+      expected_self_hash: "hash_before",
+      actual_self_hash: "hash_after",
+      diff: {
+        policy: { from: "policy v1", to: "policy v2" },
+      },
+    });
+
+    const outcome = await replayAction("audit_789");
+
+    expect(outcome.kind).toBe("success");
+    if (outcome.kind === "success") {
+      expect(outcome.verdict).toBe("drifted-misaligned");
+      expect(outcome.result.provenanceDiff.policy.changed).toBe(true);
+    }
+  });
+
+  it("maps unknown gateway verdicts to unavailable instead of leak-detected", async () => {
+    const { replayAction } = await import("@/lib/api/replay");
+    apiPostMock.mockResolvedValueOnce({
+      verdict: "mystery",
+      expected_self_hash: "hash_before",
+      actual_self_hash: "hash_after",
+      diff: {},
+    });
+
+    const outcome = await replayAction("audit_unknown");
+
+    expect(outcome.kind).toBe("unavailable");
+    if (outcome.kind === "unavailable" && outcome.reason === "unrecognized-envelope") {
+      expect(outcome.reason).toBe("unrecognized-envelope");
+      expect(outcome.details).toMatch(/unknown verdict/i);
+    }
+  });
+
+  it("maps unrecognized replay envelopes to unavailable instead of leak-detected", async () => {
+    const { replayAction } = await import("@/lib/api/replay");
+    apiPostMock.mockResolvedValueOnce({ ok: true });
+
+    const outcome = await replayAction("audit_bad_shape");
+
+    expect(outcome.kind).toBe("unavailable");
+    if (outcome.kind === "unavailable" && outcome.reason === "unrecognized-envelope") {
+      expect(outcome.reason).toBe("unrecognized-envelope");
+      expect(outcome.details).toMatch(/unrecognized envelope/i);
+    }
+  });
 });

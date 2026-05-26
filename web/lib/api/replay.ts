@@ -41,8 +41,37 @@ export interface ReplayResult {
 export type ReplayOutcome =
   | { kind: "success"; verdict: Verdict; result: ReplayResult }
   | { kind: "unavailable"; reason: "model-decommissioned"; modelName: string }
+  | { kind: "unavailable"; reason: "unrecognized-envelope"; details: string }
   | { kind: "failed"; reason: string }
   | { kind: "leak-detected"; details: string };
+
+type GatewayReplayBody = {
+  audit_id?: unknown;
+  seq?: unknown;
+  kind?: unknown;
+  verdict?: unknown;
+  expected_self_hash?: unknown;
+  actual_self_hash?: unknown;
+  diff?: unknown;
+};
+
+type ProvenanceAxis = keyof ReplayResult["provenanceDiff"];
+
+const PROVENANCE_AXES: ProvenanceAxis[] = [
+  "model",
+  "promptTemplate",
+  "skill",
+  "memorySnapshot",
+  "policy",
+];
+
+const UNCHANGED_PROVENANCE: ReplayResult["provenanceDiff"] = {
+  model: { changed: false },
+  promptTemplate: { changed: false },
+  skill: { changed: false },
+  memorySnapshot: { changed: false },
+  policy: { changed: false },
+};
 
 function isStrictProduction(): boolean {
   return (
@@ -61,6 +90,141 @@ function isAuthBypassed(): boolean {
 function isMissingOrUnreachable(err: unknown): boolean {
   if (err instanceof ApiError) return err.status === 404;
   return err instanceof TypeError;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isReplayOutcome(raw: unknown): raw is ReplayOutcome {
+  if (!isObject(raw) || typeof raw.kind !== "string") return false;
+  if (raw.kind === "success") {
+    return (
+      typeof raw.verdict === "string" &&
+      ["reproducible", "drifted-aligned", "drifted-misaligned"].includes(raw.verdict) &&
+      isObject(raw.result)
+    );
+  }
+  if (raw.kind === "unavailable") {
+    if (raw.reason === "model-decommissioned") {
+      return typeof raw.modelName === "string";
+    }
+    if (raw.reason === "unrecognized-envelope") {
+      return typeof raw.details === "string";
+    }
+    return false;
+  }
+  if (raw.kind === "failed") return typeof raw.reason === "string";
+  if (raw.kind === "leak-detected") return typeof raw.details === "string";
+  return false;
+}
+
+function isGatewayReplayBody(raw: unknown): raw is GatewayReplayBody {
+  return (
+    isObject(raw) &&
+    typeof raw.verdict === "string" &&
+    "expected_self_hash" in raw &&
+    "actual_self_hash" in raw
+  );
+}
+
+function asDisplayString(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function diffRecord(diff: unknown): Record<string, unknown> {
+  return isObject(diff) ? diff : {};
+}
+
+function provenanceDiffFromGatewayDiff(
+  diff: unknown,
+): ReplayResult["provenanceDiff"] {
+  const record = diffRecord(diff);
+  const next: ReplayResult["provenanceDiff"] = {
+    model: { changed: false },
+    promptTemplate: { changed: false },
+    skill: { changed: false },
+    memorySnapshot: { changed: false },
+    policy: { changed: false },
+  };
+  for (const axis of PROVENANCE_AXES) {
+    const entry = record[axis];
+    if (!entry) continue;
+    if (isObject(entry)) {
+      next[axis] = {
+        changed: true,
+        from: typeof entry.from === "string" ? entry.from : undefined,
+        to: typeof entry.to === "string" ? entry.to : undefined,
+      };
+    } else {
+      next[axis] = { changed: true };
+    }
+  }
+  return next;
+}
+
+function gatewayDiffTouchesPolicy(diff: unknown): boolean {
+  const record = diffRecord(diff);
+  return "policy" in record || "policy_id" in record || "policy_hash" in record;
+}
+
+function hashBody(label: string, raw: GatewayReplayBody): string {
+  const hashKey = label === "Original" ? raw.expected_self_hash : raw.actual_self_hash;
+  const selfHash = asDisplayString(hashKey, "unavailable");
+  const auditId = asDisplayString(raw.audit_id, "unknown");
+  const seq = typeof raw.seq === "number" ? String(raw.seq) : "unknown";
+  const eventKind = asDisplayString(raw.kind, "unknown");
+  return [
+    `${label} audit self_hash: ${selfHash}`,
+    `Audit id: ${auditId}`,
+    `Sequence: ${seq}`,
+    `Event kind: ${eventKind}`,
+  ].join("\n");
+}
+
+function resultFromGatewayHash(
+  raw: GatewayReplayBody,
+  provenanceDiff: ReplayResult["provenanceDiff"],
+): ReplayResult {
+  return {
+    originalOutput: { kind: "text", body: hashBody("Original", raw) },
+    replayedOutput: { kind: "text", body: hashBody("Replayed", raw) },
+    provenanceDiff,
+  };
+}
+
+function unavailableReplay(reason: string): ReplayOutcome {
+  return {
+    kind: "unavailable",
+    reason: "unrecognized-envelope",
+    details: reason,
+  };
+}
+
+// TEMPORARY: gateway returns hash-recompute envelope. Once gateway
+// ships the SPA-shaped response per fix-gateway-replay-envelope-spa-contract,
+// delete this adapter and trust the canonical ReplayOutcome contract directly.
+export function adaptGatewayReplay(raw: unknown): ReplayOutcome {
+  if (isReplayOutcome(raw)) return raw;
+  if (!isGatewayReplayBody(raw)) {
+    return unavailableReplay("Replay returned an unrecognized envelope.");
+  }
+  if (raw.verdict === "same") {
+    return {
+      kind: "success",
+      verdict: "reproducible",
+      result: resultFromGatewayHash(raw, UNCHANGED_PROVENANCE),
+    };
+  }
+  if (raw.verdict === "drifted") {
+    const provenanceDiff = provenanceDiffFromGatewayDiff(raw.diff);
+    return {
+      kind: "success",
+      verdict: gatewayDiffTouchesPolicy(raw.diff) ? "drifted-misaligned" : "drifted-aligned",
+      result: resultFromGatewayHash(raw, provenanceDiff),
+    };
+  }
+  return unavailableReplay(`Replay returned an unknown verdict: ${String(raw.verdict)}.`);
 }
 
 const UNKNOWN_ACTION_FAILED: ReplayOutcome = {
@@ -98,7 +262,7 @@ export async function replayAction(actionId: string): Promise<ReplayOutcome> {
 
   const path = `/api/v1/audit/${encodeURIComponent(actionId)}/replay`;
   try {
-    return await apiPost<ReplayOutcome>(path);
+    return adaptGatewayReplay(await apiPost<unknown>(path));
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       return sampleOrFailed(actionId);
@@ -106,4 +270,3 @@ export async function replayAction(actionId: string): Promise<ReplayOutcome> {
     throw err;
   }
 }
-
