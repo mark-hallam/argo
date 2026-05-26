@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchSkills, SEED_SKILLS, type SkillRow } from "./skills";
+import {
+  fetchLearnedThisMonth,
+  fetchSkills,
+  fetchSkillUsage,
+  SEED_SKILLS,
+  type SkillRow,
+} from "./skills";
 import { ApiError } from "./types";
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -134,5 +140,46 @@ describe("lib/api/skills", () => {
     }
     expect(caught).toBeInstanceOf(ApiError);
     expect((caught as ApiError).status).toBe(404);
+  });
+
+  it("returns learned seed ids when the learned-this-month endpoint is unavailable", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 404,
+        body: { error: { code: "not_found", message: "missing" } },
+      }),
+    );
+
+    const result = await fetchLearnedThisMonth();
+
+    expect(result.source).toBe("mock-offline");
+    expect(result.learned.count).toBe(2);
+    expect(result.learned.skill_ids).toEqual(["support.triage", "lead.enrich"]);
+  });
+
+  it("varies seed usage provenance across SKYCOT, org, and learned skills", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 404,
+        body: { error: { code: "not_found", message: "missing" } },
+      }),
+    );
+
+    const [skycot, org, learned] = await Promise.all([
+      fetchSkillUsage("approval.route"),
+      fetchSkillUsage("deal.qualify"),
+      fetchSkillUsage("support.triage"),
+    ]);
+
+    expect(skycot.usage.author_label).toBe("Authored by SKYCOT");
+    expect(org.usage.author_label).toBe("Authored by your org");
+    expect(learned.usage.author_label).toBe("Learned by Mariah · 2026-05-23");
+    expect(learned.usage.workers_using).toEqual([
+      {
+        worker_id: "wkr-mariah",
+        name: "Mariah",
+        learned_at: "2026-05-23T09:15:00.000Z",
+      },
+    ]);
   });
 });

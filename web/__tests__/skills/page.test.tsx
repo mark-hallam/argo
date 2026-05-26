@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -94,5 +94,39 @@ describe("/skills marketplace page", () => {
     expect(
       screen.getByRole("heading", { name: /the skill registry didn’t answer/i }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps the learned-this-month filter populated by seed fallback skills", async () => {
+    vi.mocked(api.fetchSkills).mockResolvedValue({
+      skills: api.SEED_SKILLS,
+      source: "mock-offline",
+    });
+    vi.mocked(api.fetchLearnedThisMonth).mockResolvedValue({
+      learned: {
+        since: "2026-05-01T00:00:00.000Z",
+        count: 2,
+        skill_ids: ["support.triage", "lead.enrich"],
+      },
+      source: "mock-offline",
+    });
+
+    render(wrap(<SkillsPage />));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("skill-card")).toHaveLength(api.SEED_SKILLS.length);
+    });
+
+    fireEvent.click(screen.getByTestId("skills-filter-learned-this-month"));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("skill-card")).toHaveLength(2);
+    });
+    expect(
+      screen.getByRole("heading", { name: /support triage/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /lead enrich/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /approval route/i }),
+    ).not.toBeInTheDocument();
   });
 });

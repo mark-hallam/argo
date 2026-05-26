@@ -66,7 +66,7 @@ export default function SkillsPage() {
     const q = query.trim().toLowerCase();
     let rows = skills;
     if (learnedOnly) {
-      rows = rows.filter((s) => learnedIdSet.has(s.id));
+      rows = rows.filter((s) => learnedIdSet.has(s.id) || learnedIdSet.has(s.name));
     }
     if (q.length === 0) return rows;
     return rows.filter(

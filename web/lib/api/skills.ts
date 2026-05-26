@@ -32,6 +32,14 @@ export interface SkillRow {
   provenance_source: string;
   /** Derived trust grade (`learned`, `published_verified`, …). */
   trust_grade: string;
+  /** Mock/offline provenance for skills workers learned inside this tenant. */
+  learned_by?: SkillLearnedBy;
+}
+
+export interface SkillLearnedBy {
+  worker_id: string;
+  worker_name: string;
+  learned_at: string;
 }
 
 export interface FetchSkillsResult {
@@ -90,8 +98,8 @@ export const SEED_SKILLS: SkillRow[] = [
     description:
       "BANT-style outbound qualification, calendar-link insertion, CRM update on accept.",
     layer: "library",
-    provenance_source: "seed",
-    trust_grade: "seed",
+    provenance_source: "workspace",
+    trust_grade: "tenant",
   },
   {
     id: "seed-support-triage",
@@ -100,8 +108,13 @@ export const SEED_SKILLS: SkillRow[] = [
     description:
       "Classify tickets, deflect with KB articles, escalate the rest with full context bundle.",
     layer: "library",
-    provenance_source: "seed",
-    trust_grade: "seed",
+    provenance_source: "learned",
+    trust_grade: "learned_unreviewed",
+    learned_by: {
+      worker_id: "wkr-mariah",
+      worker_name: "Mariah",
+      learned_at: "2026-05-23T09:15:00.000Z",
+    },
   },
   {
     id: "seed-lead-enrich",
@@ -110,10 +123,24 @@ export const SEED_SKILLS: SkillRow[] = [
     description:
       "Append firmographic + technographic context to inbound leads from public sources.",
     layer: "library",
-    provenance_source: "seed",
-    trust_grade: "seed",
+    provenance_source: "learned",
+    trust_grade: "learned_unreviewed",
+    learned_by: {
+      worker_id: "wkr-priya",
+      worker_name: "Priya",
+      learned_at: "2026-05-18T14:40:00.000Z",
+    },
   },
 ];
+
+export const MOCK_LEARNED_SKILL_IDS = ["support.triage", "lead.enrich"];
+
+const SEED_AUTHOR_LABEL_BY_NAME: Record<string, string> = {
+  "approval.route": "Authored by SKYCOT",
+  "invoice.extract": "Authored by SKYCOT",
+  "candidate.screen": "Authored by SKYCOT",
+  "deal.qualify": "Authored by your org",
+};
 
 function isStrictProduction(): boolean {
   return (
@@ -185,14 +212,27 @@ export interface FetchSkillUsageResult {
 }
 
 function seedUsage(name: string): SkillUsage {
+  const seed = SEED_SKILLS.find((s) => s.name === name || s.id === name);
+  const learnedBy = seed?.learned_by;
+  const workersUsing = learnedBy
+    ? [
+        {
+          worker_id: learnedBy.worker_id,
+          name: learnedBy.worker_name,
+          learned_at: learnedBy.learned_at,
+        },
+      ]
+    : [];
   return {
     skill_id: name,
-    skill_name: name,
-    trust_grade: "published_verified",
-    author_label: "Authored by SKYCOT",
-    workers_using: [],
-    workers_using_count: 0,
-    adoption_count: 0,
+    skill_name: seed?.name ?? name,
+    trust_grade: seed?.trust_grade ?? "published_verified",
+    author_label: learnedBy
+      ? `Learned by ${learnedBy.worker_name} · ${learnedBy.learned_at.slice(0, 10)}`
+      : SEED_AUTHOR_LABEL_BY_NAME[seed?.name ?? name] ?? "Authored by SKYCOT",
+    workers_using: workersUsing,
+    workers_using_count: workersUsing.length,
+    adoption_count: learnedBy ? 1 : 0,
   };
 }
 
@@ -231,13 +271,15 @@ export interface FetchLearnedThisMonthResult {
 
 /** GET `/api/v1/skills/learned-this-month` — drives the marketplace filter chip. */
 export async function fetchLearnedThisMonth(): Promise<FetchLearnedThisMonthResult> {
-  const empty: LearnedThisMonth = {
-    since: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString(),
-    count: 0,
-    skill_ids: [],
+  const learnedFallback: LearnedThisMonth = {
+    since: new Date(
+      Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
+    ).toISOString(),
+    count: MOCK_LEARNED_SKILL_IDS.length,
+    skill_ids: MOCK_LEARNED_SKILL_IDS,
   };
   if (isAuthBypassed()) {
-    return { learned: empty, source: "mock-bypass" };
+    return { learned: learnedFallback, source: "mock-bypass" };
   }
   try {
     const learned = await apiGet<LearnedThisMonth>(
@@ -246,7 +288,7 @@ export async function fetchLearnedThisMonth(): Promise<FetchLearnedThisMonthResu
     return { learned, source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
-      return { learned: empty, source: "mock-offline" };
+      return { learned: learnedFallback, source: "mock-offline" };
     }
     throw err;
   }
