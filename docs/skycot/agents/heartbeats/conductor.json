@@ -1,20 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-26T11:36:00Z",
+  "last_run_utc": "2026-05-26T12:04:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "operator-directed-tick-T11-35-demo-MP4-unblocker-2-of-4",
-  "run_notes": "Tick T11-35 (Melbourne 2026-05-26 21:35→21:36 AEST), operator-typed 'Run the tick'. **🎯 SECOND DEMO-MP4 P0 LANDED**: #2405 fix-audit-action-detail-demo-mode-fallback MERGED — closes Scene 6 audit-drill-in 500 (`/audit/action/<id>` was hard-500ing on every click in demo mode because gateway 5xx-ed for live-seeded ULIDs with no matching seed in SAMPLE_AUDIT_ROWS). PR was 4f +145 LOC web-only with vitest 27+4 PASS — fits STRICT permanent web-only auth (not even the T09-30 expansion needed). Three layered fixes shipped: (1) `fetchAuditDetail` demo-mode short-circuit prefers seed roster fall-back to placeholder; (2) `placeholderAuditDetail(actionId)` last-resort built from just an id; (3) narrower contained route-segment `error.tsx` so the brand-loud 500 page is gone. State at start: 0 unread handoffs; gateway FRESH; 0 drift. **Demo-MP4 P0 progress**: 2/4 MERGED (#2404 Scene 3 wizard, #2405 Scene 6 audit-drill); 2/4 in worker hands (fix-skills-marketplace-perpetual-loading CLAIMED, fix-approvals-inbox-waiting-on-you-fixture-drift CLAIMED). **Did not touch**: 12 cascade-DIRTY web-only (#2388 #2369 #2358 + 9 others — strategic deferral per audit's headline that they're not on the demo-MP4 critical path), 2 ops-* CLEAN (#2387 #2338 await evaluator pre-verify per locked rule), 1 web+runbook mixed (#2392 demo-banner P1 — outside strict auth boundary, defer to next eval round).",
+  "session_label": "scheduled-tick-T12-04-demo-MP4-unblocker-3-of-4-merged",
+  "run_notes": "Tick T12-04 (Melbourne 2026-05-26 22:04 AEST), scheduled hourly cron. **🎯 THIRD DEMO-MP4 P0 LANDED**: #2406 fix-approvals-inbox-waiting-on-you-fixture-drift MERGED — closes Scene 6 approvals data integrity (team page said 4 of 5 'Waiting on you' while /approvals showed empty inbox). PR was 5f +134/-48 LOC web-only with vitest 1629 PASS — fits strict web-only auth ≤200 LOC ≤5 files. State at start: 0 unread handoffs; gateway FRESH v83=v83 drift 0; 4 findings-only within budget; 4 MERGEABLE PRs (#2406 #2392 #2387 #2338) + 12 CONFLICTING. **Merged**: #2406 (web-only strict auth, sha 5808ccd78). **Did not touch**: #2392 (web+1 doc, +208 web LOC — just over 200 strict bound, defer); #2387 + #2338 (ops scripts, need evaluator pre-verify or full gate — neither available this tick); 12 CONFLICTING (rebase work). **Queue replenishment fired** — claude TODO was 21 (≤25 threshold). Authored 3 new briefs under UX-AUDIT-T2007MEL BATCH: (1) fix-approvals-active-reviewers-kpi-derive-from-pending [P1, scene-6 F7] — Active reviewers KPI hardcoded `\"—\"`, derive distinct approver count from pending rows; (2) fix-onboarding-wizard-footer-hardcoded-companies-stat [P2, onboarding F11] — delete fake `2,847 COMPANIES THIS MONTH` from wizard footer (landing variant scrubbed via #2305); (3) fix-skills-count-pill-copy-when-filter-active [P2, scene-4+5 F9] — reverse copy direction to `\"N of M skills\"` when filter excludes everything. All 3 lint clean. **Demo-MP4 P0 progress**: 3/4 MERGED (#2404 Scene 3 wizard, #2405 Scene 6 audit-drill, #2406 Scene 6 approvals data). 1/4 still CLAIMED by workers — `fix-skills-marketplace-perpetual-loading`. Once that ships, the 4-PR demo critical path is COMPLETE.",
   "open_prs": 15,
   "queue_state": {
-    "claude_todo": 0,
-    "codex_todo": 0,
-    "claude_or_codex_todo": 27,
-    "claude_claimed": 2,
-    "codex_claimed": 2,
-    "claude_or_codex_claimed": 0,
-    "claude_in_review": 2,
-    "codex_in_review": 8,
-    "claude_or_codex_in_review": 1
+    "claude_todo": 24,
+    "codex_todo": 8,
+    "claude_or_codex_todo": 2,
+    "claude_claimed": 5,
+    "codex_claimed": 1,
+    "claude_or_codex_claimed": 1,
+    "claude_in_review": 27,
+    "codex_in_review": 6,
+    "claude_or_codex_in_review": 14
   },
-  "the_gate": "🌙 OVERNIGHT WINDOW EXPIRED at 22:00Z AEST. Permanent web/test/doc-only auth + locked --skip-clippy for evaluator-pre-verified fix-*/ops-*/eval-* still active. **Demo-MP4 status: 2 of 4 P0 unblockers MERGED**: #2404 onboarding-provision-demo-mode-bypass (Scene 3 wizard) + #2405 audit-action-detail-demo-mode-fallback (Scene 6 audit-drill). Remaining 2 are CLAIMED by workers — `fix-skills-marketplace-perpetual-loading` + `fix-approvals-inbox-waiting-on-you-fixture-drift`. Workers should ship PRs within minutes. Once those merge, the 4-PR demo critical path is complete; the audit's '~6.5h of focused work' estimate is now ~2-3h remaining."
+  "the_gate": "🌙 OVERNIGHT WINDOW EXPIRED at 22:00Z AEST (now T12:04). Permanent web/test/doc-only auth (operator-locked 2026-05-26T09:15Z) + locked --skip-clippy for evaluator-pre-verified fix-*/ops-*/eval-* still active. **Demo-MP4 status: 3 of 4 P0 unblockers MERGED**: #2404 onboarding-provision-demo-mode-bypass (Scene 3 wizard) + #2405 audit-action-detail-demo-mode-fallback (Scene 6 audit-drill) + #2406 approvals-inbox-waiting-on-you-fixture-drift (Scene 6 approvals data). Remaining 1 is CLAIMED — `fix-skills-marketplace-perpetual-loading`. Once that PR opens + meets web-only bounds, conductor admin-merges and the demo MP4 critical path is unblocked. Operator can then run `argo demo seed --tenant <demo>` + record per `docs/skycot/demos/v1-mission-mvp-runbook.md`.",
+  "quota_probe": "skip"
 }
