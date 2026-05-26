@@ -184,6 +184,61 @@ async fn first_hire_synthesises_multiple_duties_from_picked_vertical_actions() {
 }
 
 #[tokio::test]
+async fn first_hire_persists_persona_bio_from_operator_brief() {
+    // Closes UX-AUDIT-T0119MEL F15: pre-fix, `persona.bio` landed NULL
+    // and `persona.voice_preamble` was a 35-char templated string.
+    // Operator's freeform brief from step 5 of the onboarding wizard
+    // is the richest signal we get about who this worker should *be*,
+    // so it must propagate to the persona row that the worker-profile
+    // "About" section renders.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    pre_provision(&store, "alice@acme.com").await;
+    let description = "Mariah, you book outbound demo calls and qualify leads. \
+                       Always confirm before drafting a public reply.";
+    let body = json!({
+        "description": description,
+        "vertical_id": "gtm-engineer",
+    })
+    .to_string();
+    let r = req(
+        "/api/v1/onboarding/first-hire",
+        &body,
+        Some("human:alice@acme.com"),
+    );
+    let (status, resp) = first_hire_response(&r, Some(&store)).await;
+    assert_eq!(status, "201 Created", "body: {resp}");
+
+    let (bio, voice_preamble): (Option<String>, String) = sqlx::query_as(
+        "SELECT p.bio, p.voice_preamble \
+         FROM persona p JOIN worker w ON w.id = p.worker_id \
+         WHERE w.vertical_id = 'gtm-engineer'",
+    )
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        bio.as_deref(),
+        Some(description),
+        "persona.bio must round-trip the operator's freeform brief",
+    );
+    assert!(
+        voice_preamble.starts_with("You are Mariah"),
+        "voice_preamble must name the worker, got: {voice_preamble}",
+    );
+    assert!(
+        voice_preamble.contains("book outbound demo calls"),
+        "voice_preamble must fold the brief into the system prompt, got: {voice_preamble}",
+    );
+    assert!(
+        !voice_preamble.starts_with("I'm a "),
+        "voice_preamble must not be the pre-fix templated string: {voice_preamble}",
+    );
+}
+
+#[tokio::test]
 async fn first_hire_falls_back_to_templated_charter_when_genesis_errors() {
     // Fallback path: the operator's brief doesn't classify into any
     // archetype, Genesis returns UnknownArchetype, and the wizard

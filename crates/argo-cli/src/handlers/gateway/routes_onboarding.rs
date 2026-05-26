@@ -39,11 +39,11 @@ use super::routes_onboarding_helpers::{
     is_workspace_root_key_error, load_vertical, map_workspace_error, mask_key, micros_to_usd,
     name_from_description, not_found, principal_email, provider_key_storage_error,
     provider_validation_unconfigured, resolve_workspace, server_error, unauthorized,
-    validate_key_shape, wrap_secret, HUMAN_PRINCIPAL_PREFIX,
+    validate_key_shape, voice_preamble_from_description, wrap_secret, HUMAN_PRINCIPAL_PREFIX,
 };
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
-use argo_identity::{ApprovalPolicyChoice, HireDraft, IdentityStore};
+use argo_identity::{ApprovalPolicyChoice, HireDraft, IdentityStore, VoiceProfile};
 use argo_store::workspace_keys::{
     ensure_schema as ensure_workspace_keys_schema, record_vertical_install, upsert_provider_key,
     ProviderKeyRecord,
@@ -274,6 +274,13 @@ pub(super) async fn first_hire_response(
     let charter = synthesise_charter(&description, outcome.plan.as_ref());
     let duties = derive_duties(outcome.plan.as_ref(), &picked);
     let duty_count = duties.len();
+    // Carry the operator's freeform brief into the persisted persona so the
+    // worker-profile "About" section reads as the operator wrote it.
+    // `HireDraft.tagline` lands on `persona.bio`
+    // (see `argo_identity::store_hire::assemble_worker_from_draft`); the
+    // companion `voice_profile` override replaces the 35-char templated
+    // preamble with one that names the worker and quotes the brief.
+    let voice_preamble = voice_preamble_from_description(&worker_name, &description);
     let draft = HireDraft {
         suggested_name: worker_name.clone(),
         charter: charter.clone(),
@@ -282,8 +289,11 @@ pub(super) async fn first_hire_response(
             level: "balanced".into(),
         },
         duties,
-        voice_profile: None,
-        tagline: None,
+        voice_profile: Some(VoiceProfile {
+            preamble: voice_preamble,
+            ..Default::default()
+        }),
+        tagline: Some(description.clone()),
     };
     let identities = IdentityStore::new(store);
     let new_id = match identities

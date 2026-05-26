@@ -226,6 +226,40 @@ fn count_files_with_suffix(dir: &Path, suffix: &str) -> i64 {
     count
 }
 
+/// Build a voice-preamble string that names the worker and folds the
+/// first sentence of the operator's brief into the system prompt.
+/// Replaces the pre-fix 35-char templated preamble
+/// (`"I'm a <vertical> style worker named <name>."`) with one that
+/// actually mentions what the worker is supposed to do.
+///
+/// Truncates the brief excerpt at ~200 chars on a word boundary so the
+/// preamble stays compact in the agent prompt; the full brief still
+/// lives on `persona.bio` for the UI.
+pub(super) fn voice_preamble_from_description(name: &str, description: &str) -> String {
+    let trimmed = description.trim();
+    let first_sentence = trimmed
+        .split(['.', '\n'])
+        .find(|s| !s.trim().is_empty())
+        .map_or(trimmed, str::trim);
+    let excerpt = truncate_on_word_boundary(first_sentence, 200);
+    format!("You are {name}, an autonomous SKYCOT teammate. {excerpt}")
+}
+
+fn truncate_on_word_boundary(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        return s.to_string();
+    }
+    let mut cut = 0;
+    for (idx, _) in s.char_indices().take(max_chars) {
+        cut = idx;
+    }
+    let head = &s[..=cut];
+    let trimmed = head
+        .rsplit_once(|c: char| c.is_whitespace())
+        .map_or(head, |(left, _)| left);
+    format!("{}…", trimmed.trim_end_matches(|c: char| c.is_whitespace() || c == ','))
+}
+
 /// Derive a worker display name from the first capitalised token in
 /// the operator's description. Falls back to `"Pioneer"` so the row
 /// always has a non-empty name (the persona validator rejects empties).
