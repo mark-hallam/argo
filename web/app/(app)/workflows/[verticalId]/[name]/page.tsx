@@ -103,6 +103,7 @@ function ViewerInner({
   const workflow = data?.workflow ?? null;
   const source = data?.source ?? null;
   const isLive = source === "gateway";
+  const isDemoRunHistory = source === "mock-offline" || source === "mock-bypass";
 
   const filterState = parseFilterStateFromUrl(searchParams);
   const { sinceTs, untilTs } = resolveDateRange(filterState);
@@ -129,7 +130,7 @@ function ViewerInner({
         sinceTs,
         untilTs,
       }),
-    enabled: !!verticalId && !!name,
+    enabled: !!verticalId && !!name && isLive,
     staleTime: 30_000,
   });
   const runsSummary = runsQuery.data?.summary ?? null;
@@ -389,21 +390,41 @@ function ViewerInner({
         <div className="wfd-section-label">
           RUN HISTORY · {sectionLabelForRange(filterState.range)}
         </div>
-        <WorkflowRunStats query={runsQuery} summary={runsSummary} />
-        <WorkflowRunsFilterBar
-          state={filterState}
-          onChange={updateFilterState}
-          totalFiltered={totalFiltered}
-          visibleCount={visibleRunCount}
-          isLoading={runsQuery.isPending}
-        />
-        <WorkflowRunsTable
-          isPending={runsQuery.isPending}
-          isError={runsQuery.isError}
-          runs={runsSummary?.runs ?? []}
-          filtersActive={filtersActive}
-          onClearFilters={clearFilters}
-        />
+        {isDemoRunHistory ? (
+          <div
+            data-testid="wfd-demo-runs-empty"
+            style={{
+              padding: "18px 20px",
+              border: "1px dashed var(--border, #ece9f5)",
+              borderRadius: 10,
+              background: "rgba(139, 92, 246, 0.04)",
+              color: "var(--muted-foreground, #52525b)",
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            Demo workflow · no run history. Live run history appears after this
+            workflow is served by the gateway.
+          </div>
+        ) : (
+          <>
+            <WorkflowRunStats query={runsQuery} summary={runsSummary} />
+            <WorkflowRunsFilterBar
+              state={filterState}
+              onChange={updateFilterState}
+              totalFiltered={totalFiltered}
+              visibleCount={visibleRunCount}
+              isLoading={runsQuery.isPending}
+            />
+            <WorkflowRunsTable
+              isPending={runsQuery.isPending}
+              isError={runsQuery.isError}
+              runs={runsSummary?.runs ?? []}
+              filtersActive={filtersActive}
+              onClearFilters={clearFilters}
+            />
+          </>
+        )}
         {isLive ? (
           <WorkflowVersionsPanel
             verticalId={verticalId}
