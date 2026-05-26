@@ -65,11 +65,13 @@ export default function SignupPage() {
   }
 
   async function submitDemoMint() {
+    // The secondary "Or try a demo workspace · no email required" CTA
+    // promises an email-less path. When the field is blank we mint a
+    // synthetic address — the gateway's demo-mint route only needs a
+    // unique principal key, not a deliverable mailbox.
     const trimmed = email.trim().toLowerCase();
-    if (trimmed.length === 0) {
-      setDemoError("Enter an email to continue.");
-      return;
-    }
+    const effectiveEmail =
+      trimmed.length === 0 ? `demo+${Date.now()}@skycot.test` : trimmed;
     setDemoPending(true);
     setDemoError(null);
     try {
@@ -82,7 +84,7 @@ export default function SignupPage() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email: trimmed }),
+        body: JSON.stringify({ email: effectiveEmail }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as
@@ -218,7 +220,7 @@ export default function SignupPage() {
         <button
           type="button"
           onClick={submitDemoMint}
-          disabled={pending || email.trim().length === 0}
+          disabled={pending}
           data-testid="signup-demo-mint"
           style={{
             marginTop: 16,
@@ -230,8 +232,8 @@ export default function SignupPage() {
             fontSize: 13,
             fontWeight: 600,
             color: "#1e1b4b",
-            cursor: pending || email.trim().length === 0 ? "not-allowed" : "pointer",
-            opacity: pending || email.trim().length === 0 ? 0.55 : 1,
+            cursor: pending ? "not-allowed" : "pointer",
+            opacity: pending ? 0.55 : 1,
           }}
         >
           {demoPending
