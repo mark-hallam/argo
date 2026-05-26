@@ -16,19 +16,22 @@ use std::sync::Arc;
 
 mod audit_emit;
 
+/// Refusal-template lookup table for truth-boundary enforcement.
+pub mod refusal_registry;
 pub mod truth_boundary;
 pub mod truth_boundary_policies;
 
 #[cfg(test)]
 mod truth_boundary_tests;
 
+pub use refusal_registry::RefusalTemplateRegistry;
 pub use truth_boundary::{
-    ChannelKind, ChannelScope, ClaimCandidate, ClaimClass, ClaimDisposition, ClaimEvaluation,
-    ClaimProvenance, EscalationKind, EscalationTarget, ProvenanceSource, RefusalTemplate,
-    TruthBoundaryPolicy, evaluate_claim,
+    evaluate_claim, ChannelKind, ChannelScope, ClaimCandidate, ClaimClass, ClaimDisposition,
+    ClaimEvaluation, ClaimProvenance, EscalationKind, EscalationTarget, ProvenanceSource,
+    RefusalTemplate, TruthBoundaryPolicy,
 };
 pub use truth_boundary_policies::{
-    load_policy, load_policies_from_dir, load_refusal_template, load_refusal_templates,
+    load_policies_from_dir, load_policy, load_refusal_template, load_refusal_templates,
 };
 
 /// Capability name for the cross-tenant audit-feed override probe

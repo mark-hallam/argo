@@ -6,6 +6,9 @@
 //! No public API changes — every symbol here is `pub(super)` and
 //! only consumed by `turn_helpers::run_turn_with_tools`.
 
+use super::turn_helpers_truth_boundary::{
+    default_claim_provenance, load_truth_boundary_ctx, TruthBoundaryTurnCtx,
+};
 use super::turn_skills_runtime::PendingAbOutcome;
 use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
 use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_runtime, provider_schemas_filtered};
@@ -41,6 +44,7 @@ pub(super) struct TurnDispatchCtx {
     pub(super) tools: Vec<ToolSchema>,
     pub(super) system_prompt: Option<String>,
     pub(super) context_policy: ContextWindowPolicy,
+    pub(super) truth_boundary: TruthBoundaryTurnCtx,
     pub(super) orch_session_id: argo_orchestrator::SessionId,
     pub(super) current_handoff_id: Option<HandoffId>,
 }
@@ -95,6 +99,7 @@ pub(super) async fn build_turn_dispatch_ctx(
         ),
         Err(_) => ContextWindowPolicy::disabled(),
     };
+    let truth_boundary = load_truth_boundary_ctx(cwd, session.tenant_id)?;
     // claude-memory-tool-wire: thread the live MemoryStore +
     // workspace through dispatch so the in-core `memory` tool can
     // actually persist. Vertical-bound writes go through
@@ -157,6 +162,7 @@ pub(super) async fn build_turn_dispatch_ctx(
         tools,
         system_prompt,
         context_policy,
+        truth_boundary,
         orch_session_id,
         current_handoff_id,
     })
@@ -191,6 +197,8 @@ async fn current_inbound_handoff_id(
 pub(super) struct RoundOutcome {
     pub(super) assistant_id: Uuid,
     pub(super) text: String,
+    pub(super) declared_claim_classes: Vec<String>,
+    pub(super) claim_provenance: argo_capability::ClaimProvenance,
     pub(super) tokens_in: Option<u32>,
     pub(super) tokens_out: Option<u32>,
     pub(super) tool_calls: Vec<ToolCallRequest>,
@@ -259,10 +267,19 @@ pub(super) async fn run_one_round(
     Ok(RoundOutcome {
         assistant_id,
         text: resp.text,
+        declared_claim_classes: Vec::new(),
+        claim_provenance: default_claim_provenance(),
         tokens_in: resp.tokens_in,
         tokens_out: resp.tokens_out,
         tool_calls: resp.tool_calls,
     })
+}
+
+impl RoundOutcome {
+    pub(super) fn with_text(mut self, text: String) -> Self {
+        self.text = text;
+        self
+    }
 }
 
 /// Dispatch a single tool call through the deny/approval/grant

@@ -175,6 +175,13 @@ mod turn_helpers_overlay;
 #[path = "turn_helpers_run.rs"]
 mod turn_helpers_run;
 
+#[path = "turn_helpers_truth_boundary.rs"]
+mod turn_helpers_truth_boundary;
+
+#[cfg(test)]
+#[path = "turn_helpers_truth_boundary_tests.rs"]
+mod turn_helpers_truth_boundary_tests;
+
 #[path = "turn_canary.rs"]
 mod turn_canary;
 

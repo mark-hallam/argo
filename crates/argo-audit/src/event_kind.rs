@@ -24,6 +24,12 @@ pub enum AuditKind {
     TurnEnd,
     /// A halt event (max iterations, error, etc.).
     Halt,
+    /// Truth-boundary gate allowed a candidate utterance to be delivered.
+    ClaimAllowed,
+    /// Truth-boundary gate blocked a candidate utterance and delivered a refusal.
+    ClaimBlocked,
+    /// Truth-boundary gate queued human approval before delivering an answer.
+    ClaimEscalated,
     // ── v0.2 kinds (§17.1) ────────────────────────────────────────
     /// Cost-router decision (Amendment 1, §24).
     RoutingDecision,

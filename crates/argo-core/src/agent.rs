@@ -13,7 +13,9 @@
 //! hooks, heartbeat. Those land with Phase 2 of §6.
 use crate::audit::{AuditKind, AuditSink};
 use crate::steer::SteerChannel;
-use argo_capability::CapabilityEngine;
+use argo_capability::{
+    CapabilityEngine, ChannelKind, RefusalTemplateRegistry, TruthBoundaryPolicy,
+};
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_tool::{ToolContext, ToolRegistry};
 use argo_types::{
@@ -42,6 +44,12 @@ pub struct AgentDeps {
     /// results and the next provider call so steers reach the
     /// model on the very next turn without breaking prompt cache.
     pub steer: Arc<SteerChannel>,
+    /// Active truth-boundary policy for this agent session, if one is bound.
+    pub active_truth_boundary_policy: Option<Arc<TruthBoundaryPolicy>>,
+    /// Channel kind used by the truth-boundary policy evaluator.
+    pub active_channel_kind: ChannelKind,
+    /// Refusal templates used when a truth-boundary policy forbids a claim.
+    pub refusal_templates: Arc<RefusalTemplateRegistry>,
 }
 
 impl std::fmt::Debug for AgentDeps {
@@ -49,6 +57,14 @@ impl std::fmt::Debug for AgentDeps {
         f.debug_struct("AgentDeps")
             .field("transport_id", &self.transport.id())
             .field("registry", &self.registry)
+            .field(
+                "active_truth_boundary_policy",
+                &self
+                    .active_truth_boundary_policy
+                    .as_ref()
+                    .map(|policy| policy.id.as_str()),
+            )
+            .field("active_channel_kind", &self.active_channel_kind)
             .finish()
     }
 }

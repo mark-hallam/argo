@@ -134,6 +134,9 @@ async fn fresh_deps(transport: Arc<dyn Transport>) -> (AgentDeps, SessionId, std
         capability_engine: Arc::new(engine),
         audit,
         steer,
+        active_truth_boundary_policy: None,
+        active_channel_kind: argo_capability::ChannelKind::Chat,
+        refusal_templates: Arc::new(argo_capability::RefusalTemplateRegistry::empty()),
     };
     (deps, session_id, workspace_root)
 }
@@ -290,6 +293,9 @@ async fn capability_denied_propagates_through_loop() {
         capability_engine: Arc::new(engine),
         audit,
         steer: Arc::new(SteerChannel::new()),
+        active_truth_boundary_policy: None,
+        active_channel_kind: argo_capability::ChannelKind::Chat,
+        refusal_templates: Arc::new(argo_capability::RefusalTemplateRegistry::empty()),
     };
     let mut opts = run_opts(dir.keep());
     opts.principal = Principal::Local {

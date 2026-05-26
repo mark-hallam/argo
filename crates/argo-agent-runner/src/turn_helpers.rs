@@ -187,6 +187,16 @@ pub(super) async fn run_turn_with_tools(
         )
         .await?;
         if outcome.tool_calls.is_empty() {
+            let outcome = super::turn_helpers_truth_boundary::apply_truth_boundary_gate(
+                &ctx.truth_boundary,
+                store,
+                audit,
+                events,
+                session_id,
+                spend.tenant_id,
+                outcome,
+            )
+            .await?;
             return Ok(finalize_turn(outcome));
         }
         for call in &outcome.tool_calls {

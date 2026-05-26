@@ -1,6 +1,13 @@
 //! Unit tests for [`crate::event`]. Included via `#[path]` from
 //! `event.rs` so the tests stay private to the crate while keeping
 //! `event.rs` under the 500-LOC ceiling.
+//!
+// TODO(post-MVP): file at 512 LOC under the OVERNIGHT DIRECTIVE §10
+// 550-LOC soft ceiling (window 2026-05-25→26). Split into variant-
+// cluster sibling files per `fix-split-event-tests-rs-loc-budget-breach`
+// (the original P1 brief, downgraded to P2 once the soft ceiling
+// landed). Tracked at
+// `docs/skycot/agents/heartbeats/loc-overage-tracking.md`.
 use super::AuditKind;
 
 #[test]
@@ -12,7 +19,20 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 74);
+    assert_eq!(AuditKind::all().len(), 77);
+}
+
+#[test]
+fn claim_truth_boundary_kinds_round_trip_and_listed() {
+    for (label, kind) in [
+        ("claim.allowed", AuditKind::ClaimAllowed),
+        ("claim.blocked", AuditKind::ClaimBlocked),
+        ("claim.escalated", AuditKind::ClaimEscalated),
+    ] {
+        assert_eq!(AuditKind::from_label(label), Some(kind));
+        assert_eq!(kind.label(), label);
+        assert!(AuditKind::all().contains(&kind));
+    }
 }
 
 #[test]
