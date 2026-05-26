@@ -274,3 +274,37 @@ export function findSampleAuditDetail(actionId: string): AuditDetail | undefined
   if (row) return synthesizeAuditDetail(row);
   return undefined;
 }
+
+/** Last-resort placeholder detail built from JUST an action id. Used
+ *  when the gateway returns a row in the list endpoint whose detail
+ *  endpoint then 4xx/5xxs and demo-mode fallback can find no matching
+ *  seed (e.g. live-gateway demo data with ULID-shaped ids that aren't
+ *  in `SAMPLE_AUDIT_ROWS`). Renders enough scaffolding for the drill-
+ *  in page to land — action_type / timestamp / verb / status — instead
+ *  of the global 500 error boundary. */
+export function placeholderAuditDetail(actionId: string): AuditDetail {
+  return {
+    id: actionId,
+    timestamp: new Date().toISOString(),
+    worker: { id: "wkr_unknown", name: "Unknown worker" },
+    actionType: "audit.detail.viewed",
+    verb: "Action detail unavailable — drill into another row for full provenance.",
+    status: "succeeded",
+    inputs: {
+      triggerKind: "message",
+      triggerSummary: "Detail payload not available for this action id.",
+    },
+    decisionChain: defaultChain("generic-skill", "1.0"),
+    provenance: {
+      model: { id: "claude-opus-4-7", version: "2026-04-30" },
+      promptTemplate: { id: "generic.placeholder", hash: "placehold00000000" },
+      skill: { id: "generic-skill", version: "1.0.0" },
+      memorySnapshot: { id: "mem_placeholder" },
+      policy: { id: "generic-policy", version: "1.0", hash: "policyplaceholder" },
+    },
+    output: {
+      kind: "text",
+      body: `Detail for action ${actionId} is not currently available. The audit feed remains the source of truth; drill into another row for full provenance.`,
+    },
+  };
+}

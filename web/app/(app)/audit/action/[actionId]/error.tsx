@@ -5,6 +5,17 @@ import { useEffect } from "react";
 import { ErrorShell } from "@/components/error/ErrorShell";
 import { buttonVariants } from "@/components/ui/Button";
 
+/**
+ * Route-segment error boundary for `/audit/action/[actionId]`. The
+ * happy-path drill-in handles its own loading + error states inside
+ * the page component (mock fallback in dev, in-shell empty state on
+ * unknown-id, retry button on transient errors). This boundary only
+ * catches errors that escape that handling — e.g. a render-time
+ * exception in one of the detail cards — and renders a CONTAINED
+ * shell that keeps the AppShell chrome around it rather than the
+ * brand-loud full-canvas 500 page. The audit feed remains one click
+ * away via the "Back to audit" link.
+ */
 export default function AuditActionError({
   error,
   reset,
@@ -20,21 +31,24 @@ export default function AuditActionError({
 
   return (
     <ErrorShell
-      code="500"
+      code="Couldn't load this row"
       variant="server-error"
-      title="We couldn't load this audit action."
-      description="Something went wrong fetching the action's details. Retrying usually fixes it; otherwise the audit feed is always available."
+      layout="contained"
+      title="The action detail couldn't load."
+      description="The audit feed remains the source of truth — drill into another row, or retry."
       actions={
         <>
           <button
             type="button"
             onClick={reset}
+            data-testid="audit-detail-error-retry"
             className={buttonVariants({ variant: "primary", size: "md" })}
           >
             Try again
           </button>
           <Link
             href="/audit"
+            data-testid="audit-detail-error-back"
             className={buttonVariants({ variant: "secondary", size: "md" })}
           >
             Back to audit
