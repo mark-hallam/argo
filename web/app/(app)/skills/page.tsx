@@ -20,13 +20,13 @@ import type { SkillRow } from "@/lib/api/skills";
  * gateway is empty or unreachable in dev.
  */
 
-const TRY_CHIPS = [
-  "approval routing",
-  "invoice extraction",
-  "candidate screening",
-  "deal qualification",
-  "support triage",
-  "lead enrichment",
+export const TRY_CHIPS = [
+  "approval",
+  "invoice",
+  "candidate",
+  "deal",
+  "support",
+  "lead",
 ];
 
 const ICON_ROTATION: ReactNode[] = [
