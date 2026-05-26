@@ -1,12 +1,32 @@
-import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
 import { ApprovalsOpsDashboard } from "./ApprovalsOpsDashboard";
 import { SAMPLE_APPROVALS, type ApprovalItem } from "@/lib/sample-approvals";
 
 const NOW = new Date("2026-05-25T12:00:00Z").getTime();
 const assignMock = vi.fn();
 const originalLocation = window.location;
+
+const toastSuccessMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...args: unknown[]) => toastSuccessMock(...args),
+    error: vi.fn(),
+  },
+}));
+
+function renderWithClient(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 function item(over: Partial<ApprovalItem>): ApprovalItem {
   return {
@@ -25,6 +45,7 @@ function item(over: Partial<ApprovalItem>): ApprovalItem {
 describe("ApprovalsOpsDashboard", () => {
   beforeEach(() => {
     assignMock.mockReset();
+    toastSuccessMock.mockReset();
     Object.defineProperty(window, "location", {
       configurable: true,
       value: {
@@ -51,7 +72,7 @@ describe("ApprovalsOpsDashboard", () => {
   });
 
   it("shows honest placeholders when no resolved rows or reviewer roster exist", () => {
-    render(
+    renderWithClient(
       <ApprovalsOpsDashboard
         items={[
           item({ id: "pending-money", dollarAtRisk: 1200 }),
@@ -77,7 +98,7 @@ describe("ApprovalsOpsDashboard", () => {
   });
 
   it("derives approval-rate visuals from resolved approval rows", () => {
-    render(
+    renderWithClient(
       <ApprovalsOpsDashboard
         items={[
           item({ id: "approved", decision: "approve" }),
@@ -107,7 +128,7 @@ describe("ApprovalsOpsDashboard", () => {
   });
 
   it("does not render the old fabricated baseline copy", () => {
-    render(<ApprovalsOpsDashboard items={[]} />);
+    renderWithClient(<ApprovalsOpsDashboard items={[]} />);
 
     expect(screen.queryByText(/7-day baseline/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/78% approved/i)).not.toBeInTheDocument();
@@ -116,7 +137,7 @@ describe("ApprovalsOpsDashboard", () => {
   });
 
   it("renders the seeded SAMPLE_APPROVALS as 5 pending + 3 resolved (ring ≈ 67%)", () => {
-    render(<ApprovalsOpsDashboard items={SAMPLE_APPROVALS} />);
+    renderWithClient(<ApprovalsOpsDashboard items={SAMPLE_APPROVALS} />);
 
     // 2 of the 3 resolved rows are approved → 67% headline.
     expect(screen.getByTestId("kpi-approval-rate")).toHaveTextContent("67%");
@@ -141,7 +162,7 @@ describe("ApprovalsOpsDashboard", () => {
 
   it("navigates pending approval rows to audit action detail", async () => {
     const user = userEvent.setup();
-    render(<ApprovalsOpsDashboard items={[item({ id: "ap_01H9Z7" })]} />);
+    renderWithClient(<ApprovalsOpsDashboard items={[item({ id: "ap_01H9Z7" })]} />);
 
     const row = screen.getByTestId("recent-approval-ap_01H9Z7");
     expect(row).toHaveAttribute(
@@ -154,5 +175,55 @@ describe("ApprovalsOpsDashboard", () => {
     expect(assignMock).toHaveBeenCalledWith(
       "/audit/action/act_018f67d0-0000-7000-8000-000000000001_018",
     );
+  });
+
+  it("renders inline Approve and Refuse buttons on every pending row", () => {
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[
+          item({ id: "row-p0", severity: "p0" }),
+          item({ id: "row-p2", severity: "p2" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("approve-row-p0")).toBeInTheDocument();
+    expect(screen.getByTestId("refuse-row-p0")).toBeInTheDocument();
+    expect(screen.getByTestId("approve-row-p2")).toBeInTheDocument();
+    expect(screen.getByTestId("refuse-row-p2")).toBeInTheDocument();
+  });
+
+  it("approves a row inline without firing the row drill-in", async () => {
+    const user = userEvent.setup();
+    renderWithClient(
+      <ApprovalsOpsDashboard items={[item({ id: "ap_01H9Z7", severity: "p0" })]} />,
+    );
+
+    await user.click(screen.getByTestId("approve-ap_01H9Z7"));
+
+    expect(assignMock).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalled();
+    });
+    expect(toastSuccessMock.mock.calls[0]?.[0]).toBe("Approved");
+    const opts = toastSuccessMock.mock.calls[0]?.[1] as
+      | { action?: { label?: string } }
+      | undefined;
+    expect(opts?.action?.label).toBe("Undo");
+  });
+
+  it("refuses a row inline and fires the Refused toast", async () => {
+    const user = userEvent.setup();
+    renderWithClient(
+      <ApprovalsOpsDashboard items={[item({ id: "ap_01H9Z7", severity: "p1" })]} />,
+    );
+
+    await user.click(screen.getByTestId("refuse-ap_01H9Z7"));
+
+    expect(assignMock).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalled();
+    });
+    expect(toastSuccessMock.mock.calls[0]?.[0]).toBe("Refused");
   });
 });

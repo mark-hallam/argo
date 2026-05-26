@@ -1,13 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, type KeyboardEvent } from "react";
 import { ApprovalRateRing } from "@/components/skycot/approvals/ApprovalRateRing";
+import { ApprovalRowActions } from "@/components/skycot/approvals/ApprovalRowActions";
 import { ConfidenceDonut } from "@/components/skycot/approvals/ConfidenceDonut";
 import { DollarAtRisk } from "@/components/skycot/approvals/DollarAtRisk";
 import { KpiStrip, type KpiCell } from "@/components/skycot/approvals/KpiStrip";
 import { MetricStatCard } from "@/components/skycot/approvals/MetricStatCard";
 import { SeverityPill, type Severity } from "@/components/skycot/approvals/SeverityPill";
 import { SLABar } from "@/components/skycot/approvals/SLABar";
+import {
+  useSubmitDecision,
+  useUndoDecision,
+} from "@/lib/hooks/use-approvals";
 import { sortBySeverityThenSla, type ApprovalItem } from "@/lib/sample-approvals";
 import { cn } from "@/lib/utils";
 
@@ -177,6 +182,39 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
     riskyCount === 1 ? "" : "s"
   } with monetary exposure in the current queue`;
 
+  const submit = useSubmitDecision();
+  const undo = useUndoDecision();
+
+  // Brief: "remove the row from the pending list with a 5s Undo toast".
+  // The optimistic update in `useSubmitDecision` already flips
+  // `decision`, which removes the row from the `pending` derived list
+  // above — no extra local state needed. The sonner toast wires the
+  // Undo back-channel.
+  const handleDecide = useCallback(
+    (id: string, decision: "approve" | "refuse") => {
+      submit.mutate({ approvalId: id, decision });
+      void import("sonner").then((m) => {
+        m.toast.success(decision === "approve" ? "Approved" : "Refused", {
+          duration: 5000,
+          action: {
+            label: "Undo",
+            onClick: () => undo.mutate(id),
+          },
+        });
+      });
+    },
+    [submit, undo],
+  );
+
+  const handleApprove = useCallback(
+    (id: string) => handleDecide(id, "approve"),
+    [handleDecide],
+  );
+  const handleRefuse = useCallback(
+    (id: string) => handleDecide(id, "refuse"),
+    [handleDecide],
+  );
+
   return (
     <div className="space-y-6" data-testid="approvals-ops-dashboard">
       <KpiStrip cells={kpis} />
@@ -188,7 +226,14 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
               (item) => (item.severity ?? "p2") === tier.severity,
             );
             return (
-              <SeveritySection key={tier.severity} tier={tier} items={tierItems} />
+              <SeveritySection
+                key={tier.severity}
+                tier={tier}
+                items={tierItems}
+                onApprove={handleApprove}
+                onRefuse={handleRefuse}
+                disabled={submit.isPending}
+              />
             );
           })}
         </div>
@@ -252,9 +297,15 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
 function SeveritySection({
   tier,
   items,
+  onApprove,
+  onRefuse,
+  disabled,
 }: {
   tier: SeverityTier;
   items: ApprovalItem[];
+  onApprove: (id: string) => void;
+  onRefuse: (id: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <section
@@ -284,7 +335,12 @@ function SeveritySection({
           <ul className="divide-y divide-[var(--border)]">
             {items.map((item) => (
               <li key={item.id}>
-                <ApprovalRow item={item} />
+                <ApprovalRow
+                  item={item}
+                  onApprove={onApprove}
+                  onRefuse={onRefuse}
+                  disabled={disabled}
+                />
               </li>
             ))}
           </ul>
@@ -294,26 +350,46 @@ function SeveritySection({
   );
 }
 
-function ApprovalRow({ item }: { item: ApprovalItem }) {
+function ApprovalRow({
+  item,
+  onApprove,
+  onRefuse,
+  disabled,
+}: {
+  item: ApprovalItem;
+  onApprove: (id: string) => void;
+  onRefuse: (id: string) => void;
+  disabled?: boolean;
+}) {
   const severity = item.severity ?? "p2";
   const actionId =
     (item as ApprovalWithActionId).actionId ?? SAMPLE_APPROVAL_ACTION_IDS[item.id] ?? item.id;
   const actionHref = `/audit/action/${encodeURIComponent(actionId)}`;
+  const drillIn = () => {
+    window.location.assign(actionHref);
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      drillIn();
+    }
+  };
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       data-testid={`recent-approval-${item.id}`}
       data-action-id={actionId}
       aria-label={`${item.worker.name} ${item.verb}`}
-      onClick={() => {
-        window.location.assign(actionHref);
-      }}
+      onClick={drillIn}
+      onKeyDown={onKeyDown}
       className={cn(
         "grid w-full cursor-pointer gap-3 px-4 py-4 text-left transition-colors",
         "hover:bg-[var(--muted)]/40 focus-visible:outline-none focus-visible:ring-2",
         "focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
         "focus-visible:ring-offset-[var(--card)]",
-        "lg:grid-cols-[minmax(0,1fr)_7.5rem_5rem_6.5rem]",
+        "lg:grid-cols-[minmax(0,1fr)_7.5rem_5rem_6.5rem_auto]",
       )}
     >
       <div className="flex min-w-0 gap-3">
@@ -353,6 +429,15 @@ function ApprovalRow({ item }: { item: ApprovalItem }) {
           <span className="text-xs text-[var(--muted-foreground)]">No confidence</span>
         )}
       </span>
-    </button>
+      <span className="self-center justify-self-end">
+        <ApprovalRowActions
+          approvalId={item.id}
+          severity={severity}
+          onApprove={onApprove}
+          onRefuse={onRefuse}
+          disabled={disabled}
+        />
+      </span>
+    </div>
   );
 }
