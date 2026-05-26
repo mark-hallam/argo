@@ -24,8 +24,43 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 
+// Resolution order: server-only `GATEWAY_URL` first, then the
+// build-time-injected `NEXT_PUBLIC_GATEWAY_URL` (which Next.js
+// exposes both client- and server-side), then the local-dev fallback.
+// `GATEWAY_URL` is the escape hatch for split deployments where the
+// SPA's browser-visible gateway URL differs from the URL the SPA
+// server reaches the gateway on (e.g. internal DNS / sidecar /
+// localhost-only socket). Keeping it explicit avoids the
+// 2026-05-26 F6 failure mode where a stale `NEXT_PUBLIC_GATEWAY_URL`
+// in the SPA's environment masked an otherwise-healthy gateway.
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return (
+    process.env.GATEWAY_URL ??
+    process.env.NEXT_PUBLIC_GATEWAY_URL ??
+    DEFAULT_GATEWAY
+  );
+}
+
+// Server-side health probe used to disambiguate "gateway is down" from
+// "demo-mint route 5xx'd". Called only on a fetch throw to keep the
+// happy path one round-trip. Short timeout because we're racing the
+// human's perception of latency — the user already waited for the
+// first fetch to fail, so the probe must add less than ~200ms to be
+// invisible.
+async function probeGatewayHealth(base: string): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 200);
+    const res = await fetch(`${base}/health`, {
+      method: "GET",
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 interface MintBody {
@@ -134,15 +169,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const base = gatewayBase();
   let upstream: Response;
   try {
-    upstream = await fetch(`${gatewayBase()}/api/v1/demo/mint-principal`, {
+    upstream = await fetch(`${base}/api/v1/demo/mint-principal`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ email }),
       cache: "no-store",
     });
-  } catch {
+  } catch (err) {
+    // Disambiguate "gateway truly unreachable" from "mint route
+    // misbehaved" — the latter is invisible to the operator under the
+    // pre-fix code path, which surfaced `gateway_unreachable` on any
+    // fetch throw even when `/health` would have answered 200.
+    const healthy = await probeGatewayHealth(base);
+    if (healthy) {
+      const detail =
+        err instanceof Error && err.message.length > 0
+          ? err.message
+          : "unknown demo-mint transport error";
+      return NextResponse.json(
+        {
+          error: {
+            code: "gateway_demo_mint_failed",
+            message: `Gateway is up but demo-mint failed: ${detail}`,
+          },
+        },
+        { status: 502 },
+      );
+    }
     return NextResponse.json(
       {
         error: {
