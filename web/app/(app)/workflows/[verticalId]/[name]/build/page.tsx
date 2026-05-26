@@ -65,7 +65,8 @@ import {
 } from "./types";
 import { usePaletteHandlers } from "./use-palette-handlers";
 
-const [NEW_WORKFLOW_SENTINEL, DEFAULT_NEW_WORKFLOW_NAME] = ["__new__", "new_workflow"];
+const LEGACY_NEW_WORKFLOW_SENTINEL = "__new__";
+const [NEW_WORKFLOW_SENTINEL, DEFAULT_NEW_WORKFLOW_NAME] = ["untitled", "untitled"];
 
 export default function WorkflowBuilderPage({ params }: {
   params: Promise<{ verticalId: string; name: string }>;
@@ -83,10 +84,11 @@ function BuilderInner({ params }: {
   params: Promise<{ verticalId: string; name: string }>;
 }) {
   const { verticalId, name } = use(params);
-  const isNewWorkflow = name === NEW_WORKFLOW_SENTINEL;
+  const isNewWorkflow = name === NEW_WORKFLOW_SENTINEL || name === LEGACY_NEW_WORKFLOW_SENTINEL;
   const router = useRouter();
   const pathname = usePathname() ?? `/workflows/${verticalId}/${name}/build`;
   const searchParams = useSearchParams();
+  const search = searchParams.toString();
   const templateId = searchParams.get("from_template");
   const stateFlag = searchParams.get("state");
   const [draftName, setDraftName] = useState(DEFAULT_NEW_WORKFLOW_NAME);
@@ -99,6 +101,13 @@ function BuilderInner({ params }: {
     templateId || isNewWorkflow ? null : verticalId,
     templateId || isNewWorkflow ? null : name,
   );
+
+  useEffect(() => {
+    if (name !== LEGACY_NEW_WORKFLOW_SENTINEL) return;
+    const query = search ? `?${search}` : "";
+    router.replace(`/workflows/${encodeURIComponent(verticalId)}/${NEW_WORKFLOW_SENTINEL}/build${query}`);
+  }, [name, router, search, verticalId]);
+
   const workflow = useMemo<WorkflowSpec | undefined>(() => {
       if (isNewWorkflow) {
         return {
@@ -240,6 +249,11 @@ function BuilderInner({ params }: {
     handlePublishRequest,
     handlePublishConfirm,
   } = savePublishHandlers;
+
+  useEffect(() => {
+    if (!isNewWorkflow || savedDraftVersion === null) return;
+    router.replace(`/workflows/${encodeURIComponent(verticalId)}/${encodeURIComponent(workflowName)}/build`);
+  }, [isNewWorkflow, router, savedDraftVersion, verticalId, workflowName]);
 
   const handleDiscard = useCallback(() => {
     builder.reset(initial.nodes, initial.edges);

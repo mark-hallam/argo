@@ -41,7 +41,7 @@ export default function WorkflowBuildEntryPage() {
         {VERTICALS.map(([id, label, description]) => (
           <Link
             key={id}
-            href={`/workflows/${encodeURIComponent(id)}/__new__/build`}
+            href={`/workflows/${encodeURIComponent(id)}/untitled/build`}
             data-testid={`workflow-build-vertical-${id}`}
             className="group flex min-h-32 items-start justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:shadow-sm"
           >

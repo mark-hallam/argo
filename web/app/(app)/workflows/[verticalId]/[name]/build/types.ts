@@ -271,7 +271,7 @@ export const SIDEBAR_PALETTE_GROUPS: SidebarPaletteGroup[] = [
     label: "Tools",
     items: [
       { id: "tool-http",    kind: "http_request", label: "HTTP request",   description: "Call an external API" },
-      { id: "tool-browser", kind: "tool_call",    label: "Browser action", description: "Drive a real browser" },
+      { id: "tool-browser", kind: "tool_call",    label: "Browser action (Playwright)", description: "Drive a real browser with Playwright" },
       { id: "tool-code",    kind: "code",         label: "Code",           description: "Run inline code" },
     ],
   },
