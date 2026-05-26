@@ -24,8 +24,8 @@ export default function OnboardingWelcomePage() {
       ]}
       sub={
         <>
-          In <strong>four minutes</strong> you&apos;ll have hired your first AI teammate &mdash;
-          and they&apos;ll start work the moment you finish.
+          In <strong>four minutes</strong> you&apos;ll onboard your first AI teammate &mdash;
+          with your role, playbook, and guardrails ready before they start.
         </>
       }
     >
@@ -40,10 +40,11 @@ export default function OnboardingWelcomePage() {
               Every action signed and replayable &mdash; SOC 2-ready audit trail.
             </p>
           </li>
-          <li className="ob-pillar" data-testid="onboarding-pillar-single-binary">
-            <p className="ob-pillar-label">Single-binary</p>
+          <li className="ob-pillar" data-testid="onboarding-pillar-genesis-studio">
+            <p className="ob-pillar-label">Onboard them like a human</p>
             <p className="ob-pillar-body">
-              One Rust process. No Kubernetes, no sidecars, no surprises.
+              Describe the role in voice or text. Upload SOPs, wiki pages, and Slack
+              threads; we verify they understand before they start.
             </p>
           </li>
           <li className="ob-pillar" data-testid="onboarding-pillar-enterprise-grade">
