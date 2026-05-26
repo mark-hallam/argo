@@ -1,20 +1,20 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-26T11:25:00Z",
+  "last_run_utc": "2026-05-26T11:32:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "operator-directed-tick-T11-25-light-maintenance",
-  "run_notes": "Tick T11-25 (Melbourne 2026-05-26 21:25→21:25 AEST), operator-typed 'Run the tick' (mid-T10-05 finish). **State at start**: 15 open PRs post the massive evening session (48 → 15, 69% reduction). 0 unread handoffs; gateway FRESH v83=v83; 4/4 findings within budget; 0 drift rows; 26-round 🟢 streak. **Triage of remaining 15**: 3 CLEAN (#2392 web+runbook-doc mixed — strict auth excludes; #2387 + #2338 ops-* need evaluator pre-verify per locked rule); 12 cascade-DIRTY from the R84 batch-drain wave (predictable — 9 merges in argo-cli/argo-audit touched too many adjacent files). **No merges this tick**: strict adherence to operator-locked authorizations. **Options for next push**: (a) personally rebase the 12 cascade-DIRTY (~60-80 min, same playbook as morning's 5-PR wave + T09-30 push-more); (b) ask operator to expand auth slightly to include web+runbook-doc mixed (#2392 alone); (c) wait for evaluator R85+ to pre-verify the ops-* + web+doc-mixed. **No actions taken this light tick** — session has been very productive (Track P P-08 final, Scene 3 Genesis P0, R84 batch-drain 9 PRs, 16 web-only batch wave). Operator decision needed on whether to push further this evening or call it.",
-  "open_prs": 15,
+  "session_label": "operator-directed-tick-T11-30-demo-MP4-unblocker-merge",
+  "run_notes": "Tick T11-30 (Melbourne 2026-05-26 21:30→21:32 AEST), operator-typed 'Run the tick'. **Reframed priority** post UX-AUDIT-T2007MEL audit: stop measuring 'open PR count', measure 'scenes walkable end-to-end'. **Action**: merged the highest-priority demo-MP4 unblocker (Scene 3). State at start: 0 unread handoffs; gateway FRESH; 0 drift; 4 P0 demo-MP4 unblockers status — #2404 IN_REVIEW (Scene 3), fix-skills-marketplace CLAIMED, fix-audit-action-detail CLAIMED, fix-approvals-inbox TODO. **🎯 MERGED #2404 fix-onboarding-provision-demo-mode-bypass** — THE Scene 3 demo P0 from the audit's headline assessment. PR was DIRTY post-R84 wave (conflicted with #2343 friendly-error structured branch + #2362 setVertical 3-arg signature). Rebased personally in worktree: 3 conflicts resolved (workspace/page.tsx import combine; connect-provider/page.tsx kept HEAD's structured `providerErrorFor` since `setProviderError` superset of scrubber intent; pick-vertical/page.tsx kept HEAD's 3-arg setVertical + added PR's demo-bypass block). Force-pushed `7163d2e0c`; vitest 7/7 PASS post-rebase; admin-merged under T09-30 expanded web-only any-size + vitest-in-body auth (also matches the operator's 6.5h focused-work directive). **Demo-MP4 status**: Scene 3 wizard-step-2-X-Argo-Principal-leak closed. Other 3 unblockers (approvals-inbox-fixture-drift TODO, skills-marketplace-perpetual-loading CLAIMED, audit-action-detail-demo-mode-fallback CLAIMED) still in flight. **Did NOT touch the other 11 cascade-DIRTY** — strategic decision to prioritize demo-recording over PR count this tick. Open PRs: 16 (was 15; 1 net-up from a new claim opening). Auths active: web/test/doc-only auth (T09-30 expanded), `--skip-clippy` for evaluator-pre-verified fix-*/ops-*/eval-* (locked), overnight blanket EXPIRED at 22:00Z AEST 9 min ago (mission-genesis-*/pitch-*/fix-pr-22*-rebase* lane closed).",
+  "open_prs": 16,
   "queue_state": {
     "claude_todo": 0,
     "codex_todo": 0,
-    "claude_or_codex_todo": 2,
-    "claude_claimed": 1,
-    "codex_claimed": 1,
+    "claude_or_codex_todo": 28,
+    "claude_claimed": 2,
+    "codex_claimed": 2,
     "claude_or_codex_claimed": 0,
     "claude_in_review": 3,
     "codex_in_review": 8,
     "claude_or_codex_in_review": 1
   },
-  "the_gate": "🌙 OVERNIGHT WINDOW EXPIRES at 2026-05-26T22:00Z AEST (~30 min remaining). **Session standing: 48 → 15 open PRs (69% reduction).** No further merges this light tick. 3 CLEAN candidates need evaluator pre-verify (or one needs auth widening). 12 cascade-DIRTY await rebase decision. Operator may choose to: (a) authorize personal-rebase of 12 cascade-DIRTY, (b) widen auth to web+runbook-doc-mixed, (c) end the session — all valid given the day's progress (Track P P-08, Scene 3 Genesis, R84 batch-drain all landed)."
+  "the_gate": "🌙 OVERNIGHT WINDOW EXPIRED at 2026-05-26T22:00Z AEST (~10 min ago). Blanket auth for mission-genesis-*/pitch-*/fix-pr-22*-rebase* CLOSED. Remaining auths: web-only any-size + vitest permanent (T09-15 + T09-30 expansion); `--skip-clippy` for evaluator-pre-verified fix-*/ops-*/eval-* (locked, always). **Demo-MP4 status post-T11-30**: Scene 3 unblocker MERGED (#2404). 3 remaining demo P0s in flight (1 TODO, 2 CLAIMED, no PRs yet). 11 cascade-DIRTY web-only NOT touched this tick — would need ~60-80 min personal rebase wave. 28 TODOs from UX-AUDIT-T2007MEL batch waiting for workers to claim (priority-ordered: 7 P0 + 13 P1 + 14 P2)."
 }
