@@ -2,6 +2,9 @@
 //! [`super::routes_dispatch_get_api::dispatch_api_get`]. Each helper
 //! owns a disjoint URL prefix and returns `Some(resp)` on a hit so
 //! the parent dispatcher early-returns.
+#[path = "routes_workers_list.rs"]
+mod routes_workers_list;
+
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -38,7 +41,7 @@ pub(super) async fn dispatch_auth_and_meta(
     None
 }
 
-/// SCIM, JSON approvals, skill IR, audit elevated-view, team
+/// SCIM, JSON approvals, skill IR, audit elevated-view, team/workers
 /// roster, notifications, and tenant usage.
 pub(super) async fn dispatch_scim_and_team(
     req: &str,
@@ -58,8 +61,11 @@ pub(super) async fn dispatch_scim_and_team(
     {
         return Some(super::routes_elevated_view::list_response(req, store).await);
     }
+    if req.starts_with("GET /api/v1/workers ") || req.starts_with("GET /api/v1/workers?") {
+        return Some(routes_workers_list::list_response(req, store).await);
+    }
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
-        return Some(super::routes_team_list::list_response(req, store).await);
+        return Some(super::routes_team_list::deprecated_list_response(req, store).await);
     }
     if let Some(resp) = super::routes_notifications::dispatch_get(req, store).await {
         return Some(resp);

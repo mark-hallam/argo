@@ -2,11 +2,10 @@
  * Team API client.
  *
  * Routes through the typed `lib/api/client.ts` wrapper. The gateway's
- * `/api/v1/team` endpoint is being authored under brief
- * `mission-gateway-team-list-endpoint`; until that lands, every call
- * here will see a 404 and fall back to the bundled `SAMPLE_TEAM`
- * dataset so the team-page demo keeps working in dev without a
- * running gateway.
+ * `/api/v1/workers` is the canonical collection endpoint. The legacy
+ * `/api/v1/team` gateway path remains as a deprecated back-compat
+ * alias, but the SPA should use the Workers noun that matches the
+ * product navigation and singleton `/api/v1/workers/<id>` routes.
  *
  * Acceptance contract (mirrors `lib/api/approvals.ts`):
  * - `fetchTeam` returns `Worker[]`.
@@ -68,7 +67,7 @@ export async function fetchTeam(): Promise<FetchTeamResult> {
     // envelope (missing `workers` field) so a server bug doesn't silently
     // collapse the roster to empty.
     const response = await apiGet<{ workers: Worker[]; total_count?: number } | Worker[]>(
-      "/api/v1/team",
+      "/api/v1/workers",
     );
     if (Array.isArray(response)) {
       return { workers: response, source: "gateway" };

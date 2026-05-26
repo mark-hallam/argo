@@ -39,6 +39,12 @@ use uuid::Uuid;
 /// `total_count` body field signals truncation (pagination follow-up).
 pub(super) const MAX_WORKERS: usize = 200;
 const WORKING_FRESHNESS_SECS: i64 = 5 * 60;
+const DEPRECATED_TEAM_STATUS: &str = concat!(
+    "200 OK\r\n",
+    "Deprecation: true\r\n",
+    "Sunset: Wed, 01 Jan 2027 00:00:00 GMT\r\n",
+    "Link: </api/v1/workers>; rel=\"successor-version\"",
+);
 
 type OrgRefs = (Option<Value>, Option<Value>);
 
@@ -107,6 +113,21 @@ pub(super) async fn list_response(
 
     let body = json!({ "workers": summaries, "total_count": total }).to_string();
     ("200 OK", body)
+}
+
+/// Back-compat alias for the old `/api/v1/team` collection path.
+/// Successful responses carry deprecation metadata; error responses
+/// stay unchanged so clients can handle failures exactly as before.
+pub(super) async fn deprecated_list_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let (status, body) = list_response(req, store).await;
+    if status == "200 OK" {
+        (DEPRECATED_TEAM_STATUS, body)
+    } else {
+        (status, body)
+    }
 }
 
 fn build_summary(
