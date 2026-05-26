@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * `/retro` — tenant-wide retro index. Intentionally hidden from the
+ * primary sidebar nav: retros are primarily accessed from a worker
+ * profile (the per-worker drill-in flow at
+ * `/workers/<id>#retro-<id>`). This index page is a power-user
+ * surface for searching retro themes across the tenant and is
+ * reachable via direct URL only.
+ *
+ * Source: worker-retrospective UI brief (#1480); orphan-status
+ * documented per fix-spa-polish-help-retro-billing-orphan-pages
+ * (whole-site-mvp-claims-coverage F18).
+ */
+
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {

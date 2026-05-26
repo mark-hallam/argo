@@ -1,12 +1,27 @@
 "use client";
 
 /**
- * `/billing` — tenant billing overview.
+ * `/billing` — tenant billing overview. **Canonical billing surface.**
  *
  * Surfaces the active tier (Free / Pro / Enterprise), period-to-date
  * usage, the three upgrade CTAs, and the Manage button that opens a
  * Stripe Customer Portal session. Data fetched from
  * `GET /api/v1/tenant/usage` (claude-pricing-plans-config).
+ *
+ * Intentionally not in the primary sidebar nav — reachable from:
+ *   - `/settings/billing` "Open billing" button (the settings panel
+ *     is a thin summary that links here for the real plan/checkout
+ *     flow).
+ *   - `/billing/subscribe` post-checkout return.
+ *   - The ⌘K command palette (`page:billing`).
+ *
+ * Audit history: the orphan-route audit
+ * (whole-site-mvp-claims-coverage F18) flagged this page as an
+ * "orphan duplicate" of `/settings/billing`. That premise was
+ * incorrect — `/settings/billing/page.tsx:15` links *to* this page,
+ * not the other way around. Documenting the role per
+ * fix-spa-polish-help-retro-billing-orphan-pages so the next audit
+ * doesn't re-flag it.
  */
 
 import { useQuery } from "@tanstack/react-query";

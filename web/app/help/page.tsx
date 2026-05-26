@@ -1,110 +1,19 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
 /**
- * Help — v1.0 placeholder. Wave-15 every-button audit flagged
- * /help as a 404 reachable from the WizardEditorialShell + auth
- * shells' top-right "Help" link (visible on every onboarding +
- * /hire + /auth step). Stub page until a richer help center
- * lands; routes the user back to where they can actually get
- * answers.
+ * `/help` — redirect to `/docs` until the in-product help center ships.
+ *
+ * The v1.0 placeholder this replaced was an SEO + discoverability trap
+ * (whole-site-mvp-claims-coverage F08): three escape-hatch links sitting
+ * under a "we're building" headline. The existing inbound links —
+ * WizardEditorialShell + auth shells' top-right "Help" anchor,
+ * `/sla` footer, `/auth/signin` body — all land on `/docs` via this
+ * server-side 307 with no broken-link churn.
+ *
+ * When the real help center ships (v1.1), replace this redirect with
+ * the page body and unlist `/help` from the marketing nav (already
+ * pointing at `/docs`).
  */
-export default function HelpPage() {
-  return (
-    <main
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "80px 24px 120px",
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-        color: "var(--foreground)",
-        background: "var(--background)",
-        minHeight: "100vh",
-      }}
-    >
-      <p
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: "var(--muted-foreground)",
-          margin: "0 0 18px",
-        }}
-      >
-        Help · v1.0
-      </p>
-      <h1
-        style={{
-          fontFamily: "var(--font-audiowide)",
-          fontSize: 48,
-          fontWeight: 400,
-          lineHeight: 1.05,
-          margin: "0 0 14px",
-          backgroundImage: "linear-gradient(135deg, var(--primary), var(--gradient-end))",
-          backgroundClip: "text",
-          WebkitBackgroundClip: "text",
-          color: "transparent",
-          WebkitTextFillColor: "transparent",
-        }}
-      >
-        Need a hand?
-      </h1>
-      <p style={{ fontSize: 18, lineHeight: 1.5, margin: "0 0 32px", color: "var(--muted-foreground)" }}>
-        We&apos;re building the in-product help center alongside v1.1. In the
-        meantime — the three best places to get answers fast:
-      </p>
-
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 18 }}>
-        <li>
-          <strong style={{ display: "block", marginBottom: 4 }}>
-            📚 Docs
-          </strong>
-          <Link href="/docs" style={{ color: "var(--primary)", fontWeight: 600 }}>
-            skycot.com/docs
-          </Link>{" "}
-          — getting-started guides, vertical templates, workflow recipes, API
-          reference (the bits that are written so far).
-        </li>
-        <li>
-          <strong style={{ display: "block", marginBottom: 4 }}>
-            💬 Email
-          </strong>
-          <a href="mailto:hello@skycot.com" style={{ color: "var(--primary)", fontWeight: 600 }}>
-            hello@skycot.com
-          </a>{" "}
-          — Mark (founder) reads every inbound. Reply usually within a few
-          business hours.
-        </li>
-        <li>
-          <strong style={{ display: "block", marginBottom: 4 }}>
-            🔍 Status
-          </strong>
-          <a
-            href="https://status.skycot.com"
-            style={{ color: "var(--primary)", fontWeight: 600 }}
-          >
-            status.skycot.com
-          </a>{" "}
-          — uptime + incident history.
-        </li>
-        <li>
-          <strong style={{ display: "block", marginBottom: 4 }}>
-            🛡️ Security
-          </strong>
-          <Link href="/security" style={{ color: "var(--primary)", fontWeight: 600 }}>
-            Responsible disclosure inbox + posture
-          </Link>
-        </li>
-      </ul>
-
-      <p style={{ marginTop: 48, fontSize: 14, color: "var(--muted-foreground)" }}>
-        Back to{" "}
-        <Link href="/landing" style={{ color: "var(--primary)" }}>
-          home
-        </Link>
-        .
-      </p>
-    </main>
-  );
+export default function HelpPage(): never {
+  redirect("/docs");
 }
