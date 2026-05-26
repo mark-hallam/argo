@@ -39,13 +39,15 @@
 
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { appendDemoWorker, findDemoWorker } from "@/lib/api/demo-roster-store";
+import type { WorkerOverview } from "@/lib/api/worker-overview";
 import {
   findSampleWorker,
   SAMPLE_WORKERS_DETAIL,
 } from "@/lib/sample-workers-detail";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
-import { getOrCreateIdempotencyKey } from "@/lib/hire/idempotency-key";
+import { getOrCreateIdempotencyKey, uuidV7 } from "@/lib/hire/idempotency-key";
 import type { Worker, WorkerStatus } from "@/lib/types/worker";
 
 /** Thrown when the worker id doesn't resolve. */
@@ -137,6 +139,10 @@ export async function fetchWorker(workerId: string): Promise<Worker> {
       throw new AuthNotReadyError(workerId);
     }
     if (shouldFallBackToMock(err)) {
+      // Demo-recording session-local hires take precedence over the
+      // bundled fixture so a brand-new hire's overview page resolves.
+      const demo = findDemoWorker(workerId);
+      if (demo) return demo;
       const sample = findSampleWorker(workerId);
       if (sample) {
         await new Promise((r) => setTimeout(r, 80));
@@ -223,6 +229,77 @@ function stubWorkerId(): string {
       ? crypto.randomUUID()
       : Math.random().toString(36).slice(2, 10);
   return `stub-${rand}`;
+}
+
+function buildDemoOverview(draft: WorkerDraft): WorkerOverview {
+  const duties = draft.duties.map((d, idx) => ({
+    id: `d-new-${idx + 1}`,
+    label: d.label,
+    schedule:
+      d.schedule.kind === "cron"
+        ? `cron: ${d.schedule.spec}`
+        : `event: ${d.schedule.spec}`,
+    enabled: d.defaultEnabled,
+  }));
+  return {
+    charter: draft.charter,
+    duties,
+    // The new hire has no track record yet — surface honest zeros
+    // rather than borrowing another worker's numbers. The demo
+    // narration ("we just hired her") frames empty KPIs correctly.
+    kpis: [
+      {
+        id: "k-actions",
+        label: "actions taken today",
+        value: "0",
+        series: [0, 0, 0, 0, 0, 0, 0],
+        deltaPct: 0,
+        trend: "flat",
+        tone: "muted",
+      },
+      {
+        id: "k-approvals",
+        label: "approvals awaiting you",
+        value: "0",
+        series: [0, 0, 0, 0, 0, 0, 0],
+        deltaPct: 0,
+        trend: "flat",
+        tone: "muted",
+      },
+      {
+        id: "k-shadow",
+        label: "shadow-mode hours",
+        value: "0h",
+        series: [0, 0, 0, 0, 0, 0, 0],
+        deltaPct: 0,
+        trend: "flat",
+        tone: "muted",
+      },
+      {
+        id: "k-onboarding",
+        label: "onboarding progress",
+        value: "Just hired",
+        series: [0, 0, 0, 0, 0, 0, 0],
+        deltaPct: 0,
+        trend: "flat",
+        tone: "muted",
+      },
+    ],
+    recentActivity: [],
+  };
+}
+
+function buildDemoWorker(workerId: string, draft: WorkerDraft): Worker {
+  return {
+    id: workerId,
+    name: draft.suggestedName,
+    role: {
+      tagline: draft.persona.tagline,
+      vertical: draft.suggestedVertical,
+    },
+    status: "idle",
+    lastActiveAt: new Date().toISOString(),
+  };
 }
 
 function isStubFallbackEligible(err: unknown): boolean {
@@ -330,7 +407,18 @@ function buildHireBody(req: HireWorkerRequest): Record<string, unknown> {
 
 export async function hireWorker(req: HireWorkerRequest): Promise<HireWorkerResult> {
   if (isAuthBypassed()) {
-    return { workerId: stubWorkerId(), success: true };
+    // Demo-recording mode: persist the new hire into a session-local
+    // roster so /team gains a card and /workers/<id>/overview renders
+    // the just-hired persona instead of 404ing. The id is a real-
+    // shaped UUIDv7 (not `stub-` prefixed) so the URL + browser tab
+    // title don't out the demo. See `fix-hire-demo-mode-stub-uuid-
+    // worker-roster-invisibility`.
+    const workerId = uuidV7();
+    appendDemoWorker({
+      worker: buildDemoWorker(workerId, req.workerDraft),
+      overview: buildDemoOverview(req.workerDraft),
+    });
+    return { workerId, success: true };
   }
   try {
     const raw = await apiPost<unknown>("/api/v1/workers", buildHireBody(req));

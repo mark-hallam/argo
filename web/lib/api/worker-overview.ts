@@ -16,6 +16,7 @@
 
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { findDemoWorkerOverview } from "@/lib/api/demo-roster-store";
 import { findSampleWorkerOverview } from "@/lib/sample-worker-overview";
 
 export type WorkerOverviewSource = "gateway" | "mock-offline" | "mock-bypass";
@@ -110,6 +111,11 @@ export async function fetchWorkerOverview(
   workerId: string,
 ): Promise<FetchWorkerOverviewResult> {
   if (isAuthBypassed()) {
+    // Session-local demo hires take precedence — they're newer than
+    // anything bundled. Fall through to SAMPLE_WORKER_OVERVIEWS so
+    // the five seeded personas keep working.
+    const demoOverview = findDemoWorkerOverview(workerId);
+    if (demoOverview) return { overview: demoOverview, source: "mock-bypass" };
     const overview = findSampleWorkerOverview(workerId);
     if (!overview) throw new WorkerOverviewNotFoundError(workerId);
     return { overview, source: "mock-bypass" };

@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchWorker, WorkerNotFoundError } from "./workers";
+import { fetchWorker, hireWorker, WorkerNotFoundError } from "./workers";
+import { fetchTeam } from "./team";
+import { fetchWorkerOverview } from "./worker-overview";
+import { _clearDemoRosterForTests } from "./demo-roster-store";
+import { SAMPLE_TEAM } from "@/lib/sample-team";
 import { SAMPLE_WORKERS_DETAIL } from "@/lib/sample-workers-detail";
+import type { WorkerDraft } from "@/lib/hire/draft-types";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 const MARIAH = SAMPLE_WORKERS_DETAIL.find((worker) => worker.name === "Mariah")!;
@@ -98,5 +103,104 @@ describe("lib/api/workers", () => {
     await expect(
       fetchWorker("018f67d0-0000-7000-8000-000000009999"),
     ).rejects.toBeInstanceOf(WorkerNotFoundError);
+  });
+});
+
+const UUIDV7_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function buildHireDraft(overrides: Partial<WorkerDraft> = {}): WorkerDraft {
+  return {
+    suggestedName: "Mira",
+    persona: {
+      tagline: "answers buyer messages",
+      avatarKind: "initials",
+      voiceProfile: { tone: "warm", formality: "medium", signaturePhrases: [] },
+    },
+    charter:
+      "Mira helps the Procurement team keep marketplace conversations moving.",
+    duties: [
+      {
+        label: "Reply to buyer questions",
+        schedule: { kind: "event", spec: "message.inbound" },
+        defaultEnabled: true,
+      },
+    ],
+    exampleReplies: [],
+    approvalPolicy: { level: "balanced" },
+    suggestedVertical: "marketplace",
+    ...overrides,
+  };
+}
+
+describe("lib/api/workers — demo-mode roster", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    _clearDemoRosterForTests();
+    vi.stubEnv("NODE_ENV", "development");
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+    delete process.env.NEXT_PUBLIC_ENV;
+  });
+
+  afterEach(() => {
+    _clearDemoRosterForTests();
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("hireWorker returns a real-shaped UUIDv7 in auth-bypass mode (not stub-prefixed)", async () => {
+    const result = await hireWorker({
+      workerDraft: buildHireDraft(),
+      problem: "buyer messages are piling up",
+      answers: {},
+    });
+    expect(result.success).toBe(true);
+    expect(result.workerId.startsWith("stub-")).toBe(false);
+    expect(result.workerId).toMatch(UUIDV7_RE);
+  });
+
+  it("fetchTeam includes the new hire after hireWorker in auth-bypass mode", async () => {
+    const before = await fetchTeam();
+    expect(before.workers.length).toBe(SAMPLE_TEAM.length);
+    expect(before.source).toBe("mock-bypass");
+
+    const hire = await hireWorker({
+      workerDraft: buildHireDraft({ suggestedName: "Mira" }),
+      problem: "buyer messages are piling up",
+      answers: {},
+    });
+
+    const after = await fetchTeam();
+    expect(after.workers.length).toBe(SAMPLE_TEAM.length + 1);
+    const newHire = after.workers.find((w) => w.id === hire.workerId);
+    expect(newHire).toBeDefined();
+    expect(newHire?.name).toBe("Mira");
+  });
+
+  it("fetchWorkerOverview resolves the just-hired worker to a non-404 card", async () => {
+    const hire = await hireWorker({
+      workerDraft: buildHireDraft({ suggestedName: "Mira" }),
+      problem: "buyer messages are piling up",
+      answers: {},
+    });
+    const result = await fetchWorkerOverview(hire.workerId);
+    expect(result.source).toBe("mock-bypass");
+    expect(result.overview.charter).toContain("Procurement");
+    expect(result.overview.duties[0]?.label).toBe("Reply to buyer questions");
+  });
+
+  it("session-local roster wipes on clear (proxy for tab-close scoping)", async () => {
+    await hireWorker({
+      workerDraft: buildHireDraft(),
+      problem: "queue piling up",
+      answers: {},
+    });
+    const withHire = await fetchTeam();
+    expect(withHire.workers.length).toBe(SAMPLE_TEAM.length + 1);
+
+    _clearDemoRosterForTests();
+    const afterClear = await fetchTeam();
+    expect(afterClear.workers.length).toBe(SAMPLE_TEAM.length);
   });
 });

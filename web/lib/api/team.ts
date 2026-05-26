@@ -21,6 +21,7 @@
 
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { listDemoWorkers } from "@/lib/api/demo-roster-store";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import type { Worker } from "@/lib/types/worker";
@@ -57,7 +58,16 @@ function isMissingOrUnreachable(err: unknown): boolean {
 
 export async function fetchTeam(): Promise<FetchTeamResult> {
   if (isAuthBypassed()) {
-    return { workers: SAMPLE_TEAM, source: "mock-bypass" };
+    // Splice in any session-local hires from the demo roster so the
+    // /team deck grows when the Hire wizard commits in bypass mode.
+    // When the roster is empty we return the bundled array verbatim
+    // (referential identity) so consumers holding `=== SAMPLE_TEAM`
+    // checks stay stable.
+    const hires = listDemoWorkers();
+    if (hires.length === 0) {
+      return { workers: SAMPLE_TEAM, source: "mock-bypass" };
+    }
+    return { workers: [...SAMPLE_TEAM, ...hires], source: "mock-bypass" };
   }
 
   try {
