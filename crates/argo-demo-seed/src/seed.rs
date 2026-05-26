@@ -15,6 +15,7 @@ use argo_types::{ArgoResult, TenantId};
 use chrono::Utc;
 use uuid::Uuid;
 
+use crate::marketplace::seed_demo_marketplace_skills;
 use crate::personas::DEMO_SEED_PERSONAS;
 use crate::plan::{SeedOptions, SeedReport};
 use crate::skills::{seed_demo_skills, seed_foreign_skill};
@@ -102,6 +103,8 @@ pub async fn run_canonical_v1_seed(
     report.workflows_created = seed_demo_workflow(store, opts.tenant_id, &opts.actor).await?;
     report.skills_created = seed_demo_skills(store, opts.tenant_id).await?;
     report.foreign_skills_created = seed_foreign_skill(store, foreign_tenant).await?;
+    report.marketplace_skills_created =
+        seed_demo_marketplace_skills(store, opts.tenant_id).await?;
 
     // ── Pass A — real LLM turns (deferred per fix-brief split) ────
     //
@@ -435,6 +438,11 @@ mod tests {
         assert_eq!(report.workflows_created, 1);
         assert_eq!(report.skills_created, 3);
         assert_eq!(report.foreign_skills_created, 1);
+        assert!(
+            report.marketplace_skills_created >= 6,
+            "marketplace catalog must seed >= 6 rows (got {})",
+            report.marketplace_skills_created
+        );
         assert_eq!(report.pass_a_audit_rows, 0);
         assert_eq!(report.pass_b_audit_rows, 25);
         assert_eq!(report.foreign_audit_rows, 1);

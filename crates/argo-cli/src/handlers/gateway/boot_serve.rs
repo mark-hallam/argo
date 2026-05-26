@@ -88,6 +88,7 @@ pub(super) async fn init_boot(
     phases.mark("store_open_migrate");
     if let Some(s) = store.as_ref() {
         super::hipaa_startup_check::emit_startup_check_best_effort(&cwd_for_store, s).await;
+        super::demo_seed_skills::seed_marketplace_if_demo_mode(s).await;
     }
     Ok(BootInit {
         cfg,

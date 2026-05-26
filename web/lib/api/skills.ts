@@ -62,6 +62,16 @@ interface SkillsEnvelope {
  */
 export const SEED_SKILLS: SkillRow[] = [
   {
+    id: "seed-pricing-competitor-scrape",
+    name: "pricing.competitor_scrape",
+    version: "0.1.0",
+    description:
+      "Scrape competitor product pricing across listed channels and emit a normalized comparison row with confidence + freshness flags.",
+    layer: "library",
+    provenance_source: "published:verified:argo-seed",
+    trust_grade: "published_verified",
+  },
+  {
     id: "seed-approval-route",
     name: "approval.route",
     version: "0.1.0",
@@ -136,6 +146,7 @@ export const SEED_SKILLS: SkillRow[] = [
 export const MOCK_LEARNED_SKILL_IDS = ["support.triage", "lead.enrich"];
 
 const SEED_AUTHOR_LABEL_BY_NAME: Record<string, string> = {
+  "pricing.competitor_scrape": "Authored by SKYCOT",
   "approval.route": "Authored by SKYCOT",
   "invoice.extract": "Authored by SKYCOT",
   "candidate.screen": "Authored by SKYCOT",

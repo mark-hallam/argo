@@ -69,6 +69,11 @@ pub struct SeedReport {
     /// Number of `skill_ir` rows inserted under the foreign tenant
     /// (Scene 6 invisibility check).
     pub foreign_skills_created: usize,
+    /// Number of marketplace catalog rows (`skill` table) inserted
+    /// under the demo tenant. The /skills SPA page reads this table
+    /// via `GET /api/v1/skills` — fix-skills-marketplace-perpetual-
+    /// loading requires ≥6 so the FEATURED panel paints real cards.
+    pub marketplace_skills_created: usize,
     /// Number of `audit_record` rows produced by Pass A real-LLM
     /// turns. Always `0` when [`SeedOptions::skip_pass_a_turns`]
     /// is true.

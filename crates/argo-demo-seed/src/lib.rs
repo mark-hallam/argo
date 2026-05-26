@@ -34,12 +34,14 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 
+pub mod marketplace;
 mod personas;
 mod plan;
 mod seed;
 mod skills;
 mod workflow;
 
+pub use marketplace::{demo_marketplace_catalog_size, seed_demo_marketplace_skills};
 pub use personas::{DemoPersona, DEMO_SEED_PERSONAS};
 pub use plan::{SeedOptions, SeedReport};
 pub use seed::{run_canonical_v1_seed, seed_workers};
