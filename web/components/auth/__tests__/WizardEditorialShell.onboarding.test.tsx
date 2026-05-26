@@ -59,7 +59,7 @@ describe("Onboarding adoption of WizardEditorialShell", () => {
       .toMatchInlineSnapshot(
         `"Audit-firstEvery action signed and replayable — SOC 2-ready audit trail."`,
       );
-    expect(screen.getByTestId("onboarding-pillar-single-binary")).toBeInTheDocument();
+    expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-pillar-enterprise-grade")).toBeInTheDocument();
     const progress = screen.getByRole("progressbar");
     expect(progress).toHaveAttribute("aria-valuenow", "1");
