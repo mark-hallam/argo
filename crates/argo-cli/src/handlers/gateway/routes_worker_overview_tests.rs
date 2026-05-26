@@ -48,6 +48,7 @@ fn set_test_env(tmp: &std::path::Path) {
     std::env::set_var("ARGO_HOME", tmp.join("home"));
     std::fs::create_dir_all(tmp.join("home")).expect("home dir");
     std::env::set_var("ARGO_VERTICALS_DIR", workspace_root().join("verticals"));
+    std::env::remove_var(super::super::demo_mode::DEMO_MODE_ENV);
 }
 
 struct Env {

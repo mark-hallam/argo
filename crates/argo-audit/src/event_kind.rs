@@ -88,6 +88,10 @@ pub enum AuditKind {
     SkillRegressionDetected,
     /// One inbound HTTP request to the gateway.
     HttpRequest,
+    /// Demo-mode worker overview override granted every worker UI
+    /// permission to a JWT-marked demo principal. Payload carries
+    /// `principal_id`, `worker_id`, and the granted permission names.
+    PermissionDemoOverrideGranted,
     /// Whole-process worker subprocess died and supervisor reacted.
     WorkerOomRestart,
     /// A worker action or turn was blocked because the worker is
