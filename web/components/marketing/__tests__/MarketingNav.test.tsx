@@ -25,6 +25,7 @@ describe("MarketingNav — desktop", () => {
       "How it works",
       "Features",
       "Compare",
+      "Roster",
       "Pricing",
       "Docs",
       "Changelog",

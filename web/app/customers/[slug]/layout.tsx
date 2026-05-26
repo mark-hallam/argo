@@ -25,6 +25,10 @@ export async function generateMetadata({ params }: LayoutParams): Promise<Metada
   return {
     title,
     description,
+    // SEED_CUSTOMERS are illustrative until real case studies replace them;
+    // block indexing of the per-customer detail pages until then. The
+    // `/customers` index logo gallery stays indexable (see web/app/robots.ts).
+    robots: { index: false, follow: false },
     alternates: {
       canonical: `/customers/${slug}`,
     },

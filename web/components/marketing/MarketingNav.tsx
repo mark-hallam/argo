@@ -35,6 +35,7 @@ const NAV_LINKS: MarketingNavLink[] = [
   { href: "/landing#how", label: "How it works" },
   { href: "/landing#features", label: "Features" },
   { href: "/compare", label: "Compare" },
+  { href: "/team", label: "Roster" },
   { href: "/pricing", label: "Pricing" },
   { href: "/docs", label: "Docs" },
   { href: "/changelog", label: "Changelog" },
