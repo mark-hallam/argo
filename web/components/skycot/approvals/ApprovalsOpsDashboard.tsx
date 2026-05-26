@@ -5,6 +5,7 @@ import { ApprovalRateRing } from "@/components/skycot/approvals/ApprovalRateRing
 import { ConfidenceDonut } from "@/components/skycot/approvals/ConfidenceDonut";
 import { DollarAtRisk } from "@/components/skycot/approvals/DollarAtRisk";
 import { KpiStrip, type KpiCell } from "@/components/skycot/approvals/KpiStrip";
+import { MetricStatCard } from "@/components/skycot/approvals/MetricStatCard";
 import { SeverityPill, type Severity } from "@/components/skycot/approvals/SeverityPill";
 import { SLABar } from "@/components/skycot/approvals/SLABar";
 import { sortBySeverityThenSla, type ApprovalItem } from "@/lib/sample-approvals";
@@ -172,6 +173,9 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
   const totalAtRisk = pending.reduce((sum, item) => sum + (item.dollarAtRisk ?? 0), 0);
   const avgConfidence = averageConfidence(pending);
   const riskyCount = pending.filter((item) => (item.dollarAtRisk ?? 0) > 0).length;
+  const atRiskSubtitle = `${riskyCount} pending approval${
+    riskyCount === 1 ? "" : "s"
+  } with monetary exposure in the current queue`;
 
   return (
     <div className="space-y-6" data-testid="approvals-ops-dashboard">
@@ -190,10 +194,10 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
         </div>
 
         <aside className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          <MetricDonutCard
+          <MetricStatCard
             title="$ at risk"
             value={totalAtRisk > 0 ? formatUsd(totalAtRisk) : "—"}
-            subtitle={`${riskyCount} pending with monetary exposure`}
+            subtitle={atRiskSubtitle}
             testId="at-risk-donut"
             tone="risk"
           />
@@ -350,52 +354,5 @@ function ApprovalRow({ item }: { item: ApprovalItem }) {
         )}
       </span>
     </button>
-  );
-}
-
-function MetricDonutCard({
-  title,
-  value,
-  subtitle,
-  testId,
-  tone,
-  percent,
-}: {
-  title: string;
-  value: string;
-  subtitle: string;
-  testId: string;
-  tone: "risk";
-  percent?: number;
-}) {
-  const color = tone === "risk" ? "var(--warning)" : "var(--primary)";
-  const pct = percent == null ? null : Math.max(0, Math.min(1, percent));
-  const fill = pct == null ? "var(--muted)" : color;
-  const stop = pct == null ? 0 : pct * 100;
-  return (
-    <article
-      className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-5"
-      data-testid={testId}
-      data-percent={pct == null ? "none" : pct.toFixed(3)}
-    >
-      <div className="flex items-center gap-4">
-        <span
-          aria-hidden
-          className="grid size-16 shrink-0 place-items-center rounded-full"
-          style={{
-            background: `conic-gradient(${fill} 0 ${stop}%, var(--muted) ${stop}% 100%)`,
-          }}
-        >
-          <span className="size-11 rounded-full bg-[var(--card)]" />
-        </span>
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--foreground)]">{title}</h2>
-          <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-[var(--foreground)]">
-            {value}
-          </div>
-          <p className="mt-1 text-xs text-[var(--muted-foreground)]">{subtitle}</p>
-        </div>
-      </div>
-    </article>
   );
 }
