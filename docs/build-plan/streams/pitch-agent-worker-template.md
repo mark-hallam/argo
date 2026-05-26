@@ -1,7 +1,7 @@
 # pitch-agent-worker-template
 
 **Owner**: claude.
-**Authored against**: origin/main `f500fc3da` on `2026-05-25`.
+**Authored against**: origin/main `fb7b07c5d` on `2026-05-26`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh pitch-agent-worker-template`.
 **Blocked by**: `pitch-truth-boundary-capability-schema` (P-01) MERGED + `pitch-voice-io-provider-agnostic-crate` (P-03) MERGED + `pitch-canonical-qa-skill` (P-04) MERGED.
 
@@ -229,6 +229,15 @@ priority = "cold"
 
 `canonical-qa` comes from P-04. `pitch-mode-switcher` and `slide-controller` are small new skills in this brief. If `objection-handler` or `follow-up-writer` is not present in the current library, mark it explicitly as a stub in the pack docs rather than silently pretending it exists.
 
+Add the new Rust skill modules to `crates/argo-skill/src/lib.rs` with:
+
+```rust
+pub mod pitch_mode_switcher;
+pub mod slide_controller;
+```
+
+Keep the module wiring as the only `lib.rs` edit; the skill implementations stay in their dedicated new module files.
+
 ### 7. Tool permissions
 
 ```toml
@@ -310,6 +319,7 @@ Do not redo the D3 magazine-tile layout. Reuse the existing component shells and
 - `web/lib/sample-cohorts.ts` (add the Pitch sample-cohort row)
 - `web/app/(app)/cohorts/page.tsx` (route-level glue only; do not redesign)
 - `crates/argo-vertical-packs/tests/pitch_agent_template_test.rs` (NEW — loads + validates the pack)
+- `crates/argo-skill/src/lib.rs` (module wiring only: `pub mod pitch_mode_switcher;` + `pub mod slide_controller;`)
 - `crates/argo-skill/src/pitch_mode_switcher.rs` (NEW — ≤80 LOC small skill)
 - `crates/argo-skill/src/slide_controller.rs` (NEW — ≤80 LOC, thin wrapper over computer-use)
 
