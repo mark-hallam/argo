@@ -84,4 +84,15 @@ describe("sample-workflows catalog", () => {
       expect(summary.name, `bad name: ${summary.name}`).toMatch(ok);
     }
   });
+
+  // Regression: the canonical demo 5-roster (Mariah / Peta / Priya / Jamal / Nori)
+  // must all appear as `lastEditor` somewhere. Workflow cards are visible behind
+  // the camera in the v1 demo; a missing persona contradicts cohort canon.
+  it("every canonical persona appears as lastEditor at least once", () => {
+    const canonical = ["Mariah", "Peta", "Priya", "Jamal", "Nori"];
+    const editors = new Set(SAMPLE_WORKFLOW_SUMMARIES.map((s) => s.lastEditor));
+    for (const persona of canonical) {
+      expect(editors.has(persona), `missing canonical persona: ${persona}`).toBe(true);
+    }
+  });
 });

@@ -135,6 +135,17 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEditor: "Nori",
     risk: "autonomous",
   },
+  {
+    name: "weekly_standup_digest",
+    vertical: "project-ops",
+    description:
+      "Pull last week's Linear + GitHub activity per teammate, draft a 5-bullet standup digest, post to Slack #standup.",
+    steps: 4,
+    versions: 2,
+    lastEdited: "2 days ago",
+    lastEditor: "Peta",
+    risk: "autonomous",
+  },
 ];
 
 export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
@@ -408,6 +419,44 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
         description:
           "Your teammate's browser opens Facebook Marketplace, fills the form, uploads photos, submits. Returns the public listing URL.",
         outputs: ["listing.url"],
+      },
+    ],
+  },
+  "project-ops/weekly_standup_digest": {
+    name: "weekly_standup_digest",
+    vertical: "project-ops",
+    description:
+      "Every Monday morning, pull last week's Linear + GitHub activity per teammate, draft a 5-bullet standup digest, and post to Slack #standup.",
+    version: "v2",
+    risk: "autonomous",
+    steps: [
+      {
+        id: "step-1",
+        kind: "trigger",
+        name: "Monday 8am cron",
+        description: "Fires Monday at 8am client-local-time.",
+      },
+      {
+        id: "step-2",
+        kind: "skill_invoke",
+        name: "Pull Linear + GitHub activity",
+        description:
+          "Skill `project.weekly_activity` collects last week's closed issues, merged PRs, and review counts per teammate.",
+        outputs: ["activity[]"],
+      },
+      {
+        id: "step-3",
+        kind: "skill_invoke",
+        name: "Draft 5-bullet digest",
+        description:
+          "Skill `standup.digest` writes 5 bullets covering shipped work, blockers, and what's next per teammate.",
+        outputs: ["digest"],
+      },
+      {
+        id: "step-4",
+        kind: "notify",
+        name: "Post to Slack #standup",
+        description: "Posts the digest as a threaded message in #standup; pins it for the day.",
       },
     ],
   },
