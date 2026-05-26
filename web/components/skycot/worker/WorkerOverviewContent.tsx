@@ -9,6 +9,10 @@ import {
   WhatSheDoesCardSkeleton,
 } from "@/components/skycot/worker/WhatSheDoesCard";
 import { DutiesCard, DutiesCardSkeleton } from "@/components/skycot/worker/DutiesCard";
+import {
+  ChannelStripCard,
+  ChannelStripCardSkeleton,
+} from "@/components/skycot/worker/ChannelStripCard";
 import { KpiCard, KpiCardSkeleton } from "@/components/skycot/worker/KpiCard";
 import {
   RecentActivityCard,
@@ -97,6 +101,7 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       >
         <WhatSheDoesCardSkeleton />
         <DutiesCardSkeleton />
+        <ChannelStripCardSkeleton />
         <KpiCardSkeleton />
         <RecentActivityCardSkeleton />
       </div>
@@ -151,6 +156,10 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         onToggle={onToggleDuty}
         onEditDuty={onEditDuty}
         onAddDuty={onAddDuty}
+      />
+      <ChannelStripCard
+        workerId={workerId}
+        workerName={workerQuery.data?.name}
       />
       <KpiCard kpis={overview.kpis} />
       <RecentActivityCard workerId={workerId} rows={overview.recentActivity} />

@@ -10,6 +10,7 @@
  */
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import type { ChannelKind } from "@/lib/sample-approvals";
 import { SAMPLE_AUDIT_ROWS } from "@/lib/sample-audit";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import {
@@ -236,6 +237,44 @@ function buildQueryString(filters: AuditFilters): string {
   if (filters.status) params.set("status", filters.status);
   if (filters.cursor) params.set("cursor", filters.cursor);
   return params.toString();
+}
+
+/** A per-channel aggregate over a set of audit rows. Powers the
+ *  `<ChannelStripCard>` Claim-6 proof surface — "Mariah pinged your
+ *  Slack 4 times and your Email 2 times in the last 7 days." Rows
+ *  without a `channel` field (older pre-#1956-style rows) fold into
+ *  the `web` bucket so the demo doesn't dead-zero on legacy seed data. */
+export interface ChannelAggregate {
+  channel: ChannelKind;
+  count: number;
+  /** ISO timestamp of the most recent row on this channel. */
+  lastSeen: string;
+}
+
+/** Aggregate rows by `channel`, sorted by count desc then lastSeen desc.
+ *  Rows missing `channel` count toward `web` (the SPA's own inbox). */
+export function aggregateByChannel(rows: AuditRow[]): ChannelAggregate[] {
+  const byChannel = new Map<ChannelKind, { count: number; lastSeen: number }>();
+  for (const row of rows) {
+    const channel: ChannelKind = row.channel ?? "web";
+    const t = Date.parse(row.timestamp);
+    if (Number.isNaN(t)) continue;
+    const existing = byChannel.get(channel);
+    if (existing) {
+      existing.count += 1;
+      if (t > existing.lastSeen) existing.lastSeen = t;
+    } else {
+      byChannel.set(channel, { count: 1, lastSeen: t });
+    }
+  }
+  return Array.from(byChannel, ([channel, agg]) => ({
+    channel,
+    count: agg.count,
+    lastSeen: new Date(agg.lastSeen).toISOString(),
+  })).sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return Date.parse(b.lastSeen) - Date.parse(a.lastSeen);
+  });
 }
 
 /** Group audit rows into day buckets in chronological-descending
