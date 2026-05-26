@@ -185,6 +185,33 @@ if [[ ${DEMO_MODE} -eq 1 ]]; then
   echo ">> demo-mode: mint-principal probe GREEN"
 fi
 
+# --- 2d. Genesis endpoint not 503 (cost-guardrail satisfied).
+#
+# Closes fix-genesis-orphan-discoverability-and-provider-key-503: the
+# investor-recording demo can't proceed if POST /api/v1/genesis fails
+# closed because no provider key is exported. The endpoint accepts
+# ARGO_GENESIS_PROVIDER_KEY OR ANTHROPIC_API_KEY OR OPENAI_API_KEY; this
+# probe sends a deliberately-empty body and asserts the response is NOT
+# the 503 `genesis_provider_key_missing` envelope. A 400 (`bad_request`,
+# role_description missing) is the expected GREEN signal — it proves
+# the env-gate let us through.
+echo ">> probing POST ${GATEWAY}/api/v1/genesis env-gate"
+GENESIS_RESP="$(curl -sS -X POST \
+  -H 'content-type: application/json' \
+  -d '{}' \
+  "${GATEWAY}/api/v1/genesis" 2>&1)" || true
+if printf '%s' "${GENESIS_RESP}" | grep -q 'genesis_provider_key_missing'; then
+  {
+    echo "FAIL: POST ${GATEWAY}/api/v1/genesis returned the 503 cost-guardrail."
+    echo "      Export ARGO_GENESIS_PROVIDER_KEY, ANTHROPIC_API_KEY, or"
+    echo "      OPENAI_API_KEY before scripts/restart-live-gateway.sh."
+    echo "      Response was:"
+    echo "      ${GENESIS_RESP}"
+  } >&2
+  exit 1
+fi
+echo ">> Genesis env-gate satisfied (no genesis_provider_key_missing in response)"
+
 # --- 3. Playwright scene walker.
 SPEC="${WEB_DIR}/dry-run.mjs"
 cp "${FIXTURES}/dry-run.mjs" "${SPEC}"

@@ -42,6 +42,28 @@ impl EnvGuard {
         }
         Self { keys, _guard: guard }
     }
+
+    // Combine `set` + `unset` under a single mutex window so a test
+    // can both force-set one key and force-unset another in one
+    // atomic update — needed by alias-coverage tests that prove the
+    // alias alone satisfies the gate (PROVIDER_KEY_ENV must be off
+    // while ANTHROPIC_API_KEY is on).
+    fn set_and_unset(
+        set_entries: &[(&'static str, &str)],
+        unset_entries: &[&'static str],
+    ) -> Self {
+        let guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+        let mut keys = Vec::with_capacity(set_entries.len() + unset_entries.len());
+        for (k, v) in set_entries {
+            keys.push((*k, std::env::var(k).ok()));
+            std::env::set_var(k, v);
+        }
+        for k in unset_entries {
+            keys.push((*k, std::env::var(k).ok()));
+            std::env::remove_var(k);
+        }
+        Self { keys, _guard: guard }
+    }
 }
 
 impl Drop for EnvGuard {
@@ -97,7 +119,13 @@ async fn drive_handler(req: String, store: Arc<SessionStore>) -> String {
 
 #[tokio::test]
 async fn fails_closed_without_provider_key() {
-    let _env = EnvGuard::unset(&[PROVIDER_KEY_ENV]);
+    // Unset the canonical key AND every alias the gateway accepts as a
+    // satisfier — `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` may be set in
+    // the operator's parent env (env.local auto-sourced) and would
+    // mask the fail-closed contract otherwise.
+    let mut to_unset = vec![PROVIDER_KEY_ENV];
+    to_unset.extend(PROVIDER_KEY_ALIASES.iter().copied());
+    let _env = EnvGuard::unset(&to_unset);
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a customer success lead who triages tier-1 tickets",
@@ -110,6 +138,35 @@ async fn fails_closed_without_provider_key() {
         "expected 503 fail-closed; got: {raw}"
     );
     assert!(raw.contains("genesis_provider_key_missing"));
+}
+
+#[tokio::test]
+async fn anthropic_alias_satisfies_provider_key_gate() {
+    // Closes fix-genesis-orphan-discoverability-and-provider-key-503:
+    // the operator's existing `ANTHROPIC_API_KEY` (the same key the
+    // LLM driver bills against) is an accepted satisfier for the
+    // cost-guardrail gate — removing the dev-box 503 without
+    // weakening the no-silent-fallback intent.
+    let tmp = TempDir::new().unwrap();
+    let _env = EnvGuard::set_and_unset(
+        &[
+            ("ANTHROPIC_API_KEY", "sk-ant-stub-key-for-alias-test"),
+            ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
+        ],
+        &[PROVIDER_KEY_ENV],
+    );
+    let store = mem_store().await;
+    let body = serde_json::json!({
+        "role_description": "I need a customer success lead who triages tier-1 tickets and handles refunds",
+    })
+    .to_string();
+    let req = build_request(&body, Some("tenant-alias"));
+    let raw = drive_handler(req, store).await;
+    assert!(
+        raw.starts_with("HTTP/1.1 200 OK"),
+        "expected 200 with anthropic alias satisfying gate; got: {raw}"
+    );
+    assert!(!raw.contains("genesis_provider_key_missing"));
 }
 
 #[tokio::test]

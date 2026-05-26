@@ -10,10 +10,17 @@
 //!
 //! ## Cost guardrail
 //!
-//! `ARGO_GENESIS_PROVIDER_KEY` must be set. The v1 keyword pipeline
-//! never calls a provider, but the gate exists so the LLM rollout
+//! `ARGO_GENESIS_PROVIDER_KEY` must be set, OR the operator's
+//! `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` must be present (the same
+//! keys the LLM driver bills against). The v1 keyword pipeline never
+//! calls a provider, but the gate exists so the LLM rollout
 //! (`mission-demo-seed-real-llm-driver`) cannot silently fall back to
-//! canned responses if the key is missing.
+//! canned responses if no provider credential is present. Treating the
+//! Anthropic / OpenAI key as a satisfier removes the orphan
+//! demo-recording blocker (`fix-genesis-orphan-discoverability-and-
+//! provider-key-503`) without weakening the no-silent-fallback intent
+//! — the operator still has to explicitly export *some* provider key
+//! before the gateway boots.
 //!
 //! ## Tenant scoping
 //!
@@ -38,6 +45,10 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 pub const PROVIDER_KEY_ENV: &str = "ARGO_GENESIS_PROVIDER_KEY";
+// Provider-key aliases that also satisfy the cost guardrail. Order
+// matters only for the diagnostic message; presence in any of them is
+// enough.
+const PROVIDER_KEY_ALIASES: &[&str] = &["ANTHROPIC_API_KEY", "OPENAI_API_KEY"];
 const MIN_ROLE_LEN: usize = 15;
 
 #[derive(Debug, Deserialize)]
@@ -71,12 +82,13 @@ pub(super) async fn serve_genesis_stream(
     // Env-var gate first — fail closed before opening the stream so
     // the caller sees a clean 503 instead of half-finished SSE.
     if !provider_key_present() {
+        let aliases = PROVIDER_KEY_ALIASES.join(" or ");
         return write_one_shot_error(
             out,
             "503 Service Unavailable",
             "genesis_provider_key_missing",
             &format!(
-                "Set {PROVIDER_KEY_ENV} to enable POST /api/v1/genesis (LLM-driver cost guardrail)"
+                "Set {PROVIDER_KEY_ENV} (or {aliases}) to enable POST /api/v1/genesis (LLM-driver cost guardrail)"
             ),
         )
         .await;
@@ -225,9 +237,12 @@ pub(super) async fn serve_genesis_stream(
 }
 
 fn provider_key_present() -> bool {
-    std::env::var(PROVIDER_KEY_ENV)
-        .map(|v| !v.trim().is_empty())
-        .unwrap_or(false)
+    let non_empty = |key: &str| {
+        std::env::var(key)
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+    };
+    non_empty(PROVIDER_KEY_ENV) || PROVIDER_KEY_ALIASES.iter().any(|k| non_empty(k))
 }
 
 fn body_from_request(req: &str) -> &str {

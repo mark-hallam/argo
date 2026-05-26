@@ -40,7 +40,20 @@ export default function OnboardingWelcomePage() {
               Every action signed and replayable &mdash; SOC 2-ready audit trail.
             </p>
           </li>
-          <li className="ob-pillar" data-testid="onboarding-pillar-genesis-studio">
+          <li
+            className="ob-pillar"
+            data-testid="onboarding-pillar-genesis-studio"
+            role="link"
+            tabIndex={0}
+            style={{ cursor: "pointer" }}
+            onClick={() => router.push("/genesis")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                router.push("/genesis");
+              }
+            }}
+          >
             <p className="ob-pillar-label">Onboard them like a human</p>
             <p className="ob-pillar-body">
               Describe the role in voice or text. Upload SOPs, wiki pages, and Slack
