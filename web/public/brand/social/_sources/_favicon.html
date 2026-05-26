@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SKYCOT favicon — 512×512 master (downscaled to 16/32/48/180/192)</title>
+<!--
+  Favicon master. 512×512. Simplified for legibility at tiny sizes:
+    - Rounded-square shape filled with violet→pink gradient (iOS-app-icon style)
+    - Bold white "S" in Audiowide centred
+    - No ambient blob, no thin ring (those vanish below 64px)
+  High contrast survives 16×16 downscale via sips.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+<style>
+  :root { --violet: #8B5CF6; --pink: #EC4899; --cyan: #0891B2; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100vw; height: 100vh; overflow: hidden; background: transparent; }
+  body { position: relative; overflow: hidden; }
+  .tile {
+    width: 100%; height: 100%;
+    border-radius: 18.75vw; /* matches iOS icon corner radius proportion */
+    background: linear-gradient(135deg, var(--violet) 0%, var(--pink) 60%, var(--cyan) 110%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 -8vw 16vw rgba(11, 11, 35, 0.20);
+  }
+  .letter {
+    font-family: 'Audiowide', system-ui;
+    font-size: 74vw;
+    line-height: 1;
+    color: #FAFAF7;
+    transform: translateY(-1.5vw);
+  }
+</style>
+</head>
+<body>
+  <div class="tile"><div class="letter">S</div></div>
+</body>
+</html>

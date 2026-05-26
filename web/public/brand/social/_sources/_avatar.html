@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SKYCOT avatar — responsive square (avatar C design)</title>
+<!--
+  Responsive avatar template. Uses vw units so Chrome --window-size=NxN
+  renders identical composition at any square size (200, 320, 400, 800, 1024).
+  Design: avatar C — cool paper, thin conic-gradient ring, ink S in Audiowide.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1e1b4b; --paper: #FAFAF7; --violet: #8B5CF6; --cyan: #0891B2; --pink: #EC4899; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100vw; height: 100vh; overflow: hidden; }
+  body {
+    background: var(--paper);
+    position: relative;
+    overflow: hidden;
+    border-radius: 50%;
+  }
+  .ambient {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.12) 0%, transparent 55%),
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.10) 0%, transparent 55%);
+    filter: blur(5vw);
+  }
+  .ring {
+    position: absolute;
+    width: 78vw; height: 78vw;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: conic-gradient(from 200deg, var(--violet), var(--pink) 45%, var(--cyan) 90%, var(--violet) 100%);
+    -webkit-mask: radial-gradient(circle, transparent calc(50% - 0.6vw), #000 calc(50% - 0.3vw), #000 calc(50% + 0.3vw), transparent calc(50% + 0.6vw));
+            mask: radial-gradient(circle, transparent calc(50% - 0.6vw), #000 calc(50% - 0.3vw), #000 calc(50% + 0.3vw), transparent calc(50% + 0.6vw));
+    opacity: 0.85;
+  }
+  .stage {
+    position: relative;
+    width: 100%; height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+  .letter {
+    font-family: 'Audiowide', system-ui;
+    font-size: 42vw;
+    line-height: 1;
+    color: var(--ink);
+    transform: translateY(-1.5vw);
+  }
+</style>
+</head>
+<body>
+  <div class="ambient"></div>
+  <div class="ring"></div>
+  <div class="stage">
+    <div class="letter">S</div>
+  </div>
+</body>
+</html>

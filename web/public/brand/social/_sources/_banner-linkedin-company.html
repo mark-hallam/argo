@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SKYCOT LinkedIn company cover — 1128×191</title>
+<!--
+  LinkedIn company page cover. 1128×191 (~5.9:1). Very wide + very short.
+  Wordmark smaller; cover overlay puts logo at left so wordmark sits right.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1e1b4b; --paper: #FAFAF7; --violet: #8B5CF6; --cyan: #0891B2; --pink: #EC4899; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1128px; height: 191px; overflow: hidden; }
+  body { width: 1128px; height: 191px; background: var(--paper); position: relative; overflow: hidden; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; }
+  .blob-violet   { width: 400px; height: 400px; top: -160px; left: -120px; background: radial-gradient(circle, var(--violet) 0%, transparent 65%); opacity: 0.55; }
+  .blob-pink     { width: 380px; height: 380px; top: -40px;  right: -100px; background: radial-gradient(circle, var(--pink)   0%, transparent 65%); opacity: 0.45; }
+  .blob-cyan     { width: 300px; height: 300px; bottom: -140px; left: 38%;  background: radial-gradient(circle, var(--cyan)   0%, transparent 65%); opacity: 0.32; }
+  .blob-violet-2 { width: 240px; height: 240px; bottom: -100px; right: 18%; background: radial-gradient(circle, var(--violet) 0%, transparent 65%); opacity: 0.28; }
+  .stage { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 2; padding-left: 220px; /* leave room for company-logo overlay */ }
+  .wordmark { font-family: 'Audiowide', system-ui; font-size: 78px; line-height: 1; letter-spacing: -0.005em; background: linear-gradient(135deg, var(--violet) 0%, var(--pink) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 1px 0 rgba(30, 27, 75, 0.04); }
+</style>
+</head>
+<body>
+  <div class="blob blob-violet"></div>
+  <div class="blob blob-pink"></div>
+  <div class="blob blob-cyan"></div>
+  <div class="blob blob-violet-2"></div>
+  <div class="stage"><div class="wordmark">SKYCOT</div></div>
+</body>
+</html>
