@@ -4,8 +4,8 @@
  * (404 in dev, or the companion brief
  * `mission-gateway-worker-activity-endpoint` hasn't landed yet).
  *
- * Each entry is enterprise-shaped per the E4-a sample workers
- * (Mariah/Priya/Sam/Jamal/Nori) — verbs read like real audit lines
+ * Each entry is enterprise-shaped per the 5 canonical demo workers
+ * (Mariah/Peta/Priya/Jamal/Nori) — verbs read like real audit lines
  * rather than placeholder lorem. Verbs match the worker's
  * canonical role in `sample-personas.ts` so the activity tab
  * agrees with /team and /audit. Time-stamps anchor to a stable
@@ -100,28 +100,28 @@ const PRIYA: Seed[] = [
   },
 ];
 
-const SAM: Seed[] = [
+const PETA: Seed[] = [
   {
-    verb: "triaged alert 'api-latency-p99' against runbook",
+    verb: "drafted standup digest for the engineering pod",
     actionType: "message_sent",
     status: "succeeded",
     agoMs: 22 * MINUTE,
     costUsd: 0.006,
   },
   {
-    verb: "suppressed flapping alert 'cache-evict-rate'",
+    verb: "consolidated 4 duplicate action items in Linear",
     actionType: "refusal_issued",
     status: "refused",
     agoMs: 1 * HOUR + 15 * MINUTE,
   },
   {
-    verb: "queued runbook restart (edge-cdn) for SRE approval",
+    verb: "queued sprint-14 reshuffle for PM approval",
     actionType: "approval_asked",
     status: "pending",
     agoMs: 3 * HOUR,
   },
   {
-    verb: "failed to fetch Grafana dashboard — falling back to logs",
+    verb: "failed to fetch Linear dashboard — falling back to issue list",
     actionType: "message_sent",
     status: "failed",
     agoMs: 1 * DAY + 2 * HOUR,
@@ -200,7 +200,7 @@ function build(workerId: string, seeds: Seed[]): WorkerActivity[] {
 
 export const SAMPLE_WORKER_ACTIVITY: Record<string, WorkerActivity[]> = {
   "018f67d0-0000-7000-8000-000000000002": build("018f67d0-0000-7000-8000-000000000002", PRIYA),
-  "018f67d0-0000-7000-8000-000000000005": build("018f67d0-0000-7000-8000-000000000005", SAM),
+  "018f67d0-0000-7000-8000-000000000007": build("018f67d0-0000-7000-8000-000000000007", PETA),
   "018f67d0-0000-7000-8000-000000000001": build("018f67d0-0000-7000-8000-000000000001", MARIAH),
   "018f67d0-0000-7000-8000-000000000003": build("018f67d0-0000-7000-8000-000000000003", JAMAL),
   "018f67d0-0000-7000-8000-000000000004": build("018f67d0-0000-7000-8000-000000000004", NORI),

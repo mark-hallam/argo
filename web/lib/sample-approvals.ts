@@ -144,13 +144,13 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z2",
-    worker: { name: "Sam" },
-    verb: "wants to escalate to engineering",
+    worker: { name: "Peta" },
+    verb: "wants to escalate the release-blocker thread",
     detail:
-      "Three customers reported the same API timeout in the last hour (us-east-1). I've gathered logs + reproduction steps.",
-    consequenceIfYes: "PagerDuty incident opened, on-call engineer paged.",
+      "Three customers reported the same API timeout in the last hour (us-east-1). I've gathered logs + reproduction steps and paged the on-call thread.",
+    consequenceIfYes: "release-blocker incident opened, on-call engineer paged via PagerDuty.",
     consequenceIfNo: "I'll keep monitoring and re-escalate if it hits a fourth customer.",
-    reason: "On-call pages require approval outside business hours.",
+    reason: "Cross-team pages outside business hours require your approval.",
     channel: "sms",
     receivedAt: new Date(now - 5 * hour).toISOString(),
     severity: "p0",

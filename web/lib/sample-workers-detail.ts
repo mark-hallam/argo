@@ -90,33 +90,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
   {
-    id: "018f67d0-0000-7000-8000-000000000005",
-    name: "Sam",
-    role: { tagline: "watches the on-call queue", vertical: "ops" },
-    status: "blocked",
-    department: { id: "operations", name: "Operations" },
-    team: { id: "reliability", name: "Reliability" },
-    kpiToday: { label: "incidents triaged", value: "0" },
-    permissions: DEFAULT_DELEGATOR_PERMISSIONS,
-    headline: {
-      bullets: ["needs PagerDuty re-link"],
-    },
-    lastActiveAt: new Date(now - 5 * hour).toISOString(),
-  },
-  {
-    id: "018f67d0-0000-7000-8000-000000000006",
-    name: "Rio",
-    role: { tagline: "books showings for the listing agent", vertical: "real-estate" },
-    status: "paused",
-    // Intentionally NO department / team / kpiToday / permissions —
-    // exercises the "missing-fields" fallback in WorkerHero.
-    headline: {
-      bullets: ["paused by you on May 7"],
-    },
-    lastActiveAt: new Date(now - 22 * hour).toISOString(),
-  },
-  {
-    id: "wkr_01J0PETA",
+    id: "018f67d0-0000-7000-8000-000000000007",
     name: "Peta",
     role: {
       tagline: "keeps the cadence — standups, action items, status",

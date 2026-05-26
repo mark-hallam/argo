@@ -100,7 +100,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     steps: 7,
     versions: 4,
     lastEdited: "3 days ago",
-    lastEditor: "Rio",
+    lastEditor: "Mariah",
     risk: "approval-required",
   },
   {
@@ -121,7 +121,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     steps: 3,
     versions: 2,
     lastEdited: "1 hour ago",
-    lastEditor: "Rio",
+    lastEditor: "Jamal",
     risk: "autonomous",
   },
   {
@@ -132,7 +132,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     steps: 3,
     versions: 1,
     lastEdited: "20 minutes ago",
-    lastEditor: "Sam",
+    lastEditor: "Nori",
     risk: "autonomous",
   },
 ];

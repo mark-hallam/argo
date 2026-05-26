@@ -23,7 +23,7 @@ export const SAMPLE_COHORT_SUMMARIES: CohortSummary[] = [
     trust_grade_band: "trusted",
     trust_grade_min: 7,
     trust_grade_max: 10,
-    member_count: 5,
+    member_count: 3,
     skill_count: 7,
   },
   {
@@ -293,7 +293,7 @@ const PROJECT_COORDINATOR_ACTIVITY: CohortActivityRow[] = [
     seq: 4082,
     kind: "summary.drafted",
     action_type: "draft_summary",
-    worker_id: "wkr_01J0PETA",
+    worker_id: "018f67d0-0000-7000-8000-000000000007",
     principal_id: "human:ops-lead",
     channel: "slack",
     outcome_status: "pending_approval",
@@ -347,7 +347,7 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
   trust_grade_band: "trusted",
   trust_grade_min: 7,
   trust_grade_max: 10,
-  member_count: 5,
+  member_count: 3,
   skill_count: 7,
   members: [
     {
@@ -374,19 +374,9 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
       ],
     },
     {
-      worker_id: "018f67d0-0000-7000-8000-000000000006",
-      trust_grade: 7,
-      skill_ids: ["triage_intent", "summarize_thread", "escalate_to_human", "refund_lookup"],
-    },
-    {
       worker_id: "018f67d0-0000-7000-8000-000000000004",
       trust_grade: 7,
       skill_ids: ["triage_intent", "summarize_thread", "tag_followup"],
-    },
-    {
-      worker_id: "018f67d0-0000-7000-8000-000000000005",
-      trust_grade: 7,
-      skill_ids: ["triage_intent", "escalate_to_human"],
     },
   ],
   skills: SUPPORT_TRUSTED_SKILLS,
@@ -422,7 +412,7 @@ export const SAMPLE_PROJECT_COORDINATOR_COHORT_DETAIL: CohortDetail = {
   skill_count: 4,
   members: [
     {
-      worker_id: "wkr_01J0PETA",
+      worker_id: "018f67d0-0000-7000-8000-000000000007",
       trust_grade: 2,
       skill_ids: ["linear_read", "github_read", "slack_dm", "action_item_extract"],
     },

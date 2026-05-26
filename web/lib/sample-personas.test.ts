@@ -10,16 +10,11 @@ import { SAMPLE_WORKER_ACTIVITY } from "./sample-worker-activity";
 import { findSampleWorkerOverview } from "./sample-worker-overview";
 
 /**
- * Wave-4 data-integrity guard. The three workers that previously
- * split (Sam = ops on /team but AP Specialist in /audit; Mariah =
- * marketplace on /team but Vendor Manager in /audit; Nori =
- * marketing on /team but RevOps in /audit) must now agree.
- *
- * The shared spine is `sample-personas.ts`; every other sample file
- * reads from it. These tests assert that the spine flows through to
- * /team and /workers/<id>/* surfaces and that the audit-row verbs
- * read as the worker's canonical role rather than the old split
- * persona.
+ * Wave-4 data-integrity guard plus Scene-1 roster canon. The five
+ * canonical demo workers (Mariah, Peta, Priya, Jamal, Nori) must
+ * agree across /team, /audit, /workers/<id>/* surfaces; the
+ * spine is `sample-personas.ts` and every other sample file reads
+ * from it.
  */
 
 const ROLE_KEYWORDS: Record<string, string[]> = {
@@ -27,12 +22,11 @@ const ROLE_KEYWORDS: Record<string, string[]> = {
   "018f67d0-0000-7000-8000-000000000001": ["listing", "buyer", "re-price", "inventory"],
   "018f67d0-0000-7000-8000-000000000003": ["ticket", "refund", "KB", "support"],
   "018f67d0-0000-7000-8000-000000000004": ["draft", "brand", "newsletter", "post", "voice"],
-  "018f67d0-0000-7000-8000-000000000005": ["alert", "runbook", "incident", "on-call"],
-  "018f67d0-0000-7000-8000-000000000006": ["showing", "agent", "buyer", "listing"],
+  "018f67d0-0000-7000-8000-000000000007": ["standup", "action item", "sprint", "status"],
 };
 
 const FORBIDDEN_OLD_VERBS: Record<string, string[]> = {
-  "018f67d0-0000-7000-8000-000000000005": ["invoice", "INV-2024", "reconciliation"],
+  "018f67d0-0000-7000-8000-000000000007": ["invoice", "INV-2024", "reconciliation"],
   "018f67d0-0000-7000-8000-000000000001": ["RFP", "vendor quote", "renewal review"],
   "018f67d0-0000-7000-8000-000000000004": ["pricing rules", "salesforce", "deal-stage", "commission"],
 };
@@ -97,7 +91,7 @@ describe("sample-personas as the canonical persona spine", () => {
     }
   });
 
-  it("audit verbs no longer carry the split-persona vocabulary (Sam/Mariah/Nori)", () => {
+  it("audit verbs no longer carry the split-persona vocabulary (legacy roles)", () => {
     for (const [id, forbidden] of Object.entries(FORBIDDEN_OLD_VERBS)) {
       const rows = SAMPLE_AUDIT_ROWS.filter((r) => r.worker.id === id);
       const verbsBlob = rows.map((r) => r.verb).join(" ").toLowerCase();

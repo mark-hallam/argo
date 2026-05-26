@@ -14,8 +14,7 @@
  *
  * Persona names + role taglines come from `sample-personas.ts` so
  * the worker shown here matches /team and /audit. Each entry pairs
- * with a `Worker` row by id; one inert entry (Rio) exercises the
- * paused-worker render path with reduced activity.
+ * with a `Worker` row by id.
  */
 
 import { SAMPLE_PERSONAS } from "@/lib/sample-personas";
@@ -149,50 +148,27 @@ const NORI: WorkerOverview = {
   ],
 };
 
-const SAM: WorkerOverview = {
+const PETA: WorkerOverview = {
   charter:
-    "Sam helps the Reliability team keep the on-call queue moving. He triages alerts against the runbook, opens incidents when thresholds breach, and pages the secondary on-call engineer when the primary doesn't ack within 5 minutes.",
+    "Peta helps the Project Management team keep cadence — running standup digests, chasing open action items, and drafting Friday status reports. She raises blockers in real-time and asks the PM before reshuffling anyone's calendar.",
   duties: [
-    duty("d-triage", "Triage incoming alerts against runbook", "as alerts arrive"),
-    duty("d-incident", "Open incident when threshold breached", "as detected"),
-    duty("d-page", "Page secondary on-call after 5m no-ack", "as detected"),
-    duty("d-postmortem", "Draft post-incident timeline from logs", "post-resolution", false),
+    duty("d-standup", "Draft morning standup digest", "weekdays 09:00"),
+    duty("d-chase", "Chase open action items", "every 2h business hours"),
+    duty("d-status", "Draft weekly status report", "Fridays 16:00"),
+    duty("d-escalate", "Escalate stalled tasks to PM", "as detected"),
   ],
   kpis: [
-    kpi("k-triaged", "alerts triaged today", "0", [12, 8, 4, 2, 1, 0, 0], -100),
-    kpi("k-incidents", "incidents opened this week", "0", [2, 1, 1, 0, 0, 0, 0], -100),
-    kpi("k-mttr", "median time-to-ack", "—", [6, 5, 4, 4, 3, 0, 0], 0),
-    kpi("k-noise", "noisy-alert rate", "—", [12, 10, 8, 5, 3, 0, 0], 0),
+    kpi("k-actions", "action items chased today", "3", [2, 3, 4, 3, 4, 3, 3], 0),
+    kpi("k-standups", "standup digests this week", "5", [1, 1, 1, 1, 1, 0, 0], 0),
+    kpi("k-resolve", "median chase → resolve", "1h 12m", [180, 140, 100, 80, 75, 72, 72], -22),
+    kpi("k-blockers", "open blockers", "2", [4, 3, 3, 2, 2, 2, 2], -50),
   ],
   recentActivity: [
-    activity("ap_sam_1", 300, "PagerDuty integration disconnected — needs re-link", "blocked"),
-    activity("ap_sam_2", 1440, "triaged alert 'api-latency-p99' — no action", "auto-sent"),
-    activity("ap_sam_3", 2880, "opened incident #INC-0421 for 'edge-cdn-5xx'", "approved by Marta"),
-    activity("ap_sam_4", 4320, "paged secondary after 5m no-ack on INC-0420", "auto-sent"),
-    activity("ap_sam_5", 5760, "drafted timeline for INC-0418", "approved by Marta"),
-  ],
-};
-
-const RIO: WorkerOverview = {
-  charter:
-    "Rio helps the listing agent keep showings booked. He proposes time-slots from agent calendar availability and confirms with prospective buyers — currently paused while we tighten the 'who confirms first' rules.",
-  duties: [
-    duty("d-propose", "Propose showing slots from agent availability", "as buyer requests arrive", false),
-    duty("d-confirm", "Confirm with buyer once agent approves slot", "on agent approval", false),
-    duty("d-reminder", "Send buyer reminder 2h before showing", "scheduled", false),
-  ],
-  kpis: [
-    kpi("k-booked", "showings booked this week", "—", [3, 2, 2, 1, 0, 0, 0], 0),
-    kpi("k-pending", "pending buyer responses", "—", [4, 4, 3, 3, 2, 0, 0], 0),
-    kpi("k-decline", "agent declines this week", "—", [0, 1, 0, 1, 0, 0, 0], 0),
-    kpi("k-cycle", "request → confirm median", "—", [120, 110, 90, 80, 60, 0, 0], 0),
-  ],
-  recentActivity: [
-    activity("ap_rio_1", 22 * 60, "paused by you", "manual"),
-    activity("ap_rio_2", 26 * 60, "confirmed showing for 1428 Oak St", "approved by listing agent"),
-    activity("ap_rio_3", 28 * 60, "proposed 3 slots to buyer #2244", "auto-sent"),
-    activity("ap_rio_4", 30 * 60, "agent declined Tuesday slot — proposed Thursday", "auto-sent"),
-    activity("ap_rio_5", 32 * 60, "sent reminder for 11am showing today", "auto-sent"),
+    activity("ap_peta_1", 6, "drafted standup digest for engineering pod", "auto-sent"),
+    activity("ap_peta_2", 92, "chased action item PROJ-2284 — owner replied", "auto-sent"),
+    activity("ap_peta_3", 180, "escalated stalled task PROJ-721 to PM", "approved by Mark"),
+    activity("ap_peta_4", 1440, "rolled up weekly status (3 wins / 2 risks)", "auto-sent"),
+    activity("ap_peta_5", 2880, "asked PM about priority shift for sprint 14", "awaiting reply"),
   ],
 };
 
@@ -201,8 +177,7 @@ const OVERVIEWS_BY_ID: Record<string, WorkerOverview> = {
   "018f67d0-0000-7000-8000-000000000001": MARIAH,
   "018f67d0-0000-7000-8000-000000000003": JAMAL,
   "018f67d0-0000-7000-8000-000000000004": NORI,
-  "018f67d0-0000-7000-8000-000000000005": SAM,
-  "018f67d0-0000-7000-8000-000000000006": RIO,
+  "018f67d0-0000-7000-8000-000000000007": PETA,
 };
 
 export function findSampleWorkerOverview(id: string): WorkerOverview | undefined {

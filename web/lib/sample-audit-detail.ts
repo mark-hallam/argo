@@ -2,8 +2,8 @@
  * Enterprise-flavored sample audit-detail payloads used when the
  * gateway endpoint `GET /api/v1/audit/<actionId>` is unavailable
  * (404 in dev) or auth is bypassed. Five canonical hand-shaped
- * entries cover the personas the brief calls out (Priya, Sam,
- * Mariah, Jamal, Nori); every other action id known to the feed
+ * entries cover the canonical demo roster (Priya, Peta, Mariah,
+ * Jamal, Nori); every other action id known to the feed
  * synthesises a "good-enough" detail from the underlying `AuditRow`
  * so click-through from the audit feed never hits a 404 in dev.
  *
@@ -15,7 +15,7 @@ import type { AuditDetail, DecisionStep } from "@/lib/types/audit-detail";
 import type { AuditRow } from "@/lib/types/audit";
 
 const PRIYA = { id: "018f67d0-0000-7000-8000-000000000002", name: "Priya" };
-const SAM = { id: "018f67d0-0000-7000-8000-000000000005", name: "Sam" };
+const PETA = { id: "018f67d0-0000-7000-8000-000000000007", name: "Peta" };
 const MARIAH = { id: "018f67d0-0000-7000-8000-000000000001", name: "Mariah" };
 const JAMAL = { id: "018f67d0-0000-7000-8000-000000000003", name: "Jamal" };
 const NORI = { id: "018f67d0-0000-7000-8000-000000000004", name: "Nori" };
@@ -81,41 +81,41 @@ const PRIYA_001: AuditDetail = {
   },
 };
 
-const SAM_001: AuditDetail = {
-  id: "act_01J0SAM_001",
+const PETA_001: AuditDetail = {
+  id: "act_01J0PETA_001",
   timestamp: isoMinutesAgo(6),
-  worker: SAM,
-  actionType: "invoice_processed",
-  verb: "extracted INV-2024-08741 line items",
+  worker: PETA,
+  actionType: "budget_shift_queued",
+  verb: "queued sprint-14 contractor-hours budget shift for CFO approval",
   status: "succeeded",
   cost: { usd: 0.012 },
   dataClassification: "confidential",
   inputs: {
     triggerKind: "message",
-    triggerSummary: "PDF invoice INV-2024-08741 received via accounts@skycot.com.",
+    triggerSummary: "Sprint-14 reshuffle requires +$14,250 in contractor hours to hit the release date.",
   },
   decisionChain: [
-    { n: 1, title: "Memory loaded", body: "vendor catalog · PO map (cached) [hash 7e2f…]" },
-    { n: 2, title: "Skill: invoice-parse v3 (trust 96%)", body: "OCR confidence 0.98 across all pages." },
-    { n: 3, title: "Plan generated", body: "Extract 14 line items · match to PO #PO-2024-1132." },
-    { n: 4, title: "Plan selected by score", body: "Top plan 0.96; no viable alternates." },
-    { n: 5, title: "Policy: ap-payment-policy v1.4 → ASK (over $10k → CFO)", body: "Amount $14,250 above CFO threshold." },
+    { n: 1, title: "Memory loaded", body: "project plan · contractor day-rate sheet (cached) [hash 7e2f…]" },
+    { n: 2, title: "Skill: project-coord-plan v3 (trust 96%)", body: "Reshuffle confidence 0.94 across affected workstreams." },
+    { n: 3, title: "Plan generated", body: "Reallocate 95 hours · 4 contractors · 2 sprints." },
+    { n: 4, title: "Plan selected by score", body: "Top plan 0.96; alternate (delay) 0.41." },
+    { n: 5, title: "Policy: budget-shift-policy v1.4 → ASK (over $10k → CFO)", body: "Amount $14,250 above CFO threshold." },
     { n: 6, title: "Approval queued", body: "Sent to Jenna via Slack (CFO).", details: { channel: "slack", approver: "Jenna" } },
-    { n: 7, title: "Execution", body: "Posted extraction · awaiting CFO sign-off for release." },
-    { n: 8, title: "Outcome", body: "Extracted, queued for approval." },
+    { n: 7, title: "Execution", body: "Posted plan · awaiting CFO sign-off for release." },
+    { n: 8, title: "Outcome", body: "Drafted, queued for approval." },
   ],
   provenance: {
     model: { id: "claude-opus-4-7", version: "2026-04-30" },
-    promptTemplate: { id: "ap.invoice-parse", hash: "1a2b3c4d5e6f7a8b" },
-    skill: { id: "invoice-parse", version: "3.1.0" },
+    promptTemplate: { id: "pmo.budget-shift", hash: "1a2b3c4d5e6f7a8b" },
+    skill: { id: "project-coord-plan", version: "3.1.0" },
     memorySnapshot: { id: "mem_7e2f88aa" },
-    policy: { id: "ap-payment-policy", version: "1.4", hash: "9b8a7c6d5e4f3a2b" },
+    policy: { id: "budget-shift-policy", version: "1.4", hash: "9b8a7c6d5e4f3a2b" },
   },
   output: {
     kind: "json",
-    body: { invoiceId: "INV-2024-08741", lineItems: 14, totalUsd: 14250, poMatch: "PO-2024-1132" },
-    delivery: { sentAt: isoMinutesAgo(6), downstreamId: "netsuite_iv_8741" },
-    followUp: { id: "act_01J0SAM_002", verb: "queued $14,250 for CFO approval (INV-2024-08741)" },
+    body: { projectId: "PROJ-14-Q3", shiftUsd: 14250, hoursReallocated: 95, contractors: 4 },
+    delivery: { sentAt: isoMinutesAgo(6), downstreamId: "linear_proj_14_q3" },
+    followUp: { id: "act_01J0PETA_002", verb: "queued $14,250 sprint-14 budget shift for CFO approval" },
   },
 };
 
@@ -232,7 +232,7 @@ const NORI_001: AuditDetail = {
 
 export const SAMPLE_AUDIT_DETAILS: AuditDetail[] = [
   PRIYA_001,
-  SAM_001,
+  PETA_001,
   MARIAH_001,
   JAMAL_001,
   NORI_001,

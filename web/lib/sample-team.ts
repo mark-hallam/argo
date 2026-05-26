@@ -53,13 +53,10 @@ const RUNTIME_OVERLAY: Record<string, RuntimeOverlay> = {
     status: "idle",
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
-  "018f67d0-0000-7000-8000-000000000005": {
-    status: "blocked",
-    lastActiveAt: new Date(now - 5 * hour).toISOString(),
-  },
-  "018f67d0-0000-7000-8000-000000000006": {
-    status: "paused",
-    lastActiveAt: new Date(now - 22 * hour).toISOString(),
+  "018f67d0-0000-7000-8000-000000000007": {
+    status: "waiting",
+    lastActiveAt: new Date(now - 6 * minute).toISOString(),
+    pendingApprovalCount: 2,
   },
 };
 

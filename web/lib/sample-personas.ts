@@ -136,55 +136,21 @@ const PETA: SamplePersona = {
   traits: ["Cadence-true", "Follow-through", "Calm escalator", "Context keeper"],
 };
 
-const SAM: SamplePersona = {
-  id: "018f67d0-0000-7000-8000-000000000005",
-  name: "Sam",
-  initials: "SA",
-  role: {
-    tagline: "watches the on-call queue",
-    vertical: "ops",
-    title: "On-call Triager",
-    team: "Reliability",
-  },
-  headline: {
-    bullets: ["needs PagerDuty re-link"],
-  },
-  traits: ["Vigilant", "Runbook-true", "Methodical", "Page-when-it-matters"],
-};
-
-const RIO: SamplePersona = {
-  id: "018f67d0-0000-7000-8000-000000000006",
-  name: "Rio",
-  initials: "RI",
-  role: {
-    tagline: "books showings for the listing agent",
-    vertical: "real-estate",
-    title: "Showings Coordinator",
-    team: "Listings",
-  },
-  headline: {
-    bullets: ["paused by you on May 7"],
-  },
-  traits: ["Helpful", "Calendar-aware", "Patient", "Considerate"],
-};
-
 export const SAMPLE_PERSONAS: Record<string, SamplePersona> = {
   [PRIYA.id]: PRIYA,
   [MARIAH.id]: MARIAH,
   [JAMAL.id]: JAMAL,
   [NORI.id]: NORI,
-  [SAM.id]: SAM,
-  [RIO.id]: RIO,
+  [PETA.id]: PETA,
 };
 
-/** Canonical ID list — keep in /team display order. */
+/** Canonical roster — Scene-1 demo lockup. Keep in /team display order. */
 export const SAMPLE_PERSONA_IDS: readonly string[] = [
   MARIAH.id,
+  PETA.id,
   PRIYA.id,
   JAMAL.id,
   NORI.id,
-  SAM.id,
-  RIO.id,
 ];
 
 function toDemoSeedPersona(persona: SamplePersona): DemoSeedPersona {

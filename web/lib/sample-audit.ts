@@ -1,8 +1,8 @@
 /**
  * Enterprise-flavored sample audit rows used when the gateway
  * endpoint `GET /api/v1/audit` is unavailable (404 in dev) or auth
- * is bypassed. Spreads across the 6 E4-a workers (Priya, Sam,
- * Mariah, Jamal, Nori, Rio); 50+ rows total so cursor pagination
+ * is bypassed. Spreads across the 5 canonical demo workers (Mariah,
+ * Peta, Priya, Jamal, Nori); 50+ rows total so cursor pagination
  * exercises ≥2 pages at the locked 50-row PAGE_SIZE.
  *
  * Tuple-shaped seeds keep this file well under the 350-LOC ceiling
@@ -31,11 +31,10 @@ const D = 24 * H;
 
 const WORKSPACE = { id: "sys_workspace", name: "Workspace" };
 const PRIYA = personaRef("018f67d0-0000-7000-8000-000000000002");
-const SAM = personaRef("018f67d0-0000-7000-8000-000000000005");
+const PETA = personaRef("018f67d0-0000-7000-8000-000000000007");
 const MARIAH = personaRef("018f67d0-0000-7000-8000-000000000001");
 const JAMAL = personaRef("018f67d0-0000-7000-8000-000000000003");
 const NORI = personaRef("018f67d0-0000-7000-8000-000000000004");
-const RIO = personaRef("018f67d0-0000-7000-8000-000000000006");
 
 const OPERATOR = { id: "usr_op_mark", name: "Mark" };
 const SRE_LEAD = { id: "usr_sre_neha", name: "Neha" };
@@ -65,15 +64,15 @@ const SEEDS: Seed[] = [
   [PRIYA, "sourced 5 new candidates from referral channel", "candidate_sourced", "succeeded", 2 * D + 1 * H],
   [PRIYA, "failed to parse PDF resume — falling back to OCR", "parse_failure", "failed", 4 * D + 2 * H],
 
-  // Sam — On-call Triager (Reliability)
-  [SAM, "triaged alert 'api-latency-p99' against runbook", "alert_triaged", "succeeded", 6 * M, { cost: 0.012, cls: "internal" }],
-  [SAM, "suppressed flapping alert 'cache-evict-rate'", "alert_suppressed", "refused", 38 * M, { cls: "internal" }],
-  [SAM, "queued runbook restart (edge-cdn) for SRE approval", "action_approval_asked", "pending", 1 * H + 32 * M, { approver: SRE_LEAD, channel: "slack", cls: "internal" }],
-  [SAM, "opened incident INC-0421 for 'edge-cdn-5xx'", "incident_opened", "autonomous", 3 * H + 4 * M],
-  [SAM, "paged secondary on-call after 5m no-ack on INC-0420", "paged_secondary", "succeeded", 6 * H + 18 * M, { approver: SRE_LEAD, channel: "slack" }],
-  [SAM, "failed to fetch Grafana dashboard — falling back to logs", "api_failure", "failed", 1 * D + 7 * H],
-  [SAM, "matched 12 alerts to runbook entries", "alert_matched", "autonomous", 2 * D + 3 * H],
-  [SAM, "refused to silence alert without runbook entry", "policy_refusal", "refused", 5 * D + 10 * H, { cls: "restricted" }],
+  // Peta — Project Coordinator (Project Management)
+  [PETA, "drafted standup digest for the engineering pod", "standup_drafted", "succeeded", 6 * M, { cost: 0.012, cls: "internal" }],
+  [PETA, "consolidated 4 duplicate action items in Linear", "items_consolidated", "succeeded", 38 * M, { cls: "internal" }],
+  [PETA, "queued sprint-14 reshuffle for PM approval", "action_approval_asked", "pending", 1 * H + 32 * M, { approver: SRE_LEAD, channel: "slack", cls: "internal" }],
+  [PETA, "opened action item PROJ-0421 for 'release-blocked'", "action_item_opened", "autonomous", 3 * H + 4 * M],
+  [PETA, "pinged secondary PM after 5m no-ack on PROJ-0420", "second_owner_pinged", "succeeded", 6 * H + 18 * M, { approver: SRE_LEAD, channel: "slack" }],
+  [PETA, "failed to fetch Linear dashboard — falling back to issue list", "api_failure", "failed", 1 * D + 7 * H],
+  [PETA, "matched 12 inbound asks to existing action items", "action_item_matched", "autonomous", 2 * D + 3 * H],
+  [PETA, "refused to reschedule standup without owner consent", "policy_refusal", "refused", 5 * D + 10 * H, { cls: "restricted" }],
 
   // Mariah — Marketplace Lister (Procurement)
   [MARIAH, "drafted listing copy for 'Eames lounge chair'", "listing_drafted", "succeeded", 14 * M, { cost: 0.021, cls: "internal" }],
@@ -103,12 +102,11 @@ const SEEDS: Seed[] = [
   [NORI, "failed to fetch reach numbers — analytics 503", "api_failure", "failed", 2 * D + 4 * H],
   [NORI, "escalated brand-voice ambiguity to brand lead", "escalation", "succeeded", 6 * D + 1 * H, { channel: "slack", approver: BRAND_LEAD }],
 
-  // Rio — Real Estate (paused, sparse)
-  [RIO, "booked showing for 412 Oak St with buyer Tomás Pereira", "showing_booked", "succeeded", 22 * H, { channel: "sms" }],
-  [RIO, "drafted listing summary for 119 Cedar Ave", "listing_drafted", "succeeded", 1 * D + 5 * H, { cost: 0.015, approver: OPERATOR }],
-  [RIO, "paused by operator (see worker profile)", "worker_paused", "succeeded", 5 * D + 2 * H, { approver: OPERATOR }],
-  [RIO, "wrote buyer-prefs memory for the Pereira family", "memory_written", "autonomous", 6 * D + 8 * H],
-  [RIO, "refused to disclose seller's reservation price", "policy_refusal", "refused", 8 * D, { cls: "restricted" }],
+  // Mariah — extra marketplace rows (buyer-prefs + price discipline)
+  [MARIAH, "booked viewing for buyer Tomás Pereira on 'Eames lounge chair'", "viewing_booked", "succeeded", 22 * H, { channel: "sms" }],
+  [MARIAH, "drafted listing summary for 'Knoll credenza' addition", "listing_drafted", "succeeded", 1 * D + 5 * H, { cost: 0.015, approver: OPERATOR }],
+  [MARIAH, "wrote buyer-prefs memory for the Pereira family", "memory_written", "autonomous", 6 * D + 8 * H],
+  [MARIAH, "refused to disclose seller's reservation price on 'Saarinen tulip'", "policy_refusal", "refused", 8 * D, { cls: "restricted" }],
 
   // API-key lifecycle — workspace-level events from /settings/api-keys
   [WORKSPACE, "API key created: 'CI pipeline'", "api_key_created", "succeeded", 14 * D, { approver: OPERATOR, cls: "internal" }],
@@ -117,7 +115,7 @@ const SEEDS: Seed[] = [
 
   // Older log entries — push beyond 7 days to exercise pagination
   [PRIYA, "closed JD-2024-07 with hire (Sara Lin → backup pool)", "role_closed", "succeeded", 10 * D + 4 * H],
-  [SAM, "monthly on-call digest exported to Drive", "report_exported", "autonomous", 12 * D],
+  [PETA, "weekly status digest exported to Drive", "report_exported", "autonomous", 12 * D],
   [MARIAH, "closed listing cycle 2024-Q2 with 3 sell-throughs", "listing_closed", "succeeded", 14 * D + 2 * H],
   [JAMAL, "resolved 47 tickets in weekly batch (success rate 96%)", "batch_resolved", "autonomous", 16 * D],
   [NORI, "Q1 reach + engagement report finalized + sent to brand lead", "report_exported", "succeeded", 38 * D, { approver: BRAND_LEAD }],
@@ -126,7 +124,7 @@ const SEEDS: Seed[] = [
   // Cohort-scope events — surfaces /settings/members access changes
   // and runtime denials in the standard audit feed.
   [PRIYA, "Access changed: cohort scope set to [Sales · Established] for Diego Alvarez", "access_changed", "succeeded", 35 * M, { approver: OPERATOR, cls: "confidential" }],
-  [SAM, "Cohort-scope-denied: Diego Alvarez tried to access Sam (On-call Triager)", "cohort_scope_denied", "refused", 1 * H + 50 * M, { cls: "internal" }],
+  [PETA, "Cohort-scope-denied: Diego Alvarez tried to access Peta (Project Coordinator)", "cohort_scope_denied", "refused", 1 * H + 50 * M, { cls: "internal" }],
   [JAMAL, "Access changed: cohort scope set to [Support · Trusted, Support · Developing] for Theo Park", "access_changed", "succeeded", 1 * D + 3 * H, { approver: OPERATOR, cls: "confidential" }],
 ];
 
