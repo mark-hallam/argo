@@ -306,6 +306,25 @@ pub(super) fn server_error(message: &str) -> (&'static str, String) {
     error_envelope("500 Internal Server Error", "internal_error", message)
 }
 
+pub(super) fn provider_validation_unconfigured() -> (&'static str, String) {
+    error_envelope(
+        "503 Service Unavailable",
+        "provider_validation_unconfigured",
+        "Provider validation isn't configured in this workspace. You can skip this step - your workers will run with the built-in mock provider until you add a real key later in Settings.",
+    )
+}
+
+pub(super) fn provider_key_storage_error() -> (&'static str, String) {
+    server_error("Provider key could not be stored. Try again later.")
+}
+
+pub(super) fn is_workspace_root_key_error(err: &ArgoError) -> bool {
+    let message = err.to_string();
+    message.contains("no workspace root key")
+        || message.contains("SKYCOT_WORKSPACE_ROOT_KEY_BASE64")
+        || message.contains("ARGO_CREDENTIALS_MASTER_KEY")
+}
+
 fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
     (
         status,

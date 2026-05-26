@@ -17,10 +17,10 @@
 //! 4. Emit an audit row for the accepted onboarding mutation.
 //!
 //! Provider keys are wrapped with `argo-credentials::age_wrap` before
-//! storage. When no `MasterKey` is configured (dev / fresh-checkout
-//! flow), the handler falls back to a process-ephemeral key —
-//! encryption itself stays mandatory so the row never lands as
-//! plaintext.
+//! storage. When no workspace root key is configured (dev /
+//! fresh-checkout flow), the handler returns a friendly 503 and lets
+//! the operator continue with the mock provider rather than leaking
+//! key-source details in a raw 500.
 //!
 //! Install-vertical reads the on-disk vertical manifest, counts skill
 //! and workflow files under the loaded directory, and records the row.
@@ -36,9 +36,10 @@ use super::routes_onboarding_genesis::{
 };
 use super::routes_onboarding_helpers::{
     bad_request, count_skill_files, count_workflow_files, emit_audit, infer_provider,
-    load_vertical, map_workspace_error, mask_key, micros_to_usd, name_from_description, not_found,
-    principal_email, resolve_workspace, server_error, unauthorized, validate_key_shape,
-    wrap_secret, HUMAN_PRINCIPAL_PREFIX,
+    is_workspace_root_key_error, load_vertical, map_workspace_error, mask_key, micros_to_usd,
+    name_from_description, not_found, principal_email, provider_key_storage_error,
+    provider_validation_unconfigured, resolve_workspace, server_error, unauthorized,
+    validate_key_shape, wrap_secret, HUMAN_PRINCIPAL_PREFIX,
 };
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
@@ -95,7 +96,16 @@ pub(super) async fn provider_key_response(
     let masked = mask_key(&api_key);
     let ciphertext = match wrap_secret(&api_key, tenant) {
         Ok(c) => c,
-        Err(e) => return server_error(&format!("wrap key: {e}")),
+        Err(e) if is_workspace_root_key_error(&e) => return provider_validation_unconfigured(),
+        Err(e) => {
+            tracing::warn!(
+                target: "gateway::onboarding",
+                error = %e,
+                tenant = %tenant,
+                "provider key wrap failed"
+            );
+            return provider_key_storage_error();
+        }
     };
     if let Err(e) = ensure_workspace_keys_schema(store.pool()).await {
         return server_error(&format!("ensure workspace_keys schema: {e}"));

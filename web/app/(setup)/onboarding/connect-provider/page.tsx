@@ -3,11 +3,79 @@
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { ApiError } from "@/lib/api/client";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProviderKey } from "@/lib/onboarding/use-provider-key";
 import { OnboardingShell } from "../_OnboardingShell";
 
 const ANTHROPIC_CONSOLE_URL = "https://console.anthropic.com/settings/keys";
+
+type ProviderError = {
+  message: string;
+  tone: "error" | "note";
+  preferSkip?: boolean;
+};
+
+function errorCodeFromEnvelope(value: unknown): string | undefined {
+  if (!value || typeof value !== "object" || !("error" in value)) {
+    return undefined;
+  }
+  const envelope = value as { error?: { code?: unknown } };
+  return typeof envelope.error?.code === "string" ? envelope.error.code : undefined;
+}
+
+function errorCodeFromBody(body: unknown): string | undefined {
+  if (typeof body === "string") {
+    try {
+      return errorCodeFromEnvelope(JSON.parse(body) as unknown);
+    } catch {
+      return undefined;
+    }
+  }
+  return errorCodeFromEnvelope(body);
+}
+
+function providerErrorFor(err: unknown): ProviderError {
+  const code = err instanceof ApiError ? err.code ?? errorCodeFromBody(err.body) : undefined;
+  if (code === "provider_validation_unconfigured") {
+    return {
+      message:
+        "We couldn't validate your key right now. You can continue and use the mock provider until validation is available.",
+      tone: "note",
+      preferSkip: true,
+    };
+  }
+  if (
+    code === "anthropic_rejected_key" ||
+    (err instanceof ApiError && err.message === "Anthropic rejected the key")
+  ) {
+    return {
+      message: "Anthropic rejected that key. Double-check that you copied the whole value.",
+      tone: "error",
+    };
+  }
+  if (
+    code === "bad_request" ||
+    code === "invalid_key_shape" ||
+    (err instanceof ApiError && err.status === 400)
+  ) {
+    return {
+      message: "Your key doesn't look right. Anthropic keys start with sk-ant-.",
+      tone: "error",
+    };
+  }
+  return {
+    message: "Something went wrong. You can skip this step and add a key later.",
+    tone: "error",
+    preferSkip: true,
+  };
+}
+
+function logProviderValidationError(err: unknown) {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("Provider key validation failed", err);
+  }
+}
 
 export default function OnboardingConnectProviderPage() {
   const router = useRouter();
@@ -15,7 +83,7 @@ export default function OnboardingConnectProviderPage() {
   const setProvider = useOnboardingDraft((s) => s.setProvider);
   const validate = useProviderKey();
   const [apiKey, setApiKey] = useState("");
-  const [error, setError] = useState("");
+  const [providerError, setProviderError] = useState<ProviderError | null>(null);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
@@ -24,11 +92,14 @@ export default function OnboardingConnectProviderPage() {
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError("");
+    setProviderError(null);
     setSuccess(false);
     const key = apiKey.trim();
     if (!key.startsWith("sk-ant-")) {
-      setError("Anthropic API keys start with sk-ant-.");
+      setProviderError({
+        message: "Anthropic API keys start with sk-ant-.",
+        tone: "error",
+      });
       return;
     }
     try {
@@ -37,8 +108,9 @@ export default function OnboardingConnectProviderPage() {
       setSuccess(true);
       setApiKey("");
       router.push("/onboarding/pick-vertical");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Validation failed. Please try again.");
+    } catch (err) {
+      logProviderValidationError(err);
+      setProviderError(providerErrorFor(err));
     }
   }
 
@@ -99,10 +171,13 @@ export default function OnboardingConnectProviderPage() {
               </a>
             </p>
           </label>
-          {error ? (
-            <p className="ob-form-error" data-testid="onboarding-provider-error">
+          {providerError ? (
+            <p
+              className={providerError.tone === "note" ? "ob-form-note" : "ob-form-error"}
+              data-testid="onboarding-provider-error"
+            >
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>{error}</span>
+              <span>{providerError.message}</span>
             </p>
           ) : null}
           {success ? (
@@ -134,7 +209,7 @@ export default function OnboardingConnectProviderPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className="ob-cta-ghost"
+                className={providerError?.preferSkip ? "ob-cta" : "ob-cta-ghost"}
                 onClick={onSkip}
                 data-testid="onboarding-provider-skip"
               >
@@ -142,7 +217,7 @@ export default function OnboardingConnectProviderPage() {
               </button>
               <button
                 type="submit"
-                className="ob-cta"
+                className={providerError?.preferSkip ? "ob-cta-ghost" : "ob-cta"}
                 disabled={!canSubmit}
                 aria-busy={submitting || undefined}
                 data-testid="onboarding-provider-submit"
