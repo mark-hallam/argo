@@ -99,7 +99,7 @@ memory namespaces. One worker is re-summoned by name post-restart.
 2. Operator stops the gateway in the off-screen terminal.
 3. Operator restarts the gateway. Browser auto-refreshes.
 4. Same five workers reappear — same names, same avatars, same
-   memory counts in the badge corners.
+   trait chips, same level badges (Mariah at LEVEL 5).
 5. Click Mariah's card. `/workers/${workerId}` shows her overview
    tab with personality chips, great-at / escalate-when bullets,
    and KPIs.
@@ -135,11 +135,14 @@ exactly one `WorkerDutyFired` audit row inside the 60-second SLA,
 all within a transactional commit.
 
 **Visual / operator action**:
-1. From Mariah's overview, click into her **Duties** tab. Three
-   duties listed: `morning_kickoff` (cron `0 9 * * MON-FRI`),
-   `listing_health_check` (every 6 h), `weekly_summary` (Fridays
-   17:00).
-2. Operator clicks "Run now" on `morning_kickoff`.
+1. From Mariah's overview, the **Responsibilities** card lists
+   four duties: `List new inventory with photos + tags` (as items
+   arrive), `Re-price stale listings against competitor data`
+   (daily 06:30), `Respond to buyer questions on active listings`
+   (as messages arrive), `Flag items dropping below floor price`
+   (daily 06:30).
+2. Operator clicks "Run now" on `Re-price stale listings against
+   competitor data`.
 3. The activity feed streams in real time: turn start → runner
    invocation → `WorkerDutyFired` audit row.
 4. Cut to `/audit`. Filter by `kind = worker_duty.fired`. The row
@@ -148,11 +151,13 @@ all within a transactional commit.
 
 **Talk track**:
 > "Delegation is the unit. Mariah doesn't have a list of jobs —
-> she has duties. Three of them. Every morning at 9, every six
-> hours, every Friday at 5. I delegate the responsibility once;
-> the platform owns the cron from then on."
+> she has responsibilities. Four of them: list new inventory as it
+> arrives, re-price stale listings every morning at 6:30, respond
+> to buyer questions, flag anything dropping below floor. I
+> delegate the responsibility once; the platform owns the cron
+> from then on."
 >
-> "Watch — I fire her morning kickoff manually so you can see the
+> "Watch — I fire her re-pricing duty manually so you can see the
 > SLA. Inside 60 seconds the audit chain has the proof row."
 
 **Pass cue**: One `worker_duty.fired` row appears in `/audit`
