@@ -1,9 +1,9 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-26T11:20:00Z",
+  "last_run_utc": "2026-05-26T11:25:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "operator-directed-tick-T10-05-r84-batch-drain-action",
-  "run_notes": "Tick T10-05 (Melbourne 2026-05-26 21:05→21:20 AEST), operator-typed 'Read the genesis report in full, take time to address every single findings'. Discovered the evaluator actually deployed my batch-drain prompt — R84 ran a 10-PR batch and produced `docs/skycot/evals/scheduled/2026-05-26/round-84-batch-pre-merge-drain.md` covering 8 PRs (the other 2 #2400 + #2401 covered in sibling round-84 reports, both already merged in T09-45). **Verdicts**: 7 PASS + 1 PASS-WITH-CAVEAT (#2376 flaky test, prod code 1-line correct) + 1 DEFER (#2363 conflicts with #2400) + 0 FAIL. **Actions taken — every finding addressed**: (1) **MERGED all 9 PASSed PRs in evaluator-recommended order**: #2402 audit-404-disambiguation, #2353 audit-feed-self-hash, #2345 delegation-chain-card, #2268 slack-cross-tenant-rejected-audit, #2343 provider-key-friendly-error, #2376 onboarding-provision-created-flag, #2362 vertical-skill-count, #2359 gateway-cors-loopback-origins, #2397 demo-seed-decided-approvals. 9/9 SUCCESS, zero failures. (2) **CLOSED #2363** as superseded-by-#2400 per evaluator DEFER recommendation; branch preserved on origin if intent resurfaces. (3) **AUTHORED 2 P3 follow-up briefs**: `ops-test-integration-listener-timeout-pattern-fix` (~40 LOC sweep, closes the PR #2376 flake class permanently) + `fix-pr-2353-rebase-and-recover` (~3 min belt-and-suspenders post-merge audit of truth-boundary file preservation). Both ledgered as T10-05 R84-FOLLOWUP BATCH. (4) **Ledger flips 10/10** (9 PASSed + 1 extra from #2268's variant-count overlap) via python regex IN_REVIEW/CLAIMED → MERGED. **Combined session result so far**: 48 → 15 open PRs (69% reduction in one evening session).",
+  "session_label": "operator-directed-tick-T11-25-light-maintenance",
+  "run_notes": "Tick T11-25 (Melbourne 2026-05-26 21:25→21:25 AEST), operator-typed 'Run the tick' (mid-T10-05 finish). **State at start**: 15 open PRs post the massive evening session (48 → 15, 69% reduction). 0 unread handoffs; gateway FRESH v83=v83; 4/4 findings within budget; 0 drift rows; 26-round 🟢 streak. **Triage of remaining 15**: 3 CLEAN (#2392 web+runbook-doc mixed — strict auth excludes; #2387 + #2338 ops-* need evaluator pre-verify per locked rule); 12 cascade-DIRTY from the R84 batch-drain wave (predictable — 9 merges in argo-cli/argo-audit touched too many adjacent files). **No merges this tick**: strict adherence to operator-locked authorizations. **Options for next push**: (a) personally rebase the 12 cascade-DIRTY (~60-80 min, same playbook as morning's 5-PR wave + T09-30 push-more); (b) ask operator to expand auth slightly to include web+runbook-doc mixed (#2392 alone); (c) wait for evaluator R85+ to pre-verify the ops-* + web+doc-mixed. **No actions taken this light tick** — session has been very productive (Track P P-08 final, Scene 3 Genesis P0, R84 batch-drain 9 PRs, 16 web-only batch wave). Operator decision needed on whether to push further this evening or call it.",
   "open_prs": 15,
   "queue_state": {
     "claude_todo": 0,
@@ -12,9 +12,9 @@
     "claude_claimed": 1,
     "codex_claimed": 1,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 4,
-    "codex_in_review": 4,
+    "claude_in_review": 3,
+    "codex_in_review": 8,
     "claude_or_codex_in_review": 1
   },
-  "the_gate": "🌙 OVERNIGHT WINDOW STILL ACTIVE until 2026-05-26T22:00Z AEST (~40 min remaining). **Combined session: 48 → 15 open PRs (69% reduction).** Composition of remaining 15: 7 cascade-DIRTY web-only (rebase needed); ~7 Rust-mixed (some IN_REVIEW awaiting next eval round); 1 demoted (#2294). Round 84 batch-drain successfully cleared the Rust-mixed queue. Track P P-08 + Scene 3 Genesis P0 + 9 R84-PASSed PRs all landed this tick window. 26-round 🟢 streak holding. Auths active: web-only any-size + vitest permanent; `--skip-clippy` for evaluator-pre-verified fix-*/ops-*/eval-* (locked); overnight blanket for mission-genesis-*/pitch-*/fix-pr-22*-rebase* (expires shortly)."
+  "the_gate": "🌙 OVERNIGHT WINDOW EXPIRES at 2026-05-26T22:00Z AEST (~30 min remaining). **Session standing: 48 → 15 open PRs (69% reduction).** No further merges this light tick. 3 CLEAN candidates need evaluator pre-verify (or one needs auth widening). 12 cascade-DIRTY await rebase decision. Operator may choose to: (a) authorize personal-rebase of 12 cascade-DIRTY, (b) widen auth to web+runbook-doc-mixed, (c) end the session — all valid given the day's progress (Track P P-08, Scene 3 Genesis, R84 batch-drain all landed)."
 }
