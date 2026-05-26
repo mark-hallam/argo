@@ -1,4 +1,6 @@
 import { ReactFlowProvider } from "@xyflow/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ComponentProps } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -14,6 +16,7 @@ import {
   type SubWorkflowRef,
   type WorkflowStep,
 } from "@/app/(app)/workflows/[verticalId]/[name]/build/types";
+import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
 
 const sampleRef: SubWorkflowRef = {
   verticalId: "gtm-engineer",
@@ -40,6 +43,35 @@ function renderNode(step: WorkflowStep) {
         deletable
       />
     </ReactFlowProvider>,
+  );
+}
+
+function renderPicker(
+  props: Omit<ComponentProps<typeof SubWorkflowPicker>, "onPick" | "onClose"> & {
+    onPick?: (ref: SubWorkflowRef) => void;
+    onClose?: () => void;
+  },
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        staleTime: Infinity,
+      },
+    },
+  });
+  queryClient.setQueryData(["workflows"], {
+    workflows: SAMPLE_WORKFLOW_SUMMARIES,
+    source: "mock-offline",
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SubWorkflowPicker
+        {...props}
+        onPick={props.onPick ?? (() => {})}
+        onClose={props.onClose ?? (() => {})}
+      />
+    </QueryClientProvider>,
   );
 }
 
@@ -105,44 +137,36 @@ describe("SubWorkflowNode", () => {
 
 describe("SubWorkflowPicker", () => {
   it("excludes the current workflow from the candidate list", () => {
-    render(
-      <SubWorkflowPicker
-        currentVerticalId="gtm-engineer"
-        currentName="post_listing"
-        onPick={() => {}}
-        onClose={() => {}}
-      />,
-    );
+    renderPicker({
+      currentVerticalId: "gtm-engineer",
+      currentName: "post_listing",
+    });
 
     expect(screen.getByTestId("sub-workflow-picker")).toBeInTheDocument();
     expect(
       screen.queryByTestId("sub-workflow-picker-option-gtm-engineer-post_listing"),
     ).not.toBeInTheDocument();
-    // The other seed workflows are present.
+    // The other catalog fallback workflows are present.
     expect(
       screen.getByTestId("sub-workflow-picker-option-sales-qualify_lead"),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId("sub-workflow-picker-option-support-qa_audit"),
+      screen.getByTestId("sub-workflow-picker-option-support-approve_refund"),
     ).toBeInTheDocument();
   });
 
   it("filters candidates by the search input", async () => {
     const user = userEvent.setup();
-    render(
-      <SubWorkflowPicker
-        currentVerticalId="other"
-        currentName="none"
-        onPick={() => {}}
-        onClose={() => {}}
-      />,
-    );
+    renderPicker({
+      currentVerticalId: "other",
+      currentName: "none",
+    });
 
     const search = screen.getByTestId("sub-workflow-picker-search");
-    await user.type(search, "qa_audit");
+    await user.type(search, "approve_refund");
 
     expect(
-      screen.getByTestId("sub-workflow-picker-option-support-qa_audit"),
+      screen.getByTestId("sub-workflow-picker-option-support-approve_refund"),
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId("sub-workflow-picker-option-sales-qualify_lead"),
@@ -152,14 +176,11 @@ describe("SubWorkflowPicker", () => {
   it("calls onPick with the chosen workflow ref when a candidate is clicked", async () => {
     const user = userEvent.setup();
     const onPick = vi.fn();
-    render(
-      <SubWorkflowPicker
-        currentVerticalId="other"
-        currentName="none"
-        onPick={onPick}
-        onClose={() => {}}
-      />,
-    );
+    renderPicker({
+      currentVerticalId: "other",
+      currentName: "none",
+      onPick,
+    });
 
     await user.click(
       screen.getByTestId("sub-workflow-picker-option-sales-qualify_lead"),
@@ -174,14 +195,10 @@ describe("SubWorkflowPicker", () => {
 
   it("renders an empty-state when the search matches nothing", async () => {
     const user = userEvent.setup();
-    render(
-      <SubWorkflowPicker
-        currentVerticalId="other"
-        currentName="none"
-        onPick={() => {}}
-        onClose={() => {}}
-      />,
-    );
+    renderPicker({
+      currentVerticalId: "other",
+      currentName: "none",
+    });
 
     const search = screen.getByTestId("sub-workflow-picker-search");
     await user.type(search, "zzzzz-no-match");

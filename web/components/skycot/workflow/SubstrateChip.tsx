@@ -27,7 +27,7 @@ const SUBSTRATE_META: Record<
   windows: { label: "Windows", Icon: Monitor, bg: "#eff6ff", fg: "#1d4ed8", dot: "#3b82f6" },
   e2b: { label: "E2B", Icon: Cloud, bg: "#f0fdfa", fg: "#0f766e", dot: "#14b8a6" },
   browser: { label: "Browser", Icon: Globe2, bg: "#fdf4ff", fg: "#a21caf", dot: "#d946ef" },
-  headless: { label: "Headless", Icon: Cpu, bg: "#f4f4f5", fg: "#3f3f46", dot: "#71717a" },
+  headless: { label: "Headless", Icon: Cpu, bg: "#f4f4f5", fg: "#3f3f46", dot: "#52525b" },
 };
 
 const STATUS_LABEL: Record<SubstrateStatus, string> = {
@@ -91,7 +91,7 @@ export function SubstrateChip({
             background: status === "failed" ? "#ef4444" : meta.dot,
             boxShadow: live ? `0 0 0 4px ${meta.dot}24` : undefined,
             animation: live && !staticPulse
-              ? "substrate-chip-live-pulse 1.15s ease-in-out infinite"
+              ? "substrate-chip-live-pulse 1.15s var(--motion-ease) infinite"
               : undefined,
           }}
         />

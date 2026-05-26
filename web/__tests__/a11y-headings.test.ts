@@ -124,7 +124,10 @@ describe("a11y heading order — closes wave-2 audit + web-a11y-heading-order-sw
       const ownH1Count = (text.match(/<h1\b/g) ?? []).length;
       if (ownH1Count > 0) continue;
 
-      const haystack = [text, ...collectLayoutChain(file)].join("\n");
+      const layoutChain = collectLayoutChain(file);
+      if (layoutChain.some((layout) => /<h1\b/.test(layout))) continue;
+
+      const haystack = [text, ...layoutChain].join("\n");
       const providesH1 = H1_PROVIDERS.some((p) =>
         new RegExp(`\\b${p}\\b`).test(haystack),
       );

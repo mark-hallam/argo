@@ -1,23 +1,40 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import SettingsLayout from "@/app/(app)/settings/layout";
 import SettingsLandingPage from "@/app/(app)/settings/page";
 
-describe("/settings landing page", () => {
-  it("renders the settings stage on a fresh workspace", () => {
-    render(<SettingsLandingPage />);
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/settings",
+}));
 
-    expect(screen.getByTestId("settings-landing")).toBeInTheDocument();
+function renderSettingsPage() {
+  return render(
+    <SettingsLayout>
+      <SettingsLandingPage />
+    </SettingsLayout>,
+  );
+}
+
+describe("/settings landing page", () => {
+  it("renders the settings shell and workspace panel on a fresh workspace", () => {
+    renderSettingsPage();
+
+    expect(screen.getByTestId("settings-shell")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-workspace-panel")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 1, name: /^settings$/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /workspace identity/i }),
+    ).toBeInTheDocument();
   });
 
-  it("renders the canonical settings tiles with live routes as links", () => {
-    render(<SettingsLandingPage />);
+  it("renders the canonical settings tabs with live routes as links", () => {
+    renderSettingsPage();
 
     expect(
-      screen.getByRole("link", { name: /team & roles/i }),
+      screen.getByRole("link", { name: /^team$/i }),
     ).toHaveAttribute("href", "/settings/members");
     expect(
       screen.getByRole("link", { name: /api keys/i }),
@@ -27,18 +44,15 @@ describe("/settings landing page", () => {
     ).toHaveAttribute("href", "/settings/data-export");
   });
 
-  it("renders coming-soon tiles as non-link disabled placeholders", () => {
-    render(<SettingsLandingPage />);
+  it("renders the danger-zone tab as a security anchor link", () => {
+    renderSettingsPage();
 
     expect(
-      screen.queryByRole("link", { name: /workspace/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /notifications/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: /danger zone/i }),
+    ).toHaveAttribute("href", "/settings/security#danger-zone");
   });
 
   it("mounts without throwing on a fresh workspace (no providers required)", () => {
-    expect(() => render(<SettingsLandingPage />)).not.toThrow();
+    expect(() => renderSettingsPage()).not.toThrow();
   });
 });

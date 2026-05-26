@@ -56,7 +56,8 @@ describe("/approvals landing page", () => {
     expect(screen.getByTestId("severity-tier-p2")).toHaveTextContent("Low");
     expect(screen.getByTestId("at-risk-donut")).toBeInTheDocument();
     expect(screen.getAllByTestId("confidence-donut").length).toBeGreaterThan(1);
-    expect(screen.getAllByTestId("approval-rate-ring").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("approval-rate-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("approval-rate-ring")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: /Nori wants to apply a 32% discount/i,
