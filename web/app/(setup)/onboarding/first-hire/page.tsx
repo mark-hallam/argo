@@ -4,7 +4,11 @@ import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
-import { useFirstHire } from "@/lib/onboarding/use-first-hire";
+import {
+  FIRST_HIRE_VERIFY_FAILED_MESSAGE,
+  useFirstHire,
+} from "@/lib/onboarding/use-first-hire";
+import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
 import { OnboardingShell } from "../_OnboardingShell";
 
 const EXAMPLE_PROMPT =
@@ -32,7 +36,7 @@ export default function OnboardingFirstHirePage() {
       setError("Tell us a bit about who you'd like to hire.");
       return;
     }
-    const verticalId = useOnboardingDraft.getState().verticalId;
+    const { tenantId, verticalId } = useOnboardingDraft.getState();
     if (!verticalId) {
       setError("Pick a template first.");
       return;
@@ -41,6 +45,7 @@ export default function OnboardingFirstHirePage() {
     try {
       const res = await firstHire.mutateAsync({
         description,
+        tenantId,
         verticalId,
       });
       reset();
@@ -55,11 +60,15 @@ export default function OnboardingFirstHirePage() {
       // team" but there's no background job and no Skip button. Be
       // honest: the call failed; user retries. Real success path
       // ships via web-gateway-endpoints-onboarding-batch.
-      setError(
-        e instanceof Error
-          ? `${e.message}. Try again, or come back once the gateway is up.`
-          : "Couldn't reach the gateway. Try again in a moment.",
-      );
+      if (e instanceof Error && e.message === FIRST_HIRE_VERIFY_FAILED_MESSAGE) {
+        setError(e.message);
+      } else {
+        setError(
+          e instanceof Error
+            ? `${e.message}. Try again, or come back once the gateway is up.`
+            : "Couldn't reach the gateway. Try again in a moment.",
+        );
+      }
     }
   }
 
@@ -105,11 +114,7 @@ export default function OnboardingFirstHirePage() {
             Example: <em>{EXAMPLE_PROMPT}</em>
           </p>
         </label>
-        {error ? (
-          <p className="ob-form-error" data-testid="onboarding-first-hire-error">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FirstHireErrorBanner message={error} /> : null}
         <div className="ob-cta-row is-split">
           <button
             type="button"
