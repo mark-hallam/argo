@@ -72,20 +72,33 @@ export function WorkerLayoutShell({
 
   const worker = workerQuery.data;
   const isFrozen = freezeState !== null;
+  const freezePermissions = {
+    can_freeze: readCanFreeze(worker.permissions) ?? canFreeze,
+  };
 
   return (
     <PageFrame breadcrumb={<TeamBreadcrumb workerName={worker.name} />}>
       {freezeState ? <FreezeBanner state={freezeState} /> : null}
-      {canFreeze ? (
-        <div className="flex justify-end">
-          <FreezeButton workerId={workerId} isFrozen={isFrozen} />
-        </div>
-      ) : null}
+      <div className="flex justify-end">
+        <FreezeButton
+          workerId={workerId}
+          isFrozen={isFrozen}
+          permissions={freezePermissions}
+        />
+      </div>
       <WorkerHero worker={worker} onAction={handleHeroAction} />
       <WorkerTabs workerId={workerId} />
       <div className="pt-6">{children}</div>
     </PageFrame>
   );
+}
+
+function readCanFreeze(permissions: unknown): boolean | undefined {
+  if (!permissions || typeof permissions !== "object") return undefined;
+  const source = permissions as { can_freeze?: unknown; canFreeze?: unknown };
+  if (typeof source.can_freeze === "boolean") return source.can_freeze;
+  if (typeof source.canFreeze === "boolean") return source.canFreeze;
+  return undefined;
 }
 
 function PageFrame({ children, breadcrumb }: { children: ReactNode; breadcrumb?: ReactNode }) {

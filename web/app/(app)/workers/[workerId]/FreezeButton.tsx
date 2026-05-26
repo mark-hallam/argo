@@ -19,10 +19,10 @@ import { freezeWorker, unfreezeWorker } from "@/lib/api/workers";
  * - **Frozen**: secondary "Unfreeze worker" button. Single-click — the
  *   safe direction does not need name-typing confirm.
  *
- * Capability gating is the page's responsibility: the parent only
- * renders this component when the session has `worker.freeze`. The
- * gateway also enforces the capability server-side, so a leaked
- * button is not a security boundary.
+ * Capability gating is advisory UI only: the gateway enforces
+ * `worker.freeze` server-side, and this component mirrors the
+ * worker-detail permission field so demo-mode grants ungrey the
+ * button without bypassing the backend.
  *
  * The modal is composed inline from `@radix-ui/react-dialog` rather
  * than reusing `AlertDialog` because the confirm button must remain
@@ -33,9 +33,14 @@ export interface FreezeButtonProps {
   workerId: string;
   /** Currently-frozen flag — flips the label + bypasses name-typing. */
   isFrozen: boolean;
+  /** Permission shape from the worker-detail response. */
+  permissions?: {
+    can_freeze?: boolean;
+    canFreeze?: boolean;
+  } | null;
 }
 
-export function FreezeButton({ workerId, isFrozen }: FreezeButtonProps) {
+export function FreezeButton({ workerId, isFrozen, permissions }: FreezeButtonProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [typedId, setTypedId] = useState("");
@@ -46,7 +51,9 @@ export function FreezeButton({ workerId, isFrozen }: FreezeButtonProps) {
 
   const idConfirmed = typedId.trim() === workerId;
   const reasonReady = reason.trim().length > 0;
+  const canFreeze = permissions?.can_freeze ?? permissions?.canFreeze ?? true;
   const canSubmit = idConfirmed && reasonReady && !submitting;
+  const permissionCopy = "You don't have permission to freeze this worker";
 
   function reset() {
     setTypedId("");
@@ -55,6 +62,7 @@ export function FreezeButton({ workerId, isFrozen }: FreezeButtonProps) {
   }
 
   async function runFreeze() {
+    if (!canFreeze) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -70,6 +78,7 @@ export function FreezeButton({ workerId, isFrozen }: FreezeButtonProps) {
   }
 
   async function runUnfreeze() {
+    if (!canFreeze) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -90,7 +99,10 @@ export function FreezeButton({ workerId, isFrozen }: FreezeButtonProps) {
           size="sm"
           data-testid="worker-unfreeze-button"
           onClick={runUnfreeze}
+          disabled={!canFreeze}
           loading={submitting || pending}
+          aria-label={canFreeze ? "Unfreeze worker" : permissionCopy}
+          title={canFreeze ? undefined : permissionCopy}
         >
           <Snowflake aria-hidden />
           Unfreeze worker
@@ -110,7 +122,12 @@ export function FreezeButton({ workerId, isFrozen }: FreezeButtonProps) {
         variant="destructive"
         size="sm"
         data-testid="worker-freeze-button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (canFreeze) setOpen(true);
+        }}
+        disabled={!canFreeze}
+        aria-label={canFreeze ? "Freeze worker" : permissionCopy}
+        title={canFreeze ? undefined : permissionCopy}
       >
         <Ban aria-hidden />
         Freeze worker

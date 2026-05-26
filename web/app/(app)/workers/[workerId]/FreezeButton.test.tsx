@@ -41,6 +41,39 @@ describe("FreezeButton", () => {
     expect(button.className).toMatch(/destructive/);
   });
 
+  it("enables the outer Freeze worker button when can_freeze is true", () => {
+    render(
+      <FreezeButton
+        workerId={WORKER_ID}
+        isFrozen={false}
+        permissions={{ can_freeze: true }}
+      />,
+    );
+
+    expect(screen.getByTestId("worker-freeze-button")).not.toBeDisabled();
+  });
+
+  it("disables the outer Freeze worker button when can_freeze is false", () => {
+    render(
+      <FreezeButton
+        workerId={WORKER_ID}
+        isFrozen={false}
+        permissions={{ can_freeze: false }}
+      />,
+    );
+
+    const button = screen.getByTestId("worker-freeze-button");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute(
+      "aria-label",
+      "You don't have permission to freeze this worker",
+    );
+    expect(button).toHaveAttribute(
+      "title",
+      "You don't have permission to freeze this worker",
+    );
+  });
+
   it("clicking opens the confirm modal", () => {
     render(<FreezeButton workerId={WORKER_ID} isFrozen={false} />);
     expect(screen.queryByTestId("worker-freeze-dialog")).not.toBeInTheDocument();
