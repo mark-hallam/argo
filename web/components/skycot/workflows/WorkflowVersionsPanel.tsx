@@ -115,8 +115,12 @@ export function WorkflowVersionsPanel({
 
   const rows = useMemo<PublishedRow[]>(() => {
     if (!versions) return [];
+    // "Published" means anything other than `draft` — the head
+    // (`active`) plus any previously-published revisions
+    // (`archived`). Rollback is the whole reason the panel exists,
+    // and the rollback target is by definition an `archived` row.
     const published = versions
-      .filter((v) => v.lifecycle_state !== "archived")
+      .filter((v) => v.lifecycle_state !== "draft")
       .slice()
       .sort((a, b) => b.version - a.version);
     const headId = published.find((v) => v.lifecycle_state === "active")?.id ?? null;

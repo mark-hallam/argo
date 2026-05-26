@@ -45,7 +45,15 @@ test.describe("workflow builder — context menu", () => {
     const beforeEdges = await edges.count();
     expect(beforeEdges).toBeGreaterThan(0);
 
-    await edges.first().click({ button: "right" });
+    // React Flow renders edges as SVG `<path>` elements along the
+    // node-to-node line. Vertical edges (same x for source/target)
+    // have a `getBoundingClientRect()` width of 0 even though the
+    // stroked path is visually present — Playwright's `.click()`
+    // refuses the action under its visibility heuristic. The edge
+    // still receives `contextmenu` events fired on it directly, so
+    // dispatch one from the page context instead of routing through
+    // `.click({ button: "right" })`.
+    await edges.first().dispatchEvent("contextmenu");
     const menu = page.getByTestId("workflow-context-menu");
     await expect(menu).toBeVisible();
     const items = menu.getByRole("menuitem");

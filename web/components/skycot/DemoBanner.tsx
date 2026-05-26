@@ -32,11 +32,17 @@ export function DemoBanner() {
   if (!hydrated) return null;
   if (dismissed) return null;
 
+  // The banner is sticky-top-0 z-30 across the whole app shell. To
+  // avoid intercepting pointer events on elements that scroll/render
+  // underneath it (workflow-builder palette buttons, react-flow nodes
+  // visible in the same y-band), the container is pointer-events:none
+  // and only the dismiss button re-enables pointer events. The text is
+  // informational and doesn't need interaction.
   return (
     <div
       role="status"
       data-testid="demo-banner"
-      className="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)]"
+      className="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)] pointer-events-none"
     >
       <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">
         <Info aria-hidden className="size-4 shrink-0 text-[#8b5cf6]" />
@@ -57,7 +63,7 @@ export function DemoBanner() {
               // re-shows next mount.
             }
           }}
-          className="grid size-7 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] transition-colors"
+          className="grid size-7 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] transition-colors pointer-events-auto"
         >
           <X className="size-3.5" />
         </button>

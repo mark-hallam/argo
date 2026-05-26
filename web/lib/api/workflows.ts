@@ -171,10 +171,13 @@ export async function fetchWorkflow(
 ): Promise<FetchWorkflowResult> {
   const key = `${verticalId}/${name}`;
   if (isAuthBypassed()) {
-    return {
-      workflow: SAMPLE_WORKFLOW_SPECS[key] ?? null,
-      source: "mock-bypass",
-    };
+    const local = SAMPLE_WORKFLOW_SPECS[key];
+    if (local) {
+      return { workflow: local, source: "mock-bypass" };
+    }
+    // No local sample for this key — fall through to the network so
+    // page.route stubs in tests (and a live gateway in dev) can serve
+    // a workflow that the seed doesn't carry.
   }
   const path = `/api/v1/verticals/${encodeURIComponent(verticalId)}/workflows/${encodeURIComponent(name)}`;
   try {

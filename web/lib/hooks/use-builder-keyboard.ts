@@ -37,13 +37,26 @@ export function useBuilderKeyboard(bindings: BuilderKeyboardBindings, enabled: b
     if (!enabled) return;
     const isMac = isMacPlatform();
     const handler = (e: KeyboardEvent) => {
-      if (isTextEditable(e.target)) return;
-
-      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      // `?` opens the cheatsheet from anywhere — including the AI
+      // prompt input. Without this carve-out the prompt-input grabs
+      // initial focus and the shortcut becomes unreachable.
+      //
+      // Match both `e.key === "?"` (real keyboards on US layout) and
+      // `Shift + /` by code (Playwright's `keyboard.press("Shift+/")`
+      // dispatches with `e.key === "/"` and `e.shiftKey === true`,
+      // never transforming the slot character).
+      const isShortcutKey =
+        (e.key === "?" || (e.shiftKey && e.code === "Slash"))
+        && !e.metaKey
+        && !e.ctrlKey
+        && !e.altKey;
+      if (isShortcutKey) {
         e.preventDefault();
         bindings.onShowShortcuts?.();
         return;
       }
+
+      if (isTextEditable(e.target)) return;
 
       const mod = isMac ? e.metaKey : e.ctrlKey;
       if (!mod) return;

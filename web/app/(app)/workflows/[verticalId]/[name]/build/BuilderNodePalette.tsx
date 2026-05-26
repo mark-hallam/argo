@@ -27,6 +27,8 @@ export function AddStepPalette({ onSelect, onClose }: AddStepPaletteProps) {
         bottom: 80,
         zIndex: 11,
         width: 280,
+        maxHeight: "calc(100% - 100px)",
+        overflowY: "auto",
         background: "white",
         border: "1px solid #ece9f5",
         borderRadius: 12,

@@ -157,7 +157,8 @@ export function BuilderCanvas({
         snapToGrid
         snapGrid={[SNAP_GRID_SIZE, SNAP_GRID_SIZE]}
         fitView
-        fitViewOptions={{ padding: 0.18 }}
+        fitViewOptions={{ padding: 0.12 }}
+        minZoom={0.15}
         attributionPosition="bottom-right"
       >
         <Background gap={20} size={1.2} color="#d4d4d8" />

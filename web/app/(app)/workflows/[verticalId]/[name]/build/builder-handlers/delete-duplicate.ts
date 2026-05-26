@@ -106,7 +106,16 @@ export function useDeleteDuplicateHandlers(
         toast.error("Trigger steps can't be deleted", {
           description: "Change the trigger kind from the side panel instead.",
         });
-        for (const t of triggers) builder.addNode(t);
+        // React Flow may fire `onNodesDelete` before its own
+        // `onNodesChange` remove has been applied to controlled state.
+        // If we addNode synchronously here, the trigger is already
+        // present and the idempotent guard makes the call a no-op;
+        // the subsequent change-remove then erases it for good.
+        // Defer the re-add to the next microtask so the remove has
+        // settled and the addNode actually re-inserts.
+        queueMicrotask(() => {
+          for (const t of triggers) builder.addNode(t);
+        });
       }
       if (deletable.length === 0) return;
 
