@@ -1,7 +1,7 @@
 # fix-spa-no-cu-macos-executor-status-surface
 
 **Owner**: claude.
-**Authored against**: origin/main `80e149df55f6` on `2026-05-26`.
+**Authored against**: origin/main `80e149df55f6` on `2026-05-26`. May-touch widened by conductor T03 on 2026-05-26 vs `48dc620b1` after codex pre-claim BLOCK identified 3 missing paths.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh fix-spa-no-cu-macos-executor-status-surface`.
 **Source**: e2e-ux-audit `docs/skycot/ux-audits/2026-05-26-1028/whole-site-mvp-claims-coverage.md` "Claim 5" rollup row [P0 for the claim-5 demo surface].
 
@@ -21,7 +21,7 @@ But there is no SPA surface that:
 
 ## DOM evidence
 
-- `web/components/skycot/settings/SettingsLayout.tsx` (D top-tabs) — no "Executors" or "Native runtime" tab
+- `web/components/skycot/settings/SettingsTabs.tsx` (D top-tabs) — no "Executors" or "Native runtime" tab
 - `web/app/(app)/workflows/[verticalId]/[name]/build/RunOverlay.tsx` — no per-step backend badge
 - `web/components/skycot/audit/ProvenanceBlock.tsx` — no "executor" provenance row
 - Settings → Connectors lists MCP-style integrations only
@@ -61,11 +61,13 @@ But there is no SPA surface that:
 ## May-touch
 
 - `web/app/(app)/settings/executors/page.tsx` (NEW)
-- `web/components/skycot/settings/SettingsLayout.tsx` (add tab entry)
+- `web/components/skycot/settings/SettingsTabs.tsx` (add tab entry — corrected from non-existent `SettingsLayout.tsx`)
 - `web/components/skycot/audit/ProvenanceBlock.tsx` (one new row)
 - `web/app/(app)/workflows/[verticalId]/[name]/build/RunOverlay.tsx` (executor icon)
-- `crates/argo-cli/src/handlers/gateway/routes_executors_status.rs` (NEW)
-- `crates/argo-executor-computer-use-macos/src/health.rs` (verify heartbeat surface)
+- `crates/argo-cli/src/handlers/gateway/routes_executors_status.rs` (NEW handler)
+- `crates/argo-cli/src/handlers/gateway/mod.rs` (declare `mod routes_executors_status;`)
+- `crates/argo-cli/src/handlers/gateway/routes_dispatch_get_api_groups.rs` (add `/api/v1/executors/status` dispatch arm — match the existing `routes_*::dispatch(req, store)` pattern)
+- `crates/argo-executor-computer-use-macos/src/lib.rs` and a new `crates/argo-executor-computer-use-macos/src/health.rs` (NEW) — author the heartbeat surface; integrate via the existing `executor.rs` / `preflight.rs` modules (no `health.rs` file existed before this brief; brief originally listed it as "verify" but it needs to be authored)
 - `docs/skycot/demos/v1-mission-mvp-runbook.md` (pre-record line)
 
 ## Out of scope
