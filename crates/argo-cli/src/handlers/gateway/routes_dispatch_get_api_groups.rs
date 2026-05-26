@@ -6,6 +6,7 @@
 mod routes_workers_list;
 
 use argo_store::SessionStore;
+use serde_json::json;
 use std::sync::Arc;
 
 /// `GET /auth/status`, `/api/v1/meta/error-reporting`, workspace
@@ -248,9 +249,10 @@ pub(super) async fn dispatch_audit_support_knowledge(
                 );
             }
             if segments.len() == 1 {
-                return Some(
-                    super::routes_audit_detail::detail_response(req, segments[0], store).await,
-                );
+                if is_audit_detail_id(segments[0]) {
+                    return Some(super::routes_audit_detail::detail_response(req, segments[0], store).await);
+                }
+                return Some(audit_endpoint_not_found(path));
             }
         }
     }
@@ -274,6 +276,22 @@ pub(super) async fn dispatch_audit_support_knowledge(
         return Some(resp);
     }
     None
+}
+
+fn is_audit_detail_id(segment: &str) -> bool {
+    segment.len() == 32 && segment.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+fn audit_endpoint_not_found(path_tail: &str) -> (&'static str, String) {
+    (
+        "404 Not Found",
+        json!({
+            "error": "endpoint_not_found",
+            "path": format!("/api/v1/audit/{path_tail}"),
+            "hint": "see /api/v1/audit or /api/v1/audit/events",
+        })
+        .to_string(),
+    )
 }
 
 /// `GET /auth/status` — read-only summary of which IdPs are
