@@ -242,12 +242,37 @@ describe("Overview page wiring", () => {
     expect(screen.getByTestId("retrain-step-capture")).toBeInTheDocument();
   });
 
-  it("opens a stub toast pointing at E4-h when Add responsibility is clicked", async () => {
+  // Brief: fix-worker-duty-toggle-fake-mutation-and-edit-toast-brief-id-leak.
+  // Clicking Add responsibility opens the real AddResponsibilityDialog
+  // (DutiesCard mounts it directly). Previously this fired a stub toast
+  // whose body leaked the engineering brief-ID "E4-h" into the camera-
+  // visible surface.
+  it("opens the AddResponsibilityDialog when Add responsibility is clicked", async () => {
     const user = userEvent.setup();
     render(<PageWrapper />);
     await user.click(await screen.findByTestId("duties-add"));
-    await waitFor(() =>
-      expect(screen.getByTestId("overview-toast")).toHaveTextContent(/E4-h/),
-    );
+    expect(await screen.findByTestId("duty-dialog")).toBeInTheDocument();
+  });
+
+  it("renders the duty toggle as disabled (no fake-save theater)", async () => {
+    render(<PageWrapper />);
+    const toggle = await screen.findByTestId("duty-toggle-d1");
+    expect(toggle).toBeDisabled();
+  });
+
+  it("renders the duty body as disabled (no toast on click)", async () => {
+    render(<PageWrapper />);
+    const body = await screen.findByTestId("duty-edit-d1");
+    expect(body).toBeDisabled();
+  });
+
+  // Anti-leak guard: the Overview surface must never render an
+  // engineering brief-ID like "E4-h" in customer-visible text.
+  it("never renders an engineering brief-ID (E[0-9]+-[a-z]) in customer text", async () => {
+    render(<PageWrapper />);
+    await screen.findByTestId("card-duties");
+    // Grab full visible text content of the rendered overview panel.
+    const panel = screen.getByTestId("worker-tab-panel-overview");
+    expect(panel.textContent ?? "").not.toMatch(/\bE\d+-[a-z]\b/);
   });
 });

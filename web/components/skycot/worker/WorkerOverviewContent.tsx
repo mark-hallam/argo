@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
 import { useWorkerOverview } from "@/lib/hooks/use-worker-overview";
@@ -58,37 +58,24 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     overviewQuery.refetch();
   }, [overviewQuery]);
 
-  const [announcement, setAnnouncement] = useState<string | null>(null);
-  useEffect(() => {
-    if (!announcement) return;
-    const t = setTimeout(() => setAnnouncement(null), 3200);
-    return () => clearTimeout(t);
-  }, [announcement]);
-
   // RetrainDialog (E4-g) mounts inside WhatSheDoesCard; this callback
   // is kept as an analytics seam for callers who want to know an
   // adjust was launched without intercepting the dialog itself.
   const onAdjust = useCallback(() => {
     /* no-op — dialog mount lives in WhatSheDoesCard */
   }, []);
-  const onAddDuty = useCallback(
-    () => setAnnouncement("Add responsibility dialog ships in E4-h"),
-    [],
-  );
-  const onEditDuty = useCallback(
-    () => setAnnouncement("Edit schedule ships in E4-h"),
-    [],
-  );
-  const onSaveCharter = useCallback((next: string) => {
-    setAnnouncement("Charter changes persist in E4-g");
-    // eslint-disable-next-line no-console
-    console.warn("[E4-b] charter save pending wiring (E4-g):", next);
+  // The AddResponsibilityDialog is mounted by DutiesCard now, so onAddDuty
+  // is only an analytics seam — no user-facing toast required. The edit-
+  // body and toggle paths are intentionally inert until the duty PATCH
+  // endpoint lands; we render those affordances as disabled (via
+  // `canToggleDuty={false}` below) rather than firing a toast that leaks
+  // an engineering brief-ID like "E4-h" into the customer surface. See
+  // fix-worker-duty-toggle-fake-mutation-and-edit-toast-brief-id-leak.
+  const onAddDuty = useCallback(() => {
+    /* analytics seam — dialog mount happens inside DutiesCard */
   }, []);
-  const onToggleDuty = useCallback((dutyId: string, enabled: boolean) => {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[E4-b] duty '${dutyId}' toggled to ${enabled} — mutation lands with E4-h`,
-    );
+  const onSaveCharter = useCallback(() => {
+    /* charter persistence lands with the worker-charter PATCH endpoint */
   }, []);
 
   if (overviewQuery.isPending) {
@@ -151,10 +138,13 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       <DutiesCard
         duties={overview.duties}
         canEdit={permissions.canEditDuties}
+        // Toggle + body click are inert until the duty PATCH endpoint
+        // lands. Rendering the toggle as disabled (rather than allowing
+        // a local-only visual flip) prevents the "fake save" theater the
+        // camera saw before fix-worker-duty-toggle-fake-mutation.
+        canToggleDuty={false}
         workerId={workerId}
         workerName={workerQuery.data?.name}
-        onToggle={onToggleDuty}
-        onEditDuty={onEditDuty}
         onAddDuty={onAddDuty}
       />
       <ChannelStripCard
@@ -163,23 +153,6 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       />
       <KpiCard kpis={overview.kpis} />
       <RecentActivityCard workerId={workerId} rows={overview.recentActivity} />
-
-      <div
-        role="status"
-        aria-live="polite"
-        data-testid="overview-announcement"
-        className="sr-only"
-      >
-        {announcement ?? ""}
-      </div>
-      {announcement ? (
-        <div
-          data-testid="overview-toast"
-          className="fixed bottom-6 right-6 z-40 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm text-[var(--card-foreground)] shadow-lg"
-        >
-          {announcement}
-        </div>
-      ) : null}
     </div>
   );
 }

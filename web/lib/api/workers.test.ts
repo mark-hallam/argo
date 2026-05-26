@@ -104,6 +104,42 @@ describe("lib/api/workers", () => {
       fetchWorker("018f67d0-0000-7000-8000-000000009999"),
     ).rejects.toBeInstanceOf(WorkerNotFoundError);
   });
+
+  // Brief: fix-fetchworker-400-bad-request-no-branch-infinite-retry.
+  // The demo wizard mints non-UUID synthetic ids like
+  // `demo-worker-marketing-intern-mpn1b10z`; the gateway rejects with
+  // HTTP 400 ("invalid worker_id"). Before this branch landed, the raw
+  // ApiError bubbled up + React Query retried indefinitely + the layout
+  // stayed in `isPending` for ~15s.
+  it("translates HTTP 400 (invalid_worker_id) to WorkerNotFoundError", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 400,
+        body: {
+          error: {
+            code: "bad_request",
+            message: "invalid worker_id 'demo-worker-marketing-intern-mpn1b10z'",
+          },
+        },
+      }),
+    );
+
+    await expect(
+      fetchWorker("demo-worker-marketing-intern-mpn1b10z"),
+    ).rejects.toBeInstanceOf(WorkerNotFoundError);
+  });
+
+  it("falls back to bundled sample data for demo workers on dev 400", async () => {
+    installMock((req) => {
+      expect(req.url).toMatch(new RegExp(`/api/v1/workers/${MARIAH.id}$`));
+      return makeResponse({
+        status: 400,
+        body: { error: { code: "bad_request", message: "invalid worker_id" } },
+      });
+    });
+
+    await expect(fetchWorker(MARIAH.id)).resolves.toEqual(MARIAH);
+  });
 });
 
 const UUIDV7_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -107,7 +107,15 @@ function isAuthBypassed(): boolean {
 }
 
 function isMissingOrUnreachable(err: unknown): boolean {
-  if (err instanceof ApiError) return err.status === 404;
+  // 404 (not_found) and 400 (bad_request, e.g. invalid_worker_id from the
+  // gateway's UUID parse) both surface as "this worker id doesn't resolve"
+  // to the user. The demo wizard mints non-UUID synthetic ids like
+  // `demo-worker-marketing-intern-mpn1b10z`; the gateway rejects those
+  // with 400 + "invalid worker_id" reason — without this branch React
+  // Query retries indefinitely (the WorkerLayoutShell shows "Loading…"
+  // for ~15s before settling on a friendly error). See
+  // fix-fetchworker-400-bad-request-no-branch-infinite-retry.
+  if (err instanceof ApiError) return err.status === 404 || err.status === 400;
   return err instanceof TypeError;
 }
 
@@ -150,7 +158,7 @@ export async function fetchWorker(workerId: string): Promise<Worker> {
       }
       throw new WorkerNotFoundError(workerId);
     }
-    if (err instanceof ApiError && err.status === 404) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
       throw new WorkerNotFoundError(workerId);
     }
     throw err;

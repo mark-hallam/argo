@@ -25,6 +25,16 @@ import type { CommitDutyResult } from "@/lib/api/duties";
 export interface DutiesCardProps {
   duties: WorkerDuty[];
   canEdit: boolean;
+  /**
+   * Toggle + body-click write affordances are gated separately from
+   * `canEdit` so the +Add responsibility dialog can stay live while
+   * the duty PATCH endpoint is still pending. Defaults to `canEdit`
+   * for back-compat; pass `false` to render the toggle visually
+   * disabled and turn the body click into a no-op (prevents the
+   * visual "saved" theater on a mutation that doesn't persist).
+   * See fix-worker-duty-toggle-fake-mutation-and-edit-toast-brief-id-leak.
+   */
+  canToggleDuty?: boolean;
   /** Worker id — required to mount the AddResponsibilityDialog. */
   workerId?: string;
   /** Worker first name — surfaces in dialog copy. */
@@ -44,6 +54,7 @@ export interface DutiesCardProps {
 export function DutiesCard({
   duties,
   canEdit,
+  canToggleDuty,
   workerId,
   workerName,
   onToggle,
@@ -54,6 +65,7 @@ export function DutiesCard({
   className,
 }: DutiesCardProps) {
   const dialogAvailable = canEdit && Boolean(workerId && workerName);
+  const toggleEnabled = canToggleDuty ?? canEdit;
   const [dialogOpen, setDialogOpen] = useState(false);
   const { success: toastSuccess } = useToast();
 
@@ -101,7 +113,7 @@ export function DutiesCard({
               <DutyRow
                 key={d.id}
                 duty={d}
-                canEdit={canEdit}
+                canEdit={toggleEnabled}
                 onToggle={onToggle}
                 onEditDuty={onEditDuty}
               />
@@ -169,12 +181,15 @@ function DutyRow({
       />
       <button
         type="button"
-        onClick={() => onEditDuty?.(duty.id)}
+        onClick={canEdit ? () => onEditDuty?.(duty.id) : undefined}
+        disabled={!canEdit}
         data-testid={`duty-edit-${duty.id}`}
         className={cn(
           "flex-1 min-w-0 text-left rounded-[var(--radius-sm)] px-1 -mx-1",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
-          "hover:bg-[var(--accent)]/40",
+          canEdit
+            ? "hover:bg-[var(--accent)]/40"
+            : "cursor-default disabled:opacity-100",
         )}
       >
         <p
