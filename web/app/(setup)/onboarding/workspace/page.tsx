@@ -3,9 +3,16 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProvision } from "@/lib/onboarding/use-provision";
+import { Toaster } from "@/components/ui/sonner";
 import { OnboardingShell } from "../_OnboardingShell";
+
+// On fresh provisions we hold the wizard on this step briefly so the
+// celebration toast is actually perceived before the route changes.
+// Idempotent re-calls navigate immediately — no celebration owed.
+const CELEBRATION_HOLD_MS = 1200;
 
 export default function OnboardingWorkspacePage() {
   const router = useRouter();
@@ -36,7 +43,12 @@ export default function OnboardingWorkspacePage() {
     try {
       const res = await provision.mutateAsync({ workspaceName: wsName, companyName: coName });
       setProvision(res.tenantId, res.workspaceId);
-      router.push("/onboarding/connect-provider");
+      if (res.created) {
+        toast.success("Workspace created — welcome to Skycot.");
+        setTimeout(() => router.push("/onboarding/connect-provider"), CELEBRATION_HOLD_MS);
+      } else {
+        router.push("/onboarding/connect-provider");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Provisioning failed. Please try again.");
     }
@@ -61,6 +73,7 @@ export default function OnboardingWorkspacePage() {
         </>
       }
     >
+      <Toaster />
       <form
         className="ob-form-card"
         onSubmit={onSubmit}

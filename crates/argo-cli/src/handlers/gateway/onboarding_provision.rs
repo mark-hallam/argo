@@ -124,12 +124,18 @@ pub(super) async fn provision_response(
     }
 
     let next_step = next_step_for(&outcome);
+    // `created` is the positive form of `idempotent`; the wizard's
+    // workspace step shows a celebration toast on `created=true` and
+    // stays silent on `created=false`. Both fields are emitted so
+    // existing callers (which already key off `idempotent`) keep
+    // working and new callers can read the more direct flag.
     let payload = json!({
         "tenant_id": outcome.tenant_id.0.to_string(),
         "workspace_id": outcome.workspace_id.0.to_string(),
         "vertical_id": DEFAULT_VERTICAL,
         "next_step": next_step,
         "idempotent": !outcome.created,
+        "created": outcome.created,
     });
     let status = if outcome.created {
         "201 Created"

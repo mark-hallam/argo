@@ -11,6 +11,11 @@ export interface ProvisionRequest {
 export interface ProvisionResult {
   tenantId: string;
   workspaceId: string;
+  // `true` when this call freshly provisioned the workspace; `false`
+  // on an idempotent re-call. Drives the workspace-step celebration
+  // toast — older gateway builds that omit the field are treated as
+  // idempotent so we never falsely celebrate a re-call.
+  created: boolean;
 }
 
 interface ProvisionPayload {
@@ -21,6 +26,7 @@ interface ProvisionPayload {
 interface ProvisionResponse {
   tenant_id: string;
   workspace_id: string;
+  created?: boolean;
 }
 
 function isProvisionResponse(value: unknown): value is ProvisionResponse {
@@ -37,7 +43,11 @@ export async function provision(req: ProvisionRequest): Promise<ProvisionResult>
   if (!isProvisionResponse(raw)) {
     throw new ApiError(502, "provision endpoint returned an unexpected shape");
   }
-  return { tenantId: raw.tenant_id, workspaceId: raw.workspace_id };
+  return {
+    tenantId: raw.tenant_id,
+    workspaceId: raw.workspace_id,
+    created: raw.created === true,
+  };
 }
 
 export function useProvision() {
