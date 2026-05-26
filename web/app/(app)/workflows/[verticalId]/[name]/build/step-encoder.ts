@@ -17,10 +17,13 @@
 import type {
   CodeConfig,
   CodeLanguage,
+  CuActionConfig,
+  CuSubstrate,
   HttpAuthMode,
   HttpHeader,
   HttpMethod,
   HttpRequestConfig,
+  McpInvokeConfig,
   StepKind,
   WorkflowStep,
 } from "./types";
@@ -39,7 +42,11 @@ const STEP_KINDS: ReadonlySet<StepKind> = new Set<StepKind>([
   "sub_workflow",
   "http_request",
   "code",
+  "mcp_invoke",
+  "cu_action",
 ]);
+
+const CU_SUBSTRATES: ReadonlySet<CuSubstrate> = new Set<CuSubstrate>(["macos"]);
 
 const HTTP_METHOD_SET: ReadonlySet<HttpMethod> = new Set<HttpMethod>(HTTP_METHODS);
 const HTTP_AUTH_MODES: ReadonlySet<HttpAuthMode> = new Set<HttpAuthMode>([
@@ -89,9 +96,30 @@ export function encodeStepsToToml(
     if (step.kind === "code" && step.code) {
       appendCodeLines(lines, step.code);
     }
+    if (step.kind === "mcp_invoke" && step.mcpInvoke) {
+      appendMcpInvokeLines(lines, step.mcpInvoke);
+    }
+    if (step.kind === "cu_action" && step.cuAction) {
+      appendCuActionLines(lines, step.cuAction);
+    }
   }
   lines.push("");
   return lines.join("\n");
+}
+
+function appendMcpInvokeLines(lines: string[], cfg: McpInvokeConfig): void {
+  if (cfg.server) lines.push(`mcp_server = ${tomlString(cfg.server)}`);
+  if (cfg.tool) lines.push(`mcp_tool = ${tomlString(cfg.tool)}`);
+  if (cfg.args && cfg.args.trim() && cfg.args.trim() !== "{}") {
+    lines.push(`mcp_args = ${tomlString(cfg.args)}`);
+  }
+}
+
+function appendCuActionLines(lines: string[], cfg: CuActionConfig): void {
+  lines.push(`cu_substrate = ${tomlString(cfg.substrate)}`);
+  if (cfg.app) lines.push(`cu_app = ${tomlString(cfg.app)}`);
+  if (cfg.action) lines.push(`cu_action_kind = ${tomlString(cfg.action)}`);
+  if (cfg.target) lines.push(`cu_target = ${tomlString(cfg.target)}`);
 }
 
 function appendHttpRequestLines(lines: string[], cfg: HttpRequestConfig): void {
@@ -149,6 +177,13 @@ interface PendingStep {
   http_auth_header_value?: string;
   code_language?: string;
   code_body?: string;
+  mcp_server?: string;
+  mcp_tool?: string;
+  mcp_args?: string;
+  cu_substrate?: string;
+  cu_app?: string;
+  cu_action_kind?: string;
+  cu_target?: string;
 }
 
 function unescapeTomlString(s: string): string {
@@ -188,6 +223,12 @@ function commit(pending: PendingStep, idx: number): WorkflowStep | null {
   if (kind === "code" && hasCodeKeys(pending)) {
     step.code = decodeCode(pending);
   }
+  if (kind === "mcp_invoke" && hasMcpInvokeKeys(pending)) {
+    step.mcpInvoke = decodeMcpInvoke(pending);
+  }
+  if (kind === "cu_action" && hasCuActionKeys(pending)) {
+    step.cuAction = decodeCuAction(pending);
+  }
   return step;
 }
 
@@ -204,6 +245,41 @@ function hasHttpRequestKeys(pending: PendingStep): boolean {
 
 function hasCodeKeys(pending: PendingStep): boolean {
   return pending.code_language !== undefined || pending.code_body !== undefined;
+}
+
+function hasMcpInvokeKeys(pending: PendingStep): boolean {
+  return (
+    pending.mcp_server !== undefined
+    || pending.mcp_tool !== undefined
+    || pending.mcp_args !== undefined
+  );
+}
+
+function hasCuActionKeys(pending: PendingStep): boolean {
+  return (
+    pending.cu_substrate !== undefined
+    || pending.cu_app !== undefined
+    || pending.cu_action_kind !== undefined
+    || pending.cu_target !== undefined
+  );
+}
+
+function decodeMcpInvoke(pending: PendingStep): McpInvokeConfig {
+  return {
+    server: pending.mcp_server ?? "",
+    tool: pending.mcp_tool ?? "",
+    args: pending.mcp_args ?? "{}",
+  };
+}
+
+function decodeCuAction(pending: PendingStep): CuActionConfig {
+  const substrate = (pending.cu_substrate ?? "macos") as CuSubstrate;
+  return {
+    substrate: CU_SUBSTRATES.has(substrate) ? substrate : "macos",
+    app: pending.cu_app ?? "",
+    action: pending.cu_action_kind ?? "",
+    target: pending.cu_target ?? "",
+  };
 }
 
 function decodeHttpRequest(pending: PendingStep): HttpRequestConfig {
@@ -312,6 +388,13 @@ export function decodeStepsFromToml(toml: string): DecodedWorkflow {
       else if (key === "http_auth_header_value") pending.http_auth_header_value = value;
       else if (key === "code_language") pending.code_language = value;
       else if (key === "code_body") pending.code_body = value;
+      else if (key === "mcp_server") pending.mcp_server = value;
+      else if (key === "mcp_tool") pending.mcp_tool = value;
+      else if (key === "mcp_args") pending.mcp_args = value;
+      else if (key === "cu_substrate") pending.cu_substrate = value;
+      else if (key === "cu_app") pending.cu_app = value;
+      else if (key === "cu_action_kind") pending.cu_action_kind = value;
+      else if (key === "cu_target") pending.cu_target = value;
     }
   }
   if (pending) {

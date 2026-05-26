@@ -1,12 +1,16 @@
 "use client";
 import { Pin, PinOff, Settings as SettingsIcon, X } from "lucide-react";
 
+import { CuActionInspector } from "./inspectors/CuActionInspector";
+import { McpInvokeInspector } from "./inspectors/McpInvokeInspector";
 import { CodeConfigEditor } from "./step-config-code";
 import { HttpRequestConfigEditor } from "./step-config-http";
 import {
   STEP_KIND_META,
   type CodeConfig,
+  type CuActionConfig,
   type HttpRequestConfig,
+  type McpInvokeConfig,
   type WorkflowStep,
 } from "./types";
 
@@ -35,6 +39,10 @@ export function BuilderInspector({
     onStepChange?.({ ...step, httpRequest: next });
   const updateCode = (next: CodeConfig) =>
     onStepChange?.({ ...step, code: next });
+  const updateMcp = (next: McpInvokeConfig) =>
+    onStepChange?.({ ...step, mcpInvoke: next });
+  const updateCu = (next: CuActionConfig) =>
+    onStepChange?.({ ...step, cuAction: next });
   return (
     <aside className="builder-panel">
       <div className="builder-panel-head">
@@ -73,6 +81,18 @@ export function BuilderInspector({
         <div className="builder-panel-section">
           <div className="builder-panel-section-label">CODE</div>
           <CodeConfigEditor config={step.code} onChange={updateCode} />
+        </div>
+      ) : null}
+      {step.kind === "mcp_invoke" && onStepChange ? (
+        <div className="builder-panel-section">
+          <div className="builder-panel-section-label">MCP CONNECTOR</div>
+          <McpInvokeInspector config={step.mcpInvoke} onChange={updateMcp} />
+        </div>
+      ) : null}
+      {step.kind === "cu_action" && onStepChange ? (
+        <div className="builder-panel-section">
+          <div className="builder-panel-section-label">COMPUTER-USE ACTION</div>
+          <CuActionInspector config={step.cuAction} onChange={updateCu} />
         </div>
       ) : null}
       {step.approvalGate ? (

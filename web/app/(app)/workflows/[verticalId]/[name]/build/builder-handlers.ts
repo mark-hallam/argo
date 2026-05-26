@@ -4,7 +4,9 @@ import type { TriggerKind } from "@/components/workflows/triggers/types";
 
 import type {
   CodeConfig,
+  CuActionConfig,
   HttpRequestConfig,
+  McpInvokeConfig,
   SkyNodeData,
   StepKind,
   SubWorkflowRef,
@@ -32,6 +34,14 @@ export function defaultCodeConfig(): CodeConfig {
     language: "javascript",
     code: "// Return a value to pass to the next step.\nreturn { ok: true };\n",
   };
+}
+
+export function defaultMcpInvokeConfig(server: string): McpInvokeConfig {
+  return { server, tool: "", args: "{}" };
+}
+
+export function defaultCuActionConfig(): CuActionConfig {
+  return { substrate: "macos", app: "Notes.app", action: "run_macro", target: "" };
 }
 
 // Pure helpers for the visual builder's connect + add-step handlers.
@@ -108,6 +118,8 @@ export const STEP_KIND_DEFAULTS: Record<StepKind, { name: string; description: s
   sub_workflow: { name: "Sub-workflow",  description: "Invoke another workflow as a single step" },
   http_request: { name: "HTTP request",  description: "Call an external API" },
   code:         { name: "Code",          description: "Run inline JavaScript or Python" },
+  mcp_invoke:   { name: "MCP connector", description: "Call a tool exposed by an MCP server" },
+  cu_action:    { name: "Computer-use",  description: "Drive a real desktop app (macOS)" },
 };
 
 export function newStepPosition(nodes: Node[]): { x: number; y: number } {
@@ -134,6 +146,8 @@ export function newStepNode(
     subWorkflow,
     ...(kind === "http_request" ? { httpRequest: defaultHttpRequestConfig() } : {}),
     ...(kind === "code" ? { code: defaultCodeConfig() } : {}),
+    ...(kind === "mcp_invoke" ? { mcpInvoke: defaultMcpInvokeConfig("") } : {}),
+    ...(kind === "cu_action" ? { cuAction: defaultCuActionConfig() } : {}),
   };
   return {
     id: step.id,
@@ -147,6 +161,7 @@ export interface NewStepOverrides {
   name?: string;
   description?: string;
   triggerKind?: TriggerKind;
+  mcpServer?: string;
 }
 
 // Build a step node at an arbitrary canvas position — used by the
@@ -170,6 +185,10 @@ export function newStepNodeAt(
     ...(overrides?.triggerKind ? { triggerKind: overrides.triggerKind } : {}),
     ...(kind === "http_request" ? { httpRequest: defaultHttpRequestConfig() } : {}),
     ...(kind === "code" ? { code: defaultCodeConfig() } : {}),
+    ...(kind === "mcp_invoke"
+      ? { mcpInvoke: defaultMcpInvokeConfig(overrides?.mcpServer ?? "") }
+      : {}),
+    ...(kind === "cu_action" ? { cuAction: defaultCuActionConfig() } : {}),
   };
   return {
     id: step.id,

@@ -5,14 +5,22 @@ import { BuilderSidebarPalette } from "./BuilderSidebarPalette";
 import { PALETTE_DRAG_MIME } from "./types";
 
 describe("BuilderSidebarPalette", () => {
-  it("renders the six grouped categories from the brief", () => {
+  it("renders the seven grouped categories (six core + MCP connectors)", () => {
     render(<BuilderSidebarPalette onSelect={() => {}} />);
     expect(screen.getByText("Triggers")).toBeInTheDocument();
     expect(screen.getByText("Skills")).toBeInTheDocument();
     expect(screen.getByText("Logic")).toBeInTheDocument();
     expect(screen.getByText("Approval gates")).toBeInTheDocument();
     expect(screen.getByText("Tools")).toBeInTheDocument();
+    expect(screen.getByText("MCP connectors")).toBeInTheDocument();
     expect(screen.getByText("Notify")).toBeInTheDocument();
+  });
+
+  it("exposes the Computer-use action under Tools and a sample MCP connector under MCP", () => {
+    render(<BuilderSidebarPalette onSelect={() => {}} />);
+    expect(screen.getByTestId("builder-palette-item-tool-cu-action")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-palette-item-tool-mcp-airtable")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-palette-item-tool-mcp-notion")).toBeInTheDocument();
   });
 
   it("renders sub-items per group (manual / schedule / webhook / email / slack / form triggers)", () => {

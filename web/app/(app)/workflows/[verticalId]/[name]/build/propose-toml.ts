@@ -22,6 +22,10 @@ const TOML_KINDS: Record<string, StepKind> = {
   data: "data",
   loop: "loop",
   wait: "wait",
+  mcp_invoke: "mcp_invoke",
+  mcp: "mcp_invoke",
+  cu_action: "cu_action",
+  computer_use: "cu_action",
 };
 
 function stripString(value: string): string | null {

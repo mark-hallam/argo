@@ -13,7 +13,9 @@ import {
   Laptop,
   Layers,
   MessageSquare,
+  MonitorSmartphone,
   Play,
+  Plug,
   Repeat,
   ShieldCheck,
   Sparkles,
@@ -59,6 +61,8 @@ const KIND_META: Record<StepKind, { icon: ReactNode; color: string; label: strin
   sub_workflow: { icon: <Layers size={12} />,        color: "#0891b2", label: "Sub-workflow" },
   http_request: { icon: <Globe size={12} />,         color: "#0891b2", label: "HTTP request" },
   code:         { icon: <Code2 size={12} />,         color: "#3b82f6", label: "Code" },
+  mcp_invoke:   { icon: <Plug size={12} />,          color: "#0891b2", label: "MCP connector" },
+  cu_action:    { icon: <MonitorSmartphone size={12} />, color: "#8b5cf6", label: "Computer-use" },
 };
 
 function StepCard({ step, nested = false }: { step: WorkflowStep; nested?: boolean }) {

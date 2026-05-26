@@ -43,6 +43,7 @@ export function usePaletteHandlers(deps: PaletteHandlerDeps): PaletteHandlers {
         name: item.label,
         description: item.description,
         triggerKind: item.triggerKind,
+        mcpServer: item.mcpServer,
       });
       addNode(node);
       if (item.kind !== "trigger") {
@@ -75,6 +76,15 @@ export function usePaletteHandlers(deps: PaletteHandlerDeps): PaletteHandlers {
             name: item.label,
             description: item.description,
             ...(item.triggerKind ? { triggerKind: item.triggerKind } : {}),
+            ...(item.mcpServer
+              ? {
+                mcpInvoke: {
+                  server: item.mcpServer,
+                  tool: baseStep.mcpInvoke?.tool ?? "",
+                  args: baseStep.mcpInvoke?.args ?? "{}",
+                },
+              }
+              : {}),
           },
         },
       };

@@ -8,8 +8,10 @@ import {
   Layers,
   Mail,
   MessageSquare,
+  MonitorSmartphone,
   MousePointer2,
   Play,
+  Plug,
   Repeat,
   ShieldCheck,
   Slack,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 import { createElement, type ReactNode } from "react";
 import type { TriggerKind } from "@/components/workflows/triggers/types";
+import { CONNECTOR_CATALOG } from "@/app/(app)/settings/connectors/connector-catalog";
 
 export type StepKind =
   | "trigger"
@@ -31,7 +34,9 @@ export type StepKind =
   | "wait"
   | "sub_workflow"
   | "http_request"
-  | "code";
+  | "code"
+  | "mcp_invoke"
+  | "cu_action";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 
@@ -71,6 +76,32 @@ export type CodeLanguage = "javascript" | "python";
 export interface CodeConfig {
   language: CodeLanguage;
   code: string;
+}
+
+// Configuration captured by the `mcp_invoke` step inspector. `server`
+// is a connector slug from `CONNECTOR_CATALOG` (e.g. `airtable`,
+// `notion`). `tool` names a specific operation exposed by that MCP
+// server. `args` is a JSON-encoded string so the inspector can hold
+// invalid drafts without dropping data — encode/decode validates the
+// parse at Save time.
+export interface McpInvokeConfig {
+  server: string;
+  tool: string;
+  args: string;
+}
+
+// `cu_action` step config. v1.0 ships macOS-only computer-use per the
+// 2026-05-14 operator decision; the field stays in the shape so future
+// substrates slot in without a migration. `app`/`action`/`target` map
+// 1:1 to the `cu.run_macro` argument tuple used in
+// `crates/argo-demo-seed/src/workflow.rs`.
+export type CuSubstrate = "macos";
+
+export interface CuActionConfig {
+  substrate: CuSubstrate;
+  app: string;
+  action: string;
+  target: string;
 }
 
 // Reference to another workflow invoked as a single composable unit.
@@ -120,6 +151,8 @@ export interface WorkflowStep {
   subWorkflow?: SubWorkflowRef;
   httpRequest?: HttpRequestConfig;
   code?: CodeConfig;
+  mcpInvoke?: McpInvokeConfig;
+  cuAction?: CuActionConfig;
 }
 
 export interface WorkflowSpec {
@@ -185,6 +218,8 @@ export const STEP_KIND_META: Record<StepKind, { icon: ReactNode; color: string; 
   sub_workflow: { icon: createElement(Layers, { size: 14 }),        color: "#0891b2", label: "Sub-workflow" },
   http_request: { icon: createElement(Globe, { size: 14 }),         color: "#0891b2", label: "HTTP request" },
   code:         { icon: createElement(Code2, { size: 14 }),         color: "#3b82f6", label: "Code" },
+  mcp_invoke:   { icon: createElement(Plug, { size: 14 }),          color: "#0891b2", label: "MCP connector" },
+  cu_action:    { icon: createElement(MonitorSmartphone, { size: 14 }), color: "#8b5cf6", label: "Computer-use action" },
 };
 
 export const TRUE_EDGE_STYLE = { stroke: "#8b5cf6", strokeWidth: 2 } as const;
@@ -220,12 +255,15 @@ export const PALETTE_DRAG_MIME = "application/x-skycot-palette-item";
 // `StepKind` plus optional `triggerKind`/name overrides so a single
 // `trigger` kind can spawn manual / schedule / webhook / email / slack
 // / form variants without each needing its own `StepKind` enum value.
+// `mcpServer` carries the connector slug for `mcp_invoke` palette
+// items so the drop handler can pre-populate the inspector form.
 export interface PaletteItem {
   id: string;
   kind: StepKind;
   label: string;
   description: string;
   triggerKind?: TriggerKind;
+  mcpServer?: string;
 }
 
 export interface SidebarPaletteGroup {
@@ -270,10 +308,21 @@ export const SIDEBAR_PALETTE_GROUPS: SidebarPaletteGroup[] = [
   {
     label: "Tools",
     items: [
-      { id: "tool-http",    kind: "http_request", label: "HTTP request",   description: "Call an external API" },
-      { id: "tool-browser", kind: "tool_call",    label: "Browser action (Playwright)", description: "Drive a real browser with Playwright" },
-      { id: "tool-code",    kind: "code",         label: "Code",           description: "Run inline code" },
+      { id: "tool-http",      kind: "http_request", label: "HTTP request",                description: "Call an external API" },
+      { id: "tool-browser",   kind: "tool_call",    label: "Browser action (Playwright)", description: "Drive a real browser with Playwright" },
+      { id: "tool-cu-action", kind: "cu_action",    label: "Computer-use action",          description: "Drive a real desktop app (macOS — Notes, Mail, etc.)" },
+      { id: "tool-code",      kind: "code",         label: "Code",                         description: "Run inline code" },
     ],
+  },
+  {
+    label: "MCP connectors",
+    items: CONNECTOR_CATALOG.map((c) => ({
+      id: `tool-mcp-${c.id}`,
+      kind: "mcp_invoke" as const,
+      label: c.name,
+      description: c.description,
+      mcpServer: c.id,
+    })),
   },
   {
     label: "Notify",
@@ -303,9 +352,10 @@ export const PALETTE_ITEM_ICON: Record<string, ReactNode> = {
   "approval-slack":   createElement(Slack,         { size: 14 }),
   "approval-email":   createElement(Mail,          { size: 14 }),
   "approval-web":     createElement(ShieldCheck,   { size: 14 }),
-  "tool-http":        createElement(Globe,         { size: 14 }),
-  "tool-browser":     createElement(MousePointer2, { size: 14 }),
-  "tool-code":        createElement(Code2,         { size: 14 }),
+  "tool-http":        createElement(Globe,             { size: 14 }),
+  "tool-browser":     createElement(MousePointer2,     { size: 14 }),
+  "tool-cu-action":   createElement(MonitorSmartphone, { size: 14 }),
+  "tool-code":        createElement(Code2,             { size: 14 }),
   "notify-slack":     createElement(Slack,         { size: 14 }),
   "notify-email":     createElement(Mail,          { size: 14 }),
   "notify-inbox":     createElement(Inbox,         { size: 14 }),
