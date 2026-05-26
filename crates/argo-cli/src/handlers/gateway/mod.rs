@@ -41,6 +41,7 @@ mod metrics_text;
 mod onboarding_provision;
 mod onboarding_seeds;
 mod routes_onboarding;
+mod routes_onboarding_genesis;
 mod routes_onboarding_helpers;
 mod peer;
 mod print_routes;

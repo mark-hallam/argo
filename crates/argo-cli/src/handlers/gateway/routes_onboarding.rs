@@ -31,6 +31,9 @@
 
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
+use super::routes_onboarding_genesis::{
+    charter_hash, derive_duties, invoke_genesis, synthesise_charter,
+};
 use super::routes_onboarding_helpers::{
     bad_request, count_skill_files, count_workflow_files, emit_audit, infer_provider,
     load_vertical, map_workspace_error, mask_key, micros_to_usd, name_from_description, not_found,
@@ -39,7 +42,7 @@ use super::routes_onboarding_helpers::{
 };
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
-use argo_identity::{ApprovalPolicyChoice, HireDraft, HireDutyDraft, IdentityStore};
+use argo_identity::{ApprovalPolicyChoice, HireDraft, IdentityStore};
 use argo_store::workspace_keys::{
     ensure_schema as ensure_workspace_keys_schema, record_vertical_install, upsert_provider_key,
     ProviderKeyRecord,
@@ -252,24 +255,23 @@ pub(super) async fn first_hire_response(
         Ok(pair) => pair,
         Err(e) => return map_workspace_error(e),
     };
-    if load_vertical(&vertical_id).is_none() {
+    let Some(picked) = load_vertical(&vertical_id) else {
         return not_found(&format!("vertical '{vertical_id}' not found"));
-    }
+    };
     let worker_name = name_from_description(&description);
     let principal_id = format!("{HUMAN_PRINCIPAL_PREFIX}{email}");
+    let outcome = invoke_genesis(&description, &worker_name);
+    let charter = synthesise_charter(&description, outcome.plan.as_ref());
+    let duties = derive_duties(outcome.plan.as_ref(), &picked);
+    let duty_count = duties.len();
     let draft = HireDraft {
         suggested_name: worker_name.clone(),
-        charter: format!("First hire for this workspace. Operator brief:\n\n{description}"),
+        charter: charter.clone(),
         suggested_vertical: vertical_id.clone(),
         approval_policy: ApprovalPolicyChoice {
             level: "balanced".into(),
         },
-        duties: vec![HireDutyDraft {
-            cron: "0 9 * * 1-5".into(),
-            entry_action: "daily_check_in".into(),
-            description: format!("Daily check-in derived from operator brief: {description}"),
-            default_enabled: true,
-        }],
+        duties,
         voice_profile: None,
         tagline: None,
     };
@@ -282,16 +284,28 @@ pub(super) async fn first_hire_response(
         Err(ArgoError::Schema(msg)) => return bad_request(&msg),
         Err(e) => return server_error(&format!("create_worker: {e}")),
     };
+    let endpoint = if outcome.is_fallback() {
+        "onboarding.first_hire.genesis_fallback"
+    } else {
+        "onboarding.first_hire.genesis_invoked"
+    };
     emit_audit(
         store,
         tenant,
         req,
-        "onboarding.first_hire",
+        endpoint,
         json!({
             "tenant_id": tenant.0.to_string(),
             "worker_id": new_id.to_string(),
             "vertical_id": vertical_id,
             "name": worker_name,
+            "genesis_invoked": !outcome.is_fallback(),
+            "genesis_fallback": outcome.is_fallback(),
+            "plan_id": outcome.plan_id(),
+            "archetype": outcome.archetype().map(|a| a.slug()),
+            "charter_hash": charter_hash(&charter),
+            "duty_count": duty_count,
+            "fallback_reason": outcome.fallback_reason,
         }),
     )
     .await;
@@ -301,6 +315,8 @@ pub(super) async fn first_hire_response(
             "worker_id": new_id.to_string(),
             "name": worker_name,
             "vertical_id": vertical_id,
+            "genesis_invoked": !outcome.is_fallback(),
+            "genesis_fallback": outcome.is_fallback(),
         })
         .to_string(),
     )
@@ -337,3 +353,7 @@ async fn emit_onboarding_audit(
 #[cfg(test)]
 #[path = "routes_onboarding_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_onboarding_first_hire_genesis_tests.rs"]
+mod first_hire_genesis_tests;
