@@ -12,7 +12,7 @@ import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import type { ChannelKind } from "@/lib/sample-approvals";
 import { SAMPLE_AUDIT_ROWS } from "@/lib/sample-audit";
-import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 import {
   AUDIT_RANGE_PRESETS,
   DEFAULT_AUDIT_RANGE,
@@ -343,7 +343,10 @@ function labelFor(dayStart: number, today: number, yesterday: number, thisYear: 
  * `nextCursor: null` response.
  */
 export async function fetchAuditFeed(filters: AuditFilters): Promise<AuditFeedPage> {
-  if (isAuthBypassed()) {
+  // `isDemoLive()` is the recording-mode opt-out: with auth-bypass +
+  // demo-mode + demo-live, the audit feed routes through the real
+  // gateway so Scene 6's "real provenance" narration is literally true.
+  if (isAuthBypassed() && !isDemoLive()) {
     return mockPage(filters);
   }
 

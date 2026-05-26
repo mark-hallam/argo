@@ -35,7 +35,7 @@ import {
   type ApprovalItem,
   type ChannelKind,
 } from "@/lib/sample-approvals";
-import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 
 export type DataSource = "live" | "mock-offline" | "mock-auth-bypass";
 
@@ -177,7 +177,11 @@ function rowToItem(row: ApprovalRowJson): ApprovalItem {
 }
 
 export async function fetchApprovals(): Promise<ApprovalsResult> {
-  if (authBypassEnabled()) {
+  // `isDemoLive()` is the recording-mode opt-out: with auth-bypass +
+  // demo-mode + demo-live, the inbox reads the real gateway so the
+  // approvals the camera sees are the seeded server rows, not the
+  // bundled `SAMPLE_APPROVALS` constant.
+  if (authBypassEnabled() && !isDemoLive()) {
     return { items: SAMPLE_APPROVALS, source: "mock-auth-bypass" };
   }
   try {
@@ -204,7 +208,8 @@ export async function submitDecision({
   approvalId,
   decision,
 }: ApprovalDecisionRequest): Promise<DecisionResult> {
-  if (authBypassEnabled()) {
+  // Recording-mode opt-out — see `fetchApprovals` above.
+  if (authBypassEnabled() && !isDemoLive()) {
     return { ok: true, approvalId, decision, source: "mock-auth-bypass" };
   }
   try {
@@ -246,7 +251,8 @@ export async function submitDecision({
 }
 
 export async function submitUndo(approvalId: string): Promise<UndoResult> {
-  if (authBypassEnabled()) {
+  // Recording-mode opt-out — see `fetchApprovals` above.
+  if (authBypassEnabled() && !isDemoLive()) {
     return { ok: true, approvalId, source: "mock-auth-bypass" };
   }
   try {

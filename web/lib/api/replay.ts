@@ -22,7 +22,7 @@
 import { apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { findSampleReplay } from "@/lib/sample-replay";
-import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 
 export type Verdict = "reproducible" | "drifted-aligned" | "drifted-misaligned";
 
@@ -256,7 +256,11 @@ export async function replayAction(actionId: string): Promise<ReplayOutcome> {
     return { kind: "failed", reason: "Missing action id" };
   }
 
-  if (isAuthBypassed()) {
+  // `isDemoLive()` is the recording-mode opt-out: with auth-bypass +
+  // demo-mode + demo-live, replay POSTs to the real gateway so the
+  // verdict and `adaptGatewayReplay` branch carry real provenance
+  // diffs instead of the canonical sample-replay table.
+  if (isAuthBypassed() && !isDemoLive()) {
     return sampleOrFailed(actionId);
   }
 

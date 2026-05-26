@@ -17,7 +17,7 @@ import {
   findSampleAuditDetail,
   placeholderAuditDetail,
 } from "@/lib/sample-audit-detail";
-import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 import type { AuditDetail } from "@/lib/types/audit-detail";
 import type { AuditStatus, DataClassification } from "@/lib/types/audit";
 
@@ -96,11 +96,15 @@ function demoModeDetail(actionId: string): AuditDetail {
 export async function fetchAuditDetail(actionId: string): Promise<AuditDetailWithDelegation> {
   if (!actionId) throw new AuditDetailNotFoundError(actionId);
 
-  if (isAuthBypassed()) {
+  // `isDemoLive()` is the recording-mode opt-out: with auth-bypass +
+  // demo-mode + demo-live, the drill-in hits the real gateway so the
+  // audit row the camera lands on is the cryptographically-anchored
+  // server row, not a hand-shaped sample.
+  if (isAuthBypassed() && !isDemoLive()) {
     return mockDetail(actionId);
   }
 
-  if (isDemoMode() && !isStrictProduction()) {
+  if (isDemoMode() && !isStrictProduction() && !isDemoLive()) {
     return demoModeDetail(actionId);
   }
 
