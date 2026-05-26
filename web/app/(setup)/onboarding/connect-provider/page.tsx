@@ -111,6 +111,17 @@ export default function OnboardingConnectProviderPage() {
               <span>Key validated. Forwarding…</span>
             </p>
           ) : null}
+          <div
+            className="ob-form-note flex items-start gap-2"
+            data-testid="onboarding-provider-skip-warning"
+            role="note"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>
+              <strong>Mock provider</strong> — workers run but responses are simulated.
+              Skipping uses a mock provider until you add a real key in Settings · Providers.
+            </span>
+          </div>
           <div className="ob-cta-row is-split">
             <button
               type="button"
@@ -145,10 +156,6 @@ export default function OnboardingConnectProviderPage() {
             </div>
           </div>
         </form>
-        <p className="ob-form-note" data-testid="onboarding-provider-skip-warning">
-          Skipping uses a mock provider. Workers will run, but responses are simulated until you
-          add a real key in Settings.
-        </p>
       </div>
     </OnboardingShell>
   );
