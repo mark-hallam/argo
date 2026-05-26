@@ -52,6 +52,7 @@ recording is the story.
 - [ ] Slack desktop notifications off **except** for the demo channel.
 - [ ] `argo gateway start --bind 127.0.0.1 --port 7400` running in a non-visible terminal. Stderr should print `argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted`.
 - [ ] Demo-mode auth bypass active in the SPA: `NEXT_PUBLIC_ARGO_DEMO_MODE=1`. The yellow banner "DEMO MODE — auth bypass active" must show on `/auth/signup`.
+- [ ] **Runbook fallback** (added under brief `fix-signup-demo-mode-env-flag-and-runbook-prerequisites`): if you forgot the `NEXT_PUBLIC_ARGO_DEMO_MODE=1` env-var step or want to leave the magic-link form visible, the "Or try a demo workspace · no email required" secondary button beneath the form mints a demo session without an SMTP round-trip. It is visible on any non-production build by default; force-enable on a preview deploy with `NEXT_PUBLIC_ALLOW_DEMO_MINT=1`. Either path lands the operator on `/onboarding/welcome` without an email.
 
 ---
 

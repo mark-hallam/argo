@@ -14,17 +14,32 @@ import { SsoButtons } from "@/components/auth/SsoButtons";
  * start the OAuth authorization-code flow; magic-link is the email
  * fallback for anyone without an SSO provider.
  *
- * Demo-mode branch (demo-ops-add-magic-link-bypass-for-recording):
- * when `NEXT_PUBLIC_ARGO_DEMO_MODE=1`, the "Send magic link" button
- * calls `POST /api/v1/demo/mint-principal` against the gateway
- * directly, bypassing the SMTP round-trip, and routes the operator
- * straight to `/onboarding/welcome`. The branch is only meaningful
- * paired with the gateway flag — without `ARGO_DEMO_MODE=1` on the
- * gateway, the call returns 404 and the form falls back to the
- * normal magic-link flow.
+ * Two demo-mint surfaces (both bypass the SMTP round-trip):
+ *
+ *  1. Full demo mode — `NEXT_PUBLIC_ARGO_DEMO_MODE=1` replaces the main
+ *     submit button with "Enter demo workspace". The whole form is
+ *     repurposed for the v1.0 mp4 recording session. Needs the gateway
+ *     paired flag (`ARGO_DEMO_MODE=1`); otherwise the demo-mint route
+ *     returns 404.
+ *
+ *  2. "Or try a demo workspace" escape hatch — added so the demo path
+ *     is discoverable in local + preview environments without the
+ *     operator having to remember the env-var dance before recording.
+ *     The button shares the demo-mint handler with (1) but stays out
+ *     of the way in production: hidden unless `NEXT_PUBLIC_ENV !==
+ *     "production"` OR `NEXT_PUBLIC_ALLOW_DEMO_MINT=1` is set.
  */
 const DEMO_MODE =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_ARGO_DEMO_MODE === "1";
+
+function shouldShowDemoMintButton(): boolean {
+  if (typeof process === "undefined") return false;
+  if (process.env.NEXT_PUBLIC_ALLOW_DEMO_MINT === "1") return true;
+  // Default: visible in non-production environments so local dev and
+  // preview branches surface the demo path automatically. Production
+  // builds (`NEXT_PUBLIC_ENV=production`) must opt in via the flag.
+  return process.env.NEXT_PUBLIC_ENV !== "production";
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -32,6 +47,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [demoPending, setDemoPending] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
+  const showSecondaryDemoButton = !DEMO_MODE && shouldShowDemoMintButton();
 
   useEffect(() => {
     if (state.kind === "sent") {
@@ -197,6 +213,32 @@ export default function SignupPage() {
           ? "Demo mode is active — no email is sent. You'll land in onboarding immediately."
           : "We'll email you a one-tap sign-in link. No password to remember."}
       </p>
+
+      {showSecondaryDemoButton ? (
+        <button
+          type="button"
+          onClick={submitDemoMint}
+          disabled={pending || email.trim().length === 0}
+          data-testid="signup-demo-mint"
+          style={{
+            marginTop: 16,
+            width: "100%",
+            background: "transparent",
+            border: "1px dashed rgba(30, 27, 75, 0.35)",
+            borderRadius: 10,
+            padding: "12px 14px",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#1e1b4b",
+            cursor: pending || email.trim().length === 0 ? "not-allowed" : "pointer",
+            opacity: pending || email.trim().length === 0 ? 0.55 : 1,
+          }}
+        >
+          {demoPending
+            ? "Minting demo workspace…"
+            : "Or try a demo workspace · no email required"}
+        </button>
+      ) : null}
     </AuthEditorialShell>
   );
 }
