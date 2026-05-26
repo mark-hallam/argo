@@ -1,5 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+function readSessionCookie(req: NextRequest): string | undefined {
+  return (
+    req.cookies.get("__Host-session")?.value ??
+    req.cookies.get("authjs.session-token")?.value ??
+    req.cookies.get("__Secure-authjs.session-token")?.value
+  );
+}
+
 /**
  * Auth gate. Unauth users hitting any non-`/auth/*` route are
  * redirected to `/auth/signin?from=<original-path>`.
@@ -34,11 +42,26 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Cookie-name precedence (Wave-11 audit P0 fix, 2026-05-21):
+  // canonical is `__Host-session` — the gateway mints it on the
+  // SPA edge `/api/auth/verify` proxy after magic-link verify
+  // (see `crates/argo-cli/src/handlers/gateway/session_jwt.rs`).
+  // Prior middleware checked only `authjs.session-token` /
+  // `__Secure-authjs.session-token` — those NextAuth-style names
+  // were never minted by the gateway, so every signed-in user
+  // bounced back to /auth/signin forever. Read `__Host-session`
+  // first; keep the NextAuth names as belt-and-braces fallback.
+  const sessionCookie = readSessionCookie(req);
+
   if (
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   ) {
     return NextResponse.next();
+  }
+
+  if (pathname === "/" && !sessionCookie) {
+    return NextResponse.redirect(new URL("/landing", req.url));
   }
 
   // demo-ops-add-magic-link-bypass-for-recording: when the gateway
@@ -52,20 +75,6 @@ export function middleware(req: NextRequest) {
   ) {
     return NextResponse.next();
   }
-
-  // Cookie-name precedence (Wave-11 audit P0 fix, 2026-05-21):
-  // canonical is `__Host-session` — the gateway mints it on the
-  // SPA edge `/api/auth/verify` proxy after magic-link verify
-  // (see `crates/argo-cli/src/handlers/gateway/session_jwt.rs`).
-  // Prior middleware checked only `authjs.session-token` /
-  // `__Secure-authjs.session-token` — those NextAuth-style names
-  // were never minted by the gateway, so every signed-in user
-  // bounced back to /auth/signin forever. Read `__Host-session`
-  // first; keep the NextAuth names as belt-and-braces fallback.
-  const sessionCookie =
-    req.cookies.get("__Host-session")?.value ??
-    req.cookies.get("authjs.session-token")?.value ??
-    req.cookies.get("__Secure-authjs.session-token")?.value;
 
   if (sessionCookie) return NextResponse.next();
 
