@@ -247,10 +247,25 @@ function ViewerInner({
           </div>
           <h1 className="wfd-name">{workflow.name}</h1>
           <p className="wfd-desc">{workflow.description}</p>
-          <div className="wfd-actions">
+          <div className="wfd-actions" data-testid="wfd-actions">
+            <button
+              type="button"
+              className="wfd-btn wfd-btn-primary"
+              data-testid="wfd-run-workflow"
+              onClick={handleRunWorkflow}
+              disabled={running || !isLive}
+              title={
+                isLive
+                  ? "Execute against the live gateway workflow"
+                  : "Available once this workflow is published to the gateway"
+              }
+            >
+              <Play size={13} /> {running ? "Running…" : "Run now"}
+            </button>
             <Link
               href={`/workflows/${workflow.vertical}/${workflow.name}/build`}
-              className="wfd-btn wfd-btn-primary"
+              className="wfd-btn"
+              data-testid="wfd-open-builder"
             >
               <Pencil size={13} /> Open builder
             </Link>
@@ -265,6 +280,7 @@ function ViewerInner({
             <Link
               href={`/verticals/${workflow.vertical}/workflows/${workflow.name}`}
               className="wfd-btn"
+              data-testid="wfd-version-history-link"
             >
               <GitBranch size={13} /> Version history
             </Link>
@@ -275,20 +291,6 @@ function ViewerInner({
               onClick={() => setScheduleDrawerOpen(true)}
             >
               <CalendarClock size={13} /> + Add as Schedule
-            </button>
-            <button
-              type="button"
-              className="wfd-btn wfd-btn-primary"
-              data-testid="wfd-run-workflow"
-              onClick={handleRunWorkflow}
-              disabled={running || !isLive}
-              title={
-                isLive
-                  ? "Execute against the live gateway workflow"
-                  : "Available once this workflow is published to the gateway"
-              }
-            >
-              <Play size={13} /> {running ? "Running…" : "Run now"}
             </button>
           </div>
         </div>
