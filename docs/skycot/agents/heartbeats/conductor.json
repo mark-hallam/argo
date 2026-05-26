@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-26T20:10:00Z",
+  "last_run_utc": "2026-05-26T20:35:00Z",
   "expected_cadence_seconds": 3600,
-  "session_label": "scheduled-tick-T20-05-merged-pr-2431-tryChips",
-  "run_notes": "Tick T20-05Z (Melbourne 2026-05-27 06:10 AEST). Sync clean: origin/main fresh-fetched, recent-commit check exit 0 (no short-circuit). 28 open PRs → 13 CLEAN, 13 DIRTY, 2 UNKNOWN at start. **MERGED 1 PR** under permanent web/test/doc-only admin-merge auth (operator-locked 2026-05-26T09:15Z): #2431 fix-skills-try-chips-zero-results-rewrite — 51 LOC, 2 source files (skills/page.tsx + Skills.test.tsx), web-only, vitest 16/16 + tsc + eslint clean. Closes UX-AUDIT-T0415MEL scene-4-5 F2 [P0 demo-blocker — TRY chips returned 0 results because chip text was noun-phrase but seeds are dot-stem]. Pre-merge gate started under --skip-clippy but killed mid-run because (a) cargo-check competed with active worker cargo runs on shared target dir, (b) PR strictly qualifies for operator's relaxed web-only gate bypass. Ledger flipped IN_REVIEW→MERGED. Other 12 CLEAN PRs at start are over 200 LOC and/or >5 files — defer to evaluator pre-verification or next tick. DIRTY PRs: 13 conflicting (mostly codex-* awaiting rebase from workers); no fix-request comments posted this tick — workers already wired. No BLOCKED triage needed. Gateway v83=v83 FRESH. 0 drift rows. 0 unread handoffs. 4 findings within budget. Queue depth: 99 TODO rows in ledger (well above 25 threshold) — no Step 8 replenishment fired. **Carry-forward untouched**: prior tick's UX-AUDIT-T0519MEL leftover (17 brief files + 6 audit reports + BUILD_STATUS amendment + SHARED.md entry) still in worktree unstaged from previous conductor decision 'left UNTRACKED for op'; re-stashed during this tick to keep merge commit clean. Standing v1.0 ship-gate items operator-only: (c) macOS perms claim-5, (d) record demo MP4. Next hourly tick.",
-  "open_prs": 27,
+  "session_label": "scheduled-tick-T20-35-no-merges-3-unread-handoffs-surfaced",
+  "run_notes": "Tick T20-35Z (Melbourne 2026-05-27 06:35 AEST). Sync clean: operator landed `5a7c4150f` (ux-audit-T0519MEL — 5-agent e2e pass + synthesis with 17 root-cause fix-briefs) since last tick — the leftover I'd intentionally left untracked has now shipped to origin/main. Reset local main to origin/main. recent-commit check exit 0. 28 open PRs → 14 CLEAN, 13 DIRTY, 1 UNKNOWN at start; new PR #2432 fix-spa-demo-live-mode-route-real-gateway-on-camera (276 LOC, 8 files) just opened by claude worker. **0 PRs MERGED this tick** — none of the 14 CLEAN PRs strictly qualifies for permanent web/test/doc-only relaxed auth (operator-locked 2026-05-26T09:15Z, ≤200 LOC ≤5 files web-only with vitest green): all are either over 200 LOC, over 5 files, touch crates/, or touch scripts/. Without evaluator pre-verification on PR head SHA within 6h, --skip-clippy gate is not authorized. Defer to evaluator round 89+. **3 unread handoffs actioned**: (1) [evaluator R88 2026-05-27T00:35Z] — verified PRs #2413 + #2418 already MERGED by prior tick T00-42; flagged P1s (fix-pr-2404, fix-pr-2366, fix-settings-themepicker, ops-conductor-pre-merge-gate-web-typecheck-pin escalation) all addressed by peer commit `56f4ea0b4` (mechanical-author 6 standing P1) and vitest regression closed by `d40c4f72d` per CLAUDE.md carry-forward; informational only this tick. (2) [supervisor-watchdog 2026-05-26T20:33Z] — status snapshot, slots ACTIVE, no remediation needed. (3) [supervisor-watchdog 2026-05-26T20:33Z DEGRADATION] — both slot workers blocked on pre-commit lint-brief.sh hang (PIDs 83497 + 83523, ~8min stuck) + git fetch 'multiple branches' config issue from earlier worker iteration crash. **SURFACE TO OPERATOR**: needs investigation of lint-brief.sh hang + git fetch multi-branch config — not fixable from conductor. DIRTY PRs (13): all updated >6h ago. Stale-demote (Step 5c) deferred — most have fix-pr-* rebase claims in flight per recent ledger activity. Gateway v83=v83 FRESH. 0 drift rows. 4 findings within budget. Queue depth: 97 TODO rows (well above 25 threshold) — no Step 8 replenishment fired. Standing v1.0 ship-gate items operator-only: (c) macOS perms claim-5, (d) record demo MP4. Next hourly tick.",
+  "open_prs": 28,
   "queue_state": {
-    "claude_todo": 99,
-    "codex_todo": 11,
+    "claude_todo": 97,
+    "codex_todo": 13,
     "claude_or_codex_todo": 2,
-    "claude_claimed": 5,
+    "claude_claimed": 4,
     "codex_claimed": 1,
-    "claude_or_codex_claimed": 0,
-    "claude_in_review": 37,
+    "claude_or_codex_claimed": 1,
+    "claude_in_review": 38,
     "codex_in_review": 6,
     "claude_or_codex_in_review": 14
   },
-  "the_gate": "✅ MERGED #2431 (UX-AUDIT-T0415MEL scene-4-5 F2 P0). 1 demo-MP4-unblock PR landed this tick; 13 demo-recording-unblock PRs total since 2026-05-26T15:00Z. v1.0 ship-gate blockers remain operator-only: (c) macOS perms on argo binary for claim-5, (d) record demo MP4 per docs/skycot/demos/v1-mission-mvp-runbook.md.",
+  "the_gate": "🟡 0 merges this tick — 14 CLEAN PRs but none strictly qualify for the permanent web/test/doc-only relaxed gate (all over 200 LOC, >5 files, or touch crates/scripts). Awaiting evaluator pre-verification round 89+. **OPERATOR SURFACE**: supervisor-watchdog flagged DEGRADATION 20:33Z — both slot workers wedged on pre-commit lint-brief.sh hang + git fetch 'multiple branches' config drift; needs operator investigation. v1.0 ship-gate blockers remain operator-only: (c) macOS perms on argo binary for claim-5, (d) record demo MP4.",
   "quota_probe": "skip"
 }
