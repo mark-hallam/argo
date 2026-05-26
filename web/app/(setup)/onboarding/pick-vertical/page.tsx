@@ -194,6 +194,9 @@ export default function OnboardingPickVerticalPage() {
     source: catalogSource,
     isLoading: catalogLoading,
   } = useVerticals();
+  // Capture once on render so the JSX subtitle + per-card chip share
+  // the same flag without re-evaluating `process.env.*` in two spots.
+  const demoMode = isDemoMode();
 
   useEffect(() => {
     setStep(4);
@@ -261,10 +264,18 @@ export default function OnboardingPickVerticalPage() {
         { text: "starting template.", accent: true },
       ]}
       sub={
-        <>
-          We install the <strong>skills, memory schema, and approval gates</strong>. You can swap
-          or extend later.
-        </>
+        demoMode ? (
+          <span data-testid="onboarding-vertical-subtitle-demo">
+            Demo mode &mdash; pick a starting template. We&apos;ll install the real{" "}
+            <strong>skills, memory schema, and approval gates</strong> once you
+            create a real workspace.
+          </span>
+        ) : (
+          <span data-testid="onboarding-vertical-subtitle-real">
+            We install the <strong>skills, memory schema, and approval gates</strong>. You can swap
+            or extend later.
+          </span>
+        )
       }
     >
       <div className="ob-stack mx-auto max-w-4xl">
@@ -309,7 +320,30 @@ export default function OnboardingPickVerticalPage() {
                     ))}
                   </div>
                   <p className="ob-role-meta">
-                    <strong>{v.skillCount}</strong> skills · ready to install
+                    <strong>{v.skillCount}</strong>{" "}
+                    {demoMode ? (
+                      <>
+                        skills ·{" "}
+                        <span
+                          data-testid={`vertical-${v.id}-demo-chip`}
+                          style={{
+                            display: "inline-block",
+                            background: "#fef3c7",
+                            border: "1px solid #f59e0b",
+                            color: "#78350f",
+                            padding: "1px 8px",
+                            borderRadius: 999,
+                            fontSize: "0.75em",
+                            fontWeight: 600,
+                            marginLeft: 4,
+                          }}
+                        >
+                          Demo mode · install deferred
+                        </span>
+                      </>
+                    ) : (
+                      <>skills · ready to install</>
+                    )}
                   </p>
                 </button>
               </li>
