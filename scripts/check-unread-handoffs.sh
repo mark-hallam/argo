@@ -27,12 +27,14 @@
 
 set -euo pipefail
 
-REPO="${ARGO_REPO_ROOT:-$(pwd)}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+REPO="${GIT_ROOT:-${ARGO_REPO_ROOT:-$(pwd)}}"
 SHARED="${ARGO_SHARED_PATH:-$REPO/docs/skycot/agents/SHARED.md}"
 HEARTBEAT="${ARGO_CONDUCTOR_HEARTBEAT:-$REPO/docs/skycot/agents/heartbeats/conductor.json}"
 CUTOFF_CHECK="${ARGO_CUTOFF_STALENESS_SCRIPT:-$SCRIPT_DIR/check-conductor-cutoff-staleness.sh}"
 CLASSIFIER="${ARGO_CLASSIFY_HANDOFFS_SCRIPT:-$SCRIPT_DIR/classify-unread-handoffs.sh}"
+GHOST_SCRIPT="${ARGO_GHOST_STAMP_SCRIPT:-$SCRIPT_DIR/check-conductor-ghost-stamps.sh}"
 
 if [ "${1:-}" != "--since" ] && [ -x "$CUTOFF_CHECK" ]; then
   set +e
@@ -115,6 +117,25 @@ except Exception:
     fi
   fi
 done < "$SHARED"
+
+if [ -x "$GHOST_SCRIPT" ]; then
+  set +e
+  GHOST_OUTPUT="$(
+    ARGO_REPO_ROOT="$REPO" \
+    CONDUCTOR_GHOST_SHARED="$SHARED" \
+    CONDUCTOR_GHOST_HEARTBEAT="$HEARTBEAT" \
+      bash "$GHOST_SCRIPT" 2>&1
+  )"
+  GHOST_RC=$?
+  set -e
+  if [ "$GHOST_RC" -ne 0 ]; then
+    if [ "$GHOST_RC" -eq 1 ]; then
+      printf '%s\n' "$GHOST_OUTPUT"
+    else
+      printf '⚠️ conductor ghost-stamp detector could not complete:\n%s\n' "$GHOST_OUTPUT" >&2
+    fi
+  fi
+fi
 
 if [ "$UNREAD_COUNT" -gt 0 ]; then
   printf '\033[1;31m🔴 UNREAD HANDOFFS (%d) in SHARED.md, newer than conductor cutoff %s:\033[0m\n\n' \
