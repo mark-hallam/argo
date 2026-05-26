@@ -66,7 +66,7 @@ fn hire_req_with_idem(body: &str, key: &str) -> String {
     )
 }
 
-fn valid_draft() -> Value {
+pub(super) fn valid_draft() -> Value {
     json!({
         "suggestedName": "Maya",
         "charter": "Own outbound marketplace follow-up end-to-end for B2B customers.",
@@ -462,4 +462,3 @@ async fn hire_aggressive_policy_enables_auto_approval_on_row() {
         .expect("present");
     assert!(worker.auto_approval.enabled);
 }
-

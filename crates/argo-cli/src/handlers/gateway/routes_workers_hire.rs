@@ -197,10 +197,24 @@ async fn resolve_tenant_principal(
 
 fn vertical_exists(id: &str) -> bool {
     let dir = crate::handlers::vertical::resolve_verticals_dir();
-    let Ok((registry, _errors)) = argo_vertical::load_dir(&dir) else {
+    let in_catalog = argo_vertical::load_dir(&dir)
+        .map(|(reg, _)| reg.get(id).is_some())
+        .unwrap_or(false);
+    // `POST /api/v1/genesis` writes tenant-scoped verticals under
+    // `<root>/.genesis/<tenant_slug>/<vertical_id>/`. Those stay out of
+    // the global catalog, but the SPA hire that commits the freshly-
+    // generated draft must still find them here.
+    in_catalog || genesis_vertical_exists(&dir, id)
+}
+
+fn genesis_vertical_exists(verticals_root: &std::path::Path, id: &str) -> bool {
+    let Ok(entries) = std::fs::read_dir(verticals_root.join(".genesis")) else {
         return false;
     };
-    registry.get(id).is_some()
+    entries.flatten().any(|e| {
+        let d = e.path();
+        d.is_dir() && d.join(id).join("vertical.toml").is_file()
+    })
 }
 
 fn idempotency_key(req: &str) -> Option<String> {
@@ -480,3 +494,7 @@ mod idem_tests;
 #[cfg(test)]
 #[path = "routes_workers_hire_audit_payload_tests.rs"]
 mod audit_payload_tests;
+
+#[cfg(test)]
+#[path = "routes_workers_hire_genesis_lookup_tests.rs"]
+mod genesis_lookup_tests;
