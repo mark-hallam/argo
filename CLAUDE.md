@@ -185,7 +185,7 @@ The full audit reports live in `docs/skycot/audit/`:
 - Claim 2 (Delegation is the unit) — 🟢 **LIVE** (delegate-task fallback-chain inheritance now wired in live runner dispatch via #2256; evaluator round-54 PRE-MERGE PASS confirmed cold cargo; runtime is now carrying the active handoff chain through `ToolContext.current_handoff_id`)
 - Claim 3 (Platform builds workers) — 🟢 **LIVE** (evaluator round-54 addendum: cold cargo 2/2 PASS, 169min wall under load 183; verdict 🟡→🟢; LIKELY-LIVE→LIVE flip recommended; #2089 + #2106 + #2109 wire complete)
 - Claim 4 (Skills shared + learned) — 🟢 **LIVE** (#2092 + #2110 merged; criteria operator-locked round 19; cold rerun passed 2026-05-25 via `ops-claim-4-and-6-live-cold-rerun-on-current-main`: `claim_4_live_install_invoke` cargo finished in 1m53s, test runtime 0.10s)
-- Claim 5 (Any-PC execution) — 🟡 **LIKELY-LIVE-pending-perms** (#2112 merged + evaluator round 51 confirmed claim-5 substrate 47/47 cold cargo PASS; #2231 added cu(macos) screenshot compression config; #2264 added routing decision tenant-scope; #2218 added document executor bundle tenant-segment; still needs operator macOS perms on argo binary + cold rerun of `claim_5_live_mcp_and_cu`)
+- Claim 5 (Any-PC execution) — 🟡 **LIKELY-LIVE-pending-cold-rerun** (#2112 merged + evaluator round 51 confirmed claim-5 substrate 47/47 cold cargo PASS; #2231 added cu(macos) screenshot compression config; #2264 added routing decision tenant-scope; #2218 added document executor bundle tenant-segment; **operator granted macOS perms 2026-05-26** — only remaining gate is cold rerun of `claim_5_live_mcp_and_cu` to flip to 🟢 LIVE)
 - Claim 6 (Multi-channel + multi-tenant) — 🟢 **LIVE** (#2113 merged; cross-tenant negative pins shipped via #2257; inbound SMS approval route via #2224; Discord interaction signature verify via #2222; voice DTMF audit via #2208; cold rerun passed 2026-05-25 via `ops-claim-4-and-6-live-cold-rerun-on-current-main`: `claim_6_live_cross_tenant` cargo finished in 52.42s, test runtime 0.13s)
 - v1.0 demo MP4 — ❌ NOT RECORDED (operator-only artifact)
 
@@ -218,12 +218,12 @@ The full audit reports live in `docs/skycot/audit/`:
 **Remaining for v1.0 launch (2026-05-25 updated):**
 - (a) **agent — DONE 2026-05-25**: cold-rerun of the remaining claim-N-LIVE regression tests passed via `ops-claim-4-and-6-live-cold-rerun-on-current-main`; claims 4 and 6 are now LIVE in the status block above
 - (b) **agent — DONE 2026-05-25**: ✅ MERGED #2283 by conductor T09-30. Canonical gateway port is **7400**; `Makefile`, `scripts/restart-live-gateway.sh`, and `scripts/check-gateway-freshness.sh` all default to `http://127.0.0.1:7400`. Gateway was already alive on 7400, schema v81 FRESH; the restart was a NO_OP.
-- (c) **operator-only**: grant macOS permissions on `argo` binary (Accessibility + Screen Recording) for claim-5
+- (c) **operator — DONE 2026-05-26**: granted macOS permissions on `argo` binary (Accessibility + Screen Recording). Per operator note 2026-05-26T20:55Z. Next gate to flip Claim 5 from 🟡 LIKELY-LIVE→🟢 LIVE: cold rerun of `claim_5_live_mcp_and_cu` on current main (agent-doable).
 - (d) **operator-only**: record demo MP4 per `docs/skycot/demos/v1-mission-mvp-runbook.md`
 - (e) **agent**: Track P P-05 is now TODO/unblocked after P-01 (#2214), P-03 (#2209), and P-04 (#2281) merged. P-02 implementation is currently BLOCKED on the audit event-kind split/headroom issue; P-06/P-07 remain blocked on P-02 + P-05, and P-08 remains blocked until P-01..P-05 are all landed.
 - (f) **agent — DONE 2026-05-25**: ✅ MERGED #2286. Marketing/onboarding/skills smoke after #2242 `NEXT_PUBLIC_` env-var rename found all checked routes returning final 200 and no `styled-jsx` warning.
 
-**Item (e) is agent-doable; swarm is now ACTIVE (per top-of-file state block) so workers may pick it up as TODO rows when authored/unblocked.** Items (a)/(b)/(f) are complete. Items (c)/(d) are operator-only.
+**Item (e) is agent-doable; swarm is now ACTIVE (per top-of-file state block) so workers may pick it up as TODO rows when authored/unblocked.** Items (a)/(b)/(c)/(f) are complete. Item (d) is operator-only. **Claim-5 cold-rerun is now agent-doable** (operator granted macOS perms 2026-05-26) — author a `claim-5-cold-rerun-mcp-and-cu-post-macos-perms` brief to flip claim 5 to 🟢 LIVE.
 
 **To relight the swarm (post tier-1+2 memory-pressure fixes 2026-05-25):**
 1. `rm /tmp/argo-stop ~/.argo/stop` (clears both transient + persistent halt signals — added in commit `a352b4bfb`)
