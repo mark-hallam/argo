@@ -245,6 +245,8 @@ fn audit_row_json(row: &ExportedRow, policy: &RedactionPolicy) -> Value {
     });
     let mut row_json = json!({
         "id": row.id,
+        "self_hash": row.self_hash,
+        "parent_hash": row.parent_hash,
         "timestamp": timestamp,
         "worker": { "id": worker_id, "name": worker_name },
         "action_type": action_type(row).unwrap_or_else(|| row.kind.clone()),

@@ -7,7 +7,11 @@ import { Avatar } from "@/components/ui/Avatar";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/lib/ui/use-toast";
-import type { WorkerActivity, WorkerActivityStatus } from "@/lib/api/worker-activity";
+import type {
+  WorkerActivity,
+  WorkerActivityHashKind,
+  WorkerActivityStatus,
+} from "@/lib/api/worker-activity";
 
 /**
  * Shared row primitive for audit-style feeds. E4-c ships it first;
@@ -80,7 +84,11 @@ export function ActivityRow({ activity, hideWorker, className }: ActivityRowProp
       </div>
 
       {activity.hash ? (
-        <HashCell hash={activity.hash} actionId={activity.id} />
+        <HashCell
+          hash={activity.hash}
+          kind={activity.hashKind ?? "self"}
+          actionId={activity.id}
+        />
       ) : (
         <span aria-hidden />
       )}
@@ -154,6 +162,7 @@ function CostChip({ costUsd, breakdown }: CostChipProps) {
 
 interface HashCellProps {
   hash: string;
+  kind: WorkerActivityHashKind;
   actionId: string;
 }
 
@@ -163,24 +172,32 @@ interface HashCellProps {
  *  expose the full value to assistive tech. Click copies the FULL hash
  *  to the clipboard and fires a brief Sonner toast. Stops nav so the
  *  click doesn't drill into `/audit/action/<id>`. */
-function HashCell({ hash, actionId }: HashCellProps) {
+function HashCell({ hash, kind, actionId }: HashCellProps) {
   const [copied, setCopied] = useState(false);
   const { success } = useToast();
   const display = formatHashForDisplay(hash);
+  const label =
+    kind === "sample"
+      ? "Sample row — not part of the production audit chain"
+      : "Self-hash";
+  const title = copied ? "Copied" : `${label} · click to copy\n${hash}`;
   return (
     <button
       type="button"
       data-testid={`activity-row-hash-${actionId}`}
       data-hash={hash}
-      aria-label={`Audit chain hash ${hash}, click to copy`}
-      title={copied ? "Copied" : `${hash} — Click to copy`}
+      data-hash-kind={kind}
+      aria-label={`${label} ${hash}, click to copy`}
+      title={title}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         void copyToClipboard(hash).then((ok) => {
           if (!ok) return;
           setCopied(true);
-          success("Hash copied", { description: hash });
+          success(kind === "sample" ? "Sample hash copied" : "Hash copied", {
+            description: hash,
+          });
           window.setTimeout(() => setCopied(false), 1500);
         });
       }}

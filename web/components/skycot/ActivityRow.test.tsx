@@ -86,7 +86,7 @@ describe("ActivityRow — hash cell", () => {
     render(<ActivityRow activity={makeActivity()} />);
     const cell = screen.getByTestId("activity-row-hash-act_test_001");
     expect(cell.getAttribute("aria-label")).toBe(
-      `Audit chain hash ${FULL_HASH}, click to copy`,
+      `Self-hash ${FULL_HASH}, click to copy`,
     );
   });
 
@@ -94,7 +94,16 @@ describe("ActivityRow — hash cell", () => {
     render(<ActivityRow activity={makeActivity()} />);
     const cell = screen.getByTestId("activity-row-hash-act_test_001");
     expect(cell.getAttribute("title")).toContain(FULL_HASH);
-    expect(cell.getAttribute("title")).toContain("Click to copy");
+    expect(cell.getAttribute("title")).toContain("Self-hash · click to copy");
+  });
+
+  it("labels sample hashes as non-production sample data", () => {
+    render(<ActivityRow activity={makeActivity({ hashKind: "sample" })} />);
+    const cell = screen.getByTestId("activity-row-hash-act_test_001");
+    expect(cell.getAttribute("data-hash-kind")).toBe("sample");
+    expect(cell.getAttribute("title")).toContain(
+      "Sample row — not part of the production audit chain",
+    );
   });
 
   it("copies the FULL hash (not the truncated display) on click and fires a toast", async () => {
@@ -112,6 +121,22 @@ describe("ActivityRow — hash cell", () => {
     expect(successMock).toHaveBeenCalledTimes(1);
     expect(successMock).toHaveBeenCalledWith(
       "Hash copied",
+      expect.objectContaining({ description: FULL_HASH }),
+    );
+  });
+
+  it("copies the full sample hash on click and fires a sample toast", async () => {
+    render(<ActivityRow activity={makeActivity({ hashKind: "sample" })} />);
+    const cell = screen.getByTestId("activity-row-hash-act_test_001");
+    await act(async () => {
+      fireEvent.click(cell);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith(FULL_HASH);
+    expect(successMock).toHaveBeenCalledWith(
+      "Sample hash copied",
       expect.objectContaining({ description: FULL_HASH }),
     );
   });
@@ -143,18 +168,19 @@ describe("formatHashForDisplay", () => {
 });
 
 describe("sample-audit seed hashes (deterministic)", () => {
-  it("populates a 64-char hex hash on every seed row", () => {
+  it("populates a mock-only 64-char hex sampleHash on every seed row", () => {
     expect(SAMPLE_AUDIT_ROWS.length).toBeGreaterThan(0);
     for (const row of SAMPLE_AUDIT_ROWS) {
-      expect(row.hash).toBeDefined();
-      expect(row.hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(row.hash).toBeUndefined();
+      expect(row.sampleHash).toBeDefined();
+      expect(row.sampleHash).toMatch(/^[0-9a-f]{64}$/);
     }
   });
 
-  it("produces distinct hashes for distinct rows (collision-free across the seed set)", () => {
+  it("produces distinct sample hashes for distinct rows", () => {
     const seen = new Set<string>();
     for (const row of SAMPLE_AUDIT_ROWS) {
-      seen.add(row.hash!);
+      seen.add(row.sampleHash!);
     }
     expect(seen.size).toBe(SAMPLE_AUDIT_ROWS.length);
   });

@@ -74,6 +74,8 @@ function initials(name: string): string {
  *  per-row chain hash threads through verbatim so ActivityRow can
  *  render the Etherscan-style truncated cell. */
 function toActivity(row: AuditRow): WorkerActivity {
+  const selfHash = row.selfHash ?? row.hash;
+  const sampleHash = row.sampleHash;
   return {
     id: row.id,
     workerId: row.worker.id,
@@ -84,7 +86,8 @@ function toActivity(row: AuditRow): WorkerActivity {
     actionType: "message_sent",
     status: STATUS_MAP[row.status],
     costUsd: row.cost?.usd,
-    hash: row.hash,
+    hash: selfHash ?? sampleHash,
+    hashKind: selfHash ? "self" : sampleHash ? "sample" : undefined,
+    parentHash: row.parentHash,
   };
 }
-

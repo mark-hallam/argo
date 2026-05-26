@@ -42,6 +42,7 @@ export const WORKER_ACTIVITY_ACTION_LABELS: Record<WorkerActivityActionType, str
 };
 
 export type WorkerActivityStatus = "succeeded" | "failed" | "refused" | "pending";
+export type WorkerActivityHashKind = "self" | "sample";
 
 export const WORKER_ACTIVITY_STATUSES: readonly WorkerActivityStatus[] = [
   "succeeded",
@@ -104,6 +105,8 @@ export interface WorkerActivity {
    *  cell (the per-worker feed currently omits it — the cross-worker
    *  audit feed populates it via the AuditDayGroup adapter). */
   hash?: string;
+  hashKind?: WorkerActivityHashKind;
+  parentHash?: string;
 }
 
 export interface WorkerActivityFilters {

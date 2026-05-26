@@ -109,11 +109,11 @@ export const DECIDER_ROLE_LABELS: Record<DeciderRole, string> = {
  *  E1-e; the ActivityRow primitive inlines a byte-identical sentinel
  *  pass for now.
  *
- *  `hash` is the per-row chain hash that the ActivityRow primitive
- *  surfaces Etherscan-style (truncated `0xabc1…2345` cell with
- *  click-to-copy). Optional during v1 because the gateway endpoint
- *  may not yet return it — the seed-fallback in `sample-audit.ts`
- *  populates it deterministically so the demo reproduces run-to-run. */
+ *  `selfHash` / `parentHash` are the gateway-projected chain hashes.
+ *  `sampleHash` is a mock-only SHA-256-shaped value and must be
+ *  rendered as sample data, not a production chain proof. `hash`
+ *  remains as a legacy compatibility alias while older gateways roll
+ *  forward. */
 export interface AuditRow {
   id: string;
   timestamp: string;
@@ -132,6 +132,9 @@ export interface AuditRow {
   channel?: ChannelKind;
   cost?: { usd: number };
   dataClassification?: DataClassification;
+  selfHash?: string;
+  parentHash?: string;
+  sampleHash?: string;
   hash?: string;
 }
 

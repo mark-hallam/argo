@@ -36,6 +36,9 @@ interface GatewayAuditRow
   cost?: AuditRow["cost"] | null;
   data_classification?: AuditRow["dataClassification"];
   dataClassification?: AuditRow["dataClassification"];
+  self_hash?: string;
+  parent_hash?: string;
+  sample_hash?: string;
 }
 
 interface GatewayAuditFeedEnvelope {
@@ -190,6 +193,9 @@ function isGatewayEnvelope(response: AuditFeedResponse): response is GatewayAudi
 
 function normalizeAuditRow(row: AuditRow | GatewayAuditRow): AuditRow {
   const gatewayRow = row as GatewayAuditRow;
+  const selfHash = gatewayRow.selfHash ?? gatewayRow.self_hash;
+  const parentHash = gatewayRow.parentHash ?? gatewayRow.parent_hash;
+  const sampleHash = gatewayRow.sampleHash ?? gatewayRow.sample_hash;
   return {
     id: gatewayRow.id,
     timestamp: gatewayRow.timestamp,
@@ -203,7 +209,10 @@ function normalizeAuditRow(row: AuditRow | GatewayAuditRow): AuditRow {
     cost: gatewayRow.cost ?? undefined,
     dataClassification:
       gatewayRow.dataClassification ?? gatewayRow.data_classification,
-    hash: gatewayRow.hash,
+    selfHash,
+    parentHash,
+    sampleHash,
+    hash: selfHash ?? gatewayRow.hash,
   };
 }
 
