@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { JsonLd, softwareApplicationSchema } from "@/components/seo/JsonLd";
+import { SKYCOT_TAGLINE, SKYCOT_TITLE_TAGLINE_FIRST } from "@/lib/marketing-copy";
 
 export const metadata: Metadata = {
-  title: "Hire your first AI teammate",
+  title: SKYCOT_TAGLINE,
   description:
     "Don't buy another tool. Hire a teammate. AI teammates that live in Slack, ask before they act, earn trust over time, and ship a full audit trail.",
   alternates: {
     canonical: "/landing",
   },
   openGraph: {
-    title: "Hire your first AI teammate — SKYCOT",
+    title: SKYCOT_TITLE_TAGLINE_FIRST,
     description:
       "AI teammates that ask before they act. Approval-first, audit-first, single-binary, enterprise-grade.",
   },

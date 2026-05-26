@@ -10,6 +10,7 @@ import { QueryProvider } from "@/components/skycot/QueryProvider";
 import { ThemeProvider } from "@/components/skycot/ThemeProvider";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { ErrorReportingInit } from "@/lib/error-reporting/init";
+import { SKYCOT_TITLE_DEFAULT } from "@/lib/marketing-copy";
 import "./globals.css";
 
 const inter = Inter({
@@ -49,7 +50,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   title: {
-    default: "SKYCOT — Hire your first AI teammate",
+    default: SKYCOT_TITLE_DEFAULT,
     template: "%s · SKYCOT",
   },
   description:
@@ -73,7 +74,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "https://skycot.com",
-    title: "SKYCOT — Hire your first AI teammate",
+    title: SKYCOT_TITLE_DEFAULT,
     description:
       "AI teammates that live in Slack, learn from your feedback, and ask for approval before they act. Audit-first. Single-binary. Enterprise-grade.",
     siteName: "SKYCOT",
@@ -81,7 +82,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SKYCOT — Hire your first AI teammate",
+    title: SKYCOT_TITLE_DEFAULT,
     description:
       "AI teammates that ask before they act. Audit-first. Single-binary. Enterprise-grade.",
     site: "@skycot_ai",
