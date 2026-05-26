@@ -44,6 +44,10 @@ export interface ProvenanceBlockData {
   skill: { id: string; version: string };
   memorySnapshot: { id: string };
   policy: { id: string; version: string; hash: string };
+  /** Gateway wire field anchoring this row to the immutable audit chain. */
+  hash_chain_anchor?: string;
+  /** Camel-case alias for callers that normalize gateway payloads. */
+  hashChainAnchor?: string;
 }
 
 /** Output card payload — kind discriminates the renderer. */
@@ -104,6 +108,7 @@ export interface ProvenanceClipboard {
   skill: { id: string; version: string };
   memorySnapshot: { id: string };
   policy: { id: string; version: string; hash: string };
+  hashChainAnchor?: string;
 }
 
 /** Build the canonical clipboard payload for the provenance card.
@@ -111,6 +116,7 @@ export interface ProvenanceClipboard {
  *  E5-f hash verifier and any operator-side audit-replay scripts
  *  rely on byte-identical reproduction. */
 export function provenanceClipboardPayload(detail: AuditDetail): ProvenanceClipboard {
+  const hashChainAnchor = chainAnchorFromProvenance(detail.provenance);
   return {
     actionId: detail.id,
     timestamp: detail.timestamp,
@@ -119,7 +125,12 @@ export function provenanceClipboardPayload(detail: AuditDetail): ProvenanceClipb
     skill: detail.provenance.skill,
     memorySnapshot: detail.provenance.memorySnapshot,
     policy: detail.provenance.policy,
+    ...(hashChainAnchor ? { hashChainAnchor } : {}),
   };
+}
+
+export function chainAnchorFromProvenance(provenance: ProvenanceBlockData): string | undefined {
+  return provenance.hashChainAnchor ?? provenance.hash_chain_anchor;
 }
 
 /** Cross-system jump-link descriptor (Stripe / Slack / GitHub /

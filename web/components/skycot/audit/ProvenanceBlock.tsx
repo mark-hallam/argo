@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import {
+  chainAnchorFromProvenance,
   provenanceClipboardPayload,
   type AuditDetail,
   type ProvenanceBlockData,
 } from "@/lib/types/audit-detail";
 
 /**
- * Provenance card — 5 rows (Model · Prompt template · Skill version ·
- * Memory snapshot · Policy version) each rendering the canonical id +
- * short hash with copy-on-click. A "Copy hash chain" button at the
- * bottom serializes the canonical JSON payload to the clipboard.
+ * Provenance card — renders the canonical model/prompt/skill/memory/policy
+ * rows plus the optional audit-chain anchor returned by the gateway. A
+ * "Copy hash chain" button serializes the canonical JSON payload to the
+ * clipboard.
  *
  * Hash-prefix length is locked at 8 chars (4-byte hex). The full
  * value lives in the underlying clipboard payload — auditors and the
@@ -20,6 +21,7 @@ import {
  */
 
 const SHORT_HASH_LEN = 8;
+const CHAIN_ANCHOR_LEN = 12;
 
 export interface ProvenanceBlockProps {
   /** The provenance subtree from `AuditDetail.provenance`. */
@@ -37,11 +39,11 @@ export function ProvenanceBlock({ data, detail }: ProvenanceBlockProps) {
     >
       <header>
         <h2 className="text-sm font-semibold text-[var(--foreground)]">
-          Provenance
+          Provenance & Chain
         </h2>
         <p className="text-xs text-[var(--muted-foreground)]">
-          Hashes pinpoint the exact code, prompt, skill, memory, and
-          policy that produced this action.
+          Hashes pinpoint the exact code, prompt, skill, memory, policy,
+          and chain anchor that produced this action.
         </p>
       </header>
 
@@ -62,18 +64,28 @@ interface ProvenanceRow {
   key: string;
   label: string;
   /** The canonical identifier (e.g. `claude-opus-4-7`). */
-  id: string;
+  id?: string;
   /** The version or full hash. */
   full: string;
+  display?: string;
 }
 
 function buildRows(data: ProvenanceBlockData): ProvenanceRow[] {
+  const chainAnchor = chainAnchorFromProvenance(data);
   return [
     { key: "model", label: "Model", id: data.model.id, full: data.model.version },
     { key: "prompt", label: "Prompt template", id: data.promptTemplate.id, full: data.promptTemplate.hash },
     { key: "skill", label: "Skill version", id: data.skill.id, full: data.skill.version },
     { key: "memory", label: "Memory snapshot", id: data.memorySnapshot.id, full: data.memorySnapshot.id },
     { key: "policy", label: "Policy version", id: data.policy.id, full: `${data.policy.version} · ${data.policy.hash}` },
+    ...(chainAnchor
+      ? [{
+          key: "chain-anchor",
+          label: "Chain anchor",
+          full: chainAnchor,
+          display: formatChainAnchor(chainAnchor),
+        }]
+      : []),
   ];
 }
 
@@ -87,14 +99,18 @@ function ProvenanceRow({ row }: { row: ProvenanceRow }) {
         {row.label}
       </dt>
       <dd className="font-mono text-[12px] text-[var(--foreground)] truncate">
-        <span data-testid={`audit-provenance-id-${row.key}`}>{row.id}</span>
-        <span aria-hidden className="mx-2 text-[var(--muted-foreground)]">·</span>
+        {row.id ? (
+          <>
+            <span data-testid={`audit-provenance-id-${row.key}`}>{row.id}</span>
+            <span aria-hidden className="mx-2 text-[var(--muted-foreground)]">·</span>
+          </>
+        ) : null}
         <span
           data-testid={`audit-provenance-hash-${row.key}`}
-          title={row.full}
+          title={`${row.full} — Click to copy`}
           className="text-[var(--muted-foreground)]"
         >
-          {shortHash(row.full)}
+          {row.display ?? shortHash(row.full)}
         </span>
       </dd>
       <CopyButton
@@ -155,6 +171,12 @@ function shortHash(value: string): string {
   const hex = value.replace(/[^0-9a-fA-F]/g, "");
   const head = (hex.length >= SHORT_HASH_LEN ? hex.slice(0, SHORT_HASH_LEN) : value.slice(0, SHORT_HASH_LEN));
   return `${head}…`;
+}
+
+function formatChainAnchor(value: string): string {
+  const body = value.startsWith("0x") ? value.slice(2) : value;
+  if (body.length <= CHAIN_ANCHOR_LEN) return `0x${body}`;
+  return `0x${body.slice(0, CHAIN_ANCHOR_LEN)}…`;
 }
 
 async function copyToClipboard(value: string): Promise<boolean> {
