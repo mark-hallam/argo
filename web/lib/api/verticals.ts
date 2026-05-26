@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Vertical-template marketplace API client.
  *
@@ -6,6 +8,13 @@
  * The list response envelope is `{ ok, loaded: VerticalRow[], errors[] }`;
  * the detail endpoint returns the manifest summary plus a `marketplace`
  * envelope with workflows + actions + KPIs.
+ *
+ * The list rows now expose `skill_count` so the onboarding
+ * pick-vertical wizard renders the same number that
+ * `POST /api/v1/onboarding/install-vertical` will actually install.
+ * Before this field landed, the wizard hard-coded counts client-side
+ * and drifted from the gateway (e.g. marketplace-seller card said 6,
+ * gateway installed 2).
  *
  * Acceptance contract (mirrors `lib/api/skills.ts`):
  * - 404 from the gateway → fall back to a seed catalog in dev so the
@@ -16,6 +25,7 @@
  * - NetworkError (gateway unreachable) → mock in dev, propagate in prod.
  */
 
+import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 
@@ -37,6 +47,13 @@ export interface VerticalRow {
   role_label: string;
   /** KPI definition count (declarative + legacy success_metrics). */
   kpi_count: number;
+  /**
+   * Count of `*.skill.md` files in `<root>/skills/`. Matches
+   * `skills_added` from `POST /api/v1/onboarding/install-vertical`,
+   * so onboarding card counts never drift from what installs.
+   * Optional for back-compat with older gateway builds.
+   */
+  skill_count?: number;
 }
 
 interface VerticalsEnvelope {
@@ -118,6 +135,7 @@ export const SEED_VERTICALS: VerticalRow[] = [
     action_count: 4,
     role_label: "Finance — Accounts Receivable",
     kpi_count: 0,
+    skill_count: 5,
   },
   {
     id: "gtm-engineer",
@@ -132,6 +150,7 @@ export const SEED_VERTICALS: VerticalRow[] = [
     action_count: 5,
     role_label: "GTM Engineer",
     kpi_count: 0,
+    skill_count: 8,
   },
   {
     id: "customer-support",
@@ -145,6 +164,7 @@ export const SEED_VERTICALS: VerticalRow[] = [
     action_count: 5,
     role_label: "Customer Support",
     kpi_count: 0,
+    skill_count: 5,
   },
   {
     id: "marketing-intern",
@@ -158,6 +178,7 @@ export const SEED_VERTICALS: VerticalRow[] = [
     action_count: 5,
     role_label: "Marketing Intern",
     kpi_count: 0,
+    skill_count: 5,
   },
   {
     id: "sales-sdr",
@@ -171,6 +192,7 @@ export const SEED_VERTICALS: VerticalRow[] = [
     action_count: 5,
     role_label: "Sales SDR",
     kpi_count: 0,
+    skill_count: 5,
   },
 ];
 
@@ -193,13 +215,20 @@ function isMissingOrUnreachable(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
-/** GET `/api/v1/verticals` — list every vertical-template the gateway has loaded. */
+/**
+ * GET `/verticals` — list every vertical-template the gateway has
+ * loaded from disk. The endpoint is the catalog (registered packs),
+ * not the per-tenant install view — `/api/v1/verticals` returns
+ * tenant-installed verticals via `workflow_definition_index` and is
+ * intentionally not the source here. The wizard wants to know what
+ * packs exist before any have been installed.
+ */
 export async function fetchVerticals(): Promise<FetchVerticalsResult> {
   if (isAuthBypassed()) {
     return { verticals: SEED_VERTICALS, source: "mock-bypass" };
   }
   try {
-    const envelope = await apiGet<VerticalsEnvelope>("/api/v1/verticals");
+    const envelope = await apiGet<VerticalsEnvelope>("/verticals");
     const verticals = envelope.loaded ?? [];
     if (verticals.length === 0 && !isStrictProduction()) {
       return { verticals: SEED_VERTICALS, source: "mock-offline" };
@@ -211,6 +240,55 @@ export async function fetchVerticals(): Promise<FetchVerticalsResult> {
     }
     throw err;
   }
+}
+
+export interface UseVerticalsState {
+  verticals: VerticalRow[];
+  source: VerticalDataSource;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+/**
+ * React hook for the pick-vertical wizard: fetches the gateway
+ * catalog once on mount, falls back to `SEED_VERTICALS` on any
+ * non-prod failure (see {@link fetchVerticals}). Returns
+ * `isLoading=true` only on the initial fetch so the wizard can
+ * render a skeleton without flicker if the gateway is slow.
+ */
+export function useVerticals(): UseVerticalsState {
+  const [state, setState] = useState<UseVerticalsState>({
+    verticals: [],
+    source: "mock-offline",
+    isLoading: true,
+    error: null,
+  });
+  useEffect(() => {
+    let cancelled = false;
+    fetchVerticals()
+      .then((res) => {
+        if (cancelled) return;
+        setState({
+          verticals: res.verticals,
+          source: res.source,
+          isLoading: false,
+          error: null,
+        });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setState({
+          verticals: SEED_VERTICALS,
+          source: "mock-offline",
+          isLoading: false,
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return state;
 }
 
 function seedDetail(id: string): VerticalDetail {

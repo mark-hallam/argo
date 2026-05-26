@@ -23,7 +23,15 @@
 //!   `marketplace` envelope with `workflows[]`, `actions[]` (name +
 //!   description + risk), and `success_metrics` — the data the
 //!   detail page renders under "what this template ships with."
+//!
+//! `skill_count` (added for the onboarding pick-vertical wizard) is
+//! computed from on-disk `<root>/skills/*.skill.md` files so it
+//! matches `skills_added` returned by
+//! `POST /api/v1/onboarding/install-vertical`. The wizard renders
+//! this number on each card so the count never drifts from what the
+//! gateway will actually install.
 use argo_vertical::{load_dir, LoadedVertical};
+use std::path::Path;
 
 /// `GET /verticals[?format=markdown]` — list every loaded vertical
 /// plus any per-vertical load errors. JSON shape:
@@ -146,7 +154,35 @@ fn list_row(id: &str, v: &LoadedVertical) -> serde_json::Value {
         "action_count": m.actions.as_ref().map(|a| a.actions.len()).unwrap_or(0),
         "role_label": role_label(v),
         "kpi_count": m.all_kpis().len(),
+        "skill_count": skill_count(v),
     })
+}
+
+/// Count `*.skill.md` files in `<root>/skills/`. Mirrors the helper
+/// at `routes_onboarding_helpers::count_skill_files` so the number
+/// the wizard renders on each card equals the `skills_added`
+/// returned by `POST /api/v1/onboarding/install-vertical`. Returns 0
+/// when the directory is missing or unreadable.
+fn skill_count(v: &LoadedVertical) -> u64 {
+    let dir = v.root.join("skills");
+    count_files_with_suffix(&dir, "skill.md")
+}
+
+fn count_files_with_suffix(dir: &Path, suffix: &str) -> u64 {
+    let Ok(read) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut count: u64 = 0;
+    for entry in read.flatten() {
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .ends_with(&format!(".{suffix}"))
+        {
+            count += 1;
+        }
+    }
+    count
 }
 
 /// One-sentence headline pulled from `vertical.description`. We

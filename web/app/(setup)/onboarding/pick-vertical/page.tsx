@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiPost, ApiError } from "@/lib/api/client";
+import { useVerticals, type VerticalRow } from "@/lib/api/verticals";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { OnboardingShell } from "../_OnboardingShell";
 
@@ -21,57 +22,162 @@ interface VerticalCard {
   sampleDuties: string[];
 }
 
-const VERTICALS: ReadonlyArray<VerticalCard> = [
+/**
+ * Client-side decoration keyed by vertical id: the gateway carries
+ * id + display name + skill count, but `sampleDuties` (the 3-chip
+ * "what does this teammate actually do?" line on each card) and a
+ * compact one-sentence summary stay client-side because the manifest
+ * `description` is too long for the card body and there's no
+ * dedicated chips field. When the gateway returns a vertical we
+ * don't have decoration for, we synthesise both from the gateway's
+ * `headline` / `tags` so the card still renders.
+ */
+const VERTICAL_DECORATION: Record<
+  string,
+  { summary: string; sampleDuties: string[] }
+> = {
+  "gtm-engineer": {
+    summary:
+      "Go-to-market automation: lead enrichment, sequencing, signal triage.",
+    sampleDuties: [
+      "Enrich inbound leads",
+      "Send Day-0 sequence",
+      "Triage signal alerts",
+    ],
+  },
+  "marketing-intern": {
+    summary: "Content drafting, social posts, weekly competitive scans.",
+    sampleDuties: [
+      "Draft blog posts",
+      "Schedule social posts",
+      "Weekly competitive scan",
+    ],
+  },
+  "marketplace-seller": {
+    summary:
+      "Inventory readiness, listing drafts, buyer replies, and price checks.",
+    sampleDuties: [
+      "Audit inventory",
+      "Draft marketplace listings",
+      "Negotiate offers",
+    ],
+  },
+  recruiter: {
+    summary:
+      "Resume screening, candidate outreach, interview scheduling, and offer handoff.",
+    sampleDuties: [
+      "Score resumes",
+      "Draft screening emails",
+      "Schedule interviews",
+    ],
+  },
+  "sales-sdr": {
+    summary: "Outbound prospecting and meeting booking with approval gates.",
+    sampleDuties: [
+      "Research prospects",
+      "Draft cold-outreach",
+      "Book qualified meetings",
+    ],
+  },
+  "customer-support": {
+    summary: "Tier-1 ticket triage, FAQ replies, escalation routing.",
+    sampleDuties: [
+      "Triage new tickets",
+      "Draft FAQ replies",
+      "Escalate complex cases",
+    ],
+  },
+  "finance-ar": {
+    summary: "Invoicing, dunning emails, payment reconciliation.",
+    sampleDuties: [
+      "Create invoices",
+      "Send dunning emails",
+      "Reconcile payments",
+    ],
+  },
+};
+
+/**
+ * Fallback card list used when the gateway catalogue is empty or
+ * unreachable AND we're in demo / dev mode. Skill counts here match
+ * what the on-disk packs install (parity with
+ * `POST /api/v1/onboarding/install-vertical` `skills_added`).
+ */
+const FALLBACK_VERTICALS: ReadonlyArray<VerticalCard> = [
   {
     id: "gtm-engineer",
     displayName: "GTM Engineer",
-    summary: "Go-to-market automation: lead enrichment, sequencing, signal triage.",
-    skillCount: 5,
-    sampleDuties: ["Enrich inbound leads", "Send Day-0 sequence", "Triage signal alerts"],
+    summary: VERTICAL_DECORATION["gtm-engineer"]!.summary,
+    skillCount: 8,
+    sampleDuties: VERTICAL_DECORATION["gtm-engineer"]!.sampleDuties,
   },
   {
     id: "marketing-intern",
     displayName: "Marketing Intern",
-    summary: "Content drafting, social posts, weekly competitive scans.",
+    summary: VERTICAL_DECORATION["marketing-intern"]!.summary,
     skillCount: 5,
-    sampleDuties: ["Draft blog posts", "Schedule social posts", "Weekly competitive scan"],
+    sampleDuties: VERTICAL_DECORATION["marketing-intern"]!.sampleDuties,
   },
   {
     id: "marketplace-seller",
     displayName: "Marketplace Seller",
-    summary: "Inventory readiness, listing drafts, buyer replies, and price checks.",
-    skillCount: 6,
-    sampleDuties: ["Audit inventory", "Draft marketplace listings", "Negotiate offers"],
+    summary: VERTICAL_DECORATION["marketplace-seller"]!.summary,
+    skillCount: 2,
+    sampleDuties: VERTICAL_DECORATION["marketplace-seller"]!.sampleDuties,
   },
   {
     id: "recruiter",
     displayName: "Recruiter",
-    summary: "Resume screening, candidate outreach, interview scheduling, and offer handoff.",
-    skillCount: 6,
-    sampleDuties: ["Score resumes", "Draft screening emails", "Schedule interviews"],
+    summary: VERTICAL_DECORATION.recruiter!.summary,
+    skillCount: 5,
+    sampleDuties: VERTICAL_DECORATION.recruiter!.sampleDuties,
   },
   {
     id: "sales-sdr",
     displayName: "Sales SDR",
-    summary: "Outbound prospecting and meeting booking with approval gates.",
+    summary: VERTICAL_DECORATION["sales-sdr"]!.summary,
     skillCount: 5,
-    sampleDuties: ["Research prospects", "Draft cold-outreach", "Book qualified meetings"],
+    sampleDuties: VERTICAL_DECORATION["sales-sdr"]!.sampleDuties,
   },
   {
     id: "customer-support",
     displayName: "Customer Support",
-    summary: "Tier-1 ticket triage, FAQ replies, escalation routing.",
+    summary: VERTICAL_DECORATION["customer-support"]!.summary,
     skillCount: 5,
-    sampleDuties: ["Triage new tickets", "Draft FAQ replies", "Escalate complex cases"],
+    sampleDuties: VERTICAL_DECORATION["customer-support"]!.sampleDuties,
   },
   {
     id: "finance-ar",
     displayName: "Accounts Receivable",
-    summary: "Invoicing, dunning emails, payment reconciliation.",
-    skillCount: 4,
-    sampleDuties: ["Create invoices", "Send dunning emails", "Reconcile payments"],
+    summary: VERTICAL_DECORATION["finance-ar"]!.summary,
+    skillCount: 5,
+    sampleDuties: VERTICAL_DECORATION["finance-ar"]!.sampleDuties,
   },
 ];
+
+/**
+ * Project a gateway catalogue row into the wizard's card shape.
+ * Client-side decoration (`summary` + `sampleDuties`) is merged in by
+ * id; when no entry exists in `VERTICAL_DECORATION`, we synthesise
+ * from the gateway `headline` + first few tags so unknown packs
+ * still render rather than crashing the wizard.
+ */
+function cardFromRow(row: VerticalRow): VerticalCard {
+  const decoration = VERTICAL_DECORATION[row.id];
+  const summary = decoration?.summary ?? row.headline ?? row.description ?? "";
+  const sampleDuties =
+    decoration?.sampleDuties ??
+    (row.tags ?? []).slice(0, 3).map((t) =>
+      t.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    );
+  return {
+    id: row.id,
+    displayName: row.name || row.id,
+    summary,
+    skillCount: row.skill_count ?? 0,
+    sampleDuties,
+  };
+}
 
 export default function OnboardingPickVerticalPage() {
   const router = useRouter();
@@ -81,16 +187,38 @@ export default function OnboardingPickVerticalPage() {
   const [selected, setSelected] = useState<string | null>(initialVertical);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const {
+    verticals: catalogRows,
+    source: catalogSource,
+    isLoading: catalogLoading,
+  } = useVerticals();
 
   useEffect(() => {
     setStep(4);
   }, [setStep]);
 
+  // Cards rendered to the operator: gateway truth when the catalogue
+  // returns any rows; otherwise the bundled fallback list. The
+  // fallback's skill counts match `skills_added` from
+  // `POST /api/v1/onboarding/install-vertical` so the wizard never
+  // shows a number the gateway won't honour.
+  const cards = useMemo<ReadonlyArray<VerticalCard>>(() => {
+    if (catalogRows.length > 0) {
+      return catalogRows.map(cardFromRow);
+    }
+    return FALLBACK_VERTICALS;
+  }, [catalogRows]);
+
   async function onChoose(verticalId: string) {
     setSelected(verticalId);
     setError("");
     setBusy(true);
-    setVertical(verticalId);
+    const chosen = cards.find((c) => c.id === verticalId);
+    setVertical(
+      verticalId,
+      chosen?.displayName ?? null,
+      chosen?.skillCount ?? null,
+    );
     try {
       // web-gateway-endpoints-onboarding-batch: the gateway endpoint now
       // exists, so use the canonical `apiPost` client (bearer auth +
@@ -145,7 +273,7 @@ export default function OnboardingPickVerticalPage() {
           </span>
         </div>
         <ul className="ob-roles" data-testid="onboarding-vertical-grid">
-          {VERTICALS.map((v) => {
+          {cards.map((v) => {
             const isSelected = selected === v.id;
             return (
               <li key={v.id}>
@@ -179,6 +307,17 @@ export default function OnboardingPickVerticalPage() {
             );
           })}
         </ul>
+        <p
+          className="ob-field-hint"
+          data-testid="onboarding-vertical-source"
+          aria-live="polite"
+        >
+          {catalogLoading
+            ? "Loading catalogue…"
+            : catalogSource === "gateway"
+              ? `v1 catalogue · ${cards.length} verticals`
+              : `v1 catalogue (offline · ${cards.length} verticals)`}
+        </p>
         {error ? (
           <p className="ob-form-note" data-testid="onboarding-vertical-error">
             {error}

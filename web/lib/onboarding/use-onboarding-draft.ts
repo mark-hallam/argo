@@ -12,6 +12,15 @@ export interface OnboardingDraftState {
   providerKeyConfigured: boolean;
   providerSkipped: boolean;
   verticalId: string | null;
+  /**
+   * Display name + skill count captured at pick-vertical time so
+   * step 5 ("first hire") can render contextualised copy
+   * ("Hire your first Marketplace Seller — 2 skills ready"). Both
+   * are populated by `setVertical` from the gateway catalogue row;
+   * fall back to `verticalId` if the catalogue is offline.
+   */
+  verticalDisplayName: string | null;
+  verticalSkillCount: number | null;
   firstHirePrompt: string;
   tenantId: string | null;
   workspaceId: string | null;
@@ -19,7 +28,11 @@ export interface OnboardingDraftState {
   setWorkspace: (workspaceName: string, companyName: string) => void;
   setProvision: (tenantId: string, workspaceId: string) => void;
   setProvider: (configured: boolean, skipped: boolean) => void;
-  setVertical: (verticalId: string) => void;
+  setVertical: (
+    verticalId: string,
+    displayName?: string | null,
+    skillCount?: number | null,
+  ) => void;
   setFirstHirePrompt: (prompt: string) => void;
   reset: () => void;
 }
@@ -40,6 +53,8 @@ const INITIAL: Omit<
   providerKeyConfigured: false,
   providerSkipped: false,
   verticalId: null,
+  verticalDisplayName: null,
+  verticalSkillCount: null,
   firstHirePrompt: "",
   tenantId: null,
   workspaceId: null,
@@ -56,7 +71,12 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
       setProvision: (tenantId, workspaceId) => set({ tenantId, workspaceId }),
       setProvider: (providerKeyConfigured, providerSkipped) =>
         set({ providerKeyConfigured, providerSkipped }),
-      setVertical: (verticalId) => set({ verticalId }),
+      setVertical: (verticalId, displayName = null, skillCount = null) =>
+        set({
+          verticalId,
+          verticalDisplayName: displayName,
+          verticalSkillCount: skillCount,
+        }),
       setFirstHirePrompt: (firstHirePrompt) => set({ firstHirePrompt }),
       reset: () => set({ ...INITIAL }),
     }),
@@ -79,6 +99,8 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
         providerKeyConfigured: s.providerKeyConfigured,
         providerSkipped: s.providerSkipped,
         verticalId: s.verticalId,
+        verticalDisplayName: s.verticalDisplayName,
+        verticalSkillCount: s.verticalSkillCount,
         firstHirePrompt: s.firstHirePrompt,
         tenantId: s.tenantId,
         workspaceId: s.workspaceId,
