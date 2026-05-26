@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { RedactedText } from "@/components/skycot/RedactedText";
+import { ChainEmptyState } from "@/components/skycot/audit/ChainEmptyState";
 import { cn } from "@/lib/utils";
 import type { RedactionPolicy } from "@/lib/redaction/redact";
 import type { DecisionStep } from "@/lib/types/audit-detail";
@@ -25,6 +26,7 @@ export interface DecisionChainCardProps {
 
 export function DecisionChainCard({ steps, policy }: DecisionChainCardProps) {
   const ordered = [...steps].sort((a, b) => a.n - b.n);
+  const emptyChain = ordered.length === 0 || ordered.every(isUnreachedStep);
   return (
     <section
       data-testid="audit-decision-chain"
@@ -39,23 +41,35 @@ export function DecisionChainCard({ steps, policy }: DecisionChainCardProps) {
         </p>
       </header>
 
-      <ol className="space-y-2">
-        {ordered.map((step) => (
-          <DecisionRow key={step.n} step={step} policy={policy} />
-        ))}
-      </ol>
+      {emptyChain ? (
+        <ChainEmptyState
+          testId="audit-decision-chain-empty"
+          title="Decision chain unavailable"
+          body="This row records a meta-event, not an agent turn. Drill into an agent-attributed row to see the full chain."
+        />
+      ) : (
+        <ol className="space-y-2">
+          {ordered.map((step) => (
+            <DecisionRow key={step.n} step={step} policy={policy} />
+          ))}
+        </ol>
+      )}
     </section>
   );
 }
 
 function DecisionRow({ step, policy }: { step: DecisionStep; policy: RedactionPolicy }) {
   const [open, setOpen] = useState(false);
-  const hasDetails = step.details !== undefined && hasKeys(step.details);
+  const hasDetails = hasMeaningfulValue(step.details);
+  const notReached = isUnreachedStep(step);
   return (
     <li
       data-testid={`audit-decision-step-${step.n}`}
       data-step={step.n}
-      className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)]/40 p-3"
+      className={cn(
+        "rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)]/40 p-3",
+        notReached && "border-dashed opacity-75",
+      )}
     >
       <div className="flex items-start gap-3">
         <span
@@ -69,13 +83,13 @@ function DecisionRow({ step, policy }: { step: DecisionStep; policy: RedactionPo
             className="text-sm font-medium text-[var(--foreground)]"
             data-testid={`audit-decision-step-${step.n}-title`}
           >
-            <RedactedText policy={policy}>{step.title}</RedactedText>
+            <RedactedText policy={policy}>{step.title || `Step ${step.n}`}</RedactedText>
           </p>
           <p
             className="text-sm text-[var(--muted-foreground)] whitespace-pre-line"
             data-testid={`audit-decision-step-${step.n}-body`}
           >
-            <RedactedText policy={policy}>{step.body}</RedactedText>
+            <RedactedText policy={policy}>{notReached ? "Not reached" : step.body}</RedactedText>
           </p>
           {hasDetails ? (
             <button
@@ -106,7 +120,16 @@ function DecisionRow({ step, policy }: { step: DecisionStep; policy: RedactionPo
   );
 }
 
-function hasKeys(obj: Record<string, unknown> | undefined): boolean {
-  if (!obj) return false;
-  return Object.keys(obj).length > 0;
+function isUnreachedStep(step: DecisionStep): boolean {
+  return step.body.trim().length === 0 && !hasMeaningfulValue(step.details);
+}
+
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some(hasMeaningfulValue);
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some(hasMeaningfulValue);
+  }
+  return true;
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { ChainEmptyState } from "@/components/skycot/audit/ChainEmptyState";
 import {
   chainAnchorFromProvenance,
   provenanceClipboardPayload,
@@ -32,6 +33,7 @@ export interface ProvenanceBlockProps {
 
 export function ProvenanceBlock({ data, detail }: ProvenanceBlockProps) {
   const rows = buildRows(data);
+  const emptyProvenance = rows.every((row) => !hasText(row.id) && !hasText(row.full));
   return (
     <section
       data-testid="audit-provenance-card"
@@ -47,11 +49,19 @@ export function ProvenanceBlock({ data, detail }: ProvenanceBlockProps) {
         </p>
       </header>
 
-      <dl className="space-y-1.5">
-        {rows.map((row) => (
-          <ProvenanceRow key={row.key} row={row} />
-        ))}
-      </dl>
+      {emptyProvenance ? (
+        <ChainEmptyState
+          testId="audit-provenance-empty"
+          title="Provenance unavailable"
+          body={`This ${detail.actionType} row is a meta-event, so model, prompt, skill, memory, and policy hashes were not produced.`}
+        />
+      ) : (
+        <dl className="space-y-1.5">
+          {rows.map((row) => (
+            <ProvenanceRow key={row.key} row={row} />
+          ))}
+        </dl>
+      )}
 
       <div className="border-t border-[var(--border)] pt-3">
         <CopyHashChainButton detail={detail} />
@@ -177,6 +187,10 @@ function formatChainAnchor(value: string): string {
   const body = value.startsWith("0x") ? value.slice(2) : value;
   if (body.length <= CHAIN_ANCHOR_LEN) return `0x${body}`;
   return `0x${body.slice(0, CHAIN_ANCHOR_LEN)}…`;
+}
+
+function hasText(value: string): boolean {
+  return value.replace(/[·\s]/g, "").length > 0;
 }
 
 async function copyToClipboard(value: string): Promise<boolean> {
