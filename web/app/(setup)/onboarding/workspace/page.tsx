@@ -81,8 +81,8 @@ export default function OnboardingWorkspacePage() {
             autoFocus
           />
           <p className="ob-field-hint">
-            Tip: <strong>add an environment suffix</strong> like &quot;· production&quot; or
-            &quot;· staging&quot; if you&apos;ll have multiple workspaces.
+            Tip: if you have multiple workspaces for different teams or business units,
+            add a suffix. Try &quot;Acme Co · sales&quot; or &quot;Acme Co · ops&quot;.
           </p>
         </label>
         <label className="ob-field">
