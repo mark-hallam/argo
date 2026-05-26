@@ -80,6 +80,15 @@ export const SAMPLE_COHORT_SUMMARIES: CohortSummary[] = [
     member_count: 1,
     skill_count: 1,
   },
+  {
+    cohort_id: "sales-investor-relations::pitch-agent",
+    vertical: "pitch-agent",
+    trust_grade_band: "established",
+    trust_grade_min: 4,
+    trust_grade_max: 4,
+    member_count: 1,
+    skill_count: 5,
+  },
 ];
 
 const PROJECT_COORDINATOR_SKILLS: SkillCoverage[] = [
@@ -107,6 +116,14 @@ const PROJECT_COORDINATOR_SKILLS: SkillCoverage[] = [
     member_coverage_pct: 100.0,
     member_hits: 1,
   },
+];
+
+const PITCH_AGENT_SKILLS: SkillCoverage[] = [
+  { skill_name: "canonical_qa", version: "1.0.0", member_coverage_pct: 100.0, member_hits: 1 },
+  { skill_name: "objection_handler", version: "0.1.0", member_coverage_pct: 100.0, member_hits: 1 },
+  { skill_name: "pitch_mode_switcher", version: "1.0.0", member_coverage_pct: 100.0, member_hits: 1 },
+  { skill_name: "slide_controller", version: "1.0.0", member_coverage_pct: 100.0, member_hits: 1 },
+  { skill_name: "follow_up_writer", version: "0.1.0", member_coverage_pct: 100.0, member_hits: 1 },
 ];
 
 const STATUS_REPORTER_SKILLS: SkillCoverage[] = [
@@ -285,6 +302,31 @@ const PROJECT_COORDINATOR_ACTIVITY: CohortActivityRow[] = [
   },
 ];
 
+const PITCH_AGENT_ACTIVITY: CohortActivityRow[] = [
+  {
+    seq: 4115,
+    kind: "canonical_qa.matched",
+    action_type: "skill_apply",
+    worker_id: "wkr_01J0PITCH",
+    principal_id: "human:investor@example.com",
+    channel: "web_embed",
+    outcome_status: "success",
+    created_at_ms: NOW_MS - 12 * 60_000,
+    summary: "canonical-qa answered “how are you different from Lindy?” in 380ms",
+  },
+  {
+    seq: 4112,
+    kind: "policy.refused",
+    action_type: "escalate",
+    worker_id: "wkr_01J0PITCH",
+    principal_id: "system:truth_boundary",
+    channel: "live_meeting",
+    outcome_status: "refused",
+    created_at_ms: NOW_MS - 75 * 60_000,
+    summary: "refused unsupported financials claim, escalated to founder",
+  },
+];
+
 const STATUS_REPORTER_ACTIVITY: CohortActivityRow[] = [
   {
     seq: 4078,
@@ -414,9 +456,35 @@ export const SAMPLE_STATUS_REPORTER_COHORT_DETAIL: CohortDetail = {
   recent_activity: STATUS_REPORTER_ACTIVITY,
 };
 
+export const SAMPLE_PITCH_AGENT_COHORT_DETAIL: CohortDetail = {
+  cohort_id: "sales-investor-relations::pitch-agent",
+  vertical: "pitch-agent",
+  trust_grade_band: "established",
+  trust_grade_min: 4,
+  trust_grade_max: 4,
+  member_count: 1,
+  skill_count: 5,
+  members: [
+    {
+      worker_id: "wkr_01J0PITCH",
+      trust_grade: 4,
+      skill_ids: [
+        "canonical_qa",
+        "objection_handler",
+        "pitch_mode_switcher",
+        "slide_controller",
+        "follow_up_writer",
+      ],
+    },
+  ],
+  skills: PITCH_AGENT_SKILLS,
+  recent_activity: PITCH_AGENT_ACTIVITY,
+};
+
 export const SAMPLE_COHORT_DETAILS: Record<string, CohortDetail> = {
   "support::trusted": SAMPLE_COHORT_DETAIL,
   "marketplace::developing": SAMPLE_MARKETPLACE_COHORT_DETAIL,
   "project-ops::project-coordinator": SAMPLE_PROJECT_COORDINATOR_COHORT_DETAIL,
   "project-ops::status-reporter": SAMPLE_STATUS_REPORTER_COHORT_DETAIL,
+  "sales-investor-relations::pitch-agent": SAMPLE_PITCH_AGENT_COHORT_DETAIL,
 };

@@ -1,0 +1,34 @@
+# Cohort UI metadata.
+#
+# Drives the cohorts page tab + tile + worker-detail page for any
+# tenant deploying this template. The values here are display defaults;
+# tenants may override individual fields per instance (e.g. name the
+# Pitch worker "Sky" instead of "Pitch").
+
+department = "Sales & Investor Relations"
+department_id = "sales-investor-relations"
+agent_name_default = "Pitch"
+level = "L4"
+level_label = "Senior"
+
+[traits]
+core = ["charismatic", "accurate", "brand-safe"]
+great_at = [
+  "investor objections",
+  "live demos",
+  "pitch-mode switching",
+  "follow-up composition",
+]
+escalate_when = [
+  "financial specifics",
+  "unannounced roadmap",
+  "legal claims",
+  "non-public customer references",
+]
+
+[signature_behaviors]
+items = [
+  "Defers to the founder on financials and roadmap.",
+  "Pre-warms canonical answers to top investor questions for sub-second responses.",
+  "Audits every claim with provenance.",
+]

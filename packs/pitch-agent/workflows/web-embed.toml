@@ -1,0 +1,40 @@
+# Workflow — Web-embed channel
+#
+# Public, text-only widget on a tenant marketing page (e.g. /pitch on
+# skycot.com). No tool access at all. Every utterance flows through the
+# tenant's public-pitch truth boundary. Designed for asynchronous Q&A
+# from cold visitors — no founder loop, no escalation tools beyond a
+# "contact" form hand-off.
+
+[workflow]
+id = "pitch-agent-web-embed"
+display_name = "Pitch — web embed"
+description = "Public text Q&A widget. No tool access. Read-only canonical answers + escalation to a contact form."
+channel = "web_embed"
+default_persona = "investor_3min"
+truth_boundary_policy = "tenant-public-pitch"
+
+[entry]
+trigger = "web_visitor_message"
+inputs = ["visitor_message", "session_id"]
+
+[[steps]]
+id = "select-mode"
+skill = "pitch-mode-switcher"
+purpose = "Pick elevator vs investor mode based on visitor signal."
+
+[[steps]]
+id = "canonical-lookup"
+skill = "canonical-qa"
+purpose = "Match the visitor's question against the public canonical corpus."
+mode = "strict"
+fallback = "objection-handler"
+
+[[steps]]
+id = "respond"
+purpose = "Render the canonical answer or refuse politely."
+
+[[steps]]
+id = "log-interaction"
+target_memory = "objection_library"
+purpose = "Log every visitor question for the founder to review and harvest new canonical entries."

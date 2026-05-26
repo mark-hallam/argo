@@ -1,0 +1,28 @@
+# Truth-boundary policy reference (template-only)
+#
+# This file declares which tenant-supplied truth-boundary policy id each
+# channel resolves to. The pack does NOT ship policy bodies — tenants
+# author and version their own policies, then bind them at deploy time
+# under the ids declared here.
+#
+# Policy ids resolve through the P-01 capability registry
+# (argo_capability::truth_boundary). At validate time the loader checks
+# that the named policy id exists for the deploying tenant; missing
+# bindings fail loudly rather than silently degrading to a permissive
+# default.
+
+default_policy_id = "tenant-public-pitch"
+
+[channel_overrides]
+rehearsal = "tenant-private-rehearsal"
+web_embed = "tenant-public-pitch"
+live_meeting = "tenant-investor-meeting"
+
+# Hint shape — tenants override; the template only names the channels
+# and the policies the runtime expects to find.
+[expected_policy_capabilities]
+financials = "refuse_unless_approved_fact"
+unannounced_roadmap = "refuse"
+non_public_customer_reference = "refuse_unless_approved_fact"
+competitor_comparison = "warm_canonical_only"
+legal_claim = "refuse"

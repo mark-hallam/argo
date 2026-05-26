@@ -153,6 +153,28 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     lastActiveAt: new Date(now - 24 * minute).toISOString(),
     pendingApprovalCount: 1,
   },
+  {
+    id: "wkr_01J0PITCH",
+    name: "Pitch",
+    role: {
+      tagline: "represents the founder in investor, customer, and press conversations",
+      vertical: "pitch-agent",
+    },
+    status: "working",
+    department: { id: "sales-investor-relations", name: "Sales & Investor Relations" },
+    team: { id: "investor-relations", name: "Investor Relations" },
+    kpiToday: { label: "canonical-Q&A matches", value: "12" },
+    permissions: DEFAULT_DELEGATOR_PERMISSIONS,
+    headline: {
+      bullets: [
+        "matched 12 investor questions in under 500ms each",
+        "refused 1 unsupported financials claim, escalated to founder",
+      ],
+      tomorrow: "Thursday 10am Series A rehearsal with founder",
+    },
+    lastActiveAt: new Date(now - 12 * minute).toISOString(),
+    pendingApprovalCount: 0,
+  },
 ];
 
 export function findSampleWorker(id: string): Worker | undefined {

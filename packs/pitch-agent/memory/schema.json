@@ -1,0 +1,34 @@
+{
+  "schemas": {
+    "investor_profile": {
+      "fields": [
+        { "name": "name", "type": "string", "required": true },
+        { "name": "firm", "type": "string" },
+        { "name": "thesis", "type": "text" },
+        { "name": "prior_objections", "type": "text[]" },
+        { "name": "podcast_appearances", "type": "url[]" },
+        { "name": "introduced_by", "type": "string" },
+        { "name": "stage_focus", "type": "enum", "values": ["pre-seed", "seed", "a", "b", "growth"] }
+      ]
+    },
+    "objection_library": {
+      "fields": [
+        { "name": "objection", "type": "text", "required": true },
+        { "name": "category", "type": "enum", "values": ["competitive", "moat", "market", "team", "tech", "compliance"] },
+        { "name": "best_response", "type": "text" },
+        { "name": "last_used", "type": "datetime" },
+        { "name": "outcomes", "type": "json" }
+      ]
+    },
+    "approved_facts": {
+      "fields": [
+        { "name": "fact", "type": "text", "required": true },
+        { "name": "category", "type": "string" },
+        { "name": "source", "type": "url" },
+        { "name": "last_reviewed", "type": "date", "required": true },
+        { "name": "review_owner", "type": "string", "required": true },
+        { "name": "is_public", "type": "bool", "default": true }
+      ]
+    }
+  }
+}

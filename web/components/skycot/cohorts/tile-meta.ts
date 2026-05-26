@@ -47,6 +47,16 @@ const PERSONA_TILE_META: Record<string, CohortPersonaTileMeta> = {
     greatAt: ["Weekly exec summaries", "RAID log upkeep"],
     escalatesWhen: ["Stakeholder outbound", "Board updates"],
   },
+  "sales-investor-relations::pitch-agent": {
+    name: "Pitch",
+    level: "L4",
+    role: "Pitch Agent",
+    stack: "Canonical Q&A · Slide control · Voice",
+    hero: "Represents the founder in investor, customer, and press conversations.",
+    initials: "PI",
+    greatAt: ["Investor objections", "Live demos", "Mode switching"],
+    escalatesWhen: ["Financials", "Unannounced roadmap", "Non-public customers"],
+  },
 };
 
 export function cohortPersonaTileMeta(

@@ -1,0 +1,51 @@
+# Workflow — Live-meeting channel
+#
+# Real investor / customer / press meeting on Zoom (or similar). The
+# agent may drive slides, narrate the demo, and answer canonical Q&A.
+# It escalates to the founder before any unsupported claim. Every
+# utterance flows through the tenant's investor-meeting truth boundary,
+# which is stricter than the public-pitch policy: customer references
+# require approved-fact lookup, financials are hard-blocked.
+
+[workflow]
+id = "pitch-agent-live-meeting"
+display_name = "Pitch — live meeting"
+description = "Live investor / customer / press meeting with slide control and canonical Q&A. Founder is the escalation target."
+channel = "live_meeting"
+default_persona = "demo_10min"
+truth_boundary_policy = "tenant-investor-meeting"
+
+[entry]
+trigger = "meeting_started"
+inputs = ["audience_archetype", "meeting_url", "deck_id", "founder_present"]
+
+[[steps]]
+id = "warm-canonical-qa"
+skill = "canonical-qa"
+purpose = "Pre-warm canonical answers for the audience archetype."
+mode = "lookup_only"
+
+[[steps]]
+id = "verify-share-screen"
+skill = "slide-controller"
+purpose = "Confirm zoom.share-screen is active before beat 1; refuse to proceed if not."
+required_tool = "zoom.share-screen"
+
+[[steps]]
+id = "select-mode"
+skill = "pitch-mode-switcher"
+purpose = "Pick the persona based on the audience archetype + announced duration."
+
+[[steps]]
+id = "meeting-loop"
+purpose = "Slide-advance / narrate / answer / refuse / escalate loop."
+loop = true
+break_condition = "meeting_ended_or_handed_off"
+contained_skills = ["canonical-qa", "objection-handler", "slide-controller", "pitch-mode-switcher"]
+
+[[steps]]
+id = "follow-up-draft"
+skill = "follow-up-writer"
+purpose = "Draft a follow-up note with cited sources and unresolved questions for the founder to send."
+output_artifact = "follow_up_draft"
+approval_required = true

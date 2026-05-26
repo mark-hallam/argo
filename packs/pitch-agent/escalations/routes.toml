@@ -1,0 +1,38 @@
+# Escalation routes.
+#
+# Every refusal that should reach a human picks one of these routes.
+# Routes are tenant-configurable at deploy time; the template only
+# declares the route names + the conditions under which the agent must
+# fire one.
+
+[routes.diligence_handoff]
+description = "Material non-public detail asked in a diligence session — escalate to the founder."
+notify = ["founder"]
+mode = "sync"
+sla_seconds = 30
+
+[routes.live_meeting_handoff]
+description = "Live meeting entered an unfamiliar state — hand the mic to the founder."
+notify = ["founder"]
+mode = "sync"
+sla_seconds = 5
+
+[routes.web_embed_contact]
+description = "Web visitor asked something the canonical corpus cannot answer — log + offer contact form."
+notify = []
+mode = "async"
+sla_seconds = 0
+
+[routes.unsupported_claim_block]
+description = "Agent caught itself about to make an unsupported public claim — block, log, notify founder for review."
+notify = ["founder"]
+mode = "async"
+sla_seconds = 3600
+
+[escalation_triggers]
+financial_specifics = "diligence_handoff"
+unannounced_roadmap = "unsupported_claim_block"
+legal_claims = "unsupported_claim_block"
+non_public_customer_reference = "unsupported_claim_block"
+canonical_qa_miss_in_web_embed = "web_embed_contact"
+canonical_qa_miss_in_live_meeting = "live_meeting_handoff"

@@ -1,0 +1,23 @@
+# Eval cases reference (template-only).
+#
+# The Track P eval suite (brief P-08) owns the actual cases. This file
+# declares which case-pack ids the Pitch Agent template depends on, so
+# the gateway can render coverage at registration time and the
+# eval-runner can pick the right suite when validating a deployment.
+
+eval_suite_id = "pitch-agent-v1"
+
+[required_suites]
+canonical_qa = "canonical-qa-storyboard-v1"
+truth_boundary = "truth-boundary-pitch-channels-v1"
+mode_switcher = "pitch-mode-switcher-context-tags-v1"
+slide_controller = "slide-controller-rehearsal-and-meeting-v1"
+
+[deferred_suites]
+voice_io = "voice-io-pitch-end-to-end-v1"
+multi_tenant_isolation = "pitch-cross-tenant-negative-v1"
+
+[acceptance_thresholds]
+canonical_qa_recall = 0.85
+truth_boundary_block_precision = 0.99
+mode_switcher_accuracy = 0.95

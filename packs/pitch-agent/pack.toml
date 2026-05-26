@@ -1,0 +1,15 @@
+[pack]
+name = "pitch-agent"
+version = "0.1.0"
+display_name = "Pitch Agent"
+description = "Public-representation worker for investor, customer, and press conversations. Enforces a tenant-supplied truth boundary, switches pitch modes by context, and escalates before unsupported claims."
+
+[fetcher]
+base_url = "https://github.com/mark-hallam/skycot-packs/releases/download"
+asset_template = "{name}-{version}.tar.gz"
+tag_template = "{name}-v{version}"
+token_env = ["GH_TOKEN", "GITHUB_TOKEN"]
+
+[[verticals]]
+id = "pitch-agent"
+path = "."

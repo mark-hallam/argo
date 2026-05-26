@@ -1,0 +1,53 @@
+# Workflow — Rehearsal channel
+#
+# Backstage practice runs with the founder. The agent drives a deck on
+# the founder's machine, takes mock investor questions, and learns from
+# corrections. No external listeners. Truth boundary uses the tenant's
+# private-rehearsal policy so the founder may correct the corpus
+# in-the-loop without tripping public-pitch guardrails.
+
+[workflow]
+id = "pitch-agent-rehearsal"
+display_name = "Pitch rehearsal"
+description = "Backstage rehearsal with the founder; deck control + Q&A practice + objection-library updates."
+channel = "rehearsal"
+default_persona = "investor_3min"
+truth_boundary_policy = "tenant-private-rehearsal"
+
+[entry]
+trigger = "manual_session_start"
+inputs = ["audience_archetype", "duration_seconds", "deck_id"]
+
+[[steps]]
+id = "warm-canonical-qa"
+skill = "canonical-qa"
+purpose = "Pre-warm canonical answers for the audience archetype."
+mode = "lookup_only"
+
+[[steps]]
+id = "open-deck"
+skill = "slide-controller"
+purpose = "Open the rehearsal deck and confirm slide count."
+
+[[steps]]
+id = "select-mode"
+skill = "pitch-mode-switcher"
+purpose = "Pick the persona file for the requested duration."
+
+[[steps]]
+id = "rehearse-loop"
+purpose = "Question → answer → founder-correction → write-back loop."
+loop = true
+break_condition = "founder_ends_session"
+contained_skills = ["canonical-qa", "objection-handler", "slide-controller"]
+
+[[steps]]
+id = "write-back"
+purpose = "Persist new objections and improved best-responses into objection_library memory."
+target_memory = "objection_library"
+
+[[steps]]
+id = "follow-up-summary"
+skill = "follow-up-writer"
+purpose = "Draft a rehearsal summary listing weak spots and missing facts."
+output_artifact = "rehearsal_summary"

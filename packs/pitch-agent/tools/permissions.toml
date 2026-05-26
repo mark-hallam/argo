@@ -1,0 +1,21 @@
+# Tool permissions per channel.
+#
+# Channels:
+#   rehearsal     — backstage practice with the founder; full deck control + research MCPs.
+#   web_embed     — public widget; no tools at all.
+#   live_meeting  — live external meeting; deck control + share-screen + customer/calendar lookup.
+#
+# Anything not listed here is implicitly forbidden. Tools requested
+# at runtime that are not in `allowed_tools` are refused and audited.
+
+[channels.rehearsal]
+allowed_tools = ["keynote.advance", "keynote.show", "browser.navigate"]
+mcp_connectors = ["gmail", "calendar", "notion"]
+
+[channels.web_embed]
+allowed_tools = []
+mcp_connectors = []
+
+[channels.live_meeting]
+allowed_tools = ["zoom.share-screen", "keynote.advance", "keynote.show"]
+mcp_connectors = ["gmail", "calendar", "crm"]

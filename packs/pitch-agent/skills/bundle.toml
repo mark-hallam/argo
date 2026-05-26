@@ -1,0 +1,40 @@
+# Skill bundle for the Pitch Agent template.
+#
+# Priority semantics:
+#   hot                       — always pre-warmed at session start.
+#   warm                      — loaded on first reference within a session.
+#   cold                      — loaded only when explicitly invoked.
+#   always                    — runs every turn (e.g. mode-switcher).
+#   channel:<a>,<b>           — only loaded in the named channels.
+#
+# Stubs are skills referenced here that may not yet exist in the
+# tenant's skill library on day 1 of deployment. Operators see them in
+# the pack lint report and decide whether to author, import from the
+# marketplace, or disable the dependent workflow steps.
+
+[[skills]]
+id = "canonical-qa"
+priority = "hot"
+source = "track-p::P-04"
+
+[[skills]]
+id = "objection-handler"
+priority = "warm"
+source = "stub"
+stub_note = "Authored at tenant scope; canonical-qa entries can carry objection categories without it for the v1 demo. Stub until P-06 ships a shared library entry."
+
+[[skills]]
+id = "pitch-mode-switcher"
+priority = "always"
+source = "argo-skill::pitch_mode_switcher"
+
+[[skills]]
+id = "slide-controller"
+priority = "channel:rehearsal,live_meeting"
+source = "argo-skill::slide_controller"
+
+[[skills]]
+id = "follow-up-writer"
+priority = "cold"
+source = "stub"
+stub_note = "Wraps canonical-qa lookup + objection_library write-back into a follow-up draft. Stub until the tenant authors or imports it."
