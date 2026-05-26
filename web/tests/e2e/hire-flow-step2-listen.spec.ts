@@ -30,7 +30,7 @@ test("Step 1 → Step 2 happy path with stub fallback", async ({ page }) => {
   const problem =
     "I sell hockey gear on Facebook Marketplace and get 30 messages a day.";
   await page.getByTestId("hire-step1-textarea").fill(problem);
-  await page.getByTestId("hire-shell-continue").click();
+  await page.getByTestId("wiz-shell-continue").click();
 
   await expect(page).toHaveURL(/\/hire\/step\/2$/);
   await expect(page.getByTestId("hire-step2-listen")).toBeVisible();
@@ -40,7 +40,7 @@ test("Step 1 → Step 2 happy path with stub fallback", async ({ page }) => {
   await expect(page.getByTestId("hire-step2-question-stub_name")).toBeVisible();
 
   // Continue is disabled until all 3 stub questions are answered.
-  await expect(page.getByTestId("hire-shell-continue")).toBeDisabled();
+  await expect(page.getByTestId("wiz-shell-continue")).toBeDisabled();
 
   await page
     .getByTestId("hire-step2-answer-stub_action_mode-Reply on my behalf")
@@ -48,8 +48,8 @@ test("Step 1 → Step 2 happy path with stub fallback", async ({ page }) => {
   await page.getByTestId("hire-step2-answer-stub_autonomy-no").click();
   await page.getByTestId("hire-step2-answer-stub_name").fill("Mariah");
 
-  await expect(page.getByTestId("hire-shell-continue")).toBeEnabled();
-  await page.getByTestId("hire-shell-continue").click();
+  await expect(page.getByTestId("wiz-shell-continue")).toBeEnabled();
+  await page.getByTestId("wiz-shell-continue").click();
   await expect(page).toHaveURL(/\/hire\/step\/3$/);
 });
 

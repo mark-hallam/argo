@@ -23,7 +23,7 @@ test("Step 1 → 2 → 3 happy path with stub fallback advances to Step 4", asyn
   await page
     .getByTestId("hire-step1-textarea")
     .fill("I sell hockey gear on Facebook Marketplace and get 30 messages a day.");
-  await page.getByTestId("hire-shell-continue").click();
+  await page.getByTestId("wiz-shell-continue").click();
 
   await expect(page).toHaveURL(/\/hire\/step\/2$/);
   await page
@@ -31,13 +31,13 @@ test("Step 1 → 2 → 3 happy path with stub fallback advances to Step 4", asyn
     .click();
   await page.getByTestId("hire-step2-answer-stub_autonomy-no").click();
   await page.getByTestId("hire-step2-answer-stub_name").fill("Mariah");
-  await page.getByTestId("hire-shell-continue").click();
+  await page.getByTestId("wiz-shell-continue").click();
 
   await expect(page).toHaveURL(/\/hire\/step\/3$/);
   await expect(page.getByTestId("hire-step3-drafting")).toBeVisible();
   // Step 3 hides the HireShell footer (no Back / Continue).
-  await expect(page.getByTestId("hire-shell-continue")).toHaveCount(0);
-  await expect(page.getByTestId("hire-shell-back")).toHaveCount(0);
+  await expect(page.getByTestId("wiz-shell-continue")).toHaveCount(0);
+  await expect(page.getByTestId("wiz-shell-back")).toHaveCount(0);
 
   // The cosmetic timer is ~3.5s; advance well inside the 30s wall.
   await expect(page).toHaveURL(/\/hire\/step\/4$/, { timeout: 6_000 });
@@ -75,7 +75,7 @@ test("Step 3 surfaces the GenesisFallbackBanner when draft-worker 500s", async (
   await page
     .getByTestId("hire-step1-textarea")
     .fill("I sell hockey gear on Facebook Marketplace and get 30 messages a day.");
-  await page.getByTestId("hire-shell-continue").click();
+  await page.getByTestId("wiz-shell-continue").click();
 
   await expect(page).toHaveURL(/\/hire\/step\/2$/);
   await page
@@ -83,7 +83,7 @@ test("Step 3 surfaces the GenesisFallbackBanner when draft-worker 500s", async (
     .click();
   await page.getByTestId("hire-step2-answer-stub_autonomy-no").click();
   await page.getByTestId("hire-step2-answer-stub_name").fill("Mariah");
-  await page.getByTestId("hire-shell-continue").click();
+  await page.getByTestId("wiz-shell-continue").click();
 
   await expect(page).toHaveURL(/\/hire\/step\/3$/);
   // The banner surfaces once the mutation lands its error (a single

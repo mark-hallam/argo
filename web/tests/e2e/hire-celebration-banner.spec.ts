@@ -1,27 +1,32 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * E2-h — Step 6 celebration handoff.
+ * Step 6 celebration handoff (post web-hire-done-celebration-brandloud).
  *
- * Asserts that the `/hire/done/<id>` page redirects to the approvals
- * inbox, the celebration banner surfaces there with the new worker's
- * name, and the `×` dismiss button removes the banner and the
- * underlying localStorage entry.
+ * The `/hire/done/<id>` page no longer auto-redirects — the brand-loud
+ * payoff page IS the destination, and the user chooses where to go via
+ * the CTAs. The page still calls `setCelebration()` into localStorage
+ * so the next visit to `/` surfaces the celebration banner above the
+ * approvals inbox.
  *
- * The mock-fallback approvals dataset has no worker called "Quill",
- * so auto-clear-on-first-approval does not fire — the banner stays
- * visible until the user dismisses it.
+ * These tests:
+ *  1. Visit `/hire/done/<id>` and confirm the brand-loud payoff card
+ *     paints with the worker's name + role.
+ *  2. Navigate to `/`, where the dismissible celebration banner
+ *     surfaces with the right copy + CTA.
+ *  3. Cover both the active and inert (`?inert=1`) variants.
  */
-test("hire/done seeds the celebration and the banner appears on /", async ({
+test("hire/done paints the brand-loud payoff, and the banner appears on /", async ({
   page,
 }) => {
-  // Visit /hire/done directly with ?name= so we don't need a draft.
+  // Visit /hire/done with ?name= so we don't need a draft.
   await page.goto("/hire/done/wkr_quill?name=Quill");
+  await expect(page.getByTestId("hire-done-welcome-card")).toBeVisible();
+  await expect(page.getByTestId("hire-done-welcome-card")).toContainText("Quill");
 
-  // Overlay paints briefly before the 1.5s redirect.
-  await expect(page.getByTestId("hire-celebration-overlay")).toBeVisible();
-  await expect(page).toHaveURL(/\/$/, { timeout: 5_000 });
-
+  // The user navigates home; the banner surfaces with the active
+  // variant.
+  await page.goto("/");
   const banner = page.getByTestId("celebration-banner");
   await expect(banner).toBeVisible();
   await expect(banner).toHaveAttribute("data-variant", "active");
@@ -38,7 +43,10 @@ test("hire/done seeds the celebration and the banner appears on /", async ({
 
 test("inert variant is rendered when ?inert=1 is set", async ({ page }) => {
   await page.goto("/hire/done/wkr_skip?name=Robin&inert=1");
-  await expect(page).toHaveURL(/\/$/, { timeout: 5_000 });
+  await expect(page.getByTestId("hire-done-welcome-card")).toBeVisible();
+  await expect(page.getByTestId("hire-done-welcome-card")).toContainText("Robin");
+
+  await page.goto("/");
   const banner = page.getByTestId("celebration-banner");
   await expect(banner).toBeVisible();
   await expect(banner).toHaveAttribute("data-variant", "inert");

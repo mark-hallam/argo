@@ -27,7 +27,7 @@ test("Step 1 → 2 → 3 → 4 reaches Step 5 via stub fallback", async ({ page 
   await page
     .getByTestId("hire-step1-textarea")
     .fill("I sell hockey gear on Facebook Marketplace and get 30 messages a day.");
-  await page.getByTestId("hire-shell-continue").click();
+  await page.getByTestId("wiz-shell-continue").click();
 
   await expect(page).toHaveURL(/\/hire\/step\/2$/);
   await page
@@ -35,7 +35,7 @@ test("Step 1 → 2 → 3 → 4 reaches Step 5 via stub fallback", async ({ page 
     .click();
   await page.getByTestId("hire-step2-answer-stub_autonomy-no").click();
   await page.getByTestId("hire-step2-answer-stub_name").fill("Mariah");
-  await page.getByTestId("hire-shell-continue").click();
+  await page.getByTestId("wiz-shell-continue").click();
 
   await expect(page).toHaveURL(/\/hire\/step\/3$/);
   // Step 3's cosmetic timer is ~3.5s; allow well inside the 30s wall.

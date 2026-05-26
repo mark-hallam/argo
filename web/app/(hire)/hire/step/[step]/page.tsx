@@ -115,21 +115,20 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     canContinue: boolean;
   }>({ answers: {}, canContinue: false });
 
-  useEffect(() => {
-    if (step !== null) {
-      void draft.update({ step });
-    }
-  }, [step, draft]);
-
   // Step 2 invariant: requires a `problem` from Step 1. If the user
   // landed here directly (no problem in draft), bounce to Step 1.
+  // Otherwise persist `step: 2` to the draft so a refresh resumes here.
   useEffect(() => {
     if (draft.isLoading) return;
     if (step !== 2) return;
     if (!draft.state?.problem) {
       router.replace("/hire");
+      return;
     }
-  }, [draft.isLoading, draft.state?.problem, step, router]);
+    if (draft.state.step !== 2) {
+      void draft.update({ step: 2 });
+    }
+  }, [draft.isLoading, draft.state?.problem, draft.state?.step, step, router, draft]);
 
   // Step 3 invariant: requires `answers` from Step 2. If empty,
   // bounce to Step 2 so the user re-answers (which also recreates
@@ -140,8 +139,12 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     const answerCount = draft.state?.answers ? Object.keys(draft.state.answers).length : 0;
     if (answerCount === 0) {
       router.replace("/hire/step/2");
+      return;
     }
-  }, [draft.isLoading, draft.state?.answers, step, router]);
+    if (draft.state?.step !== 3) {
+      void draft.update({ step: 3 });
+    }
+  }, [draft.isLoading, draft.state?.answers, draft.state?.step, step, router, draft]);
 
   // Step 4 invariant: requires a `workerDraft` from Step 3. If
   // missing, bounce to Step 3 so drafting runs (which in turn
@@ -151,8 +154,12 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     if (step !== 4) return;
     if (!draft.state?.workerDraft) {
       router.replace("/hire/step/3");
+      return;
     }
-  }, [draft.isLoading, draft.state?.workerDraft, step, router]);
+    if (draft.state.step !== 4) {
+      void draft.update({ step: 4 });
+    }
+  }, [draft.isLoading, draft.state?.workerDraft, draft.state?.step, step, router, draft]);
 
   // Step 5 invariant: requires a server-assigned `workerId` from
   // Step 4's hire commit. Without it, the connector / channel UI has
@@ -162,8 +169,12 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     if (step !== 5) return;
     if (!draft.state?.workerDraft?.workerId) {
       router.replace("/hire/step/4");
+      return;
     }
-  }, [draft.isLoading, draft.state?.workerDraft, step, router]);
+    if (draft.state.step !== 5) {
+      void draft.update({ step: 5 });
+    }
+  }, [draft.isLoading, draft.state?.workerDraft, draft.state?.step, step, router, draft]);
 
   const handleStep2Change = useCallback(
     (snap: { answers: Record<string, QuestionAnswer>; canContinue: boolean }) => {

@@ -1,63 +1,48 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * End-to-end smoke for the hire-flow shell (E2-a).
+ * Smoke tests for the shared wizard shell (`WizardEditorialShell`,
+ * the F1 editorial-center locked 2026-05-19) as hosted by the hire
+ * flow. The shell renders Step 1 chrome, a per-step progressbar, and
+ * Back/Continue buttons in its CTA row.
  *
- * Verifies that the seven-step shell renders, navigates forward and
- * back, and ends on the celebration page which redirects to the new
- * worker's profile.
+ * Shell-level concerns only — the step bodies (Step1Land, Step2Listen,
+ * Step3Drafting, Step4Introduce, Step5Connect) are covered by their
+ * own spec files. The end-to-end happy-path walk lives in
+ * `hire-flow-step4-introduce.spec.ts` which already drives Step 1 → 5
+ * with the genesis endpoints stubbed.
  *
- * **Status — runs once Playwright infra lands.** The repo currently
- * ships `@playwright/test` as a dev dep but no `playwright.config.ts`
- * or test:e2e CI wiring. This spec is authored against the route
- * shape this brief locks; a follow-on infra brief wires Playwright +
- * dev-server harness so `pnpm test:e2e` discovers and runs it.
- *
- * To run locally once the harness lands:
- *   pnpm --filter web build
- *   pnpm --filter web exec playwright test tests/e2e/hire-flow-shell.spec.ts
+ * The /hire/done landing is no longer an auto-redirect overlay; the
+ * brand-loud payoff page IS the destination (per
+ * web-hire-done-celebration-brandloud), so this spec asserts the
+ * payoff renders, not a redirect to `/`.
  */
-test("walks through all 6 hire-flow steps and lands on the celebration redirect", async ({
+test("Step 1 renders the shared shell with progressbar and Step1 textarea", async ({
   page,
 }) => {
   await page.goto("/hire");
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
-  await expect(page.getByText(/Step 1 — placeholder for E2-b/)).toBeVisible();
-
-  // Step 1 -> Step 2 (Continue is disabled on the shell-only build, so
-  // route directly until E2-b unlocks it). Step 2 now renders the real
-  // Listen UI (E2-c); without a `problem` in the draft store it
-  // bounces back to `/hire`, so a direct visit no longer paints Step 2
-  // unless we seed state first. Skip the placeholder check and let the
-  // step-2-specific spec cover that path.
-  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
-
-  await page.goto("/hire/step/3");
-  await expect(page.getByText(/Step 3 — placeholder for E2-d/)).toBeVisible();
-
-  await page.goto("/hire/step/4");
-  await expect(page.getByText(/Step 4 — placeholder for E2-e/)).toBeVisible();
-
-  await page.goto("/hire/step/5");
-  await expect(page.getByText(/Step 5 — placeholder for E2-g/)).toBeVisible();
-
-  // Step 6 lives at /hire/done/<workerId> and auto-redirects to the
-  // approvals inbox after the 1.5s celebration overlay (E2-h).
-  await page.goto("/hire/done/stub");
-  await expect(page).toHaveURL(/\/$/, { timeout: 5000 });
+  await expect(page.getByTestId("wiz-shell-hero")).toBeVisible();
+  await expect(page.getByTestId("hire-step1-textarea")).toBeVisible();
 });
 
-test("Back button is disabled on step 1 and navigates between later steps", async ({
+test("/hire/done renders the brand-loud payoff page (no auto-redirect)", async ({
+  page,
+}) => {
+  await page.goto("/hire/done/stub?name=Robin");
+  // The page IS the payoff — no auto-redirect away. The welcome card
+  // and at least one CTA paint.
+  await expect(page.getByTestId("hire-done-welcome-card")).toBeVisible();
+  await expect(page).toHaveURL(/\/hire\/done\/stub/);
+});
+
+test("Back button is absent on step 1 (no prior step to return to)", async ({
   page,
 }) => {
   await page.goto("/hire");
-  await expect(page.getByTestId("hire-shell-back")).toBeDisabled();
-
-  await page.goto("/hire/step/3");
-  await page.getByTestId("hire-shell-back").click();
-  // Step 3 → back lands on step 2; step 2's no-problem invariant then
-  // bounces to `/hire`. Accept either as a valid landing point.
-  await expect(page).toHaveURL(/\/hire(\/step\/2)?$/);
+  // Step 1 doesn't wire `onBack`, so the shell omits the Back button
+  // entirely (it isn't "disabled" — it isn't in the DOM).
+  await expect(page.getByTestId("wiz-shell-back")).toHaveCount(0);
 });
 
 test("invalid step segment returns 404 within the hire route group", async ({ page }) => {
