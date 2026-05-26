@@ -87,6 +87,7 @@ impl AuditKind {
             Self::WorkerDutyFired => "worker_duty.fired",
             Self::WorkerDutyFailed => "worker_duty.failed",
             Self::HandoffCrossTenantAttempt => "handoff.cross_tenant_attempt",
+            Self::HipaaComplianceCheck => "hipaa_compliance_check",
         }
     }
 
@@ -169,6 +170,7 @@ impl AuditKind {
             "worker_duty.fired" => Self::WorkerDutyFired,
             "worker_duty.failed" => Self::WorkerDutyFailed,
             "handoff.cross_tenant_attempt" => Self::HandoffCrossTenantAttempt,
+            "hipaa_compliance_check" => Self::HipaaComplianceCheck,
             _ => return None,
         })
     }
@@ -251,6 +253,7 @@ impl AuditKind {
             Self::WorkerDutyFired,
             Self::WorkerDutyFailed,
             Self::HandoffCrossTenantAttempt,
+            Self::HipaaComplianceCheck,
         ];
         v.sort_by_key(|k| k.label());
         v

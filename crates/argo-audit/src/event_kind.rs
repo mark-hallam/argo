@@ -221,4 +221,8 @@ pub enum AuditKind {
     WorkerDutyFailed,
     /// Cross-tenant orchestrator handoff refused by the substrate.
     HandoffCrossTenantAttempt,
+    /// HIPAA deployment-posture breadcrumb emitted at gateway boot.
+    ///
+    /// Payload carries `{mode, hipaa_enabled, checked_at, features[]}`.
+    HipaaComplianceCheck,
 }

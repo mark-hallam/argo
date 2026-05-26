@@ -12,7 +12,16 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 73);
+    assert_eq!(AuditKind::all().len(), 74);
+}
+
+#[test]
+fn hipaa_compliance_check_round_trips_and_listed() {
+    let kind = AuditKind::HipaaComplianceCheck;
+    assert_eq!(AuditKind::from_label("hipaa_compliance_check"), Some(kind));
+    assert_eq!(kind.label(), "hipaa_compliance_check");
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"hipaa_compliance_check"));
 }
 
 #[test]
