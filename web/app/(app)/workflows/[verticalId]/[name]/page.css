@@ -20,7 +20,7 @@
   color: #8b5cf6;
 }
 .wfd-card {
-  background: white;
+  background: var(--card, #ffffff);
   border: 1px solid var(--border, #ece9f5);
   border-radius: 16px;
   padding: 28px;
@@ -100,7 +100,7 @@
   cursor: pointer;
   text-decoration: none;
   border: 1px solid var(--border, #ece9f5);
-  background: white;
+  background: var(--card, #ffffff);
   color: var(--foreground, #1e1b4b);
 }
 .wfd-btn-primary {
@@ -153,7 +153,7 @@
   z-index: 1;
 }
 .wfd-step-body {
-  background: white;
+  background: var(--card, #ffffff);
   border: 1px solid var(--border, #ece9f5);
   border-radius: 12px;
   padding: 16px 18px;

@@ -62,7 +62,7 @@
   padding: 16px 20px;
   border-radius: 14px;
   border: 1px solid var(--border, #ece9f5);
-  background: white;
+  background: var(--card, #ffffff);
   margin-bottom: 18px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
 }
@@ -110,7 +110,7 @@
 .templates-chip {
   padding: 6px 12px;
   border-radius: 999px;
-  background: white;
+  background: var(--card, #ffffff);
   border: 1px solid var(--border, #ece9f5);
   color: var(--foreground, #1e1b4b);
   font-size: 13px;
@@ -147,7 +147,7 @@
   .templates-grid { grid-template-columns: 1fr; }
 }
 .template-card {
-  background: white;
+  background: var(--card, #ffffff);
   border: 1px solid var(--border, #ece9f5);
   border-radius: 14px;
   padding: 20px;
@@ -256,7 +256,7 @@
   padding: 64px 20px;
   text-align: center;
   color: var(--muted-foreground, #52525b);
-  background: white;
+  background: var(--card, #ffffff);
   border: 1px dashed var(--border, #ece9f5);
   border-radius: 14px;
 }

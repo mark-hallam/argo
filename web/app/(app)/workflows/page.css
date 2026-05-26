@@ -56,7 +56,7 @@
   padding: 16px 20px;
   border-radius: 14px;
   border: 1px solid var(--border, #ece9f5);
-  background: white;
+  background: var(--card, #ffffff);
   margin-bottom: 14px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
 }
@@ -107,12 +107,12 @@
   gap: 6px;
   padding: 9px 14px;
   border-radius: 10px;
-  background: white;
+  background: var(--card, #ffffff);
   color: #8b5cf6;
   font-family: "Inter", sans-serif;
   font-size: 13.5px;
   font-weight: 600;
-  border: 1px solid #ece9f5;
+  border: 1px solid var(--border, #ece9f5);
   cursor: pointer;
   text-decoration: none;
   transition: all 0.14s;
@@ -143,7 +143,7 @@
 .workflows-try-chip {
   padding: 6px 12px;
   border-radius: 999px;
-  background: white;
+  background: var(--card, #ffffff);
   border: 1px solid var(--border, #ece9f5);
   color: var(--foreground, #1e1b4b);
   font-size: 13px;
@@ -172,7 +172,7 @@
   }
 }
 .workflow-card {
-  background: white;
+  background: var(--card, #ffffff);
   border: 1px solid var(--border, #ece9f5);
   border-radius: 14px;
   padding: 20px;

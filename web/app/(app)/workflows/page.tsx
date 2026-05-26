@@ -202,7 +202,7 @@ export default function WorkflowsPage() {
                   padding: "8px 16px",
                   borderRadius: 8,
                   border: "1px solid var(--border, #ece9f5)",
-                  background: "white",
+                  background: "var(--card, #ffffff)",
                   cursor: "pointer",
                   fontSize: 13,
                   fontWeight: 600,
