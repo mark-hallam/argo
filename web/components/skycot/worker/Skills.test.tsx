@@ -269,14 +269,14 @@ describe("WorkerSkillsPage", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it("View source click announces a stub message in the live region", async () => {
-    const user = userEvent.setup();
+  it("View source is a link to /skills/<name>, not a toast-stub button", () => {
     useSkillsMock.mockReturnValue(skillsState());
     render(<WorkerSkillsPage />);
-    await user.click(screen.getByTestId("skill-view-sk-screen"));
-    const announcement = screen.getByTestId("skills-announcement");
-    expect(announcement).toHaveTextContent(/Skill source viewer/);
-    expect(screen.getByTestId("skills-toast")).toHaveTextContent(/sk-screen/);
+    const link = screen.getByTestId("skill-view-sk-screen");
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveAttribute("href", "/skills/senior-eng-screening");
+    expect(screen.queryByTestId("skills-toast")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("skills-announcement")).not.toBeInTheDocument();
   });
 
   it("renders the learning-loop chip on Active rows that carry a learnedAt", () => {

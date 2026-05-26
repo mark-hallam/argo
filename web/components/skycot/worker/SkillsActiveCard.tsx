@@ -15,9 +15,10 @@ import { formatLearnedAgo } from "@/lib/format-learned-ago";
 /**
  * Active skills section — skills currently bound to the worker. Each
  * row shows the trust badge, 7-day usage count, and three actions:
- * Disable (confirm dialog), View source (placeholder toast), and
- * Audit usage (deep-links into /audit filtered to this skill + this
- * worker — E5-a consumes the `skill` query param).
+ * Disable (confirm dialog), View source (navigates to the skill
+ * detail page at `/skills/<name>`), and Audit usage (deep-links into
+ * /audit filtered to this skill + this worker — E5-a consumes the
+ * `skill` query param).
  */
 
 export interface SkillsActiveCardProps {
@@ -26,8 +27,6 @@ export interface SkillsActiveCardProps {
   skills: ActiveSkill[];
   /** Called after the user confirms the Disable dialog. */
   onDisable: (skillId: string) => void;
-  /** Called when "View source" is clicked. v1 = toast stub. */
-  onViewSource: (skillId: string) => void;
 }
 
 export function SkillsActiveCard({
@@ -35,7 +34,6 @@ export function SkillsActiveCard({
   workerName,
   skills,
   onDisable,
-  onViewSource,
 }: SkillsActiveCardProps) {
   const [pendingDisable, setPendingDisable] = useState<ActiveSkill | null>(null);
 
@@ -91,14 +89,13 @@ export function SkillsActiveCard({
                       >
                         Disable
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
+                      <Link
+                        href={`/skills/${encodeURIComponent(skill.name)}`}
                         data-testid={`skill-view-${skill.id}`}
-                        onClick={() => onViewSource(skill.id)}
+                        className={buttonVariants({ variant: "ghost", size: "sm" })}
                       >
                         View source
-                      </Button>
+                      </Link>
                       <Link
                         href={`/audit?worker=${encodeURIComponent(workerId)}&skill=${encodeURIComponent(skill.id)}`}
                         data-testid={`skill-audit-${skill.id}`}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import {
@@ -29,9 +28,9 @@ import {
  *
  * Data flows through `useWorkerSkills(workerId)`; mutations bundle
  * via `useSkillsActions(workerId)` which exposes optimistic
- * disable / try-it / promote / discard callbacks. Inline toasts
- * announce stubbed actions (View source) until the future surface
- * lands.
+ * disable / try-it / promote / discard callbacks. "View source" on
+ * an active skill navigates to `/skills/<name>` — the canonical
+ * skill-detail surface from mission-skill-discovery-marketplace.
  */
 
 export default function WorkerSkillsPage() {
@@ -42,17 +41,6 @@ export default function WorkerSkillsPage() {
   const actions = useSkillsActions(workerId);
 
   const workerName = workerQuery.data?.name ?? "This worker";
-
-  const [announcement, setAnnouncement] = useState<string | null>(null);
-  useEffect(() => {
-    if (!announcement) return;
-    const t = setTimeout(() => setAnnouncement(null), 3200);
-    return () => clearTimeout(t);
-  }, [announcement]);
-
-  const onViewSource = useCallback((skillId: string) => {
-    setAnnouncement(`Skill source viewer ships with the marketplace surface (skill: ${skillId})`);
-  }, []);
 
   if (skillsQuery.isPending) {
     return (
@@ -92,7 +80,6 @@ export default function WorkerSkillsPage() {
         workerName={workerName}
         skills={active}
         onDisable={actions.onDisable}
-        onViewSource={onViewSource}
       />
       <SkillsLibraryCard skills={library} onTry={actions.onTry} />
       <SkillsLearnedCard
@@ -101,23 +88,6 @@ export default function WorkerSkillsPage() {
         onPromote={actions.onPromote}
         onDiscard={actions.onDiscard}
       />
-
-      <div
-        role="status"
-        aria-live="polite"
-        data-testid="skills-announcement"
-        className="sr-only"
-      >
-        {announcement ?? ""}
-      </div>
-      {announcement ? (
-        <div
-          data-testid="skills-toast"
-          className="fixed bottom-6 right-6 z-40 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm text-[var(--card-foreground)] shadow-lg"
-        >
-          {announcement}
-        </div>
-      ) : null}
     </div>
   );
 }
