@@ -35,11 +35,11 @@ export interface AppShellProps {
 export function AppShell({ children, breadcrumb }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <DemoBanner />
       <NavDrawer brand={<Brand />}>
         <AppNav />
       </NavDrawer>
       <main id="main" tabIndex={-1} className="md:pl-64 focus:outline-none">
+        <DemoBanner />
         <WideRailStyles />
         {breadcrumb ? (
           <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
