@@ -16,17 +16,13 @@ in an older doc contradicts this file, this file wins.
 
 ## Why six scenes (and not a feature tour)
 
-The earlier 5–7 minute script (`docs/skycot/demo_script.md`) covered
-one happy path through hire → approval → audit. That works for a
-single-vertical sales beat but does not exercise the six
-load-bearing mission claims that the v1.0 ship-gate is being
-recorded against. The 8-minute structure narrates each claim once,
-mapped to the regression test that already pins it in code, so the
-recording and the test suite stay in lock-step.
+The older 5–7 minute script covered one happy path through hire →
+approval → audit. This 8-minute structure exercises each
+load-bearing mission claim once, mapped to the regression test that
+pins it, so the recording and test suite stay in lock-step.
 
 The talk track is human-facing. Do **not** paste Rust test prose
-into the narration. The tests are the source material; the
-recording is the story.
+into the narration; the tests are source material, not the story.
 
 ---
 
@@ -51,6 +47,25 @@ recording is the story.
 - [ ] Pre-warm caches: open `http://localhost:3000/onboarding/welcome`, the `/audit` page, and the `/workers` index once in the recording browser. First-load LCP can break the "no mid-scene loads >2 s" feel.
 - [ ] Slack desktop notifications off **except** for the demo channel.
 - [ ] `argo gateway start --bind 127.0.0.1 --port 7400` running in a non-visible terminal. Stderr should print `argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted`.
+- [ ] Run the canonical seed CLI against the demo tenant immediately after `scripts/restart-live-gateway.sh` or `argo gateway start` reports healthy on port 7400:
+
+  ```bash
+  argo tenant list | grep -i demo
+  export ARGO_DEMO_TENANT_ID=<uuid-from-demo-row>
+  ARGO_DEMO_SEED_PROVIDER_KEY="${ARGO_DEMO_SEED_PROVIDER_KEY:?set throwaway provider key}" \
+    argo demo seed --tenant "$ARGO_DEMO_TENANT_ID"
+  curl -fsS http://127.0.0.1:7400/api/v1/team | jq '.workers | length'
+  # expected: 5  (Mariah, Peta, Priya, Jamal, Nori)
+  curl -fsS http://127.0.0.1:7400/api/v1/workflows | jq '.workflows | length'
+  # expected: >0
+  curl -fsS http://127.0.0.1:7400/api/v1/skills | jq '.skills | length'
+  # expected: >0
+  ```
+
+  Re-running is idempotent: worker count remains exactly `5`. For an
+  offline smoke only, add `--skip-pass-a-turns`; do not use that flag
+  for recording. If any count is zero, confirm the tenant id came from
+  the same workspace used to launch the gateway.
 - [ ] Demo-mode auth bypass active in the SPA: `NEXT_PUBLIC_ARGO_DEMO_MODE=1`. The yellow banner "DEMO MODE — auth bypass active" must show on `/auth/signup`.
 - [ ] **Runbook fallback** (added under brief `fix-signup-demo-mode-env-flag-and-runbook-prerequisites`): if you forgot the `NEXT_PUBLIC_ARGO_DEMO_MODE=1` env-var step or want to leave the magic-link form visible, the "Or try a demo workspace · no email required" secondary button beneath the form mints a demo session without an SMTP round-trip. It is visible on any non-production build by default; force-enable on a preview deploy with `NEXT_PUBLIC_ALLOW_DEMO_MINT=1`. Either path lands the operator on `/onboarding/welcome` without an email.
 
@@ -364,55 +379,32 @@ appeared in the older operator runbook. That formulation
 over-claimed certification status and has been removed from this
 doc.
 
-Allowed phrasings (mirror `/security`):
+Allowed phrasings, mirroring `/security`: "SOC 2-ready audit
+trail"; "External SOC 2 Type II attestation is in progress";
+"Hash-chained, tamper-evident, verifiable months later via
+`argo audit verify`"; "By-construction forensic trail."
 
-- "SOC 2-ready audit trail" — the hash-chained log is the
-  load-bearing evidence layer for SOC 2 controls.
-- "External SOC 2 Type II attestation is in progress."
-- "Hash-chained, tamper-evident, verifiable months later via
-  `argo audit verify`."
-- "By-construction forensic trail — not a logging system bolted on."
-
-Avoid:
-
-- Claims that any external attestation (SOC 2 Type II, ISO 27001,
-  GDPR, HIPAA, AFSL) is already complete.
-- "On day one" framing for compliance certifications.
-- Implications that the audit chain has been third-party-audited.
+Avoid claims that any external attestation is already complete,
+"on day one" compliance framing, or implications that the audit
+chain has been third-party-audited.
 
 If a future audit-status flip changes what we can say, update
-`/security` first, then this register, then the recording —
-in that order.
+`/security`, then this register, then the recording.
 
 ---
 
-## Demo-mode auth bypass — what it is and is not
+## Demo-mode auth bypass
 
-Earlier docs in this tree used to forbid any demo-only code path.
-That guidance has been superseded. The demo-mode bypass shipped
-under #2164 as a **single operator-only, audited auth-bypass
-route** — purpose-built for recording the v1.0 mp4 in a single
-take without an SMTP round-trip.
+Demo mode is a single operator-only, audited route for recording
+without SMTP. It only mints a session token on
+`POST /api/v1/demo/mint-principal`; it does not skip approval gates,
+weaken capability checks, or short-circuit the runner. Every mint
+writes `auth.succeeded` with `payload.demo_mode_bypass: true`.
 
-Demo mode is NOT a way to skip approval gates, weaken capability
-checks, or short-circuit the runner. It mints a session token on
-`POST /api/v1/demo/mint-principal` and that is all. Every mint
-writes an `auth.succeeded` audit row tagged
-`payload.demo_mode_bypass: true`, so the recording session can be
-distinguished from real signups months later.
-
-Gating:
-
-- Requires BOTH `ARGO_DEMO_MODE=1` AND `ARGO_GATEWAY_AUTH_BYPASS=1`.
-  Setting only one refuses to bind the gateway.
-- Env vars are read once at startup; no runtime flip.
-- Without `ARGO_DEMO_MODE=1`, the route returns 404.
-- Every mint emits a `tracing::warn!` line to gateway stderr.
-
-The full safety rails are documented in the operator setup
-runbook at `docs/skycot/runbook/v1-demo-recording.md` §3.5. This
-doc references that section by path; do not re-introduce a
-copy-paste fork.
+Safety rails: set both `ARGO_DEMO_MODE=1` and
+`ARGO_GATEWAY_AUTH_BYPASS=1` at startup; otherwise the route returns
+404. Every mint emits a gateway `tracing::warn!`; full setup remains
+in `docs/skycot/runbook/v1-demo-recording.md` §3.5.
 
 ---
 
