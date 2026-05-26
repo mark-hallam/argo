@@ -77,7 +77,13 @@ function redirectToSignin(): void {
   window.location.assign(target);
 }
 
+// Browser-side fetches go through Next.js's same-origin rewrite at
+// `/api/v1/*` (see `web/next.config.ts`) so the browser never crosses
+// origins and CORS never enters the picture. SSR and route-handler
+// contexts run inside the Next.js process and must use the absolute
+// gateway URL because the Next process is the requester, not a browser.
 function gatewayBase(): string {
+  if (typeof window !== "undefined") return "";
   return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
 }
 

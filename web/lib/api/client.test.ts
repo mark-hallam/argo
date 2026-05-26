@@ -198,4 +198,50 @@ describe("lib/api/client", () => {
       expect(assignSpy).not.toHaveBeenCalled();
     });
   });
+
+  describe("gatewayBase URL resolution (F01 fix — same-origin in browser)", () => {
+    it("browser context: uses same-origin path with no gateway prefix", async () => {
+      // The default test env (happy-dom) has `window` defined, so this
+      // matches the SPA's runtime behavior: `apiGet('/api/v1/audit')`
+      // must call `fetch('/api/v1/audit')`, NOT
+      // `fetch('http://gw.test/api/v1/audit')`.
+      const calls: string[] = [];
+      const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        calls.push(url);
+        const req = new Request(`http://localhost${url}`, init);
+        void req;
+        return Promise.resolve(makeResponse({ status: 200, body: {} }));
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      await apiGet("/api/v1/audit");
+      expect(calls).toEqual(["/api/v1/audit"]);
+      expect(calls[0]).not.toMatch(/^https?:/);
+    });
+
+    it("SSR context (no window): uses absolute NEXT_PUBLIC_GATEWAY_URL", async () => {
+      // Pretend we're in the Next.js server process — typeof window
+      // === 'undefined' — and confirm the absolute URL is restored so
+      // SSR/route-handler fetches still hit the gateway directly.
+      vi.stubGlobal("window", undefined);
+      const calls: string[] = [];
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        calls.push(url);
+        return Promise.resolve(makeResponse({ status: 200, body: {} }));
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      try {
+        // Pass a token override so request() skips readSessionPeek
+        // (which would otherwise try to import @/auth in SSR mode).
+        await apiGet("/api/v1/audit", { token: "ssr-token" });
+        expect(calls).toEqual(["http://gw.test/api/v1/audit"]);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+  });
 });
