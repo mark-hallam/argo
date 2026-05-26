@@ -9,6 +9,7 @@ import {
   useFirstHire,
 } from "@/lib/onboarding/use-first-hire";
 import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
+import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
 const EXAMPLE_PROMPT =
@@ -63,11 +64,12 @@ export default function OnboardingFirstHirePage() {
       if (e instanceof Error && e.message === FIRST_HIRE_VERIFY_FAILED_MESSAGE) {
         setError(e.message);
       } else {
-        setError(
-          e instanceof Error
-            ? `${e.message}. Try again, or come back once the gateway is up.`
-            : "Couldn't reach the gateway. Try again in a moment.",
-        );
+        // Scrub internal protocol detail before it reaches the form.
+        const scrubbed = scrubOnboardingErrorMessage(e);
+        const suffix = scrubbed.wasProtocolLeak
+          ? ""
+          : " Try again, or come back once the gateway is up.";
+        setError(`${scrubbed.message}${suffix}`);
       }
     }
   }

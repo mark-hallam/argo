@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProvision } from "@/lib/onboarding/use-provision";
 import { Toaster } from "@/components/ui/sonner";
+import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
 // On fresh provisions we hold the wizard on this step briefly so the
@@ -50,7 +51,9 @@ export default function OnboardingWorkspacePage() {
         router.push("/onboarding/connect-provider");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Provisioning failed. Please try again.");
+      // Scrub internal protocol detail (X-Argo-Principal etc.) before
+      // it reaches the form card — see F5/F5b 2026-05-26-2007.
+      setError(scrubOnboardingErrorMessage(e).message);
     }
   }
 

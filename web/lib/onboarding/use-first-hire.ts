@@ -2,6 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { apiGet, apiPost, ApiError } from "@/lib/api/client";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 const VERIFY_ATTEMPTS = 3;
 const VERIFY_BACKOFF_MS = 500;
@@ -98,7 +99,27 @@ async function verifyWorkerReadable(workerId: string): Promise<void> {
   }
 }
 
+function buildDemoFirstHireResult(verticalId: string): FirstHireResult {
+  // Stable-ish synthetic id seeded from vertical + timestamp so the
+  // wizard's redirect to /workers/<id> always lands on a distinct id
+  // within a session (sample-roster fallback then renders).
+  const stamp = Date.now().toString(36);
+  return {
+    workerId: `demo-worker-${verticalId}-${stamp}`,
+    workerName: "your demo teammate",
+    pending: false,
+  };
+}
+
 export async function firstHire(req: FirstHireRequest): Promise<FirstHireResult> {
+  // Demo-mode short-circuit: the first-hire endpoint requires a verified
+  // principal AND a real tenant id. Neither exists in demo mode. Skip
+  // the gateway + the post-hire readback verify (no worker row will be
+  // there to verify) and return a synthetic id so the wizard redirects
+  // cleanly to /workers/<id>.
+  if (isDemoMode()) {
+    return buildDemoFirstHireResult(req.verticalId);
+  }
   const raw = await apiPost<unknown, FirstHirePayload>(
     "/api/v1/onboarding/first-hire",
     { description: req.description, vertical_id: req.verticalId },

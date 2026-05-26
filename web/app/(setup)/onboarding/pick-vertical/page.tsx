@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { apiPost, ApiError } from "@/lib/api/client";
 import { useVerticals, type VerticalRow } from "@/lib/api/verticals";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
 interface InstallVerticalResponse {
@@ -219,6 +221,13 @@ export default function OnboardingPickVerticalPage() {
       chosen?.displayName ?? null,
       chosen?.skillCount ?? null,
     );
+    // Demo-mode short-circuit: install-vertical requires a verified
+    // principal. Skip the gateway and advance straight to /first-hire.
+    if (isDemoMode()) {
+      setBusy(false);
+      router.push("/onboarding/first-hire");
+      return;
+    }
     try {
       // web-gateway-endpoints-onboarding-batch: the gateway endpoint now
       // exists, so use the canonical `apiPost` client (bearer auth +
@@ -230,13 +239,13 @@ export default function OnboardingPickVerticalPage() {
       );
       router.push("/onboarding/first-hire");
     } catch (e) {
-      const message =
-        e instanceof ApiError
-          ? `${e.message} (HTTP ${e.status}). Choice saved locally — retry the step.`
-          : e instanceof Error
-            ? `${e.message}. Choice saved locally — retry the step.`
-            : "Install failed; choice saved locally.";
-      setError(message);
+      const scrubbed = scrubOnboardingErrorMessage(e);
+      const suffix = scrubbed.wasProtocolLeak
+        ? ""
+        : e instanceof ApiError
+          ? ` (HTTP ${e.status}). Choice saved locally — retry the step.`
+          : " Choice saved locally — retry the step.";
+      setError(`${scrubbed.message}${suffix}`);
     } finally {
       setBusy(false);
     }

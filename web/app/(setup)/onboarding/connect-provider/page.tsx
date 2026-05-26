@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProviderKey } from "@/lib/onboarding/use-provider-key";
+import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
 const ANTHROPIC_CONSOLE_URL = "https://console.anthropic.com/settings/keys";
@@ -110,6 +111,8 @@ export default function OnboardingConnectProviderPage() {
       router.push("/onboarding/pick-vertical");
     } catch (err) {
       logProviderValidationError(err);
+      // HEAD's structured providerErrorFor() returns ProviderError objects
+      // that don't expose raw gateway headers; scrubber not needed here.
       setProviderError(providerErrorFor(err));
     }
   }
