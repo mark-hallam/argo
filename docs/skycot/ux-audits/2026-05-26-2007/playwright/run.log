@@ -1,0 +1,1395 @@
+
+Running 75 tests using 5 workers
+
+  ✓   3 tests/e2e/add-as-schedule.spec.ts:93:5 › add-as-schedule: Escape closes the drawer (9.7s)
+  ✘   4 tests/e2e/approvals-filter.spec.ts:16:5 › filter by worker, then clear via chip (3.0s)
+  ✘   5 tests/e2e/approvals-inbox.spec.ts:19:5 › approves the first card under mock fallback (7.9s)
+  ✓   2 tests/e2e/add-as-schedule.spec.ts:17:5 › add-as-schedule: header CTA → 3-step drawer → POST → success toast (12.1s)
+  ✓   7 tests/e2e/auth-bare-paths-redirect.spec.ts:19:7 › bare path /signin 308-redirects to /auth/signin (355ms)
+  ✓   8 tests/e2e/auth-bare-paths-redirect.spec.ts:19:7 › bare path /verify 308-redirects to /auth/verify (7ms)
+  ✓  10 tests/e2e/auth-bare-paths-redirect.spec.ts:19:7 › bare path /signup 308-redirects to /auth/signup (150ms)
+  ✘   1 tests/e2e/approvals-live.spec.ts:19:5 › WS approval.expired surgically removes the matching card (8.2s)
+  ✘   9 tests/e2e/auth-logout.spec.ts:26:5 › happy path: sign out POSTs to gateway and redirects to /auth/signin (6.0s)
+  ✘  12 tests/e2e/auth-logout.spec.ts:50:5 › 401 from gateway (cookie already revoked) is treated as success (6.3s)
+  ✘  11 tests/e2e/audit-filter-popover.spec.ts:18:5 › multi-dimension filter popover → chip rail → clear (6.5s)
+  ✘   6 tests/e2e/audit-cross-system-links.spec.ts:16:5 › renders cross-system jump link on drill-in and opens new tab (13.9s)
+  ✘  13 tests/e2e/auth-logout.spec.ts:68:5 › 5xx surfaces an error toast and keeps the user signed in (5.9s)
+  ✓  17 tests/e2e/builder-connect.spec.ts:14:5 › workflow builder connect-handler — clean drag does not crash and Save stays disabled until canvas mutates (5.2s)
+  ✓  16 tests/e2e/builder-add-step.spec.ts:34:5 › Escape closes the Add Step palette without adding a node (8.2s)
+  ✓  20 tests/e2e/builder-delete.spec.ts:35:7 › workflow builder — delete › Backspace works as an alias for Delete (3.8s)
+  ✓  19 tests/e2e/builder-delete.spec.ts:7:7 › workflow builder — delete › selecting a non-trigger node and pressing Delete removes node + incident edges (4.9s)
+  ✓  22 tests/e2e/builder-duplicate.spec.ts:7:7 › workflow builder — context menu › right-click on a node opens the menu and Duplicate clones the step (3.3s)
+  ✘  18 tests/e2e/builder-controlled-state.spec.ts:6:5 › workflow builder canvas is controlled and surfaces dirty state (9.9s)
+  ✘  15 tests/e2e/builder-add-step.spec.ts:6:5 › Add Step palette inserts a new node with the chosen kind (30.0s)
+  ✘  14 tests/e2e/auth-signup-centering.spec.ts:14:7 › /auth/signup editorial centering › keeps the signup stage centered at desktop, tablet, and mobile widths (35.0s)
+  ✘  25 tests/e2e/builder-shortcuts.spec.ts:10:5 › workflow builder honors keyboard shortcuts + snap-to-grid (7.8s)
+  ✘  27 tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /pricing renders without white-on-white in dark mode (581ms)
+  ✘  26 tests/e2e/cohorts-project-ops.spec.ts:3:5 › Project & Ops tab shows Peta lead and Patrick stacked tile (6.2s)
+  ✘  28 tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /compare renders without white-on-white in dark mode (963ms)
+  ✘  21 tests/e2e/builder-delete.spec.ts:46:7 › workflow builder — delete › trigger nodes refuse deletion and remain on the canvas (30.1s)
+  ✘  29 tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /docs renders without white-on-white in dark mode (761ms)
+  ✘  30 tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /for/marketplace renders without white-on-white in dark mode (668ms)
+  ✘  23 tests/e2e/builder-duplicate.spec.ts:23:7 › workflow builder — context menu › right-click on a trigger node shows a disabled Duplicate item (30.1s)
+  ✘  24 tests/e2e/builder-duplicate.spec.ts:37:7 › workflow builder — context menu › right-click on an edge opens a Disconnect-only menu that removes only the edge (30.1s)
+  ✓  35 tests/e2e/hire-flow-shell.spec.ts:63:5 › invalid step segment returns 404 within the hire route group (1.3s)
+  ✘  32 tests/e2e/hire-celebration-banner.spec.ts:39:5 › inert variant is rendered when ?inert=1 is set (6.8s)
+  ✘  31 tests/e2e/hire-celebration-banner.spec.ts:15:5 › hire/done seeds the celebration and the banner appears on / (6.8s)
+  ✘  33 tests/e2e/hire-flow-shell.spec.ts:20:5 › walks through all 6 hire-flow steps and lands on the celebration redirect (6.5s)
+  ✘  34 tests/e2e/hire-flow-shell.spec.ts:50:5 › Back button is disabled on step 1 and navigates between later steps (5.4s)
+  ✘  39 tests/e2e/hire-flow-step3-drafting.spec.ts:46:5 › Step 3 redirects to Step 2 when draft has no answers (1.1s)
+  ✘  40 tests/e2e/hire-flow-step3-drafting.spec.ts:56:5 › Step 3 surfaces the GenesisFallbackBanner when draft-worker 500s (1.1s)
+  ✘  41 tests/e2e/hire-flow-step4-introduce.spec.ts:15:5 › Step 1 → 2 → 3 → 4 reaches Step 5 via stub fallback (1.1s)
+  ✘  42 tests/e2e/hire-flow-step4-introduce.spec.ts:57:5 › Step 4 redirects to Step 3 when no workerDraft is in state (1.1s)
+  ✘  37 tests/e2e/hire-flow-step2-listen.spec.ts:56:5 › Step 2 redirects to Step 1 when draft has no problem (5.8s)
+  ✘  43 tests/e2e/no-duty-copy.spec.ts:30:7 › settings page contains no operator-visible "Duty" / "Duties" copy (1.1s)
+  ✘  44 tests/e2e/no-duty-copy.spec.ts:30:7 › workflows page contains no operator-visible "Duty" / "Duties" copy (1.1s)
+  ✘  45 tests/e2e/no-duty-copy.spec.ts:30:7 › cohorts page contains no operator-visible "Duty" / "Duties" copy (1.1s)
+  ✓  48 tests/e2e/no-duty-copy.spec.ts:30:7 › approvals page contains no operator-visible "Duty" / "Duties" copy (4.7s)
+  ✓  47 tests/e2e/no-duty-copy.spec.ts:30:7 › audit page contains no operator-visible "Duty" / "Duties" copy (5.4s)
+  ✓  46 tests/e2e/no-duty-copy.spec.ts:30:7 › workers page contains no operator-visible "Duty" / "Duties" copy (6.5s)
+  ✘  51 tests/e2e/no-duty-copy.spec.ts:57:7 › settings page surfaces "Schedule" / "Schedules" copy (2.4s)
+  ✓  49 tests/e2e/no-duty-copy.spec.ts:30:7 › skills page contains no operator-visible "Duty" / "Duties" copy (3.0s)
+  ✓  50 tests/e2e/no-duty-copy.spec.ts:30:7 › hire page contains no operator-visible "Duty" / "Duties" copy (3.0s)
+  ✘  52 tests/e2e/no-duty-copy.spec.ts:57:7 › cohorts page surfaces "Schedule" / "Schedules" copy (1.2s)
+  ✘  53 tests/e2e/onboarding.spec.ts:27:7 › new-user activation path › walks marketing → signup → magic-link → 5-step wizard → first hire (1.2s)
+  ✘  54 tests/e2e/no-duty-copy.spec.ts:57:7 › workflows page surfaces "Schedule" / "Schedules" copy (1.7s)
+  ✓  56 tests/e2e/settings-connectors-open-modal.spec.ts:13:5 › opens the credential modal on the Notion card and closes cleanly (2.1s)
+  ✘  58 tests/e2e/team-filter-search.spec.ts:18:5 › filter by status, search by name, then clear chips (984ms)
+  ✘  55 tests/e2e/orchestration-queue.spec.ts:3:5 › orchestration queue renders mock runs and filters by worker (6.7s)
+  ✘  59 tests/e2e/team-page-shows-real-workers.spec.ts:20:5 › renders the trading-card deck — never the empty state — when workers exist (5.7s)
+  ✘  36 tests/e2e/hire-flow-step2-listen.spec.ts:18:5 › Step 1 → Step 2 happy path with stub fallback (30.0s)
+  ✘  38 tests/e2e/hire-flow-step3-drafting.spec.ts:14:5 › Step 1 → 2 → 3 happy path with stub fallback advances to Step 4 (30.0s)
+  ✘  60 tests/e2e/team-page-shows-real-workers.spec.ts:41:5 › data-source chip surfaces the non-gateway origin in dev builds (5.6s)
+  ✓  62 tests/e2e/worker-detail-cold-nav.spec.ts:36:5 › cold nav to /workers/<real-id>/overview renders the C2 detail page (5.6s)
+  ✓  63 tests/e2e/worker-detail-cold-nav.spec.ts:45:5 › cold nav to /workers/<bogus-id>/overview still renders the not-found shell (4.1s)
+  ✘  61 tests/e2e/trust-promotion.spec.ts:20:5 › trust tab — disclaimer + recompute affordance (8.1s)
+  ✓  64 tests/e2e/worker-detail-cold-nav.spec.ts:53:5 › 401 on first fetch retries and never flashes the not-found shell (4.8s)
+  ✓  65 tests/e2e/workflow-build-no-beforeunload-on-initial-load.spec.ts:20:5 › workflow builder does not arm beforeunload on initial load (7.4s)
+  ✓  68 tests/e2e/workflow-detail-no-spurious-fetch.spec.ts:5:5 › workflow detail skips run-history fetch while serving demo workflow data (5.2s)
+  ✘  66 tests/e2e/workflow-concurrent-edit.spec.ts:25:5 › Concurrent edit (409) surfaces the conflict banner with refresh + diff CTAs (8.7s)
+  ✘  67 tests/e2e/workflow-publish-real.spec.ts:24:5 › Publish promotes the saved draft, toasts the new head version, and redirects to the viewer (7.0s)
+  ✘  57 tests/e2e/skill-canvas-editor.spec.ts:3:5 › skill canvas edit mode can add and save under mock fallback (30.0s)
+  ✘  73 tests/e2e/workflow-rollback.spec.ts:11:5 › Rollback button opens confirm modal and ships when confirmed (5.5s)
+  ✘  74 tests/e2e/workflow-save-real.spec.ts:24:5 › Save as draft POSTs the canvas as TOML and surfaces the version toast (5.7s)
+  ✘  69 tests/e2e/workflow-publish-real.spec.ts:130:5 › Publish stays gated while the canvas has unsaved changes after save (30.0s)
+  ✘  70 tests/e2e/workflow-publish-real.spec.ts:195:5 › Publish network failure surfaces an error toast with a Retry CTA (30.1s)
+  ✘  72 tests/e2e/workflow-rollback-button.spec.ts:201:5 › rollback failure: 5xx surfaces error toast with retry, modal stays open (30.0s)
+  ✘  71 tests/e2e/workflow-rollback-button.spec.ts:41:5 › rollback button: confirm dialog → success toast → new head matches selected (30.0s)
+  ✘  75 tests/e2e/workflow-save-real.spec.ts:84:5 › Network failure surfaces an error toast with a Retry CTA (30.0s)
+
+
+  1) tests/e2e/approvals-filter.spec.ts:16:5 › filter by worker, then clear via chip ───────────────
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m1[39m
+    Received:   [31m0[39m
+
+      18 |
+      19 |   const initialCount = await page.getByTestId("approval-approve").count();
+    > 20 |   expect(initialCount).toBeGreaterThan(1);
+         |                        ^
+      21 |
+      22 |   await page.getByTestId("filter-trigger").click();
+      23 |   await expect(page.getByTestId("filter-popover-content")).toBeVisible();
+        at ~/code/argo/web/tests/e2e/approvals-filter.spec.ts:20:24
+
+    Error Context: test-results/approvals-filter-filter-by-worker-then-clear-via-chip/error-context.md
+
+  2) tests/e2e/approvals-inbox.spec.ts:19:5 › approves the first card under mock fallback ──────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('data-source-chip')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('data-source-chip')[22m
+
+
+      21 |
+      22 |   const chip = page.getByTestId("data-source-chip");
+    > 23 |   await expect(chip).toBeVisible();
+         |                      ^
+      24 |   const source = await chip.getAttribute("data-source");
+      25 |   expect(source === "mock-offline" || source === "mock-auth-bypass").toBe(true);
+      26 |
+        at ~/code/argo/web/tests/e2e/approvals-inbox.spec.ts:23:22
+
+    Error Context: test-results/approvals-inbox-approves-the-first-card-under-mock-fallback/error-context.md
+
+  3) tests/e2e/approvals-live.spec.ts:19:5 › WS approval.expired surgically removes the matching card 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('live-indicator')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('live-indicator')[22m
+
+
+      48 |
+      49 |   const indicator = page.getByTestId("live-indicator");
+    > 50 |   await expect(indicator).toBeVisible();
+         |                           ^
+      51 |   await expect(indicator).toHaveAttribute("data-status", "live");
+      52 |
+      53 |   // Mariah's "wants to send this listing" card (ap_01H9Z7) renders
+        at ~/code/argo/web/tests/e2e/approvals-live.spec.ts:50:27
+
+    Error Context: test-results/approvals-live-WS-approval-7f8ac-y-removes-the-matching-card/error-context.md
+
+  4) tests/e2e/audit-cross-system-links.spec.ts:16:5 › renders cross-system jump link on drill-in and opens new tab 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('audit-output-cross-link-github')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('audit-output-cross-link-github')[22m
+
+
+      23 |
+      24 |   const link = page.getByTestId("audit-output-cross-link-github");
+    > 25 |   await expect(link).toBeVisible();
+         |                      ^
+      26 |   await expect(link).toHaveAttribute(
+      27 |     "href",
+      28 |     "https://github.com/acmeco/ops/issues/2912",
+        at ~/code/argo/web/tests/e2e/audit-cross-system-links.spec.ts:25:22
+
+    Error Context: test-results/audit-cross-system-links-r-ea5aa--drill-in-and-opens-new-tab/error-context.md
+
+  5) tests/e2e/audit-filter-popover.spec.ts:18:5 › multi-dimension filter popover → chip rail → clear 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('audit-filter-popover-content')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('audit-filter-popover-content')[22m
+
+
+      21 |   // Open the popover.
+      22 |   await page.getByTestId("audit-filter-trigger").click();
+    > 23 |   await expect(page.getByTestId("audit-filter-popover-content")).toBeVisible();
+         |                                                                  ^
+      24 |   await expect(page.getByTestId("audit-filter-section-worker")).toBeVisible();
+      25 |   await expect(page.getByTestId("audit-filter-section-status")).toBeVisible();
+      26 |
+        at ~/code/argo/web/tests/e2e/audit-filter-popover.spec.ts:23:66
+
+    Error Context: test-results/audit-filter-popover-multi-b1fb0-popover-→-chip-rail-→-clear/error-context.md
+
+  6) tests/e2e/auth-logout.spec.ts:26:5 › happy path: sign out POSTs to gateway and redirects to /auth/signin 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('appshell-user-menu-trigger')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('appshell-user-menu-trigger')[22m
+
+
+      19 | async function openUserMenu(page: import("@playwright/test").Page) {
+      20 |   const trigger = page.getByTestId("appshell-user-menu-trigger");
+    > 21 |   await expect(trigger).toBeVisible();
+         |                         ^
+      22 |   await trigger.click();
+      23 |   await expect(page.getByTestId("appshell-sign-out")).toBeVisible();
+      24 | }
+        at openUserMenu (~/code/argo/web/tests/e2e/auth-logout.spec.ts:21:25)
+        at ~/code/argo/web/tests/e2e/auth-logout.spec.ts:43:9
+
+    Error Context: test-results/auth-logout-happy-path-sig-dd5b1-nd-redirects-to-auth-signin/error-context.md
+
+  7) tests/e2e/auth-logout.spec.ts:50:5 › 401 from gateway (cookie already revoked) is treated as success 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('appshell-user-menu-trigger')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('appshell-user-menu-trigger')[22m
+
+
+      19 | async function openUserMenu(page: import("@playwright/test").Page) {
+      20 |   const trigger = page.getByTestId("appshell-user-menu-trigger");
+    > 21 |   await expect(trigger).toBeVisible();
+         |                         ^
+      22 |   await trigger.click();
+      23 |   await expect(page.getByTestId("appshell-sign-out")).toBeVisible();
+      24 | }
+        at openUserMenu (~/code/argo/web/tests/e2e/auth-logout.spec.ts:21:25)
+        at ~/code/argo/web/tests/e2e/auth-logout.spec.ts:62:9
+
+    Error Context: test-results/auth-logout-401-from-gatew-a4712-voked-is-treated-as-success/error-context.md
+
+  8) tests/e2e/auth-logout.spec.ts:68:5 › 5xx surfaces an error toast and keeps the user signed in ─
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('appshell-user-menu-trigger')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('appshell-user-menu-trigger')[22m
+
+
+      19 | async function openUserMenu(page: import("@playwright/test").Page) {
+      20 |   const trigger = page.getByTestId("appshell-user-menu-trigger");
+    > 21 |   await expect(trigger).toBeVisible();
+         |                         ^
+      22 |   await trigger.click();
+      23 |   await expect(page.getByTestId("appshell-sign-out")).toBeVisible();
+      24 | }
+        at openUserMenu (~/code/argo/web/tests/e2e/auth-logout.spec.ts:21:25)
+        at ~/code/argo/web/tests/e2e/auth-logout.spec.ts:80:9
+
+    Error Context: test-results/auth-logout-5xx-surfaces-a-0c3bd-nd-keeps-the-user-signed-in/error-context.md
+
+  9) tests/e2e/auth-signup-centering.spec.ts:14:7 › /auth/signup editorial centering › keeps the signup stage centered at desktop, tablet, and mobile widths 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  getByRole('heading', { name: /hire your first ai teammate/i })
+    Expected: visible
+    Received: undefined
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('heading', { name: /hire your first ai teammate/i })[22m
+
+
+      18 |     await page.goto("/auth/signup");
+      19 |     await expect(page.getByRole("heading", { name: /hire your first ai teammate/i }))
+    > 20 |       .toBeVisible();
+         |        ^
+      21 |
+      22 |     const desktop = await stageMetrics(page);
+      23 |     expect(Math.round(desktop.width)).toBe(720);
+        at ~/code/argo/web/tests/e2e/auth-signup-centering.spec.ts:20:8
+
+    Error Context: test-results/auth-signup-centering--aut-da5fb-op-tablet-and-mobile-widths/error-context.md
+
+  10) tests/e2e/builder-add-step.spec.ts:6:5 › Add Step palette inserts a new node with the chosen kind 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('palette-kind-skill_invoke')[22m
+    [2m    - locator resolved to <button type="button" data-testid="palette-kind-skill_invoke">…</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">…</div> from <div role="status" data-testid="demo-banner" class="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)]">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">…</div> from <div role="status" data-testid="demo-banner" class="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)]">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    40 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is visible, enabled and stable[22m
+    [2m       - scrolling into view if needed[22m
+    [2m       - done scrolling[22m
+    [2m       - <div class="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">…</div> from <div role="status" data-testid="demo-banner" class="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)]">…</div> subtree intercepts pointer events[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      18 |   await expect(page.getByRole("dialog", { name: "Add step palette" })).toBeVisible();
+      19 |
+    > 20 |   await page.getByTestId("palette-kind-skill_invoke").click();
+         |                                                       ^
+      21 |
+      22 |   // Palette closes after selection.
+      23 |   await expect(page.getByRole("dialog", { name: "Add step palette" })).toBeHidden();
+        at ~/code/argo/web/tests/e2e/builder-add-step.spec.ts:20:55
+
+    Error Context: test-results/builder-add-step-Add-Step--b4e07-w-node-with-the-chosen-kind/error-context.md
+
+  11) tests/e2e/builder-controlled-state.spec.ts:6:5 › workflow builder canvas is controlled and surfaces dirty state 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m([22m[2m)[22m failed
+
+    Locator:  getByTestId('builder-save')
+    Expected: enabled
+    Received: disabled
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeEnabled" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('builder-save')[22m
+    [2m    9 × locator resolved to <button disabled type="button" data-dirty="false" data-saving="false" data-testid="builder-save" class="builder-btn builder-btn-primary">…</button>[22m
+    [2m      - unexpected value "disabled"[22m
+
+
+      22 |   await page.mouse.up();
+      23 |
+    > 24 |   await expect(save).toBeEnabled();
+         |                      ^
+      25 |   await expect(save).toHaveAttribute("data-dirty", "true");
+      26 | });
+      27 |
+        at ~/code/argo/web/tests/e2e/builder-controlled-state.spec.ts:24:22
+
+    Error Context: test-results/builder-controlled-state-w-5663b-ed-and-surfaces-dirty-state/error-context.md
+
+  12) tests/e2e/builder-delete.spec.ts:46:7 › workflow builder — delete › trigger nodes refuse deletion and remain on the canvas 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.react-flow__node').first()[22m
+    [2m    - locator resolved to <div tabindex="0" role="group" data-id="step-1" aria-roledescription="node" data-testid="rf__node-step-1" aria-describedby="react-flow__node-desc-1" class="react-flow__node react-flow__node-skycot nopan selectable draggable">…</div>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <input value="" type="text" class="builder-prompt-input" placeholder="Describe a change in plain English — e.g. 'Add a step that emails the seller before posting'"/> from <div class="builder-prompt-bar">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <input value="" type="text" class="builder-prompt-input" placeholder="Describe a change in plain English — e.g. 'Add a step that emails the seller before posting'"/> from <div class="builder-prompt-bar">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    51 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is visible, enabled and stable[22m
+    [2m       - scrolling into view if needed[22m
+    [2m       - done scrolling[22m
+    [2m       - <input value="" type="text" class="builder-prompt-input" placeholder="Describe a change in plain English — e.g. 'Add a step that emails the seller before posting'"/> from <div class="builder-prompt-bar">…</div> subtree intercepts pointer events[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      51 |
+      52 |     // The first node is the trigger (Seller submits inventory).
+    > 53 |     await allNodes.first().click();
+         |                            ^
+      54 |     await page.keyboard.press("Delete");
+      55 |
+      56 |     // Count is unchanged — addNode restored the optimistic removal.
+        at ~/code/argo/web/tests/e2e/builder-delete.spec.ts:53:28
+
+    Error Context: test-results/builder-delete-workflow-bu-55c78-on-and-remain-on-the-canvas/error-context.md
+
+  13) tests/e2e/builder-duplicate.spec.ts:23:7 › workflow builder — context menu › right-click on a trigger node shows a disabled Duplicate item 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.react-flow__node').first()[22m
+    [2m    - locator resolved to <div tabindex="0" role="group" data-id="step-1" aria-roledescription="node" data-testid="rf__node-step-1" aria-describedby="react-flow__node-desc-1" class="react-flow__node react-flow__node-skycot nopan selectable draggable">…</div>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <input value="" type="text" class="builder-prompt-input" placeholder="Describe a change in plain English — e.g. 'Add a step that emails the seller before posting'"/> from <div class="builder-prompt-bar">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <input value="" type="text" class="builder-prompt-input" placeholder="Describe a change in plain English — e.g. 'Add a step that emails the seller before posting'"/> from <div class="builder-prompt-bar">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    51 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is visible, enabled and stable[22m
+    [2m       - scrolling into view if needed[22m
+    [2m       - done scrolling[22m
+    [2m       - <input value="" type="text" class="builder-prompt-input" placeholder="Describe a change in plain English — e.g. 'Add a step that emails the seller before posting'"/> from <div class="builder-prompt-bar">…</div> subtree intercepts pointer events[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      26 |     await expect(allNodes.first()).toBeVisible();
+      27 |
+    > 28 |     await allNodes.first().click({ button: "right" });
+         |                            ^
+      29 |     const menu = page.getByTestId("workflow-context-menu");
+      30 |     await expect(menu).toBeVisible();
+      31 |     const duplicateItem = menu.getByRole("menuitem", { name: /duplicate/i });
+        at ~/code/argo/web/tests/e2e/builder-duplicate.spec.ts:28:28
+
+    Error Context: test-results/builder-duplicate-workflow-f2dbc-s-a-disabled-Duplicate-item/error-context.md
+
+  14) tests/e2e/builder-duplicate.spec.ts:37:7 › workflow builder — context menu › right-click on an edge opens a Disconnect-only menu that removes only the edge 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.react-flow__edge').first()[22m
+    [2m    - locator resolved to <g tabindex="0" role="group" data-id="e-step-1-step-2" aria-roledescription="edge" data-testid="rf__edge-e-step-1-step-2" aria-label="Edge from step-1 to step-2" aria-describedby="react-flow__edge-desc-1" class="react-flow__edge react-flow__edge-default nopan animated selectable">…</g>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not visible[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not visible[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    53 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not visible[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      46 |     expect(beforeEdges).toBeGreaterThan(0);
+      47 |
+    > 48 |     await edges.first().click({ button: "right" });
+         |                         ^
+      49 |     const menu = page.getByTestId("workflow-context-menu");
+      50 |     await expect(menu).toBeVisible();
+      51 |     const items = menu.getByRole("menuitem");
+        at ~/code/argo/web/tests/e2e/builder-duplicate.spec.ts:48:25
+
+    Error Context: test-results/builder-duplicate-workflow-e20ce--that-removes-only-the-edge/error-context.md
+
+  15) tests/e2e/builder-shortcuts.spec.ts:10:5 › workflow builder honors keyboard shortcuts + snap-to-grid 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('builder-shortcuts-modal')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('builder-shortcuts-modal')[22m
+
+
+      18 |   await page.keyboard.press("Shift+/");
+      19 |   const modal = page.getByTestId("builder-shortcuts-modal");
+    > 20 |   await expect(modal).toBeVisible();
+         |                       ^
+      21 |   await page.getByTestId("builder-shortcuts-close").click();
+      22 |   await expect(modal).toHaveCount(0);
+      23 |
+        at ~/code/argo/web/tests/e2e/builder-shortcuts.spec.ts:20:23
+
+    Error Context: test-results/builder-shortcuts-workflow-2f780-oard-shortcuts-snap-to-grid/error-context.md
+
+  16) tests/e2e/cohorts-project-ops.spec.ts:3:5 › Project & Ops tab shows Peta lead and Patrick stacked tile 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('cohort-dept-tab-project-ops')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('cohort-dept-tab-project-ops')[22m
+
+
+       7 |
+       8 |   const projectOpsTab = page.getByTestId("cohort-dept-tab-project-ops");
+    >  9 |   await expect(projectOpsTab).toBeVisible();
+         |                               ^
+      10 |   await projectOpsTab.click();
+      11 |
+      12 |   const projectOps = page.getByTestId("cohort-mag-project-ops");
+        at ~/code/argo/web/tests/e2e/cohorts-project-ops.spec.ts:9:31
+
+    Error Context: test-results/cohorts-project-ops-Projec-af72a-ad-and-Patrick-stacked-tile/error-context.md
+
+  17) tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /pricing renders without white-on-white in dark mode 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: not [32m"rgb(250, 250, 255)"[39m
+
+      55 |         window.getComputedStyle(document.body).backgroundColor,
+      56 |       );
+    > 57 |       expect(darkBg).not.toBe(lightBg);
+         |                          ^
+      58 |
+      59 |       // Broad regression check: in dark mode, no more than a small handful
+      60 |       // of elements should retain a hard `rgb(255, 255, 255)` background
+        at ~/code/argo/web/tests/e2e/dark-mode-token-coverage.spec.ts:57:26
+
+    Error Context: test-results/dark-mode-token-coverage-d-632a3-white-on-white-in-dark-mode/error-context.md
+
+  18) tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /compare renders without white-on-white in dark mode 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: not [32m"rgb(250, 250, 255)"[39m
+
+      55 |         window.getComputedStyle(document.body).backgroundColor,
+      56 |       );
+    > 57 |       expect(darkBg).not.toBe(lightBg);
+         |                          ^
+      58 |
+      59 |       // Broad regression check: in dark mode, no more than a small handful
+      60 |       // of elements should retain a hard `rgb(255, 255, 255)` background
+        at ~/code/argo/web/tests/e2e/dark-mode-token-coverage.spec.ts:57:26
+
+    Error Context: test-results/dark-mode-token-coverage-d-5dc60-white-on-white-in-dark-mode/error-context.md
+
+  19) tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /docs renders without white-on-white in dark mode 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: not [32m"rgb(250, 250, 255)"[39m
+
+      55 |         window.getComputedStyle(document.body).backgroundColor,
+      56 |       );
+    > 57 |       expect(darkBg).not.toBe(lightBg);
+         |                          ^
+      58 |
+      59 |       // Broad regression check: in dark mode, no more than a small handful
+      60 |       // of elements should retain a hard `rgb(255, 255, 255)` background
+        at ~/code/argo/web/tests/e2e/dark-mode-token-coverage.spec.ts:57:26
+
+    Error Context: test-results/dark-mode-token-coverage-d-2c3f0-white-on-white-in-dark-mode/error-context.md
+
+  20) tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /for/marketplace renders without white-on-white in dark mode 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: not [32m"rgb(250, 250, 255)"[39m
+
+      55 |         window.getComputedStyle(document.body).backgroundColor,
+      56 |       );
+    > 57 |       expect(darkBg).not.toBe(lightBg);
+         |                          ^
+      58 |
+      59 |       // Broad regression check: in dark mode, no more than a small handful
+      60 |       // of elements should retain a hard `rgb(255, 255, 255)` background
+        at ~/code/argo/web/tests/e2e/dark-mode-token-coverage.spec.ts:57:26
+
+    Error Context: test-results/dark-mode-token-coverage-d-c9ae3-white-on-white-in-dark-mode/error-context.md
+
+  21) tests/e2e/hire-celebration-banner.spec.ts:15:5 › hire/done seeds the celebration and the banner appears on / 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('hire-celebration-overlay')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('hire-celebration-overlay')[22m
+
+
+      20 |
+      21 |   // Overlay paints briefly before the 1.5s redirect.
+    > 22 |   await expect(page.getByTestId("hire-celebration-overlay")).toBeVisible();
+         |                                                              ^
+      23 |   await expect(page).toHaveURL(/\/$/, { timeout: 5_000 });
+      24 |
+      25 |   const banner = page.getByTestId("celebration-banner");
+        at ~/code/argo/web/tests/e2e/hire-celebration-banner.spec.ts:22:62
+
+    Error Context: test-results/hire-celebration-banner-hi-22390--and-the-banner-appears-on-/error-context.md
+
+  22) tests/e2e/hire-celebration-banner.spec.ts:39:5 › inert variant is rendered when ?inert=1 is set 
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/$/[39m
+    Received string:  [31m"http://localhost:3000/hire/done/wkr_skip?name=Robin&inert=1"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 5000ms[22m
+    [2m    9 × unexpected value "http://localhost:3000/hire/done/wkr_skip?name=Robin&inert=1"[22m
+
+
+      39 | test("inert variant is rendered when ?inert=1 is set", async ({ page }) => {
+      40 |   await page.goto("/hire/done/wkr_skip?name=Robin&inert=1");
+    > 41 |   await expect(page).toHaveURL(/\/$/, { timeout: 5_000 });
+         |                      ^
+      42 |   const banner = page.getByTestId("celebration-banner");
+      43 |   await expect(banner).toBeVisible();
+      44 |   await expect(banner).toHaveAttribute("data-variant", "inert");
+        at ~/code/argo/web/tests/e2e/hire-celebration-banner.spec.ts:41:22
+
+    Error Context: test-results/hire-celebration-banner-in-e67dd-endered-when-inert-1-is-set/error-context.md
+
+  23) tests/e2e/hire-flow-shell.spec.ts:20:5 › walks through all 6 hire-flow steps and lands on the celebration redirect 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText(/Step 1 — placeholder for E2-b/)
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText(/Step 1 — placeholder for E2-b/)[22m
+
+
+      23 |   await page.goto("/hire");
+      24 |   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+    > 25 |   await expect(page.getByText(/Step 1 — placeholder for E2-b/)).toBeVisible();
+         |                                                                 ^
+      26 |
+      27 |   // Step 1 -> Step 2 (Continue is disabled on the shell-only build, so
+      28 |   // route directly until E2-b unlocks it). Step 2 now renders the real
+        at ~/code/argo/web/tests/e2e/hire-flow-shell.spec.ts:25:65
+
+    Error Context: test-results/hire-flow-shell-walks-thro-71d21-on-the-celebration-redirect/error-context.md
+
+  24) tests/e2e/hire-flow-shell.spec.ts:50:5 › Back button is disabled on step 1 and navigates between later steps 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeDisabled[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('hire-shell-back')
+    Expected: disabled
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeDisabled" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('hire-shell-back')[22m
+
+
+      52 | }) => {
+      53 |   await page.goto("/hire");
+    > 54 |   await expect(page.getByTestId("hire-shell-back")).toBeDisabled();
+         |                                                     ^
+      55 |
+      56 |   await page.goto("/hire/step/3");
+      57 |   await page.getByTestId("hire-shell-back").click();
+        at ~/code/argo/web/tests/e2e/hire-flow-shell.spec.ts:54:53
+
+    Error Context: test-results/hire-flow-shell-Back-butto-d410a-vigates-between-later-steps/error-context.md
+
+  25) tests/e2e/hire-flow-step2-listen.spec.ts:18:5 › Step 1 → Step 2 happy path with stub fallback 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('hire-shell-continue')[22m
+
+
+      31 |     "I sell hockey gear on Facebook Marketplace and get 30 messages a day.";
+      32 |   await page.getByTestId("hire-step1-textarea").fill(problem);
+    > 33 |   await page.getByTestId("hire-shell-continue").click();
+         |                                                 ^
+      34 |
+      35 |   await expect(page).toHaveURL(/\/hire\/step\/2$/);
+      36 |   await expect(page.getByTestId("hire-step2-listen")).toBeVisible();
+        at ~/code/argo/web/tests/e2e/hire-flow-step2-listen.spec.ts:33:49
+
+    Error Context: test-results/hire-flow-step2-listen-Ste-05857-ppy-path-with-stub-fallback/error-context.md
+
+  26) tests/e2e/hire-flow-step2-listen.spec.ts:56:5 › Step 2 redirects to Step 1 when draft has no problem 
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/hire$/[39m
+    Received string:  [31m"http://localhost:3000/hire/step/2"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 5000ms[22m
+    [2m    8 × unexpected value "http://localhost:3000/hire/step/2"[22m
+
+
+      60 |   await page.goto("/hire/step/2");
+      61 |   // The page redirects to `/hire` immediately on hydrate.
+    > 62 |   await expect(page).toHaveURL(/\/hire$/);
+         |                      ^
+      63 | });
+      64 |
+        at ~/code/argo/web/tests/e2e/hire-flow-step2-listen.spec.ts:62:22
+
+    Error Context: test-results/hire-flow-step2-listen-Ste-3d8a9-1-when-draft-has-no-problem/error-context.md
+
+  27) tests/e2e/hire-flow-step3-drafting.spec.ts:14:5 › Step 1 → 2 → 3 happy path with stub fallback advances to Step 4 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('hire-shell-continue')[22m
+
+
+      24 |     .getByTestId("hire-step1-textarea")
+      25 |     .fill("I sell hockey gear on Facebook Marketplace and get 30 messages a day.");
+    > 26 |   await page.getByTestId("hire-shell-continue").click();
+         |                                                 ^
+      27 |
+      28 |   await expect(page).toHaveURL(/\/hire\/step\/2$/);
+      29 |   await page
+        at ~/code/argo/web/tests/e2e/hire-flow-step3-drafting.spec.ts:26:49
+
+    Error Context: test-results/hire-flow-step3-drafting-S-f6bca-fallback-advances-to-Step-4/error-context.md
+
+  28) tests/e2e/hire-flow-step3-drafting.spec.ts:46:5 › Step 3 redirects to Step 2 when draft has no answers 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/hire/step/3
+    Call log:
+    [2m  - navigating to "http://localhost:3000/hire/step/3", waiting until "load"[22m
+
+
+      48 |     route.fulfill({ status: 404, body: "" }),
+      49 |   );
+    > 50 |   await page.goto("/hire/step/3");
+         |              ^
+      51 |   // No answers → bounces to /hire/step/2; that page in turn bounces
+      52 |   // to /hire when there's no problem either.
+      53 |   await expect(page).toHaveURL(/\/hire$/);
+        at ~/code/argo/web/tests/e2e/hire-flow-step3-drafting.spec.ts:50:14
+
+    Error Context: test-results/hire-flow-step3-drafting-S-22eaf-2-when-draft-has-no-answers/error-context.md
+
+  29) tests/e2e/hire-flow-step3-drafting.spec.ts:56:5 › Step 3 surfaces the GenesisFallbackBanner when draft-worker 500s 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/hire
+    Call log:
+    [2m  - navigating to "http://localhost:3000/hire", waiting until "load"[22m
+
+
+      72 |   );
+      73 |
+    > 74 |   await page.goto("/hire");
+         |              ^
+      75 |   await page
+      76 |     .getByTestId("hire-step1-textarea")
+      77 |     .fill("I sell hockey gear on Facebook Marketplace and get 30 messages a day.");
+        at ~/code/argo/web/tests/e2e/hire-flow-step3-drafting.spec.ts:74:14
+
+    Error Context: test-results/hire-flow-step3-drafting-S-d3c60-nner-when-draft-worker-500s/error-context.md
+
+  30) tests/e2e/hire-flow-step4-introduce.spec.ts:15:5 › Step 1 → 2 → 3 → 4 reaches Step 5 via stub fallback 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/hire
+    Call log:
+    [2m  - navigating to "http://localhost:3000/hire", waiting until "load"[22m
+
+
+      24 |   );
+      25 |
+    > 26 |   await page.goto("/hire");
+         |              ^
+      27 |   await page
+      28 |     .getByTestId("hire-step1-textarea")
+      29 |     .fill("I sell hockey gear on Facebook Marketplace and get 30 messages a day.");
+        at ~/code/argo/web/tests/e2e/hire-flow-step4-introduce.spec.ts:26:14
+
+    Error Context: test-results/hire-flow-step4-introduce--59bce-es-Step-5-via-stub-fallback/error-context.md
+
+  31) tests/e2e/hire-flow-step4-introduce.spec.ts:57:5 › Step 4 redirects to Step 3 when no workerDraft is in state 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/hire/step/4
+    Call log:
+    [2m  - navigating to "http://localhost:3000/hire/step/4", waiting until "load"[22m
+
+
+      61 |   // toward Step 3 (which in turn bounces toward Step 2 → /hire when
+      62 |   // its own preconditions are missing).
+    > 63 |   await page.goto("/hire/step/4");
+         |              ^
+      64 |   await expect(page).toHaveURL(/\/hire(\/step\/[123])?$|\/hire$/, {
+      65 |     timeout: 3_000,
+      66 |   });
+        at ~/code/argo/web/tests/e2e/hire-flow-step4-introduce.spec.ts:63:14
+
+    Error Context: test-results/hire-flow-step4-introduce--7e218--no-workerDraft-is-in-state/error-context.md
+
+  32) tests/e2e/no-duty-copy.spec.ts:30:7 › settings page contains no operator-visible "Duty" / "Duties" copy 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/settings
+    Call log:
+    [2m  - navigating to "http://localhost:3000/settings", waiting until "load"[22m
+
+
+      31 |     page,
+      32 |   }) => {
+    > 33 |     await page.goto(path);
+         |                ^
+      34 |     // Wait for the body to render — let the router settle.
+      35 |     await expect(page.locator("body")).toBeVisible();
+      36 |     const innerText = await page.evaluate(() => document.body.innerText);
+        at ~/code/argo/web/tests/e2e/no-duty-copy.spec.ts:33:16
+
+    Error Context: test-results/no-duty-copy-settings-page-77bc9-or-visible-Duty-Duties-copy/error-context.md
+
+  33) tests/e2e/no-duty-copy.spec.ts:30:7 › workflows page contains no operator-visible "Duty" / "Duties" copy 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/workflows
+    Call log:
+    [2m  - navigating to "http://localhost:3000/workflows", waiting until "load"[22m
+
+
+      31 |     page,
+      32 |   }) => {
+    > 33 |     await page.goto(path);
+         |                ^
+      34 |     // Wait for the body to render — let the router settle.
+      35 |     await expect(page.locator("body")).toBeVisible();
+      36 |     const innerText = await page.evaluate(() => document.body.innerText);
+        at ~/code/argo/web/tests/e2e/no-duty-copy.spec.ts:33:16
+
+    Error Context: test-results/no-duty-copy-workflows-pag-8919d-or-visible-Duty-Duties-copy/error-context.md
+
+  34) tests/e2e/no-duty-copy.spec.ts:30:7 › cohorts page contains no operator-visible "Duty" / "Duties" copy 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/cohorts
+    Call log:
+    [2m  - navigating to "http://localhost:3000/cohorts", waiting until "load"[22m
+
+
+      31 |     page,
+      32 |   }) => {
+    > 33 |     await page.goto(path);
+         |                ^
+      34 |     // Wait for the body to render — let the router settle.
+      35 |     await expect(page.locator("body")).toBeVisible();
+      36 |     const innerText = await page.evaluate(() => document.body.innerText);
+        at ~/code/argo/web/tests/e2e/no-duty-copy.spec.ts:33:16
+
+    Error Context: test-results/no-duty-copy-cohorts-page--c2038-or-visible-Duty-Duties-copy/error-context.md
+
+  35) tests/e2e/no-duty-copy.spec.ts:57:7 › settings page surfaces "Schedule" / "Schedules" copy ───
+
+    Error: settings page should surface schedule copy after the duty→schedule rename
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      62 |       /\b(schedule|schedules)\b/i.test(innerText),
+      63 |       `${name} page should surface schedule copy after the duty→schedule rename`,
+    > 64 |     ).toBe(true);
+         |       ^
+      65 |   });
+      66 | }
+      67 |
+        at ~/code/argo/web/tests/e2e/no-duty-copy.spec.ts:64:7
+
+    Error Context: test-results/no-duty-copy-settings-page-surfaces-Schedule-Schedules-copy/error-context.md
+
+  36) tests/e2e/no-duty-copy.spec.ts:57:7 › workflows page surfaces "Schedule" / "Schedules" copy ──
+
+    Error: workflows page should surface schedule copy after the duty→schedule rename
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      62 |       /\b(schedule|schedules)\b/i.test(innerText),
+      63 |       `${name} page should surface schedule copy after the duty→schedule rename`,
+    > 64 |     ).toBe(true);
+         |       ^
+      65 |   });
+      66 | }
+      67 |
+        at ~/code/argo/web/tests/e2e/no-duty-copy.spec.ts:64:7
+
+    Error Context: test-results/no-duty-copy-workflows-page-surfaces-Schedule-Schedules-copy/error-context.md
+
+  37) tests/e2e/no-duty-copy.spec.ts:57:7 › cohorts page surfaces "Schedule" / "Schedules" copy ────
+
+    Error: cohorts page should surface schedule copy after the duty→schedule rename
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      62 |       /\b(schedule|schedules)\b/i.test(innerText),
+      63 |       `${name} page should surface schedule copy after the duty→schedule rename`,
+    > 64 |     ).toBe(true);
+         |       ^
+      65 |   });
+      66 | }
+      67 |
+        at ~/code/argo/web/tests/e2e/no-duty-copy.spec.ts:64:7
+
+    Error Context: test-results/no-duty-copy-cohorts-page-surfaces-Schedule-Schedules-copy/error-context.md
+
+  38) tests/e2e/onboarding.spec.ts:27:7 › new-user activation path › walks marketing → signup → magic-link → 5-step wizard → first hire 
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/
+    Call log:
+    [2m  - navigating to "http://localhost:3001/", waiting until "load"[22m
+
+
+      38 |
+      39 |     // Step 1: marketing landing renders + CTA visible.
+    > 40 |     await page.goto(`${env.marketingUrl}/`);
+         |                ^
+      41 |     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      42 |     const cta = page.getByRole("link", { name: /hire your first worker/i }).first();
+      43 |     await expect(cta, "Step 1: hero CTA not rendered on marketing landing").toBeVisible();
+        at ~/code/argo/web/tests/e2e/onboarding.spec.ts:40:16
+
+    Error Context: test-results/onboarding-new-user-activa-ca81d--5-step-wizard-→-first-hire/error-context.md
+
+  39) tests/e2e/orchestration-queue.spec.ts:3:5 › orchestration queue renders mock runs and filters by worker 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('orchestration-table')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('orchestration-table')[22m
+
+
+      12 |
+      13 |   await expect(page.getByTestId("orchestration-page")).toBeVisible();
+    > 14 |   await expect(page.getByTestId("orchestration-table")).toBeVisible();
+         |                                                         ^
+      15 |   const initialRows = await page.getByTestId("orchestration-row").count();
+      16 |   expect(initialRows).toBeGreaterThanOrEqual(50);
+      17 |
+        at ~/code/argo/web/tests/e2e/orchestration-queue.spec.ts:14:57
+
+    Error Context: test-results/orchestration-queue-orches-4f9cf--runs-and-filters-by-worker/error-context.md
+
+  40) tests/e2e/skill-canvas-editor.spec.ts:3:5 › skill canvas edit mode can add and save under mock fallback 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('mode-edit')[22m
+
+
+      4 |   await page.goto("/workers/018f67d0-0000-7000-8000-000000000002/skills/skill_screen_applications/canvas");
+      5 |
+    > 6 |   await page.getByTestId("mode-edit").click();
+        |                                       ^
+      7 |   await expect(page.getByTestId("skill-canvas-edit-mode")).toBeVisible();
+      8 |
+      9 |   await page.getByTestId("palette-transform").click();
+        at ~/code/argo/web/tests/e2e/skill-canvas-editor.spec.ts:6:39
+
+    Error Context: test-results/skill-canvas-editor-skill--77482-nd-save-under-mock-fallback/error-context.md
+
+  41) tests/e2e/team-filter-search.spec.ts:18:5 › filter by status, search by name, then clear chips 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m1[39m
+    Received:   [31m0[39m
+
+      20 |
+      21 |   const initialCount = await page.getByTestId(/^teammate-wkr_/).count();
+    > 22 |   expect(initialCount).toBeGreaterThan(1);
+         |                        ^
+      23 |
+      24 |   // 1. Status filter shrinks the visible set + persists to URL.
+      25 |   await page.getByTestId("team-status-filter").selectOption("waiting");
+        at ~/code/argo/web/tests/e2e/team-filter-search.spec.ts:22:24
+
+    Error Context: test-results/team-filter-search-filter--79fc3-ch-by-name-then-clear-chips/error-context.md
+
+  42) tests/e2e/team-page-shows-real-workers.spec.ts:20:5 › renders the trading-card deck — never the empty state — when workers exist 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId(/^teammate-wkr_/).first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId(/^teammate-wkr_/).first()[22m
+
+
+      24 |
+      25 |   const cards = page.getByTestId(/^teammate-wkr_/);
+    > 26 |   await expect(cards.first()).toBeVisible();
+         |                               ^
+      27 |   const count = await cards.count();
+      28 |   expect(count).toBeGreaterThan(0);
+      29 |
+        at ~/code/argo/web/tests/e2e/team-page-shows-real-workers.spec.ts:26:31
+
+    Error Context: test-results/team-page-shows-real-worke-3fef1--state-—-when-workers-exist/error-context.md
+
+  43) tests/e2e/team-page-shows-real-workers.spec.ts:41:5 › data-source chip surfaces the non-gateway origin in dev builds 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  getByTestId('team-data-source-chip')
+    Expected: [32m"mock-[7mbypass[27m"[39m
+    Received: [31m"mock-[7moffline[27m"[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('team-data-source-chip')[22m
+    [2m    5 × locator resolved to <span data-source="loading" data-testid="team-data-source-chip" class="rounded-full border border-[var(--border)] bg-[var(--muted)]/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--muted-foreground)]">loading</span>[22m
+    [2m      - unexpected value "loading"[22m
+    [2m    4 × locator resolved to <span data-source="mock-offline" data-testid="team-data-source-chip" class="rounded-full border border-[var(--border)] bg-[var(--muted)]/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[var(--muted-foreground)]">mock-offline</span>[22m
+    [2m      - unexpected value "mock-offline"[22m
+
+
+      46 |   // With auth-bypass on, fetchTeam short-circuits to mock-bypass before
+      47 |   // any network call. The chip must reflect that — not lie 'gateway'.
+    > 48 |   await expect(chip).toHaveAttribute("data-source", "mock-bypass");
+         |                      ^
+      49 | });
+      50 |
+        at ~/code/argo/web/tests/e2e/team-page-shows-real-workers.spec.ts:48:22
+
+    Error Context: test-results/team-page-shows-real-worke-2629d-ateway-origin-in-dev-builds/error-context.md
+
+  44) tests/e2e/trust-promotion.spec.ts:20:5 › trust tab — disclaimer + recompute affordance ───────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('worker-tab-panel-trust')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('worker-tab-panel-trust')[22m
+
+
+      22 |   await page.goto("/workers/wkr_mariah/trust");
+      23 |
+    > 24 |   await expect(page.getByTestId("worker-tab-panel-trust")).toBeVisible();
+         |                                                            ^
+      25 |   await expect(page.getByTestId("trust-grade-disclaimer")).toContainText(
+      26 |     /recomputed every 30 minutes/i,
+      27 |   );
+        at ~/code/argo/web/tests/e2e/trust-promotion.spec.ts:24:60
+
+    Error Context: test-results/trust-promotion-trust-tab-—-disclaimer-recompute-affordance/error-context.md
+
+  45) tests/e2e/workflow-concurrent-edit.spec.ts:25:5 › Concurrent edit (409) surfaces the conflict banner with refresh + diff CTAs 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('builder-save')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('builder-save')[22m
+
+
+      84 |
+      85 |   const save = page.getByTestId("builder-save");
+    > 86 |   await expect(save).toBeVisible();
+         |                      ^
+      87 |
+      88 |   // First save → success toast surfaces v2.
+      89 |   await page.getByTestId("builder-add-step").click();
+        at ~/code/argo/web/tests/e2e/workflow-concurrent-edit.spec.ts:86:22
+
+    Error Context: test-results/workflow-concurrent-edit-C-b415d-nner-with-refresh-diff-CTAs/error-context.md
+
+  46) tests/e2e/workflow-publish-real.spec.ts:24:5 › Publish promotes the saved draft, toasts the new head version, and redirects to the viewer 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('builder-publish')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('builder-publish')[22m
+
+
+      84 |
+      85 |   const publish = page.getByTestId("builder-publish");
+    > 86 |   await expect(publish).toBeVisible();
+         |                         ^
+      87 |   // Pre-save: Publish is gated until a draft has been saved.
+      88 |   await expect(publish).toBeDisabled();
+      89 |   await expect(publish).toHaveAttribute("data-can-publish", "false");
+        at ~/code/argo/web/tests/e2e/workflow-publish-real.spec.ts:86:25
+
+    Error Context: test-results/workflow-publish-real-Publ-7c0d4-and-redirects-to-the-viewer/error-context.md
+
+  47) tests/e2e/workflow-publish-real.spec.ts:130:5 › Publish stays gated while the canvas has unsaved changes after save 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('builder-add-step')[22m
+
+
+      176 |   await page.goto("/workflows/gtm-engineer/post_listing/build");
+      177 |
+    > 178 |   await page.getByTestId("builder-add-step").click();
+          |                                              ^
+      179 |   await page.getByTestId("palette-kind-skill_invoke").click();
+      180 |   await page.getByTestId("builder-save").click();
+      181 |   await expect(page.getByText("Saved (v3)")).toBeVisible({ timeout: 5_000 });
+        at ~/code/argo/web/tests/e2e/workflow-publish-real.spec.ts:178:46
+
+    Error Context: test-results/workflow-publish-real-Publ-7d1b5--unsaved-changes-after-save/error-context.md
+
+  48) tests/e2e/workflow-publish-real.spec.ts:195:5 › Publish network failure surfaces an error toast with a Retry CTA 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('builder-add-step')[22m
+
+
+      246 |
+      247 |   await page.goto("/workflows/gtm-engineer/post_listing/build");
+    > 248 |   await page.getByTestId("builder-add-step").click();
+          |                                              ^
+      249 |   await page.getByTestId("palette-kind-skill_invoke").click();
+      250 |   await page.getByTestId("builder-save").click();
+      251 |   await expect(page.getByText("Saved (v5)")).toBeVisible({ timeout: 5_000 });
+        at ~/code/argo/web/tests/e2e/workflow-publish-real.spec.ts:248:46
+
+    Error Context: test-results/workflow-publish-real-Publ-9af58-rror-toast-with-a-Retry-CTA/error-context.md
+
+  49) tests/e2e/workflow-rollback-button.spec.ts:41:5 › rollback button: confirm dialog → success toast → new head matches selected 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('wfd-versions-rollback-1')[22m
+
+
+      168 |
+      169 |   // Roll back to v1.
+    > 170 |   await page.getByTestId("wfd-versions-rollback-1").click();
+          |                                                     ^
+      171 |
+      172 |   const modal = page.getByTestId("wfd-versions-confirm-modal");
+      173 |   await expect(modal).toBeVisible();
+        at ~/code/argo/web/tests/e2e/workflow-rollback-button.spec.ts:170:53
+
+    Error Context: test-results/workflow-rollback-button-r-e1678-→-new-head-matches-selected/error-context.md
+
+  50) tests/e2e/workflow-rollback-button.spec.ts:201:5 › rollback failure: 5xx surfaces error toast with retry, modal stays open 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('wfd-versions-rollback-1')[22m
+
+
+      274 |   await expect(page.getByTestId("wfd-versions-panel")).toBeVisible();
+      275 |
+    > 276 |   await page.getByTestId("wfd-versions-rollback-1").click();
+          |                                                     ^
+      277 |   await page.getByTestId("wfd-versions-confirm-submit").click();
+      278 |
+      279 |   await expect(page.getByText("Rollback failed")).toBeVisible({ timeout: 5_000 });
+        at ~/code/argo/web/tests/e2e/workflow-rollback-button.spec.ts:276:53
+
+    Error Context: test-results/workflow-rollback-button-r-aed2d-with-retry-modal-stays-open/error-context.md
+
+  51) tests/e2e/workflow-rollback.spec.ts:11:5 › Rollback button opens confirm modal and ships when confirmed 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('wfd-source-pill')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('wfd-source-pill')[22m
+
+
+      13 |
+      14 |   const sourcePill = page.getByTestId("wfd-source-pill");
+    > 15 |   await expect(sourcePill).toBeVisible();
+         |                            ^
+      16 |   const source = await sourcePill.getAttribute("data-source");
+      17 |   if (source !== "gateway") {
+      18 |     test.skip(
+        at ~/code/argo/web/tests/e2e/workflow-rollback.spec.ts:15:28
+
+    Error Context: test-results/workflow-rollback-Rollback-453a8-al-and-ships-when-confirmed/error-context.md
+
+  52) tests/e2e/workflow-save-real.spec.ts:24:5 › Save as draft POSTs the canvas as TOML and surfaces the version toast 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('builder-save')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('builder-save')[22m
+
+
+      65 |
+      66 |   const save = page.getByTestId("builder-save");
+    > 67 |   await expect(save).toBeVisible();
+         |                      ^
+      68 |   await expect(save).toHaveAttribute("data-dirty", "false");
+      69 |
+      70 |   // Drop a new node onto the canvas so the dirty flag flips on.
+        at ~/code/argo/web/tests/e2e/workflow-save-real.spec.ts:67:22
+
+    Error Context: test-results/workflow-save-real-Save-as-4adaf--surfaces-the-version-toast/error-context.md
+
+  53) tests/e2e/workflow-save-real.spec.ts:84:5 › Network failure surfaces an error toast with a Retry CTA 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('palette-kind-skill_invoke')[22m
+    [2m    - locator resolved to <button type="button" data-testid="palette-kind-skill_invoke">…</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">…</div> from <div role="status" data-testid="demo-banner" class="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)]">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div class="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">…</div> from <div role="status" data-testid="demo-banner" class="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)]">…</div> subtree intercepts pointer events[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    53 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is visible, enabled and stable[22m
+    [2m       - scrolling into view if needed[22m
+    [2m       - done scrolling[22m
+    [2m       - <div class="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:px-6 lg:px-8">…</div> from <div role="status" data-testid="demo-banner" class="sticky top-0 z-30 border-b border-[var(--border)] bg-gradient-to-r from-[#8b5cf6]/12 via-[#ec4899]/8 to-[#8b5cf6]/12 text-[var(--foreground)]">…</div> subtree intercepts pointer events[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      105 |   await page.goto("/workflows/gtm-engineer/post_listing/build");
+      106 |   await page.getByTestId("builder-add-step").click();
+    > 107 |   await page.getByTestId("palette-kind-skill_invoke").click();
+          |                                                       ^
+      108 |   await page.getByTestId("builder-save").click();
+      109 |
+      110 |   await expect(page.getByText("Couldn't save workflow")).toBeVisible({
+        at ~/code/argo/web/tests/e2e/workflow-save-real.spec.ts:107:55
+
+    Error Context: test-results/workflow-save-real-Network-ff766-rror-toast-with-a-Retry-CTA/error-context.md
+
+  53 failed
+    tests/e2e/approvals-filter.spec.ts:16:5 › filter by worker, then clear via chip ────────────────
+    tests/e2e/approvals-inbox.spec.ts:19:5 › approves the first card under mock fallback ───────────
+    tests/e2e/approvals-live.spec.ts:19:5 › WS approval.expired surgically removes the matching card 
+    tests/e2e/audit-cross-system-links.spec.ts:16:5 › renders cross-system jump link on drill-in and opens new tab 
+    tests/e2e/audit-filter-popover.spec.ts:18:5 › multi-dimension filter popover → chip rail → clear 
+    tests/e2e/auth-logout.spec.ts:26:5 › happy path: sign out POSTs to gateway and redirects to /auth/signin 
+    tests/e2e/auth-logout.spec.ts:50:5 › 401 from gateway (cookie already revoked) is treated as success 
+    tests/e2e/auth-logout.spec.ts:68:5 › 5xx surfaces an error toast and keeps the user signed in ──
+    tests/e2e/auth-signup-centering.spec.ts:14:7 › /auth/signup editorial centering › keeps the signup stage centered at desktop, tablet, and mobile widths 
+    tests/e2e/builder-add-step.spec.ts:6:5 › Add Step palette inserts a new node with the chosen kind 
+    tests/e2e/builder-controlled-state.spec.ts:6:5 › workflow builder canvas is controlled and surfaces dirty state 
+    tests/e2e/builder-delete.spec.ts:46:7 › workflow builder — delete › trigger nodes refuse deletion and remain on the canvas 
+    tests/e2e/builder-duplicate.spec.ts:23:7 › workflow builder — context menu › right-click on a trigger node shows a disabled Duplicate item 
+    tests/e2e/builder-duplicate.spec.ts:37:7 › workflow builder — context menu › right-click on an edge opens a Disconnect-only menu that removes only the edge 
+    tests/e2e/builder-shortcuts.spec.ts:10:5 › workflow builder honors keyboard shortcuts + snap-to-grid 
+    tests/e2e/cohorts-project-ops.spec.ts:3:5 › Project & Ops tab shows Peta lead and Patrick stacked tile 
+    tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /pricing renders without white-on-white in dark mode 
+    tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /compare renders without white-on-white in dark mode 
+    tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /docs renders without white-on-white in dark mode 
+    tests/e2e/dark-mode-token-coverage.spec.ts:34:9 › dark-mode token coverage › /for/marketplace renders without white-on-white in dark mode 
+    tests/e2e/hire-celebration-banner.spec.ts:15:5 › hire/done seeds the celebration and the banner appears on / 
+    tests/e2e/hire-celebration-banner.spec.ts:39:5 › inert variant is rendered when ?inert=1 is set 
+    tests/e2e/hire-flow-shell.spec.ts:20:5 › walks through all 6 hire-flow steps and lands on the celebration redirect 
+    tests/e2e/hire-flow-shell.spec.ts:50:5 › Back button is disabled on step 1 and navigates between later steps 
+    tests/e2e/hire-flow-step2-listen.spec.ts:18:5 › Step 1 → Step 2 happy path with stub fallback ──
+    tests/e2e/hire-flow-step2-listen.spec.ts:56:5 › Step 2 redirects to Step 1 when draft has no problem 
+    tests/e2e/hire-flow-step3-drafting.spec.ts:14:5 › Step 1 → 2 → 3 happy path with stub fallback advances to Step 4 
+    tests/e2e/hire-flow-step3-drafting.spec.ts:46:5 › Step 3 redirects to Step 2 when draft has no answers 
+    tests/e2e/hire-flow-step3-drafting.spec.ts:56:5 › Step 3 surfaces the GenesisFallbackBanner when draft-worker 500s 
+    tests/e2e/hire-flow-step4-introduce.spec.ts:15:5 › Step 1 → 2 → 3 → 4 reaches Step 5 via stub fallback 
+    tests/e2e/hire-flow-step4-introduce.spec.ts:57:5 › Step 4 redirects to Step 3 when no workerDraft is in state 
+    tests/e2e/no-duty-copy.spec.ts:30:7 › settings page contains no operator-visible "Duty" / "Duties" copy 
+    tests/e2e/no-duty-copy.spec.ts:30:7 › workflows page contains no operator-visible "Duty" / "Duties" copy 
+    tests/e2e/no-duty-copy.spec.ts:30:7 › cohorts page contains no operator-visible "Duty" / "Duties" copy 
+    tests/e2e/no-duty-copy.spec.ts:57:7 › settings page surfaces "Schedule" / "Schedules" copy ─────
+    tests/e2e/no-duty-copy.spec.ts:57:7 › workflows page surfaces "Schedule" / "Schedules" copy ────
+    tests/e2e/no-duty-copy.spec.ts:57:7 › cohorts page surfaces "Schedule" / "Schedules" copy ──────
+    tests/e2e/onboarding.spec.ts:27:7 › new-user activation path › walks marketing → signup → magic-link → 5-step wizard → first hire 
+    tests/e2e/orchestration-queue.spec.ts:3:5 › orchestration queue renders mock runs and filters by worker 
+    tests/e2e/skill-canvas-editor.spec.ts:3:5 › skill canvas edit mode can add and save under mock fallback 
+    tests/e2e/team-filter-search.spec.ts:18:5 › filter by status, search by name, then clear chips ─
+    tests/e2e/team-page-shows-real-workers.spec.ts:20:5 › renders the trading-card deck — never the empty state — when workers exist 
+    tests/e2e/team-page-shows-real-workers.spec.ts:41:5 › data-source chip surfaces the non-gateway origin in dev builds 
+    tests/e2e/trust-promotion.spec.ts:20:5 › trust tab — disclaimer + recompute affordance ─────────
+    tests/e2e/workflow-concurrent-edit.spec.ts:25:5 › Concurrent edit (409) surfaces the conflict banner with refresh + diff CTAs 
+    tests/e2e/workflow-publish-real.spec.ts:24:5 › Publish promotes the saved draft, toasts the new head version, and redirects to the viewer 
+    tests/e2e/workflow-publish-real.spec.ts:130:5 › Publish stays gated while the canvas has unsaved changes after save 
+    tests/e2e/workflow-publish-real.spec.ts:195:5 › Publish network failure surfaces an error toast with a Retry CTA 
+    tests/e2e/workflow-rollback-button.spec.ts:41:5 › rollback button: confirm dialog → success toast → new head matches selected 
+    tests/e2e/workflow-rollback-button.spec.ts:201:5 › rollback failure: 5xx surfaces error toast with retry, modal stays open 
+    tests/e2e/workflow-rollback.spec.ts:11:5 › Rollback button opens confirm modal and ships when confirmed 
+    tests/e2e/workflow-save-real.spec.ts:24:5 › Save as draft POSTs the canvas as TOML and surfaces the version toast 
+    tests/e2e/workflow-save-real.spec.ts:84:5 › Network failure surfaces an error toast with a Retry CTA 
+  22 passed (2.9m)
