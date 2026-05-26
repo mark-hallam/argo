@@ -23,10 +23,10 @@ export const NAV_ITEMS: NavItemDescriptor[] = [
   { href: "/", label: "Approvals", icon: <Inbox /> },
   { href: "/team", label: "Team", icon: <Users /> },
   { href: "/workers", label: "Workers", icon: <Workflow /> },
-  { href: "/audit", label: "Audit", icon: <Activity /> },
+  { href: "/cohorts", label: "Cohorts", icon: <Layers /> },
   { href: "/skills", label: "Skills", icon: <Sparkles /> },
   { href: "/workflows", label: "Workflows", icon: <GitBranch /> },
-  { href: "/cohorts", label: "Cohorts", icon: <Layers /> },
+  { href: "/audit", label: "Audit", icon: <Activity /> },
 ];
 
 export const FOOTER_NAV_ITEMS: NavItemDescriptor[] = [
