@@ -1,6 +1,14 @@
 /**
  * Mock approval data for the inbox demo. Replaced by gateway
  * fetches in the Track E approvals-inbox slice.
+ *
+ * Per `fix-approvals-inbox-waiting-on-you-fixture-drift`, this is
+ * also the source of truth for the /team "Waiting on you" badge:
+ * `sample-team.ts` derives each worker's `pendingApprovalCount`
+ * from the rows below by matching `worker.name`, so the /team
+ * cards and the /approvals inbox cannot disagree by construction.
+ * When tuning the demo storyline, edit this file — not the team
+ * overlay.
  */
 
 import type { ApprovalDecision } from "@/components/skycot/ApprovalCard";

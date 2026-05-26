@@ -2,8 +2,6 @@
 
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { ApprovalsOpsDashboard } from "@/components/skycot/approvals/ApprovalsOpsDashboard";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { InboxIllustration } from "@/components/empty-state/illustrations/InboxIllustration";
 import { useApprovals } from "@/lib/hooks/use-approvals";
 
 /**
@@ -19,13 +17,18 @@ import { useApprovals } from "@/lib/hooks/use-approvals";
  * 2026-05-24 design pass: swapped the plain Inter `<h1>` for the
  * shared `BrandLoudHero` so the surface matches the D3 brand-
  * consistency pass (Audiowide + purple→pink gradient) applied across
- * Cohorts / Workers / Team. Pending approvals now render the locked
- * ops-dashboard body; fresh workspaces keep the CTA empty state.
+ * Cohorts / Workers / Team.
+ *
+ * 2026-05-26 (`fix-approvals-inbox-waiting-on-you-fixture-drift`):
+ * the empty-state short-circuit is removed. The locked E-ops-
+ * dashboard renders regardless of queue depth — its 0-state KPIs,
+ * severity tiers and donuts already handle the "0 awaiting" case —
+ * so the page stops disagreeing with /team's "Waiting on you" chip
+ * count when the gateway returns zero rows.
  */
 export default function ApprovalsLandingPage() {
   const approvalsQuery = useApprovals();
   const approvals = approvalsQuery.data ?? [];
-  const pendingCount = approvals.filter((item) => item.decision == null).length;
 
   return (
     <div data-testid="approvals-landing">
@@ -38,8 +41,6 @@ export default function ApprovalsLandingPage() {
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {approvalsQuery.isPending ? (
           <DashboardLoading />
-        ) : pendingCount === 0 ? (
-          <ApprovalsEmptyState />
         ) : (
           <ApprovalsOpsDashboard items={approvals} />
         )}
@@ -52,21 +53,6 @@ function DashboardLoading() {
   return (
     <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] px-6 py-16 text-center">
       <p className="text-sm text-[var(--muted-foreground)]">Loading approvals...</p>
-    </div>
-  );
-}
-
-function ApprovalsEmptyState() {
-  return (
-    <div className="mx-auto max-w-3xl">
-      <EmptyState
-        data-testid="approvals-empty"
-        illustration={InboxIllustration}
-        headline="No approvals waiting"
-        body="When a worker hits a decision that needs sign-off — a refund, a hire, a contract — it lands in your inbox at home. We'll page you in Slack the moment something arrives."
-        cta={{ label: "Open the inbox", href: "/" }}
-        secondary={{ label: "See your workers", href: "/workers" }}
-      />
     </div>
   );
 }

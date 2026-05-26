@@ -18,7 +18,14 @@ describe("/approvals landing page", () => {
     useApprovalsMock.mockReset();
   });
 
-  it("renders the inbox empty-state with both CTAs", () => {
+  it("renders the ops-dashboard even with zero queued approvals", () => {
+    // Per `fix-approvals-inbox-waiting-on-you-fixture-drift`, /approvals
+    // must always render the locked E-ops-dashboard (5-KPI strip,
+    // severity tiers, donuts, ring). The dashboard handles the 0-state
+    // gracefully via "—" placeholders + "No <tier> severity approvals
+    // waiting" per-tier rows; the previous EmptyState short-circuit
+    // hid all of that and made /team and /approvals disagree about
+    // pending counts.
     useApprovalsMock.mockReturnValue({ data: [], isPending: false });
 
     render(<ApprovalsLandingPage />);
@@ -27,16 +34,16 @@ describe("/approvals landing page", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: /approvals/i }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("approvals-ops-dashboard")).toBeInTheDocument();
+    expect(screen.getByTestId("kpi-pending")).toHaveTextContent("0");
+    expect(screen.getByTestId("severity-tier-p0")).toBeInTheDocument();
+    expect(screen.getByTestId("severity-tier-p1")).toBeInTheDocument();
+    expect(screen.getByTestId("severity-tier-p2")).toBeInTheDocument();
+    // The dashboard is the page a viewer sees, not the EmptyState.
+    expect(screen.queryByTestId("approvals-empty")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /no approvals waiting/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /open the inbox/i }),
-    ).toHaveAttribute("href", "/");
-    expect(
-      screen.getByRole("link", { name: /see your workers/i }),
-    ).toHaveAttribute("href", "/workers");
-    expect(screen.queryByTestId("approvals-ops-dashboard")).not.toBeInTheDocument();
+      screen.queryByRole("heading", { name: /no approvals waiting/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the ops-dashboard when pending approvals exist", () => {
@@ -56,8 +63,10 @@ describe("/approvals landing page", () => {
     expect(screen.getByTestId("severity-tier-p2")).toHaveTextContent("Low");
     expect(screen.getByTestId("at-risk-donut")).toBeInTheDocument();
     expect(screen.getAllByTestId("confidence-donut").length).toBeGreaterThan(1);
-    expect(screen.getByTestId("approval-rate-empty")).toBeInTheDocument();
-    expect(screen.queryByTestId("approval-rate-ring")).not.toBeInTheDocument();
+    // SAMPLE_APPROVALS carries 3 resolved rows (decision != null), so the
+    // ring renders the 7-day approval rate rather than the empty placeholder.
+    expect(screen.getByTestId("approval-rate-ring")).toBeInTheDocument();
+    expect(screen.queryByTestId("approval-rate-empty")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: /Nori wants to apply a 32% discount/i,
