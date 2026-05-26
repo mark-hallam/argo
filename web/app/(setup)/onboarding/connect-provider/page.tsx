@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProviderKey } from "@/lib/onboarding/use-provider-key";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
@@ -86,6 +87,8 @@ export default function OnboardingConnectProviderPage() {
   const [apiKey, setApiKey] = useState("");
   const [providerError, setProviderError] = useState<ProviderError | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successIsMock, setSuccessIsMock] = useState(false);
+  const demoMode = isDemoMode();
 
   useEffect(() => {
     setStep(3);
@@ -104,9 +107,10 @@ export default function OnboardingConnectProviderPage() {
       return;
     }
     try {
-      await validate.mutateAsync({ apiKey: key });
+      const result = await validate.mutateAsync({ apiKey: key });
       setProvider(true, false);
       setSuccess(true);
+      setSuccessIsMock(result.mockProvider);
       setApiKey("");
       router.push("/onboarding/pick-vertical");
     } catch (err) {
@@ -135,10 +139,17 @@ export default function OnboardingConnectProviderPage() {
         { text: "Anthropic.", accent: true },
       ]}
       sub={
-        <>
-          A <strong>$0.001 test call</strong> confirms the key works &mdash; or skip and use a
-          mock provider for now.
-        </>
+        demoMode ? (
+          <>
+            Demo mode — workers run with a <strong>mock provider</strong> (simulated responses).
+            Type any <code>sk-ant-</code> key to continue; no Anthropic call is made.
+          </>
+        ) : (
+          <>
+            A <strong>$0.001 test call</strong> confirms the key works &mdash; or skip and use a
+            mock provider for now.
+          </>
+        )
       }
     >
       <div className="ob-stack mx-auto max-w-xl">
@@ -186,7 +197,11 @@ export default function OnboardingConnectProviderPage() {
           {success ? (
             <p className="ob-form-success" data-testid="onboarding-provider-success">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>Key validated. Forwarding…</span>
+              <span>
+                {successIsMock
+                  ? "Mock provider connected — workers run with simulated responses for the demo. Forwarding…"
+                  : "Key validated. Forwarding…"}
+              </span>
             </p>
           ) : null}
           <div

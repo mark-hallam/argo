@@ -12,6 +12,13 @@ export interface ProviderKeyResult {
   validated: boolean;
   testCost: number;
   testTokens?: number;
+  /**
+   * `true` when the SPA short-circuited validation (demo mode) and no
+   * real Anthropic round-trip happened. The connect-provider page swaps
+   * the "$0.001 test call" banner for honest "Mock provider connected"
+   * copy when this flag is set — see `feedback_no_theater_in_demo`.
+   */
+  mockProvider: boolean;
 }
 
 interface ValidatePayload {
@@ -30,15 +37,25 @@ function isValidateResponse(value: unknown): value is ValidateResponse {
   return typeof v.validated === "boolean";
 }
 
+// Match the ~400ms feel of a real Anthropic round-trip so the demo
+// camera sees a believable latency tick instead of an instant flip.
+const DEMO_VALIDATE_DELAY_MS = 400;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function validateProviderKey(
   req: ProviderKeyRequest,
 ): Promise<ProviderKeyResult> {
   // Demo-mode short-circuit: the provider-key validation route requires
-  // a verified human principal. The investor demo runs anonymously, so
-  // skip the gateway and return a synthetic validated response. The key
-  // shape is still checked client-side in the page (sk-ant- prefix).
+  // a verified human principal which the investor demo doesn't have.
+  // We return `mockProvider: true` so the page renders honest "Mock
+  // provider connected" copy — never a "$0.001 test call" lie. The
+  // 400ms wait keeps the success beat from snapping instantly.
   if (isDemoMode()) {
-    return { validated: true, testCost: 0.001 };
+    await delay(DEMO_VALIDATE_DELAY_MS);
+    return { validated: true, testCost: 0, mockProvider: true };
   }
   const raw = await apiPost<unknown, ValidatePayload>(
     "/api/v1/onboarding/provider-key",
@@ -54,6 +71,7 @@ export async function validateProviderKey(
     validated: true,
     testCost: raw.test_cost ?? 0.001,
     testTokens: raw.test_tokens,
+    mockProvider: false,
   };
 }
 

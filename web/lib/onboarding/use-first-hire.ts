@@ -99,14 +99,45 @@ async function verifyWorkerReadable(workerId: string): Promise<void> {
   }
 }
 
+// Canonical sample-worker UUIDs (mirror `SAMPLE_PERSONAS` ids in
+// `web/lib/sample-personas.ts`). We can't import them at module load
+// because `sample-personas.ts` brings the worker-overview compile-time
+// guard along with it, but the IDs are stable per the brief's
+// must-not-touch contract and re-asserted by the compile-time check
+// in `sample-worker-overview.ts`.
+const SAMPLE_MARIAH = "018f67d0-0000-7000-8000-000000000001";
+const SAMPLE_PRIYA = "018f67d0-0000-7000-8000-000000000002";
+const SAMPLE_JAMAL = "018f67d0-0000-7000-8000-000000000003";
+const SAMPLE_NORI = "018f67d0-0000-7000-8000-000000000004";
+
+/**
+ * Vertical → sample-worker id mapping. Picks the closest persona by
+ * role so the post-hire redirect lands on a real-rendered C2 card
+ * matching the operator's chosen template. Unknown verticals fall
+ * through to Mariah (the marketplace-lister), which the Scene-3
+ * demo-runbook treats as the canonical "first hire" placeholder.
+ */
+const VERTICAL_TO_SAMPLE_WORKER: Record<string, { id: string; name: string }> = {
+  "marketplace-seller": { id: SAMPLE_MARIAH, name: "Mariah" },
+  recruiter: { id: SAMPLE_PRIYA, name: "Priya" },
+  "customer-support": { id: SAMPLE_JAMAL, name: "Jamal" },
+  "marketing-intern": { id: SAMPLE_NORI, name: "Nori" },
+};
+
+const DEMO_FALLBACK_WORKER = { id: SAMPLE_MARIAH, name: "Mariah" };
+
 function buildDemoFirstHireResult(verticalId: string): FirstHireResult {
-  // Stable-ish synthetic id seeded from vertical + timestamp so the
-  // wizard's redirect to /workers/<id> always lands on a distinct id
-  // within a session (sample-roster fallback then renders).
-  const stamp = Date.now().toString(36);
+  // Per `feedback_no_theater_in_demo`: the wizard MUST redirect to a
+  // worker the destination page can actually render. The prior
+  // `demo-worker-${vertical}-${ts}` factory minted a synthetic id that
+  // matched no gateway worker and no sample fallback, so Scene 3's
+  // headline beat ended on `<WorkerNotFound>`. Route through the
+  // canonical sample roster instead — the destination /workers/<id>
+  // page renders a real C2 personality card via `findSampleWorker`.
+  const chosen = VERTICAL_TO_SAMPLE_WORKER[verticalId] ?? DEMO_FALLBACK_WORKER;
   return {
-    workerId: `demo-worker-${verticalId}-${stamp}`,
-    workerName: "your demo teammate",
+    workerId: chosen.id,
+    workerName: chosen.name,
     pending: false,
   };
 }
@@ -115,8 +146,9 @@ export async function firstHire(req: FirstHireRequest): Promise<FirstHireResult>
   // Demo-mode short-circuit: the first-hire endpoint requires a verified
   // principal AND a real tenant id. Neither exists in demo mode. Skip
   // the gateway + the post-hire readback verify (no worker row will be
-  // there to verify) and return a synthetic id so the wizard redirects
-  // cleanly to /workers/<id>.
+  // there to verify) and return a canonical sample-worker UUID so the
+  // wizard redirects cleanly to /workers/<id> and renders a real C2
+  // card via the sample-roster fallback in `web/lib/api/workers.ts`.
   if (isDemoMode()) {
     return buildDemoFirstHireResult(req.verticalId);
   }

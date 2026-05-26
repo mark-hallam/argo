@@ -63,7 +63,11 @@ describe("demo-mode short-circuit", () => {
     fetchSpy.mockRestore();
   });
 
-  it("validateProviderKey returns synthetic validated result with no gateway call", async () => {
+  it("validateProviderKey returns mockProvider=true with no gateway call (no $0.001 lie)", async () => {
+    // F2 contract (post fix-onboarding-demo-mode-fake-validation-and-synthetic-worker-redirect):
+    // demo mode short-circuits validation but marks the result as a mock
+    // — `testCost: 0` not `0.001`, and `mockProvider: true` so the page
+    // renders honest "Mock provider connected" copy.
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const { validateProviderKey } = await import("@/lib/onboarding/use-provider-key");
 
@@ -71,25 +75,51 @@ describe("demo-mode short-circuit", () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(res.validated).toBe(true);
-    expect(res.testCost).toBe(0.001);
+    expect(res.testCost).toBe(0);
+    expect(res.mockProvider).toBe(true);
 
     fetchSpy.mockRestore();
   });
 
-  it("firstHire returns a synthetic worker id keyed off the vertical", async () => {
+  it("firstHire returns a canonical sample-worker UUID keyed off the vertical (no synthetic ids)", async () => {
+    // F1 contract (post fix-onboarding-demo-mode-fake-validation-and-synthetic-worker-redirect):
+    // demo mode short-circuits hiring and returns a real sample-worker
+    // UUID from the canonical roster, so /workers/<id> renders a real
+    // C2 personality card via `findSampleWorker`. The prior
+    // `demo-worker-${vertical}-${ts}` synthetic-id factory landed the
+    // operator on <WorkerNotFound> and is gone.
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const { firstHire } = await import("@/lib/onboarding/use-first-hire");
 
-    const res = await firstHire({
+    const marketing = await firstHire({
       description: "a marketing intern named Maya",
       verticalId: "marketing-intern",
       tenantId: null,
     });
+    const recruiter = await firstHire({
+      description: "a recruiter named Priya",
+      verticalId: "recruiter",
+      tenantId: null,
+    });
+    const unknown = await firstHire({
+      description: "a brand-new role we don't have a sample for",
+      verticalId: "made-up-vertical",
+      tenantId: null,
+    });
 
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(res.workerId.startsWith("demo-worker-marketing-intern-")).toBe(true);
-    expect(res.pending).toBe(false);
-    expect(res.workerName.length).toBeGreaterThan(0);
+    // Canonical sample UUIDs (see web/lib/sample-personas.ts).
+    expect(marketing.workerId).toBe("018f67d0-0000-7000-8000-000000000004");
+    expect(marketing.workerName).toBe("Nori");
+    expect(recruiter.workerId).toBe("018f67d0-0000-7000-8000-000000000002");
+    expect(recruiter.workerName).toBe("Priya");
+    // Unknown verticals fall through to Mariah, the canonical
+    // first-hire placeholder.
+    expect(unknown.workerId).toBe("018f67d0-0000-7000-8000-000000000001");
+    expect(unknown.workerName).toBe("Mariah");
+    // No `demo-worker-` synthetic ids remain.
+    expect(marketing.workerId).not.toMatch(/^demo-worker-/);
+    expect(marketing.pending).toBe(false);
 
     fetchSpy.mockRestore();
   });
