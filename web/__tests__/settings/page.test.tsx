@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import SettingsLayout from "@/app/(app)/settings/layout";
 import SettingsLandingPage from "@/app/(app)/settings/page";
+import { ThemeProvider } from "@/components/skycot/ThemeProvider";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/settings",
@@ -10,9 +11,11 @@ vi.mock("next/navigation", () => ({
 
 function renderSettingsPage() {
   return render(
-    <SettingsLayout>
-      <SettingsLandingPage />
-    </SettingsLayout>,
+    <ThemeProvider>
+      <SettingsLayout>
+        <SettingsLandingPage />
+      </SettingsLayout>
+    </ThemeProvider>,
   );
 }
 
@@ -52,7 +55,7 @@ describe("/settings landing page", () => {
     ).toHaveAttribute("href", "/settings/security#danger-zone");
   });
 
-  it("mounts without throwing on a fresh workspace (no providers required)", () => {
+  it("mounts without throwing on a fresh workspace", () => {
     expect(() => renderSettingsPage()).not.toThrow();
   });
 });

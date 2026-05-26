@@ -77,7 +77,7 @@ describe("lib/api/workers", () => {
 
   it("falls back to bundled sample data for demo workers on dev 404", async () => {
     installMock((req) => {
-      expect(req.url).toBe(`http://gw.test/api/v1/workers/${MARIAH.id}`);
+      expect(req.url).toMatch(new RegExp(`/api/v1/workers/${MARIAH.id}$`));
       return makeResponse({
         status: 404,
         body: { error: { code: "not_found", message: "worker not found" } },

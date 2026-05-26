@@ -189,7 +189,8 @@ function formatChainAnchor(value: string): string {
   return `0x${body.slice(0, CHAIN_ANCHOR_LEN)}…`;
 }
 
-function hasText(value: string): boolean {
+function hasText(value: string | undefined): boolean {
+  if (value === undefined) return false;
   return value.replace(/[·\s]/g, "").length > 0;
 }
 

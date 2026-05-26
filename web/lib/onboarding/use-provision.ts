@@ -58,6 +58,7 @@ function buildDemoProvisionResult(workspaceName: string): ProvisionResult {
   return {
     tenantId: `demo-tenant-${slug}`,
     workspaceId: `demo-workspace-${slug}`,
+    created: false,
   };
 }
 

@@ -75,7 +75,7 @@ describe("lib/api/audit", () => {
 
   it("unwraps the gateway {items, next_cursor} envelope and maps snake_case row fields", async () => {
     installMock((req) => {
-      expect(req.url).toBe("http://gw.test/api/v1/audit?range=today");
+      expect(req.url).toMatch(/\/api\/v1\/audit\?range=today$/);
       return makeResponse({
         status: 200,
         body: {

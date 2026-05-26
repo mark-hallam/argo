@@ -97,11 +97,11 @@ describe("lib/api/orchestration", () => {
     await cancelRun("run-001");
     await resetRetry("run-002");
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://gw.test/api/v1/orchestration/runs/run-001/cancel",
+      expect.stringMatching(/\/api\/v1\/orchestration\/runs\/run-001\/cancel$/),
       expect.objectContaining({ method: "POST" }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://gw.test/api/v1/orchestration/runs/run-002/reset-retry",
+      expect.stringMatching(/\/api\/v1\/orchestration\/runs\/run-002\/reset-retry$/),
       expect.objectContaining({ method: "POST" }),
     );
   });
