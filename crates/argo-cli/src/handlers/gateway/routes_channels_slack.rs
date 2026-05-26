@@ -4,12 +4,21 @@
 //! signature verification (HMAC over `v0:<ts>:<body>`), the
 //! `payload=…` form-body parsing, and the actor/note shape Slack
 //! posts back. Shared settle/HMAC/helpers live in the parent file.
+//!
+//! When the signature or approval-token check fails, the public
+//! response stays a byte-identical `401 Unauthorized` (no
+//! existence-leak), but a [`AuditKind::CrossTenantInboundRejected`]
+//! row is also appended so operators can detect silent cross-tenant
+//! probing (`mission-slack-inbound-tenant-mismatch-audit-emission`,
+//! round-50 carry-forward of PR #2257).
 
 use super::routes_channels::{
     bad_request, constant_time_eq, header_value, hmac_hex, hmac_secret, percent_decode,
     server_error, settle, unauthorized, verify_token,
 };
+use argo_audit::{AuditKind, AuditSink};
 use serde_json::Value;
+use std::sync::Arc;
 
 pub(super) fn is_slack_webhook(req: &str) -> bool {
     req.starts_with("POST /channels/slack/webhook ")
@@ -18,7 +27,8 @@ pub(super) fn is_slack_webhook(req: &str) -> bool {
 
 pub(super) async fn slack_webhook_response(req: &str) -> (&'static str, String) {
     // tenant-unscoped: gateway process-level secret (no per-request tenant context for this slot)
-    let Ok(signing_secret) = argo_config::cred::get_unscoped("SLACK_APPROVALS_SIGNING_SECRET") else {
+    let Ok(signing_secret) = argo_config::cred::get_unscoped("SLACK_APPROVALS_SIGNING_SECRET")
+    else {
         return server_error("missing SLACK_APPROVALS_SIGNING_SECRET");
     };
     let secret = match hmac_secret() {
@@ -27,12 +37,15 @@ pub(super) async fn slack_webhook_response(req: &str) -> (&'static str, String) 
     };
     let body = super::body_from_request(req);
     let Some(sig) = header_value(req, "X-Slack-Signature") else {
+        emit_cross_tenant_rejected(body, "missing_signature").await;
         return unauthorized("missing X-Slack-Signature");
     };
     let Some(ts) = header_value(req, "X-Slack-Request-Timestamp") else {
+        emit_cross_tenant_rejected(body, "missing_timestamp").await;
         return unauthorized("missing X-Slack-Request-Timestamp");
     };
     if !verify_slack_signature(body, ts, sig, &signing_secret) {
+        emit_cross_tenant_rejected(body, "signature_mismatch").await;
         return unauthorized("invalid X-Slack-Signature");
     }
     let parsed = match slack_payload(body) {
@@ -44,7 +57,10 @@ pub(super) async fn slack_webhook_response(req: &str) -> (&'static str, String) 
     };
     let claims = match verify_token(&token, &secret) {
         Ok(c) => c,
-        Err(e) => return unauthorized(&e),
+        Err(e) => {
+            emit_cross_tenant_rejected(body, "token_invalid").await;
+            return unauthorized(&e);
+        }
     };
     match settle(
         &claims,
@@ -56,6 +72,44 @@ pub(super) async fn slack_webhook_response(req: &str) -> (&'static str, String) 
     {
         Ok(v) => ("200 OK", v),
         Err(e) => server_error(&e.to_string()),
+    }
+}
+
+/// Append a [`AuditKind::CrossTenantInboundRejected`] row when the
+/// Slack webhook handler refuses a request. The rejection still
+/// returns the existing `401 Unauthorized` envelope unchanged; this
+/// row exists only so operators can see when silent probing is
+/// firing (`mission-slack-inbound-tenant-mismatch-audit-emission`).
+/// `addressed_tenant_id` / `probing_tenant_id` are `null` today
+/// because the Slack signing secret is process-wide; the payload
+/// shape is forward-compatible with per-tenant credential storage.
+async fn emit_cross_tenant_rejected(body: &str, reason: &'static str) {
+    let store = match crate::handlers::worker_actions_transitions::open_workspace_memory_with_store(
+    )
+    .await
+    {
+        Ok((_memory, _ws, store)) => store,
+        Err(e) => {
+            tracing::warn!(reason = %reason, error = %e, "slack cross-tenant audit: open store failed");
+            return;
+        }
+    };
+    let tenant = argo_config::workspace_tenant_id(&std::env::current_dir().unwrap_or_default());
+    let sink = AuditSink::new_with_tenant(Arc::clone(&store), tenant);
+    let text_hint: String = body.chars().take(40).collect();
+    let payload = serde_json::json!({
+        "channel": "slack",
+        "reason": reason,
+        "addressed_tenant_id": serde_json::Value::Null,
+        "probing_tenant_id": serde_json::Value::Null,
+        "text_hint": text_hint,
+        "received_at": chrono::Utc::now().to_rfc3339(),
+    });
+    if let Err(e) = sink
+        .write(None, AuditKind::CrossTenantInboundRejected, payload, None)
+        .await
+    {
+        tracing::warn!(reason = %reason, error = %e, "slack cross-tenant audit write failed");
     }
 }
 

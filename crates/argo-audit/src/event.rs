@@ -92,6 +92,7 @@ impl AuditKind {
             Self::WorkerDutyFailed => "worker_duty.failed",
             Self::HandoffCrossTenantAttempt => "handoff.cross_tenant_attempt",
             Self::HipaaComplianceCheck => "hipaa_compliance_check",
+            Self::CrossTenantInboundRejected => "channel.cross_tenant_inbound_rejected",
         }
     }
 
@@ -179,6 +180,7 @@ impl AuditKind {
             "worker_duty.failed" => Self::WorkerDutyFailed,
             "handoff.cross_tenant_attempt" => Self::HandoffCrossTenantAttempt,
             "hipaa_compliance_check" => Self::HipaaComplianceCheck,
+            "channel.cross_tenant_inbound_rejected" => Self::CrossTenantInboundRejected,
             _ => return None,
         })
     }
@@ -266,6 +268,7 @@ impl AuditKind {
             Self::WorkerDutyFailed,
             Self::HandoffCrossTenantAttempt,
             Self::HipaaComplianceCheck,
+            Self::CrossTenantInboundRejected,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -287,3 +290,7 @@ mod event_tests_cross_tenant;
 #[cfg(test)]
 #[path = "event_tests_workflow_and_worker_duty.rs"]
 mod event_tests_workflow_and_worker_duty;
+
+#[cfg(test)]
+#[path = "event_tests_cross_tenant_inbound.rs"]
+mod event_tests_cross_tenant_inbound;

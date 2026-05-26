@@ -235,4 +235,6 @@ pub enum AuditKind {
     ///
     /// Payload carries `{mode, hipaa_enabled, checked_at, features[]}`.
     HipaaComplianceCheck,
+    /// Channel webhook refused at the gateway boundary because a signature or approval-token check failed (`mission-slack-inbound-tenant-mismatch-audit-emission`, PR #2257 carry-forward). Payload pinned by `crates/argo-channels/tests/cross_tenant_test.rs`.
+    CrossTenantInboundRejected,
 }
