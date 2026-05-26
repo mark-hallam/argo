@@ -57,6 +57,6 @@ describe("OrchestrationEmptyState", () => {
     render(<OrchestrationEmptyState />);
     expect(screen.getByTestId("orchestration-empty-state")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /no orchestration yet/i })).toBeInTheDocument();
-    expect(screen.getByTestId("orchestration-empty-hire-cta")).toHaveAttribute("href", "/hire");
+    expect(screen.getByTestId("orchestration-empty-hire-cta")).toHaveAttribute("href", "/onboarding/first-hire");
   });
 });

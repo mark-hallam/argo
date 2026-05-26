@@ -35,7 +35,7 @@ export default function TeamError({
             Try again
           </button>
           <Link
-            href="/hire"
+            href="/onboarding/first-hire"
             className={buttonVariants({ variant: "secondary", size: "md" })}
           >
             Hire teammate

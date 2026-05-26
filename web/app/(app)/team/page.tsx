@@ -265,7 +265,7 @@ function PageHeader({
           <div className="flex items-center gap-1.5 sm:gap-2">
             <StatusFilter value={filters.status} onChange={onStatusChange} />
             <Link
-              href="/hire"
+              href="/onboarding/first-hire"
               aria-label="Hire teammate"
               data-testid="team-hire-cta"
               className={buttonVariants({ variant: "primary", size: "md" }) + " shadow-sm"}

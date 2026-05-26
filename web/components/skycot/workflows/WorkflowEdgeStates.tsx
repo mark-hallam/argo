@@ -170,7 +170,7 @@ export function OrchestrationEmptyState() {
         </p>
       </div>
       <Link
-        href="/hire"
+        href="/onboarding/first-hire"
         data-testid="orchestration-empty-hire-cta"
         className="inline-flex items-center gap-2 rounded-[var(--radius-md)] px-4 py-2 text-sm font-semibold text-white"
         style={{

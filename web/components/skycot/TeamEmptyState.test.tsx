@@ -58,10 +58,10 @@ describe("TeamEmptyState", () => {
     }
   });
 
-  it("the 'Describe a role in plain English' link routes to /hire with no query", () => {
+  it("the 'Describe a role in plain English' link routes to /onboarding/first-hire with no query", () => {
     render(<TeamEmptyState />);
     const fallback = screen.getByTestId("team-empty-state-describe-own");
-    expect(fallback).toHaveAttribute("href", "/hire");
+    expect(fallback).toHaveAttribute("href", "/onboarding/first-hire");
     expect(fallback).toHaveTextContent(/describe a role in plain english/i);
   });
 

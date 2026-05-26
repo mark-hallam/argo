@@ -99,7 +99,7 @@ describe("TeamPage", () => {
       `${SAMPLE_WORKERS.length} teammates working`,
     );
     expect(screen.getByTestId("team-status-filter")).toBeInTheDocument();
-    expect(screen.getByTestId("team-hire-cta")).toHaveAttribute("href", "/hire");
+    expect(screen.getByTestId("team-hire-cta")).toHaveAttribute("href", "/onboarding/first-hire");
   });
 
   it("renders a skeleton card for every worker in the grid", () => {
@@ -149,7 +149,7 @@ describe("TeamPage", () => {
     expect(within(empty).getByTestId("team-empty-state-tiles")).toBeInTheDocument();
     expect(within(empty).getByTestId("team-empty-state-describe-own")).toHaveAttribute(
       "href",
-      "/hire",
+      "/onboarding/first-hire",
     );
     expect(screen.queryByTestId("team-subtitle")).not.toBeInTheDocument();
   });

@@ -446,7 +446,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         title: "Hire a teammate",
         subtitle: "describe a role and SKYCOT compiles a worker",
         icon: <UserPlus size={15} />,
-        action: () => router.push("/hire"),
+        action: () => router.push("/onboarding/first-hire"),
       },
       {
         id: "quick:workflow",

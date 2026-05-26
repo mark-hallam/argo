@@ -457,7 +457,7 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, fil
               size="md"
               className="shadow-sm"
               aria-label="Hire teammate"
-              onClick={() => router.push("/hire")}
+              onClick={() => router.push("/onboarding/first-hire")}
             >
               <Plus />
               <span className="hidden sm:inline">Hire teammate</span>

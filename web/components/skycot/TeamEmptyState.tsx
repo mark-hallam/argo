@@ -51,7 +51,7 @@ export function TeamEmptyState() {
 
       <div className="flex justify-center">
         <Link
-          href="/hire"
+          href="/onboarding/first-hire"
           data-testid="team-empty-state-describe-own"
           className="inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:translate-y-[-1px] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           style={{
