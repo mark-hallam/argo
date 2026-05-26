@@ -26,6 +26,7 @@ use std::process::{Command, Stdio};
 
 const ALLOWED_ORIGIN: &str = "http://localhost:3000";
 const FORBIDDEN_ORIGIN: &str = "https://evil.example.com";
+const SMOKE_DB_KEY_B64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
 
 fn http_options(port: u16, path: &str, origin: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
@@ -76,6 +77,7 @@ fn cors_preflight_round_trip() {
     // 3 requests: allowed preflight, forbidden preflight, real POST.
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", SMOKE_DB_KEY_B64)
         .args([
             "gateway",
             "start",

@@ -45,6 +45,7 @@ into the narration; the tests are source material, not the story.
 - [ ] Laptop on AC power, battery >80%.
 - [ ] Recording target: **1920×1080**. Browser zoom 100%. Terminal font ≥14pt.
 - [ ] Pre-warm caches: open `http://localhost:3000/onboarding/welcome`, the `/audit` page, and the `/workers` index once in the recording browser. First-load LCP can break the "no mid-scene loads >2 s" feel.
+- [ ] Gateway CORS preflight passes from the recording browser origin (`localhost:*` or `127.0.0.1:*`, including preview proxies such as `http://localhost:53854`); production runs must use an explicit `[gateway.cors].allowed_origins` entry instead.
 - [ ] Slack desktop notifications off **except** for the demo channel.
 - [ ] `argo gateway start --bind 127.0.0.1 --port 7400` running in a non-visible terminal. Stderr should print `argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted`.
 - [ ] Run the canonical seed CLI against the demo tenant immediately after `scripts/restart-live-gateway.sh` or `argo gateway start` reports healthy on port 7400:

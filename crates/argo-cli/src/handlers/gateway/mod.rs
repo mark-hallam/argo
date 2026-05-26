@@ -284,9 +284,12 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             // Idempotent — only the first caller actually wires state.
             let _ = rate_limit::init_with_config(&cfg.gateway.rate_limit.route);
             // mission-gateway-cors-preflight: install the CORS allowlist
-            // registry. Pre-builds (status × origin) response strings so
-            // dispatch lookups are zero-allocation. Idempotent.
-            cors::install(&cfg.gateway.cors);
+            // registry. Pre-builds configured origins and enables the
+            // non-production loopback preview-proxy path. Idempotent.
+            cors::install(
+                &cfg.gateway.cors,
+                routes_auth_production_mode::is_production_mode_for_bind(&bind),
+            );
             // mission-per-tenant-rate-limiting: layer the per-tenant
             // limiter on top of the `[gateway.rate_limit.tenant]`
             // config block and hydrate per-tenant overrides from the

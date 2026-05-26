@@ -6,10 +6,11 @@
 //! separated headers found in `status_line` between the HTTP/1.1
 //! status line and the body (see
 //! `boot_router::format_response`). This module pre-builds the
-//! CORS-enhanced variant of every `(status_code, allowed_origin)`
-//! pair at gateway boot, `Box::leak`-ing each formatted string so
-//! lookups at request time return `&'static str` with zero per-
-//! request allocation.
+//! CORS-enhanced variant of every configured `(status_code,
+//! allowed_origin)` pair at gateway boot, `Box::leak`-ing each
+//! formatted string so lookups at request time return `&'static str`.
+//! Non-production loopback preview-proxy origins are built lazily and
+//! cached on first use.
 //!
 //! Origins not in the configured allowlist receive their original
 //! status line unchanged — the browser then refuses the response,
@@ -19,7 +20,7 @@
 
 use argo_config::GatewayCorsConfig;
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 /// Methods advertised to browsers in preflight responses. Superset
 /// of every verb the `/api/v1/*` dispatcher accepts today; extra
@@ -73,36 +74,88 @@ const CORS_STATUSES: &[&str] = &[
     "503 Service Unavailable",
 ];
 
-/// Pre-built CORS-enhanced status lines keyed by `(base_status,
-/// origin)`. Populated by [`install`], immutable thereafter.
+/// CORS-enhanced status lines keyed by `(base_status, origin)`.
+/// Configured origins are populated by [`install`]; non-production
+/// loopback origins are cached lazily on first use.
 pub(super) struct CorsRegistry {
     table: HashMap<(&'static str, String), &'static str>,
+    allow_dev_loopback_origins: bool,
+    dev_loopback_table: Mutex<HashMap<(&'static str, String), &'static str>>,
 }
 
 impl CorsRegistry {
+    #[cfg(test)]
     pub(super) fn build(allowed_origins: &[String]) -> Self {
+        Self::build_with_dev_loopback(allowed_origins, false)
+    }
+
+    fn build_with_dev_loopback(
+        allowed_origins: &[String],
+        allow_dev_loopback_origins: bool,
+    ) -> Self {
         let mut table = HashMap::new();
         for origin in allowed_origins {
             for &status in CORS_STATUSES {
-                let enhanced = format!(
-                    "{status}\r\n\
-                     Access-Control-Allow-Origin: {origin}\r\n\
-                     Access-Control-Allow-Methods: {ALLOWED_METHODS}\r\n\
-                     Access-Control-Allow-Headers: {ALLOWED_HEADERS}\r\n\
-                     Access-Control-Allow-Credentials: true\r\n\
-                     Access-Control-Max-Age: {MAX_AGE}\r\n\
-                     Vary: Origin"
+                table.insert(
+                    (status, origin.clone()),
+                    build_enhanced_status(status, origin),
                 );
-                let leaked: &'static str = Box::leak(enhanced.into_boxed_str());
-                table.insert((status, origin.clone()), leaked);
             }
         }
-        Self { table }
+        Self {
+            table,
+            allow_dev_loopback_origins,
+            dev_loopback_table: Mutex::new(HashMap::new()),
+        }
     }
 
     fn lookup(&self, status: &'static str, origin: &str) -> Option<&'static str> {
-        self.table.get(&(status, origin.to_string())).copied()
+        if let Some(enhanced) = self.table.get(&(status, origin.to_string())).copied() {
+            return Some(enhanced);
+        }
+        if !self.allow_dev_loopback_origins || !is_dev_loopback_origin(origin) {
+            return None;
+        }
+        if !CORS_STATUSES.contains(&status) {
+            return None;
+        }
+        let Ok(mut table) = self.dev_loopback_table.lock() else {
+            return None;
+        };
+        if let Some(enhanced) = table.get(&(status, origin.to_string())).copied() {
+            return Some(enhanced);
+        }
+        let enhanced = build_enhanced_status(status, origin);
+        table.insert((status, origin.to_string()), enhanced);
+        Some(enhanced)
     }
+}
+
+fn build_enhanced_status(status: &'static str, origin: &str) -> &'static str {
+    let enhanced = format!(
+        "{status}\r\n\
+         Access-Control-Allow-Origin: {origin}\r\n\
+         Access-Control-Allow-Methods: {ALLOWED_METHODS}\r\n\
+         Access-Control-Allow-Headers: {ALLOWED_HEADERS}\r\n\
+         Access-Control-Allow-Credentials: true\r\n\
+         Access-Control-Max-Age: {MAX_AGE}\r\n\
+         Vary: Origin"
+    );
+    Box::leak(enhanced.into_boxed_str())
+}
+
+fn is_dev_loopback_origin(origin: &str) -> bool {
+    let Some(rest) = origin.strip_prefix("http://") else {
+        return false;
+    };
+    let Some((host, port)) = rest.rsplit_once(':') else {
+        return false;
+    };
+    let host_allowed = host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1";
+    if !host_allowed {
+        return false;
+    }
+    port.parse::<u16>().is_ok_and(|port| port != 0)
 }
 
 static REGISTRY: OnceLock<CorsRegistry> = OnceLock::new();
@@ -110,11 +163,16 @@ static REGISTRY: OnceLock<CorsRegistry> = OnceLock::new();
 /// Initialise the global CORS registry from gateway config.
 /// Idempotent — only the first caller actually populates state,
 /// matching the pattern used by `rate_limit::init_with_config`. The
-/// allowlist comes from `[gateway.cors].allowed_origins`; with an
-/// empty list, no Origin is ever allowlisted and every request
-/// receives its base status line unchanged.
-pub(super) fn install(cfg: &GatewayCorsConfig) {
-    let _ = REGISTRY.set(CorsRegistry::build(&cfg.allowed_origins));
+/// allowlist comes from `[gateway.cors].allowed_origins`. In
+/// non-production mode, HTTP loopback browser origins are also
+/// admitted for recorder preview proxies (`localhost:*` and
+/// `127.0.0.1:*`). Production mode remains exact-match only.
+pub(super) fn install(cfg: &GatewayCorsConfig, production_mode: bool) {
+    let allow_dev_loopback_origins = !production_mode;
+    let _ = REGISTRY.set(CorsRegistry::build_with_dev_loopback(
+        &cfg.allowed_origins,
+        allow_dev_loopback_origins,
+    ));
 }
 
 /// Extract the `Origin` request header value, case-insensitively.
@@ -144,9 +202,7 @@ pub(super) fn extract_origin(req: &str) -> Option<&str> {
 pub(super) fn is_api_v1(req: &str) -> bool {
     let line = req.lines().next().unwrap_or("");
     let path = line.split_whitespace().nth(1).unwrap_or("");
-    path == "/api/v1"
-        || path.starts_with("/api/v1/")
-        || path.starts_with("/api/v1?")
+    path == "/api/v1" || path.starts_with("/api/v1/") || path.starts_with("/api/v1?")
 }
 
 /// True when the request is an OPTIONS preflight against
@@ -215,13 +271,9 @@ mod tests {
 
     #[test]
     fn is_preflight_requires_options_and_api_v1() {
-        assert!(is_preflight(
-            "OPTIONS /api/v1/auth/signup HTTP/1.1\r\n\r\n"
-        ));
+        assert!(is_preflight("OPTIONS /api/v1/auth/signup HTTP/1.1\r\n\r\n"));
         assert!(!is_preflight("OPTIONS / HTTP/1.1\r\n\r\n"));
-        assert!(!is_preflight(
-            "POST /api/v1/auth/signup HTTP/1.1\r\n\r\n"
-        ));
+        assert!(!is_preflight("POST /api/v1/auth/signup HTTP/1.1\r\n\r\n"));
     }
 
     #[test]
@@ -247,6 +299,47 @@ mod tests {
     }
 
     #[test]
+    fn registry_allows_http_loopback_origins_in_dev_mode() {
+        let registry = CorsRegistry::build_with_dev_loopback(&[], true);
+        for origin in [
+            "http://localhost:53854",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+        ] {
+            let enhanced = registry
+                .lookup("204 No Content", origin)
+                .expect("dev loopback origin is accepted");
+            assert!(enhanced.contains(&format!("Access-Control-Allow-Origin: {origin}")));
+        }
+    }
+
+    #[test]
+    fn registry_keeps_production_mode_exact_match_only() {
+        let registry =
+            CorsRegistry::build_with_dev_loopback(&["http://localhost:3000".to_string()], false);
+        assert!(registry
+            .lookup("204 No Content", "http://localhost:3000")
+            .is_some());
+        assert!(registry
+            .lookup("204 No Content", "http://127.0.0.1:3000")
+            .is_none());
+        assert!(registry
+            .lookup("204 No Content", "http://localhost:53854")
+            .is_none());
+    }
+
+    #[test]
+    fn dev_loopback_origin_parser_is_narrow() {
+        assert!(is_dev_loopback_origin("http://localhost:3000"));
+        assert!(is_dev_loopback_origin("http://127.0.0.1:53854"));
+        assert!(!is_dev_loopback_origin("https://localhost:3000"));
+        assert!(!is_dev_loopback_origin("http://localhost.evil:3000"));
+        assert!(!is_dev_loopback_origin("http://127.0.0.1:0"));
+        assert!(!is_dev_loopback_origin("http://127.0.0.1:abc"));
+        assert!(!is_dev_loopback_origin("http://127.0.0.1:3000/path"));
+    }
+
+    #[test]
     fn registry_covers_every_status_for_each_origin() {
         let registry = CorsRegistry::build(&[
             "http://localhost:3000".to_string(),
@@ -258,9 +351,7 @@ mod tests {
                     .lookup(status, origin)
                     .expect("every status/origin pair pre-built");
                 assert!(enhanced.starts_with(status));
-                assert!(enhanced.contains(&format!(
-                    "Access-Control-Allow-Origin: {origin}"
-                )));
+                assert!(enhanced.contains(&format!("Access-Control-Allow-Origin: {origin}")));
             }
         }
     }
