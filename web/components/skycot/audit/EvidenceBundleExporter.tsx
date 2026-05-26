@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Download, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useExportGenerate, useExportPreview } from "@/lib/hooks/use-audit-export";
@@ -73,6 +73,7 @@ export function EvidenceBundleExporter({
   const [format, setFormat] = useState<ExportFormat>(initialFormat);
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
   const [queued, setQueued] = useState<QueuedState>(null);
+  const exportUnavailable = isUnavailableTenant(tenantId);
 
   const isLockedScope =
     initialScope.kind === "single-action" || initialScope.kind === "replay";
@@ -81,8 +82,16 @@ export function EvidenceBundleExporter({
     () => ({ scope, format, tenantId }),
     [scope, format, tenantId],
   );
-  const previewQuery = useExportPreview(params, open && !queued);
+  const previewQuery = useExportPreview(params, open && !queued && !exportUnavailable);
   const generate = useExportGenerate();
+
+  useEffect(() => {
+    if (!open || !exportUnavailable) return;
+    console.error(
+      "EvidenceBundleExporter: export unavailable because tenant id was not resolved",
+      { tenantId },
+    );
+  }, [exportUnavailable, open, tenantId]);
 
   const reset = useCallback(() => {
     setScope(initialScope);
@@ -167,7 +176,9 @@ export function EvidenceBundleExporter({
         >
           <DialogHeader />
 
-          {queued ? (
+          {exportUnavailable ? (
+            <UnavailableBody onCancel={() => handleOpenChange(false)} />
+          ) : queued ? (
             <QueuedBody queued={queued} onDone={() => handleOpenChange(false)} />
           ) : pendingConfirm ? (
             <ConfirmBody
@@ -194,6 +205,11 @@ export function EvidenceBundleExporter({
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
+}
+
+function isUnavailableTenant(tenantId: string): boolean {
+  const trimmed = tenantId.trim();
+  return trimmed.length === 0 || trimmed === "tenant_default";
 }
 
 function DialogHeader() {
@@ -296,6 +312,28 @@ function TenantSummary({ tenantLabel }: { tenantLabel: string }) {
         Tenant
       </span>
       <span className="font-medium text-[var(--foreground)]">{tenantLabel}</span>
+    </div>
+  );
+}
+
+function UnavailableBody({ onCancel }: { onCancel: () => void }) {
+  return (
+    <div
+      className="mt-5 space-y-4"
+      data-testid="export-unavailable"
+      title="Export unavailable in this session"
+    >
+      <p className="text-sm text-[var(--foreground)]">
+        Export unavailable in this session.
+      </p>
+      <p className="text-xs text-[var(--muted-foreground)]">
+        Sign in to a workspace-backed session before exporting evidence.
+      </p>
+      <div className="flex justify-end">
+        <Button variant="ghost" onClick={onCancel} data-testid="export-unavailable-close">
+          Close
+        </Button>
+      </div>
     </div>
   );
 }

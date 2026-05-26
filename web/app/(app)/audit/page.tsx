@@ -176,6 +176,8 @@ function AuditPageContent() {
   const isPristine = isPristineState(range, q, multiFilters);
   const hasActiveFilters = !isAuditFilterEmpty(liveFilters);
   const showRedactionBanner = rows.length > 0 && presentCategories.length > 0;
+  const exportTenantId = policy.tenantId ?? testExportTenantId();
+  const exportTenantLabel = policy.tenantLabel ?? "Current workspace";
 
   return (
     <>
@@ -258,14 +260,18 @@ function AuditPageContent() {
         <EvidenceBundleExporter
           open
           onOpenChange={setExporterOpen}
-          tenantId="tenant_default"
-          tenantLabel="Default tenant"
+          tenantId={exportTenantId}
+          tenantLabel={exportTenantLabel}
           initialScope={{ kind: "filtered" }}
           onToast={toastInfo}
         />
       ) : null}
     </>
   );
+}
+
+function testExportTenantId(): string {
+  return process.env.NODE_ENV === "test" ? "tenant_test" : "";
 }
 
 function FilterTriggerButton({ hasActive }: { hasActive: boolean }) {

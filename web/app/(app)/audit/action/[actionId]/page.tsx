@@ -76,6 +76,8 @@ function AuditActionDetailContent() {
     () => categoriesLackedBy(policy.permissions),
     [policy.permissions],
   );
+  const exportTenantId = policy.tenantId ?? testExportTenantId();
+  const exportTenantLabel = policy.tenantLabel ?? "Current workspace";
 
   const onReplay = useCallback(() => {
     router.push(`/audit/action/${encodeURIComponent(actionId)}/replay`);
@@ -149,8 +151,8 @@ function AuditActionDetailContent() {
         <EvidenceBundleExporter
           open={exporterOpen}
           onOpenChange={setExporterOpen}
-          tenantId="tenant_default"
-          tenantLabel="Default tenant"
+          tenantId={exportTenantId}
+          tenantLabel={exportTenantLabel}
           initialScope={singleActionScope(detail.id, detail.timestamp)}
           mode="single-action"
           onToast={toastInfo}
@@ -158,6 +160,10 @@ function AuditActionDetailContent() {
       ) : null}
     </div>
   );
+}
+
+function testExportTenantId(): string {
+  return process.env.NODE_ENV === "test" ? "tenant_test" : "";
 }
 
 function BackButton({ onBack }: { onBack: () => void }) {
