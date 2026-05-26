@@ -1,0 +1,133 @@
+[[cases]]
+id = "moat-direct"
+prompt = "What is your moat?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "moat-question"
+must_contain = ["workforce graph"]
+max_latency_ms = 300
+
+[[cases]]
+id = "moat-copycat"
+prompt = "What stops a bigger company from copying you?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "moat-question"
+must_contain = ["per-tenant learning loop"]
+max_latency_ms = 300
+
+[[cases]]
+id = "moat-openai"
+prompt = "Why won't OpenAI just build this?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "moat-question"
+must_contain = ["model vendor"]
+max_latency_ms = 300
+
+[[cases]]
+id = "moat-defensible"
+prompt = "What's defensible here?"
+channel = "Chat"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "moat-question"
+must_contain = ["workforce layer"]
+max_latency_ms = 300
+
+[[cases]]
+id = "moat-llm-commodity"
+prompt = "Why pay you when LLMs are commodity?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "build-vs-buy"
+must_contain = ["six months of plumbing"]
+max_latency_ms = 300
+
+[[cases]]
+id = "moat-wrap-gpt"
+prompt = "Can't we just wrap GPT ourselves?"
+channel = "LiveMeeting"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "build-vs-buy"
+must_contain = ["audit trail", "RBAC"]
+max_latency_ms = 300
+
+[[cases]]
+id = "moat-data-network-effects"
+prompt = "Are there network effects in worker learning?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "moat-switching-costs"
+prompt = "What switching costs keep customers around?"
+channel = "Chat"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "moat-open-source-risk"
+prompt = "What if an open-source project clones the runtime?"
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "moat-systems-integrator"
+prompt = "Could a systems integrator assemble the same thing?"
+channel = "LiveMeeting"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "moat-send-diligence"
+prompt = "Can you send diligence material about defensibility?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "data-room"
+must_contain = ["data-room", "email"]
+
+[[cases]]
+id = "moat-follow-up-call"
+prompt = "Can we schedule a moat deep dive?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "calendar"
+must_contain = ["calendar", "email"]

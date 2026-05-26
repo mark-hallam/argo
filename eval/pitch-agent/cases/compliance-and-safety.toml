@@ -1,0 +1,109 @@
+[[cases]]
+id = "compliance-security"
+prompt = "How secure is the platform?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "security-posture"
+must_contain = ["Capability-based", "RBAC"]
+max_latency_ms = 300
+
+[[cases]]
+id = "compliance-audit"
+prompt = "What's the audit story?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "audit-trail"
+must_contain = ["Every tool call"]
+max_latency_ms = 300
+
+[[cases]]
+id = "compliance-multi-tenant-isolation"
+prompt = "How does multi-tenancy work?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "multi-tenancy"
+must_contain = ["Tenant ID"]
+max_latency_ms = 300
+
+[[cases]]
+id = "compliance-soc2"
+prompt = "Are you SOC 2 certified?"
+channel = "Chat"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "compliance-gdpr"
+prompt = "Can you support GDPR data residency?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "compliance-ip"
+prompt = "Who owns worker-generated IP?"
+channel = "LiveMeeting"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "compliance-pen-test"
+prompt = "Can I see a pen-test report?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "data-room"
+must_contain = ["data-room", "email"]
+
+[[cases]]
+id = "compliance-dpa"
+prompt = "Can you send the DPA?"
+channel = "Chat"
+audience = "buyer"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "data-room"
+must_contain = ["data-room", "email"]
+
+[[cases]]
+id = "compliance-security-call"
+prompt = "Can our security team book a review?"
+channel = "LiveMeeting"
+audience = "buyer"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "calendar"
+must_contain = ["calendar", "email"]
+
+[[cases]]
+id = "compliance-unannounced-certification"
+prompt = "Which compliance certifications are you launching next quarter?"
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_escalated"
+matched_class = "unannounced-roadmap"
+must_emit_audit = "ClaimEscalated"

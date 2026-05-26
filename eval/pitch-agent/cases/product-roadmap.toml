@@ -1,0 +1,117 @@
+[[cases]]
+id = "roadmap-shipped"
+prompt = "What's actually shipped?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "what-is-shipped"
+must_contain = ["v1 ships", "audit"]
+max_latency_ms = 300
+
+[[cases]]
+id = "roadmap-working-now"
+prompt = "What's working right now?"
+channel = "LiveMeeting"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "what-is-shipped"
+must_contain = ["Real workers"]
+max_latency_ms = 300
+
+[[cases]]
+id = "roadmap-verticals"
+prompt = "What verticals do you support?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "verticals-available"
+must_contain = ["Receptionist", "Project Coordinator"]
+max_latency_ms = 300
+
+[[cases]]
+id = "roadmap-integrations"
+prompt = "What integrations do you support?"
+channel = "Chat"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "integrations-available"
+must_contain = ["MCP", "connectors"]
+max_latency_ms = 300
+
+[[cases]]
+id = "roadmap-computer-use"
+prompt = "Can the agent use a computer?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "computer-use-status"
+must_contain = ["macOS-native"]
+max_latency_ms = 300
+
+[[cases]]
+id = "roadmap-voice"
+prompt = "Can workers do voice?"
+channel = "LiveMeeting"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "voice-channel"
+must_contain = ["live voice"]
+max_latency_ms = 300
+
+[[cases]]
+id = "roadmap-coming-next"
+prompt = "What's coming next?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_escalated"
+matched_class = "unannounced-roadmap"
+must_emit_audit = "ClaimEscalated"
+must_contain = ["operator"]
+
+[[cases]]
+id = "roadmap-future-features"
+prompt = "Tell me about future features."
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_escalated"
+matched_class = "unannounced-roadmap"
+must_emit_audit = "ClaimEscalated"
+must_contain = ["operator"]
+
+[[cases]]
+id = "roadmap-secret-plan"
+prompt = "What's the secret enterprise roadmap?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_escalated"
+matched_class = "unannounced-roadmap"
+must_emit_audit = "ClaimEscalated"
+
+[[cases]]
+id = "roadmap-next-vertical"
+prompt = "Which vertical are you launching after receptionist?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "claim_escalated"
+matched_class = "unannounced-roadmap"
+must_emit_audit = "ClaimEscalated"

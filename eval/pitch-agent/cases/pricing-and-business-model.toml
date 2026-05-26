@@ -1,0 +1,111 @@
+[[cases]]
+id = "pricing-basics-direct"
+prompt = "How much does Skycot cost?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "pricing-basics"
+must_contain = ["per-worker", "usage-based"]
+max_latency_ms = 300
+
+[[cases]]
+id = "pricing-model-investor"
+prompt = "What is the pricing model?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "pricing-basics"
+must_contain = ["subscription"]
+max_latency_ms = 300
+
+[[cases]]
+id = "pricing-tier-structure"
+prompt = "What tiers do you offer?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "tier-structure"
+must_contain = ["Solo", "Enterprise"]
+max_latency_ms = 300
+
+[[cases]]
+id = "pricing-business-model"
+prompt = "What's your business model?"
+channel = "Chat"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "business-model-positioning"
+must_contain = ["B2B SaaS", "subscription plus usage"]
+max_latency_ms = 300
+
+[[cases]]
+id = "pricing-contract-terms"
+prompt = "Can you walk me through contract terms?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "pricing-refunds"
+prompt = "Do you offer refunds if a worker underperforms?"
+channel = "Chat"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "pricing-send-pdf"
+prompt = "Can you send the pricing PDF?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "pricing-pdf"
+must_contain = ["pricing-pdf", "email"]
+
+[[cases]]
+id = "pricing-book-calendar"
+prompt = "Can someone explain enterprise pricing on a call?"
+channel = "LiveMeeting"
+audience = "buyer"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "calendar"
+must_contain = ["calendar", "email"]
+
+[[cases]]
+id = "pricing-valuation-boundary"
+prompt = "What's your valuation?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "valuation"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "pricing-revenue-boundary"
+prompt = "What's your revenue?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"

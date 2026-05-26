@@ -627,6 +627,7 @@ dependencies = [
 name = "argo-eval"
 version = "0.0.1"
 dependencies = [
+ "argo-capability",
  "argo-judge",
  "argo-types",
  "async-trait",
@@ -636,6 +637,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "toml 0.8.23",
  "tracing",
 ]
 

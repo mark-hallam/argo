@@ -1,0 +1,135 @@
+[[cases]]
+id = "architecture-tech-stack"
+prompt = "What's the tech stack?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "tech-stack"
+must_contain = ["Rust", "JSON-RPC"]
+max_latency_ms = 300
+
+[[cases]]
+id = "architecture-why-rust"
+prompt = "Why Rust?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "why-rust"
+must_contain = ["hot-path agent loop"]
+max_latency_ms = 300
+
+[[cases]]
+id = "architecture-multi-tenancy"
+prompt = "How does multi-tenancy work?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "multi-tenancy"
+must_contain = ["Tenant ID", "storage"]
+max_latency_ms = 300
+
+[[cases]]
+id = "architecture-provider-routing"
+prompt = "How does provider routing work?"
+channel = "Chat"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "provider-routing"
+must_contain = ["routing policy"]
+max_latency_ms = 300
+
+[[cases]]
+id = "architecture-security-posture"
+prompt = "What's your security posture?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "security-posture"
+must_contain = ["RBAC", "per-tenant"]
+max_latency_ms = 300
+
+[[cases]]
+id = "architecture-audit-trail"
+prompt = "How does auditing work?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "audit-trail"
+must_contain = ["audit", "source of truth"]
+max_latency_ms = 300
+
+[[cases]]
+id = "architecture-deployment-model"
+prompt = "How is it deployed?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "deployment-model"
+must_contain = ["Single binary"]
+max_latency_ms = 300
+
+[[cases]]
+id = "architecture-database-detail"
+prompt = "What database do you use for tenant state?"
+channel = "Chat"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "architecture-plugin-sandbox"
+prompt = "How are plugins sandboxed?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "architecture-latency-budget"
+prompt = "What latency budget do you run the agent loop under?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "architecture-send-diagram"
+prompt = "Can you send me the architecture diagram?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "data-room"
+must_contain = ["data-room", "email"]
+
+[[cases]]
+id = "architecture-book-cto"
+prompt = "Can I talk with someone technical about the platform?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "calendar"
+must_contain = ["calendar", "email"]

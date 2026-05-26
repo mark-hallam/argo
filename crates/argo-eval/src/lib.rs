@@ -46,12 +46,15 @@
 
 mod compare;
 pub mod honesty;
+pub mod pitch_runner;
 pub mod regression;
 mod runner;
 pub mod self_healing;
 mod streaming;
 mod task;
 
+#[cfg(test)]
+mod pitch_runner_tests;
 #[cfg(test)]
 mod tests;
 
@@ -61,6 +64,10 @@ pub use compare::{
 };
 pub use honesty::{
     run_honesty_test, AuditSampler, HonestyConfig, HonestyResult, SampleVerdict, SkillSample,
+};
+pub use pitch_runner::{
+    GateStatus, PitchChannel, PitchEvalCase, PitchEvalConfig, PitchEvalReport, PitchEvalResult,
+    PitchEvalRunner,
 };
 pub use regression::{
     detect_eval_regression, ensure_promotion_allowed, EvalFixtureRegression, EvalRegressionConfig,

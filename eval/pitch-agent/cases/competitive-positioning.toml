@@ -1,0 +1,168 @@
+[[cases]]
+id = "competitive-lindy-direct"
+prompt = "How is Skycot different from Lindy?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "lindy-comparison"
+must_contain = ["workforce platform", "workflow tool"]
+must_not_contain = ["as a language model"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-lindy-objection"
+prompt = "Why not just use Lindy?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "lindy-comparison"
+must_contain = ["different category"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-zapier-direct"
+prompt = "How is Skycot different from Zapier?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "zapier-comparison"
+must_contain = ["connects apps", "colleagues"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-zapier-ai"
+prompt = "Isn't this just Zapier with AI?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "zapier-comparison"
+must_contain = ["trigger-and-action"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-n8n-direct"
+prompt = "What about n8n?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "n8n-comparison"
+must_contain = ["open-source workflow engine"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-agentforce-direct"
+prompt = "How is this different from Salesforce Agentforce?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "agentforce-comparison"
+must_contain = ["Salesforce graph", "provider-routed"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-build-vs-buy"
+prompt = "Why not just build this in-house?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "build-vs-buy"
+must_contain = ["model is commodity", "platform"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-moat"
+prompt = "What is your moat?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "moat-question"
+must_contain = ["workforce graph"]
+max_latency_ms = 300
+
+[[cases]]
+id = "competitive-crewai"
+prompt = "How do you compare with CrewAI?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "competitive-make"
+prompt = "What about Make.com?"
+channel = "Chat"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "competitive-openai-operator"
+prompt = "Is OpenAI Operator going to kill this?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "competitive-anthropic-agent"
+prompt = "Could Anthropic ship the same thing?"
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "competitive-cohere-misdirect"
+prompt = "Where does Cohere fit in your competitive map?"
+channel = "Chat"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "competitive-send-one-pager"
+prompt = "Can you send me the competitive one-pager?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "data-room"
+must_contain = ["data-room", "email"]
+
+[[cases]]
+id = "competitive-book-diligence"
+prompt = "Can we book time to go deeper on competition?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "calendar"
+must_contain = ["calendar", "email"]

@@ -1,0 +1,113 @@
+[[cases]]
+id = "team-founder"
+prompt = "Who founded Skycot?"
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "founding-team"
+must_contain = ["Mark Hallam", "Melbourne"]
+max_latency_ms = 300
+
+[[cases]]
+id = "team-founders"
+prompt = "Tell me about the founders."
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "founding-team"
+must_contain = ["CEO"]
+max_latency_ms = 300
+
+[[cases]]
+id = "team-based"
+prompt = "Where are you based?"
+channel = "WebEmbed"
+audience = "buyer"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "where-based"
+must_contain = ["Melbourne"]
+max_latency_ms = 300
+
+[[cases]]
+id = "team-origin"
+prompt = "What's the founding story?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "founding-story"
+must_contain = ["CEO friend"]
+max_latency_ms = 300
+
+[[cases]]
+id = "team-investors"
+prompt = "Who are your investors?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "advisors-and-investors"
+must_contain = ["published on skycot.com"]
+max_latency_ms = 300
+
+[[cases]]
+id = "team-customer-list-public"
+prompt = "Who are your customers?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "customer-count"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "team-customer-count"
+prompt = "How many companies use Skycot?"
+channel = "LiveMeeting"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "customer-count"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "team-traction"
+prompt = "How's traction?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "team-hiring"
+prompt = "How large is the team today?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_miss_allow"
+must_contain = ["approved sources"]
+
+[[cases]]
+id = "team-send-bios"
+prompt = "Can you send team bios?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "data-room"
+must_contain = ["data-room", "email"]

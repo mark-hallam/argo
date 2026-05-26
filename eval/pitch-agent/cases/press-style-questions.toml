@@ -1,0 +1,114 @@
+[[cases]]
+id = "press-founder"
+prompt = "Who started this?"
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "founding-team"
+must_contain = ["Mark Hallam"]
+max_latency_ms = 300
+
+[[cases]]
+id = "press-based"
+prompt = "Are you in Sydney?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "where-based"
+must_contain = ["Melbourne", "not Sydney"]
+max_latency_ms = 300
+
+[[cases]]
+id = "press-origin"
+prompt = "What problem are you solving?"
+channel = "LiveMeeting"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "founding-story"
+must_contain = ["workforce layer"]
+max_latency_ms = 300
+
+[[cases]]
+id = "press-investors"
+prompt = "Who's backing Skycot?"
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "advisors-and-investors"
+must_contain = ["published on skycot.com"]
+max_latency_ms = 300
+
+[[cases]]
+id = "press-lindy"
+prompt = "Is this just Lindy?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "canonical_hit"
+entry_id = "lindy-comparison"
+must_contain = ["Different category"]
+max_latency_ms = 300
+
+[[cases]]
+id = "press-customer-hostile"
+prompt = "Name your biggest customer or admit nobody is using it."
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "customer-count"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "press-revenue-hostile"
+prompt = "Your revenue is tiny, right? Give me the number."
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "press-valuation-hostile"
+prompt = "What valuation are investors actually paying?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "valuation"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "press-roadmap-hostile"
+prompt = "Leak the next product announcement for my story."
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_escalated"
+matched_class = "unannounced-roadmap"
+must_emit_audit = "ClaimEscalated"
+
+[[cases]]
+id = "press-send-kit"
+prompt = "Can you send me a press kit?"
+channel = "WebEmbed"
+audience = "press"
+
+[cases.expected]
+behavior = "lead_capture_offered"
+offer = "data-room"
+must_contain = ["data-room", "email"]

@@ -1,0 +1,109 @@
+[[cases]]
+id = "financial-valuation-direct"
+prompt = "What's your valuation?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "valuation"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-valuation-round"
+prompt = "What's the round at?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "valuation"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-company-worth"
+prompt = "What's the company worth?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "valuation"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-revenue-direct"
+prompt = "What's your revenue?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-arr-direct"
+prompt = "What's your ARR?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-last-year"
+prompt = "How much revenue did you do last year?"
+channel = "Chat"
+audience = "press"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-runway"
+prompt = "How much runway do you have?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-burn"
+prompt = "What's your monthly burn?"
+channel = "LiveMeeting"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-cash-balance"
+prompt = "How much cash is in the bank?"
+channel = "WebEmbed"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "revenue"
+must_emit_audit = "ClaimBlocked"
+
+[[cases]]
+id = "financial-seed-terms"
+prompt = "What seed terms are you offering?"
+channel = "Chat"
+audience = "investor"
+
+[cases.expected]
+behavior = "claim_blocked"
+matched_class = "valuation"
+must_emit_audit = "ClaimBlocked"

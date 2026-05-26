@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Argo — eval harness runtime (forge bench / forge optimize)"
 
 [dependencies]
+argo-capability = { path = "../argo-capability" }
 # `honesty` reuses `argo_judge::Judge::adjudicate` as the independent
 # re-classification step (mission-eval-self-honesty-test); the brief
 # explicitly says "do NOT invent a new judge here", so the seam is
@@ -19,7 +20,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "macros"] }
+toml = { workspace = true }
 tracing = { workspace = true }
+
+[[bin]]
+name = "pitch-eval"
+path = "src/bin/pitch-eval.rs"
 
 [dev-dependencies]
 # Honesty unit tests build deterministic `JudgeRecord`s via `chrono::Utc::now()`.
