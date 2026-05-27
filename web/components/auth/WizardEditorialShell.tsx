@@ -416,7 +416,7 @@ export function WizardEditorialShell({
             GDPR ARTICLE 30
           </span>
           <span className="wiz-foot-item">
-            <strong>2,847</strong>COMPANIES THIS MONTH
+            <strong>Founding 100</strong> · Early access cohort
           </span>
         </footer>
       </div>

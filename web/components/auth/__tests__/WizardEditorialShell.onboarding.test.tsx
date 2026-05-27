@@ -52,7 +52,10 @@ describe("Onboarding adoption of WizardEditorialShell", () => {
     render(wrap(<WelcomePage />));
     expect(screen.getByTestId("wiz-shell-hero")).toBeInTheDocument();
     expect(screen.getByTestId("wiz-shell-eyebrow")).toBeInTheDocument();
-    expect(screen.getByTestId("wiz-shell-trust")).toBeInTheDocument();
+    const trust = screen.getByTestId("wiz-shell-trust");
+    expect(trust).toBeInTheDocument();
+    expect(trust.textContent ?? "").not.toMatch(/2,?847/);
+    expect(trust.textContent ?? "").toMatch(/Founding 100/);
     expect(screen.getByTestId("wiz-shell-brand")).toBeInTheDocument();
     expect(screen.getByTestId("wiz-shell-exit")).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-pillar-audit-first").textContent)
