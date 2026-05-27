@@ -10,14 +10,17 @@ import { WelcomeBackBanner } from "@/components/ui/welcome-back-banner";
 
 /**
  * Default per-tab `<title>` for the (app) group. Individual routes
- * override via their own `layout.tsx` metadata. Without this, every
- * authed page falls back to the root layout's "SKYCOT — Hire your
- * first AI teammate" — a marketing title leaking onto the product
- * tabs on camera.
+ * override via their own `layout.tsx` metadata. The default is
+ * deliberately neutral ("SKYCOT") so any page lacking its own
+ * metadata reads brand-correct rather than leaking a sibling route's
+ * label (the original "Approvals" default leaked onto /genesis,
+ * /brand, /retro, /billing and 4 others — visible in the tab bar
+ * during demo recording). Lint pin lives at
+ * `scripts/check-route-metadata.sh`.
  */
 export const metadata: Metadata = {
   title: {
-    default: "Approvals",
+    default: "SKYCOT",
     template: "%s · SKYCOT",
   },
 };

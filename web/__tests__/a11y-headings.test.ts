@@ -38,6 +38,9 @@ const H1_PROVIDERS = [
   "TicketThread",
   "WorkflowDiff",
   "BuilderToolbar",
+  // `(app)/page.tsx` is a server-only metadata wrapper; the h1 lives
+  // in the extracted client component imported as `ApprovalsInboxPage`.
+  "ApprovalsInboxPage",
 ];
 
 function walk(dir: string): string[] {

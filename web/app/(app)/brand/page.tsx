@@ -2,6 +2,8 @@ import "./page.css";
 
 import type { ReactNode } from "react";
 
+export const metadata = { title: "Brand" };
+
 import {
   Check,
   CircleAlert,
