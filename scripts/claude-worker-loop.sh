@@ -563,18 +563,51 @@ the next iteration.
   rm -f "$PULSE_FILE"
   kill "$PULSE_PID" 2>/dev/null || true
 
-  # Quota detection — race-free. Previously this used `tee >(grep ... > sentinel)`
-  # process substitution, which bash does NOT wait for; the [ -s "$QUOTA_HIT" ]
-  # check ran before grep flushed its match, so when claude exited with
-  # `result: success` (which it does when the limit message is rendered as a
-  # successful assistant turn), the auto-resume guard silently fell through and
-  # the next iteration also hit quota. Result: tabs that hit quota a second
-  # time never auto-recovered.
+  # Quota detection — race-free + resilient to CLI wording changes.
   #
-  # Fix: $LOG_FILE is the raw stream-json, fully synced to disk by the inline
+  # $LOG_FILE is the raw stream-json, fully synced to disk by the inline
   # `tee "$LOG_FILE"` above. Grep it AFTER the pipeline closes — no race.
-  RESET_LINE=$(grep -oE "You.ve hit your (limit|usage)[^\\\"]+" "$LOG_FILE" 2>/dev/null | head -1 || true)
+  #
+  # Anthropic emits any/all of three signals when the session limit hits:
+  #   (1) "api_error_status":429   on the result line (HTTP 429)
+  #   (2) "error":"rate_limit"     on the assistant message
+  #   (3) "You've hit your <kind> limit · resets HH:MMam|pm (TZ)" text,
+  #       where <kind> has historically been: "" / "usage" / "session".
+  #
+  # (1) and (2) are structural — they will not silently change with CLI
+  # wording tweaks. (3) is what we need to compute the sleep duration.
+  #
+  # History: previously the trigger was a narrow text regex
+  #   "You.ve hit your (limit|usage)[^\"]+"
+  # which matched the older "You've hit your limit" / "You've hit your
+  # usage limit" wording. Anthropic changed it to "You've hit your SESSION
+  # limit" — the regex silently stopped matching, $QUOTA_HIT never got
+  # written, the quota block below was skipped, the ship-check ran, and the
+  # loop burned through TODO rows zombie-releasing each one while hammering
+  # the 429 wall every ~30s.
+  #
+  # Now: fire if ANY signal matches. Use the broadened text regex (any word
+  # between "your" and "limit") for reset-time extraction. The text regex
+  # requires a literal digit immediately after "resets " — this rejects
+  # placeholder strings like "resets HH:MMam" that can otherwise sneak into
+  # the log when a worker's git-diff tool reads source comments containing
+  # example wording (e.g., this very file's comment block). Structural
+  # signals are immune to that escape-survival problem because JSON quoting
+  # inserts backslashes before the quote characters, breaking the byte
+  # sequence grep looks for. Fall back to a 1h default sleep in the python
+  # parser if text extraction misses.
+  QUOTA_HIT_DETECTED=""
+  if grep -qE '"api_error_status":429|"error":"rate_limit"' "$LOG_FILE" 2>/dev/null; then
+    QUOTA_HIT_DETECTED=1
+  fi
+  RESET_LINE=$(grep -oE "You.ve hit your [^\"]*limit[^\"]*resets [0-9][^\"]*[ap]m[^\"]*\([^)]*\)" "$LOG_FILE" 2>/dev/null | head -1 || true)
   if [ -n "$RESET_LINE" ]; then
+    QUOTA_HIT_DETECTED=1
+  fi
+  if [ -n "$QUOTA_HIT_DETECTED" ]; then
+    if [ -z "$RESET_LINE" ]; then
+      RESET_LINE="Anthropic rate-limit (429) — no reset-time text parsed; defaulting to 1h sleep"
+    fi
     echo "$RESET_LINE" > "$QUOTA_HIT"
   fi
 
