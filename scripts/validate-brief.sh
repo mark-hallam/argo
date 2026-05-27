@@ -63,9 +63,22 @@ for section in "## Why" "## Approach" "## Files you may touch" "## Acceptance cr
 done
 
 # 2. Owner + dependencies declared
-echo "[2/8] Checking ownership header..." >&2
-if ! grep -qE '\*\*Owner\*\*:[[:space:]]*(claude|codex)' "$BRIEF"; then
-    err "missing **Owner**: claude|codex header"
+# 2026-05-27: Owner header check relaxed — workers now claim any TODO row
+# regardless of owner column value (see scripts/claude-worker-loop.sh:220
+# comment for full context). Owner header is informational/sizing hint
+# only; any non-empty value is accepted (e.g. "claude", "codex",
+# "claude or codex", "any"). Briefs lacking the header are warned but
+# not failed — sets up future briefs to skip the header entirely if
+# the operator chooses.
+echo "[2/8] Checking ownership header (informational; any non-empty value OK)..." >&2
+if grep -qE '\*\*Owner\*\*:[[:space:]]*[^[:space:]]' "$BRIEF"; then
+    : # any non-empty Owner is fine
+elif grep -qE '\*\*Owner\*\*:' "$BRIEF"; then
+    # header present but empty value → soft warn
+    printf 'WARN: %s has empty **Owner**: header (acceptable — informational only)\n' "$BRIEF" >&2
+else
+    # no header at all → soft warn, not error
+    printf 'WARN: %s missing **Owner**: header (acceptable post-2026-05-27 — workers ignore the field)\n' "$BRIEF" >&2
 fi
 if ! grep -qE '\*\*Depends on\*\*:' "$BRIEF"; then
     err "missing **Depends on**: header (use 'nothing' if no deps)"

@@ -180,6 +180,16 @@ speedup vs unconfigured.
     `codex-`) is a sizing HINT, not a hard ownership lock — any worker
     may claim any TODO row regardless of prefix.
 
+    > **2026-05-27 — code-doc alignment.** The worker-loop awk-pattern
+    > and supervisor's zombie-release regex were both **strict** on the
+    > owner column (`(claude|codex)` exact-match) prior to commit
+    > `9bd9fd4c6`-onwards. That contradicted this rule for 6+ months —
+    > rows with owner `claude or codex` were silently invisible to
+    > workers despite the docs saying any worker may claim them. As of
+    > 2026-05-27 the code matches the doc: any TODO row's owner column
+    > can be any non-empty string. The post-claim row preserves the
+    > original owner value verbatim (no normalization).
+
 ### Boundary exceptions to HARD RULE 5
 
 Two standing allowances apply automatically:

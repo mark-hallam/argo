@@ -215,7 +215,12 @@ release_wait_loop_claim() {
   git -C "$REPO" checkout main >/dev/null 2>&1
   git -C "$REPO" pull --ff-only origin main >/dev/null 2>&1
 
-  if grep -qE "^\| ${brief_id} \| (claude|codex) \| CLAIMED \|" "$REPO/docs/build-plan/BUILD_STATUS.md" 2>/dev/null; then
+  # 2026-05-27: owner-column regex relaxed from "(claude|codex)" exact-match
+  # to permissive ([^|]+). Companion change to scripts/claude-worker-loop.sh
+  # awk-pattern relaxation — both reads must accept any owner-column value
+  # for zombie-release to find rows that were claimed with non-canonical
+  # owner strings (e.g. "claude or codex").
+  if grep -qE "^\| ${brief_id} \| [^|]+ \| CLAIMED \|" "$REPO/docs/build-plan/BUILD_STATUS.md" 2>/dev/null; then
     python3 - "$brief_id" "$REPO/docs/build-plan/BUILD_STATUS.md" "$ndjson_log" <<'PY'
 import pathlib
 import re
@@ -230,7 +235,10 @@ note = (
     f"/tmp/{brief_id} may have salvageable WIP. Log: {ndjson_log}."
 )
 pattern = re.compile(
-    rf"^(\| {re.escape(brief_id)} \| (?:claude|codex)) \| CLAIMED \|(.*) \|$",
+    # 2026-05-27: owner-column relaxed from "(?:claude|codex)" to "[^|]+"
+    # — companion to scripts/claude-worker-loop.sh permissive claim. Owner
+    # is preserved verbatim in the rewrite (we only flip CLAIMED → TODO).
+    rf"^(\| {re.escape(brief_id)} \| [^|]+) \| CLAIMED \|(.*) \|$",
     re.MULTILINE,
 )
 new, count = pattern.subn(

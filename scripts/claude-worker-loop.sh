@@ -217,7 +217,17 @@ while true; do
     BRIEF_ID="$candidate"
     break
   done < <(awk -F'|' '
-    /^\| .* \| (claude|codex) \| TODO \|/ {
+    # 2026-05-27: regex relaxed from "(claude|codex)" exact-match in field 3
+    # (owner column) to permissive — workers claim ANY TODO row regardless of
+    # owner column content. Aligns with the documented behavior in
+    # docs/build-plan/SWARM_PROTOCOL.md:180 ("any worker may claim any TODO row
+    # regardless of prefix") and PROTOCOL.md:170 ("owner column is a sizing
+    # hint, not a hard lock"). The prior strict regex silently skipped rows
+    # whose owner column wasn'\''t exactly "claude" or "codex" (e.g. "claude or
+    # codex" became invisible to workers — caught by the 2026-05-27T08:00Z
+    # audit that found R97 P0 substrate fix had been sitting unclaimed for 3
+    # hours). Status column (field 4) must be TODO; everything else is open.
+    /^\| .* \| .* \| TODO \|/ {
       gsub(/^[ \t]+|[ \t]+$/, "", $2)
       print $2
     }' docs/build-plan/BUILD_STATUS.md)
