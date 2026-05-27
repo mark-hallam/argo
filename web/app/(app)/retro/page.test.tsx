@@ -81,9 +81,27 @@ afterEach(() => {
 });
 
 describe("RetroIndexPage", () => {
-  it("renders the empty-state when no retros come back", async () => {
+  it("renders a skeleton during the pending fetch, not a literal 'Loading…' string", () => {
+    let resolveFetch: (v: RetrosListResult) => void = () => undefined;
+    mockedFetchRetros.mockImplementation(
+      () =>
+        new Promise<RetrosListResult>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    render(<Wrapper />);
+    expect(screen.getByTestId("retro-index-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading retros/i)).not.toBeInTheDocument();
+    resolveFetch({ items: [], source: "mock-offline" });
+  });
+
+  it("renders the empty-state with a CTA when no retros come back and no query is set", async () => {
     render(<Wrapper />);
     expect(await screen.findByTestId("retro-index-empty")).toBeInTheDocument();
+    const cta = screen.getByTestId("retro-index-empty-cta");
+    expect(cta).toBeInTheDocument();
+    expect(cta).toHaveAttribute("href", "/workers");
+    expect(screen.queryByText(/Loading retros/i)).not.toBeInTheDocument();
   });
 
   it("renders a card per retro and a finalised badge for locked rows", async () => {

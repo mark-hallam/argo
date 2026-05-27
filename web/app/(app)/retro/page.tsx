@@ -32,6 +32,8 @@ import {
   type RetroSectionKey,
 } from "@/lib/api/retros";
 import { useRetrosIndex } from "@/lib/hooks/use-retros";
+import { RetroEmptyState } from "@/components/skycot/retro/RetroEmptyState";
+import { RetroListSkeleton } from "@/components/skycot/retro/RetroListSkeleton";
 
 const URL_DEBOUNCE_MS = 150;
 
@@ -135,12 +137,7 @@ function RetroIndexContent() {
 
       <div className="mt-6">
         {retros.isPending ? (
-          <p
-            data-testid="retro-index-loading"
-            className="text-sm text-[var(--muted-foreground)]"
-          >
-            Loading retros…
-          </p>
+          <RetroListSkeleton />
         ) : retros.isError ? (
           <p
             data-testid="retro-index-error"
@@ -149,7 +146,7 @@ function RetroIndexContent() {
             Couldn&apos;t load retros — try again.
           </p>
         ) : items.length === 0 ? (
-          <EmptyState q={q} />
+          <RetroEmptyState q={q} />
         ) : (
           <ul className="space-y-3" data-testid="retro-index-list">
             {items.map((r) => (
@@ -160,24 +157,6 @@ function RetroIndexContent() {
           </ul>
         )}
       </div>
-    </div>
-  );
-}
-
-function EmptyState({ q }: { q: string }) {
-  return (
-    <div
-      data-testid="retro-index-empty"
-      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-12 px-6 text-center space-y-3"
-    >
-      <h2 className="text-base font-semibold text-[var(--foreground)]">
-        {q ? "No retros match your search" : "No retros yet"}
-      </h2>
-      <p className="text-sm text-[var(--muted-foreground)]">
-        {q
-          ? "Try a broader theme — sections are searched case-insensitively."
-          : "Run a retro from a worker profile after a long-running schedule wraps."}
-      </p>
     </div>
   );
 }
