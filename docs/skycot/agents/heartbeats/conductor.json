@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-27T21:11:00Z",
+  "last_run_utc": "2026-05-27T23:35:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T07-11-aest-scheduled-merged-pr-2577-evaluator-pre-verified-lane",
-  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T21:05Z UTC (Melbourne 07:11 AEST 28 May). PRIMARY ACTION: admitted PR #2577 (fix-gateway-audit-feed-serializer-worker-name-uuid-not-joined) under --skip-clippy evaluator-pre-verified lane per evaluator round 108 S2 PRE-MERGE PASS (head SHA edbef58dc; 40-min freshness within 6h window). Gate 8/9 PASS all green: zero-caller-substrate 53 wired / 38 allowlisted / 0 missing; LOC budget 500 hard ceiling clean; test-compile 90s; anti-theater scan clean. Ledger row IN_REVIEW->MERGED, status commit pushed (0bc2c7df2). Closes UX-AUDIT scene-6 F7. Step-4 checks: gateway v83/v84 drift=1 FRESH; 4 findings-only within 3-days-remaining budget; LATEST.md audit 4 days old (no fresh <=12h P0s); recent-conductor-commit check EXIT=0 (no short-circuit). Step-4.5b unread-handoffs 3 entries actioned: (1) supervisor-watchdog 20:17Z informational/IDLE - read; (2) evaluator round 108 - actioned PR #2577 admit per recommendation; (3) supervisor-watchdog 20:46Z informational/IDLE - read. Step-4.5c pilot evaluator-authored-brief tag - no `[evaluator-authored-brief]` tagged lines in this batch (round 108 was scenario-evaluation only, no new briefs authored). Queue depth: 41 TODO + 7 CLAIMED + 142 IN_REVIEW (above replenishment threshold 25 - no Step 8 needed). v1.0 ship-gate state unchanged: all 6 mission claims green LIVE; only operator-only item (d) demo MP4 record remains. CARRY: (a) supervisor PID 57348 etime 1h+ post-restart per R108 S3 - drift storm closure persisting, no remediation needed unless surfaces R110/R111; (b) gateway v83/v84 carry across 9 rounds R100->R108 - evaluator flagged for `make restart-live-gateway` if hits 12+ rounds (R110/R111 surfaces); (c) PR-2577 evaluator round 95 P1 follow-up brief (`ops-claim-5-add-canonical-argo-binary-cu-smoke-subcommand`) not authored this turn - surfaced for operator. SESSION HYGIENE NOTE: cleaned up stale in-progress cherry-pick of 0a3a5d19f on local main (inherited from prior session) via `git cherry-pick --abort` before ledger commit.",
-  "open_prs": 100,
+  "session_label": "tick-T09-35-aest-scheduled-merged-pr-2600-web-only-relaxation-lane",
+  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T23:33Z UTC (Melbourne 09:35 AEST 28 May). PRIMARY ACTION: admitted PR #2600 (fix-audit-empty-state-distinguish-modes-and-self-hash-jargon) under web-only-relaxation lane per operator authorization 2026-05-26T09:15Z (5 files all web/, 137 LOC total, vitest 30/30 + typecheck + lint clean in body — well within 200 LOC / 5 files threshold). Pre-merge-gate --skip-clippy --skip-tests PASS all 9 gates: zero-caller-substrate 53 wired / 38 allowlisted / 0 missing; LOC budget clean; web-typecheck SKIP (no web/** files in diff — diff scope was crates-relative). Ledger row IN_REVIEW->MERGED, status commit pushed. Closes UX-AUDIT-T2152MEL scene-6 F9 (empty-state mode disambiguation) + F13 (Self-hash → Action hash rename). Step-4 checks: gateway v83/v84 drift=1 FRESH; 4 findings-only within 3-days-remaining budget; LATEST.md audit 4 days old (no fresh <=12h P0s); recent-conductor-commit check EXIT=0 (no short-circuit). Step-4.5b unread-handoffs 2 entries actioned: (1) supervisor-watchdog 21:20Z R5-KILL pid=45738 slot=1 brief='fix-gateway-audit-detail-tenant-resolver-drift-vs-feed' post-completion hang — informational, brief is in flight as PR #2589; (2) supervisor-watchdog 21:20Z status sup=PID:97586/rc:0 s1=R5-killed s2=ACTIVE quota_probe=ok — informational. Step-4.5c pilot evaluator-authored-brief tag — no `[evaluator-authored-brief]` tagged lines in this batch. Queue depth: 230 claude TODO + 130 codex TODO (well above replenishment threshold 25 — no Step 8 needed); 48 open PRs (only #2600 was MERGEABLE; remainder UNKNOWN). v1.0 ship-gate state unchanged: all 6 mission claims green LIVE; only operator-only item (d) demo MP4 record remains. CARRY: (a) supervisor PID 85450 still running pre-#2535 throttle code per prior tick T13-25-aest — operator restart still required for new throttle to engage; (b) gateway v83/v84 drift=1 carry continues, watch for 12+ rounds threshold for `make restart-live-gateway`; (c) UNKNOWN-mergeable PRs (47 of 48) — gh API hadn't computed mergeability at tick time, will resolve on subsequent ticks as github backfills.",
+  "open_prs": 48,
   "queue_state": {
-    "claude_todo": 41,
-    "codex_todo": 0,
+    "claude_todo": 230,
+    "codex_todo": 130,
     "claude_or_codex_todo": 0,
-    "claude_claimed": 7,
+    "claude_claimed": 0,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 141,
+    "claude_in_review": 0,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "Merged PR #2577 (gateway audit feed worker-name join) under --skip-clippy evaluator-pre-verified lane per R108 recommendation; closes scene-6 F7. Ledger flipped IN_REVIEW->MERGED. Gateway FRESH drift=1; supervisor restart still operator-action-required for new throttle to engage.",
+  "the_gate": "Merged PR #2600 (audit empty-state mode disambiguation + Self-hash → Action hash rename) under web-only-relaxation lane; closes UX-AUDIT-T2152MEL scene-6 F9/F13. Ledger flipped IN_REVIEW->MERGED. Gateway FRESH drift=1.",
   "quota_probe": "skip"
 }
