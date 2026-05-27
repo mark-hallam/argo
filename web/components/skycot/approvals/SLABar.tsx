@@ -38,14 +38,18 @@ function tone(remainingMs: number): "ok" | "warn" | "crit" {
 }
 
 function formatRemaining(ms: number): string {
+  // Round-with-carry: compute total minutes first, then split. Splitting BEFORE
+  // rounding (`Math.round((ms - hours*HOUR) / 60_000)`) lets the residual round
+  // up to 60 at e.g. 2h 59m 30s, rendering "2h 60m left" once per hour for ~30s.
   if (ms <= 0) {
-    const overMs = -ms;
-    if (overMs < HOUR) return `over ${Math.round(overMs / 60_000)}m`;
-    return `over ${Math.floor(overMs / HOUR)}h`;
+    const overTotalMinutes = Math.round(-ms / 60_000);
+    if (overTotalMinutes < 60) return `over ${overTotalMinutes}m`;
+    return `over ${Math.floor(overTotalMinutes / 60)}h`;
   }
-  if (ms < HOUR) return `${Math.round(ms / 60_000)}m left`;
-  const hours = Math.floor(ms / HOUR);
-  const minutes = Math.round((ms - hours * HOUR) / 60_000);
+  const totalMinutes = Math.round(ms / 60_000);
+  if (totalMinutes < 60) return `${totalMinutes}m left`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes - hours * 60;
   if (minutes === 0) return `${hours}h left`;
   return `${hours}h ${minutes}m left`;
 }
