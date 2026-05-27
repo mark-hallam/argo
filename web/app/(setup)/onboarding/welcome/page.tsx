@@ -56,8 +56,9 @@ export default function OnboardingWelcomePage() {
           >
             <p className="ob-pillar-label">Onboard them like a human</p>
             <p className="ob-pillar-body">
-              Describe the role in voice or text. Upload SOPs, wiki pages, and Slack
-              threads; we verify they understand before they start.
+              Describe the role in plain English; Skycot synthesises charter, action
+              vocabulary, memory schema, and eval suites. Voice and SOP uploads
+              coming next.
             </p>
           </li>
           <li className="ob-pillar" data-testid="onboarding-pillar-enterprise-grade">

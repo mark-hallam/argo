@@ -53,13 +53,13 @@ describe("onboarding welcome Genesis framing", () => {
     );
     expect(screen.getByText(/onboard your first AI teammate/i)).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toHaveTextContent(
-      /voice or text/i,
+      /plain English/i,
     );
     expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toHaveTextContent(
-      /Upload SOPs, wiki pages, and Slack threads/i,
+      /charter, action vocabulary, memory schema, and eval suites/i,
     );
     expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toHaveTextContent(
-      /verify they understand/i,
+      /Voice and SOP uploads coming next/i,
     );
 
     await user.click(screen.getByTestId("onboarding-welcome-continue"));
