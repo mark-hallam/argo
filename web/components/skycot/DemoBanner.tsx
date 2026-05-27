@@ -38,6 +38,13 @@ export function DemoBanner() {
   // visible in the same y-band), the container is pointer-events:none
   // and only the dismiss button re-enables pointer events. The text is
   // informational and doesn't need interaction.
+  //
+  // The dismiss button gets `relative z-40` so its hit-target sits
+  // above any sibling that scrolls into the banner's y-band on narrow
+  // viewports (e.g. `worker-freeze-button` in
+  // `web/app/(app)/workers/[workerId]/WorkerLayoutShell.tsx`). Without
+  // `relative` the z-index is a no-op because z-index only applies to
+  // positioned elements.
   return (
     <div
       role="status"
@@ -63,7 +70,7 @@ export function DemoBanner() {
               // re-shows next mount.
             }
           }}
-          className="grid size-7 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] transition-colors pointer-events-auto"
+          className="relative z-40 grid size-7 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] transition-colors pointer-events-auto"
         >
           <X className="size-3.5" />
         </button>
