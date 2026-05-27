@@ -2,6 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { apiGet, apiPost, ApiError } from "@/lib/api/client";
+import { findWorkerByName } from "@/lib/api/team";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 const VERIFY_ATTEMPTS = 3;
@@ -163,6 +164,23 @@ export async function firstHire(req: FirstHireRequest): Promise<FirstHireResult>
     await verifyWorkerReadable(raw.worker_id);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
+      // Defence-in-depth: a 404 here historically meant a gateway "ghost
+      // worker" (write/read tenant mismatch). The handler-side fix lives
+      // in `routes_onboarding.rs::first_hire_response`, but if the SPA
+      // still hits 404 (e.g. a future regression of that same class), try
+      // resolving the freshly hired teammate by name against the team
+      // roster before surfacing `FIRST_HIRE_VERIFY_FAILED_MESSAGE`.
+      const fallbackName = raw.worker_name;
+      if (fallbackName) {
+        const hit = await findWorkerByName(fallbackName);
+        if (hit) {
+          return {
+            workerId: hit.id,
+            workerName: hit.name,
+            pending: raw.pending ?? false,
+          };
+        }
+      }
       await emitFirstHireVerifyFailed(raw.worker_id, req.tenantId, req.verticalId);
       throw new ApiError(404, FIRST_HIRE_VERIFY_FAILED_MESSAGE, "first_hire_verify_failed");
     }

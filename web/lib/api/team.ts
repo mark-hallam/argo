@@ -56,6 +56,32 @@ function isMissingOrUnreachable(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
+/**
+ * Defence-in-depth fallback for `verifyWorkerReadable` in
+ * `web/lib/onboarding/use-first-hire.ts`. If the freshly returned
+ * `worker_id` 404s on `/api/v1/workers/{id}/overview` (e.g. a future
+ * gateway regression of the "ghost worker" bug), refetching the team
+ * roster and matching by name lets the wizard recover instead of
+ * surfacing `FIRST_HIRE_VERIFY_FAILED_MESSAGE` to the operator.
+ *
+ * Match is case- and whitespace-insensitive. Returns `null` when the
+ * roster fetch fails OR no worker matches — the caller treats `null` as
+ * "fallback unavailable, surface the original error".
+ */
+export async function findWorkerByName(name: string): Promise<Worker | null> {
+  const target = name.trim().toLowerCase();
+  if (target.length === 0) {
+    return null;
+  }
+  try {
+    const result = await fetchTeam();
+    const hit = result.workers.find((w) => w.name.trim().toLowerCase() === target);
+    return hit ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchTeam(): Promise<FetchTeamResult> {
   if (isAuthBypassed()) {
     // Splice in any session-local hires from the demo roster so the

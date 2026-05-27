@@ -35,11 +35,12 @@ use super::routes_onboarding_genesis::{
     charter_hash, derive_duties, invoke_genesis, synthesise_charter,
 };
 use super::routes_onboarding_helpers::{
-    bad_request, count_skill_files, count_workflow_files, emit_audit, infer_provider,
-    is_workspace_root_key_error, load_vertical, map_workspace_error, mask_key, micros_to_usd,
-    name_from_description, not_found, principal_email, provider_key_storage_error,
-    provider_validation_unconfigured, resolve_workspace, server_error, unauthorized,
-    validate_key_shape, voice_preamble_from_description, wrap_secret, HUMAN_PRINCIPAL_PREFIX,
+    bad_request, count_skill_files, count_workflow_files, cwd_write_tenant, emit_audit,
+    infer_provider, is_workspace_root_key_error, load_vertical, map_workspace_error, mask_key,
+    micros_to_usd, name_from_description, not_found, principal_email,
+    provider_key_storage_error, provider_validation_unconfigured, resolve_workspace, server_error,
+    unauthorized, validate_key_shape, voice_preamble_from_description, wrap_secret,
+    HUMAN_PRINCIPAL_PREFIX,
 };
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
@@ -261,9 +262,21 @@ pub(super) async fn first_hire_response(
         Some(s) if !s.trim().is_empty() => s.trim().to_string(),
         _ => return bad_request("`vertical_id` (non-empty string) is required"),
     };
-    let (tenant, _workspace) = match resolve_workspace(store, &email).await {
-        Ok(pair) => pair,
-        Err(e) => return map_workspace_error(e),
+    // `resolve_workspace` enforces the 401 / 412 provisioning gate; the
+    // returned `(user_tenant, _workspace)` is the user-account-bound pair
+    // and must not be used for the worker write itself. Every read
+    // surface in the gateway (`/api/v1/team`, `/api/v1/workers/{id}/overview`,
+    // `POST /api/v1/workers`) resolves tenant via
+    // `ensure_workspace(name, cwd)`, so writes routed to the user tenant
+    // persist but are invisible — the "ghost worker" symptom that
+    // motivated this brief. Switch the write tenant to the same
+    // CWD-derived row those reads use.
+    if let Err(e) = resolve_workspace(store, &email).await {
+        return map_workspace_error(e);
+    }
+    let tenant = match cwd_write_tenant(store).await {
+        Ok(t) => t,
+        Err(e) => return server_error(&format!("resolve write tenant: {e}")),
     };
     let Some(picked) = load_vertical(&vertical_id) else {
         return not_found(&format!("vertical '{vertical_id}' not found"));
@@ -377,3 +390,7 @@ mod tests;
 #[cfg(test)]
 #[path = "routes_onboarding_first_hire_genesis_tests.rs"]
 mod first_hire_genesis_tests;
+
+#[cfg(test)]
+#[path = "routes_onboarding_first_hire_second_call_tests.rs"]
+mod first_hire_second_call_tests;
