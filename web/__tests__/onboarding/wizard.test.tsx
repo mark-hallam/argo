@@ -60,7 +60,7 @@ describe("Welcome step", () => {
   it("renders the headline and continues to /onboarding/workspace", async () => {
     const user = userEvent.setup();
     render(wrap(<WelcomePage />));
-    expect(screen.getByTestId("wiz-shell-hero")).toHaveTextContent("Build your AI workforce.");
+    expect(screen.getByTestId("wiz-shell-hero")).toHaveTextContent("Hire your first teammate.");
     await user.click(screen.getByTestId("onboarding-welcome-continue"));
     expect(pushMock).toHaveBeenCalledWith("/onboarding/workspace");
   });

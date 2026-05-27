@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
@@ -19,8 +20,8 @@ export default function OnboardingWelcomePage() {
       stepLabel="WELCOME"
       eyebrow="WELCOME TO SKYCOT"
       heroSegments={[
-        { text: "Build your " },
-        { text: "AI workforce.", accent: true },
+        { text: "Hire your " },
+        { text: "first teammate.", accent: true },
       ]}
       sub={
         <>
@@ -43,16 +44,6 @@ export default function OnboardingWelcomePage() {
           <li
             className="ob-pillar"
             data-testid="onboarding-pillar-genesis-studio"
-            role="link"
-            tabIndex={0}
-            style={{ cursor: "pointer" }}
-            onClick={() => router.push("/genesis")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                router.push("/genesis");
-              }
-            }}
           >
             <p className="ob-pillar-label">Onboard them like a human</p>
             <p className="ob-pillar-body">
@@ -82,6 +73,19 @@ export default function OnboardingWelcomePage() {
             </span>
           </button>
         </div>
+        <p
+          className="text-sm opacity-80"
+          data-testid="onboarding-genesis-aside"
+        >
+          Have a stack of role docs to upload?{" "}
+          <Link
+            href="/genesis?return=/onboarding/welcome"
+            data-testid="onboarding-genesis-link"
+            className="underline"
+          >
+            Try Genesis studio &rarr;
+          </Link>
+        </p>
       </section>
     </OnboardingShell>
   );

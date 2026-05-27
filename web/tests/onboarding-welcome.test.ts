@@ -49,7 +49,7 @@ describe("onboarding welcome Genesis framing", () => {
     render(createElement(WelcomePage));
 
     expect(screen.getByTestId("wiz-shell-hero")).toHaveTextContent(
-      "Build your AI workforce.",
+      "Hire your first teammate.",
     );
     expect(screen.getByText(/onboard your first AI teammate/i)).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toHaveTextContent(
