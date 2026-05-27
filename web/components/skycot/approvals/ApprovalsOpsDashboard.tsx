@@ -389,7 +389,13 @@ function ApprovalRow({
         "hover:bg-[var(--muted)]/40 focus-visible:outline-none focus-visible:ring-2",
         "focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
         "focus-visible:ring-offset-[var(--card)]",
-        "lg:grid-cols-[minmax(0,1fr)_7.5rem_5rem_6.5rem_auto]",
+        // md..lg (768-1279px): 4-col grid with tighter widths, actions
+        // wrap to a second visual line via `col-span-4` below. Avoids
+        // the collision F4 documented when the inline action cluster
+        // landed alongside the original 5-col lg template.
+        "md:grid-cols-[minmax(0,1fr)_5.5rem_4rem_5rem]",
+        // xl (>=1280px): restore the full single-line 5-col layout.
+        "xl:grid-cols-[minmax(0,1fr)_7.5rem_5rem_6.5rem_auto]",
       )}
     >
       <div className="flex min-w-0 gap-3">
@@ -419,7 +425,7 @@ function ApprovalRow({
       <span className="self-center">
         {item.slaExpiresAt ? <SLABar expiresAt={item.slaExpiresAt} /> : null}
       </span>
-      <span className="self-center lg:text-right">
+      <span className="self-center md:text-right">
         <DollarAtRisk amount={item.dollarAtRisk} currency={item.currency} />
       </span>
       <span className="self-center">
@@ -429,7 +435,7 @@ function ApprovalRow({
           <span className="text-xs text-[var(--muted-foreground)]">No confidence</span>
         )}
       </span>
-      <span className="self-center justify-self-end">
+      <span className="self-center justify-self-end md:col-span-4 xl:col-span-1">
         <ApprovalRowActions
           approvalId={item.id}
           severity={severity}
