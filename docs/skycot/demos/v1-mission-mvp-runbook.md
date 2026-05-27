@@ -95,8 +95,13 @@ worker_ids, identical names, vertical ids, duty entries, and
 memory namespaces. One worker is re-summoned by name post-restart.
 
 **Visual / operator action**:
-1. Start on `/workers` with five workers already hired (Mariah,
-   Peta, Priya, Jamal, Nori). Brand-loud trading-card deck visible.
+1. Operator types `/workers` in the address bar; the SPA redirects
+   to `/team` (canonical roster surface — see
+   `web/app/(app)/workers/page.tsx`), so the camera lands on
+   `/team` with five workers already hired (Mariah, Peta, Priya,
+   Jamal, Nori). Brand-loud trading-card deck visible. (Drop the
+   redirect step and start on `/workers` once
+   `fix-workers-redirect-to-team-url-flicker` (#2370) lands.)
 2. Operator stops the gateway in the off-screen terminal.
 3. Operator restarts the gateway. Browser auto-refreshes.
 4. Same five workers reappear — same names, same avatars, same
@@ -167,6 +172,15 @@ within 60 seconds, tagged with the worker's `tenant_id` and the
 fired `duty_id`.
 
 **Timing**: 1:20 – 2:30 (70 s).
+
+> **Vocab pin** — Scene 2 narration uses the words the on-camera UI
+> actually renders. Personality is a **card on Overview** (not a
+> tab). Responsibilities is a **card on Overview** (not a tab; no
+> "Schedules" tab exists). The visible worker-detail tabs are
+> pinned against `web/components/skycot/WorkerTabs.tsx`
+> (`WORKER_TAB_IDS` / `WORKER_TAB_LABELS`): Overview, Activity,
+> Memory, Skills, Trust, Escalation, Settings. If you rename, add,
+> or remove a tab there, re-check this scene before recording.
 
 ---
 
