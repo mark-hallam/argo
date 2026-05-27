@@ -1,11 +1,15 @@
 /**
- * Acceptance test for
- * `fix-onboarding-pick-vertical-demo-mode-honest-install-relabel`.
+ * Acceptance test for the demo-mode pick-vertical pattern.
  *
- * Pins the honest-relabel pattern: in demo mode the subtitle does NOT
- * claim "We install ..." as a present-tense action, and each tile
- * carries a "Demo mode · install deferred" chip so the buyer sees the
- * install is deferred rather than silently skipped.
+ * Pins:
+ * - the honest-relabel from
+ *   `fix-onboarding-pick-vertical-demo-mode-honest-install-relabel`
+ *   (subtitle does NOT claim "We install ..." as a present-tense
+ *   action in demo mode);
+ * - the chip-clutter cleanup from
+ *   `fix-onboarding-pick-vertical-demo-mode-chip-clutter` (one page-
+ *   level banner replaces the per-card chip, so the buyer still sees
+ *   the install is deferred but the 7-card grid stops shouting it).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -92,7 +96,10 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
     expect(
       screen.queryByTestId("onboarding-vertical-subtitle-demo"),
     ).not.toBeInTheDocument();
-    // No demo chip on any tile in real mode.
+    // No demo banner and no per-card demo chip in real mode.
+    expect(
+      screen.queryByTestId("pick-vertical-demo-banner"),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByTestId("vertical-gtm-engineer-demo-chip"),
     ).not.toBeInTheDocument();
@@ -115,12 +122,20 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders a 'Demo mode · install deferred' chip on every fallback tile", () => {
+  it("renders one demo-mode banner above the grid and NO per-card demo chips", () => {
     demoModeMock.isDemoMode.mockReturnValue(true);
 
     render(<OnboardingPickVerticalPage />);
 
-    // Fallback list seeds 7 vertical cards; each must carry the chip.
+    // One page-level banner explains install-deferred state.
+    const banner = screen.getByTestId("pick-vertical-demo-banner");
+    expect(banner).toHaveTextContent(/Demo mode/i);
+    expect(banner).toHaveTextContent(/install deferred/i);
+    expect(banner.textContent ?? "").toMatch(
+      /connect a real provider in Settings/i,
+    );
+
+    // None of the 7 fallback tiles carry the old per-card chip.
     const expectedTiles = [
       "gtm-engineer",
       "marketing-intern",
@@ -132,8 +147,8 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
     ];
     for (const id of expectedTiles) {
       expect(
-        screen.getByTestId(`vertical-${id}-demo-chip`),
-      ).toHaveTextContent(/Demo mode/i);
+        screen.queryByTestId(`vertical-${id}-demo-chip`),
+      ).not.toBeInTheDocument();
     }
   });
 });

@@ -194,7 +194,7 @@ export default function OnboardingPickVerticalPage() {
     source: catalogSource,
     isLoading: catalogLoading,
   } = useVerticals();
-  // Capture once on render so the JSX subtitle + per-card chip share
+  // Capture once on render so the JSX subtitle + page-level banner share
   // the same flag without re-evaluating `process.env.*` in two spots.
   const demoMode = isDemoMode();
 
@@ -292,6 +292,34 @@ export default function OnboardingPickVerticalPage() {
             Pick a template to continue &mdash; we install the skills and route you to step 5.
           </span>
         </div>
+        {demoMode ? (
+          <div
+            role="status"
+            data-testid="pick-vertical-demo-banner"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              background: "#eef2ff",
+              border: "1px solid #c7d2fe",
+              color: "#3730a3",
+              padding: "10px 14px",
+              borderRadius: 8,
+              fontSize: "0.875rem",
+              lineHeight: 1.5,
+            }}
+          >
+            <span aria-hidden style={{ fontSize: "1rem", lineHeight: 1.4 }}>
+              ⓘ
+            </span>
+            <span>
+              <strong>Demo mode &mdash; install deferred.</strong>{" "}
+              Picking a vertical loads its workflows and skills as samples;
+              nothing is provisioned to the gateway until you connect a real
+              provider in Settings.
+            </span>
+          </div>
+        ) : null}
         <ul className="ob-roles" data-testid="onboarding-vertical-grid">
           {cards.map((v) => {
             const isSelected = selected === v.id;
@@ -321,29 +349,7 @@ export default function OnboardingPickVerticalPage() {
                   </div>
                   <p className="ob-role-meta">
                     <strong>{v.skillCount}</strong>{" "}
-                    {demoMode ? (
-                      <>
-                        skills ·{" "}
-                        <span
-                          data-testid={`vertical-${v.id}-demo-chip`}
-                          style={{
-                            display: "inline-block",
-                            background: "#fef3c7",
-                            border: "1px solid #f59e0b",
-                            color: "#78350f",
-                            padding: "1px 8px",
-                            borderRadius: 999,
-                            fontSize: "0.75em",
-                            fontWeight: 600,
-                            marginLeft: 4,
-                          }}
-                        >
-                          Demo mode · install deferred
-                        </span>
-                      </>
-                    ) : (
-                      <>skills · ready to install</>
-                    )}
+                    {demoMode ? <>skills</> : <>skills · ready to install</>}
                   </p>
                 </button>
               </li>
