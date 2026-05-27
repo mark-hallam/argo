@@ -34,6 +34,9 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/docs") ||
     pathname.startsWith("/help") ||
     pathname.startsWith("/sla") ||
+    pathname.startsWith("/privacy") ||
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/security") ||
     pathname.startsWith("/for/") ||
     pathname === "/opengraph-image" ||
     pathname === "/icon" ||
