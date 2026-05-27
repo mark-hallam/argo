@@ -16,37 +16,63 @@ export interface Department {
 }
 
 export const DEPARTMENTS: readonly Department[] = [
-  { id: "support", label: "Support", icon: "🎧", verticals: ["support"] },
+  {
+    id: "support",
+    label: "Support",
+    icon: "🎧",
+    verticals: ["support", "customer-support", "support-tier1"],
+  },
   {
     id: "finance",
     label: "Finance & Ops",
     icon: "💰",
-    verticals: ["finance", "ops", "operations", "accounting"],
+    verticals: [
+      "finance",
+      "ops",
+      "operations",
+      "accounting",
+      "finance-ar",
+      "ap-specialist",
+      "vendor-manager",
+    ],
   },
-  { id: "sales", label: "Sales", icon: "📊", verticals: ["sales", "marketplace"] },
+  {
+    id: "sales",
+    label: "Sales",
+    icon: "📊",
+    verticals: ["sales", "marketplace", "marketplace-seller", "sales-sdr", "deal-desk"],
+  },
   {
     id: "project-ops",
     label: "Project & Ops",
     icon: "📋",
-    verticals: ["project", "projects", "pm", "project-ops"],
+    verticals: [
+      "project",
+      "projects",
+      "pm",
+      "project-ops",
+      "project-coordination",
+      "project-coordinator",
+      "status-reporter",
+    ],
   },
   {
     id: "people",
     label: "People & HR",
     icon: "👥",
-    verticals: ["people", "hr", "recruiting"],
+    verticals: ["people", "hr", "recruiting", "recruiter"],
   },
   {
     id: "it-devex",
     label: "IT & Dev-ex",
     icon: "🔧",
-    verticals: ["it", "engineering", "devex", "infrastructure"],
+    verticals: ["it", "engineering", "devex", "infrastructure", "gtm-engineer"],
   },
   {
     id: "marketing",
     label: "Marketing",
     icon: "📣",
-    verticals: ["marketing"],
+    verticals: ["marketing", "marketing-intern"],
   },
   { id: "legal", label: "Legal", icon: "⚖", verticals: ["legal", "compliance"] },
   {
