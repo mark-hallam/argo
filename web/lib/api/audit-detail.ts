@@ -13,10 +13,7 @@
  */
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
-import {
-  findSampleAuditDetail,
-  placeholderAuditDetail,
-} from "@/lib/sample-audit-detail";
+import { findSampleAuditDetail } from "@/lib/sample-audit-detail";
 import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 import type { AuditDetail } from "@/lib/types/audit-detail";
 import type { AuditStatus, DataClassification } from "@/lib/types/audit";
@@ -75,23 +72,18 @@ function mockDetail(actionId: string): AuditDetailWithDelegation {
   return withDelegation(detail);
 }
 
-/** Demo-mode best-effort lookup. Prefers a hand-shaped or synthesised
- *  sample detail; falls back to a placeholder so the drill-in page
- *  renders rather than 5xx-ing when live-gateway ids don't match the
- *  seed roster. */
-function demoModeDetail(actionId: string): AuditDetail {
-  return findSampleAuditDetail(actionId) ?? placeholderAuditDetail(actionId);
-}
-
 /**
  * Fetch a single audit-action detail. Throws `AuditDetailNotFoundError`
- * when the action id is unknown in strict-production (real gateway
- * 404). Outside strict-production:
+ * when the action id is unknown — both in strict-production (real
+ * gateway 404) and in mock/demo modes. The drill-in page maps that
+ * typed error onto the `<AuditActionNotFound>` in-shell 404 surface
+ * rather than fabricating a synthetic provenance card.
+ *
+ * Outside strict-production:
  *  - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` short-circuits to mocks,
- *  - `NEXT_PUBLIC_SKYCOT_DEMO_MODE=1` (demo) prefers mocks and falls
- *    back to a synthetic placeholder if the action id is unknown,
- *  - gateway 404 / network errors fall back to mock-or-placeholder so
- *    the page never renders the global 500 boundary.
+ *  - `NEXT_PUBLIC_SKYCOT_DEMO_MODE=1` (demo) short-circuits to mocks,
+ *  - gateway 404 / network errors fall back to mocks so the page
+ *    never renders the global 500 boundary for the seeded ids.
  */
 export async function fetchAuditDetail(actionId: string): Promise<AuditDetailWithDelegation> {
   if (!actionId) throw new AuditDetailNotFoundError(actionId);
@@ -105,23 +97,18 @@ export async function fetchAuditDetail(actionId: string): Promise<AuditDetailWit
   }
 
   if (isDemoMode() && !isStrictProduction() && !isDemoLive()) {
-    return demoModeDetail(actionId);
+    return mockDetail(actionId);
   }
 
   const path = `/api/v1/audit/${encodeURIComponent(actionId)}`;
   try {
     return normalizeAuditDetail(await apiGet<unknown>(path));
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404 && isStrictProduction()) {
+    if (err instanceof ApiError && err.status === 404) {
       throw new AuditDetailNotFoundError(actionId);
     }
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockDetail(actionId);
-    }
-    if (!isStrictProduction()) {
-      // Any other dev-mode gateway failure (5xx, parse error, etc.)
-      // degrades to a placeholder so Scene 6 doesn't hard-500.
-      return demoModeDetail(actionId);
     }
     throw err;
   }
