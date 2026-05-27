@@ -36,8 +36,10 @@ type FeedShape = {
   refetch: () => void;
 };
 const useFeedMock = vi.fn<() => FeedShape>();
+const useFreshnessMock = vi.fn<() => "loading" | "fresh" | "active">();
 vi.mock("@/lib/hooks/use-audit-feed", () => ({
   useAuditFeed: () => useFeedMock(),
+  useAuditWorkspaceFreshness: () => useFreshnessMock(),
   auditFeedQueryKey: () => ["audit-feed"],
 }));
 
@@ -92,6 +94,11 @@ beforeEach(() => {
   searchParams = new URLSearchParams();
   replaceMock.mockClear();
   useFeedMock.mockReset();
+  useFreshnessMock.mockReset();
+  // Default freshness probe verdict: "loading" — keeps existing
+  // empty-state tests on the conservative "Quiet day" fallback so
+  // we don't have to mock the probe in every spec.
+  useFreshnessMock.mockReturnValue("loading");
   toastInfoMock.mockClear();
   viewerPolicyMock.current = null;
 });
@@ -241,7 +248,7 @@ describe("AuditPage", () => {
     expect(screen.getByTestId("audit-empty-filtered")).toBeInTheDocument();
   });
 
-  it("renders an error state with retry and calls refetch", async () => {
+  it("renders an unreachable state with retry and calls refetch", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn();
     useFeedMock.mockReturnValue(
@@ -254,10 +261,47 @@ describe("AuditPage", () => {
     );
     render(<AuditPage />);
     const err = screen.getByTestId("audit-error");
-    expect(within(err).getByText(/Couldn't load audit/)).toBeInTheDocument();
+    expect(within(err).getByText(/Couldn't reach the audit feed/)).toBeInTheDocument();
+    expect(within(err).getByText(/Check your connection/)).toBeInTheDocument();
     expect(within(err).getByText(/boom/)).toBeInTheDocument();
     await user.click(within(err).getByRole("button", { name: /Try again/ }));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the fresh-workspace empty state when the look-back probe is also empty", () => {
+    useFreshnessMock.mockReturnValue("fresh");
+    useFeedMock.mockReturnValue(
+      feedState({ data: { pages: [{ rows: [], nextCursor: null, totalPages: 1 }] } }),
+    );
+    render(<AuditPage />);
+    const empty = screen.getByTestId("audit-empty-fresh");
+    expect(within(empty).getByText(/No audit activity yet/)).toBeInTheDocument();
+    expect(
+      within(empty).getByText(/Your team's actions will appear here/),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("audit-empty-pristine")).not.toBeInTheDocument();
+  });
+
+  it("keeps the Quiet day copy when the look-back probe finds prior activity", () => {
+    useFreshnessMock.mockReturnValue("active");
+    useFeedMock.mockReturnValue(
+      feedState({ data: { pages: [{ rows: [], nextCursor: null, totalPages: 1 }] } }),
+    );
+    render(<AuditPage />);
+    expect(screen.getByTestId("audit-empty-pristine")).toBeInTheDocument();
+    expect(screen.queryByTestId("audit-empty-fresh")).not.toBeInTheDocument();
+  });
+
+  it("uses the filter-mismatch copy when filters narrow to zero rows", () => {
+    searchParams = new URLSearchParams("range=1h&status=refused");
+    useFeedMock.mockReturnValue(
+      feedState({ data: { pages: [{ rows: [], nextCursor: null, totalPages: 1 }] } }),
+    );
+    render(<AuditPage />);
+    const empty = screen.getByTestId("audit-empty-filtered");
+    expect(
+      within(empty).getByText(/No actions match the current filters/),
+    ).toBeInTheDocument();
   });
 
   it("renders deep-link chips for ?worker / ?action_type / ?status and clears on click", async () => {

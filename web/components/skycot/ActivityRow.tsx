@@ -229,7 +229,7 @@ function HashCell({ hash, kind, actionId }: HashCellProps) {
   const label =
     kind === "sample"
       ? "Sample row — not part of the production audit chain"
-      : "Self-hash";
+      : "Action hash";
   const title = copied ? "Copied" : `${label} · click to copy\n${hash}`;
   return (
     <button

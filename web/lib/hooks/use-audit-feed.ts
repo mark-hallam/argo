@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { fetchAuditFeed } from "@/lib/api/audit";
 import type { AuditFilters, AuditFeedPage } from "@/lib/types/audit";
 
@@ -37,4 +37,32 @@ export function useAuditFeed(
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: options?.enabled ?? true,
   });
+}
+
+export type AuditWorkspaceState = "loading" | "fresh" | "active";
+
+/**
+ * Look-back probe used by `<AuditEmpty>` to decide whether an empty
+ * primary feed means "fresh workspace with no activity ever" vs
+ * "established workspace that's just quiet in the selected range."
+ *
+ * Fires a single-page `?range=30d` query with no q/filters; the result
+ * count alone determines the verdict (we don't even need to inspect
+ * the rows). `enabled` is wired by the caller so this only runs when
+ * the primary feed has settled to a no-rows state — otherwise we'd
+ * double-query on every initial mount.
+ */
+export function useAuditWorkspaceFreshness(options?: {
+  enabled?: boolean;
+}): AuditWorkspaceState {
+  const probeFilters: AuditFilters = { range: "30d" };
+  const query = useQuery<AuditFeedPage, Error>({
+    queryKey: ["audit-workspace-freshness"],
+    queryFn: () => fetchAuditFeed({ ...probeFilters, cursor: null }),
+    enabled: options?.enabled ?? true,
+    staleTime: 60_000,
+  });
+  if (query.isPending || query.isFetching) return "loading";
+  if (query.isError) return "loading";
+  return (query.data?.rows.length ?? 0) > 0 ? "active" : "fresh";
 }

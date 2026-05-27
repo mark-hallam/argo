@@ -15,7 +15,11 @@ import { AuditPageHeader } from "@/components/skycot/audit/AuditPageHeader";
 import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
 import { RedactionBanner } from "@/components/skycot/audit/RedactionBanner";
 import { groupByDay } from "@/lib/api/audit";
-import { useAuditFeed } from "@/lib/hooks/use-audit-feed";
+import {
+  useAuditFeed,
+  useAuditWorkspaceFreshness,
+  type AuditWorkspaceState,
+} from "@/lib/hooks/use-audit-feed";
 import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
 import { redactAuditRow } from "@/lib/redaction/redact";
 import { categoriesLackedBy } from "@/lib/redaction/audit-rules";
@@ -178,6 +182,12 @@ function AuditPageContent() {
   const showRedactionBanner = rows.length > 0 && presentCategories.length > 0;
   const exportTenantId = policy.tenantId ?? testExportTenantId();
   const exportTenantLabel = policy.tenantLabel ?? "Current workspace";
+  // Only probe workspace freshness when we're about to show the
+  // pristine empty state — saves a redundant request on the common
+  // path where the feed has rows or filters are active.
+  const probeFreshness =
+    !feed.isPending && !feed.isError && rows.length === 0 && isPristine;
+  const workspaceState = useAuditWorkspaceFreshness({ enabled: probeFreshness });
 
   return (
     <>
@@ -221,7 +231,7 @@ function AuditPageContent() {
         {feed.isPending ? (
           <LoadingState />
         ) : feed.isError ? (
-          <ErrorState
+          <AuditUnreachable
             message={feed.error?.message ?? "Couldn't load audit"}
             onRetry={() => feed.refetch()}
           />
@@ -229,6 +239,7 @@ function AuditPageContent() {
           <AuditEmpty
             isPristine={isPristine}
             filters={multiFilters}
+            workspaceState={workspaceState}
             onClearAll={onClearAllFilters}
           />
         ) : (
@@ -366,14 +377,27 @@ function LoadingState() {
   );
 }
 
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+function AuditUnreachable({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
   return (
     <div
       data-testid="audit-error"
       className="rounded-[var(--radius-md)] border border-dashed border-[var(--destructive)]/40 bg-[var(--destructive)]/5 py-8 px-6 text-center space-y-3"
     >
-      <p className="text-sm text-[var(--foreground)]">Couldn&apos;t load audit</p>
-      <p className="text-xs text-[var(--muted-foreground)]">{message}</p>
+      <p className="text-sm text-[var(--foreground)]">
+        Couldn&apos;t reach the audit feed
+      </p>
+      <p className="text-xs text-[var(--muted-foreground)]">
+        Check your connection or contact support if this keeps happening.
+      </p>
+      <p className="text-[10px] font-mono text-[var(--muted-foreground)]/80">
+        {message}
+      </p>
       <button
         type="button"
         onClick={onRetry}
@@ -388,13 +412,30 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 function AuditEmpty({
   isPristine,
   filters,
+  workspaceState,
   onClearAll,
 }: {
   isPristine: boolean;
   filters: AuditMultiFilters;
+  workspaceState: AuditWorkspaceState;
   onClearAll: () => void;
 }) {
   if (isPristine) {
+    // Probe whether the workspace has any 30-day-window history. If
+    // the probe knows the workspace is fresh, switch to the "no
+    // activity yet" framing; otherwise fall back to the existing
+    // "Quiet day" copy (also the safe default while the probe is
+    // still loading or errored).
+    if (workspaceState === "fresh") {
+      return (
+        <EmptyState
+          data-testid="audit-empty-fresh"
+          illustration={AuditIllustration}
+          headline="No audit activity yet"
+          body="Your team's actions will appear here as they happen — once a worker takes an action or an approval lands, you'll see it on this timeline."
+        />
+      );
+    }
     return (
       <EmptyState
         data-testid="audit-empty-pristine"
@@ -408,7 +449,7 @@ function AuditEmpty({
     <EmptyState
       data-testid="audit-empty-filtered"
       variant="compact"
-      headline="No actions match"
+      headline="No actions match the current filters"
       body={filteredEmptyDetail(filters)}
       cta={{ label: "Clear filters", onClick: onClearAll }}
     />

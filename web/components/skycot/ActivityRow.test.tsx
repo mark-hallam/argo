@@ -86,7 +86,7 @@ describe("ActivityRow — hash cell", () => {
     render(<ActivityRow activity={makeActivity()} />);
     const cell = screen.getByTestId("activity-row-hash-act_test_001");
     expect(cell.getAttribute("aria-label")).toBe(
-      `Self-hash ${FULL_HASH}, click to copy`,
+      `Action hash ${FULL_HASH}, click to copy`,
     );
   });
 
@@ -94,7 +94,7 @@ describe("ActivityRow — hash cell", () => {
     render(<ActivityRow activity={makeActivity()} />);
     const cell = screen.getByTestId("activity-row-hash-act_test_001");
     expect(cell.getAttribute("title")).toContain(FULL_HASH);
-    expect(cell.getAttribute("title")).toContain("Self-hash · click to copy");
+    expect(cell.getAttribute("title")).toContain("Action hash · click to copy");
   });
 
   it("labels sample hashes as non-production sample data", () => {
