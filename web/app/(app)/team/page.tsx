@@ -52,7 +52,7 @@ function TeamPageFallback() {
     <>
       <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Team</h1>
+          <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Team</h2>
         </div>
       </div>
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
@@ -249,9 +249,9 @@ function PageHeader({
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
                 Team
-              </h1>
+              </h2>
               <TeamDataSourceChip source={dataSource} />
             </div>
             {total > 0 ? (

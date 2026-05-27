@@ -94,7 +94,10 @@ afterEach(() => {
 describe("TeamPage", () => {
   it("renders the header with title, subtitle, status filter, and Hire CTA", () => {
     render(<TeamPage />);
-    expect(screen.getByRole("heading", { level: 1, name: /^Team$/ })).toBeInTheDocument();
+    // The sticky-bar "Team" label is H2 — the brand-loud hero
+    // ("3 teammates, one team.") owns the page H1 so the page has
+    // exactly one top-level heading landmark.
+    expect(screen.getByRole("heading", { level: 2, name: /^Team$/ })).toBeInTheDocument();
     expect(screen.getByTestId("team-subtitle")).toHaveTextContent(
       `${SAMPLE_WORKERS.length} teammates working`,
     );
