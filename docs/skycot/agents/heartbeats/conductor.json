@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-27T20:10:00Z",
+  "last_run_utc": "2026-05-27T21:11:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T06-10-aest-scheduled-merged-4-web-only-prs",
-  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T20:05Z UTC (Melbourne 06:10 AEST 28 May). PRIMARY ACTIONS: merged 4 CLEAN web-only ≤200 LOC ≤5 files PRs all with vitest green in body, under operator's permanent web-only relaxation lane (per memory 2026-05-26): #2568 (middleware allowlist /privacy /terms /security — +64/-0 2 files), #2570 (approvals card content column min-width collapse — +95/-3 3 files), #2571 (cohorts dept-registry add project-coordination vertical alias — +125/-7 2 files), #2572 (Mariah Memory facts marketplace-role rewrite — +68/-5 2 files). Pre-merge-gate --skip-clippy --skip-tests PASS all 9 gates on tip 013ad2844 (zero-caller-substrate 53 wired / 38 allowlisted / 0 missing; LOC budget 500 hard ceiling clean). Ledger rows IN_REVIEW→MERGED. Step-4 checks: gateway v83 vs codebase v84 drift=1 FRESH; 4 findings-only within budget (2026-05-30, 3 days remaining); LATEST.md audit 4 days old (no fresh ≤12h P0s); recent-conductor-commit check EXIT=0 (no short-circuit); unread-handoffs EXIT=0 (2 ghost-stamp warnings informational — both prior-tick conductor entries within own log, below pilot threshold). Queue depth: 45 TODO + 12 CLAIMED + ~135 IN_REVIEW (well above replenishment threshold 25 — no Step 8 needed). v1.0 ship-gate state unchanged: all 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains. OPERATOR-ACTION-REQUIRED carried forward: supervisor PID 85450/85524/85525 still running pre-#2535 throttle bash code from 2026-05-26T03:38Z UTC; needs `launchctl unload && launchctl load ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` for new throttle to engage. Multiple CLEAN PRs remain in queue (over-200-LOC or over-5-files) requiring evaluator pre-verification path (e.g. #2565 #2566 #2567 #2569 #2573 #2574); deferred to next tick or operator path.",
-  "open_prs": 105,
+  "session_label": "tick-T07-11-aest-scheduled-merged-pr-2577-evaluator-pre-verified-lane",
+  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T21:05Z UTC (Melbourne 07:11 AEST 28 May). PRIMARY ACTION: admitted PR #2577 (fix-gateway-audit-feed-serializer-worker-name-uuid-not-joined) under --skip-clippy evaluator-pre-verified lane per evaluator round 108 S2 PRE-MERGE PASS (head SHA edbef58dc; 40-min freshness within 6h window). Gate 8/9 PASS all green: zero-caller-substrate 53 wired / 38 allowlisted / 0 missing; LOC budget 500 hard ceiling clean; test-compile 90s; anti-theater scan clean. Ledger row IN_REVIEW->MERGED, status commit pushed (0bc2c7df2). Closes UX-AUDIT scene-6 F7. Step-4 checks: gateway v83/v84 drift=1 FRESH; 4 findings-only within 3-days-remaining budget; LATEST.md audit 4 days old (no fresh <=12h P0s); recent-conductor-commit check EXIT=0 (no short-circuit). Step-4.5b unread-handoffs 3 entries actioned: (1) supervisor-watchdog 20:17Z informational/IDLE - read; (2) evaluator round 108 - actioned PR #2577 admit per recommendation; (3) supervisor-watchdog 20:46Z informational/IDLE - read. Step-4.5c pilot evaluator-authored-brief tag - no `[evaluator-authored-brief]` tagged lines in this batch (round 108 was scenario-evaluation only, no new briefs authored). Queue depth: 41 TODO + 7 CLAIMED + 142 IN_REVIEW (above replenishment threshold 25 - no Step 8 needed). v1.0 ship-gate state unchanged: all 6 mission claims green LIVE; only operator-only item (d) demo MP4 record remains. CARRY: (a) supervisor PID 57348 etime 1h+ post-restart per R108 S3 - drift storm closure persisting, no remediation needed unless surfaces R110/R111; (b) gateway v83/v84 carry across 9 rounds R100->R108 - evaluator flagged for `make restart-live-gateway` if hits 12+ rounds (R110/R111 surfaces); (c) PR-2577 evaluator round 95 P1 follow-up brief (`ops-claim-5-add-canonical-argo-binary-cu-smoke-subcommand`) not authored this turn - surfaced for operator. SESSION HYGIENE NOTE: cleaned up stale in-progress cherry-pick of 0a3a5d19f on local main (inherited from prior session) via `git cherry-pick --abort` before ledger commit.",
+  "open_prs": 100,
   "queue_state": {
-    "claude_todo": 45,
+    "claude_todo": 41,
     "codex_todo": 0,
     "claude_or_codex_todo": 0,
-    "claude_claimed": 12,
+    "claude_claimed": 7,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 135,
+    "claude_in_review": 141,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "Merged 4 web-only relaxation PRs (#2568 + #2570 + #2571 + #2572) closing 4 UX-audit findings (whole-site F01 middleware, scene-6 F4 approvals card, whole-site F02 cohorts dept-registry, scene-1-and-2 F07 Mariah Memory). Gateway FRESH drift=1≤2; 4 findings within budget. Supervisor restart still operator-action-required for new throttle to engage.",
+  "the_gate": "Merged PR #2577 (gateway audit feed worker-name join) under --skip-clippy evaluator-pre-verified lane per R108 recommendation; closes scene-6 F7. Ledger flipped IN_REVIEW->MERGED. Gateway FRESH drift=1; supervisor restart still operator-action-required for new throttle to engage.",
   "quota_probe": "skip"
 }
