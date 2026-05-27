@@ -158,7 +158,7 @@ export default function SignupPage() {
       <h1 className="hero">
         Hire your first
         <br />
-        <strong>AI teammate</strong>.
+        <strong>teammate</strong>.
       </h1>
 
       <p className="sub">
