@@ -212,6 +212,39 @@ describe("ApprovalsOpsDashboard", () => {
     expect(opts?.action?.label).toBe("Undo");
   });
 
+  it("does not collapse the content column when the body contains a long unbroken token (scene-6 F4)", () => {
+    // Regression for scene-6 F4: without `flex-1 min-w-0` on the inner
+    // content span (+ `break-words` on the body text), a long unbroken
+    // word would force the column to shrink to roughly its char width,
+    // leaving the title rendered as "W…" and the body wrapping
+    // letter-by-letter. The fix gives the column a `flex-1 min-w-0`
+    // basis and breaks long words mid-token.
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[
+          item({
+            id: "long-word",
+            severity: "p0",
+            verb: "wants approval",
+            detail:
+              "reproductivity-of-the-customer-segment-across-the-same-API-surface",
+          }),
+        ]}
+      />,
+    );
+
+    const col = screen.getByTestId("approval-content-col-long-word");
+    // Inner content span carries the layout-critical classes.
+    const inner = col.querySelector("span.min-w-0.flex-1");
+    expect(inner).not.toBeNull();
+    // Body text node has the wrap-anywhere class so long tokens break.
+    const body = inner?.querySelector("span.break-words");
+    expect(body).not.toBeNull();
+    expect(body?.textContent ?? "").toContain(
+      "reproductivity-of-the-customer-segment-across-the-same-API-surface",
+    );
+  });
+
   it("refuses a row inline and fires the Refused toast", async () => {
     const user = userEvent.setup();
     renderWithClient(

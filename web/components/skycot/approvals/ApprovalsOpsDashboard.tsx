@@ -398,7 +398,10 @@ function ApprovalRow({
         "xl:grid-cols-[minmax(0,1fr)_7.5rem_5rem_6.5rem_auto]",
       )}
     >
-      <div className="flex min-w-0 gap-3">
+      <div
+        className="flex min-w-0 gap-3"
+        data-testid={`approval-content-col-${item.id}`}
+      >
         <span
           aria-hidden
           className={cn(
@@ -409,11 +412,11 @@ function ApprovalRow({
         >
           {workerInitials(item.worker.name)}
         </span>
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
             {item.verb}
           </span>
-          <span className="mt-1 line-clamp-2 block text-xs text-[var(--muted-foreground)]">
+          <span className="mt-1 line-clamp-2 block break-words text-xs text-[var(--muted-foreground)]">
             {item.worker.name} · {item.detail}
           </span>
           <span className="mt-2 inline-flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
