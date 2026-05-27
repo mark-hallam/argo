@@ -689,3 +689,20 @@ Don't edit by hand. Don't delete. If the file grows past 5000 lines, the conduct
 
 2026-05-27T19:34:59Z [ux-e2e-audit-4hourly] pass complete. 5 reports + synthesis at docs/skycot/ux-audits/2026-05-28-0252/. 24 root-cause fix-briefs queued under UX-AUDIT-T0252MEL BATCH header (P0x2, P1x10, P2x9, P3x3) — 23 findings mapped to existing in-flight or shipped briefs (no duplicates). MISSION-claim coverage: claim 2 nudged 🟡→🟢; claims 1+3 hold 🟢; claims 4+5+6 hold 🟡 partial. Delta vs prior T2351MEL run: P0 25→22 (−3); P0/P1 aggregate 52→47 (−5); whole-site + onboarding both 0 P0s this run. Remaining P0s concentrate in scenes 1+2 + scenes 4+5 (camera-on surfaces). Distance to v1.0 ship-gate: 2-3 merge cycles from a recordable Scene 5+6 chain. Ledger pushed via commit efda46a57. Pre-commit brief-lint hook --no-verified after WARN-mode format warnings stalled iter against concurrent worker; --no-verify operator-authorised in conductor session.
 2026-05-27T19:49:05Z [supervisor-watchdog] sup=PID:97586/rc:0 slots=2/2 s1=ACTIVE s2=ACTIVE pulses=4/0-stale claude_pids=5/0hang remediated=none drift=0 streak=0 prs=s1:0,s2:2,codex:0,other:3,total:5 quota_probe=skipped
+
+## 2026-05-27T20:10:00Z [conductor] tick T06-10-aest scheduled — merged 4 web-only PRs (#2568 + #2570 + #2571 + #2572)
+
+Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T20:05Z UTC (Melbourne 06:10 AEST 28 May). **Merged 4 CLEAN web-only ≤200 LOC ≤5 files PRs all with vitest green in body** under operator's permanent web-only relaxation lane:
+
+- **#2568** — middleware allowlist /privacy /terms /security (+64/-0, 2 files; closes whole-site F01)
+- **#2570** — approvals card content column min-width collapse fix (+95/-3, 3 files; closes scene-6 F4)
+- **#2571** — cohorts dept-registry add project-coordination + 12 pack-manifest vertical aliases (+125/-7, 2 files; closes whole-site F02)
+- **#2572** — Mariah's Memory facts rewrite to marketplace-listing role (+68/-5, 2 files; closes scene-1-and-2 F07)
+
+Pre-merge-gate `--skip-clippy --skip-tests` PASS all 9 gates on tip 013ad2844; ledger rows flipped IN_REVIEW→MERGED. Queue depth 45 TODO + 12 CLAIMED + ~135 IN_REVIEW (well above replenishment threshold). Gateway v83/v84 drift=1 FRESH. 4 findings-only within budget. LATEST.md audit 4 days old (no fresh ≤12h P0s).
+
+**OPERATOR-ACTION-REQUIRED (still outstanding from prior tick)**: supervisor PID 85450/85524/85525 running pre-#2535 throttle bash from 2026-05-26T03:38Z UTC — needs `launchctl unload && launchctl load ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` for new throttle code to engage.
+
+**Carry forward**: ~6 CLEAN PRs remain in IN_REVIEW that miss the web-only relaxation lane (#2565 #2566 #2567 #2569 #2573 #2574 — over-200-LOC or over-5-files); these require evaluator pre-verification before --skip-clippy admin-merge.
+
+v1.0 ship-gate: all 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains.

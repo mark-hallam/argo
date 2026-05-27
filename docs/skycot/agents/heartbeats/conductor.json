@@ -1,10 +1,10 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-28T03:35:00Z",
+  "last_run_utc": "2026-05-27T20:10:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T13-25-aest-r106-zombie-storm-demote-plus-3-web-only-merges",
-  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-28T03:25Z UTC (Melbourne 13:25 AEST 28 May). **PRIMARY ACTIONS THIS TICK: (1) demoted stuck CLAIMED row `fix-audit-list-kind-query-param-ignored` to BLOCKED to halt zombie storm** (run history compressed from 350+ retry stamps; superseded by IN_REVIEW PR #2527 which adds `?kind=` alias + 400 on unknown query params — same gateway audit-feed handler, same fix). **(2) MERGED 3 web-only relaxation PRs**: #2548 (signup hero unify 'AI teammate'→'teammate' — 1 LOC text), #2558 (cohorts eyebrow drop 'BUILT IN MELBOURNE' from Other dept — 1 LOC), #2561 (landing hero CTAs mobile stack at ≤640px + tablet nav hamburger — 10 LOC CSS). All three within permanent web-only ≤200 LOC ≤5 files ≤vitest-green-in-body lane; pre-merge-gate --skip-clippy --skip-tests PASS all 9 gates on tip per merge; ledger rows IN_REVIEW→MERGED with conductor session-label. **Step-4 checks**: gateway v83 vs codebase v84 drift=1 FRESH; 4 findings-only within budget (2026-05-30, 3 days remaining); LATEST.md audit 4 days old (no fresh ≤12h P0s); drift script now clean post-demotion (0 drift rows). **Unread handoffs (9) actioned**: the load-bearing P0 — R106 supervisor stale-binary zombie storm — addressed by demoting the stuck row (workers won't claim BLOCKED, so even pre-throttle bash can't re-storm). **OPERATOR-ACTION-REQUIRED carry forward**: supervisor PID 85450/85524/85525 running pre-#2535 throttle bash code from 2026-05-26T03:38Z UTC (46h before #2535 merged); needs `launchctl unload && launchctl load ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` to load new throttle. R105 + R106 evaluator rounds informational beyond that; watchdog ping pairs informational; ghost-stamp entry at 11-round carry below pilot threshold. Queue depth: 45 TODO + 12 CLAIMED + 142 IN_REVIEW well above replenishment threshold 25 (no Step 8 author needed). v1.0 ship-gate: ALL 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains.",
-  "open_prs": 109,
+  "session_label": "tick-T06-10-aest-scheduled-merged-4-web-only-prs",
+  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T20:05Z UTC (Melbourne 06:10 AEST 28 May). PRIMARY ACTIONS: merged 4 CLEAN web-only ≤200 LOC ≤5 files PRs all with vitest green in body, under operator's permanent web-only relaxation lane (per memory 2026-05-26): #2568 (middleware allowlist /privacy /terms /security — +64/-0 2 files), #2570 (approvals card content column min-width collapse — +95/-3 3 files), #2571 (cohorts dept-registry add project-coordination vertical alias — +125/-7 2 files), #2572 (Mariah Memory facts marketplace-role rewrite — +68/-5 2 files). Pre-merge-gate --skip-clippy --skip-tests PASS all 9 gates on tip 013ad2844 (zero-caller-substrate 53 wired / 38 allowlisted / 0 missing; LOC budget 500 hard ceiling clean). Ledger rows IN_REVIEW→MERGED. Step-4 checks: gateway v83 vs codebase v84 drift=1 FRESH; 4 findings-only within budget (2026-05-30, 3 days remaining); LATEST.md audit 4 days old (no fresh ≤12h P0s); recent-conductor-commit check EXIT=0 (no short-circuit); unread-handoffs EXIT=0 (2 ghost-stamp warnings informational — both prior-tick conductor entries within own log, below pilot threshold). Queue depth: 45 TODO + 12 CLAIMED + ~135 IN_REVIEW (well above replenishment threshold 25 — no Step 8 needed). v1.0 ship-gate state unchanged: all 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains. OPERATOR-ACTION-REQUIRED carried forward: supervisor PID 85450/85524/85525 still running pre-#2535 throttle bash code from 2026-05-26T03:38Z UTC; needs `launchctl unload && launchctl load ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` for new throttle to engage. Multiple CLEAN PRs remain in queue (over-200-LOC or over-5-files) requiring evaluator pre-verification path (e.g. #2565 #2566 #2567 #2569 #2573 #2574); deferred to next tick or operator path.",
+  "open_prs": 105,
   "queue_state": {
     "claude_todo": 45,
     "codex_todo": 0,
@@ -12,10 +12,10 @@
     "claude_claimed": 12,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 139,
+    "claude_in_review": 135,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "Halted 350+ retry zombie storm on fix-audit-list-kind-query-param-ignored by demoting to BLOCKED (superseded by PR #2527). Merged 3 web-only relaxation PRs (#2548 + #2558 + #2561) closing 4 UX-audit findings (F12-onboarding, F15-cohorts, F26+F27-landing). Gateway FRESH drift=1≤2; 4 findings within budget. Supervisor restart still operator-action-required for new throttle to engage.",
+  "the_gate": "Merged 4 web-only relaxation PRs (#2568 + #2570 + #2571 + #2572) closing 4 UX-audit findings (whole-site F01 middleware, scene-6 F4 approvals card, whole-site F02 cohorts dept-registry, scene-1-and-2 F07 Mariah Memory). Gateway FRESH drift=1≤2; 4 findings within budget. Supervisor restart still operator-action-required for new throttle to engage.",
   "quota_probe": "skip"
 }
