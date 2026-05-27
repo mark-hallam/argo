@@ -38,7 +38,7 @@ export function CohortMagazineGrid({
           {group.cohorts.length === 1 ? "cohort" : "cohorts"}
         </h2>
         <div className="skycot-cohort-mag-section-meta">
-          {group.dept.icon} {group.dept.label.toUpperCase()} · BUILT IN MELBOURNE
+          {group.dept.icon} {group.dept.label.toUpperCase()}
         </div>
       </div>
       <div className={stacked.length > 0 ? "skycot-cohort-mag-row1" : "skycot-cohort-mag-row1 is-solo"}>
