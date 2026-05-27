@@ -194,4 +194,26 @@ describe("WorkflowDetailPage", () => {
     });
     await waitFor(() => expect(runButton).toHaveTextContent("Run now"));
   });
+
+  // Regression pin for fix-workflow-run-history-fabricated-rows-in-mock-offline.
+  // When the workflow data comes from the offline / bypass seed (not the
+  // gateway) the run-history table must NOT render with fabricated rows —
+  // the demo empty-state takes its place. Locks in the fix shipped by
+  // PR #2351 so the camera never reads invented timestamps during Scene 5.
+  it.each(["mock-offline", "mock-bypass"] as const)(
+    "renders the demo empty-state and skips the runs table when source=%s",
+    async (source) => {
+      mocks.useWorkflow.mockReturnValue({
+        data: { workflow, source },
+        isError: false,
+        isLoading: false,
+      });
+      renderPage();
+
+      await screen.findByTestId("wfd-demo-runs-empty");
+      expect(screen.queryByTestId("wfd-runs-table")).toBeNull();
+      expect(screen.queryByTestId("wfd-runs-skeleton")).toBeNull();
+      expect(mocks.fetchWorkflowRuns).not.toHaveBeenCalled();
+    },
+  );
 });
