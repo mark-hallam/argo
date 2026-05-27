@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-27T15:09:00Z",
+  "last_run_utc": "2026-05-27T16:12:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T01-07-aest-r104-pr2535-merge-and-storm-row-re-promote",
-  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T15:07Z UTC (Melbourne 01:07 AEST 28 May). **MERGED PR #2535 `ops-supervisor-block-runaway-zombie-claims-on-brief`** per evaluator R104 explicit tracking. Conductor-pre-merge-gate.sh --skip-clippy --pr 2535 PASS all 9 gates on PR head 86b8f6349 (preflight schema=v84, migration-slot, LOC ≤500, parallel-pub-types, zero-caller-substrate 53/38/0, test-compile 75s, web-typecheck SKIP, anti-theater clean). Merge commit 22d769ddb. Ledger row IN_REVIEW→MERGED. **Re-promoted both R102 storm-demoted rows BLOCKED→TODO**: `fix-vertical-landing-non-canonical-worker-names-skylar-fen-mira` + `fix-audit-list-kind-query-param-ignored` — supervisor throttle now ships, re-storm cannot recur; stale 🚨 DEMOTED prefix swapped for 🔁 RE-PROMOTED prefix linking back to R104 tracking. **Acks**: supervisor-watchdog T14:21:26Z + T14:50:24Z (informational); evaluator R103 (S1 fully actioned via #2535 merge + storm rows re-promoted; S2 Claim 6 LIVE confirmed = no action; S3 process drift carry = gateway FRESH, findings within budget). **Other Step-4 checks**: gateway v83 vs codebase v84 drift=1 FRESH; 4 findings-only within budget (2026-05-30, 3 days remaining); LATEST.md audit 4 days old (no fresh ≤12h P0s). **Merge sweep deferred**: 76 other open PRs (mostly `claude-fix-*` UX-audit T2351MEL fix PRs) are individually eligible for operator-locked web/test/doc-only admin-merge lane (≤200 LOC ≤5 files, vitest green) but require per-PR verification; declined to attempt multi-PR sweep within 20-min tick budget — next tick can take a small batch. Queue depth post-merge: claude_todo=62 (60+2 re-promoted), codex_todo=0, claude_in_review=96 (97-1 merged), claude_claimed=6, well above replenishment threshold 25 (no Step 8 author needed). v1.0 ship-gate: ALL 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains.",
-  "open_prs": 77,
+  "session_label": "tick-T02-30-aest-r104-pr2541-merge-demo-session-derivation",
+  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T16:10Z UTC (Melbourne 02:10 AEST 28 May). **MERGED PR #2541 `fix-demo-session-hardcodes-acmeco-discards-wizard-workspace-inputs`** per evaluator R104 S2 explicit PRE-MERGE PASS recommendation. Web-only ≤200LOC ≤5files lane (195/-13 +3 files all web/). Pre-merge gate --skip-clippy PASS all 9 gates on tip 82767d667 (preflight schema=v84, migration-slot, LOC ≤500, parallel-pub-types, zero-caller-substrate 53/38/0, test-compile 107s, web-typecheck SKIP, anti-theater scan SKIP). Merge commit landed; ledger row IN_REVIEW→MERGED. F3 [P0] NO-THEATER-IN-DEMO violation closed (DEMO_SESSION constant removed → getDemoSession(draft) + slugifyWorkspace; sidebar pill now honours typed workspace name 'Acme Growth · Owner' instead of hardcoded 'Acmeco · Owner'). **Step-4 checks**: gateway v83 vs codebase v84 drift=1 FRESH; 4 findings-only within budget (2026-05-30, 3 days remaining); LATEST.md audit 4 days old (no fresh ≤12h P0s). **Unread handoffs (7)**: all informational — watchdog ping pair (T15:17 + T15:51), watchdog TRAP slot-2 dirty tree (resolved — parallel agent committed 14 stream briefs since), evaluator R104 S1 PR #2535 POST-MERGE PASS (already merged last tick), S2 PR #2541 PRE-MERGE PASS (**actioned this tick**), S3 Claim 1 cold cargo PASS (no action), watchdog s1 silent-log + s2 self-recovery notes. 1 ghost-stamped entry (informational, 9th P3 carry, below pilot threshold). Queue depth post-merge: claude_todo=68 (rows added by parallel UX-audit batch since last tick), well above replenishment threshold 25 (no Step 8 author needed). v1.0 ship-gate: ALL 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains, but R104 S2 closure removes a P0 anti-theater violation that would have been visible in the recording.",
+  "open_prs": 94,
   "queue_state": {
-    "claude_todo": 62,
+    "claude_todo": 68,
     "codex_todo": 0,
     "claude_or_codex_todo": 0,
     "claude_claimed": 6,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 96,
-    "codex_in_review": 6,
+    "claude_in_review": 26,
+    "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "PR #2535 R102 zombie-storm closure MERGED this tick per evaluator R104 tracking; both R102 demoted storm rows re-promoted BLOCKED→TODO (supervisor throttle now ships, re-storm cannot recur). Gateway FRESH drift=1≤2; 4 findings within budget; merge sweep on the remaining ~76 UX-audit fix PRs deferred to next tick due to per-PR verification budget.",
+  "the_gate": "PR #2541 merged this tick under operator-locked permanent web-only ≤200LOC ≤5files lane per evaluator R104 S2 explicit recommendation; closes NO-THEATER-IN-DEMO F3 [P0] before MP4 record. Gateway FRESH drift=1≤2; 4 findings within budget; ~26 other web-only IN_REVIEW PRs remain individually eligible for the lane but per-PR verification deferred to next tick.",
   "quota_probe": "skip"
 }
