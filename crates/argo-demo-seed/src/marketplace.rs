@@ -71,10 +71,16 @@ const DEMO_MARKETPLACE_SKILLS: &[MarketplaceRow] = &[
     },
 ];
 
-/// Insert the demo marketplace catalog under `tenant_id`. Skips any
-/// row whose `name` already has an active version (idempotent — safe
-/// to call on every gateway boot). Returns the number of NEW rows
-/// inserted.
+/// Insert the demo marketplace catalog under `tenant_id`. Idempotent
+/// per-tenant: skips any row whose `name` already has an active
+/// version FOR THIS tenant. Safe to call on every gateway boot AND
+/// across multiple tenants (the prior `find_active_by_name` gate was
+/// global — it would silently skip valid inserts for a second tenant
+/// once any other tenant carried the same skill name, leaving the new
+/// tenant's `/api/v1/skills` empty).
+///
+/// Returns the number of NEW rows inserted for this tenant_id.
+/// See fix-gateway-skills-and-verticals-boot-seed-tenant-resolution.
 pub async fn seed_demo_marketplace_skills(
     store: &Arc<SessionStore>,
     tenant_id: TenantId,
@@ -83,12 +89,14 @@ pub async fn seed_demo_marketplace_skills(
     let tenant_str = tenant_id.to_string();
     let mut inserted = 0;
     for row in DEMO_MARKETPLACE_SKILLS {
-        if skills.find_active_by_name(row.name).await?.is_some() {
-            continue;
-        }
         let raw = skill_md(row.name, row.description);
-        skills.install_for_tenant(&raw, &tenant_str, None).await?;
-        inserted += 1;
+        if skills
+            .install_for_tenant_if_absent(&raw, &tenant_str, None)
+            .await?
+            .is_some()
+        {
+            inserted += 1;
+        }
     }
     Ok(inserted)
 }
@@ -172,5 +180,54 @@ mod tests {
             .unwrap()
             .get("c");
         assert_eq!(count, demo_marketplace_catalog_size() as i64);
+    }
+
+    // Brief: fix-gateway-skills-and-verticals-boot-seed-tenant-resolution.
+    // Pre-fix the idempotency check was global (`find_active_by_name`),
+    // so once tenant_a had the catalog, seeding tenant_b would skip
+    // every row — leaving tenant_b's `/api/v1/skills` empty even
+    // though the seed code ran cleanly. Pin per-tenant insertion.
+    #[tokio::test]
+    async fn seeds_independently_per_tenant() {
+        let store = open_store().await;
+        let tenant_a = TenantId::new();
+        let tenant_b = TenantId::new();
+
+        let inserted_a = seed_demo_marketplace_skills(&store, tenant_a)
+            .await
+            .unwrap();
+        assert_eq!(inserted_a, demo_marketplace_catalog_size());
+
+        // Pre-fix: this would be `0` because find_active_by_name found
+        // tenant_a's rows. Post-fix: every row inserts under tenant_b.
+        let inserted_b = seed_demo_marketplace_skills(&store, tenant_b)
+            .await
+            .unwrap();
+        assert_eq!(inserted_b, demo_marketplace_catalog_size());
+
+        // Re-running tenant_a is a no-op (per-tenant idempotency).
+        let reseed_a = seed_demo_marketplace_skills(&store, tenant_a)
+            .await
+            .unwrap();
+        assert_eq!(reseed_a, 0);
+
+        // Each tenant sees only its own rows; cross-tenant total is the sum.
+        let count_a: i64 =
+            sqlx::query("SELECT COUNT(*) AS c FROM skill WHERE tenant_id = ?")
+                .bind(tenant_a.to_string())
+                .fetch_one(store.pool())
+                .await
+                .unwrap()
+                .get("c");
+        let count_b: i64 =
+            sqlx::query("SELECT COUNT(*) AS c FROM skill WHERE tenant_id = ?")
+                .bind(tenant_b.to_string())
+                .fetch_one(store.pool())
+                .await
+                .unwrap()
+                .get("c");
+        let expected = demo_marketplace_catalog_size() as i64;
+        assert_eq!(count_a, expected);
+        assert_eq!(count_b, expected);
     }
 }

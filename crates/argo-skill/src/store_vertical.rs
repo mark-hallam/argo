@@ -95,6 +95,60 @@ impl SkillStore {
             .await
     }
 
+    /// Idempotent tenant-aware install. Returns `Ok(None)` when an
+    /// active row with the parsed skill name already exists FOR THIS
+    /// TENANT, `Ok(Some(skill))` when a new row was inserted.
+    ///
+    /// Use this when a seed (e.g. the demo marketplace catalog) needs
+    /// to populate the catalog across multiple tenants. Unlike
+    /// [`Self::install_for_tenant`], this method does not reject when
+    /// the same skill name is already installed under a DIFFERENT
+    /// tenant — the per-tenant uniqueness is what the gateway's
+    /// per-tenant `GET /api/v1/skills` query requires, and the global
+    /// uniqueness check would silently skip valid per-tenant inserts.
+    /// See fix-gateway-skills-and-verticals-boot-seed-tenant-resolution.
+    pub async fn install_for_tenant_if_absent(
+        &self,
+        raw: &str,
+        tenant_id: &str,
+        learned_in: Option<SessionId>,
+    ) -> ArgoResult<Option<Skill>> {
+        let (frontmatter, body) = parse_skill_md(raw)?;
+        if self
+            .is_active_name_present_for_tenant(&frontmatter.name, tenant_id)
+            .await?
+        {
+            return Ok(None);
+        }
+        let skill = self
+            .insert_row_for_tenant(frontmatter, body, learned_in, None, tenant_id)
+            .await?;
+        Ok(Some(skill))
+    }
+
+    /// Per-tenant analogue of [`super::SkillStore::find_active_by_name`]
+    /// scoped to existence — returns `true` if an active row matches
+    /// both `name` AND `tenant_id`. Cheaper than fetching the whole
+    /// row when the caller only needs an idempotency gate (see
+    /// [`Self::install_for_tenant_if_absent`]).
+    async fn is_active_name_present_for_tenant(
+        &self,
+        name: &str,
+        tenant_id: &str,
+    ) -> ArgoResult<bool> {
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM skill \
+             WHERE name = ? AND tenant_id = ? \
+               AND lifecycle_state = 'active' AND superseded_by IS NULL",
+        )
+        .bind(name)
+        .bind(tenant_id)
+        .fetch_one(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill per-tenant lookup: {e}")))?;
+        Ok(count > 0)
+    }
+
     /// List skills bundled by a specific vertical (#678). Returns
     /// only rows where `skill.vertical_id = ?` AND not superseded.
     /// Used by per-vertical skill discovery + by lint to confirm
