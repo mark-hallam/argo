@@ -215,3 +215,81 @@
   box-shadow: 0 6px 16px -4px rgba(139, 92, 246, 0.45);
   margin-top: 12px;
 }
+@media (max-width: 768px) {
+  .compare-stage {
+    padding: 36px 24px 72px;
+  }
+  .compare-hero {
+    font-size: clamp(26px, 7vw, 38px);
+  }
+  .compare-sub {
+    font-size: 15px;
+    margin-bottom: 28px;
+  }
+  .compare-positioning {
+    gap: 10px;
+    margin-bottom: 36px;
+  }
+  .compare-position-card {
+    padding: 14px;
+  }
+  .compare-table th,
+  .compare-table td {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+  .compare-footer-row td {
+    padding-top: 22px;
+    padding-bottom: 22px;
+    font-size: 13px;
+  }
+}
+@media (max-width: 480px) {
+  .compare-stage {
+    padding: 28px 16px 56px;
+  }
+  .compare-eyebrow {
+    font-size: 10px;
+    padding: 4px 11px;
+    margin-bottom: 14px;
+  }
+  .compare-hero {
+    font-size: clamp(24px, 8vw, 30px);
+    margin-bottom: 12px;
+  }
+  .compare-sub {
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .compare-positioning {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .compare-position-card {
+    padding: 12px 14px;
+  }
+  .compare-position-name {
+    font-size: 15px;
+  }
+  .compare-position-blurb {
+    font-size: 12px;
+  }
+  .compare-table-wrap {
+    border-radius: 12px;
+  }
+  .compare-table th,
+  .compare-table td {
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+  .compare-footer-row td {
+    padding-top: 20px;
+    padding-bottom: 20px;
+    font-size: 12.5px;
+  }
+  .compare-cta {
+    padding: 10px 18px;
+    font-size: 13.5px;
+  }
+}
