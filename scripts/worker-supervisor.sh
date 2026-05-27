@@ -396,6 +396,36 @@ for slot in $(seq 1 "$N_SLOTS"); do
         sleep $((slot * 3))
       fi
 
+      # Runaway-zombie-claim guard. Detects when a single brief has been
+      # zombie-released ≥THRESHOLD times in the WINDOW (default 3 / 30min)
+      # — the cross-iteration failure mode where the next iteration
+      # immediately re-claims the same broken row the prior worker just
+      # released, burning the full worker pool indefinitely (R102 storm:
+      # 83 cycles on one brief in 16 min). On rc=2 (throttle) skip this
+      # iter so the next-iteration TODO sweep picks a different row; on
+      # rc=3 (≥BLOCK_THRESHOLD=6) demote the row to BLOCKED for manual
+      # triage. demote-to-blocked.sh is idempotent, so subsequent
+      # block-detection iters before the window slides are cheap no-ops.
+      runaway_exit=0
+      runaway_out=$(bash "$REPO/scripts/check-runaway-zombie-claims.sh") || runaway_exit=$?
+      case "$runaway_exit" in
+        0) ;;
+        2)
+          echo "[$(date +%H:%M:%S)] slot-$slot: runaway-zombie-claim throttle — $runaway_out (skipping iter)" >&2
+          sleep 60
+          continue
+          ;;
+        3)
+          block_brief=$(echo "$runaway_out" | sed -nE 's/.*brief=([^ ]+).*/\1/p')
+          echo "[$(date +%H:%M:%S)] slot-$slot: runaway-zombie-claim BLOCK — demoting ${block_brief:-?} ($runaway_out)" >&2
+          if [ -n "$block_brief" ]; then
+            bash "$REPO/scripts/demote-to-blocked.sh" "$block_brief" "runaway-zombie-claim guard" || true
+          fi
+          sleep 60
+          continue
+          ;;
+      esac
+
       LOG="/tmp/claude-worker-supervised-slot${slot}-$(date +%Y%m%dT%H%M%S).log"
       echo "[$(date +%H:%M:%S)] slot-$slot: launching worker → $LOG"
       LAUNCH_TS=$(date +%s)
