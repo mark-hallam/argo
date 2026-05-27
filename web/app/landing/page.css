@@ -108,6 +108,16 @@
   gap: 14px;
   align-items: center;
 }
+@media (max-width: 640px) {
+  .land-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .land-hero-actions > a {
+    justify-content: center;
+  }
+}
 .land-btn-primary {
   display: inline-flex;
   align-items: center;
