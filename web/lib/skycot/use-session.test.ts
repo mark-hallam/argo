@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEMO_SESSION, deriveSession } from "./use-session";
+import {
+  DEMO_SESSION_FALLBACK,
+  deriveSession,
+  getDemoSession,
+} from "./use-session";
 
 /**
  * Helper to mint a JWT body. Signature segment is irrelevant — the
@@ -17,13 +21,31 @@ describe("deriveSession", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns the seeded demo identity when demo mode is on", () => {
+  it("returns the neutral demo fallback when demo mode is on and draft is empty", () => {
     vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
     const result = deriveSession(
       { gatewayToken: mintToken({ email: "real@buyer.com", tnt: "tenant_other" }) },
       "authenticated",
     );
-    expect(result).toEqual(DEMO_SESSION);
+    expect(result).toEqual(DEMO_SESSION_FALLBACK);
+    // The pre-step-2 fallback must never carry the old hardcoded
+    // "Acmeco · Owner" / "Sam Harlow" identity.
+    expect(result.workspaceLabel).not.toMatch(/Acmeco/i);
+    expect(result.displayName).not.toMatch(/Sam Harlow/i);
+  });
+
+  it("derives demo session from onboarding draft when workspace name is typed", () => {
+    vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
+    const result = deriveSession(
+      null,
+      "authenticated",
+      { workspaceName: "Acme Growth", tenantId: null },
+    );
+    expect(result.workspaceLabel).toBe("Acme Growth · Owner");
+    expect(result.email).toBe("acme-growth@demo.skycot.local");
+    expect(result.tenantId).toBe("tenant_acme-growth");
+    expect(result.isDemoMode).toBe(true);
+    expect(result.role).toBe("owner");
   });
 
   it("decodes the JWT body for email + tenant + role on the live path", () => {
@@ -66,5 +88,45 @@ describe("deriveSession", () => {
     const result = deriveSession({ gatewayToken: "not.a.jwt" }, "authenticated");
     expect(result.displayName).toBe("Guest");
     expect(result.email).toBeNull();
+  });
+});
+
+describe("getDemoSession", () => {
+  it("returns the neutral fallback for a null draft", () => {
+    expect(getDemoSession(null)).toEqual(DEMO_SESSION_FALLBACK);
+  });
+
+  it("returns the neutral fallback for a whitespace-only workspace name", () => {
+    expect(getDemoSession({ workspaceName: "   ", tenantId: null })).toEqual(
+      DEMO_SESSION_FALLBACK,
+    );
+  });
+
+  it("prefers the draft-provisioned tenant id over the derived one", () => {
+    const result = getDemoSession({
+      workspaceName: "Acme Growth",
+      tenantId: "demo-tenant-acme-growth",
+    });
+    expect(result.tenantId).toBe("demo-tenant-acme-growth");
+    expect(result.workspaceLabel).toBe("Acme Growth · Owner");
+  });
+
+  it("slugifies the workspace name into a valid email local-part", () => {
+    const result = getDemoSession({
+      workspaceName: "Acme Co · Sales!",
+      tenantId: null,
+    });
+    expect(result.email).toBe("acme-co-sales@demo.skycot.local");
+    expect(result.tenantId).toBe("tenant_acme-co-sales");
+    expect(result.workspaceLabel).toBe("Acme Co · Sales! · Owner");
+  });
+
+  it("never re-introduces the old 'Acmeco · Owner' hardcoded label", () => {
+    const result = getDemoSession({
+      workspaceName: "Acmeco Growth",
+      tenantId: null,
+    });
+    expect(result.workspaceLabel).toBe("Acmeco Growth · Owner");
+    expect(result.workspaceLabel).not.toBe("Acmeco · Owner");
   });
 });
