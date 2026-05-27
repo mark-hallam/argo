@@ -1,0 +1,205 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  DEFAULT_PROVIDER_SETTINGS,
+  DEFAULT_WORKSPACE_SETTINGS,
+  fetchNotificationSettings,
+  fetchProviderSettings,
+  fetchWorkspaceSettings,
+  updateNotificationSettings,
+  updateProviderSettings,
+  updateWorkspaceSettings,
+} from "./settings";
+import { ApiError } from "./types";
+
+const ORIGINAL_FETCH = globalThis.fetch;
+
+function makeResponse({
+  status = 200,
+  body,
+  contentType = "application/json",
+}: {
+  status?: number;
+  body?: unknown;
+  contentType?: string | null;
+}): Response {
+  const headers = new Headers();
+  if (contentType) headers.set("content-type", contentType);
+  return new Response(
+    body === undefined ? null : typeof body === "string" ? body : JSON.stringify(body),
+    { status, statusText: `Status ${status}`, headers },
+  );
+}
+
+function installMock(gatewayResponder: (req: Request) => Response | Promise<Response>) {
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.endsWith("/api/auth/session")) {
+      return Promise.resolve(makeResponse({ status: 200, body: {} }));
+    }
+    const req = new Request(url, init);
+    return Promise.resolve(gatewayResponder(req));
+  });
+  globalThis.fetch = fetchMock as unknown as typeof fetch;
+  return fetchMock;
+}
+
+describe("lib/api/settings", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+    vi.stubEnv("NODE_ENV", "test");
+    delete process.env.NEXT_PUBLIC_ENV;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  describe("workspace", () => {
+    it("returns the gateway payload on 2xx", async () => {
+      const payload = { ...DEFAULT_WORKSPACE_SETTINGS, name: "Real Tenant" };
+      installMock(() => makeResponse({ status: 200, body: payload }));
+      const result = await fetchWorkspaceSettings();
+      expect(result.source).toBe("gateway");
+      expect(result.value).toEqual(payload);
+    });
+
+    it("falls back to defaults on 404 in dev", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      const result = await fetchWorkspaceSettings();
+      expect(result.source).toBe("mock-offline");
+      expect(result.value).toEqual(DEFAULT_WORKSPACE_SETTINGS);
+    });
+
+    it("short-circuits to mock when auth-bypass is set", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
+      const result = await fetchWorkspaceSettings();
+      expect(result.source).toBe("mock-bypass");
+      expect(result.value).toEqual(DEFAULT_WORKSPACE_SETTINGS);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("propagates 5xx as ApiError", async () => {
+      installMock(() =>
+        makeResponse({ status: 500, body: "boom", contentType: "text/plain" }),
+      );
+      await expect(fetchWorkspaceSettings()).rejects.toBeInstanceOf(ApiError);
+    });
+
+    it("propagates 404 in strict production", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_ENV", "production");
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      await expect(fetchWorkspaceSettings()).rejects.toBeInstanceOf(ApiError);
+    });
+
+    it("merges patch into previous in mock-offline mode", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      const result = await updateWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS, {
+        name: "Renamed",
+      });
+      expect(result.source).toBe("mock-offline");
+      expect(result.value.name).toBe("Renamed");
+      expect(result.value.timezone).toBe(DEFAULT_WORKSPACE_SETTINGS.timezone);
+    });
+
+    it("sends the patch body as JSON to the gateway", async () => {
+      const fetchMock = installMock(() =>
+        makeResponse({
+          status: 200,
+          body: { ...DEFAULT_WORKSPACE_SETTINGS, name: "Persisted" },
+        }),
+      );
+      const result = await updateWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS, {
+        name: "Persisted",
+      });
+      expect(result.source).toBe("gateway");
+      expect(result.value.name).toBe("Persisted");
+      const gatewayCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes("/api/v1/workspace"),
+      );
+      expect(gatewayCall).toBeDefined();
+      const [, init] = gatewayCall!;
+      expect(init?.method).toBe("PATCH");
+      expect(JSON.parse(String(init?.body))).toEqual({ name: "Persisted" });
+    });
+  });
+
+  describe("providers", () => {
+    it("returns gateway payload on 2xx", async () => {
+      const payload = { ...DEFAULT_PROVIDER_SETTINGS, primary_provider: "openai" as const };
+      installMock(() => makeResponse({ status: 200, body: payload }));
+      const result = await fetchProviderSettings();
+      expect(result.source).toBe("gateway");
+      expect(result.value).toEqual(payload);
+    });
+
+    it("falls back to defaults on 404 in dev", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      const result = await fetchProviderSettings();
+      expect(result.source).toBe("mock-offline");
+      expect(result.value).toEqual(DEFAULT_PROVIDER_SETTINGS);
+    });
+
+    it("patches successfully in mock-offline mode", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      const result = await updateProviderSettings(DEFAULT_PROVIDER_SETTINGS, {
+        primary_provider: "openai",
+        allow_worker_overrides: false,
+      });
+      expect(result.source).toBe("mock-offline");
+      expect(result.value.primary_provider).toBe("openai");
+      expect(result.value.allow_worker_overrides).toBe(false);
+    });
+  });
+
+  describe("notifications", () => {
+    it("returns gateway payload on 2xx", async () => {
+      const payload = { ...DEFAULT_NOTIFICATION_SETTINGS, daily_digest_time: "09:15" };
+      installMock(() => makeResponse({ status: 200, body: payload }));
+      const result = await fetchNotificationSettings();
+      expect(result.source).toBe("gateway");
+      expect(result.value.daily_digest_time).toBe("09:15");
+    });
+
+    it("falls back to defaults on 404 in dev", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      const result = await fetchNotificationSettings();
+      expect(result.source).toBe("mock-offline");
+      expect(result.value).toEqual(DEFAULT_NOTIFICATION_SETTINGS);
+    });
+
+    it("patches successfully in mock-offline mode", async () => {
+      installMock(() =>
+        makeResponse({ status: 404, body: { error: { code: "x", message: "x" } } }),
+      );
+      const result = await updateNotificationSettings(DEFAULT_NOTIFICATION_SETTINGS, {
+        approval_escalation_minutes: 30,
+        email_enabled: false,
+      });
+      expect(result.source).toBe("mock-offline");
+      expect(result.value.approval_escalation_minutes).toBe(30);
+      expect(result.value.email_enabled).toBe(false);
+    });
+  });
+});

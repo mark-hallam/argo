@@ -1,6 +1,70 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useToast } from "@/lib/ui/use-toast";
+import {
+  DEFAULT_PROVIDER_SETTINGS,
+  FALLBACK_OPTIONS,
+  PROVIDER_OPTIONS,
+  fetchProviderSettings,
+  updateProviderSettings,
+  type ProviderSettings,
+} from "@/lib/api/settings";
 
 export default function ProvidersSettingsPage() {
+  const { success, error: toastError } = useToast();
+  const [persisted, setPersisted] = useState<ProviderSettings>(DEFAULT_PROVIDER_SETTINGS);
+  const [draft, setDraft] = useState<ProviderSettings>(DEFAULT_PROVIDER_SETTINGS);
+  const [isLoading, setLoading] = useState(true);
+  const [isSaving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchProviderSettings()
+      .then(({ value }) => {
+        if (!active) return;
+        setPersisted(value);
+        setDraft(value);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPersisted(DEFAULT_PROVIDER_SETTINGS);
+        setDraft(DEFAULT_PROVIDER_SETTINGS);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const dirty = isDirty(persisted, draft);
+
+  function update<K extends keyof ProviderSettings>(key: K, value: ProviderSettings[K]) {
+    setDraft((curr) => ({ ...curr, [key]: value }));
+  }
+
+  async function save() {
+    setSaving(true);
+    const next = draft;
+    setPersisted(next);
+    try {
+      await updateProviderSettings(persisted, next);
+      success("Provider policy saved", {
+        description: "Workers will pick up the new routing on next turn.",
+      });
+    } catch (err) {
+      setPersisted(persisted);
+      toastError("Couldn't save provider policy", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <section className="settings-panel" data-testid="settings-providers-panel">
       <div className="settings-panel-head">
@@ -18,28 +82,194 @@ export default function ProvidersSettingsPage() {
       </div>
 
       <div className="settings-fields">
-        <div className="settings-field">
+        <div className="settings-field settings-field-editable">
           <div>
             <span className="settings-field-label">Primary provider</span>
             <p>Default model lane for workers that do not set an override.</p>
           </div>
-          <strong>Anthropic</strong>
+          <select
+            className="settings-input"
+            data-testid="settings-providers-primary"
+            value={draft.primary_provider}
+            onChange={(e) => update("primary_provider", e.target.value as ProviderSettings["primary_provider"])}
+            disabled={isLoading || isSaving}
+            aria-label="Primary provider"
+          >
+            {PROVIDER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="settings-field">
+        <div className="settings-field settings-field-editable">
           <div>
             <span className="settings-field-label">Fallback behavior</span>
-            <p>Provider failures stop the action and write an audit row.</p>
+            <p>What happens when the primary provider returns an error.</p>
           </div>
-          <strong>Fail closed</strong>
+          <select
+            className="settings-input"
+            data-testid="settings-providers-fallback"
+            value={draft.fallback_behavior}
+            onChange={(e) => update("fallback_behavior", e.target.value as ProviderSettings["fallback_behavior"])}
+            disabled={isLoading || isSaving}
+            aria-label="Fallback behavior"
+          >
+            {FALLBACK_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="settings-field">
+        <div className="settings-field settings-field-editable">
           <div>
             <span className="settings-field-label">Per-worker overrides</span>
-            <p>Worker-specific provider choices remain visible in worker settings.</p>
+            <p>Workers can override provider routing inside their manifest. All overrides land in the audit log.</p>
           </div>
-          <strong>Audit logged</strong>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              data-testid="settings-providers-allow-overrides"
+              checked={draft.allow_worker_overrides}
+              onChange={(e) => update("allow_worker_overrides", e.target.checked)}
+              disabled={isLoading || isSaving}
+              aria-label="Allow per-worker provider overrides"
+            />
+            <span>{draft.allow_worker_overrides ? "Allowed" : "Locked"}</span>
+          </label>
         </div>
       </div>
+
+      <SaveBar
+        dirty={dirty}
+        isSaving={isSaving}
+        onSave={save}
+        onRevert={() => setDraft(persisted)}
+        testid="settings-providers-save"
+      />
+      <SettingsStyles />
     </section>
+  );
+}
+
+function isDirty(a: ProviderSettings, b: ProviderSettings): boolean {
+  return (
+    a.primary_provider !== b.primary_provider ||
+    a.fallback_behavior !== b.fallback_behavior ||
+    a.allow_worker_overrides !== b.allow_worker_overrides
+  );
+}
+
+function SaveBar({
+  dirty,
+  isSaving,
+  onSave,
+  onRevert,
+  testid,
+}: {
+  dirty: boolean;
+  isSaving: boolean;
+  onSave: () => void;
+  onRevert: () => void;
+  testid: string;
+}) {
+  if (!dirty && !isSaving) return null;
+  return (
+    <div className="settings-save-bar" data-testid={`${testid}-bar`}>
+      <span className="settings-save-hint">Unsaved changes</span>
+      <button
+        type="button"
+        className="settings-revert-btn"
+        onClick={onRevert}
+        disabled={isSaving}
+      >
+        Revert
+      </button>
+      <button
+        type="button"
+        className="settings-save-btn"
+        data-testid={testid}
+        onClick={onSave}
+        disabled={isSaving}
+      >
+        {isSaving ? "Saving…" : "Save changes"}
+      </button>
+    </div>
+  );
+}
+
+function SettingsStyles() {
+  return (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: `
+.settings-field-editable { align-items: center; }
+.settings-input {
+  flex: 0 0 auto;
+  min-width: 220px;
+  border: 1px solid var(--settings-border, #e5e7eb);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--settings-ink, #1f2937);
+  background: var(--settings-card, #ffffff);
+}
+.settings-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary, #8b5cf6) 45%, transparent);
+  outline-offset: 1px;
+}
+.settings-input:disabled { opacity: 0.55; cursor: not-allowed; }
+.settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--settings-ink, #1f2937);
+}
+.settings-toggle input { width: 18px; height: 18px; cursor: pointer; }
+.settings-save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--settings-border, #e5e7eb);
+}
+.settings-save-hint {
+  margin-right: auto;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--settings-muted, #52525b);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.settings-save-btn,
+.settings-revert-btn {
+  min-height: 34px;
+  border-radius: 7px;
+  padding: 0 14px;
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--settings-border, #e5e7eb);
+  background: var(--settings-card, #ffffff);
+  color: var(--settings-ink, #1f2937);
+}
+.settings-save-btn {
+  border-color: transparent;
+  background: linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%);
+  color: #fff;
+}
+.settings-save-btn:disabled,
+.settings-revert-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+`,
+      }}
+    />
   );
 }

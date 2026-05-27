@@ -1,0 +1,113 @@
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_WORKSPACE_SETTINGS } from "@/lib/api/settings";
+
+const settingsApi = vi.hoisted(() => ({
+  fetchWorkspaceSettings: vi.fn(),
+  updateWorkspaceSettings: vi.fn(),
+}));
+
+const toastApi = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+  loading: vi.fn(),
+  promise: vi.fn(),
+  dismiss: vi.fn(),
+}));
+
+vi.mock("@/lib/api/settings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/settings")>();
+  return { ...actual, ...settingsApi };
+});
+
+vi.mock("@/lib/ui/use-toast", () => ({
+  useToast: () => toastApi,
+}));
+
+vi.mock("@/components/skycot/ThemePicker", () => ({
+  ThemePicker: () => <div data-testid="theme-picker-mock" />,
+}));
+
+import WorkspaceSettingsPage from "./page";
+
+describe("settings workspace page", () => {
+  beforeEach(() => {
+    settingsApi.fetchWorkspaceSettings.mockResolvedValue({
+      value: { ...DEFAULT_WORKSPACE_SETTINGS },
+      source: "mock-bypass",
+    });
+    settingsApi.updateWorkspaceSettings.mockResolvedValue({
+      value: { ...DEFAULT_WORKSPACE_SETTINGS, name: "Renamed" },
+      source: "mock-bypass",
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders controlled inputs hydrated from fetchWorkspaceSettings", async () => {
+    render(<WorkspaceSettingsPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-workspace-name")).toHaveValue(
+        DEFAULT_WORKSPACE_SETTINGS.name,
+      );
+    });
+    expect(screen.getByTestId("settings-workspace-timezone")).toHaveValue(
+      DEFAULT_WORKSPACE_SETTINGS.timezone,
+    );
+    expect(screen.getByTestId("settings-workspace-billing")).toHaveValue(
+      DEFAULT_WORKSPACE_SETTINGS.billing_contact,
+    );
+  });
+
+  it("fires onChange for name and surfaces the save bar", async () => {
+    render(<WorkspaceSettingsPage />);
+    const nameInput = await screen.findByTestId("settings-workspace-name");
+    expect(screen.queryByTestId("settings-workspace-save-bar")).not.toBeInTheDocument();
+
+    fireEvent.change(nameInput, { target: { value: "Renamed Tenant" } });
+
+    expect(nameInput).toHaveValue("Renamed Tenant");
+    expect(screen.getByTestId("settings-workspace-save-bar")).toBeInTheDocument();
+  });
+
+  it("calls updateWorkspaceSettings when Save is clicked", async () => {
+    render(<WorkspaceSettingsPage />);
+    const nameInput = await screen.findByTestId("settings-workspace-name");
+    fireEvent.change(nameInput, { target: { value: "Renamed Tenant" } });
+
+    const saveBtn = screen.getByTestId("settings-workspace-save");
+    await act(async () => {
+      fireEvent.click(saveBtn);
+    });
+
+    expect(settingsApi.updateWorkspaceSettings).toHaveBeenCalledTimes(1);
+    const [prev, patch] = settingsApi.updateWorkspaceSettings.mock.calls[0];
+    expect(prev).toEqual(DEFAULT_WORKSPACE_SETTINGS);
+    expect(patch.name).toBe("Renamed Tenant");
+    expect(toastApi.success).toHaveBeenCalledWith(
+      "Workspace saved",
+      expect.objectContaining({ description: expect.any(String) }),
+    );
+  });
+
+  it("reverts persisted state and shows an error toast on mutation failure", async () => {
+    settingsApi.updateWorkspaceSettings.mockRejectedValue(new Error("gateway angry"));
+
+    render(<WorkspaceSettingsPage />);
+    const nameInput = await screen.findByTestId("settings-workspace-name");
+    fireEvent.change(nameInput, { target: { value: "Bad name" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("settings-workspace-save"));
+    });
+
+    expect(toastApi.error).toHaveBeenCalledWith(
+      "Couldn't save workspace",
+      expect.objectContaining({ description: "gateway angry" }),
+    );
+  });
+});
