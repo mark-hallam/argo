@@ -82,6 +82,28 @@ describe("redactPII — phone", () => {
     expect(masked.phone).toBe(0);
     expect(redacted).toContain("2026-05-11");
   });
+
+  it("does NOT mask digit runs inside a UUID v7 action id", () => {
+    // Regression for the demo bug — `/audit/action/act_018f67d0-…` was
+    // rendering as `act_018f67d0-0000-7000-8000-000[PHONE]_000` because
+    // the trailing zero-pad-plus-counter inside the UUID's last block
+    // is 9 contiguous digits and tripped the phone post-filter.
+    const id = "act_018f67d0-0000-7000-8000-000000000001_000";
+    const body = `Detail for action ${id} is not currently available.`;
+    const { redacted, masked } = redactPII(body, POLICY_MASK_ALL);
+    expect(redacted).toBe(body);
+    expect(masked.phone).toBe(0);
+  });
+
+  it("still masks a genuine phone number alongside a UUID in the same string", () => {
+    const id = "018f67d0-0000-7000-8000-000000000001";
+    const { redacted, masked } = redactPII(
+      `worker ${id} pinged +64 21 555 0123 about renewal`,
+      POLICY_MASK_ALL,
+    );
+    expect(redacted).toBe(`worker ${id} pinged [PHONE] about renewal`);
+    expect(masked.phone).toBe(1);
+  });
 });
 
 describe("redactPII — card", () => {

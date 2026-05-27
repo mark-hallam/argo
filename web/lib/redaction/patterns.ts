@@ -125,3 +125,34 @@ export function digitCount(raw: string): number {
   }
   return n;
 }
+
+/**
+ * UUID canonical form: 8-4-4-4-12 lowercase hex. Used by the phone
+ * post-filter to skip digit runs that fall inside an opaque
+ * identifier — UUID v7's trailing 12-char block is often a long
+ * zero-pad-plus-counter (e.g. `000000000001`) that the permissive
+ * phone regex would otherwise mask as `[PHONE]` inside an action id.
+ * Case-insensitive flag covers UPPER and mixed-case rendering.
+ */
+export const UUID_RE =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/**
+ * True iff `[start, start + length)` falls inside any UUID match in
+ * `text`. Re-scans `text` per call (no caching): phone matches are
+ * rare and audit bodies are short, so the wasted work is sub-µs.
+ */
+export function isSpanInsideUuid(
+  text: string,
+  start: number,
+  length: number,
+): boolean {
+  const re = new RegExp(UUID_RE.source, UUID_RE.flags);
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const end = m.index + m[0].length;
+    if (start >= m.index && start + length <= end) return true;
+    if (m[0].length === 0) re.lastIndex++;
+  }
+  return false;
+}

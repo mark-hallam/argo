@@ -24,6 +24,7 @@ import {
   EMAIL_RE,
   IBAN_RE,
   IRD_RE,
+  isSpanInsideUuid,
   luhnValid,
   PATTERN_ORDER,
   PHONE_RE,
@@ -96,11 +97,22 @@ const PATTERN: Record<RedactionCategory, RegExp> = {
 const ISO_DATE_RE = /^\s*\d{4}-\d{2}-\d{2}\s*$/;
 
 /** Per-category post-filter: keeps the regex permissive, kills the obvious false-positives. */
-function shouldMask(category: RedactionCategory, match: string): boolean {
+function shouldMask(
+  category: RedactionCategory,
+  match: string,
+  offset: number,
+  fullText: string,
+): boolean {
   if (category === "phone") {
     if (ISO_DATE_RE.test(match)) return false;
     const n = digitCount(match);
-    return n >= 7 && n <= 15;
+    if (n < 7 || n > 15) return false;
+    // Action ids (UUID v7) contain 12-char hex blocks that can be
+    // pure-digit zero-pads; without this guard the trailing block
+    // gets masked as `[PHONE]` mid-id. See fix-audit-redactor-phone-
+    // false-positive-on-action-ids brief (2026-05-27).
+    if (isSpanInsideUuid(fullText, offset, match.length)) return false;
+    return true;
   }
   if (category === "card") return luhnValid(match);
   return true;
@@ -130,8 +142,11 @@ export function redactPII(text: string, policy: RedactionPolicy): RedactionResul
   for (const category of PATTERN_ORDER) {
     if (policy[category] !== "mask") continue;
     const re = new RegExp(PATTERN[category].source, PATTERN[category].flags);
-    out = out.replace(re, (match) => {
-      if (!shouldMask(category, match)) return match;
+    // None of our regexes capture groups, so replace's callback args
+    // are `(match, offset, fullText)`; offset is needed for the UUID
+    // post-filter on phone matches.
+    out = out.replace(re, (match: string, offset: number, fullText: string) => {
+      if (!shouldMask(category, match, offset, fullText)) return match;
       masked[category]++;
       return SENTINEL[category];
     });
