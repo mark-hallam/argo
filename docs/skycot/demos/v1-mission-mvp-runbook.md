@@ -294,9 +294,13 @@ capability-gated, audited runner.
   `MacosCuExecutor`.
 
 **Visual / operator action**:
-1. Operator picks a workflow with two steps: step 1 = MCP call
-   (`zendesk:search_tickets`), step 2 = computer-use action
-   (`macos_notes:create_note`).
+1. From `/workflows`, operator clicks an existing workflow card
+   with two steps: step 1 = MCP call (`zendesk:search_tickets`),
+   step 2 = computer-use action (`macos_notes:create_note`). Do
+   **not** navigate via `/workflows/build` — that route is a
+   vertical-picker (Sales / Support / GTM / People Ops / Finance),
+   not the react-flow canvas. Clicking a card lands directly on
+   `/workflows/<vertical>/<name>/build` which is the canvas.
 2. Hit **Run**. Step 1 fires through the MCP pool — the activity
    feed shows the dispatcher receiving `(tenant_id, "zendesk",
    "search_tickets")`. One `workflow.step.executed` audit row.
@@ -469,6 +473,10 @@ artifact.
   core round-trip beat.
 - The `/audit` hash-chain hover in Scene 6 lingers for ≥2 seconds
   so viewers can read the link.
+- Scene 5 opens the workflow canvas by clicking an existing card
+  from `/workflows`, not by visiting `/workflows/build`. The
+  `/workflows/build` route is a vertical-picker (Sales / Support /
+  GTM / People Ops / Finance) — recordable but a wasted beat.
 
 ---
 
