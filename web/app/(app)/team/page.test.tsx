@@ -277,4 +277,33 @@ describe("TeamPage", () => {
       /1 teammate working/,
     );
   });
+
+  // Pinned to keep us honest about hero KPIs being synthesized from
+  // worker count (Actions/wk = N × 187, Hours saved = N × 12) until
+  // real activity-data wiring lands. The "≈ sample" eyebrows + sub
+  // copy "(sample)" tag are the visible-on-camera honesty signal that
+  // these are placeholders, not facts.
+  it("tags the synthetic Actions/wk and Hours saved KPIs with a sample eyebrow", () => {
+    render(<TeamPage />);
+    const eyebrows = screen.getAllByTestId("brandloud-kpi-sample-eyebrow");
+    expect(eyebrows).toHaveLength(2);
+    for (const node of eyebrows) {
+      expect(node).toHaveTextContent(/sample/i);
+    }
+  });
+
+  it("does not tag the real Working KPI with a sample eyebrow", () => {
+    render(<TeamPage />);
+    const eyebrows = screen.getAllByTestId("brandloud-kpi-sample-eyebrow");
+    // Only the two synthetic KPIs (Actions/wk, Hours saved) carry
+    // the eyebrow; the Working count is a real aggregation.
+    expect(eyebrows).toHaveLength(2);
+  });
+
+  it("flags the hero sub copy as a sample so the camera sees honest framing", () => {
+    render(<TeamPage />);
+    expect(
+      screen.getByText(/actions this week.*hours saved \(sample\)/i),
+    ).toBeInTheDocument();
+  });
 });

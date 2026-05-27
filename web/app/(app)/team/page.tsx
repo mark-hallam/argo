@@ -146,7 +146,9 @@ function TeamPageContent() {
     [workers, filters],
   );
 
-  // C2 holographic-showcase KPIs; richer aggregations wire in later.
+  // weeklyActions/hoursSaved are placeholders until real activity
+  // data wires in (Phase 2); flagged isSample below so the hero
+  // tags them as estimates rather than passing them off as facts.
   const workingCount = workers.filter((w) => w.status === "working").length;
   const weeklyActions = workers.length > 0 ? workers.length * 187 : 0;
   const hoursSaved = workers.length > 0 ? workers.length * 12 : 0;
@@ -473,7 +475,7 @@ function TeamHero({
   const sub =
     total === 0
       ? "No teammates yet. Pick a vertical and they'll be in your Slack in four minutes."
-      : `${working} working right now · ${weeklyActions.toLocaleString()} actions this week · saving you ~${hoursSaved} hours.`;
+      : `${working} working right now · ~${weeklyActions.toLocaleString()} actions this week · ~${hoursSaved} hours saved (sample).`;
   return (
     <BrandLoudHero
       eyebrowDotColor="#f0fdf4"
@@ -487,8 +489,8 @@ function TeamHero({
         total > 0
           ? [
               { label: "Working", value: String(working) },
-              { label: "Actions/wk", value: weeklyActions.toLocaleString() },
-              { label: "Hours saved", value: String(hoursSaved) },
+              { label: "Actions/wk", value: weeklyActions.toLocaleString(), isSample: true },
+              { label: "Hours saved", value: String(hoursSaved), isSample: true },
             ]
           : undefined
       }

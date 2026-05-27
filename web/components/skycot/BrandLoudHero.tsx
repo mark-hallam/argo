@@ -17,6 +17,10 @@ import { type CSSProperties } from "react";
 export interface BrandLoudHeroKpi {
   label: string;
   value: string;
+  // When true the KPI renders a "≈ sample" eyebrow above the value
+  // so synthetic / placeholder numbers (computed before real activity
+  // data is wired) are visibly tagged as estimates rather than facts.
+  isSample?: boolean;
 }
 
 export interface BrandLoudHeroProps {
@@ -181,6 +185,15 @@ export function BrandLoudHero({
           color: rgba(255, 255, 255, 0.75);
           margin-bottom: 4px;
         }
+        .skycot-brandloud-kpi-sample {
+          font-family: var(--font-mono);
+          font-size: 9px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.7);
+          margin-bottom: 2px;
+        }
         .skycot-brandloud-kpi-value {
           font-family: "Inter", sans-serif;
           font-size: 36px;
@@ -231,6 +244,14 @@ export function BrandLoudHero({
             <div className="skycot-brandloud-kpis">
               {kpis.map((k) => (
                 <div className="skycot-brandloud-kpi" key={k.label}>
+                  {k.isSample ? (
+                    <div
+                      className="skycot-brandloud-kpi-sample"
+                      data-testid="brandloud-kpi-sample-eyebrow"
+                    >
+                      ≈ sample
+                    </div>
+                  ) : null}
                   <div className="skycot-brandloud-kpi-label">{k.label}</div>
                   <div className="skycot-brandloud-kpi-value">{k.value}</div>
                 </div>
