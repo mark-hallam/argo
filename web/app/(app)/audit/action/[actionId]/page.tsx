@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { ActionInputsCard } from "@/components/skycot/audit/ActionInputsCard";
@@ -9,7 +10,6 @@ import { ActionSummaryHero } from "@/components/skycot/audit/ActionSummaryHero";
 import { AuditActionNotFound } from "@/components/skycot/audit/AuditActionNotFound";
 import { DecisionChainCard } from "@/components/skycot/audit/DecisionChainCard";
 import { DelegationChainCard } from "@/components/skycot/audit/DelegationChainCard";
-import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
 import { ProvenanceBlock } from "@/components/skycot/audit/ProvenanceBlock";
 import { RedactionBanner } from "@/components/skycot/audit/RedactionBanner";
 import { singleActionScope } from "@/lib/sample-export";
@@ -22,6 +22,22 @@ import { redactAuditDetail } from "@/lib/redaction/redact";
 import { categoriesLackedBy } from "@/lib/redaction/audit-rules";
 import type { AuditDetailWithDelegation } from "@/lib/api/audit-detail";
 import type { RbacPermission } from "@/lib/redaction/types";
+
+// PERF (P0 fix, 2026-05-27 — fix-spa-proxy-audit-detail-50x-slower-
+// than-gateway-direct): the evidence-bundle exporter pulls
+// @radix-ui/react-dialog + 3 sub-components (~700 LOC of dialog +
+// scope-builder + format-selector). It is only mounted when the
+// operator clicks Export, so we split it out of the cold compile.
+// Cuts dev first-paint compile cost for /audit/action/[id] by a
+// chunk that is invisible until interaction. ssr:false because the
+// dialog has no useful server render — it's gated on click state.
+const EvidenceBundleExporter = dynamic(
+  () =>
+    import("@/components/skycot/audit/EvidenceBundleExporter").then(
+      (mod) => mod.EvidenceBundleExporter,
+    ),
+  { ssr: false },
+);
 
 /**
  * `/audit/action/<actionId>` — action drill-in surface. CONTRACT PR

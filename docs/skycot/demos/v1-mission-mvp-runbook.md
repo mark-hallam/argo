@@ -45,6 +45,15 @@ into the narration; the tests are source material, not the story.
 - [ ] Laptop on AC power, battery >80%.
 - [ ] Recording target: **1920×1080**. Browser zoom 100%. Terminal font ≥14pt.
 - [ ] Pre-warm caches: open `http://localhost:3000/onboarding/welcome`, the `/audit` page, and the `/workers` index once in the recording browser. First-load LCP can break the "no mid-scene loads >2 s" feel.
+- [ ] **Pre-warm `/audit/action/<id>` drill-in (P0 — Scene 6).** Under `pnpm dev` + turbopack, the audit-detail route has a heavy first-paint compile cost (cards + redaction lib + dialog chunk). After the seed CLI runs, grab one action id from `curl -fsS http://127.0.0.1:7400/api/v1/audit/feed | jq -r '.actions[0].id'` and pre-warm:
+  ```bash
+  ACTION_ID=$(curl -fsS http://127.0.0.1:7400/api/v1/audit/feed | jq -r '.actions[0].id')
+  curl -m 90 -s -o /dev/null -w "warmup: %{http_code} in %{time_total}s\n" \
+    "http://localhost:3000/audit/action/$ACTION_ID"
+  curl -m 10 -s -o /dev/null -w "  api: %{http_code} in %{time_total}s\n" \
+    "http://localhost:3000/api/v1/audit/$ACTION_ID"
+  ```
+  Expected after warm: page <3 s, api <0.5 s. Without this, the camera catches up to ~13 minutes of compile dead-air on Scene 6's first drill-in click. Production builds (`pnpm build && pnpm start`) do not need this step.
 - [ ] Gateway CORS preflight passes from the recording browser origin (`localhost:*` or `127.0.0.1:*`, including preview proxies such as `http://localhost:53854`); production runs must use an explicit `[gateway.cors].allowed_origins` entry instead.
 - [ ] Slack desktop notifications off **except** for the demo channel.
 - [ ] `argo gateway start --bind 127.0.0.1 --port 7400` running in a non-visible terminal. Stderr should print `argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted`.
