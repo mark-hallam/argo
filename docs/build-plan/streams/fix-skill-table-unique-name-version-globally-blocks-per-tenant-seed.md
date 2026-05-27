@@ -88,29 +88,96 @@ preference):
 
 ### Migration mechanics
 
-SQLite cannot drop a UNIQUE constraint with `ALTER TABLE`. The
-canonical SQLite pattern is the **table-swap**:
+SQLite cannot drop a UNIQUE constraint with `ALTER TABLE`. The canonical SQLite pattern is the **table-swap**, but a 2026-05-27 audit pass surfaced two hazards the naive 5-step swap would silently mishandle:
 
-1. `CREATE TABLE skill_new (... UNIQUE(name, version, tenant_id))`
-   with the same column set + types as the existing `skill` table at
-   the point of v83 (all 14 columns: `id`, `name`, `version`, `body`,
-   `frontmatter`, `source`, `hash`, `learned_in`, `superseded_by`,
-   `created_at`, plus v11's `lifecycle_state`, v41's `shared` +
-   `shared_with_cluster`, v50's `min_trust_grade`, v80's `tenant_id`).
-   Verify the column set by running
-   `sqlite3 ~/.argo/sessions.db ".schema skill"` at claim time — the
-   list above is authoritative at SHA `a9512cd22` but a worker
-   should re-verify before authoring the SQL.
-2. `INSERT INTO skill_new SELECT ... FROM skill` (preserve all rows
-   including the `__migration_placeholder__` tenant from v80).
-3. `DROP TABLE skill`.
-4. `ALTER TABLE skill_new RENAME TO skill`.
-5. Recreate the v80 `idx_skill_tenant_id` index on the new table.
+#### ⚠️ HAZARD 1 — Foreign key from `session_skill` (currently INERT, but future-fragile)
 
-The down-migration reverses the swap (recreate a `skill_old` with the
-v83 schema, copy rows, drop, rename, restore the original index set).
-Down-migration MUST preserve every row including the
-`__migration_placeholder__` sentinel.
+`session_skill.skill_id` declares `REFERENCES skill(id) ON DELETE CASCADE` (verbatim from `v4.rs:33`).
+
+**Empirical finding from the 2026-05-27 audit pass**: this codebase NEVER enables `PRAGMA foreign_keys = ON`. The default SQLite behavior is foreign-key enforcement OFF (per https://sqlite.org/pragma.html#pragma_foreign_keys). A grep across `crates/argo-store/` finds zero `PRAGMA foreign_keys` hits; `wal_tuning.rs:105-115` sets 7 pragmas, foreign_keys is not one of them. So **in the current runtime config, `DROP TABLE skill` does NOT cascade-delete `session_skill` rows** — the hazard is INERT today.
+
+**BUT** — any future change that enables FKs (postgres target, security hardening pass, etc.) would silently break this migration. This brief specifies the forward-safe approach:
+
+1. **Issue `PRAGMA defer_foreign_keys = ON`** at the top of `up()`. No-op today (FKs off) but armed if/when FKs flip on later. Works inside the per-migration transaction at `registry.rs:28-46` (the more familiar `PRAGMA foreign_keys = OFF` would NOT work inside a transaction).
+2. **Reset `PRAGMA defer_foreign_keys = OFF`** at the end of `up()` for hygiene (connection-scoped; persists for that session otherwise).
+3. **The regression test `up_preserves_session_skill_fk_after_table_swap` MUST explicitly enable `PRAGMA foreign_keys = ON` on its in-memory pool BEFORE running migrations** — otherwise the test passes regardless of whether the worker remembered the defer pragma, giving false confidence. Test recipe:
+   ```rust
+   sqlx::query("PRAGMA foreign_keys = ON").execute(&pool).await?;
+   // insert one skill row + one session_skill row referencing it
+   // run migrations up to v84
+   // assert SELECT count(*) FROM session_skill is unchanged
+   // (if the worker forgot defer_foreign_keys, the cascade fires HERE
+   //  because FKs ARE on for THIS test pool)
+   ```
+
+#### ⚠️ HAZARD 2 — All four auxiliary indexes must be recreated
+
+A 2026-05-27 audit grep against the `skill` table found 4 indexes the migration MUST recreate post-swap. Forgetting any one is a silent perf regression (full table scans, no test fails):
+
+| Index name | Defined in | DDL |
+|---|---|---|
+| `idx_skill_vertical_id` | `v9.rs:50` | `CREATE INDEX idx_skill_vertical_id ON skill(vertical_id)` |
+| `idx_skill_lifecycle` | `v11.rs:54` | `CREATE INDEX idx_skill_lifecycle ON skill(lifecycle_state)` |
+| `idx_skill_shared_cluster` | `v41.rs:37-38` + `migrations/40__skill_shared.sql:22` | `CREATE INDEX idx_skill_shared_cluster ON skill(shared_with_cluster) WHERE shared = 1` (literal name confirmed by audit; no probe needed) |
+| `idx_skill_tenant_id` | `v80.rs:53` (down ref) | `CREATE INDEX IF NOT EXISTS idx_skill_tenant_id ON skill(tenant_id)` |
+
+Audit also confirmed: zero triggers on `skill` table, zero views referencing `skill` (only `skill_provenance` snapshot row from v69 which is denormalized and independent).
+
+#### Canonical migration sequence
+
+```sql
+-- Top of up(): defer FK checks for the duration of this transaction (forward-safe)
+PRAGMA defer_foreign_keys = ON;
+
+-- 1. CREATE skill_new with same columns + tightened UNIQUE
+CREATE TABLE skill_new (
+  id              BLOB PRIMARY KEY,
+  name            TEXT NOT NULL,
+  version         TEXT NOT NULL,
+  body            TEXT NOT NULL,
+  frontmatter     TEXT NOT NULL,
+  source          TEXT NOT NULL,
+  hash            BLOB NOT NULL,
+  learned_in      BLOB,
+  superseded_by   BLOB REFERENCES skill(id),  -- self-FK re-resolves to renamed table post-swap
+  created_at      INTEGER NOT NULL,
+  -- v9, v11, v41, v50, v80 columns — re-verify at claim time via .schema skill:
+  vertical_id     BLOB,                                              -- v9
+  lifecycle_state TEXT NOT NULL DEFAULT 'active',                    -- v11
+  shared          INTEGER NOT NULL DEFAULT 0,                        -- v41
+  shared_with_cluster TEXT,                                          -- v41
+  min_trust_grade INTEGER,                                           -- v50
+  tenant_id       TEXT NOT NULL DEFAULT '__migration_placeholder__', -- v80
+  UNIQUE(name, version, tenant_id)                                   -- THE FIX
+);
+
+-- 2. Copy ALL rows (preserves __migration_placeholder__ sentinel)
+INSERT INTO skill_new SELECT id, name, version, body, frontmatter, source, hash,
+  learned_in, superseded_by, created_at, vertical_id, lifecycle_state, shared,
+  shared_with_cluster, min_trust_grade, tenant_id
+FROM skill;
+
+-- 3. Drop old. With defer_foreign_keys = ON, no cascade fires now.
+DROP TABLE skill;
+
+-- 4. Rename. session_skill.skill_id resolves to new skill at commit time.
+ALTER TABLE skill_new RENAME TO skill;
+
+-- 5. Recreate ALL FOUR indexes (omitting any one is silent perf regression)
+CREATE INDEX idx_skill_vertical_id ON skill(vertical_id);
+CREATE INDEX idx_skill_lifecycle ON skill(lifecycle_state);
+CREATE INDEX idx_skill_shared_cluster ON skill(shared_with_cluster) WHERE shared = 1;
+CREATE INDEX IF NOT EXISTS idx_skill_tenant_id ON skill(tenant_id);
+
+-- 6. Reset hygiene
+PRAGMA defer_foreign_keys = OFF;
+```
+
+**Self-FK note**: `superseded_by BLOB REFERENCES skill(id)` is a self-referential FK. When `ALTER TABLE skill_new RENAME TO skill` runs, SQLite re-resolves the reference to the renamed table (confirmed by SQLite docs — rename rewrites unqualified FK references).
+
+#### Down-migration
+
+Reverses the swap (recreate `skill_old` with the v83 schema, copy rows, drop, rename, restore the original v1 + v9 + v11 + v41 + v50 + v80 index set). Same `defer_foreign_keys = ON` requirement. MUST preserve every row including the `__migration_placeholder__` sentinel.
 
 ### Surface contract
 
@@ -182,6 +249,25 @@ Do NOT touch:
       the exact pass line + wall-clock in PR body.
 - [ ] `cargo test -p argo-store --lib up_allows_same_name_version_across_tenants`
       passes (the new test added in v84's module).
+- [ ] `cargo test -p argo-store --lib up_preserves_session_skill_fk_after_table_swap`
+      passes (NEW test added 2026-05-27 audit — proves the
+      `session_skill.skill_id` FK rows survive the table-swap
+      without cascade-delete. Recipe MUST `PRAGMA foreign_keys = ON`
+      on the in-memory pool before running migrations, then insert
+      one `skill` row + one `session_skill` row referencing it, run
+      up to v84, assert `SELECT count(*) FROM session_skill` is
+      unchanged. Without enabling FKs on the test pool, this test
+      passes regardless of whether the worker remembered
+      `defer_foreign_keys` — giving false confidence. This is the
+      regression pin for HAZARD 1.).
+- [ ] `cargo test -p argo-store --lib up_preserves_all_skill_indexes_after_table_swap`
+      passes (NEW test added 2026-05-27 audit — proves the 4
+      auxiliary indexes survive the swap. Recipe: run migrations
+      up to v84 on `:memory:`, then query `sqlite_master WHERE type='index' AND tbl_name='skill'`
+      and assert the set includes
+      `idx_skill_vertical_id`, `idx_skill_lifecycle`,
+      `idx_skill_shared_cluster`, `idx_skill_tenant_id`. This is
+      the regression pin for HAZARD 2.).
 - [ ] `cargo test -p argo-store --lib` overall is GREEN (no other
       test regresses; v82/v83 down-migration tests in particular must
       still pass).
@@ -191,9 +277,17 @@ Do NOT touch:
       of `~/.argo/sessions.db` if running headless.)
 - [ ] `scripts/check-migration-slots.sh` passes (no duplicate v84,
       no duplicate filename slot 135).
-- [ ] Schema constant `EXPECTED_SCHEMA_VERSION` updated to 84 if the
-      project uses one (check `crates/argo-store/src/lib.rs` /
-      `migrations/mod.rs` at claim time).
+- [ ] **MANDATORY** — `EXPECTED_SCHEMA_VERSION` constant in
+      `crates/argo-store/src/lib.rs:364` (or wherever the audit
+      confirms it lives at claim time — `rg 'EXPECTED_SCHEMA_VERSION'
+      crates/`) bumped from 83 → 84. The pre-merge gate's
+      `scripts/check-expected-schema-version-matches-tip.sh`
+      preflight (called by `conductor-pre-merge-gate.sh:79`) catches
+      omission, but if the worker bypasses the gate (the failure
+      mode `ops-conductor-pre-merge-gate-block-admin-merge-when-pr-body-acknowledges-unrun-test`
+      is designed to prevent), the omission silently lands and the
+      gateway boot panics. Worker MUST report the bumped line in PR
+      body.
 - [ ] `bash scripts/check-gateway-freshness.sh` post-merge reports
       `gateway_schema=v83 codebase_latest=v84 drift=1`
       (this is the EXPECTED state immediately after merge; clears
