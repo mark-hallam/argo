@@ -202,7 +202,14 @@ async fn detail_summary_carries_worker_verb_cost() {
     let body = parse_body(&resp);
     let summary = &body["detail"]["summary"];
     assert_eq!(summary["worker"]["id"], "w-1");
-    assert_eq!(summary["worker"]["name"], "Triage Worker");
+    // No `worker`/`persona` row is seeded for `w-1`, so the name
+    // back-fill misses and the response falls back to the UUID —
+    // the live join sources the display name from the worker
+    // registry, never the audit payload's embedded `worker_name`
+    // (which can be stale after a rename or — pre-fix — was the
+    // UUID itself). End-to-end "resolved name wins" coverage lives
+    // in `crates/argo-cli/tests/audit_feed_worker_name_join.rs`.
+    assert_eq!(summary["worker"]["name"], "w-1");
     assert_eq!(summary["verb"], "issued refund");
     assert_eq!(summary["cost"]["usd"], 0.12);
     assert_eq!(summary["status"], "succeeded");

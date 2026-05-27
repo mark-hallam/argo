@@ -13,6 +13,7 @@
 //! - [`super::routes_audit_detail_refs`] — external-reference scanners
 //!   (Stripe, Slack, GitHub, Linear, generic URL substring matches).
 
+use super::audit_query::{lookup_worker_name, resolve_worker_names, WorkerNameMap};
 use super::rate_limit;
 use super::role_gate::{enforce_role, Action};
 use super::routes_audit_detail_render::{build_detail, payload_str};
@@ -48,12 +49,31 @@ pub(super) async fn detail_response(
         Ok(None) => return not_found(),
         Err(e) => return server_error(&format!("audit detail fetch: {e}")),
     };
-    let payload: Value = serde_json::from_str(&row.payload_json).unwrap_or(Value::Null);
+    let mut payload: Value = serde_json::from_str(&row.payload_json).unwrap_or(Value::Null);
     let policy = RedactionPolicy::default();
-    let delegation_chain = match build_delegation_chain(store, &tenant_id, &row, &payload).await {
-        Ok(chain) => chain,
+    let delegation_rows = match fetch_delegation_rows(store, &tenant_id, &payload).await {
+        Ok(rows) => rows,
         Err(e) => return server_error(&format!("audit delegation chain fetch: {e}")),
     };
+    let worker_names = match resolve_detail_worker_names(
+        store,
+        &tenant_id,
+        &payload,
+        delegation_rows.as_deref(),
+    )
+    .await
+    {
+        Ok(m) => m,
+        Err(e) => return server_error(&format!("worker name resolution: {e}")),
+    };
+    inject_resolved_worker_name(&mut payload, &tenant_id, &worker_names);
+    let delegation_chain = build_delegation_chain_value(
+        &row,
+        &payload,
+        delegation_rows.as_deref(),
+        &tenant_id,
+        &worker_names,
+    );
     let mut detail = build_detail(action_id, &row, &payload, &policy);
     if let Value::Object(obj) = &mut detail {
         obj.insert("delegation_chain".into(), delegation_chain);
@@ -67,33 +87,85 @@ pub(super) async fn detail_response(
     ("200 OK", body.to_string())
 }
 
-async fn build_delegation_chain(
+async fn fetch_delegation_rows(
     store: &Arc<SessionStore>,
     tenant_id: &str,
-    row: &DetailRow,
     payload: &Value,
-) -> Result<Value, sqlx::Error> {
+) -> Result<Option<Vec<DetailRow>>, sqlx::Error> {
     let Some(handoff_id) = handoff_id(payload) else {
-        return Ok(Value::Array(Vec::new()));
+        return Ok(None);
     };
     let rows = fetch_handoff_rows(store, tenant_id, &handoff_id).await?;
+    Ok(Some(rows))
+}
+
+fn build_delegation_chain_value(
+    row: &DetailRow,
+    payload: &Value,
+    delegation_rows: Option<&[DetailRow]>,
+    tenant_id: &str,
+    worker_names: &WorkerNameMap,
+) -> Value {
+    let Some(rows) = delegation_rows else {
+        return Value::Array(Vec::new());
+    };
     if rows.is_empty() {
-        return Ok(Value::Array(vec![delegation_step(
-            row, payload, "executed",
-        )]));
+        return Value::Array(vec![delegation_step(
+            row,
+            payload,
+            "executed",
+            tenant_id,
+            worker_names,
+        )]);
     }
     let last_id = rows.last().map(|r| r.id.as_slice());
-    Ok(Value::Array(
+    Value::Array(
         rows.iter()
             .enumerate()
             .map(|(idx, r)| {
                 let row_payload: Value =
                     serde_json::from_str(&r.payload_json).unwrap_or(Value::Null);
                 let role = delegation_role(idx, r.id.as_slice(), last_id);
-                delegation_step(r, &row_payload, role)
+                delegation_step(r, &row_payload, role, tenant_id, worker_names)
             })
             .collect(),
-    ))
+    )
+}
+
+async fn resolve_detail_worker_names(
+    store: &Arc<SessionStore>,
+    tenant_id: &str,
+    payload: &Value,
+    delegation_rows: Option<&[DetailRow]>,
+) -> Result<WorkerNameMap, sqlx::Error> {
+    let mut pairs: Vec<(String, String)> = Vec::new();
+    if let Some(worker_id) = payload_str(payload, "worker_id") {
+        pairs.push((tenant_id.to_string(), worker_id));
+    }
+    if let Some(rows) = delegation_rows {
+        for r in rows {
+            let row_payload: Value =
+                serde_json::from_str(&r.payload_json).unwrap_or(Value::Null);
+            if let Some(worker_id) = payload_str(&row_payload, "worker_id") {
+                pairs.push((tenant_id.to_string(), worker_id));
+            }
+        }
+    }
+    resolve_worker_names(store, &pairs).await
+}
+
+fn inject_resolved_worker_name(
+    payload: &mut Value,
+    tenant_id: &str,
+    worker_names: &WorkerNameMap,
+) {
+    let Some(worker_id) = payload_str(payload, "worker_id") else {
+        return;
+    };
+    let resolved = lookup_worker_name(worker_names, tenant_id, &worker_id);
+    if let Value::Object(map) = payload {
+        map.insert("worker_name".into(), Value::String(resolved));
+    }
 }
 
 async fn fetch_handoff_rows(
@@ -138,15 +210,15 @@ fn delegation_role(idx: usize, id: &[u8], last_id: Option<&[u8]>) -> &'static st
     }
 }
 
-fn delegation_step(row: &DetailRow, payload: &Value, role: &str) -> Value {
+fn delegation_step(
+    row: &DetailRow,
+    payload: &Value,
+    role: &str,
+    tenant_id: &str,
+    worker_names: &WorkerNameMap,
+) -> Value {
     let worker_id = payload_str(payload, "worker_id").unwrap_or_default();
-    let worker_name = payload_str(payload, "worker_name").unwrap_or_else(|| {
-        if worker_id.is_empty() {
-            "unknown".into()
-        } else {
-            worker_id.clone()
-        }
-    });
+    let worker_name = lookup_worker_name(worker_names, tenant_id, &worker_id);
     let timestamp = chrono::DateTime::<chrono::Utc>::from_timestamp_micros(row.created_at)
         .map_or_else(|| row.created_at.to_string(), |dt| dt.to_rfc3339());
     json!({

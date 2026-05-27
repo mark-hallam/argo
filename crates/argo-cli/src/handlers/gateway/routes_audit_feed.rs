@@ -41,6 +41,7 @@
 //! bucket is never unioned into cross-tenant probes. PII fence: J2's
 //! [`redact_text`] over a fixed set of string fields.
 
+use super::audit_query::{lookup_worker_name, resolve_page_worker_names, WorkerNameMap};
 use super::rate_limit;
 use super::role_gate::{enforce_role, Action};
 use super::routes_audit_feed_indexed::fetch_raw_rows;
@@ -106,9 +107,13 @@ pub(super) async fn list_response(
                 .map(|r| encode_cursor(r.created_at_micros, &r.id))
         })
         .flatten();
+    let worker_names = match resolve_page_worker_names(store, &page).await {
+        Ok(m) => m,
+        Err(e) => return server_error(&format!("worker name resolution: {e}")),
+    };
     let items: Vec<Value> = page
         .iter()
-        .map(|row| audit_row_json(row, &policy))
+        .map(|row| audit_row_json(row, &policy, &worker_names))
         .collect();
     emit_feed_audit(store, req, &params, items.len()).await;
     let mut body = json!({ "items": items });
@@ -222,16 +227,15 @@ fn row_passes_filters(row: &ExportedRow, params: &FeedParams) -> bool {
     true
 }
 
-fn audit_row_json(row: &ExportedRow, policy: &RedactionPolicy) -> Value {
+fn audit_row_json(
+    row: &ExportedRow,
+    policy: &RedactionPolicy,
+    worker_names: &WorkerNameMap,
+) -> Value {
     let p = &row.payload;
     let worker_id = payload_str(p, "worker_id").unwrap_or_default();
-    let worker_name = payload_str(p, "worker_name").unwrap_or_else(|| {
-        if worker_id.is_empty() {
-            "unknown".into()
-        } else {
-            worker_id.clone()
-        }
-    });
+    let row_tenant = payload_str(p, "tenant_id").unwrap_or_default();
+    let worker_name = lookup_worker_name(worker_names, &row_tenant, &worker_id);
     let (verb, _) = redact_text(
         &payload_str(p, "verb").unwrap_or_else(|| row.kind.clone()),
         policy,
