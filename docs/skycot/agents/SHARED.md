@@ -706,3 +706,4 @@ Pre-merge-gate `--skip-clippy --skip-tests` PASS all 9 gates on tip 013ad2844; l
 **Carry forward**: ~6 CLEAN PRs remain in IN_REVIEW that miss the web-only relaxation lane (#2565 #2566 #2567 #2569 #2573 #2574 — over-200-LOC or over-5-files); these require evaluator pre-verification before --skip-clippy admin-merge.
 
 v1.0 ship-gate: all 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains.
+2026-05-27T20:17:00Z [supervisor-watchdog] sup=PID:97586/rc:0 slots=2/2 s1=IDLE-cargo-wait s2=ACTIVE pulses=5/0-stale claude_pids=2/0hang remediated=none drift=0 streak=0 prs=s1:0,s2:0,codex:0,other:6,total:6 quota_probe=skipped
