@@ -1,6 +1,7 @@
 "use client";
 
 import { ApprovalRateRing } from "@/components/skycot/approvals/ApprovalRateRing";
+import { formatKpi } from "@/lib/format/kpi";
 import type { ApprovalItem } from "@/lib/sample-approvals";
 import { cn } from "@/lib/utils";
 
@@ -89,14 +90,14 @@ export function computeKpiCells(
   return [
     {
       label: "Pending",
-      value: String(pendingCount),
+      value: formatKpi(pendingCount, String),
       sub: overSla > 0 ? `${overSla} over SLA · needs eyes` : "across your workforce",
       tone: overSla > 0 ? "bad" : "neutral",
       testId: "pending",
     },
     {
       label: "Resolved / wk",
-      value: decidedItems.length > 0 ? String(decidedItems.length) : "—",
+      value: formatKpi(decidedItems.length, String),
       sub:
         decidedItems.length > 0
           ? "from resolved rows"
@@ -104,8 +105,10 @@ export function computeKpiCells(
       testId: "resolved",
     },
     {
+      // Mean over 0 events is genuinely undefined — keep the em-dash and
+      // surface the reason via aria-description for screen readers / hover.
       label: "Avg response",
-      value: responseMs == null ? "—" : formatDuration(responseMs),
+      value: formatKpi(responseMs, formatDuration),
       sub: responseMs == null ? "no response history" : "from resolved rows",
       tone:
         responseMs == null
@@ -114,10 +117,12 @@ export function computeKpiCells(
             ? "good"
             : "warn",
       testId: "avg-response",
+      ariaDescription:
+        responseMs == null ? "no resolved approvals yet" : undefined,
     },
     {
       label: "$ at risk",
-      value: totalAtRisk > 0 ? formatUsd(totalAtRisk) : "—",
+      value: formatKpi(totalAtRisk, formatUsd),
       sub:
         monetaryCount > 0
           ? `across ${monetaryCount} pending`
@@ -127,7 +132,7 @@ export function computeKpiCells(
     },
     {
       label: "Approval rate",
-      value: approvalRate == null ? "—" : formatPercent(approvalRate),
+      value: formatKpi(approvalRate ?? 0, formatPercent),
       sub: approvalRate == null ? "no decision history" : "from resolved rows",
       tone:
         approvalRate == null ? "neutral" : approvalRate >= 0.5 ? "good" : "warn",
@@ -176,6 +181,8 @@ export interface KpiCell {
     headline: string;
     slices: ApprovalRateSlices;
   };
+  /** Explanation surfaced when the value is the dash (e.g. why undefined). */
+  ariaDescription?: string;
 }
 
 export interface ApprovalRateSlices {
@@ -219,6 +226,8 @@ export function KpiStrip({ cells, rate, className }: KpiStripProps) {
           key={c.label}
           data-testid={c.testId ? `kpi-${c.testId}` : "kpi-cell"}
           data-tone={c.tone ?? "neutral"}
+          aria-description={c.ariaDescription}
+          title={c.ariaDescription}
           className={cn(
             "rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)]",
             "px-4 py-3 flex flex-col gap-1",

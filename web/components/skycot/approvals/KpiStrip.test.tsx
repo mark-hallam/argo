@@ -69,12 +69,19 @@ describe("KpiStrip", () => {
     expect(atRisk.sub).toMatch(/across 2 pending/);
   });
 
-  it("renders an em-dash for decision-history metrics when no rows are decided", () => {
+  it("renders zero-valued counts and rates instead of em-dash when no rows are decided", () => {
     const cells = computeKpiCells([], 0, NOW);
-    expect(cells.find((c) => c.testId === "resolved")?.value).toBe("—");
-    expect(cells.find((c) => c.testId === "avg-response")?.value).toBe("—");
-    expect(cells.find((c) => c.testId === "approval-rate")?.value).toBe("—");
+    expect(cells.find((c) => c.testId === "pending")?.value).toBe("0");
+    expect(cells.find((c) => c.testId === "resolved")?.value).toBe("0");
+    expect(cells.find((c) => c.testId === "approval-rate")?.value).toBe("0%");
     expect(cells.find((c) => c.testId === "approval-rate")?.rate).toBeUndefined();
+  });
+
+  it("keeps the em-dash on Avg response when no rows are decided and adds an aria-description", () => {
+    const cells = computeKpiCells([], 0, NOW);
+    const avg = cells.find((c) => c.testId === "avg-response")!;
+    expect(avg.value).toBe("—");
+    expect(avg.ariaDescription).toBe("no resolved approvals yet");
   });
 
   it("derives resolved count, response age, and approval rate from decided rows", () => {
@@ -138,11 +145,39 @@ describe("KpiStrip", () => {
     expect(screen.getByTestId("approval-rate-ring")).toHaveAttribute("data-approved", "50");
   });
 
-  it("renders an em-dash for $-at-risk when no items have monetary impact", () => {
+  it("renders $0 for $-at-risk when no items have monetary impact", () => {
     const cells = computeKpiCells([item({})], 1, NOW);
     const atRisk = cells.find((c) => c.testId === "at-risk")!;
-    expect(atRisk.value).toBe("—");
+    expect(atRisk.value).toBe("$0");
     expect(atRisk.sub).toMatch(/no monetary impact/);
+    expect(atRisk.tone).toBe("neutral");
+  });
+
+  it("renders the populated KPI strip with non-zero numeric values across all cells", () => {
+    const cells = computeKpiCells(
+      [
+        item({
+          id: "a",
+          decision: "approve",
+          dollarAtRisk: 12_500,
+          receivedAt: new Date(NOW - 30 * 60_000).toISOString(),
+        }),
+        item({
+          id: "b",
+          decision: null,
+          dollarAtRisk: 2_500,
+          receivedAt: new Date(NOW - 10 * 60_000).toISOString(),
+        }),
+      ],
+      1,
+      NOW,
+    );
+    expect(cells.find((c) => c.testId === "pending")?.value).toBe("1");
+    expect(cells.find((c) => c.testId === "resolved")?.value).toBe("1");
+    expect(cells.find((c) => c.testId === "avg-response")?.value).toBe("30m");
+    expect(cells.find((c) => c.testId === "avg-response")?.ariaDescription).toBeUndefined();
+    expect(cells.find((c) => c.testId === "at-risk")?.value).toMatch(/\$2,500|\$2\.5/);
+    expect(cells.find((c) => c.testId === "approval-rate")?.value).toBe("100%");
   });
 
   it("does not carry the old fixed KPI literals in the component source", () => {
