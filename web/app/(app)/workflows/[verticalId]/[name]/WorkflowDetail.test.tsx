@@ -169,6 +169,24 @@ describe("WorkflowDetailPage", () => {
     expect(screen.queryByText(staleRunLabel)).not.toBeInTheDocument();
   });
 
+  it("renders the No-runs-yet empty state in mock-offline mode (no fabricated rows)", async () => {
+    mocks.useWorkflow.mockReturnValue({
+      data: { workflow, source: "mock-offline" },
+      isError: false,
+      isLoading: false,
+    });
+    renderPage();
+
+    const emptyState = await screen.findByTestId("wfd-demo-runs-empty");
+    expect(emptyState).toHaveTextContent("No runs yet");
+    expect(emptyState).toHaveTextContent(
+      "This workflow hasn't been triggered in this workspace.",
+    );
+    expect(screen.getByRole("button", { name: /Run now →/i })).toBeInTheDocument();
+    expect(screen.queryByTestId("wfd-runs-table")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("wfd-runs-skeleton")).not.toBeInTheDocument();
+  });
+
   it("keeps the in-flight label as Running…", async () => {
     const user = userEvent.setup();
     let resolveRun: (value: unknown) => void = () => {};

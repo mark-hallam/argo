@@ -25,6 +25,7 @@ import { WorkflowViewerSkeleton } from "@/components/skycot/workflows/WorkflowVi
 import { WorkflowViewerErrorState } from "@/components/skycot/workflows/WorkflowEdgeStates";
 import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
 import { WorkflowVersionsPanel } from "@/components/skycot/workflows/WorkflowVersionsPanel";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { AddAsScheduleDrawer } from "./add-as-schedule-drawer";
 import { useWorkflow } from "@/lib/hooks/use-workflows";
 import {
@@ -393,21 +394,13 @@ function ViewerInner({
           RUN HISTORY · {sectionLabelForRange(filterState.range)}
         </div>
         {isDemoRunHistory ? (
-          <div
+          <EmptyState
             data-testid="wfd-demo-runs-empty"
-            style={{
-              padding: "18px 20px",
-              border: "1px dashed var(--border, #ece9f5)",
-              borderRadius: 10,
-              background: "rgba(139, 92, 246, 0.04)",
-              color: "var(--muted-foreground, #52525b)",
-              fontSize: 13,
-              lineHeight: 1.5,
-            }}
-          >
-            Demo workflow · no run history. Live run history appears after this
-            workflow is served by the gateway.
-          </div>
+            variant="compact"
+            headline="No runs yet"
+            body="This workflow hasn't been triggered in this workspace."
+            cta={{ label: "Run now →", onClick: handleRunWorkflow }}
+          />
         ) : (
           <>
             <WorkflowRunStats query={runsQuery} summary={runsSummary} />
