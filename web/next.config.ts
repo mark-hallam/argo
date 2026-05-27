@@ -41,6 +41,13 @@ const config: NextConfig = {
       { source: "/signup", destination: "/auth/signup", permanent: true },
       { source: "/signin", destination: "/auth/signin", permanent: true },
       { source: "/verify", destination: "/auth/verify", permanent: true },
+      // The canvas only exists at the nested per-worker / per-skill
+      // path `/workers/[workerId]/skills/[skillId]/canvas`. The flat
+      // `/skills-canvas` URL was never built but lingers in audit
+      // history + cross-brief references. 307 (not 308) because the
+      // marketplace landing may change shape; we don't want browsers
+      // caching the redirect permanently.
+      { source: "/skills-canvas", destination: "/skills", permanent: false },
     ];
   },
   // SECURITY (P1 fix, 2026-05-20): baseline browser security headers.
