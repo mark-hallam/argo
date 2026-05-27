@@ -245,12 +245,12 @@ export default function GenesisPage() {
         <div className="gen-page-content">
           <BrandLoudHero
             eyebrowDotColor="#a7f3d0"
-            eyebrowLabel="Genesis — describe a role"
+            eyebrowLabel="Genesis · onboarding studio"
             pulseDot
-            title="Hire your next teammate."
+            title="Onboard a new teammate."
             titleAccent="teammate"
-            sub="Tell us what they should own. We'll draft a real worker — persona, charter, and skills — in about ten seconds. No templates."
-            subMaxWidth={520}
+            sub="Describe the role, upload your SOPs, wiki pages, Slack threads or voice notes, then scope their access. Genesis trains the teammate and checks comprehension before they start work."
+            subMaxWidth={560}
           />
           <HeroInput
             value={roleDescription}
