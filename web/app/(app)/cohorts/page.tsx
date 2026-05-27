@@ -38,6 +38,11 @@ export default function CohortsPage() {
 
   const cohorts = cohortsQuery.data?.cohorts ?? [];
   const total = cohorts.length;
+  // Gate count/empty copy on `isSuccess` so SSR (idle: both isPending
+  // and isSuccess are false) renders skeletons instead of the empty
+  // preview + "0 cohorts" — otherwise the first paint shows the wrong
+  // body for ~200-500ms before hydration swaps in real data.
+  const ready = cohortsQuery.isSuccess;
 
   // Aggregate KPIs for the brand-loud hero. CohortSummary uses snake_case.
   const totalMembers = cohorts.reduce((sum, c) => sum + (c.member_count ?? 0), 0);
@@ -64,7 +69,12 @@ export default function CohortsPage() {
 
   return (
     <>
-      <CohortsHero total={total} members={totalMembers} skills={totalSkills} />
+      <CohortsHero
+        total={total}
+        members={totalMembers}
+        skills={totalSkills}
+        ready={ready}
+      />
       <CohortMagazineStyles />
 
       <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
@@ -77,12 +87,12 @@ export default function CohortsPage() {
               className="text-sm text-[var(--muted-foreground)]"
               data-testid="cohorts-subtitle"
             >
-              {cohortsQuery.isPending ? (
-                "Loading cohorts…"
-              ) : (
+              {ready ? (
                 <>
                   {total} {total === 1 ? "cohort" : "cohorts"} across the fleet
                 </>
+              ) : (
+                "Loading cohorts…"
               )}
             </p>
           </div>
@@ -100,7 +110,7 @@ export default function CohortsPage() {
         className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8"
         data-testid="cohorts-page"
       >
-        {cohortsQuery.isPending ? (
+        {!ready ? (
           <CohortMagazineSkeleton />
         ) : cohorts.length === 0 ? (
           <CohortsEmptyPreview
@@ -211,14 +221,22 @@ function CohortsHero({
   total,
   members,
   skills,
+  ready,
 }: {
   total: number;
   members: number;
   skills: number;
+  ready: boolean;
 }) {
+  // Until the query resolves, render neutral copy so SSR doesn't flash
+  // "Build your first cohort." (total === 0 default) for one paint before
+  // hydration swaps in the real total.
   let title: string;
   let sub: string;
-  if (total === 0) {
+  if (!ready) {
+    title = "Cohorts";
+    sub = "Cohorts group teammates by department, skill family, or trust grade.";
+  } else if (total === 0) {
     title = "Build your first cohort.";
     sub = "Cohorts group teammates by department, skill family, or trust grade.";
   } else if (total === 1) {
@@ -238,7 +256,7 @@ function CohortsHero({
       subMaxWidth={480}
       shineDurationS={6}
       kpis={
-        total > 0
+        ready && total > 0
           ? [
               { label: "Cohorts", value: String(total) },
               { label: "Members", value: String(members) },

@@ -6,6 +6,7 @@ import type { CohortSummary, FetchCohortsResult } from "@/lib/api/cohorts";
 type QueryShape = {
   data: FetchCohortsResult | undefined;
   isPending: boolean;
+  isSuccess: boolean;
 };
 
 const useCohortsMock = vi.fn<() => QueryShape>();
@@ -138,6 +139,7 @@ describe("CohortsPage", () => {
     useCohortsMock.mockReturnValue({
       data: { cohorts: SUMMARIES, source: "mock-offline" },
       isPending: false,
+      isSuccess: true,
     });
     render(<CohortsPage />);
     expect(screen.getByTestId("cohort-grid")).toBeInTheDocument();
@@ -157,6 +159,7 @@ describe("CohortsPage", () => {
     useCohortsMock.mockReturnValue({
       data: { cohorts: SUMMARIES, source: "mock-offline" },
       isPending: false,
+      isSuccess: true,
     });
     render(<CohortsPage />);
     expect(screen.queryByTestId("drawer-open")).not.toBeInTheDocument();
@@ -169,6 +172,7 @@ describe("CohortsPage", () => {
     useCohortsMock.mockReturnValue({
       data: { cohorts: SUMMARIES, source: "mock-offline" },
       isPending: false,
+      isSuccess: true,
     });
     render(<CohortsPage />);
     // Sales dept tab is present (Sales bucket contains "sales").
@@ -183,6 +187,7 @@ describe("CohortsPage", () => {
     useCohortsMock.mockReturnValue({
       data: { cohorts: PROJECT_OPS_SUMMARIES, source: "mock-offline" },
       isPending: false,
+      isSuccess: true,
     });
     render(<CohortsPage />);
 
@@ -202,9 +207,43 @@ describe("CohortsPage", () => {
     useCohortsMock.mockReturnValue({
       data: { cohorts: [], source: "mock-offline" },
       isPending: false,
+      isSuccess: true,
     });
     render(<CohortsPage />);
     expect(screen.getByTestId("cohorts-empty")).toBeInTheDocument();
     expect(screen.queryByTestId("cohort-grid")).not.toBeInTheDocument();
+  });
+
+  // F13 + F14 regression pin. During SSR the React Query hook is idle:
+  // isPending=false AND isSuccess=false because no fetch has fired yet.
+  // The page must render the skeleton (not the empty preview) and the
+  // "Loading cohorts…" subtitle (not "0 cohorts"). Otherwise first paint
+  // shows wrong copy + empty-state for ~200-500ms before hydration.
+  it("renders skeleton + loading subtitle while the query is idle (SSR shape)", () => {
+    useCohortsMock.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isSuccess: false,
+    });
+    render(<CohortsPage />);
+    expect(screen.queryByTestId("cohorts-empty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cohort-grid")).not.toBeInTheDocument();
+    expect(screen.getByTestId("cohorts-subtitle")).toHaveTextContent(
+      /loading cohorts/i,
+    );
+  });
+
+  it("renders skeleton + loading subtitle while isPending is true", () => {
+    useCohortsMock.mockReturnValue({
+      data: undefined,
+      isPending: true,
+      isSuccess: false,
+    });
+    render(<CohortsPage />);
+    expect(screen.queryByTestId("cohorts-empty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cohort-grid")).not.toBeInTheDocument();
+    expect(screen.getByTestId("cohorts-subtitle")).toHaveTextContent(
+      /loading cohorts/i,
+    );
   });
 });
