@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-27T10:12:49Z",
+  "last_run_utc": "2026-05-27T10:36:03Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T20-12-aest-merge-r100-pre-verified-pair-2495-2492",
-  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T09:50Z UTC (Melbourne 2026-05-27 20:12 AEST). Swarm ACTIVE — supervisor PID 85450 healthy, slots=2/2 ACTIVE, no halt sentinels. **Merged 2 PRs this tick under operator-locked `--skip-clippy` lane (R100 evaluator-pre-verified)**: (1) #2495 `v84: relax skill UNIQUE(name,version) → UNIQUE(name,version,tenant_id)` — closes R97/R98/R99 3-round substrate carry; migration v83→v84 + SQL slot 135 + 3 fk_on_pool regression tests + load-bearing seeds_independently_per_tenant real handler/SQL; (2) #2492 `ops: conductor pre-merge gate — block admin-merge when PR body acknowledges unrun test` — R97 P1 process pin implementing gate 9 PR-body anti-theater scan with 8 canonical admission phrases (would have caught R97→R98→R99 chain ~24h earlier). Pre-merge gate --skip-clippy 🟢 PASS on main a45d8eb22 in 115s (preflight schema=v83, migration-slot, LOC, parallel-pub-types, zero-caller-substrate, test-compile, web-typecheck SKIP). Ledger flipped IN_REVIEW→MERGED for both, status commit pushed. **R100 evaluator handoff fully actioned**. Gateway v83 codebase now v84 — drift expected ~1 (still within budget=2; restart NO_OP next tick or operator-triggered). 4 findings-only within budget. Queue depth: claude_todo=84, codex_todo=3 (well above threshold 25; no replenishment needed). Watchdog handoffs (2 entries) informational only. **Surfaces to next tick/operator**: gateway restart on v84 transition (recommended but non-blocking; gateway-freshness already FRESH at drift=1≤2 budget); R99 P3 carry `ops-conductor-tick-emit-current-utc-not-self-stamp` (7th round, still informational); 6 web-only CLEAN PRs from prior tick (#2441 #2443 #2453 #2471 #2476 + others) eligible under operator-locked web-only ≤200LOC ≤5files merge-without-evaluator lane — not picked this tick to bound scope. v1.0 ship-gate: ALL 6 mission claims now 🟢 LIVE per CLAUDE.md Status block; only item (d) operator records demo MP4 remains.",
-  "open_prs": 86,
+  "session_label": "tick-T20-36-aest-merge-5-web-doc-test-only-batch",
+  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired ~2026-05-27T10:25Z UTC (Melbourne 20:36 AEST), operator-prompted re-run after prior T20-12 tick. Swarm ACTIVE — supervisor PID 85450, slots 2/2 ACTIVE, no halt sentinels. **Merged 5 PRs this tick under operator-locked web/test/doc-only ≤200LOC ≤5files lane (feedback_web_only_merge_authorization_2026_05_26.md)**: (1) #2513 docs(runbook) Scene 2 vocab pin — markdown only; (2) #2514 fix(runbook) Scene 5 visual instruction — markdown only; (3) #2485 fix(workflows) vitest pin for mock-offline run-history — test-only 22 LOC 1 file; (4) #2482 fix delete orphan /workers/[workerId]/responsibilities/new — pure deletion 121 LOC removed; (5) #2512 fix(skills) 307-redirect /skills-canvas → /skills — 1 file next.config.ts 7 LOC. Pre-merge gate --skip-clippy 🟢 PASS on main 906ffeb6b in ~110s (preflight schema=v84 matches v84 tip, all 9 gates green incl. new gate 9 PR-body anti-theater scan from #2492). Ledger flipped IN_REVIEW→MERGED for all 5, status commit pushed. **R100 carry**: no fresh evaluator handoffs since prior tick — only 1 informational watchdog handoff (T10:20:55Z); 3 ghost-stamped entries are pre-cutoff. Gateway v83 codebase v84 drift=1 (FRESH within budget=2); restart still recommended but non-blocking. 4 findings-only within budget. Queue depth: claude_todo=78, codex_todo=3 (well above threshold 25; no Step 8 replenishment needed). claude_in_review=108, claude_claimed=8. Open PR count after batch ~56-60 (was 88 at tick start; net -5 from this batch + likely worker IN_REVIEW→MERGED inflight). **Surfaces to next tick/operator**: 55+ remaining CLEAN web/doc PRs eligible for continued merge sweep (#2433 #2439 #2440 #2442 #2445 #2446 #2447 #2448 ...); R99 P3 carry `ops-conductor-tick-emit-current-utc-not-self-stamp` (8th round, still informational); 27 DIRTY PRs need rebase fix-requests (out of scope for one-tick scheduled-task). v1.0 ship-gate: ALL 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains.",
+  "open_prs": 83,
   "queue_state": {
-    "claude_todo": 84,
+    "claude_todo": 78,
     "codex_todo": 3,
     "claude_or_codex_todo": 0,
     "claude_claimed": 8,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 88,
+    "claude_in_review": 108,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "Merged R100 evaluator-pre-verified pair (#2495 substrate + #2492 process pin) under --skip-clippy lane. R97→R98→R99 substrate carry closed (104+ anti-theater verifications this week). Gateway FRESH (drift=1≤budget). v1.0 ship-gate remains operator-only item (d) demo MP4. Queue depth healthy.",
+  "the_gate": "Merged 5 web/test/doc-only PRs (#2513 #2514 #2485 #2482 #2512) under operator-locked web-only ≤200LOC ≤5files lane. Gate --skip-clippy 🟢 9/9 PASS on 906ffeb6b. Gateway FRESH (drift=1≤budget). 55+ CLEAN PRs remaining + 27 DIRTY surfaced for next tick/operator. v1.0 ship-gate remains operator-only item (d) demo MP4.",
   "quota_probe": "skip"
 }
