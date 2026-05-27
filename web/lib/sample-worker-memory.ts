@@ -83,11 +83,11 @@ const MARIAH: WorkerMemory = {
   namespaceId: "ns_mariah_8b21",
   tenantScope: "Tenant-scoped ✓",
   facts: [
-    f("f_mariah_1", "Vendor onboarding requires Compliance review for any vendor over $50K/year spend.", 3 * DAY),
-    f("f_mariah_2", "Annual renewals route to Procurement + the business owner.", 8 * DAY),
-    f("f_mariah_3", "Use 'strategic partners' not 'vendors' for Tier 1 vendors per Operations branding.", 14 * DAY),
-    f("f_mariah_4", "Listings: never discount below floor price without category buyer sign-off.", 20 * DAY),
-    f("f_mariah_5", "Photos required for every listing — minimum 3, maximum 8.", 25 * DAY),
+    f("f_mariah_1", "Floor price is the cost-basis plus 18% margin; never re-price below without category buyer sign-off.", 3 * DAY),
+    f("f_mariah_2", "Photos required for every listing — minimum 3, maximum 8.", 8 * DAY),
+    f("f_mariah_3", "Competitor scrape runs every Monday 06:30 against 3 anchor stores; re-price triggered when undercut by >5%.", 14 * DAY),
+    f("f_mariah_4", "Listing copy follows the 'short bullet, longer body, never markdown' pattern per Ops branding.", 20 * DAY),
+    f("f_mariah_5", "Returns over $200 require Compliance review; under $200 are auto-credited per the Trust policy.", 25 * DAY),
   ],
   activeConversations: [
     c("c_mariah_1", "vendor#tomas-industries", "Q3 renewal terms", 22 * MIN, "/audit/action/ap_mariah_1"),
