@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-27T16:12:00Z",
+  "last_run_utc": "2026-05-28T03:35:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T02-30-aest-r104-pr2541-merge-demo-session-derivation",
-  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-27T16:10Z UTC (Melbourne 02:10 AEST 28 May). **MERGED PR #2541 `fix-demo-session-hardcodes-acmeco-discards-wizard-workspace-inputs`** per evaluator R104 S2 explicit PRE-MERGE PASS recommendation. Web-only ≤200LOC ≤5files lane (195/-13 +3 files all web/). Pre-merge gate --skip-clippy PASS all 9 gates on tip 82767d667 (preflight schema=v84, migration-slot, LOC ≤500, parallel-pub-types, zero-caller-substrate 53/38/0, test-compile 107s, web-typecheck SKIP, anti-theater scan SKIP). Merge commit landed; ledger row IN_REVIEW→MERGED. F3 [P0] NO-THEATER-IN-DEMO violation closed (DEMO_SESSION constant removed → getDemoSession(draft) + slugifyWorkspace; sidebar pill now honours typed workspace name 'Acme Growth · Owner' instead of hardcoded 'Acmeco · Owner'). **Step-4 checks**: gateway v83 vs codebase v84 drift=1 FRESH; 4 findings-only within budget (2026-05-30, 3 days remaining); LATEST.md audit 4 days old (no fresh ≤12h P0s). **Unread handoffs (7)**: all informational — watchdog ping pair (T15:17 + T15:51), watchdog TRAP slot-2 dirty tree (resolved — parallel agent committed 14 stream briefs since), evaluator R104 S1 PR #2535 POST-MERGE PASS (already merged last tick), S2 PR #2541 PRE-MERGE PASS (**actioned this tick**), S3 Claim 1 cold cargo PASS (no action), watchdog s1 silent-log + s2 self-recovery notes. 1 ghost-stamped entry (informational, 9th P3 carry, below pilot threshold). Queue depth post-merge: claude_todo=68 (rows added by parallel UX-audit batch since last tick), well above replenishment threshold 25 (no Step 8 author needed). v1.0 ship-gate: ALL 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains, but R104 S2 closure removes a P0 anti-theater violation that would have been visible in the recording.",
-  "open_prs": 94,
+  "session_label": "tick-T13-25-aest-r106-zombie-storm-demote-plus-3-web-only-merges",
+  "run_notes": "Scheduled-task tick `skycot-conductor-20min` fired 2026-05-28T03:25Z UTC (Melbourne 13:25 AEST 28 May). **PRIMARY ACTIONS THIS TICK: (1) demoted stuck CLAIMED row `fix-audit-list-kind-query-param-ignored` to BLOCKED to halt zombie storm** (run history compressed from 350+ retry stamps; superseded by IN_REVIEW PR #2527 which adds `?kind=` alias + 400 on unknown query params — same gateway audit-feed handler, same fix). **(2) MERGED 3 web-only relaxation PRs**: #2548 (signup hero unify 'AI teammate'→'teammate' — 1 LOC text), #2558 (cohorts eyebrow drop 'BUILT IN MELBOURNE' from Other dept — 1 LOC), #2561 (landing hero CTAs mobile stack at ≤640px + tablet nav hamburger — 10 LOC CSS). All three within permanent web-only ≤200 LOC ≤5 files ≤vitest-green-in-body lane; pre-merge-gate --skip-clippy --skip-tests PASS all 9 gates on tip per merge; ledger rows IN_REVIEW→MERGED with conductor session-label. **Step-4 checks**: gateway v83 vs codebase v84 drift=1 FRESH; 4 findings-only within budget (2026-05-30, 3 days remaining); LATEST.md audit 4 days old (no fresh ≤12h P0s); drift script now clean post-demotion (0 drift rows). **Unread handoffs (9) actioned**: the load-bearing P0 — R106 supervisor stale-binary zombie storm — addressed by demoting the stuck row (workers won't claim BLOCKED, so even pre-throttle bash can't re-storm). **OPERATOR-ACTION-REQUIRED carry forward**: supervisor PID 85450/85524/85525 running pre-#2535 throttle bash code from 2026-05-26T03:38Z UTC (46h before #2535 merged); needs `launchctl unload && launchctl load ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist` to load new throttle. R105 + R106 evaluator rounds informational beyond that; watchdog ping pairs informational; ghost-stamp entry at 11-round carry below pilot threshold. Queue depth: 45 TODO + 12 CLAIMED + 142 IN_REVIEW well above replenishment threshold 25 (no Step 8 author needed). v1.0 ship-gate: ALL 6 mission claims 🟢 LIVE; only operator-only item (d) demo MP4 record remains.",
+  "open_prs": 109,
   "queue_state": {
-    "claude_todo": 68,
+    "claude_todo": 45,
     "codex_todo": 0,
     "claude_or_codex_todo": 0,
-    "claude_claimed": 6,
+    "claude_claimed": 12,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 26,
+    "claude_in_review": 139,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "PR #2541 merged this tick under operator-locked permanent web-only ≤200LOC ≤5files lane per evaluator R104 S2 explicit recommendation; closes NO-THEATER-IN-DEMO F3 [P0] before MP4 record. Gateway FRESH drift=1≤2; 4 findings within budget; ~26 other web-only IN_REVIEW PRs remain individually eligible for the lane but per-PR verification deferred to next tick.",
+  "the_gate": "Halted 350+ retry zombie storm on fix-audit-list-kind-query-param-ignored by demoting to BLOCKED (superseded by PR #2527). Merged 3 web-only relaxation PRs (#2548 + #2558 + #2561) closing 4 UX-audit findings (F12-onboarding, F15-cohorts, F26+F27-landing). Gateway FRESH drift=1≤2; 4 findings within budget. Supervisor restart still operator-action-required for new throttle to engage.",
   "quota_probe": "skip"
 }
