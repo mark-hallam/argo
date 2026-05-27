@@ -16,6 +16,7 @@ import {
 
 const TAB_BRIEFS: Record<WorkerTabId, string> = {
   overview: "E4-b",
+  schedules: "fix-worker-tab-strip-add-schedules-tab-vocab-consistency",
   activity: "E4-c",
   memory: "E4-d",
   skills: "E4-e",

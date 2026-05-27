@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 export const WORKER_TAB_IDS = [
   "overview",
+  "schedules",
   "activity",
   "memory",
   "skills",
@@ -30,6 +31,7 @@ export type WorkerTabId = (typeof WORKER_TAB_IDS)[number];
 
 export const WORKER_TAB_LABELS: Record<WorkerTabId, string> = {
   overview: "Overview",
+  schedules: "Schedules",
   activity: "Activity",
   memory: "Memory",
   skills: "Skills",

@@ -136,12 +136,13 @@ exactly one `WorkerDutyFired` audit row inside the 60-second SLA,
 all within a transactional commit.
 
 **Visual / operator action**:
-1. From Mariah's overview, the **Responsibilities** card lists
-   four duties: `List new inventory with photos + tags` (as items
-   arrive), `Re-price stale listings against competitor data`
-   (daily 06:30), `Respond to buyer questions on active listings`
-   (as messages arrive), `Flag items dropping below floor price`
-   (daily 06:30).
+1. From Mariah's overview, the operator clicks the **Schedules** tab
+   in the worker profile tab strip. The Schedules tab lists four
+   schedules: `List new inventory with photos + tags` (as items
+   arrive), `Re-price stale listings against competitor data` (daily
+   06:30), `Respond to buyer questions on active listings` (as
+   messages arrive), `Flag items dropping below floor price` (daily
+   06:30).
 2. Operator clicks "Run now" on `Re-price stale listings against
    competitor data`.
 3. The activity feed streams in real time: turn start → runner
