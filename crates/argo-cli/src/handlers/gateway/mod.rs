@@ -15,6 +15,7 @@ mod billing;
 mod boot;
 mod boot_helpers;
 mod boot_router;
+mod boot_router_read;
 mod boot_spawns;
 mod boot_telemetry;
 mod boot_telemetry_admin;

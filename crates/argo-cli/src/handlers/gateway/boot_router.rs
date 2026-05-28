@@ -18,6 +18,7 @@ use super::rate_limit_ip::{
 };
 use super::request_audit::RequestAuditDraft;
 use super::shutdown::ShutdownController;
+use super::boot_router_read::read_full_request;
 use super::{
     metrics, proxy_guard, request_audit, routes, routes_channels, routes_openmetrics,
     routes_orchestrator, routes_skills, runs_streaming, security_headers, streaming,
@@ -30,9 +31,22 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
-use std::time::Instant;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::time::{Duration, Instant};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+
+/// Per-connection read budget. Browser fetch on macOS Chrome sometimes
+/// splits a POST into two TCP segments (headers, then body) on
+/// loopback; the prior single 4 KB read sometimes captured only the
+/// headers — or a truncated request line — and the `(req, body)` pair
+/// reaching the dispatcher fell through to a non-genesis arm,
+/// returning 503 to the browser even though curl-with-identical-bytes
+/// returned 200. See `fix-spa-genesis-try-again-503-vs-curl-200`.
+const REQUEST_READ_DEADLINE: Duration = Duration::from_millis(500);
+/// Hard ceiling on bytes read per request (headers + body). Matches
+/// the original 4 KB buf's intent but adds slack for browser request
+/// headers (sec-ch-ua-*, user-agent, cookies, …).
+const REQUEST_READ_CEILING: usize = 64 * 1024;
 
 /// Borrowed bag of references the per-connection dispatch needs.
 /// Built once in `boot::start` and reused for every accepted
@@ -60,9 +74,8 @@ pub(super) async fn handle_connection(
     peer: SocketAddr,
     ctx: &ConnectionCtx<'_>,
 ) {
-    let mut buf = [0_u8; 4096];
-    let n = stream.read(&mut buf).await.unwrap_or(0);
-    let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
+    let buf = read_full_request(stream, REQUEST_READ_DEADLINE, REQUEST_READ_CEILING).await;
+    let req = std::str::from_utf8(&buf).unwrap_or("");
     let req_t0 = Instant::now();
     let req_method = req.split_whitespace().next().unwrap_or("").to_string();
     let req_route = super::rate_limit::classify_request(req).into_owned();
