@@ -15,6 +15,7 @@ import {
   type WorkerOverview,
 } from "@/lib/api/worker-overview";
 import { fetchWorker } from "@/lib/api/workers";
+import { updateDuty, toggleDuty } from "@/lib/api/duties";
 import {
   DEFAULT_DELEGATOR_PERMISSIONS,
   type Worker,
@@ -32,9 +33,17 @@ vi.mock("@/lib/api/workers", async () => {
   );
   return { ...actual, fetchWorker: vi.fn() };
 });
+vi.mock("@/lib/api/duties", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api/duties")>(
+    "@/lib/api/duties",
+  );
+  return { ...actual, updateDuty: vi.fn(), toggleDuty: vi.fn() };
+});
 
 const mockedFetchOverview = vi.mocked(fetchWorkerOverview);
 const mockedFetchWorker = vi.mocked(fetchWorker);
+const mockedUpdateDuty = vi.mocked(updateDuty);
+const mockedToggleDuty = vi.mocked(toggleDuty);
 
 function sampleOverview(): WorkerOverview {
   return {
@@ -88,6 +97,19 @@ beforeEach(() => {
     overview: sampleOverview(),
     source: "mock-offline",
   } satisfies FetchWorkerOverviewResult);
+  mockedToggleDuty.mockImplementation(async ({ dutyId, enabled }) => ({
+    duty: { id: dutyId, label: "Screen inbound applicants", schedule: "cron: 0 9 * * 1-5", enabled },
+    source: "mock",
+  }));
+  mockedUpdateDuty.mockImplementation(async ({ dutyId, label, cron, enabled }) => ({
+    duty: {
+      id: dutyId,
+      label: label ?? "Updated schedule",
+      schedule: cron ? `cron: ${cron}` : "cron: 0 9 * * 1-5",
+      enabled: enabled ?? true,
+    },
+    source: "mock",
+  }));
 });
 
 afterEach(() => {
@@ -269,16 +291,62 @@ describe("Overview page wiring", () => {
     expect(await screen.findByTestId("duty-dialog")).toBeInTheDocument();
   });
 
-  it("renders the duty toggle as disabled (no fake-save theater)", async () => {
+  // Wires the live PATCH mutation instead of the prior anti-theater
+  // disabled-toggle guard. Brief
+  // fix-worker-detail-edit-toggle-stub-toasts (re-author of #2592).
+  it("fires the toggle PATCH mutation when the duty toggle is clicked", async () => {
+    const user = userEvent.setup();
     render(<PageWrapper />);
     const toggle = await screen.findByTestId("duty-toggle-d1");
-    expect(toggle).toBeDisabled();
+    expect(toggle).not.toBeDisabled();
+    await user.click(toggle);
+    await waitFor(() => expect(mockedToggleDuty).toHaveBeenCalled());
+    expect(mockedToggleDuty).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workerId: "wkr_priya",
+        dutyId: "d1",
+        enabled: false,
+      }),
+      expect.anything(),
+    );
   });
 
-  it("renders the duty body as disabled (no toast on click)", async () => {
+  it("opens the EditDutyDialog when the duty body is clicked", async () => {
+    const user = userEvent.setup();
     render(<PageWrapper />);
     const body = await screen.findByTestId("duty-edit-d1");
-    expect(body).toBeDisabled();
+    expect(body).not.toBeDisabled();
+    await user.click(body);
+    expect(await screen.findByTestId("edit-duty-dialog")).toBeInTheDocument();
+    // The dialog mounts in label-only state — the save CTA is gated
+    // until the operator dirties a field (no nudges to "Save changes"
+    // an unchanged duty).
+    expect(screen.getByTestId("edit-duty-save")).toBeDisabled();
+  });
+
+  // Sanity-check the real PATCH path end-to-end: open the dialog,
+  // change the label, hit save, dialog closes, mock was called.
+  it("PATCHes the edited duty when Save is clicked in the dialog", async () => {
+    const user = userEvent.setup();
+    render(<PageWrapper />);
+    await user.click(await screen.findByTestId("duty-edit-d1"));
+    const dialog = await screen.findByTestId("edit-duty-dialog");
+    const labelInput = within(dialog).getByTestId("edit-duty-label") as HTMLInputElement;
+    await user.clear(labelInput);
+    await user.type(labelInput, "Screen weekday inbound applicants");
+    await user.click(within(dialog).getByTestId("edit-duty-save"));
+    await waitFor(() => expect(mockedUpdateDuty).toHaveBeenCalled());
+    expect(mockedUpdateDuty).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workerId: "wkr_priya",
+        dutyId: "d1",
+        label: "Screen weekday inbound applicants",
+      }),
+      expect.anything(),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId("edit-duty-dialog")).not.toBeInTheDocument(),
+    );
   });
 
   // Anti-leak guard: the Overview surface must never render an

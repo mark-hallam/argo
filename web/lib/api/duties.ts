@@ -1,15 +1,15 @@
 /**
- * Duties API client — the AddResponsibilityDialog (E4-h) flow.
+ * Duties API client — the AddScheduleDialog flow plus the per-duty
+ * edit / toggle mutations consumed by `WorkerOverviewContent`.
  *
  * `classifyDuty`, `previewDuty`, `commitDuty` back the 6-step
- * plain-English duty-add UX. Endpoints land with sibling brief
- * `mission-gateway-duty-endpoints`; v1 falls back to a deterministic
- * mock derived from the input string so the dialog is testable
- * end-to-end with the gateway offline. Mirrors the 404-fallback
- * contract of `retrain.ts`.
+ * plain-English duty-add UX. `updateDuty` + `toggleDuty` patch an
+ * existing duty (label / 5-field cron / enabled). All four mutations
+ * fall back to a deterministic mock when the gateway 404s, mirroring
+ * the 404-fallback contract of `retrain.ts`.
  */
 
-import { apiPost } from "@/lib/api/client";
+import { apiPatch, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import type { WorkerDuty } from "@/lib/api/worker-overview";
 
@@ -247,4 +247,99 @@ export async function commitDuty(
     if (is404(err)) return mockCommittedDuty(req);
     throw err;
   }
+}
+
+export interface UpdateDutyRequest {
+  workerId: string;
+  dutyId: string;
+  /** Plain label, validated against the gateway's 4..=100 bound. */
+  label?: string;
+  /** 5-field cron expression. */
+  cron?: string;
+  enabled?: boolean;
+}
+
+export interface UpdateDutyResult {
+  duty: WorkerDuty;
+  source: DutySource;
+}
+
+function workerDutyFromGatewayPatch(value: unknown): WorkerDuty | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const id = typeof v.id === "string" ? v.id : null;
+  const label = typeof v.label === "string" ? v.label : null;
+  const enabled = typeof v.enabled === "boolean" ? v.enabled : null;
+  if (!id || !label || enabled === null) return null;
+  // `duty_to_json` emits `cron`; the SPA shape uses `schedule`. Fall
+  // back to whatever string `schedule` carries if a future server
+  // build re-shapes the envelope.
+  const schedule =
+    typeof v.schedule === "string"
+      ? v.schedule
+      : typeof v.cron === "string"
+        ? `cron: ${v.cron}`
+        : "cron: (unknown)";
+  return { id, label, schedule, enabled };
+}
+
+function mockUpdatedDuty(
+  req: UpdateDutyRequest,
+  previous: WorkerDuty | null | undefined,
+): WorkerDuty {
+  const label = req.label ?? previous?.label ?? "Untitled schedule";
+  const enabled = req.enabled ?? previous?.enabled ?? true;
+  const schedule = req.cron ? `cron: ${req.cron}` : (previous?.schedule ?? "cron: */30 * * * *");
+  return { id: req.dutyId, label, schedule, enabled };
+}
+
+/**
+ * PATCH `/api/v1/workers/<id>/duties/<duty-id>` with a partial update.
+ *
+ * Optional `previous` lets the mock fallback synthesise a coherent
+ * `WorkerDuty` when only `enabled` is being toggled — without it we'd
+ * lose the existing label/schedule strings on a 404. Pass the current
+ * cached duty when available.
+ */
+export async function updateDuty(
+  req: UpdateDutyRequest,
+  previous?: WorkerDuty | null,
+): Promise<UpdateDutyResult> {
+  const body: Record<string, unknown> = {};
+  if (typeof req.label === "string") body.label = req.label;
+  if (typeof req.cron === "string") body.schedule = req.cron;
+  if (typeof req.enabled === "boolean") body.enabled = req.enabled;
+
+  try {
+    const raw = await apiPatch<unknown>(
+      workerPath(req.workerId, `/duties/${encodeURIComponent(req.dutyId)}`),
+      body,
+    );
+    if (raw && typeof raw === "object") {
+      const env = raw as { duty?: unknown };
+      const parsed = workerDutyFromGatewayPatch(env.duty);
+      if (parsed) return { duty: parsed, source: "gateway" };
+    }
+    return { duty: mockUpdatedDuty(req, previous), source: "mock" };
+  } catch (err) {
+    if (is404(err)) return { duty: mockUpdatedDuty(req, previous), source: "mock" };
+    throw err;
+  }
+}
+
+export interface ToggleDutyRequest {
+  workerId: string;
+  dutyId: string;
+  enabled: boolean;
+}
+
+/** Convenience wrapper for the enabled-only PATCH. */
+export function toggleDuty(
+  req: ToggleDutyRequest,
+  previous?: WorkerDuty | null,
+): Promise<UpdateDutyResult> {
+  return updateDuty(
+    { workerId: req.workerId, dutyId: req.dutyId, enabled: req.enabled },
+    previous,
+  );
 }

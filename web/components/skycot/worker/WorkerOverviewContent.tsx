@@ -4,11 +4,13 @@ import { useCallback, useState } from "react";
 import { AlertCircle, Play } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
 import { useWorkerOverview } from "@/lib/hooks/use-worker-overview";
+import { useToggleDuty } from "@/lib/hooks/use-duties";
 import {
   WhatTheyDoCard,
   WhatTheyDoCardSkeleton,
 } from "@/components/skycot/worker/WhatTheyDoCard";
 import { DutiesCard, DutiesCardSkeleton } from "@/components/skycot/worker/DutiesCard";
+import { EditDutyDialog } from "@/components/skycot/worker/EditDutyDialog";
 import {
   ChannelStripCard,
   ChannelStripCardSkeleton,
@@ -25,6 +27,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/ui/use-toast";
 import { triggerWorkerRun } from "@/lib/api/workers";
+import type { WorkerDuty } from "@/lib/api/worker-overview";
 
 /**
  * Body of the Overview tab. Lives outside the Next.js route file so
@@ -51,6 +54,8 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   const overviewQuery = useWorkerOverview(workerId);
   const toast = useToast();
   const [running, setRunning] = useState(false);
+  const [editingDuty, setEditingDuty] = useState<WorkerDuty | null>(null);
+  const toggleMutation = useToggleDuty(workerId);
 
   const permissions: WorkerPermissions =
     workerQuery.data?.permissions ?? DEFAULT_DELEGATOR_PERMISSIONS;
@@ -63,19 +68,44 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     overviewQuery.refetch();
   }, [overviewQuery]);
 
-  // The AddScheduleDialog is mounted by DutiesCard now, so onAddDuty
-  // is only an analytics seam — no user-facing toast required. The edit-
-  // body and toggle paths are intentionally inert until the duty PATCH
-  // endpoint lands; we render those affordances as disabled (via
-  // `canToggleDuty={false}` below) rather than firing a toast that leaks
-  // an engineering brief-ID like "E4-h" into the customer surface. See
-  // fix-worker-duty-toggle-fake-mutation-and-edit-toast-brief-id-leak.
+  // The AddScheduleDialog is mounted by DutiesCard, so onAddDuty is
+  // only an analytics seam — no user-facing toast required.
   const onAddDuty = useCallback(() => {
     /* analytics seam — dialog mount happens inside DutiesCard */
   }, []);
   const onSaveCharter = useCallback(() => {
     /* charter persistence lands with the worker-charter PATCH endpoint */
   }, []);
+
+  const onToggleDuty = useCallback(
+    (dutyId: string, nextEnabled: boolean) => {
+      toggleMutation.mutate(
+        { dutyId, enabled: nextEnabled },
+        {
+          onError: () => {
+            toast.error("Couldn't save schedule. Try again.");
+          },
+        },
+      );
+    },
+    [toggleMutation, toast],
+  );
+
+  const onEditDuty = useCallback(
+    (dutyId: string) => {
+      const target = overview?.duties.find((d) => d.id === dutyId);
+      if (target) setEditingDuty(target);
+    },
+    [overview],
+  );
+
+  const closeEditDialog = useCallback(() => setEditingDuty(null), []);
+  const onEditSaveError = useCallback(
+    (_err: Error) => {
+      toast.error("Couldn't save schedule. Try again.");
+    },
+    [toast],
+  );
 
   // Run-now (Scene 2 of v1.0 demo runbook): POST to the gateway,
   // toast with a deep-link to the just-emitted audit row. Stays out
@@ -181,14 +211,11 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       <DutiesCard
         duties={overview.duties}
         canEdit={permissions.canEditDuties}
-        // Toggle + body click are inert until the duty PATCH endpoint
-        // lands. Rendering the toggle as disabled (rather than allowing
-        // a local-only visual flip) prevents the "fake save" theater the
-        // camera saw before fix-worker-duty-toggle-fake-mutation.
-        canToggleDuty={false}
         workerId={workerId}
         workerName={workerQuery.data?.name}
         onAddDuty={onAddDuty}
+        onToggle={onToggleDuty}
+        onEditDuty={onEditDuty}
       />
       <ChannelStripCard
         workerId={workerId}
@@ -196,6 +223,15 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       />
       <KpiCard kpis={overview.kpis} />
       <RecentActivityCard workerId={workerId} rows={overview.recentActivity} />
+      <EditDutyDialog
+        open={editingDuty !== null}
+        workerId={workerId}
+        duty={editingDuty}
+        onOpenChange={(next) => {
+          if (!next) closeEditDialog();
+        }}
+        onError={onEditSaveError}
+      />
     </div>
   );
 }
