@@ -3,8 +3,12 @@
 //!
 //!   - `GET /health` and `GET /readyz` — `health_response`; full
 //!     readiness probe. 200 + `{"status":"ok","version":"V",
-//!     "schema_version":N,"uptime_seconds":S}` on pass; 503 +
-//!     `{"status":"degraded","reason":"<tag>"}` on first failing check.
+//!     "schema_version":N,"build_commit":"SHA","uptime_seconds":S}`
+//!     on pass; 503 + `{"status":"degraded","reason":"<tag>"}` on
+//!     first failing check. `build_commit` is the 7-char git SHA
+//!     embedded by `build.rs` at compile time and lets the operator
+//!     (or `scripts/check-gateway-freshness.sh`) detect a running
+//!     binary that predates load-bearing PRs on `origin/main`.
 //!   - `GET /livez` and `GET /health/live` — `live_response`;
 //!     k8s-convention liveness, always 200, no readiness checks.
 //!   - `GET /health/ready` — `ready_response`; legacy SQLite-ping
@@ -82,8 +86,9 @@ pub(super) async fn health_response_with_cwd(
         "200 OK",
         format!(
             "{{\"status\":\"ok\",\"version\":\"{}\",\"schema_version\":{schema_version},\
-              \"uptime_seconds\":{}}}",
+              \"build_commit\":\"{}\",\"uptime_seconds\":{}}}",
             env!("CARGO_PKG_VERSION"),
+            crate::build_info::GIT_SHA,
             uptime_seconds()
         ),
     )

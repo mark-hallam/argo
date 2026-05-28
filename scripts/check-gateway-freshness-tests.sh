@@ -5,12 +5,17 @@
 # the smoke harness can exercise HTTP 200 / 503 / malformed bodies
 # without binding a local test server.
 #
-# Five scenarios, covering the documented exit codes plus HTTP 503 stale:
+# Five base scenarios, covering the documented exit codes plus HTTP 503 stale:
 #   (0) drift=0 → exit 0 (FRESH)
 #   (1) drift=3 → exit 1 (STALE)
 #   (2) /health returns 503 with schema_version → exit 1 (STALE-503)
 #   (3) port has no listener → exit 2 (UNREACHABLE)
 #   (4) /health returns malformed JSON → exit 3 (PARSE_ERROR)
+# Plus four commit-drift scenarios (build_commit field):
+#   (5) schema-fresh, build_commit missing → exit 0 (FRESH, commit check skipped)
+#   (6) schema-fresh, build_commit=unknown → exit 0 (FRESH, commit check skipped)
+#   (7) schema-fresh, build_commit=deadbee (SHA not in repo) → exit 0 (FRESH, commit check skipped)
+#   (8) schema-fresh, build_commit=HEAD → exit 0 (FRESH, commits_behind=0)
 
 set -euo pipefail
 
@@ -53,6 +58,12 @@ find_free_port
 schema_body() {
     local version="$1"
     printf '{"status":"ok","version":"fake","schema_version":%s,"uptime_seconds":1}' "$version"
+}
+
+schema_body_with_commit() {
+    local version="$1" commit="$2"
+    printf '{"status":"ok","version":"fake","schema_version":%s,"build_commit":"%s","uptime_seconds":1}' \
+        "$version" "$commit"
 }
 
 schema_503_body() {
@@ -130,4 +141,43 @@ run_fake_check 200 "$(garbage_body)"
 echo "$OUT" | grep -q "STATUS: PARSE_ERROR" || fail "missing STATUS: PARSE_ERROR"
 pass "no schema_version in body → exit 3 + PARSE_ERROR"
 
-echo "✅ All 5 scenarios passed."
+# ---------- scenario 5: schema-fresh + build_commit missing ---------
+
+echo "Scenario 5: schema fresh, no build_commit in body → exit 0 (FRESH, commit check skipped)."
+run_fake_check 200 "$(schema_body "$CODEBASE_LATEST_N")"
+[[ $RC -eq 0 ]] || fail "expected exit 0, got $RC"
+echo "$OUT" | grep -q "gateway_commit=missing" || fail "missing 'gateway_commit=missing' machine line"
+echo "$OUT" | grep -q "STATUS: FRESH" || fail "missing STATUS: FRESH"
+echo "$OUT" | grep -q "commit check skipped" || fail "expected 'commit check skipped' hint"
+pass "build_commit missing → exit 0 + commit check skipped"
+
+# ---------- scenario 6: schema-fresh + build_commit=unknown ---------
+
+echo "Scenario 6: schema fresh, build_commit=unknown (tarball build) → exit 0 (FRESH, commit check skipped)."
+run_fake_check 200 "$(schema_body_with_commit "$CODEBASE_LATEST_N" "unknown")"
+[[ $RC -eq 0 ]] || fail "expected exit 0, got $RC"
+echo "$OUT" | grep -q "gateway_commit=unknown" || fail "missing 'gateway_commit=unknown' machine line"
+echo "$OUT" | grep -q "STATUS: FRESH" || fail "missing STATUS: FRESH"
+pass "build_commit=unknown → exit 0 + commit check skipped"
+
+# ---------- scenario 7: schema-fresh + SHA not in repo --------------
+
+echo "Scenario 7: schema fresh, build_commit=deadbee (unreachable SHA) → exit 0 (FRESH, commit check skipped)."
+run_fake_check 200 "$(schema_body_with_commit "$CODEBASE_LATEST_N" "deadbee")"
+[[ $RC -eq 0 ]] || fail "expected exit 0, got $RC"
+echo "$OUT" | grep -q "gateway_commit=deadbee" || fail "missing 'gateway_commit=deadbee' machine line"
+echo "$OUT" | grep -q "STATUS: FRESH" || fail "missing STATUS: FRESH"
+echo "$OUT" | grep -q "not in local repo" || fail "expected 'not in local repo' hint"
+pass "build_commit not in repo → exit 0 + commit check skipped"
+
+# ---------- scenario 8: schema-fresh + build_commit=HEAD ------------
+
+HEAD_SHA="$(git rev-parse --short=7 HEAD)"
+echo "Scenario 8: schema fresh, build_commit=HEAD ($HEAD_SHA) → exit 0 (FRESH, commits_behind=0)."
+run_fake_check 200 "$(schema_body_with_commit "$CODEBASE_LATEST_N" "$HEAD_SHA")"
+[[ $RC -eq 0 ]] || fail "expected exit 0, got $RC"
+echo "$OUT" | grep -q "gateway_commit=$HEAD_SHA" || fail "missing 'gateway_commit=$HEAD_SHA' machine line"
+echo "$OUT" | grep -q "STATUS: FRESH" || fail "missing STATUS: FRESH"
+pass "build_commit=HEAD → exit 0 + commits_behind=0"
+
+echo "✅ All 9 scenarios passed."

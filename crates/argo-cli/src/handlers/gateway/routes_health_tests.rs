@@ -50,6 +50,8 @@ async fn health_ok_all_checks_pass() {
         v["uptime_seconds"].as_u64().is_some(),
         "uptime_seconds missing: {body}"
     );
+    let bc = v["build_commit"].as_str().expect("build_commit missing");
+    assert!(!bc.is_empty(), "build_commit empty: {body}");
 }
 
 #[tokio::test]
@@ -117,6 +119,7 @@ async fn readyz_handler_returns_health_shape() {
     assert!(
         body.contains("\"version\":")
             && body.contains("\"schema_version\":")
+            && body.contains("\"build_commit\":")
             && body.contains("\"uptime_seconds\":"),
         "body must carry new shape: {body}"
     );

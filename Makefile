@@ -5,7 +5,7 @@
 # procedures that would otherwise be 5-step runbooks (see
 # docs/skycot/operator/).
 
-.PHONY: help restart-live-gateway first-run-setup test-restart-live-gateway
+.PHONY: help restart-live-gateway first-run-setup test-restart-live-gateway gateway-warn-if-stale
 
 help:
 	@echo "Operator targets:"
@@ -17,6 +17,10 @@ help:
 	@echo "                                   and API key, without launching the gateway."
 	@echo "  make test-restart-live-gateway   Run the restart-live-gateway smoke tests"
 	@echo "                                   (restart scenarios + first-run bootstrap)"
+	@echo "  make gateway-warn-if-stale       Check the running gateway for schema- or"
+	@echo "                                   commit-drift vs HEAD; prints an actionable"
+	@echo "                                   restart hint and exits non-zero when stale."
+	@echo "                                   See docs/skycot/operator/gateway-freshness.md."
 
 # Flips the live gateway from a stale schema_version to current.
 # Pass NO_PROMPT=1 to skip the 5s pre-restart warning (cron-friendly).
@@ -44,3 +48,14 @@ first-run-setup:
 test-restart-live-gateway:
 	@bash scripts/restart-live-gateway-tests.sh
 	@bash scripts/restart-live-gateway-first-run-tests.sh
+
+# Read-only drift check for the running gateway. Surfaces both schema-
+# drift and binary-commit-drift vs origin/main. Designed for the top of
+# a dev session and the conductor tick — quiet when fresh, loud + exit 1
+# when stale on gateway-handler code.
+#   Pass PORT=NNNN to point at a non-default gateway URL.
+#   Pass COMMIT_THRESHOLD=N to override the 50-commit escalation cap.
+gateway-warn-if-stale:
+	@COMMIT_THRESHOLD=$${COMMIT_THRESHOLD:-50} \
+		bash scripts/check-gateway-freshness.sh \
+			$(if $(PORT),http://127.0.0.1:$(PORT))
