@@ -1,5 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let mockPathname = "/landing";
@@ -10,13 +12,27 @@ vi.mock("next/navigation", () => ({
 
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 
+// ThemeToggle (rendered inside MarketingNav per whole-site F07 fix) calls
+// useTheme() from next-themes, so the test tree needs a NextThemesProvider
+// ancestor. We wrap with the raw next-themes provider rather than the
+// SKYCOT ThemeProvider to keep this test focused on the nav surface.
+function renderNav(node: ReactNode) {
+  return render(<NextThemesProvider attribute="class">{node}</NextThemesProvider>);
+}
+
 beforeEach(() => {
   mockPathname = "/landing";
+  try {
+    window.localStorage.clear();
+  } catch {
+    /* localStorage may be unavailable */
+  }
+  document.cookie = "skycot-color-mode=; Path=/; Max-Age=0";
 });
 
 describe("MarketingNav — desktop", () => {
   it("renders the SKYCOT wordmark + canonical link row + sign-in + CTA", () => {
-    render(<MarketingNav />);
+    renderNav(<MarketingNav />);
     expect(screen.getAllByText("SKYCOT")[0]).toBeInTheDocument();
     const desktopNav = screen.getByRole("navigation", { name: "Marketing" });
     const navLinks = within(desktopNav).getAllByRole("link");
@@ -38,7 +54,7 @@ describe("MarketingNav — desktop", () => {
 
   it("marks the active page via aria-current when the pathname matches a nav target", () => {
     mockPathname = "/pricing";
-    render(<MarketingNav />);
+    renderNav(<MarketingNav />);
     const desktopNav = screen.getByRole("navigation", { name: "Marketing" });
     const pricing = within(desktopNav).getByRole("link", { name: "Pricing" });
     expect(pricing).toHaveAttribute("aria-current", "page");
@@ -50,7 +66,7 @@ describe("MarketingNav — desktop", () => {
 describe("MarketingNav — mobile sheet", () => {
   it("opens the slide-out sheet when the hamburger is clicked", async () => {
     const user = userEvent.setup();
-    render(<MarketingNav />);
+    renderNav(<MarketingNav />);
     await user.click(screen.getByTestId("marketing-nav-open"));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     const dialog = screen.getByRole("dialog");
@@ -64,7 +80,7 @@ describe("MarketingNav — mobile sheet", () => {
 
   it("closes the sheet when Esc is pressed", async () => {
     const user = userEvent.setup();
-    render(<MarketingNav />);
+    renderNav(<MarketingNav />);
     await user.click(screen.getByTestId("marketing-nav-open"));
     await screen.findByRole("dialog");
     await user.keyboard("{Escape}");
@@ -73,7 +89,7 @@ describe("MarketingNav — mobile sheet", () => {
 
   it("autofocuses the first sheet link on open", async () => {
     const user = userEvent.setup();
-    render(<MarketingNav />);
+    renderNav(<MarketingNav />);
     await user.click(screen.getByTestId("marketing-nav-open"));
     const dialog = await screen.findByRole("dialog");
     const first = within(dialog).getByRole("link", { name: "How it works" });
@@ -82,10 +98,41 @@ describe("MarketingNav — mobile sheet", () => {
 
   it("renders extras (e.g. RSS) in both desktop and mobile sheet", async () => {
     const user = userEvent.setup();
-    render(<MarketingNav extras={<a href="/feed.xml">RSS</a>} />);
+    renderNav(<MarketingNav extras={<a href="/feed.xml">RSS</a>} />);
     expect(screen.getAllByRole("link", { name: "RSS" })[0]).toBeInTheDocument();
     await user.click(screen.getByTestId("marketing-nav-open"));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("link", { name: "RSS" })).toBeInTheDocument();
+  });
+});
+
+describe("MarketingNav — theme toggle (whole-site F07)", () => {
+  it("renders a theme toggle in the desktop top-right strip", () => {
+    renderNav(<MarketingNav />);
+    const toggles = screen.getAllByTestId("appshell-theme-toggle");
+    expect(toggles.length).toBeGreaterThanOrEqual(1);
+    const toggle = toggles[0];
+    expect(toggle).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/switch to (light|dark) theme/i),
+    );
+  });
+
+  it("writes the color-mode cookie when clicked", async () => {
+    const user = userEvent.setup();
+    renderNav(<MarketingNav />);
+    const toggle = screen.getAllByTestId("appshell-theme-toggle")[0];
+    await user.click(toggle);
+    await waitFor(() => {
+      expect(document.cookie).toMatch(/skycot-color-mode=(light|dark)/);
+    });
+  });
+
+  it("also surfaces the theme toggle inside the mobile sheet", async () => {
+    const user = userEvent.setup();
+    renderNav(<MarketingNav />);
+    await user.click(screen.getByTestId("marketing-nav-open"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByTestId("appshell-theme-toggle")).toBeInTheDocument();
   });
 });

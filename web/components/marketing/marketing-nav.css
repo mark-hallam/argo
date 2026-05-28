@@ -108,6 +108,30 @@
   white-space: nowrap;
 }
 
+.mk-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: 1px solid var(--line, #ece9f5);
+  border-radius: 10px;
+  color: var(--ink-2, #3f3f46);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.mk-theme-toggle:hover {
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.mk-theme-toggle:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
 .mk-burger {
   display: none;
   background: none;
@@ -279,6 +303,15 @@
   border-top: 1px solid var(--line, #ece9f5);
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.mk-sheet-theme {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, #ece9f5);
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 

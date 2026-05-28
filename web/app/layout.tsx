@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/components/skycot/ThemeProvider";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { ErrorReportingInit } from "@/lib/error-reporting/init";
 import { SKYCOT_TITLE_DEFAULT } from "@/lib/marketing-copy";
+import { readColorModeCookie } from "@/lib/theme/cookie";
 import "./globals.css";
 
 const inter = Inter({
@@ -99,12 +100,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // SSR-side bridge for whole-site F07: read the color-mode cookie so the
+  // first paint of a marketing route lands on the user's in-app preference,
+  // not the marketing default. next-themes still drives client hydration
+  // from localStorage; this just seeds the SSR class so there is no flash.
+  const colorMode = await readColorModeCookie();
+  const modeClass = colorMode === "dark" ? "dark" : "";
+
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${mono.variable} ${audiowide.variable}`}
+      className={`${modeClass} ${inter.variable} ${mono.variable} ${audiowide.variable}`.trim()}
     >
       <body suppressHydrationWarning>
         <JsonLd data={organizationSchema()} />

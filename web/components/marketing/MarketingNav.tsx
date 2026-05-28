@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import * as RDialog from "@radix-ui/react-dialog";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ThemeToggle } from "@/components/skycot/ThemeToggle";
 
 /**
  * Shared marketing top-nav used by /landing, /pricing, /customers,
@@ -93,6 +94,7 @@ export function MarketingNav({ current, extras }: MarketingNavProps) {
 
       <div className="mk-top-right">
         {extras}
+        <ThemeToggle className="mk-theme-toggle" />
         <Link href="/auth/signin" className="mk-signin">
           Sign in
         </Link>
@@ -154,6 +156,10 @@ export function MarketingNav({ current, extras }: MarketingNavProps) {
             </nav>
 
             {extras ? <div className="mk-sheet-extras">{extras}</div> : null}
+
+            <div className="mk-sheet-theme">
+              <ThemeToggle className="mk-theme-toggle" />
+            </div>
 
             <div className="mk-sheet-foot">
               <Link
