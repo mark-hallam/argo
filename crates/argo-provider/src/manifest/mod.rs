@@ -8,7 +8,9 @@ use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+mod subprocess;
 mod transport;
+pub use subprocess::SubprocessSpec;
 pub use transport::{StreamingMode, TransportSpec};
 
 /// Top-level provider manifest deserialized from a `.toml` file.
@@ -86,6 +88,14 @@ pub struct ProviderManifest {
     /// Spec: `docs/plan/argo-build-plan.md` §8.1 (issue #2 / F-4).
     #[serde(default)]
     pub hooks: Option<HooksSpec>,
+    /// Optional `[subprocess]` block — present only when
+    /// `provider.transport_kind = "subprocess"`. Drives the
+    /// subprocess-based driver (e.g. `claude --print --output-format json`).
+    /// Absent on every HTTP-based manifest.
+    ///
+    /// Spec: brief `provider-claude-code-cli-subprocess`.
+    #[serde(default)]
+    pub subprocess: Option<SubprocessSpec>,
 }
 
 /// `[provider]` table.
@@ -100,6 +110,36 @@ pub struct ProviderHeader {
     pub display_name: String,
     /// Base URL (no trailing slash).
     pub base_url: String,
+    /// How the provider is reached on the wire. `"http"` (the default,
+    /// applied when the field is absent so every legacy manifest keeps
+    /// working) routes through the family-based HTTP transport.
+    /// `"subprocess"` swaps in a subprocess-based driver — see
+    /// `manifest.subprocess` for the binary + args config.
+    ///
+    /// Brief: `provider-claude-code-cli-subprocess`.
+    #[serde(default)]
+    pub transport_kind: TransportKind,
+}
+
+/// How a provider is reached on the wire — HTTP (default for every
+/// existing manifest) or a local subprocess.
+///
+/// ```
+/// use argo_provider::TransportKind;
+/// let k: TransportKind = serde_json::from_str("\"subprocess\"").unwrap();
+/// assert!(matches!(k, TransportKind::Subprocess));
+/// assert!(matches!(TransportKind::default(), TransportKind::Http));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransportKind {
+    /// HTTP-based transport — uses `provider.family` to pick the driver
+    /// (anthropic, openai-compatible, openai-responses, bedrock).
+    #[default]
+    Http,
+    /// Subprocess-based transport — driver spawns the binary named in
+    /// `manifest.subprocess.binary_path_env` (with `binary_path_fallback`).
+    Subprocess,
 }
 
 /// Provider families known to argo-provider.

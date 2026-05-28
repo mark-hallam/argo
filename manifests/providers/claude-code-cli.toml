@@ -1,0 +1,89 @@
+# Claude Code CLI subprocess provider — dev/demo only.
+#
+# Routes LLM completion calls through `claude --print --output-format json`
+# subprocess, billing against the operator's Claude Code subscription
+# instead of the Anthropic developer API key. Use for cost-controlled
+# dev + demo + build-phase workflows; production flips routing back to
+# anthropic.toml.
+#
+# Streaming is NOT supported in v1 — the CLI is one-shot. `complete_stream`
+# returns the full response as a single chunk (fake-stream). Real streaming
+# arrives in v1.1 via `--output-format stream-json`.
+
+[provider]
+id = "claude-code-cli"
+family = "anthropic"  # same response shape, different transport
+display_name = "Claude Code CLI (subprocess)"
+# base_url unused by the subprocess driver but the schema requires a value.
+# `manifest.validate()` enforces base_url starts with http(s) and has no
+# trailing slash — pin to anthropic.com so it round-trips cleanly.
+base_url = "https://api.anthropic.com"
+# Marks this manifest as a subprocess provider — the agent-runner's
+# `build_transport()` reads this to dispatch to `ClaudeCodeCliTransport`
+# instead of `AnthropicTransport`. Absent or "http" preserves legacy
+# HTTP dispatch (existing manifests unchanged).
+transport_kind = "subprocess"
+
+[auth]
+# Auth is N/A for the subprocess driver — the `claude` CLI carries the
+# operator's session credentials in `~/.claude/`. We set a placeholder
+# env-var name so the schema validates; the driver never reads this.
+api_key_env = "ARGO_CLAUDE_CODE_CLI_SUBPROCESS_AUTH_UNUSED"
+header_name = "x-api-key"
+header_format = "{key}"
+
+[transport]
+# Streaming = "none" because the CLI is one-shot per call. The required
+# `chat_path` / timeouts are ignored by the subprocess driver but the
+# schema requires sensible defaults.
+streaming = "none"
+chat_path = "/v1/messages"
+models_path = "/v1/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 60000
+max_retries = 0
+initial_backoff_ms = 250
+max_backoff_ms = 8000
+
+[tool_calls]
+# The CLI returns the same Anthropic content-block shape, so the
+# anthropic_tool_use extractor handles tool calls when present. v1
+# does not exercise tool-calling through the CLI (out of scope per
+# the brief) but the format is declared honestly.
+format = "anthropic_tool_use"
+
+# Subprocess-specific configuration — read by `ClaudeCodeCliTransport`.
+# The agent-runner's `build_transport()` is the only consumer.
+[subprocess]
+# Env var the driver consults first; falls back to `binary_path_fallback`
+# when unset. Use `ARGO_CLAUDE_CODE_BINARY=/path/to/mock-claude.sh` for
+# tests + cassette playback; production picks up `claude` from PATH.
+binary_path_env = "ARGO_CLAUDE_CODE_BINARY"
+binary_path_fallback = "claude"
+default_args = ["--print", "--output-format", "json"]
+timeout_ms = 30000
+streaming = false  # claude --print is one-shot; streaming added in v1.1
+
+[capabilities]
+# No net-egress — the driver invokes a subprocess. The CLI itself
+# talks to api.anthropic.com on the operator's behalf, but from this
+# crate's perspective we declare zero outbound HTTP.
+net_egress = []
+# The subprocess driver reads the binary-path env var; declare it so
+# the §10 capability check passes.
+env_read = ["ARGO_CLAUDE_CODE_BINARY"]
+
+[[models]]
+# Claude Code subscription routes to whichever Claude is current; these
+# entries are advisory so the discovery layer / cost router has a list
+# to reason about. The CLI ultimately picks the model.
+id = "claude-sonnet-4-6"
+context_window = 200000
+
+[[models]]
+id = "claude-opus-4-7"
+context_window = 200000
+
+[[models]]
+id = "claude-haiku-4-5"
+context_window = 200000

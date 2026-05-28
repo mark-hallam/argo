@@ -24,6 +24,7 @@
 
 mod anthropic;
 mod bedrock;
+mod claude_code_cli;
 /// In-process LLM-call dedup cache (mission-llm-call-dedup-cache-v2).
 pub mod dedup_cache;
 mod discovery;
@@ -55,6 +56,7 @@ pub mod transport;
 
 pub use anthropic::AnthropicTransport;
 pub use bedrock::BedrockTransport;
+pub use claude_code_cli::ClaudeCodeCliTransport;
 pub use dedup_cache::DedupCache;
 pub use discovery::resolve_latest;
 pub use extractors::{
@@ -64,8 +66,8 @@ pub use extractors::{
 pub use heartbeat::HeartbeatMonitor;
 pub use manifest::{
     AuthSpec, CapabilitiesSpec, DiscoverySpec, HooksSpec, ModelSpec, PreferRule, ProviderFamily,
-    ProviderHeader, ProviderManifest, ReasoningSpec, StreamingMode, ToolCallFormat, ToolCallsSpec,
-    TransportSpec,
+    ProviderHeader, ProviderManifest, ReasoningSpec, StreamingMode, SubprocessSpec,
+    ToolCallFormat, ToolCallsSpec, TransportKind, TransportSpec,
 };
 pub use openai_compat::{event_to_deltas, OpenAiCompatTransport};
 pub use openai_responses::OpenAiResponsesTransport;

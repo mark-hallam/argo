@@ -4,8 +4,9 @@
 //! workspace doesn't carry its own copy) to a live
 //! `Box<dyn Transport>`.
 use argo_provider::{
-    AnthropicTransport, BedrockTransport, DedupCache, OpenAiCompatTransport,
-    OpenAiResponsesTransport, ProviderFamily, ProviderManifest, Transport,
+    AnthropicTransport, BedrockTransport, ClaudeCodeCliTransport, DedupCache,
+    OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily, ProviderManifest,
+    Transport, TransportKind,
 };
 use argo_types::{ArgoError, ArgoResult};
 use std::path::{Path, PathBuf};
@@ -13,11 +14,21 @@ use std::path::{Path, PathBuf};
 /// Resolve a `ProviderManifest` to a live `Transport`. Anthropic /
 /// OpenAI families read the API key from `manifest.auth.api_key_env`;
 /// Bedrock loads AWS credentials via `aws_config::load_from_env()`
-/// (honours the standard `AWS_*` env vars + `~/.aws` profile). When
-/// `ARGO_PROVIDER_DEDUP_TTL_SECS` is a positive integer, the result
-/// is additionally wrapped with [`DedupCache`] so identical
+/// (honours the standard `AWS_*` env vars + `~/.aws` profile).
+/// Subprocess-kind manifests (e.g. `claude-code-cli.toml`) skip the
+/// API-key resolution path entirely and dispatch to the subprocess
+/// driver. When `ARGO_PROVIDER_DEDUP_TTL_SECS` is a positive integer,
+/// the result is additionally wrapped with [`DedupCache`] so identical
 /// non-streaming requests in the TTL window collapse to one wire call.
 pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
+    // Subprocess-kind manifests use no API key — dispatch first so the
+    // missing `manifest.auth.api_key_env` value (it's only a placeholder
+    // for these manifests) doesn't trigger the `not set` error below.
+    if matches!(manifest.provider.transport_kind, TransportKind::Subprocess) {
+        return Ok(maybe_wrap_dedup(Box::new(
+            ClaudeCodeCliTransport::from_manifest(manifest)?,
+        )));
+    }
     if matches!(manifest.provider.family, ProviderFamily::Bedrock) {
         let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         return Ok(maybe_wrap_dedup(Box::new(BedrockTransport::from_manifest(

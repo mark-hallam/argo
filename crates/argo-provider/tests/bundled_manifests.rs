@@ -1,5 +1,7 @@
-//! All four v1 bundled manifests must deserialize cleanly (§8.6 acceptance).
-use argo_provider::{ProviderFamily, ProviderManifest, ToolCallFormat};
+//! All v1 bundled manifests must deserialize cleanly (§8.6 acceptance —
+//! covers the four HTTP-family manifests plus the subprocess-kind
+//! `claude-code-cli.toml` per brief `provider-claude-code-cli-subprocess`).
+use argo_provider::{ProviderFamily, ProviderManifest, ToolCallFormat, TransportKind};
 
 fn parse(name: &str) -> ProviderManifest {
     let path = format!("../../manifests/providers/{name}");
@@ -58,4 +60,36 @@ fn bedrock_manifest_loads_with_aws_region_quirk() {
         .get("aws-region")
         .and_then(|v| v.as_str())
         .is_some());
+}
+
+#[test]
+fn claude_code_cli_manifest_loads_with_subprocess_block() {
+    let m = parse("claude-code-cli.toml");
+    assert_eq!(m.provider.id, "claude-code-cli");
+    // Family stays Anthropic — same response shape — but transport kind
+    // is what selects the subprocess driver.
+    assert_eq!(m.provider.family, ProviderFamily::Anthropic);
+    assert_eq!(m.provider.transport_kind, TransportKind::Subprocess);
+    let sp = m.subprocess.expect("subprocess block present");
+    assert_eq!(sp.binary_path_env, "ARGO_CLAUDE_CODE_BINARY");
+    assert_eq!(sp.binary_path_fallback, "claude");
+    assert_eq!(sp.default_args, vec!["--print", "--output-format", "json"]);
+    assert!(!sp.streaming, "v1 driver is one-shot only");
+    assert!(sp.timeout_ms >= 1_000, "timeout should be a sane positive");
+}
+
+#[test]
+fn http_manifests_default_to_transport_kind_http() {
+    for name in ["anthropic.toml", "openai-compatible.toml", "openai-responses.toml", "bedrock.toml"] {
+        let m = parse(name);
+        assert_eq!(
+            m.provider.transport_kind,
+            TransportKind::Http,
+            "{name} should default to HTTP transport kind",
+        );
+        assert!(
+            m.subprocess.is_none(),
+            "{name} must not carry a [subprocess] block",
+        );
+    }
 }
