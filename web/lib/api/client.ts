@@ -12,6 +12,7 @@
  */
 
 import { ApiError, type ApiErrorEnvelope } from "./types";
+import { resolveTenantId } from "./tenant";
 import { resolveCsrfToken } from "@/lib/auth/csrf-token";
 import {
   buildSigninUrlWithReturnTo,
@@ -97,6 +98,14 @@ export interface ApiRequestInit extends Omit<RequestInit, "body"> {
 interface SessionPeek {
   gatewayToken?: string;
   principal?: string;
+  /**
+   * Tenant id surfaced by the session JSON, when present. Today's
+   * magic-link JWT doesn't carry one, so this is undefined and the
+   * gateway falls back to the principal-derived tenant. The
+   * workspace-switcher track populates this so the SPA can stamp
+   * `X-Argo-Tenant-Id` on every request.
+   */
+  tenantId?: string;
 }
 
 async function readSessionPeek(): Promise<SessionPeek> {
@@ -106,6 +115,7 @@ async function readSessionPeek(): Promise<SessionPeek> {
     return {
       gatewayToken: session?.gatewayToken,
       principal: session?.principal,
+      tenantId: (session as { tenantId?: string } | null)?.tenantId,
     };
   }
   try {
@@ -115,6 +125,7 @@ async function readSessionPeek(): Promise<SessionPeek> {
     return {
       gatewayToken: session?.gatewayToken,
       principal: session?.principal,
+      tenantId: session?.tenantId,
     };
   } catch {
     return {};
@@ -169,6 +180,17 @@ async function request<T>(method: string, path: string, init: ApiRequestInit = {
   // header is required message. Caller-supplied header wins.
   if (peek.principal && !finalHeaders.has("X-Argo-Principal")) {
     finalHeaders.set("X-Argo-Principal", peek.principal);
+  }
+  // Stamp X-Argo-Tenant-Id from the workspace-switcher override (if
+  // pinned) or the session payload. Today the resolver returns
+  // undefined in single-workspace mode, so the gateway falls back to
+  // the principal-derived tenant — no observable change. Once the
+  // workspace switcher lands, the resolver returns the active
+  // workspace's tenant id and the gateway scopes reads/writes to it.
+  // Caller-supplied header wins. See `web/lib/api/tenant.ts`.
+  if (!finalHeaders.has("X-Argo-Tenant-Id")) {
+    const tenantId = resolveTenantId(peek);
+    if (tenantId) finalHeaders.set("X-Argo-Tenant-Id", tenantId);
   }
   finalHeaders.set("Accept", "application/json");
   // CSRF double-submit (Stream claude-rebase-pr-1835-cookies). The
