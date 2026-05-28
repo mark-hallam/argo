@@ -12,9 +12,33 @@ import { expect, test } from "@playwright/test";
  * The local Playwright lane points `NEXT_PUBLIC_GATEWAY_URL` at
  * `http://127.0.0.1:1`, so every assertion goes through `page.route`
  * interception — same pattern as `workflow-save-real.spec.ts`.
+ *
+ * Each test seeds a stub `authjs.session-token` cookie before
+ * navigating so the SPA's middleware lets `/` through to the AppShell
+ * regardless of whether the dev server it points at has the
+ * `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` env var honored
+ * (`reuseExistingServer: true` in `playwright.config.ts` means a
+ * pre-running dev server started without that env var would have
+ * redirected `/` to `/landing` and the user-menu trigger would never
+ * have rendered — the audit run on 2026-05-26 hit exactly that
+ * mode). Setting a cookie is a faster, isolated alternative to
+ * relying on a process-wide bypass.
  */
 
 const LOGOUT_URL = /\/api\/v1\/auth\/logout$/;
+
+test.beforeEach(async ({ context, baseURL }) => {
+  const url = baseURL ?? "http://localhost:3000";
+  await context.addCookies([
+    {
+      name: "authjs.session-token",
+      value: "playwright-stub-session",
+      url,
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+});
 
 async function openUserMenu(page: import("@playwright/test").Page) {
   const trigger = page.getByTestId("appshell-user-menu-trigger");
