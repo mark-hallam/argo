@@ -1,0 +1,280 @@
+/*
+ * /settings/inbound-channels — Scene-6 operator surface for the
+ * inbound webhook URLs (SMS / Discord / Voice DTMF) + recent activity.
+ *
+ * Brand-restrained register to match the rest of /settings/* (no
+ * Audiowide hero, no radial blobs). Reuses the notify-channels
+ * `channel-tint-*` icon swatches so the inbound + outbound catalogs
+ * feel like siblings.
+ */
+
+.inbound-stage {
+  padding: 40px 32px 96px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.inbound-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-foreground, #52525b);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.inbound-hero {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink, #1e1b4b);
+  margin: 0 0 8px 0;
+}
+
+.inbound-sub {
+  font-size: 15px;
+  color: var(--muted-foreground, #52525b);
+  max-width: 820px;
+  margin: 0 0 32px 0;
+}
+
+.inbound-card {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, rgba(30, 27, 75, 0.1));
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 2px rgba(30, 27, 75, 0.04);
+}
+
+.inbound-card-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.inbound-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.inbound-card-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink, #1e1b4b);
+  margin: 0;
+}
+
+.inbound-card-blurb {
+  font-size: 13px;
+  color: var(--muted-foreground, #52525b);
+  margin: 4px 0 0 0;
+}
+
+.inbound-status-pill {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.inbound-status-pill[data-status="active"] {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+.inbound-status-pill[data-status="not-configured"] {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.inbound-url-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--muted, #f5f5f7);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink, #1e1b4b);
+}
+
+.inbound-url-label {
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-foreground, #52525b);
+  flex-shrink: 0;
+}
+
+.inbound-url-value {
+  flex: 1;
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.inbound-copy-btn {
+  border: 1px solid var(--border, rgba(30, 27, 75, 0.1));
+  background: white;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--ink, #1e1b4b);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.inbound-copy-btn:hover {
+  background: var(--muted, #f5f5f7);
+}
+.inbound-copy-btn[data-copied="true"] {
+  color: #15803d;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.inbound-test-btn {
+  border: 1px solid var(--border, rgba(30, 27, 75, 0.1));
+  background: white;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--ink, #1e1b4b);
+  cursor: pointer;
+  margin-top: 4px;
+}
+.inbound-test-btn:hover {
+  background: var(--muted, #f5f5f7);
+}
+
+.inbound-upstream {
+  font-size: 12px;
+  color: var(--muted-foreground, #52525b);
+  margin: 0 0 12px 0;
+}
+
+.inbound-section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-foreground, #52525b);
+  margin: 18px 0 10px 0;
+}
+
+.inbound-events-empty {
+  font-size: 13px;
+  color: var(--muted-foreground, #52525b);
+  font-style: italic;
+  padding: 10px 0;
+}
+
+.inbound-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border, rgba(30, 27, 75, 0.08));
+  border-radius: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.inbound-events li {
+  display: grid;
+  grid-template-columns: 130px 1fr 110px;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border, rgba(30, 27, 75, 0.05));
+}
+.inbound-events li:last-child {
+  border-bottom: none;
+}
+.inbound-events-when {
+  color: var(--muted-foreground, #52525b);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.inbound-events-from {
+  color: var(--ink, #1e1b4b);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inbound-events-decision {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.inbound-events-decision[data-decision="approve"] {
+  color: #15803d;
+}
+.inbound-events-decision[data-decision="reject"] {
+  color: #b91c1c;
+}
+
+.inbound-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 12, 38, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.inbound-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 520px;
+  width: calc(100% - 32px);
+  box-shadow: 0 24px 48px rgba(15, 12, 38, 0.32);
+}
+.inbound-modal h2 {
+  font-size: 18px;
+  margin: 0 0 8px 0;
+  color: var(--ink, #1e1b4b);
+}
+.inbound-modal p {
+  font-size: 14px;
+  color: var(--muted-foreground, #52525b);
+  margin: 0 0 16px 0;
+}
+.inbound-modal-close {
+  border: 1px solid var(--border, rgba(30, 27, 75, 0.1));
+  background: white;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--ink, #1e1b4b);
+  cursor: pointer;
+}
+
+/* Reuse the notify-channels icon tint swatches so the inbound
+   surface shares the visual language of its outbound sibling. */
+.channel-tint-sky {
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+}
+.channel-tint-violet {
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+}

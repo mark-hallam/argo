@@ -27,5 +27,8 @@ pub(super) async fn dispatch_api_get(
     if let Some(resp) = g::dispatch_audit_support_knowledge(req, store).await {
         return Some(resp);
     }
+    if let Some(resp) = super::routes_inbound_channels::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     None
 }

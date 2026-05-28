@@ -130,6 +130,7 @@ mod routes_genesis;
 mod routes_genesis_stream;
 mod routes_ghostwriter;
 mod routes_health;
+mod routes_inbound_channels;
 mod routes_lists;
 mod routes_lists_memory;
 mod routes_me_export;

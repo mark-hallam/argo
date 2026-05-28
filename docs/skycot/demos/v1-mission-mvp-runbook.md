@@ -388,6 +388,15 @@ current CLI-only surface is a v0 placeholder, not the product.
 **Pass cue**: `argo audit verify` prints `OK` with a non-zero
 row count and zero breaks against the recording session's DB.
 
+**Optional beat — inbound channels surface**: if the 80-s budget
+holds, end Scene 6 with a 5-s pan over `/settings/inbound-channels`
+to show the SMS / Discord / Voice DTMF webhook URLs the operator
+pastes into Twilio / the Discord Developer Portal, plus the
+"Recent activity" feed. This is the visible proof that "approvals
+come back from any of these channels" — replacing the old
+all-CLI inbound story. Skip if the run is over budget; the page
+is operator-discoverable independent of the demo.
+
 **Audit drill-in deep-link contract** (Scene 6 row-click target):
 - Row click pushes a full route, not a modal:
   `/audit/action/<actionId>` (and `/audit/action/<actionId>/replay`

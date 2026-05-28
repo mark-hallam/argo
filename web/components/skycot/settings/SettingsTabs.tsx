@@ -9,6 +9,7 @@ import {
   BookOpen,
   Building2,
   Download,
+  Inbox,
   Key,
   KeyRound,
   Plug,
@@ -52,6 +53,12 @@ const SETTINGS_TABS: SettingsTab[] = [
     label: "Channels",
     match: ["/settings/notify-channels"],
     icon: BellRing,
+  },
+  {
+    href: "/settings/inbound-channels",
+    label: "Inbound",
+    match: ["/settings/inbound-channels"],
+    icon: Inbox,
   },
   {
     href: "/settings/knowledge",
