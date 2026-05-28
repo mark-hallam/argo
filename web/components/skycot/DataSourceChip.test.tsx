@@ -1,62 +1,53 @@
 /**
- * Pins the demo-live suppression behavior added in
- * `fix-team-page-mock-bypass-pill-visible-to-camera-in-demo-live` —
- * scene-1-and-2 F10 of the 2026-05-28-0252 UX audit.
+ * Pins the opt-in chip behavior added in
+ * `fix-team-page-mock-offline-chip-suppress-during-recording` — F7 of
+ * the 2026-05-26-2007 chrome-live-walk-and-playwright UX audit.
  *
- * When `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` the chip must not render in
- * any data-source branch, so the v1.0 demo MP4 doesn't catch a stray
- * "MOCK (AUTH-BYPASS)" pill on camera. In normal dev (demo-live off)
- * the chip still renders for `mock-auth-bypass` and `live`, and
- * stays hidden for `mock-offline` per the 2026-05-20 prior fix.
+ * The chip is hidden by default in every build. Set
+ * `NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP=1` to opt back in for dev
+ * use. The underlying source value stays inspectable via the
+ * page-header wrapper's `data-source` attribute regardless.
  */
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DataSourceChip } from "./DataSourceChip";
 
-const ORIGINAL_DEMO_LIVE = process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE;
+const ORIGINAL_SHOW = process.env.NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP;
 
-function setDemoLive(on: boolean) {
-  if (on) process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
-  else delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE;
+function setShow(on: boolean) {
+  if (on) process.env.NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP = "1";
+  else delete process.env.NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP;
 }
 
-beforeEach(() => setDemoLive(false));
+beforeEach(() => setShow(false));
 
 afterEach(() => {
-  if (ORIGINAL_DEMO_LIVE === undefined) {
-    delete process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE;
+  if (ORIGINAL_SHOW === undefined) {
+    delete process.env.NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP;
   } else {
-    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = ORIGINAL_DEMO_LIVE;
+    process.env.NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP = ORIGINAL_SHOW;
   }
 });
 
 describe("DataSourceChip", () => {
-  it("renders the mock-auth-bypass pill in normal dev", () => {
-    setDemoLive(false);
+  it("is hidden by default for every source", () => {
+    for (const source of ["live", "mock-offline", "mock-auth-bypass"] as const) {
+      const { unmount } = render(<DataSourceChip source={source} />);
+      expect(screen.queryByTestId("data-source-chip")).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("renders when the opt-in flag is set", () => {
+    setShow(true);
     render(<DataSourceChip source="mock-auth-bypass" />);
-    expect(screen.getByTestId("data-source-chip")).toBeInTheDocument();
+    const chip = screen.getByTestId("data-source-chip");
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveAttribute("data-source", "mock-auth-bypass");
   });
 
-  it("suppresses the mock-auth-bypass pill when demo-live is on", () => {
-    setDemoLive(true);
-    render(<DataSourceChip source="mock-auth-bypass" />);
-    expect(screen.queryByTestId("data-source-chip")).not.toBeInTheDocument();
-  });
-
-  it("suppresses the live pill when demo-live is on", () => {
-    setDemoLive(true);
-    render(<DataSourceChip source="live" />);
-    expect(screen.queryByTestId("data-source-chip")).not.toBeInTheDocument();
-  });
-
-  it("keeps mock-offline hidden in normal dev (existing behavior)", () => {
-    setDemoLive(false);
-    render(<DataSourceChip source="mock-offline" />);
-    expect(screen.queryByTestId("data-source-chip")).not.toBeInTheDocument();
-  });
-
-  it("renders nothing when source is undefined", () => {
-    setDemoLive(false);
+  it("renders nothing when source is undefined even with the flag set", () => {
+    setShow(true);
     const { container } = render(<DataSourceChip source={undefined} />);
     expect(container).toBeEmptyDOMElement();
   });

@@ -77,6 +77,28 @@ export function isGatewayAuthBypassed(): boolean {
 }
 
 /**
+ * Data-source chip visibility flag — opt-in.
+ *
+ * `NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP=1` re-enables the small
+ * "MOCK-OFFLINE" / "MOCK-BYPASS" / "LIVE" pills that the SPA used to
+ * render next to page headings. The pill is dev diagnostic info — fine
+ * for local UI iteration, but it leaked onto camera during the v1.0
+ * demo MP4 recording where the gateway sometimes 404s a not-yet-wired
+ * root-listing endpoint and the chip reads as "broken software" to an
+ * investor. The chip is now hidden by default in every build (prod,
+ * dev, demo-live, demo-mode) and only renders when this flag is
+ * explicitly set; the underlying `data-source` value stays inspectable
+ * via a `data-source` HTML attribute on the page-header wrapper for
+ * DevTools.
+ */
+export const SHOW_DATA_SOURCE_CHIP_ENV_VAR =
+  "NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP" as const;
+
+export function isDataSourceChipVisible(): boolean {
+  return process.env.NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP === "1";
+}
+
+/**
  * Recording-prep readiness warning.
  *
  * Returns a single-line warning when the SPA boots with both

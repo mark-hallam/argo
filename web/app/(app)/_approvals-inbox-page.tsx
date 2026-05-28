@@ -396,7 +396,11 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, fil
   const router = useRouter();
   const activeCount = activeFilterCount(filters);
   return (
-    <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
+    <div
+      data-testid="approvals-page-header"
+      data-source={dataSource ?? "unknown"}
+      className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md"
+    >
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">

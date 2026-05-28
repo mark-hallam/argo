@@ -20,7 +20,7 @@ import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
 import { TeamFilterChipRail } from "@/components/skycot/TeamFilterChipRail";
-import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { isDataSourceChipVisible } from "@/lib/skycot/demo-mode";
 import { useTeam } from "@/lib/hooks/use-team";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { FetchTeamResult } from "@/lib/api/team";
@@ -245,7 +245,11 @@ function PageHeader({
   const filterActive = filters.status !== null || filters.q.length > 0;
   const subtitleCount = filterActive ? filteredCount : total;
   return (
-    <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
+    <div
+      data-testid="team-page-header"
+      data-source={dataSource}
+      className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md"
+    >
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
@@ -316,9 +320,14 @@ function PageHeader({
   );
 }
 
-// Dev-only chip; hidden in production + demo-live so the v1.0 demo MP4 doesn't show "MOCK-BYPASS" on camera.
+// Dev-only diagnostic pill. Hidden by default in every build — the
+// chip leaked onto camera during the v1.0 demo MP4 recording, reading
+// "MOCK-OFFLINE" / "MOCK-BYPASS" to investors when the gateway 404'd a
+// not-yet-wired endpoint. Set NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP=1
+// to opt back in for dev work; the underlying value is still inspectable
+// via the page-header wrapper's `data-source` attribute.
 function TeamDataSourceChip({ source }: { source: TeamDataSourceLabel }) {
-  if (process.env.NODE_ENV === "production" || isDemoLive()) return null;
+  if (!isDataSourceChipVisible()) return null;
   return (
     <span
       data-testid="team-data-source-chip"

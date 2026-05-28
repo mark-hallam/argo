@@ -11,7 +11,9 @@ import { expect, test } from "@playwright/test";
  * deterministic e2e shape the brief calls for.
  *
  * Asserts:
- *   1. DataSourceChip renders with one of the mock-* sources.
+ *   1. The page-header `data-source` attribute reflects a mock origin
+ *      (the visible DataSourceChip is suppressed by default per
+ *      `fix-team-page-mock-offline-chip-suppress-during-recording`).
  *   2. Approving the first card flips its post-decision bar to
  *      "Approved" — the optimistic mutation path still wires
  *      through the (now mock) `submitDecision`.
@@ -19,10 +21,12 @@ import { expect, test } from "@playwright/test";
 test("approves the first card under mock fallback", async ({ page }) => {
   await page.goto("/");
 
-  const chip = page.getByTestId("data-source-chip");
-  await expect(chip).toBeVisible();
-  const source = await chip.getAttribute("data-source");
+  const header = page.getByTestId("approvals-page-header");
+  const source = await header.getAttribute("data-source");
   expect(source === "mock-offline" || source === "mock-auth-bypass").toBe(true);
+  // The visible chip is opt-in (NEXT_PUBLIC_SKYCOT_SHOW_DATA_SOURCE_CHIP=1)
+  // and must NOT render with the default Playwright env profile.
+  await expect(page.getByTestId("data-source-chip")).toHaveCount(0);
 
   const firstApprove = page.getByTestId("approval-approve").first();
   await firstApprove.click();

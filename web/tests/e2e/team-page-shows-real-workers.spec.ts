@@ -41,12 +41,18 @@ test("renders the trading-card deck — never the empty state — when workers e
   );
 });
 
-test("data-source chip surfaces the non-gateway origin in dev builds", async ({ page }) => {
+test("data-source attribute surfaces the non-gateway origin on the page header", async ({ page }) => {
   await page.goto("/team");
 
-  const chip = page.getByTestId("team-data-source-chip");
-  await expect(chip).toBeVisible();
-  // With auth-bypass on, fetchTeam short-circuits to mock-bypass before
-  // any network call. The chip must reflect that — not lie 'gateway'.
-  await expect(chip).toHaveAttribute("data-source", "mock-bypass");
+  // The visible MOCK-OFFLINE / MOCK-BYPASS chip was suppressed by
+  // `fix-team-page-mock-offline-chip-suppress-during-recording` — it
+  // leaked onto camera during the v1.0 demo recording, reading as
+  // "broken software" to an investor. The diagnostic moved to a
+  // `data-source` attribute on the page-header wrapper so DevTools
+  // (and this regression pin) can still verify which path the page
+  // is reading without showing the chip to a user.
+  const header = page.getByTestId("team-page-header");
+  await expect(header).toHaveAttribute("data-source", "mock-bypass");
+  // The visible chip must NOT render with the default env profile.
+  await expect(page.getByTestId("team-data-source-chip")).toHaveCount(0);
 });
