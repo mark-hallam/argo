@@ -227,7 +227,7 @@ export default function OnboardingConnectProviderPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className={providerError?.preferSkip ? "ob-cta" : "ob-cta-ghost"}
+                className="ob-cta-ghost"
                 onClick={onSkip}
                 data-testid="onboarding-provider-skip"
               >
@@ -235,7 +235,7 @@ export default function OnboardingConnectProviderPage() {
               </button>
               <button
                 type="submit"
-                className={providerError?.preferSkip ? "ob-cta-ghost" : "ob-cta"}
+                className="ob-cta"
                 disabled={!canSubmit}
                 aria-busy={submitting || undefined}
                 data-testid="onboarding-provider-submit"
