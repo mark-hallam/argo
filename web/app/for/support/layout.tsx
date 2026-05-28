@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     canonical: "/for/support",
   },
   openGraph: {
-    title: V.title,
+    title: `${V.title} · SKYCOT`,
     description: V.description,
     images: [V.ogImage],
   },

@@ -68,7 +68,7 @@ export type VerticalConfig = {
 
 const SALES: VerticalConfig = {
   slug: "sales",
-  title: "AI sales teammates that never sleep — SKYCOT",
+  title: "AI sales teammates that never sleep",
   description:
     "Qualify leads, draft outreach, and book demos with AI sales workers that ask before they act. Audit-first, single-binary, enterprise-grade.",
   ogImage: "/og/og-sales.png",
@@ -118,7 +118,7 @@ const SALES: VerticalConfig = {
 
 const RECRUITING: VerticalConfig = {
   slug: "recruiting",
-  title: "AI recruiting teammates — Hire faster, screen better — SKYCOT",
+  title: "AI recruiting teammates — Hire faster, screen better",
   description:
     "Screen applications, schedule interviews, and chase references with AI recruiting workers. Approval-first, audit-logged, never lose a candidate.",
   ogImage: "/og/og-recruiting.png",
@@ -175,7 +175,7 @@ const RECRUITING: VerticalConfig = {
 
 const SUPPORT: VerticalConfig = {
   slug: "support",
-  title: "AI customer support teammates — SKYCOT",
+  title: "AI customer support teammates",
   description:
     "Triage tickets, draft replies, and escalate the hard ones. AI support workers that get it right the first time, audit-logged on every action.",
   ogImage: "/og/og-support.png",
@@ -228,7 +228,7 @@ const SUPPORT: VerticalConfig = {
 
 const FINANCE: VerticalConfig = {
   slug: "finance",
-  title: "AI finance teammates — Close the books faster — SKYCOT",
+  title: "AI finance teammates — Close the books faster",
   description:
     "Extract invoices, reconcile vendor payments, and flag expense anomalies. AI finance workers that close the books faster and catch the variance.",
   ogImage: "/og/og-finance.png",
@@ -285,7 +285,7 @@ const FINANCE: VerticalConfig = {
 
 const MARKETING: VerticalConfig = {
   slug: "marketing",
-  title: "AI marketing teammates — Always-on, never off-brand — SKYCOT",
+  title: "AI marketing teammates — Always-on, never off-brand",
   description:
     "Brand-voice QA on outgoing copy, lead enrichment from form fills, and weekly campaign digests. AI marketing workers that are always-on and never off-brand.",
   ogImage: "/og/og-marketing.png",
@@ -338,7 +338,7 @@ const MARKETING: VerticalConfig = {
 
 const OPS: VerticalConfig = {
   slug: "ops",
-  title: "AI ops teammates — Run the back office on autopilot — SKYCOT",
+  title: "AI ops teammates — Run the back office on autopilot",
   description:
     "Weekly status reports, cross-system data sync, and skill catalog audits. AI ops workers that run the back office on autopilot, audit-first.",
   ogImage: "/og/og-ops.png",

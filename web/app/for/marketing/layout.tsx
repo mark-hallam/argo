@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     canonical: "/for/marketing",
   },
   openGraph: {
-    title: V.title,
+    title: `${V.title} · SKYCOT`,
     description: V.description,
     images: [V.ogImage],
   },
