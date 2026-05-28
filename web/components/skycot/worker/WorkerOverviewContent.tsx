@@ -58,12 +58,6 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     overviewQuery.refetch();
   }, [overviewQuery]);
 
-  // RetrainDialog (E4-g) mounts inside WhatSheDoesCard; this callback
-  // is kept as an analytics seam for callers who want to know an
-  // adjust was launched without intercepting the dialog itself.
-  const onAdjust = useCallback(() => {
-    /* no-op — dialog mount lives in WhatSheDoesCard */
-  }, []);
   // The AddResponsibilityDialog is mounted by DutiesCard now, so onAddDuty
   // is only an analytics seam — no user-facing toast required. The edit-
   // body and toggle paths are intentionally inert until the duty PATCH
@@ -131,7 +125,6 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         charter={overview.charter}
         canEdit={permissions.canEditCharter}
         onSave={onSaveCharter}
-        onAdjust={onAdjust}
         workerId={workerId}
         workerName={workerQuery.data?.name}
       />

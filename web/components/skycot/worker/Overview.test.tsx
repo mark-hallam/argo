@@ -141,18 +141,13 @@ describe("WhatSheDoesCard — inline edit", () => {
     expect(onSave).toHaveBeenCalledWith("New charter copy.");
   });
 
-  it("renders the Adjust button and stubs the action through onAdjust", async () => {
-    const user = userEvent.setup();
-    const onAdjust = vi.fn();
-    render(
-      <WhatSheDoesCard
-        charter="Charter."
-        canEdit
-        onAdjust={onAdjust}
-      />,
-    );
-    await user.click(screen.getByTestId("charter-adjust"));
-    expect(onAdjust).toHaveBeenCalledOnce();
+  it("renders the Adjust button (dialog opens via WorkerOverviewContent pin)", () => {
+    render(<WhatSheDoesCard charter="Charter." canEdit />);
+    // The Adjust button mounts the RetrainDialog internally when
+    // workerId is set; that integration is pinned by
+    // "opens the RetrainDialog (E4-g) when Adjust is clicked" below.
+    // Here we just guard that the button is reachable.
+    expect(screen.getByTestId("charter-adjust")).toBeInTheDocument();
   });
 
   it("does not enter edit mode when canEdit is false", async () => {

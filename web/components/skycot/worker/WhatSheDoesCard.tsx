@@ -18,10 +18,8 @@ import { cn } from "@/lib/utils";
  * `onSave(next)` callback so the parent page can wire it as soon as
  * the mutation hook exists.
  *
- * "✎ Adjust" opens the RetrainDialog (E4-g). The optional
- * `onAdjust` prop is fired alongside for analytics / parent
- * announcement hooks; the dialog mounts internally so callers
- * don't have to thread state through.
+ * "✎ Adjust" opens the RetrainDialog (E4-g). The dialog mounts
+ * internally so callers don't have to thread state through.
  */
 
 export interface WhatSheDoesCardProps {
@@ -29,8 +27,6 @@ export interface WhatSheDoesCardProps {
   canEdit: boolean;
   /** Called when the user commits an edit (blur / Enter). */
   onSave?: (next: string) => void;
-  /** Optional analytics hook — fired in addition to opening the dialog. */
-  onAdjust?: () => void;
   /** Worker id for the retrain dialog. Required to wire mutations. */
   workerId?: string;
   /** Worker first-name; surfaces in the dialog copy. Defaults to "this worker". */
@@ -46,7 +42,6 @@ export function WhatSheDoesCard({
   charter,
   canEdit,
   onSave,
-  onAdjust,
   workerId,
   workerName = "this worker",
   error,
@@ -59,7 +54,6 @@ export function WhatSheDoesCard({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const handleAdjustClick = () => {
-    onAdjust?.();
     if (workerId) setRetrainOpen(true);
   };
 
