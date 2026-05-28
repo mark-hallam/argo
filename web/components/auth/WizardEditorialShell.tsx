@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { AlertDialog } from "@/components/ui/AlertDialog";
+import { DemoModeBanner } from "@/components/skycot/DemoModeBanner";
 
 /**
  * Locked F1 editorial-center wizard shell (2026-05-19 design lock).
@@ -406,6 +407,7 @@ export function WizardEditorialShell({
     <>
       <style jsx global>{WIZARD_STYLES}</style>
       <div className="wiz-editorial">
+        <DemoModeBanner />
         <header className="wiz-top">
           <button
             type="button"
