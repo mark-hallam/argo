@@ -10,7 +10,7 @@
  * the customer straight into Checkout without an extra click.
  */
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { useCheckout, redirectToCheckout } from "@/lib/billing/use-checkout";
@@ -28,11 +28,26 @@ export default function BillingSubscribePage() {
   );
 }
 
+function SubscribeShell({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mx-auto max-w-md px-4 sm:px-6 lg:px-8 py-12 space-y-4">
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      {children}
+    </div>
+  );
+}
+
 function SubscribeFallback() {
   return (
-    <div className="mx-auto max-w-md px-4 sm:px-6 lg:px-8 py-12">
+    <SubscribeShell title="Subscribe">
       <p className="text-sm">Preparing your upgrade…</p>
-    </div>
+    </SubscribeShell>
   );
 }
 
@@ -60,8 +75,7 @@ function SubscribeContent() {
 
   if (errorMessage) {
     return (
-      <div className="mx-auto max-w-md px-4 sm:px-6 lg:px-8 py-12 space-y-4">
-        <h1 className="text-lg font-semibold tracking-tight">Couldn’t start checkout</h1>
+      <SubscribeShell title="Couldn’t start checkout">
         <p className="text-sm text-[var(--destructive)]">{errorMessage}</p>
         <Button
           variant="secondary"
@@ -70,12 +84,12 @@ function SubscribeContent() {
         >
           Back to billing
         </Button>
-      </div>
+      </SubscribeShell>
     );
   }
   return (
-    <div className="mx-auto max-w-md px-4 sm:px-6 lg:px-8 py-12">
+    <SubscribeShell title="Subscribe">
       <p className="text-sm">Redirecting to Stripe Checkout…</p>
-    </div>
+    </SubscribeShell>
   );
 }
