@@ -198,7 +198,6 @@ fn parse_frontmatter_facets(raw: &str) -> (String, String, Vec<String>) {
 /// Resolve the caller's tenant id. Prefers the `X-Argo-Tenant-Id`
 /// header (set by the SPA proxy after JWT verification); falls back
 /// to the cwd-bound workspace tenant for CLI / fixture callers.
-/// Mirrors [`super::routes_verticals_list_get::request_tenant_id`].
 async fn request_tenant_id(
     req: &str,
     store: &SessionStore,

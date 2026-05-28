@@ -340,7 +340,7 @@ export default function OnboardingPickVerticalPage() {
             ? "Loading catalogue…"
             : catalogSource === "gateway"
               ? `v1 catalogue · ${cards.length} verticals`
-              : `v1 catalogue (offline · ${cards.length} verticals)`}
+              : `${cards.length} starting templates`}
         </p>
         {error ? (
           <p className="ob-form-note" data-testid="onboarding-vertical-error">
