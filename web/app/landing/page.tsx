@@ -101,7 +101,7 @@ const HOW = [
     n: "02",
     title: "Meet your new teammate",
     blurb:
-      "SKYCOT spins up a named worker (Mariah, Peta, Priya, Jamal, or Nori) with the right skills, joins your Slack, and introduces themselves.",
+      "SKYCOT spins up a named teammate (Mariah, Peta, Priya, Jamal, or Nori) with the right skills, joins your Slack, and introduces themselves.",
   },
   {
     n: "03",
@@ -113,7 +113,7 @@ const HOW = [
     n: "04",
     title: "Watch the audit chain",
     blurb:
-      "Every action, every approval, every decision — fully audit-logged with worker, action, cost, latency, and outcome.",
+      "Every action, every approval, every decision — fully audit-logged with teammate, action, cost, latency, and outcome.",
   },
 ];
 

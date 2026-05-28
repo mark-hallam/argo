@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "SKYCOT is built in Melbourne. Don't buy another tool. Hire a teammate. AI workers that ask before they act and ship a full audit trail.",
+    "SKYCOT is built in Melbourne. Don't buy another tool. Hire a teammate. AI teammates that ask before they act and ship a full audit trail.",
   alternates: {
     canonical: "/about",
   },

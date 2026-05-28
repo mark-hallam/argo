@@ -70,7 +70,7 @@ const SALES: VerticalConfig = {
   slug: "sales",
   title: "AI sales teammates that never sleep",
   description:
-    "Qualify leads, draft outreach, and book demos with AI sales workers that ask before they act. Audit-first, single-binary, enterprise-grade.",
+    "Qualify leads, draft outreach, and book demos with AI sales teammates that ask before they act. Audit-first, single-binary, enterprise-grade.",
   ogImage: "/og/og-sales.png",
   eyebrow: "AI for sales teams",
   headline: { lead: "Your AI sales team that", accent: "never sleeps." },
@@ -120,7 +120,7 @@ const RECRUITING: VerticalConfig = {
   slug: "recruiting",
   title: "AI recruiting teammates — Hire faster, screen better",
   description:
-    "Screen applications, schedule interviews, and chase references with AI recruiting workers. Approval-first, audit-logged, never lose a candidate.",
+    "Screen applications, schedule interviews, and chase references with AI recruiting teammates. Approval-first, audit-logged, never lose a candidate.",
   ogImage: "/og/og-recruiting.png",
   eyebrow: "AI for recruiting teams",
   headline: {
@@ -177,7 +177,7 @@ const SUPPORT: VerticalConfig = {
   slug: "support",
   title: "AI customer support teammates",
   description:
-    "Triage tickets, draft replies, and escalate the hard ones. AI support workers that get it right the first time, audit-logged on every action.",
+    "Triage tickets, draft replies, and escalate the hard ones. AI support teammates that get it right the first time, audit-logged on every action.",
   ogImage: "/og/og-support.png",
   eyebrow: "AI for support teams",
   headline: {
@@ -230,7 +230,7 @@ const FINANCE: VerticalConfig = {
   slug: "finance",
   title: "AI finance teammates — Close the books faster",
   description:
-    "Extract invoices, reconcile vendor payments, and flag expense anomalies. AI finance workers that close the books faster and catch the variance.",
+    "Extract invoices, reconcile vendor payments, and flag expense anomalies. AI finance teammates that close the books faster and catch the variance.",
   ogImage: "/og/og-finance.png",
   eyebrow: "AI for finance teams",
   headline: {
@@ -287,7 +287,7 @@ const MARKETING: VerticalConfig = {
   slug: "marketing",
   title: "AI marketing teammates — Always-on, never off-brand",
   description:
-    "Brand-voice QA on outgoing copy, lead enrichment from form fills, and weekly campaign digests. AI marketing workers that are always-on and never off-brand.",
+    "Brand-voice QA on outgoing copy, lead enrichment from form fills, and weekly campaign digests. AI marketing teammates that are always-on and never off-brand.",
   ogImage: "/og/og-marketing.png",
   eyebrow: "AI for marketing teams",
   headline: {
@@ -340,7 +340,7 @@ const OPS: VerticalConfig = {
   slug: "ops",
   title: "AI ops teammates — Run the back office on autopilot",
   description:
-    "Weekly status reports, cross-system data sync, and skill catalog audits. AI ops workers that run the back office on autopilot, audit-first.",
+    "Weekly status reports, cross-system data sync, and skill catalog audits. AI ops teammates that run the back office on autopilot, audit-first.",
   ogImage: "/og/og-ops.png",
   eyebrow: "AI for ops teams",
   headline: { lead: "Run the back office on", accent: "autopilot." },

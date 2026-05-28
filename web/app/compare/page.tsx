@@ -53,7 +53,7 @@ const DIMENSIONS: Dimension[] = [
     group: "Teammates, not tools",
     question: "Do they earn trust over time + get promoted?",
     scores: { SKYCOT: "yes", Zapier: "no", n8n: "no", "Crew.ai": "no", Lindy: "no" },
-    caption: "SKYCOT's trust ratchet promotes workers from supervised → autonomous as they prove reliable.",
+    caption: "SKYCOT's trust ratchet promotes teammates from supervised → autonomous as they prove reliable.",
   },
   {
     group: "Safe by default",
@@ -68,7 +68,7 @@ const DIMENSIONS: Dimension[] = [
   },
   {
     group: "Safe by default",
-    question: "Can you freeze a worker in one click if something goes wrong?",
+    question: "Can you freeze a teammate in one click if something goes wrong?",
     scores: { SKYCOT: "yes", Zapier: "partial", n8n: "no", "Crew.ai": "no", Lindy: "no" },
   },
   {
@@ -90,7 +90,7 @@ const DIMENSIONS: Dimension[] = [
   },
   {
     group: "Plain-English editing",
-    question: "Cross-app ⌘K palette — every worker, workflow, skill, page reachable in one keystroke?",
+    question: "Cross-app ⌘K palette — every teammate, workflow, skill, page reachable in one keystroke?",
     scores: { SKYCOT: "yes", Zapier: "no", n8n: "no", "Crew.ai": "no", Lindy: "no" },
     caption:
       "Command palette indexes the whole product surface, with category-grouped results, recents, and quick actions. Zapier has app-search; the others have nothing equivalent.",

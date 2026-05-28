@@ -85,7 +85,7 @@ const WEEKS: Week[] = [
       {
         date: "2026-05-20",
         version: "v1.0.3",
-        title: "Personality cards on worker profiles",
+        title: "Personality cards on teammate profiles",
         body:
           "Every AI teammate now has a personality card on their profile — trait chips, signature behaviors, what they're great at, and when to escalate. Your AI hires read like colleagues, not chatbots.",
         tags: ["UX", "Brand"],
@@ -140,7 +140,7 @@ const WEEKS: Week[] = [
         version: "v0.9.5",
         title: "Audit track 10 of 11 merged",
         body:
-          "Forensic-grade audit chain is now wired through ten of the eleven primitives — every action, every approval, every escalation lands in the chain with worker, tenant, capability, cost, and latency attached. The eleventh (computer-use macOS) lands with the v1 demo cut.",
+          "Forensic-grade audit chain is now wired through ten of the eleven primitives — every action, every approval, every escalation lands in the chain with teammate, tenant, capability, cost, and latency attached. The eleventh (computer-use macOS) lands with the v1 demo cut.",
         tags: ["Audit", "Reliability"],
       },
       {
@@ -148,7 +148,7 @@ const WEEKS: Week[] = [
         version: "v0.9.4",
         title: "Slack approval ship-gate smoke passing",
         body:
-          "End-to-end smoke test for the Slack approval flow now green in CI: worker proposes → Slack message → human approves → action ships → audit row written. The full happy path runs in under twelve seconds on a cold start.",
+          "End-to-end smoke test for the Slack approval flow now green in CI: teammate proposes → Slack message → human approves → action ships → audit row written. The full happy path runs in under twelve seconds on a cold start.",
         tags: ["Connectors", "Audit", "Demo"],
       },
       {
@@ -164,7 +164,7 @@ const WEEKS: Week[] = [
         version: "v0.9.2",
         title: "Kill-switch shipped",
         body:
-          "One-tap freeze for any worker, cohort, or tenant. Stops all in-flight turns, halts approvals, and writes a kill row to the audit chain. The 'something is going wrong, stop everything' button is now real.",
+          "One-tap freeze for any teammate, cohort, or tenant. Stops all in-flight turns, halts approvals, and writes a kill row to the audit chain. The 'something is going wrong, stop everything' button is now real.",
         tags: ["Security", "Ops", "Audit"],
       },
     ],

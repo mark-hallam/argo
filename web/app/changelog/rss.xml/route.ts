@@ -39,7 +39,7 @@ const ITEMS: RssItem[] = [
   {
     date: "2026-05-20",
     version: "v1.0.3",
-    title: "Personality cards on worker profiles",
+    title: "Personality cards on teammate profiles",
     body:
       "Every AI teammate now has a personality card on their profile — trait chips, signature behaviors, what they're great at, and when to escalate.",
   },

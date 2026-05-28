@@ -54,21 +54,21 @@ export default function AboutPage() {
       </h1>
       <p style={{ fontSize: 18, lineHeight: 1.5, margin: "0 0 32px", color: "var(--muted-foreground)" }}>
         Don&apos;t buy another tool. Hire a teammate. SKYCOT puts approval-first
-        AI workers inside the software you already use — Slack, email, your
+        AI teammates inside the software you already use — Slack, email, your
         ticketing system — and ships a full audit trail of every action they
         take.
       </p>
 
       <h2 style={{ fontSize: 22, fontWeight: 700, margin: "32px 0 14px" }}>What we are</h2>
       <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 18px", color: "var(--muted-foreground)" }}>
-        SKYCOT is a single-binary enterprise AI agent platform. Workers live in
+        SKYCOT is a single-binary enterprise AI agent platform. Teammates live in
         the channels your team already lives in, ask before they act on
         anything sensitive, and learn from your feedback over time. Every
         decision they make is recorded with a tamper-evident hash chain — so
         you can prove, months later, exactly what happened and why.
       </p>
       <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 18px", color: "var(--muted-foreground)" }}>
-        The platform ships with a marketplace of templated worker roles —
+        The platform ships with a marketplace of templated teammate roles —
         receptionists, status reporters, project coordinators, sales reps —
         each one configurable, governable, and replaceable without rewriting
         any of your existing systems.
