@@ -50,3 +50,63 @@ export const DEMO_LIVE_ENV_VAR = "NEXT_PUBLIC_SKYCOT_DEMO_LIVE" as const;
 export function isDemoLive(): boolean {
   return process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE === "1";
 }
+
+/**
+ * Gateway-auth-bypass flag — readable from the SPA bundle.
+ *
+ * `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` is the dev-only switch the
+ * 28 fetchers in `web/lib/api/*.ts` consult before deciding whether to
+ * short-circuit to seed fixtures. The check is also gated on
+ * `NODE_ENV !== "production"`, so a production bundle ignores the env
+ * var even if a hostile build sets it.
+ *
+ * This SPA-side mirror lives next to `isDemoMode()` / `isDemoLive()`
+ * for two reasons: the recording-mode readiness warning below reads
+ * all three flags together, and a single export keeps the
+ * "what state is the SPA in?" decision in one module instead of
+ * duplicated across every fetcher.
+ */
+export const GATEWAY_AUTH_BYPASS_ENV_VAR =
+  "NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS" as const;
+
+export function isGatewayAuthBypassed(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
+  );
+}
+
+/**
+ * Recording-prep readiness warning.
+ *
+ * Returns a single-line warning when the SPA boots with both
+ * `NEXT_PUBLIC_SKYCOT_DEMO_MODE=1` AND
+ * `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`. Under that combination the
+ * 28 `lib/api/*` fetchers short-circuit to seed fixtures before any
+ * gateway request leaves the browser — the operator cannot pre-flight
+ * the live gateway against the SPA rendering, so the demo recording
+ * would narrate "Skills marketplace returns 6 cards from the gateway"
+ * while the Network panel shows zero gateway calls.
+ *
+ * Returning `null` (the no-op steady state) keeps offline UI iteration
+ * silent. The DemoBanner consumes the string via a console.warn on
+ * mount; we deliberately do NOT render a visible banner because the
+ * normal offline-dev profile sets both flags and the operator would
+ * otherwise see a permanent yellow stripe under DemoBanner during
+ * routine local work.
+ */
+export function recordingModeReadinessWarning(): string | null {
+  if (isDemoMode() && isGatewayAuthBypassed()) {
+    return (
+      "⚠ DEMO-RECORDING WARNING: NEXT_PUBLIC_SKYCOT_DEMO_MODE=1 and " +
+      "NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 are both set — the SPA " +
+      "will short-circuit to seed fixtures and will NOT hit the live " +
+      "gateway. Fine for offline UI work; for demo-recording prep set " +
+      "NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=0 so /skills, /team, " +
+      "/audit etc. exercise the real backend. See " +
+      "docs/skycot/demos/v1-mission-mvp-runbook.md → Recording-mode " +
+      "env profile."
+    );
+  }
+  return null;
+}

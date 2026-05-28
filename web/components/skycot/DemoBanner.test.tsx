@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/skycot/demo-mode", () => ({
   isDemoMode: () => true,
+  recordingModeReadinessWarning: () => null,
 }));
 
 import { DemoBanner } from "./DemoBanner";

@@ -455,6 +455,93 @@ in `docs/skycot/runbook/v1-demo-recording.md` §3.5.
 
 ---
 
+## Recording-mode SPA env profile (flip BEFORE pressing record)
+
+The default `claude preview start web` profile in `.claude/launch.json`
+sets `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`. Under that flag the 28
+fetchers in `web/lib/api/*.ts` (skills, team, workflows, cohorts,
+verticals, …) short-circuit to seed fixtures **before** any HTTP
+request leaves the browser. That is correct for offline UI iteration
+but **dangerous for recording prep**: every Scene 4/5/6 gateway-
+dependent beat would render the same six skills, five workers, seven
+workflows regardless of whether the gateway is running, populated,
+empty, or completely down. The operator can rehearse an 8-minute take
+against a stone-cold gateway and never know.
+
+The fix is one env var flipped between two profiles. Keep both in
+`.claude/launch.json` (which is `.gitignore`'d on every workstation,
+so each operator maintains their own copy):
+
+```jsonc
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      // Offline UI iteration: SPA short-circuits to seed fixtures.
+      // No gateway calls fire. Fast hot-reload, no backend dependency.
+      "name": "web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:7400 NEXT_PUBLIC_SKYCOT_DEMO_MODE=1 NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1 pnpm --dir web dev"
+      ],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      // Demo-recording mode: SPA exercises the live gateway. Every
+      // /skills, /team, /workflows, /audit, /approvals page round-
+      // trips to http://127.0.0.1:7400 so the operator can pre-flight
+      // the seeded gateway against what the camera will see.
+      "name": "web-demo-recording",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=0 NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:7400 NEXT_PUBLIC_SKYCOT_DEMO_MODE=1 NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1 pnpm --dir web dev"
+      ],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}
+```
+
+### Pre-record verification (T-0, before pressing record)
+
+1. Stop the running SPA dev server (`Ctrl-C` in the terminal it owns
+   or `claude preview stop web`).
+2. Start the recording profile: `claude preview start web-demo-recording`.
+   In a sibling terminal:
+
+   ```bash
+   bash scripts/restart-live-gateway.sh   # FRESH on :7400 + seed
+   bash scripts/demo-dry-run.sh --demo-mode
+   ```
+
+3. Open Chrome DevTools → Network → filter `/api/v1/`. Reload `/skills`,
+   then `/team`, then `/workflows`. EACH page must fire a real `GET`
+   against `http://127.0.0.1:7400` (status 200, JSON envelope visible
+   in the response panel). If any of those pages does NOT show a
+   gateway request, the recording profile did not take effect — go
+   back to step 1.
+4. Confirm the SPA console shows NO `DEMO-RECORDING WARNING` line. If
+   the warning appears, the dev profile took effect instead of the
+   recording profile; restart with the correct one.
+
+### What the boot warning means
+
+If the SPA boots with **both** `NEXT_PUBLIC_SKYCOT_DEMO_MODE=1` AND
+`NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`, the DemoBanner mount logs
+a single `console.warn` line on every page load:
+
+> `⚠ DEMO-RECORDING WARNING: NEXT_PUBLIC_SKYCOT_DEMO_MODE=1 and NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 are both set — the SPA will short-circuit to seed fixtures and will NOT hit the live gateway. …`
+
+The warning is the only signal that the SPA is in seed-fixture mode.
+It is **expected during offline UI iteration** and **must NOT appear**
+in the recording session.
+
+---
+
 ## Verifying the live-test sources
 
 Before recording, confirm all six claim regression tests pass on

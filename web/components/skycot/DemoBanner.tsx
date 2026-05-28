@@ -2,7 +2,10 @@
 
 import { Info, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { isDemoMode } from "@/lib/skycot/demo-mode";
+import {
+  isDemoMode,
+  recordingModeReadinessWarning,
+} from "@/lib/skycot/demo-mode";
 
 const DISMISS_STORAGE_KEY = "skycot:demo-banner-dismissed";
 
@@ -25,6 +28,11 @@ export function DemoBanner() {
       setDismissed(window.localStorage.getItem(DISMISS_STORAGE_KEY) === "1");
     } catch {
       setDismissed(false);
+    }
+    const warning = recordingModeReadinessWarning();
+    if (warning) {
+      // eslint-disable-next-line no-console -- intentional dev console signal
+      console.warn(warning);
     }
   }, []);
 
