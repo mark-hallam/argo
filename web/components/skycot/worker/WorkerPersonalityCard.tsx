@@ -114,7 +114,14 @@ export function WorkerPersonalityCard({ workerId }: { workerId: string }) {
   const workerQuery = useWorker(workerId);
   const worker = workerQuery.data;
   const name = worker?.name ?? "this teammate";
-  const personality = (worker && PERSONALITIES[worker.name]) ?? DEFAULT_PERSONALITY;
+  const personalityEntry = worker ? PERSONALITIES[worker.name] : undefined;
+  if (worker && !personalityEntry && process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[WorkerPersonalityCard] Missing personality for "${worker.name}". Add to PERSONALITIES map.`,
+    );
+  }
+  const personality = personalityEntry ?? DEFAULT_PERSONALITY;
 
   return (
     <>

@@ -73,11 +73,25 @@ function hashLevel(name: string): number {
 }
 
 function levelFor(worker: Worker): number {
-  return LEVEL_BY_NAME[worker.name] ?? hashLevel(worker.name);
+  const known = LEVEL_BY_NAME[worker.name];
+  if (known === undefined && process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[TeammateCard] Missing level for "${worker.name}". Add to LEVEL_BY_NAME.`,
+    );
+  }
+  return known ?? hashLevel(worker.name);
 }
 
 function traitsFor(worker: Worker): string[] {
-  return TRAITS_BY_NAME[worker.name] ?? [];
+  const known = TRAITS_BY_NAME[worker.name];
+  if (!known && process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[TeammateCard] Missing traits for "${worker.name}". Add to TRAITS_BY_NAME.`,
+    );
+  }
+  return known ?? [];
 }
 
 function initialsFor(name: string): string {
