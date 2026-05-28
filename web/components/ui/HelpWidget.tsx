@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { HelpCircle, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useCreateTicket } from "@/lib/support/use-create-ticket";
 
@@ -13,6 +13,14 @@ const LABEL = "flex flex-col gap-1 text-xs font-medium text-[var(--foreground)]"
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function HelpWidget() {
+  // Radix `Dialog.Root` generates its trigger's `aria-controls` from a
+  // per-render counter, so server vs client renders produce different
+  // `radix-_R_*` IDs and React surfaces a hydration mismatch on every
+  // (app)-group page load. Gating the entire dialog tree on a client-
+  // only `mounted` flag means the server emits nothing where the
+  // trigger goes and the popover hydrates without a mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -41,6 +49,7 @@ export function HelpWidget() {
     }
   }
 
+  if (!mounted) return null;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <DialogPrimitive.Trigger asChild>
