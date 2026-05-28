@@ -79,6 +79,15 @@ pub(super) async fn serve_genesis_stream(
     store: Option<&Arc<SessionStore>>,
     out: &mut TcpStream,
 ) -> tokio::io::Result<()> {
+    // CORS headers for streaming responses — the normal `(status, body)`
+    // dispatcher splices these in via `cors::enhance_status`, but the
+    // streaming path writes directly to the TCP socket and so has to
+    // build them in itself. Without them, the browser fetch from a
+    // cross-origin SPA sees a 200/503 with no `Access-Control-Allow-Origin`
+    // and rejects the response as `TypeError: Failed to fetch`. See
+    // `fix-spa-genesis-fetch-fails-while-curl-succeeds`.
+    let cors_headers = super::cors::cors_headers_for_request(req);
+
     // Env-var gate first — fail closed before opening the stream so
     // the caller sees a clean 503 instead of half-finished SSE.
     if !provider_key_present() {
@@ -90,6 +99,7 @@ pub(super) async fn serve_genesis_stream(
             &format!(
                 "Set {PROVIDER_KEY_ENV} (or {aliases}) to enable POST /api/v1/genesis (LLM-driver cost guardrail)"
             ),
+            &cors_headers,
         )
         .await;
     }
@@ -103,6 +113,7 @@ pub(super) async fn serve_genesis_stream(
                 "400 Bad Request",
                 "bad_request",
                 &format!("parse body: {e}"),
+                &cors_headers,
             )
             .await;
         }
@@ -114,6 +125,7 @@ pub(super) async fn serve_genesis_stream(
             "400 Bad Request",
             "bad_request",
             &format!("`role_description` must be at least {MIN_ROLE_LEN} non-whitespace chars"),
+            &cors_headers,
         )
         .await;
     }
@@ -121,7 +133,7 @@ pub(super) async fn serve_genesis_stream(
     let tenant_id = request_tenant_id(req);
     let tenant_slug = sanitize_tenant(&tenant_id);
 
-    open_sse_stream(out).await?;
+    open_sse_stream(out, &cors_headers).await?;
     write_progress(out, "drafting_persona", "Resolving persona slug", 10).await?;
 
     let plan_result = plan(&role_description, &persona);
@@ -380,13 +392,15 @@ fn build_final_payload(
     })
 }
 
-async fn open_sse_stream(out: &mut TcpStream) -> tokio::io::Result<()> {
-    let head = "HTTP/1.1 200 OK\r\n\
-                Content-Type: text/event-stream\r\n\
-                Cache-Control: no-cache\r\n\
-                X-Accel-Buffering: no\r\n\
-                Transfer-Encoding: chunked\r\n\
-                \r\n";
+async fn open_sse_stream(out: &mut TcpStream, cors_headers: &str) -> tokio::io::Result<()> {
+    let head = format!(
+        "HTTP/1.1 200 OK\r\n\
+         Content-Type: text/event-stream\r\n\
+         Cache-Control: no-cache\r\n\
+         X-Accel-Buffering: no\r\n\
+         Transfer-Encoding: chunked\r\n\
+         {cors_headers}\r\n"
+    );
     out.write_all(head.as_bytes()).await?;
     out.flush().await
 }
@@ -443,10 +457,11 @@ async fn write_one_shot_error(
     status: &str,
     code: &str,
     message: &str,
+    cors_headers: &str,
 ) -> tokio::io::Result<()> {
     let body = json!({ "error": { "code": code, "message": message } }).to_string();
     let resp = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{cors_headers}\r\n{body}",
         body.len()
     );
     out.write_all(resp.as_bytes()).await?;

@@ -127,14 +127,22 @@ export default function GenesisPage() {
       },
     ).catch((err) => {
       if (controller.signal.aborted) return;
-      setErrorEvent({
-        phase: activePhase ?? "drafting_persona",
-        message:
-          err instanceof Error
-            ? err.message
-            : "Couldn't reach the Genesis stream.",
-        recoverable: true,
-      });
+      // Don't overwrite an error event already set by the SSE `onError`
+      // callback (e.g. the gateway's specific "output dir is not empty"
+      // reason). The stream-close .catch fires AFTER onError on the
+      // gateway's abrupt half-close, and would otherwise replace the
+      // specific message with chrome's generic "network error" text.
+      // See fix-spa-genesis-catch-overwrites-sse-error-event-message.
+      setErrorEvent((prev) =>
+        prev ?? {
+          phase: activePhase ?? "drafting_persona",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Couldn't reach the Genesis stream.",
+          recoverable: true,
+        },
+      );
       setStatus("error");
     });
   }, [roleDescription, status, activePhase]);

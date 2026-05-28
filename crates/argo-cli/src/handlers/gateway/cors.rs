@@ -132,12 +132,21 @@ impl CorsRegistry {
 }
 
 fn build_enhanced_status(status: &'static str, origin: &str) -> &'static str {
+    // `Access-Control-Allow-Private-Network: true` lets Chrome's
+    // Private Network Access policy permit `localhost:<spa-port>` →
+    // `localhost:<gateway-port>` fetches. Without it Chrome blocks
+    // the actual request after the OPTIONS preflight succeeds and
+    // surfaces it to the page as `TypeError: Failed to fetch`. Adding
+    // unconditionally is harmless — browsers that don't enforce PNA
+    // ignore the header. See
+    // `fix-spa-genesis-fetch-fails-while-curl-succeeds`.
     let enhanced = format!(
         "{status}\r\n\
          Access-Control-Allow-Origin: {origin}\r\n\
          Access-Control-Allow-Methods: {ALLOWED_METHODS}\r\n\
          Access-Control-Allow-Headers: {ALLOWED_HEADERS}\r\n\
          Access-Control-Allow-Credentials: true\r\n\
+         Access-Control-Allow-Private-Network: true\r\n\
          Access-Control-Max-Age: {MAX_AGE}\r\n\
          Vary: Origin"
     );
@@ -219,6 +228,40 @@ pub(super) fn is_preflight(req: &str) -> bool {
 /// request as a result, the intentional fail-closed behaviour.
 pub(super) fn preflight_response(req: &str) -> (&'static str, String) {
     (enhance_status(req, "204 No Content"), String::new())
+}
+
+/// CORS header block (without status line) for streaming handlers
+/// that write directly to the TCP socket (e.g. `routes_genesis_stream::
+/// open_sse_stream`, `routes_runs_streaming`). Returns the same set
+/// of headers that `enhance_status` would append, with a trailing
+/// `\r\n` separator so the caller can splice it into a hand-rolled
+/// response head.
+///
+/// Returns an empty string when the request's Origin is absent, not
+/// allowlisted, or when the registry isn't installed — preserving
+/// the existing fail-closed behaviour (browser refuses the response).
+pub(super) fn cors_headers_for_request(req: &str) -> String {
+    let Some(registry) = REGISTRY.get() else {
+        return String::new();
+    };
+    let Some(origin) = extract_origin(req) else {
+        return String::new();
+    };
+    // Treat "200 OK" as a probe to determine whether the origin is
+    // allowlisted; the resulting enhanced string has the same headers
+    // we want to splice into a streaming response.
+    let Some(enhanced) = registry.lookup("200 OK", origin) else {
+        return String::new();
+    };
+    // `enhanced` looks like:
+    //   200 OK\r\n
+    //   Access-Control-Allow-Origin: ...\r\n
+    //   ...\r\n
+    //   Vary: Origin
+    // We want everything AFTER the first \r\n, plus a trailing \r\n
+    // so the caller can append its own header lines.
+    let after_status = enhanced.split_once("\r\n").map(|(_, rest)| rest).unwrap_or("");
+    format!("{after_status}\r\n")
 }
 
 /// If the request's `Origin` is allowlisted and the registry has a
