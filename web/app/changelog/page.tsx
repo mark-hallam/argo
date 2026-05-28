@@ -43,14 +43,28 @@ interface Entry {
 
 interface Week {
   label: string;
-  range: string;
   entries: Entry[];
+}
+
+function formatDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function weekRange(entries: Entry[]): string {
+  const dates = entries.map((e) => e.date).sort();
+  const first = dates[0];
+  const last = dates[dates.length - 1];
+  return first === last ? formatDate(first) : `${formatDate(first)} – ${formatDate(last)}`;
 }
 
 const WEEKS: Week[] = [
   {
-    label: "This week",
-    range: "May 18 – May 20, 2026",
+    label: "Latest",
     entries: [
       {
         date: "2026-05-20",
@@ -103,8 +117,7 @@ const WEEKS: Week[] = [
     ],
   },
   {
-    label: "Last week",
-    range: "May 11 – May 17, 2026",
+    label: "Earlier",
     entries: [
       {
         date: "2026-05-17",
@@ -202,7 +215,7 @@ export default function ChangelogPage() {
             Public changelog · updated weekly
           </div>
           <h1 className="cl-hero-h1">
-            What we <strong>shipped this week</strong>.
+            What we <strong>shipped recently</strong>.
           </h1>
           <p className="cl-hero-sub">
             Every meaningful change to SKYCOT lands here. Subscribe to RSS (Really Simple
@@ -217,7 +230,7 @@ export default function ChangelogPage() {
               <section key={w.label} id={w.label.toLowerCase().replace(/\s+/g, "-")} className="cl-week">
                 <div className="cl-week-h">
                   <div className="cl-week-label">{w.label}</div>
-                  <div className="cl-week-range">{w.range}</div>
+                  <div className="cl-week-range">{weekRange(w.entries)}</div>
                 </div>
                 <div className="cl-entries">
                   {w.entries.map((e) => (
@@ -263,7 +276,7 @@ export default function ChangelogPage() {
                   <li key={w.label}>
                     <a href={`#${w.label.toLowerCase().replace(/\s+/g, "-")}`}>
                       {w.label}
-                      <span className="cl-rail-range">{w.range}</span>
+                      <span className="cl-rail-range">{weekRange(w.entries)}</span>
                     </a>
                   </li>
                 ))}
