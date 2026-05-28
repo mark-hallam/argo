@@ -129,7 +129,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           top: calc(100% + 12px);
           left: 50%;
           transform: translateX(-50%);
-          background: white;
+          background: var(--card);
           border: 1px solid var(--line);
           border-radius: 14px;
           padding: 10px;
@@ -356,7 +356,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           }
         }
         .vland-card {
-          background: white;
+          background: var(--card);
           border: 1px solid var(--line);
           border-radius: 16px;
           padding: 26px;
@@ -390,7 +390,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
           margin: 0;
         }
         .vland-flow {
-          background: white;
+          background: var(--card);
           border: 1px solid var(--line);
           border-radius: 18px;
           padding: 28px;
@@ -447,7 +447,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
         .vland-quote {
           max-width: 720px;
           margin: 0 auto;
-          background: white;
+          background: var(--card);
           border: 1px solid var(--line);
           border-radius: 18px;
           padding: 36px;

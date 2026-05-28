@@ -1,33 +1,25 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Dark-mode token-coverage visual regression.
+ * Dark-mode token-coverage regression — consolidated spec.
  *
- * Renders the highest-impact public routes that PR-B (the per-callsite
- * token sweep) migrated, toggles `data-theme="dark"` on `<html>`, and
- * asserts the page doesn't fall into the broken "white text on white
- * background" failure mode caught by the wave-9 dark-mode audit.
+ * Renders the marketing/policy public routes that have repeatedly
+ * regressed into "white text on white background" when subcomponents
+ * hardcoded color literals (e.g. `background: white`, `--bg: #fafaff`)
+ * instead of inheriting `var(--background)` / `var(--foreground)`.
  *
- * Routes covered:
- *   /pricing  — pricing page (PR-B file 10)
- *   /compare  — competitor comparison (PR-B file 11)
- *   /docs     — public docs landing (PR-B file 12)
- *   /for/marketplace — vertical landing (uses VerticalLandingShell, PR-B file 13)
+ * The production theme system is two-attribute: `next-themes` writes
+ * `class="dark"` on `<html>`, then DataThemeBridge mirrors that into
+ * `data-theme="skycot-dark"`. The CSS dark block in globals.css fires
+ * on `.dark, [data-theme="skycot-dark"]`. We apply both here so this
+ * test exercises the same selectors a real user would hit.
  *
- * The dark-theme block in `globals.css` already defines every token
- * (background, foreground, card, primary, gradient-end, …). The
- * regression check counts elements whose computed `background-color`
- * resolves to pure `rgb(255, 255, 255)` after the theme flip — a
- * handful are legitimate (logos, hairlines), but the broken-page
- * threshold (>20 elements) catches inline `#fafaff` / `#ffffff` that
- * didn't migrate to tokens.
- *
- * Skipped on the deployed lane: this spec asserts a local computed
- * style transition, not deployed-real network behavior, so it lives
- * outside the `deployed/` directory and only runs in the local lane.
+ * Routes covered: every public marketing/landing surface that shipped
+ * its own page CSS — pricing, compare, docs, and one VerticalLandingShell
+ * instance (sales) to cover the shared `/for/*` chrome.
  */
 
-const PAGES = ["/pricing", "/compare", "/docs", "/for/marketplace"] as const;
+const PAGES = ["/pricing", "/compare", "/docs", "/for/sales"] as const;
 
 test.describe("dark-mode token coverage", () => {
   for (const path of PAGES) {
@@ -35,31 +27,29 @@ test.describe("dark-mode token coverage", () => {
       await page.goto(path);
       await page.waitForLoadState("domcontentloaded");
 
-      // Snapshot a representative element's computed background in light mode.
       const lightBg = await page.evaluate(() =>
         window.getComputedStyle(document.body).backgroundColor,
       );
       expect(lightBg).toBeTruthy();
 
-      // Flip the theme. The dark-theme block in globals.css overrides every
-      // semantic token; any element using `var(--background)` etc. should
-      // automatically pick up the dark value.
+      // Apply the production dark-mode toggle: next-themes sets class="dark"
+      // on <html>, DataThemeBridge mirrors that into data-theme="skycot-dark".
+      // CSS in globals.css matches on `.dark, [data-theme="skycot-dark"]`.
       await page.evaluate(() => {
-        document.documentElement.dataset.theme = "dark";
+        document.documentElement.classList.add("dark");
+        document.documentElement.dataset.theme = "skycot-dark";
       });
 
-      // Body background must shift away from light. The exact value is
-      // implementation-defined (oklch resolves to an rgb close to #14141e
-      // on light-mode-default browsers), so we only assert it differs.
       const darkBg = await page.evaluate(() =>
         window.getComputedStyle(document.body).backgroundColor,
       );
       expect(darkBg).not.toBe(lightBg);
 
-      // Broad regression check: in dark mode, no more than a small handful
+      // Broad regression check: in dark mode no more than a small handful
       // of elements should retain a hard `rgb(255, 255, 255)` background
-      // (we expect a few — logos, hairline dividers, badges). The wave-9
-      // audit's failure mode produced 100+ of these.
+      // (a few are legitimate — gradient-band CTA buttons that sit on the
+      // always-purple hero, hairline dividers). The pre-fix failure mode
+      // produced 100+ of these.
       const whiteBackedCount = await page.evaluate(() => {
         const els = document.querySelectorAll("*");
         let count = 0;

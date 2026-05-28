@@ -1,13 +1,13 @@
 .dh {
-  --purple: #8b5cf6;
-  --pink: #ec4899;
-  --coral: #ff6b6b;
-  --teal: #14b8a6;
-  --ink: #1e1b4b;
-  --ink-2: #3f3f46;
-  --ink-3: #52525b;
-  --bg: #fafaff;
-  --line: #ece9f5;
+  --purple: var(--brand-primary);
+  --pink: var(--brand-pink);
+  --coral: var(--brand-coral);
+  --teal: var(--brand-teal);
+  --ink: var(--foreground);
+  --ink-2: var(--muted-foreground);
+  --ink-3: var(--muted-foreground);
+  --bg: var(--background);
+  --line: var(--border);
   font-family: "Inter", sans-serif;
   background: var(--bg);
   color: var(--ink);
@@ -101,7 +101,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 18px;
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: 0 8px 24px -12px rgba(139, 92, 246, 0.2);
@@ -173,7 +173,7 @@
   }
 }
 .dh-card {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 24px 24px 22px;
@@ -278,7 +278,7 @@
   }
 }
 .dh-featured-card {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 18px 20px;
@@ -389,7 +389,7 @@
   padding: 12px 22px;
   border-radius: 12px;
   background: white;
-  color: #8b5cf6;
+  color: var(--brand-primary);
   font-size: 14.5px;
   font-weight: 700;
   text-decoration: none;

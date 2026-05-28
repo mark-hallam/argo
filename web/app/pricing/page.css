@@ -1,13 +1,13 @@
 .pri {
-  --purple: #8b5cf6;
-  --pink: #ec4899;
-  --coral: #ff6b6b;
-  --teal: #14b8a6;
-  --ink: #1e1b4b;
-  --ink-2: #3f3f46;
-  --ink-3: #52525b;
-  --bg: #fafaff;
-  --line: #ece9f5;
+  --purple: var(--brand-primary);
+  --pink: var(--brand-pink);
+  --coral: var(--brand-coral);
+  --teal: var(--brand-teal);
+  --ink: var(--foreground);
+  --ink-2: var(--muted-foreground);
+  --ink-3: var(--muted-foreground);
+  --bg: var(--background);
+  --line: var(--border);
   font-family: "Inter", sans-serif;
   background: var(--bg);
   color: var(--ink);
@@ -118,7 +118,7 @@
   }
 }
 .pri-tier {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 28px;
@@ -134,7 +134,9 @@
   border-color: rgba(139, 92, 246, 0.3);
 }
 .pri-tier.featured {
-  background: linear-gradient(180deg, #fdf4ff 0%, #ffffff 80%);
+  background:
+    linear-gradient(180deg, rgba(139, 92, 246, 0.06) 0%, transparent 80%),
+    var(--card);
   border: 1px solid rgba(139, 92, 246, 0.3);
   box-shadow: 0 16px 32px -14px rgba(139, 92, 246, 0.25);
 }
@@ -231,7 +233,7 @@
   transform: translateY(-1px);
 }
 .pri-tier-cta.secondary {
-  background: white;
+  background: var(--card);
   color: var(--ink);
   border: 1px solid var(--line);
 }
@@ -266,7 +268,7 @@
   line-height: 1.1;
 }
 .pri-matrix-wrap {
-  background: white;
+  background: var(--card);
   border-radius: 14px;
   border: 1px solid var(--line);
   /* Mobile-scroll wrap (responsive — wave 2): 4-column matrix
@@ -279,7 +281,7 @@
   width: 100%;
   min-width: 580px;
   border-collapse: collapse;
-  background: white;
+  background: var(--card);
 }
 .pri-matrix th,
 .pri-matrix td {
@@ -325,7 +327,7 @@
   gap: 10px;
 }
 .pri-faq-item {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
@@ -425,7 +427,7 @@
   padding: 14px 28px;
   border-radius: 12px;
   background: white;
-  color: #8b5cf6;
+  color: var(--brand-primary);
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;

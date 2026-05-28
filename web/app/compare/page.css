@@ -58,7 +58,7 @@
   border: 1px solid var(--border, #ece9f5);
   border-radius: 12px;
   padding: 16px;
-  background: white;
+  background: var(--card);
 }
 .compare-position-card.us {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(236, 72, 153, 0.06));
@@ -94,7 +94,7 @@
   margin: 0;
 }
 .compare-table-wrap {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--border, #ece9f5);
   border-radius: 14px;
   /* Mobile-scroll wrap (a11y + responsive — wave 2): keep the
