@@ -7,6 +7,7 @@ import { Suspense, use, useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { executeWorkflow } from "@/lib/api/workflow-execute";
+import { describeRunNowError } from "./run-now-error";
 import {
   ArrowLeft,
   CalendarClock,
@@ -98,6 +99,7 @@ function ViewerInner({
   const [editChatOpen, setEditChatOpen] = useState(false);
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
   const [running, setRunning] = useState(false);
+  const [lastRunError, setLastRunError] = useState<string | null>(null);
   const stateFlag = searchParams?.get("state") ?? null;
 
   const { data, isLoading, isError } = useWorkflow(verticalId, name);
@@ -160,6 +162,7 @@ function ViewerInner({
   const handleRunWorkflow = useCallback(async () => {
     if (running) return;
     setRunning(true);
+    setLastRunError(null);
     try {
       const report = await executeWorkflow({ verticalId, name });
       toast.success(
@@ -167,8 +170,17 @@ function ViewerInner({
       );
       runsQuery.refetch();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "unknown error";
-      toast.error(`Run failed: ${message}`);
+      const { headline, description } = describeRunNowError(err);
+      setLastRunError(headline);
+      toast.error(headline, {
+        description,
+        action: {
+          label: "Retry",
+          onClick: () => {
+            void handleRunWorkflow();
+          },
+        },
+      });
     } finally {
       setRunning(false);
     }
@@ -393,6 +405,28 @@ function ViewerInner({
         <div className="wfd-section-label">
           RUN HISTORY · {sectionLabelForRange(filterState.range)}
         </div>
+        {lastRunError ? (
+          <div
+            data-testid="wfd-last-run-error-chip"
+            role="alert"
+            style={{
+              marginBottom: 12,
+              padding: "10px 14px",
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              color: "#991b1b",
+              borderRadius: 10,
+              fontFamily: "Inter, sans-serif",
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <strong style={{ fontWeight: 700 }}>Last attempt failed.</strong>
+            <span>{lastRunError}</span>
+          </div>
+        ) : null}
         {isDemoRunHistory ? (
           <EmptyState
             data-testid="wfd-demo-runs-empty"

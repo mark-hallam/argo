@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import WorkflowDetailPage from "./page";
+import { ApiError } from "@/lib/api/types";
 
 const mocks = vi.hoisted(() => ({
   executeWorkflow: vi.fn(),
@@ -211,6 +212,60 @@ describe("WorkflowDetailPage", () => {
       dispatched_at: "2026-05-25T13:00:00.000Z",
     });
     await waitFor(() => expect(runButton).toHaveTextContent("Run now"));
+  });
+
+  // Regression pin for fix-workflow-run-now-silent-failure-no-toast-or-error-state
+  // (F08). When the gateway returns 403 the SPA must surface a sonner
+  // toast and a persistent error chip in the run-history strip — not
+  // just flip the button label back to "Run now". A repeat success
+  // must clear the chip.
+  it("surfaces a toast + persistent chip when the gateway returns 403", async () => {
+    const user = userEvent.setup();
+    mocks.executeWorkflow.mockRejectedValueOnce(
+      new ApiError(403, "forbidden", "forbidden", { error: { code: "forbidden", message: "forbidden" } }),
+    );
+    renderPage();
+
+    const runButton = await screen.findByTestId("wfd-run-workflow");
+    await user.click(runButton);
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalled());
+    const [headline, opts] = mocks.toastError.mock.calls[0] ?? [];
+    expect(headline).toMatch(/Run blocked/);
+    expect(opts?.description).toMatch(/Demo principal/);
+    expect(opts?.action?.label).toBe("Retry");
+
+    const chip = await screen.findByTestId("wfd-last-run-error-chip");
+    expect(chip).toHaveTextContent("Last attempt failed.");
+    expect(chip).toHaveTextContent(/Run blocked/);
+    expect(runButton).toHaveTextContent("Run now");
+  });
+
+  it("clears the error chip after a subsequent successful run", async () => {
+    const user = userEvent.setup();
+    mocks.executeWorkflow
+      .mockRejectedValueOnce(
+        new ApiError(500, "Internal Server Error", undefined, "boom"),
+      )
+      .mockResolvedValueOnce({
+        run_id: "run_abcdef1234",
+        vertical_id: "gtm-engineer",
+        workflow_name: "post_listing",
+        ok: true,
+        task_verdicts: [],
+        dispatched_at: "2026-05-28T13:00:00.000Z",
+      });
+    renderPage();
+
+    const runButton = await screen.findByTestId("wfd-run-workflow");
+    await user.click(runButton);
+    await screen.findByTestId("wfd-last-run-error-chip");
+
+    await user.click(runButton);
+    await waitFor(() =>
+      expect(screen.queryByTestId("wfd-last-run-error-chip")).toBeNull(),
+    );
+    expect(mocks.toastSuccess).toHaveBeenCalled();
   });
 
   // Regression pin for fix-workflow-run-history-fabricated-rows-in-mock-offline.
