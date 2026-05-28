@@ -84,8 +84,8 @@ pub use job_description::{
 };
 pub use pipeline::{
     plan, plan_from_seed_vertical, plan_from_seed_vertical_in_default_root, plan_with,
-    plan_with_quality, seeded_from, write_vertical, write_vertical_with_overlap, GenesisConfig,
-    GenesisPlan, SEEDED_FROM_TAG_PREFIX,
+    plan_with_quality, seeded_from, write_vertical, write_vertical_with_overlap,
+    write_vertical_with_overwrite, GenesisConfig, GenesisPlan, SEEDED_FROM_TAG_PREFIX,
 };
 pub use quality::{
     check_plan, require_pass, CheckResult, QualityReport, ACTION_MIN, EVAL_SEED_MIN,

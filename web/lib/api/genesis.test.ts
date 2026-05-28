@@ -337,6 +337,71 @@ describe("streamGenesis", () => {
     expect(ready).toEqual(READY_PAYLOAD);
   });
 
+  it("forwards overwrite=true in the POST body when set", async () => {
+    let capturedBody: string | null = null;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      capturedBody = (init?.body as string) ?? null;
+      return Promise.resolve(
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    await streamGenesis(
+      {
+        roleDescription: "Customer success lead who triages tier-1 tickets.",
+        tenantId: "op-test",
+        overwrite: true,
+      },
+      {
+        onProgress: () => {},
+        onVerticalReady: () => {},
+        onError: () => {},
+      },
+    );
+    expect(capturedBody).not.toBeNull();
+    const parsed = JSON.parse(capturedBody!);
+    expect(parsed.overwrite).toBe(true);
+    expect(parsed.role_description).toBe(
+      "Customer success lead who triages tier-1 tickets.",
+    );
+  });
+
+  it("omits overwrite from the POST body by default", async () => {
+    let capturedBody: string | null = null;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      capturedBody = (init?.body as string) ?? null;
+      return Promise.resolve(
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    await streamGenesis(
+      { roleDescription: "Customer success lead", tenantId: "op-test" },
+      {
+        onProgress: () => {},
+        onVerticalReady: () => {},
+        onError: () => {},
+      },
+    );
+    expect(capturedBody).not.toBeNull();
+    const parsed = JSON.parse(capturedBody!);
+    expect(parsed.overwrite).toBeUndefined();
+  });
+
   it("throws ApiError on non-2xx", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve(

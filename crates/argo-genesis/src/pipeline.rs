@@ -197,6 +197,22 @@ pub fn write_vertical(plan: &GenesisPlan, output: &Path) -> Result<(), GenesisEr
     write_vertical_with_overlap(plan, output, false)
 }
 
+/// Like [`write_vertical`], but when `overwrite=true` recursively
+/// removes a pre-existing `output` before the write.
+pub fn write_vertical_with_overwrite(
+    plan: &GenesisPlan,
+    output: &Path,
+    overwrite: bool,
+) -> Result<(), GenesisError> {
+    if overwrite && output.exists() {
+        std::fs::remove_dir_all(output).map_err(|e| GenesisError::Io {
+            what: "vertical.dir.overwrite",
+            source: e,
+        })?;
+    }
+    write_vertical_with_overlap(plan, output, false)
+}
+
 /// Materialise a `GenesisPlan`, optionally allowing likely overlap with
 /// an existing vertical in the same parent directory.
 pub fn write_vertical_with_overlap(
@@ -385,6 +401,30 @@ mod tests {
         std::fs::write(out.join("preexisting.txt"), "do not delete").unwrap();
         let err = write_vertical(&p, &out).expect_err("must refuse");
         assert!(matches!(err, GenesisError::OutputDirNotEmpty(_)));
+    }
+
+    #[test]
+    fn write_vertical_with_overwrite_false_refuses_existing_dir() {
+        let p = plan("be my marketing intern", "maya").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join(&p.vertical_id);
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::write(out.join("preexisting.txt"), "keep me").unwrap();
+        let err = write_vertical_with_overwrite(&p, &out, false).expect_err("must refuse");
+        assert!(matches!(err, GenesisError::OutputDirNotEmpty(_)));
+        assert!(out.join("preexisting.txt").exists(), "must not delete");
+    }
+
+    #[test]
+    fn write_vertical_with_overwrite_true_wipes_then_writes() {
+        let p = plan("be my marketing intern", "maya").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join(&p.vertical_id);
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::write(out.join("stale.txt"), "stale").unwrap();
+        write_vertical_with_overwrite(&p, &out, true).expect("overwrite succeeds");
+        assert!(!out.join("stale.txt").exists(), "pre-existing file wiped");
+        assert!(out.join("vertical.toml").exists(), "fresh manifest written");
     }
 
     // ---- LLM-classifier dispatch (mission-genesis-llm-classifier) ----

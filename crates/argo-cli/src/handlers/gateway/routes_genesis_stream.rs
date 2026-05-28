@@ -34,7 +34,7 @@
 //! cannot observe tenant A's path because the segment is keyed off
 //! `X-Argo-Tenant-Id`.
 
-use argo_genesis::{name_to_persona_slug, plan, write_vertical, GenesisPlan};
+use argo_genesis::{name_to_persona_slug, plan, write_vertical_with_overwrite, GenesisPlan};
 use argo_store::SessionStore;
 use argo_audit::{AuditKind, AuditSink};
 use serde::Deserialize;
@@ -45,9 +45,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 pub const PROVIDER_KEY_ENV: &str = "ARGO_GENESIS_PROVIDER_KEY";
-// Provider-key aliases that also satisfy the cost guardrail. Order
-// matters only for the diagnostic message; presence in any of them is
-// enough.
+// Provider-key aliases that also satisfy the cost guardrail; presence in any suffices.
 const PROVIDER_KEY_ALIASES: &[&str] = &["ANTHROPIC_API_KEY", "OPENAI_API_KEY"];
 const MIN_ROLE_LEN: usize = 15;
 
@@ -56,6 +54,8 @@ struct GenesisRequest {
     role_description: String,
     #[serde(default)]
     persona: Option<String>,
+    #[serde(default)]
+    overwrite: bool,
 }
 
 /// Path-prefix check used by the connection router to peel this
@@ -173,7 +173,7 @@ pub(super) async fn serve_genesis_stream(
     )
     .await?;
 
-    if let Err(e) = write_vertical(&plan, &vertical_dir) {
+    if let Err(e) = write_vertical_with_overwrite(&plan, &vertical_dir, parsed.overwrite) {
         return write_error_event(
             out,
             "generating_skill_bundle",

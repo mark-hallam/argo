@@ -407,6 +407,62 @@ async fn provider_key_503_carries_cors_headers_for_allowlisted_origin() {
     );
 }
 
+#[tokio::test]
+async fn second_attempt_without_overwrite_emits_error_event() {
+    // First attempt creates `verticals/.genesis/<tenant>/<persona>/`;
+    // the second attempt for the same tenant+role must surface the
+    // OutputDirNotEmpty refusal as an SSE error event rather than
+    // succeeding. Closes the regression in
+    // `fix-genesis-idempotency-output-dir-not-empty`.
+    let tmp = TempDir::new().unwrap();
+    let _env = EnvGuard::set(&[
+        (PROVIDER_KEY_ENV, "test-key"),
+        ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
+    ]);
+    let store = mem_store().await;
+    let body = serde_json::json!({
+        "role_description": "I need a marketing intern who writes weekly newsletters for B2B SaaS",
+        "persona": "Maya",
+    })
+    .to_string();
+    let tenant = "33333333-3333-3333-3333-333333333333";
+    let raw1 = drive_handler(build_request(&body, Some(tenant)), Arc::clone(&store)).await;
+    assert!(raw1.starts_with("HTTP/1.1 200 OK"));
+    assert!(raw1.contains("event: vertical_ready"));
+    let raw2 = drive_handler(build_request(&body, Some(tenant)), Arc::clone(&store)).await;
+    assert!(raw2.starts_with("HTTP/1.1 200 OK"), "still streams; got: {raw2}");
+    assert!(raw2.contains("event: error"), "expected error event; got: {raw2}");
+    assert!(raw2.contains("is not empty"), "expected refusal text; got: {raw2}");
+}
+
+#[tokio::test]
+async fn overwrite_true_lets_second_attempt_succeed() {
+    let tmp = TempDir::new().unwrap();
+    let _env = EnvGuard::set(&[
+        (PROVIDER_KEY_ENV, "test-key"),
+        ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
+    ]);
+    let store = mem_store().await;
+    let first = serde_json::json!({
+        "role_description": "I need a marketing intern who writes weekly newsletters for B2B SaaS",
+        "persona": "Maya",
+    })
+    .to_string();
+    let retry = serde_json::json!({
+        "role_description": "I need a marketing intern who writes weekly newsletters for B2B SaaS",
+        "persona": "Maya",
+        "overwrite": true,
+    })
+    .to_string();
+    let tenant = "44444444-4444-4444-4444-444444444444";
+    let raw1 = drive_handler(build_request(&first, Some(tenant)), Arc::clone(&store)).await;
+    assert!(raw1.contains("event: vertical_ready"));
+    let raw2 = drive_handler(build_request(&retry, Some(tenant)), Arc::clone(&store)).await;
+    assert!(raw2.starts_with("HTTP/1.1 200 OK"));
+    assert!(raw2.contains("event: vertical_ready"), "expected success on retry; got: {raw2}");
+    assert!(!raw2.contains("event: error"), "must not emit error event; got: {raw2}");
+}
+
 #[test]
 fn is_streaming_request_matches_post_only() {
     assert!(is_genesis_streaming_request(

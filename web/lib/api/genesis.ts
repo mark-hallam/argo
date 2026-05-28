@@ -257,6 +257,12 @@ export interface StreamGenesisRequest {
    *  Hire must read the same tenant so the generated vertical is visible
    *  to the hire endpoint's `.genesis/<tenant>/` lookup. */
   tenantId: string;
+  /** Wipes any pre-existing `.genesis/<tenant>/<persona>/` before
+   *  writing. The first attempt for a role should leave this `false`;
+   *  the "Try again" retry sets `true` so the second attempt for the
+   *  same role doesn't trip the idempotency check.
+   *  See `fix-genesis-idempotency-output-dir-not-empty`. */
+  overwrite?: boolean;
   /** Aborts the in-flight stream when the caller unmounts / retries. */
   signal?: AbortSignal;
 }
@@ -345,6 +351,7 @@ export async function streamGenesis(
   const body = JSON.stringify({
     role_description: req.roleDescription,
     ...(req.persona !== undefined ? { persona: req.persona } : {}),
+    ...(req.overwrite ? { overwrite: true } : {}),
   });
   const res = await fetch(url, {
     method: "POST",

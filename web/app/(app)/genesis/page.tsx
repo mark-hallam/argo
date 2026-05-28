@@ -91,6 +91,13 @@ export default function GenesisPage() {
 
   const handleSubmit = useCallback(() => {
     if (status === "streaming" || status === "hiring") return;
+    // The "Try again" button re-invokes this from the error state. On
+    // that path the backend's per-tenant+persona output dir already
+    // exists from the first attempt, so we forward `overwrite: true`
+    // to wipe it. Fresh submissions ("idle"/"ready") leave the flag
+    // off so the default refuse-to-clobber safety still applies if
+    // the operator submits the same description twice by accident.
+    const isRetry = status === "error";
     setStatus("streaming");
     setActivePhase(null);
     setVertical(null);
@@ -103,6 +110,7 @@ export default function GenesisPage() {
       {
         roleDescription,
         tenantId: tenantIdRef.current,
+        overwrite: isRetry,
         signal: controller.signal,
       },
       {
