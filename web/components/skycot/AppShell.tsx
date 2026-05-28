@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
 import { HoverHint } from "@/components/ui/Tooltip";
 import { DemoBanner } from "@/components/skycot/DemoBanner";
@@ -79,19 +79,31 @@ function WideRailStyles() {
   );
 }
 
-function AppNav() {
+export function AppNav() {
   const pathname = usePathname() ?? "/";
+  // Active-tab marker is computed client-side only. The server SSR pass
+  // (and the matching initial hydration render) emits no `data-active`
+  // attribute on any link; once `useEffect` runs we re-render with the
+  // real pathname. Without this guard, layout HTML cached against a
+  // prior pathname produces an `Attribute mismatch` hydration warning,
+  // and the wrong tab stays highlighted for ~100-300ms because React
+  // does not patch up mismatched attributes after hydration.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const isActive = (href: string) => mounted && isNavItemActive(pathname, href);
   return (
     <>
       {NAV_ITEMS.map((item) => (
-        <NavItem key={item.href} href={item.href} active={isNavItemActive(pathname, item.href)}>
+        <NavItem key={item.href} href={item.href} active={isActive(item.href)}>
           {item.icon}
           {item.label}
         </NavItem>
       ))}
       <div className="mt-auto flex flex-col gap-1 pt-3 border-t border-[var(--border)]">
         {FOOTER_NAV_ITEMS.map((item) => (
-          <NavItem key={item.href} href={item.href} active={isNavItemActive(pathname, item.href)}>
+          <NavItem key={item.href} href={item.href} active={isActive(item.href)}>
             {item.icon}
             {item.label}
           </NavItem>
