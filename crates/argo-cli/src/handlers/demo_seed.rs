@@ -115,6 +115,11 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
     println!("Pass B — dressing (fixture-tier rows the camera does not drill into):");
     println!("  pass_b_audit_rows:          {}", report.pass_b_audit_rows);
     println!("  approval_requests:          {}", report.approval_requests);
+    println!("  retros_created:             {}", report.retros_created);
+    println!(
+        "  orchestration_runs_created: {}",
+        report.orchestration_runs_created
+    );
     println!();
     println!("Cross-tenant invisibility (Scene 6 negative check):");
     println!("  foreign_workers_created:    {}", report.foreign_workers_created);

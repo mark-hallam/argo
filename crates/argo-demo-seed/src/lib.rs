@@ -36,8 +36,10 @@
 
 mod dept_filler;
 pub mod marketplace;
+mod orchestration;
 mod personas;
 mod plan;
+mod retros;
 mod seed;
 mod skills;
 mod workflow;

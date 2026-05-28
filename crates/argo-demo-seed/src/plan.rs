@@ -93,6 +93,20 @@ pub struct SeedReport {
     /// Number of `approval_request` rows the demo's Scene 2 Slack
     /// approval beat drills into.
     pub approval_requests: usize,
+    /// Number of `retro` rows the demo seed inserts so `/retro` no
+    /// longer renders "0 retros across the tenant — No retros yet"
+    /// during investor walkthroughs beyond the 6-scene runbook
+    /// (UX audit whole-site F08). The canonical seed inserts 3
+    /// retros bound to Mariah / Priya / Peta, each with a 5-section
+    /// narrative referencing the `customer_research_followup`
+    /// workflow seeded by [`crate::workflow`].
+    pub retros_created: usize,
+    /// Number of orchestrator-provider `session` rows the demo seed
+    /// inserts so `/orchestration` no longer renders "No orchestration
+    /// yet" during investor walkthroughs beyond the 6-scene runbook
+    /// (UX audit whole-site F08). The canonical seed inserts 2 sessions
+    /// (Mariah-led marketplace re-price + Peta-led onboarding handoff).
+    pub orchestration_runs_created: usize,
     /// `true` when the run drove real LLM turns; `false` when Pass A
     /// was skipped via [`SeedOptions::skip_pass_a_turns`].
     pub pass_a_real_llm: bool,

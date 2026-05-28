@@ -17,8 +17,10 @@ use uuid::Uuid;
 
 use crate::dept_filler::seed_dept_filler_workers;
 use crate::marketplace::seed_demo_marketplace_skills;
+use crate::orchestration::seed_demo_orchestration;
 use crate::personas::DEMO_SEED_PERSONAS;
 use crate::plan::{SeedOptions, SeedReport};
+use crate::retros::seed_demo_retros;
 use crate::skills::{seed_demo_skills, seed_foreign_skill};
 use crate::workflow::seed_demo_workflow;
 use crate::{SeedError, SeedResult, DEFAULT_PROFILE, PROVIDER_KEY_ENV};
@@ -149,7 +151,8 @@ pub async fn run_canonical_v1_seed(
     // ── Approval requests ─────────────────────────────────────────
     report.approval_requests =
         seed_approval_requests(store, opts.tenant_id, &worker_ids, &opts.actor).await?;
-
+    report.retros_created = seed_demo_retros(store, opts.tenant_id).await?;
+    report.orchestration_runs_created = seed_demo_orchestration(store, opts.tenant_id).await?;
     Ok(report)
 }
 
