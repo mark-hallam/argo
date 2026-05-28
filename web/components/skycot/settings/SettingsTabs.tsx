@@ -108,7 +108,10 @@ export function SettingsTabs() {
 }
 
 function isActive(pathname: string, tab: SettingsTab): boolean {
-  return tab.match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return tab.match.some((prefix) => {
+    if (prefix === "/settings") return pathname === "/settings";
+    return pathname === prefix || pathname.startsWith(`${prefix}/`);
+  });
 }
 
 function slugFor(label: string): string {
