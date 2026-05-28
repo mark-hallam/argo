@@ -1,6 +1,7 @@
 "use client";
 
 import { notFound, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { use, useCallback, useEffect, useState } from "react";
 import { WizardEditorialShell, type WizardStep } from "@/components/auth/WizardEditorialShell";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
@@ -9,6 +10,7 @@ import { Step2Listen } from "@/components/skycot/hire/Step2Listen";
 import { Step3Drafting } from "@/components/skycot/hire/Step3Drafting";
 import { Step4Introduce } from "@/components/skycot/hire/Step4Introduce";
 import { Step5Connect } from "@/components/skycot/hire/Step5Connect";
+import { isHireAuthBypassed } from "@/lib/hire/auth-bypass";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { ExampleRole } from "@/lib/hire/examples";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
@@ -110,10 +112,27 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
   const step = parseStep(rawStep);
   const router = useRouter();
   const draft = useHireDraft();
+  const session = useSession();
   const [step2Snapshot, setStep2Snapshot] = useState<{
     answers: Record<string, QuestionAnswer>;
     canContinue: boolean;
   }>({ answers: {}, canContinue: false });
+
+  // Auth guard: a buyer-trial visitor who landed on /hire/step/N
+  // without a session would hit a 401 toast at the Step-4 commit POST.
+  // Bounce them to signup with the current step encoded as returnTo so
+  // they resume here after magic-link verify. Auth-bypass modes skip
+  // the guard (the recorded demo + local dev both rely on anonymous
+  // POSTs hitting the gateway directly).
+  useEffect(() => {
+    if (session.status !== "unauthenticated") return;
+    if (step === null) return;
+    if (isHireAuthBypassed()) return;
+    const qs = new URLSearchParams({ returnTo: `/hire/step/${step}` });
+    const problem = draft.state?.problem;
+    if (problem) qs.set("problem", problem);
+    router.replace(`/auth/signup?${qs.toString()}`);
+  }, [session.status, step, router, draft.state?.problem]);
 
   // Step 2 invariant: requires a `problem` from Step 1. If the user
   // landed here directly (no problem in draft), bounce to Step 1.

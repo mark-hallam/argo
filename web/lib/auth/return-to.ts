@@ -23,6 +23,7 @@ export const INTERNAL_PATH_PREFIXES: readonly string[] = [
   "/skills/",
   "/settings/",
   "/onboarding/",
+  "/hire/",
 ];
 
 const SCHEME_RE = /^[a-z][a-z0-9+\-.]*:/i;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Suspense, useEffect, useMemo } from "react";
 import { WizardEditorialShell } from "@/components/auth/WizardEditorialShell";
 import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
@@ -9,6 +10,7 @@ import { Step1Land } from "@/components/skycot/hire/Step1Land";
 import { findExampleRoleById } from "@/lib/hire/examples";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
 import { useStep1 } from "@/lib/hire/use-step1";
+import { isHireAuthBypassed } from "@/lib/hire/auth-bypass";
 
 /**
  * Step 1 — Land. The wizard entry page. Real free-text input + examples
@@ -34,6 +36,7 @@ function HireLandingContent() {
   const router = useRouter();
   const draft = useHireDraft();
   const searchParams = useSearchParams();
+  const session = useSession();
   const exampleId = searchParams?.get("example") ?? null;
 
   const examplePrefill = useMemo(
@@ -58,7 +61,26 @@ function HireLandingContent() {
     initialValue,
     onSubmit: (value) => {
       void (async () => {
+        // Always persist the problem to the hire-draft store first so
+        // the value survives the magic-link round-trip (the verify
+        // page is opened in a fresh tab and reads localStorage on
+        // mount). The unauth branch then routes to signup with the
+        // same value mirrored into the URL for visibility.
         await draft.update({ step: 2, problem: value });
+        // Auth-bypass scenarios (recorded demo, local dev) skip the
+        // signup gate — the gateway accepts the anonymous POST in
+        // those modes by design.
+        if (
+          session.status === "unauthenticated" &&
+          !isHireAuthBypassed()
+        ) {
+          const qs = new URLSearchParams({
+            returnTo: "/hire/step/2",
+            problem: value,
+          });
+          router.push(`/auth/signup?${qs.toString()}`);
+          return;
+        }
         router.push("/hire/step/2");
       })();
     },

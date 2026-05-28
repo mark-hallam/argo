@@ -55,15 +55,23 @@ function VerifyInner() {
 
   useEffect(() => {
     if (state.kind !== "verified") return;
-    // Onboarding takes priority over a returnTo — a member who hasn't
-    // completed onboarding must finish that flow even if the 401
-    // happened mid-app. After onboarding, normal nav from the welcome
-    // screen takes over.
+    const returnTo = consumeReturnToPending();
+    // The /hire wizard is an identity-first onboarding alternative —
+    // when the user came in via that flow, returning them to the
+    // wizard IS the onboarding path. Honor the /hire/ returnTo over
+    // needsOnboarding so the step-1 problem isn't abandoned.
+    if (returnTo && returnTo.startsWith("/hire/")) {
+      router.replace(returnTo);
+      return;
+    }
+    // Otherwise onboarding takes priority over a returnTo — a member
+    // who hasn't completed onboarding must finish that flow even if
+    // the 401 happened mid-app. After onboarding, normal nav from the
+    // welcome screen takes over.
     if (state.needsOnboarding) {
       router.replace("/onboarding/welcome");
       return;
     }
-    const returnTo = consumeReturnToPending();
     if (returnTo) {
       try {
         window.sessionStorage.setItem(WELCOME_BACK_FLAG_KEY, "1");

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useSignup } from "@/lib/auth/use-signup";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
 import { SsoButtons } from "@/components/auth/SsoButtons";
+import { parseReturnTo, storeReturnToPending } from "@/lib/auth/return-to";
+import { saveDraft } from "@/lib/hire/draft-store";
 
 /**
  * Signup page — locked editorial-A design (2026-05-18 design lock).
@@ -42,12 +44,38 @@ function shouldShowDemoMintButton(): boolean {
 }
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupInner />
+    </Suspense>
+  );
+}
+
+function SignupInner() {
   const router = useRouter();
+  const search = useSearchParams();
   const { state, submit } = useSignup();
   const [email, setEmail] = useState("");
   const [demoPending, setDemoPending] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
   const showSecondaryDemoButton = !DEMO_MODE && shouldShowDemoMintButton();
+
+  // Capture `?returnTo` + `?problem` from the URL on mount. The hire
+  // wizard's step-1 redirect threads both: `returnTo` is whitelisted +
+  // persisted for the magic-link round-trip (the verify page consumes
+  // it after `POST /api/auth/verify`), and `problem` is mirrored into
+  // the hire-draft localStorage so the textarea re-fills when the
+  // user resumes at `/hire/step/2`. localStorage (not sessionStorage)
+  // is required because magic-link emails typically open in a fresh
+  // tab — sessionStorage doesn't survive the cross-tab handoff.
+  useEffect(() => {
+    const returnTo = parseReturnTo(search);
+    if (returnTo) storeReturnToPending(returnTo);
+    const problem = search?.get("problem") ?? null;
+    if (problem && problem.trim().length > 0) {
+      void saveDraft({ step: 1, problem });
+    }
+  }, [search]);
 
   useEffect(() => {
     if (state.kind === "sent") {
