@@ -77,3 +77,27 @@ test('worker profile surfaces "Schedules" copy after the duty→schedule rename'
     'worker profile should surface "Schedules" copy after the duty→schedule rename',
   ).toBe(true);
 });
+
+/**
+ * Sibling guard — the DutiesCard sat on the camera-visible worker-
+ * overview surface with "Responsibilities" as its CardTitle and "Add
+ * responsibility" as its CTA, contradicting the operator vocab lock.
+ * This walks `/workers/<id>/overview` and rejects either visible
+ * string. The aria-label / data-testid surfaces (which keep "duty"
+ * for code-side stability) are not part of `document.body.innerText`,
+ * so the check stays scoped to operator-visible copy.
+ */
+const RESPONSIBILITY_RE = /\b(responsibility|responsibilities)\b/i;
+
+test('worker overview surfaces no "Responsibility" copy after the DutiesCard relabel', async ({
+  page,
+}) => {
+  await page.goto(`/workers/${MARIAH_ID}/overview`);
+  await expect(page.getByTestId("worker-name")).toHaveText(/mariah/i);
+  await expect(page.getByTestId("card-duties")).toBeVisible();
+  const innerText = await page.evaluate(() => document.body.innerText);
+  expect(
+    innerText,
+    'worker overview surfaced a forbidden "Responsibility" string',
+  ).not.toMatch(RESPONSIBILITY_RE);
+});

@@ -132,7 +132,7 @@ function descriptionFor(input: string, kind: DutyKind): string {
       return `One-off task: ${t} She'll run this once at the scheduled time and stop.`;
     case "recurring":
     default:
-      return `Recurring responsibility: ${t} She'll handle this on the cadence you picked.`;
+      return `Recurring schedule: ${t} She'll handle this on the cadence you picked.`;
   }
 }
 

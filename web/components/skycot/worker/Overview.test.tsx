@@ -175,12 +175,32 @@ describe("DutiesCard — toggle + add", () => {
     expect(onToggle).toHaveBeenCalledWith("d1", false);
   });
 
-  it("fires onAddDuty when '+ Add responsibility' is clicked", async () => {
+  it("fires onAddDuty when '+ Add schedule' is clicked", async () => {
     const user = userEvent.setup();
     const onAddDuty = vi.fn();
     render(<DutiesCard canEdit duties={[]} onAddDuty={onAddDuty} />);
     await user.click(screen.getByTestId("duties-add"));
     expect(onAddDuty).toHaveBeenCalledOnce();
+  });
+
+  // Operator vocab lock (memory project_vocabulary_duty_vs_schedule,
+  // 2026-05-23) — visible card copy uses "Schedule", never
+  // "Responsibility". The aria-label / data-testid surfaces (which
+  // keep "duty" for code-side stability) are not part of textContent,
+  // so this guard stays scoped to operator-visible strings.
+  it("renders no 'Responsibility' / 'responsibilities' copy in visible text", () => {
+    render(
+      <DutiesCard
+        canEdit
+        duties={[
+          { id: "d1", label: "Screen applicants", schedule: "as needed", enabled: true },
+        ]}
+      />,
+    );
+    const card = screen.getByTestId("card-duties");
+    expect(card.textContent ?? "").not.toMatch(/responsibilit(y|ies)/i);
+    expect(card.textContent ?? "").toMatch(/Schedules/);
+    expect(card.textContent ?? "").toMatch(/Add schedule/);
   });
 });
 
@@ -238,11 +258,11 @@ describe("Overview page wiring", () => {
   });
 
   // Brief: fix-worker-duty-toggle-fake-mutation-and-edit-toast-brief-id-leak.
-  // Clicking Add responsibility opens the real AddResponsibilityDialog
+  // Clicking Add schedule opens the real AddScheduleDialog
   // (DutiesCard mounts it directly). Previously this fired a stub toast
   // whose body leaked the engineering brief-ID "E4-h" into the camera-
   // visible surface.
-  it("opens the AddResponsibilityDialog when Add responsibility is clicked", async () => {
+  it("opens the AddScheduleDialog when Add schedule is clicked", async () => {
     const user = userEvent.setup();
     render(<PageWrapper />);
     await user.click(await screen.findByTestId("duties-add"));

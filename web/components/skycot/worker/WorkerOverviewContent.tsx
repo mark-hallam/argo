@@ -43,7 +43,7 @@ import { triggerWorkerRun } from "@/lib/api/workers";
  * hero (which the layout renders via `useWorker`) and the overview
  * body never race-fetch.
  *
- * RetrainDialog + AddResponsibilityDialog are stubbed as transient
+ * RetrainDialog + AddScheduleDialog are stubbed as transient
  * inline announcements until E4-g / E4-h ship.
  */
 export function WorkerOverviewContent({ workerId }: { workerId: string }) {
@@ -63,7 +63,7 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     overviewQuery.refetch();
   }, [overviewQuery]);
 
-  // The AddResponsibilityDialog is mounted by DutiesCard now, so onAddDuty
+  // The AddScheduleDialog is mounted by DutiesCard now, so onAddDuty
   // is only an analytics seam — no user-facing toast required. The edit-
   // body and toggle paths are intentionally inert until the duty PATCH
   // endpoint lands; we render those affordances as disabled (via

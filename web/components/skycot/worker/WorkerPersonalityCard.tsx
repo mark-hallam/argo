@@ -31,7 +31,7 @@ const DEFAULT_TRAITS: string[] = ["Reliable", "Curious", "Helpful"];
 
 const DEFAULT_PERSONALITY: SamplePersonality = {
   greatAt: [
-    "Working through the responsibilities you set",
+    "Working through the schedules you set",
     "Asking when something is ambiguous",
     "Surfacing patterns across recent runs",
   ],

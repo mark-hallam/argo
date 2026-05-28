@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AddResponsibilityDialog } from "@/components/skycot/worker/AddResponsibilityDialog";
+import { AddScheduleDialog } from "@/components/skycot/worker/AddScheduleDialog";
 import { DutiesCard } from "@/components/skycot/worker/DutiesCard";
 import { isValidCron } from "@/components/skycot/worker/duty/Step1Capture";
 import { cronGloss } from "@/components/skycot/worker/duty/Step3Draft";
@@ -54,7 +54,7 @@ function recurringProposal(): DutyProposal {
   return {
     kind: "recurring",
     label: "Send the EOD summary to Marta",
-    description: "Recurring responsibility: send Marta a one-line end-of-day summary at 6pm.",
+    description: "Recurring schedule: send Marta a one-line end-of-day summary at 6pm.",
     schedule: { kind: "cron", spec: "0 18 * * 1-5" },
     samples: [
       { caseId: "s1", context: "Mon 6pm", output: "Sends EOD summary." },
@@ -92,11 +92,11 @@ function commitResult(overrides: Partial<CommitDutyResult["duty"]> = {}): Commit
   };
 }
 
-function Harness(props: Partial<React.ComponentProps<typeof AddResponsibilityDialog>> = {}) {
+function Harness(props: Partial<React.ComponentProps<typeof AddScheduleDialog>> = {}) {
   const client = makeQueryClient();
   return (
     <QueryClientProvider client={client}>
-      <AddResponsibilityDialog
+      <AddScheduleDialog
         open
         onOpenChange={vi.fn()}
         workerId="wkr_mariah"
@@ -296,7 +296,7 @@ describe("Step 5 commit", () => {
 });
 
 describe("DutiesCard mount + step 6 toast", () => {
-  it("opens the dialog from the + Add responsibility button when workerId is present", async () => {
+  it("opens the dialog from the + Add schedule button when workerId is present", async () => {
     const user = userEvent.setup();
     render(<CardHarness />);
     await user.click(screen.getByTestId("duties-add"));
@@ -325,7 +325,7 @@ describe("DutiesCard mount + step 6 toast", () => {
     await user.click(screen.getByTestId("duty-commit"));
     await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled());
     const [title, options] = toastSuccessMock.mock.calls.at(-1)!;
-    expect(title).toMatch(/Added the new responsibility/);
+    expect(title).toMatch(/Added the new schedule/);
     expect(options.description).toMatch(/EOD summary/);
     expect(options.description).toMatch(/Mariah's next run/);
   });

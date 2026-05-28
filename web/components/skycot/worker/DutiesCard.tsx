@@ -7,14 +7,14 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/ui/use-toast";
 import { cn } from "@/lib/utils";
 import type { WorkerDuty } from "@/lib/api/worker-overview";
-import { AddResponsibilityDialog } from "@/components/skycot/worker/AddResponsibilityDialog";
+import { AddScheduleDialog } from "@/components/skycot/worker/AddScheduleDialog";
 import type { CommitDutyResult } from "@/lib/api/duties";
 
 /**
  * Duty list card. Each row has a toggle (enable/disable), a label,
  * a schedule chip, and a click target that opens the inline editor.
  *
- * "+ Add responsibility" mounts the AddResponsibilityDialog (E4-h)
+ * "+ Add schedule" mounts the AddScheduleDialog (E4-h)
  * when `workerId` + `workerName` are supplied; otherwise it still
  * fires the `onAddDuty` analytics seam so existing consumers
  * (WorkerOverviewContent E4-b) continue to receive the click signal.
@@ -27,7 +27,7 @@ export interface DutiesCardProps {
   canEdit: boolean;
   /**
    * Toggle + body-click write affordances are gated separately from
-   * `canEdit` so the +Add responsibility dialog can stay live while
+   * `canEdit` so the +Add schedule dialog can stay live while
    * the duty PATCH endpoint is still pending. Defaults to `canEdit`
    * for back-compat; pass `false` to render the toggle visually
    * disabled and turn the body click into a no-op (prevents the
@@ -35,7 +35,7 @@ export interface DutiesCardProps {
    * See fix-worker-duty-toggle-fake-mutation-and-edit-toast-brief-id-leak.
    */
   canToggleDuty?: boolean;
-  /** Worker id — required to mount the AddResponsibilityDialog. */
+  /** Worker id — required to mount the AddScheduleDialog. */
   workerId?: string;
   /** Worker first name — surfaces in dialog copy. */
   workerName?: string;
@@ -85,7 +85,7 @@ export function DutiesCard({
         })
       : null;
     const who = workerName ?? "She";
-    toastSuccess("Added the new responsibility.", {
+    toastSuccess("Added the new schedule.", {
       description: nextFire
         ? `${result.duty.label}. ${who}'s next run kicks off ${nextFire}.`
         : `${result.duty.label}.`,
@@ -98,14 +98,14 @@ export function DutiesCard({
   return (
     <Card data-testid="card-duties" className={className}>
       <CardHeader>
-        <CardTitle>Responsibilities</CardTitle>
+        <CardTitle>Schedules</CardTitle>
       </CardHeader>
       <CardBody className="pt-1">
         {error ? (
           <DutiesErrorState message={error} onRetry={onRetry} />
         ) : duties.length === 0 ? (
           <p className="text-sm text-[var(--muted-foreground)]">
-            No responsibilities yet.
+            No schedules yet.
           </p>
         ) : (
           <ul role="list" className="divide-y divide-[var(--border)]/60">
@@ -130,12 +130,12 @@ export function DutiesCard({
           data-testid="duties-add"
         >
           <Plus className="size-3.5" />
-          Add responsibility
+          Add schedule
         </Button>
       </CardFooter>
 
       {dialogAvailable ? (
-        <AddResponsibilityDialog
+        <AddScheduleDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           workerId={workerId!}

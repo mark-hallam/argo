@@ -82,7 +82,7 @@ export function Step1Capture({
     <div data-testid="duty-step-capture" className="space-y-4">
       <header className="space-y-1">
         <h2 className="text-base font-semibold text-[var(--foreground)]">
-          Give {workerName} a new responsibility
+          Give {workerName} a new schedule
         </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           Plain English. Pick how often it runs below.
@@ -95,7 +95,7 @@ export function Step1Capture({
         onChange={(e) => onChangeValue(e.target.value)}
         rows={4}
         data-testid="duty-input"
-        aria-label="New responsibility"
+        aria-label="New schedule"
         placeholder={`What else do you want ${workerName} to handle?`}
         className={cn(
           "w-full resize-none rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)]",

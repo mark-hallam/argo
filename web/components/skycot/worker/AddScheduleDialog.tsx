@@ -21,7 +21,7 @@ import type {
 } from "@/lib/api/duties";
 
 /**
- * AddResponsibilityDialog — 6-step plain-English duty-add flow.
+ * AddScheduleDialog — 6-step plain-English duty-add flow.
  *
  *   1. Capture     — textarea + 5 cron-preset chips
  *   2. Classify    — spinner / error while the classifier runs
@@ -37,7 +37,7 @@ import type {
  * Mock fallback for all three mutations lives in `lib/api/duties.ts`.
  */
 
-export interface AddResponsibilityDialogProps {
+export interface AddScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workerId: string;
@@ -80,13 +80,13 @@ function nextAfterDraft(p: DutyProposal): Step {
   return 5;
 }
 
-export function AddResponsibilityDialog({
+export function AddScheduleDialog({
   open,
   onOpenChange,
   workerId,
   workerName,
   onCommitted,
-}: AddResponsibilityDialogProps) {
+}: AddScheduleDialogProps) {
   const actions = useDutyAdd(workerId);
   const [state, setState] = useState<DialogState>(INITIAL);
 
@@ -167,7 +167,7 @@ export function AddResponsibilityDialog({
           data-step={state.committed ? 6 : state.step}
         >
           <DialogPrimitive.Title className="sr-only">
-            Add a responsibility for {workerName}
+            Add a schedule for {workerName}
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Plain-English schedule add flow for {workerName}.
@@ -314,7 +314,7 @@ function Step5Commit({
         </div>
         <div className="space-y-1">
           <h2 className="text-base font-semibold text-[var(--foreground)]">
-            Added the new responsibility.
+            Added the new schedule.
           </h2>
           <p
             data-testid="duty-committed-summary"

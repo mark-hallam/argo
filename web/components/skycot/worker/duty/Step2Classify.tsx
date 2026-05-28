@@ -62,7 +62,7 @@ export function Step2Classify({
         className="size-6 animate-spin text-[var(--muted-foreground)]"
       />
       <p className="text-sm text-[var(--muted-foreground)]">
-        Figuring out the shape of this responsibility&hellip;
+        Figuring out the shape of this schedule&hellip;
       </p>
       <p className="text-xs text-[var(--muted-foreground)]/80">
         {workerName} is sorting it into a recurring schedule.
