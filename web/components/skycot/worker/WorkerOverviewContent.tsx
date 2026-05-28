@@ -5,9 +5,9 @@ import { AlertCircle } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
 import { useWorkerOverview } from "@/lib/hooks/use-worker-overview";
 import {
-  WhatSheDoesCard,
-  WhatSheDoesCardSkeleton,
-} from "@/components/skycot/worker/WhatSheDoesCard";
+  WhatTheyDoCard,
+  WhatTheyDoCardSkeleton,
+} from "@/components/skycot/worker/WhatTheyDoCard";
 import { DutiesCard, DutiesCardSkeleton } from "@/components/skycot/worker/DutiesCard";
 import {
   ChannelStripCard,
@@ -30,7 +30,7 @@ import {
  *
  * Renders four cards in fixed order:
  *
- *   1. WhatSheDoesCard   — charter + inline edit + Adjust (E4-g)
+ *   1. WhatTheyDoCard    — charter + inline edit + Adjust (E4-g)
  *   2. DutiesCard        — duty list + toggle + add (E4-h)
  *   3. KpiCard           — 4 vertical-aware KPIs + 7-day sparklines
  *   4. RecentActivityCard — last 5 actions + audit drill-in
@@ -80,7 +80,7 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         data-testid="worker-overview-loading"
         className="space-y-4"
       >
-        <WhatSheDoesCardSkeleton />
+        <WhatTheyDoCardSkeleton />
         <DutiesCardSkeleton />
         <ChannelStripCardSkeleton />
         <KpiCardSkeleton />
@@ -121,7 +121,7 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       data-testid="worker-tab-panel-overview"
       className="space-y-4"
     >
-      <WhatSheDoesCard
+      <WhatTheyDoCard
         charter={overview.charter}
         canEdit={permissions.canEditCharter}
         onSave={onSaveCharter}

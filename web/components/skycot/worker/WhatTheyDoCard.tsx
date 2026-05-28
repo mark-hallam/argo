@@ -8,7 +8,7 @@ import { RetrainDialog } from "@/components/skycot/worker/RetrainDialog";
 import { cn } from "@/lib/utils";
 
 /**
- * "What she does" card — renders the worker charter (the 3-sentence
+ * "What they do" card — renders the worker charter (the 3-sentence
  * description of intent + boundaries the worker is hired against) and
  * supports inline edit when `canEdit` is true.
  *
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
  * internally so callers don't have to thread state through.
  */
 
-export interface WhatSheDoesCardProps {
+export interface WhatTheyDoCardProps {
   charter: string;
   canEdit: boolean;
   /** Called when the user commits an edit (blur / Enter). */
@@ -38,7 +38,7 @@ export interface WhatSheDoesCardProps {
   className?: string;
 }
 
-export function WhatSheDoesCard({
+export function WhatTheyDoCard({
   charter,
   canEdit,
   onSave,
@@ -47,7 +47,7 @@ export function WhatSheDoesCard({
   error,
   onRetry,
   className,
-}: WhatSheDoesCardProps) {
+}: WhatTheyDoCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(charter);
   const [retrainOpen, setRetrainOpen] = useState(false);
@@ -92,7 +92,7 @@ export function WhatSheDoesCard({
   };
 
   return (
-    <Card data-testid="card-what-she-does" className={className}>
+    <Card data-testid="card-what-they-do" className={className}>
       <CardHeader className="flex flex-row items-start justify-between gap-2">
         <CardTitle>What they do</CardTitle>
         <Button
@@ -188,9 +188,9 @@ function CardErrorState({
 }
 
 /** Skeleton rendered while the overview is loading. */
-export function WhatSheDoesCardSkeleton() {
+export function WhatTheyDoCardSkeleton() {
   return (
-    <Card data-testid="card-what-she-does-skeleton">
+    <Card data-testid="card-what-they-do-skeleton">
       <CardHeader>
         <div className="h-4 w-32 rounded bg-[var(--muted)]" />
       </CardHeader>

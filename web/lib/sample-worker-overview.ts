@@ -18,12 +18,27 @@
  */
 
 import { SAMPLE_PERSONAS } from "@/lib/sample-personas";
+import { formatPronouns, type Pronouns } from "@/lib/util/pronouns";
 import type {
   WorkerActivityRow,
   WorkerDuty,
   WorkerKpi,
   WorkerOverview,
 } from "@/lib/api/worker-overview";
+
+/* Pronouns for each canonical persona, looked up once at module load
+ * so the charter strings below stay tidy. The default is "they/them"
+ * unless the persona has opted into something else. */
+function pronounsFor(id: string): Pronouns {
+  return formatPronouns(SAMPLE_PERSONAS[id]?.pronouns);
+}
+
+/* Conjugate a base verb against the persona's subject form. The
+ * present tense is the only one the charters use ("screens" /
+ * "screen"), so a single helper covers it. */
+function v(p: Pronouns, base: string): string {
+  return p.isPlural ? base : base.endsWith("y") ? `${base.slice(0, -1)}ies` : `${base}s`;
+}
 
 function activity(
   id: string,
@@ -52,9 +67,9 @@ function kpi(
   return { id, label, value, series, deltaPct, trend, tone };
 }
 
+const PRIYA_P = pronounsFor("018f67d0-0000-7000-8000-000000000002");
 const PRIYA: WorkerOverview = {
-  charter:
-    "Priya helps the People Ops team manage inbound applications. She screens candidates against the role's must-haves, schedules first-round interviews, and asks the hiring manager before agreeing to anything outside the JD.",
+  charter: `Priya helps the People Ops team manage inbound applications. ${PRIYA_P.subjectCap} ${v(PRIYA_P, "screen")} candidates against the role's must-haves, ${v(PRIYA_P, "schedule")} first-round interviews, and ${v(PRIYA_P, "ask")} the hiring manager before agreeing to anything outside the JD.`,
   duties: [
     duty("d-screen", "Screen inbound applicants against role must-haves", "as applications arrive"),
     duty("d-shortlist", "Compile next-day shortlist for hiring manager review", "weekdays 17:30"),
@@ -76,9 +91,9 @@ const PRIYA: WorkerOverview = {
   ],
 };
 
+const MARIAH_P = pronounsFor("018f67d0-0000-7000-8000-000000000001");
 const MARIAH: WorkerOverview = {
-  charter:
-    "Mariah helps the Procurement team keep the marketplace storefront fresh. She lists new inventory, re-prices stale items against competitor data, and asks the category buyer before discounting anything below floor.",
+  charter: `Mariah helps the Procurement team keep the marketplace storefront fresh. ${MARIAH_P.subjectCap} ${v(MARIAH_P, "list")} new inventory, ${v(MARIAH_P, "re-price")} stale items against competitor data, and ${v(MARIAH_P, "ask")} the category buyer before discounting anything below floor.`,
   duties: [
     duty("d-list", "List new inventory with photos + tags", "as items arrive"),
     duty("d-reprice", "Re-price stale listings against competitor data", "daily 06:30"),
@@ -100,9 +115,9 @@ const MARIAH: WorkerOverview = {
   ],
 };
 
+const JAMAL_P = pronounsFor("018f67d0-0000-7000-8000-000000000003");
 const JAMAL: WorkerOverview = {
-  charter:
-    "Jamal helps the Customer Experience team keep tier-1 ticket volume manageable. He resolves the standard refund / password / shipping cases end-to-end, and escalates anything touching billing disputes or churn-risk accounts to a human.",
+  charter: `Jamal helps the Customer Experience team keep tier-1 ticket volume manageable. ${JAMAL_P.subjectCap} ${v(JAMAL_P, "resolve")} the standard refund / password / shipping cases end-to-end, and ${v(JAMAL_P, "escalate")} anything touching billing disputes or churn-risk accounts to a human.`,
   duties: [
     duty("d-tier1", "Resolve tier-1 tickets (refund / password / shipping)", "as tickets arrive"),
     duty("d-triage", "Triage incoming tickets into queue buckets", "every 5 min"),
@@ -124,9 +139,9 @@ const JAMAL: WorkerOverview = {
   ],
 };
 
+const NORI_P = pronounsFor("018f67d0-0000-7000-8000-000000000004");
 const NORI: WorkerOverview = {
-  charter:
-    "Nori helps the Brand team keep customer-facing comms on-voice and on-schedule. She drafts product announcements, asks the brand lead before publishing anything net-new, and tracks reach against the team's quarterly target.",
+  charter: `Nori helps the Brand team keep customer-facing comms on-voice and on-schedule. ${NORI_P.subjectCap} ${v(NORI_P, "draft")} product announcements, ${v(NORI_P, "ask")} the brand lead before publishing anything net-new, and ${v(NORI_P, "track")} reach against the team's quarterly target.`,
   duties: [
     duty("d-draft", "Draft product announcements from changelog entries", "as releases land"),
     duty("d-voice", "Tone-check drafts against brand voice guide", "on draft save"),
@@ -148,9 +163,9 @@ const NORI: WorkerOverview = {
   ],
 };
 
+const PETA_P = pronounsFor("018f67d0-0000-7000-8000-000000000007");
 const PETA: WorkerOverview = {
-  charter:
-    "Peta helps the Project Management team keep cadence — running standup digests, chasing open action items, and drafting Friday status reports. She raises blockers in real-time and asks the PM before reshuffling anyone's calendar.",
+  charter: `Peta helps the Project Management team keep cadence — running standup digests, chasing open action items, and drafting Friday status reports. ${PETA_P.subjectCap} ${v(PETA_P, "raise")} blockers in real-time and ${v(PETA_P, "ask")} the PM before reshuffling anyone's calendar.`,
   duties: [
     duty("d-standup", "Draft morning standup digest", "weekdays 09:00"),
     duty("d-chase", "Chase open action items", "every 2h business hours"),

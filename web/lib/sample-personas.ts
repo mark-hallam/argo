@@ -70,6 +70,13 @@ export interface SamplePersona {
    * without an explicit entry fall through to DEFAULT_PERSONALITY in
    * the card. */
   personality?: SamplePersonality;
+  /**
+   * Operator-settable pronouns. Default is "they/them" so a missing
+   * entry reads as inclusive rather than guessed from the name.
+   * `web/lib/util/pronouns.ts#formatPronouns` translates this string
+   * into the rendered forms (subject / object / possessive).
+   */
+  pronouns: string;
 }
 
 export interface DemoSeedPersona {
@@ -97,6 +104,7 @@ const PRIYA: SamplePersona = {
     tomorrow: "next-day shortlist review",
   },
   traits: ["Thorough", "Respectful", "Fast", "Calibrated"],
+  pronouns: "they/them",
   level: 9,
   personality: {
     greatAt: [
@@ -135,6 +143,7 @@ const MARIAH: SamplePersona = {
     tomorrow: "morning re-price sweep at 06:30",
   },
   traits: ["Patient", "Detail-oriented", "Picture-perfect listings", "Polite"],
+  pronouns: "they/them",
   level: 5,
   personality: {
     greatAt: [
@@ -172,6 +181,7 @@ const JAMAL: SamplePersona = {
     bullets: ["12 tickets resolved", "median reply 4m"],
   },
   traits: ["Calm under pressure", "Empathic", "Quick", "Honest"],
+  pronouns: "they/them",
   level: 12,
   personality: {
     greatAt: [
@@ -210,6 +220,7 @@ const NORI: SamplePersona = {
     tomorrow: "Q2 product update draft at 09:00",
   },
   traits: ["On-voice", "Considered", "Schedule-respecting", "Reach-tracking"],
+  pronouns: "they/them",
   level: 15,
 };
 
@@ -229,6 +240,7 @@ const PETA: SamplePersona = {
     tomorrow: "morning standup digest at 09:00",
   },
   traits: ["Cadence-true", "Follow-through", "Calm escalator", "Context keeper"],
+  pronouns: "they/them",
   level: 8,
   personality: {
     greatAt: [

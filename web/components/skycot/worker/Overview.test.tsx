@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkerOverviewContent } from "@/components/skycot/worker/WorkerOverviewContent";
 import { WorkerOverviewNotFoundError } from "@/lib/api/worker-overview";
-import { WhatSheDoesCard } from "@/components/skycot/worker/WhatSheDoesCard";
+import { WhatTheyDoCard } from "@/components/skycot/worker/WhatTheyDoCard";
 import { DutiesCard } from "@/components/skycot/worker/DutiesCard";
 import { KpiCard } from "@/components/skycot/worker/KpiCard";
 import { RecentActivityCard } from "@/components/skycot/worker/RecentActivityCard";
@@ -38,7 +38,7 @@ const mockedFetchWorker = vi.mocked(fetchWorker);
 
 function sampleOverview(): WorkerOverview {
   return {
-    charter: "Priya helps the People Ops team. She screens candidates. She asks the hiring manager.",
+    charter: "Priya helps the People Ops team. They screen candidates. They ask the hiring manager.",
     duties: [
       { id: "d1", label: "Screen inbound applicants", schedule: "as applications arrive", enabled: true },
       { id: "d2", label: "Draft rejection notes", schedule: "weekdays 08:30", enabled: false },
@@ -95,9 +95,9 @@ afterEach(() => {
 });
 
 describe("WorkerOverviewPage — all four cards render", () => {
-  it("renders WhatSheDoes, Duties, KPIs, and RecentActivity in order", async () => {
+  it("renders WhatTheyDo, Duties, KPIs, and RecentActivity in order", async () => {
     render(<PageWrapper />);
-    expect(await screen.findByTestId("card-what-she-does")).toBeInTheDocument();
+    expect(await screen.findByTestId("card-what-they-do")).toBeInTheDocument();
     expect(screen.getByTestId("card-duties")).toBeInTheDocument();
     expect(screen.getByTestId("card-kpis")).toBeInTheDocument();
     expect(screen.getByTestId("card-recent-activity")).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe("WorkerOverviewPage — all four cards render", () => {
     mockedFetchOverview.mockImplementation(() => new Promise(() => {}));
     render(<PageWrapper />);
     expect(await screen.findByTestId("worker-overview-loading")).toBeInTheDocument();
-    expect(screen.getByTestId("card-what-she-does-skeleton")).toBeInTheDocument();
+    expect(screen.getByTestId("card-what-they-do-skeleton")).toBeInTheDocument();
     expect(screen.getByTestId("card-duties-skeleton")).toBeInTheDocument();
     expect(screen.getByTestId("card-kpis-skeleton")).toBeInTheDocument();
     expect(screen.getByTestId("card-recent-activity-skeleton")).toBeInTheDocument();
@@ -122,12 +122,12 @@ describe("WorkerOverviewPage — all four cards render", () => {
   });
 });
 
-describe("WhatSheDoesCard — inline edit", () => {
+describe("WhatTheyDoCard — inline edit", () => {
   it("commits the charter on Enter when canEdit is true", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
     render(
-      <WhatSheDoesCard
+      <WhatTheyDoCard
         charter="Original charter."
         canEdit
         onSave={onSave}
@@ -142,7 +142,7 @@ describe("WhatSheDoesCard — inline edit", () => {
   });
 
   it("renders the Adjust button (dialog opens via WorkerOverviewContent pin)", () => {
-    render(<WhatSheDoesCard charter="Charter." canEdit />);
+    render(<WhatTheyDoCard charter="Charter." canEdit />);
     // The Adjust button mounts the RetrainDialog internally when
     // workerId is set; that integration is pinned by
     // "opens the RetrainDialog (E4-g) when Adjust is clicked" below.
@@ -152,7 +152,7 @@ describe("WhatSheDoesCard — inline edit", () => {
 
   it("does not enter edit mode when canEdit is false", async () => {
     const user = userEvent.setup();
-    render(<WhatSheDoesCard charter="Charter." canEdit={false} />);
+    render(<WhatTheyDoCard charter="Charter." canEdit={false} />);
     await user.click(screen.getByTestId("charter-text"));
     expect(screen.queryByTestId("charter-editor")).not.toBeInTheDocument();
   });
