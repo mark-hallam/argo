@@ -153,15 +153,11 @@ export default function OnboardingWorkspacePage() {
             {error}
           </p>
         ) : null}
-        <div className="ob-cta-row is-split">
-          <button
-            type="button"
-            className="ob-cta-back"
-            onClick={() => router.push("/onboarding/welcome")}
-            data-testid="onboarding-workspace-back"
-          >
-            ← Back
-          </button>
+        {/* No back button: step 2 is the first substantive form; there is no in-form
+            previous state to return to, and routing back to /onboarding/welcome (the
+            marketing landing) would erase the workspace + company name the user just
+            typed. */}
+        <div className="ob-cta-row">
           <button
             ref={continueRef}
             type="submit"
