@@ -1,6 +1,6 @@
 "use client";
 
-import { ActivityRow } from "@/components/skycot/ActivityRow";
+import { AuditTableRow } from "@/components/skycot/audit/AuditTableRow";
 import type { WorkerActivity, WorkerActivityStatus } from "@/lib/api/worker-activity";
 import type { AuditDayBucket, AuditRow, AuditStatus } from "@/lib/types/audit";
 
@@ -8,13 +8,18 @@ export { groupByDay } from "@/lib/api/audit";
 
 /**
  * Day-grouped section of the audit timeline. Renders a calendar-day
- * header ("TODAY" / "YESTERDAY" / "MAY 9") followed by one
- * `ActivityRow` per audit entry. The locked ActivityRow primitive
- * (E4-c) consumes the `WorkerActivity` shape, so we adapt each
- * `AuditRow` here — preserving id, verb, timestamp, worker, cost —
- * and map `status: "autonomous"` to `"succeeded"` for the pill
- * (a sensible-deviation; ActivityRow is locked at 4 statuses, the
- * raw audit status is exposed via `data-status` for E5-c styling).
+ * header ("TODAY" / "YESTERDAY" / "MAY 9") followed by a real
+ * `<table>` (Etherscan-parity semantics): screen readers announce
+ * "table, N rows, columns: time, worker, verb, id, status" and the
+ * macOS VoiceOver table rotor can navigate column-by-column.
+ *
+ * `<AuditTableRow>` is the table-shaped audit-row primitive — the
+ * shared `<ActivityRow>` stays as `<Link>`-outer for cohort drawer
+ * and worker-activity feeds, which intentionally aren't tabular.
+ *
+ * Each row carries `data-status` matching the raw `AuditStatus`
+ * (including `autonomous`) for E5-c styling hooks; the pill itself
+ * maps `autonomous → succeeded` (StatusPill is locked at 4 tones).
  */
 
 export interface AuditDayGroupProps {
@@ -22,32 +27,51 @@ export interface AuditDayGroupProps {
 }
 
 export function AuditDayGroup({ bucket }: AuditDayGroupProps) {
+  const dayHeadingId = `audit-day-${bucket.key}`;
+  const captionId = `${dayHeadingId}-caption`;
   return (
     <section
       data-testid={`audit-day-group-${bucket.key}`}
       data-day-key={bucket.key}
-      aria-label={`Audit entries — ${bucket.label}`}
+      aria-labelledby={dayHeadingId}
       className="space-y-2"
     >
       <h2
+        id={dayHeadingId}
         data-testid={`audit-day-header-${bucket.key}`}
         className="sticky top-0 z-10 -mx-2 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] bg-[var(--background)]/85 backdrop-blur-sm"
       >
         {bucket.label}
       </h2>
-      <div role="list" className="space-y-2">
-        {bucket.rows.map((row) => (
-          <div
-            key={row.id}
-            data-status={row.status}
-            data-action-type={row.actionType}
-            data-worker-id={row.worker.id}
-            data-testid={`audit-row-wrapper-${row.id}`}
-          >
-            <ActivityRow activity={toActivity(row)} />
-          </div>
-        ))}
-      </div>
+      <table
+        data-testid={`audit-day-table-${bucket.key}`}
+        aria-describedby={captionId}
+        className="w-full border-separate border-spacing-y-2 text-left"
+      >
+        <caption id={captionId} className="sr-only">
+          Audit rows for {bucket.label}
+        </caption>
+        <thead className="sr-only">
+          <tr>
+            <th scope="col">Time</th>
+            <th scope="col">Worker</th>
+            <th scope="col">Verb</th>
+            <th scope="col">Id</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {bucket.rows.map((row) => (
+            <AuditTableRow
+              key={row.id}
+              activity={toActivity(row)}
+              status={row.status}
+              actionType={row.actionType}
+              workerId={row.worker.id}
+            />
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }
@@ -68,11 +92,11 @@ function initials(name: string): string {
 }
 
 /** Adapt an AuditRow to the locked WorkerActivity shape that
- *  ActivityRow consumes. actionType isn't rendered by ActivityRow,
- *  so we stub it as `message_sent` — the raw value lives on
- *  `data-action-type` on the wrapper for downstream consumers. The
- *  per-row chain hash threads through verbatim so ActivityRow can
- *  render the Etherscan-style truncated cell. */
+ *  AuditTableRow consumes. actionType isn't rendered by the row, so
+ *  we stub it as `message_sent` — the raw value lives on
+ *  `data-action-type` on the row for downstream consumers. The
+ *  per-row chain hash threads through verbatim so the row can render
+ *  the Etherscan-style truncated cell. */
 function toActivity(row: AuditRow): WorkerActivity {
   const selfHash = row.selfHash ?? row.hash;
   const sampleHash = row.sampleHash;
