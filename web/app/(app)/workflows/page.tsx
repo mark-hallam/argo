@@ -26,7 +26,7 @@ import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
  * the catalog continue to pass.
  */
 
-const TRY_CHIPS = ["approval flows", "data extraction", "outbound qualification", "escalation"];
+const TRY_CHIPS = ["approve", "qualify", "digest", "triage"];
 
 const RISK_LABEL: Record<string, string> = {
   "approval-required": "Approval required",
@@ -34,8 +34,8 @@ const RISK_LABEL: Record<string, string> = {
 };
 
 const RISK_COLOR: Record<string, string> = {
-  "approval-required": "#f59e0b",
-  autonomous: "#14b8a6",
+  "approval-required": "var(--risk-approval-required)",
+  autonomous: "var(--risk-autonomous)",
 };
 
 export default function WorkflowsPage() {

@@ -121,7 +121,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     steps: 3,
     versions: 2,
     lastEdited: "1 hour ago",
-    lastEditor: "Jamal",
+    lastEditor: "Peta",
     risk: "autonomous",
   },
   {

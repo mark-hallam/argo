@@ -159,6 +159,11 @@
   --info:                  oklch(0.62 0.17 230);
   --info-foreground:       oklch(0.99 0.005 230);
 
+  /* Workflow risk-pill tokens. Default values preserve the original
+     amber + teal palette; per-tenant themes may override either. */
+  --risk-approval-required: #f59e0b;
+  --risk-autonomous:        #14b8a6;
+
   --border:                oklch(0.92 0.010 248);
   --input:                 oklch(0.92 0.010 248);
   --ring:                  var(--brand-primary);
@@ -213,6 +218,11 @@
 
   --info:                  oklch(0.72 0.17 230);
   --info-foreground:       oklch(0.16 0.020 230);
+
+  /* Risk pills retain the same chroma in dark theme — both read OK on
+     the dark card. Per-tenant themes can override. */
+  --risk-approval-required: #f59e0b;
+  --risk-autonomous:        #14b8a6;
 
   --border:                oklch(0.27 0.018 250);
   --input:                 oklch(0.27 0.018 250);
