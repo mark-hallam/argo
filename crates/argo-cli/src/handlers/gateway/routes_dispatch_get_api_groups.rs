@@ -39,7 +39,33 @@ pub(super) async fn dispatch_auth_and_meta(
     if req.starts_with("GET /api/v1/verticals ") || req.starts_with("GET /api/v1/verticals?") {
         return Some(super::routes_verticals_list_get::list_response(req, store).await);
     }
+    if let Some(resp) = dispatch_vertical_detail_alias(req).await {
+        return Some(resp);
+    }
     None
+}
+
+/// `/api/v1/verticals/<id>` — singular detail alias that delegates
+/// to the same handler as the bare `/verticals/<id>` route so the
+/// api-prefixed and unprefixed surfaces stay symmetric. Mirrors the
+/// workers-collection alias shipped in `9ea693db1`. Only matches
+/// when `<id>` has no further `/` segment, so the per-vertical
+/// `/workflows[...]`, `/lint`, `/doctor` paths fall through to
+/// their existing dispatchers.
+async fn dispatch_vertical_detail_alias(req: &str) -> Option<(&'static str, String)> {
+    let rest = req.strip_prefix("GET /api/v1/verticals/")?;
+    let (head, _) = rest.split_once(' ')?;
+    let (id_with_query, query) = match head.split_once('?') {
+        Some((i, q)) => (i, Some(q)),
+        None => (head, None),
+    };
+    if id_with_query.is_empty() || id_with_query.contains('/') {
+        return None;
+    }
+    let format = query
+        .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+        .map(str::to_string);
+    Some(super::routes_verticals::show_response(id_with_query, format.as_deref()).await)
 }
 
 /// SCIM, JSON approvals, skill IR, audit elevated-view, team/workers
