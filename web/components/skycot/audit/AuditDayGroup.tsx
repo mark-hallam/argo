@@ -68,6 +68,7 @@ export function AuditDayGroup({ bucket }: AuditDayGroupProps) {
               status={row.status}
               actionType={row.actionType}
               workerId={row.worker.id}
+              channel={row.channel}
             />
           ))}
         </tbody>

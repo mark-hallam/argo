@@ -36,7 +36,8 @@ export const CLASSIFICATION_LABELS: Record<DataClassification, string> = {
 };
 
 export const CHANNEL_LABELS: Record<ChannelKind, string> = {
-  slack: "Slack", imessage: "iMessage", sms: "SMS", push: "Push",
+  slack: "Slack", discord: "Discord", email: "Email",
+  imessage: "iMessage", sms: "SMS", push: "Push",
   web: "Web inbox", voice: "Voice", whatsapp: "WhatsApp",
 };
 

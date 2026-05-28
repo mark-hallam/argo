@@ -11,6 +11,8 @@ import {
 
 const CHANNEL_LABEL: Record<ChannelKind, string> = {
   slack: "Slack",
+  discord: "Discord",
+  email: "Email",
   imessage: "iMessage",
   sms: "SMS",
   push: "Push",

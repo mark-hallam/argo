@@ -13,8 +13,9 @@
 
 import type { ApprovalDecision } from "@/components/skycot/ApprovalCard";
 import type { Severity } from "@/components/skycot/approvals/SeverityPill";
+import type { ChannelKind } from "@/lib/types/channels";
 
-export type ChannelKind = "slack" | "imessage" | "sms" | "push" | "web" | "voice" | "whatsapp";
+export type { ChannelKind } from "@/lib/types/channels";
 
 export interface ApprovalItem {
   id: string;
@@ -227,6 +228,23 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     dollarAtRisk: 48290,
     confidence: 0.7,
     slaExpiresAt: new Date(now + 1 * hour + 22 * minute).toISOString(),
+  },
+  {
+    id: "ap_01H9ZD",
+    actionId: "act_018f67d1-0000-7000-8000-000000000006_001",
+    worker: { name: "Peta" },
+    verb: "wants to bridge the on-call Discord channel to the release-blocker thread",
+    detail:
+      "Engineering's #release-blockers Discord channel has 2 unread mentions about the us-east-1 timeout. I can mirror the discussion into the live SRE thread so the on-call has full context in one place.",
+    consequenceIfYes: "Discord bridge enabled for the active incident; messages mirrored both ways until resolution.",
+    consequenceIfNo: "I'll keep monitoring and summarise the Discord activity into the next status update instead.",
+    reason: "Cross-channel bridging during a live incident always requires your OK.",
+    channel: "discord",
+    receivedAt: new Date(now - 18 * minute).toISOString(),
+    severity: "p1",
+    confidence: 0.81,
+    slaExpiresAt: new Date(now + 1 * hour + 42 * minute).toISOString(),
+    approver: { name: "Mark" },
   },
 ];
 

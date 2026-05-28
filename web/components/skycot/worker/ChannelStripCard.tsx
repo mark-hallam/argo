@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ChevronRight,
   Globe,
+  Hash,
   Mail,
   MessageCircle,
   MessageSquare,
@@ -45,6 +46,8 @@ export interface ChannelStripCardProps {
 
 const CHANNEL_LABEL: Record<ChannelKind, string> = {
   slack: "Slack",
+  discord: "Discord",
+  email: "Email",
   imessage: "iMessage",
   sms: "SMS",
   push: "Push",
@@ -55,6 +58,8 @@ const CHANNEL_LABEL: Record<ChannelKind, string> = {
 
 const CHANNEL_ICON: Record<ChannelKind, LucideIcon> = {
   slack: MessageSquare,
+  discord: Hash,
+  email: Mail,
   imessage: MessageCircle,
   sms: Smartphone,
   push: Smartphone,
@@ -65,6 +70,8 @@ const CHANNEL_ICON: Record<ChannelKind, LucideIcon> = {
 
 const NON_WEB_CHANNELS: readonly ChannelKind[] = [
   "slack",
+  "discord",
+  "email",
   "imessage",
   "sms",
   "voice",

@@ -67,6 +67,8 @@ const SEEDS: Seed[] = [
   // Peta — Project Coordinator (Project Management)
   [PETA, "drafted standup digest for the engineering pod", "standup_drafted", "succeeded", 6 * M, { cost: 0.012, cls: "internal" }],
   [PETA, "consolidated 4 duplicate action items in Linear", "items_consolidated", "succeeded", 38 * M, { cls: "internal" }],
+  [PETA, "synced Discord #release-blockers thread with SRE handoff notes", "channel_sync", "succeeded", 52 * M, { channel: "discord", approver: SRE_LEAD, cls: "internal" }],
+  [PETA, "queued Discord release-notes post awaiting brand-lead sign-off", "post_queued", "pending", 1 * H + 8 * M, { channel: "discord", approver: BRAND_LEAD, cls: "internal" }],
   [PETA, "queued sprint-14 reshuffle for PM approval", "action_approval_asked", "pending", 1 * H + 32 * M, { approver: SRE_LEAD, channel: "slack", cls: "internal" }],
   [PETA, "opened action item PROJ-0421 for 'release-blocked'", "action_item_opened", "autonomous", 3 * H + 4 * M],
   [PETA, "pinged secondary PM after 5m no-ack on PROJ-0420", "second_owner_pinged", "succeeded", 6 * H + 18 * M, { approver: SRE_LEAD, channel: "slack" }],

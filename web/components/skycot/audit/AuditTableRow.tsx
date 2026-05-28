@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Copy } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/lib/ui/use-toast";
@@ -18,6 +19,7 @@ import type {
   WorkerActivityHashKind,
   WorkerActivityStatus,
 } from "@/lib/api/worker-activity";
+import type { ChannelKind } from "@/lib/types/channels";
 
 /**
  * Table-row variant of the audit feed primitive. Renders as `<tr>` +
@@ -43,6 +45,10 @@ export interface AuditTableRowProps {
   status?: string;
   actionType?: string;
   workerId?: string;
+  /** Channel the action arrived on; renders as a compact icon-only
+   *  badge in the verb cell so /audit shows the multi-channel surface
+   *  at a glance (Claim 6). */
+  channel?: ChannelKind;
 }
 
 export function AuditTableRow({
@@ -50,6 +56,7 @@ export function AuditTableRow({
   status,
   actionType,
   workerId,
+  channel,
 }: AuditTableRowProps) {
   const router = useRouter();
   const href = `/audit/action/${encodeURIComponent(activity.id)}`;
@@ -101,10 +108,19 @@ export function AuditTableRow({
 
       <td className="px-3 py-2.5 align-middle">
         <p
-          className="truncate text-[var(--foreground)]"
+          className="flex items-center gap-1.5 truncate text-[var(--foreground)]"
           data-testid={`activity-row-verb-${activity.id}`}
         >
-          {redactInlineSentinels(activity.verb)}
+          {channel ? (
+            <ChannelBadge
+              kind={channel}
+              compact
+              data-testid={`audit-row-channel-${activity.id}`}
+            />
+          ) : null}
+          <span className="truncate">
+            {redactInlineSentinels(activity.verb)}
+          </span>
         </p>
       </td>
 

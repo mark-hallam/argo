@@ -167,6 +167,29 @@ describe("formatHashForDisplay", () => {
   });
 });
 
+describe("ActivityRow — channel badge (F13)", () => {
+  it("renders a compact discord badge inline with the verb when channel is provided", () => {
+    render(<ActivityRow activity={makeActivity()} channel="discord" />);
+    const badge = screen.getByTestId("activity-row-channel-act_test_001");
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveAttribute("data-kind", "discord");
+    expect(badge).toHaveAttribute("aria-label", "Discord");
+  });
+
+  it("renders a compact slack badge for channel=slack", () => {
+    render(<ActivityRow activity={makeActivity()} channel="slack" />);
+    const badge = screen.getByTestId("activity-row-channel-act_test_001");
+    expect(badge).toHaveAttribute("data-kind", "slack");
+  });
+
+  it("omits the channel badge entirely when channel is undefined", () => {
+    render(<ActivityRow activity={makeActivity()} />);
+    expect(
+      screen.queryByTestId("activity-row-channel-act_test_001"),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("sample-audit seed hashes (deterministic)", () => {
   it("populates a mock-only 64-char hex sampleHash on every seed row", () => {
     expect(SAMPLE_AUDIT_ROWS.length).toBeGreaterThan(0);

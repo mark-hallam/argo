@@ -11,6 +11,7 @@ import { DollarAtRisk } from "@/components/skycot/approvals/DollarAtRisk";
 import { SeverityPill, type Severity } from "@/components/skycot/approvals/SeverityPill";
 import { SLABar } from "@/components/skycot/approvals/SLABar";
 import { POLICY_SHOW_ALL, type RedactionPolicy } from "@/lib/redaction/redact";
+import type { ChannelKind } from "@/lib/types/channels";
 import { cn } from "@/lib/utils";
 
 /**
@@ -51,7 +52,7 @@ export interface ApprovalCardProps {
    */
   draftContent?: string;
   /** Channel the request arrived on; surfaced as small chrome. */
-  channel?: "slack" | "imessage" | "sms" | "push" | "web" | "voice" | "whatsapp";
+  channel?: ChannelKind;
   /** ISO timestamp of when the request landed. Surfaced as relative time. */
   receivedAt?: string;
   /** Called with the user's decision. Host is responsible for idempotency + audit. */
@@ -92,6 +93,8 @@ export interface ApprovalCardProps {
 
 const CHANNEL_LABEL: Record<NonNullable<ApprovalCardProps["channel"]>, string> = {
   slack: "Slack",
+  discord: "Discord",
+  email: "Email",
   imessage: "iMessage",
   sms: "SMS",
   push: "Push",

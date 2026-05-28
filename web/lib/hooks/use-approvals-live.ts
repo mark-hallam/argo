@@ -37,6 +37,8 @@ const APPROVALS_KEY = ["approvals"] as const;
 const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const KNOWN_CHANNELS: ReadonlySet<string> = new Set<ChannelKind>([
   "slack",
+  "discord",
+  "email",
   "imessage",
   "sms",
   "push",

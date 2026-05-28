@@ -160,7 +160,7 @@ describe("ApprovalsOpsDashboard", () => {
     );
   });
 
-  it("renders the seeded SAMPLE_APPROVALS as 5 pending + 3 resolved (ring ≈ 67%)", () => {
+  it("renders the seeded SAMPLE_APPROVALS as 6 pending + 3 resolved (ring ≈ 67%)", () => {
     renderWithClient(<ApprovalsOpsDashboard items={SAMPLE_APPROVALS} />);
 
     // 2 of the 3 resolved rows are approved → 67% headline.
@@ -177,18 +177,18 @@ describe("ApprovalsOpsDashboard", () => {
       "33",
     );
 
-    // 3 of the 5 pending rows carry an approver (Mark x2, Aisha x1) →
+    // 4 of the 6 pending rows carry an approver (Mark x3, Aisha x1) →
     // 2 distinct active reviewers in the KPI strip.
     expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("2");
     expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent(
       "reviewing now",
     );
 
-    // The 5 remaining rows stay actionable in the inbox tiers.
+    // The 6 remaining rows stay actionable in the inbox tiers.
     const p0Rows = screen.getByTestId("severity-tier-p0").querySelectorAll("li");
     const p1Rows = screen.getByTestId("severity-tier-p1").querySelectorAll("li");
     const p2Rows = screen.getByTestId("severity-tier-p2").querySelectorAll("li");
-    expect(p0Rows.length + p1Rows.length + p2Rows.length).toBe(5);
+    expect(p0Rows.length + p1Rows.length + p2Rows.length).toBe(6);
   });
 
   it("navigates pending approval rows to audit action detail using item.actionId", async () => {
@@ -239,7 +239,7 @@ describe("ApprovalsOpsDashboard", () => {
     warnSpy.mockRestore();
   });
 
-  it("seeds all 8 SAMPLE_APPROVALS rows with an explicit actionId (no hardcoded map fallback)", () => {
+  it("seeds all 9 SAMPLE_APPROVALS rows with an explicit actionId (no hardcoded map fallback)", () => {
     for (const row of SAMPLE_APPROVALS) {
       expect(row.actionId, `seed row ${row.id} missing actionId`).toMatch(/^act_/);
     }

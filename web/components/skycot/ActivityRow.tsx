@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, Copy } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/lib/ui/use-toast";
@@ -12,6 +13,7 @@ import type {
   WorkerActivityHashKind,
   WorkerActivityStatus,
 } from "@/lib/api/worker-activity";
+import type { ChannelKind } from "@/lib/types/channels";
 
 /**
  * Shared row primitive for audit-style feeds. E4-c ships it first;
@@ -27,6 +29,10 @@ export interface ActivityRowProps {
   activity: WorkerActivityWithDelegation;
   /** Hide the worker avatar (E5-a may decide to dedupe by worker). */
   hideWorker?: boolean;
+  /** Channel the action arrived on; renders as a compact icon-only
+   *  badge next to the verb so Claim 6 (multi-channel) shows
+   *  at-a-glance on the feed. */
+  channel?: ChannelKind;
   className?: string;
 }
 
@@ -36,7 +42,7 @@ type WorkerActivityWithDelegation = WorkerActivity & {
   delegated_by?: { worker_id?: string; worker_name?: string };
 };
 
-export function ActivityRow({ activity, hideWorker, className }: ActivityRowProps) {
+export function ActivityRow({ activity, hideWorker, channel, className }: ActivityRowProps) {
   const href = `/audit/action/${encodeURIComponent(activity.id)}`;
   const relative = relativeTime(activity.timestamp);
   const tone = STATUS_TONE[activity.status];
@@ -75,8 +81,18 @@ export function ActivityRow({ activity, hideWorker, className }: ActivityRowProp
       )}
 
       <div className="min-w-0">
-        <p className="truncate text-[var(--foreground)]" data-testid={`activity-row-verb-${activity.id}`}>
-          {redactInlineSentinels(activity.verb)}
+        <p
+          className="flex items-center gap-1.5 truncate text-[var(--foreground)]"
+          data-testid={`activity-row-verb-${activity.id}`}
+        >
+          {channel ? (
+            <ChannelBadge
+              kind={channel}
+              compact
+              data-testid={`activity-row-channel-${activity.id}`}
+            />
+          ) : null}
+          <span className="truncate">{redactInlineSentinels(activity.verb)}</span>
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
           <ActionIdCopy actionId={activity.id} />

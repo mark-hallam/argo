@@ -5,7 +5,7 @@
 import type { ApprovalItem, ChannelKind } from "@/lib/sample-approvals";
 
 export const CHANNEL_KINDS: readonly ChannelKind[] = [
-  "slack", "imessage", "sms", "push", "web", "voice", "whatsapp",
+  "slack", "discord", "imessage", "sms", "push", "web", "voice", "whatsapp",
 ] as const;
 
 export type StatusKind = "pending" | "approved" | "refused";
