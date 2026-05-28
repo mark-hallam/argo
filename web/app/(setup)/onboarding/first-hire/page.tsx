@@ -24,6 +24,7 @@ export default function OnboardingFirstHirePage() {
   const firstHire = useFirstHire();
   const [prompt, setPrompt] = useState(initialPrompt);
   const [error, setError] = useState("");
+  const [showHelpLink, setShowHelpLink] = useState(false);
 
   useEffect(() => {
     setStep(5);
@@ -32,6 +33,7 @@ export default function OnboardingFirstHirePage() {
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    setShowHelpLink(false);
     const description = prompt.trim();
     if (description.length === 0) {
       setError("Tell us a bit about who you'd like to hire.");
@@ -63,6 +65,7 @@ export default function OnboardingFirstHirePage() {
       // ships via web-gateway-endpoints-onboarding-batch.
       if (e instanceof Error && e.message === FIRST_HIRE_VERIFY_FAILED_MESSAGE) {
         setError(e.message);
+        setShowHelpLink(true);
       } else {
         // Scrub internal protocol detail before it reaches the form.
         const scrubbed = scrubOnboardingErrorMessage(e);
@@ -117,7 +120,9 @@ export default function OnboardingFirstHirePage() {
             Example: <em>{EXAMPLE_PROMPT}</em>
           </p>
         </label>
-        {error ? <FirstHireErrorBanner message={error} /> : null}
+        {error ? (
+          <FirstHireErrorBanner message={error} showHelpLink={showHelpLink} />
+        ) : null}
         <div className="ob-cta-row is-split">
           <button
             type="button"

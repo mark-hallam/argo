@@ -9,7 +9,7 @@ const VERIFY_ATTEMPTS = 3;
 const VERIFY_BACKOFF_MS = 500;
 
 export const FIRST_HIRE_VERIFY_FAILED_MESSAGE =
-  "Hiring succeeded but your teammate isn't visible yet. Try refreshing or contact support.";
+  "Hiring succeeded — your teammate is provisioning. Refresh in a few seconds; if they don't appear, the Help link in the top right has next steps.";
 
 export interface FirstHireRequest {
   description: string;

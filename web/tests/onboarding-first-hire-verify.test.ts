@@ -119,8 +119,16 @@ describe("first-hire read-back verification", () => {
       { timeout: 4_000 },
     );
     expect(banner).toHaveTextContent(
-      "Hiring succeeded but your teammate isn't visible yet. Try refreshing or contact support.",
+      "Hiring succeeded — your teammate is provisioning. Refresh in a few seconds; if they don't appear, the Help link in the top right has next steps.",
     );
+    // The banner must surface a real click target to /help, not just
+    // refer to it in copy — see
+    // fix-onboarding-hire-success-copy-help-route-not-support.
+    expect(banner).not.toHaveTextContent("contact support");
+    const helpLink = screen.getByTestId(
+      "onboarding-first-hire-error-help-link",
+    );
+    expect(helpLink).toHaveAttribute("href", "/help");
     expect(pushMock).not.toHaveBeenCalledWith("/workers/wkr_orphan");
     expect(useOnboardingDraft.getState().step).toBe(5);
 
