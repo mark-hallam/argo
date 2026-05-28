@@ -1,26 +1,20 @@
 /**
- * Acceptance test for the canonical-roster picker on step 5
- * (replaces the prior plain-English textarea per
- * `fix-onboarding-first-hire-canonical-picker-not-textarea`).
+ * Acceptance test for
+ * `fix-onboarding-wizard-step-back-loses-firsthire-prompt-and-api-key`.
  *
- * The old textarea-and-typed-name UX was demo theater: in demo mode
- * the SPA `firstHire()` mutation ignores the description entirely and
- * routes to a canonical sample worker keyed by `verticalId`. The
- * picker now shows the matched canonical worker up-front so what the
- * camera reads on the card matches what the post-hire profile shows.
+ * Pins step-back / refresh survival of the first-hire prompt:
  *
- * Pins:
- *  1. The page renders the canonical persona matched to `verticalId`
- *     in the onboarding draft store.
- *  2. The hero, sub-copy, and submit button surface the matched
- *     persona's name (no generic "Hire them" fallback when a match
- *     exists).
- *  3. Unknown verticals fall back to Mariah (the runbook's canonical
- *     "first hire" placeholder).
+ *  1. Typing into the textarea flows into the draft store on every
+ *     keystroke (no debounce — `localStorage` is the durable
+ *     persistence layer).
+ *  2. The textarea hydrates from `useOnboardingDraft.firstHirePrompt`
+ *     on mount, so a user who navigates pick-vertical → first-hire →
+ *     pick-vertical → first-hire sees what they typed.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
@@ -72,52 +66,32 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("First-hire canonical-roster picker", () => {
-  it("renders the matched canonical persona for the picked vertical (customer-support → Jamal)", () => {
-    useOnboardingDraft.getState().setVertical("customer-support");
-    render(wrap(<FirstHirePage />));
-
-    // Hero names the matched persona.
-    expect(screen.getByText(/Meet/i)).toBeInTheDocument();
-    expect(screen.getByText(/Jamal\./)).toBeInTheDocument();
-
-    // Card surfaces persona content (traits + greatAt + escalateWhen).
-    expect(screen.getByText("Calm under pressure")).toBeInTheDocument();
-    expect(screen.getByText(/Customer mentions churn/i)).toBeInTheDocument();
-
-    // Submit button uses the persona's name.
-    expect(
-      screen.getByTestId("onboarding-first-hire-submit"),
-    ).toHaveTextContent(/Hire Jamal/);
-  });
-
-  it("matches marketing-intern → Nori", () => {
+describe("First-hire prompt persistence", () => {
+  it("writes every keystroke into the draft store (no debounce)", async () => {
+    const user = userEvent.setup();
     useOnboardingDraft.getState().setVertical("marketing-intern");
     render(wrap(<FirstHirePage />));
 
-    expect(screen.getByText(/Nori\./)).toBeInTheDocument();
-    expect(
-      screen.getByTestId("onboarding-first-hire-submit"),
-    ).toHaveTextContent(/Hire Nori/);
+    const textarea = screen.getByTestId("first-hire-prompt");
+    await user.type(textarea, "Maya the intern");
+
+    await waitFor(() => {
+      expect(useOnboardingDraft.getState().firstHirePrompt).toBe(
+        "Maya the intern",
+      );
+    });
   });
 
-  it("falls back to Mariah when verticalId has no canonical match", () => {
-    // No setVertical call → verticalId stays empty in the draft store.
+  it("hydrates the textarea from the draft store on mount", () => {
+    useOnboardingDraft.getState().setVertical("marketing-intern");
+    useOnboardingDraft
+      .getState()
+      .setFirstHirePrompt("Half-typed prompt from a prior visit");
+
     render(wrap(<FirstHirePage />));
 
-    expect(screen.getByText(/Mariah\./)).toBeInTheDocument();
-    expect(
-      screen.getByTestId("onboarding-first-hire-submit"),
-    ).toHaveTextContent(/Hire Mariah/);
-  });
-
-  it("uses the new STEP 05 · YOUR FIRST TEAMMATE eyebrow (no 'worker' vocab)", () => {
-    useOnboardingDraft.getState().setVertical("customer-support");
-    render(wrap(<FirstHirePage />));
-
-    expect(screen.getByText(/STEP 05 · YOUR FIRST TEAMMATE/i)).toBeInTheDocument();
-    // The old "Describe your first worker" hero must not appear.
-    expect(screen.queryByText(/Describe your first worker/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/first worker/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("first-hire-prompt")).toHaveValue(
+      "Half-typed prompt from a prior visit",
+    );
   });
 });
