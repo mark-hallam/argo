@@ -69,6 +69,45 @@ describe("browser error reporting", () => {
     expect(calls[1]?.url).toBe("https://otel.example/v1/logs");
     expect(String(calls[1]?.init?.body ?? "")).toContain("<redacted:jwt>");
   });
+
+  it("swallows transport CORS failures so the listener does not recurse (F16)", async () => {
+    stubBeacon(false);
+    const calls: Array<{ url: string }> = [];
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      calls.push({ url: String(url) });
+      if (calls.length === 1) {
+        return jsonResponse({
+          enabled: true,
+          mode: "otlp",
+          otlp_endpoint: "https://otel.example",
+        });
+      }
+      // Simulate gateway returning no CORS headers — fetch rejects.
+      throw new TypeError("Failed to fetch");
+    });
+    await initBrowserErrorReporting("test", fetchMock as typeof fetch);
+    // Fire a torrent of window.error events. Without the cooldown +
+    // in-flight guard, each transport failure would refire window.error
+    // and the loop would consume the queue at <100ms intervals.
+    for (let i = 0; i < 20; i += 1) {
+      window.dispatchEvent(new ErrorEvent("error", { message: `boom-${i}` }));
+    }
+    await tick();
+    await tick();
+    // 1 config fetch + at most 1 reporter attempt (cooldown holds the rest).
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("re-entry into initBrowserErrorReporting is a no-op (listener attaches once)", async () => {
+    stubBeacon(false);
+    const fetchMock = vi.fn(async () => jsonResponse({ enabled: false, mode: "disabled" }));
+    await initBrowserErrorReporting("test", fetchMock as typeof fetch);
+    await initBrowserErrorReporting("test", fetchMock as typeof fetch);
+    await initBrowserErrorReporting("test", fetchMock as typeof fetch);
+    // Config endpoint hit exactly once across the three mounts — emulates
+    // the navigation pattern that previously caused per-mount refetch.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 function jsonResponse(body: unknown): Response {

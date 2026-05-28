@@ -10,15 +10,30 @@ type ErrorReportingConfig =
 type Fetcher = typeof fetch;
 
 let activeConfig: ErrorReportingConfig | null = null;
+let configLoaded = false;
 let listenersInstalled = false;
 let errorHandler: ((event: ErrorEvent) => void) | null = null;
 let rejectionHandler: ((event: PromiseRejectionEvent) => void) | null = null;
 let transportFetch: Fetcher = fetch;
 
+// Cooldown + recursion guards. F16 (UX audit 2026-05-27-0415) traced a runaway
+// fetch loop to the reporter's own `send()` failing on CORS, the throw
+// firing `unhandledrejection`, the handler refiring `reportBrowserError`,
+// and so on at <100ms intervals. The cooldown caps reports to one per
+// 30s after the first failure; `reportingInFlight` blocks the recursive
+// case where the report's own fetch throws before the cooldown is set.
+let lastFailureAt = 0;
+let reportingInFlight = false;
+const FAILURE_COOLDOWN_MS = 30_000;
+
 export function ErrorReportingInit({ source = "skycot-web" }: { source?: string }) {
+  // Empty deps — the listener attaches once per session, not once per
+  // navigation. `source` is a stable string in practice, but pinning to
+  // `[]` removes any chance of re-entry on layout transitions.
   useEffect(() => {
     void initBrowserErrorReporting(source);
-  }, [source]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return null;
 }
 
@@ -27,6 +42,8 @@ export async function initBrowserErrorReporting(
   fetcher: Fetcher = fetch,
 ): Promise<ErrorReportingConfig | null> {
   if (typeof window === "undefined") return null;
+  if (configLoaded) return activeConfig;
+  configLoaded = true;
   transportFetch = fetcher;
   const cfg = await loadConfig(fetcher);
   activeConfig = cfg;
@@ -64,11 +81,22 @@ async function loadConfig(fetcher: Fetcher): Promise<ErrorReportingConfig | null
 async function reportBrowserError(source: string, reason: unknown): Promise<void> {
   const cfg = activeConfig;
   if (!cfg?.enabled) return;
-  const message = scrub(messageFrom(reason));
-  if (cfg.mode === "sentry") {
-    await postSentry(cfg.dsn, source, message, reason);
-  } else if (cfg.mode === "otlp") {
-    await postOtlp(cfg.otlp_endpoint, source, message);
+  if (reportingInFlight) return;
+  if (Date.now() - lastFailureAt < FAILURE_COOLDOWN_MS) return;
+  reportingInFlight = true;
+  try {
+    const message = scrub(messageFrom(reason));
+    if (cfg.mode === "sentry") {
+      await postSentry(cfg.dsn, source, message, reason);
+    } else if (cfg.mode === "otlp") {
+      await postOtlp(cfg.otlp_endpoint, source, message);
+    }
+  } catch {
+    // Swallow. Re-throwing would refire `window.error` /
+    // `unhandledrejection` and recurse — the F16 positive-feedback loop.
+    lastFailureAt = Date.now();
+  } finally {
+    reportingInFlight = false;
   }
 }
 
@@ -168,8 +196,11 @@ export function __resetErrorReportingForTests() {
   if (errorHandler) window.removeEventListener("error", errorHandler);
   if (rejectionHandler) window.removeEventListener("unhandledrejection", rejectionHandler);
   activeConfig = null;
+  configLoaded = false;
   listenersInstalled = false;
   errorHandler = null;
   rejectionHandler = null;
   transportFetch = fetch;
+  lastFailureAt = 0;
+  reportingInFlight = false;
 }
