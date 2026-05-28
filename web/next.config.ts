@@ -54,6 +54,30 @@ const config: NextConfig = {
       // marketplace landing may change shape; we don't want browsers
       // caching the redirect permanently.
       { source: "/skills-canvas", destination: "/skills", permanent: false },
+      // Settings stub-route redirects (P1 fix, UX-AUDIT-T0119MEL F12).
+      // The operator's mental model expects `branding`, `integrations`,
+      // and `danger` as settings URLs, but the locked D design lives
+      // them under existing tabs: appearance under `/settings/workspace`,
+      // connectors as the integration surface, and Danger zone as the
+      // `#danger-zone` anchor that the settings layout renders on every
+      // sub-page. 307 (not 308) because the destination layout may
+      // evolve before v1.0; we don't want browsers caching the redirect
+      // permanently.
+      {
+        source: "/settings/branding",
+        destination: "/settings/workspace#appearance",
+        permanent: false,
+      },
+      {
+        source: "/settings/integrations",
+        destination: "/settings/connectors",
+        permanent: false,
+      },
+      {
+        source: "/settings/danger",
+        destination: "/settings/workspace#danger-zone",
+        permanent: false,
+      },
     ];
   },
   // SECURITY (P1 fix, 2026-05-20): baseline browser security headers.
