@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchWorker, hireWorker, WorkerNotFoundError } from "./workers";
 import { fetchTeam } from "./team";
-import { fetchWorkerOverview } from "./worker-overview";
+import {
+  fetchWorkerOverview,
+  WorkerOverviewNotFoundError,
+} from "./worker-overview";
 import { _clearDemoRosterForTests } from "./demo-roster-store";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
 import { SAMPLE_WORKERS_DETAIL } from "@/lib/sample-workers-detail";
@@ -224,6 +227,28 @@ describe("lib/api/workers — demo-mode roster", () => {
     expect(result.source).toBe("mock-bypass");
     expect(result.overview.charter).toContain("Procurement");
     expect(result.overview.duties[0]?.label).toBe("Reply to buyer questions");
+  });
+
+  // Brief: fix-workers-unknown-id-renders-mock-instead-of-404 (F12).
+  // In auth-bypass mode the gateway is mocked, so an unseeded UUID
+  // must throw WorkerNotFoundError instead of fabricating a worker —
+  // no theater for a curious investor pasting a URL.
+  it("fetchWorker throws WorkerNotFoundError for unknown ids in auth-bypass", async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await expect(
+      fetchWorker("00000000-0000-0000-0000-000000000000"),
+    ).rejects.toBeInstanceOf(WorkerNotFoundError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fetchWorkerOverview throws WorkerOverviewNotFoundError for unknown ids in auth-bypass", async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await expect(
+      fetchWorkerOverview("00000000-0000-0000-0000-000000000000"),
+    ).rejects.toBeInstanceOf(WorkerOverviewNotFoundError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("session-local roster wipes on clear (proxy for tab-close scoping)", async () => {

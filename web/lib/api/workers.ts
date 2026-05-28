@@ -48,6 +48,7 @@ import {
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
 import { getOrCreateIdempotencyKey, uuidV7 } from "@/lib/hire/idempotency-key";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import type { Worker, WorkerStatus } from "@/lib/types/worker";
 
 /** Thrown when the worker id doesn't resolve. */
@@ -127,6 +128,18 @@ function shouldFallBackToMock(err: unknown): boolean {
 }
 
 export async function fetchWorker(workerId: string): Promise<Worker> {
+  // Auth-bypass mocks the gateway; DEMO_LIVE=1 opts back into real
+  // gateway calls so the recording-day SPA can prove a real round-
+  // trip. Outside DEMO_LIVE we resolve from the bundled / session-
+  // local rosters directly and throw `WorkerNotFoundError` for any
+  // id we don't seed — never fabricate a worker for an unknown URL.
+  if (isAuthBypassed() && !isDemoLive()) {
+    const demo = findDemoWorker(workerId);
+    if (demo) return demo;
+    const sample = findSampleWorker(workerId);
+    if (sample) return sample;
+    throw new WorkerNotFoundError(workerId);
+  }
   try {
     const response = await apiGet<Worker | WorkerEnvelope>(
       `/api/v1/workers/${encodeURIComponent(workerId)}`,

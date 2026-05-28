@@ -17,7 +17,9 @@
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { findDemoWorkerOverview } from "@/lib/api/demo-roster-store";
+import { SAMPLE_PERSONA_IDS } from "@/lib/sample-personas";
 import { findSampleWorkerOverview } from "@/lib/sample-worker-overview";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 export type WorkerOverviewSource = "gateway" | "mock-offline" | "mock-bypass";
 
@@ -110,12 +112,21 @@ function mockResult(workerId: string): FetchWorkerOverviewResult {
 export async function fetchWorkerOverview(
   workerId: string,
 ): Promise<FetchWorkerOverviewResult> {
-  if (isAuthBypassed()) {
+  // Auth-bypass mocks the gateway, but DEMO_LIVE=1 opts back into real
+  // gateway calls so the recording-day SPA can prove a real round-trip.
+  if (isAuthBypassed() && !isDemoLive()) {
     // Session-local demo hires take precedence — they're newer than
     // anything bundled. Fall through to SAMPLE_WORKER_OVERVIEWS so
     // the five seeded personas keep working.
     const demoOverview = findDemoWorkerOverview(workerId);
     if (demoOverview) return { overview: demoOverview, source: "mock-bypass" };
+    // Explicit not-found for any id outside the canonical persona set.
+    // Throwing here (rather than relying on findSampleWorkerOverview
+    // returning undefined) keeps the contract obvious: an unseeded
+    // UUID in demo mode 404s, it does not fabricate a worker.
+    if (!SAMPLE_PERSONA_IDS.includes(workerId)) {
+      throw new WorkerOverviewNotFoundError(workerId);
+    }
     const overview = findSampleWorkerOverview(workerId);
     if (!overview) throw new WorkerOverviewNotFoundError(workerId);
     return { overview, source: "mock-bypass" };
