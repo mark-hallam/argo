@@ -8,6 +8,7 @@ import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
 import { SubstrateChip } from "@/components/skycot/workflow/SubstrateChip";
 import { HoverHint } from "@/components/ui/Tooltip";
 import { resolveWorkflowSubstrate } from "@/lib/api/workflows";
+import { formatVersion } from "@/lib/format/version";
 import { useWorkflows } from "@/lib/hooks/use-workflows";
 import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
 
@@ -258,7 +259,7 @@ export default function WorkflowsPage() {
 
               <div className="workflow-card-meta" style={{ flexWrap: "wrap", rowGap: 8 }}>
                 <span className="workflow-card-meta-item">
-                  <GitBranch size={11} /> v{wf.versions}
+                  <GitBranch size={11} /> {formatVersion(wf.versions)}
                 </span>
                 <span className="workflow-card-meta-item">
                   <Clock size={11} /> {wf.lastEdited}

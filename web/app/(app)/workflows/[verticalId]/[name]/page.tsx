@@ -34,6 +34,7 @@ import {
   type FetchWorkflowRunsResult,
 } from "@/lib/api/workflow-runs";
 import { resolveWorkflowSubstrate, stepUsesSubstrate } from "@/lib/api/workflows";
+import { formatVersion } from "@/lib/format/version";
 import type { WorkflowStepKind } from "@/lib/sample-workflows";
 import { SubstrateChip } from "@/components/skycot/workflow/SubstrateChip";
 import { WorkflowRunStats, WorkflowRunsTable } from "./run-history";
@@ -234,7 +235,7 @@ function ViewerInner({
             >
               {workflow.risk === "approval-required" ? "Approval required" : "Autonomous"}
             </span>
-            <span className="wfd-version">version {workflow.version}</span>
+            <span className="wfd-version">{formatVersion(workflow.version)}</span>
             <SubstrateChip
               substrate={substrate}
               status={substrateStatus}
