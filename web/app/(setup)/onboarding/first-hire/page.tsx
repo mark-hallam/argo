@@ -8,18 +8,10 @@ import {
   FIRST_HIRE_VERIFY_FAILED_MESSAGE,
   useFirstHire,
 } from "@/lib/onboarding/use-first-hire";
+import { exampleForVertical } from "@/lib/onboarding/example-prompts";
 import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
-
-// Placeholder intentionally avoids cadence words ("weekly", "daily") —
-// the wizard only POSTs {description, vertical_id} today; cadence is set
-// later on the worker detail page's Schedules card. Phase 2 (Genesis
-// parsing) will earn back the right to promise schedule extraction here;
-// until then the copy must not write a cheque the wiring can't cash.
-// See brief fix-first-hire-cta-copy-promises-weekly-schedule-not-parsed.
-const EXAMPLE_PROMPT =
-  "A marketing intern named Maya who drafts blog posts and asks before publishing.";
 
 export default function OnboardingFirstHirePage() {
   const router = useRouter();
@@ -30,6 +22,14 @@ export default function OnboardingFirstHirePage() {
   // and refresh both restore what the user has typed. The store is the
   // single source of truth — no local mirror to drift out of sync.
   const prompt = useOnboardingDraft((s) => s.firstHirePrompt);
+  // Step 4 stores the picked verticalId in the draft store; we resolve
+  // it to a placeholder so the example matches what the operator just
+  // chose. Falls back to the marketing-intern copy when the operator
+  // landed here directly (deep link / wizard skip) without picking a
+  // template. Keeps Genesis's archetype dispatch aligned with the
+  // template the operator selected rather than the placeholder text.
+  const pickedVerticalId = useOnboardingDraft((s) => s.verticalId);
+  const examplePrompt = exampleForVertical(pickedVerticalId);
   const firstHire = useFirstHire();
   const [error, setError] = useState("");
   const [showHelpLink, setShowHelpLink] = useState(false);
@@ -130,13 +130,13 @@ export default function OnboardingFirstHirePage() {
             data-testid="first-hire-prompt"
             value={prompt}
             onChange={(e) => setFirstHirePromptInStore(e.target.value)}
-            placeholder={EXAMPLE_PROMPT}
+            placeholder={examplePrompt}
             aria-label="First hire description"
             rows={5}
             autoFocus
           />
           <p className="ob-field-hint">
-            Example: <em>{EXAMPLE_PROMPT}</em>
+            Example: <em>{examplePrompt}</em>
           </p>
         </label>
         {error ? (
