@@ -58,12 +58,12 @@ describe("Onboarding adoption of WizardEditorialShell", () => {
     expect(trust.textContent ?? "").toMatch(/Founding 100/);
     expect(screen.getByTestId("wiz-shell-brand")).toBeInTheDocument();
     expect(screen.getByTestId("wiz-shell-exit")).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-pillar-audit-first").textContent)
+    expect(screen.getByTestId("onboarding-step-preview-setup").textContent)
       .toMatchInlineSnapshot(
-        `"Audit-firstEvery action signed and replayable — SOC 2-ready audit trail."`,
+        `"Steps 2–3 · 90 secName your workspace, then connect your AI provider."`,
       );
     expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-pillar-enterprise-grade")).toBeInTheDocument();
+    expect(screen.getByTestId("onboarding-step-preview-hire")).toBeInTheDocument();
     const progress = screen.getByRole("progressbar");
     expect(progress).toHaveAttribute("aria-valuenow", "1");
     expect(progress).toHaveAttribute("aria-valuemax", "5");

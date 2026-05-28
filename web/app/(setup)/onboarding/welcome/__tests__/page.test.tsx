@@ -29,6 +29,7 @@ const draftMock = vi.hoisted(() => {
 
 vi.mock("next/navigation", () => ({
   useRouter: () => routerMock,
+  usePathname: () => "/onboarding/welcome",
 }));
 
 vi.mock("@/lib/onboarding/use-onboarding-draft", () => ({
