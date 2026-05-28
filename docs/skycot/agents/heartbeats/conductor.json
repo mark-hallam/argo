@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-28T13:10:00Z",
+  "last_run_utc": "2026-05-29T00:30:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T23-10-aest-INTERACTIVE-MVP-DEMO-P0-ALL-MERGED",
-  "run_notes": "INTERACTIVE conductor session 2026-05-28T03:00-13:10Z (Melbourne 13:00-23:10 AEST). Operator-driven MVP-DEMO P0 merge cycle COMPLETE. ALL 5 MVP-DEMO P0 BRIEFS NOW LIVE ON MAIN: (1) fix-spa-genesis-fetch-fails-while-curl-succeeds — shipped earlier via a8e0f5b22 + worker regression #2622; (2) fix-worker-activity-tab-query-live-audit-not-fixture-act-uuid-ids — Path A shipped via 7e0ea312d; (3) fix-spa-genesis-catch-overwrites-sse-error-event-message — inline in a8e0f5b22; (4) fix-audit-detail-tenant-scope-list-detail-sql-mismatch — MERGED via #2635 (list+detail un-headered tenant fallback aligned); (5) fix-approvals-list-tenant-scope-empty-despite-seeded-rows — MERGED via #2631 (gateway bridges approval_request + worker_action stores); (6) fix-genesis-idempotency-output-dir-not-empty — MERGED via #2630 (overwrite=true on Try-again). Operator-authorized option A under 'P0 MVP-must-have + worker-side full verification' (each PR had per-crate clippy + workspace-clippy + crate tests + boundary notes). Bonus #2634 (ops scripts guard against stash-pop eating ledger rows) MERGED — fixes broken pre-commit hook. CONDUCTOR-CYCLE MERGE COUNT this interactive session: 11 PRs (#2625, #2626, #2627, #2628, #2629, #2632, #2633, #2637, #2638, #2630, #2631, #2635, #2634 — actually 13). Plus T20-25 inherited cycle of 11 PRs and Genesis-MVP P0 worker PRs. QUEUE STATE: 0 TODO + 0 CLAIMED + 70-ish IN_REVIEW (mostly DIRTY, awaiting triage). REMAINING for v1.0 demo MP4: (a) re-walk 6 scenes under Genesis-MVP scope to verify P0 fixes hold end-to-end in live SPA; (b) operator-only demo MP4 recording. Monitor armed (bjzqk2397).",
-  "open_prs": 65,
+  "session_label": "tick-T10-30-aest-INTERACTIVE-DEMO-RECORDING-PREP",
+  "run_notes": "INTERACTIVE conductor session 2026-05-28T03:00 - 2026-05-29T00:30Z (Melbourne 13:00 - 10:30 AEST). MILESTONES THIS SESSION: (1) All 5 MVP-DEMO P0 briefs MERGED — Genesis fetch CORS (#2622 + a8e0f5b22), worker-activity Path A (7e0ea312d), audit-detail tenant-scope (#2635), approvals tenant-scope (#2631), genesis-idempotency (#2630), plus #2634 ops-stash-pop-guard. 13 PRs merged this interactive session. (2) Re-walked all 6 demo scenes against new gateway build (build_commit 4e4e773): Scenes 1, 2, 4, 6 ✅ PASS; Scene 3 surfaced NEW P0 BLOCKER (SPA Genesis Try-again returns 503, curl-direct returns 200 with same headers — bug in second-POST-in-same-browser-session gateway dispatch); Scene 5 needs operator macOS computer-use verification. Authored brief streams/fix-spa-genesis-try-again-503-vs-curl-200.md, claimed within 5min by supervised slot-2 worker (currently reading routes_genesis_stream.rs + boot_router.rs + cors.rs — exactly the brief's hypothesis surfaces). (3) Triage swept 64 open PRs via 5 parallel agents: 10 STALE-FIXED + 2 BRIEF-DRIFT closed (12 total) with citation-grade rationale per close; 44 NEEDS-REBASE + 8 AMBIGUOUS left open for human decision. (4) Rebase swept 51 DIRTY PRs via 5 parallel agents: 0/51 auto-rebased — every conflict hits real business-logic surfaces (.tsx/.rs/.ts files in onboarding first-hire, settings, audit/approvals dashboards, worker-detail, demo runbook, gateway routes), no mechanical drift wins. Conservative rule did its job; all 51 left DIRTY for per-PR human judgment. (5) Operator + conductor agreed: defer the 51 PR cleanup until after v1.0 demo MP4 records; tonight's energy goes to closing Scene 3 Genesis bug + Scene 5 macOS verification + recording. REMAINING for v1.0 demo MP4: (a) Genesis Try-again worker ships PR (in-flight, agent-doable, ~30min-2h), (b) operator records demo MP4, (c) operator hands off the 9 ambiguous PR decisions tomorrow. Workers idle except Genesis brief. Monitor armed (bjzqk2397).",
+  "open_prs": 52,
   "queue_state": {
     "claude_todo": 0,
     "codex_todo": 0,
     "claude_or_codex_todo": 0,
-    "claude_claimed": 0,
+    "claude_claimed": 1,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 65,
+    "claude_in_review": 52,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "ALL 3 remaining MVP-DEMO P0s MERGED 2026-05-28T13:10Z. Demo Scene 2 + Scene 6 (audit drill-in, approvals list) and Genesis retry path now LIVE on main. Plus #2634 fixed broken pre-commit hook. Queue drained: 0 TODO + 0 CLAIMED. Next: re-walk 6 scenes under Genesis-MVP scope in live SPA, then operator records demo MP4.",
+  "the_gate": "Demo-recording prep mode. 5 MVP-DEMO P0s MERGED + 4 of 6 scenes verified live. New Scene 3 blocker (Genesis Try-again 503) has worker in flight. 51 stale PRs deferred to post-demo cleanup. Next: Genesis worker PR + operator records demo MP4.",
   "quota_probe": "skip"
 }
