@@ -597,7 +597,7 @@ export function VerticalLandingShell({ vertical }: { vertical: VerticalConfig })
               Sign in
             </Link>
             <Link href="/auth/signup" className="vland-cta-pill">
-              Hire your first worker
+              Hire your first teammate
             </Link>
           </div>
         </header>
