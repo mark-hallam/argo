@@ -209,6 +209,7 @@ mod routes_worker_freeze;
 mod routes_worker_memory;
 mod routes_worker_overview;
 mod routes_worker_policies;
+mod routes_worker_run;
 mod routes_worker_settings;
 mod routes_worker_skills;
 mod routes_worker_skills_helpers;

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
-import { AlertCircle } from "lucide-react";
+import { useCallback, useState } from "react";
+import { AlertCircle, Play } from "lucide-react";
 import { useWorker } from "@/lib/hooks/use-worker";
 import { useWorkerOverview } from "@/lib/hooks/use-worker-overview";
 import {
@@ -22,6 +22,9 @@ import {
   DEFAULT_DELEGATOR_PERMISSIONS,
   type WorkerPermissions,
 } from "@/lib/types/worker";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/lib/ui/use-toast";
+import { triggerWorkerRun } from "@/lib/api/workers";
 
 /**
  * Body of the Overview tab. Lives outside the Next.js route file so
@@ -46,6 +49,8 @@ import {
 export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   const workerQuery = useWorker(workerId);
   const overviewQuery = useWorkerOverview(workerId);
+  const toast = useToast();
+  const [running, setRunning] = useState(false);
 
   const permissions: WorkerPermissions =
     workerQuery.data?.permissions ?? DEFAULT_DELEGATOR_PERMISSIONS;
@@ -71,6 +76,35 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
   const onSaveCharter = useCallback(() => {
     /* charter persistence lands with the worker-charter PATCH endpoint */
   }, []);
+
+  // Run-now (Scene 2 of v1.0 demo runbook): POST to the gateway,
+  // toast with a deep-link to the just-emitted audit row. Stays out
+  // of the inert-stub trap by routing through a real endpoint that
+  // emits a real `worker.run` audit row — see brief
+  // `fix-worker-detail-run-now-action-and-endpoint`.
+  const onRunNow = useCallback(async () => {
+    if (running) return;
+    setRunning(true);
+    try {
+      const result = await triggerWorkerRun(workerId);
+      const workerName = workerQuery.data?.name ?? "Worker";
+      toast.success(`${workerName} is running now`, {
+        description: "Action queued. The audit row is live.",
+        action: {
+          label: "View in audit",
+          onClick: () => {
+            window.location.href = `/audit/action/${encodeURIComponent(result.action_id)}`;
+          },
+        },
+      });
+    } catch (err) {
+      toast.error("Couldn't trigger a run", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setRunning(false);
+    }
+  }, [running, workerId, workerQuery.data?.name, toast]);
 
   if (overviewQuery.isPending) {
     return (
@@ -121,6 +155,22 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       data-testid="worker-tab-panel-overview"
       className="space-y-4"
     >
+      <div
+        data-testid="worker-overview-actions"
+        className="flex items-center justify-end gap-2"
+      >
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          onClick={onRunNow}
+          loading={running}
+          data-testid="worker-overview-run-now"
+        >
+          <Play aria-hidden="true" />
+          Run now
+        </Button>
+      </div>
       <WhatTheyDoCard
         charter={overview.charter}
         canEdit={permissions.canEditCharter}

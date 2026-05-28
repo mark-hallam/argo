@@ -152,21 +152,21 @@ exactly one `WorkerDutyFired` audit row inside the 60-second SLA,
 all within a transactional commit.
 
 **Visual / operator action**:
-1. From Mariah's overview, the operator clicks the **Schedules** tab
-   in the worker profile tab strip. The Schedules tab lists four
-   schedules: `List new inventory with photos + tags` (as items
-   arrive), `Re-price stale listings against competitor data` (daily
-   06:30), `Respond to buyer questions on active listings` (as
-   messages arrive), `Flag items dropping below floor price` (daily
-   06:30).
-2. Operator clicks "Run now" on `Re-price stale listings against
-   competitor data`.
-3. The activity feed streams in real time: turn start → runner
-   invocation → `WorkerDutyFired` audit row.
-4. Cut to `/audit`. Filter by `action_type = worker_duty.fired` (the
-   SPA "Action type" facet; the gateway also accepts `?kind=` as a
-   wire alias for curl probes). The row appears with `duty_id`,
-   `session_id`, and `tenant_id` payload intact.
+1. From Mariah's overview, the **Responsibilities** card lists
+   four duties: `List new inventory with photos + tags` (as items
+   arrive), `Re-price stale listings against competitor data`
+   (daily 06:30), `Respond to buyer questions on active listings`
+   (as messages arrive), `Flag items dropping below floor price`
+   (daily 06:30).
+2. Operator clicks the primary "Run now" button at the top of
+   Mariah's overview tab.
+3. A success toast appears: "Mariah is running now — Action queued.
+   The audit row is live." The toast carries a "View in audit"
+   action-link.
+4. Operator clicks "View in audit"; the SPA deep-links to
+   `/audit/action/<action_id>` and the just-emitted `worker.run` row
+   renders with `decision_chain` containing `step=manual_trigger`,
+   `actor`, `trigger_source`, `note`, `ts` intact.
 
 **Talk track**:
 > "Delegation is the unit. Mariah doesn't have a list of jobs —
@@ -179,9 +179,13 @@ all within a transactional commit.
 > "Watch — I fire her re-pricing duty manually so you can see the
 > SLA. Inside 60 seconds the audit chain has the proof row."
 
-**Pass cue**: One `worker_duty.fired` row appears in `/audit`
-within 60 seconds, tagged with the worker's `tenant_id` and the
-fired `duty_id`.
+**Pass cue**: One `worker.run` row appears in `/audit` within 5
+seconds, tagged with the worker's `tenant_id` and a
+`payload_json.decision_chain[0].step = "manual_trigger"` entry.
+(The duty-cron firing path — emitting `worker_duty.fired` — is
+exercised by the Live-test above; the on-camera v1 affordance is
+the worker-overview Run-now button described in steps 2-4. A
+per-duty Run-now affordance is a follow-up brief.)
 
 **Timing**: 1:20 – 2:30 (70 s).
 

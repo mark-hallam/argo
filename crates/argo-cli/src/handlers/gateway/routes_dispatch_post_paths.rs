@@ -49,6 +49,7 @@ pub(super) async fn dispatch_worker_lifecycle(
         "archive" => Some(super::routes_worker_settings::post_archive(worker_id, req, store).await),
         "freeze" => Some(super::routes_worker_freeze::post_freeze(worker_id, req, store).await),
         "unfreeze" => Some(super::routes_worker_freeze::post_unfreeze(worker_id, req, store).await),
+        "run" => Some(super::routes_worker_run::post_run(worker_id, req, store).await),
         _ => None,
     }
 }

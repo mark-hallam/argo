@@ -342,6 +342,32 @@ export interface UnfreezeResult {
 }
 
 /**
+ * `POST /api/v1/workers/<id>/run` — manual run-now trigger.
+ *
+ * `action_id` and `audit_id` both carry the lower-hex audit row id so
+ * the SPA can deep-link to `/audit/action/<action_id>`. v1 emits the
+ * audit row only; runner enqueue lands in a follow-up brief.
+ */
+export interface WorkerRunResult {
+  action_id: string;
+  audit_id: string;
+  trigger_id: string;
+  queued_at: string;
+}
+
+export async function triggerWorkerRun(
+  workerId: string,
+  note?: string,
+): Promise<WorkerRunResult> {
+  const body: Record<string, unknown> = { trigger_source: "manual_run_now" };
+  if (note && note.trim()) body.note = note.trim();
+  return postProxy<WorkerRunResult>(
+    `/api/workers/${encodeURIComponent(workerId)}/run`,
+    body,
+  );
+}
+
+/**
  * Freeze a worker via the Next.js proxy route. The proxy forwards
  * the session bearer token to `POST /api/v1/workers/<id>/freeze` on
  * the gateway; gateway enforces `worker.freeze` capability.
