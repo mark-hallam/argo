@@ -23,6 +23,7 @@ export interface OnboardingDraftState {
    */
   verticalDisplayName: string | null;
   verticalSkillCount: number | null;
+  firstHireName: string;
   firstHirePrompt: string;
   tenantId: string | null;
   workspaceId: string | null;
@@ -42,6 +43,7 @@ export interface OnboardingDraftState {
     displayName?: string | null,
     skillCount?: number | null,
   ) => void;
+  setFirstHireName: (name: string) => void;
   setFirstHirePrompt: (prompt: string) => void;
   setSelectedPlan: (plan: SelectedPlan | null) => void;
   reset: () => void;
@@ -54,6 +56,7 @@ const INITIAL: Omit<
   | "setProvision"
   | "setProvider"
   | "setVertical"
+  | "setFirstHireName"
   | "setFirstHirePrompt"
   | "setSelectedPlan"
   | "reset"
@@ -66,6 +69,7 @@ const INITIAL: Omit<
   verticalId: null,
   verticalDisplayName: null,
   verticalSkillCount: null,
+  firstHireName: "",
   firstHirePrompt: "",
   tenantId: null,
   workspaceId: null,
@@ -89,6 +93,7 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
           verticalDisplayName: displayName,
           verticalSkillCount: skillCount,
         }),
+      setFirstHireName: (firstHireName) => set({ firstHireName }),
       setFirstHirePrompt: (firstHirePrompt) => set({ firstHirePrompt }),
       setSelectedPlan: (selectedPlan) => set({ selectedPlan }),
       reset: () => set({ ...INITIAL }),
@@ -114,6 +119,7 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
         verticalId: s.verticalId,
         verticalDisplayName: s.verticalDisplayName,
         verticalSkillCount: s.verticalSkillCount,
+        firstHireName: s.firstHireName,
         firstHirePrompt: s.firstHirePrompt,
         tenantId: s.tenantId,
         workspaceId: s.workspaceId,

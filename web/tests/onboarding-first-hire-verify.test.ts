@@ -107,9 +107,10 @@ describe("first-hire read-back verification", () => {
     const user = userEvent.setup();
     render(wrap(createElement(FirstHirePage)));
 
+    await user.type(screen.getByTestId("first-hire-name"), "Maya");
     await user.type(
       screen.getByTestId("first-hire-prompt"),
-      "Maya, marketing intern who drafts blog posts",
+      "marketing intern who drafts blog posts",
     );
     await user.click(screen.getByTestId("onboarding-first-hire-submit"));
 

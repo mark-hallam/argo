@@ -2,7 +2,7 @@
 
 import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import {
   FIRST_HIRE_VERIFY_FAILED_MESSAGE,
@@ -13,14 +13,25 @@ import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireEr
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
+const NAME_PLACEHOLDER_BY_VERTICAL: Record<string, string> = {
+  "marketing-intern": "Maya",
+  "gtm-engineer": "Marcus",
+  "sales-sdr": "Priya",
+  "customer-support": "Jamal",
+  "finance-ar": "Nori",
+};
+
 export default function OnboardingFirstHirePage() {
   const router = useRouter();
   const setStep = useOnboardingDraft((s) => s.setStep);
+  const setFirstHireNameInStore = useOnboardingDraft((s) => s.setFirstHireName);
   const setFirstHirePromptInStore = useOnboardingDraft((s) => s.setFirstHirePrompt);
   const reset = useOnboardingDraft((s) => s.reset);
-  // Read the prompt straight from the draft store so step-back navigation
-  // and refresh both restore what the user has typed. The store is the
-  // single source of truth — no local mirror to drift out of sync.
+  // Read both inputs straight from the draft store so step-back
+  // navigation and refresh both restore what the user has typed. The
+  // store is the single source of truth — no local mirror to drift out
+  // of sync.
+  const name = useOnboardingDraft((s) => s.firstHireName);
   const prompt = useOnboardingDraft((s) => s.firstHirePrompt);
   // Step 4 stores the picked verticalId in the draft store; we resolve
   // it to a placeholder so the example matches what the operator just
@@ -30,6 +41,12 @@ export default function OnboardingFirstHirePage() {
   // template the operator selected rather than the placeholder text.
   const pickedVerticalId = useOnboardingDraft((s) => s.verticalId);
   const examplePrompt = exampleForVertical(pickedVerticalId);
+  const namePlaceholder = useMemo(
+    () =>
+      (pickedVerticalId && NAME_PLACEHOLDER_BY_VERTICAL[pickedVerticalId]) ||
+      "Maya",
+    [pickedVerticalId],
+  );
   const firstHire = useFirstHire();
   const [error, setError] = useState("");
   const [showHelpLink, setShowHelpLink] = useState(false);
@@ -42,7 +59,12 @@ export default function OnboardingFirstHirePage() {
     e.preventDefault();
     setError("");
     setShowHelpLink(false);
+    const trimmedName = name.trim();
     const description = prompt.trim();
+    if (trimmedName.length === 0) {
+      setError("Give them a name.");
+      return;
+    }
     if (description.length === 0) {
       setError("Tell us a bit about who you'd like to hire.");
       return;
@@ -52,9 +74,11 @@ export default function OnboardingFirstHirePage() {
       setError("Pick a template first.");
       return;
     }
+    setFirstHireNameInStore(trimmedName);
     setFirstHirePromptInStore(description);
     try {
       const res = await firstHire.mutateAsync({
+        name: trimmedName,
         description,
         tenantId,
         verticalId,
@@ -97,7 +121,8 @@ export default function OnboardingFirstHirePage() {
   }
 
   const submitting = firstHire.isPending;
-  const canSubmit = prompt.trim().length > 0 && !submitting;
+  const canSubmit =
+    name.trim().length > 0 && prompt.trim().length > 0 && !submitting;
 
   return (
     <OnboardingShell
@@ -111,8 +136,9 @@ export default function OnboardingFirstHirePage() {
       ]}
       sub={
         <>
-          Plain English is fine. Give them a <strong>name and a role</strong>.
-          You can set their schedule after they're hired.
+          Their <strong>role</strong> and{" "}
+          <strong>what they&apos;ll do</strong> — plain English. You can set
+          their schedule after they&apos;re hired.
         </>
       }
     >
@@ -124,6 +150,21 @@ export default function OnboardingFirstHirePage() {
         style={{ maxWidth: 640 }}
       >
         <label className="ob-field">
+          <span className="ob-field-label">Their name</span>
+          <input
+            className="ob-field-input"
+            data-testid="first-hire-name"
+            type="text"
+            value={name}
+            onChange={(e) => setFirstHireNameInStore(e.target.value)}
+            placeholder={namePlaceholder}
+            aria-label="First hire name"
+            autoComplete="off"
+            autoFocus
+            required
+          />
+        </label>
+        <label className="ob-field">
           <span className="ob-field-label">Tell us about them</span>
           <textarea
             className="ob-field-textarea"
@@ -133,7 +174,6 @@ export default function OnboardingFirstHirePage() {
             placeholder={examplePrompt}
             aria-label="First hire description"
             rows={5}
-            autoFocus
           />
           <p className="ob-field-hint">
             Example: <em>{examplePrompt}</em>

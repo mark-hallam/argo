@@ -95,9 +95,10 @@ test.describe("new-user activation path", () => {
       return;
     }
 
-    // Step 9: fill description → submit → wait for worker creation.
+    // Step 9: fill name + description → submit → wait for worker creation.
+    await page.getByTestId("first-hire-name").fill("Maya");
     await page.getByTestId("first-hire-prompt").fill(
-      "A marketing intern named Maya who drafts blog posts each Friday.",
+      "A marketing intern who drafts blog posts each Friday.",
     );
     await page.getByTestId("onboarding-first-hire-submit").click();
 

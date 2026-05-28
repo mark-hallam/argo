@@ -279,6 +279,61 @@ async fn first_hire_happy_path_creates_worker_row() {
 }
 
 #[tokio::test]
+async fn first_hire_honours_explicit_name_field_verbatim() {
+    // F13 fix: when the SPA supplies an explicit `name` field the gateway
+    // must trust it verbatim and skip the first-capitalised-token
+    // heuristic. The description below would otherwise extract "She's"
+    // via `name_from_description` — the exact failure mode the brief
+    // closes.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    pre_provision(&store, "alice@acme.com").await;
+    let body = json!({
+        "name": "Maya",
+        "description": "She's the marketing intern who drafts blog posts",
+        "vertical_id": "gtm-engineer"
+    })
+    .to_string();
+    let r = req(
+        "/api/v1/onboarding/first-hire",
+        &body,
+        Some("human:alice@acme.com"),
+    );
+    let (status, resp) = first_hire_response(&r, Some(&store)).await;
+    assert_eq!(status, "201 Created", "body: {resp}");
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["name"], "Maya", "explicit name must be used verbatim");
+}
+
+#[tokio::test]
+async fn first_hire_falls_back_to_heuristic_when_name_omitted() {
+    // Older SPA builds still POST `{description, vertical_id}` without
+    // `name`. The gateway must fall through to `name_from_description`
+    // (backwards-compatible) rather than 400'ing on missing `name`.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    pre_provision(&store, "alice@acme.com").await;
+    let body = json!({
+        "description": "Priya, an SDR who books qualified meetings",
+        "vertical_id": "gtm-engineer"
+    })
+    .to_string();
+    let r = req(
+        "/api/v1/onboarding/first-hire",
+        &body,
+        Some("human:alice@acme.com"),
+    );
+    let (status, resp) = first_hire_response(&r, Some(&store)).await;
+    assert_eq!(status, "201 Created", "body: {resp}");
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["name"], "Priya", "legacy heuristic must still run");
+}
+
+#[tokio::test]
 async fn first_hire_rejects_unknown_vertical() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");

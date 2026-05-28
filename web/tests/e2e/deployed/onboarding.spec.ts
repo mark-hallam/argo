@@ -70,8 +70,9 @@ test.describe("deployed-real onboarding", () => {
       await page.getByTestId("vertical-marketing-intern").click();
       await expect(page).toHaveURL(/\/onboarding\/first-hire/);
 
+      await page.getByTestId("first-hire-name").fill("Maya");
       await page.getByTestId("first-hire-prompt").fill(
-        "A marketing intern named Maya who drafts blog posts each Friday.",
+        "A marketing intern who drafts blog posts each Friday.",
       );
       await page.getByTestId("onboarding-first-hire-submit").click();
 

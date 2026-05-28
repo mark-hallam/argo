@@ -19,6 +19,7 @@ export const FIRST_HIRE_VERIFY_FAILED_MESSAGE =
   "Hiring succeeded — your teammate is provisioning. Refresh in a few seconds; if they don't appear, the Help link in the top right has next steps.";
 
 export interface FirstHireRequest {
+  name: string;
   description: string;
   verticalId: string;
   tenantId?: string | null;
@@ -37,6 +38,7 @@ export interface FirstHireResult {
 }
 
 interface FirstHirePayload {
+  name: string;
   description: string;
   vertical_id: string;
 }
@@ -155,7 +157,7 @@ export async function firstHire(req: FirstHireRequest): Promise<FirstHireResult>
   }
   const raw = await apiPost<unknown, FirstHirePayload>(
     "/api/v1/onboarding/first-hire",
-    { description: req.description, vertical_id: req.verticalId },
+    { name: req.name, description: req.description, vertical_id: req.verticalId },
   );
   if (!isFirstHireResponse(raw)) {
     throw new ApiError(502, "first-hire endpoint returned an unexpected shape");

@@ -183,13 +183,15 @@ describe("Pick-vertical step", () => {
 });
 
 describe("First-hire step", () => {
-  it("requires a non-empty description", async () => {
+  it("requires both a name and a non-empty description", async () => {
     const user = userEvent.setup();
     useOnboardingDraft.getState().setVertical("marketing-intern");
     render(wrap(<FirstHirePage />));
     const submit = screen.getByTestId("onboarding-first-hire-submit");
     expect(submit).toBeDisabled();
-    await user.type(screen.getByTestId("first-hire-prompt"), "Maya the intern");
+    await user.type(screen.getByTestId("first-hire-name"), "Maya");
+    expect(submit).toBeDisabled();
+    await user.type(screen.getByTestId("first-hire-prompt"), "marketing intern");
     expect(submit).not.toBeDisabled();
   });
 
@@ -201,9 +203,10 @@ describe("First-hire step", () => {
     ) as unknown as typeof fetch;
 
     render(wrap(<FirstHirePage />));
+    await user.type(screen.getByTestId("first-hire-name"), "Maya");
     await user.type(
       screen.getByTestId("first-hire-prompt"),
-      "Maya, marketing intern who drafts blog posts",
+      "marketing intern who drafts blog posts",
     );
     await user.click(screen.getByTestId("onboarding-first-hire-submit"));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/workers/wkr_maya_1"));
@@ -212,6 +215,7 @@ describe("First-hire step", () => {
   it("blocks submit when no vertical has been chosen", async () => {
     const user = userEvent.setup();
     render(wrap(<FirstHirePage />));
+    await user.type(screen.getByTestId("first-hire-name"), "Maya");
     await user.type(screen.getByTestId("first-hire-prompt"), "Someone");
     await user.click(screen.getByTestId("onboarding-first-hire-submit"));
     expect(await screen.findByTestId("onboarding-first-hire-error")).toHaveTextContent(

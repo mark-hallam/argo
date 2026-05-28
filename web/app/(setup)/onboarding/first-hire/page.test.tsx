@@ -55,12 +55,15 @@ describe("first-hire copy honesty (Phase 1)", () => {
   it("does not promise schedule extraction in the sub-copy", () => {
     render(wrap(createElement(FirstHirePage)));
 
-    // Phase 1: the wizard only sends {description, vertical_id} — no cron
-    // is parsed out — so the copy must not promise "this week" cadence.
+    // Phase 1: the wizard only sends {name, description, vertical_id}
+    // — no cron is parsed out — so the copy must not promise "this
+    // week" cadence. With the F13 dedicated name input the subcopy
+    // talks about "role" + "what they'll do", not name.
     const heading = screen.getByText(/Describe your/i);
     const card = heading.closest("section, div") ?? document.body;
     expect(card.textContent).not.toMatch(/this week/i);
-    expect(card.textContent).toMatch(/name and a role/i);
+    expect(card.textContent).toMatch(/role/i);
+    expect(card.textContent).toMatch(/what they'll do/i);
     expect(card.textContent).toMatch(/set their schedule after they're hired/i);
   });
 

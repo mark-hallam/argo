@@ -57,9 +57,10 @@ test("demo-mode first-hire lands on a real-rendered worker, not WorkerNotFound",
   await page.getByTestId("vertical-recruiter").click();
 
   await expect(page).toHaveURL(/\/onboarding\/first-hire/, { timeout: 10_000 });
+  await page.getByTestId("first-hire-name").fill("Priya");
   await page
     .getByTestId("first-hire-prompt")
-    .fill("A recruiter named Priya who screens applicants and schedules interviews.");
+    .fill("A recruiter who screens applicants and schedules interviews.");
   await page.getByTestId("onboarding-first-hire-submit").click();
 
   // Acceptance criterion: redirect lands on /workers/<uuid>, not

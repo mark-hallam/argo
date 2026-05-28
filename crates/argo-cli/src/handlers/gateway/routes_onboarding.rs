@@ -273,6 +273,16 @@ pub(super) async fn first_hire_response(
         Some(s) if !s.trim().is_empty() => s.trim().to_string(),
         _ => return bad_request("`vertical_id` (non-empty string) is required"),
     };
+    // The wizard now ships an explicit `name` field (F13 fix). When the
+    // SPA supplies a non-empty trimmed name we trust it verbatim; the
+    // first-capitalised-token heuristic is reserved for older clients
+    // that still POST `{description, vertical_id}` without a `name`.
+    let supplied_name = parsed
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
     // `resolve_workspace` enforces the 401 / 412 provisioning gate; the
     // returned `(user_tenant, _workspace)` is the user-account-bound pair
     // and must not be used for the worker write itself. Every read
@@ -292,7 +302,7 @@ pub(super) async fn first_hire_response(
     let Some(picked) = load_vertical(&vertical_id) else {
         return not_found(&format!("vertical '{vertical_id}' not found"));
     };
-    let worker_name = name_from_description(&description);
+    let worker_name = supplied_name.unwrap_or_else(|| name_from_description(&description));
     let principal_id = format!("{HUMAN_PRINCIPAL_PREFIX}{email}");
     let outcome = invoke_genesis(&description, &worker_name);
     let charter = synthesise_charter(&description, outcome.plan.as_ref());
