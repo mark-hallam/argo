@@ -21,7 +21,8 @@ import { LiveIndicator } from "@/components/skycot/LiveIndicator";
 import { NotificationsBell } from "@/components/skycot/NotificationsBell";
 import { RequestElevatedView } from "@/components/skycot/RequestElevatedView";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
-import { computeKpiCells, KpiStrip } from "@/components/skycot/approvals/KpiStrip";
+import { ApprovalsKpiStrip } from "@/components/skycot/approvals/ApprovalsKpiStrip";
+import { useApprovalsKpis } from "@/lib/hooks/use-approvals-kpis";
 import { useUnreadNotificationCount } from "@/lib/hooks/use-notifications";
 import { useRedactionPolicy } from "@/lib/hooks/use-redaction-policy";
 import {
@@ -143,10 +144,7 @@ function ApprovalsInboxShell() {
   }, [items]);
 
   const pendingCount = filteredByAll.filter((a) => a.decision == null).length;
-  const kpiCells = useMemo(
-    () => computeKpiCells(filteredByAll, pendingCount),
-    [filteredByAll, pendingCount],
-  );
+  const kpis = useApprovalsKpis(filteredByAll);
 
   // Pre-scan visible cards to know whether to surface the elevated-view
   // CTA, and what categories to record on the audit POST. Cheap; the
@@ -259,14 +257,7 @@ function ApprovalsInboxShell() {
       />
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-4">
-        <KpiStrip
-          cells={kpiCells}
-          rate={{
-            headline: "78%",
-            slices: { approved: 0.78, refused: 0.14, expired: 0.08 },
-            animate: true,
-          }}
-        />
+        <ApprovalsKpiStrip kpis={kpis} />
       </div>
 
       {maskedOnPage.length > 0 ? (

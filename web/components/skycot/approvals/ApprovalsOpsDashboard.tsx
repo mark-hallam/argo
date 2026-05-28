@@ -3,9 +3,9 @@
 import { useCallback, useMemo, type KeyboardEvent } from "react";
 import { ApprovalRateRing } from "@/components/skycot/approvals/ApprovalRateRing";
 import { ApprovalRowActions } from "@/components/skycot/approvals/ApprovalRowActions";
+import { ApprovalsKpiStrip } from "@/components/skycot/approvals/ApprovalsKpiStrip";
 import { ConfidenceDonut } from "@/components/skycot/approvals/ConfidenceDonut";
 import { DollarAtRisk } from "@/components/skycot/approvals/DollarAtRisk";
-import { KpiStrip, type KpiCell } from "@/components/skycot/approvals/KpiStrip";
 import { MetricStatCard } from "@/components/skycot/approvals/MetricStatCard";
 import { SeverityPill, type Severity } from "@/components/skycot/approvals/SeverityPill";
 import { SLABar } from "@/components/skycot/approvals/SLABar";
@@ -13,6 +13,7 @@ import {
   useSubmitDecision,
   useUndoDecision,
 } from "@/lib/hooks/use-approvals";
+import { useApprovalsKpis } from "@/lib/hooks/use-approvals-kpis";
 import { sortBySeverityThenSla, type ApprovalItem } from "@/lib/sample-approvals";
 import { cn } from "@/lib/utils";
 
@@ -62,22 +63,6 @@ function formatUsd(amount: number): string {
   }).format(amount);
 }
 
-function formatDuration(ms: number): string {
-  const minutes = Math.max(0, Math.round(ms / 60_000));
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rem = minutes % 60;
-  return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`;
-}
-
-function median(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 1) return sorted[mid] ?? 0;
-  return ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
-}
-
 function severityLabel(severity: Severity): string {
   if (severity === "p0") return "High";
   if (severity === "p1") return "Medium";
@@ -110,53 +95,6 @@ function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function computeKpis(
-  pending: ApprovalItem[],
-  approvalRate: ApprovalRateSummary | null,
-): KpiCell[] {
-  const now = Date.now();
-  const atRisk = pending.reduce((sum, item) => sum + (item.dollarAtRisk ?? 0), 0);
-  const monetary = pending.filter((item) => (item.dollarAtRisk ?? 0) > 0).length;
-  const ages = pending.map((item) => now - new Date(item.receivedAt).getTime());
-  return [
-    {
-      label: "Pending",
-      value: String(pending.length),
-      sub: "active human decisions",
-      tone: pending.some((item) => item.severity === "p0") ? "bad" : "neutral",
-      testId: "pending",
-    },
-    {
-      label: "$ at risk",
-      value: atRisk > 0 ? formatUsd(atRisk) : "—",
-      sub: monetary > 0 ? `across ${monetary} pending` : "no monetary exposure",
-      tone: atRisk > 0 ? "warn" : "neutral",
-      testId: "at-risk",
-    },
-    {
-      label: "Median time",
-      value: formatDuration(median(ages)),
-      sub: "waiting for approval",
-      testId: "median-time",
-    },
-    {
-      label: "Approval rate",
-      value: approvalRate ? formatPercent(approvalRate.approved) : "—",
-      sub: approvalRate
-        ? `${approvalRate.total} resolved ${approvalRate.total === 1 ? "approval" : "approvals"}`
-        : "no resolved approvals",
-      tone: approvalRate ? "good" : "neutral",
-      testId: "approval-rate",
-    },
-    {
-      label: "Active reviewers",
-      value: "—",
-      sub: "reviewer roster pending",
-      testId: "active-reviewers",
-    },
-  ];
-}
-
 function averageConfidence(items: ApprovalItem[]): number {
   const values = items.flatMap((item) =>
     typeof item.confidence === "number" ? [item.confidence] : [],
@@ -171,10 +109,7 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
     [items],
   );
   const approvalRate = useMemo(() => computeApprovalRate(items), [items]);
-  const kpis = useMemo(
-    () => computeKpis(pending, approvalRate),
-    [pending, approvalRate],
-  );
+  const kpis = useApprovalsKpis(items);
   const totalAtRisk = pending.reduce((sum, item) => sum + (item.dollarAtRisk ?? 0), 0);
   const avgConfidence = averageConfidence(pending);
   const riskyCount = pending.filter((item) => (item.dollarAtRisk ?? 0) > 0).length;
@@ -217,7 +152,7 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
 
   return (
     <div className="space-y-6" data-testid="approvals-ops-dashboard">
-      <KpiStrip cells={kpis} />
+      <ApprovalsKpiStrip kpis={kpis} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-5">

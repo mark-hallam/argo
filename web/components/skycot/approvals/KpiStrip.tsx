@@ -1,169 +1,14 @@
 "use client";
 
 import { ApprovalRateRing } from "@/components/skycot/approvals/ApprovalRateRing";
-import { formatKpi } from "@/lib/format/kpi";
-import type { ApprovalItem } from "@/lib/sample-approvals";
 import { cn } from "@/lib/utils";
 
-function formatUsd(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 10_000) return `$${Math.round(amount / 1_000)}k`;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const SLA_TARGET_MS = 2 * 60 * 60 * 1000;
-
-function parseTimestamp(iso?: string | null): number | null {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  return Number.isFinite(t) ? t : null;
-}
-
-function formatDuration(ms: number): string {
-  const minutes = Math.max(1, Math.round(ms / 60_000));
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.round(hours / 24)}d`;
-}
-
-function mean(values: number[]): number | null {
-  if (values.length === 0) return null;
-  return values.reduce((acc, v) => acc + v, 0) / values.length;
-}
-
-function formatPercent(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
 /**
- * Roll-up of the 5 KPI cells from an in-memory ApprovalItem list.
- * Every value is derived from the visible approval rows so brand-new
- * tenants do not inherit stale demo baselines.
- *
- * Lives in the KpiStrip module so the heavy compute stays out of
- * `app/(app)/page.tsx` (LOC budget).
- */
-export function computeKpiCells(
-  items: ApprovalItem[],
-  pendingCount: number,
-  now: number = Date.now(),
-): KpiCell[] {
-  const pendingItems = items.filter((a) => a.decision == null);
-  const recentItems = items.filter((a) => {
-    const receivedAt = parseTimestamp(a.receivedAt);
-    return receivedAt != null && receivedAt >= now - WEEK_MS && receivedAt <= now;
-  });
-  const decidedItems = recentItems.filter((a) => a.decision != null);
-  const approvedCount = decidedItems.filter((a) => a.decision === "approve").length;
-  const refusedCount = decidedItems.filter((a) => a.decision === "refuse").length;
-  const expiredCount = recentItems.filter((a) => {
-    if (a.decision != null) return false;
-    const expiresAt = parseTimestamp(a.slaExpiresAt);
-    return expiresAt != null && expiresAt <= now;
-  }).length;
-  const approvalRate =
-    decidedItems.length > 0 ? approvedCount / decidedItems.length : null;
-  const rateSliceTotal = Math.max(1, approvedCount + refusedCount + expiredCount);
-  const responseMs = mean(
-    decidedItems.flatMap((a) => {
-      const receivedAt = parseTimestamp(a.receivedAt);
-      return receivedAt == null ? [] : [Math.max(0, now - receivedAt)];
-    }),
-  );
-  const totalAtRisk = pendingItems.reduce(
-    (acc, a) => acc + (a.dollarAtRisk ?? 0),
-    0,
-  );
-  const overSla = pendingItems.filter(
-    (a) => a.slaExpiresAt && new Date(a.slaExpiresAt).getTime() <= now,
-  ).length;
-  const monetaryCount = pendingItems.filter(
-    (a) => (a.dollarAtRisk ?? 0) > 0,
-  ).length;
-
-  return [
-    {
-      label: "Pending",
-      value: formatKpi(pendingCount, String),
-      sub: overSla > 0 ? `${overSla} over SLA · needs eyes` : "across your workforce",
-      tone: overSla > 0 ? "bad" : "neutral",
-      testId: "pending",
-    },
-    {
-      label: "Resolved / wk",
-      value: formatKpi(decidedItems.length, String),
-      sub:
-        decidedItems.length > 0
-          ? "from resolved rows"
-          : "no decisions in 7 days",
-      testId: "resolved",
-    },
-    {
-      // Mean over 0 events is genuinely undefined — keep the em-dash and
-      // surface the reason via aria-description for screen readers / hover.
-      label: "Avg response",
-      value: formatKpi(responseMs, formatDuration),
-      sub: responseMs == null ? "no response history" : "from resolved rows",
-      tone:
-        responseMs == null
-          ? "neutral"
-          : responseMs <= SLA_TARGET_MS
-            ? "good"
-            : "warn",
-      testId: "avg-response",
-      ariaDescription:
-        responseMs == null ? "no resolved approvals yet" : undefined,
-    },
-    {
-      label: "$ at risk",
-      value: formatKpi(totalAtRisk, formatUsd),
-      sub:
-        monetaryCount > 0
-          ? `across ${monetaryCount} pending`
-          : "no monetary impact",
-      tone: totalAtRisk > 0 ? "warn" : "neutral",
-      testId: "at-risk",
-    },
-    {
-      label: "Approval rate",
-      value: formatKpi(approvalRate ?? 0, formatPercent),
-      sub: approvalRate == null ? "no decision history" : "from resolved rows",
-      tone:
-        approvalRate == null ? "neutral" : approvalRate >= 0.5 ? "good" : "warn",
-      testId: "approval-rate",
-      rate:
-        approvalRate == null
-          ? undefined
-          : {
-              headline: formatPercent(approvalRate),
-              slices: {
-                approved: approvedCount / rateSliceTotal,
-                refused: refusedCount / rateSliceTotal,
-                expired: expiredCount / rateSliceTotal,
-              },
-            },
-    },
-  ];
-}
-
-/**
- * 5-cell KPI strip shown above the approvals inbox.
- * Locked design: enterprise-restrained register.
- *
- *  1. Pending decisions   (count)
- *  2. Resolved this week  (count)
- *  3. Avg response        (short duration string)
- *  4. $ at risk           (currency)
- *  5. Approval rate (7-day) — pairs with the donut ring on the right.
- *
- * Each cell carries a small `tone` flag so over-SLA / breached metrics
- * can switch to a destructive accent without changing layout.
+ * Low-level KPI strip rendering chrome. Both `ApprovalsKpiStrip`
+ * (canonical 5-cell label set) and any future per-vertical strip
+ * compose this primitive with their own cell list. The cell shape
+ * intentionally allows any label/sub/tone; surface-level conventions
+ * (which 5 labels are canonical) live in `ApprovalsKpiStrip`.
  */
 
 export type KpiTone = "neutral" | "warn" | "bad" | "good";
@@ -171,7 +16,7 @@ export type KpiTone = "neutral" | "warn" | "bad" | "good";
 export interface KpiCell {
   label: string;
   value: string;
-  /** Optional caption rendered below the value (e.g. "↓ 3m vs last week"). */
+  /** Optional caption rendered below the value. */
   sub?: string;
   tone?: KpiTone;
   /** Stable testid suffix so callers/tests can target specific cells. */
