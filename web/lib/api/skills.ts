@@ -66,7 +66,7 @@ export const SEED_SKILLS: SkillRow[] = [
     name: "pricing.competitor_scrape",
     version: "0.1.0",
     description:
-      "Scrape competitor product pricing across listed channels and emit a normalized comparison row with confidence + freshness flags.",
+      "Competitor pricing scrape — pull competitor product pricing across listed channels and surface deltas as memory, with confidence + freshness flags.",
     layer: "library",
     provenance_source: "published:verified:argo-seed",
     trust_grade: "published_verified",

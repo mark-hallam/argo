@@ -157,6 +157,12 @@ describe("lib/api/skills", () => {
     expect(result.learned.skill_ids).toEqual(["support.triage", "lead.enrich"]);
   });
 
+  it("seeds the pricing.competitor_scrape description with the runbook phrase as a substring", () => {
+    const seed = SEED_SKILLS.find((s) => s.name === "pricing.competitor_scrape");
+    expect(seed).toBeDefined();
+    expect(seed!.description.toLowerCase()).toContain("competitor pricing scrape");
+  });
+
   it("varies seed usage provenance across SKYCOT, org, and learned skills", async () => {
     installMock(() =>
       makeResponse({

@@ -96,6 +96,49 @@ describe("/skills marketplace page", () => {
     ).toBeInTheDocument();
   });
 
+  it("matches the Scene 4 runbook search phrase against the pricing.competitor_scrape seed", async () => {
+    vi.mocked(api.fetchSkills).mockResolvedValue({
+      skills: api.SEED_SKILLS,
+      source: "mock-offline",
+    });
+
+    render(wrap(<SkillsPage />));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("skill-card")).toHaveLength(api.SEED_SKILLS.length);
+    });
+
+    const searchInput = screen.getByTestId("skills-search");
+
+    // Full runbook phrase: must surface the one anchor card.
+    fireEvent.change(searchInput, { target: { value: "competitor pricing scrape" } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId("skill-card")).toHaveLength(1);
+    });
+    expect(
+      screen.getByRole("heading", { name: /pricing competitor scrape/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("skills-empty")).not.toBeInTheDocument();
+
+    // Single-word regression: "competitor" still returns the one card.
+    fireEvent.change(searchInput, { target: { value: "competitor" } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId("skill-card")).toHaveLength(1);
+    });
+
+    // Single-word regression: "pricing" still returns the one card.
+    fireEvent.change(searchInput, { target: { value: "pricing" } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId("skill-card")).toHaveLength(1);
+    });
+
+    // Empty query: all seed cards rendered.
+    fireEvent.change(searchInput, { target: { value: "" } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId("skill-card")).toHaveLength(api.SEED_SKILLS.length);
+    });
+  });
+
   it("keeps the learned-this-month filter populated by seed fallback skills", async () => {
     vi.mocked(api.fetchSkills).mockResolvedValue({
       skills: api.SEED_SKILLS,
