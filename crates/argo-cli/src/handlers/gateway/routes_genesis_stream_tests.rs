@@ -84,13 +84,37 @@ async fn mem_store() -> Arc<SessionStore> {
 }
 
 fn build_request(body: &str, tenant: Option<&str>) -> String {
+    build_request_with_origin(body, tenant, None)
+}
+
+fn build_request_with_origin(body: &str, tenant: Option<&str>, origin: Option<&str>) -> String {
     let tenant_hdr = tenant
         .map(|t| format!("X-Argo-Tenant-Id: {t}\r\n"))
         .unwrap_or_default();
+    let origin_hdr = origin
+        .map(|o| format!("Origin: {o}\r\n"))
+        .unwrap_or_default();
     format!(
-        "POST /api/v1/genesis HTTP/1.1\r\nHost: x\r\n{tenant_hdr}Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        "POST /api/v1/genesis HTTP/1.1\r\nHost: x\r\n{tenant_hdr}{origin_hdr}Content-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()
     )
+}
+
+/// Install the global CORS registry once so the SSE handler can splice
+/// CORS headers into its hand-rolled response head. The registry is a
+/// `OnceLock` — first caller wins; subsequent installs are no-ops, so
+/// any test in the binary that needs CORS coverage shares the same
+/// configuration. Dev-loopback mode keeps the install permissive enough
+/// that any `http://localhost:*` / `http://127.0.0.1:*` origin is
+/// accepted, mirroring how the live gateway behaves outside production.
+fn ensure_cors_registry_installed() {
+    static INIT: OnceLock<()> = OnceLock::new();
+    INIT.get_or_init(|| {
+        let cfg = argo_config::GatewayCorsConfig {
+            allowed_origins: vec!["http://localhost:3000".into()],
+        };
+        super::super::cors::install(&cfg, false);
+    });
 }
 
 async fn drive_handler(req: String, store: Arc<SessionStore>) -> String {
@@ -283,6 +307,103 @@ async fn cross_tenant_paths_isolate_generated_verticals() {
         reg_a.get(id_a[0]).unwrap().root,
         reg_b.get(id_b[0]).unwrap().root,
         "tenant filesystem roots differ",
+    );
+}
+
+/// Closes fix-spa-genesis-fetch-fails-while-curl-succeeds: the SPA's
+/// cross-origin fetch from `http://localhost:3000` against the gateway
+/// on `:7400` requires the SSE response head to carry both the standard
+/// `Access-Control-Allow-Origin` family AND
+/// `Access-Control-Allow-Private-Network: true` (chrome's Private
+/// Network Access policy treats `localhost:<spa>` → `localhost:<gw>` as
+/// public→private and refuses the response without the header). The
+/// streaming handler writes the head directly to the socket, so the
+/// generic `cors::enhance_status` splice does not apply — coverage has
+/// to live here to lock in the hand-rolled CORS header block.
+#[tokio::test]
+async fn sse_response_carries_cors_headers_for_allowlisted_origin() {
+    ensure_cors_registry_installed();
+    let tmp = TempDir::new().unwrap();
+    let _env = EnvGuard::set(&[
+        (PROVIDER_KEY_ENV, "test-key"),
+        ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
+    ]);
+    let store = mem_store().await;
+    let body = serde_json::json!({
+        "role_description": "I need a customer success lead who triages tier-1 tickets and escalates refunds over $500",
+        "persona": "Casey",
+    })
+    .to_string();
+    let req = build_request_with_origin(
+        &body,
+        Some("11111111-1111-1111-1111-111111111111"),
+        Some("http://localhost:3000"),
+    );
+    let raw = drive_handler(req, store).await;
+
+    assert!(raw.starts_with("HTTP/1.1 200 OK"), "got: {raw}");
+    // Take the response head (everything before the SSE body) so the
+    // assertions are not confused by stream payload that happens to
+    // mention CORS-shaped substrings.
+    let head_end = raw
+        .find("\r\n\r\n")
+        .expect("response head terminator present");
+    let head = &raw[..head_end];
+    assert!(
+        head.contains("Access-Control-Allow-Origin: http://localhost:3000"),
+        "SSE head missing Access-Control-Allow-Origin; got head: {head}"
+    );
+    assert!(
+        head.contains("Access-Control-Allow-Private-Network: true"),
+        "SSE head missing Access-Control-Allow-Private-Network; got head: {head}"
+    );
+    assert!(
+        head.contains("Access-Control-Allow-Credentials: true"),
+        "SSE head missing Access-Control-Allow-Credentials; got head: {head}"
+    );
+    assert!(
+        head.contains("Vary: Origin"),
+        "SSE head missing Vary: Origin; got head: {head}"
+    );
+}
+
+/// Companion to the success-path CORS test: the one-shot 503 error
+/// (missing provider key) ALSO has to carry CORS headers, otherwise the
+/// SPA's fetch promise rejects with `TypeError: Failed to fetch` before
+/// the page can surface the gateway's diagnostic message.
+#[tokio::test]
+async fn provider_key_503_carries_cors_headers_for_allowlisted_origin() {
+    ensure_cors_registry_installed();
+    let mut to_unset = vec![PROVIDER_KEY_ENV];
+    to_unset.extend(PROVIDER_KEY_ALIASES.iter().copied());
+    let _env = EnvGuard::unset(&to_unset);
+    let store = mem_store().await;
+    let body = serde_json::json!({
+        "role_description": "I need a customer success lead who triages tier-1 tickets",
+    })
+    .to_string();
+    let req = build_request_with_origin(
+        &body,
+        Some("tenant-x"),
+        Some("http://localhost:3000"),
+    );
+    let raw = drive_handler(req, store).await;
+
+    assert!(
+        raw.starts_with("HTTP/1.1 503 Service Unavailable"),
+        "expected 503 fail-closed; got: {raw}"
+    );
+    let head_end = raw
+        .find("\r\n\r\n")
+        .expect("response head terminator present");
+    let head = &raw[..head_end];
+    assert!(
+        head.contains("Access-Control-Allow-Origin: http://localhost:3000"),
+        "503 head missing Access-Control-Allow-Origin; got head: {head}"
+    );
+    assert!(
+        head.contains("Access-Control-Allow-Private-Network: true"),
+        "503 head missing Access-Control-Allow-Private-Network; got head: {head}"
     );
 }
 
