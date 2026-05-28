@@ -8,7 +8,7 @@ import type {
 import type { Worker } from "@/lib/types/worker";
 
 vi.mock("next/navigation", () => ({
-  useParams: () => ({ workerId: "018f67d0-0000-7000-8000-000000000002" }),
+  useParams: () => ({ workerId: "019e6785-928d-78b1-a6b2-136d9ed263ce" }),
 }));
 
 type WorkerQueryShape = {
@@ -47,7 +47,7 @@ vi.mock("@/lib/hooks/use-worker-skills", () => ({
 import WorkerSkillsPage from "@/app/(app)/workers/[workerId]/skills/page";
 
 const WORKER: Worker = {
-  id: "018f67d0-0000-7000-8000-000000000002",
+  id: "019e6785-928d-78b1-a6b2-136d9ed263ce",
   name: "Priya",
   role: { tagline: "screens candidates", vertical: "recruiting" },
   status: "waiting",
@@ -148,7 +148,7 @@ describe("WorkerSkillsPage", () => {
     expect(within(row).getByTestId("skill-view-sk-screen")).toBeInTheDocument();
     expect(within(row).getByTestId("skill-audit-sk-screen")).toHaveAttribute(
       "href",
-      "/audit?worker=018f67d0-0000-7000-8000-000000000002&skill=sk-screen",
+      "/audit?worker=019e6785-928d-78b1-a6b2-136d9ed263ce&skill=sk-screen",
     );
   });
 

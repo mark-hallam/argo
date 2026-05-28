@@ -51,7 +51,7 @@ test("demo-mode first-hire lands on a real-rendered worker, not WorkerNotFound",
   await page.getByTestId("onboarding-provider-submit").click();
 
   await expect(page).toHaveURL(/\/onboarding\/pick-vertical/, { timeout: 10_000 });
-  // Recruiter → Priya (`018f67d0-0000-7000-8000-000000000002`). Any of
+  // Recruiter → Priya (`019e6785-928d-78b1-a6b2-136d9ed263ce`). Any of
   // the four matched verticals would do; recruiter is the one with the
   // tightest persona-text match for the assertion below.
   await page.getByTestId("vertical-recruiter").click();

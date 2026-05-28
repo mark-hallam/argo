@@ -61,11 +61,11 @@ export const CANONICAL_WORKER_ROSTER: ReadonlyArray<{
   name: string;
   workerId: string | null;
 }> = [
-  { name: "Mariah", workerId: "018f67d0-0000-7000-8000-000000000001" },
-  { name: "Priya", workerId: "018f67d0-0000-7000-8000-000000000002" },
-  { name: "Jamal", workerId: "018f67d0-0000-7000-8000-000000000003" },
-  { name: "Nori", workerId: "018f67d0-0000-7000-8000-000000000004" },
-  { name: "Peta", workerId: "018f67d0-0000-7000-8000-000000000007" },
+  { name: "Mariah", workerId: "019e6785-928a-7270-a766-f945b6cd7161" },
+  { name: "Priya", workerId: "019e6785-928d-78b1-a6b2-136d9ed263ce" },
+  { name: "Jamal", workerId: "019e6785-928e-7f20-803b-55266e526011" },
+  { name: "Nori", workerId: "019e6785-928f-7281-bf8d-e062bc277478" },
+  { name: "Peta", workerId: "019e6785-928c-72b3-85c6-436fe5004c50" },
   { name: "Maya", workerId: null },
   { name: "Patrick", workerId: null },
 ];
@@ -129,7 +129,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "2 days ago",
     lastEditor: "Mariah",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000001",
+    authorWorkerId: "019e6785-928a-7270-a766-f945b6cd7161",
     risk: "approval-required",
   },
   {
@@ -141,7 +141,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "4 hours ago",
     lastEditor: "Priya",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000002",
+    authorWorkerId: "019e6785-928d-78b1-a6b2-136d9ed263ce",
     risk: "autonomous",
   },
   {
@@ -153,7 +153,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "1 week ago",
     lastEditor: "Jamal",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000003",
+    authorWorkerId: "019e6785-928e-7f20-803b-55266e526011",
     risk: "approval-required",
   },
   {
@@ -166,7 +166,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "3 days ago",
     lastEditor: "Mariah",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000001",
+    authorWorkerId: "019e6785-928a-7270-a766-f945b6cd7161",
     risk: "approval-required",
   },
   {
@@ -178,7 +178,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "32 minutes ago",
     lastEditor: "Jamal",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000003",
+    authorWorkerId: "019e6785-928e-7f20-803b-55266e526011",
     risk: "autonomous",
   },
   {
@@ -191,7 +191,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "1 hour ago",
     lastEditor: "Peta",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000007",
+    authorWorkerId: "019e6785-928c-72b3-85c6-436fe5004c50",
     risk: "autonomous",
   },
   {
@@ -204,7 +204,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "20 minutes ago",
     lastEditor: "Nori",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000004",
+    authorWorkerId: "019e6785-928f-7281-bf8d-e062bc277478",
     risk: "autonomous",
   },
   {
@@ -217,7 +217,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     lastEdited: "2 days ago",
     lastEditor: "Peta",
     authorType: "worker",
-    authorWorkerId: "018f67d0-0000-7000-8000-000000000007",
+    authorWorkerId: "019e6785-928c-72b3-85c6-436fe5004c50",
     risk: "autonomous",
   },
 ];

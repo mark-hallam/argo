@@ -198,7 +198,7 @@ describe("ApprovalsOpsDashboard", () => {
         items={[
           item({
             id: "ap_01H9Z7",
-            actionId: "act_018f67d0-0000-7000-8000-000000000001_018",
+            actionId: "act_019e6785-928a-7270-a766-f945b6cd7161_018",
           }),
         ]}
       />,
@@ -207,13 +207,13 @@ describe("ApprovalsOpsDashboard", () => {
     const row = screen.getByTestId("recent-approval-ap_01H9Z7");
     expect(row).toHaveAttribute(
       "data-action-id",
-      "act_018f67d0-0000-7000-8000-000000000001_018",
+      "act_019e6785-928a-7270-a766-f945b6cd7161_018",
     );
 
     await user.click(row);
 
     expect(assignMock).toHaveBeenCalledWith(
-      "/audit/action/act_018f67d0-0000-7000-8000-000000000001_018",
+      "/audit/action/act_019e6785-928a-7270-a766-f945b6cd7161_018",
     );
   });
 

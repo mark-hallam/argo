@@ -11,7 +11,7 @@ const replaceMock = vi.fn();
 let searchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
-  useParams: () => ({ workerId: "018f67d0-0000-7000-8000-000000000002" }),
+  useParams: () => ({ workerId: "019e6785-928d-78b1-a6b2-136d9ed263ce" }),
   useRouter: () => ({
     replace: replaceMock,
     push: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock("next/navigation", () => ({
     back: vi.fn(),
     forward: vi.fn(),
   }),
-  usePathname: () => "/workers/018f67d0-0000-7000-8000-000000000002/activity",
+  usePathname: () => "/workers/019e6785-928d-78b1-a6b2-136d9ed263ce/activity",
   useSearchParams: () => searchParams,
 }));
 
@@ -54,7 +54,7 @@ vi.mock("@/lib/hooks/use-worker-activity", () => ({
 import WorkerActivityPage from "@/app/(app)/workers/[workerId]/activity/page";
 
 const WORKER: Worker = {
-  id: "018f67d0-0000-7000-8000-000000000002",
+  id: "019e6785-928d-78b1-a6b2-136d9ed263ce",
   name: "Priya",
   role: { tagline: "screens candidates and books interviews", vertical: "recruiting" },
   status: "waiting",
@@ -63,7 +63,7 @@ const WORKER: Worker = {
 function makeRow(overrides: Partial<WorkerActivity> = {}): WorkerActivity {
   return {
     id: "act_001",
-    workerId: "018f67d0-0000-7000-8000-000000000002",
+    workerId: "019e6785-928d-78b1-a6b2-136d9ed263ce",
     workerName: "Priya",
     workerInitials: "PR",
     timestamp: new Date(Date.now() - 5 * 60_000).toISOString(),

@@ -88,7 +88,7 @@ describe("redactPII — phone", () => {
     // rendering as `act_018f67d0-0000-7000-8000-000[PHONE]_000` because
     // the trailing zero-pad-plus-counter inside the UUID's last block
     // is 9 contiguous digits and tripped the phone post-filter.
-    const id = "act_018f67d0-0000-7000-8000-000000000001_000";
+    const id = "act_019e6785-928a-7270-a766-f945b6cd7161_000";
     const body = `Detail for action ${id} is not currently available.`;
     const { redacted, masked } = redactPII(body, POLICY_MASK_ALL);
     expect(redacted).toBe(body);
@@ -96,7 +96,7 @@ describe("redactPII — phone", () => {
   });
 
   it("still masks a genuine phone number alongside a UUID in the same string", () => {
-    const id = "018f67d0-0000-7000-8000-000000000001";
+    const id = "019e6785-928a-7270-a766-f945b6cd7161";
     const { redacted, masked } = redactPII(
       `worker ${id} pinged +64 21 555 0123 about renewal`,
       POLICY_MASK_ALL,

@@ -25,14 +25,14 @@ describe("sample cohorts data integrity", () => {
     const marketplace = SAMPLE_COHORT_DETAILS["marketplace::developing"];
     expect(marketplace).toBeDefined();
     const memberIds = marketplace!.members.map((m) => m.worker_id);
-    expect(memberIds).toContain("018f67d0-0000-7000-8000-000000000001");
+    expect(memberIds).toContain("019e6785-928a-7270-a766-f945b6cd7161");
   });
 
   it("Project & Ops sample cohorts include Peta and Patrick", () => {
     const peta = SAMPLE_COHORT_DETAILS["project-ops::project-coordinator"];
     const patrick = SAMPLE_COHORT_DETAILS["project-ops::status-reporter"];
     expect(peta?.members.map((m) => m.worker_id)).toContain(
-      "018f67d0-0000-7000-8000-000000000007",
+      "019e6785-928c-72b3-85c6-436fe5004c50",
     );
     expect(patrick?.members.map((m) => m.worker_id)).toContain("wkr_01J0PATRICK");
   });

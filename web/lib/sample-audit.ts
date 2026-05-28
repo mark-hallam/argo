@@ -30,11 +30,11 @@ const H = 60 * M;
 const D = 24 * H;
 
 const WORKSPACE = { id: "sys_workspace", name: "Workspace" };
-const PRIYA = personaRef("018f67d0-0000-7000-8000-000000000002");
-const PETA = personaRef("018f67d0-0000-7000-8000-000000000007");
-const MARIAH = personaRef("018f67d0-0000-7000-8000-000000000001");
-const JAMAL = personaRef("018f67d0-0000-7000-8000-000000000003");
-const NORI = personaRef("018f67d0-0000-7000-8000-000000000004");
+const PRIYA = personaRef("019e6785-928d-78b1-a6b2-136d9ed263ce");
+const PETA = personaRef("019e6785-928c-72b3-85c6-436fe5004c50");
+const MARIAH = personaRef("019e6785-928a-7270-a766-f945b6cd7161");
+const JAMAL = personaRef("019e6785-928e-7f20-803b-55266e526011");
+const NORI = personaRef("019e6785-928f-7281-bf8d-e062bc277478");
 
 const OPERATOR = { id: "usr_op_mark", name: "Mark" };
 const SRE_LEAD = { id: "usr_sre_neha", name: "Neha" };

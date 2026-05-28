@@ -109,13 +109,13 @@ describe("demo-mode short-circuit", () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
     // Canonical sample UUIDs (see web/lib/sample-personas.ts).
-    expect(marketing.workerId).toBe("018f67d0-0000-7000-8000-000000000004");
+    expect(marketing.workerId).toBe("019e6785-928f-7281-bf8d-e062bc277478");
     expect(marketing.workerName).toBe("Nori");
-    expect(recruiter.workerId).toBe("018f67d0-0000-7000-8000-000000000002");
+    expect(recruiter.workerId).toBe("019e6785-928d-78b1-a6b2-136d9ed263ce");
     expect(recruiter.workerName).toBe("Priya");
     // Unknown verticals fall through to Mariah, the canonical
     // first-hire placeholder.
-    expect(unknown.workerId).toBe("018f67d0-0000-7000-8000-000000000001");
+    expect(unknown.workerId).toBe("019e6785-928a-7270-a766-f945b6cd7161");
     expect(unknown.workerName).toBe("Mariah");
     // No `demo-worker-` synthetic ids remain.
     expect(marketing.workerId).not.toMatch(/^demo-worker-/);

@@ -29,7 +29,7 @@ import { expect, test } from "@playwright/test";
  */
 
 // Mariah — first entry in SAMPLE_WORKERS_DETAIL.
-const SAMPLE_WORKER_ID = "018f67d0-0000-7000-8000-000000000001";
+const SAMPLE_WORKER_ID = "019e6785-928a-7270-a766-f945b6cd7161";
 const NOT_FOUND_ID = "018f67d0-0000-7000-8000-deadbeefdead";
 const WORKER_PATH_RE = /\/api\/v1\/workers\/[^/]+(?:\?.*)?$/;
 

@@ -23,7 +23,7 @@ describe("WorkflowAuthorChip", () => {
       <WorkflowAuthorChip
         authorType="worker"
         authorName="Mariah"
-        authorWorkerId="018f67d0-0000-7000-8000-000000000001"
+        authorWorkerId="019e6785-928a-7270-a766-f945b6cd7161"
       />,
     );
     const chip = screen.getByTestId("workflow-author-chip");
@@ -55,13 +55,13 @@ describe("WorkflowAuthorChip", () => {
       <WorkflowAuthorChip
         authorType="worker"
         authorName="Priya"
-        authorWorkerId="018f67d0-0000-7000-8000-000000000002"
+        authorWorkerId="019e6785-928d-78b1-a6b2-136d9ed263ce"
       />,
     );
     const chip = screen.getByTestId("workflow-author-chip");
     expect(chip.tagName).toBe("BUTTON");
     await userEvent.click(chip);
-    expect(pushMock).toHaveBeenCalledWith("/workers/018f67d0-0000-7000-8000-000000000002");
+    expect(pushMock).toHaveBeenCalledWith("/workers/019e6785-928d-78b1-a6b2-136d9ed263ce");
   });
 
   it("falls back to a non-clickable span when authorWorkerId is missing", () => {

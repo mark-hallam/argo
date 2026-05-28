@@ -25,9 +25,9 @@ import { expect, test, type ConsoleMessage } from "@playwright/test";
  */
 
 const COVERED_PERSONAS = [
-  { name: "Mariah", id: "018f67d0-0000-7000-8000-000000000001" },
-  { name: "Priya", id: "018f67d0-0000-7000-8000-000000000002" },
-  { name: "Jamal", id: "018f67d0-0000-7000-8000-000000000003" },
+  { name: "Mariah", id: "019e6785-928a-7270-a766-f945b6cd7161" },
+  { name: "Priya", id: "019e6785-928d-78b1-a6b2-136d9ed263ce" },
+  { name: "Jamal", id: "019e6785-928e-7f20-803b-55266e526011" },
 ] as const;
 
 const PERSONALITY_WARN_RE =

@@ -35,7 +35,7 @@ import { TeammateCard } from "./TeammateCard";
 // resolve to her curated SAMPLE_PERSONAS entry. Pre-refactor lookups
 // were keyed by name, so any arbitrary id worked; the helper now reads
 // from `sample-personas.ts` by id.
-const MARIAH_ID = "018f67d0-0000-7000-8000-000000000001";
+const MARIAH_ID = "019e6785-928a-7270-a766-f945b6cd7161";
 
 function makeWorker(overrides: Partial<Worker> = {}): Worker {
   return {

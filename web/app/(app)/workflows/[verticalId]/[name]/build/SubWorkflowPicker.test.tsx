@@ -45,7 +45,7 @@ describe("SubWorkflowPicker", () => {
           lastEdited: "now",
           lastEditor: "Peta",
           authorType: "worker",
-          authorWorkerId: "018f67d0-0000-7000-8000-000000000007",
+          authorWorkerId: "019e6785-928c-72b3-85c6-436fe5004c50",
           risk: "approval-required",
         },
       ]),

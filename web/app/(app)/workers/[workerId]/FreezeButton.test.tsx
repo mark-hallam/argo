@@ -21,7 +21,7 @@ vi.mock("@/lib/api/workers", () => ({
 
 import { FreezeButton } from "./FreezeButton";
 
-const WORKER_ID = "018f67d0-0000-7000-8000-000000000002";
+const WORKER_ID = "019e6785-928d-78b1-a6b2-136d9ed263ce";
 
 beforeEach(() => {
   freezeMock.mockReset();

@@ -16,6 +16,23 @@ import {
   DEFAULT_DELEGATOR_PERMISSIONS,
   type Worker,
 } from "@/lib/types/worker";
+import {
+  SAMPLE_JAMAL_ID,
+  SAMPLE_MARIAH_ID,
+  SAMPLE_NORI_ID,
+  SAMPLE_PETA_ID,
+  SAMPLE_PRIYA_ID,
+} from "@/lib/sample-personas";
+
+// Re-export canonical sample-worker UUIDs from the persona spine so
+// callers can `import { SAMPLE_PETA } from "@/lib/sample-workers-detail"`
+// per the brief's contract. The spine in `sample-personas.ts` is the
+// single source of truth.
+export const SAMPLE_MARIAH = SAMPLE_MARIAH_ID;
+export const SAMPLE_PETA = SAMPLE_PETA_ID;
+export const SAMPLE_PRIYA = SAMPLE_PRIYA_ID;
+export const SAMPLE_JAMAL = SAMPLE_JAMAL_ID;
+export const SAMPLE_NORI = SAMPLE_NORI_ID;
 
 function stableNow(): number {
   const d = new Date();
@@ -29,7 +46,7 @@ const hour = 60 * minute;
 
 export const SAMPLE_WORKERS_DETAIL: Worker[] = [
   {
-    id: "018f67d0-0000-7000-8000-000000000001",
+    id: SAMPLE_MARIAH,
     name: "Mariah",
     role: { tagline: "lists and re-prices items for sale", vertical: "marketplace" },
     status: "waiting",
@@ -45,7 +62,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     pendingApprovalCount: 2,
   },
   {
-    id: "018f67d0-0000-7000-8000-000000000002",
+    id: SAMPLE_PRIYA,
     name: "Priya",
     role: { tagline: "screens candidates and books interviews", vertical: "recruiting" },
     status: "waiting",
@@ -61,7 +78,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     pendingApprovalCount: 1,
   },
   {
-    id: "018f67d0-0000-7000-8000-000000000003",
+    id: SAMPLE_JAMAL,
     name: "Jamal",
     role: { tagline: "handles customer support tickets", vertical: "support" },
     status: "working",
@@ -75,7 +92,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     lastActiveAt: new Date(now - 32 * minute).toISOString(),
   },
   {
-    id: "018f67d0-0000-7000-8000-000000000004",
+    id: SAMPLE_NORI,
     name: "Nori",
     role: { tagline: "drafts product comms and announcements", vertical: "marketing" },
     status: "idle",
@@ -90,7 +107,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
   {
-    id: "018f67d0-0000-7000-8000-000000000007",
+    id: SAMPLE_PETA,
     name: "Peta",
     role: {
       tagline: "keeps the cadence — standups, action items, status",

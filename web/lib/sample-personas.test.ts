@@ -20,17 +20,17 @@ import { findSampleWorkerOverview } from "./sample-worker-overview";
  */
 
 const ROLE_KEYWORDS: Record<string, string[]> = {
-  "018f67d0-0000-7000-8000-000000000002": ["candidate", "interview", "JD", "shortlist"],
-  "018f67d0-0000-7000-8000-000000000001": ["listing", "buyer", "re-price", "inventory"],
-  "018f67d0-0000-7000-8000-000000000003": ["ticket", "refund", "KB", "support"],
-  "018f67d0-0000-7000-8000-000000000004": ["draft", "brand", "newsletter", "post", "voice"],
-  "018f67d0-0000-7000-8000-000000000007": ["standup", "action item", "sprint", "status"],
+  "019e6785-928d-78b1-a6b2-136d9ed263ce": ["candidate", "interview", "JD", "shortlist"],
+  "019e6785-928a-7270-a766-f945b6cd7161": ["listing", "buyer", "re-price", "inventory"],
+  "019e6785-928e-7f20-803b-55266e526011": ["ticket", "refund", "KB", "support"],
+  "019e6785-928f-7281-bf8d-e062bc277478": ["draft", "brand", "newsletter", "post", "voice"],
+  "019e6785-928c-72b3-85c6-436fe5004c50": ["standup", "action item", "sprint", "status"],
 };
 
 const FORBIDDEN_OLD_VERBS: Record<string, string[]> = {
-  "018f67d0-0000-7000-8000-000000000007": ["invoice", "INV-2024", "reconciliation"],
-  "018f67d0-0000-7000-8000-000000000001": ["RFP", "vendor quote", "renewal review"],
-  "018f67d0-0000-7000-8000-000000000004": ["pricing rules", "salesforce", "deal-stage", "commission"],
+  "019e6785-928c-72b3-85c6-436fe5004c50": ["invoice", "INV-2024", "reconciliation"],
+  "019e6785-928a-7270-a766-f945b6cd7161": ["RFP", "vendor quote", "renewal review"],
+  "019e6785-928f-7281-bf8d-e062bc277478": ["pricing rules", "salesforce", "deal-stage", "commission"],
 };
 
 describe("sample-personas as the canonical persona spine", () => {
@@ -69,7 +69,7 @@ describe("sample-personas as the canonical persona spine", () => {
   });
 
   it("Peta carries her actual traits + a curated personality", () => {
-    const peta = getSamplePersona("018f67d0-0000-7000-8000-000000000007");
+    const peta = getSamplePersona("019e6785-928c-72b3-85c6-436fe5004c50");
     expect(peta.name).toBe("Peta");
     expect(peta.traits).toEqual([
       "Cadence-true",

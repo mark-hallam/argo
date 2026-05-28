@@ -61,7 +61,7 @@ const DEFAULT_SEED: WorkerEscalationSeed = {
 };
 
 const SEEDS: Record<string, WorkerEscalationSeed> = {
-  "018f67d0-0000-7000-8000-000000000001": {
+  "019e6785-928a-7270-a766-f945b6cd7161": {
     rules: [
       {
         action: "Re-price a listing",
@@ -111,7 +111,7 @@ const SEEDS: Record<string, WorkerEscalationSeed> = {
       },
     ],
   },
-  "018f67d0-0000-7000-8000-000000000002": {
+  "019e6785-928d-78b1-a6b2-136d9ed263ce": {
     rules: [
       {
         action: "Send a rejection email",
@@ -148,7 +148,7 @@ const SEEDS: Record<string, WorkerEscalationSeed> = {
       },
     ],
   },
-  "018f67d0-0000-7000-8000-000000000003": {
+  "019e6785-928e-7f20-803b-55266e526011": {
     rules: [
       {
         action: "Close a customer ticket",

@@ -67,7 +67,7 @@ function kpi(
   return { id, label, value, series, deltaPct, trend, tone };
 }
 
-const PRIYA_P = pronounsFor("018f67d0-0000-7000-8000-000000000002");
+const PRIYA_P = pronounsFor("019e6785-928d-78b1-a6b2-136d9ed263ce");
 const PRIYA: WorkerOverview = {
   charter: `Priya helps the People Ops team manage inbound applications. ${PRIYA_P.subjectCap} ${v(PRIYA_P, "screen")} candidates against the role's must-haves, ${v(PRIYA_P, "schedule")} first-round interviews, and ${v(PRIYA_P, "ask")} the hiring manager before agreeing to anything outside the JD.`,
   duties: [
@@ -91,7 +91,7 @@ const PRIYA: WorkerOverview = {
   ],
 };
 
-const MARIAH_P = pronounsFor("018f67d0-0000-7000-8000-000000000001");
+const MARIAH_P = pronounsFor("019e6785-928a-7270-a766-f945b6cd7161");
 const MARIAH: WorkerOverview = {
   charter: `Mariah helps the Procurement team keep the marketplace storefront fresh. ${MARIAH_P.subjectCap} ${v(MARIAH_P, "list")} new inventory, ${v(MARIAH_P, "re-price")} stale items against competitor data, and ${v(MARIAH_P, "ask")} the category buyer before discounting anything below floor.`,
   duties: [
@@ -115,7 +115,7 @@ const MARIAH: WorkerOverview = {
   ],
 };
 
-const JAMAL_P = pronounsFor("018f67d0-0000-7000-8000-000000000003");
+const JAMAL_P = pronounsFor("019e6785-928e-7f20-803b-55266e526011");
 const JAMAL: WorkerOverview = {
   charter: `Jamal helps the Customer Experience team keep tier-1 ticket volume manageable. ${JAMAL_P.subjectCap} ${v(JAMAL_P, "resolve")} the standard refund / password / shipping cases end-to-end, and ${v(JAMAL_P, "escalate")} anything touching billing disputes or churn-risk accounts to a human.`,
   duties: [
@@ -139,7 +139,7 @@ const JAMAL: WorkerOverview = {
   ],
 };
 
-const NORI_P = pronounsFor("018f67d0-0000-7000-8000-000000000004");
+const NORI_P = pronounsFor("019e6785-928f-7281-bf8d-e062bc277478");
 const NORI: WorkerOverview = {
   charter: `Nori helps the Brand team keep customer-facing comms on-voice and on-schedule. ${NORI_P.subjectCap} ${v(NORI_P, "draft")} product announcements, ${v(NORI_P, "ask")} the brand lead before publishing anything net-new, and ${v(NORI_P, "track")} reach against the team's quarterly target.`,
   duties: [
@@ -163,7 +163,7 @@ const NORI: WorkerOverview = {
   ],
 };
 
-const PETA_P = pronounsFor("018f67d0-0000-7000-8000-000000000007");
+const PETA_P = pronounsFor("019e6785-928c-72b3-85c6-436fe5004c50");
 const PETA: WorkerOverview = {
   charter: `Peta helps the Project Management team keep cadence — running standup digests, chasing open action items, and drafting Friday status reports. ${PETA_P.subjectCap} ${v(PETA_P, "raise")} blockers in real-time and ${v(PETA_P, "ask")} the PM before reshuffling anyone's calendar.`,
   duties: [
@@ -188,11 +188,11 @@ const PETA: WorkerOverview = {
 };
 
 const OVERVIEWS_BY_ID: Record<string, WorkerOverview> = {
-  "018f67d0-0000-7000-8000-000000000002": PRIYA,
-  "018f67d0-0000-7000-8000-000000000001": MARIAH,
-  "018f67d0-0000-7000-8000-000000000003": JAMAL,
-  "018f67d0-0000-7000-8000-000000000004": NORI,
-  "018f67d0-0000-7000-8000-000000000007": PETA,
+  "019e6785-928d-78b1-a6b2-136d9ed263ce": PRIYA,
+  "019e6785-928a-7270-a766-f945b6cd7161": MARIAH,
+  "019e6785-928e-7f20-803b-55266e526011": JAMAL,
+  "019e6785-928f-7281-bf8d-e062bc277478": NORI,
+  "019e6785-928c-72b3-85c6-436fe5004c50": PETA,
 };
 
 export function findSampleWorkerOverview(id: string): WorkerOverview | undefined {

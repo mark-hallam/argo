@@ -20,11 +20,11 @@ import type { AuditDetail, DecisionStep } from "@/lib/types/audit-detail";
 import type { AuditRow, AuditStatus, DataClassification } from "@/lib/types/audit";
 import type { WorkerActivityActionType } from "@/lib/api/worker-activity";
 
-const PRIYA = { id: "018f67d0-0000-7000-8000-000000000002", name: "Priya" };
-const PETA = { id: "018f67d0-0000-7000-8000-000000000007", name: "Peta" };
-const MARIAH = { id: "018f67d0-0000-7000-8000-000000000001", name: "Mariah" };
-const JAMAL = { id: "018f67d0-0000-7000-8000-000000000003", name: "Jamal" };
-const NORI = { id: "018f67d0-0000-7000-8000-000000000004", name: "Nori" };
+const PRIYA = { id: "019e6785-928d-78b1-a6b2-136d9ed263ce", name: "Priya" };
+const PETA = { id: "019e6785-928c-72b3-85c6-436fe5004c50", name: "Peta" };
+const MARIAH = { id: "019e6785-928a-7270-a766-f945b6cd7161", name: "Mariah" };
+const JAMAL = { id: "019e6785-928e-7f20-803b-55266e526011", name: "Jamal" };
+const NORI = { id: "019e6785-928f-7281-bf8d-e062bc277478", name: "Nori" };
 
 const OPERATOR = { id: "usr_op_mark", name: "Mark" };
 const CFO = { id: "usr_cfo_jenna", name: "Jenna" };

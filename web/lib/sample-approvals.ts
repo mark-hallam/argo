@@ -89,7 +89,7 @@ const day = 24 * hour;
 export const SAMPLE_APPROVALS: ApprovalItem[] = [
   {
     id: "ap_01H9Z7",
-    actionId: "act_018f67d0-0000-7000-8000-000000000001_018",
+    actionId: "act_019e6785-928a-7270-a766-f945b6cd7161_018",
     worker: { name: "Mariah" },
     verb: "wants to send this listing",
     detail:
@@ -106,7 +106,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z6",
-    actionId: "act_018f67d0-0000-7000-8000-000000000002_001",
+    actionId: "act_019e6785-928d-78b1-a6b2-136d9ed263ce_001",
     worker: { name: "Priya" },
     verb: "wants to book an interview slot",
     detail:
@@ -123,7 +123,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z5",
-    actionId: "act_018f67d0-0000-7000-8000-000000000003_027",
+    actionId: "act_019e6785-928e-7f20-803b-55266e526011_027",
     worker: { name: "Jamal" },
     verb: "wants to issue a refund",
     detail:
@@ -140,7 +140,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z4",
-    actionId: "act_018f67d0-0000-7000-8000-000000000001_023",
+    actionId: "act_019e6785-928a-7270-a766-f945b6cd7161_023",
     worker: { name: "Mariah" },
     verb: "countered at $85",
     detail:
@@ -159,7 +159,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z3",
-    actionId: "act_018f67d0-0000-7000-8000-000000000004_032",
+    actionId: "act_019e6785-928f-7281-bf8d-e062bc277478_032",
     worker: { name: "Nori" },
     verb: "published the Q2 product update",
     detail:
@@ -178,7 +178,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z2",
-    actionId: "act_018f67d0-0000-7000-8000-000000000005_013",
+    actionId: "act_018f67d1-0000-7000-8000-000000000005_013",
     worker: { name: "Peta" },
     verb: "wants to escalate the release-blocker thread",
     detail:
@@ -195,7 +195,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z1",
-    actionId: "act_018f67d0-0000-7000-8000-000000000002_002",
+    actionId: "act_019e6785-928d-78b1-a6b2-136d9ed263ce_002",
     worker: { name: "Priya" },
     verb: "held the rejection email",
     detail:

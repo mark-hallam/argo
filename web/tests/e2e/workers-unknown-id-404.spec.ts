@@ -34,7 +34,7 @@ test("unknown worker id renders the in-shell not-found empty state", async ({
 test("canonical persona id still renders the overview body", async ({
   page,
 }) => {
-  await page.goto("/workers/018f67d0-0000-7000-8000-000000000001/overview");
+  await page.goto("/workers/019e6785-928a-7270-a766-f945b6cd7161/overview");
 
   await expect(page.getByTestId("worker-tab-panel-overview")).toBeVisible();
   await expect(page.getByTestId("worker-not-found")).toHaveCount(0);

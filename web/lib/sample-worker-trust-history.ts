@@ -133,11 +133,11 @@ function buildSeries(arc: Arc): TrustHistoryPoint[] {
 }
 
 export const SAMPLE_WORKER_TRUST_HISTORY: Record<string, TrustHistoryPoint[]> = {
-  "018f67d0-0000-7000-8000-000000000001": buildSeries(MARIAH_ARC),
-  "018f67d0-0000-7000-8000-000000000002": buildSeries(PRIYA_ARC),
-  "018f67d0-0000-7000-8000-000000000005": buildSeries(SAM_ARC),
-  "018f67d0-0000-7000-8000-000000000003": buildSeries(JAMAL_ARC),
-  "018f67d0-0000-7000-8000-000000000004": buildSeries(NORI_ARC),
+  "019e6785-928a-7270-a766-f945b6cd7161": buildSeries(MARIAH_ARC),
+  "019e6785-928d-78b1-a6b2-136d9ed263ce": buildSeries(PRIYA_ARC),
+  "018f67d1-0000-7000-8000-000000000005": buildSeries(SAM_ARC),
+  "019e6785-928e-7f20-803b-55266e526011": buildSeries(JAMAL_ARC),
+  "019e6785-928f-7281-bf8d-e062bc277478": buildSeries(NORI_ARC),
 };
 
 const FALLBACK_ARC: Arc = {

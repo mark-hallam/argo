@@ -4,21 +4,21 @@ import type { DelegationStep } from "@/lib/api/audit-detail";
 
 const base: DelegationStep[] = [
   {
-    workerId: "018f67d0-0000-7000-8000-000000000001",
+    workerId: "019e6785-928a-7270-a766-f945b6cd7161",
     workerName: "Mariah",
     actionId: "00112233445566778899aabbccddeeff",
     role: "originator",
     ts: "2026-05-25T22:10:00Z",
   },
   {
-    workerId: "018f67d0-0000-7000-8000-000000000002",
+    workerId: "019e6785-928d-78b1-a6b2-136d9ed263ce",
     workerName: "Peta",
     actionId: "11112233445566778899aabbccddeeff",
     role: "delegated_to",
     ts: "2026-05-25T22:11:00Z",
   },
   {
-    workerId: "018f67d0-0000-7000-8000-000000000004",
+    workerId: "019e6785-928f-7281-bf8d-e062bc277478",
     workerName: "Nori",
     actionId: "22222233445566778899aabbccddeeff",
     role: "executed",
@@ -57,14 +57,14 @@ export const FiveStep: Story = {
       base[0],
       base[1],
       {
-        workerId: "018f67d0-0000-7000-8000-000000000003",
+        workerId: "019e6785-928e-7f20-803b-55266e526011",
         workerName: "Jamal",
         actionId: "33332233445566778899aabbccddeeff",
         role: "delegated_to",
         ts: "2026-05-25T22:12:00Z",
       },
       {
-        workerId: "018f67d0-0000-7000-8000-000000000005",
+        workerId: "018f67d1-0000-7000-8000-000000000005",
         workerName: "Priya",
         actionId: "44442233445566778899aabbccddeeff",
         role: "delegated_to",

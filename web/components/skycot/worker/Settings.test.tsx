@@ -17,7 +17,7 @@ import {
 } from "@/lib/types/worker";
 
 vi.mock("next/navigation", () => ({
-  useParams: () => ({ workerId: "018f67d0-0000-7000-8000-000000000001" }),
+  useParams: () => ({ workerId: "019e6785-928a-7270-a766-f945b6cd7161" }),
 }));
 
 type WorkerQueryShape = {
@@ -79,7 +79,7 @@ vi.mock("@/lib/hooks/use-worker-policies", () => ({
 function policiesState(): PoliciesQueryShape {
   return {
     data: {
-      workerId: "018f67d0-0000-7000-8000-000000000001",
+      workerId: "019e6785-928a-7270-a766-f945b6cd7161",
       readOnly: false,
       source: "mock-offline",
       rows: [
@@ -138,7 +138,7 @@ function operatorPerms(overrides: Partial<WorkerPermissions> = {}): WorkerPermis
 
 function makeWorker(overrides: Partial<Worker> = {}): Worker {
   return {
-    id: "018f67d0-0000-7000-8000-000000000001",
+    id: "019e6785-928a-7270-a766-f945b6cd7161",
     name: "Mariah",
     role: { tagline: "lists items", vertical: "marketplace" },
     status: "working",
@@ -320,7 +320,7 @@ describe("WorkerSettingsPage", () => {
     render(<WorkerSettingsPage />);
     expect(screen.getByTestId("advanced-audit-link")).toHaveAttribute(
       "href",
-      "/audit?worker=018f67d0-0000-7000-8000-000000000001&action_type=settings_change",
+      "/audit?worker=019e6785-928a-7270-a766-f945b6cd7161&action_type=settings_change",
     );
   });
 

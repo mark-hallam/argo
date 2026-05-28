@@ -3,6 +3,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiGet, apiPost, ApiError } from "@/lib/api/client";
 import { findWorkerByName } from "@/lib/api/team";
+import {
+  SAMPLE_JAMAL_ID as SAMPLE_JAMAL,
+  SAMPLE_MARIAH_ID as SAMPLE_MARIAH,
+  SAMPLE_NORI_ID as SAMPLE_NORI,
+  SAMPLE_PETA_ID as SAMPLE_PETA,
+  SAMPLE_PRIYA_ID as SAMPLE_PRIYA,
+} from "@/lib/sample-personas";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 const VERIFY_ATTEMPTS = 3;
@@ -100,29 +107,22 @@ async function verifyWorkerReadable(workerId: string): Promise<void> {
   }
 }
 
-// Canonical sample-worker UUIDs (mirror `SAMPLE_PERSONAS` ids in
-// `web/lib/sample-personas.ts`). We can't import them at module load
-// because `sample-personas.ts` brings the worker-overview compile-time
-// guard along with it, but the IDs are stable per the brief's
-// must-not-touch contract and re-asserted by the compile-time check
-// in `sample-worker-overview.ts`.
-const SAMPLE_MARIAH = "018f67d0-0000-7000-8000-000000000001";
-const SAMPLE_PRIYA = "018f67d0-0000-7000-8000-000000000002";
-const SAMPLE_JAMAL = "018f67d0-0000-7000-8000-000000000003";
-const SAMPLE_NORI = "018f67d0-0000-7000-8000-000000000004";
-
 /**
  * Vertical → sample-worker id mapping. Picks the closest persona by
  * role so the post-hire redirect lands on a real-rendered C2 card
  * matching the operator's chosen template. Unknown verticals fall
  * through to Mariah (the marketplace-lister), which the Scene-3
  * demo-runbook treats as the canonical "first hire" placeholder.
+ *
+ * IDs are imported from `sample-personas.ts` so the SPA and the
+ * `argo demo seed` gateway-side roster share one UUID universe.
  */
 const VERTICAL_TO_SAMPLE_WORKER: Record<string, { id: string; name: string }> = {
   "marketplace-seller": { id: SAMPLE_MARIAH, name: "Mariah" },
   recruiter: { id: SAMPLE_PRIYA, name: "Priya" },
   "customer-support": { id: SAMPLE_JAMAL, name: "Jamal" },
   "marketing-intern": { id: SAMPLE_NORI, name: "Nori" },
+  "project-coordination": { id: SAMPLE_PETA, name: "Peta" },
 };
 
 const DEMO_FALLBACK_WORKER = { id: SAMPLE_MARIAH, name: "Mariah" };

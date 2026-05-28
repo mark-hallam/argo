@@ -47,19 +47,19 @@ describe("worker Activity tab — IDs resolve through findSampleAuditDetail", ()
   it("the seed counts match the rendered SAMPLE_WORKER_ACTIVITY counts (no drift)", () => {
     // If the build() function ever decouples from ACTIVITY_TAB_SEEDS,
     // this test will catch the drift before it ships broken drill-in.
-    expect(SAMPLE_WORKER_ACTIVITY["018f67d0-0000-7000-8000-000000000002"]?.length).toBe(
+    expect(SAMPLE_WORKER_ACTIVITY["019e6785-928d-78b1-a6b2-136d9ed263ce"]?.length).toBe(
       ACTIVITY_TAB_SEEDS.PRIYA.length,
     );
-    expect(SAMPLE_WORKER_ACTIVITY["018f67d0-0000-7000-8000-000000000007"]?.length).toBe(
+    expect(SAMPLE_WORKER_ACTIVITY["019e6785-928c-72b3-85c6-436fe5004c50"]?.length).toBe(
       ACTIVITY_TAB_SEEDS.PETA.length,
     );
-    expect(SAMPLE_WORKER_ACTIVITY["018f67d0-0000-7000-8000-000000000001"]?.length).toBe(
+    expect(SAMPLE_WORKER_ACTIVITY["019e6785-928a-7270-a766-f945b6cd7161"]?.length).toBe(
       ACTIVITY_TAB_SEEDS.MARIAH.length,
     );
-    expect(SAMPLE_WORKER_ACTIVITY["018f67d0-0000-7000-8000-000000000003"]?.length).toBe(
+    expect(SAMPLE_WORKER_ACTIVITY["019e6785-928e-7f20-803b-55266e526011"]?.length).toBe(
       ACTIVITY_TAB_SEEDS.JAMAL.length,
     );
-    expect(SAMPLE_WORKER_ACTIVITY["018f67d0-0000-7000-8000-000000000004"]?.length).toBe(
+    expect(SAMPLE_WORKER_ACTIVITY["019e6785-928f-7281-bf8d-e062bc277478"]?.length).toBe(
       ACTIVITY_TAB_SEEDS.NORI.length,
     );
   });

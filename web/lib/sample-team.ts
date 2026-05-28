@@ -49,27 +49,27 @@ interface RuntimeOverlay {
 }
 
 const RUNTIME_OVERLAY: Record<string, RuntimeOverlay> = {
-  "018f67d0-0000-7000-8000-000000000001": {
+  "019e6785-928a-7270-a766-f945b6cd7161": {
     // Mariah — waiting on operator OK for two pending listing actions.
     status: "waiting",
     lastActiveAt: new Date(now - 2 * minute).toISOString(),
   },
-  "018f67d0-0000-7000-8000-000000000002": {
+  "019e6785-928d-78b1-a6b2-136d9ed263ce": {
     // Priya — waiting on operator for the interview-slot booking.
     status: "waiting",
     lastActiveAt: new Date(now - 14 * minute).toISOString(),
   },
-  "018f67d0-0000-7000-8000-000000000003": {
+  "019e6785-928e-7f20-803b-55266e526011": {
     // Jamal — actively handling tickets; one refund queued for review.
     status: "working",
     lastActiveAt: new Date(now - 32 * minute).toISOString(),
   },
-  "018f67d0-0000-7000-8000-000000000004": {
+  "019e6785-928f-7281-bf8d-e062bc277478": {
     // Nori — between campaigns; next draft scheduled tomorrow.
     status: "idle",
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
-  "018f67d0-0000-7000-8000-000000000007": {
+  "019e6785-928c-72b3-85c6-436fe5004c50": {
     // Peta — waiting on operator approval for the P0 incident page.
     status: "waiting",
     lastActiveAt: new Date(now - 6 * minute).toISOString(),

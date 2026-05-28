@@ -21,7 +21,7 @@ test("trust tab — disclaimer + recompute affordance", async ({ page }) => {
   // Mariah's sample worker id from `sample-personas.ts` (UUIDv7).
   // The legacy `wkr_mariah` slug now misses the canonical roster and
   // would short-circuit the layout into the WorkerNotFound shell.
-  await page.goto("/workers/018f67d0-0000-7000-8000-000000000001/trust");
+  await page.goto("/workers/019e6785-928a-7270-a766-f945b6cd7161/trust");
 
   await expect(page.getByTestId("worker-tab-panel-trust")).toBeVisible();
   await expect(page.getByTestId("trust-grade-disclaimer")).toContainText(

@@ -27,7 +27,7 @@ import { expect, test } from "@playwright/test";
  */
 
 // Mariah — canonical Scene-1 persona; seeds the audit fixture.
-const MARIAH_UUID = "018f67d0-0000-7000-8000-000000000001";
+const MARIAH_UUID = "019e6785-928a-7270-a766-f945b6cd7161";
 const MARIAH_SLUG = "mariah";
 
 test("/audit?worker=<slug> filters to the matching persona", async ({ page }) => {

@@ -89,7 +89,7 @@ export interface DemoSeedPersona {
 }
 
 const PRIYA: SamplePersona = {
-  id: "018f67d0-0000-7000-8000-000000000002",
+  id: "019e6785-928d-78b1-a6b2-136d9ed263ce",
   name: "Priya",
   initials: "PR",
   slug: "priya",
@@ -128,7 +128,7 @@ const PRIYA: SamplePersona = {
 };
 
 const MARIAH: SamplePersona = {
-  id: "018f67d0-0000-7000-8000-000000000001",
+  id: "019e6785-928a-7270-a766-f945b6cd7161",
   name: "Mariah",
   initials: "MA",
   slug: "mariah",
@@ -167,7 +167,7 @@ const MARIAH: SamplePersona = {
 };
 
 const JAMAL: SamplePersona = {
-  id: "018f67d0-0000-7000-8000-000000000003",
+  id: "019e6785-928e-7f20-803b-55266e526011",
   name: "Jamal",
   initials: "JA",
   slug: "jamal",
@@ -205,7 +205,7 @@ const JAMAL: SamplePersona = {
 };
 
 const NORI: SamplePersona = {
-  id: "018f67d0-0000-7000-8000-000000000004",
+  id: "019e6785-928f-7281-bf8d-e062bc277478",
   name: "Nori",
   initials: "NO",
   slug: "nori",
@@ -225,7 +225,7 @@ const NORI: SamplePersona = {
 };
 
 const PETA: SamplePersona = {
-  id: "018f67d0-0000-7000-8000-000000000007",
+  id: "019e6785-928c-72b3-85c6-436fe5004c50",
   name: "Peta",
   initials: "PE",
   slug: "peta",
@@ -270,6 +270,17 @@ export const SAMPLE_PERSONAS: Record<string, SamplePersona> = {
   [NORI.id]: NORI,
   [PETA.id]: PETA,
 };
+
+// Canonical sample-worker UUIDs aligned with the `argo demo seed`
+// gateway-side canon (UUID v7 generated at seed time, stable per
+// tenant once seeded). Exported here so a single grep finds the
+// source of truth; consumers import via re-exports in
+// `sample-workers-detail.ts` for the public name.
+export const SAMPLE_MARIAH_ID = MARIAH.id;
+export const SAMPLE_PETA_ID = PETA.id;
+export const SAMPLE_PRIYA_ID = PRIYA.id;
+export const SAMPLE_JAMAL_ID = JAMAL.id;
+export const SAMPLE_NORI_ID = NORI.id;
 
 /** Canonical roster — Scene-1 demo lockup. Keep in /team display order. */
 export const SAMPLE_PERSONA_IDS: readonly string[] = [

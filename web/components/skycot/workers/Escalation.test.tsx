@@ -13,7 +13,7 @@ import {
 import type { Worker } from "@/lib/types/worker";
 
 vi.mock("next/navigation", () => ({
-  useParams: () => ({ workerId: "018f67d0-0000-7000-8000-000000000001" }),
+  useParams: () => ({ workerId: "019e6785-928a-7270-a766-f945b6cd7161" }),
   useRouter: () => ({
     replace: vi.fn(),
     push: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
     back: vi.fn(),
     forward: vi.fn(),
   }),
-  usePathname: () => "/workers/018f67d0-0000-7000-8000-000000000001/escalation",
+  usePathname: () => "/workers/019e6785-928a-7270-a766-f945b6cd7161/escalation",
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -39,7 +39,7 @@ vi.mock("@/lib/hooks/use-worker", () => ({
 import WorkerEscalationPage from "@/app/(app)/workers/[workerId]/escalation/page";
 
 const MARIAH: Worker = {
-  id: "018f67d0-0000-7000-8000-000000000001",
+  id: "019e6785-928a-7270-a766-f945b6cd7161",
   name: "Mariah",
   role: { tagline: "lists items and screens buyers", vertical: "marketplace" },
   status: "working",
@@ -120,7 +120,7 @@ describe("EscalationMatrix (unit)", () => {
 
 describe("TrustOverTimeChart (unit)", () => {
   it("renders 90 points for a known worker", () => {
-    expect(findSampleTrustHistory("018f67d0-0000-7000-8000-000000000001")).toHaveLength(90);
+    expect(findSampleTrustHistory("019e6785-928a-7270-a766-f945b6cd7161")).toHaveLength(90);
   });
 
   it("shows an empty-state when the points array is empty", () => {
@@ -129,7 +129,7 @@ describe("TrustOverTimeChart (unit)", () => {
   });
 
   it("renders the line path when points are present", () => {
-    const points = findSampleTrustHistory("018f67d0-0000-7000-8000-000000000001");
+    const points = findSampleTrustHistory("019e6785-928a-7270-a766-f945b6cd7161");
     render(<TrustOverTimeChart points={points} workerName="Mariah" />);
     const line = screen.getByTestId("trust-over-time-line");
     const d = line.getAttribute("d") ?? "";
@@ -138,7 +138,7 @@ describe("TrustOverTimeChart (unit)", () => {
   });
 
   it("declares a prefers-reduced-motion guard so the reveal animation is suppressed", () => {
-    const points = findSampleTrustHistory("018f67d0-0000-7000-8000-000000000001");
+    const points = findSampleTrustHistory("019e6785-928a-7270-a766-f945b6cd7161");
     const { container } = render(
       <TrustOverTimeChart points={points} workerName="Mariah" />,
     );
@@ -150,7 +150,7 @@ describe("TrustOverTimeChart (unit)", () => {
 
   it("opens a tooltip with the date + grade label after a keyboard focus + ArrowRight press", async () => {
     const user = userEvent.setup();
-    const points = findSampleTrustHistory("018f67d0-0000-7000-8000-000000000001");
+    const points = findSampleTrustHistory("019e6785-928a-7270-a766-f945b6cd7161");
     render(<TrustOverTimeChart points={points} workerName="Mariah" />);
     const svg = screen.getByLabelText(/Trust grade over time for Mariah/);
     svg.focus();

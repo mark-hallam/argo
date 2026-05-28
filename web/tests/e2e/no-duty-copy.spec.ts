@@ -60,7 +60,7 @@ for (const { name, path } of FORBIDDEN_PAGES) {
  * (`worker-detail-cold-nav.spec.ts`). Using her id keeps the spec
  * deterministic under the mock-fallback lane.
  */
-const MARIAH_ID = "018f67d0-0000-7000-8000-000000000001";
+const MARIAH_ID = "019e6785-928a-7270-a766-f945b6cd7161";
 
 test('worker profile surfaces "Schedules" copy after the duty→schedule rename', async ({
   page,

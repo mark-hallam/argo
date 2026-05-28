@@ -232,7 +232,7 @@ const SUPPORT_TRUSTED_ACTIVITY: CohortActivityRow[] = [
     seq: 4201,
     kind: "skill.applied",
     action_type: "skill_apply",
-    worker_id: "018f67d0-0000-7000-8000-000000000002",
+    worker_id: "019e6785-928d-78b1-a6b2-136d9ed263ce",
     principal_id: "human:mark@acmeco.com",
     channel: "slack",
     outcome_status: "success",
@@ -243,7 +243,7 @@ const SUPPORT_TRUSTED_ACTIVITY: CohortActivityRow[] = [
     seq: 4198,
     kind: "policy.escalated",
     action_type: "escalate",
-    worker_id: "018f67d0-0000-7000-8000-000000000003",
+    worker_id: "019e6785-928e-7f20-803b-55266e526011",
     principal_id: "human:ops-on-call",
     channel: "email",
     outcome_status: "approved",
@@ -254,7 +254,7 @@ const SUPPORT_TRUSTED_ACTIVITY: CohortActivityRow[] = [
     seq: 4193,
     kind: "skill.promoted",
     action_type: "trust_promotion",
-    worker_id: "018f67d0-0000-7000-8000-000000000006",
+    worker_id: "018f67d1-0000-7000-8000-000000000006",
     principal_id: "system:trust_engine",
     channel: null,
     outcome_status: "success",
@@ -265,7 +265,7 @@ const SUPPORT_TRUSTED_ACTIVITY: CohortActivityRow[] = [
     seq: 4188,
     kind: "approval.completed",
     action_type: "approval",
-    worker_id: "018f67d0-0000-7000-8000-000000000004",
+    worker_id: "019e6785-928f-7281-bf8d-e062bc277478",
     principal_id: "human:mark@acmeco.com",
     channel: "web",
     outcome_status: "approved",
@@ -279,7 +279,7 @@ const MARKETPLACE_DEVELOPING_ACTIVITY: CohortActivityRow[] = [
     seq: 4090,
     kind: "skill.applied",
     action_type: "skill_apply",
-    worker_id: "018f67d0-0000-7000-8000-000000000001",
+    worker_id: "019e6785-928a-7270-a766-f945b6cd7161",
     principal_id: null,
     channel: "internal",
     outcome_status: "success",
@@ -293,7 +293,7 @@ const PROJECT_COORDINATOR_ACTIVITY: CohortActivityRow[] = [
     seq: 4082,
     kind: "summary.drafted",
     action_type: "draft_summary",
-    worker_id: "018f67d0-0000-7000-8000-000000000007",
+    worker_id: "019e6785-928c-72b3-85c6-436fe5004c50",
     principal_id: "human:ops-lead",
     channel: "slack",
     outcome_status: "pending_approval",
@@ -351,7 +351,7 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
   skill_count: 7,
   members: [
     {
-      worker_id: "018f67d0-0000-7000-8000-000000000002",
+      worker_id: "019e6785-928d-78b1-a6b2-136d9ed263ce",
       trust_grade: 8,
       skill_ids: [
         "triage_intent",
@@ -362,7 +362,7 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
       ],
     },
     {
-      worker_id: "018f67d0-0000-7000-8000-000000000003",
+      worker_id: "019e6785-928e-7f20-803b-55266e526011",
       trust_grade: 8,
       skill_ids: [
         "triage_intent",
@@ -374,7 +374,7 @@ export const SAMPLE_COHORT_DETAIL: CohortDetail = {
       ],
     },
     {
-      worker_id: "018f67d0-0000-7000-8000-000000000004",
+      worker_id: "019e6785-928f-7281-bf8d-e062bc277478",
       trust_grade: 7,
       skill_ids: ["triage_intent", "summarize_thread", "tag_followup"],
     },
@@ -393,7 +393,7 @@ export const SAMPLE_MARKETPLACE_COHORT_DETAIL: CohortDetail = {
   skill_count: 3,
   members: [
     {
-      worker_id: "018f67d0-0000-7000-8000-000000000001",
+      worker_id: "019e6785-928a-7270-a766-f945b6cd7161",
       trust_grade: 2,
       skill_ids: ["list_inventory", "reprice_items", "counter_offers"],
     },
@@ -412,7 +412,7 @@ export const SAMPLE_PROJECT_COORDINATOR_COHORT_DETAIL: CohortDetail = {
   skill_count: 4,
   members: [
     {
-      worker_id: "018f67d0-0000-7000-8000-000000000007",
+      worker_id: "019e6785-928c-72b3-85c6-436fe5004c50",
       trust_grade: 2,
       skill_ids: ["linear_read", "github_read", "slack_dm", "action_item_extract"],
     },
