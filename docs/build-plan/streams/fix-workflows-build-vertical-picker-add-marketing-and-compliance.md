@@ -55,7 +55,7 @@ The hardcoded vertical array is a v0 scaffold; the canonical source is the gatew
 
 - The gateway `/verticals` boot-seed (covered by `fix-gateway-skills-and-verticals-boot-seed-tenant-resolution.md`)
 - The `/workflows/build/marketplace` placeholder if it exists (covered by `fix-workflows-build-vertical-picker-add-marketplace.md` — overlaps; coordinate)
-- The 7th dept tab semantics on `/cohorts` (covered by `fix-cohorts-dept-registry-design-lock-drift-6-vs-8.md`)
+- The Project & Ops dept tab semantics on `/cohorts` (4th position per `web/components/skycot/cohorts/dept-registry.ts:18-50`; covered by `fix-cohorts-dept-registry-design-lock-drift-6-vs-8.md`)
 
 ## Effort
 

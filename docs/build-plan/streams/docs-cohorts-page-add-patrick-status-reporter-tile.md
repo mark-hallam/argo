@@ -5,7 +5,7 @@
 **Authored against**: origin/main `be9206ef2` on `2026-05-24`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh docs-cohorts-page-add-patrick-status-reporter-tile`.
 
-🟢 **P3 marketing alignment.** Source: round-51 evaluator finding, 2nd-consecutive carry-forward. PR #2259 shipped the M22 Status Reporter vertical pack (`Patrick` worker, Project & Ops cohort). The cohorts marketing page (`web/app/cohorts/page.tsx` or similar — the page that displays the 7-dept cohort tiles per the design-locked memory) does NOT yet show Patrick. Operator-locked design (project_cohorts_page_design_locked, 2026-05-19) places Project & Ops as the 7th dept tab with Peta (L2 Project Coordinator) as a lead tile — Patrick (L3 Status Reporter) is the second tile and is missing.
+🟢 **P3 marketing alignment.** Source: round-51 evaluator finding, 2nd-consecutive carry-forward. PR #2259 shipped the M22 Status Reporter vertical pack (`Patrick` worker, Project & Ops cohort). The cohorts marketing page (`web/app/cohorts/page.tsx` or similar — the page that displays the 7-dept cohort tiles per the design-locked memory) does NOT yet show Patrick. Operator-locked design (project_cohorts_page_design_locked, 2026-05-19) places Project & Ops as the 4th dept tab (between Sales and People & HR; registry: `web/components/skycot/cohorts/dept-registry.ts:18-50`) with Peta (L2 Project Coordinator) as a lead tile — Patrick (L3 Status Reporter) is the second tile and is missing.
 
 ## Scope
 

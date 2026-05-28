@@ -14,7 +14,11 @@ From the wave-4 data-integrity audit + operator memory
 > Peta (Project Coordinator L2 · Linear+GitHub) + Patrick (Status
 > Reporter L3). Naming convention: all PM workers are P-names.
 > Briefs at M21/M22, worker-detail mockups built, cohorts page
-> updated with Project & Ops as 7th dept tab.
+> updated with Project & Ops as the 4th dept tab (between Sales
+> and People & HR). Registry:
+> `web/components/skycot/cohorts/dept-registry.ts:18-50`. Tab order:
+> Support → Finance & Ops → Sales → Project & Ops → People & HR →
+> IT & Dev-ex → Marketing.
 
 But the seed data never landed. Visit /team → no Peta, no Patrick.
 The cohorts tab for Project & Ops shows empty.
