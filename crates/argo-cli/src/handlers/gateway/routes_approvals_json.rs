@@ -52,10 +52,26 @@ use std::sync::Arc;
 /// Window during which a decision is reversible via `POST /undo`.
 const UNDO_WINDOW_SECS: i64 = 30;
 
-/// `GET /api/v1/approvals?cursor=<c>&limit=<n>` — paginated list
-/// of currently-pending approvals (state `pending` AND
-/// `requires_approval = true`). Returns
+/// `GET /api/v1/approvals?cursor=<c>&limit=<n>` — paginated list of
+/// approvals visible to the caller's tenant. Returns
 /// `{ items: ApprovalRow[], next_cursor: <opt> }`.
+///
+/// Two data sources are merged behind this surface:
+///
+/// 1. **`worker_action` memory rows** (the legacy state-machine path,
+///    used by real agent runs) — filtered to `state = pending` AND
+///    `requires_approval = true`.
+/// 2. **`approval_request` table rows** (first-class approval store,
+///    used by `argo demo seed` and any future writer that doesn't go
+///    through the worker-action transitions) — surfaced for ALL
+///    statuses so the SPA's 7-day approval-rate ring can compute from
+///    the decided rows alongside the pending inbox.
+///
+/// The two stores remain disjoint at the data level; this endpoint is
+/// the read-side union. Decide / undo continues to flow through the
+/// worker-action transitions only — out of scope for the fix-brief
+/// `fix-approvals-list-tenant-scope-empty-despite-seeded-rows` that
+/// surfaced this gap.
 pub(super) async fn list_response(req: &str) -> (&'static str, String) {
     let tail = req.strip_prefix("GET ").unwrap_or(req);
     let limit = match parse_limit(tail) {
@@ -67,32 +83,10 @@ pub(super) async fn list_response(req: &str) -> (&'static str, String) {
         Ok(v) => v,
         Err(e) => return server_error(&format!("collect actions: {e}")),
     };
-    let mut pending: Vec<ActionRecord> = actions
+    let pending: Vec<ActionRecord> = actions
         .into_iter()
         .filter(|a| a.state == ActionState::Pending.as_str() && a.requires_approval)
         .collect();
-    // Newest-first by created_at, ties broken by action_id for determinism.
-    pending.sort_by(|a, b| {
-        b.created_at
-            .cmp(&a.created_at)
-            .then_with(|| a.action_id.cmp(&b.action_id))
-    });
-    if let Some((ts, id)) = cursor.as_ref() {
-        // Resume strictly after the prior page's last row (timestamp DESC,
-        // id ASC) — append `< ts` OR (`== ts` AND `> id`).
-        pending.retain(|a| {
-            a.created_at.as_str() < ts.as_str()
-                || (a.created_at.as_str() == ts.as_str() && a.action_id.as_str() > id.as_str())
-        });
-    }
-    let take = pending.len().min(limit);
-    let page: Vec<ActionRecord> = pending.into_iter().take(take).collect();
-    let next_cursor = if page.len() == limit {
-        page.last()
-            .map(|a| encode_cursor(&a.created_at, &a.action_id))
-    } else {
-        None
-    };
     let actor_id = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
     // v1 viewer-permissions resolution: the gateway has no
     // principal→permission mapping yet (RBAC permissions row lands
@@ -102,7 +96,9 @@ pub(super) async fn list_response(req: &str) -> (&'static str, String) {
     let viewer = ViewerPermissions::strict();
     let grants = active_grants_for_principal(&actor_id);
     let policy = resolve_policy(&viewer, &grants);
-    let items: Vec<Value> = page
+
+    // Memory-row arm: keep existing audit-on-redaction telemetry path.
+    let mut entries: Vec<(String, String, Value)> = pending
         .iter()
         .map(|rec| {
             let row = approval_row_json(rec);
@@ -119,9 +115,51 @@ pub(super) async fn list_response(req: &str) -> (&'static str, String) {
                     "approval row redacted by server fence"
                 );
             }
-            redaction.row
+            (rec.created_at.clone(), rec.action_id.clone(), redaction.row)
         })
         .collect();
+
+    // First-class `approval_request` arm — surface seeded rows. Empty
+    // on tenant-resolver miss; never errors back to the caller.
+    let seeded = super::routes_approvals_json_seeded::fetch_seeded_approval_rows(req).await;
+    for row in seeded {
+        let redaction = redact_approval_row(
+            row.json,
+            &policy,
+            grants.first_id().map(str::to_string),
+        );
+        if redaction.was_masked() {
+            let payload = audit_payload(&actor_id, &row.id, &redaction);
+            tracing::info!(
+                target: "audit::approval_row_redacted",
+                event_type = argo_redact::AUDIT_EVENT_TYPE,
+                actor_id = %actor_id,
+                approval_id = %row.id,
+                payload = %payload,
+                "approval row redacted by server fence"
+            );
+        }
+        entries.push((row.received_at, row.id, redaction.row));
+    }
+
+    // Newest-first by received_at, ties broken by id for determinism.
+    entries.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    if let Some((ts, id)) = cursor.as_ref() {
+        // Resume strictly after the prior page's last row (timestamp DESC,
+        // id ASC) — append `< ts` OR (`== ts` AND `> id`).
+        entries.retain(|(rec_ts, rec_id, _)| {
+            rec_ts.as_str() < ts.as_str()
+                || (rec_ts.as_str() == ts.as_str() && rec_id.as_str() > id.as_str())
+        });
+    }
+    let take = entries.len().min(limit);
+    let page: Vec<(String, String, Value)> = entries.into_iter().take(take).collect();
+    let next_cursor = if page.len() == limit {
+        page.last().map(|(ts, id, _)| encode_cursor(ts, id))
+    } else {
+        None
+    };
+    let items: Vec<Value> = page.into_iter().map(|(_, _, v)| v).collect();
     let mut body = json!({ "items": items });
     if let Some(c) = next_cursor {
         body["next_cursor"] = Value::String(c);
