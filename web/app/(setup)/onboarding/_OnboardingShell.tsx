@@ -5,6 +5,7 @@ import {
   WizardEditorialShell,
   type WizardStep,
 } from "@/components/auth/WizardEditorialShell";
+import { OnboardingDemoPill } from "@/components/skycot/onboarding/OnboardingDemoPill";
 import { OnboardingFormStyles } from "@/components/skycot/onboarding/OnboardingFormStyles";
 
 /**
@@ -62,6 +63,7 @@ export function OnboardingShell({
     >
       <OnboardingFormStyles />
       {children}
+      <OnboardingDemoPill />
     </WizardEditorialShell>
   );
 }
