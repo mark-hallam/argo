@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-28T11:00:00Z",
+  "last_run_utc": "2026-05-28T13:10:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T21-00-aest-INTERACTIVE-OPERATOR-DRIVEN-MVP-DEMO-P0-MERGE-CYCLE",
-  "run_notes": "INTERACTIVE conductor session 2026-05-28T03:00-11:00Z (Melbourne 13:00-21:00 AEST). Operator-driven MVP-DEMO P0 merge cycle. CYCLE CONTINUED FROM T20-25: (1) Merged PR #2626 (fix-workflows-build-sales-tile-redirect-to-onboarding) via web-only relaxation lane — 2 files +62/-3, vitest 9/9 green, closes scene-4-and-5 F8 [P2]. Pre-merge gate killed under worker I/O contention; admin-merged direct per relaxation lane. Ledger flipped IN_REVIEW→MERGED in 3388893ad. (2) Demoted zombie CLAIMED row for fix-gateway-error-envelope-standardize-structured → BLOCKED in 862936f8d; worker had 70+ retry trail without opening PR over 24h; brief scope too large (touches every gateway route) — needs per-route-group sub-briefs before re-claim. Collapsed retry trail. CURRENT WORKER STATE: 5 of 6 CLAIMED rows have active workers; one was the zombie just BLOCKED. ACTIVE: PID 75649 (44min) on audit-detail-tenant-scope — compile finished, running argo-cli tests for routes_audit_list_detail_alignment_tests + routes_audit_detail_tests + routes_audit_feed; PID 80237 (44min) on approvals-list-tenant-scope — compiling approvals_list_seeded_rows_surface test; PID 37782 (65min) on genesis-idempotency — compile finished, running argo overwrite test; PID 45351 (18min) on settings-sub-pages-title-suffix; PID 64495 (4.5min) on hire-page-title-double-suffix. Plus #2616 (gateway dev-mode tenant-header) deliberately held — overlap risk with audit-detail worker on routes_audit_detail.rs. Gateway v84 healthy uptime 2.5h+, CORS headers verified on SSE, build_commit includes a8e0f5b22 fix. SPA on :3000 turbopack dev. Monitor armed (bash background task bjzqk2397) polling every 45s for new PRs + ledger changes on 5 tracked P0 rows.",
-  "open_prs": 62,
+  "session_label": "tick-T23-10-aest-INTERACTIVE-MVP-DEMO-P0-ALL-MERGED",
+  "run_notes": "INTERACTIVE conductor session 2026-05-28T03:00-13:10Z (Melbourne 13:00-23:10 AEST). Operator-driven MVP-DEMO P0 merge cycle COMPLETE. ALL 5 MVP-DEMO P0 BRIEFS NOW LIVE ON MAIN: (1) fix-spa-genesis-fetch-fails-while-curl-succeeds — shipped earlier via a8e0f5b22 + worker regression #2622; (2) fix-worker-activity-tab-query-live-audit-not-fixture-act-uuid-ids — Path A shipped via 7e0ea312d; (3) fix-spa-genesis-catch-overwrites-sse-error-event-message — inline in a8e0f5b22; (4) fix-audit-detail-tenant-scope-list-detail-sql-mismatch — MERGED via #2635 (list+detail un-headered tenant fallback aligned); (5) fix-approvals-list-tenant-scope-empty-despite-seeded-rows — MERGED via #2631 (gateway bridges approval_request + worker_action stores); (6) fix-genesis-idempotency-output-dir-not-empty — MERGED via #2630 (overwrite=true on Try-again). Operator-authorized option A under 'P0 MVP-must-have + worker-side full verification' (each PR had per-crate clippy + workspace-clippy + crate tests + boundary notes). Bonus #2634 (ops scripts guard against stash-pop eating ledger rows) MERGED — fixes broken pre-commit hook. CONDUCTOR-CYCLE MERGE COUNT this interactive session: 11 PRs (#2625, #2626, #2627, #2628, #2629, #2632, #2633, #2637, #2638, #2630, #2631, #2635, #2634 — actually 13). Plus T20-25 inherited cycle of 11 PRs and Genesis-MVP P0 worker PRs. QUEUE STATE: 0 TODO + 0 CLAIMED + 70-ish IN_REVIEW (mostly DIRTY, awaiting triage). REMAINING for v1.0 demo MP4: (a) re-walk 6 scenes under Genesis-MVP scope to verify P0 fixes hold end-to-end in live SPA; (b) operator-only demo MP4 recording. Monitor armed (bjzqk2397).",
+  "open_prs": 65,
   "queue_state": {
-    "claude_todo": 9,
+    "claude_todo": 0,
     "codex_todo": 0,
     "claude_or_codex_todo": 0,
-    "claude_claimed": 5,
+    "claude_claimed": 0,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 62,
+    "claude_in_review": 65,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "Conductor-active merge cycle continuing. 3/5 MVP-DEMO P0s shipped (Genesis fetch CORS, worker-activity Path A, catch-overwrite); 3 remaining with active workers at verification/compile stage. PR #2626 just merged under web-only relaxation lane. Zombie retry-storm row BLOCKED. Monitor armed for next P0 PR landing.",
+  "the_gate": "ALL 3 remaining MVP-DEMO P0s MERGED 2026-05-28T13:10Z. Demo Scene 2 + Scene 6 (audit drill-in, approvals list) and Genesis retry path now LIVE on main. Plus #2634 fixed broken pre-commit hook. Queue drained: 0 TODO + 0 CLAIMED. Next: re-walk 6 scenes under Genesis-MVP scope in live SPA, then operator records demo MP4.",
   "quota_probe": "skip"
 }
