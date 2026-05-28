@@ -97,9 +97,13 @@ function BuilderInner({ params }: {
     return draftName.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "")
       || DEFAULT_NEW_WORKFLOW_NAME;
   }, [draftName, isNewWorkflow, name]);
+  // The "untitled" sentinel + `?from_template=` flow both bypass the
+  // gateway; an `isNewWorkflow` query would never resolve and would
+  // misfire any redirect-on-error path under the builder.
+  const shouldFetchWorkflow = !templateId && !isNewWorkflow;
   const workflowQuery = useWorkflow(
-    templateId || isNewWorkflow ? null : verticalId,
-    templateId || isNewWorkflow ? null : name,
+    shouldFetchWorkflow ? verticalId : null,
+    shouldFetchWorkflow ? name : null,
   );
 
   useEffect(() => {
@@ -342,7 +346,10 @@ function BuilderInner({ params }: {
 
   return (
     <>
-      <div className="builder-shell">
+      <div
+        className="builder-shell"
+        data-testid={isNewWorkflow ? "workflow-blank-canvas" : undefined}
+      >
         <BuilderToolbar
           workflow={workflow}
           verticalId={verticalId}
