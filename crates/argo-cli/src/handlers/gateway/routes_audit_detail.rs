@@ -9,14 +9,19 @@
 //!
 //! ## Tenant resolution
 //!
-//! The caller's tenant is resolved via [`super::rate_limit::extract_tenant`]
-//! — the SAME helper used by `routes_audit_feed::list_response`. Both
-//! routes share one precedence chain (`?tenant=` → `X-Tenant-Id` →
-//! `X-Argo-Tenant-Id` legacy alias → config default → `"anonymous"`).
-//! Do not inline header reads here; if you need to extend the chain,
-//! extend [`super::rate_limit::extract_tenant`] so the feed and the
-//! detail can never diverge again. See the drift incident behind
-//! `fix-gateway-audit-detail-tenant-resolver-drift-vs-feed`.
+//! The caller's tenant is resolved via
+//! [`super::audit_query::resolve_audit_tenant`] — the SAME helper used
+//! by `routes_audit_feed::list_response`. Both routes share one
+//! precedence chain (explicit `?tenant=` / `X-Tenant-Id` /
+//! `X-Argo-Tenant-Id` → cwd-bound workspace tenant UUID → config
+//! default → `"anonymous"`). The workspace-UUID layer is the
+//! load-bearing fix from `fix-audit-detail-tenant-scope-list-detail-sql-mismatch`:
+//! without it, an un-headered curl resolved here to `"anonymous"` and
+//! 404'd on rows the un-headered list happily returned under the
+//! workspace UUID. Do not inline header reads here; if you need to
+//! extend the chain, extend `resolve_audit_tenant` so the feed and
+//! the detail can never diverge again. See the earlier drift incident
+//! behind `fix-gateway-audit-detail-tenant-resolver-drift-vs-feed`.
 //!
 //! Helper modules:
 //! - [`super::routes_audit_detail_render`] — row → JSON renderers (summary,
@@ -24,8 +29,9 @@
 //! - [`super::routes_audit_detail_refs`] — external-reference scanners
 //!   (Stripe, Slack, GitHub, Linear, generic URL substring matches).
 
-use super::audit_query::{lookup_worker_name, resolve_worker_names, WorkerNameMap};
-use super::rate_limit;
+use super::audit_query::{
+    lookup_worker_name, resolve_audit_tenant, resolve_worker_names, WorkerNameMap,
+};
 use super::role_gate::{enforce_role, Action};
 use super::routes_audit_detail_render::{build_detail, payload_str};
 use super::routes_auth_principal::principal_id_for_audit;
@@ -54,7 +60,7 @@ pub(super) async fn detail_response(
         Ok(b) if b.len() == 16 => b,
         _ => return not_found(),
     };
-    let tenant_id = rate_limit::extract_tenant(req);
+    let tenant_id = resolve_audit_tenant(store, req).await;
     let row = match fetch_row(store, &id_bytes, &tenant_id).await {
         Ok(Some(r)) => r,
         Ok(None) => return not_found(),
@@ -92,8 +98,7 @@ pub(super) async fn detail_response(
     let body = json!({
         "detail": detail,
     });
-    let audit_tenant =
-        payload_str(&payload, "tenant_id").unwrap_or_else(|| rate_limit::extract_tenant(req));
+    let audit_tenant = payload_str(&payload, "tenant_id").unwrap_or_else(|| tenant_id.clone());
     emit_view_audit(store, req, &audit_tenant, action_id).await;
     ("200 OK", body.to_string())
 }

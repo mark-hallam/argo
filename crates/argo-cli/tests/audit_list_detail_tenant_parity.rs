@@ -19,15 +19,19 @@
 //!    seeded under T2 — cross-tenant probe stays denied.
 //! 3. With `X-Argo-Tenant-Id: T2` set, the feed returns T2's row and
 //!    detail returns 200 — both routes flip with the header in lockstep.
-//!
-//! The "no tenant header set" branch is intentionally not asserted
-//! here: the feed's filter still uses `resolve_tenant_scope`'s
-//! `ws-default` fallback while detail now uses the canonical chain's
-//! `argo_config.tenant.default_id` → `"anonymous"` fallback. Aligning
-//! the un-headered defaults is the next brief's job (out-of-scope
-//! `fix-spa-send-tenant-from-session-jwt`). The bug this brief closes
-//! is the per-call drift WHEN A HEADER IS PRESENT (or the SPA settles
-//! on a single canonical default upstream).
+//! 4. List → detail drill-in parity: every id returned by the list
+//!    pass MUST 200 from detail under the same caller. The
+//!    `drill_in_*` tests below seed 3 rows under one tenant, fetch the
+//!    list, and assert detail succeeds for every returned id. This is
+//!    the regression for
+//!    `fix-audit-detail-tenant-scope-list-detail-sql-mismatch`.
+//! 5. The un-headered-curl branch is also pinned: list and detail now
+//!    share `audit_query::resolve_audit_tenant`, which layers the
+//!    cwd-bound workspace UUID **between** the explicit-signal chain
+//!    and the config / anonymous tail. Before the fix detail fell
+//!    through to `"anonymous"` while list resolved to the workspace
+//!    UUID — the curl-with-no-header case 404'd on every id the list
+//!    surfaced.
 
 mod common;
 
@@ -158,6 +162,80 @@ async fn audit_list_and_detail_share_one_tenant_resolver() {
         status, 404,
         "T2-scoped detail leaked T1 row id={t1_id} — cross-tenant probe must 404"
     );
+
+    let status = child.wait().expect("wait gateway");
+    assert!(status.success(), "gateway exit: {status}");
+}
+
+/// Drill-in parity: every id surfaced by the list MUST be drillable
+/// by detail under the same caller. Seeds 3 rows under T1, queries
+/// the list (expects all 3 present), then queries detail for each
+/// id (expects 200 OK on every one).
+///
+/// This is the load-bearing assertion for
+/// `fix-audit-detail-tenant-scope-list-detail-sql-mismatch`:
+/// pre-fix, the list returned the 3 rows but detail 404'd on every
+/// id because the two routes resolved different un-headered tenants.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn drill_in_every_listed_row_with_explicit_tenant_header() {
+    let _gateway_lock = gateway_lock_guard();
+    let port = pick_free_port();
+    let home = tempfile::tempdir().expect("ARGO_HOME");
+    let store = Arc::new(open_store(home.path()).await);
+    let mut seeded_ids = Vec::with_capacity(3);
+    for label in ["drill-1", "drill-2", "drill-3"] {
+        seeded_ids.push(seed_one_row(&store, TENANT_T1, label).await);
+    }
+    drop(store);
+
+    // 1 list call + 3 detail calls = 4 requests.
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .env("SKYCOT_DB_KEY_BASE64", SMOKE_DB_KEY_B64)
+        .env("ANTHROPIC_API_KEY", "sk-ant-test-only-not-real")
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "4",
+            "--skip-startup-check",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn gateway");
+    let stderr = child.stderr.take().expect("stderr piped");
+    let _drain = await_listener_signal(stderr).expect("gateway listener signal");
+
+    let (status, body) = get_json(
+        port,
+        "/api/v1/audit?limit=200",
+        &[("X-Argo-Tenant-Id", TENANT_T1), ("X-Argo-Role", "guest")],
+    )
+    .await;
+    assert_eq!(status, 200, "list status={status} body={body}");
+    let listed = id_set(&body);
+    for id in &seeded_ids {
+        assert!(
+            listed.contains(id),
+            "seeded id {id} missing from list: {listed:?}"
+        );
+    }
+
+    for id in &seeded_ids {
+        let (status, _) = get_json(
+            port,
+            &format!("/api/v1/audit/{id}"),
+            &[("X-Argo-Tenant-Id", TENANT_T1), ("X-Argo-Role", "guest")],
+        )
+        .await;
+        assert_eq!(
+            status, 200,
+            "detail 404'd on id {id} that the list surfaced — list/detail drift"
+        );
+    }
 
     let status = child.wait().expect("wait gateway");
     assert!(status.success(), "gateway exit: {status}");

@@ -45,7 +45,9 @@
 //! bucket is never unioned into cross-tenant probes. PII fence: J2's
 //! [`redact_text`] over a fixed set of string fields.
 
-use super::audit_query::{lookup_worker_name, resolve_page_worker_names, WorkerNameMap};
+use super::audit_query::{
+    lookup_worker_name, resolve_page_worker_names, resolve_workspace_default, WorkerNameMap,
+};
 use super::rate_limit;
 use super::role_gate::{enforce_role, Action};
 use super::routes_audit_feed_indexed::fetch_raw_rows;
@@ -436,28 +438,6 @@ async fn emit_feed_audit(
     {
         tracing::warn!(target: "gateway::audit_feed", error = %e, "audit feed telemetry write failed");
     }
-}
-
-/// Resolve the cwd-bound workspace tenant UUID for the gateway, used
-/// as the default audit-scope when the request omits `X-Argo-Tenant-Id`.
-/// Mirrors what `/api/v1/team`, `/skills`, `/workflows`, `/verticals`
-/// already do via `SessionStore::ensure_workspace`. Returns the empty
-/// string on any failure (cwd lookup or store error), in which case
-/// the scope resolver falls back to the literal `ws-default` constant.
-async fn resolve_workspace_default(store: &Arc<SessionStore>) -> String {
-    let Ok(cwd) = std::env::current_dir() else {
-        return String::new();
-    };
-    let name = cwd
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    store
-        .ensure_workspace(name, &root)
-        .await
-        .map(|(t, _)| t.to_string())
-        .unwrap_or_default()
 }
 
 fn bad_request(message: &str) -> (&'static str, String) {
