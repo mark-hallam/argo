@@ -191,9 +191,18 @@ describe("ApprovalsOpsDashboard", () => {
     expect(p0Rows.length + p1Rows.length + p2Rows.length).toBe(5);
   });
 
-  it("navigates pending approval rows to audit action detail", async () => {
+  it("navigates pending approval rows to audit action detail using item.actionId", async () => {
     const user = userEvent.setup();
-    renderWithClient(<ApprovalsOpsDashboard items={[item({ id: "ap_01H9Z7" })]} />);
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[
+          item({
+            id: "ap_01H9Z7",
+            actionId: "act_018f67d0-0000-7000-8000-000000000001_018",
+          }),
+        ]}
+      />,
+    );
 
     const row = screen.getByTestId("recent-approval-ap_01H9Z7");
     expect(row).toHaveAttribute(
@@ -206,6 +215,34 @@ describe("ApprovalsOpsDashboard", () => {
     expect(assignMock).toHaveBeenCalledWith(
       "/audit/action/act_018f67d0-0000-7000-8000-000000000001_018",
     );
+  });
+
+  it("renders a row without actionId as non-clickable and does not drill in", async () => {
+    const user = userEvent.setup();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithClient(
+      <ApprovalsOpsDashboard items={[item({ id: "no-action-id" })]} />,
+    );
+
+    const row = screen.getByTestId("recent-approval-no-action-id");
+    expect(row).not.toHaveAttribute("role", "button");
+    expect(row).not.toHaveAttribute("data-action-id");
+    expect(row.className).toContain("cursor-default");
+    expect(row.className).not.toContain("cursor-pointer");
+
+    await user.click(row);
+    expect(assignMock).not.toHaveBeenCalled();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[approvals] item no-action-id has no action_id — drill-in disabled",
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("seeds all 8 SAMPLE_APPROVALS rows with an explicit actionId (no hardcoded map fallback)", () => {
+    for (const row of SAMPLE_APPROVALS) {
+      expect(row.actionId, `seed row ${row.id} missing actionId`).toMatch(/^act_/);
+    }
   });
 
   it("renders inline Approve and Refuse buttons on every pending row", () => {

@@ -18,6 +18,15 @@ export type ChannelKind = "slack" | "imessage" | "sms" | "push" | "web" | "voice
 
 export interface ApprovalItem {
   id: string;
+  /**
+   * Audit-action id the row drills into. When set, the row renders as
+   * a clickable button that navigates to `/audit/action/<actionId>`.
+   * When unset, the row renders as a non-clickable read-only entry —
+   * the affordance matches reality, there is no underlying audit row.
+   * Populated from the gateway's `action_id` field on live envelopes;
+   * the seeded demo rows below carry it explicitly.
+   */
+  actionId?: string;
   worker: { name: string; avatarUrl?: string };
   verb: string;
   detail: string;
@@ -80,6 +89,7 @@ const day = 24 * hour;
 export const SAMPLE_APPROVALS: ApprovalItem[] = [
   {
     id: "ap_01H9Z7",
+    actionId: "act_018f67d0-0000-7000-8000-000000000001_018",
     worker: { name: "Mariah" },
     verb: "wants to send this listing",
     detail:
@@ -96,6 +106,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z6",
+    actionId: "act_018f67d0-0000-7000-8000-000000000002_001",
     worker: { name: "Priya" },
     verb: "wants to book an interview slot",
     detail:
@@ -112,6 +123,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z5",
+    actionId: "act_018f67d0-0000-7000-8000-000000000003_027",
     worker: { name: "Jamal" },
     verb: "wants to issue a refund",
     detail:
@@ -128,6 +140,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z4",
+    actionId: "act_018f67d0-0000-7000-8000-000000000001_023",
     worker: { name: "Mariah" },
     verb: "countered at $85",
     detail:
@@ -146,6 +159,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z3",
+    actionId: "act_018f67d0-0000-7000-8000-000000000004_032",
     worker: { name: "Nori" },
     verb: "published the Q2 product update",
     detail:
@@ -164,6 +178,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z2",
+    actionId: "act_018f67d0-0000-7000-8000-000000000005_013",
     worker: { name: "Peta" },
     verb: "wants to escalate the release-blocker thread",
     detail:
@@ -180,6 +195,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z1",
+    actionId: "act_018f67d0-0000-7000-8000-000000000002_002",
     worker: { name: "Priya" },
     verb: "held the rejection email",
     detail:
@@ -197,6 +213,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
   },
   {
     id: "ap_01H9Z0",
+    actionId: "act_01J0NORI_001",
     worker: { name: "Nori" },
     verb: "wants to apply a 32% discount on QT-2024-7283",
     detail:

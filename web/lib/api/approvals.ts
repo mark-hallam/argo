@@ -148,11 +148,10 @@ type ApprovalsListJson = {
   next_cursor?: string | null;
 };
 
-type ApprovalItemWithActionId = ApprovalItem & { actionId?: string };
-
 function rowToItem(row: ApprovalRowJson): ApprovalItem {
-  const item: ApprovalItemWithActionId = {
+  return {
     id: row.id,
+    actionId: row.action_id ?? undefined,
     worker: {
       name: row.worker.name,
       avatarUrl: row.worker.avatar_url ?? undefined,
@@ -172,8 +171,6 @@ function rowToItem(row: ApprovalRowJson): ApprovalItem {
     confidence: row.confidence ?? undefined,
     slaExpiresAt: row.sla_expires_at ?? undefined,
   };
-  if (row.action_id) item.actionId = row.action_id;
-  return item;
 }
 
 export async function fetchApprovals(): Promise<ApprovalsResult> {

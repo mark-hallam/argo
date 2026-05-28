@@ -27,19 +27,6 @@ type SeverityTier = {
   deck: string;
 };
 
-type ApprovalWithActionId = ApprovalItem & { actionId?: string };
-
-const SAMPLE_APPROVAL_ACTION_IDS: Record<string, string> = {
-  ap_01H9Z7: "act_018f67d0-0000-7000-8000-000000000001_018",
-  ap_01H9Z6: "act_018f67d0-0000-7000-8000-000000000002_001",
-  ap_01H9Z5: "act_018f67d0-0000-7000-8000-000000000003_027",
-  ap_01H9Z4: "act_018f67d0-0000-7000-8000-000000000001_023",
-  ap_01H9Z3: "act_018f67d0-0000-7000-8000-000000000004_032",
-  ap_01H9Z2: "act_018f67d0-0000-7000-8000-000000000005_013",
-  ap_01H9Z1: "act_018f67d0-0000-7000-8000-000000000002_002",
-  ap_01H9Z0: "act_01J0NORI_001",
-};
-
 type ApprovalRateSummary = {
   total: number;
   approved: number;
@@ -297,33 +284,49 @@ function ApprovalRow({
   disabled?: boolean;
 }) {
   const severity = item.severity ?? "p2";
-  const actionId =
-    (item as ApprovalWithActionId).actionId ?? SAMPLE_APPROVAL_ACTION_IDS[item.id] ?? item.id;
-  const actionHref = `/audit/action/${encodeURIComponent(actionId)}`;
-  const drillIn = () => {
-    window.location.assign(actionHref);
-  };
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      drillIn();
-    }
-  };
+  const actionId = item.actionId ?? null;
+  if (!actionId && process.env.NODE_ENV !== "production") {
+    // Dev-only signal that the server (or test seed) omitted action_id.
+    // Drill-in is disabled rather than landing on AuditActionNotFound.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[approvals] item ${item.id} has no action_id — drill-in disabled`,
+    );
+  }
+  const drillIn = actionId
+    ? () => {
+        window.location.assign(`/audit/action/${encodeURIComponent(actionId)}`);
+      }
+    : null;
+  const onKeyDown = drillIn
+    ? (e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          drillIn();
+        }
+      }
+    : undefined;
+  const clickable = drillIn != null;
   return (
     <div
-      role="button"
-      tabIndex={0}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
       data-testid={`recent-approval-${item.id}`}
-      data-action-id={actionId}
+      data-action-id={actionId ?? undefined}
       aria-label={`${item.worker.name} ${item.verb}`}
-      onClick={drillIn}
+      onClick={drillIn ?? undefined}
       onKeyDown={onKeyDown}
       className={cn(
-        "grid w-full cursor-pointer gap-3 px-4 py-4 text-left transition-colors",
-        "hover:bg-[var(--muted)]/40 focus-visible:outline-none focus-visible:ring-2",
-        "focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
-        "focus-visible:ring-offset-[var(--card)]",
+        "grid w-full gap-3 px-4 py-4 text-left transition-colors",
+        clickable
+          ? cn(
+              "cursor-pointer hover:bg-[var(--muted)]/40",
+              "focus-visible:outline-none focus-visible:ring-2",
+              "focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
+              "focus-visible:ring-offset-[var(--card)]",
+            )
+          : "cursor-default",
         // md..lg (768-1279px): 4-col grid with tighter widths, actions
         // wrap to a second visual line via `col-span-4` below. Avoids
         // the collision F4 documented when the inline action cluster
