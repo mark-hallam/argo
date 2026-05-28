@@ -11,6 +11,7 @@ import { resolveWorkflowSubstrate } from "@/lib/api/workflows";
 import { formatVersion } from "@/lib/format/version";
 import { useWorkflows } from "@/lib/hooks/use-workflows";
 import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
+import { TEMPLATE_COUNT } from "@/lib/workflow-templates";
 
 /**
  * Workflows index — `/workflows` brand-loud catalog view.
@@ -128,7 +129,7 @@ export default function WorkflowsPage() {
             data-testid="workflows-templates-cta"
           >
             <Sparkles size={13} />
-            Browse 50+ templates
+            Browse {TEMPLATE_COUNT}+ templates
           </Link>
           <HoverHint label="Describe a new workflow in plain English">
             <button
@@ -216,7 +217,7 @@ export default function WorkflowsPage() {
               No workflows match &ldquo;{query.trim()}&rdquo;.
             </p>
             <p style={{ fontSize: 14, margin: "0 0 16px" }}>
-              Try a different query or browse the 50+ templates.
+              Try a different query or browse the {TEMPLATE_COUNT}+ templates.
             </p>
             <div style={{ display: "inline-flex", gap: 12 }}>
               <button

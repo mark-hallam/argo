@@ -20,7 +20,9 @@ export type TemplateStepKind =
   | "tool_call"
   | "notify"
   | "decision"
-  | "data";
+  | "data"
+  | "mcp_invoke"
+  | "cu_action";
 
 export interface TemplateStep {
   id: string;
@@ -624,6 +626,39 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { id: "s2", kind: "tool_call", name: "Send attestation links", description: "Per-employee acknowledgement link." },
       { id: "s3", kind: "data", name: "Track completion", description: "Status: pending / acknowledged / overdue." },
       { id: "s4", kind: "notify", name: "Nudge laggards", description: "Reminder ladder; escalate to manager after 14d." },
+    ],
+  ),
+
+  // ── MCP connector + Computer-use examples (3) ─────────────────────────
+  // Surface Skycot's two differentiator step kinds (vs n8n/Zapier) on the
+  // template marketplace. See scene-4-and-5 F16.
+  t("notion-to-slack-digest", "notion_to_slack_digest", "marketing",
+    "Daily digest — pull this week's published Notion pages and post a Slack thread for the team.",
+    "autonomous",
+    [
+      { id: "s1", kind: "trigger", name: "Morning cron", description: "Fires at 09:00 local on weekdays." },
+      { id: "s2", kind: "mcp_invoke", name: "Notion · search_pages", description: "MCP call to the Notion connector — pages published in the last 24h, filtered by workspace.", inputs: ["since", "workspace_id"], outputs: ["pages[]"] },
+      { id: "s3", kind: "skill_invoke", name: "Summarise headlines", description: "1-line summary per page; group by author.", outputs: ["digest"] },
+      { id: "s4", kind: "mcp_invoke", name: "Slack · post_message", description: "MCP call to the Slack connector — post the digest in the configured channel as a threaded message.", inputs: ["channel_id", "digest"] },
+    ],
+  ),
+  t("linear-to-github-mirror", "linear_to_github_mirror", "engineering",
+    "Mirror new Linear issues into GitHub — keeps engineering boards in sync without manual copy-paste.",
+    "autonomous",
+    [
+      { id: "s1", kind: "trigger", name: "Linear issue created", description: "Webhook from the Linear workspace fires per new issue." },
+      { id: "s2", kind: "mcp_invoke", name: "Linear · list_issues", description: "MCP call to the Linear connector — fetch the full issue body, labels, and assignee.", inputs: ["issue_id"], outputs: ["issue"] },
+      { id: "s3", kind: "decision", name: "Branch on label", description: "Only `engineering`-labelled issues mirror to GitHub; design / product stay in Linear." },
+      { id: "s4", kind: "mcp_invoke", name: "GitHub · create_issue", description: "MCP call to the GitHub connector — open a matching issue in the configured repo, link back to Linear in the body.", inputs: ["repo", "title", "body"], outputs: ["github_issue_url"] },
+    ],
+  ),
+  t("notes-summary-handoff", "notes_summary_handoff", "ops",
+    "Computer-use handoff — summarise this week's worker runs, drop a Note on the operator's Mac for the Monday standup.",
+    "autonomous",
+    [
+      { id: "s1", kind: "trigger", name: "Friday afternoon cron", description: "Fires Friday 17:00 local before the operator signs off." },
+      { id: "s2", kind: "skill_invoke", name: "summarise.weekly_runs", description: "Pull the week's mission runs + escalations + outcomes; produce a 3-paragraph briefing.", outputs: ["briefing"] },
+      { id: "s3", kind: "cu_action", name: "macos_notes · create_note", description: "Computer-use action on the operator's Mac — opens Notes.app, creates a note titled `Week of <date>`, pastes the briefing.", inputs: ["briefing", "title"] },
     ],
   ),
 ];

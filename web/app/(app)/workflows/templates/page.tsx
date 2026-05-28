@@ -11,6 +11,7 @@ import {
   VERTICAL_LABEL,
   WORKFLOW_TEMPLATES,
   type TemplateRisk,
+  type TemplateStepKind,
   type TemplateVertical,
   type WorkflowTemplate,
 } from "@/lib/workflow-templates";
@@ -33,16 +34,29 @@ const RISK_FILTERS: { id: "all" | TemplateRisk; label: string }[] = [
   { id: "autonomous", label: "Autonomous" },
 ];
 
+type StepKindFilter = "all" | "mcp_invoke" | "cu_action";
+
+const STEP_KIND_FILTERS: { id: StepKindFilter; label: string }[] = [
+  { id: "all", label: "All step kinds" },
+  { id: "mcp_invoke", label: "MCP" },
+  { id: "cu_action", label: "Computer-use" },
+];
+
+const templateHasStepKind = (tpl: WorkflowTemplate, kind: TemplateStepKind) =>
+  tpl.steps.some((step) => step.kind === kind);
+
 export default function WorkflowTemplatesPage() {
   const [query, setQuery] = useState("");
   const [vertical, setVertical] = useState<"all" | TemplateVertical>("all");
   const [risk, setRisk] = useState<"all" | TemplateRisk>("all");
+  const [stepKind, setStepKind] = useState<StepKindFilter>("all");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return WORKFLOW_TEMPLATES.filter((tpl) => {
       if (vertical !== "all" && tpl.vertical !== vertical) return false;
       if (risk !== "all" && tpl.risk !== risk) return false;
+      if (stepKind !== "all" && !templateHasStepKind(tpl, stepKind)) return false;
       if (!q) return true;
       const haystack = [
         tpl.name,
@@ -55,7 +69,7 @@ export default function WorkflowTemplatesPage() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [query, vertical, risk]);
+  }, [query, vertical, risk, stepKind]);
 
   return (
     <>
@@ -83,7 +97,7 @@ export default function WorkflowTemplatesPage() {
           <input
             type="text"
             className="templates-search-input"
-            placeholder="Search 50+ templates by name, step, or description…"
+            placeholder={`Search ${WORKFLOW_TEMPLATES.length}+ templates by name, step, or description…`}
             aria-label="Search templates"
             data-testid="templates-search"
             value={query}
@@ -128,6 +142,21 @@ export default function WorkflowTemplatesPage() {
               data-testid={`templates-risk-${r.id}`}
             >
               {r.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="templates-filter-bar">
+          <span className="templates-filter-label">STEP KIND</span>
+          {STEP_KIND_FILTERS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`templates-chip${stepKind === s.id ? " is-active" : ""}`}
+              onClick={() => setStepKind(s.id)}
+              data-testid={`templates-step-kind-${s.id}`}
+            >
+              {s.label}
             </button>
           ))}
         </div>

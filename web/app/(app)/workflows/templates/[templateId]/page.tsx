@@ -9,7 +9,9 @@ import {
   Database,
   GitBranch,
   MessageSquare,
+  Monitor,
   Play,
+  Plug,
   ShieldCheck,
   Sparkles,
   Wand2,
@@ -43,6 +45,8 @@ const STEP_KIND_META: Record<
   notify: { icon: <MessageSquare size={14} />, color: "#ec4899", label: "Notify" },
   decision: { icon: <GitBranch size={14} />, color: "#6366f1", label: "Decision" },
   data: { icon: <Database size={14} />, color: "#52525b", label: "Data" },
+  mcp_invoke: { icon: <Plug size={14} />, color: "#7c3aed", label: "MCP connector" },
+  cu_action: { icon: <Monitor size={14} />, color: "#db2777", label: "Computer-use" },
 };
 
 export default function TemplateDetailPage({
