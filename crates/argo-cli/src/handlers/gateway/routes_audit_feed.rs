@@ -25,6 +25,10 @@
 //!
 //! `?q=` substring search stays app-layer for v1 — SQLite `LIKE` is
 //! fine on 10k rows; FTS5 promotion is closed by a follow-up brief.
+//! Telemetry-emit resolves the caller's tenant through
+//! [`super::rate_limit::extract_tenant`] — the canonical gateway
+//! tenant resolver, also used by `routes_audit_detail::detail_response`
+//! (see `fix-gateway-audit-detail-tenant-resolver-drift-vs-feed`).
 //! Tenant scoping is per-workspace via the `tenant_id` denorm added by
 //! Stream
 //! `mission-enterprise-cross-tenant-audit`). The workspace tenant

@@ -248,9 +248,24 @@ pub(super) fn classify_route(method: &str, target: &str) -> Cow<'static, str> {
     Cow::Owned(format!("{method} /{templated}"))
 }
 
-/// Extract the bucket-key tenant from the request. Order: `?tenant=`
-/// query param, `X-Tenant-Id` header, config default tenant /
-/// web-inbox tenant, then `"anonymous"`.
+/// Extract the bucket-key tenant from the request.
+///
+/// **Canonical precedence** (shared by every audit + gateway route that
+/// needs the caller's tenant — see `routes_audit_feed.rs` and
+/// `routes_audit_detail.rs` for the two routes most prone to drift):
+///
+/// 1. `?tenant=<id>` query param
+/// 2. `X-Tenant-Id` header (canonical)
+/// 3. `X-Argo-Tenant-Id` header (legacy alias — additive, kept for
+///    callers wired before the canonical name was settled)
+/// 4. `argo_config.tenant.default_id` (when not the unconfigured
+///    sentinel `"default"`)
+/// 5. `argo_config.channels.webinbox.tenant_id` (when set)
+/// 6. `"anonymous"`
+///
+/// Any new audit/gateway route MUST call this helper — do not inline
+/// header reads. See the drift incident behind
+/// `fix-gateway-audit-detail-tenant-resolver-drift-vs-feed` for why.
 pub fn extract_tenant(req: &str) -> String {
     if let Some(target) = request_target(req) {
         if let Some((_, qs)) = target.split_once('?') {
@@ -263,9 +278,11 @@ pub fn extract_tenant(req: &str) -> String {
             }
         }
     }
-    if let Some(value) = header(req, "x-tenant-id") {
-        if !value.is_empty() {
-            return value.to_string();
+    for name in ["x-tenant-id", "x-argo-tenant-id"] {
+        if let Some(value) = header(req, name) {
+            if !value.is_empty() {
+                return value.to_string();
+            }
         }
     }
     let cfg = argo_config::load().unwrap_or_default();

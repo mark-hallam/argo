@@ -7,6 +7,17 @@
 //! path. J2 redaction is applied to summary, inputs, decision-chain
 //! bodies, and the output body before serialisation.
 //!
+//! ## Tenant resolution
+//!
+//! The caller's tenant is resolved via [`super::rate_limit::extract_tenant`]
+//! — the SAME helper used by `routes_audit_feed::list_response`. Both
+//! routes share one precedence chain (`?tenant=` → `X-Tenant-Id` →
+//! `X-Argo-Tenant-Id` legacy alias → config default → `"anonymous"`).
+//! Do not inline header reads here; if you need to extend the chain,
+//! extend [`super::rate_limit::extract_tenant`] so the feed and the
+//! detail can never diverge again. See the drift incident behind
+//! `fix-gateway-audit-detail-tenant-resolver-drift-vs-feed`.
+//!
 //! Helper modules:
 //! - [`super::routes_audit_detail_render`] — row → JSON renderers (summary,
 //!   inputs, decision chain, provenance, output, screenshots).
@@ -43,7 +54,7 @@ pub(super) async fn detail_response(
         Ok(b) if b.len() == 16 => b,
         _ => return not_found(),
     };
-    let tenant_id = request_tenant_id(req);
+    let tenant_id = rate_limit::extract_tenant(req);
     let row = match fetch_row(store, &id_bytes, &tenant_id).await {
         Ok(Some(r)) => r,
         Ok(None) => return not_found(),
@@ -259,23 +270,6 @@ async fn fetch_row(
     .bind(LEGACY_AUDIT_TENANT_ID)
     .fetch_optional(store.pool())
     .await
-}
-
-fn request_tenant_id(req: &str) -> String {
-    header_value(req, "x-argo-tenant-id").unwrap_or_else(|| DEFAULT_AUDIT_TENANT_ID.to_string())
-}
-
-fn header_value(req: &str, name_lower: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (name, value) = line.split_once(':')?;
-        name.trim()
-            .eq_ignore_ascii_case(name_lower)
-            .then(|| value.trim().to_string())
-            .filter(|s| !s.is_empty())
-    })
 }
 
 async fn emit_view_audit(store: &Arc<SessionStore>, req: &str, tenant_id: &str, action_id: &str) {

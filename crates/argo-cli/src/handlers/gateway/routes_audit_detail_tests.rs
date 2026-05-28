@@ -15,7 +15,7 @@
 
 use super::super::routes_audit_screenshot::{screenshot_response, sign_screenshot_url};
 use super::detail_response;
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, DEFAULT_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::{json, Value};
@@ -59,7 +59,15 @@ async fn seed_and_id_for_tenant(store: &Arc<SessionStore>, tenant_id: &str) -> S
 }
 
 fn get(path: &str) -> String {
-    format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n")
+    // Stamp the workspace-default tenant header explicitly so
+    // [`super::rate_limit::extract_tenant`] resolves to the same
+    // tenant that [`AuditSink::new`] writes under (the legacy
+    // [`DEFAULT_AUDIT_TENANT_ID`] sentinel). Without this header,
+    // extract_tenant falls through to `argo_config.tenant.default_id`
+    // → `"anonymous"`, which would not match the seeded row.
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {DEFAULT_AUDIT_TENANT_ID}\r\n\r\n"
+    )
 }
 
 fn get_with_tenant(path: &str, tenant_id: &str) -> String {
