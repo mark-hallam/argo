@@ -87,6 +87,16 @@ body:has(.wiz-editorial) {
   --line: #ece9f5; --line-2: #d1d1d1;
   --gradient: linear-gradient(135deg, var(--purple), var(--pink));
   --gradient-3: linear-gradient(135deg, var(--purple), var(--pink), var(--coral));
+  /* WCAG 2.1 AA — lock shadcn semantic tokens to F1 light values so
+     body content (Step1Land et al.) using text-[var(--foreground)]
+     stays dark-ink when the user has dark theme set globally. The
+     wizard bg is hardcoded light, so a globally-flipping --foreground
+     produces white-on-white text (audit F9, 2026-05-26-2309).
+     #1e1b4b on #fafaff ≈ 15.4:1; #52525b on #fafaff ≈ 7.0:1. */
+  --foreground: #1e1b4b;
+  --muted-foreground: #52525b;
+  --background: #fafaff;
+  --border: #ece9f5;
   font-family: "Inter", sans-serif;
   background: var(--bg); color: var(--ink);
   font-size: 16px; line-height: 1.55;
