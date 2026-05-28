@@ -64,8 +64,8 @@ const PRIYA: WorkerMemory = {
     f("f_priya_6", "Workato integration: candidates from referral program get priority screening.", 23 * DAY),
   ],
   activeConversations: [
-    c("c_priya_1", "Diego Alvarez", "Interview scheduling — Thu 10:30 confirmation", 18 * MIN, "/audit/action/ap_priya_1"),
-    c("c_priya_2", "Marta (Hiring Manager)", "Relocation budget question — JD-2024-08", 3 * HR + 12 * MIN, "/audit/action/ap_priya_2"),
+    c("c_priya_1", "Diego Alvarez", "Interview scheduling — Thu 10:30 confirmation", 18 * MIN, "/audit/action/act_01J0PRIYA_011"),
+    c("c_priya_2", "Marta (Hiring Manager)", "Relocation budget question — JD-2024-08", 3 * HR + 12 * MIN, "/audit/action/act_01J0PRIYA_012"),
   ],
   recentDecisions: [
     d("d_priya_1", "Approved interview slot for candidate #4821 (within policy)", "approved", 45 * MIN),
@@ -90,8 +90,8 @@ const MARIAH: WorkerMemory = {
     f("f_mariah_5", "Returns over $200 require Compliance review; under $200 are auto-credited per the Trust policy.", 25 * DAY),
   ],
   activeConversations: [
-    c("c_mariah_1", "vendor#tomas-industries", "Q3 renewal terms", 22 * MIN, "/audit/action/ap_mariah_1"),
-    c("c_mariah_2", "buyer#4821", "Question on 'Eames lounge' listing", 2 * HR + 5 * MIN, "/audit/action/ap_mariah_2"),
+    c("c_mariah_1", "vendor#tomas-industries", "Q3 renewal terms", 22 * MIN, "/audit/action/act_01J0MARIAH_011"),
+    c("c_mariah_2", "buyer#4821", "Question on 'Eames lounge' listing", 2 * HR + 5 * MIN, "/audit/action/act_01J0MARIAH_012"),
   ],
   recentDecisions: [
     d("d_mariah_1", "Approved re-price of 'Herman Miller chair' −$45 (within bounds)", "approved", 18 * MIN),
@@ -116,7 +116,7 @@ const JAMAL: WorkerMemory = {
     f("f_jamal_5", "Use 'order' not 'transaction' in customer-facing copy — internal tooling uses 'transaction'.", 28 * DAY),
   ],
   activeConversations: [
-    c("c_jamal_1", "user@acme.co", "Password reset — second attempt", 11 * MIN, "/audit/action/ap_jamal_2"),
+    c("c_jamal_1", "user@acme.co", "Password reset — second attempt", 11 * MIN, "/audit/action/act_01J0JAMAL_012"),
   ],
   recentDecisions: [
     d("d_jamal_1", "Approved $42 refund on order #18293 (within policy)", "approved", 4 * MIN),
@@ -141,7 +141,7 @@ const NORI: WorkerMemory = {
     f("f_nori_5", "Weekly reach roundup goes to brand lead by Monday 08:00 — include WoW delta + top-performer.", 28 * DAY),
   ],
   activeConversations: [
-    c("c_nori_1", "Brand Lead", "Q2 product update — voice tweaks", 28 * MIN, "/audit/action/ap_nori_1"),
+    c("c_nori_1", "Brand Lead", "Q2 product update — voice tweaks", 28 * MIN, "/audit/action/act_01J0NORI_011"),
   ],
   recentDecisions: [
     d("d_nori_1", "Approved 'May newsletter' tone-check (within brand)", "approved", 60 * MIN),

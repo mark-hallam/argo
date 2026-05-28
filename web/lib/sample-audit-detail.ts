@@ -12,7 +12,7 @@
  */
 import { SAMPLE_AUDIT_ROWS } from "@/lib/sample-audit";
 import type { AuditDetail, DecisionStep } from "@/lib/types/audit-detail";
-import type { AuditRow } from "@/lib/types/audit";
+import type { AuditRow, AuditStatus, DataClassification } from "@/lib/types/audit";
 
 const PRIYA = { id: "018f67d0-0000-7000-8000-000000000002", name: "Priya" };
 const PETA = { id: "018f67d0-0000-7000-8000-000000000007", name: "Peta" };
@@ -230,12 +230,138 @@ const NORI_001: AuditDetail = {
   },
 };
 
+/** Lightweight `AuditDetail` builder used to seed the 5-per-persona
+ *  drill-in destinations for the `/workers/<id>/overview` "Recent
+ *  activity" card. The hand-shaped `_001` entries above tell deeper
+ *  product-story arcs (replay, hash-chain copy, cross-system
+ *  jump-links); these `_011..._015` entries match the activity-card
+ *  rows 1:1 so the camera-side drill-in lands on a real-shaped
+ *  detail page with the correct verb, timestamp, and worker rather
+ *  than the "Action detail unavailable" placeholder fallthrough. */
+interface OverviewActivitySeed {
+  idSuffix: number;
+  minutesAgo: number;
+  verb: string;
+  actionType: string;
+  status: AuditStatus;
+  approver?: { id: string; name: string };
+  skill?: { id: string; version: string };
+  cost?: number;
+  dataClassification?: DataClassification;
+}
+
+function overviewActivityDetail(
+  worker: { id: string; name: string },
+  personaSlug: string,
+  seed: OverviewActivitySeed,
+): AuditDetail {
+  const skill = seed.skill ?? { id: "operator-routine", version: "1.0.0" };
+  const approvalStep: DecisionStep = seed.approver
+    ? {
+        n: 6,
+        title: "Approval",
+        body: `Approved by ${seed.approver.name}.`,
+        details: { approver: seed.approver.name },
+      }
+    : seed.status === "autonomous"
+      ? { n: 6, title: "Approval", body: "Autonomous — within policy envelope." }
+      : { n: 6, title: "Approval", body: "Pending operator review." };
+  const sentAt = isoMinutesAgo(seed.minutesAgo);
+  return {
+    id: `act_01J0${personaSlug}_0${seed.idSuffix.toString().padStart(2, "0")}`,
+    timestamp: sentAt,
+    worker,
+    actionType: seed.actionType,
+    verb: seed.verb,
+    status: seed.status,
+    approver: seed.approver,
+    cost: seed.cost !== undefined ? { usd: seed.cost } : undefined,
+    dataClassification: seed.dataClassification,
+    inputs: {
+      triggerKind: "message",
+      triggerSummary: `Surfaced from the worker overview recent-activity feed · ${seed.actionType}.`,
+    },
+    decisionChain: [
+      { n: 1, title: "Memory loaded", body: "context (cached) · operator routines" },
+      { n: 2, title: `Skill: ${skill.id} v${skill.version} (trust 92%)`, body: "Confidence above autonomy threshold." },
+      { n: 3, title: "Plan generated", body: "Primary plan + 2 alternates considered." },
+      { n: 4, title: "Plan selected by score", body: "Top plan 0.87; alternates 0.74 / 0.62." },
+      { n: 5, title: "Policy check", body: "Action permitted by policy." },
+      approvalStep,
+      { n: 7, title: "Execution", body: "Executor dispatched." },
+      { n: 8, title: "Outcome", body: seed.status === "pending" ? "Awaiting reviewer." : "Completed." },
+    ],
+    provenance: {
+      model: { id: "claude-opus-4-7", version: "2026-04-30" },
+      promptTemplate: { id: `${skill.id}.activity`, hash: "a01b02c03d04e05f" },
+      skill,
+      memorySnapshot: { id: `mem_${personaSlug.toLowerCase()}_overview` },
+      policy: { id: `${personaSlug.toLowerCase()}-operator-policy`, version: "1.0", hash: "11223344aabbccdd" },
+    },
+    output: {
+      kind: "text",
+      body: `${seed.verb}.\n\nSurfaced via the worker overview recent-activity feed.`,
+      delivery: { sentAt },
+    },
+  };
+}
+
+const MARTA = { id: "usr_hm_marta", name: "Marta" };
+const SAM = { id: "usr_buyer_sam", name: "Sam" };
+const BRAND_LEAD = { id: "usr_brand_aoife", name: "Brand Lead" };
+const MARK = OPERATOR;
+
+const PRIYA_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 14, verb: "booked interview with candidate #4821", actionType: "interview_booked", status: "succeeded", approver: MARTA, skill: { id: "recruiter-schedule", version: "2.0.0" }, dataClassification: "confidential" },
+  { idSuffix: 12, minutesAgo: 38, verb: "screened candidate #4820 — recommended advance", actionType: "candidate_screened", status: "autonomous", skill: { id: "recruiter-screen", version: "4.2.0" }, cost: 0.014, dataClassification: "confidential" },
+  { idSuffix: 13, minutesAgo: 72, verb: "screened candidate #4819 — soft no", actionType: "candidate_screened", status: "succeeded", approver: MARTA, skill: { id: "recruiter-screen", version: "4.2.0" }, cost: 0.014, dataClassification: "confidential" },
+  { idSuffix: 14, minutesAgo: 145, verb: "drafted rejection for candidate #4811", actionType: "email_drafted", status: "pending", skill: { id: "recruiter-reject-draft", version: "1.3.0" }, cost: 0.009, dataClassification: "confidential" },
+  { idSuffix: 15, minutesAgo: 210, verb: "asked hiring manager: relocation budget?", actionType: "spend_approval_asked", status: "pending", approver: MARTA, skill: { id: "recruiter-clarify", version: "1.0.0" } },
+];
+
+const MARIAH_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 2, verb: "replied to buyer #4821 on listing 'Eames lounge'", actionType: "buyer_replied", status: "succeeded", approver: SAM, skill: { id: "marketplace-reply", version: "1.4.0" }, dataClassification: "internal" },
+  { idSuffix: 12, minutesAgo: 18, verb: "re-priced listing 'Herman Miller chair' −$45", actionType: "listing_repriced", status: "autonomous", skill: { id: "marketplace-reprice", version: "2.0.0" }, cost: 0.018, dataClassification: "internal" },
+  { idSuffix: 13, minutesAgo: 41, verb: "listed 'Vintage Bauhaus desk' with 6 photos", actionType: "listing_drafted", status: "succeeded", approver: SAM, skill: { id: "marketplace-list", version: "1.2.0" }, cost: 0.021, dataClassification: "internal" },
+  { idSuffix: 14, minutesAgo: 96, verb: "flagged 'Knoll side table' below floor", actionType: "listing_flagged", status: "pending", skill: { id: "marketplace-floor-check", version: "1.0.0" } },
+  { idSuffix: 15, minutesAgo: 175, verb: "replied to buyer #4799 on listing 'Saarinen tulip'", actionType: "buyer_replied", status: "autonomous", skill: { id: "marketplace-reply", version: "1.4.0" }, dataClassification: "internal" },
+];
+
+const JAMAL_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 4, verb: "issued refund $42 — order #18293", actionType: "refund_issued", status: "autonomous", skill: { id: "support-refund", version: "3.1.0" }, cost: 0.004 },
+  { idSuffix: 12, minutesAgo: 11, verb: "reset password for user@acme.co", actionType: "password_reset", status: "autonomous", skill: { id: "support-password-reset", version: "1.0.0" } },
+  { idSuffix: 13, minutesAgo: 27, verb: "escalated billing dispute on order #18254", actionType: "escalation", status: "succeeded", approver: MARTA, skill: { id: "support-escalate", version: "2.0.0" }, dataClassification: "confidential" },
+  { idSuffix: 14, minutesAgo: 52, verb: "resolved shipping query — order #18247", actionType: "ticket_resolved", status: "autonomous", skill: { id: "support-resolve", version: "5.0.2" }, cost: 0.004 },
+  { idSuffix: 15, minutesAgo: 88, verb: "sent CSAT to user@globex.io", actionType: "csat_sent", status: "autonomous", skill: { id: "support-csat", version: "1.0.0" } },
+];
+
+const NORI_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 22, verb: "drafted Q2 product update announcement", actionType: "email_drafted", status: "pending", skill: { id: "brand-draft", version: "1.0.0" }, cost: 0.011, dataClassification: "internal" },
+  { idSuffix: 12, minutesAgo: 60, verb: "tone-checked 'May newsletter' draft", actionType: "tone_checked", status: "succeeded", approver: BRAND_LEAD, skill: { id: "brand-tone", version: "1.2.0" }, cost: 0.008 },
+  { idSuffix: 13, minutesAgo: 130, verb: "scheduled send for 'May newsletter' Mon 09:00", actionType: "post_scheduled", status: "succeeded", approver: BRAND_LEAD, skill: { id: "brand-schedule", version: "1.0.0" } },
+  { idSuffix: 14, minutesAgo: 240, verb: "rolled up weekly reach (+18% wow)", actionType: "report_exported", status: "autonomous", skill: { id: "brand-rollup", version: "2.0.0" } },
+  { idSuffix: 15, minutesAgo: 480, verb: "drafted 'pricing-page refresh' post", actionType: "email_drafted", status: "succeeded", approver: BRAND_LEAD, skill: { id: "brand-draft", version: "1.0.0" }, cost: 0.011, dataClassification: "internal" },
+];
+
+const PETA_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 6, verb: "drafted standup digest for engineering pod", actionType: "standup_drafted", status: "autonomous", skill: { id: "project-coord-standup", version: "1.2.0" }, cost: 0.012, dataClassification: "internal" },
+  { idSuffix: 12, minutesAgo: 92, verb: "chased action item PROJ-2284 — owner replied", actionType: "action_item_chased", status: "autonomous", skill: { id: "project-coord-chase", version: "1.0.0" } },
+  { idSuffix: 13, minutesAgo: 180, verb: "escalated stalled task PROJ-721 to PM", actionType: "escalation", status: "succeeded", approver: MARK, skill: { id: "project-coord-escalate", version: "1.0.0" }, dataClassification: "internal" },
+  { idSuffix: 14, minutesAgo: 1440, verb: "rolled up weekly status (3 wins / 2 risks)", actionType: "report_exported", status: "autonomous", skill: { id: "project-coord-rollup", version: "1.0.0" } },
+  { idSuffix: 15, minutesAgo: 2880, verb: "asked PM about priority shift for sprint 14", actionType: "spend_approval_asked", status: "pending", approver: MARK, skill: { id: "project-coord-clarify", version: "1.0.0" } },
+];
+
 export const SAMPLE_AUDIT_DETAILS: AuditDetail[] = [
   PRIYA_001,
   PETA_001,
   MARIAH_001,
   JAMAL_001,
   NORI_001,
+  ...PRIYA_OVERVIEW.map((s) => overviewActivityDetail(PRIYA, "PRIYA", s)),
+  ...MARIAH_OVERVIEW.map((s) => overviewActivityDetail(MARIAH, "MARIAH", s)),
+  ...JAMAL_OVERVIEW.map((s) => overviewActivityDetail(JAMAL, "JAMAL", s)),
+  ...NORI_OVERVIEW.map((s) => overviewActivityDetail(NORI, "NORI", s)),
+  ...PETA_OVERVIEW.map((s) => overviewActivityDetail(PETA, "PETA", s)),
 ];
 
 /** Synthesise a "good-enough" detail from a feed `AuditRow` so click-

@@ -68,11 +68,11 @@ const PRIYA: WorkerOverview = {
     kpi("k-response", "time-to-first-response avg", "4m 21s", [9, 7, 6, 6, 5, 5, 4], -38),
   ],
   recentActivity: [
-    activity("ap_priya_1", 14, "booked interview with candidate #4821", "approved by Marta"),
-    activity("ap_priya_2", 38, "screened candidate #4820 — recommended advance", "auto-sent"),
-    activity("ap_priya_3", 72, "screened candidate #4819 — soft no", "approved by Marta"),
-    activity("ap_priya_4", 145, "drafted rejection for candidate #4811", "needs review"),
-    activity("ap_priya_5", 210, "asked hiring manager: relocation budget?", "awaiting reply"),
+    activity("act_01J0PRIYA_011", 14, "booked interview with candidate #4821", "approved by Marta"),
+    activity("act_01J0PRIYA_012", 38, "screened candidate #4820 — recommended advance", "auto-sent"),
+    activity("act_01J0PRIYA_013", 72, "screened candidate #4819 — soft no", "approved by Marta"),
+    activity("act_01J0PRIYA_014", 145, "drafted rejection for candidate #4811", "needs review"),
+    activity("act_01J0PRIYA_015", 210, "asked hiring manager: relocation budget?", "awaiting reply"),
   ],
 };
 
@@ -92,11 +92,11 @@ const MARIAH: WorkerOverview = {
     kpi("k-cycle", "median time-to-list", "9m", [18, 14, 12, 11, 10, 10, 9], -28),
   ],
   recentActivity: [
-    activity("ap_mariah_1", 2, "replied to buyer #4821 on listing 'Eames lounge'", "approved by Sam"),
-    activity("ap_mariah_2", 18, "re-priced listing 'Herman Miller chair' −$45", "auto-sent"),
-    activity("ap_mariah_3", 41, "listed 'Vintage Bauhaus desk' with 6 photos", "approved by Sam"),
-    activity("ap_mariah_4", 96, "flagged 'Knoll side table' below floor", "needs review"),
-    activity("ap_mariah_5", 175, "replied to buyer #4799 on listing 'Saarinen tulip'", "auto-sent"),
+    activity("act_01J0MARIAH_011", 2, "replied to buyer #4821 on listing 'Eames lounge'", "approved by Sam"),
+    activity("act_01J0MARIAH_012", 18, "re-priced listing 'Herman Miller chair' −$45", "auto-sent"),
+    activity("act_01J0MARIAH_013", 41, "listed 'Vintage Bauhaus desk' with 6 photos", "approved by Sam"),
+    activity("act_01J0MARIAH_014", 96, "flagged 'Knoll side table' below floor", "needs review"),
+    activity("act_01J0MARIAH_015", 175, "replied to buyer #4799 on listing 'Saarinen tulip'", "auto-sent"),
   ],
 };
 
@@ -116,11 +116,11 @@ const JAMAL: WorkerOverview = {
     kpi("k-csat", "CSAT this week", "4.6", [4.3, 4.4, 4.4, 4.5, 4.5, 4.6, 4.6], 5),
   ],
   recentActivity: [
-    activity("ap_jamal_1", 4, "issued refund $42 — order #18293", "auto-sent"),
-    activity("ap_jamal_2", 11, "reset password for user@acme.co", "auto-sent"),
-    activity("ap_jamal_3", 27, "escalated billing dispute on order #18254", "approved by Marta"),
-    activity("ap_jamal_4", 52, "resolved shipping query — order #18247", "auto-sent"),
-    activity("ap_jamal_5", 88, "sent CSAT to user@globex.io", "auto-sent"),
+    activity("act_01J0JAMAL_011", 4, "issued refund $42 — order #18293", "auto-sent"),
+    activity("act_01J0JAMAL_012", 11, "reset password for user@acme.co", "auto-sent"),
+    activity("act_01J0JAMAL_013", 27, "escalated billing dispute on order #18254", "approved by Marta"),
+    activity("act_01J0JAMAL_014", 52, "resolved shipping query — order #18247", "auto-sent"),
+    activity("act_01J0JAMAL_015", 88, "sent CSAT to user@globex.io", "auto-sent"),
   ],
 };
 
@@ -140,11 +140,11 @@ const NORI: WorkerOverview = {
     kpi("k-cycle", "draft → approve median", "1h 24m", [180, 160, 140, 130, 110, 90, 84], -27),
   ],
   recentActivity: [
-    activity("ap_nori_1", 22, "drafted Q2 product update announcement", "needs review"),
-    activity("ap_nori_2", 60, "tone-checked 'May newsletter' draft", "approved by Brand Lead"),
-    activity("ap_nori_3", 130, "scheduled send for 'May newsletter' Mon 09:00", "approved by Brand Lead"),
-    activity("ap_nori_4", 240, "rolled up weekly reach (+18% wow)", "auto-sent"),
-    activity("ap_nori_5", 480, "drafted 'pricing-page refresh' post", "approved by Brand Lead"),
+    activity("act_01J0NORI_011", 22, "drafted Q2 product update announcement", "needs review"),
+    activity("act_01J0NORI_012", 60, "tone-checked 'May newsletter' draft", "approved by Brand Lead"),
+    activity("act_01J0NORI_013", 130, "scheduled send for 'May newsletter' Mon 09:00", "approved by Brand Lead"),
+    activity("act_01J0NORI_014", 240, "rolled up weekly reach (+18% wow)", "auto-sent"),
+    activity("act_01J0NORI_015", 480, "drafted 'pricing-page refresh' post", "approved by Brand Lead"),
   ],
 };
 
@@ -164,11 +164,11 @@ const PETA: WorkerOverview = {
     kpi("k-blockers", "open blockers", "2", [4, 3, 3, 2, 2, 2, 2], -50),
   ],
   recentActivity: [
-    activity("ap_peta_1", 6, "drafted standup digest for engineering pod", "auto-sent"),
-    activity("ap_peta_2", 92, "chased action item PROJ-2284 — owner replied", "auto-sent"),
-    activity("ap_peta_3", 180, "escalated stalled task PROJ-721 to PM", "approved by Mark"),
-    activity("ap_peta_4", 1440, "rolled up weekly status (3 wins / 2 risks)", "auto-sent"),
-    activity("ap_peta_5", 2880, "asked PM about priority shift for sprint 14", "awaiting reply"),
+    activity("act_01J0PETA_011", 6, "drafted standup digest for engineering pod", "auto-sent"),
+    activity("act_01J0PETA_012", 92, "chased action item PROJ-2284 — owner replied", "auto-sent"),
+    activity("act_01J0PETA_013", 180, "escalated stalled task PROJ-721 to PM", "approved by Mark"),
+    activity("act_01J0PETA_014", 1440, "rolled up weekly status (3 wins / 2 risks)", "auto-sent"),
+    activity("act_01J0PETA_015", 2880, "asked PM about priority shift for sprint 14", "awaiting reply"),
   ],
 };
 
