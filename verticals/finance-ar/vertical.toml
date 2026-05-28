@@ -184,3 +184,8 @@ max_attempts = 2
 
 [actions.generate_aging_report.retry]
 max_attempts = 2
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/aging_sweep.workflow.toml"]

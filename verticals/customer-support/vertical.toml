@@ -76,3 +76,8 @@ description       = "Mark the ticket resolved + write the resolution summary. Ap
 risk              = "low"
 requires_approval = false
 description       = "When the agent can't satisfy the request from KB content, escalate to the operator with full context. No customer-facing effect; this is the safe-fallback path."
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/ticket_triage.workflow.toml"]

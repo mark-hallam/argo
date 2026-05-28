@@ -43,3 +43,8 @@ auth_required    = true
 
 [tui]
 overlay_label = "Event Coordinator"
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/event_readiness_check.workflow.toml"]

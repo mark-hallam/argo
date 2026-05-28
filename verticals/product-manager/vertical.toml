@@ -130,3 +130,8 @@ max_attempts = 1
 
 [actions.schedule_review.retry]
 max_attempts = 2
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/sprint_brief.workflow.toml"]

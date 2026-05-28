@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Ticket triage", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "ticket_triage"
+description = "Open the triage rubric + the first-touch reply skill so the runner is wired against the customer-support pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/customer-support/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/customer-support/skills/escalate_to_human.skill.md" }
+depends_on = ["read_manifest"]

@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Draft queue check", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "draft_queue_check"
+description = "Open the brand-voice rubric + post-draft skill so the runner is wired against the social-media-drafter pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/social-media-drafter/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/social-media-drafter/skills/flag_brand_safety_risk.skill.md" }
+depends_on = ["read_manifest"]

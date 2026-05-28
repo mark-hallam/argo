@@ -71,3 +71,47 @@ fn repository_vertical_directories_are_loadable() {
         "load_dir should load every manifest-bearing directory exactly once"
     );
 }
+
+/// Closes onboarding-hire-an-ai-teammate F16 [P3]: every shipped
+/// vertical pack must declare ≥1 workflow file so the gateway's
+/// `install-vertical` returns `workflows_added ≥ 1`. Pre-fix, every
+/// non-(gtm-engineer|pr-checker|receptionist) pack returned 0 and
+/// the freshly hired worker's Overview Schedules card had nothing
+/// to "Run now" on. Walks the on-disk catalog so adding a new
+/// vertical without a workflow trips this gate.
+#[test]
+fn every_shipped_vertical_declares_at_least_one_workflow() {
+    let verticals_dir = repo_root().join("verticals");
+    let (registry, errors) =
+        argo_vertical::load_dir(&verticals_dir).expect("workspace verticals dir loads");
+    assert!(errors.is_empty(), "load errors: {errors:?}");
+    let mut missing: Vec<String> = Vec::new();
+    for (id, loaded) in registry.list() {
+        // Library-tier packs (tagged `library` and intended to be
+        // referenced by OTHER verticals — e.g. `_starter-library/`)
+        // have no role/agent of their own, so the install-vertical
+        // path never targets them and they don't need a workflow.
+        if loaded
+            .manifest
+            .vertical
+            .tags
+            .iter()
+            .any(|t| t == "library")
+        {
+            continue;
+        }
+        let declared = loaded
+            .manifest
+            .workflows
+            .as_ref()
+            .map_or(0, |w| w.files.len());
+        if declared == 0 {
+            missing.push(id.to_string());
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "verticals missing [workflows].files entries (add at least one workflows/<name>.workflow.toml \
+         and declare it in vertical.toml's [workflows] block): {missing:?}"
+    );
+}

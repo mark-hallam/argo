@@ -138,3 +138,8 @@ max_attempts = 1
 
 [actions.update_patient_record.retry]
 max_attempts = 1
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/intake_readiness_check.workflow.toml"]

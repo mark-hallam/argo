@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Listing sync (browser)", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "listing_sync_browser"
+description = "Open the pricing rubric + listing-update skill so the runner is wired against the marketplace-seller-browser pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/marketplace-seller-browser/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/marketplace-seller-browser/skills/post_listing.md" }
+depends_on = ["read_manifest"]

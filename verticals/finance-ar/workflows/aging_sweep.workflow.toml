@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Aging sweep", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "aging_sweep"
+description = "Open the aging-report rubric + dunning-draft skill so the runner is wired against the finance-AR pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/finance-ar/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/finance-ar/skills/aging_report.skill.md" }
+depends_on = ["read_manifest"]

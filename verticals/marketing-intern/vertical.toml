@@ -89,3 +89,8 @@ description       = "Send the weekly newsletter. Always approval-gated."
 risk              = "low"
 requires_approval = false
 description       = "Compose the weekly internal summary (brand mentions + competitor moves). Stored in memory; the operator reads it but no public side effect."
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/daily_brand_check.workflow.toml"]

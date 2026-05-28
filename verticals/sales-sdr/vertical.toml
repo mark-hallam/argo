@@ -83,3 +83,8 @@ instruction_template = "Book a meeting with `{{ payload.prospect_id }}` for slot
 
 [actions.book_meeting.retry]
 max_attempts = 2
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/morning_pipeline_triage.workflow.toml"]

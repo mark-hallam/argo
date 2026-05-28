@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Matter intake check", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "matter_intake_check"
+description = "Open the matter-intake rubric + clause-flag skill so the runner is wired against the legal-paralegal pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/legal-paralegal/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/legal-paralegal/skills/flag_privilege_waiver_risk.skill.md" }
+depends_on = ["read_manifest"]

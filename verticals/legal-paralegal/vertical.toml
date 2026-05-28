@@ -221,3 +221,8 @@ initial_delay_seconds = 60
 
 [actions.file_with_court.retry]
 max_attempts = 2
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/matter_intake_check.workflow.toml"]

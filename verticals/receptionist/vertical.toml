@@ -38,10 +38,11 @@ seed   = "memory/seed/"
 bundle = "skills/"
 
 [workflows]
-# Phase 5 territory; carried in the manifest for declarative
-# completeness. The greet → identify → answer/escalate loop
-# will be wired as a workflow once the runner ships.
-files = []
+# Phase 5 territory. The greet → identify → answer/escalate
+# loop will be wired as a richer workflow once the runner
+# ships; for now the `caller_greeting_check` smoke proves the
+# runner is wired against this vertical end-to-end (#659).
+files = ["workflows/caller_greeting_check.workflow.toml"]
 
 [escalation]
 # Two failed attempts to handle a request → escalate to human.

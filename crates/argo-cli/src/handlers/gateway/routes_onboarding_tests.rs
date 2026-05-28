@@ -248,6 +248,28 @@ async fn install_vertical_happy_path_returns_counts() {
 }
 
 #[tokio::test]
+async fn install_vertical_marketing_intern_and_sales_sdr_report_one_workflow() {
+    // F16 [P3] evidence: the two verticals named in the audit
+    // finding now return `workflows_added: 1` post-fix.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    let store = mem_store().await;
+    pre_provision(&store, "alice@acme.com").await;
+    for vid in ["marketing-intern", "sales-sdr"] {
+        let r = req(
+            "/api/v1/onboarding/install-vertical",
+            &json!({ "vertical_id": vid }).to_string(),
+            Some("human:alice@acme.com"),
+        );
+        let (status, resp) = install_vertical_response(&r, Some(&store)).await;
+        assert_eq!(status, "200 OK", "{vid}: {resp}");
+        let v: Value = serde_json::from_str(&resp).unwrap();
+        assert!(v["workflows_added"].as_i64().unwrap() >= 1, "{vid}: {resp}");
+    }
+}
+
+#[tokio::test]
 async fn install_vertical_rejects_unknown_id() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");

@@ -191,3 +191,8 @@ executor          = "human"
 # coverage for the four new skills + three escalation cases
 # (GDPR opt-out / explicit-do-not-contact / forbidden-phrase).
 suites = ["eval/followup_core.jsonl", "eval/seed.jsonl"]
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/nudge_sweep.workflow.toml"]

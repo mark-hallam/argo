@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Research brief", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "research_brief"
+description = "Open the prospect rubric + research skill so the runner is wired against the lead-research pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/lead-research/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/lead-research/skills/detect_buying_signals.skill.md" }
+depends_on = ["read_manifest"]

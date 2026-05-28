@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Regression check", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "regression_check"
+description = "Open the test-plan rubric + bug-triage skill so the runner is wired against the QA-engineer pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/qa-engineer/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/qa-engineer/skills/reduce_test_set.skill.md" }
+depends_on = ["read_manifest"]

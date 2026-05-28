@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Kickoff welcome", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "kickoff_welcome"
+description = "Walk the welcome-email template + onboarding-checklist skill so the runner is wired against the customer-onboarding pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/customer-onboarding/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/customer-onboarding/skills/draft_value_check_in.md" }
+depends_on = ["read_manifest"]

@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Purchase-order sweep", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "po_sweep"
+description = "Open the PO rubric + vendor-followup skill so the runner is wired against the procurement-assistant pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/procurement-assistant/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/procurement-assistant/skills/detect_invoice_anomaly.skill.md" }
+depends_on = ["read_manifest"]

@@ -179,3 +179,8 @@ max_attempts = 2
 
 [actions.file_return.retry]
 max_attempts = 2
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/filing_readiness_check.workflow.toml"]

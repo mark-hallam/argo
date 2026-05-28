@@ -43,3 +43,8 @@ auth_required    = true
 
 [tui]
 overlay_label = "Bookkeeping Assistant"
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/daily_ledger_check.workflow.toml"]

@@ -168,3 +168,8 @@ max_attempts = 2
 
 [actions.mark_item_sold.retry]
 max_attempts = 2
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/listing_sync_browser.workflow.toml"]

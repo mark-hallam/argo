@@ -44,3 +44,8 @@ auth_required    = true
 
 [tui]
 overlay_label = "Social Media Drafter"
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/draft_queue_check.workflow.toml"]

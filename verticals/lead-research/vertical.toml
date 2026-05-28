@@ -79,3 +79,8 @@ instruction_template = "Upload research brief for `{{ payload.company_id }}` to 
 max_attempts          = 2
 backoff               = "exponential"
 initial_delay_seconds = 60
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/research_brief.workflow.toml"]

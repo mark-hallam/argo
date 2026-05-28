@@ -1,0 +1,24 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): two
+# tool_call steps that read the vertical's manifest + the first
+# skill file. Proves the runner is wired against this vertical
+# end-to-end (#659). The display name is "Morning brief", which is
+# what the worker's Schedules card renders post-install.
+
+[workflow]
+name        = "morning_brief"
+description = "Open the daily-brief template + meeting-prep skill so the runner is wired against the executive-assistant pack end-to-end."
+
+[[step]]
+name = "read_manifest"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/executive-assistant/vertical.toml" }
+
+[[step]]
+name = "read_anchor_skill"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/executive-assistant/skills/plan_travel_logistics.skill.md" }
+depends_on = ["read_manifest"]

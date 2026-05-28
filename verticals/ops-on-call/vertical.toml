@@ -84,3 +84,8 @@ initial_delay_seconds = 60
 risk              = "low"
 requires_approval = false
 description       = "Hand the page to the human on-call when the symptom is ambiguous, customer-impacting, data-loss-risk, security-relevant, or outside the agent's read-only authority. Routing-only; if a Slack post is needed during escalation, the wording goes through `draft_incident_update`."
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/incident_readiness_check.workflow.toml"]

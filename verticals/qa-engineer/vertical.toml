@@ -51,3 +51,8 @@ auth_required    = true
 
 [tui]
 overlay_label = "QA Engineer"
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/regression_check.workflow.toml"]

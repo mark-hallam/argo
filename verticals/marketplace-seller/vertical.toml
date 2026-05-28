@@ -197,3 +197,8 @@ risk              = "low"
 requires_approval = false
 description       = "Produce the post-sale checklist (mark sold / archive / inventory update / thank-you draft / suggest review-request) for one sold listing + transaction log. Escalates on refund-request, dispute, or damaged-on-pickup. Draft-only — never mutates."
 executor          = "human"
+
+[workflows]
+# Smoke workflow: proves the runner is wired against this
+# vertical end-to-end (#659). Phase 5+ richer flows go here.
+files = ["workflows/listing_sync.workflow.toml"]
