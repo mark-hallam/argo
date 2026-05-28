@@ -7,7 +7,7 @@ const SAMPLE_CELLS: KpiCell[] = [
   { label: "$ at risk", value: "$1,200", sub: "across 1 pending", tone: "warn", testId: "at-risk" },
   { label: "Median time", value: "12m", sub: "waiting for approval", testId: "median-time" },
   { label: "Approval rate", value: "—", sub: "no resolved approvals", testId: "approval-rate" },
-  { label: "Active reviewers", value: "—", sub: "reviewer roster pending", testId: "active-reviewers" },
+  { label: "Active reviewers", value: "—", sub: "no reviewers assigned", testId: "active-reviewers" },
 ];
 
 describe("KpiStrip chrome", () => {

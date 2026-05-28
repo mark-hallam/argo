@@ -16,8 +16,11 @@ import type { ApprovalItem } from "@/lib/sample-approvals";
  *                            for time-to-decision; ApprovalItem does
  *                            not carry `decidedAt`)
  *   4. APPROVAL RATE      — % approved over resolved rows
- *   5. ACTIVE REVIEWERS   — distinct reviewer count (placeholder
- *                            until the reviewer roster lands)
+ *   5. ACTIVE REVIEWERS   — distinct count of human reviewers
+ *                            assigned to a pending row (from
+ *                            `approver.name` on each pending item);
+ *                            renders `—` + "no reviewers assigned"
+ *                            when no pending row carries an approver
  */
 
 export type ApprovalsKpis = {
@@ -28,6 +31,8 @@ export type ApprovalsKpis = {
   /** True when any pending row is over SLA or carries P0 severity. */
   hasUrgentPending: boolean;
   approvalRate: ApprovalRateSummary | null;
+  /** Distinct count of human reviewers assigned to a pending row. */
+  distinctApproverCount: number;
 };
 
 export type ApprovalRateSummary = {
@@ -109,6 +114,11 @@ export function computeApprovalsKpis(
           refusedFraction: refused / decidedItems.length,
           expiredFraction: 0,
         };
+  const distinctApproverCount = new Set(
+    pendingItems
+      .map((i) => i.approver?.name?.trim())
+      .filter((name): name is string => Boolean(name)),
+  ).size;
   return {
     pendingCount: pendingItems.length,
     dollarsAtRisk,
@@ -116,6 +126,7 @@ export function computeApprovalsKpis(
     medianTimeMinutes,
     hasUrgentPending,
     approvalRate,
+    distinctApproverCount,
   };
 }
 
@@ -163,8 +174,14 @@ export function buildApprovalsKpiCells(kpis: ApprovalsKpis): KpiCell[] {
     },
     {
       label: "Active reviewers",
-      value: "—",
-      sub: "reviewer roster pending",
+      value:
+        kpis.distinctApproverCount > 0
+          ? String(kpis.distinctApproverCount)
+          : "—",
+      sub:
+        kpis.distinctApproverCount > 0
+          ? "reviewing now"
+          : "no reviewers assigned",
       testId: "active-reviewers",
     },
   ];

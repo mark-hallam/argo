@@ -74,8 +74,11 @@ describe("ApprovalsKpiStrip", () => {
     );
     expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("—");
     expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent(
-      "reviewer roster pending",
+      "no reviewers assigned",
     );
+    expect(
+      screen.queryByText(/reviewer roster pending/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/78% approved/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Resolved \/ wk/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Avg response/i)).not.toBeInTheDocument();
@@ -120,6 +123,58 @@ describe("ApprovalsKpiStrip", () => {
       "2 resolved approvals",
     );
     expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("—");
+  });
+
+  it("derives the Active reviewers count from distinct approver names on pending rows", () => {
+    const items = [
+      item({
+        id: "pending-mark-1",
+        decision: null,
+        approver: { name: "Mark" },
+      }),
+      item({
+        id: "pending-mark-2",
+        decision: null,
+        approver: { name: "Mark" },
+      }),
+      item({
+        id: "pending-aisha",
+        decision: null,
+        approver: { name: "Aisha" },
+      }),
+      item({ id: "pending-unassigned", decision: null }),
+      item({
+        id: "decided-priya",
+        decision: "approve",
+        approver: { name: "Priya" },
+      }),
+    ];
+
+    render(<ApprovalsKpiStrip kpis={computeApprovalsKpis(items, NOW)} />);
+
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("2");
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent(
+      "reviewing now",
+    );
+  });
+
+  it("renders the Active reviewers placeholder when no pending row has an approver", () => {
+    const items = [
+      item({ id: "pending-a", decision: null }),
+      item({ id: "pending-b", decision: null }),
+      item({
+        id: "decided-with-approver",
+        decision: "approve",
+        approver: { name: "Mark" },
+      }),
+    ];
+
+    render(<ApprovalsKpiStrip kpis={computeApprovalsKpis(items, NOW)} />);
+
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("—");
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent(
+      "no reviewers assigned",
+    );
   });
 
   it("flags the Pending cell with destructive tone when a pending row is over SLA", () => {

@@ -87,7 +87,7 @@ describe("ApprovalsOpsDashboard", () => {
     );
     expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("—");
     expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent(
-      "reviewer roster pending",
+      "no reviewers assigned",
     );
     expect(screen.getByTestId("at-risk-donut")).toHaveAttribute(
       "data-percent",
@@ -134,6 +134,30 @@ describe("ApprovalsOpsDashboard", () => {
     expect(screen.queryByText(/78% approved/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/14% refused/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/8% expired/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/reviewer roster pending/i)).not.toBeInTheDocument();
+  });
+
+  it("derives the Active reviewers KPI from distinct approvers on pending rows", () => {
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[
+          item({ id: "p1", approver: { name: "Mark" } }),
+          item({ id: "p2", approver: { name: "Mark" } }),
+          item({ id: "p3", approver: { name: "Aisha" } }),
+          item({ id: "p4-unassigned" }),
+          item({
+            id: "decided",
+            decision: "approve",
+            approver: { name: "Priya" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("2");
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent(
+      "reviewing now",
+    );
   });
 
   it("renders the seeded SAMPLE_APPROVALS as 5 pending + 3 resolved (ring ≈ 67%)", () => {
@@ -151,6 +175,13 @@ describe("ApprovalsOpsDashboard", () => {
     expect(screen.getByTestId("approval-rate-ring")).toHaveAttribute(
       "data-refused",
       "33",
+    );
+
+    // 3 of the 5 pending rows carry an approver (Mark x2, Aisha x1) →
+    // 2 distinct active reviewers in the KPI strip.
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent("2");
+    expect(screen.getByTestId("kpi-active-reviewers")).toHaveTextContent(
+      "reviewing now",
     );
 
     // The 5 remaining rows stay actionable in the inbox tiers.

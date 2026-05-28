@@ -30,6 +30,11 @@ export interface ApprovalItem {
   channel: ChannelKind;
   receivedAt: string; // ISO
   decision?: ApprovalDecision | null;
+  /** Human reviewer currently assigned to (or actively reviewing) the
+   * approval. Populated on pending rows that have an assigned approver;
+   * undefined on rows that are still unrouted or that have already been
+   * decided. Drives the "Active reviewers" KPI on the ops dashboard. */
+  approver?: { name: string };
 
   /**
    * Three-tier severity. P0 = over SLA / requires immediate eyes,
@@ -87,6 +92,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     severity: "p2",
     confidence: 0.92,
     slaExpiresAt: new Date(now + 22 * hour).toISOString(),
+    approver: { name: "Mark" },
   },
   {
     id: "ap_01H9Z6",
@@ -102,6 +108,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     severity: "p1",
     confidence: 0.94,
     slaExpiresAt: new Date(now + 5 * hour).toISOString(),
+    approver: { name: "Aisha" },
   },
   {
     id: "ap_01H9Z5",
@@ -169,6 +176,7 @@ export const SAMPLE_APPROVALS: ApprovalItem[] = [
     severity: "p0",
     confidence: 0.74,
     slaExpiresAt: new Date(now + 35 * minute).toISOString(),
+    approver: { name: "Mark" },
   },
   {
     id: "ap_01H9Z1",
