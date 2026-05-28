@@ -250,3 +250,19 @@ Every UI brief that lands after this one **must**:
 
 The token system is locked, not finished. Refinements ship via
 scoped follow-up briefs.
+
+---
+
+## Internal designer reference page
+
+The in-app brand-system reference (live color swatches, typography
+samples, wordmark panel, component showcase) lives at
+`web/app/_dev/brand/page.tsx` and `web/app/_dev/brand/components/page.tsx`.
+
+`_dev/` is a Next.js private segment (underscore-prefix folders are
+exempt from routing), so `/brand` and `/brand/components` return 404
+to any logged-in user — the reference is for internal designers, not
+a product feature, and must not surface on the customer route tree.
+
+To view locally, open the files directly in your editor or briefly
+rename `_dev/` → `(app)/` in a throwaway branch.
