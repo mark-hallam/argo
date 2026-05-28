@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "SLA",
+  description:
+    "Response-time targets for SKYCOT support tickets across Free, Pro, and Enterprise tiers.",
+  alternates: { canonical: "/sla" },
+};
 
 /**
  * SLA — public response-time targets, surfaced as a real route so the
