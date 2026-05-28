@@ -88,6 +88,40 @@ describe("TeammateCard", () => {
     expect(screen.getByTestId("teammate-status-wkr_test")).toHaveTextContent(label);
   });
 
+  // Regression pin for fix-teammate-card-all-five-show-waiting-on-you:
+  // when the deck mounts cards with different worker.status values,
+  // the status pills MUST render distinct labels — they previously all
+  // collapsed to "Waiting on you" because the upstream sample-team
+  // overlay forced every persona to "waiting" when any approval was
+  // pending. The card itself reads worker.status directly; this test
+  // pins "3 cards in -> 3 distinct labels out" so any future regression
+  // at the card layer surfaces here.
+  it("renders 3 distinct status labels when 3 cards mount with different statuses", () => {
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, refetchOnWindowFocus: false },
+        mutations: { retry: false },
+      },
+    });
+    render(
+      <QueryClientProvider client={qc}>
+        <TeammateCard worker={makeWorker({ id: "wkr_w", name: "W", status: "waiting" })} />
+        <TeammateCard worker={makeWorker({ id: "wkr_k", name: "K", status: "working" })} />
+        <TeammateCard worker={makeWorker({ id: "wkr_i", name: "I", status: "idle" })} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId("teammate-status-wkr_w")).toHaveTextContent("Waiting on you");
+    expect(screen.getByTestId("teammate-status-wkr_k")).toHaveTextContent("Working");
+    expect(screen.getByTestId("teammate-status-wkr_i")).toHaveTextContent("Idle");
+
+    const labels = new Set(
+      ["wkr_w", "wkr_k", "wkr_i"].map((id) =>
+        screen.getByTestId(`teammate-status-${id}`).textContent?.trim(),
+      ),
+    );
+    expect(labels.size).toBe(3);
+  });
+
   it("renders avatar, name, today bullets, and tomorrow line", () => {
     wrap(<TeammateCard worker={makeWorker()} />);
     expect(screen.getByText("Mariah")).toBeInTheDocument();

@@ -7,12 +7,21 @@
  *
  * Persona spine (name + role + vertical + headline + traits) is
  * sourced from `sample-personas.ts` so /team agrees with /audit and
- * /workers/<id>/overview. `lastActiveAt` and the baseline
- * working/idle status remain inline here; `pendingApprovalCount`
- * (and the "waiting on you" status override that flows from it)
- * is *derived* from `SAMPLE_APPROVALS` so the /team chip count
- * and the /approvals inbox cannot disagree by construction —
- * fix-approvals-inbox-waiting-on-you-fixture-drift.
+ * /workers/<id>/overview. `lastActiveAt` and the canonical status
+ * (working / waiting / idle / blocked / paused) live inline here in
+ * the overlay below — this is the single source of truth for what
+ * the /team card pill displays. `pendingApprovalCount` is *derived*
+ * from `SAMPLE_APPROVALS` by name match so the /team Worker.count
+ * field cannot disagree with the /approvals inbox by construction
+ * (fix-approvals-inbox-waiting-on-you-fixture-drift).
+ *
+ * Status and pending-count are *independent* signals — a worker can
+ * be "working" while still having pending approvals queued (the count
+ * surfaces via `pendingApprovalCount`; the pill reflects the worker's
+ * actual runtime state). The earlier pending-→-"waiting" override
+ * collapsed every persona to "waiting" because every sample persona
+ * has at least one pending approval, defeating the "5 teammates, one
+ * team" deck design (fix-teammate-card-all-five-show-waiting-on-you).
  *
  * Same fixed-timestamp pattern as `sample-approvals.ts`: anchor
  * every `lastActiveAt` to a stable floor-of-minute so SSR and CSR
@@ -34,30 +43,35 @@ const minute = 60_000;
 const hour = 60 * minute;
 
 interface RuntimeOverlay {
-  /** Status to use when the worker has no pending approvals. */
-  baselineStatus: WorkerStatus;
+  /** Canonical status shown on the /team card pill. */
+  status: WorkerStatus;
   lastActiveAt: string;
 }
 
 const RUNTIME_OVERLAY: Record<string, RuntimeOverlay> = {
   "018f67d0-0000-7000-8000-000000000001": {
-    baselineStatus: "working",
+    // Mariah — waiting on operator OK for two pending listing actions.
+    status: "waiting",
     lastActiveAt: new Date(now - 2 * minute).toISOString(),
   },
   "018f67d0-0000-7000-8000-000000000002": {
-    baselineStatus: "working",
+    // Priya — waiting on operator for the interview-slot booking.
+    status: "waiting",
     lastActiveAt: new Date(now - 14 * minute).toISOString(),
   },
   "018f67d0-0000-7000-8000-000000000003": {
-    baselineStatus: "working",
+    // Jamal — actively handling tickets; one refund queued for review.
+    status: "working",
     lastActiveAt: new Date(now - 32 * minute).toISOString(),
   },
   "018f67d0-0000-7000-8000-000000000004": {
-    baselineStatus: "idle",
+    // Nori — between campaigns; next draft scheduled tomorrow.
+    status: "idle",
     lastActiveAt: new Date(now - 3 * hour).toISOString(),
   },
   "018f67d0-0000-7000-8000-000000000007": {
-    baselineStatus: "working",
+    // Peta — waiting on operator approval for the P0 incident page.
+    status: "waiting",
     lastActiveAt: new Date(now - 6 * minute).toISOString(),
   },
 };
@@ -79,15 +93,11 @@ function buildWorker(id: string): Worker {
     throw new Error(`Missing sample-team runtime overlay for ${id}`);
   }
   const pending = pendingCountByName(persona.name);
-  // A pending approval means the worker is *literally* waiting on
-  // the operator — override the baseline so the "Waiting on you"
-  // chip cannot diverge from the inbox count.
-  const status: WorkerStatus = pending > 0 ? "waiting" : overlay.baselineStatus;
   return {
     id: persona.id,
     name: persona.name,
     role: { tagline: persona.role.tagline, vertical: persona.role.vertical },
-    status,
+    status: overlay.status,
     headline: persona.headline,
     lastActiveAt: overlay.lastActiveAt,
     pendingApprovalCount: pending > 0 ? pending : undefined,
