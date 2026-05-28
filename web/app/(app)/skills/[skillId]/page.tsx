@@ -6,6 +6,8 @@ import { use } from "react";
 import { useSkillUsage } from "@/lib/hooks/use-skills";
 import { formatLearnedAgo } from "@/lib/format-learned-ago";
 import { TrustGradeChip } from "@/components/skycot/skills/TrustGradeChip";
+import { SkillLearningLoopCard } from "@/components/skycot/skills/SkillLearningLoopCard";
+import { sampleSkillTelemetry } from "@/lib/sample-skill-telemetry";
 
 /**
  * Skill detail surface — mission-skill-discovery-marketplace-surface.
@@ -34,6 +36,7 @@ export default function SkillDetailStubPage({
   const { skillId } = use(params);
   const usageQuery = useSkillUsage(skillId);
   const usage = usageQuery.data?.usage;
+  const telemetry = sampleSkillTelemetry(skillId);
 
   return (
     <>
@@ -69,6 +72,11 @@ export default function SkillDetailStubPage({
             </div>
           )}
         </section>
+
+        <SkillLearningLoopCard
+          skillName={usage?.skill_name ?? skillId}
+          telemetry={telemetry}
+        />
 
         <section
           className="usage-card"
