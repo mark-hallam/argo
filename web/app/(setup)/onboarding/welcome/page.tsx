@@ -18,7 +18,7 @@ export default function OnboardingWelcomePage() {
     <OnboardingShell
       step={1}
       stepLabel="WELCOME"
-      eyebrow="WELCOME TO SKYCOT"
+      eyebrow="STEP ONE · WELCOME"
       heroSegments={[
         { text: "Hire your " },
         { text: "first teammate.", accent: true },
