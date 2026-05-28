@@ -81,6 +81,29 @@ export default function WorkflowsPage() {
           Edit them in chat, version them like code, ship to production in one click.
         </p>
 
+        <div
+          className="workflows-intro-band"
+          data-testid="workflows-intro-band"
+        >
+          <p className="workflows-intro-para">
+            Every workflow your teammates run is a sequence of decisions —
+            fetch this, summarise that, escalate if X, approve via Y.
+          </p>
+          <p className="workflows-intro-para">
+            We show you the whole decision chain. Click any workflow to see
+            step-by-step what runs, who authored it, and which decisions need
+            your approval.
+          </p>
+          <Link
+            href="/workflows/templates"
+            className="workflows-intro-deep-link"
+            data-testid="workflows-intro-deep-link"
+          >
+            Open the workflow library
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+
         <div className="workflows-search-row">
           <div className="workflows-search-icon">
             <Search size={16} />
