@@ -27,6 +27,7 @@ export function middleware(req: NextRequest) {
     pathname === "/favicon.ico" ||
     pathname.startsWith("/landing") ||
     pathname.startsWith("/marketing") ||
+    pathname.startsWith("/teammates") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/customers") ||
     pathname.startsWith("/compare") ||
