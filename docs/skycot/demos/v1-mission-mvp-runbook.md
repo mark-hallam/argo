@@ -163,9 +163,10 @@ all within a transactional commit.
    competitor data`.
 3. The activity feed streams in real time: turn start → runner
    invocation → `WorkerDutyFired` audit row.
-4. Cut to `/audit`. Filter by `kind = worker_duty.fired`. The row
-   appears with `duty_id`, `session_id`, and `tenant_id` payload
-   intact.
+4. Cut to `/audit`. Filter by `action_type = worker_duty.fired` (the
+   SPA "Action type" facet; the gateway also accepts `?kind=` as a
+   wire alias for curl probes). The row appears with `duty_id`,
+   `session_id`, and `tenant_id` payload intact.
 
 **Talk track**:
 > "Delegation is the unit. Mariah doesn't have a list of jobs —

@@ -55,6 +55,9 @@ use chrono::Datelike;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+#[path = "routes_audit_feed_param_check.rs"]
+mod param_check;
+
 const DEFAULT_LIMIT: usize = 50;
 const MAX_LIMIT: usize = 200;
 /// Raw-row ceiling per request before the in-memory filter pass —
@@ -148,6 +151,13 @@ pub(super) struct FeedParams {
 }
 
 fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> {
+    if let Some(bad) = param_check::unknown_param(tail) {
+        return Err(error_envelope(
+            "400 Bad Request",
+            "unknown_query_param",
+            &format!("unknown query parameter '{bad}'"),
+        ));
+    }
     let limit = match query_kv(tail, "limit") {
         Some(raw) => {
             let n: usize = raw
@@ -188,7 +198,7 @@ fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> 
         q: query_kv(tail, "q").filter(|s| !s.is_empty()),
         worker: csv_param(tail, "worker"),
         channel: csv_param(tail, "channel"),
-        action_type: csv_param(tail, "action_type"),
+        action_type: param_check::action_types(tail),
         status: csv_param(tail, "status"),
         approver: csv_param(tail, "approver"),
         cost_band: csv_param(tail, "cost_band"),
