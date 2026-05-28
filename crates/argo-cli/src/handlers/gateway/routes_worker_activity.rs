@@ -18,7 +18,9 @@
 //!   names after a rename.
 
 use super::routes_auth_principal::principal_id_for_audit;
-use argo_audit::{tail_rows_filtered, AuditKind, AuditSink, ExportedRow, TailFilters};
+use argo_audit::{
+    is_metadata_verb, tail_rows_filtered, AuditKind, AuditSink, ExportedRow, TailFilters,
+};
 use argo_identity::{IdentityStore, WorkerId};
 use argo_redact::{redact_text, RedactionPolicy};
 use argo_store::SessionStore;
@@ -100,6 +102,7 @@ pub(super) async fn list_response(
     let page: Vec<&ExportedRow> = ordered
         .iter()
         .filter(|r| row_belongs_to_worker(r, &worker_id_str))
+        .filter(|r| params.include_meta || !is_system_meta_row(r))
         .filter(|r| row_passes_filters(r, &params))
         .filter(|r| past_cursor(r, params.cursor.as_ref()))
         .take(params.limit)
@@ -131,6 +134,12 @@ struct ActivityParams {
     status: Option<String>,
     cursor: Option<(i64, String)>,
     range: Option<String>,
+    /// `?include_meta=1` opts the response back in to system-meta rows
+    /// (SPA self-pings, `worker.kpi_rolled`, audit-page click telemetry)
+    /// that the default user-facing feed hides. See
+    /// `argo_audit::METADATA_VERBS` for the list. Any non-empty value
+    /// other than `0` / `false` enables it.
+    include_meta: bool,
 }
 
 fn parse_query_params(tail: &str) -> Result<ActivityParams, (&'static str, String)> {
@@ -152,6 +161,9 @@ fn parse_query_params(tail: &str) -> Result<ActivityParams, (&'static str, Strin
     let cursor = query_kv(tail, "cursor")
         .map(|c| decode_cursor(&c).ok_or_else(|| bad_request("invalid cursor")))
         .transpose()?;
+    let include_meta = query_kv(tail, "include_meta")
+        .map(|v| !matches!(v.as_str(), "" | "0" | "false"))
+        .unwrap_or(false);
     Ok(ActivityParams {
         limit,
         since_micros,
@@ -159,7 +171,38 @@ fn parse_query_params(tail: &str) -> Result<ActivityParams, (&'static str, Strin
         status: query_kv(tail, "status").filter(|s| !s.is_empty()),
         cursor,
         range: Some(range),
+        include_meta,
     })
+}
+
+/// Match the row against `argo_audit::METADATA_VERBS`. Hits → row
+/// is hidden from the default feed.
+///
+/// The check mirrors the verb-resolution chain the UI sees in
+/// `activity_row_json`: prefer `payload.verb` then fall back to
+/// `row.kind`. Real agent-action rows always set `payload.verb` (or a
+/// non-metadata `action_type`/`endpoint`), so they survive even when
+/// their `kind` happens to be `HttpRequest`. SPA self-pings and
+/// `worker.kpi_rolled` cron telemetry don't set `payload.verb`, so
+/// the fallback to `row.kind` triggers the filter. The `endpoint` /
+/// `action_type` check covers the edge case where the row's `kind`
+/// is `HttpRequest` but the gateway route encoded its specific
+/// surface (e.g. `audit.detail.viewed`) only in those payload
+/// dimensions.
+fn is_system_meta_row(row: &ExportedRow) -> bool {
+    let resolved_verb =
+        payload_str(&row.payload, "verb").unwrap_or_else(|| row.kind.clone());
+    if is_metadata_verb(&resolved_verb) {
+        return true;
+    }
+    for key in ["endpoint", "action_type"] {
+        if let Some(v) = payload_str(&row.payload, key) {
+            if is_metadata_verb(&v) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn row_belongs_to_worker(row: &ExportedRow, worker_id: &str) -> bool {
@@ -381,6 +424,7 @@ async fn emit_view_audit(
         ("status", params.status.is_some()),
         ("range", params.range.is_some()),
         ("cursor", params.cursor.is_some()),
+        ("include_meta", params.include_meta),
     ]
     .into_iter()
     .filter_map(|(name, used)| used.then_some(name))
@@ -446,3 +490,7 @@ fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static 
 #[cfg(test)]
 #[path = "routes_worker_activity_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_worker_activity_metadata_filter_tests.rs"]
+mod metadata_filter_tests;

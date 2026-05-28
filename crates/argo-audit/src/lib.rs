@@ -46,6 +46,11 @@ pub mod export_bundle;
 /// J14 audit-feed read path's SQL-branch filter wiring.
 pub mod filter_dims;
 mod gap;
+/// Verb / action_type strings that mark a row as system-meta
+/// (SPA self-pings, KPI roll-ups, audit-page click telemetry).
+/// Shared between `GET /api/v1/audit` and `GET /api/v1/workers/<id>/activity`
+/// so both endpoints filter against the same constant list.
+pub mod metadata_verbs;
 mod replay;
 mod sink;
 mod sink_chain;
@@ -75,6 +80,7 @@ pub use export::{
     export_ndjson, rows_for_session, tail_rows, tail_rows_filtered, ExportedRow, TailFilters,
 };
 pub use gap::{detect_policy_denials, CapabilityGap, GapKind};
+pub use metadata_verbs::{is_metadata_verb, METADATA_VERBS};
 pub use replay::{filter_rows as filter_replay_rows, render as render_replay, ReplayFormat};
 pub use sink::{compute_chain_hash, AuditEvent, AuditSink, AUDIT_BROADCAST_CAPACITY};
 pub use sink_tx::AuditPostCommit;
