@@ -89,7 +89,7 @@ export default function OnboardingWorkspacePage() {
     <OnboardingShell
       step={2}
       stepLabel="WORKSPACE"
-      eyebrow="STEP TWO · WORKSPACE"
+      eyebrow="STEP 02 · WORKSPACE"
       heroSegments={[
         { text: "Name your " },
         { text: "workspace.", accent: true },

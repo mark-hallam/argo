@@ -148,7 +148,7 @@ fn gateway_vertical_show_includes_marketplace_envelope() {
 
     // Existing-shape contract.
     assert_eq!(v["id"], "finance-ar");
-    assert_eq!(v["name"], "Finance — Accounts Receivable");
+    assert_eq!(v["name"], "Accounts Receivable");
 
     // Additive marketplace envelope — the panels rely on this.
     let market = v

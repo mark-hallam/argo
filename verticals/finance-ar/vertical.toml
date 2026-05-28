@@ -2,7 +2,7 @@ schema_version = "1"
 
 [vertical]
 id          = "finance-ar"
-name        = "Finance — Accounts Receivable"
+name        = "Accounts Receivable"
 description = "Reviews open invoices, drafts polite reminder emails on a 7/14/30-day cadence, escalates to a human at 45 days past due, logs payment receipts, and produces a weekly aging report. Approval-gated for any buyer-facing email and for the published report."
 version     = "0.1.0"
 authors     = ["Mark Hallam"]

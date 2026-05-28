@@ -104,7 +104,7 @@ export default function OnboardingFirstHirePage() {
       step={5}
       completedSteps={4}
       stepLabel="FIRST HIRE"
-      eyebrow="STEP FIVE · FINAL"
+      eyebrow="STEP 05 · YOUR TEAMMATE"
       heroSegments={[
         { text: "Describe your " },
         { text: "first worker.", accent: true },

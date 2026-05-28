@@ -261,7 +261,7 @@ export default function OnboardingPickVerticalPage() {
     <OnboardingShell
       step={4}
       stepLabel="VERTICAL"
-      eyebrow="STEP FOUR · PICK A ROLE"
+      eyebrow="STEP 04 · PICK A ROLE"
       heroSegments={[
         { text: "Pick a " },
         { text: "starting template.", accent: true },

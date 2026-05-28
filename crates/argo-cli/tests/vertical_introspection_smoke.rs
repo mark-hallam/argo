@@ -72,7 +72,7 @@ fn cli_describe_json_emits_full_manifest_for_finance_ar() {
     // Brief AC #2: full manifest, not the one-paragraph summary the
     // text form returns.
     assert_eq!(v["id"], "finance-ar");
-    assert_eq!(v["name"], "Finance — Accounts Receivable");
+    assert_eq!(v["name"], "Accounts Receivable");
     assert_eq!(v["version"], "0.1.0");
     let actions = v["actions"]
         .as_array()
@@ -99,7 +99,7 @@ fn cli_describe_text_keeps_one_paragraph_summary() {
     assert!(out.status.success());
     let body = String::from_utf8(out.stdout).unwrap();
     assert!(
-        body.contains("Finance — Accounts Receivable"),
+        body.contains("Accounts Receivable"),
         "summary should mention vertical name: {body}"
     );
     assert!(
@@ -168,7 +168,7 @@ fn gateway_get_vertical_finance_ar_returns_full_manifest() {
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).expect("body parses");
     assert_eq!(v["id"], "finance-ar");
-    assert_eq!(v["name"], "Finance — Accounts Receivable");
+    assert_eq!(v["name"], "Accounts Receivable");
     assert!(
         v["tools"]["denied"]
             .as_array()

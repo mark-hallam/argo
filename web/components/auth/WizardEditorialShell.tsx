@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import { AlertDialog } from "@/components/ui/AlertDialog";
 import { DemoModeBanner } from "@/components/skycot/DemoModeBanner";
 
@@ -378,7 +378,17 @@ export function WizardEditorialShell({
     Math.min(TOTAL_STEPS, completedSteps ?? displayStep - 1),
   );
   const router = useRouter();
+  const pathname = usePathname();
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // F13: scroll resets on every onboarding-step route change. Without
+  // this, a step that scrolled mid-form (e.g. workspace's autoFocus
+  // scrollIntoView) leaves the next step landing mid-page with the
+  // Audiowide hero behind the sticky bar.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   function attemptLeave() {
     if (unsavedHire) {

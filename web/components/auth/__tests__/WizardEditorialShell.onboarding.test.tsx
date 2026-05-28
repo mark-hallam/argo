@@ -100,4 +100,21 @@ describe("Onboarding adoption of WizardEditorialShell", () => {
     expect(progress).toHaveAttribute("aria-valuemax", "5");
     expect(screen.getByTestId("wiz-shell-trust")).toBeInTheDocument();
   });
+
+  // F15: every onboarding step uses the "STEP NN · TITLE" numeric
+  // eyebrow convention so it matches the step strip ("STEP 04 OF 05"
+  // numerals in the top bar). Welcome keeps its branded greeting.
+  it("step eyebrows use numerals consistently (F15)", () => {
+    const cases: Array<[ReactNode, string]> = [
+      [<WorkspacePage key="w" />, "STEP 02 · WORKSPACE"],
+      [<ConnectProviderPage key="c" />, "STEP 03 · CONNECT AI PROVIDER"],
+      [<PickVerticalPage key="p" />, "STEP 04 · PICK A ROLE"],
+      [<FirstHirePage key="f" />, "STEP 05 · YOUR TEAMMATE"],
+    ];
+    for (const [page, expected] of cases) {
+      const { unmount } = render(wrap(page));
+      expect(screen.getByTestId("wiz-shell-eyebrow")).toHaveTextContent(expected);
+      unmount();
+    }
+  });
 });

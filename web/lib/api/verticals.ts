@@ -124,7 +124,7 @@ export interface FetchVerticalResult {
 export const SEED_VERTICALS: VerticalRow[] = [
   {
     id: "finance-ar",
-    name: "Finance — Accounts Receivable",
+    name: "Accounts Receivable",
     version: "0.1.0",
     description:
       "Reviews open invoices, drafts polite reminder emails on a 7/14/30-day cadence, escalates to a human at 45 days past due, logs payment receipts, and produces a weekly aging report.",
@@ -133,7 +133,7 @@ export const SEED_VERTICALS: VerticalRow[] = [
     tags: ["finance", "ar", "gmail", "stripe"],
     workflow_count: 0,
     action_count: 4,
-    role_label: "Finance — Accounts Receivable",
+    role_label: "Accounts Receivable",
     kpi_count: 0,
     skill_count: 5,
   },

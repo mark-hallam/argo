@@ -1,6 +1,7 @@
 "use client";
 
 import { Info, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   isDemoMode,
@@ -19,6 +20,7 @@ const DISMISS_STORAGE_KEY = "skycot:demo-banner-dismissed";
  * default branch.
  */
 export function DemoBanner() {
+  const pathname = usePathname();
   const [hydrated, setHydrated] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -36,6 +38,12 @@ export function DemoBanner() {
     }
   }, []);
 
+  // F14: the wizard's own top bar + welcome eyebrow already signal
+  // demo intent on /onboarding/*; stacking the demo banner above
+  // eats ~34px of vertical real estate (especially painful at the
+  // 375×812 mobile demo viewport, where the Audiowide hero gets
+  // shoved below the fold).
+  if (pathname?.startsWith("/onboarding")) return null;
   if (!isDemoMode()) return null;
   if (!hydrated) return null;
   if (dismissed) return null;

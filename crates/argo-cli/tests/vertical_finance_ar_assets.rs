@@ -41,7 +41,7 @@ fn finance_ar_loads_via_argo_vertical() {
     let v = registry
         .get("finance-ar")
         .expect("finance-ar not in registry");
-    assert_eq!(v.manifest.vertical.name, "Finance — Accounts Receivable");
+    assert_eq!(v.manifest.vertical.name, "Accounts Receivable");
     assert_eq!(v.manifest.vertical.version, "0.1.0");
 }
 

@@ -190,7 +190,7 @@ export default function OnboardingConnectProviderPage() {
     <OnboardingShell
       step={3}
       stepLabel="PROVIDER"
-      eyebrow="STEP THREE · CONNECT AI PROVIDER"
+      eyebrow="STEP 03 · CONNECT AI PROVIDER"
       heroSegments={[
         { text: "Connect " },
         { text: "Anthropic.", accent: true },
