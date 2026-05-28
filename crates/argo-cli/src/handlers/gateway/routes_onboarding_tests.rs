@@ -238,6 +238,10 @@ async fn install_vertical_happy_path_returns_counts() {
     let skills = v["skills_added"].as_i64().unwrap();
     assert!(workflows >= 1, "expected at least one workflow file");
     assert!(skills >= 1, "expected at least one skill file");
+    // UX-AUDIT-T0119MEL F8: receipt confirms all three sub-copy claims.
+    assert_eq!(v["memory_schema_attached"], true);
+    let gates = v["approval_gates_added"].as_i64().unwrap();
+    assert!(gates >= 1, "gtm-engineer ships >=1 approval gate; got {gates}");
     let rows = audit_payloads_for_kind(&store, "onboarding.vertical_installed").await;
     assert_eq!(rows.len(), 1, "expected one vertical-install audit row");
     let payload: Value = serde_json::from_str(&rows[0]).unwrap();
@@ -245,6 +249,8 @@ async fn install_vertical_happy_path_returns_counts() {
     assert_eq!(payload["vertical_id"], "gtm-engineer");
     assert_eq!(payload["workflows_added"], workflows);
     assert_eq!(payload["skills_added"], skills);
+    assert_eq!(payload["memory_schema_attached"], true);
+    assert_eq!(payload["approval_gates_added"], gates);
 }
 
 #[tokio::test]

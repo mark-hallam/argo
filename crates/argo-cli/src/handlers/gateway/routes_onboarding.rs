@@ -35,12 +35,12 @@ use super::routes_onboarding_genesis::{
     charter_hash, derive_duties, invoke_genesis, synthesise_charter,
 };
 use super::routes_onboarding_helpers::{
-    bad_request, count_skill_files, count_workflow_files, cwd_write_tenant, emit_audit,
-    infer_provider, is_workspace_root_key_error, load_vertical, map_workspace_error, mask_key,
-    micros_to_usd, name_from_description, not_found, principal_email,
-    provider_key_storage_error, provider_validation_unconfigured, resolve_workspace, server_error,
-    unauthorized, validate_key_shape, voice_preamble_from_description, wrap_secret,
-    HUMAN_PRINCIPAL_PREFIX,
+    bad_request, count_approval_gates, count_skill_files, count_workflow_files, cwd_write_tenant,
+    emit_audit, infer_provider, is_workspace_root_key_error, load_vertical, map_workspace_error,
+    mask_key, memory_schema_attached, micros_to_usd, name_from_description, not_found,
+    principal_email, provider_key_storage_error, provider_validation_unconfigured,
+    resolve_workspace, server_error, unauthorized, validate_key_shape,
+    voice_preamble_from_description, wrap_secret, HUMAN_PRINCIPAL_PREFIX,
 };
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
@@ -190,6 +190,13 @@ pub(super) async fn install_vertical_response(
     };
     let workflows_added = count_workflow_files(&loaded);
     let skills_added = count_skill_files(&loaded);
+    // Wave-T0119 receipt expansion: the wizard sub-copy promises
+    // "skills, memory schema, and approval gates" — the operator's
+    // receipt was confirming only skills. These two flags surface the
+    // other two so the receipt matches the promise (or makes the gap
+    // explicit when a pack ships without them).
+    let memory_schema_attached = memory_schema_attached(&loaded);
+    let approval_gates_added = count_approval_gates(&loaded);
     if let Err(e) = ensure_workspace_keys_schema(store.pool()).await {
         return server_error(&format!("ensure workspace_keys schema: {e}"));
     }
@@ -217,6 +224,8 @@ pub(super) async fn install_vertical_response(
             "vertical_id": vertical_id,
             "workflows_added": workflows_added,
             "skills_added": skills_added,
+            "memory_schema_attached": memory_schema_attached,
+            "approval_gates_added": approval_gates_added,
         }),
     )
     .await;
@@ -227,6 +236,8 @@ pub(super) async fn install_vertical_response(
             "vertical_id": vertical_id,
             "workflows_added": workflows_added,
             "skills_added": skills_added,
+            "memory_schema_attached": memory_schema_attached,
+            "approval_gates_added": approval_gates_added,
         })
         .to_string(),
     )
@@ -394,3 +405,7 @@ mod first_hire_genesis_tests;
 #[cfg(test)]
 #[path = "routes_onboarding_first_hire_second_call_tests.rs"]
 mod first_hire_second_call_tests;
+
+#[cfg(test)]
+#[path = "routes_onboarding_install_vertical_receipt_tests.rs"]
+mod install_vertical_receipt_tests;

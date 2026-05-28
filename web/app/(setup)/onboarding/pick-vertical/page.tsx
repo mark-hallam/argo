@@ -8,12 +8,24 @@ import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
+import { InstallReceipt } from "./_InstallReceipt";
 
 interface InstallVerticalResponse {
   installed: boolean;
   vertical_id: string;
   workflows_added: number;
   skills_added: number;
+  /**
+   * Wave-T0119 receipt expansion: gateway surfaces the other two
+   * things the wizard sub-copy promises. `memory_schema_attached` is
+   * `true` when the pack's `vertical.toml` declares a `[memory].schema`
+   * file; `approval_gates_added` is the count of
+   * `[escalation].human_approval_required` entries. Both default to
+   * safe values (`false` / `0`) when the section is absent from the
+   * pack.
+   */
+  memory_schema_attached: boolean;
+  approval_gates_added: number;
 }
 
 interface VerticalCard {
@@ -189,6 +201,10 @@ export default function OnboardingPickVerticalPage() {
   const [selected, setSelected] = useState<string | null>(initialVertical);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Wave-T0119: the 3-row receipt the operator reads after install
+  // before advancing to /first-hire. `null` = wizard is still on the
+  // picker; non-null = receipt is visible with a Continue button.
+  const [receipt, setReceipt] = useState<InstallVerticalResponse | null>(null);
   const {
     verticals: catalogRows,
     source: catalogSource,
@@ -239,11 +255,14 @@ export default function OnboardingPickVerticalPage() {
       // exists, so use the canonical `apiPost` client (bearer auth +
       // typed error envelope). Errors block the redirect so the operator
       // can retry instead of hard-sticking on /first-hire's 404.
-      await apiPost<InstallVerticalResponse, { vertical_id: string }>(
-        "/api/v1/onboarding/install-vertical",
-        { vertical_id: verticalId },
-      );
-      router.push("/onboarding/first-hire");
+      const response = await apiPost<
+        InstallVerticalResponse,
+        { vertical_id: string }
+      >("/api/v1/onboarding/install-vertical", { vertical_id: verticalId });
+      // Show the 3-row receipt rather than silently redirecting; the
+      // operator's mental-model anchor — "what just got installed" —
+      // needs a visible confirmation, per UX-AUDIT-T0119MEL F8.
+      setReceipt(response);
     } catch (e) {
       const scrubbed = scrubOnboardingErrorMessage(e);
       const suffix = scrubbed.wasProtocolLeak
@@ -282,6 +301,14 @@ export default function OnboardingPickVerticalPage() {
       }
     >
       <div className="ob-stack mx-auto max-w-4xl">
+        {receipt ? (
+          <InstallReceipt
+            receipt={receipt}
+            onPickAgain={() => setReceipt(null)}
+            onContinue={() => router.push("/onboarding/first-hire")}
+          />
+        ) : (
+          <>
         <div className="ob-cta-row is-split">
           <button
             type="button"
@@ -347,7 +374,10 @@ export default function OnboardingPickVerticalPage() {
             {error}
           </p>
         ) : null}
+          </>
+        )}
       </div>
+
     </OnboardingShell>
   );
 }

@@ -232,6 +232,32 @@ pub(super) fn count_skill_files(loaded: &LoadedVertical) -> i64 {
     count_files_with_suffix(&loaded.root.join("skills"), "skill.md")
 }
 
+/// True when the manifest's `[memory]` section declares a schema file
+/// the runtime will validate writes against. The pick-vertical receipt
+/// renders ✓ when this is true; ✗ otherwise.
+pub(super) fn memory_schema_attached(loaded: &LoadedVertical) -> bool {
+    loaded
+        .manifest
+        .memory
+        .as_ref()
+        .and_then(|m| m.schema.as_ref())
+        .is_some_and(|s| !s.trim().is_empty())
+}
+
+/// Count of `[escalation].human_approval_required` entries — the
+/// "approval gates" the wizard sub-copy promises. 0 is a valid value
+/// (vertical opts out of approvals); the receipt still renders ✓ on
+/// install but shows the count alongside.
+pub(super) fn count_approval_gates(loaded: &LoadedVertical) -> i64 {
+    let len = loaded
+        .manifest
+        .escalation
+        .as_ref()
+        .map(|e| e.human_approval_required.len())
+        .unwrap_or(0);
+    i64::try_from(len).unwrap_or(i64::MAX)
+}
+
 fn count_files_with_suffix(dir: &Path, suffix: &str) -> i64 {
     let Ok(read) = std::fs::read_dir(dir) else {
         return 0;
