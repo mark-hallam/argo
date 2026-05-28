@@ -1,0 +1,13 @@
+# Canonical v1.0 demo roster (one name per line, ignore blank + # lines).
+#
+# Source of truth: web/lib/sample-personas.ts:DEMO_SEED_PERSONAS.
+# Consumed by:    scripts/check-demo-roster.sh (pre-record guard).
+#
+# Scene 1 of docs/skycot/demos/v1-mission-mvp-runbook.md narrates these
+# five names verbatim. Recording against a gateway with a different
+# roster wastes the operator's take.
+Mariah
+Peta
+Priya
+Jamal
+Nori

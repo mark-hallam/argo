@@ -30,7 +30,7 @@ into the narration; the tests are source material, not the story.
 
 - [ ] `git pull --ff-only origin main` and `cargo build --release -p argo-cli`. Confirm `target/release/argo --version` prints a sha from current main.
 - [ ] Local `argo` gateway is FRESH (schema_version on `/health` matches the highest `crates/argo-store/src/migrations/v*.rs`). If stale, restart it.
-- [ ] `bash scripts/demo-dry-run.sh --demo-mode` exits 0. The `--demo-mode` branch validates `SKYCOT_DB_KEY_BASE64` is exported and that `POST /api/v1/demo/mint-principal` answers `ok: true` on the running gateway.
+- [ ] `bash scripts/demo-dry-run.sh --demo-mode` exits 0. The `--demo-mode` branch validates `SKYCOT_DB_KEY_BASE64` is exported, that `POST /api/v1/demo/mint-principal` answers `ok: true` on the running gateway, and (via `scripts/check-demo-roster.sh`) that `/api/v1/team` returns the canonical five-worker roster (Mariah / Peta / Priya / Jamal / Nori) plus non-empty `/api/v1/skills` and `/api/v1/verticals`. **This script is the SINGLE pre-record gate — if it fails for any reason, do not record; re-seed and retry until it exits 0.**
 - [ ] Six claim regression tests pass against `origin/main` (see "Verifying the live-test sources" at the bottom of this doc).
 - [ ] `SKYCOT_DB_KEY_BASE64` exported in the recording terminal — a fresh 32-byte secret for a throwaway demo store. Generate with `export SKYCOT_DB_KEY_BASE64="$(openssl rand -base64 32)"`.
 - [ ] macOS permissions granted on the `argo` binary: Accessibility + Screen Recording (required by Scene 5).

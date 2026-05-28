@@ -185,6 +185,27 @@ if [[ ${DEMO_MODE} -eq 1 ]]; then
   echo ">> demo-mode: mint-principal probe GREEN"
 fi
 
+# --- 2c2. Pre-record roster guard.
+#
+# Closes scene-1-and-2-claim-1-and-2 F1 [P0]: at audit time the
+# gateway was serving a single "Maya" worker against a runbook that
+# narrates five names. A roster-shortfall dry-run that PASSES is the
+# failure mode that wastes the operator's recording session. Probes
+# /api/v1/team for the canonical roster, /api/v1/skills > 0, and
+# /api/v1/verticals > 0, and exits non-zero with the seed-CLI command
+# verbatim if anything is off. Demo-mode only — non-demo runs hit a
+# stub gateway with no seeded rows.
+if [[ ${DEMO_MODE} -eq 1 ]]; then
+  echo ">> demo-mode: roster + skills + verticals guard against ${GATEWAY}"
+  if ! "${REPO_ROOT}/scripts/check-demo-roster.sh" "${GATEWAY}"; then
+    {
+      echo "FAIL: demo roster guard rejected ${GATEWAY}."
+      echo "      Do NOT roll the camera — re-seed and retry."
+    } >&2
+    exit 1
+  fi
+fi
+
 # --- 2d. Genesis endpoint not 503 (cost-guardrail satisfied).
 #
 # Closes fix-genesis-orphan-discoverability-and-provider-key-503: the
