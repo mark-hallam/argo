@@ -11,6 +11,7 @@ export function MarketingFooter() {
     <footer className="mk-foot">
       <div className="mk-foot-links">
         <Link href="/landing">SKYCOT</Link>
+        <Link href="/about">About</Link>
         <Link href="/compare">Compare</Link>
         <Link href="/customers">Customers</Link>
         <Link href="/pricing">Pricing</Link>
@@ -20,7 +21,7 @@ export function MarketingFooter() {
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
         <Link href="/security">Security</Link>
-        <a href="mailto:hello@skycot.com">Contact</a>
+        <Link href="/contact">Contact</Link>
       </div>
       <div>© 2026 SKYCOT · Made in Melbourne · skycot.com</div>
     </footer>
