@@ -29,6 +29,11 @@ interface HeroSpan {
 
 export interface OnboardingShellProps {
   step: WizardStep;
+  /**
+   * Override prior-step completion count. Defaults to `step - 1` so the
+   * active pip renders distinct from completed pips (UX-audit F9, P1).
+   */
+  completedSteps?: number;
   stepLabel: string;
   eyebrow: string;
   heroSegments: HeroSpan[];
@@ -38,6 +43,7 @@ export interface OnboardingShellProps {
 
 export function OnboardingShell({
   step,
+  completedSteps,
   stepLabel,
   eyebrow,
   heroSegments,
@@ -47,6 +53,7 @@ export function OnboardingShell({
   return (
     <WizardEditorialShell
       step={step}
+      completedSteps={completedSteps}
       stepLabel={stepLabel}
       eyebrow={eyebrow}
       heroSegments={heroSegments}

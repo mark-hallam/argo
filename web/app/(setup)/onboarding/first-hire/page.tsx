@@ -80,6 +80,7 @@ export default function OnboardingFirstHirePage() {
   return (
     <OnboardingShell
       step={5}
+      completedSteps={4}
       stepLabel="FIRST HIRE"
       eyebrow="STEP FIVE · FINAL"
       heroSegments={[

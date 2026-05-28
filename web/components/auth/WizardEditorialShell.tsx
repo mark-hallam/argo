@@ -32,6 +32,13 @@ interface HeroSpan {
 
 export interface WizardEditorialShellProps {
   step: WizardStep;
+  /**
+   * How many prior steps the user has completed. Defaults to `step - 1`
+   * (i.e. the active step itself is not yet complete). Pages can pass
+   * a higher value during the brief "submit success" window to light
+   * the final pip before navigating away.
+   */
+  completedSteps?: number;
   /** Short uppercase label shown in the step strip (e.g. "WELCOME"). */
   stepLabel: string;
   /** Eyebrow pill text (e.g. "WELCOME, MARK"). */
@@ -121,9 +128,14 @@ const WIZARD_STYLES = `
   width: 24px; height: 3px; border-radius: 2px;
   background: var(--paper-2);
 }
-.wiz-pip-on {
+.wiz-pip-done {
   background: var(--gradient);
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.45);
+}
+.wiz-pip-active {
+  background: linear-gradient(90deg, var(--purple) 0%, var(--purple) 50%, var(--paper-2) 50%, var(--paper-2) 100%);
+  outline: 1px solid var(--purple);
+  outline-offset: 0;
 }
 .wiz-top-right {
   justify-self: end;
@@ -253,9 +265,23 @@ const WIZARD_STYLES = `
 }
 `;
 
-function StepStrip({ step, stepLabel }: { step: WizardStep; stepLabel: string }) {
+function StepStrip({
+  step,
+  stepLabel,
+  completedSteps,
+}: {
+  step: WizardStep;
+  stepLabel: string;
+  completedSteps: number;
+}) {
   const displayStep = step === 6 ? TOTAL_STEPS : step;
   const stepNumber = step === 6 ? "✓" : String(displayStep).padStart(2, "0");
+  const totalLabel = String(TOTAL_STEPS).padStart(2, "0");
+  // The visible "STEP NN OF NN · LABEL" runs in a single accessible-name
+  // node (aria-label below) so screen readers say "Step 5 of 5 · First hire"
+  // in one go, not "step, zero, five, of, zero, five" as separate static
+  // text nodes (UX-audit F15, P3 a11y nit).
+  const accessibleLabel = `Step ${displayStep} of ${TOTAL_STEPS} · ${stepLabel}`;
   return (
     <div
       className="wiz-steps"
@@ -263,32 +289,47 @@ function StepStrip({ step, stepLabel }: { step: WizardStep; stepLabel: string })
       aria-valuemin={1}
       aria-valuemax={TOTAL_STEPS}
       aria-valuenow={displayStep}
-      aria-label={`Hire wizard — step ${displayStep} of ${TOTAL_STEPS}`}
+      aria-label={accessibleLabel}
     >
-      <span>STEP</span>
-      <span className="wiz-steps-pos">{stepNumber}</span>
-      <span>OF</span>
-      <span>0{TOTAL_STEPS}</span>
+      <span aria-hidden>
+        STEP <span className="wiz-steps-pos">{stepNumber}</span> OF {totalLabel}
+      </span>
       <div className="wiz-pips" aria-hidden>
         {Array.from({ length: TOTAL_STEPS }).map((_, idx) => {
-          const filled = idx + 1 <= displayStep;
+          const pipIndex = idx + 1;
+          let pipState: "completed" | "active" | "pending";
+          if (pipIndex <= completedSteps) {
+            pipState = "completed";
+          } else if (pipIndex === displayStep) {
+            pipState = "active";
+          } else {
+            pipState = "pending";
+          }
+          const className =
+            pipState === "completed"
+              ? "wiz-pip wiz-pip-done"
+              : pipState === "active"
+                ? "wiz-pip wiz-pip-active"
+                : "wiz-pip";
           return (
             <span
               key={idx}
-              className={filled ? "wiz-pip wiz-pip-on" : "wiz-pip"}
-              data-testid={`wiz-pip-${idx + 1}`}
-              data-state={filled ? "on" : "off"}
+              className={className}
+              data-testid={`wiz-pip-${pipIndex}`}
+              data-state={pipState}
+              aria-current={pipState === "active" ? "step" : undefined}
             />
           );
         })}
       </div>
-      <span className="wiz-steps-label">{stepLabel}</span>
+      <span className="wiz-steps-label" aria-hidden>{stepLabel}</span>
     </div>
   );
 }
 
 export function WizardEditorialShell({
   step,
+  completedSteps,
   stepLabel,
   eyebrow,
   heroSegments,
@@ -304,6 +345,14 @@ export function WizardEditorialShell({
   belowCta,
   hideFooter = false,
 }: WizardEditorialShellProps) {
+  // Default: prior steps are completed, the current step is "active" (not
+  // yet done). UX-audit F9 (P1) — without this, all 5 pips lit on
+  // arrival at step 5 and the progress strip read as decorative.
+  const displayStep = step === 6 ? TOTAL_STEPS : step;
+  const resolvedCompletedSteps = Math.max(
+    0,
+    Math.min(TOTAL_STEPS, completedSteps ?? displayStep - 1),
+  );
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -345,7 +394,11 @@ export function WizardEditorialShell({
             <span className="wiz-brand-mark" aria-hidden />
             <span className="wiz-brand-name">SKYCOT</span>
           </button>
-          <StepStrip step={step} stepLabel={stepLabel} />
+          <StepStrip
+            step={step}
+            stepLabel={stepLabel}
+            completedSteps={resolvedCompletedSteps}
+          />
           <div className="wiz-top-right">
             <Link href="/help" className="wiz-help-btn" data-testid="wiz-shell-help">
               Help
