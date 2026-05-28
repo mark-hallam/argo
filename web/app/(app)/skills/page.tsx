@@ -3,12 +3,12 @@ import "./page.css";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Briefcase, Mail, Search, Sparkles, TrendingUp, Wrench } from "lucide-react";
-import type { ReactNode } from "react";
+import { Search } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkillsIllustration } from "@/components/empty-state/illustrations/SkillsIllustration";
 import { useSkills, useSkillsLearnedThisMonth } from "@/lib/hooks/use-skills";
 import type { SkillRow } from "@/lib/api/skills";
+import { iconForSkill } from "@/lib/api/skill-icons";
 
 /**
  * Skills marketplace landing — locked A1 marketplace design language.
@@ -27,14 +27,6 @@ export const TRY_CHIPS = [
   "deal",
   "support",
   "lead",
-];
-
-const ICON_ROTATION: ReactNode[] = [
-  <Sparkles size={20} key="sparkles" />,
-  <Wrench size={20} key="wrench" />,
-  <Briefcase size={20} key="briefcase" />,
-  <TrendingUp size={20} key="trending" />,
-  <Mail size={20} key="mail" />,
 ];
 
 /** Title-case a skill name like `approval.route` → "Approval route". */
@@ -182,7 +174,9 @@ export default function SkillsPage() {
 
         {!isLoading && !isError && skills.length > 0 && filtered.length > 0 && (
           <div className="featured-grid">
-            {filtered.map((skill, idx) => (
+            {filtered.map((skill) => {
+              const Icon = iconForSkill(skill.name);
+              return (
               <Link
                 key={skill.id}
                 href={`/skills/${encodeURIComponent(skill.name)}`}
@@ -190,7 +184,7 @@ export default function SkillsPage() {
                 data-testid="skill-card"
               >
                 <div className="skill-icon">
-                  {ICON_ROTATION[idx % ICON_ROTATION.length]}
+                  <Icon size={20} />
                 </div>
                 <h2 className="skill-title">{prettifySkillName(skill.name)}</h2>
                 <p className="skill-blurb">{skill.description}</p>
@@ -201,7 +195,8 @@ export default function SkillsPage() {
                 </div>
                 <div className="skill-id">{skill.name}</div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
