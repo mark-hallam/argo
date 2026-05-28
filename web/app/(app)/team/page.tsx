@@ -474,7 +474,7 @@ function TeamHero({
         : `${total} teammates, one team.`;
   const sub =
     total === 0
-      ? "No teammates yet. Pick a vertical and they'll be in your Slack in four minutes."
+      ? "No teammates yet. Pick a vertical to hire one — they'll be reachable via your web inbox, email, and the channels you connect in Settings."
       : `${working} working right now · ~${weeklyActions.toLocaleString()} actions this week · ~${hoursSaved} hours saved (sample).`;
   return (
     <BrandLoudHero
