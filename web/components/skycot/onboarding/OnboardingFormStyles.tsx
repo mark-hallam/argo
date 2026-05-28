@@ -448,6 +448,160 @@ export function OnboardingFormStyles() {
           transform: none !important;
         }
       }
+
+      /* "Meet your teammate" single-card preview for first-hire step 5. */
+      .wiz-editorial .ob-meet-card {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 4px 0;
+      }
+      .wiz-editorial .ob-meet-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 18px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--ob-line);
+      }
+      .wiz-editorial .ob-meet-avatar {
+        width: 56px;
+        height: 56px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: var(--ob-gradient);
+        color: #fff;
+        font-family: var(--font-display);
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        letter-spacing: 0.04em;
+      }
+      .wiz-editorial .ob-meet-who { flex: 1; min-width: 0; }
+      .wiz-editorial .ob-meet-name {
+        margin: 0 0 4px;
+        font-size: 22px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .wiz-editorial .ob-meet-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        background: rgba(20, 184, 166, 0.12);
+        color: #0f766e;
+        border-radius: 999px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        font-weight: 600;
+      }
+      .wiz-editorial .ob-meet-pill::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #14b8a6;
+      }
+      .wiz-editorial .ob-meet-role {
+        margin: 0;
+        font-size: 13.5px;
+        color: var(--ob-ink-2);
+        line-height: 1.55;
+      }
+      .wiz-editorial .ob-meet-sep {
+        color: var(--ob-line);
+        margin: 0 8px;
+      }
+      .wiz-editorial .ob-meet-traits {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .wiz-editorial .ob-meet-trait {
+        padding: 4px 12px;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(236, 72, 153, 0.08));
+        border: 1px solid rgba(139, 92, 246, 0.18);
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--ob-ink-1);
+      }
+      .wiz-editorial .ob-meet-twocol {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      @media (max-width: 600px) {
+        .wiz-editorial .ob-meet-twocol { grid-template-columns: 1fr; }
+      }
+      .wiz-editorial .ob-meet-coltitle {
+        margin: 0 0 10px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .wiz-editorial .ob-meet-col-great .ob-meet-coltitle { color: #0f766e; }
+      .wiz-editorial .ob-meet-col-escalate .ob-meet-coltitle { color: #b45309; }
+      .wiz-editorial .ob-meet-col ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .wiz-editorial .ob-meet-col li {
+        font-size: 13px;
+        color: var(--ob-ink-1);
+        padding: 5px 0;
+        position: relative;
+        padding-left: 14px;
+        line-height: 1.45;
+      }
+      .wiz-editorial .ob-meet-col li::before {
+        content: "·";
+        position: absolute;
+        left: 0;
+        color: var(--ob-ink-3);
+      }
+      .wiz-editorial .ob-meet-signature {
+        padding-top: 14px;
+        border-top: 1px dashed var(--ob-line);
+        font-size: 12.5px;
+        color: var(--ob-ink-2);
+        line-height: 1.55;
+      }
+      .wiz-editorial .ob-meet-signature-label {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--ob-ink-1);
+        margin-right: 8px;
+      }
+      .wiz-editorial .ob-meet-change {
+        margin: 8px 0 0;
+        text-align: center;
+        font-size: 13px;
+        color: var(--ob-ink-3);
+      }
+      .wiz-editorial .ob-meet-change-link {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--ob-ink-1);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .wiz-editorial .ob-meet-change-link:hover { color: var(--ob-purple); }
     `}</style>
   );
 }

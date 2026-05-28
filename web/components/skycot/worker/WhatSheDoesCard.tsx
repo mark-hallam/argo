@@ -94,7 +94,7 @@ export function WhatSheDoesCard({
   return (
     <Card data-testid="card-what-she-does" className={className}>
       <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <CardTitle>What she does</CardTitle>
+        <CardTitle>What they do</CardTitle>
         <Button
           variant="ghost"
           size="sm"
