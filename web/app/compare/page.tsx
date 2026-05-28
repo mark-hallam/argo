@@ -1,8 +1,8 @@
 import "./page.css";
 
-import { Check, X, Minus } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { CompareMatrix, type Dimension } from "./CompareMatrix";
 
 /**
  * Competitive positioning page — `/compare`.
@@ -23,20 +23,13 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
  * the user's POV ('your AI knows when to ask') not the spec ('approval
  * gate enforcement').
  *
- * V1 ships as a static page sourced from this file; live competitive
- * intel pulls from a CMS in a follow-up brief.
+ * The 16×5 comparison matrix lives in a sibling client component
+ * (`CompareMatrix`) so its dense JSX tree ships once as a JSON prop
+ * in the RSC Flight payload instead of 200+ per-node entries — see
+ * the header comment in `CompareMatrix.tsx` for the full why.
  */
 
 const COMPETITORS = ["SKYCOT", "Zapier", "n8n", "Crew.ai", "Lindy"] as const;
-
-type Score = "yes" | "no" | "partial";
-
-interface Dimension {
-  group: string;
-  question: string;
-  scores: Record<(typeof COMPETITORS)[number], Score>;
-  caption?: string;
-}
 
 const DIMENSIONS: Dimension[] = [
   {
@@ -152,21 +145,7 @@ const TAGLINE: Record<(typeof COMPETITORS)[number], string> = {
   Lindy: "Build assistants",
 };
 
-function groupDimensions(dims: Dimension[]) {
-  const groups: { name: string; dims: Dimension[] }[] = [];
-  for (const d of dims) {
-    const last = groups[groups.length - 1];
-    if (last && last.name === d.group) {
-      last.dims.push(d);
-    } else {
-      groups.push({ name: d.group, dims: [d] });
-    }
-  }
-  return groups;
-}
-
 export default function ComparePage() {
-  const groups = groupDimensions(DIMENSIONS);
   return (
     <>
       <MarketingNav />
@@ -198,82 +177,9 @@ export default function ComparePage() {
           ))}
         </div>
 
-        <div className="compare-table-wrap">
-          <table className="compare-table">
-            <thead>
-              <tr>
-                <th></th>
-                {COMPETITORS.map((c, idx) => (
-                  <th key={c} className={idx === 0 ? "us-col" : ""}>
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => (
-                <ScoreGroup key={g.name} group={g.name} dims={g.dims} />
-              ))}
-              <tr className="compare-footer-row">
-                <td colSpan={COMPETITORS.length + 1}>
-                  <strong>If 10+ of those rows landed for you, this is your team.</strong>
-                  <br />
-                  <a className="compare-cta" href="/auth/signup">
-                    Hire your first teammate →
-                  </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <CompareMatrix competitors={COMPETITORS} dimensions={DIMENSIONS} />
       </div>
       <MarketingFooter />
     </>
-  );
-}
-
-function ScoreGroup({ group, dims }: { group: string; dims: Dimension[] }) {
-  return (
-    <>
-      <tr className="compare-group-row">
-        <td>{group}</td>
-        {COMPETITORS.map((c) => (
-          <td key={c} />
-        ))}
-      </tr>
-      {dims.map((d, i) => (
-        <tr key={`${group}-${i}`}>
-          <td className="compare-question-cell">
-            {d.question}
-            {d.caption ? <div className="compare-caption">{d.caption}</div> : null}
-          </td>
-          {COMPETITORS.map((c, idx) => (
-            <td key={c} className={idx === 0 ? "us-col" : ""}>
-              <ScoreCell score={d.scores[c]} />
-            </td>
-          ))}
-        </tr>
-      ))}
-    </>
-  );
-}
-
-function ScoreCell({ score }: { score: Score }) {
-  if (score === "yes")
-    return (
-      <span className="compare-score yes" aria-label="Yes">
-        <Check size={15} />
-      </span>
-    );
-  if (score === "no")
-    return (
-      <span className="compare-score no" aria-label="No">
-        <X size={15} />
-      </span>
-    );
-  return (
-    <span className="compare-score partial" aria-label="Partial">
-      <Minus size={15} />
-    </span>
   );
 }

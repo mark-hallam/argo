@@ -177,18 +177,37 @@
   width: 28px;
   height: 28px;
   border-radius: 7px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+.compare-score::before {
+  /* Glyph is drawn via ::before so the matrix's 80 cells ship one span
+     each in HTML + RSC payload instead of a full lucide-react <svg>
+     node with 7 attrs + nested <path> serialised twice. */
+  font-family: "Inter", sans-serif;
 }
 .compare-score.yes {
   background: rgba(20, 184, 166, 0.15);
   color: #0f766e;
 }
+.compare-score.yes::before {
+  content: "✓";
+}
 .compare-score.no {
   background: rgba(244, 63, 94, 0.12);
   color: #be123c;
 }
+.compare-score.no::before {
+  content: "✕";
+  font-size: 13px;
+}
 .compare-score.partial {
   background: rgba(245, 158, 11, 0.15);
   color: #b45309;
+}
+.compare-score.partial::before {
+  content: "–";
 }
 .compare-footer-row td {
   padding-top: 28px;
