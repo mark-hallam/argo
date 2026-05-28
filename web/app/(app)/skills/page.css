@@ -228,6 +228,9 @@
   align-items: center;
   gap: 4px;
 }
+.skill-meta-item--decorative {
+  cursor: default;
+}
 .skill-cohort {
   color: #8b5cf6;
 }

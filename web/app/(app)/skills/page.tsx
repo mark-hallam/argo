@@ -42,6 +42,21 @@ function cohortLabel(skill: SkillRow): string {
   return prettifySkillName(head);
 }
 
+/**
+ * Map a `SkillRow.layer` value to the decorative chip text on the card.
+ *
+ * Decorative — not a filter token. Operators reading "LIBRARY" next to
+ * the interactive TRY pills above the grid (F07 / ux-audit-2026-05-27-2351)
+ * expected it to filter the catalog. It doesn't. Library is the default
+ * scope; if we ever add a real scope filter (Library / Marketplace / Mine)
+ * it belongs in a segmented control above the catalog grid, not in the
+ * per-card meta tag.
+ */
+export function layerChipLabel(layer: string): string {
+  if (layer === "library") return "Verified";
+  return layer;
+}
+
 export default function SkillsPage() {
   const { data, isLoading, isError, error } = useSkills();
   const learnedQuery = useSkillsLearnedThisMonth();
@@ -191,7 +206,12 @@ export default function SkillsPage() {
                 <div className="skill-meta">
                   <span className="skill-meta-item skill-cohort">{cohortLabel(skill)}</span>
                   <span className="skill-meta-item">v{skill.version}</span>
-                  <span className="skill-meta-item">{skill.layer}</span>
+                  <span
+                    className="skill-meta-item skill-meta-item--decorative"
+                    data-testid="skill-layer-chip"
+                  >
+                    {layerChipLabel(skill.layer)}
+                  </span>
                 </div>
                 <div className="skill-id">{skill.name}</div>
               </Link>
