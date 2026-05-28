@@ -3,14 +3,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiGet, apiPost, ApiError } from "@/lib/api/client";
 import { findWorkerByName } from "@/lib/api/team";
-import {
-  SAMPLE_JAMAL_ID as SAMPLE_JAMAL,
-  SAMPLE_MARIAH_ID as SAMPLE_MARIAH,
-  SAMPLE_NORI_ID as SAMPLE_NORI,
-  SAMPLE_PETA_ID as SAMPLE_PETA,
-  SAMPLE_PRIYA_ID as SAMPLE_PRIYA,
-} from "@/lib/sample-personas";
+import { appendDemoWorker } from "@/lib/api/demo-roster-store";
+import type { WorkerOverview } from "@/lib/api/worker-overview";
+import { uuidV7 } from "@/lib/hire/idempotency-key";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
+import type { Worker } from "@/lib/types/worker";
 
 const VERIFY_ATTEMPTS = 3;
 const VERIFY_BACKOFF_MS = 500;
@@ -110,63 +107,85 @@ async function verifyWorkerReadable(workerId: string): Promise<void> {
 }
 
 /**
- * Vertical → sample-worker id mapping. Picks the closest persona by
- * role so the post-hire redirect lands on a real-rendered C2 card
- * matching the operator's chosen template. Unknown verticals fall
- * through to Mariah (the marketplace-lister), which the Scene-3
- * demo-runbook treats as the canonical "first hire" placeholder.
- *
- * IDs are imported from `sample-personas.ts` so the SPA and the
- * `argo demo seed` gateway-side roster share one UUID universe.
+ * Vertical ids the pick-vertical demo grid filters against. F10
+ * (#2647) restricted the grid to verticals with a matching sample
+ * persona so the camera never landed on a "Sales SDR → Mariah's
+ * marketplace-lister charter" vocabulary mismatch. The
+ * VERTICAL_TO_SAMPLE_WORKER map that originally derived this set is
+ * gone (the demo short-circuit now synthesises a fresh worker from
+ * the user's typed name + description), so the set is now a flat
+ * literal. Loosening the F10 filter is out of scope for this brief.
  */
-const VERTICAL_TO_SAMPLE_WORKER: Record<string, { id: string; name: string }> = {
-  "marketplace-seller": { id: SAMPLE_MARIAH, name: "Mariah" },
-  recruiter: { id: SAMPLE_PRIYA, name: "Priya" },
-  "customer-support": { id: SAMPLE_JAMAL, name: "Jamal" },
-  "marketing-intern": { id: SAMPLE_NORI, name: "Nori" },
-  "project-coordination": { id: SAMPLE_PETA, name: "Peta" },
-};
+export const DEMO_SUPPORTED_VERTICAL_IDS: ReadonlySet<string> = new Set([
+  "marketplace-seller",
+  "recruiter",
+  "customer-support",
+  "marketing-intern",
+  "project-coordination",
+]);
 
-/**
- * Vertical ids the demo-mode first-hire short-circuit can map to a
- * real sample persona. The pick-vertical grid filters its cards
- * against this set in demo mode so the camera never lands on a
- * worker whose persona doesn't match the vertical the operator
- * picked (F10 — `/onboarding/pick-vertical` previously rendered
- * 7 cards but only 4 were mapped, so picking Sales SDR fell through
- * to Mariah's marketplace-lister charter).
- */
-export const DEMO_SUPPORTED_VERTICAL_IDS: ReadonlySet<string> = new Set(
-  Object.keys(VERTICAL_TO_SAMPLE_WORKER),
-);
-
-const DEMO_FALLBACK_WORKER = { id: SAMPLE_MARIAH, name: "Mariah" };
-
-function buildDemoFirstHireResult(verticalId: string): FirstHireResult {
-  // Per `feedback_no_theater_in_demo`: the wizard MUST redirect to a
-  // worker the destination page can actually render. The prior
-  // `demo-worker-${vertical}-${ts}` factory minted a synthetic id that
-  // matched no gateway worker and no sample fallback, so Scene 3's
-  // headline beat ended on `<WorkerNotFound>`. Route through the
-  // canonical sample roster instead — the destination /workers/<id>
-  // page renders a real C2 personality card via `findSampleWorker`.
-  const chosen = VERTICAL_TO_SAMPLE_WORKER[verticalId] ?? DEMO_FALLBACK_WORKER;
+function buildDemoFirstHireOverview(description: string): WorkerOverview {
+  // Empty-baseline KPIs: a brand-new hire has no track record yet.
+  // Borrowing another worker's numbers would be theater the camera
+  // sees on /workers/<id>/overview.
   return {
-    workerId: chosen.id,
-    workerName: chosen.name,
-    pending: false,
+    charter: description,
+    duties: [],
+    kpis: [
+      { id: "k-actions", label: "actions taken today", value: "0",
+        series: [0, 0, 0, 0, 0, 0, 0], deltaPct: 0, trend: "flat", tone: "muted" },
+      { id: "k-approvals", label: "approvals awaiting you", value: "0",
+        series: [0, 0, 0, 0, 0, 0, 0], deltaPct: 0, trend: "flat", tone: "muted" },
+      { id: "k-shadow", label: "shadow-mode hours", value: "0h",
+        series: [0, 0, 0, 0, 0, 0, 0], deltaPct: 0, trend: "flat", tone: "muted" },
+      { id: "k-onboarding", label: "onboarding progress", value: "Just hired",
+        series: [0, 0, 0, 0, 0, 0, 0], deltaPct: 0, trend: "flat", tone: "muted" },
+    ],
+    recentActivity: [],
   };
+}
+
+function buildDemoFirstHireWorker(
+  workerId: string,
+  name: string,
+  description: string,
+  verticalId: string,
+): Worker {
+  return {
+    id: workerId,
+    name,
+    role: { tagline: description, vertical: verticalId },
+    status: "idle",
+    lastActiveAt: new Date().toISOString(),
+  };
+}
+
+function buildDemoFirstHireResult(req: FirstHireRequest): FirstHireResult {
+  // Per brief `fix-demo-first-hire-discards-prompt-and-redirects-to-
+  // sample-worker`: the prior `VERTICAL_TO_SAMPLE_WORKER` map silently
+  // discarded the user's typed name + description and routed every
+  // vertical to a fixed Mariah/Priya/Jamal/Nori/Peta. The camera saw
+  // the wrong name on /workers/<id> and the roster never grew.
+  // Synthesize a real-shape UUIDv7 + append the hire to the demo
+  // roster so /team + /workers + /workers/<id>/overview all reflect
+  // the user's actual input.
+  const workerId = uuidV7();
+  appendDemoWorker({
+    worker: buildDemoFirstHireWorker(workerId, req.name, req.description, req.verticalId),
+    overview: buildDemoFirstHireOverview(req.description),
+  });
+  return { workerId, workerName: req.name, pending: false };
 }
 
 export async function firstHire(req: FirstHireRequest): Promise<FirstHireResult> {
   // Demo-mode short-circuit: the first-hire endpoint requires a verified
   // principal AND a real tenant id. Neither exists in demo mode. Skip
-  // the gateway + the post-hire readback verify (no worker row will be
-  // there to verify) and return a canonical sample-worker UUID so the
-  // wizard redirects cleanly to /workers/<id> and renders a real C2
-  // card via the sample-roster fallback in `web/lib/api/workers.ts`.
+  // the gateway + the post-hire readback verify and synthesize a
+  // session-local hire keyed off the user's typed name + description;
+  // `appendDemoWorker` makes the new worker resolvable from /team and
+  // /workers/<id>/overview without a live gateway.
   if (isDemoMode()) {
-    return buildDemoFirstHireResult(req.verticalId);
+    return buildDemoFirstHireResult(req);
   }
   const raw = await apiPost<unknown, FirstHirePayload>(
     "/api/v1/onboarding/first-hire",

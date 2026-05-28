@@ -81,45 +81,61 @@ describe("demo-mode short-circuit", () => {
     fetchSpy.mockRestore();
   });
 
-  it("firstHire returns a canonical sample-worker UUID keyed off the vertical (no synthetic ids)", async () => {
-    // F1 contract (post fix-onboarding-demo-mode-fake-validation-and-synthetic-worker-redirect):
-    // demo mode short-circuits hiring and returns a real sample-worker
-    // UUID from the canonical roster, so /workers/<id> renders a real
-    // C2 personality card via `findSampleWorker`. The prior
-    // `demo-worker-${vertical}-${ts}` synthetic-id factory landed the
-    // operator on <WorkerNotFound> and is gone.
+  it("firstHire synthesises a new worker keyed off the user's typed name (no sample-roster reuse)", async () => {
+    // F1 contract (post fix-demo-first-hire-discards-prompt-and-
+    // redirects-to-sample-worker): demo mode short-circuits hiring
+    // and synthesises a *new* worker (fresh UUIDv7) keyed off the
+    // user's typed name + description, then appends it to the demo
+    // roster. The prior behaviour reused fixed sample-roster ids
+    // (Mariah/Priya/Jamal/Nori) and silently discarded the user's
+    // typed name — the camera saw the wrong name on /workers/<id>.
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const { firstHire } = await import("@/lib/onboarding/use-first-hire");
+    const { _clearDemoRosterForTests, listDemoWorkers } = await import(
+      "@/lib/api/demo-roster-store"
+    );
+    _clearDemoRosterForTests();
 
     const marketing = await firstHire({
+      name: "Maya",
       description: "a marketing intern named Maya",
       verticalId: "marketing-intern",
       tenantId: null,
     });
     const recruiter = await firstHire({
-      description: "a recruiter named Priya",
+      name: "Penny",
+      description: "a recruiter named Penny",
       verticalId: "recruiter",
       tenantId: null,
     });
     const unknown = await firstHire({
+      name: "Ada",
       description: "a brand-new role we don't have a sample for",
       verticalId: "made-up-vertical",
       tenantId: null,
     });
 
     expect(fetchSpy).not.toHaveBeenCalled();
-    // Canonical sample UUIDs (see web/lib/sample-personas.ts).
-    expect(marketing.workerId).toBe("019e6785-928f-7281-bf8d-e062bc277478");
-    expect(marketing.workerName).toBe("Nori");
-    expect(recruiter.workerId).toBe("019e6785-928d-78b1-a6b2-136d9ed263ce");
-    expect(recruiter.workerName).toBe("Priya");
-    // Unknown verticals fall through to Mariah, the canonical
-    // first-hire placeholder.
-    expect(unknown.workerId).toBe("019e6785-928a-7270-a766-f945b6cd7161");
-    expect(unknown.workerName).toBe("Mariah");
-    // No `demo-worker-` synthetic ids remain.
+    // Returned name matches the user's typed input — not the
+    // sample-roster persona name.
+    expect(marketing.workerName).toBe("Maya");
+    expect(recruiter.workerName).toBe("Penny");
+    expect(unknown.workerName).toBe("Ada");
+    // Worker ids are fresh UUIDv7s — not the canonical sample-roster
+    // ids and not `demo-worker-*` synthetics.
+    const uuidV7 =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    expect(marketing.workerId).toMatch(uuidV7);
+    expect(recruiter.workerId).toMatch(uuidV7);
+    expect(unknown.workerId).toMatch(uuidV7);
+    expect(marketing.workerId).not.toBe("019e6785-928f-7281-bf8d-e062bc277478");
+    expect(recruiter.workerId).not.toBe("019e6785-928d-78b1-a6b2-136d9ed263ce");
+    expect(unknown.workerId).not.toBe("019e6785-928a-7270-a766-f945b6cd7161");
     expect(marketing.workerId).not.toMatch(/^demo-worker-/);
     expect(marketing.pending).toBe(false);
+    // Each hire is persisted to the session-local roster so /team
+    // and /workers/<id>/overview can resolve it.
+    expect(listDemoWorkers()).toHaveLength(3);
 
     fetchSpy.mockRestore();
   });

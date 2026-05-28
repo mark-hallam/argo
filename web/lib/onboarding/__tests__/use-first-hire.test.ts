@@ -1,24 +1,32 @@
 /**
- * Demo-mode short-circuit + vertical-to-sample-worker fallback for
- * the first-hire wizard. Pins:
- *   - every vertical in the wizard's catalogue maps to a defined
- *     SAMPLE_* UUID present in the sample-personas spine
- *   - `project-coordination` routes to Peta (closes F14)
- *   - unknown verticals fall back to Mariah (Scene-3 demo runbook)
+ * Demo-mode first-hire short-circuit pins.
+ *
+ * Closes brief `fix-demo-first-hire-discards-prompt-and-redirects-to-
+ * sample-worker` (F1 + F2 + F7 from the 2026-05-27 onboarding e2e
+ * audit). The prior `VERTICAL_TO_SAMPLE_WORKER` map silently routed
+ * every demo hire to a fixed sample-roster persona (Mariah / Priya /
+ * Jamal / Nori / Peta) and discarded the user's typed name +
+ * description — the camera saw the wrong name on /workers/<id> and
+ * the roster never grew. These pins confirm:
+ *
+ *  - the user's typed name is preserved on the returned worker
+ *  - the synthesised hire is appended to the session-local demo
+ *    roster (so `/team` + `/workers/<id>/overview` resolve it)
+ *  - the returned id is a real UUIDv7, not a sample-roster id and
+ *    not a `demo-worker-*` synthetic placeholder
  */
 
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
-  SAMPLE_JAMAL_ID,
-  SAMPLE_MARIAH_ID,
-  SAMPLE_NORI_ID,
-  SAMPLE_PETA_ID,
-  SAMPLE_PRIYA_ID,
-  SAMPLE_PERSONAS,
-} from "@/lib/sample-personas";
+  _clearDemoRosterForTests,
+  listDemoWorkers,
+  findDemoWorker,
+} from "@/lib/api/demo-roster-store";
+import { SAMPLE_PERSONA_IDS } from "@/lib/sample-personas";
 
 vi.mock("@/lib/skycot/demo-mode", () => ({
   isDemoMode: () => true,
+  isDemoLive: () => false,
 }));
 
 import {
@@ -26,86 +34,103 @@ import {
   firstHire,
 } from "@/lib/onboarding/use-first-hire";
 
-const EXPECTED_VERTICALS: Record<string, { id: string; name: string }> = {
-  "marketplace-seller": { id: SAMPLE_MARIAH_ID, name: "Mariah" },
-  recruiter: { id: SAMPLE_PRIYA_ID, name: "Priya" },
-  "customer-support": { id: SAMPLE_JAMAL_ID, name: "Jamal" },
-  "marketing-intern": { id: SAMPLE_NORI_ID, name: "Nori" },
-  "project-coordination": { id: SAMPLE_PETA_ID, name: "Peta" },
-};
+const UUID_V7_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 describe("firstHire (demo mode)", () => {
   beforeEach(() => {
+    _clearDemoRosterForTests();
     vi.restoreAllMocks();
   });
 
-  it("routes project-coordination to Peta (F14)", async () => {
+  it("appends a Maya entry to the demo roster when description names her", async () => {
     const result = await firstHire({
-      name: "Peta",
-      description: "Coordinate the standups",
-      verticalId: "project-coordination",
+      name: "Maya",
+      description: "Maya, a marketing intern who drafts blog posts",
+      verticalId: "marketing-intern",
     });
-    expect(result.workerId).toBe(SAMPLE_PETA_ID);
-    expect(result.workerName).toBe("Peta");
+
+    expect(result.workerName).toBe("Maya");
     expect(result.pending).toBe(false);
+    expect(result.workerId).toMatch(UUID_V7_PATTERN);
+
+    const roster = listDemoWorkers();
+    expect(roster).toHaveLength(1);
+    expect(roster[0]?.name).toBe("Maya");
+    expect(roster[0]?.id).toBe(result.workerId);
+    expect(roster[0]?.role.vertical).toBe("marketing-intern");
   });
 
-  it("every mapped vertical resolves to a UUID present in the sample-personas spine", async () => {
-    for (const [verticalId, expected] of Object.entries(EXPECTED_VERTICALS)) {
-      const result = await firstHire({
-        name: expected.name,
-        description: `Hire for ${verticalId}`,
-        verticalId,
-      });
-      expect(result.workerId, `vertical ${verticalId} routes to wrong id`).toBe(expected.id);
-      expect(result.workerName, `vertical ${verticalId} routes to wrong name`).toBe(
-        expected.name,
-      );
-      expect(
-        SAMPLE_PERSONAS[result.workerId],
-        `vertical ${verticalId} returned UUID ${result.workerId} not in SAMPLE_PERSONAS`,
-      ).toBeDefined();
-    }
-  });
-
-  it("unknown verticals fall back to Mariah (Scene-3 demo runbook)", async () => {
+  it("preserves the typed name even when it shadows a sample persona", async () => {
+    // Pre-fix behaviour routed `verticalId: 'recruiter'` to Priya
+    // (SAMPLE_PRIYA_ID) regardless of the typed name. Now the typed
+    // name wins and the id is fresh, so /workers/<new-id> resolves
+    // to the user's hire — not the canonical sample-roster persona.
     const result = await firstHire({
-      name: "anyone",
+      name: "Penny",
+      description: "Penny screens applicants and books interviews",
+      verticalId: "recruiter",
+    });
+
+    expect(result.workerName).toBe("Penny");
+    expect(SAMPLE_PERSONA_IDS).not.toContain(result.workerId);
+    const stored = findDemoWorker(result.workerId);
+    expect(stored?.name).toBe("Penny");
+  });
+
+  it("stores the user's description as the worker tagline", async () => {
+    const description = "Books property showings on weekdays after 4pm";
+    const result = await firstHire({
+      name: "Marcus",
+      description,
+      verticalId: "real-estate",
+    });
+
+    const stored = findDemoWorker(result.workerId);
+    expect(stored?.role.tagline).toBe(description);
+  });
+
+  it("does not route unknown verticals to a sample-roster id", async () => {
+    const result = await firstHire({
+      name: "Ada",
       description: "Whatever",
       verticalId: "completely-bogus-vertical",
     });
-    expect(result.workerId).toBe(SAMPLE_MARIAH_ID);
-    expect(result.workerName).toBe("Mariah");
+
+    expect(SAMPLE_PERSONA_IDS).not.toContain(result.workerId);
+    expect(result.workerName).toBe("Ada");
   });
 
-  it("Peta is exported from sample-personas and is reachable (closes F14 SAMPLE_PETA-missing gap)", () => {
-    expect(SAMPLE_PETA_ID).toBeTruthy();
-    expect(SAMPLE_PERSONAS[SAMPLE_PETA_ID]).toBeDefined();
-    expect(SAMPLE_PERSONAS[SAMPLE_PETA_ID].name).toBe("Peta");
+  it("each call mints a fresh id (no idempotency collision between hires)", async () => {
+    const first = await firstHire({
+      name: "Maya",
+      description: "Maya the marketer",
+      verticalId: "marketing-intern",
+    });
+    const second = await firstHire({
+      name: "Nora",
+      description: "Nora the recruiter",
+      verticalId: "recruiter",
+    });
+
+    expect(first.workerId).not.toBe(second.workerId);
+    expect(listDemoWorkers()).toHaveLength(2);
   });
 
-  it("F10 — every DEMO_SUPPORTED vertical resolves to a non-Mariah-fallback persona (except marketplace-seller)", async () => {
-    // The set the pick-vertical grid filters against must, by
-    // construction, contain ONLY verticals whose `firstHire` result is
-    // the mapped persona — never the silent fall-through to
-    // DEMO_FALLBACK_WORKER (Mariah). Marketplace-seller legitimately
-    // maps to Mariah; every other supported id must return a different
-    // persona so we can distinguish "mapped to Mariah" from
-    // "fell-through to Mariah".
+  it("DEMO_SUPPORTED_VERTICAL_IDS keeps ≥ 4 entries (F10 invariant) and every entry can be hired", async () => {
+    // F10 (#2647) pinned the pick-vertical grid filter to the
+    // verticals with a coherent persona match. Removing the
+    // VERTICAL_TO_SAMPLE_WORKER map (this brief) must NOT shrink the
+    // exported set — pick-vertical still filters its cards through it.
     expect(DEMO_SUPPORTED_VERTICAL_IDS.size).toBeGreaterThanOrEqual(4);
     for (const verticalId of DEMO_SUPPORTED_VERTICAL_IDS) {
       const result = await firstHire({
-        name: "anyone",
+        name: "Anyone",
         description: `Hire for ${verticalId}`,
         verticalId,
       });
-      expect(SAMPLE_PERSONAS[result.workerId]).toBeDefined();
-      if (verticalId !== "marketplace-seller") {
-        expect(
-          result.workerId,
-          `vertical ${verticalId} silently fell through to Mariah`,
-        ).not.toBe(SAMPLE_MARIAH_ID);
-      }
+      expect(result.workerId).toMatch(UUID_V7_PATTERN);
+      expect(SAMPLE_PERSONA_IDS).not.toContain(result.workerId);
     }
   });
 });

@@ -9,6 +9,7 @@ import {
   useFirstHire,
 } from "@/lib/onboarding/use-first-hire";
 import { exampleForVertical } from "@/lib/onboarding/example-prompts";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
@@ -95,11 +96,20 @@ export default function OnboardingFirstHirePage() {
       } catch {
         /* private mode / storage disabled — silently degrade */
       }
-      // Hire-complete redirect: /workers/<id> is the canonical worker
-      // profile route (per (app)/workers/[workerId]/...). Previous code
-      // pushed /team/<id> which doesn't exist and 404'd new users at
-      // the end of onboarding.
-      router.push(`/workers/${res.workerId}`);
+      // Hire-complete redirect:
+      // - In demo mode: land on /workers?just-hired=1&new=<id> so the
+      //   user sees the roster grow (new card highlighted) rather than
+      //   being parachuted straight into the new worker's overview.
+      //   Closes the "the camera never sees the new hire on /workers"
+      //   audit finding from brief `fix-demo-first-hire-discards-
+      //   prompt-and-redirects-to-sample-worker`.
+      // - In non-demo mode: /workers/<id> stays the canonical worker
+      //   profile route; this path is unchanged.
+      if (isDemoMode()) {
+        router.push(`/workers?just-hired=1&new=${encodeURIComponent(res.workerId)}`);
+      } else {
+        router.push(`/workers/${res.workerId}`);
+      }
     } catch (e) {
       // Wave-11 fix (2026-05-21): prior copy claimed "we'll create
       // your worker in the background — try again or skip to your

@@ -1,10 +1,12 @@
 "use client";
 
-import { CalendarClock, X } from "lucide-react";
+import { CalendarClock, Sparkles, X } from "lucide-react";
 import { use, useEffect, useState } from "react";
 import { WorkerOverviewContent } from "@/components/skycot/worker/WorkerOverviewContent";
 import { RecentChangesPanel } from "@/components/skycot/worker/RecentChangesPanel";
 import { WorkerPersonalityCard } from "@/components/skycot/worker/WorkerPersonalityCard";
+import { findDemoWorker } from "@/lib/api/demo-roster-store";
+import { isDemoMode } from "@/lib/skycot/demo-mode";
 
 /**
  * Overview tab — the default sub-route under `/workers/<id>`.
@@ -24,10 +26,59 @@ export default function WorkerOverviewPage({
   const { workerId } = use(params);
   return (
     <div className="space-y-4">
+      <DemoStagedHireBanner workerId={workerId} />
       <JustHiredScheduleCallout workerId={workerId} />
       <WorkerPersonalityCard workerId={workerId} />
       <WorkerOverviewContent workerId={workerId} />
       <RecentChangesPanel workerId={workerId} />
+    </div>
+  );
+}
+
+/**
+ * Honest-mocking banner shown when the operator is viewing a worker
+ * hired via the demo-mode short-circuit (no live gateway, no real
+ * provisioning). Mirrors the green "Mock provider connected" banner
+ * on /onboarding/connect-provider so the camera sees the same
+ * honest framing across both onboarding fakes. Detection is store-
+ * driven (`findDemoWorker`) — the URL stays clean of demo flags.
+ */
+function DemoStagedHireBanner({ workerId }: { workerId: string }) {
+  const [dismissed, setDismissed] = useState(false);
+  const [isDemoHire, setIsDemoHire] = useState(false);
+
+  useEffect(() => {
+    if (!isDemoMode()) return;
+    setIsDemoHire(Boolean(findDemoWorker(workerId)));
+  }, [workerId]);
+
+  if (!isDemoHire || dismissed) return null;
+
+  return (
+    <div
+      role="status"
+      data-testid="demo-staged-hire-banner"
+      className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-emerald-300/60 bg-emerald-50/70 px-4 py-3 text-emerald-900"
+    >
+      <Sparkles aria-hidden className="mt-0.5 size-5 shrink-0" />
+      <div className="flex-1 text-sm">
+        <p className="font-medium">
+          Demo · staged hire
+        </p>
+        <p className="text-emerald-900/80">
+          Real provisioning runs against a live workspace. Your description
+          is saved as the persona bio.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss"
+        data-testid="demo-staged-hire-dismiss"
+        className="text-emerald-900/60 hover:text-emerald-900"
+      >
+        <X aria-hidden className="size-4" />
+      </button>
     </div>
   );
 }
