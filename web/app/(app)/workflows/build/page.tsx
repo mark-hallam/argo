@@ -5,16 +5,21 @@ import Link from "next/link";
 import { useVerticals } from "@/lib/api/verticals";
 
 /**
- * 7-entry fallback used when the gateway `/verticals` endpoint is
+ * 8-entry fallback used when the gateway `/verticals` endpoint is
  * unreachable in dev/mock-offline. Matches the cohorts dept taxonomy
  * in `web/components/skycot/cohorts/dept-registry.ts` so the picker
  * always covers every department tab the operator sees on /cohorts —
  * notably Marketing and Compliance, which the original 5-element
- * scaffold omitted.
+ * scaffold omitted. `marketplace` is the home vertical of the
+ * canonical Scene-5 demo workflow `customer_research_followup`
+ * (`crates/argo-demo-seed/src/workflow.rs:26`); without a tile here
+ * the operator cannot author a new marketplace workflow from
+ * /workflows/build when the gateway returns an empty catalog.
  */
 const FALLBACK_VERTICALS: ReadonlyArray<readonly [string, string, string]> = [
   ["sales", "Sales", "Lead follow-up, research, qualification, and CRM handoffs."],
   ["support", "Support", "Ticket triage, customer follow-up, and escalation workflows."],
+  ["marketplace", "Marketplace", "Listing posts, price sanity checks, buyer follow-up, and sold-state cleanup for marketplace sellers."],
   ["gtm-engineer", "GTM", "Campaign operations, launch checklists, and market scans."],
   ["people-ops", "People Ops", "Candidate screens, onboarding checklists, and policy reviews."],
   ["finance", "Finance", "Invoice review, approval routing, and month-end controls."],
