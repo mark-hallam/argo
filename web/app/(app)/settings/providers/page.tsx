@@ -11,6 +11,11 @@ import {
   updateProviderSettings,
   type ProviderSettings,
 } from "@/lib/api/settings";
+import {
+  fetchProviderKeys,
+  type ProviderKeyStatus,
+} from "@/lib/api/provider-keys";
+import { ProviderKeyForm } from "@/components/skycot/settings/ProviderKeyForm";
 
 export default function ProvidersSettingsPage() {
   const { success, error: toastError } = useToast();
@@ -18,6 +23,7 @@ export default function ProvidersSettingsPage() {
   const [draft, setDraft] = useState<ProviderSettings>(DEFAULT_PROVIDER_SETTINGS);
   const [isLoading, setLoading] = useState(true);
   const [isSaving, setSaving] = useState(false);
+  const [keys, setKeys] = useState<ProviderKeyStatus[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -34,6 +40,14 @@ export default function ProvidersSettingsPage() {
       })
       .finally(() => {
         if (active) setLoading(false);
+      });
+    fetchProviderKeys()
+      .then(({ keys: next }) => {
+        if (active) setKeys(next);
+      })
+      .catch(() => {
+        // mock fallback already absorbs 404 / unreachable; only strict-prod
+        // throws hit this path. Leave keys empty so the UI degrades cleanly.
       });
     return () => {
       active = false;
@@ -77,7 +91,7 @@ export default function ProvidersSettingsPage() {
           </p>
         </div>
         <Link className="settings-inline-action" href="/settings/api-keys">
-          Review API keys
+          Manage all keys
         </Link>
       </div>
 
@@ -148,6 +162,52 @@ export default function ProvidersSettingsPage() {
         onRevert={() => setDraft(persisted)}
         testid="settings-providers-save"
       />
+
+      <div className="settings-keys-section" data-testid="provider-keys-section">
+        <div className="settings-keys-head">
+          <h3>Provider API keys</h3>
+          <p>
+            Plug in your own Anthropic, OpenAI or other provider keys. Workers
+            switch from the mock provider as soon as a real key lands.
+          </p>
+        </div>
+        <div className="settings-keys-list">
+          {PROVIDER_OPTIONS.map((opt) => {
+            const status =
+              keys.find((k) => k.provider === opt.value) ?? {
+                provider: opt.value,
+                configured: false,
+                masked_preview: null,
+                updated_at: null,
+              };
+            return (
+              <ProviderKeyForm
+                key={opt.value}
+                provider={opt.value}
+                label={opt.label}
+                status={status}
+                onSaved={(next) => {
+                  setKeys((prev) => {
+                    const without = prev.filter(
+                      (k) => k.provider !== next.provider,
+                    );
+                    return [...without, next];
+                  });
+                  success(`${opt.label} key saved`, {
+                    description: "Workers will pick up the new credential on next turn.",
+                  });
+                }}
+                onError={(message) => {
+                  toastError(`Couldn't save ${opt.label} key`, {
+                    description: message,
+                  });
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
       <SettingsStyles />
     </section>
   );
@@ -268,6 +328,115 @@ function SettingsStyles() {
 }
 .settings-save-btn:disabled,
 .settings-revert-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.settings-keys-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--settings-border, #e5e7eb);
+}
+.settings-keys-head h3 {
+  margin: 0 0 4px;
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--settings-ink, #1f2937);
+}
+.settings-keys-head p {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--settings-muted, #52525b);
+}
+.settings-keys-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.provider-key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--settings-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--settings-card, #ffffff);
+}
+.provider-key-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.provider-key-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--settings-ink, #1f2937);
+}
+.provider-key-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.provider-key-pill-configured {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+.provider-key-pill-mock {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+}
+.provider-key-preview {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--settings-muted, #52525b);
+}
+.provider-key-action,
+.provider-key-save,
+.provider-key-cancel {
+  min-height: 32px;
+  border-radius: 7px;
+  padding: 0 12px;
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--settings-border, #e5e7eb);
+  background: var(--settings-card, #ffffff);
+  color: var(--settings-ink, #1f2937);
+}
+.provider-key-save {
+  border-color: transparent;
+  background: linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%);
+  color: #fff;
+}
+.provider-key-action:disabled,
+.provider-key-save:disabled,
+.provider-key-cancel:disabled { opacity: 0.55; cursor: not-allowed; }
+.provider-key-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.provider-key-input {
+  min-width: 240px;
+  border: 1px solid var(--settings-border, #e5e7eb);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12.5px;
+  color: var(--settings-ink, #1f2937);
+  background: var(--settings-card, #ffffff);
+}
+.provider-key-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary, #8b5cf6) 45%, transparent);
+  outline-offset: 1px;
+}
 `,
       }}
     />
