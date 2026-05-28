@@ -221,6 +221,14 @@ async fn api_v1_dispatch(
     if req.starts_with("POST /api/v1/genesis/classify ") {
         return Some(super::routes_genesis::classify_response(req, store).await);
     }
+    // pitch-agent-rehearsal-ui-and-gateway — operator-facing Pitch
+    // Agent endpoint. Deterministic canonical-Q&A + truth-boundary
+    // evaluation; same code path the 111-case pitch-eval suite proves.
+    if req.starts_with("POST /api/v1/pitch/ask ")
+        || req.starts_with("POST /api/v1/pitch/ask?")
+    {
+        return Some(super::routes_pitch_ask::ask_response(req, store).await);
+    }
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }

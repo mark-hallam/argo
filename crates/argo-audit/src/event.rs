@@ -93,6 +93,8 @@ impl AuditKind {
             Self::HandoffCrossTenantAttempt => "handoff.cross_tenant_attempt",
             Self::HipaaComplianceCheck => "hipaa_compliance_check",
             Self::CrossTenantInboundRejected => "channel.cross_tenant_inbound_rejected",
+            Self::PitchCanonicalQaMatched => "pitch.canonical_qa_matched",
+            Self::PitchCanonicalQaMiss => "pitch.canonical_qa_miss",
         }
     }
 
@@ -181,6 +183,8 @@ impl AuditKind {
             "handoff.cross_tenant_attempt" => Self::HandoffCrossTenantAttempt,
             "hipaa_compliance_check" => Self::HipaaComplianceCheck,
             "channel.cross_tenant_inbound_rejected" => Self::CrossTenantInboundRejected,
+            "pitch.canonical_qa_matched" => Self::PitchCanonicalQaMatched,
+            "pitch.canonical_qa_miss" => Self::PitchCanonicalQaMiss,
             _ => return None,
         })
     }
@@ -269,6 +273,8 @@ impl AuditKind {
             Self::HandoffCrossTenantAttempt,
             Self::HipaaComplianceCheck,
             Self::CrossTenantInboundRejected,
+            Self::PitchCanonicalQaMatched,
+            Self::PitchCanonicalQaMiss,
         ];
         v.sort_by_key(|k| k.label());
         v

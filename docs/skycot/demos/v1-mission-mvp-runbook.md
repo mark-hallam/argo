@@ -412,6 +412,50 @@ is operator-discoverable independent of the demo.
 
 ---
 
+## Pitch Agent demo path (`/pitch`) — supplementary B-roll
+
+The `pitch-agent-rehearsal-ui-and-gateway` brief shipped an
+operator-facing surface for the Pitch Agent. It is **NOT** one of
+the six core scenes; the headline demo stays at 8:00 minutes. This
+section is the recipe for a 20–30 s B-roll insert that can drop
+into Scene 1 or Scene 4 to make the truth-boundary refusal visible
+on camera.
+
+**Route**: `/pitch` — sidebar entry "Pitch" with the microphone
+icon, sits between Genesis and Cohorts.
+
+**Camera path**:
+
+1. From `/audit`, click the **Pitch** sidebar item — lands on the
+   brand-loud hero ("Watch what happens when I try to pitch
+   SKYCOT.").
+2. Type **What's the tech stack?** and press Enter. Expect a
+   sub-50ms canonical answer ("Rust single-binary core with a
+   JSON-RPC plugin ABI…") with an **Allowed** pill and the
+   `tech-stack` entry-id badge.
+3. Type **What's the valuation?** and press Enter. Expect a
+   canonical refusal ("Mark handles financial specifics…") with a
+   **Blocked** pill carrying `valuation-question` and the latency
+   chip.
+4. Optionally type a deliberately off-topic question — expect the
+   founder-handoff fallback ("I'll get back to you on that one —
+   let me check with the founder.") with an **Escalated** pill.
+
+**Backing endpoint**: `POST /api/v1/pitch/ask` — deterministic
+canonical-Q&A + truth-boundary, NO LLM call, sub-millisecond on
+the 5-corpus shipped in `skill-library/canonical-qa/corpora/
+skycot/`. The same code path the 111-case `pitch-eval` suite proves
+green; every answer emits an audit row
+(`pitch.canonical_qa_matched` or `pitch.canonical_qa_miss`) that
+shows up at `/audit` within 5 s.
+
+**What this proves on camera**: the platform's truth-boundary
+isn't a slide — it fires live on a public surface. Three
+questions, three different dispositions (Allow / Escalate / Block),
+three matching audit rows.
+
+---
+
 ## Total timing budget
 
 | Scene | Window | Length |

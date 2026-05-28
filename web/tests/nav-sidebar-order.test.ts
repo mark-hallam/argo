@@ -19,6 +19,7 @@ describe("sidebar nav order", () => {
       "Team",
       "Workers",
       "Genesis",
+      "Pitch",
       "Cohorts",
       "Skills",
       "Workflows",

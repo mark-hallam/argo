@@ -237,4 +237,18 @@ pub enum AuditKind {
     HipaaComplianceCheck,
     /// Channel webhook refused at the gateway boundary because a signature or approval-token check failed (`mission-slack-inbound-tenant-mismatch-audit-emission`, PR #2257 carry-forward). Payload pinned by `crates/argo-channels/tests/cross_tenant_test.rs`.
     CrossTenantInboundRejected,
+    /// Pitch Agent gateway endpoint (`POST /api/v1/pitch/ask`) matched
+    /// a canonical-Q&A entry. Payload carries `entry_id`, `channel`,
+    /// `disposition`, `declared_claim_classes`, and `latency_ms`. The
+    /// answer text itself is NOT included — the canonical corpus is
+    /// the source of truth and we don't want to leak corpus contents
+    /// into the audit chain. Pairs with [`Self::PitchCanonicalQaMiss`]
+    /// so every Pitch question lands on one of these two rows.
+    PitchCanonicalQaMatched,
+    /// Pitch Agent gateway endpoint received a question that did NOT
+    /// match any canonical-Q&A entry above the similarity threshold.
+    /// Payload carries `channel` and `latency_ms`. The graceful
+    /// fallback answer is rendered by the gateway; no LLM call is
+    /// made (canonical-Q&A is deterministic in-process).
+    PitchCanonicalQaMiss,
 }
