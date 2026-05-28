@@ -29,6 +29,21 @@ function dismissIsActive(): boolean {
   }
 }
 
+function isLocalhostOrigin(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
+}
+
+function hasHideQueryParam(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URL(window.location.href).searchParams.has("hideInstallPrompt");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Bottom banner that listens for `beforeinstallprompt` and offers
  * Install + Dismiss. Dismiss persists for 30 days via localStorage.
@@ -41,14 +56,21 @@ export function InstallPrompt(): React.ReactElement | null {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Wave-6 demo-record fix (2026-05-21): operator can suppress the
-    // install banner during MP4 recording via env var without having
-    // to dismiss it manually each session. Set
-    // NEXT_PUBLIC_HIDE_PWA_PROMPT=1 in .env.local before `npm run dev`
-    // to ensure the bottom-right "Install SKYCOT" banner never
-    // appears in screen captures. Inverse default (banner on) is
-    // the production behavior.
+    // Suppression channels (any one wins; never registers listeners):
+    //   1. NEXT_PUBLIC_HIDE_PWA_PROMPT=1 (wave-6 demo-record env var)
+    //   2. NEXT_PUBLIC_SKYCOT_DEMO_RECORDING=1 (recording-mode flag,
+    //      distinct from NEXT_PUBLIC_SKYCOT_DEMO_MODE which gates
+    //      sample-data fallback)
+    //   3. ?hideInstallPrompt=1 in the URL (ad-hoc operator override)
+    //   4. hostname is localhost / 127.0.0.1 / *.local (dev origins
+    //      never need the install affordance and the banner ruins
+    //      every screenshot during a recording walk)
+    //   5. 30-day dismissal still active in localStorage
+    //   6. PWA already installed (matchMedia display-mode: standalone)
     if (process.env.NEXT_PUBLIC_HIDE_PWA_PROMPT === "1") return;
+    if (process.env.NEXT_PUBLIC_SKYCOT_DEMO_RECORDING === "1") return;
+    if (hasHideQueryParam()) return;
+    if (isLocalhostOrigin()) return;
     if (dismissIsActive()) return;
     // Already installed (matchMedia is true once the page is launched standalone).
     if (window.matchMedia?.("(display-mode: standalone)").matches) return;
