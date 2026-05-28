@@ -1,9 +1,8 @@
 "use client";
 
 import { HoverHint } from "@/components/ui/Tooltip";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
-
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 
 /**
  * Always-visible sidebar footer marker that tells the operator
@@ -24,10 +23,7 @@ export function ModeStamp() {
   const demo = isDemoMode();
   const mode = demo ? "demo" : "live";
   const label = demo ? "Demo mode" : "Live mode";
-  const gateway =
-    process.env.NEXT_PUBLIC_GATEWAY_URL && process.env.NEXT_PUBLIC_GATEWAY_URL.length > 0
-      ? process.env.NEXT_PUBLIC_GATEWAY_URL
-      : DEFAULT_GATEWAY;
+  const gateway = resolveGatewayUrl();
   const tooltip = demo
     ? "Showing sample data. Set NEXT_PUBLIC_SKYCOT_DEMO_MODE=0 and restart the dev server to go live."
     : `Connected to gateway at ${gateway}.`;

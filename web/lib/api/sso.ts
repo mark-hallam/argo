@@ -20,6 +20,7 @@
  */
 
 import { apiGet, apiPost } from "./client";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 export type OAuthProvider = "google" | "github" | "microsoft";
 
@@ -70,13 +71,8 @@ export interface OAuthCallbackResult {
   tenant_id: string | null;
 }
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
-
 function gatewayBase(): string {
-  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_GATEWAY_URL) {
-    return process.env.NEXT_PUBLIC_GATEWAY_URL;
-  }
-  return DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 /**

@@ -18,8 +18,8 @@ import {
   buildSigninUrlWithReturnTo,
   captureCurrentLocationAsReturnTo,
 } from "@/lib/auth/return-to";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 
 /**
@@ -85,7 +85,7 @@ function redirectToSignin(): void {
 // gateway URL because the Next process is the requester, not a browser.
 function gatewayBase(): string {
   if (typeof window !== "undefined") return "";
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 export interface ApiRequestInit extends Omit<RequestInit, "body"> {

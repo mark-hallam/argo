@@ -1,6 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
+
 /**
  * NextAuth v5 config — edge-safe, client-bundle-safe surface.
  *
@@ -43,8 +45,7 @@ export const authConfig = {
           typeof credentials?.token === "string" ? credentials.token.trim() : "";
         if (!token) return null;
 
-        const gatewayUrl =
-          process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:7400";
+        const gatewayUrl = resolveGatewayUrl();
 
         try {
           // `/readyz` is the canonical gateway health probe (the old

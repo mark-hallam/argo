@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const ALLOWED_PROVIDERS = new Set(["google", "github", "microsoft"]);
 
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 interface GatewayCallbackResponse {

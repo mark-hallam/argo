@@ -32,9 +32,9 @@ import { ManagedWebSocket, type WebSocketStatus } from "@/lib/api/websocket";
 import type { ApprovalsResult } from "@/lib/api/approvals";
 import type { ApprovalItem, ChannelKind } from "@/lib/sample-approvals";
 import type { WireApprovalCreatedPayload } from "@/lib/api/types";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 const APPROVALS_KEY = ["approvals"] as const;
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const KNOWN_CHANNELS: ReadonlySet<string> = new Set<ChannelKind>([
   "slack",
   "discord",
@@ -68,8 +68,7 @@ function mapStatus(s: WebSocketStatus): LiveStatus {
 }
 
 function gatewayWsUrl(token: string | undefined): string {
-  const base = process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
-  const wsBase = base.replace(/^http(s?):/, "ws$1:");
+  const wsBase = resolveGatewayUrl().replace(/^http(s?):/, "ws$1:");
   const qs = token ? `?token=${encodeURIComponent(token)}` : "";
   return `${wsBase}/inbox/ws${qs}`;
 }

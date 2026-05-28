@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 /**
  * Thin proxy to `POST /api/v1/workers/{id}/freeze` on the gateway.
@@ -15,10 +16,8 @@ import { auth } from "@/auth";
  * business logic.
  */
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
-
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 export async function POST(

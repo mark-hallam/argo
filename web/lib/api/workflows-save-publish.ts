@@ -36,8 +36,7 @@ import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import type { GatewayWorkflowItem } from "@/lib/api/workflows";
 import { resolveCsrfToken } from "@/lib/auth/csrf-token";
-
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 export interface SaveDraftArgs {
   vertical_id: string;
@@ -129,7 +128,7 @@ function setSaveDraftConflict(next: SaveDraftConflict): void {
 }
 
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 function workflowPath(verticalId: string, name: string): string {

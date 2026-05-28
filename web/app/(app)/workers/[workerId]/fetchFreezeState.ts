@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
+
 /**
  * Server-side fetcher for a worker's freeze state. Extracted from
  * the now-redirected index page so the layout (which wraps every
@@ -11,10 +13,8 @@ import "server-only";
  * unexpected. Callers treat null as "not frozen".
  */
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
-
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 export interface FreezeState {

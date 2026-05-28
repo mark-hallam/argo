@@ -21,24 +21,19 @@
  * upstream, so this route does the cookie-set work itself.
  */
 import { NextResponse, type NextRequest } from "next/server";
-
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 // Resolution order: server-only `GATEWAY_URL` first, then the
-// build-time-injected `NEXT_PUBLIC_GATEWAY_URL` (which Next.js
-// exposes both client- and server-side), then the local-dev fallback.
-// `GATEWAY_URL` is the escape hatch for split deployments where the
-// SPA's browser-visible gateway URL differs from the URL the SPA
-// server reaches the gateway on (e.g. internal DNS / sidecar /
-// localhost-only socket). Keeping it explicit avoids the
+// canonical public gateway URL (which itself honours
+// `NEXT_PUBLIC_GATEWAY_URL` → `NEXT_PUBLIC_API_URL` → documented dev
+// port). `GATEWAY_URL` is the escape hatch for split deployments
+// where the SPA's browser-visible gateway URL differs from the URL
+// the SPA server reaches the gateway on (e.g. internal DNS /
+// sidecar / localhost-only socket). Keeping it explicit avoids the
 // 2026-05-26 F6 failure mode where a stale `NEXT_PUBLIC_GATEWAY_URL`
 // in the SPA's environment masked an otherwise-healthy gateway.
 function gatewayBase(): string {
-  return (
-    process.env.GATEWAY_URL ??
-    process.env.NEXT_PUBLIC_GATEWAY_URL ??
-    DEFAULT_GATEWAY
-  );
+  return process.env.GATEWAY_URL ?? resolveGatewayUrl();
 }
 
 // Server-side health probe used to disambiguate "gateway is down" from

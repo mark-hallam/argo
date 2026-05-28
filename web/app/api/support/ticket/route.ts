@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const SUBJECT_PREVIEW_CHARS = 120;
 
 function err(code: string, message: string, status: number) {
@@ -10,7 +10,7 @@ function err(code: string, message: string, status: number) {
 }
 
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 function subjectFromMessage(message: string): string {

@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { signupSchema } from "@/lib/auth/signup-schema";
-
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 // SECURITY (P0 fix, 2026-05-20): We do NOT forward `X-Forwarded-For` from the

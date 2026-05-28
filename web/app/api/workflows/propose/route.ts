@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 const SKILL_NAME = "propose_workflow_from_plain_english";
 const MAX_INPUT_CHARS = 4000;
 const STREAM_CHUNK_DELAY_MS = 28;
 
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 function jsonError(code: string, message: string, status: number) {

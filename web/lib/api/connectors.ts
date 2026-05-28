@@ -14,6 +14,7 @@
  * (status defaults to "not_connected"; disconnect is a no-op).
  */
 import { apiDelete, apiGet, apiPost, ApiError } from "./client";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 export type ConnectorStatus =
   | "not_connected"
@@ -79,12 +80,11 @@ export async function disconnectConnector(
 
 /**
  * Resolve the base URL for the gateway's OAuth / CU connect endpoints.
- * Mirrors the convention in `lib/api/client.ts` (env override → 7400
- * fallback) but kept local so consumers don't reach into the client
- * internals for a URL builder.
+ * Delegates to the canonical `gateway-url` module so this builder
+ * shares the same source of truth as the CSP `connect-src` directive.
  */
 export function gatewayBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:7400";
+  return resolveGatewayUrl();
 }
 
 /**

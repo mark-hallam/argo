@@ -17,6 +17,7 @@
 
 import { apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 import { STUB_QUESTIONS, stubWorkerDraft } from "@/lib/hire/genesis-stub";
 import {
   fromGatewayWorkerDraft,
@@ -268,10 +269,11 @@ export interface StreamGenesisRequest {
 }
 
 function gatewayBaseForSse(): string {
-  // Mirrors the same env / default the typed client uses; SSE bypasses
-  // the JSON `request` helper because we need to consume the response
-  // body incrementally.
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:7400";
+  // SSE bypasses the JSON `request` helper because we need to consume
+  // the response body incrementally. URL still comes from the
+  // canonical `gateway-url` module so it stays aligned with the CSP
+  // `connect-src` directive.
+  return resolveGatewayUrl();
 }
 
 /**

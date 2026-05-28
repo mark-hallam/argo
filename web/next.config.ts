@@ -1,9 +1,21 @@
 import type { NextConfig } from "next";
 
+// The build-time gateway URL MUST stay in lock-step with the
+// canonical constant exported by `web/lib/config/gateway-url.ts`.
+// Both must point at the same host or the CSP `connect-src`
+// directive baked into HTML at build time will refuse the runtime
+// fetches that the SPA hooks issue, and the only signal a buyer
+// would get is a small browser-console line on a broken page.
+// The `prebuild` script `web/scripts/check-canonical-gateway-port.mjs`
+// reads `NEXT_PUBLIC_GATEWAY_URL` and the constant and refuses to
+// ship if they have drifted. Keep this literal in sync with
+// `CANONICAL_LOCAL_GATEWAY_URL` in that module.
+const CANONICAL_LOCAL_GATEWAY_URL = "http://127.0.0.1:7400";
+
 const gatewayUrl =
   process.env.NEXT_PUBLIC_GATEWAY_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
-  "http://127.0.0.1:7400";
+  CANONICAL_LOCAL_GATEWAY_URL;
 
 const config: NextConfig = {
   output: "standalone",

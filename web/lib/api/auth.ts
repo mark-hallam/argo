@@ -16,12 +16,12 @@
  */
 
 import { ApiError } from "./types";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 const LOGOUT_PATH = "/api/v1/auth/logout";
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
 
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 export type SignOutOutcome = "ok" | "already_revoked";

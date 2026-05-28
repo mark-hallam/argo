@@ -23,8 +23,7 @@
 
 import { useEffect, useState } from "react";
 import { ManagedWebSocket, type WebSocketStatus } from "@/lib/api/websocket";
-
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 /** UI-facing connection state surfaced by the overlay. */
 export type SkillTraceStatus = "connecting" | "live" | "polling" | "offline";
@@ -89,8 +88,7 @@ function gatewayWsUrl(
   runId: string,
   token: string | undefined,
 ): string {
-  const base = process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
-  const wsBase = base.replace(/^http(s?):/, "ws$1:");
+  const wsBase = resolveGatewayUrl().replace(/^http(s?):/, "ws$1:");
   const qs = token ? `?token=${encodeURIComponent(token)}` : "";
   return `${wsBase}/skill-trace/${encodeURIComponent(
     skillId,

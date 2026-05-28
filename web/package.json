@@ -5,8 +5,10 @@
   "description": "SKYCOT product-surface SPA. See docs/build-plan/streams/adr-frontend-design-language.md.",
   "scripts": {
     "dev": "next dev --turbopack",
+    "prebuild": "node scripts/check-canonical-gateway-port.mjs",
     "build": "next build",
     "start": "next start",
+    "check:gateway-port": "node scripts/check-canonical-gateway-port.mjs",
     "lint": "next lint && eslint . && bash ../scripts/check-no-server-imports.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

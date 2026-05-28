@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { resolveGatewayUrl } from "@/lib/config/gateway-url";
 
 /**
  * Test-run streaming endpoint for the visual workflow builder.
@@ -20,10 +21,8 @@ import { auth } from "@/auth";
  * with `fetch().body.getReader()` without an EventSource client.
  */
 
-const DEFAULT_GATEWAY = "http://127.0.0.1:7400";
-
 function gatewayBase(): string {
-  return process.env.NEXT_PUBLIC_GATEWAY_URL ?? DEFAULT_GATEWAY;
+  return resolveGatewayUrl();
 }
 
 interface StepDescriptor {

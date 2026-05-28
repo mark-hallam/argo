@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
 import { HoverHint } from "@/components/ui/Tooltip";
 import { DemoBanner } from "@/components/skycot/DemoBanner";
+import { GatewayHealthProbe } from "@/components/skycot/GatewayHealthProbe";
 import { ModeStamp } from "@/components/skycot/ModeStamp";
 import { ThemeToggle } from "@/components/skycot/ThemeToggle";
 import {
@@ -53,6 +54,7 @@ export function AppShell({ children, breadcrumb }: AppShellProps) {
       </NavDrawer>
       <main id="main" tabIndex={-1} className="md:pl-64 focus:outline-none">
         <DemoBanner />
+        <GatewayHealthProbe />
         <WideRailStyles />
         {breadcrumb ? (
           <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
