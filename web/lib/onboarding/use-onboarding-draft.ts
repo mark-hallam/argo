@@ -5,6 +5,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 export type OnboardingStep = 1 | 2 | 3 | 4 | 5;
 
+export type SelectedPlan = "free" | "pro";
+
 export interface OnboardingDraftState {
   step: OnboardingStep;
   workspaceName: string;
@@ -24,6 +26,13 @@ export interface OnboardingDraftState {
   firstHirePrompt: string;
   tenantId: string | null;
   workspaceId: string | null;
+  /**
+   * Plan the visitor picked on `/pricing` before signup. Persisted so
+   * the onboarding welcome step can route a Pro selector straight to
+   * `/billing/subscribe?plan=pro` after the magic-link round-trip.
+   * `null` means the visitor never came through a tier CTA.
+   */
+  selectedPlan: SelectedPlan | null;
   setStep: (step: OnboardingStep) => void;
   setWorkspace: (workspaceName: string, companyName: string) => void;
   setProvision: (tenantId: string, workspaceId: string) => void;
@@ -34,6 +43,7 @@ export interface OnboardingDraftState {
     skillCount?: number | null,
   ) => void;
   setFirstHirePrompt: (prompt: string) => void;
+  setSelectedPlan: (plan: SelectedPlan | null) => void;
   reset: () => void;
 }
 
@@ -45,6 +55,7 @@ const INITIAL: Omit<
   | "setProvider"
   | "setVertical"
   | "setFirstHirePrompt"
+  | "setSelectedPlan"
   | "reset"
 > = {
   step: 1,
@@ -58,6 +69,7 @@ const INITIAL: Omit<
   firstHirePrompt: "",
   tenantId: null,
   workspaceId: null,
+  selectedPlan: null,
 };
 
 export const ONBOARDING_DRAFT_STORAGE_KEY = "skycot:onboarding-draft-v1";
@@ -78,6 +90,7 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
           verticalSkillCount: skillCount,
         }),
       setFirstHirePrompt: (firstHirePrompt) => set({ firstHirePrompt }),
+      setSelectedPlan: (selectedPlan) => set({ selectedPlan }),
       reset: () => set({ ...INITIAL }),
     }),
     {
@@ -104,6 +117,7 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
         firstHirePrompt: s.firstHirePrompt,
         tenantId: s.tenantId,
         workspaceId: s.workspaceId,
+        selectedPlan: s.selectedPlan,
       }),
       version: 1,
     },

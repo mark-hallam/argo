@@ -2,9 +2,10 @@
 
 /**
  * `/billing/subscribe?plan=pro` — landing for a deep-linked upgrade
- * action. Reads the plan slug from the URL, resolves the matching
- * Stripe price id from `NEXT_PUBLIC_STRIPE_PRICE_<TIER>`, kicks off
- * Checkout, and redirects.
+ * action. Reads the plan slug from the URL (accepts `?plan=` or the
+ * marketing-friendly `?tier=` alias), resolves the matching Stripe
+ * price id from `NEXT_PUBLIC_STRIPE_PRICE_<TIER>`, kicks off Checkout,
+ * and redirects.
  *
  * Used by marketing CTAs and inbound product emails that want to drop
  * the customer straight into Checkout without an extra click.
@@ -54,7 +55,7 @@ function SubscribeFallback() {
 function SubscribeContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const plan = params?.get("plan") ?? "pro";
+  const plan = params?.get("plan") ?? params?.get("tier") ?? "pro";
   const priceEnv = PRICE_ENV[plan];
   const priceId = priceEnv ? process.env[priceEnv] : undefined;
   const checkout = useCheckout();

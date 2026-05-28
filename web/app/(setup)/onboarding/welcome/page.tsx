@@ -9,10 +9,23 @@ import { OnboardingShell } from "../_OnboardingShell";
 export default function OnboardingWelcomePage() {
   const router = useRouter();
   const setStep = useOnboardingDraft((s) => s.setStep);
+  const selectedPlan = useOnboardingDraft((s) => s.selectedPlan);
+  const setSelectedPlan = useOnboardingDraft((s) => s.setSelectedPlan);
 
   useEffect(() => {
     setStep(1);
   }, [setStep]);
+
+  useEffect(() => {
+    // Post-signup hop: if the visitor picked Pro on `/pricing`, route
+    // straight to `/billing/subscribe?plan=pro` once they land here.
+    // Clear the flag so a later return to `/onboarding/welcome` after
+    // checkout doesn't re-fire the hop.
+    if (selectedPlan === "pro") {
+      setSelectedPlan(null);
+      router.replace("/billing/subscribe?plan=pro");
+    }
+  }, [selectedPlan, setSelectedPlan, router]);
 
   return (
     <OnboardingShell

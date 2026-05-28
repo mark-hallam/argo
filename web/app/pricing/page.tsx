@@ -3,10 +3,16 @@
 import "./page.css";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { useSkycotSession } from "@/lib/skycot/use-session";
+import {
+  useOnboardingDraft,
+  type SelectedPlan,
+} from "@/lib/onboarding/use-onboarding-draft";
 
 /**
  * Public pricing page — `/pricing`, exempt from auth middleware.
@@ -15,6 +21,11 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
  * Three tiers (Free / Pro / Enterprise) mirror the `/billing` PLANS
  * constant in `web/app/(app)/billing/page.tsx`. Feature comparison
  * matrix + FAQ + final CTA.
+ *
+ * Per-tier deep-link CTAs (signed-out → /auth/signup?plan=<tier>, signed-in
+ * Pro → /billing/subscribe?plan=pro). The selected plan is persisted on the
+ * onboarding draft store so the post-signup welcome step can hop to
+ * checkout. `?featured=pro` campaign param visually expands the Pro card.
  *
  * V1 ships static copy; CMS-driven feature matrix arrives in a
  * follow-up brief.
@@ -30,7 +41,10 @@ interface TierCard {
   blurb: string;
   features: string[];
   cta: string;
-  ctaHref: string;
+  /** Static signed-out target; Pro overrides this when signed in. */
+  signedOutHref: string;
+  signedInHref: string;
+  /** Default featured (visually highlighted) state. */
   featured?: boolean;
 }
 
@@ -48,8 +62,9 @@ const TIERS: TierCard[] = [
       "Mock provider only",
       "Single channel (web inbox)",
     ],
-    cta: "Start free",
-    ctaHref: "/auth/signup",
+    cta: "Choose Free",
+    signedOutHref: "/auth/signup?plan=free",
+    signedInHref: "/onboarding/welcome",
   },
   {
     tier: "pro",
@@ -67,8 +82,9 @@ const TIERS: TierCard[] = [
       "Marketplace skills",
       "Versioned workflows + rollback",
     ],
-    cta: "Upgrade to Pro",
-    ctaHref: "/auth/signup?tier=pro",
+    cta: "Choose Pro",
+    signedOutHref: "/auth/signup?plan=pro",
+    signedInHref: "/billing/subscribe?plan=pro",
     featured: true,
   },
   {
@@ -87,8 +103,9 @@ const TIERS: TierCard[] = [
       "Priority queue + dedicated infra",
       "On-prem / single-binary deploy",
     ],
-    cta: "Contact sales",
-    ctaHref: "mailto:hello@skycot.com",
+    cta: "Talk to sales",
+    signedOutHref: "mailto:hello@skycot.com?subject=Enterprise%20pricing",
+    signedInHref: "mailto:hello@skycot.com?subject=Enterprise%20pricing",
   },
 ];
 
@@ -147,7 +164,27 @@ const FAQ: FaqItem[] = [
 ];
 
 export default function PricingPage() {
+  return (
+    <Suspense fallback={null}>
+      <PricingPageContent />
+    </Suspense>
+  );
+}
+
+function PricingPageContent() {
   const [open, setOpen] = useState<number | null>(0);
+  const session = useSkycotSession();
+  const setSelectedPlan = useOnboardingDraft((s) => s.setSelectedPlan);
+  const params = useSearchParams();
+  const featuredOverride = params?.get("featured");
+  const isSignedIn = session.status === "authenticated";
+
+  function persistPlan(tier: Tier): void {
+    // Only the two paid-flow tiers persist; "enterprise" is talk-to-sales.
+    if (tier === "free" || tier === "pro") {
+      setSelectedPlan(tier satisfies SelectedPlan);
+    }
+  }
 
   return (
     <>
@@ -168,33 +205,45 @@ export default function PricingPage() {
         </section>
 
         <div className="pri-tier-grid">
-          {TIERS.map((t) => (
-            <div key={t.tier} className={`pri-tier${t.featured ? " featured" : ""}`}>
-              {t.featured && <div className="pri-tier-ribbon">Most popular</div>}
-              <div>
-                <h3 className="pri-tier-title">{t.title}</h3>
-              </div>
-              <div>
-                <div className={`pri-tier-price${t.featured ? " gradient" : ""}`}>{t.price}</div>
-                <div className="pri-tier-period">{t.period}</div>
-              </div>
-              <p className="pri-tier-blurb">{t.blurb}</p>
-              <ul className="pri-tier-features">
-                {t.features.map((f) => (
-                  <li key={f}>
-                    <Check size={16} />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href={t.ctaHref}
-                className={`pri-tier-cta ${t.featured ? "primary" : "secondary"}`}
+          {TIERS.map((t) => {
+            const isFeatured = featuredOverride
+              ? featuredOverride === t.tier
+              : Boolean(t.featured);
+            const href = isSignedIn ? t.signedInHref : t.signedOutHref;
+            return (
+              <div
+                key={t.tier}
+                className={`pri-tier${isFeatured ? " featured" : ""}`}
+                data-tier={t.tier}
               >
-                {t.cta} <ArrowRight size={15} />
-              </Link>
-            </div>
-          ))}
+                {isFeatured && <div className="pri-tier-ribbon">Most popular</div>}
+                <div>
+                  <h3 className="pri-tier-title">{t.title}</h3>
+                </div>
+                <div>
+                  <div className={`pri-tier-price${isFeatured ? " gradient" : ""}`}>{t.price}</div>
+                  <div className="pri-tier-period">{t.period}</div>
+                </div>
+                <p className="pri-tier-blurb">{t.blurb}</p>
+                <ul className="pri-tier-features">
+                  {t.features.map((f) => (
+                    <li key={f}>
+                      <Check size={16} />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={href}
+                  className={`pri-tier-cta ${isFeatured ? "primary" : "secondary"}`}
+                  onClick={() => persistPlan(t.tier)}
+                  data-testid={`pricing-cta-${t.tier}`}
+                >
+                  {t.cta} <ArrowRight size={15} />
+                </Link>
+              </div>
+            );
+          })}
         </div>
 
         <section className="pri-section">
