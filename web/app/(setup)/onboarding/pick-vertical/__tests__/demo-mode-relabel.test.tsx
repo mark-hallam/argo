@@ -71,6 +71,11 @@ const verticalsMock = vi.hoisted(() => ({
 const draftMock = vi.hoisted(() => {
   const state = {
     verticalId: null as string | null,
+    // The page now gates rendering on `hasHydrated`; the test mock
+    // has no persist lifecycle, so seed `true` to skip the skeleton
+    // and render the picker directly. Mirrors the production path
+    // where `onRehydrateStorage` flips this once persist finishes.
+    hasHydrated: true,
     setStep: vi.fn(),
     setVertical: vi.fn(),
   };

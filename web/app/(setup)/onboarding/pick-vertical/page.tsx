@@ -7,6 +7,7 @@ import { useVerticals, type VerticalRow } from "@/lib/api/verticals";
 import { DEMO_SUPPORTED_VERTICAL_IDS } from "@/lib/onboarding/use-first-hire";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 import { InstallReceipt } from "./_InstallReceipt";
@@ -137,6 +138,17 @@ function cardFromRow(row: VerticalRow): VerticalCard {
 }
 
 export default function OnboardingPickVerticalPage() {
+  // Gate so the picker doesn't flash without the persisted vertical
+  // selection — refreshing mid-step would otherwise show "no card
+  // selected" before re-highlighting the previously-chosen tile.
+  const hasHydrated = useOnboardingDraft((s) => s.hasHydrated);
+  if (!hasHydrated) {
+    return <WizardSkeleton step={4} />;
+  }
+  return <PickVerticalFormBody />;
+}
+
+function PickVerticalFormBody() {
   const router = useRouter();
   const setStep = useOnboardingDraft((s) => s.setStep);
   const setVertical = useOnboardingDraft((s) => s.setVertical);

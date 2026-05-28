@@ -34,6 +34,15 @@ export interface OnboardingDraftState {
    * `null` means the visitor never came through a tier CTA.
    */
   selectedPlan: SelectedPlan | null;
+  /**
+   * Flipped to `true` by `onRehydrateStorage` once zustand-persist has
+   * finished reading localStorage. Wizard pages gate their form on
+   * this so the field inputs never paint with the un-hydrated empty
+   * default before the saved draft restores. Excluded from
+   * `partialize` — derives from the rehydrate lifecycle, not from
+   * stored state.
+   */
+  hasHydrated: boolean;
   setStep: (step: OnboardingStep) => void;
   setWorkspace: (workspaceName: string, companyName: string) => void;
   setProvision: (tenantId: string, workspaceId: string) => void;
@@ -46,9 +55,13 @@ export interface OnboardingDraftState {
   setFirstHireName: (name: string) => void;
   setFirstHirePrompt: (prompt: string) => void;
   setSelectedPlan: (plan: SelectedPlan | null) => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
   reset: () => void;
 }
 
+// `hasHydrated` is deliberately omitted from `INITIAL` so the value
+// passed to `reset()` (below) can flip it to `true` — resetting the
+// draft mid-session must not roll the gate back to the skeleton.
 const INITIAL: Omit<
   OnboardingDraftState,
   | "setStep"
@@ -59,7 +72,9 @@ const INITIAL: Omit<
   | "setFirstHireName"
   | "setFirstHirePrompt"
   | "setSelectedPlan"
+  | "setHasHydrated"
   | "reset"
+  | "hasHydrated"
 > = {
   step: 1,
   workspaceName: "",
@@ -82,6 +97,7 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
   persist(
     (set) => ({
       ...INITIAL,
+      hasHydrated: false,
       setStep: (step) => set({ step }),
       setWorkspace: (workspaceName, companyName) => set({ workspaceName, companyName }),
       setProvision: (tenantId, workspaceId) => set({ tenantId, workspaceId }),
@@ -96,7 +112,11 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
       setFirstHireName: (firstHireName) => set({ firstHireName }),
       setFirstHirePrompt: (firstHirePrompt) => set({ firstHirePrompt }),
       setSelectedPlan: (selectedPlan) => set({ selectedPlan }),
-      reset: () => set({ ...INITIAL }),
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      // Reset clears persisted fields but keeps `hasHydrated: true` so
+      // the wizard does NOT re-enter the skeleton gate (vitest paths
+      // call `reset()` to start each test from a clean draft).
+      reset: () => set({ ...INITIAL, hasHydrated: true }),
     }),
     {
       name: ONBOARDING_DRAFT_STORAGE_KEY,
@@ -125,6 +145,15 @@ export const useOnboardingDraft = create<OnboardingDraftState>()(
         workspaceId: s.workspaceId,
         selectedPlan: s.selectedPlan,
       }),
+      // `onRehydrateStorage` returns a callback that zustand-persist
+      // fires after attempting to restore from localStorage — whether
+      // a draft was found or not. Flipping `hasHydrated` here lifts
+      // the skeleton gate on the wizard pages so the field inputs
+      // either show the restored value or render the empty form
+      // without an intervening empty-then-full flash.
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
       version: 1,
     },
   ),

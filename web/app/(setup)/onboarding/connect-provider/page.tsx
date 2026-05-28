@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api/client";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProviderKey } from "@/lib/onboarding/use-provider-key";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
@@ -119,6 +120,21 @@ function logProviderValidationError(err: unknown) {
 }
 
 export default function OnboardingConnectProviderPage() {
+  // No persisted localStorage input is read here directly (the API
+  // key lives in `sessionStorage`), but the wizard chrome — pip
+  // strip, step label, save-and-exit affordance — derives from the
+  // shared draft store. Gating on `hasHydrated` keeps the wizard's
+  // chrome from briefly flashing the default step before persist
+  // restores. Consistency across the four steps also protects future
+  // edits that pull a persisted field into this page.
+  const hasHydrated = useOnboardingDraft((s) => s.hasHydrated);
+  if (!hasHydrated) {
+    return <WizardSkeleton step={3} />;
+  }
+  return <ConnectProviderFormBody />;
+}
+
+function ConnectProviderFormBody() {
   const router = useRouter();
   const setStep = useOnboardingDraft((s) => s.setStep);
   const setProvider = useOnboardingDraft((s) => s.setProvider);

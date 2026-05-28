@@ -11,6 +11,7 @@ import {
 import { exampleForVertical } from "@/lib/onboarding/example-prompts";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireErrorBanner";
+import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
@@ -23,6 +24,18 @@ const NAME_PLACEHOLDER_BY_VERTICAL: Record<string, string> = {
 };
 
 export default function OnboardingFirstHirePage() {
+  // Gate on persist rehydration — both name and prompt come from the
+  // draft store via selectors, so without the gate the textarea would
+  // mount with the empty `firstHirePrompt` default before persist
+  // resolves and re-renders with the saved value (F8 flash).
+  const hasHydrated = useOnboardingDraft((s) => s.hasHydrated);
+  if (!hasHydrated) {
+    return <WizardSkeleton step={5} />;
+  }
+  return <FirstHireFormBody />;
+}
+
+function FirstHireFormBody() {
   const router = useRouter();
   const setStep = useOnboardingDraft((s) => s.setStep);
   const setFirstHireNameInStore = useOnboardingDraft((s) => s.setFirstHireName);

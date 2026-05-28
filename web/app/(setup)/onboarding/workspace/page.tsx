@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { useProvision } from "@/lib/onboarding/use-provision";
 import { Toaster } from "@/components/ui/sonner";
+import { WizardSkeleton } from "@/components/auth/WizardSkeleton";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
@@ -15,6 +16,22 @@ import { OnboardingShell } from "../_OnboardingShell";
 const RETURNING_USER_HOLD_MS = 200;
 
 export default function OnboardingWorkspacePage() {
+  // Gate the form on persist rehydration so inputs never paint with
+  // the un-hydrated empty default before the saved draft restores
+  // (F8 — empty-then-full flash on hard reload). `hasHydrated` flips
+  // to `true` from `onRehydrateStorage`; the body's `useState`
+  // capture then sees the rehydrated value on first render. Splitting
+  // into a separate body component is load-bearing — an early return
+  // inside the same component would still leave the un-hydrated
+  // `useState` capture in place.
+  const hasHydrated = useOnboardingDraft((s) => s.hasHydrated);
+  if (!hasHydrated) {
+    return <WizardSkeleton step={2} />;
+  }
+  return <WorkspaceFormBody />;
+}
+
+function WorkspaceFormBody() {
   const router = useRouter();
   const initialWorkspace = useOnboardingDraft((s) => s.workspaceName);
   const initialCompany = useOnboardingDraft((s) => s.companyName);
