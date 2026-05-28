@@ -195,7 +195,7 @@ describe("First-hire step", () => {
     expect(submit).not.toBeDisabled();
   });
 
-  it("calls Genesis and redirects to the worker profile", async () => {
+  it("calls Genesis and redirects through the /onboarding/done celebration", async () => {
     const user = userEvent.setup();
     useOnboardingDraft.getState().setVertical("marketing-intern");
     global.fetch = vi.fn(async () =>
@@ -209,7 +209,15 @@ describe("First-hire step", () => {
       "marketing intern who drafts blog posts",
     );
     await user.click(screen.getByTestId("onboarding-first-hire-submit"));
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/workers/wkr_maya_1"));
+    // The wizard now routes through `/onboarding/done` so the
+    // "meet your first teammate" celebration beat lands before the
+    // worker profile. The done page reads `?worker=` and `?name=`
+    // from the URL and auto-advances to `/workers/<id>` after 6s.
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith(
+        "/onboarding/done?worker=wkr_maya_1&name=Maya",
+      ),
+    );
   });
 
   it("blocks submit when no vertical has been chosen", async () => {

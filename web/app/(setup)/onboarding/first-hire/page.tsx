@@ -87,10 +87,9 @@ export default function OnboardingFirstHirePage() {
       reset();
       // sessionStorage flag drives the one-shot "Set their schedule"
       // callout on the worker overview page; per-tab + cleared on first
-      // read, so a reload doesn't re-surface it. URL stays clean so the
-      // demo-mode redirect regex pin in `onboarding-demo-mode-first-hire
-      // -lands-on-worker.spec.ts` still matches. See brief
-      // fix-first-hire-cta-copy-promises-weekly-schedule-not-parsed.
+      // read, so a reload doesn't re-surface it. Carries through both
+      // the demo-mode roster redirect and the /onboarding/done
+      // celebration's auto-advance.
       try {
         sessionStorage.setItem("skycot:just-hired", res.workerId);
       } catch {
@@ -98,17 +97,26 @@ export default function OnboardingFirstHirePage() {
       }
       // Hire-complete redirect:
       // - In demo mode: land on /workers?just-hired=1&new=<id> so the
-      //   user sees the roster grow (new card highlighted) rather than
-      //   being parachuted straight into the new worker's overview.
-      //   Closes the "the camera never sees the new hire on /workers"
-      //   audit finding from brief `fix-demo-first-hire-discards-
-      //   prompt-and-redirects-to-sample-worker`.
-      // - In non-demo mode: /workers/<id> stays the canonical worker
-      //   profile route; this path is unchanged.
+      //   camera sees the roster grow (new card highlighted) — the
+      //   recording's own emotional beat. The /onboarding/done
+      //   celebration would land between the wizard and the roster and
+      //   blunt that punchline. URL pin in
+      //   `onboarding-demo-mode-first-hire-lands-on-worker.spec.ts`
+      //   still matches. See brief
+      //   `fix-demo-first-hire-discards-prompt-and-redirects-to-sample-worker`.
+      // - In non-demo mode: route through `/onboarding/done` so the
+      //   F1 "meet your first teammate" celebration lands before the
+      //   buyer reaches the worker profile. The done page reads
+      //   `?worker=<id>&name=<workerName>` from the URL (the draft is
+      //   reset above so the URL is the only carrier) and auto-advances
+      //   to `/workers/<id>` after 6s.
       if (isDemoMode()) {
         router.push(`/workers?just-hired=1&new=${encodeURIComponent(res.workerId)}`);
       } else {
-        router.push(`/workers/${res.workerId}`);
+        const nameParam = encodeURIComponent(res.workerName);
+        router.push(
+          `/onboarding/done?worker=${encodeURIComponent(res.workerId)}&name=${nameParam}`,
+        );
       }
     } catch (e) {
       // Wave-11 fix (2026-05-21): prior copy claimed "we'll create
