@@ -42,6 +42,12 @@ function installMock(gatewayResponder: (req: Request) => Response) {
 describe("lib/api/client", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+    // The CSRF-missing defensive warn fires on any mutating browser
+    // request that can't resolve a token (no cookie + XHR fallback
+    // fails). Most tests don't bother priming a token, so silence the
+    // warn by default; the dedicated CSRF describe block re-spies
+    // when it needs to assert on the call.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => {
     globalThis.fetch = ORIGINAL_FETCH;
@@ -196,6 +202,127 @@ describe("lib/api/client", () => {
       );
       await expect(apiGet("/api/v1/x")).rejects.toMatchObject({ status: 401 });
       expect(assignSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("CSRF double-submit (X-CSRF-Token attachment)", () => {
+    const ORIGINAL_COOKIE = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "cookie",
+    );
+
+    function stubCookie(value: string) {
+      Object.defineProperty(document, "cookie", {
+        configurable: true,
+        get: () => value,
+        set: () => {
+          /* test stub: writes ignored */
+        },
+      });
+    }
+
+    afterEach(() => {
+      if (ORIGINAL_COOKIE) {
+        Object.defineProperty(Document.prototype, "cookie", ORIGINAL_COOKIE);
+      }
+    });
+
+    it("attaches X-CSRF-Token from __Host-csrf cookie on POST", async () => {
+      stubCookie("__Host-csrf=jti-token-abc; other=ignored");
+      let observed: string | null = null;
+      installMock((req) => {
+        observed = req.headers.get("X-CSRF-Token");
+        return makeResponse({ status: 200, body: { ok: true } });
+      });
+      await apiPost("/api/v1/verticals/pr/workflows/qualify/execute", {});
+      expect(observed).toBe("jti-token-abc");
+    });
+
+    it("attaches X-CSRF-Token on PATCH and DELETE too", async () => {
+      stubCookie("__Host-csrf=jti-patch-del");
+      const seen: Record<string, string | null> = {};
+      installMock((req) => {
+        const method = req.method;
+        seen[method] = req.headers.get("X-CSRF-Token");
+        return makeResponse({ status: 200, body: {} });
+      });
+      const { apiPatch, apiDelete } = await import("./client");
+      await apiPatch("/api/v1/x", {});
+      await apiDelete("/api/v1/x");
+      expect(seen.PATCH).toBe("jti-patch-del");
+      expect(seen.DELETE).toBe("jti-patch-del");
+    });
+
+    it("does NOT attach X-CSRF-Token on GET (safe method)", async () => {
+      stubCookie("__Host-csrf=jti-token-get");
+      let observed: string | null = "sentinel";
+      installMock((req) => {
+        observed = req.headers.get("X-CSRF-Token");
+        return makeResponse({ status: 200, body: {} });
+      });
+      await apiGet("/api/v1/audit");
+      expect(observed).toBeNull();
+    });
+
+    it("falls back to GET /api/v1/auth/csrf when cookie missing", async () => {
+      stubCookie(""); // no __Host-csrf
+      const calls: { url: string; csrf: string | null }[] = [];
+      const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/v1/auth/csrf")) {
+          return Promise.resolve(makeResponse({ status: 200, body: { token: "xhr-fallback-tok" } }));
+        }
+        const req = new Request(url, init);
+        calls.push({ url, csrf: req.headers.get("X-CSRF-Token") });
+        return Promise.resolve(makeResponse({ status: 200, body: {} }));
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      await apiPost("/api/v1/verticals/pr/workflows/qualify/execute", {});
+      const gw = calls.find((c) => c.url.includes("/api/v1/verticals/"));
+      expect(gw?.csrf).toBe("xhr-fallback-tok");
+    });
+
+    it("does NOT overwrite a caller-supplied X-CSRF-Token header", async () => {
+      stubCookie("__Host-csrf=cookie-tok");
+      let observed: string | null = null;
+      installMock((req) => {
+        observed = req.headers.get("X-CSRF-Token");
+        return makeResponse({ status: 200, body: {} });
+      });
+      await apiPost("/api/v1/x", {}, {
+        headers: { "X-CSRF-Token": "caller-supplied-tok" },
+      });
+      expect(observed).toBe("caller-supplied-tok");
+    });
+
+    it("logs a console.warn when CSRF token cannot be resolved", async () => {
+      stubCookie(""); // no cookie
+      // XHR fallback also fails — gateway is down for the test:
+      const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.endsWith("/api/auth/session")) {
+          return Promise.resolve(makeResponse({ status: 200, body: {} }));
+        }
+        if (url.endsWith("/api/v1/auth/csrf")) {
+          return Promise.resolve(makeResponse({ status: 500, body: "down" }));
+        }
+        void init;
+        return Promise.resolve(makeResponse({ status: 200, body: {} }));
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        await apiPost("/api/v1/x", {});
+        expect(warn).toHaveBeenCalledTimes(1);
+        const msg = String(warn.mock.calls[0]?.[0] ?? "");
+        expect(msg).toContain("csrf_missing");
+        expect(msg).toContain("POST /api/v1/x");
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 

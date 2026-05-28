@@ -179,7 +179,22 @@ async function request<T>(method: string, path: string, init: ApiRequestInit = {
   // the cookie-auth surface without further client-side changes.
   if (MUTATING_METHODS.has(method.toUpperCase()) && !finalHeaders.has("X-CSRF-Token")) {
     const csrf = await resolveCsrfToken();
-    if (csrf) finalHeaders.set("X-CSRF-Token", csrf);
+    if (csrf) {
+      finalHeaders.set("X-CSRF-Token", csrf);
+    } else if (typeof window !== "undefined") {
+      // Browser-side mutating request with no resolvable CSRF token
+      // is either pre-login (no `__Host-csrf` minted yet, in which
+      // case the request is about to 401 anyway) or a regression
+      // (cookie missing mid-session, or both cookie read AND XHR
+      // fallback failed). Either way the gateway will return
+      // 403 csrf_missing on a cookie-authenticated route. Surface
+      // it once at the call site so the demo MP4 doesn't silently
+      // 403 on Run-now — see brief
+      // `fix-workflow-execute-csrf-token-wiring-verify-before-demo`.
+      console.warn(
+        `[api/client] ${method} ${path}: no CSRF token resolved — cookie-auth mutating requests will be rejected with 403 csrf_missing`,
+      );
+    }
   }
 
   const url = path.startsWith("http") ? path : `${gatewayBase()}${path}`;
