@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
 import { HoverHint } from "@/components/ui/Tooltip";
 import { DemoBanner } from "@/components/skycot/DemoBanner";
+import { ModeStamp } from "@/components/skycot/ModeStamp";
 import { ThemeToggle } from "@/components/skycot/ThemeToggle";
 import { UserPill } from "@/components/skycot/UserPill";
 import {
@@ -90,6 +91,7 @@ function AppNav() {
           </div>
           <ThemeToggle />
         </div>
+        <ModeStamp />
       </div>
     </>
   );
