@@ -1,0 +1,51 @@
+# Skycot — company facts loaded into the Pitch Agent LLM-fallback
+# system prompt.
+#
+# Read by `crates/argo-cli/src/handlers/gateway/routes_pitch_ask_llm.rs`
+# when canonical-QA misses and the LLM-fallback path fires. The facts
+# below are what the model is allowed to ground answers in — anything
+# outside this set should either route to canonical-QA (if covered) or
+# trigger an Escalate disposition.
+#
+# Operator-reviewable: every line below has been signed off by Mark.
+# To add a fact, add it here (not in the model prompt itself).
+#
+# Numbers that are forbidden on public channels (revenue, valuation,
+# customer count) MUST NOT be added here — those are gated by the
+# truth-boundary policy. This file is for shape-of-business facts the
+# agent can speak to publicly.
+
+[company]
+name = "Skycot"
+founder = "Mark Hallam"
+locale = "Melbourne, Australia"
+website = "https://skycot.com"
+mission = "Build a commercial AI-agent platform that lets a small team hire AI teammates with the same trust shape as human ones — capability-scoped, audited, multi-tenant."
+positioning = "Skycot serves enterprise customers. Not a consumer ChatGPT wrapper."
+
+[product]
+category = "AI-teammate / AI-worker platform"
+core_thesis = "Workers, not prompts. Every worker is a long-lived teammate with role, capabilities, memory, audit trail, and reporting line."
+single_binary = "Yes — Argo runtime ships as one Rust binary. Plugins are subprocesses behind a JSON-RPC ABI."
+multi_tenant = "Yes — tenant_id is plumbed through every primitive. Cross-tenant data leaks are CI-prevented."
+audit_first = "Every action emits an audit row. Operators can drill in to any worker decision."
+
+[architecture]
+language = "Rust 1.75 (single-binary core, capability-scoped plugins as subprocesses)"
+plugin_abi = "JSON-RPC over stdio. Plugins can be authored in any language."
+integration_model = "MCP-first. Lean core (~15 in-core tools). New tools default to MCP unless they need direct runtime access."
+provider_model = "Provider manifests in TOML, not adapters in Rust. Quirks live in config, not code."
+
+[differentiation]
+vs_chatgpt = "ChatGPT is a chatbot you prompt. Skycot is a workforce you hire — workers persist, have memory, can be reviewed, and report to a human."
+vs_lindy = "Different category, different buyer. Lindy targets prosumer automation. Skycot targets enterprise teams that need audit + multi-tenant from day one."
+vs_zapier = "Zapier wires APIs. Skycot hires teammates. The unit of work is a teammate's delegation, not a workflow step."
+moat = "Capability-based security + truth-boundary policies + per-tenant audit chain. Hard to retrofit; built in from the start."
+
+[deployment]
+target = "Enterprise — single-tenant or shared-tenant deployments. Cloud or self-host."
+demo_os = "macOS for the v1.0 demo computer-use path. Linux + Windows substrate exists; macOS gets v1 polish."
+
+[fundraising_stance]
+status = "Mark handles all fundraising and financial-detail conversations directly."
+agent_role = "The Pitch Agent does NOT speak to valuation, revenue, customer counts, or unannounced roadmap on any public channel. Those route to Mark."

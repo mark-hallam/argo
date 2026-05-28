@@ -14,6 +14,7 @@
 //! shows the operator's question history live alongside every other
 //! gateway event.
 
+use super::routes_pitch_ask_llm::{ask_with_llm, CompanyFacts, LlmAskOutcome};
 use super::{rate_limit, routes_auth_principal};
 use argo_audit::{AuditKind, AuditSink};
 use argo_capability::{
@@ -23,7 +24,7 @@ use argo_skill::canonical_qa::CanonicalQaIndex;
 use argo_store::SessionStore;
 use argo_types::TenantId;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -42,7 +43,7 @@ pub enum PitchChannel {
 }
 
 impl PitchChannel {
-    fn as_capability(self) -> ChannelKind {
+    pub(super) fn as_capability(self) -> ChannelKind {
         match self {
             Self::Rehearsal => ChannelKind::Rehearsal,
             Self::WebEmbed => ChannelKind::WebEmbed,
@@ -50,7 +51,7 @@ impl PitchChannel {
             Self::Chat => ChannelKind::Chat,
         }
     }
-    fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
             Self::Rehearsal => "Rehearsal",
             Self::WebEmbed => "WebEmbed",
@@ -73,7 +74,23 @@ fn default_channel() -> PitchChannel {
     PitchChannel::Rehearsal
 }
 
-const MISS_FALLBACK: &str = "I'll get back to you on that one — let me check with the founder.";
+pub(super) const MISS_FALLBACK: &str =
+    "I'll get back to you on that one — let me check with the founder.";
+
+/// Env-var gate for the LLM-fallback path. When set to `0` / `false`
+/// / `off`, the gateway falls back to the deterministic
+/// [`MISS_FALLBACK`] line on every canonical miss (the pre-LLM
+/// behavior). Default is `1` (LLM enabled) — but the path is also
+/// auto-disabled when no provider key is present in the environment,
+/// so test runs without `ANTHROPIC_API_KEY` keep producing the
+/// deterministic miss row instead of trying to dial out.
+pub(super) const LLM_FALLBACK_ENV: &str = "ARGO_PITCH_LLM_FALLBACK";
+
+/// Provider id used by the LLM-fallback path. Override with
+/// `ARGO_PITCH_LLM_PROVIDER` so the
+/// `provider-claude-code-cli-subprocess` driver can be wired in
+/// without touching this file once it ships.
+pub(super) const LLM_PROVIDER_ENV: &str = "ARGO_PITCH_LLM_PROVIDER";
 
 pub(super) async fn ask_response(
     req: &str,
@@ -101,56 +118,224 @@ pub(super) async fn ask_response(
     let hit = bundle.index.lookup(&question, &audience);
     let latency_ms = start.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
 
-    let (response_body, kind, audit_payload) = match hit {
+    match hit {
         Some(matched) => {
-            let evaluation = evaluate_claim(
-                policy,
-                channel.as_capability(),
-                &ClaimCandidate {
-                    text: matched.answer.clone(),
-                    declared_classes: matched.declared_claim_classes.clone(),
-                },
-            );
-            let (disposition_label, block_reason) = disposition_for_response(&evaluation.disposition);
-            let answer = render_answer(&matched.answer, &evaluation.disposition);
-            let body = json!({
-                "matched": true,
-                "entry_id": matched.entry_id,
-                "answer": answer,
-                "declared_claim_classes": matched.declared_claim_classes,
-                "disposition": disposition_label,
-                "block_reason": block_reason,
-                "channel": channel.label(),
-                "latency_ms": latency_ms,
-            });
-            let audit = json!({
-                "entry_id": matched.entry_id,
-                "channel": channel.label(),
-                "disposition": disposition_label,
-                "declared_claim_classes": matched.declared_claim_classes,
-                "latency_ms": latency_ms,
-            });
-            (body, AuditKind::PitchCanonicalQaMatched, audit)
+            // Hot path: unchanged from the canonical-only shipping
+            // implementation. Single audit row, sub-millisecond,
+            // no LLM call.
+            let (body_json, audit_payload) =
+                build_canonical_hit_payload(channel, policy, &matched, latency_ms);
+            emit_audit(
+                store,
+                req,
+                AuditKind::PitchCanonicalQaMatched,
+                audit_payload,
+            )
+            .await;
+            ("200 OK", body_json.to_string())
         }
-        None => {
+        None => handle_miss(req, store, &bundle, channel, &question, latency_ms, start).await,
+    }
+}
+
+fn build_canonical_hit_payload(
+    channel: PitchChannel,
+    policy: &TruthBoundaryPolicy,
+    matched: &argo_skill::canonical_qa::CanonicalMatch,
+    latency_ms: u64,
+) -> (Value, Value) {
+    let evaluation = evaluate_claim(
+        policy,
+        channel.as_capability(),
+        &ClaimCandidate {
+            text: matched.answer.clone(),
+            declared_classes: matched.declared_claim_classes.clone(),
+        },
+    );
+    let (disposition_label, block_reason) = disposition_for_response(&evaluation.disposition);
+    let answer = render_answer(&matched.answer, &evaluation.disposition);
+    let body = json!({
+        "matched": true,
+        "source": "canonical",
+        "entry_id": matched.entry_id,
+        "answer": answer,
+        "declared_claim_classes": matched.declared_claim_classes,
+        "disposition": disposition_label,
+        "block_reason": block_reason,
+        "channel": channel.label(),
+        "latency_ms": latency_ms,
+    });
+    let audit = json!({
+        "entry_id": matched.entry_id,
+        "channel": channel.label(),
+        "disposition": disposition_label,
+        "declared_claim_classes": matched.declared_claim_classes,
+        "latency_ms": latency_ms,
+    });
+    (body, audit)
+}
+
+async fn handle_miss(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+    bundle: &PitchBundle,
+    channel: PitchChannel,
+    question: &str,
+    canonical_latency_ms: u64,
+    start: Instant,
+) -> (&'static str, String) {
+    // Always emit the canonical-miss audit row first — the LLM path
+    // is additive, so the operator can audit "we tried canonical and
+    // missed" independently of "the LLM said X".
+    let miss_audit = json!({
+        "channel": channel.label(),
+        "latency_ms": canonical_latency_ms,
+        "question_len": question.chars().count(),
+    });
+    emit_audit(store, req, AuditKind::PitchCanonicalQaMiss, miss_audit).await;
+
+    if !llm_fallback_enabled() {
+        let body = json!({
+            "matched": false,
+            "source": "canonical",
+            "answer": MISS_FALLBACK,
+            "disposition": "Escalate",
+            "channel": channel.label(),
+            "latency_ms": canonical_latency_ms,
+        });
+        return ("200 OK", body.to_string());
+    }
+
+    let facts = match CompanyFacts::load_cached() {
+        Ok(f) => f,
+        Err(e) => return service_unavailable(&format!("pitch facts: {e}")),
+    };
+    let provider_id =
+        std::env::var(LLM_PROVIDER_ENV).unwrap_or_else(|_| "anthropic".to_string());
+    let policy = bundle.policy_for(channel);
+
+    let llm_result = ask_with_llm(
+        question,
+        channel,
+        policy,
+        &bundle.index,
+        &facts,
+        &provider_id,
+    )
+    .await;
+    let total_latency_ms = start.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+
+    let outcome = match llm_result {
+        Ok(o) => o,
+        Err(e) => {
+            tracing::warn!(
+                target: "gateway::pitch",
+                error = %e,
+                "pitch llm fallback failed; reverting to deterministic miss"
+            );
             let body = json!({
                 "matched": false,
+                "source": "canonical",
                 "answer": MISS_FALLBACK,
                 "disposition": "Escalate",
                 "channel": channel.label(),
-                "latency_ms": latency_ms,
+                "latency_ms": total_latency_ms,
             });
-            let audit = json!({
-                "channel": channel.label(),
-                "latency_ms": latency_ms,
-                "question_len": question.chars().count(),
-            });
-            (body, AuditKind::PitchCanonicalQaMiss, audit)
+            return ("200 OK", body.to_string());
         }
     };
 
-    emit_audit(store, req, kind, audit_payload).await;
-    ("200 OK", response_body.to_string())
+    let (body_json, llm_audit, eval_audit) =
+        build_llm_payload(channel, &outcome, total_latency_ms);
+    emit_audit(store, req, AuditKind::PitchLlmCallEmitted, llm_audit).await;
+    emit_audit(
+        store,
+        req,
+        AuditKind::PitchTruthBoundaryEvaluated,
+        eval_audit,
+    )
+    .await;
+    ("200 OK", body_json.to_string())
+}
+
+fn build_llm_payload(
+    channel: PitchChannel,
+    outcome: &LlmAskOutcome,
+    latency_ms: u64,
+) -> (Value, Value, Value) {
+    let (disposition_label, block_reason) = disposition_for_response(&outcome.disposition);
+    let source = if outcome.swapped_response {
+        "llm_blocked_canonical_refused"
+    } else {
+        "llm"
+    };
+    let declared = outcome
+        .matched_class
+        .as_ref()
+        .map(|c| vec![c.clone()])
+        .unwrap_or_default();
+    let mut body = json!({
+        "matched": false,
+        "source": source,
+        "answer": outcome.answer,
+        "declared_claim_classes": declared,
+        "disposition": disposition_label,
+        "block_reason": block_reason,
+        "channel": channel.label(),
+        "latency_ms": latency_ms,
+        "model": outcome.model,
+        "tokens": {
+            "input": outcome.tokens_in,
+            "output": outcome.tokens_out,
+        },
+    });
+    if outcome.swapped_response {
+        // The draft is the LLM's actual (unsafe) attempt. Surface it
+        // for the operator's rehearsal surface so they can see what
+        // the model wanted to say before the swap. Production
+        // wire-formats should redact this in transit — out of scope
+        // for v1.
+        if let Some(map) = body.as_object_mut() {
+            map.insert("draft".to_string(), Value::String(outcome.draft.clone()));
+        }
+    }
+    let llm_audit = json!({
+        "channel": channel.label(),
+        "model": outcome.model,
+        "latency_ms": latency_ms,
+        "tokens_in": outcome.tokens_in,
+        "tokens_out": outcome.tokens_out,
+        "response_hash": outcome.response_hash,
+    });
+    let eval_audit = json!({
+        "channel": channel.label(),
+        "disposition": disposition_label,
+        "block_reason": block_reason,
+        "matched_class": outcome.matched_class,
+        "swapped_response": outcome.swapped_response,
+    });
+    (body, llm_audit, eval_audit)
+}
+
+fn llm_fallback_enabled() -> bool {
+    // Explicit opt-out wins.
+    if let Ok(v) = std::env::var(LLM_FALLBACK_ENV) {
+        let lower = v.trim().to_lowercase();
+        if matches!(lower.as_str(), "0" | "false" | "off" | "no") {
+            return false;
+        }
+    }
+    // Auto-disable when no provider key is present — keeps the
+    // existing test fixtures (which don't set ANTHROPIC_API_KEY)
+    // producing the deterministic miss row.
+    let has_key = ["ANTHROPIC_API_KEY", "ARGO_GENESIS_PROVIDER_KEY"]
+        .iter()
+        .any(|k| {
+            std::env::var(k)
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false)
+        });
+    has_key
 }
 
 fn disposition_for_response(disp: &ClaimDisposition) -> (&'static str, Option<String>) {

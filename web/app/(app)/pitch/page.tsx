@@ -5,6 +5,7 @@ import { AlertTriangle, Mic, ShieldAlert, ShieldCheck, ShieldQuestion } from "lu
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { askPitch, type PitchAskResponse, type PitchDisposition } from "@/lib/api/pitch";
 import { ApiError } from "@/lib/api/types";
+import { sourcePill, tokensLabel } from "./pitch-source-chip";
 
 /**
  * `/pitch` — operator-facing rehearsal surface for the Pitch Agent.
@@ -301,6 +302,65 @@ export default function PitchPage() {
           text-transform: none;
           letter-spacing: 0.04em;
         }
+        .pitch-pill.is-source-canonical {
+          background: rgba(14, 165, 233, 0.12);
+          color: #075985;
+          text-transform: none;
+          letter-spacing: 0.04em;
+        }
+        .pitch-pill.is-source-llm {
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(236, 72, 153, 0.14));
+          color: #5b21b6;
+          text-transform: none;
+          letter-spacing: 0.04em;
+        }
+        .pitch-pill.is-source-llm-blocked {
+          background: rgba(239, 68, 68, 0.1);
+          color: #7f1d1d;
+          text-transform: none;
+          letter-spacing: 0.04em;
+        }
+        .pitch-pill.is-tokens {
+          background: rgba(15, 23, 42, 0.04);
+          color: rgba(30, 27, 75, 0.6);
+          text-transform: none;
+          letter-spacing: 0.04em;
+          font-variant-numeric: tabular-nums;
+        }
+        .pitch-pill.is-model {
+          background: rgba(76, 29, 149, 0.08);
+          color: #4c1d95;
+          text-transform: none;
+          letter-spacing: 0.02em;
+        }
+        .pitch-swap-note {
+          margin-top: 6px;
+          font-family: var(--font-mono);
+          font-size: 11px;
+          letter-spacing: 0.04em;
+          color: rgba(127, 29, 29, 0.85);
+        }
+        .pitch-draft-block {
+          margin-top: 10px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.05);
+          border: 1px dashed rgba(239, 68, 68, 0.35);
+          font-family: var(--font-mono);
+          font-size: 12px;
+          line-height: 1.45;
+          color: rgba(127, 29, 29, 0.85);
+          white-space: pre-wrap;
+        }
+        .pitch-draft-label {
+          display: block;
+          font-family: var(--font-mono);
+          font-size: 10px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: rgba(127, 29, 29, 0.7);
+          margin-bottom: 4px;
+        }
         .pitch-error-panel {
           margin-top: 18px;
           padding: 14px 16px;
@@ -399,9 +459,17 @@ function MessageBubble({ message }: { message: Message }) {
   }
   const meta = message.meta;
   const pill = meta ? dispositionPill(meta.disposition) : null;
+  const source = meta ? sourcePill(meta.source) : null;
+  const tokens = meta ? tokensLabel(meta.tokens) : null;
+  const isSwapped = meta?.source === "llm_blocked_canonical_refused";
   return (
     <div className="pitch-msg is-agent" data-testid="pitch-msg-agent">
       <p className="pitch-msg-text">{message.text}</p>
+      {isSwapped ? (
+        <p className="pitch-swap-note" data-testid="pitch-swap-note">
+          (canonical refusal substituted for the model&apos;s draft)
+        </p>
+      ) : null}
       {meta ? (
         <div className="pitch-meta">
           {pill ? (
@@ -409,14 +477,43 @@ function MessageBubble({ message }: { message: Message }) {
               <pill.Icon /> {pill.label}
             </span>
           ) : null}
+          {source ? (
+            <span
+              className={source.className}
+              data-testid="pitch-pill-source"
+              title={
+                meta?.model
+                  ? `${source.label} · ${meta.model}`
+                  : source.label
+              }
+            >
+              <source.Icon /> {source.label}
+            </span>
+          ) : null}
           {meta.entry_id ? (
             <span className="pitch-pill is-entry" data-testid="pitch-pill-entry">
               {meta.entry_id}
             </span>
           ) : null}
+          {meta.model ? (
+            <span className="pitch-pill is-model" data-testid="pitch-pill-model">
+              {meta.model}
+            </span>
+          ) : null}
+          {tokens ? (
+            <span className="pitch-pill is-tokens" data-testid="pitch-pill-tokens">
+              {tokens}
+            </span>
+          ) : null}
           <span className="pitch-pill is-latency" data-testid="pitch-pill-latency">
             {meta.latency_ms}ms · {meta.channel}
           </span>
+        </div>
+      ) : null}
+      {meta?.draft && isSwapped ? (
+        <div className="pitch-draft-block" data-testid="pitch-draft">
+          <span className="pitch-draft-label">Model draft (audited, not shipped)</span>
+          {meta.draft}
         </div>
       ) : null}
     </div>

@@ -95,6 +95,8 @@ impl AuditKind {
             Self::CrossTenantInboundRejected => "channel.cross_tenant_inbound_rejected",
             Self::PitchCanonicalQaMatched => "pitch.canonical_qa_matched",
             Self::PitchCanonicalQaMiss => "pitch.canonical_qa_miss",
+            Self::PitchLlmCallEmitted => "pitch.llm_call_emitted",
+            Self::PitchTruthBoundaryEvaluated => "pitch.truth_boundary_evaluated",
         }
     }
 
@@ -185,6 +187,8 @@ impl AuditKind {
             "channel.cross_tenant_inbound_rejected" => Self::CrossTenantInboundRejected,
             "pitch.canonical_qa_matched" => Self::PitchCanonicalQaMatched,
             "pitch.canonical_qa_miss" => Self::PitchCanonicalQaMiss,
+            "pitch.llm_call_emitted" => Self::PitchLlmCallEmitted,
+            "pitch.truth_boundary_evaluated" => Self::PitchTruthBoundaryEvaluated,
             _ => return None,
         })
     }
@@ -275,6 +279,8 @@ impl AuditKind {
             Self::CrossTenantInboundRejected,
             Self::PitchCanonicalQaMatched,
             Self::PitchCanonicalQaMiss,
+            Self::PitchLlmCallEmitted,
+            Self::PitchTruthBoundaryEvaluated,
         ];
         v.sort_by_key(|k| k.label());
         v

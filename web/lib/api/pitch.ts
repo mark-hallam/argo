@@ -1,13 +1,17 @@
 /**
  * Pitch Agent API client.
  *
- * Calls `POST /api/v1/pitch/ask` — the deterministic canonical-Q&A
- * lookup + truth-boundary evaluator the gateway wraps around the
- * existing `argo-skill::canonical_qa` matcher and
- * `argo-capability::evaluate_claim`. There is NO LLM hop on this
- * path; the response shape carries the matcher's verdict plus the
- * truth-boundary disposition so the SPA can render the metadata
- * badge alongside the answer.
+ * Calls `POST /api/v1/pitch/ask` — the canonical-Q&A lookup +
+ * truth-boundary evaluator the gateway wraps around the existing
+ * `argo-skill::canonical_qa` matcher and
+ * `argo-capability::evaluate_claim`. On a canonical hit (hot path)
+ * the response is deterministic and sub-millisecond. On a canonical
+ * miss the gateway falls through to an LLM-fallback path (per the
+ * `pitch-agent-llm-with-truth-boundary-gating` brief): the LLM
+ * drafts an answer using the truth-boundary policy + operator-
+ * reviewed company facts as system context, then the draft is
+ * re-evaluated against the policy and a canonical refusal is
+ * swapped in if Block fires.
  *
  * Wire-shape mirror of `crates/argo-cli/src/handlers/gateway/
  * routes_pitch_ask.rs`. Any change to the Rust response struct must
@@ -20,27 +24,66 @@ import { ApiError } from "@/lib/api/types";
 export type PitchChannel = "Rehearsal" | "WebEmbed" | "LiveMeeting" | "Chat";
 export type PitchDisposition = "Allow" | "Escalate" | "Block";
 
+/**
+ * Where the answer was sourced.
+ * - `canonical` — hot-path canonical-Q&A match (sub-millisecond, no LLM cost).
+ * - `llm` — LLM fallback fired; truth-boundary check Allowed/Escalated.
+ * - `llm_blocked_canonical_refused` — LLM fired but truth-boundary
+ *   check Blocked the draft and the gateway swapped in a canonical
+ *   refusal. The `draft` field carries the LLM's actual unsafe attempt
+ *   for the rehearsal surface.
+ */
+export type PitchSource = "canonical" | "llm" | "llm_blocked_canonical_refused";
+
 export interface PitchAskRequest {
   question: string;
   channel?: PitchChannel;
   audience?: string;
 }
 
+/** Provider-reported token counts for the LLM-fallback path. */
+export interface PitchTokens {
+  input?: number | null;
+  output?: number | null;
+}
+
 export interface PitchAskResponse {
   matched: boolean;
+  /**
+   * Where the answer came from. Optional for forward-compat — gateways
+   * that predate the LLM-fallback brief omit it; the SPA treats
+   * `undefined` as `canonical`.
+   */
+  source?: PitchSource;
   entry_id?: string;
   answer: string;
+  /**
+   * On the LLM-blocked path the gateway echoes the LLM's actual
+   * (unsafe) draft so the rehearsal surface can show the swap.
+   * Not present on canonical or LLM-allow paths.
+   */
+  draft?: string;
   declared_claim_classes?: string[];
   disposition: PitchDisposition;
   block_reason?: string | null;
   channel: PitchChannel;
   latency_ms: number;
+  /** Model id used by the LLM-fallback path. */
+  model?: string;
+  /** Provider-reported token counts for the LLM-fallback path. */
+  tokens?: PitchTokens;
 }
 
 const DISPOSITIONS: ReadonlySet<PitchDisposition> = new Set([
   "Allow",
   "Escalate",
   "Block",
+]);
+
+const SOURCES: ReadonlySet<PitchSource> = new Set([
+  "canonical",
+  "llm",
+  "llm_blocked_canonical_refused",
 ]);
 
 function isPitchAskResponse(raw: unknown): raw is PitchAskResponse {
@@ -52,6 +95,10 @@ function isPitchAskResponse(raw: unknown): raw is PitchAskResponse {
   if (!DISPOSITIONS.has(v.disposition as PitchDisposition)) return false;
   if (typeof v.channel !== "string") return false;
   if (typeof v.latency_ms !== "number") return false;
+  // `source` is optional for back-compat; reject only if present + invalid.
+  if (v.source !== undefined && (typeof v.source !== "string" || !SOURCES.has(v.source as PitchSource))) {
+    return false;
+  }
   return true;
 }
 

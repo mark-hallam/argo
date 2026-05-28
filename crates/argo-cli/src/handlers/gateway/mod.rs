@@ -153,6 +153,7 @@ mod routes_orchestrator_slas;
 mod routes_packs;
 mod routes_peer;
 mod routes_pitch_ask;
+mod routes_pitch_ask_llm;
 mod routes_post;
 mod routes_post_admin;
 mod routes_post_costs;

@@ -94,4 +94,114 @@ describe("/pitch page", () => {
     });
     expect(screen.getByTestId("pitch-error")).toHaveTextContent(/gateway down/i);
   });
+
+  it("renders a canonical source chip on a canonical-Q&A hit", async () => {
+    pitchApi.askPitch.mockResolvedValueOnce({
+      matched: true,
+      source: "canonical",
+      entry_id: "tech-stack",
+      answer: "Rust single-binary core.",
+      declared_claim_classes: ["architecture"],
+      disposition: "Allow",
+      block_reason: null,
+      channel: "Rehearsal",
+      latency_ms: 2,
+    });
+    render(<PitchPage />);
+    fireEvent.change(screen.getByTestId("pitch-input"), {
+      target: { value: "Tech stack?" },
+    });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => {
+      expect(screen.getByTestId("pitch-pill-source")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("pitch-pill-source")).toHaveTextContent(/canonical/i);
+    // No model / tokens chips on the canonical hot path.
+    expect(screen.queryByTestId("pitch-pill-model")).toBeNull();
+    expect(screen.queryByTestId("pitch-pill-tokens")).toBeNull();
+    expect(screen.queryByTestId("pitch-swap-note")).toBeNull();
+  });
+
+  it("renders model + token chips when the LLM fallback path responded", async () => {
+    pitchApi.askPitch.mockResolvedValueOnce({
+      matched: false,
+      source: "llm",
+      answer: "Skycot serves enterprise customers that need audit + multi-tenant from day one.",
+      declared_claim_classes: [],
+      disposition: "Allow",
+      block_reason: null,
+      channel: "Rehearsal",
+      latency_ms: 850,
+      model: "claude-sonnet-4-6",
+      tokens: { input: 412, output: 87 },
+    });
+    render(<PitchPage />);
+    fireEvent.change(screen.getByTestId("pitch-input"), {
+      target: { value: "What kinds of teams use Skycot?" },
+    });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => {
+      expect(screen.getByTestId("pitch-pill-source")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("pitch-pill-source")).toHaveTextContent(/llm/i);
+    expect(screen.getByTestId("pitch-pill-model")).toHaveTextContent("claude-sonnet-4-6");
+    expect(screen.getByTestId("pitch-pill-tokens")).toHaveTextContent(/in 412/);
+    expect(screen.getByTestId("pitch-pill-tokens")).toHaveTextContent(/out 87/);
+    expect(screen.queryByTestId("pitch-swap-note")).toBeNull();
+    expect(screen.queryByTestId("pitch-draft")).toBeNull();
+  });
+
+  it("shows the canonical-refusal swap note + draft when the LLM was blocked", async () => {
+    pitchApi.askPitch.mockResolvedValueOnce({
+      matched: false,
+      source: "llm_blocked_canonical_refused",
+      answer:
+        "I'm not authorized to share valuation publicly. Mark, do you want to take that one?",
+      draft: "We are valued at around $40m in the most recent round.",
+      declared_claim_classes: ["valuation"],
+      disposition: "Block",
+      block_reason: "forbidden_class: defer-to-mark-financial",
+      channel: "WebEmbed",
+      latency_ms: 920,
+      model: "claude-sonnet-4-6",
+      tokens: { input: 410, output: 32 },
+    });
+    render(<PitchPage />);
+    fireEvent.change(screen.getByTestId("pitch-input"), {
+      target: { value: "What's the round at?" },
+    });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => {
+      expect(screen.getByTestId("pitch-pill-disposition")).toHaveTextContent(/blocked/i);
+    });
+    expect(screen.getByTestId("pitch-pill-source")).toHaveTextContent(/llm/i);
+    expect(screen.getByTestId("pitch-pill-source")).toHaveTextContent(/blocked/i);
+    expect(screen.getByTestId("pitch-swap-note")).toHaveTextContent(
+      /canonical refusal substituted/i,
+    );
+    expect(screen.getByTestId("pitch-draft")).toHaveTextContent(/valued at around/i);
+    expect(screen.getByTestId("pitch-pill-model")).toHaveTextContent("claude-sonnet-4-6");
+  });
+
+  it("treats responses without a source field as canonical (back-compat)", async () => {
+    pitchApi.askPitch.mockResolvedValueOnce({
+      matched: true,
+      entry_id: "tech-stack",
+      answer: "Rust single-binary core.",
+      declared_claim_classes: ["architecture"],
+      disposition: "Allow",
+      block_reason: null,
+      channel: "Rehearsal",
+      latency_ms: 1,
+    });
+    render(<PitchPage />);
+    fireEvent.change(screen.getByTestId("pitch-input"), {
+      target: { value: "Tech stack?" },
+    });
+    fireEvent.click(screen.getByTestId("pitch-submit"));
+    await waitFor(() => {
+      expect(screen.getByTestId("pitch-pill-source")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("pitch-pill-source")).toHaveTextContent(/canonical/i);
+  });
 });

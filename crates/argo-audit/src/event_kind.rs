@@ -251,4 +251,20 @@ pub enum AuditKind {
     /// fallback answer is rendered by the gateway; no LLM call is
     /// made (canonical-Q&A is deterministic in-process).
     PitchCanonicalQaMiss,
+    /// Pitch Agent gateway endpoint fell through canonical-Q&A and
+    /// completed a successful LLM-fallback call. Payload carries
+    /// `channel`, `model`, `latency_ms`, `tokens_in`, `tokens_out`,
+    /// and `response_hash` (sha256 hex of the rendered answer for
+    /// dedup/forensics — the raw text is NOT logged here). Pairs
+    /// with [`Self::PitchTruthBoundaryEvaluated`] — every LLM-path
+    /// request emits both rows in sequence.
+    PitchLlmCallEmitted,
+    /// Pitch Agent gateway endpoint evaluated an LLM-drafted reply
+    /// against the truth-boundary policy. Payload carries
+    /// `channel`, `disposition` (`Allow|Escalate|Block`),
+    /// `block_reason` (None on Allow/Escalate), `matched_class`
+    /// (the policy class the LLM tripped, when Block fired), and
+    /// `swapped_response` (true when canonical refusal was
+    /// substituted for the LLM draft).
+    PitchTruthBoundaryEvaluated,
 }
