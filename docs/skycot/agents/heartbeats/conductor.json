@@ -1,21 +1,21 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-28T02:06:53Z",
+  "last_run_utc": "2026-05-28T10:25:00Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T12-06-aest-scheduled",
-  "run_notes": "Scheduled tick ~27min after prior T11-40 tick. Step-0..4 sync: git fetch clean; recent-conductor-commit exit=0 (no short-circuit). Step-4.5 LATEST.md audit still 4 days old (2026-05-24, no fresh <=12h P0s). Step-4.5b unread-handoffs check returned 2 unread (cutoff 2026-05-28T01:40:00Z), both informational from supervisor-watchdog at 2026-05-28T01:54:47Z: (a) sup=PID:97586/rc:0 ACTIVE/IDLE slot status, (b) slot-2 PID 54484 alive 1h42m + log silent 68min after result:success shipping PR #2605 — strict R5 trigger intentionally excludes result-success-only logs, monitoring (no kill). Both ack-via-heartbeat-refresh per protocol ACK PATH. Step-4.7 gateway v83/v84 drift=1 FRESH. Step-4.8 findings-only: all 4 within budget (2 days remaining to 2026-05-30). Step-5 NO MERGE ACTIONS — all 61 open PRs still DIRTY (cascade from prior drain wave; workers still rebasing). 0 CLEAN. Step-5c stale IN_REVIEW deferred: 72 IN_REVIEW rows but DIRTY-since-drain still under 2h-stale threshold; let workers continue. Step-7 BLOCKED triage: 41 BLOCKED rows, nothing unblocked by recent merges (none this tick). Step-8 replenishment: NOT TRIGGERED — claude_todo=29 above threshold 25. Single CLAIMED row `fix-spa-inbound-channels-webhook-urls-and-recent-activity` still alive (~42min old, no zombie demote). Drift sweep: 0 drift rows. v1.0 ship-gate state unchanged: 6/6 mission claims LIVE; only operator-only demo MP4 record remains.",
-  "open_prs": 61,
+  "session_label": "tick-T20-25-aest-INTERACTIVE-OPERATOR-DRIVEN-MVP-DEMO-P0-MERGE-CYCLE",
+  "run_notes": "INTERACTIVE conductor session 2026-05-28T03:00-10:25Z (Melbourne 13:00-20:25 AEST). Operator-driven MVP-DEMO P0 merge cycle. PRIMARY ACTIONS: (1) Authored 5 demo-blocker briefs (fix-spa-genesis-fetch-fails-while-curl-succeeds, fix-genesis-idempotency-output-dir-not-empty, fix-audit-detail-tenant-scope-list-detail-sql-mismatch, fix-worker-activity-tab-query-live-audit-not-fixture-act-uuid-ids, fix-approvals-list-tenant-scope-empty-despite-seeded-rows) under new GENESIS-MVP P0 block at top of DEMO-RECORDING UNBLOCK. (2) Reverted commit 718fb9f6d (canonical-roster picker) per operator's MVP-with-Genesis scope shift; kept vocab + pronoun sub-fixes. (3) Shipped C (a8e0f5b22 gateway CORS-on-SSE + SPA error-event preservation) and A (7e0ea312d worker-activity Path A fixture extension). (4) Relit workers (halt sentinels removed). (5) Drained 11 PRs post-relight (#2618-#2622 + #2611-#2615 + #2610) under web/test/doc relaxation lane, plus the worker-authored regression PR #2622 for the CORS-on-SSE fix. (6) Closed pre-existing routes-catalog drift (added /api/v1/inbound-channels/<kind>/recent entry) that was blocking ALL post-#2610 merges. (7) Wrote 4 prevention memories (verify-before-fix, agent-heartbeat-staleness, genesis-mvp-must-have, canonical-picker-was-wrong-for-mvp-genesis). (8) Renamed mis-pointed scheduled tasks `genesis---remote` + `the-genesis-agent` to `skycot-ux-e2e-audit-extra-1/2`. CURRENT WORKER STATE: 3 of 5 MVP-DEMO P0s done (fetch-fails MERGED via a8e0f5b22 + #2622; worker-activity Path A MERGED via 7e0ea312d; catch-overwrites inline). 3 remaining CLAIMED + in-flight: PID 75649 (8min) on audit-detail-tenant-scope investigating routes_audit files; PID 80237 (8min) on approvals-list-tenant-scope; PID 37782 (29min) on genesis-idempotency waiting on argo-cli test compile. 2 secondary workers on non-P0 TODOs. Plus #2616 (gateway dev-mode tenant-header) deliberately held — overlap risk with audit-detail worker. Gateway v84 healthy uptime 2h+, CORS headers verified on SSE response, build_commit includes a8e0f5b22 fix. SPA on :3000 turbopack dev. Monitor armed (bash background task) polling every 45s for new PRs + ledger changes on the 5 tracked P0 rows.",
+  "open_prs": 64,
   "queue_state": {
-    "claude_todo": 29,
+    "claude_todo": 27,
     "codex_todo": 0,
     "claude_or_codex_todo": 0,
-    "claude_claimed": 1,
+    "claude_claimed": 5,
     "codex_claimed": 0,
     "claude_or_codex_claimed": 0,
-    "claude_in_review": 72,
+    "claude_in_review": 62,
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "Quiet tick: 0 CLEAN PRs (all 61 open still DIRTY from prior drain). No merges, no demotions, no replenishment. Gateway FRESH; findings within budget; 2 unread handoffs both informational (ack via heartbeat refresh).",
+  "the_gate": "Conductor-active merge cycle. 3/5 MVP-DEMO P0s shipped (Genesis fetch CORS, worker-activity Path A, catch-overwrite); 3 remaining with active workers. 11 unrelated PRs drained from queue post-relight. Routes-catalog drift closed (was blocking all post-#2610 gates). Monitoring for next P0 PR landing.",
   "quota_probe": "skip"
 }
