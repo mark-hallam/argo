@@ -52,15 +52,24 @@ describe("onboarding welcome Genesis framing", () => {
       "Hire your first teammate.",
     );
     expect(screen.getByText(/onboard your first AI teammate/i)).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toHaveTextContent(
-      /plain English/i,
-    );
-    expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toHaveTextContent(
+    const genesisPillar = screen.getByTestId("onboarding-pillar-genesis-studio");
+    expect(genesisPillar).toHaveTextContent(/Genesis . Onboarding Studio/i);
+    expect(genesisPillar).toHaveTextContent(/plain English/i);
+    expect(genesisPillar).toHaveTextContent(
       /charter, action vocabulary, memory schema, and eval suites/i,
     );
-    expect(screen.getByTestId("onboarding-pillar-genesis-studio")).toHaveTextContent(
-      /Voice and SOP uploads coming next/i,
+    expect(genesisPillar).toHaveTextContent(
+      /ready to start work in minutes/i,
     );
+    // The "coming next" footnote buried Genesis as a stub. The flagship
+    // framing reads as a present-tense capability.
+    expect(genesisPillar.textContent ?? "").not.toMatch(/coming next/i);
+
+    // The Genesis CTA is promoted to a tertiary button next to Get
+    // Started, not a tiny underline below it.
+    const genesisLink = screen.getByTestId("onboarding-genesis-link");
+    expect(genesisLink.className).toMatch(/ob-cta-ghost/);
+    expect(genesisLink.textContent ?? "").toMatch(/Genesis studio/);
 
     await user.click(screen.getByTestId("onboarding-welcome-continue"));
     expect(pushMock).toHaveBeenCalledWith("/onboarding/workspace");

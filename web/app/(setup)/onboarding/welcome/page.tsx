@@ -45,11 +45,11 @@ export default function OnboardingWelcomePage() {
             className="ob-pillar"
             data-testid="onboarding-pillar-genesis-studio"
           >
-            <p className="ob-pillar-label">Onboard them like a human</p>
+            <p className="ob-pillar-label">Genesis &middot; Onboarding Studio</p>
             <p className="ob-pillar-body">
-              Describe the role in plain English; Skycot synthesises charter, action
-              vocabulary, memory schema, and eval suites. Voice and SOP uploads
-              coming next.
+              Describe the role in plain English; Skycot synthesises charter,
+              action vocabulary, memory schema, and eval suites &mdash; a real
+              teammate ready to start work in minutes.
             </p>
           </li>
           <li className="ob-pillar" data-testid="onboarding-pillar-enterprise-grade">
@@ -59,7 +59,7 @@ export default function OnboardingWelcomePage() {
             </p>
           </li>
         </ul>
-        <div className="ob-cta-row">
+        <div className="ob-cta-row" data-testid="onboarding-genesis-aside">
           <button
             type="button"
             autoFocus
@@ -72,20 +72,14 @@ export default function OnboardingWelcomePage() {
               ↵
             </span>
           </button>
-        </div>
-        <p
-          className="text-sm opacity-80"
-          data-testid="onboarding-genesis-aside"
-        >
-          Have a stack of role docs to upload?{" "}
           <Link
             href="/genesis?return=/onboarding/welcome"
             data-testid="onboarding-genesis-link"
-            className="underline"
+            className="ob-cta-ghost"
           >
-            Try Genesis studio &rarr;
+            Open Genesis studio &rarr;
           </Link>
-        </p>
+        </div>
       </section>
     </OnboardingShell>
   );
