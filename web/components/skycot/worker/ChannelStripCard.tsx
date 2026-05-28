@@ -196,7 +196,7 @@ function EmptyState({ workerName }: { workerName?: string }) {
         {subject} hasn&apos;t picked up Slack or email yet.
       </p>
       <p className="mt-1 text-[var(--muted-foreground)]">
-        Connect a channel so {subject.toLowerCase() === "this worker" ? "she" : subject} can
+        Connect a channel so {subject.toLowerCase() === "this worker" ? "they" : subject} can
         respond where your team already works.
       </p>
       <Link

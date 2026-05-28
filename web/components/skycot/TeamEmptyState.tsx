@@ -23,7 +23,7 @@ const FEATURE_BULLETS: readonly string[] = [
   "Approvals via Slack, iMessage, SMS, email — your pick.",
   "Learns from your corrections without you editing a config file.",
   "Audit trail for every action — exportable for compliance.",
-  "Pause or adjust her anytime — she's your teammate, not your tool.",
+  "Pause or adjust them anytime — they're your teammate, not your tool.",
 ];
 
 export function TeamEmptyState() {

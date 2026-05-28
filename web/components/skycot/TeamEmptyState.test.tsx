@@ -79,7 +79,10 @@ describe("TeamEmptyState", () => {
     expect(within(list).getByText(/approvals via slack, imessage, sms, email/i)).toBeInTheDocument();
     expect(within(list).getByText(/learns from your corrections/i)).toBeInTheDocument();
     expect(within(list).getByText(/audit trail for every action/i)).toBeInTheDocument();
-    expect(within(list).getByText(/pause or adjust her anytime/i)).toBeInTheDocument();
+    const pauseBullet = within(list).getByText(/pause or adjust them anytime/i);
+    expect(pauseBullet).toBeInTheDocument();
+    expect(pauseBullet.textContent ?? "").toMatch(/they're your teammate/i);
+    expect(pauseBullet.textContent ?? "").not.toMatch(/\b(her|she)\b/i);
   });
 
   it("only renders one h2 — tile titles are h3 so the empty-state heading remains the page sub-section anchor", () => {
