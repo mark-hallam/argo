@@ -41,6 +41,60 @@ export interface WorkflowStep {
 
 export type WorkflowRisk = "approval-required" | "autonomous";
 
+/**
+ * Who last edited the workflow. Discriminant so the card can show a
+ * Bot / User / Layers icon next to "by <name>" — Scene 5 of the v1
+ * demo narrates "workflows can be edited by the AI teammate themself",
+ * which needs a visual anchor on the card.
+ */
+export type WorkflowAuthorType = "worker" | "human" | "template_pack";
+
+/**
+ * Canonical worker roster used to classify `lastEditor` strings. New
+ * worker names go here so fixtures + gateway-derived rows pick up the
+ * `worker` discriminant automatically. `workerId` is the canonical
+ * `/workers/<id>` slug; left as `null` when no real worker page exists
+ * yet (Maya / Patrick aren't in `sample-personas.ts`, so the chip
+ * renders without click-through for those).
+ */
+export const CANONICAL_WORKER_ROSTER: ReadonlyArray<{
+  name: string;
+  workerId: string | null;
+}> = [
+  { name: "Mariah", workerId: "018f67d0-0000-7000-8000-000000000001" },
+  { name: "Priya", workerId: "018f67d0-0000-7000-8000-000000000002" },
+  { name: "Jamal", workerId: "018f67d0-0000-7000-8000-000000000003" },
+  { name: "Nori", workerId: "018f67d0-0000-7000-8000-000000000004" },
+  { name: "Peta", workerId: "018f67d0-0000-7000-8000-000000000007" },
+  { name: "Maya", workerId: null },
+  { name: "Patrick", workerId: null },
+];
+
+const TEMPLATE_PACK_AUTHORS = new Set(["SKYCOT", "system"]);
+
+/**
+ * Derive `authorType` + optional `authorWorkerId` from a `lastEditor`
+ * name. Pure — no I/O — so callers (fixtures + gateway adapters) can
+ * share one classification path.
+ */
+export function classifyAuthor(lastEditor: string): {
+  authorType: WorkflowAuthorType;
+  authorWorkerId?: string;
+} {
+  const trimmed = (lastEditor ?? "").trim();
+  if (!trimmed) return { authorType: "human" };
+  const match = CANONICAL_WORKER_ROSTER.find(
+    (w) => w.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (match) {
+    return match.workerId
+      ? { authorType: "worker", authorWorkerId: match.workerId }
+      : { authorType: "worker" };
+  }
+  if (TEMPLATE_PACK_AUTHORS.has(trimmed)) return { authorType: "template_pack" };
+  return { authorType: "human" };
+}
+
 export interface WorkflowSummary {
   name: string;
   vertical: string;
@@ -49,6 +103,10 @@ export interface WorkflowSummary {
   versions: number;
   lastEdited: string;
   lastEditor: string;
+  /** Discriminant on `lastEditor` — workers, humans, and template packs share name-space. */
+  authorType: WorkflowAuthorType;
+  /** UUID for `/workers/<id>` click-through. Set only when `authorType === "worker"` AND a worker page exists. */
+  authorWorkerId?: string;
   risk: WorkflowRisk;
 }
 
@@ -70,6 +128,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 3,
     lastEdited: "2 days ago",
     lastEditor: "Mariah",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000001",
     risk: "approval-required",
   },
   {
@@ -80,6 +140,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 5,
     lastEdited: "4 hours ago",
     lastEditor: "Priya",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000002",
     risk: "autonomous",
   },
   {
@@ -90,6 +152,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 2,
     lastEdited: "1 week ago",
     lastEditor: "Jamal",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000003",
     risk: "approval-required",
   },
   {
@@ -101,6 +165,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 4,
     lastEdited: "3 days ago",
     lastEditor: "Mariah",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000001",
     risk: "approval-required",
   },
   {
@@ -111,6 +177,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 6,
     lastEdited: "32 minutes ago",
     lastEditor: "Jamal",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000003",
     risk: "autonomous",
   },
   {
@@ -122,6 +190,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 2,
     lastEdited: "1 hour ago",
     lastEditor: "Peta",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000007",
     risk: "autonomous",
   },
   {
@@ -133,6 +203,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 1,
     lastEdited: "20 minutes ago",
     lastEditor: "Nori",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000004",
     risk: "autonomous",
   },
   {
@@ -144,6 +216,8 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     versions: 2,
     lastEdited: "2 days ago",
     lastEditor: "Peta",
+    authorType: "worker",
+    authorWorkerId: "018f67d0-0000-7000-8000-000000000007",
     risk: "autonomous",
   },
 ];

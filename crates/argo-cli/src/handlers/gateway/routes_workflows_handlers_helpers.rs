@@ -40,6 +40,7 @@ pub(super) fn conflict_response(
 }
 
 pub(super) fn definition_json(def: &WorkflowDefinition) -> Value {
+    let (author_type, author_worker_id) = author_chip_from_modified_by(&def.modified_by);
     json!({
         "id": def.id.0,
         "tenant_id": def.tenant_id.to_string(),
@@ -50,10 +51,49 @@ pub(super) fn definition_json(def: &WorkflowDefinition) -> Value {
         "lifecycle_state": def.lifecycle_state.as_str(),
         "created_at": def.created_at,
         "modified_by": def.modified_by,
+        "author_type": author_type,
+        "author_worker_id": author_worker_id,
         "definition_toml": def.definition_toml,
         "substrate": substrate_from_definition_toml(&def.definition_toml),
     })
 }
+
+/// Mirror of `classifyAuthor` in `web/lib/sample-workflows.ts`. Maps a
+/// `modified_by` editor name to an `(author_type, author_worker_id)`
+/// pair so the SPA can render a Bot / User / Layers icon on the
+/// workflow card without re-classifying every gateway-served row.
+/// Names are matched case-insensitively against the canonical roster.
+fn author_chip_from_modified_by(modified_by: &str) -> (&'static str, Option<&'static str>) {
+    let trimmed = modified_by.trim();
+    if trimmed.is_empty() {
+        return ("human", None);
+    }
+    for (name, worker_id) in CANONICAL_WORKER_ROSTER {
+        if trimmed.eq_ignore_ascii_case(name) {
+            return ("worker", *worker_id);
+        }
+    }
+    if trimmed == "SKYCOT" || trimmed == "system" {
+        return ("template_pack", None);
+    }
+    ("human", None)
+}
+
+/// Canonical worker roster mirrored from the SPA-side
+/// `CANONICAL_WORKER_ROSTER`. Names left in display order so the
+/// linear scan in `author_chip_from_modified_by` is predictable. Maya
+/// and Patrick have no `worker_id` because no `/workers/<id>` page
+/// exists for them yet — the chip still renders, just without
+/// click-through.
+const CANONICAL_WORKER_ROSTER: &[(&str, Option<&str>)] = &[
+    ("Mariah", Some("018f67d0-0000-7000-8000-000000000001")),
+    ("Priya", Some("018f67d0-0000-7000-8000-000000000002")),
+    ("Jamal", Some("018f67d0-0000-7000-8000-000000000003")),
+    ("Nori", Some("018f67d0-0000-7000-8000-000000000004")),
+    ("Peta", Some("018f67d0-0000-7000-8000-000000000007")),
+    ("Maya", None),
+    ("Patrick", None),
+];
 
 fn substrate_from_definition_toml(toml: &str) -> &'static str {
     if let Some(explicit) = explicit_substrate(toml) {
@@ -165,4 +205,49 @@ pub(super) fn decode_index_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<Workf
         created_at,
         modified_by,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::author_chip_from_modified_by;
+
+    #[test]
+    fn worker_name_maps_to_worker_with_id() {
+        let (kind, id) = author_chip_from_modified_by("Mariah");
+        assert_eq!(kind, "worker");
+        assert_eq!(id, Some("018f67d0-0000-7000-8000-000000000001"));
+    }
+
+    #[test]
+    fn worker_match_is_case_insensitive() {
+        let (kind, id) = author_chip_from_modified_by("priya");
+        assert_eq!(kind, "worker");
+        assert_eq!(id, Some("018f67d0-0000-7000-8000-000000000002"));
+    }
+
+    #[test]
+    fn worker_without_page_omits_id() {
+        let (kind, id) = author_chip_from_modified_by("Patrick");
+        assert_eq!(kind, "worker");
+        assert_eq!(id, None);
+    }
+
+    #[test]
+    fn template_pack_authors_classified() {
+        assert_eq!(author_chip_from_modified_by("SKYCOT").0, "template_pack");
+        assert_eq!(author_chip_from_modified_by("system").0, "template_pack");
+    }
+
+    #[test]
+    fn unknown_name_falls_through_to_human() {
+        let (kind, id) = author_chip_from_modified_by("Operator");
+        assert_eq!(kind, "human");
+        assert_eq!(id, None);
+    }
+
+    #[test]
+    fn empty_string_classified_as_human() {
+        assert_eq!(author_chip_from_modified_by("").0, "human");
+        assert_eq!(author_chip_from_modified_by("   ").0, "human");
+    }
 }

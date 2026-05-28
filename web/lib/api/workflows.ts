@@ -49,6 +49,8 @@ import { isDemoLive } from "@/lib/skycot/demo-mode";
 import {
   SAMPLE_WORKFLOW_SPECS,
   SAMPLE_WORKFLOW_SUMMARIES,
+  classifyAuthor,
+  type WorkflowAuthorType,
   type WorkflowRisk,
   type WorkflowSpec,
   type WorkflowStep,
@@ -97,6 +99,9 @@ export interface GatewayWorkflowItem {
   lifecycle_state?: string;
   created_at?: string;
   modified_by?: string;
+  /** Server-side discriminant (#fix-workflow-card-author-type-discriminant-chip). Falls through to client `classifyAuthor` when absent. */
+  author_type?: string;
+  author_worker_id?: string | null;
   definition_toml?: string;
   substrate?: string | null;
 }
@@ -232,6 +237,8 @@ export async function fetchWorkflow(
 export function summaryFromGatewayItem(item: GatewayWorkflowItem): WorkflowSummaryWithSubstrate {
   const parsed = parseStepsFromToml(item.definition_toml ?? "");
   const description = parsed.description || `Workflow ${item.name} in ${item.vertical_id}.`;
+  const lastEditor = item.modified_by ?? "—";
+  const author = resolveAuthor(item, lastEditor);
   return {
     name: item.name,
     vertical: item.vertical_id,
@@ -239,10 +246,26 @@ export function summaryFromGatewayItem(item: GatewayWorkflowItem): WorkflowSumma
     steps: parsed.steps.length,
     versions: Math.max(1, Number(item.version) || 1),
     lastEdited: item.created_at ?? "—",
-    lastEditor: item.modified_by ?? "—",
+    lastEditor,
+    authorType: author.authorType,
+    authorWorkerId: author.authorWorkerId,
     risk: parsed.risk,
     substrate: normalizeWorkflowSubstrate(item.substrate) ?? parsed.substrate,
   };
+}
+
+function resolveAuthor(
+  item: GatewayWorkflowItem,
+  lastEditor: string,
+): { authorType: WorkflowAuthorType; authorWorkerId?: string } {
+  const declared = item.author_type;
+  if (declared === "worker" || declared === "human" || declared === "template_pack") {
+    return {
+      authorType: declared,
+      authorWorkerId: item.author_worker_id ?? undefined,
+    };
+  }
+  return classifyAuthor(lastEditor);
 }
 
 export function specFromGatewayItem(item: GatewayWorkflowItem): WorkflowSpecWithSubstrate {

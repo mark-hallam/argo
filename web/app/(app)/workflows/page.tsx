@@ -6,6 +6,7 @@ import Link from "next/link";
 import { GitBranch, ArrowRight, Plus, Search, Clock, Sparkles } from "lucide-react";
 import { WorkflowProposeModal } from "@/components/skycot/WorkflowProposeModal";
 import { SubstrateChip } from "@/components/skycot/workflow/SubstrateChip";
+import { WorkflowAuthorChip } from "@/components/skycot/workflows/WorkflowCard";
 import { HoverHint } from "@/components/ui/Tooltip";
 import { resolveWorkflowSubstrate } from "@/lib/api/workflows";
 import { formatVersion } from "@/lib/format/version";
@@ -289,7 +290,11 @@ export default function WorkflowsPage() {
                   <Clock size={11} /> {wf.lastEdited}
                 </span>
                 <SubstrateChip substrate={substrate} status="idle" compact />
-                <span className="workflow-card-meta-item">by {wf.lastEditor}</span>
+                <WorkflowAuthorChip
+                  authorType={wf.authorType}
+                  authorName={wf.lastEditor}
+                  authorWorkerId={wf.authorWorkerId}
+                />
               </div>
 
               <ArrowRight size={18} className="workflow-card-arrow" />
