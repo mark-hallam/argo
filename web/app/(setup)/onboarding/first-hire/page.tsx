@@ -12,8 +12,14 @@ import { FirstHireErrorBanner } from "@/components/skycot/onboarding/FirstHireEr
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
+// Placeholder intentionally avoids cadence words ("weekly", "daily") —
+// the wizard only POSTs {description, vertical_id} today; cadence is set
+// later on the worker detail page's Schedules card. Phase 2 (Genesis
+// parsing) will earn back the right to promise schedule extraction here;
+// until then the copy must not write a cheque the wiring can't cash.
+// See brief fix-first-hire-cta-copy-promises-weekly-schedule-not-parsed.
 const EXAMPLE_PROMPT =
-  "A marketing intern named Maya who drafts blog posts and runs weekly competitive scans.";
+  "A marketing intern named Maya who drafts blog posts and asks before publishing.";
 
 export default function OnboardingFirstHirePage() {
   const router = useRouter();
@@ -52,6 +58,17 @@ export default function OnboardingFirstHirePage() {
         verticalId,
       });
       reset();
+      // sessionStorage flag drives the one-shot "Set their schedule"
+      // callout on the worker overview page; per-tab + cleared on first
+      // read, so a reload doesn't re-surface it. URL stays clean so the
+      // demo-mode redirect regex pin in `onboarding-demo-mode-first-hire
+      // -lands-on-worker.spec.ts` still matches. See brief
+      // fix-first-hire-cta-copy-promises-weekly-schedule-not-parsed.
+      try {
+        sessionStorage.setItem("skycot:just-hired", res.workerId);
+      } catch {
+        /* private mode / storage disabled — silently degrade */
+      }
       // Hire-complete redirect: /workers/<id> is the canonical worker
       // profile route (per (app)/workers/[workerId]/...). Previous code
       // pushed /team/<id> which doesn't exist and 404'd new users at
@@ -92,8 +109,8 @@ export default function OnboardingFirstHirePage() {
       ]}
       sub={
         <>
-          Plain English is fine. Give them a{" "}
-          <strong>name, a role, and what they should do this week</strong>.
+          Plain English is fine. Give them a <strong>name and a role</strong>.
+          You can set their schedule after they're hired.
         </>
       }
     >
