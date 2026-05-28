@@ -34,6 +34,20 @@ vi.mock("@/lib/hooks/use-team", () => ({
   useTeam: () => useTeamMock(),
 }));
 
+// Stub the 7-day audit feed that the hero now reads for the real
+// Actions/wk count. Each test that needs a specific value overrides
+// via `useAuditFeedMock.mockReturnValue(...)`. The default returns
+// zero rows so the hero defaults to the brand-new-tenant state — the
+// canonical case the brief closes ("Maya, 0 actions, idle").
+type AuditQueryShape = {
+  data: { pages: Array<{ rows: unknown[] }> } | undefined;
+  isPending: boolean;
+};
+const useAuditFeedMock = vi.fn<() => AuditQueryShape>();
+vi.mock("@/lib/hooks/use-audit-feed", () => ({
+  useAuditFeed: () => useAuditFeedMock(),
+}));
+
 // Replace TeammateCard with a thin stub. The card has its own
 // test file (TeammateCard.test.tsx); page-level tests assert the
 // page's filtering / routing / empty-state logic and just need a
@@ -84,6 +98,11 @@ beforeEach(() => {
     isPending: false,
     isError: false,
     refetch: refetchMock,
+  });
+  useAuditFeedMock.mockReset();
+  useAuditFeedMock.mockReturnValue({
+    data: { pages: [{ rows: [] }] },
+    isPending: false,
   });
 });
 
@@ -281,32 +300,126 @@ describe("TeamPage", () => {
     );
   });
 
-  // Pinned to keep us honest about hero KPIs being synthesized from
-  // worker count (Actions/wk = N × 187, Hours saved = N × 12) until
-  // real activity-data wiring lands. The "≈ sample" eyebrows + sub
-  // copy "(sample)" tag are the visible-on-camera honesty signal that
-  // these are placeholders, not facts.
-  it("tags the synthetic Actions/wk and Hours saved KPIs with a sample eyebrow", () => {
+  // Regression pin for fix-team-page-hero-hardcoded-weekly-actions-
+  // hours-saved. The original synthesis (`workers.length * 187` and
+  // `workers.length * 12`) is replaced by a real read from
+  // `/api/v1/audit?range=7d`. The Hours-saved KPI is dropped entirely
+  // because there is no real signal to derive it from honestly, and
+  // per `feedback_no_theater_in_demo` the v1.0 demo MP4 must not
+  // dress synthesis as fact.
+
+  it("renders only the Working + Actions/wk KPIs (no Hours-saved tile)", () => {
     render(<TeamPage />);
-    const eyebrows = screen.getAllByTestId("brandloud-kpi-sample-eyebrow");
-    expect(eyebrows).toHaveLength(2);
-    for (const node of eyebrows) {
-      expect(node).toHaveTextContent(/sample/i);
-    }
+    // "Working" matches the status-filter option too — scope to the
+    // BrandLoudHero KPI label class via getAllByText, then filter for
+    // the KPI-label nodes only.
+    const kpiLabels = screen
+      .getAllByText(/Working|Actions\/wk|Hours saved/i)
+      .filter((el) => el.className.includes("skycot-brandloud-kpi-label"));
+    expect(kpiLabels.map((n) => n.textContent)).toEqual(["Working", "Actions/wk"]);
   });
 
-  it("does not tag the real Working KPI with a sample eyebrow", () => {
+  it("does not tag any KPI with a 'sample' eyebrow — both shown KPIs are real", () => {
     render(<TeamPage />);
-    const eyebrows = screen.getAllByTestId("brandloud-kpi-sample-eyebrow");
-    // Only the two synthetic KPIs (Actions/wk, Hours saved) carry
-    // the eyebrow; the Working count is a real aggregation.
-    expect(eyebrows).toHaveLength(2);
+    expect(screen.queryAllByTestId("brandloud-kpi-sample-eyebrow")).toHaveLength(0);
   });
 
-  it("flags the hero sub copy as a sample so the camera sees honest framing", () => {
+  it("sources Actions/wk from the real /api/v1/audit?range=7d feed, not workers.length × 187", () => {
+    // 3 workers in the roster, 4 real audit rows in the 7-day window.
+    // Under the old synthesis this would have rendered 561 (= 3 × 187).
+    // Under the new derivation it MUST render 4.
+    useAuditFeedMock.mockReturnValue({
+      data: { pages: [{ rows: [{}, {}, {}, {}] }] },
+      isPending: false,
+    });
+    render(<TeamPage />);
+    const actionsKpiLabel = screen
+      .getAllByText(/^Actions\/wk$/)
+      .find((el) => el.className.includes("skycot-brandloud-kpi-label"))!;
+    const actionsKpi = actionsKpiLabel.parentElement!;
+    expect(actionsKpi).toHaveTextContent("4");
+    expect(actionsKpi).not.toHaveTextContent("561");
+    // The legacy 187 / 12 / "hours saved (sample)" strings must never
+    // resurface anywhere on the hero — the regression that the brief
+    // exists to close.
+    expect(screen.queryByText(/187/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/hours saved \(sample\)/i)).not.toBeInTheDocument();
+  });
+
+  it("shows '0 actions this week' for a brand-new tenant with zero audit rows", () => {
+    // Maya the receptionist, just hired, no actions yet — the
+    // canonical case the brief closes. The sub copy must reflect
+    // the idle reality, not "187 actions this week".
+    useTeamMock.mockReturnValue({
+      data: {
+        workers: [SAMPLE_WORKERS[0]!],
+        source: "mock-offline",
+      },
+      isPending: false,
+      isError: false,
+      refetch: refetchMock,
+    });
+    // Force the single worker to be idle so the hero hits the
+    // working === 0 branch even though the SAMPLE_WORKERS[0] fixture
+    // has status: "working".
+    useTeamMock.mockReturnValue({
+      data: {
+        workers: [{ ...SAMPLE_WORKERS[0]!, status: "idle" }],
+        source: "mock-offline",
+      },
+      isPending: false,
+      isError: false,
+      refetch: refetchMock,
+    });
+    useAuditFeedMock.mockReturnValue({
+      data: { pages: [{ rows: [] }] },
+      isPending: false,
+    });
+    render(<TeamPage />);
+    expect(screen.queryByText(/187 actions/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/hours saved/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/just hired — no actions yet/i),
+    ).toBeInTheDocument();
+  });
+
+  it("flips the singular-teammate hero title to 'Your team is ready' when working === 0 (closes Agent 2 F7)", () => {
+    // One worker hired, none currently working — the title MUST NOT
+    // say "Your first teammate is working" while the Working KPI
+    // reads 0. Brief Agent 2 finding F7.
+    useTeamMock.mockReturnValue({
+      data: {
+        workers: [{ ...SAMPLE_WORKERS[0]!, status: "idle" }],
+        source: "mock-offline",
+      },
+      isPending: false,
+      isError: false,
+      refetch: refetchMock,
+    });
     render(<TeamPage />);
     expect(
-      screen.getByText(/actions this week.*hours saved \(sample\)/i),
+      screen.getByRole("heading", { level: 1, name: /your team is ready/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 1, name: /your first teammate is working/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps 'Your first teammate is working' for a single worker that IS working", () => {
+    // SAMPLE_WORKERS[0] (status: "working") + at least one audit row
+    // → the original headline is honest because the KPI matches.
+    useTeamMock.mockReturnValue({
+      data: {
+        workers: [SAMPLE_WORKERS[0]!],
+        source: "mock-offline",
+      },
+      isPending: false,
+      isError: false,
+      refetch: refetchMock,
+    });
+    render(<TeamPage />);
+    expect(
+      screen.getByRole("heading", { level: 1, name: /your first teammate is working/i }),
     ).toBeInTheDocument();
   });
 });

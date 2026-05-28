@@ -21,6 +21,7 @@ import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
 import { TeamFilterChipRail } from "@/components/skycot/TeamFilterChipRail";
 import { isDataSourceChipVisible } from "@/lib/skycot/demo-mode";
+import { useAuditFeed } from "@/lib/hooks/use-audit-feed";
 import { useTeam } from "@/lib/hooks/use-team";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { FetchTeamResult } from "@/lib/api/team";
@@ -147,12 +148,12 @@ function TeamPageContent() {
     [workers, filters],
   );
 
-  // weeklyActions/hoursSaved are placeholders until real activity
-  // data wires in (Phase 2); flagged isSample below so the hero
-  // tags them as estimates rather than passing them off as facts.
+  // weeklyActions reads from the real /api/v1/audit?range=7d feed —
+  // brand-new tenants surface a real 0. Hours-saved is intentionally
+  // omitted: no real signal exists to derive it honestly.
   const workingCount = workers.filter((w) => w.status === "working").length;
-  const weeklyActions = workers.length > 0 ? workers.length * 187 : 0;
-  const hoursSaved = workers.length > 0 ? workers.length * 12 : 0;
+  const auditQuery = useAuditFeed({ range: "7d" });
+  const weeklyActions = auditQuery.data?.pages?.[0]?.rows.length ?? 0;
 
   return (
     <>
@@ -160,7 +161,6 @@ function TeamPageContent() {
         total={total}
         working={workingCount}
         weeklyActions={weeklyActions}
-        hoursSaved={hoursSaved}
       />
       <PageHeader
         total={total}
@@ -457,34 +457,31 @@ function ClearAllButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/**
- * Team hero — C2 holographic-showcase brand-loud banner.
- *
- * Wraps the shared `<BrandLoudHero>` with the team-specific copy and
- * KPIs. Empty / single / multi states drive the headline; the dot
- * pulses to convey "your AI workforce is alive".
- */
+// Team hero — C2 holographic-showcase brand-loud banner.
+// When total > 0 but working === 0, the title flips to "Your team is
+// ready" instead of contradicting the KPI strip with "is working".
 function TeamHero({
   total,
   working,
   weeklyActions,
-  hoursSaved,
 }: {
   total: number;
   working: number;
   weeklyActions: number;
-  hoursSaved: number;
 }) {
+  const idle = total > 0 && working === 0;
   const title =
     total === 0
       ? "Hire your first teammate."
       : total === 1
-        ? "Your first teammate is working."
+        ? idle ? "Your team is ready." : "Your first teammate is working."
         : `${total} teammates, one team.`;
   const sub =
     total === 0
       ? "No teammates yet. Pick a vertical to hire one — they'll be reachable via your web inbox, email, and the channels you connect in Settings."
-      : `${working} working right now · ~${weeklyActions.toLocaleString()} actions this week · ~${hoursSaved} hours saved (sample).`;
+      : idle && weeklyActions === 0
+        ? "Just hired — no actions yet. Give them a task to get started."
+        : `${working} working right now · ${weeklyActions.toLocaleString()} actions this week.`;
   return (
     <BrandLoudHero
       eyebrowDotColor="#f0fdf4"
@@ -498,11 +495,11 @@ function TeamHero({
         total > 0
           ? [
               { label: "Working", value: String(working) },
-              { label: "Actions/wk", value: weeklyActions.toLocaleString(), isSample: true },
-              { label: "Hours saved", value: String(hoursSaved), isSample: true },
+              { label: "Actions/wk", value: weeklyActions.toLocaleString() },
             ]
           : undefined
       }
     />
   );
 }
+
