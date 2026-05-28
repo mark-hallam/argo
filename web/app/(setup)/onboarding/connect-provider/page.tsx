@@ -224,7 +224,7 @@ export default function OnboardingConnectProviderPage() {
               type="password"
               value={apiKey}
               onChange={(e) => onApiKeyChange(e.target.value)}
-              placeholder="sk-ant-..."
+              placeholder={demoMode ? "sk-ant-anything-works-here-in-demo" : "sk-ant-..."}
               autoComplete="off"
               aria-label="Anthropic API key"
               spellCheck={false}
