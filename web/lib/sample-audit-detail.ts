@@ -11,8 +11,14 @@
  * SSR/CSR strings match.
  */
 import { SAMPLE_AUDIT_ROWS } from "@/lib/sample-audit";
+import {
+  ACTIVITY_TAB_SEEDS,
+  activityIdFor,
+  type ActivityTabSeed,
+} from "@/lib/sample-worker-activity";
 import type { AuditDetail, DecisionStep } from "@/lib/types/audit-detail";
 import type { AuditRow, AuditStatus, DataClassification } from "@/lib/types/audit";
+import type { WorkerActivityActionType } from "@/lib/api/worker-activity";
 
 const PRIYA = { id: "018f67d0-0000-7000-8000-000000000002", name: "Priya" };
 const PETA = { id: "018f67d0-0000-7000-8000-000000000007", name: "Peta" };
@@ -351,6 +357,80 @@ const PETA_OVERVIEW: OverviewActivitySeed[] = [
   { idSuffix: 15, minutesAgo: 2880, verb: "asked PM about priority shift for sprint 14", actionType: "spend_approval_asked", status: "pending", approver: MARK, skill: { id: "project-coord-clarify", version: "1.0.0" } },
 ];
 
+/** Build an `AuditDetail` for one row of the full Activity-tab feed
+ * (`/workers/<id>/activity`). Mirrors `overviewActivityDetail` but
+ * sources the verb / actionType / status / cost from the Activity-tab
+ * Seed shape, which is a strict subset of the Overview seed's fields.
+ * IDs round-trip through `activityIdFor(persona.initials, index)`. */
+function activityTabDetail(
+  worker: { id: string; name: string },
+  personaSlug: string,
+  initials: string,
+  seed: ActivityTabSeed,
+  index: number,
+): AuditDetail {
+  const sentAt = new Date(Date.now() - seed.agoMs).toISOString();
+  const skill = { id: `${personaSlug.toLowerCase()}-activity`, version: "1.0.0" };
+  return {
+    id: activityIdFor(initials, index),
+    timestamp: sentAt,
+    worker,
+    actionType: seed.actionType as unknown as string,
+    verb: seed.verb,
+    status: seed.status as AuditStatus,
+    cost: seed.costUsd !== undefined ? { usd: seed.costUsd } : undefined,
+    inputs: {
+      triggerKind: "message",
+      triggerSummary: `Surfaced from the worker activity tab · ${seed.actionType}.`,
+    },
+    decisionChain: [
+      { n: 1, title: "Memory loaded", body: "context (cached) · operator routines" },
+      { n: 2, title: `Skill: ${skill.id} v${skill.version} (trust 90%)`, body: "Confidence above autonomy threshold." },
+      { n: 3, title: "Plan generated", body: "Primary plan + 2 alternates considered." },
+      { n: 4, title: "Plan selected by score", body: "Top plan 0.86; alternates 0.71 / 0.59." },
+      { n: 5, title: "Policy check", body: "Action permitted by policy." },
+      seed.status === "pending"
+        ? { n: 6, title: "Approval", body: "Pending operator review." }
+        : seed.status === "refused"
+          ? { n: 6, title: "Approval", body: "Refused — policy boundary." }
+          : { n: 6, title: "Approval", body: "Autonomous — within policy envelope." },
+      { n: 7, title: "Execution", body: "Executor dispatched." },
+      {
+        n: 8,
+        title: "Outcome",
+        body:
+          seed.status === "succeeded"
+            ? "Completed."
+            : seed.status === "refused"
+              ? "Action refused; no side-effects."
+              : seed.status === "failed"
+                ? "Executor returned error; rolled back."
+                : "Awaiting reviewer.",
+      },
+    ],
+    provenance: {
+      model: { id: "claude-opus-4-7", version: "2026-04-30" },
+      promptTemplate: { id: `${skill.id}.activity`, hash: "a02b03c04d05e06f" },
+      skill,
+      memorySnapshot: { id: `mem_${personaSlug.toLowerCase()}_activity` },
+      policy: { id: `${personaSlug.toLowerCase()}-operator-policy`, version: "1.0", hash: "22334455bbccddee" },
+    },
+    output: {
+      kind: "text",
+      body: `${seed.verb}.\n\nSurfaced via the worker activity tab.`,
+      delivery: { sentAt },
+    },
+  };
+}
+
+const ACTIVITY_TAB_DETAILS: AuditDetail[] = [
+  ...ACTIVITY_TAB_SEEDS.PRIYA.map((s, i) => activityTabDetail(PRIYA, "PRIYA", "PR", s, i)),
+  ...ACTIVITY_TAB_SEEDS.MARIAH.map((s, i) => activityTabDetail(MARIAH, "MARIAH", "MA", s, i)),
+  ...ACTIVITY_TAB_SEEDS.JAMAL.map((s, i) => activityTabDetail(JAMAL, "JAMAL", "JA", s, i)),
+  ...ACTIVITY_TAB_SEEDS.NORI.map((s, i) => activityTabDetail(NORI, "NORI", "NO", s, i)),
+  ...ACTIVITY_TAB_SEEDS.PETA.map((s, i) => activityTabDetail(PETA, "PETA", "PE", s, i)),
+];
+
 export const SAMPLE_AUDIT_DETAILS: AuditDetail[] = [
   PRIYA_001,
   PETA_001,
@@ -362,6 +442,7 @@ export const SAMPLE_AUDIT_DETAILS: AuditDetail[] = [
   ...JAMAL_OVERVIEW.map((s) => overviewActivityDetail(JAMAL, "JAMAL", s)),
   ...NORI_OVERVIEW.map((s) => overviewActivityDetail(NORI, "NORI", s)),
   ...PETA_OVERVIEW.map((s) => overviewActivityDetail(PETA, "PETA", s)),
+  ...ACTIVITY_TAB_DETAILS,
 ];
 
 /** Synthesise a "good-enough" detail from a feed `AuditRow` so click-

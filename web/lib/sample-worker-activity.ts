@@ -182,10 +182,23 @@ const NORI: Seed[] = [
   },
 ];
 
+/**
+ * Canonical Activity-tab ID format — `act_01J0<INITIALS>_0NN` where NN
+ * starts at 21 (the Overview-tab activity card uses _011-_015; we
+ * carve out _021+ for the full Activity tab so drill-in entries don't
+ * collide). Mirrored by `activityDetailFor(persona, seed, i)` in
+ * `sample-audit-detail.ts`. Keep the two functions byte-aligned —
+ * `sample-worker-activity-ids-resolve.test.ts` pins every id round-
+ * trips through `findSampleAuditDetail()`.
+ */
+export function activityIdFor(initials: string, i: number): string {
+  return `act_01J0${initials.toUpperCase()}_0${(21 + i).toString().padStart(2, "0")}`;
+}
+
 function build(workerId: string, seeds: Seed[]): WorkerActivity[] {
   const persona = getSamplePersona(workerId);
   return seeds.map((seed, i) => ({
-    id: `act_${workerId}_${i.toString().padStart(3, "0")}`,
+    id: activityIdFor(persona.initials, i),
     workerId: persona.id,
     workerName: persona.name,
     workerInitials: persona.initials,
@@ -197,6 +210,20 @@ function build(workerId: string, seeds: Seed[]): WorkerActivity[] {
     costBreakdown: seed.costBreakdown,
   }));
 }
+
+// Re-export the per-persona seed arrays so `sample-audit-detail.ts` can
+// build matching `AuditDetail` entries without duplicating the verb /
+// timestamp / actionType data. The shape of `Seed` is intentionally
+// minimal — just what the Activity row card needs — so duplication
+// would drift.
+export const ACTIVITY_TAB_SEEDS = {
+  PRIYA,
+  PETA,
+  MARIAH,
+  JAMAL,
+  NORI,
+} as const;
+export type { Seed as ActivityTabSeed };
 
 export const SAMPLE_WORKER_ACTIVITY: Record<string, WorkerActivity[]> = {
   "018f67d0-0000-7000-8000-000000000002": build("018f67d0-0000-7000-8000-000000000002", PRIYA),
