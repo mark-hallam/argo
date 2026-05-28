@@ -1,9 +1,9 @@
 {
   "agent": "conductor",
-  "last_run_utc": "2026-05-28T01:40:00Z",
+  "last_run_utc": "2026-05-28T02:06:53Z",
   "expected_cadence_seconds": 1200,
-  "session_label": "tick-T11-40-aest-scheduled",
-  "run_notes": "Scheduled tick fired ~10min after the T11-30-aest INTERACTIVE FULL-DRAIN commit (e300826d1). Step-0..4 sync: git fetch clean; recent-conductor-commit check exit=0 (no short-circuit, 3 ghost-stamped SHARED.md entries flagged from T08-30 / T10-00 / T13-25 — content matches real merges, future-AEST timestamps appear to come from a session with clock skew; not blocking). Step-4.5 LATEST.md audit is 4 days old (2026-05-24, no fresh <=12h P0s). Step-4.5b unread-handoffs check exit=0 (cutoff 2026-05-28T01:30:00Z, no unread). Step-4.7 gateway v83/v84 drift=1 FRESH. Step-4.8 findings-only: all 4 within budget (2 days remaining to 2026-05-30). Step-5 NO MERGE ACTIONS — all 61 open PRs are CONFLICTING/DIRTY (cascade conflicts from the 87-PR drain wave); 0 CLEAN. Step-5c stale IN_REVIEW: deferred — the DIRTY PRs are <2h since the drain wave finished; let workers rebase. Step-7 BLOCKED triage: nothing to unblock from recent merges. Step-8 replenishment: NOT TRIGGERED — claude_todo=29 above threshold 25. The single CLAIMED row (`fix-spa-inbound-channels-webhook-urls-and-recent-activity`) was claimed at 2026-05-28T01:24:39Z (~16min ago, well under 2h zombie threshold) — leave alone. Worker process audit: 12+ claude-worker-loop bash processes alive (supervisor should run 2) — surface-only, prior tick already flagged this; operator may want clean restart. v1.0 ship-gate state unchanged: 6/6 mission claims LIVE; only operator-only demo MP4 record remains.",
+  "session_label": "tick-T12-06-aest-scheduled",
+  "run_notes": "Scheduled tick ~27min after prior T11-40 tick. Step-0..4 sync: git fetch clean; recent-conductor-commit exit=0 (no short-circuit). Step-4.5 LATEST.md audit still 4 days old (2026-05-24, no fresh <=12h P0s). Step-4.5b unread-handoffs check returned 2 unread (cutoff 2026-05-28T01:40:00Z), both informational from supervisor-watchdog at 2026-05-28T01:54:47Z: (a) sup=PID:97586/rc:0 ACTIVE/IDLE slot status, (b) slot-2 PID 54484 alive 1h42m + log silent 68min after result:success shipping PR #2605 — strict R5 trigger intentionally excludes result-success-only logs, monitoring (no kill). Both ack-via-heartbeat-refresh per protocol ACK PATH. Step-4.7 gateway v83/v84 drift=1 FRESH. Step-4.8 findings-only: all 4 within budget (2 days remaining to 2026-05-30). Step-5 NO MERGE ACTIONS — all 61 open PRs still DIRTY (cascade from prior drain wave; workers still rebasing). 0 CLEAN. Step-5c stale IN_REVIEW deferred: 72 IN_REVIEW rows but DIRTY-since-drain still under 2h-stale threshold; let workers continue. Step-7 BLOCKED triage: 41 BLOCKED rows, nothing unblocked by recent merges (none this tick). Step-8 replenishment: NOT TRIGGERED — claude_todo=29 above threshold 25. Single CLAIMED row `fix-spa-inbound-channels-webhook-urls-and-recent-activity` still alive (~42min old, no zombie demote). Drift sweep: 0 drift rows. v1.0 ship-gate state unchanged: 6/6 mission claims LIVE; only operator-only demo MP4 record remains.",
   "open_prs": 61,
   "queue_state": {
     "claude_todo": 29,
@@ -16,6 +16,6 @@
     "codex_in_review": 0,
     "claude_or_codex_in_review": 0
   },
-  "the_gate": "Quiet tick: 0 CLEAN PRs (all 61 open are DIRTY cascade conflicts from the prior tick's 87-PR drain). No merges, no demotions, no replenishment. Gateway FRESH; findings within budget; no unread handoffs. Worker process count remains elevated (12+ loops vs supervisor cap 2) — flagged but not killed.",
+  "the_gate": "Quiet tick: 0 CLEAN PRs (all 61 open still DIRTY from prior drain). No merges, no demotions, no replenishment. Gateway FRESH; findings within budget; 2 unread handoffs both informational (ack via heartbeat refresh).",
   "quota_probe": "skip"
 }
