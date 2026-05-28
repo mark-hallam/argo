@@ -386,6 +386,17 @@ current CLI-only surface is a v0 placeholder, not the product.
 **Pass cue**: `argo audit verify` prints `OK` with a non-zero
 row count and zero breaks against the recording session's DB.
 
+**Audit drill-in deep-link contract** (Scene 6 row-click target):
+- Row click pushes a full route, not a modal:
+  `/audit/action/<actionId>` (and `/audit/action/<actionId>/replay`
+  for the Replay sub-flow). Deep-linkable, browser back-button
+  works natively, and the Replay sub-page chains cleanly.
+- This route shape supersedes the original 2026-05-18
+  `project_audit_page_design_locked` "pop-out modal" framing; the
+  rest of the locked Etherscan-style design (Inter, monospace
+  hashes, sticky day header) is unchanged. See
+  `streams/fix-audit-page-design-memo-vs-implementation-modal-route-decision.md`.
+
 **Timing**: 6:40 – 8:00 (80 s).
 
 ---

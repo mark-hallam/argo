@@ -15,7 +15,7 @@ import {
 
 /**
  * Sticky page header for the `/audit` route. Renders:
- *  - title "Audit" + subtitle "Forensic + compliance view"
+ *  - title "Audit" + subtitle "Every action, hash-chained and replayable."
  *  - action row: Filter trigger (icon-only — E5-b ships the popover
  *    via the optional `filterTrigger` slot; absent ⇒ legacy button
  *    wired to `onFilterClick`), time-range dropdown (8 options +
@@ -66,7 +66,7 @@ export function AuditPageHeader({
               className="text-sm text-[var(--muted-foreground)]"
               data-testid="audit-subtitle"
             >
-              Forensic + compliance view
+              Every action, hash-chained and replayable.
             </p>
           </div>
 

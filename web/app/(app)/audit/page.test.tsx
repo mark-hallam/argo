@@ -114,7 +114,7 @@ describe("AuditPage", () => {
     render(<AuditPage />);
     expect(screen.getByRole("heading", { name: "Audit" })).toBeInTheDocument();
     expect(screen.getByTestId("audit-subtitle")).toHaveTextContent(
-      /forensic \+ compliance view/i,
+      /every action, hash-chained and replayable\./i,
     );
     expect(screen.getByTestId("audit-filter-trigger")).toBeInTheDocument();
     expect(screen.getByTestId("audit-range-select")).toBeInTheDocument();
