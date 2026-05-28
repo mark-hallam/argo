@@ -141,7 +141,7 @@ export default function OnboardingConnectProviderPage() {
       sub={
         demoMode ? (
           <>
-            Demo mode — workers run with a <strong>mock provider</strong> (simulated responses).
+            Workers run with a <strong>mock provider</strong> (simulated responses).
             Type any <code>sk-ant-</code> key to continue; no Anthropic call is made.
           </>
         ) : (

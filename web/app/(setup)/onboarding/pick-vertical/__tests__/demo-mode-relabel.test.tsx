@@ -7,9 +7,13 @@
  *   (subtitle does NOT claim "We install ..." as a present-tense
  *   action in demo mode);
  * - the chip-clutter cleanup from
- *   `fix-onboarding-pick-vertical-demo-mode-chip-clutter` (one page-
- *   level banner replaces the per-card chip, so the buyer still sees
- *   the install is deferred but the 7-card grid stops shouting it).
+ *   `fix-onboarding-pick-vertical-demo-mode-chip-clutter` (no per-
+ *   card demo chips, so the 7-card grid stops shouting it);
+ * - the page-level demo banner dedupe from
+ *   `fix-onboarding-per-step-demo-banner-dedupe-against-global-shell-banner`
+ *   (the page-level banner is removed — the shell-wide
+ *   `DemoModeBanner` mounted on `WizardEditorialShell` is the single
+ *   demo-mode indicator now).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -122,18 +126,18 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders one demo-mode banner above the grid and NO per-card demo chips", () => {
+  it("renders NO page-level demo banner and NO per-card demo chips (shell banner dedupe)", () => {
     demoModeMock.isDemoMode.mockReturnValue(true);
 
     render(<OnboardingPickVerticalPage />);
 
-    // One page-level banner explains install-deferred state.
-    const banner = screen.getByTestId("pick-vertical-demo-banner");
-    expect(banner).toHaveTextContent(/Demo mode/i);
-    expect(banner).toHaveTextContent(/install deferred/i);
-    expect(banner.textContent ?? "").toMatch(
-      /connect a real provider in Settings/i,
-    );
+    // The page-level banner that previously sat below the back-CTA row
+    // has been removed. Demo-mode framing is now carried by the
+    // shell-wide `DemoModeBanner` mounted on `WizardEditorialShell`
+    // (F15 dedupe); the page must not render its own competing banner.
+    expect(
+      screen.queryByTestId("pick-vertical-demo-banner"),
+    ).not.toBeInTheDocument();
 
     // None of the 7 fallback tiles carry the old per-card chip.
     const expectedTiles = [
