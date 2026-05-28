@@ -34,10 +34,10 @@ export default function WorkerDetailError({
             Try again
           </button>
           <Link
-            href="/team"
+            href="/workers"
             className={buttonVariants({ variant: "secondary", size: "md" })}
           >
-            Back to team
+            Back to workers
           </Link>
         </>
       }

@@ -10,6 +10,12 @@ const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   typedRoutes: true,
+  // Canonical paths are no-slash. Without this, Next.js still strips
+  // a trailing slash but does it via a 308 redirect on cold visits,
+  // adding a hop (~50ms TTFB) for shared links like `/landing/`.
+  // Explicit `false` short-circuits the redirect for the canonical
+  // form and keeps non-canonical forms a single 308.
+  trailingSlash: false,
   productionBrowserSourceMaps: process.env.CI === "true",
   images: {
     remotePatterns: [

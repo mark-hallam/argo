@@ -10,8 +10,11 @@ export interface WorkerNotFoundProps {
 /**
  * Inside-AppShell empty state shown when a worker id doesn't
  * resolve (gateway 404, mock fallback missed, or cross-tenant
- * access refused). Includes a CTA back to the Team page so the
- * operator can pick another worker.
+ * access refused). Includes a CTA back to the Workers page so the
+ * operator returns to the same surface they clicked from in the
+ * sidebar nav (the `/workers` route then server-side redirects to
+ * `/team` when populated — covered by
+ * `fix-workers-redirect-to-team-url-flicker`).
  */
 export function WorkerNotFound({ workerId }: WorkerNotFoundProps) {
   return (
@@ -31,8 +34,8 @@ export function WorkerNotFound({ workerId }: WorkerNotFoundProps) {
         </p>
       </div>
       <div className="pt-2">
-        <a href="/team" className={buttonVariants({ variant: "secondary", size: "md" })}>
-          Back to team
+        <a href="/workers" className={buttonVariants({ variant: "secondary", size: "md" })}>
+          Back to workers
         </a>
       </div>
     </div>
