@@ -34,6 +34,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 
+mod audit_backstory;
 mod dept_filler;
 pub mod marketplace;
 mod orchestration;
@@ -44,6 +45,7 @@ mod seed;
 mod skills;
 mod workflow;
 
+pub use audit_backstory::backstory_row_count;
 pub use marketplace::{demo_marketplace_catalog_size, seed_demo_marketplace_skills};
 pub use personas::{DemoPersona, DEMO_SEED_PERSONAS, DEPT_FILLER_PERSONAS};
 pub use plan::{SeedOptions, SeedReport};

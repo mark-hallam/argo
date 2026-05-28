@@ -87,6 +87,12 @@ pub struct SeedReport {
     /// Number of `audit_record` rows produced by Pass B (dressing)
     /// inserts.
     pub pass_b_audit_rows: usize,
+    /// Number of `audit_record` rows produced by the action-type
+    /// variety backstory pass (see `audit_backstory`). These rows
+    /// give `/audit` ≥5 distinct displayed action_type values so the
+    /// page reads as a working AI workforce rather than HTTP self-
+    /// traffic spam (UX audit F3 / P1).
+    pub audit_backstory_rows: usize,
     /// Number of `audit_record` rows inserted under the foreign
     /// tenant (Scene 6 invisibility check).
     pub foreign_audit_rows: usize,

@@ -68,6 +68,10 @@ mod param_check;
 mod url_helpers;
 use url_helpers::{csv_param, query_kv};
 
+#[path = "routes_audit_feed_meta_filter.rs"]
+mod meta_filter;
+use meta_filter::is_system_meta_row;
+
 const DEFAULT_LIMIT: usize = 50;
 const MAX_LIMIT: usize = 200;
 /// Raw-row ceiling per request before the in-memory filter pass —
@@ -111,6 +115,7 @@ pub(super) async fn list_response(
     let page: Vec<&ExportedRow> = ordered
         .iter()
         .filter(|row| row_in_tenant_scope(row, &scope))
+        .filter(|row| params.include_meta || !is_system_meta_row(row))
         .filter(|row| row_passes_filters(row, &params))
         .filter(|row| past_cursor(row, params.cursor.as_ref()))
         .take(params.limit)
@@ -158,6 +163,15 @@ pub(super) struct FeedParams {
     /// telemetry payload can report whether the caller attempted
     /// the override).
     pub(super) as_tenant: Option<String>,
+    /// `?include_meta=1` opts the response back in to system-meta
+    /// rows (SPA self-traffic like `audit.detail.viewed`,
+    /// `audit.feed.queried`, `http.request`, `worker.kpi_rolled`).
+    /// Defaults to `false` so the user-facing feed reads as agent
+    /// turns, not the SPA's own audit trail. Mirrors
+    /// `routes_worker_activity.rs` so both endpoints share the same
+    /// `argo_audit::METADATA_VERBS` filter list. Any non-empty value
+    /// (`1`, `true`, `yes`) opts in.
+    pub(super) include_meta: bool,
 }
 
 fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> {
@@ -201,6 +215,9 @@ fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> 
     let cursor = query_kv(tail, "cursor")
         .map(|c| decode_cursor(&c).ok_or_else(|| bad_request("invalid cursor")))
         .transpose()?;
+    let include_meta = query_kv(tail, "include_meta")
+        .map(|v| !v.is_empty() && v != "0" && v != "false")
+        .unwrap_or(false);
     Ok(FeedParams {
         limit,
         since_micros,
@@ -216,8 +233,10 @@ fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> 
         cursor,
         range,
         as_tenant: query_kv(tail, "as_tenant").filter(|s| !s.is_empty()),
+        include_meta,
     })
 }
+
 
 fn row_passes_filters(row: &ExportedRow, params: &FeedParams) -> bool {
     let p = &row.payload;
@@ -412,6 +431,7 @@ async fn emit_feed_audit(
         ("range", params.range.is_some()),
         ("cursor", params.cursor.is_some()),
         ("as_tenant", params.as_tenant.is_some()),
+        ("include_meta", params.include_meta),
     ]
     .into_iter()
     .filter_map(|(name, used)| used.then_some(name))

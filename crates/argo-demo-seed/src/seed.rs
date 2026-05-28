@@ -15,6 +15,7 @@ use argo_types::{ArgoResult, TenantId};
 use chrono::Utc;
 use uuid::Uuid;
 
+use crate::audit_backstory::seed_audit_backstory;
 use crate::dept_filler::seed_dept_filler_workers;
 use crate::marketplace::seed_demo_marketplace_skills;
 use crate::orchestration::seed_demo_orchestration;
@@ -31,9 +32,7 @@ use crate::{SeedError, SeedResult, DEFAULT_PROFILE, PROVIDER_KEY_ENV};
 /// contract while the full [`run_canonical_v1_seed`] path layers on
 /// workflow, skill, audit, and approval rows.
 ///
-/// # Errors
-///
-/// Returns any identity-store or underlying SQLite error.
+/// # Errors: any identity-store or underlying SQLite error.
 pub async fn seed_workers(
     store: &SessionStore,
     tenant_id: TenantId,
@@ -114,7 +113,6 @@ pub async fn run_canonical_v1_seed(
         seed_demo_marketplace_skills(store, opts.tenant_id).await?;
 
     // ── Pass A — real LLM turns (deferred per fix-brief split) ────
-    //
     // The brief calls for 10-20 real `AgentRunner::run_turn` calls
     // that produce real audit rows the camera drills into. The
     // wire-up requires a fully-constructed `AgentDeps` (provider
@@ -138,9 +136,10 @@ pub async fn run_canonical_v1_seed(
         .await?;
     }
 
-    // ── Pass B — dressing audit rows ──────────────────────────────
+    // ── Pass B — dressing audit rows + varied-action-type backstory ──
     report.pass_b_audit_rows =
         seed_pass_b_dressing(store, opts.tenant_id, &worker_ids, opts.dressing_audit_rows).await?;
+    report.audit_backstory_rows = seed_audit_backstory(store, opts.tenant_id, &worker_ids).await?;
 
     // Cross-tenant audit row — the camera does not drill into this
     // one; it just needs to exist for the Scene 6 SQL to return a
@@ -454,6 +453,7 @@ mod tests {
         );
         assert_eq!(report.pass_a_audit_rows, 0);
         assert_eq!(report.pass_b_audit_rows, 25);
+        assert_eq!(report.audit_backstory_rows, crate::backstory_row_count());
         assert_eq!(report.foreign_audit_rows, 1);
         // 5 pending + 3 pre-decided rows so the /approvals ring renders
         // a real percentage on first paint (see the brief

@@ -33,6 +33,7 @@ const KNOWN_PARAMS: &[&str] = &[
     "cost_band",
     "classification",
     "as_tenant",
+    "include_meta",
 ];
 
 /// Returns the first unknown query parameter name in `tail`, or `None`
