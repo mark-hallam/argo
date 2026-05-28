@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { SettingsTabs } from "@/components/skycot/settings/SettingsTabs";
 
+// Template here, not at each sub-layout, so every `/settings/X`
+// reads "X · Settings · SKYCOT" — the four sub-routes that emitted
+// a bare "Members" / "API keys" / "Security" / "Data export" tab
+// label (whole-site-mvp-claims-coverage F14) inherit this cascade.
+// The default is the bare "Settings" so the parent (app) layout's
+// "%s · SKYCOT" template wraps it once into "Settings · SKYCOT".
 export const metadata: Metadata = {
-  title: "Settings",
+  title: {
+    template: "%s · Settings · SKYCOT",
+    default: "Settings",
+  },
 };
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
