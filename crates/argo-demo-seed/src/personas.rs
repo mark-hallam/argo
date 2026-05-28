@@ -32,6 +32,66 @@ pub struct DemoPersona {
     pub traits: &'static [&'static str],
 }
 
+/// The four dept-filler personas — minimum-seed coverage for the
+/// `/cohorts` SPA page so all 9 department tabs declared in
+/// `web/components/skycot/cohorts/dept-registry.ts` render with at
+/// least one cohort each. The camera does NOT drill into these
+/// during the v1.0 demo MP4 — they are dept-tab fillers visible
+/// only if a viewer pans across `/cohorts`. Names are placeholders
+/// until the canonical worker for each dept ships. See brief
+/// `fix-demo-seed-add-pitch-agent-and-missing-cohort-rows` + memory
+/// `project_track_p_v1_mvp_scope` for the Sales & Investor Relations
+/// (pitch-agent) row's load-bearing reason.
+pub const DEPT_FILLER_PERSONAS: &[DemoPersona] = &[
+    DemoPersona {
+        name: "Pitch",
+        title: "Pitch Agent",
+        tagline: "represents the company in investor and customer pitches",
+        vertical_id: "pitch-agent",
+        team: "Sales & Investor Relations",
+        traits: &[
+            "Founder-caliber",
+            "Evidence-led",
+            "Brand-safe",
+            "Truth-bounded",
+        ],
+    },
+    DemoPersona {
+        name: "Fin",
+        title: "Finance & Ops Coordinator",
+        tagline: "tracks A/R, vendor invoices, and month-end close",
+        vertical_id: "finance-ar",
+        team: "Finance & Ops",
+        traits: &["Accurate", "Process-oriented", "Calm", "Audit-aware"],
+    },
+    DemoPersona {
+        name: "Devon",
+        title: "Developer Experience",
+        tagline: "shepherds onboarding, CI, and internal tooling",
+        vertical_id: "devex",
+        team: "IT & Dev-ex",
+        traits: &[
+            "Pragmatic",
+            "Tooling-fluent",
+            "Patient",
+            "Documentation-rich",
+        ],
+    },
+    DemoPersona {
+        name: "Lex",
+        title: "Legal Counsel",
+        tagline: "reviews contracts, NDAs, and policy questions",
+        vertical_id: "legal",
+        team: "Legal",
+        traits: &[
+            "Precise",
+            "Risk-aware",
+            "Citation-driven",
+            "Diplomatic",
+        ],
+    },
+];
+
 /// The five Scene-1 canonical demo personas, in `/team` display
 /// order (Mariah is the demo "headliner" the camera lands on first).
 pub const DEMO_SEED_PERSONAS: &[DemoPersona] = &[
@@ -115,6 +175,39 @@ mod tests {
             assert!(
                 !p.traits.is_empty(),
                 "persona {} has no traits",
+                p.name
+            );
+        }
+    }
+
+    #[test]
+    fn dept_filler_covers_four_missing_depts() {
+        let verticals: Vec<_> = DEPT_FILLER_PERSONAS.iter().map(|p| p.vertical_id).collect();
+        assert_eq!(
+            verticals,
+            vec!["pitch-agent", "finance-ar", "devex", "legal"]
+        );
+    }
+
+    #[test]
+    fn dept_filler_names_do_not_collide_with_canonical_roster() {
+        let canon: std::collections::HashSet<_> =
+            DEMO_SEED_PERSONAS.iter().map(|p| p.name).collect();
+        for p in DEPT_FILLER_PERSONAS {
+            assert!(
+                !canon.contains(p.name),
+                "dept-filler name {} collides with canonical Scene-1 roster",
+                p.name
+            );
+        }
+    }
+
+    #[test]
+    fn every_dept_filler_persona_has_traits() {
+        for p in DEPT_FILLER_PERSONAS {
+            assert!(
+                !p.traits.is_empty(),
+                "dept-filler persona {} has no traits",
                 p.name
             );
         }

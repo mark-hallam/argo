@@ -99,6 +99,10 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
     println!();
     println!("Pass A — function-side (real backend rows):");
     println!("  workers_created:            {}", report.workers_created);
+    println!(
+        "  dept_filler_workers_created: {}",
+        report.dept_filler_workers_created
+    );
     println!("  workflows_created:          {}", report.workflows_created);
     println!("  skills_created:             {}", report.skills_created);
     println!(
