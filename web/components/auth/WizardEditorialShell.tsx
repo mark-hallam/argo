@@ -63,6 +63,43 @@ export interface WizardEditorialShellProps {
   belowCta?: ReactNode;
   /** Hide the back/continue footer row (auto-advancing or terminal steps). */
   hideFooter?: boolean;
+  /**
+   * Label rendered on the top-bar exit button. Defaults to "SAVE & EXIT"
+   * (the /hire flow). The /onboarding flow passes "Exit setup" because
+   * the wizard auto-persists each step to localStorage, so the trailing
+   * "save" verb is misleading and the operator's mental model is closer
+   * to leaving the setup task than triggering an explicit save.
+   * (UX-audit F10, P2 — fix-onboarding-save-and-exit-button-safety.)
+   */
+  exitLabel?: string;
+  /**
+   * Route to push when the user exits the wizard (after confirm, if
+   * `forceExitConfirm` is true or `unsavedHire` triggers the dialog).
+   * Defaults to `/` (current /hire behaviour). Onboarding picks
+   * `/workers` if the workspace has been provisioned, else `/landing`.
+   */
+  exitDestination?: string;
+  /**
+   * If true, the exit button ALWAYS routes through the confirm dialog
+   * even when `unsavedHire` is false. This is the onboarding safety
+   * net: a click on the top-bar exit should never silently dump the
+   * operator out of the wizard mid-demo.
+   */
+  forceExitConfirm?: boolean;
+  /** Confirm-dialog title. Defaults to the /hire "Discard..." copy. */
+  exitDialogTitle?: string;
+  /** Confirm-dialog body copy. */
+  exitDialogDescription?: string;
+  /** Primary button label in the confirm dialog. */
+  exitConfirmLabel?: string;
+  /** Secondary "stay in flow" button label in the confirm dialog. */
+  exitCancelLabel?: string;
+  /**
+   * Variant of the confirm button. Defaults to "destructive" for /hire
+   * (where confirm wipes a draft). /onboarding passes "primary" because
+   * the action is a benign navigate-away — progress is auto-saved.
+   */
+  exitConfirmVariant?: "primary" | "destructive";
 }
 
 const WIZARD_STYLES = `
@@ -368,6 +405,14 @@ export function WizardEditorialShell({
   continueLabel = "Continue",
   belowCta,
   hideFooter = false,
+  exitLabel = "SAVE & EXIT",
+  exitDestination = "/",
+  forceExitConfirm = false,
+  exitDialogTitle = "Discard your in-progress teammate?",
+  exitDialogDescription = "Your draft will be cleared and you'll go back to the approvals inbox.",
+  exitConfirmLabel = "Discard and leave",
+  exitCancelLabel = "Keep working",
+  exitConfirmVariant = "destructive",
 }: WizardEditorialShellProps) {
   // Default: prior steps are completed, the current step is "active" (not
   // yet done). UX-audit F9 (P1) — without this, all 5 pips lit on
@@ -390,17 +435,19 @@ export function WizardEditorialShell({
     window.scrollTo(0, 0);
   }, [pathname]);
 
+  const exitConfirmsBeforeLeaving = forceExitConfirm || unsavedHire;
+
   function attemptLeave() {
-    if (unsavedHire) {
+    if (exitConfirmsBeforeLeaving) {
       setConfirmOpen(true);
       return;
     }
-    router.push("/");
+    router.push(exitDestination);
   }
 
   function confirmDiscard() {
     onDiscard?.();
-    router.push("/");
+    router.push(exitDestination);
   }
 
   function handleBack() {
@@ -425,6 +472,7 @@ export function WizardEditorialShell({
             onClick={attemptLeave}
             data-testid="wiz-shell-brand"
             aria-label="Return home"
+            aria-haspopup={exitConfirmsBeforeLeaving ? "dialog" : undefined}
           >
             <span className="wiz-brand-mark" aria-hidden />
             <span className="wiz-brand-name">SKYCOT</span>
@@ -443,8 +491,9 @@ export function WizardEditorialShell({
               className="wiz-exit"
               onClick={attemptLeave}
               data-testid="wiz-shell-exit"
+              aria-haspopup={exitConfirmsBeforeLeaving ? "dialog" : undefined}
             >
-              SAVE &amp; EXIT
+              {exitLabel}
             </button>
           </div>
         </header>
@@ -511,10 +560,11 @@ export function WizardEditorialShell({
       <AlertDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Discard your in-progress teammate?"
-        description="Your draft will be cleared and you'll go back to the approvals inbox."
-        confirmLabel="Discard and leave"
-        cancelLabel="Keep working"
+        title={exitDialogTitle}
+        description={exitDialogDescription}
+        confirmLabel={exitConfirmLabel}
+        cancelLabel={exitCancelLabel}
+        confirmVariant={exitConfirmVariant}
         onConfirm={confirmDiscard}
       />
     </>
