@@ -4,13 +4,21 @@
  * Vertical-template marketplace API client.
  *
  * The gateway exposes the loaded vertical-template registry under
- * `/verticals` (`crates/argo-cli/src/handlers/gateway/routes_verticals.rs`).
- * The list response envelope is `{ ok, loaded: VerticalRow[], errors[] }`;
- * the detail endpoint returns the manifest summary plus a `marketplace`
+ * `/api/v1/verticals` (`crates/argo-cli/src/handlers/gateway/routes_verticals_list_get.rs`).
+ * The list response envelope is `{ verticals: VerticalRow[] }`; the
+ * detail endpoint returns the manifest summary plus a `marketplace`
  * envelope with workflows + actions + KPIs.
  *
- * The list rows now expose `skill_count` so the onboarding
- * pick-vertical wizard renders the same number that
+ * The `/api/v1/*` namespace is the only path proxied through
+ * `web/next.config.ts` rewrites in dev (port 3000 → gateway 7400).
+ * The legacy bare `/verticals` route still exists on the gateway but
+ * is NOT proxied — calling it from the SPA hits the Next dev origin,
+ * receives the SPA's own HTML 200, and JSON-parse falls through to
+ * the seed fallback ("offline · 5 verticals" appearing on the camera
+ * even when the gateway is alive). Use the `/api/v1` path.
+ *
+ * The list rows expose `skill_count` so the onboarding pick-vertical
+ * wizard renders the same number that
  * `POST /api/v1/onboarding/install-vertical` will actually install.
  * Before this field landed, the wizard hard-coded counts client-side
  * and drifted from the gateway (e.g. marketplace-seller card said 6,
@@ -57,9 +65,7 @@ export interface VerticalRow {
 }
 
 interface VerticalsEnvelope {
-  ok?: boolean;
-  loaded?: VerticalRow[];
-  errors?: Array<{ dir: string; error: string }>;
+  verticals?: VerticalRow[];
 }
 
 export interface FetchVerticalsResult {
@@ -216,20 +222,21 @@ function isMissingOrUnreachable(err: unknown): boolean {
 }
 
 /**
- * GET `/verticals` — list every vertical-template the gateway has
- * loaded from disk. The endpoint is the catalog (registered packs),
- * not the per-tenant install view — `/api/v1/verticals` returns
- * tenant-installed verticals via `workflow_definition_index` and is
- * intentionally not the source here. The wizard wants to know what
- * packs exist before any have been installed.
+ * GET `/api/v1/verticals` — list every vertical-template the gateway
+ * has loaded from disk. Post-#2456 this endpoint reads the on-disk
+ * pack catalog directly via `argo_vertical::load_dir`, returning the
+ * canonical `{verticals: [...]}` envelope. The path is proxied
+ * through `web/next.config.ts`'s `/api/v1/*` rewrite, so the SPA
+ * actually reaches the gateway (the legacy bare `/verticals` route
+ * is NOT proxied and would fall back to the seed catalog).
  */
 export async function fetchVerticals(): Promise<FetchVerticalsResult> {
   if (isAuthBypassed()) {
     return { verticals: SEED_VERTICALS, source: "mock-bypass" };
   }
   try {
-    const envelope = await apiGet<VerticalsEnvelope>("/verticals");
-    const verticals = envelope.loaded ?? [];
+    const envelope = await apiGet<VerticalsEnvelope>("/api/v1/verticals");
+    const verticals = envelope.verticals ?? [];
     if (verticals.length === 0 && !isStrictProduction()) {
       return { verticals: SEED_VERTICALS, source: "mock-offline" };
     }

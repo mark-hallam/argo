@@ -113,64 +113,6 @@ const VERTICAL_DECORATION: Record<
 };
 
 /**
- * Fallback card list used when the gateway catalogue is empty or
- * unreachable AND we're in demo / dev mode. Skill counts here match
- * what the on-disk packs install (parity with
- * `POST /api/v1/onboarding/install-vertical` `skills_added`).
- */
-const FALLBACK_VERTICALS: ReadonlyArray<VerticalCard> = [
-  {
-    id: "gtm-engineer",
-    displayName: "GTM Engineer",
-    summary: VERTICAL_DECORATION["gtm-engineer"]!.summary,
-    skillCount: 8,
-    sampleDuties: VERTICAL_DECORATION["gtm-engineer"]!.sampleDuties,
-  },
-  {
-    id: "marketing-intern",
-    displayName: "Marketing Intern",
-    summary: VERTICAL_DECORATION["marketing-intern"]!.summary,
-    skillCount: 5,
-    sampleDuties: VERTICAL_DECORATION["marketing-intern"]!.sampleDuties,
-  },
-  {
-    id: "marketplace-seller",
-    displayName: "Marketplace Seller",
-    summary: VERTICAL_DECORATION["marketplace-seller"]!.summary,
-    skillCount: 2,
-    sampleDuties: VERTICAL_DECORATION["marketplace-seller"]!.sampleDuties,
-  },
-  {
-    id: "recruiter",
-    displayName: "Recruiter",
-    summary: VERTICAL_DECORATION.recruiter!.summary,
-    skillCount: 5,
-    sampleDuties: VERTICAL_DECORATION.recruiter!.sampleDuties,
-  },
-  {
-    id: "sales-sdr",
-    displayName: "Sales SDR",
-    summary: VERTICAL_DECORATION["sales-sdr"]!.summary,
-    skillCount: 5,
-    sampleDuties: VERTICAL_DECORATION["sales-sdr"]!.sampleDuties,
-  },
-  {
-    id: "customer-support",
-    displayName: "Customer Support",
-    summary: VERTICAL_DECORATION["customer-support"]!.summary,
-    skillCount: 5,
-    sampleDuties: VERTICAL_DECORATION["customer-support"]!.sampleDuties,
-  },
-  {
-    id: "finance-ar",
-    displayName: "Accounts Receivable",
-    summary: VERTICAL_DECORATION["finance-ar"]!.summary,
-    skillCount: 5,
-    sampleDuties: VERTICAL_DECORATION["finance-ar"]!.sampleDuties,
-  },
-];
-
-/**
  * Project a gateway catalogue row into the wizard's card shape.
  * Client-side decoration (`summary` + `sampleDuties`) is merged in by
  * id; when no entry exists in `VERTICAL_DECORATION`, we synthesise
@@ -222,11 +164,14 @@ export default function OnboardingPickVerticalPage() {
     setStep(4);
   }, [setStep]);
 
-  // Cards rendered to the operator: gateway truth when the catalogue
-  // returns any rows; otherwise the bundled fallback list. The
-  // fallback's skill counts match `skills_added` from
-  // `POST /api/v1/onboarding/install-vertical` so the wizard never
-  // shows a number the gateway won't honour.
+  // Cards rendered to the operator: gateway truth, full stop. When
+  // the gateway is unreachable in dev `useVerticals` already falls
+  // through to `SEED_VERTICALS` (5 entries) inside `fetchVerticals`,
+  // so `catalogRows` is the single source of truth here. The older
+  // 7-entry `FALLBACK_VERTICALS` constant was unreachable in practice
+  // (useVerticals never returned 0) and hard-coded skill counts that
+  // drifted from what `POST /api/v1/onboarding/install-vertical`
+  // actually installs — both of which now route through the gateway.
   //
   // F10 — in demo mode, restrict the grid to the verticals the
   // first-hire short-circuit can actually map to a sample persona.
@@ -236,8 +181,7 @@ export default function OnboardingPickVerticalPage() {
   // /workers page — a vocabulary mismatch invisible in DevTools but
   // visible in the demo recording.
   const cards = useMemo<ReadonlyArray<VerticalCard>>(() => {
-    const base =
-      catalogRows.length > 0 ? catalogRows.map(cardFromRow) : FALLBACK_VERTICALS;
+    const base = catalogRows.map(cardFromRow);
     if (demoMode) {
       return base.filter((card) => DEMO_SUPPORTED_VERTICAL_IDS.has(card.id));
     }

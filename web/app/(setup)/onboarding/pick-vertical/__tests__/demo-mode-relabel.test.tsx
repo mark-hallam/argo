@@ -13,20 +13,56 @@
  *   `fix-onboarding-per-step-demo-banner-dedupe-against-global-shell-banner`
  *   (the page-level banner is removed — the shell-wide
  *   `DemoModeBanner` mounted on `WizardEditorialShell` is the single
- *   demo-mode indicator now).
+ *   demo-mode indicator now);
+ * - the gateway-truth render from
+ *   `fix-wizard-verticals-rewrite-scope-and-dead-fallback` (cards
+ *   come from `useVerticals` only — the dead 7-entry
+ *   `FALLBACK_VERTICALS` const has been deleted).
  */
 
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { VerticalRow } from "@/lib/api/verticals";
 
 const demoModeMock = vi.hoisted(() => ({
   isDemoMode: vi.fn((): boolean => false),
 }));
 
+/**
+ * Minimal `VerticalRow` factory so each test can mock the gateway
+ * response without redeclaring every field. Mirrors the shape the
+ * canonical `/api/v1/verticals` endpoint returns post-#2456.
+ */
+function vrow(id: string, name: string, skill_count = 5): VerticalRow {
+  return {
+    id,
+    name,
+    version: "0.1.0",
+    description: `${name} description.`,
+    headline: `${name} headline.`,
+    tags: [],
+    workflow_count: 0,
+    action_count: 0,
+    role_label: name,
+    kpi_count: 0,
+    skill_count,
+  };
+}
+
+const SEVEN_GATEWAY_VERTICALS: ReadonlyArray<VerticalRow> = [
+  vrow("gtm-engineer", "GTM Engineer", 8),
+  vrow("marketing-intern", "Marketing Intern", 5),
+  vrow("marketplace-seller", "Marketplace Seller", 2),
+  vrow("recruiter", "Recruiter", 5),
+  vrow("sales-sdr", "Sales SDR", 5),
+  vrow("customer-support", "Customer Support", 5),
+  vrow("finance-ar", "Accounts Receivable", 5),
+];
+
 const verticalsMock = vi.hoisted(() => ({
   useVerticals: vi.fn(() => ({
-    verticals: [],
-    source: "mock-offline" as const,
+    verticals: [] as VerticalRow[],
+    source: "gateway" as const,
     isLoading: false,
     error: null,
   })),
@@ -80,8 +116,8 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
     demoModeMock.isDemoMode.mockReset();
     verticalsMock.useVerticals.mockReset();
     verticalsMock.useVerticals.mockReturnValue({
-      verticals: [],
-      source: "mock-offline" as const,
+      verticals: [...SEVEN_GATEWAY_VERTICALS],
+      source: "gateway" as const,
       isLoading: false,
       error: null,
     });
@@ -191,7 +227,7 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
     expect(sourceLine.textContent ?? "").toMatch(/Demo · 4 verticals available/);
   });
 
-  it("renders all 7 fallback verticals outside demo mode (filter is demo-only)", () => {
+  it("renders every gateway-loaded vertical outside demo mode (filter is demo-only)", () => {
     demoModeMock.isDemoMode.mockReturnValue(false);
 
     render(<OnboardingPickVerticalPage />);
@@ -208,5 +244,59 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
     for (const id of all) {
       expect(screen.queryByTestId(`vertical-${id}`)).toBeInTheDocument();
     }
+  });
+
+  it("renders one card per gateway row (gateway-truth pin, no FALLBACK)", () => {
+    // Brief acceptance: "Vitest pin: when `useVerticals` returns N
+    // rows, the page renders N cards." Pick a number larger than the
+    // old 7-entry hardcoded fallback to prove cards track the gateway
+    // catalogue rather than a baked-in constant.
+    demoModeMock.isDemoMode.mockReturnValue(false);
+    const thirty: VerticalRow[] = Array.from({ length: 30 }, (_, i) =>
+      vrow(`pack-${i}`, `Pack ${i}`, i),
+    );
+    verticalsMock.useVerticals.mockReturnValue({
+      verticals: thirty,
+      source: "gateway" as const,
+      isLoading: false,
+      error: null,
+    });
+
+    render(<OnboardingPickVerticalPage />);
+
+    // Only the 30 vertical cards carry `aria-pressed`; the back
+    // button doesn't, so the role-query bounds the card count tightly.
+    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(30);
+    // First and last gateway-supplied cards both render.
+    expect(screen.queryByTestId("vertical-pack-0")).toBeInTheDocument();
+    expect(screen.queryByTestId("vertical-pack-29")).toBeInTheDocument();
+    // Source line surfaces the gateway count, not a baked-in number.
+    expect(
+      screen.getByTestId("onboarding-vertical-source").textContent ?? "",
+    ).toMatch(/v1 catalogue · 30 verticals/);
+  });
+
+  it("renders zero cards when the gateway returns an empty catalogue (no FALLBACK)", () => {
+    // The dead 7-entry FALLBACK_VERTICALS const used to mask gateway
+    // failures behind a baked-in grid. After deletion, an empty
+    // gateway response renders an empty grid — surfacing the bug to
+    // the operator instead of hiding it.
+    demoModeMock.isDemoMode.mockReturnValue(false);
+    verticalsMock.useVerticals.mockReturnValue({
+      verticals: [],
+      source: "gateway" as const,
+      isLoading: false,
+      error: null,
+    });
+
+    render(<OnboardingPickVerticalPage />);
+
+    expect(
+      screen.queryByTestId("vertical-gtm-engineer"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("vertical-recruiter")).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId("onboarding-vertical-source").textContent ?? "",
+    ).toMatch(/v1 catalogue · 0 verticals/);
   });
 });

@@ -1,10 +1,20 @@
 /**
  * Acceptance test for the onboarding pick-vertical wizard's catalog
- * source (`fix-onboarding-pick-vertical-skill-counts-and-gateway-catalog`).
+ * source.
+ *
+ * Originally pinned `fix-onboarding-pick-vertical-skill-counts-and-
+ * gateway-catalog`. Updated by `fix-wizard-verticals-rewrite-scope-
+ * and-dead-fallback` to flip the fetch path from the bare `/verticals`
+ * (not proxied through `web/next.config.ts`'s `/api/v1/*` rewrite, so
+ * the SPA was hitting its own dev origin and falling through to
+ * SEED_VERTICALS) to `/api/v1/verticals` (which IS proxied and, post-
+ * #2456, reads the on-disk pack catalog via `argo_vertical::load_dir`
+ * — same data as the legacy route).
  *
  * The brief's load-bearing claims:
- * - `/verticals` returns rows carrying `skill_count` that matches
- *   `skills_added` from `POST /api/v1/onboarding/install-vertical`.
+ * - `/api/v1/verticals` returns `{verticals: VerticalRow[]}` rows
+ *   carrying `skill_count` that matches `skills_added` from
+ *   `POST /api/v1/onboarding/install-vertical`.
  * - Wizard fetches the catalog from the gateway via `useVerticals()`
  *   and renders that count on each card.
  * - Mock-offline fallback (`SEED_VERTICALS`) carries skill counts
@@ -50,10 +60,10 @@ function installFetchMock(opts: MockOptions = {}) {
     if (url.endsWith("/api/auth/session")) {
       return Promise.resolve(jsonResponse({}));
     }
-    if (url.endsWith("/verticals")) {
+    if (url.endsWith("/api/v1/verticals")) {
       return Promise.resolve(
         jsonResponse(
-          opts.verticalsBody ?? { ok: true, loaded: [], errors: [] },
+          opts.verticalsBody ?? { verticals: [] },
           opts.verticalsStatus ?? 200,
         ),
       );
@@ -86,7 +96,7 @@ describe("onboarding pick-vertical catalogue", () => {
     vi.restoreAllMocks();
   });
 
-  it("fetches /verticals (not /api/v1/verticals) for the catalog", async () => {
+  it("fetches /api/v1/verticals (not the bare /verticals) for the catalog", async () => {
     const row: VerticalRow = {
       id: "marketplace-seller",
       name: "Marketplace Seller",
@@ -101,18 +111,21 @@ describe("onboarding pick-vertical catalogue", () => {
       skill_count: 2,
     };
     const { calls } = installFetchMock({
-      verticalsBody: { ok: true, loaded: [row], errors: [] },
+      verticalsBody: { verticals: [row] },
     });
 
     const result = await fetchVerticals();
 
-    // The /api/v1/verticals path is the tenant-installed view, used
-    // by `web/app/api/auth/demo-mint/route.ts` for needs_onboarding
-    // derivation. The wizard catalog has to fetch the un-prefixed
-    // /verticals endpoint instead so it sees the registered packs,
-    // not the per-tenant install join.
-    expect(calls.some((c) => c.endsWith("/verticals"))).toBe(true);
-    expect(calls.some((c) => c.includes("/api/v1/verticals"))).toBe(false);
+    // The `/api/v1/*` namespace is the only path proxied through
+    // `web/next.config.ts` rewrites in dev. Calling bare `/verticals`
+    // hit the SPA's own Next dev origin, returned the HTML 200 page,
+    // and JSON-parse fell through to SEED_VERTICALS — the "v1
+    // catalogue (offline · 5 verticals)" the camera saw on /onboarding
+    // /pick-vertical even though the gateway had 30+ packs loaded.
+    // Post-#2456 the canonical `/api/v1/verticals` endpoint reads the
+    // pack catalogue from disk via `argo_vertical::load_dir` and
+    // returns `{verticals: [...]}` — same data, proxied path.
+    expect(calls.some((c) => c.endsWith("/api/v1/verticals"))).toBe(true);
     expect(result.source).toBe("gateway");
     expect(result.verticals).toHaveLength(1);
     expect(result.verticals[0]?.skill_count).toBe(2);
@@ -131,7 +144,7 @@ describe("onboarding pick-vertical catalogue", () => {
       makeRow("finance-ar", "Accounts Receivable", 5),
     ];
     installFetchMock({
-      verticalsBody: { ok: true, loaded: gatewayRows, errors: [] },
+      verticalsBody: { verticals: gatewayRows },
     });
 
     const result = await fetchVerticals();
@@ -148,7 +161,7 @@ describe("onboarding pick-vertical catalogue", () => {
 
   it("falls back to SEED_VERTICALS when the gateway returns an empty catalog", async () => {
     installFetchMock({
-      verticalsBody: { ok: true, loaded: [], errors: [] },
+      verticalsBody: { verticals: [] },
     });
 
     const result = await fetchVerticals();
