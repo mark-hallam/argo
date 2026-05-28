@@ -18,8 +18,10 @@ import { expect, test } from "@playwright/test";
  *  4. The trust-grade card is still present afterwards (no crash).
  */
 test("trust tab — disclaimer + recompute affordance", async ({ page }) => {
-  // Mariah's sample worker id from `sample-worker-trust.ts`.
-  await page.goto("/workers/wkr_mariah/trust");
+  // Mariah's sample worker id from `sample-personas.ts` (UUIDv7).
+  // The legacy `wkr_mariah` slug now misses the canonical roster and
+  // would short-circuit the layout into the WorkerNotFound shell.
+  await page.goto("/workers/018f67d0-0000-7000-8000-000000000001/trust");
 
   await expect(page.getByTestId("worker-tab-panel-trust")).toBeVisible();
   await expect(page.getByTestId("trust-grade-disclaimer")).toContainText(

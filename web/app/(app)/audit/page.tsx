@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, type ButtonHTMLAttributes } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, Loader2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
@@ -286,7 +286,15 @@ function testExportTenantId(): string {
   return process.env.NODE_ENV === "test" ? "tenant_test" : "";
 }
 
-function FilterTriggerButton({ hasActive }: { hasActive: boolean }) {
+// Radix `Popover.Trigger asChild` clones the immediate child element and
+// injects onClick/ref/aria-expanded onto it. A plain function component
+// that doesn't accept + spread the rest-props swallows those injections
+// silently — the click reaches the button but never reaches Radix. Spread
+// the rest-props onto the underlying `<button>` so the popover opens.
+function FilterTriggerButton({
+  hasActive,
+  ...slotProps
+}: { hasActive: boolean } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
@@ -296,6 +304,7 @@ function FilterTriggerButton({ hasActive }: { hasActive: boolean }) {
         buttonVariants({ variant: "secondary", size: "sm" }),
         "relative px-2",
       )}
+      {...slotProps}
     >
       <Filter aria-hidden className="size-4" />
       <span className="sr-only">Filter</span>

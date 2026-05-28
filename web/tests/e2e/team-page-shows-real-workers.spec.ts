@@ -22,7 +22,10 @@ test("renders the trading-card deck — never the empty state — when workers e
 }) => {
   await page.goto("/team");
 
-  const cards = page.getByTestId(/^teammate-wkr_/);
+  // Sample personas now use UUID ids (`018f67d0-…`), not the legacy
+  // `wkr_*` slugs the original fixture predated. Match the canonical
+  // card id shape — `teammate-<uuid8>-…` — so the deck count is correct.
+  const cards = page.getByTestId(/^teammate-[0-9a-f]{8}-/);
   await expect(cards.first()).toBeVisible();
   const count = await cards.count();
   expect(count).toBeGreaterThan(0);

@@ -209,6 +209,23 @@ function asDecision(value: unknown): TrustRecomputeDecision {
 export async function recomputeWorkerTrustGrade(
   workerId: string,
 ): Promise<TrustRecomputeResult> {
+  // Match `fetchWorkerTrustGrade`'s auth-bypass short-circuit so the
+  // recompute affordance behaves the same in offline / dev / demo as
+  // the read side does — synthetic `hold` against the sample
+  // snapshot. Without this, the browser-side POST hits the Next.js
+  // `/api/v1/*` rewrite proxy, which surfaces a 500 when the gateway
+  // is unreachable; that fell through `isMissingOrUnreachable` (404
+  // / TypeError only) and surfaced as a hard error toast.
+  if (isAuthBypassed()) {
+    const snapshot = findSampleWorkerTrust(workerId);
+    return {
+      decision: "hold",
+      fromGrade: snapshot.currentGrade,
+      toGrade: snapshot.currentGrade,
+      newGradeIndex: snapshot.currentGradeIndex,
+      scoreTotal: 0,
+    };
+  }
   const path = `/api/v1/workers/${encodeURIComponent(workerId)}/trust-grade/recompute`;
   try {
     const body = await apiPost<GatewayRecomputeBody>(path);

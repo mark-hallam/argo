@@ -16,6 +16,11 @@ import { expect, test } from "@playwright/test";
 test("filter by worker, then clear via chip", async ({ page }) => {
   await page.goto("/");
 
+  // Wait for the inbox to hydrate + the mock-fallback fetch to resolve
+  // before counting. The page-shell renders synchronously but the
+  // TanStack Query state flips to settled on a microtask, so a bare
+  // `.count()` returns 0 if read before the first paint of the cards.
+  await expect(page.getByTestId("approval-approve").first()).toBeVisible();
   const initialCount = await page.getByTestId("approval-approve").count();
   expect(initialCount).toBeGreaterThan(1);
 

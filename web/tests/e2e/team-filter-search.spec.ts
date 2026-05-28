@@ -18,14 +18,20 @@ import { expect, test } from "@playwright/test";
 test("filter by status, search by name, then clear chips", async ({ page }) => {
   await page.goto("/team");
 
-  const initialCount = await page.getByTestId(/^teammate-wkr_/).count();
+  // Sample personas now use UUID ids (`018f67d0-…`), not the legacy
+  // `wkr_*` slugs the fixture predated. Match the canonical card id
+  // shape and wait for the first one before counting so we don't race
+  // the TanStack Query settle.
+  const teammateCard = /^teammate-[0-9a-f]{8}-/;
+  await expect(page.getByTestId(teammateCard).first()).toBeVisible();
+  const initialCount = await page.getByTestId(teammateCard).count();
   expect(initialCount).toBeGreaterThan(1);
 
   // 1. Status filter shrinks the visible set + persists to URL.
   await page.getByTestId("team-status-filter").selectOption("waiting");
   await expect(page).toHaveURL(/status=waiting/);
   await expect(page.getByTestId("team-status-filter-dot")).toBeVisible();
-  const waitingCount = await page.getByTestId(/^teammate-wkr_/).count();
+  const waitingCount = await page.getByTestId(teammateCard).count();
   expect(waitingCount).toBeGreaterThan(0);
   expect(waitingCount).toBeLessThan(initialCount);
 
@@ -48,6 +54,6 @@ test("filter by status, search by name, then clear chips", async ({ page }) => {
   await expect(page).not.toHaveURL(/status=/);
   await expect(page).not.toHaveURL(/q=/);
   await expect(page.getByTestId("team-filter-chip-rail")).toHaveCount(0);
-  const restoredCount = await page.getByTestId(/^teammate-wkr_/).count();
+  const restoredCount = await page.getByTestId(teammateCard).count();
   expect(restoredCount).toBe(initialCount);
 });
