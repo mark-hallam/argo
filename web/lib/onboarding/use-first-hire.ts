@@ -127,6 +127,19 @@ const VERTICAL_TO_SAMPLE_WORKER: Record<string, { id: string; name: string }> = 
   "project-coordination": { id: SAMPLE_PETA, name: "Peta" },
 };
 
+/**
+ * Vertical ids the demo-mode first-hire short-circuit can map to a
+ * real sample persona. The pick-vertical grid filters its cards
+ * against this set in demo mode so the camera never lands on a
+ * worker whose persona doesn't match the vertical the operator
+ * picked (F10 — `/onboarding/pick-vertical` previously rendered
+ * 7 cards but only 4 were mapped, so picking Sales SDR fell through
+ * to Mariah's marketplace-lister charter).
+ */
+export const DEMO_SUPPORTED_VERTICAL_IDS: ReadonlySet<string> = new Set(
+  Object.keys(VERTICAL_TO_SAMPLE_WORKER),
+);
+
 const DEMO_FALLBACK_WORKER = { id: SAMPLE_MARIAH, name: "Mariah" };
 
 function buildDemoFirstHireResult(verticalId: string): FirstHireResult {

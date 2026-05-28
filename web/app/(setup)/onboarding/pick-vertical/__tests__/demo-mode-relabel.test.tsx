@@ -56,6 +56,8 @@ vi.mock("next/navigation", () => ({
     replace: vi.fn(),
     back: vi.fn(),
   }),
+  // Required by WizardEditorialShell (mounted via OnboardingShell).
+  usePathname: () => "/onboarding/pick-vertical",
 }));
 
 vi.mock("@/lib/skycot/demo-mode", () => demoModeMock);
@@ -139,8 +141,62 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
       screen.queryByTestId("pick-vertical-demo-banner"),
     ).not.toBeInTheDocument();
 
-    // None of the 7 fallback tiles carry the old per-card chip.
-    const expectedTiles = [
+    // None of the demo-supported tiles carry the old per-card chip.
+    // (The 3 unmapped fallback tiles are also filtered out in demo
+    // mode per F10; see the grid-restriction test below.)
+    const renderedTiles = [
+      "marketing-intern",
+      "marketplace-seller",
+      "recruiter",
+      "customer-support",
+    ];
+    for (const id of renderedTiles) {
+      expect(
+        screen.queryByTestId(`vertical-${id}-demo-chip`),
+      ).not.toBeInTheDocument();
+    }
+  });
+
+  it("F10 — restricts demo grid to the 4 mapped verticals so picks never fall through to Mariah", () => {
+    demoModeMock.isDemoMode.mockReturnValue(true);
+
+    render(<OnboardingPickVerticalPage />);
+
+    // The 4 verticals the demo first-hire short-circuit maps to a real
+    // sample persona must render. Picking any of these lands on a
+    // /workers/<id> whose persona matches the vertical the user chose.
+    const supported = [
+      "marketplace-seller",
+      "recruiter",
+      "customer-support",
+      "marketing-intern",
+    ];
+    for (const id of supported) {
+      expect(screen.queryByTestId(`vertical-${id}`)).toBeInTheDocument();
+    }
+
+    // The 3 unmapped fallback verticals previously fell through to
+    // `DEMO_FALLBACK_WORKER = Mariah`, rendering Mariah's marketplace-
+    // lister charter no matter which one the user picked. They must
+    // not render in demo mode.
+    const unmapped = ["gtm-engineer", "sales-sdr", "finance-ar"];
+    for (const id of unmapped) {
+      expect(screen.queryByTestId(`vertical-${id}`)).not.toBeInTheDocument();
+    }
+
+    // Honest count line — "Demo · N verticals available" — replaces
+    // the "v1 catalogue · 7 verticals" copy so the operator isn't
+    // told the full catalogue is reachable from the demo build.
+    const sourceLine = screen.getByTestId("onboarding-vertical-source");
+    expect(sourceLine.textContent ?? "").toMatch(/Demo · 4 verticals available/);
+  });
+
+  it("renders all 7 fallback verticals outside demo mode (filter is demo-only)", () => {
+    demoModeMock.isDemoMode.mockReturnValue(false);
+
+    render(<OnboardingPickVerticalPage />);
+
+    const all = [
       "gtm-engineer",
       "marketing-intern",
       "marketplace-seller",
@@ -149,10 +205,8 @@ describe("onboarding pick-vertical demo-mode relabel", () => {
       "customer-support",
       "finance-ar",
     ];
-    for (const id of expectedTiles) {
-      expect(
-        screen.queryByTestId(`vertical-${id}-demo-chip`),
-      ).not.toBeInTheDocument();
+    for (const id of all) {
+      expect(screen.queryByTestId(`vertical-${id}`)).toBeInTheDocument();
     }
   });
 });

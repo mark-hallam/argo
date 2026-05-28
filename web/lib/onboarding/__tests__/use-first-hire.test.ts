@@ -21,7 +21,10 @@ vi.mock("@/lib/skycot/demo-mode", () => ({
   isDemoMode: () => true,
 }));
 
-import { firstHire } from "@/lib/onboarding/use-first-hire";
+import {
+  DEMO_SUPPORTED_VERTICAL_IDS,
+  firstHire,
+} from "@/lib/onboarding/use-first-hire";
 
 const EXPECTED_VERTICALS: Record<string, { id: string; name: string }> = {
   "marketplace-seller": { id: SAMPLE_MARIAH_ID, name: "Mariah" },
@@ -38,6 +41,7 @@ describe("firstHire (demo mode)", () => {
 
   it("routes project-coordination to Peta (F14)", async () => {
     const result = await firstHire({
+      name: "Peta",
       description: "Coordinate the standups",
       verticalId: "project-coordination",
     });
@@ -49,6 +53,7 @@ describe("firstHire (demo mode)", () => {
   it("every mapped vertical resolves to a UUID present in the sample-personas spine", async () => {
     for (const [verticalId, expected] of Object.entries(EXPECTED_VERTICALS)) {
       const result = await firstHire({
+        name: expected.name,
         description: `Hire for ${verticalId}`,
         verticalId,
       });
@@ -65,6 +70,7 @@ describe("firstHire (demo mode)", () => {
 
   it("unknown verticals fall back to Mariah (Scene-3 demo runbook)", async () => {
     const result = await firstHire({
+      name: "anyone",
       description: "Whatever",
       verticalId: "completely-bogus-vertical",
     });
@@ -76,5 +82,30 @@ describe("firstHire (demo mode)", () => {
     expect(SAMPLE_PETA_ID).toBeTruthy();
     expect(SAMPLE_PERSONAS[SAMPLE_PETA_ID]).toBeDefined();
     expect(SAMPLE_PERSONAS[SAMPLE_PETA_ID].name).toBe("Peta");
+  });
+
+  it("F10 — every DEMO_SUPPORTED vertical resolves to a non-Mariah-fallback persona (except marketplace-seller)", async () => {
+    // The set the pick-vertical grid filters against must, by
+    // construction, contain ONLY verticals whose `firstHire` result is
+    // the mapped persona — never the silent fall-through to
+    // DEMO_FALLBACK_WORKER (Mariah). Marketplace-seller legitimately
+    // maps to Mariah; every other supported id must return a different
+    // persona so we can distinguish "mapped to Mariah" from
+    // "fell-through to Mariah".
+    expect(DEMO_SUPPORTED_VERTICAL_IDS.size).toBeGreaterThanOrEqual(4);
+    for (const verticalId of DEMO_SUPPORTED_VERTICAL_IDS) {
+      const result = await firstHire({
+        name: "anyone",
+        description: `Hire for ${verticalId}`,
+        verticalId,
+      });
+      expect(SAMPLE_PERSONAS[result.workerId]).toBeDefined();
+      if (verticalId !== "marketplace-seller") {
+        expect(
+          result.workerId,
+          `vertical ${verticalId} silently fell through to Mariah`,
+        ).not.toBe(SAMPLE_MARIAH_ID);
+      }
+    }
   });
 });

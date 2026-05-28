@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { apiPost, ApiError } from "@/lib/api/client";
 import { useVerticals, type VerticalRow } from "@/lib/api/verticals";
+import { DEMO_SUPPORTED_VERTICAL_IDS } from "@/lib/onboarding/use-first-hire";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
@@ -226,12 +227,22 @@ export default function OnboardingPickVerticalPage() {
   // fallback's skill counts match `skills_added` from
   // `POST /api/v1/onboarding/install-vertical` so the wizard never
   // shows a number the gateway won't honour.
+  //
+  // F10 — in demo mode, restrict the grid to the verticals the
+  // first-hire short-circuit can actually map to a sample persona.
+  // Without the filter, picking Sales SDR / GTM Engineer / Accounts
+  // Receivable falls through to `DEMO_FALLBACK_WORKER = Mariah` and
+  // the camera lands on Mariah's marketplace-lister charter on the
+  // /workers page — a vocabulary mismatch invisible in DevTools but
+  // visible in the demo recording.
   const cards = useMemo<ReadonlyArray<VerticalCard>>(() => {
-    if (catalogRows.length > 0) {
-      return catalogRows.map(cardFromRow);
+    const base =
+      catalogRows.length > 0 ? catalogRows.map(cardFromRow) : FALLBACK_VERTICALS;
+    if (demoMode) {
+      return base.filter((card) => DEMO_SUPPORTED_VERTICAL_IDS.has(card.id));
     }
-    return FALLBACK_VERTICALS;
-  }, [catalogRows]);
+    return base;
+  }, [catalogRows, demoMode]);
 
   async function onChoose(verticalId: string) {
     setSelected(verticalId);
@@ -365,9 +376,11 @@ export default function OnboardingPickVerticalPage() {
         >
           {catalogLoading
             ? "Loading catalogue…"
-            : catalogSource === "gateway"
-              ? `v1 catalogue · ${cards.length} verticals`
-              : `${cards.length} starting templates`}
+            : demoMode
+              ? `Demo · ${cards.length} verticals available; full catalogue ships with live workspace.`
+              : catalogSource === "gateway"
+                ? `v1 catalogue · ${cards.length} verticals`
+                : `${cards.length} starting templates`}
         </p>
         {error ? (
           <p className="ob-form-note" data-testid="onboarding-vertical-error">
