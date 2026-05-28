@@ -56,19 +56,22 @@ afterEach(() => {
 });
 
 describe("DemoBanner — copy branches on data source (UX-AUDIT-T0015 F8)", () => {
-  it("uses the default 'showing sample data' copy when no fetcher has published yet", async () => {
+  it("uses the investor-safe 'every action you see is real' copy when no fetcher has published yet", async () => {
     render(<DemoBanner />);
     const banner = await screen.findByTestId("demo-banner");
     expect(banner.getAttribute("data-source")).toBe("unknown");
-    expect(banner).toHaveTextContent(/showing sample data/);
+    expect(banner).toHaveTextContent(/Hosted POC tenant/);
+    expect(banner).toHaveTextContent(/every action you see is real/);
   });
 
-  it("drops the 'sample data' claim when the live gateway has answered", async () => {
+  it("says 'every action is real' and offers a sign-in CTA when the live gateway has answered", async () => {
     publishDataSource("live");
     render(<DemoBanner />);
     const banner = await screen.findByTestId("demo-banner");
     expect(banner.getAttribute("data-source")).toBe("live");
-    expect(banner).toHaveTextContent(/sign in to see your own workspace/);
+    expect(banner).toHaveTextContent(/Hosted POC tenant/);
+    expect(banner).toHaveTextContent(/every action is real/);
+    expect(banner).toHaveTextContent(/Sign in to talk to your own workspace/);
     expect(banner).not.toHaveTextContent(/sample data/);
     expect(banner).not.toHaveTextContent(/seed data/);
   });
@@ -78,6 +81,7 @@ describe("DemoBanner — copy branches on data source (UX-AUDIT-T0015 F8)", () =
     render(<DemoBanner />);
     const banner = await screen.findByTestId("demo-banner");
     expect(banner.getAttribute("data-source")).toBe("mock-offline");
+    expect(banner).toHaveTextContent(/Hosted POC tenant/);
     expect(banner).toHaveTextContent(/backend unreachable, showing seed data/);
   });
 
@@ -86,8 +90,28 @@ describe("DemoBanner — copy branches on data source (UX-AUDIT-T0015 F8)", () =
     render(<DemoBanner />);
     const banner = await screen.findByTestId("demo-banner");
     expect(banner.getAttribute("data-source")).toBe("mock-bypass");
+    expect(banner).toHaveTextContent(/Hosted POC tenant/);
     expect(banner).toHaveTextContent(/showing curated sample data/);
-    expect(banner).toHaveTextContent(/Sign in to see your own workspace/);
+  });
+
+  it("never uses the pre-rebase 'Demo mode — showing sample data. Sign in to see your own workspace.' copy on any data source", async () => {
+    const sources: Array<"live" | "mock-offline" | "mock-bypass" | null> = [
+      "live",
+      "mock-offline",
+      "mock-bypass",
+      null,
+    ];
+    for (const src of sources) {
+      __resetDataSourceForTests();
+      if (src !== null) publishDataSource(src);
+      const { unmount } = render(<DemoBanner />);
+      const banner = await screen.findByTestId("demo-banner");
+      expect(banner.textContent).not.toMatch(/^Demo mode —/);
+      expect(banner.textContent).not.toMatch(
+        /showing sample data\. Sign in to see your own workspace\./,
+      );
+      unmount();
+    }
   });
 });
 

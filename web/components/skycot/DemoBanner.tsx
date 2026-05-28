@@ -23,30 +23,37 @@ function isBannerSuppressed(): boolean {
  * Copy variant for a given data source. The banner's claim about the
  * underlying data must match what the page is actually showing — a
  * viewer pausing on `/audit` against the live (empty) gateway should
- * NOT see "showing sample data" (UX-AUDIT-T0015 F8). When no fetcher
- * has published yet (initial paint, or the page has no data layer),
- * `source` is `null` and we fall back to the conservative pre-existing
- * "showing sample data" copy so we don't lie in either direction.
+ * NOT see "showing sample data" (UX-AUDIT-T0015 F8).
+ *
+ * Wording is investor-safe per the v1.0 demo positioning: the demo IS
+ * the product, running real actions in a sandboxed tenant. Pre-rebase
+ * copy ("Demo mode — showing sample data. Sign in to see your own
+ * workspace.") under-sold this on camera. The "real actions" claim is
+ * only made when the data source actually IS real (`live`); the two
+ * mock paths still disclose their mock-ness honestly so we don't lie
+ * in either direction.
  */
 function bannerCopy(source: DataSource | null): { lead: string; rest: string } {
   switch (source) {
     case "live":
-      return { lead: "Demo mode —", rest: " sign in to see your own workspace." };
+      return {
+        lead: "Hosted POC tenant —",
+        rest: " every action is real. Sign in to talk to your own workspace.",
+      };
     case "mock-offline":
       return {
-        lead: "Demo mode —",
+        lead: "Hosted POC tenant —",
         rest: " backend unreachable, showing seed data.",
       };
     case "mock-bypass":
       return {
-        lead: "Demo mode —",
-        rest:
-          " showing curated sample data. Sign in to see your own workspace.",
+        lead: "Hosted POC tenant —",
+        rest: " showing curated sample data.",
       };
     case null:
       return {
-        lead: "Demo mode —",
-        rest: " showing sample data. Sign in to see your own workspace.",
+        lead: "Hosted POC tenant —",
+        rest: " every action you see is real.",
       };
   }
 }
