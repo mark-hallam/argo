@@ -71,11 +71,39 @@ describe("VerifyPage", () => {
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
-  it("shows missing-token error when no token in the URL", async () => {
+  it("renders the soft no-token landing when ?token= is absent", async () => {
     searchMock.current = new URLSearchParams("");
     render(<VerifyPage />);
-    const err = await screen.findByTestId("verify-error");
-    expect(err.textContent).toMatch(/missing or malformed/i);
+    const body = await screen.findByTestId("verify-no-token-body");
+    expect(body.textContent).toMatch(/magic link/i);
+    expect(screen.queryByTestId("verify-error")).toBeNull();
+    const primary = screen.getByTestId("verify-no-token-primary");
+    expect(primary.getAttribute("href")).toBe("/auth/signin?from=verify");
+    const secondary = screen.getByTestId("verify-no-token-secondary");
+    expect(secondary.getAttribute("href")).toBe("/auth/signin");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("renders the soft no-token landing when ?token= is empty", async () => {
+    searchMock.current = new URLSearchParams("token=");
+    render(<VerifyPage />);
+    const body = await screen.findByTestId("verify-no-token-body");
+    expect(body.textContent).toMatch(/magic link/i);
+    expect(screen.queryByTestId("verify-error")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the 'didn't work' error when the token is present but invalid", async () => {
+    searchMock.current = new URLSearchParams("token=not-a-real-token");
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(401, {
+        error: { code: "invalid_token", message: "Sign-in link is no longer valid." },
+      }),
+    );
+    render(<VerifyPage />);
+    const err = await screen.findByTestId("verify-error");
+    expect(err.textContent).toMatch(/no longer valid/i);
+    expect(screen.queryByTestId("verify-no-token-body")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useVerify } from "@/lib/auth/use-verify";
 import { AuthEditorialShell } from "@/components/auth/AuthEditorialShell";
+import { VerifyNoTokenLanding } from "@/components/auth/VerifyNoTokenLanding";
 import {
   WELCOME_BACK_FLAG_KEY,
   consumeReturnToPending,
@@ -43,7 +44,13 @@ function VerifyScaffold({ children }: { children?: React.ReactNode }) {
 function VerifyInner() {
   const router = useRouter();
   const search = useSearchParams();
-  const token = search?.get("token") ?? null;
+  const rawToken = search?.get("token");
+  const token = rawToken && rawToken.length > 0 ? rawToken : null;
+  // No token on the URL at all — a user typed `/auth/verify` directly
+  // or hit a stale cached redirect. Show the soft "looking for your
+  // sign-in link?" landing instead of the harsh "didn't work" surface
+  // (which is correct only when a token is present and failed).
+  const showNoTokenLanding = token === null;
   const state = useVerify(token);
 
   useEffect(() => {
@@ -69,6 +76,9 @@ function VerifyInner() {
     router.replace("/");
   }, [state, router]);
 
+  if (showNoTokenLanding) {
+    return <VerifyNoTokenLanding />;
+  }
   if (state.kind === "verifying" || state.kind === "idle") {
     return (
       <VerifyScaffold>
