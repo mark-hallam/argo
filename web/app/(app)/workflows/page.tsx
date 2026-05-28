@@ -159,11 +159,6 @@ export default function WorkflowsPage() {
           ))}
         </div>
 
-        <div className="workflows-section-label">
-          <span>{query.trim() ? `MATCHING "${query.trim()}"` : "ALL WORKFLOWS"}</span>
-          <span>NEWEST FIRST</span>
-        </div>
-
         {isLoading ? (
           <div
             data-testid="workflows-loading"
@@ -176,132 +171,139 @@ export default function WorkflowsPage() {
           >
             Loading workflows…
           </div>
-        ) : null}
-
-        {isError ? (
-          <div
-            data-testid="workflows-error"
-            style={{
-              padding: "32px 24px",
-              textAlign: "center",
-              color: "#dc2626",
-              border: "1px solid #fecaca",
-              borderRadius: 12,
-              background: "#fef2f2",
-              fontSize: 14,
-            }}
-          >
-            Couldn&apos;t reach the gateway. Showing seed data so the demo still works.
-          </div>
-        ) : null}
-
-        {!isLoading && filtered.length === 0 ? (
-          <div
-            data-testid="workflows-empty"
-            style={{
-              gridColumn: "1 / -1",
-              padding: "48px 24px",
-              textAlign: "center",
-              border: "1px dashed var(--border, #ece9f5)",
-              borderRadius: "16px",
-              color: "var(--muted-foreground, #52525b)",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 16,
-                fontWeight: 600,
-                color: "var(--foreground, #1e1b4b)",
-                margin: "0 0 6px",
-              }}
-            >
-              No workflows match &ldquo;{query.trim()}&rdquo;.
-            </p>
-            <p style={{ fontSize: 14, margin: "0 0 16px" }}>
-              Try a different query or browse the {TEMPLATE_COUNT}+ templates.
-            </p>
-            <div style={{ display: "inline-flex", gap: 12 }}>
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border, #ece9f5)",
-                  background: "var(--card, #ffffff)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "var(--foreground, #1e1b4b)",
-                }}
-              >
-                Clear search
-              </button>
-              <Link
-                href="/workflows/templates"
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-                  color: "white",
-                  textDecoration: "none",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                Browse templates →
-              </Link>
+        ) : (
+          <>
+            <div className="workflows-section-label">
+              <span>{query.trim() ? `MATCHING "${query.trim()}"` : "ALL WORKFLOWS"}</span>
+              <span>NEWEST FIRST</span>
             </div>
-          </div>
-        ) : null}
 
-        <div className="workflows-grid">
-          {filtered.map((wf) => {
-            const substrate = resolveWorkflowSubstrate(wf);
-            return (
-              <Link
-                key={`${wf.vertical}/${wf.name}`}
-                href={`/workflows/${wf.vertical}/${wf.name}`}
-                className="workflow-card"
+            {isError ? (
+              <div
+                data-testid="workflows-error"
+                style={{
+                  padding: "32px 24px",
+                  textAlign: "center",
+                  color: "#dc2626",
+                  border: "1px solid #fecaca",
+                  borderRadius: 12,
+                  background: "#fef2f2",
+                  fontSize: 14,
+                }}
               >
-              <div className="workflow-card-top">
-                <span className="workflow-card-vertical">{wf.vertical}</span>
-                <span
-                  className="workflow-card-risk"
-                  style={{ background: RISK_COLOR[wf.risk] ?? "#52525b" }}
+                Couldn&apos;t reach the gateway. Showing seed data so the demo still works.
+              </div>
+            ) : null}
+
+            {filtered.length === 0 ? (
+              <div
+                data-testid="workflows-empty"
+                style={{
+                  gridColumn: "1 / -1",
+                  padding: "48px 24px",
+                  textAlign: "center",
+                  border: "1px dashed var(--border, #ece9f5)",
+                  borderRadius: "16px",
+                  color: "var(--muted-foreground, #52525b)",
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "var(--foreground, #1e1b4b)",
+                    margin: "0 0 6px",
+                  }}
                 >
-                  {RISK_LABEL[wf.risk] ?? wf.risk}
-                </span>
+                  No workflows match &ldquo;{query.trim()}&rdquo;.
+                </p>
+                <p style={{ fontSize: 14, margin: "0 0 16px" }}>
+                  Try a different query or browse the {TEMPLATE_COUNT}+ templates.
+                </p>
+                <div style={{ display: "inline-flex", gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 8,
+                      border: "1px solid var(--border, #ece9f5)",
+                      background: "var(--card, #ffffff)",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--foreground, #1e1b4b)",
+                    }}
+                  >
+                    Clear search
+                  </button>
+                  <Link
+                    href="/workflows/templates"
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 8,
+                      background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+                      color: "white",
+                      textDecoration: "none",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Browse templates →
+                  </Link>
+                </div>
               </div>
-              <h2 className="workflow-card-name">{wf.name}</h2>
-              <p className="workflow-card-desc">{wf.description}</p>
+            ) : (
+              <div className="workflows-grid">
+                {filtered.map((wf) => {
+                  const substrate = resolveWorkflowSubstrate(wf);
+                  return (
+                    <Link
+                      key={`${wf.vertical}/${wf.name}`}
+                      href={`/workflows/${wf.vertical}/${wf.name}`}
+                      className="workflow-card"
+                    >
+                      <div className="workflow-card-top">
+                        <span className="workflow-card-vertical">{wf.vertical}</span>
+                        <span
+                          className="workflow-card-risk"
+                          style={{ background: RISK_COLOR[wf.risk] ?? "#52525b" }}
+                        >
+                          {RISK_LABEL[wf.risk] ?? wf.risk}
+                        </span>
+                      </div>
+                      <h2 className="workflow-card-name">{wf.name}</h2>
+                      <p className="workflow-card-desc">{wf.description}</p>
 
-              <div className="workflow-card-steps">
-                <div className="workflow-step-pill">{wf.steps}</div>
-                <div className="workflow-step-dots" />
-                <span className="workflow-step-count">{wf.steps} steps</span>
+                      <div className="workflow-card-steps">
+                        <div className="workflow-step-pill">{wf.steps}</div>
+                        <div className="workflow-step-dots" />
+                        <span className="workflow-step-count">{wf.steps} steps</span>
+                      </div>
+
+                      <div className="workflow-card-meta" style={{ flexWrap: "wrap", rowGap: 8 }}>
+                        <span className="workflow-card-meta-item">
+                          <GitBranch size={11} /> {formatVersion(wf.versions)}
+                        </span>
+                        <span className="workflow-card-meta-item">
+                          <Clock size={11} /> {wf.lastEdited}
+                        </span>
+                        <SubstrateChip substrate={substrate} status="idle" compact />
+                        <WorkflowAuthorChip
+                          authorType={wf.authorType}
+                          authorName={wf.lastEditor}
+                          authorWorkerId={wf.authorWorkerId}
+                        />
+                      </div>
+
+                      <ArrowRight size={18} className="workflow-card-arrow" />
+                    </Link>
+                  );
+                })}
               </div>
-
-              <div className="workflow-card-meta" style={{ flexWrap: "wrap", rowGap: 8 }}>
-                <span className="workflow-card-meta-item">
-                  <GitBranch size={11} /> {formatVersion(wf.versions)}
-                </span>
-                <span className="workflow-card-meta-item">
-                  <Clock size={11} /> {wf.lastEdited}
-                </span>
-                <SubstrateChip substrate={substrate} status="idle" compact />
-                <WorkflowAuthorChip
-                  authorType={wf.authorType}
-                  authorName={wf.lastEditor}
-                  authorWorkerId={wf.authorWorkerId}
-                />
-              </div>
-
-              <ArrowRight size={18} className="workflow-card-arrow" />
-              </Link>
-            );
-          })}
-        </div>
+            )}
+          </>
+        )}
       </div>
       <WorkflowProposeModal open={proposeOpen} onOpenChange={setProposeOpen} />
     </>
