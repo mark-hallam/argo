@@ -65,6 +65,19 @@ export interface WizardEditorialShellProps {
 }
 
 const WIZARD_STYLES = `
+/* In dark color-scheme the document body bg is near-black
+   (rgb(2,7,11)) and any overscroll, scroll-rubber-band, or
+   bottom-of-page area below the shell shows it as a stripe under
+   the cream/lavender wizard. The wizard is always-light by design
+   (it hardcodes paper + soft gradients regardless of theme), so we
+   pin html + body to the wizard's paper bg and force color-scheme
+   light wherever the wizard is mounted. Scoped via :has() so other
+   routes keep their dark-mode chrome. */
+html:has(.wiz-editorial),
+body:has(.wiz-editorial) {
+  background-color: #fafaff;
+  color-scheme: light;
+}
 .wiz-editorial {
   --purple: #8b5cf6; --purple-deep: #6d28d9;
   --pink: #ec4899; --coral: #ff6b6b; --yellow: #fcd34d;
