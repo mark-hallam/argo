@@ -127,7 +127,9 @@ export default function SkillsPage() {
           />
           <div className="search-meta">
             <span className="count-pill" data-testid="skills-count">
-              {skills.length} skills · {filtered.length} shown
+              {filtered.length === skills.length
+                ? `${skills.length} skills`
+                : `${filtered.length} of ${skills.length} skills`}
             </span>
             <span className="search-kbd">⌘K</span>
           </div>

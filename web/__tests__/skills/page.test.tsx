@@ -139,6 +139,69 @@ describe("/skills marketplace page", () => {
     });
   });
 
+  describe("count pill copy", () => {
+    it("reads '<N> skills' when no filter is active", async () => {
+      vi.mocked(api.fetchSkills).mockResolvedValue({
+        skills: api.SEED_SKILLS,
+        source: "mock-offline",
+      });
+
+      render(wrap(<SkillsPage />));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("skills-count")).toHaveTextContent(
+          new RegExp(`^${api.SEED_SKILLS.length} skills$`),
+        );
+      });
+    });
+
+    it("reads 'N of M skills' when a filter partially matches", async () => {
+      vi.mocked(api.fetchSkills).mockResolvedValue({
+        skills: api.SEED_SKILLS,
+        source: "mock-offline",
+      });
+
+      render(wrap(<SkillsPage />));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId("skill-card")).toHaveLength(api.SEED_SKILLS.length);
+      });
+
+      fireEvent.change(screen.getByTestId("skills-search"), {
+        target: { value: "competitor" },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("skills-count")).toHaveTextContent(
+          new RegExp(`^1 of ${api.SEED_SKILLS.length} skills$`),
+        );
+      });
+    });
+
+    it("reads '0 of M skills' when a filter excludes everything", async () => {
+      vi.mocked(api.fetchSkills).mockResolvedValue({
+        skills: api.SEED_SKILLS,
+        source: "mock-offline",
+      });
+
+      render(wrap(<SkillsPage />));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId("skill-card")).toHaveLength(api.SEED_SKILLS.length);
+      });
+
+      fireEvent.change(screen.getByTestId("skills-search"), {
+        target: { value: "zzz-no-match-xyzzy" },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("skills-count")).toHaveTextContent(
+          new RegExp(`^0 of ${api.SEED_SKILLS.length} skills$`),
+        );
+      });
+    });
+  });
+
   it("keeps the learned-this-month filter populated by seed fallback skills", async () => {
     vi.mocked(api.fetchSkills).mockResolvedValue({
       skills: api.SEED_SKILLS,
