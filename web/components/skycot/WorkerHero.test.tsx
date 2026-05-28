@@ -54,6 +54,12 @@ describe("WorkerHero", () => {
     expect(screen.getByTestId("worker-status-pill")).toHaveTextContent("Idle");
   });
 
+  it("hides the overflow trigger when actionsEnabled is false", () => {
+    render(<WorkerHero worker={makeWorker()} actionsEnabled={false} />);
+    expect(screen.queryByTestId("worker-overflow")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("worker-overflow-menu")).not.toBeInTheDocument();
+  });
+
   it("opens the overflow menu with all five action items", async () => {
     const user = userEvent.setup();
     render(<WorkerHero worker={makeWorker()} />);

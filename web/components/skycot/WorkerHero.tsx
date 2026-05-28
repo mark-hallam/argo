@@ -58,17 +58,30 @@ function workerStatusToAvatar(status: WorkerStatus): AvatarStatus {
 export interface WorkerHeroProps {
   worker: Worker;
   onAction?: (action: WorkerHeroAction) => void;
+  /**
+   * Controls whether the "…" overflow trigger renders. Defaults to
+   * `true` so isolated tests + storybook keep the menu visible. The
+   * production layout passes `false` until the pause / disable /
+   * archive lifecycle endpoints land — until then the menu would be
+   * theatre (clickable, no effect).
+   */
+  actionsEnabled?: boolean;
   className?: string;
 }
 
-export function WorkerHero({ worker, onAction, className }: WorkerHeroProps) {
+export function WorkerHero({
+  worker,
+  onAction,
+  actionsEnabled = true,
+  className,
+}: WorkerHeroProps) {
   const orgLine = formatOrgLine(worker);
   const kpiLine = worker.kpiToday
     ? `${worker.kpiToday.value} ${worker.kpiToday.label}`
     : null;
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const triggerButton = (
+  const triggerButton = actionsEnabled ? (
     <Button
       variant="ghost"
       size="icon"
@@ -78,7 +91,7 @@ export function WorkerHero({ worker, onAction, className }: WorkerHeroProps) {
     >
       <MoreVertical />
     </Button>
-  );
+  ) : null;
 
   return (
     <section
@@ -134,7 +147,7 @@ export function WorkerHero({ worker, onAction, className }: WorkerHeroProps) {
           ) : null}
         </div>
 
-        {menuOpen ? (
+        {menuOpen && triggerButton ? (
           <LazyOverflowMenu
             worker={worker}
             trigger={triggerButton}

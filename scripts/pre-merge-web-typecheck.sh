@@ -68,4 +68,13 @@ if [[ "$tsc_rc" -ne 0 ]]; then
 fi
 
 log "pnpm tsc --noEmit clean"
+
+# Bounded grep guard: reject brief-IDs (`E<digit>-<letter>`) inside
+# user-facing strings in the worker-detail UI. Microseconds to run.
+log "running scripts/check-worker-ui-no-brief-ids.sh"
+if ! bash scripts/check-worker-ui-no-brief-ids.sh; then
+  fail "worker UI brief-ID guard failed — see output above"
+  exit 1
+fi
+
 exit 0

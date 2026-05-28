@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "@/components/ui/Breadcrumb";
-import { WorkerHero, type WorkerHeroAction } from "@/components/skycot/WorkerHero";
+import { WorkerHero } from "@/components/skycot/WorkerHero";
 import { WorkerTabs } from "@/components/skycot/WorkerTabs";
 import { WorkerNotFound } from "@/components/skycot/WorkerNotFound";
 import { useWorker } from "@/lib/hooks/use-worker";
@@ -86,7 +86,7 @@ export function WorkerLayoutShell({
           permissions={freezePermissions}
         />
       </div>
-      <WorkerHero worker={worker} onAction={handleHeroAction} />
+      <WorkerHero worker={worker} actionsEnabled={false} />
       <WorkerTabs workerId={workerId} />
       <div className="pt-6">{children}</div>
     </PageFrame>
@@ -126,14 +126,6 @@ function TeamBreadcrumb({ workerName }: { workerName?: string }) {
       ) : null}
     </Breadcrumb>
   );
-}
-
-function handleHeroAction(action: WorkerHeroAction) {
-  // Pause / disable / archive land in E3-b + E4-f; the menu shape is
-  // locked here. Until those briefs ship, log so the hook-up is
-  // discoverable in the console.
-  // eslint-disable-next-line no-console
-  console.warn(`[E4-a] worker hero action '${action}' pending wiring (E3-b/E4-f)`);
 }
 
 function LoadingState() {
