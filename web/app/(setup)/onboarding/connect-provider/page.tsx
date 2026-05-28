@@ -146,8 +146,8 @@ export default function OnboardingConnectProviderPage() {
           </>
         ) : (
           <>
-            A <strong>$0.001 test call</strong> confirms the key works &mdash; or skip and use a
-            mock provider for now.
+            We verify the key shape (<code>sk-ant-...</code>). A live one-token validation call
+            ships in the next release &mdash; or skip and use a mock provider for now.
           </>
         )
       }
