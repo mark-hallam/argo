@@ -35,6 +35,10 @@ import {
   type ApprovalItem,
   type ChannelKind,
 } from "@/lib/sample-approvals";
+import {
+  publishDataSource,
+  type DataSource as BannerDataSource,
+} from "@/lib/skycot/data-source-context";
 import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 
 export type DataSource = "live" | "mock-offline" | "mock-auth-bypass";
@@ -78,6 +82,17 @@ export function authBypassEnabled(): boolean {
 function isMissingOrUnreachable(err: unknown): boolean {
   if (err instanceof ApiError) return err.status === 404;
   return err instanceof TypeError;
+}
+
+function toBannerSource(source: DataSource): BannerDataSource {
+  switch (source) {
+    case "live":
+      return "live";
+    case "mock-offline":
+      return "mock-offline";
+    case "mock-auth-bypass":
+      return "mock-bypass";
+  }
 }
 
 function isForbiddenError(err: unknown): err is ApiError {
@@ -174,6 +189,12 @@ function rowToItem(row: ApprovalRowJson): ApprovalItem {
 }
 
 export async function fetchApprovals(): Promise<ApprovalsResult> {
+  const result = await fetchApprovalsInner();
+  publishDataSource(toBannerSource(result.source));
+  return result;
+}
+
+async function fetchApprovalsInner(): Promise<ApprovalsResult> {
   // `isDemoLive()` is the recording-mode opt-out: with auth-bypass +
   // demo-mode + demo-live, the inbox reads the real gateway so the
   // approvals the camera sees are the seeded server rows, not the

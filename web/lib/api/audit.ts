@@ -12,6 +12,7 @@ import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import type { ChannelKind } from "@/lib/sample-approvals";
 import { SAMPLE_AUDIT_ROWS } from "@/lib/sample-audit";
+import { publishDataSource } from "@/lib/skycot/data-source-context";
 import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 import {
   AUDIT_RANGE_PRESETS,
@@ -358,6 +359,7 @@ export async function fetchAuditFeed(filters: AuditFilters): Promise<AuditFeedPa
   // demo-mode + demo-live, the audit feed routes through the real
   // gateway so Scene 6's "real provenance" narration is literally true.
   if (isAuthBypassed() && !isDemoLive()) {
+    publishDataSource("mock-bypass");
     return mockPage(filters);
   }
 
@@ -365,6 +367,7 @@ export async function fetchAuditFeed(filters: AuditFilters): Promise<AuditFeedPa
   const path = `/api/v1/audit?${qs}`;
   try {
     const response = await apiGet<AuditFeedResponse>(path);
+    publishDataSource("live");
     return normalizeAuditFeed(response);
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
@@ -372,8 +375,10 @@ export async function fetchAuditFeed(filters: AuditFilters): Promise<AuditFeedPa
       // v1.0 walkthrough. Real signed-in users on a fresh workspace
       // fall through to the empty-state ("Quiet day") UI.
       if (isDemoMode()) {
+        publishDataSource("mock-offline");
         return mockPage(filters);
       }
+      publishDataSource("live");
       return emptyPage();
     }
     throw err;

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/skycot/demo-mode", () => ({
@@ -6,38 +7,122 @@ vi.mock("@/lib/skycot/demo-mode", () => ({
   recordingModeReadinessWarning: () => null,
 }));
 
-import { DemoBanner } from "./DemoBanner";
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/team",
+}));
 
-function installMemoryStorage(): Storage {
-  const data = new Map<string, string>();
-  const storage: Storage = {
-    get length() {
-      return data.size;
-    },
-    clear: () => data.clear(),
-    getItem: (k) => (data.has(k) ? (data.get(k) as string) : null),
-    key: (i) => Array.from(data.keys())[i] ?? null,
-    removeItem: (k) => {
-      data.delete(k);
-    },
-    setItem: (k, v) => {
-      data.set(k, String(v));
-    },
-  };
-  Object.defineProperty(window, "localStorage", {
-    configurable: true,
-    value: storage,
-  });
-  return storage;
+import { DemoBanner } from "./DemoBanner";
+import {
+  __resetDataSourceForTests,
+  publishDataSource,
+} from "@/lib/skycot/data-source-context";
+
+function installMemoryStorage(): { local: Storage; session: Storage } {
+  function make(): Storage {
+    const data = new Map<string, string>();
+    return {
+      get length() {
+        return data.size;
+      },
+      clear: () => data.clear(),
+      getItem: (k) => (data.has(k) ? (data.get(k) as string) : null),
+      key: (i) => Array.from(data.keys())[i] ?? null,
+      removeItem: (k) => {
+        data.delete(k);
+      },
+      setItem: (k, v) => {
+        data.set(k, String(v));
+      },
+    };
+  }
+  const local = make();
+  const session = make();
+  Object.defineProperty(window, "localStorage", { configurable: true, value: local });
+  Object.defineProperty(window, "sessionStorage", { configurable: true, value: session });
+  return { local, session };
 }
 
 beforeEach(() => {
   installMemoryStorage();
+  __resetDataSourceForTests();
+  delete process.env.NEXT_PUBLIC_HIDE_DEMO_BANNER;
 });
 
 afterEach(() => {
   window.localStorage.clear();
+  window.sessionStorage.clear();
   vi.clearAllMocks();
+  delete process.env.NEXT_PUBLIC_HIDE_DEMO_BANNER;
+});
+
+describe("DemoBanner — copy branches on data source (UX-AUDIT-T0015 F8)", () => {
+  it("uses the default 'showing sample data' copy when no fetcher has published yet", async () => {
+    render(<DemoBanner />);
+    const banner = await screen.findByTestId("demo-banner");
+    expect(banner.getAttribute("data-source")).toBe("unknown");
+    expect(banner).toHaveTextContent(/showing sample data/);
+  });
+
+  it("drops the 'sample data' claim when the live gateway has answered", async () => {
+    publishDataSource("live");
+    render(<DemoBanner />);
+    const banner = await screen.findByTestId("demo-banner");
+    expect(banner.getAttribute("data-source")).toBe("live");
+    expect(banner).toHaveTextContent(/sign in to see your own workspace/);
+    expect(banner).not.toHaveTextContent(/sample data/);
+    expect(banner).not.toHaveTextContent(/seed data/);
+  });
+
+  it("says 'backend unreachable, showing seed data' on the mock-offline fallback path", async () => {
+    publishDataSource("mock-offline");
+    render(<DemoBanner />);
+    const banner = await screen.findByTestId("demo-banner");
+    expect(banner.getAttribute("data-source")).toBe("mock-offline");
+    expect(banner).toHaveTextContent(/backend unreachable, showing seed data/);
+  });
+
+  it("says 'showing curated sample data' on the mock-bypass auth-short-circuit path", async () => {
+    publishDataSource("mock-bypass");
+    render(<DemoBanner />);
+    const banner = await screen.findByTestId("demo-banner");
+    expect(banner.getAttribute("data-source")).toBe("mock-bypass");
+    expect(banner).toHaveTextContent(/showing curated sample data/);
+    expect(banner).toHaveTextContent(/Sign in to see your own workspace/);
+  });
+});
+
+describe("DemoBanner — NEXT_PUBLIC_HIDE_DEMO_BANNER suppress (UX-AUDIT-T0015 F13)", () => {
+  it("renders nothing when NEXT_PUBLIC_HIDE_DEMO_BANNER=1", () => {
+    process.env.NEXT_PUBLIC_HIDE_DEMO_BANNER = "1";
+    const { container } = render(<DemoBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("renders normally when NEXT_PUBLIC_HIDE_DEMO_BANNER is unset", async () => {
+    render(<DemoBanner />);
+    expect(await screen.findByTestId("demo-banner")).toBeTruthy();
+  });
+});
+
+describe("DemoBanner — dismissal persists in sessionStorage", () => {
+  it("clicking × writes the dismiss flag to sessionStorage (not localStorage)", async () => {
+    const user = userEvent.setup();
+    render(<DemoBanner />);
+    const dismiss = await screen.findByTestId("demo-banner-dismiss");
+    await user.click(dismiss);
+    expect(window.sessionStorage.getItem("skycot:demo-banner-dismissed")).toBe("1");
+    expect(window.localStorage.getItem("skycot:demo-banner-dismissed")).toBeNull();
+    expect(screen.queryByTestId("demo-banner")).toBeNull();
+  });
+
+  it("a pre-seeded sessionStorage dismiss flag suppresses the banner on mount", () => {
+    window.sessionStorage.setItem("skycot:demo-banner-dismissed", "1");
+    const { container } = render(<DemoBanner />);
+    // Hydration happens in useEffect; the banner reads sessionStorage
+    // before rendering anything, so the first paint after hydrate stays
+    // empty.
+    expect(container.querySelector("[data-testid='demo-banner']")).toBeNull();
+  });
 });
 
 describe("DemoBanner — z-index regression guard", () => {

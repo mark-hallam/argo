@@ -23,6 +23,10 @@ import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { listDemoWorkers } from "@/lib/api/demo-roster-store";
 import { SAMPLE_TEAM } from "@/lib/sample-team";
+import {
+  publishDataSource,
+  type DataSource,
+} from "@/lib/skycot/data-source-context";
 import { isDemoMode } from "@/lib/skycot/demo-mode";
 import type { Worker } from "@/lib/types/worker";
 
@@ -56,6 +60,21 @@ function isMissingOrUnreachable(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
+function toBannerSource(source: TeamDataSource): DataSource {
+  switch (source) {
+    case "mock-bypass":
+      return "mock-bypass";
+    case "mock-offline":
+      return "mock-offline";
+    case "gateway":
+    case "unreachable":
+      // `unreachable` is the post-2026-05 empty-state path — the real
+      // gateway answered (or didn't) and the SPA shows an empty roster,
+      // not seed fixtures. From the banner's perspective that's "live".
+      return "live";
+  }
+}
+
 /**
  * Defence-in-depth fallback for `verifyWorkerReadable` in
  * `web/lib/onboarding/use-first-hire.ts`. If the freshly returned
@@ -83,6 +102,12 @@ export async function findWorkerByName(name: string): Promise<Worker | null> {
 }
 
 export async function fetchTeam(): Promise<FetchTeamResult> {
+  const result = await fetchTeamInner();
+  publishDataSource(toBannerSource(result.source));
+  return result;
+}
+
+async function fetchTeamInner(): Promise<FetchTeamResult> {
   if (isAuthBypassed()) {
     // Splice in any session-local hires from the demo roster so the
     // /team deck grows when the Hire wizard commits in bypass mode.
