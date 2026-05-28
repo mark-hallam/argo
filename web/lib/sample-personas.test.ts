@@ -41,6 +41,47 @@ describe("sample-personas as the canonical persona spine", () => {
     );
   });
 
+  // Sibling-table-sprawl guard
+  // (fix-peta-personality-trait-level-lookup-coverage).
+  // Before this brief, /team's trait chips + level number and the
+  // /workers/<id>/overview personality card pulled from three parallel
+  // name-keyed maps inside the components. Adding Peta to the roster
+  // (#2367) missed all three of those maps, so her card rendered with
+  // no traits + a hashed level + generic boilerplate personality.
+  // The fields below are now required on every canonical persona; the
+  // components read them via findSamplePersona(id).
+  it("every canonical persona has traits + a curated level", () => {
+    for (const id of SAMPLE_PERSONA_IDS) {
+      const persona = getSamplePersona(id);
+      expect(persona.traits.length, `${persona.name} has no traits`).toBeGreaterThan(0);
+      expect(persona.level, `${persona.name} has no curated level`).toBeGreaterThan(0);
+    }
+  });
+
+  it("personas with personality copy have non-empty behavior lists", () => {
+    for (const persona of Object.values(SAMPLE_PERSONAS)) {
+      const p = persona.personality;
+      if (!p) continue;
+      expect(p.greatAt.length, `${persona.name} greatAt empty`).toBeGreaterThan(0);
+      expect(p.escalateWhen.length, `${persona.name} escalateWhen empty`).toBeGreaterThan(0);
+      expect(p.signatureBehaviors.length, `${persona.name} signature empty`).toBeGreaterThan(0);
+    }
+  });
+
+  it("Peta carries her actual traits + a curated personality", () => {
+    const peta = getSamplePersona("018f67d0-0000-7000-8000-000000000007");
+    expect(peta.name).toBe("Peta");
+    expect(peta.traits).toEqual([
+      "Cadence-true",
+      "Follow-through",
+      "Calm escalator",
+      "Context keeper",
+    ]);
+    expect(peta.level).toBeGreaterThan(0);
+    expect(peta.personality).toBeDefined();
+    expect(peta.personality!.greatAt.length).toBeGreaterThan(0);
+  });
+
   it("uses gateway-parseable UUID ids for canonical demo personas", () => {
     for (const id of SAMPLE_PERSONA_IDS) {
       expect(id).toMatch(

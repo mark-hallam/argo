@@ -7,13 +7,18 @@
  * found Sam, Mariah, and Nori had split personas: /team showed one
  * role, /audit showed a different one. This file is the canonical
  * home. The persona spine (name + role + vertical + headline +
- * traits) is anchored here; runtime-ish fields (status,
- * lastActiveAt) stay on the consuming sample file.
+ * traits + level + personality) is anchored here; runtime-ish
+ * fields (status, lastActiveAt) stay on the consuming sample file.
  *
  * The roles below match the operator-locked v1 demo runbook
  * (docs/skycot/operator/demo-runbook.md) and the personality chips
  * in WorkerPersonalityCard.tsx. Worker IDs are stable per the
  * brief's must-not-touch.
+ *
+ * `level` + `personality` were folded onto the spine via
+ * fix-peta-personality-trait-level-lookup-coverage to kill the
+ * sibling-table sprawl that left Peta missing from three parallel
+ * name-keyed maps after #2367 added her to the roster.
  */
 
 export interface SamplePersonaRole {
@@ -32,6 +37,15 @@ export interface SamplePersonaHeadline {
   tomorrow?: string;
 }
 
+/** Behavior copy rendered by WorkerPersonalityCard. Traits live on
+ * the persona top-level so /team chips and /workers chips stay
+ * sourced from one place. */
+export interface SamplePersonality {
+  greatAt: string[];
+  escalateWhen: string[];
+  signatureBehaviors: string[];
+}
+
 export interface SamplePersona {
   id: string;
   name: string;
@@ -48,6 +62,14 @@ export interface SamplePersona {
   headline?: SamplePersonaHeadline;
   /** Short adjectives — sourced by personality cards + audit colour. */
   traits: string[];
+  /** Curated gamification level shown on the holographic teammate
+   * card. Hand-tuned per persona; absent personas fall back to a
+   * stable hash in the consumer. */
+  level: number;
+  /** Optional behaviour copy for WorkerPersonalityCard. Personas
+   * without an explicit entry fall through to DEFAULT_PERSONALITY in
+   * the card. */
+  personality?: SamplePersonality;
 }
 
 export interface DemoSeedPersona {
@@ -75,6 +97,26 @@ const PRIYA: SamplePersona = {
     tomorrow: "next-day shortlist review",
   },
   traits: ["Thorough", "Respectful", "Fast", "Calibrated"],
+  level: 9,
+  personality: {
+    greatAt: [
+      "First-pass skill-match scoring against the JD",
+      "Spotting tenure red flags + cultural mismatch",
+      "Writing rejection emails that don't burn bridges",
+      "Booking interview slots that respect both calendars",
+    ],
+    escalateWhen: [
+      "Score is in the 50-65 band (neither yes nor no)",
+      "Candidate has worked at a direct competitor",
+      "JD has been edited in the last 24h",
+      "Hiring manager hasn't replied to the last 3 candidates",
+    ],
+    signatureBehaviors: [
+      "Always sends the rejection within 48h of decline",
+      "Books a buffer week before a senior interview",
+      "Asks for clarification before discounting a strong yes",
+    ],
+  },
 };
 
 const MARIAH: SamplePersona = {
@@ -93,6 +135,26 @@ const MARIAH: SamplePersona = {
     tomorrow: "morning re-price sweep at 06:30",
   },
   traits: ["Patient", "Detail-oriented", "Picture-perfect listings", "Polite"],
+  level: 5,
+  personality: {
+    greatAt: [
+      "Spotting price gaps against the live market",
+      "Cropping + ordering photos for best buyer scroll",
+      "Writing tight 60-word listing copy with real specifics",
+      "Knowing when a listing needs a category change",
+    ],
+    escalateWhen: [
+      "Price drop below the seller's floor",
+      "Photos look heavily edited or stock",
+      "Buyer asks a question outside the listing scope",
+      "Multiple competing offers on the same item",
+    ],
+    signatureBehaviors: [
+      "Always confirms the seller before posting publicly",
+      "Asks for a single source photo if you give multiples",
+      "Refuses to use stock imagery — always your photos",
+    ],
+  },
 };
 
 const JAMAL: SamplePersona = {
@@ -110,6 +172,26 @@ const JAMAL: SamplePersona = {
     bullets: ["12 tickets resolved", "median reply 4m"],
   },
   traits: ["Calm under pressure", "Empathic", "Quick", "Honest"],
+  level: 12,
+  personality: {
+    greatAt: [
+      "Classifying tickets by severity in <2 minutes",
+      "Pulling the right KB article for self-deflection",
+      "Writing follow-ups that land in your customer's voice",
+      "Spotting the same issue across 5+ tickets",
+    ],
+    escalateWhen: [
+      "Customer mentions churn or 'cancel' in any reply",
+      "Same customer opens 3+ tickets in 24h",
+      "Issue involves billing or a refund over $200",
+      "Customer is on a VIP or enterprise tier",
+    ],
+    signatureBehaviors: [
+      "Always names the human owner when escalating",
+      "Sends a 'still investigating' note at the 4h mark",
+      "Never closes a ticket without a one-line outcome",
+    ],
+  },
 };
 
 const NORI: SamplePersona = {
@@ -128,6 +210,7 @@ const NORI: SamplePersona = {
     tomorrow: "Q2 product update draft at 09:00",
   },
   traits: ["On-voice", "Considered", "Schedule-respecting", "Reach-tracking"],
+  level: 15,
 };
 
 const PETA: SamplePersona = {
@@ -146,6 +229,26 @@ const PETA: SamplePersona = {
     tomorrow: "morning standup digest at 09:00",
   },
   traits: ["Cadence-true", "Follow-through", "Calm escalator", "Context keeper"],
+  level: 8,
+  personality: {
+    greatAt: [
+      "Driving the standup digest at the same time every day",
+      "Tracking action-item ownership across multiple owners",
+      "Calling out scope creep on the live sprint board",
+      "Drafting status updates in the operator's voice",
+    ],
+    escalateWhen: [
+      "An owner has missed the same action item three times",
+      "Sprint scope shifts by more than 20% mid-week",
+      "A blocker has been open for more than 72 hours",
+      "Two stakeholders publicly disagree on the same call",
+    ],
+    signatureBehaviors: [
+      "Always closes the standup with a one-line digest",
+      "Names the owner before writing the action item",
+      "Never moves a deadline without naming the trade-off",
+    ],
+  },
 };
 
 export const SAMPLE_PERSONAS: Record<string, SamplePersona> = {

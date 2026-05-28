@@ -7,6 +7,7 @@ import { AlertDialog } from "@/components/ui/AlertDialog";
 import { buttonVariants } from "@/components/ui/Button";
 import { StatusPill, type StatusPillProps } from "@/components/ui/StatusPill";
 import { useWorkerActions } from "@/lib/hooks/use-worker-actions";
+import { findSamplePersona } from "@/lib/sample-personas";
 import { useToast } from "@/lib/ui/use-toast";
 import { cn } from "@/lib/utils";
 import type { Worker, WorkerStatus } from "@/lib/types/worker";
@@ -45,27 +46,10 @@ const STATUS_LABELS: Record<WorkerStatus, string> = {
 
 const LONG_PRESS_MS = 500;
 
-// Per-name personality + level data. Matches WorkerPersonalityCard's
-// PERSONALITIES map for the workers it covers; unknown names fall
-// through to a stable hash so the card never renders an empty banner.
-const TRAITS_BY_NAME: Record<string, string[]> = {
-  Mariah: ["Patient", "Detail-oriented", "Picture-perfect listings", "Polite"],
-  Priya: ["Thorough", "Respectful", "Fast", "Calibrated"],
-  Jamal: ["Calm under pressure", "Empathic", "Quick", "Honest"],
-  Nori: ["Creative", "On-brand", "Concise", "Curious"],
-  Sam: ["Vigilant", "Steady", "Methodical"],
-  Rio: ["Polite", "Reliable", "Punctual"],
-};
-
-const LEVEL_BY_NAME: Record<string, number> = {
-  Mariah: 5,
-  Priya: 9,
-  Jamal: 12,
-  Nori: 15,
-  Sam: 7,
-  Rio: 4,
-};
-
+// Traits + level are sourced from `sample-personas.ts` so /team and
+// /workers/<id> stay in lockstep. Workers that aren't in the canonical
+// roster (e.g. operator-hired customer workers) fall back to a hashed
+// level + empty trait strip — the card never renders an empty banner.
 function hashLevel(name: string): number {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
@@ -73,25 +57,13 @@ function hashLevel(name: string): number {
 }
 
 function levelFor(worker: Worker): number {
-  const known = LEVEL_BY_NAME[worker.name];
-  if (known === undefined && process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[TeammateCard] Missing level for "${worker.name}". Add to LEVEL_BY_NAME.`,
-    );
-  }
-  return known ?? hashLevel(worker.name);
+  const persona = findSamplePersona(worker.id);
+  return persona?.level ?? hashLevel(worker.name);
 }
 
 function traitsFor(worker: Worker): string[] {
-  const known = TRAITS_BY_NAME[worker.name];
-  if (!known && process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[TeammateCard] Missing traits for "${worker.name}". Add to TRAITS_BY_NAME.`,
-    );
-  }
-  return known ?? [];
+  const persona = findSamplePersona(worker.id);
+  return persona?.traits ?? [];
 }
 
 function initialsFor(name: string): string {

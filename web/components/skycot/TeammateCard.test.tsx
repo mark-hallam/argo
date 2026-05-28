@@ -31,6 +31,12 @@ vi.mock("@/lib/api/workers", () => ({
 
 import { TeammateCard } from "./TeammateCard";
 
+// Canonical Mariah id — used by tests that need traits/level lookup to
+// resolve to her curated SAMPLE_PERSONAS entry. Pre-refactor lookups
+// were keyed by name, so any arbitrary id worked; the helper now reads
+// from `sample-personas.ts` by id.
+const MARIAH_ID = "018f67d0-0000-7000-8000-000000000001";
+
 function makeWorker(overrides: Partial<Worker> = {}): Worker {
   return {
     id: "wkr_test",
@@ -261,16 +267,18 @@ describe("TeammateCard", () => {
   });
 
   it("renders a weight-900 level number on the gradient banner", () => {
-    wrap(<TeammateCard worker={makeWorker()} />);
-    const level = screen.getByTestId("teammate-level-wkr_test");
+    // Use Mariah's canonical persona id so the level resolves to her
+    // curated `SAMPLE_PERSONAS.level` (5) rather than the unknown-id
+    // hash fallback.
+    wrap(<TeammateCard worker={makeWorker({ id: MARIAH_ID })} />);
+    const level = screen.getByTestId(`teammate-level-${MARIAH_ID}`);
     expect(level).toBeInTheDocument();
-    // Mariah's locked level (see TRAITS_BY_NAME / LEVEL_BY_NAME in component).
     expect(level).toHaveTextContent("5");
   });
 
   it("renders trait chips for known workers (Mariah)", () => {
-    wrap(<TeammateCard worker={makeWorker()} />);
-    const traits = screen.getByTestId("teammate-traits-wkr_test");
+    wrap(<TeammateCard worker={makeWorker({ id: MARIAH_ID })} />);
+    const traits = screen.getByTestId(`teammate-traits-${MARIAH_ID}`);
     expect(within(traits).getByText("Patient")).toBeInTheDocument();
     expect(within(traits).getByText("Detail-oriented")).toBeInTheDocument();
     expect(within(traits).getByText("Picture-perfect listings")).toBeInTheDocument();
@@ -278,6 +286,8 @@ describe("TeammateCard", () => {
   });
 
   it("omits the trait chip block for unknown workers", () => {
+    // `wkr_unknown` is not in SAMPLE_PERSONAS, so the trait lookup
+    // returns an empty list and the chip block is suppressed.
     wrap(
       <TeammateCard
         worker={makeWorker({ id: "wkr_unknown", name: "Stranger" })}
