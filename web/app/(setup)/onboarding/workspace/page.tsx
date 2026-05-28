@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useOnboardingDraft } from "@/lib/onboarding/use-onboarding-draft";
@@ -10,15 +10,15 @@ import { Toaster } from "@/components/ui/sonner";
 import { scrubOnboardingErrorMessage } from "../_scrub-error";
 import { OnboardingShell } from "../_OnboardingShell";
 
-// On fresh provisions we hold the wizard on this step briefly so the
-// celebration toast is actually perceived before the route changes.
-// Idempotent re-calls navigate immediately — no celebration owed.
-const CELEBRATION_HOLD_MS = 1200;
+// Returning users (workspace already provisioned in draft) auto-advance.
+// Short enough to feel snappy, just long enough to perceive the banner.
+const RETURNING_USER_HOLD_MS = 200;
 
 export default function OnboardingWorkspacePage() {
   const router = useRouter();
   const initialWorkspace = useOnboardingDraft((s) => s.workspaceName);
   const initialCompany = useOnboardingDraft((s) => s.companyName);
+  const existingWorkspaceId = useOnboardingDraft((s) => s.workspaceId);
   const setStep = useOnboardingDraft((s) => s.setStep);
   const setWorkspace = useOnboardingDraft((s) => s.setWorkspace);
   const setProvision = useOnboardingDraft((s) => s.setProvision);
@@ -26,13 +26,36 @@ export default function OnboardingWorkspacePage() {
   const [workspaceName, setWorkspaceName] = useState(initialWorkspace);
   const [companyName, setCompanyName] = useState(initialCompany);
   const [error, setError] = useState("");
+  const [celebrating, setCelebrating] = useState(false);
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const isReturning = existingWorkspaceId !== null && existingWorkspaceId.length > 0;
 
   useEffect(() => {
     setStep(2);
   }, [setStep]);
 
+  useEffect(() => {
+    if (!isReturning) return;
+    const t = setTimeout(
+      () => router.push("/onboarding/connect-provider"),
+      RETURNING_USER_HOLD_MS,
+    );
+    return () => clearTimeout(t);
+  }, [isReturning, router]);
+
+  // After a successful fresh provision the toast fires; pull focus to the
+  // Continue button so the user can advance with Enter (or a click) without
+  // a timer racing their hover.
+  useEffect(() => {
+    if (celebrating) continueRef.current?.focus();
+  }, [celebrating]);
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (celebrating) {
+      router.push("/onboarding/connect-provider");
+      return;
+    }
     setError("");
     const wsName = workspaceName.trim();
     const coName = companyName.trim();
@@ -46,7 +69,7 @@ export default function OnboardingWorkspacePage() {
       setProvision(res.tenantId, res.workspaceId);
       if (res.created) {
         toast.success("Workspace created — welcome to Skycot.");
-        setTimeout(() => router.push("/onboarding/connect-provider"), CELEBRATION_HOLD_MS);
+        setCelebrating(true);
       } else {
         router.push("/onboarding/connect-provider");
       }
@@ -58,7 +81,9 @@ export default function OnboardingWorkspacePage() {
   }
 
   const submitting = provision.isPending;
-  const canSubmit = workspaceName.trim().length > 0 && companyName.trim().length > 0 && !submitting;
+  const canSubmit =
+    (celebrating || (workspaceName.trim().length > 0 && companyName.trim().length > 0)) &&
+    !submitting;
 
   return (
     <OnboardingShell
@@ -77,6 +102,15 @@ export default function OnboardingWorkspacePage() {
       }
     >
       <Toaster />
+      {isReturning ? (
+        <p
+          className="ob-form-note"
+          data-testid="onboarding-workspace-returning-banner"
+          role="status"
+        >
+          Welcome back &mdash; let&apos;s pick up where we left off.
+        </p>
+      ) : null}
       <form
         className="ob-form-card"
         onSubmit={onSubmit}
@@ -129,6 +163,7 @@ export default function OnboardingWorkspacePage() {
             ← Back
           </button>
           <button
+            ref={continueRef}
             type="submit"
             className="ob-cta"
             disabled={!canSubmit}
@@ -142,6 +177,14 @@ export default function OnboardingWorkspacePage() {
             </span>
           </button>
         </div>
+        {celebrating ? (
+          <p
+            className="ob-field-hint"
+            data-testid="onboarding-workspace-press-enter-hint"
+          >
+            <em>Press Enter to continue.</em>
+          </p>
+        ) : null}
       </form>
     </OnboardingShell>
   );
