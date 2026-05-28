@@ -10,14 +10,18 @@
 //! The wizard's workspace step keys off `created` to decide whether to
 //! show the celebration toast; this test pins the wire contract so a
 //! later refactor can't silently drop the field.
-use std::io::{BufRead, BufReader, Read, Write};
+
+mod common;
+
+use common::listener_signal::{await_listener_signal, StderrDrain};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::time::Duration;
 
 const BEARER_TOKEN: &str = "test-bearer-onboarding-created-flag";
 const PRINCIPAL_HEADER: &str = "human:alice@acme.com";
+const SMOKE_DB_KEY_B64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
 
 fn argo_bin() -> &'static str {
     env!("CARGO_BIN_EXE_argo")
@@ -28,25 +32,6 @@ fn pick_free_port() -> u16 {
     let port = listener.local_addr().unwrap().port();
     drop(listener);
     port
-}
-
-fn await_listening(stderr: &mut BufReader<impl Read>) {
-    // 30s mirrors `gateway_auth_principal_smoke::await_listening_robust`
-    // — loaded shared-target runs occasionally take 5-15s before the
-    // freshly-built gateway emits its first stderr line, so the 10s
-    // default in `common::await_listening` is too tight under load.
-    let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(30);
-    loop {
-        if std::time::Instant::now() > deadline {
-            panic!("listener did not announce in 30s");
-        }
-        line.clear();
-        stderr.read_line(&mut line).expect("read line");
-        if line.contains("listening on") {
-            break;
-        }
-    }
 }
 
 fn http_post(port: u16, path: &str, body: &str, headers: &[(&str, &str)]) -> String {
@@ -71,13 +56,13 @@ fn body_of(resp: &str) -> &str {
     resp.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
 }
 
-fn spawn_gateway(
-    home: &Path,
-    port: u16,
-    max_requests: u32,
-) -> (Child, BufReader<std::process::ChildStderr>) {
+fn spawn_gateway(home: &Path, port: u16, max_requests: u32) -> (Child, StderrDrain) {
+    if std::env::var_os("ARGO_TEST_LISTENER_DEADLINE_MS").is_none() {
+        std::env::set_var("ARGO_TEST_LISTENER_DEADLINE_MS", "60000");
+    }
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", SMOKE_DB_KEY_B64)
         .env("ARGO_GATEWAY_BEARER_TOKEN", BEARER_TOKEN)
         // The `gtm-engineer` lookup pre-flights the on-disk catalog;
         // point at the workspace's bundled vertical pack so a clean
@@ -90,13 +75,15 @@ fn spawn_gateway(
             &port.to_string(),
             "--max-requests",
             &max_requests.to_string(),
+            "--skip-startup-check",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn");
-    let stderr = BufReader::new(child.stderr.take().unwrap());
-    (child, stderr)
+    let stderr = child.stderr.take().expect("stderr piped");
+    let drain = await_listener_signal(stderr).expect("gateway listener signal");
+    (child, drain)
 }
 
 fn workspace_verticals_dir() -> std::path::PathBuf {
@@ -111,8 +98,7 @@ fn workspace_verticals_dir() -> std::path::PathBuf {
 fn provision_returns_created_true_then_false_on_idempotent_recall() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
-    let (mut child, mut stderr) = spawn_gateway(home.path(), port, 2);
-    await_listening(&mut stderr);
+    let (mut child, _drain) = spawn_gateway(home.path(), port, 2);
 
     let bearer = format!("Bearer {BEARER_TOKEN}");
     let auth = ("Authorization", bearer.as_str());

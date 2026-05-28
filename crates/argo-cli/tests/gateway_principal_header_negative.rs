@@ -19,18 +19,19 @@ use argo_skill::ir::{
 use argo_store::service_token_binding::insert_binding;
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};
+use common::listener_signal::{await_listener_signal, StderrDrain};
 use common::pick_free_port;
 use sha2::{Digest, Sha256};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
-use std::process::{Child, ChildStderr, Command, Stdio};
-use std::time::Duration;
+use std::process::{Child, Command, Stdio};
 
 const BOUND_TOKEN: &str = "test-bound-token-zzzz";
 const UNBOUND_TOKEN: &str = "test-unbound-token-yyyy";
 const PRINCIPAL: &str = "human:alice@example.com";
 const TENANT_HEX: &str = "11111111-1111-7111-9111-111111111111";
+const SMOKE_DB_KEY_B64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
 
 fn sha256_hex(s: &str) -> String {
     let digest = Sha256::digest(s.as_bytes());
@@ -86,9 +87,13 @@ async fn seed_binding(home: &Path, token: &str, principal: &str, tenant: TenantI
     .expect("insert binding");
 }
 
-fn boot_gateway(home: &Path, port: u16, token: &str) -> (Child, BufReader<ChildStderr>) {
+fn boot_gateway(home: &Path, port: u16, token: &str) -> (Child, StderrDrain) {
+    if std::env::var_os("ARGO_TEST_LISTENER_DEADLINE_MS").is_none() {
+        std::env::set_var("ARGO_TEST_LISTENER_DEADLINE_MS", "60000");
+    }
     let mut child = Command::new(common::argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", SMOKE_DB_KEY_B64)
         .env("ARGO_GATEWAY_BEARER_TOKEN", token)
         .env("ANTHROPIC_API_KEY", "sk-ant-gateway-principal-header-negative")
         .env_remove("ARGO_GATEWAY_AUTH_BYPASS")
@@ -99,25 +104,15 @@ fn boot_gateway(home: &Path, port: u16, token: &str) -> (Child, BufReader<ChildS
             &port.to_string(),
             "--max-requests",
             "16",
+            "--skip-startup-check",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn gateway");
-    let mut stderr = BufReader::new(child.stderr.take().unwrap());
-    let deadline = std::time::Instant::now() + Duration::from_secs(30);
-    let mut line = String::new();
-    loop {
-        if std::time::Instant::now() > deadline {
-            panic!("listener did not announce in 30s");
-        }
-        line.clear();
-        stderr.read_line(&mut line).expect("read line");
-        if line.contains("listening on") {
-            break;
-        }
-    }
-    (child, stderr)
+    let stderr = child.stderr.take().expect("stderr piped");
+    let drain = await_listener_signal(stderr).expect("gateway listener signal");
+    (child, drain)
 }
 
 struct Req<'a> {
@@ -161,7 +156,7 @@ async fn bound_token_matrix() {
     let skill = SkillId::new();
     seed_skill_ir(home.path(), skill, tenant).await;
     seed_binding(home.path(), BOUND_TOKEN, PRINCIPAL, tenant).await;
-    let (mut child, _stderr) = boot_gateway(home.path(), port, BOUND_TOKEN);
+    let (mut child, _drain) = boot_gateway(home.path(), port, BOUND_TOKEN);
     let path = format!("/api/v1/skills/{skill}/ir?version=v1");
 
     // (1) bound token + matching principal+tenant headers → 200
@@ -246,7 +241,7 @@ async fn unbound_token_rejects_supplied_principal() {
     let skill = SkillId::new();
     seed_skill_ir(home.path(), skill, tenant).await;
     // Deliberately do NOT bind UNBOUND_TOKEN.
-    let (mut child, _stderr) = boot_gateway(home.path(), port, UNBOUND_TOKEN);
+    let (mut child, _drain) = boot_gateway(home.path(), port, UNBOUND_TOKEN);
     let path = format!("/api/v1/skills/{skill}/ir?version=v1");
 
     let r = http_get(

@@ -5,24 +5,30 @@
 //! principal header, then asserts the audit rows (re-opened from
 //! the on-disk SQLite store) carry the expected `principal` field.
 //!
-//! Uses a self-contained `boot_gateway` with a 30s readiness
-//! deadline rather than `common::await_listening` (2s) so the test
-//! survives loaded shared-target runs where the freshly-built
-//! binary is slow to first-emit on stderr.
+//! Uses `common::listener_signal::await_listener_signal` (background
+//! drain thread + env-var deadline override) so the test survives
+//! loaded shared-target runs where the freshly-built binary is slow
+//! to first-emit on stderr.
 
 mod common;
 
+use common::listener_signal::{await_listener_signal, StderrDrain};
 use common::{body_of, pick_free_port};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
-use std::process::{Child, ChildStderr, Command, Stdio};
-use std::time::Duration;
+use std::process::{Child, Command, Stdio};
 use uuid::Uuid;
 
-fn boot_gateway(home: &Path, port: u16) -> (Child, BufReader<ChildStderr>) {
+const SMOKE_DB_KEY_B64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
+
+fn boot_gateway(home: &Path, port: u16) -> (Child, StderrDrain) {
+    if std::env::var_os("ARGO_TEST_LISTENER_DEADLINE_MS").is_none() {
+        std::env::set_var("ARGO_TEST_LISTENER_DEADLINE_MS", "60000");
+    }
     let mut child = Command::new(common::argo_bin())
         .env("ARGO_HOME", home)
+        .env("SKYCOT_DB_KEY_BASE64", SMOKE_DB_KEY_B64)
         .args([
             "gateway",
             "start",
@@ -30,29 +36,15 @@ fn boot_gateway(home: &Path, port: u16) -> (Child, BufReader<ChildStderr>) {
             &port.to_string(),
             "--max-requests",
             "4",
+            "--skip-startup-check",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn gateway");
-    let mut stderr = BufReader::new(child.stderr.take().unwrap());
-    await_listening_robust(&mut stderr);
-    (child, stderr)
-}
-
-fn await_listening_robust(stderr: &mut BufReader<impl Read>) {
-    let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(30);
-    loop {
-        if std::time::Instant::now() > deadline {
-            panic!("listener did not announce in 30s");
-        }
-        line.clear();
-        stderr.read_line(&mut line).expect("read line");
-        if line.contains("listening on") {
-            break;
-        }
-    }
+    let stderr = child.stderr.take().expect("stderr piped");
+    let drain = await_listener_signal(stderr).expect("gateway listener signal");
+    (child, drain)
 }
 
 fn http_post_with_principal(port: u16, path: &str, body: &str, principal: Option<&str>) -> String {
@@ -78,7 +70,7 @@ async fn gateway_auth_principal_stamps_approval_audit_payloads() {
     let _gateway_lock = common::gateway_lock_guard();
     let home = tempfile::tempdir().unwrap();
     let port = pick_free_port();
-    let (mut child, _stderr) = boot_gateway(home.path(), port);
+    let (mut child, _drain) = boot_gateway(home.path(), port);
 
     let resp = http_post_with_principal(
         port,
