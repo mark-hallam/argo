@@ -220,13 +220,14 @@ describe("WorkerActivityPage", () => {
   });
 
   it("Open-in-Audit link preserves the current time range filter", async () => {
+    // The link is built with the persona slug ("priya") rather than
+    // the 36-char UUID so the URL is shareable without leaking the
+    // internal id on a screen-share — see
+    // `fix-audit-worker-filter-uses-uuid-not-slug`.
     searchParams = new URLSearchParams("range=30d");
     useActivityMock.mockReturnValue(activityState());
     render(<WorkerActivityPage />);
     const link = screen.getByTestId("activity-open-audit");
-    expect(link).toHaveAttribute(
-      "href",
-      "/audit?worker=018f67d0-0000-7000-8000-000000000002&range=30d",
-    );
+    expect(link).toHaveAttribute("href", "/audit?worker=priya&range=30d");
   });
 });

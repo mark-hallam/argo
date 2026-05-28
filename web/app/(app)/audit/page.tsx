@@ -43,6 +43,7 @@ import {
   toggleAuditFilterValue,
   type AuditMultiFilters,
 } from "@/lib/filters/audit";
+import { lookupWorkerIdFromSlug } from "@/lib/sample-personas";
 
 const SEARCH_DEBOUNCE_MS = 200;
 const FILTER_DEBOUNCE_MS = 250;
@@ -81,7 +82,7 @@ function AuditPageContent() {
   const range = useMemo(() => parseRange(searchParams), [searchParams]);
   const q = useMemo(() => searchParams?.get("q") ?? undefined, [searchParams]);
   const multiFilters = useMemo(
-    () => parseAuditMultiFilters(searchParams ?? new URLSearchParams()),
+    () => resolveWorkerSlugs(parseAuditMultiFilters(searchParams ?? new URLSearchParams())),
     [searchParams],
   );
   const feedFilters: AuditFilters = useMemo(() => ({ range, q }), [range, q]);
@@ -322,6 +323,17 @@ function parseRange(params: URLSearchParams | null): AuditRangePreset {
   return (AUDIT_RANGE_PRESETS as readonly string[]).includes(raw)
     ? (raw as AuditRangePreset)
     : DEFAULT_AUDIT_RANGE;
+}
+
+// Deep links from the worker Activity tab arrive with a human-readable
+// slug (`?worker=mariah`) so the address bar doesn't leak the UUID.
+// Translate any known slugs back to UUIDs before the rest of the
+// filter machinery — which keys on `row.worker.id` — sees the value.
+// Unknown tokens (non-sample workers, raw UUIDs) pass through.
+function resolveWorkerSlugs(filters: AuditMultiFilters): AuditMultiFilters {
+  if (filters.worker.length === 0) return filters;
+  const resolved = filters.worker.map((token) => lookupWorkerIdFromSlug(token) ?? token);
+  return { ...filters, worker: resolved };
 }
 
 function writeSingleParam(

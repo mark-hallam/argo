@@ -4,6 +4,8 @@ import {
   SAMPLE_PERSONAS,
   SAMPLE_PERSONA_IDS,
   getSamplePersona,
+  lookupWorkerIdFromSlug,
+  lookupWorkerSlug,
 } from "./sample-personas";
 import { SAMPLE_TEAM } from "./sample-team";
 import { SAMPLE_WORKER_ACTIVITY } from "./sample-worker-activity";
@@ -102,6 +104,31 @@ describe("sample-personas as the canonical persona spine", () => {
         ).toBe(false);
       }
     }
+  });
+
+  it("exposes a URL-safe slug for every canonical persona", () => {
+    for (const id of SAMPLE_PERSONA_IDS) {
+      const persona = getSamplePersona(id);
+      expect(persona.slug, `${persona.name} missing slug`).toMatch(/^[a-z][a-z0-9-]*$/);
+    }
+  });
+
+  it("slugs are unique across the roster", () => {
+    const slugs = Object.values(SAMPLE_PERSONAS).map((p) => p.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it("lookupWorkerSlug round-trips through lookupWorkerIdFromSlug for canonical ids", () => {
+    for (const id of SAMPLE_PERSONA_IDS) {
+      const slug = lookupWorkerSlug(id);
+      expect(slug).toBeDefined();
+      expect(lookupWorkerIdFromSlug(slug!)).toBe(id);
+    }
+  });
+
+  it("returns undefined for unknown ids + slugs", () => {
+    expect(lookupWorkerSlug("not-a-real-uuid")).toBeUndefined();
+    expect(lookupWorkerIdFromSlug("not-a-real-slug")).toBeUndefined();
   });
 
   it("matches /workers/<id>/activity — worker name + verbs read as canonical role", () => {

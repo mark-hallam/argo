@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/worker-activity";
 import { useWorkerActivity } from "@/lib/hooks/use-worker-activity";
 import { useWorker } from "@/lib/hooks/use-worker";
+import { lookupWorkerSlug } from "@/lib/sample-personas";
 
 /**
  * Per-worker Activity tab — `/workers/<id>/activity`. Reads the
@@ -66,7 +67,12 @@ export default function WorkerActivityPage() {
   const currentPageCount = activity.data?.pages.length ?? 0;
   const isPristine = filters.range === DEFAULT_RANGE && !filters.actionType && !filters.status;
   const workerName = workerQuery.data?.name ?? "This worker";
-  const auditTimelineHref = `/audit?worker=${encodeURIComponent(workerId)}&range=${filters.range}`;
+  // Prefer the lowercase slug ("mariah") over the 36-char UUID so the
+  // address bar doesn't leak the internal id on a screen-share. Falls
+  // back to the UUID for non-sample workers; the audit page's parse
+  // step accepts both. See `fix-audit-worker-filter-uses-uuid-not-slug`.
+  const auditWorkerToken = lookupWorkerSlug(workerId) ?? workerId;
+  const auditTimelineHref = `/audit?worker=${encodeURIComponent(auditWorkerToken)}&range=${filters.range}`;
 
   return (
     <div

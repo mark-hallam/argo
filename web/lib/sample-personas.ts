@@ -37,6 +37,13 @@ export interface SamplePersona {
   name: string;
   /** Two-letter avatar fallback. */
   initials: string;
+  /**
+   * URL-safe alias used in operator-visible deep links (e.g.
+   * `/audit?worker=mariah`) so a 36-char UUID isn't leaked on a
+   * screen-share. UUID remains the canonical key for storage +
+   * gateway filtering; slug is SPA-only and resolved at parse time.
+   */
+  slug: string;
   role: SamplePersonaRole;
   headline?: SamplePersonaHeadline;
   /** Short adjectives — sourced by personality cards + audit colour. */
@@ -56,6 +63,7 @@ const PRIYA: SamplePersona = {
   id: "018f67d0-0000-7000-8000-000000000002",
   name: "Priya",
   initials: "PR",
+  slug: "priya",
   role: {
     tagline: "screens candidates and books interviews",
     vertical: "recruiting",
@@ -73,6 +81,7 @@ const MARIAH: SamplePersona = {
   id: "018f67d0-0000-7000-8000-000000000001",
   name: "Mariah",
   initials: "MA",
+  slug: "mariah",
   role: {
     tagline: "lists and re-prices items for sale",
     vertical: "marketplace",
@@ -90,6 +99,7 @@ const JAMAL: SamplePersona = {
   id: "018f67d0-0000-7000-8000-000000000003",
   name: "Jamal",
   initials: "JA",
+  slug: "jamal",
   role: {
     tagline: "handles customer support tickets",
     vertical: "support",
@@ -106,6 +116,7 @@ const NORI: SamplePersona = {
   id: "018f67d0-0000-7000-8000-000000000004",
   name: "Nori",
   initials: "NO",
+  slug: "nori",
   role: {
     tagline: "drafts product comms and announcements",
     vertical: "marketing",
@@ -123,6 +134,7 @@ const PETA: SamplePersona = {
   id: "018f67d0-0000-7000-8000-000000000007",
   name: "Peta",
   initials: "PE",
+  slug: "peta",
   role: {
     tagline: "keeps standups, action items, and status moving",
     vertical: "project-ops",
@@ -197,4 +209,30 @@ export interface PersonaRef {
 export function personaRef(id: string): PersonaRef {
   const persona = getSamplePersona(id);
   return { id: persona.id, name: persona.name };
+}
+
+const SLUG_BY_ID: Record<string, string> = Object.fromEntries(
+  Object.values(SAMPLE_PERSONAS).map((p) => [p.id, p.slug]),
+);
+
+const ID_BY_SLUG: Record<string, string> = Object.fromEntries(
+  Object.values(SAMPLE_PERSONAS).map((p) => [p.slug, p.id]),
+);
+
+/**
+ * Return the URL-safe slug for a known persona id, or `undefined`
+ * when the id isn't in the sample registry. Callers should fall back
+ * to the id itself so the link still works for non-sample workers.
+ */
+export function lookupWorkerSlug(id: string): string | undefined {
+  return SLUG_BY_ID[id];
+}
+
+/**
+ * Inverse of `lookupWorkerSlug`. Used by `/audit` to translate a
+ * shareable `?worker=mariah` URL back into the UUID the filter
+ * machinery + gateway recognise.
+ */
+export function lookupWorkerIdFromSlug(slug: string): string | undefined {
+  return ID_BY_SLUG[slug];
 }
