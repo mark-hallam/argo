@@ -55,12 +55,15 @@ export function CommandPaletteProvider({ children }: CommandPaletteProviderProps
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handler = (event: KeyboardEvent) => {
-      const isCmdK =
-        event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey) && !event.altKey;
-      if (isCmdK) {
-        event.preventDefault();
-        setOpen((prev) => !prev);
-      }
+      // Defensive: an inner editable element that stopPropagation'd the event
+      // (see /skills + /audit hero search inputs) sets defaultPrevented when
+      // it preventDefault's — skip those entirely.
+      if (event.defaultPrevented) return;
+      const key = typeof event.key === "string" ? event.key.toLowerCase() : "";
+      const isCmdK = key === "k" && (event.metaKey || event.ctrlKey) && !event.altKey;
+      if (!isCmdK) return;
+      event.preventDefault();
+      setOpen((prev) => !prev);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);

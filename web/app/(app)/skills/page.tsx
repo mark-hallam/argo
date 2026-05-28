@@ -115,6 +115,15 @@ export default function SkillsPage() {
             data-testid="skills-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Defend against global ⌘K listener seeing our keystrokes if a
+              // mid-render focus blip flips event ordering. The chord itself
+              // (Cmd/Ctrl+K) still bubbles so the palette can open from here.
+              if (!(e.metaKey || e.ctrlKey)) e.stopPropagation();
+            }}
+            onKeyUp={(e) => {
+              if (!(e.metaKey || e.ctrlKey)) e.stopPropagation();
+            }}
           />
           <div className="search-meta">
             <span className="count-pill" data-testid="skills-count">

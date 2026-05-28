@@ -110,6 +110,15 @@ export function AuditPageHeader({
             type="search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
+            onKeyDown={(e) => {
+              // Defend against global ⌘K listener seeing our keystrokes if a
+              // mid-render focus blip flips event ordering. The chord itself
+              // (Cmd/Ctrl+K) still bubbles so the palette can open from here.
+              if (!(e.metaKey || e.ctrlKey)) e.stopPropagation();
+            }}
+            onKeyUp={(e) => {
+              if (!(e.metaKey || e.ctrlKey)) e.stopPropagation();
+            }}
             placeholder="Search action, worker, or action ID..."
             aria-label="Search audit timeline"
             data-testid="audit-search-input"
