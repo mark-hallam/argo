@@ -157,6 +157,16 @@ if ! bash scripts/check-zero-caller-substrate.sh; then
   fail "zero-caller substrate lint — a crate has no \`use <name>::\` callers AND no zero-caller-allowed marker"
 fi
 
+# Gate 5b: gateway /routes catalog completeness — F8 + F28 of
+# ux-e2e-audit-T2309MEL (2026-05-26). Static-grep gate that confirms
+# every `/api/v1/<segment>` family the dispatchers register also
+# appears in `routes_catalog.rs`. Pure Python+grep, runs in <1s, no
+# gateway boot required.
+log "[5b/9] gateway /routes catalog completeness"
+if ! bash scripts/check-routes-catalog-complete.sh; then
+  fail "routes-catalog drift — a dispatcher-registered /api/v1/* family is missing from routes_catalog.rs"
+fi
+
 # Gate 6: test-compile (cargo check --workspace --tests). Honored
 # allowlist at scripts/pre-merge-test-carry-allowlist.txt permits
 # explicit carries. Runs BEFORE clippy so cross-crate test breakage
