@@ -216,16 +216,27 @@ function normalizeAuditRow(row: AuditRow | GatewayAuditRow): AuditRow {
   };
 }
 
+/** True for rows that represent real agent work; false for gateway
+ *  self-telemetry (the SPA's own `/audit` reads + drill-ins surface
+ *  as `verb=http.request` with `worker.name=unknown`). The gateway
+ *  still records the noise rows — operators can curl
+ *  `/api/v1/audit` directly for forensics — but the user-facing
+ *  feed only renders agent turns so the audit page doesn't fill up
+ *  with navigation echoes. */
+export function isAgentTurnRow(row: AuditRow): boolean {
+  return !(row.verb === "http.request" && row.worker.name === "unknown");
+}
+
 function normalizeAuditFeed(response: AuditFeedResponse): AuditFeedPage {
   if (isGatewayEnvelope(response)) {
     return {
-      rows: response.items.map(normalizeAuditRow),
+      rows: response.items.map(normalizeAuditRow).filter(isAgentTurnRow),
       nextCursor: response.nextCursor ?? response.next_cursor ?? null,
       totalPages: response.totalPages ?? response.total_pages,
     };
   }
   return {
-    rows: response.rows.map(normalizeAuditRow),
+    rows: response.rows.map(normalizeAuditRow).filter(isAgentTurnRow),
     nextCursor: response.nextCursor ?? null,
     totalPages: response.totalPages,
   };

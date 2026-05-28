@@ -114,6 +114,51 @@ describe("lib/api/audit", () => {
     expect(result.rows[0].cost).toBeUndefined();
   });
 
+  it("drops gateway self-telemetry rows (verb=http.request + worker.name=unknown) so the feed shows agent turns only", async () => {
+    installMock(() =>
+      makeResponse({
+        status: 200,
+        body: {
+          items: [
+            {
+              id: "audit_noise_1",
+              timestamp: "2026-05-27T05:19:00Z",
+              worker: { id: "", name: "unknown" },
+              action_type: "audit.detail.viewed",
+              verb: "http.request",
+              status: "succeeded",
+              channel: "web",
+            },
+            {
+              id: "audit_real_1",
+              timestamp: "2026-05-27T05:20:00Z",
+              worker: { id: "wkr-mariah", name: "Mariah" },
+              action_type: "memory_written",
+              verb: "wrote memory",
+              status: "succeeded",
+              channel: "web",
+            },
+            {
+              id: "audit_noise_2",
+              timestamp: "2026-05-27T05:21:00Z",
+              worker: { id: "", name: "unknown" },
+              action_type: "audit.replay",
+              verb: "http.request",
+              status: "succeeded",
+              channel: "web",
+            },
+          ],
+          next_cursor: null,
+        },
+      }),
+    );
+
+    const result = await fetchAuditFeed({ range: "7d" });
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].id).toBe("audit_real_1");
+  });
+
   it("keeps the older AuditFeedPage shape working for tests and legacy gateways", async () => {
     const legacyPage: AuditFeedPage = {
       rows: [makeAuditRow({ id: "audit_legacy_1", actionType: "memory_written" })],
