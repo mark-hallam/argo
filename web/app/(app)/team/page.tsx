@@ -20,6 +20,7 @@ import { TeammateCard } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
 import { TeamFilterChipRail } from "@/components/skycot/TeamFilterChipRail";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import { useTeam } from "@/lib/hooks/use-team";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { FetchTeamResult } from "@/lib/api/team";
@@ -315,10 +316,9 @@ function PageHeader({
   );
 }
 
-// Dev-only diagnostic chip; hidden in production so the demo MP4
-// doesn't catch a stray chip.
+// Dev-only chip; hidden in production + demo-live so the v1.0 demo MP4 doesn't show "MOCK-BYPASS" on camera.
 function TeamDataSourceChip({ source }: { source: TeamDataSourceLabel }) {
-  if (process.env.NODE_ENV === "production") return null;
+  if (process.env.NODE_ENV === "production" || isDemoLive()) return null;
   return (
     <span
       data-testid="team-data-source-chip"

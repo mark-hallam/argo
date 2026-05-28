@@ -1,5 +1,6 @@
 import { StatusPill } from "@/components/ui/StatusPill";
 import type { DataSource } from "@/lib/api/approvals";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 const LABEL: Record<DataSource, string> = {
   live: "live",
@@ -28,9 +29,17 @@ const TONE: Record<DataSource, "success" | "warning" | "info"> = {
  * 404s the not-yet-wired root-listing endpoints. Operators recording
  * the demo can still surface the chip via `?debug=1` if they want
  * to verify which path the page is reading.
+ *
+ * Demo-recording fix (2026-05-28): suppress the whole chip when
+ * `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` is set. The recording-day SPA runs
+ * with auth-bypass on, so the chip would otherwise render "MOCK
+ * (AUTH-BYPASS)" onto the camera. The DemoBanner already carries the
+ * "Demo mode" disclosure; the chip is redundant + reads as a dev
+ * artefact during the v1.0 MP4 recording.
  */
 export function DataSourceChip({ source }: { source: DataSource | undefined }) {
   if (process.env.NODE_ENV === "production") return null;
+  if (isDemoLive()) return null;
   if (!source) return null;
   if (source === "mock-offline") return null;
   return (
