@@ -45,6 +45,7 @@
  */
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import {
   SAMPLE_WORKFLOW_SPECS,
   SAMPLE_WORKFLOW_SUMMARIES,
@@ -74,6 +75,16 @@ interface WorkflowListEnvelope {
   vertical_id?: string;
   count?: number;
   items?: GatewayWorkflowItem[];
+}
+
+/// Response shape for the top-level `/api/v1/workflows` route.
+/// Used in recording-mode (`isDemoLive()`) so a single round-trip
+/// surfaces every tenant workflow across all verticals, including
+/// ones not in the local sample list (e.g. `marketplace`).
+interface TopLevelWorkflowListEnvelope {
+  tenant_id?: string;
+  total_count?: number;
+  workflows?: GatewayWorkflowItem[];
 }
 
 export interface GatewayWorkflowItem {
@@ -131,6 +142,30 @@ function discoverVerticalIds(): string[] {
 }
 
 export async function fetchAllWorkflows(): Promise<FetchAllWorkflowsResult> {
+  // Recording-mode opt-out (`NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1`):
+  // route the catalog through the top-level `/api/v1/workflows`
+  // endpoint so the demo MP4's narration ("these are the workflows
+  // my teammates run") is literally true — and verticals like
+  // `marketplace` not in the local sample fan-out list still
+  // surface in one round-trip.
+  if (isDemoLive()) {
+    try {
+      const list = await apiGet<TopLevelWorkflowListEnvelope>("/api/v1/workflows");
+      const items = list.workflows ?? [];
+      if (items.length > 0) {
+        return {
+          workflows: items.map(summaryFromGatewayItem),
+          source: "gateway",
+        };
+      }
+      return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
+    } catch (err) {
+      if (!isStrictProduction() && isRecoverable(err)) {
+        return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-offline" };
+      }
+      throw err;
+    }
+  }
   if (isAuthBypassed()) {
     return { workflows: SAMPLE_WORKFLOW_SUMMARIES, source: "mock-bypass" };
   }

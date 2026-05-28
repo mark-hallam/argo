@@ -21,10 +21,25 @@ pub(super) struct TenantScope {
     include_legacy: bool,
 }
 
-pub(super) fn resolve_tenant_scope(req: &str, params: &FeedParams) -> TenantScope {
+pub(super) fn resolve_tenant_scope(
+    req: &str,
+    params: &FeedParams,
+    workspace_default: &str,
+) -> TenantScope {
     let header_tenant = header_value(req, HEADER_WORKSPACE_TENANT);
-    let workspace_tenant =
-        header_tenant.unwrap_or_else(|| DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string());
+    // Callers pass the cwd-bound workspace tenant UUID (matches what
+    // /team, /skills, /workflows, /verticals resolve). The literal
+    // `ws-default` constant is the absolute last resort if the caller
+    // could not resolve a workspace (kept here for the call-site
+    // fallback below, not as a default).
+    let workspace_tenant = header_tenant
+        .unwrap_or_else(|| {
+            if workspace_default.is_empty() {
+                DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string()
+            } else {
+                workspace_default.to_string()
+            }
+        });
     // Cross-tenant audit is gated by the [`Action::AuditCrossTenant`]
     // capability (owner-only). The legacy `X-Argo-Audit-Cross-Tenant`
     // header trust path is gone — `enforce_role` derives the role

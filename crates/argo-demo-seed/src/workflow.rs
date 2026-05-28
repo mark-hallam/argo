@@ -64,15 +64,18 @@ depends_on = ["summarize_question"]
 "#;
 
 /// Insert the canonical Scene-5 workflow definition under
-/// `tenant_id`. Returns the number of workflow definitions inserted
-/// (always `1` on success).
+/// `tenant_id` and promote it to head so the listing routes (which
+/// JOIN `workflow_definition_index`) surface it. Returns the number
+/// of workflow definitions newly inserted (`1` on first run, `0` on
+/// re-seed). The head pointer is set idempotently on both paths.
 pub async fn seed_demo_workflow(
     store: &SessionStore,
     tenant_id: TenantId,
     actor: &str,
 ) -> SeedResult<usize> {
-    match workflow_definition::create(
-        store.pool(),
+    let pool = store.pool();
+    let inserted = match workflow_definition::create(
+        pool,
         tenant_id,
         DEMO_VERTICAL_ID,
         DEMO_WORKFLOW_NAME,
@@ -82,13 +85,37 @@ pub async fn seed_demo_workflow(
     )
     .await
     {
-        Ok(_) => Ok(1),
+        Ok(_) => 1usize,
         // Re-seeding the same tenant produces a UNIQUE collision on
         // the second pass — treat as a benign no-op so `argo demo
-        // seed --tenant <id>` is idempotent for the operator.
-        Err(WorkflowDefinitionError::UniqueViolation { .. }) => Ok(0),
-        Err(WorkflowDefinitionError::Argo(e)) => Err(crate::SeedError::Argo(e)),
+        // seed --tenant <id>` is idempotent for the operator. We
+        // still promote the latest version to head below, in case a
+        // prior seed run created the draft row but never set the
+        // head pointer (the bug this fix is closing).
+        Err(WorkflowDefinitionError::UniqueViolation { .. }) => 0,
+        Err(WorkflowDefinitionError::Argo(e)) => return Err(crate::SeedError::Argo(e)),
+    };
+
+    let versions = workflow_definition::list_versions(
+        pool,
+        tenant_id,
+        DEMO_VERTICAL_ID,
+        DEMO_WORKFLOW_NAME,
+    )
+    .await
+    .map_err(crate::SeedError::Argo)?;
+    if let Some(latest) = versions.first() {
+        workflow_definition::set_head(
+            pool,
+            tenant_id,
+            DEMO_VERTICAL_ID,
+            DEMO_WORKFLOW_NAME,
+            &latest.id,
+        )
+        .await
+        .map_err(crate::SeedError::Argo)?;
     }
+    Ok(inserted)
 }
 
 /// Map a [`WorkflowDefinitionError`] to a generic [`ArgoError`] for

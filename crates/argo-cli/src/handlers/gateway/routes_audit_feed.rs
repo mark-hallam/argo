@@ -78,7 +78,8 @@ pub(super) async fn list_response(
         Ok(p) => p,
         Err(resp) => return resp,
     };
-    let scope = resolve_tenant_scope(req, &params);
+    let workspace_default = resolve_workspace_default(store).await;
+    let scope = resolve_tenant_scope(req, &params, &workspace_default);
     let raw = match fetch_raw_rows(store, &params).await {
         Ok(rows) => rows,
         Err(e) => return server_error(&format!("audit fetch: {e}")),
@@ -460,6 +461,28 @@ async fn emit_feed_audit(
     {
         tracing::warn!(target: "gateway::audit_feed", error = %e, "audit feed telemetry write failed");
     }
+}
+
+/// Resolve the cwd-bound workspace tenant UUID for the gateway, used
+/// as the default audit-scope when the request omits `X-Argo-Tenant-Id`.
+/// Mirrors what `/api/v1/team`, `/skills`, `/workflows`, `/verticals`
+/// already do via `SessionStore::ensure_workspace`. Returns the empty
+/// string on any failure (cwd lookup or store error), in which case
+/// the scope resolver falls back to the literal `ws-default` constant.
+async fn resolve_workspace_default(store: &Arc<SessionStore>) -> String {
+    let Ok(cwd) = std::env::current_dir() else {
+        return String::new();
+    };
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    store
+        .ensure_workspace(name, &root)
+        .await
+        .map(|(t, _)| t.to_string())
+        .unwrap_or_default()
 }
 
 fn bad_request(message: &str) -> (&'static str, String) {
