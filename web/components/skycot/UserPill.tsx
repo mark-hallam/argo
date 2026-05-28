@@ -24,8 +24,20 @@ export function UserPill() {
   const session = useSkycotSession();
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [tenantCopied, setTenantCopied] = useState(false);
   const router = useRouter();
   const toast = useToast();
+
+  async function copyTenantId() {
+    if (!session.tenantId) return;
+    try {
+      await navigator.clipboard.writeText(session.tenantId);
+      setTenantCopied(true);
+      setTimeout(() => setTenantCopied(false), 1500);
+    } catch {
+      toast.error("Couldn't copy — clipboard unavailable.");
+    }
+  }
 
   async function handleSignOut() {
     if (signingOut) return;
@@ -87,6 +99,23 @@ export function UserPill() {
             >
               {session.email}
             </div>
+          ) : null}
+          {session.tenantId ? (
+            <button
+              type="button"
+              data-testid="appshell-user-tenant-chip"
+              onClick={copyTenantId}
+              title={`Workspace · ${session.tenantId} (click to copy)`}
+              className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] px-3 py-1.5 text-left text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
+            >
+              <span className="truncate">
+                <span className="opacity-70">Workspace · </span>
+                <span className="font-mono">{session.tenantId}</span>
+              </span>
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider opacity-60">
+                {tenantCopied ? "Copied" : "Copy"}
+              </span>
+            </button>
           ) : null}
           <button
             type="button"

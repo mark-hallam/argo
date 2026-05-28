@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
+import { useSkycotSession } from "@/lib/skycot/use-session";
 import { useToast } from "@/lib/ui/use-toast";
 import {
   DEFAULT_WORKSPACE_SETTINGS,
@@ -13,7 +14,9 @@ import {
 } from "@/lib/api/settings";
 
 export default function WorkspaceSettingsPage() {
+  const session = useSkycotSession();
   const { success, error: toastError } = useToast();
+  const [copied, setCopied] = useState(false);
   const [persisted, setPersisted] = useState<WorkspaceSettings>(DEFAULT_WORKSPACE_SETTINGS);
   const [draft, setDraft] = useState<WorkspaceSettings>(DEFAULT_WORKSPACE_SETTINGS);
   const [isLoading, setLoading] = useState(true);
@@ -44,6 +47,18 @@ export default function WorkspaceSettingsPage() {
 
   function update<K extends keyof WorkspaceSettings>(key: K, value: WorkspaceSettings[K]) {
     setDraft((curr) => ({ ...curr, [key]: value }));
+  }
+
+  async function copyTenantId() {
+    if (!session.tenantId) return;
+    try {
+      await navigator.clipboard.writeText(session.tenantId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Older browsers / locked-down contexts: surface a toast instead of failing silently.
+      toastError("Couldn't copy", { description: "Clipboard unavailable in this browser." });
+    }
   }
 
   async function save() {
@@ -77,6 +92,36 @@ export default function WorkspaceSettingsPage() {
       </div>
 
       <div className="settings-fields">
+        <div
+          className="settings-field"
+          data-testid="settings-workspace-tenant-id-row"
+        >
+          <div>
+            <span className="settings-field-label">Workspace ID</span>
+            <p>
+              Stable identifier the gateway scopes every audit row, approval,
+              and connector to. Share with support when filing tickets.
+            </p>
+          </div>
+          <div className="settings-tenant-id-actions">
+            <code
+              className="settings-tenant-id-value"
+              data-testid="settings-workspace-tenant-id-value"
+            >
+              {session.tenantId ?? "—"}
+            </code>
+            <button
+              type="button"
+              className="settings-tenant-id-copy"
+              data-testid="settings-workspace-tenant-id-copy"
+              onClick={copyTenantId}
+              disabled={!session.tenantId}
+              aria-label="Copy workspace ID"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        </div>
         <div className="settings-field" data-testid="settings-workspace-theme-picker">
           <div>
             <span className="settings-field-label">Appearance</span>
@@ -297,6 +342,41 @@ function SettingsStyles() {
 .settings-save-btn:disabled,
 .settings-revert-btn:disabled {
   opacity: 0.55;
+  cursor: not-allowed;
+}
+.settings-tenant-id-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-tenant-id-value {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--settings-ink, #1f2937);
+  background: var(--settings-muted-bg, #f4f4f5);
+  border: 1px solid var(--settings-border, #e5e7eb);
+  border-radius: 6px;
+  padding: 6px 10px;
+  letter-spacing: 0.01em;
+  user-select: all;
+}
+.settings-tenant-id-copy {
+  min-height: 30px;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid var(--settings-border, #e5e7eb);
+  background: var(--settings-card, #ffffff);
+  color: var(--settings-ink, #1f2937);
+}
+.settings-tenant-id-copy:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 `,

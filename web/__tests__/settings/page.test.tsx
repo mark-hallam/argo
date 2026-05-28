@@ -1,13 +1,28 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import SettingsLayout from "@/app/(app)/settings/layout";
-import SettingsLandingPage from "@/app/(app)/settings/page";
-import { ThemeProvider } from "@/components/skycot/ThemeProvider";
-
 vi.mock("next/navigation", () => ({
   usePathname: () => "/settings",
 }));
+
+// The workspace panel now reads `useSkycotSession()` to surface the
+// active tenant id (rebase-fix-settings-workspace-tenant-identity-surface).
+// Stub the hook here so this layout test doesn't need a NextAuth provider.
+vi.mock("@/lib/skycot/use-session", () => ({
+  useSkycotSession: () => ({
+    status: "authenticated" as const,
+    isDemoMode: false,
+    email: "owner@acme.example",
+    displayName: "Acme Owner",
+    tenantId: "tenant_acme",
+    workspaceLabel: "Acme · Owner",
+    role: "owner",
+  }),
+}));
+
+import SettingsLayout from "@/app/(app)/settings/layout";
+import SettingsLandingPage from "@/app/(app)/settings/page";
+import { ThemeProvider } from "@/components/skycot/ThemeProvider";
 
 function renderSettingsPage() {
   return render(

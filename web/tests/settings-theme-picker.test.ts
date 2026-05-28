@@ -1,7 +1,23 @@
 import { createElement, type ReactNode } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The workspace panel now reads `useSkycotSession()` for the tenant-id row
+// (rebase-fix-settings-workspace-tenant-identity-surface). Stub the hook
+// so the theme-picker assertions don't need a NextAuth provider.
+vi.mock("@/lib/skycot/use-session", () => ({
+  useSkycotSession: () => ({
+    status: "authenticated" as const,
+    isDemoMode: false,
+    email: "owner@acme.example",
+    displayName: "Acme Owner",
+    tenantId: "tenant_acme",
+    workspaceLabel: "Acme · Owner",
+    role: "owner",
+  }),
+}));
+
 import WorkspaceSettingsPage from "@/app/(app)/settings/workspace/page";
 import { ThemeProvider } from "@/components/skycot/ThemeProvider";
 

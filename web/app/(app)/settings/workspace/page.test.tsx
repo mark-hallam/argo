@@ -30,6 +30,21 @@ vi.mock("@/components/skycot/ThemePicker", () => ({
   ThemePicker: () => <div data-testid="theme-picker-mock" />,
 }));
 
+// The workspace panel now reads `useSkycotSession()` for the tenant-id row
+// (rebase-fix-settings-workspace-tenant-identity-surface). Stub the hook
+// so the existing controlled-input assertions don't need a NextAuth provider.
+vi.mock("@/lib/skycot/use-session", () => ({
+  useSkycotSession: () => ({
+    status: "authenticated" as const,
+    isDemoMode: false,
+    email: "owner@acme.example",
+    displayName: "Acme Owner",
+    tenantId: "tenant_acme",
+    workspaceLabel: "Acme · Owner",
+    role: "owner",
+  }),
+}));
+
 import WorkspaceSettingsPage from "./page";
 
 describe("settings workspace page", () => {
