@@ -42,6 +42,7 @@ use serde::{Deserialize, Serialize};
 ///     }],
 ///     voice_profile: None,
 ///     tagline: None,
+///     genesis_plan_id: None,
 /// };
 /// assert_eq!(draft.suggested_name, "Maya");
 /// ```
@@ -66,7 +67,23 @@ pub struct HireDraft {
     /// Optional one-line bio / tagline persisted on the persona row.
     #[serde(default)]
     pub tagline: Option<String>,
+    /// Optional Genesis plan id that generated this draft (e.g.
+    /// `marketing-intern-maya`). When present, the hire path stamps a
+    /// [`GENESIS_PLAN_PROVENANCE_PREFIX`] entry on the persona's
+    /// `provenance_chain` so the read-side (`/workers/{id}/overview`)
+    /// can surface a "Plan provenance" chip backing the charter line
+    /// `Genesis plan id: <id>`. Without this carrier, the plan id is
+    /// dropped between [`crate::IdentityStore::create_worker_from_draft`]
+    /// and the persisted worker row.
+    #[serde(default)]
+    pub genesis_plan_id: Option<String>,
 }
+
+/// `provenance_chain` prefix that marks a Genesis-plan id entry, e.g.
+/// `genesis_plan_id=marketing-intern-maya`. Stable wire format because
+/// `provenance_chain` is JSON-encoded on the persisted persona row;
+/// read-side parsers (the overview handler) match on this prefix.
+pub const GENESIS_PLAN_PROVENANCE_PREFIX: &str = "genesis_plan_id=";
 
 /// Approval-policy bucket the frontend hire flow surfaces. Richer
 /// per-policy caps land later via the existing [`AutoApprovalPolicy`]
@@ -98,6 +115,10 @@ pub struct ApprovalPolicyChoice {
 /// };
 /// assert!(duty.default_enabled);
 /// ```
+///
+/// See [`GENESIS_PLAN_PROVENANCE_PREFIX`] for the provenance-chain
+/// marker the hire path uses to forward a Genesis plan id from the
+/// gateway into the persisted persona row.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HireDutyDraft {
@@ -111,6 +132,32 @@ pub struct HireDutyDraft {
     /// the draft must carry `true` so the worker isn't inert at hire.
     #[serde(default)]
     pub default_enabled: bool,
+}
+
+/// Extract the Genesis plan id (if any) from a persona's
+/// `provenance_chain`. Reads the canonical
+/// [`GENESIS_PLAN_PROVENANCE_PREFIX`] marker the hire path stamps.
+/// Returns the first non-empty value or `None` when no marker is
+/// present. Tolerant of pre-existing rows that never carried a plan
+/// id (returns `None`, no panic).
+///
+/// ```
+/// use argo_identity::genesis_plan_id_from_provenance;
+/// let chain = vec!["genesis_plan_id=marketing-intern-maya".into()];
+/// assert_eq!(
+///     genesis_plan_id_from_provenance(&chain).as_deref(),
+///     Some("marketing-intern-maya"),
+/// );
+/// assert!(genesis_plan_id_from_provenance(&[]).is_none());
+/// ```
+#[must_use]
+pub fn genesis_plan_id_from_provenance(chain: &[String]) -> Option<String> {
+    chain
+        .iter()
+        .find_map(|entry| entry.strip_prefix(GENESIS_PLAN_PROVENANCE_PREFIX))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
 }
 
 pub(crate) fn validate_hire_draft(draft: &HireDraft) -> ArgoResult<()> {
@@ -160,13 +207,20 @@ pub(crate) fn assemble_worker_from_draft(
         ),
         ..Default::default()
     });
+    let mut provenance_chain = Vec::new();
+    if let Some(plan_id) = draft.genesis_plan_id.as_ref() {
+        let trimmed = plan_id.trim();
+        if !trimmed.is_empty() {
+            provenance_chain.push(format!("{GENESIS_PLAN_PROVENANCE_PREFIX}{trimmed}"));
+        }
+    }
     let persona = Persona {
         name: draft.suggested_name.clone(),
         voice_profile: voice,
         avatar: None,
         bio: draft.tagline.clone(),
         builder_attribution: principal_id.to_string(),
-        provenance_chain: Vec::new(),
+        provenance_chain,
     };
     let duties: Vec<Duty> = draft
         .duties

@@ -315,6 +315,7 @@ pub(super) async fn first_hire_response(
     // companion `voice_profile` override replaces the 35-char templated
     // preamble with one that names the worker and quotes the brief.
     let voice_preamble = voice_preamble_from_description(&worker_name, &description);
+    let genesis_plan_id = outcome.plan_id().map(str::to_string);
     let draft = HireDraft {
         suggested_name: worker_name.clone(),
         charter: charter.clone(),
@@ -328,6 +329,14 @@ pub(super) async fn first_hire_response(
             ..Default::default()
         }),
         tagline: Some(description.clone()),
+        // Forward the Genesis plan id (e.g. `marketing-intern-maya`)
+        // onto the persisted persona's `provenance_chain` so the
+        // `/workers/{id}/overview` read-side can surface the
+        // "Plan provenance" chip that backs the charter line
+        // `Genesis plan id: <id>`. Pre-Genesis fallback path stays
+        // `None` (no chip renders, charter still includes the
+        // operator-brief preamble).
+        genesis_plan_id: genesis_plan_id.clone(),
     };
     let identities = IdentityStore::new(store);
     let new_id = match identities

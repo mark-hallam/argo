@@ -81,6 +81,7 @@ fn sample_draft() -> HireDraft {
         }],
         voice_profile: None,
         tagline: None,
+        genesis_plan_id: None,
     }
 }
 

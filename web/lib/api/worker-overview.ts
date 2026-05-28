@@ -67,6 +67,14 @@ export interface WorkerOverview {
   kpis: WorkerKpi[];
   /** v1 contract: last 5 actions. */
   recentActivity: WorkerActivityRow[];
+  /**
+   * Genesis plan id that synthesised this worker (e.g.
+   * `marketing-intern-maya`). Present when the worker was hired via
+   * the Genesis-driven first-hire path; absent / null on the pre-
+   * Genesis or fallback path. Drives the "Plan provenance" chip.
+   * Wire field uses snake_case to match the gateway response.
+   */
+  genesis_plan_id?: string | null;
 }
 
 export interface FetchWorkerOverviewResult {

@@ -26,7 +26,7 @@ use kpis::{classify_source, label_from_template, next_fire_for, slugify, trend_f
 use super::routes_auth_principal::principal_id_for_audit;
 use super::routes_worker_detail::{resolve_permissions, Permissions, PrincipalRole};
 use argo_audit::{AuditKind, AuditSink};
-use argo_identity::{IdentityStore, Worker, WorkerId};
+use argo_identity::{genesis_plan_id_from_provenance, IdentityStore, Worker, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Duration, TimeZone, Utc};
@@ -145,12 +145,20 @@ async fn build_overview(
     let duties = duties_for_worker(store, tenant, worker_id, now)
         .await
         .map_err(|e| ise(&format!("duty fetch: {e}")))?;
+    let genesis_plan_id = genesis_plan_id_from_provenance(&worker.persona.provenance_chain);
     let body = json!({
         "charter": charter_json(&worker, created_at),
         "duties": duties,
         "kpis": compute_kpis(&worker.vertical_id, &audit_rows, now),
         "recent_activity": kpis::recent_activity_rows(&audit_rows),
         "permissions": permissions_json(perms),
+        // `genesis_plan_id` is `null` for pre-Genesis or fallback hires
+        // and a synthesised vertical slug (e.g. `marketing-intern-maya`)
+        // for the Genesis-driven first-hire path. The SPA renders a
+        // "Plan provenance" chip when set; the chip backs the charter
+        // line `Genesis plan id: <id>` that
+        // `routes_onboarding_genesis::synthesise_charter` plants.
+        "genesis_plan_id": genesis_plan_id,
     });
     emit_audit(store, tenant, &worker, &actor, role).await;
     if demo_override_granted {

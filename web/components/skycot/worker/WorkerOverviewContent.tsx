@@ -187,8 +187,24 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     >
       <div
         data-testid="worker-overview-actions"
-        className="flex items-center justify-end gap-2"
+        className="flex items-center justify-between gap-2"
       >
+        {overview.genesis_plan_id ? (
+          <span
+            data-testid="worker-overview-plan-provenance"
+            data-plan-id={overview.genesis_plan_id}
+            title={`Synthesised by Genesis as ${overview.genesis_plan_id}`}
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)]/40 px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)]"
+          >
+            <span aria-hidden="true">✨</span>
+            Genesis plan:{" "}
+            <code className="font-mono text-[11px]">
+              {overview.genesis_plan_id}
+            </code>
+          </span>
+        ) : (
+          <span />
+        )}
         <Button
           type="button"
           variant="primary"
