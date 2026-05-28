@@ -111,4 +111,28 @@ describe("workers/team empty-state convergence", () => {
       }),
     ).toBeInTheDocument();
   });
+
+  // Regression for `fix-workers-page-sr-only-h1-no-visible-page-heading-empty-state`.
+  // Previously the page header was `<h1 class="sr-only">Workers</h1>` — the empty
+  // state had no visible page title. Now the h1 must be visible (not sr-only) so
+  // the operator landing from onboarding sees the page transition reinforced.
+  it("/workers empty-state renders a visible 'Workers' h1 page header", () => {
+    render(<WorkersPage />);
+    const heading = screen.getByRole("heading", { level: 1, name: /^workers$/i });
+    expect(heading).toBeInTheDocument();
+    expect(heading).not.toHaveClass("sr-only");
+  });
+
+  it("/workers empty-state has exactly one h1 in the DOM", () => {
+    render(<WorkersPage />);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("/workers loading state still renders the visible 'Workers' h1 page header", () => {
+    useTeamMock.mockReturnValue({ data: undefined, isPending: true });
+    render(<WorkersPage />);
+    const heading = screen.getByRole("heading", { level: 1, name: /^workers$/i });
+    expect(heading).toBeInTheDocument();
+    expect(heading).not.toHaveClass("sr-only");
+  });
 });

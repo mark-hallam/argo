@@ -26,21 +26,27 @@ export default function WorkersPage() {
     if (hasWorkers) router.replace("/team");
   }, [hasWorkers, router]);
 
-  if (teamQuery.isPending || hasWorkers) {
-    return (
-      <div className="grid min-h-64 place-items-center" data-testid="workers-loading">
-        <Loader2 className="size-5 animate-spin text-[var(--muted-foreground)]" aria-hidden />
-      </div>
-    );
-  }
-
   return (
-    <div
-      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6"
-      data-testid="workers-empty"
-    >
-      <h1 className="sr-only">Workers</h1>
-      <HireStarterPrompts />
-    </div>
+    <>
+      <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+            Workers
+          </h1>
+        </div>
+      </div>
+      {teamQuery.isPending || hasWorkers ? (
+        <div className="grid min-h-64 place-items-center" data-testid="workers-loading">
+          <Loader2 className="size-5 animate-spin text-[var(--muted-foreground)]" aria-hidden />
+        </div>
+      ) : (
+        <div
+          className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6"
+          data-testid="workers-empty"
+        >
+          <HireStarterPrompts />
+        </div>
+      )}
+    </>
   );
 }
