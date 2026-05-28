@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCallback, useMemo, useState } from "react";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
 import { CohortDeptTabs } from "@/components/skycot/cohorts/CohortDeptTabs";
@@ -11,10 +12,29 @@ import {
   groupCohortsByDepartment,
   type DeptGroup,
 } from "@/components/skycot/cohorts/dept-registry";
-import { CohortDetailDrawer } from "@/components/skycot/CohortDetailDrawer";
 import { buttonVariants } from "@/components/ui/Button";
 import { useCohorts } from "@/lib/hooks/use-cohorts";
 import { SAMPLE_COHORT_SUMMARIES } from "@/lib/sample-cohorts";
+
+// PERF (P1 fix, 2026-05-28 — fix-cohorts-cold-paint-renderer-wedge-
+// three-plus-minutes / whole-site F03): the cohort drawer is 459 LOC
+// of dialog markup + `CohortDetailMembers` + skill-coverage matrix +
+// recent-activity feed + lucide icons + tile-meta utils. It renders
+// `null` on first paint (closed until the user clicks a tile), but
+// the import sits in the critical hydration path and contributes to
+// the cold-paint pathology the UX audit measured at 3+ minutes.
+//
+// Splitting it to `next/dynamic({ ssr: false })` defers the drawer's
+// parse/compile cost into a post-hydration chunk — same pattern used
+// at /audit/action/[id] for `EvidenceBundleExporter`. The drawer is
+// gated on user interaction so the lazy boundary is free.
+const CohortDetailDrawer = dynamic(
+  () =>
+    import("@/components/skycot/CohortDetailDrawer").then(
+      (mod) => mod.CohortDetailDrawer,
+    ),
+  { ssr: false },
+);
 
 const EMPTY_PREVIEW_GROUPS = groupCohortsByDepartment(SAMPLE_COHORT_SUMMARIES);
 
