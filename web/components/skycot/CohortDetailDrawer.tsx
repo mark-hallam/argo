@@ -21,9 +21,30 @@ export interface CohortDetailDrawerProps {
 export function CohortDetailDrawer({ cohortId, onClose }: CohortDetailDrawerProps) {
   const query = useCohortDetail(cohortId);
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (cohortId === null) return;
+
+    // Capture the element that opened the drawer so focus can return to
+    // it on close. Without this, focus lands on `<body>` when the drawer
+    // unmounts — that leaves keyboard nav adrift and made automated
+    // eval/click tooling time out for ~30s on the empty-cohort path
+    // (audit T2351 F16). Snapshot at effect-time, not via a ref handed
+    // out at click, because callers don't pass the trigger element.
+    const trigger =
+      typeof document !== "undefined"
+        ? (document.activeElement as HTMLElement | null)
+        : null;
+    triggerRef.current = trigger;
+
+    // Lock body scroll while the drawer is open and restore the prior
+    // value on close. Prevents the underlying page from scrolling under
+    // the overlay, and ensures the body never gets stuck in an
+    // `overflow: hidden` state if the drawer unmounts unexpectedly.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -32,7 +53,21 @@ export function CohortDetailDrawer({ cohortId, onClose }: CohortDetailDrawerProp
     };
     document.addEventListener("keydown", handler);
     closeRef.current?.focus();
-    return () => document.removeEventListener("keydown", handler);
+
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = prevOverflow;
+      // Restore focus to the element that opened the drawer. Wrapped in
+      // a try/catch because the trigger may have unmounted in the
+      // meantime (e.g. dept-tab change); failing to restore is benign.
+      try {
+        if (trigger && document.body.contains(trigger)) {
+          trigger.focus();
+        }
+      } catch {
+        /* trigger detached — skip */
+      }
+    };
   }, [cohortId, onClose]);
 
   if (cohortId === null) return null;

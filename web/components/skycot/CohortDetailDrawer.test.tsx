@@ -162,4 +162,36 @@ describe("CohortDetailDrawer", () => {
     expect(screen.getByTestId("cohort-detail-empty")).toBeInTheDocument();
     expect(screen.getByTestId("cohort-detail-invite-cta")).toBeInTheDocument();
   });
+
+  it("locks body scroll while open and restores prior overflow on close", () => {
+    useCohortDetailMock.mockReturnValue({
+      data: { detail: EMPTY_COHORT_DETAIL, source: "mock-offline" },
+      isPending: false,
+    });
+    document.body.style.overflow = "auto";
+    const { rerender } = render(
+      wrap(<CohortDetailDrawer cohortId="support::developing" onClose={() => {}} />),
+    );
+    expect(document.body.style.overflow).toBe("hidden");
+    rerender(wrap(<CohortDetailDrawer cohortId={null} onClose={() => {}} />));
+    expect(document.body.style.overflow).toBe("auto");
+  });
+
+  it("restores focus to the opener element on close", () => {
+    useCohortDetailMock.mockReturnValue({
+      data: { detail: EMPTY_COHORT_DETAIL, source: "mock-offline" },
+      isPending: false,
+    });
+    const trigger = document.createElement("button");
+    trigger.setAttribute("data-testid", "opener");
+    document.body.appendChild(trigger);
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+    const { rerender } = render(
+      wrap(<CohortDetailDrawer cohortId="support::developing" onClose={() => {}} />),
+    );
+    rerender(wrap(<CohortDetailDrawer cohortId={null} onClose={() => {}} />));
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
 });
