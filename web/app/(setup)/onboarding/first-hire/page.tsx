@@ -26,9 +26,11 @@ export default function OnboardingFirstHirePage() {
   const setStep = useOnboardingDraft((s) => s.setStep);
   const setFirstHirePromptInStore = useOnboardingDraft((s) => s.setFirstHirePrompt);
   const reset = useOnboardingDraft((s) => s.reset);
-  const initialPrompt = useOnboardingDraft((s) => s.firstHirePrompt);
+  // Read the prompt straight from the draft store so step-back navigation
+  // and refresh both restore what the user has typed. The store is the
+  // single source of truth — no local mirror to drift out of sync.
+  const prompt = useOnboardingDraft((s) => s.firstHirePrompt);
   const firstHire = useFirstHire();
-  const [prompt, setPrompt] = useState(initialPrompt);
   const [error, setError] = useState("");
   const [showHelpLink, setShowHelpLink] = useState(false);
 
@@ -127,7 +129,7 @@ export default function OnboardingFirstHirePage() {
             className="ob-field-textarea"
             data-testid="first-hire-prompt"
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => setFirstHirePromptInStore(e.target.value)}
             placeholder={EXAMPLE_PROMPT}
             aria-label="First hire description"
             rows={5}

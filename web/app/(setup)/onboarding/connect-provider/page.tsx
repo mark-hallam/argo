@@ -12,6 +12,45 @@ import { OnboardingShell } from "../_OnboardingShell";
 
 const ANTHROPIC_CONSOLE_URL = "https://console.anthropic.com/settings/keys";
 
+// sessionStorage (not localStorage) so the key clears the moment the
+// tab closes. Letting the user refresh / back-navigate mid-edit without
+// losing what they pasted is worth the per-tab persistence; baking the
+// key into long-lived browser storage is not.
+const API_KEY_SESSION_STORAGE_KEY = "skycot:onboarding:apiKey";
+
+function readPersistedApiKey(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(API_KEY_SESSION_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function persistApiKey(value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (value.length === 0) {
+      window.sessionStorage.removeItem(API_KEY_SESSION_STORAGE_KEY);
+    } else {
+      window.sessionStorage.setItem(API_KEY_SESSION_STORAGE_KEY, value);
+    }
+  } catch {
+    // sessionStorage is best-effort — if the browser blocks it (private
+    // mode, quota), the wizard still works; the user just loses the
+    // step-back grace.
+  }
+}
+
+function clearPersistedApiKey(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(API_KEY_SESSION_STORAGE_KEY);
+  } catch {
+    // Same best-effort guarantee — clearing failure is non-fatal.
+  }
+}
+
 type ProviderError = {
   message: string;
   tone: "error" | "note";
@@ -94,6 +133,22 @@ export default function OnboardingConnectProviderPage() {
     setStep(3);
   }, [setStep]);
 
+  // Hydrate the input from sessionStorage on mount so a step-back or
+  // mid-step refresh doesn't force the user to paste their key again.
+  // sessionStorage is tab-scoped — the value vanishes when the tab
+  // closes, which matches the user-facing promise below the input.
+  useEffect(() => {
+    const persisted = readPersistedApiKey();
+    if (persisted.length > 0) {
+      setApiKey(persisted);
+    }
+  }, []);
+
+  function onApiKeyChange(value: string) {
+    setApiKey(value);
+    persistApiKey(value);
+  }
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setProviderError(null);
@@ -112,6 +167,7 @@ export default function OnboardingConnectProviderPage() {
       setSuccess(true);
       setSuccessIsMock(result.mockProvider);
       setApiKey("");
+      clearPersistedApiKey();
       router.push("/onboarding/pick-vertical");
     } catch (err) {
       logProviderValidationError(err);
@@ -123,6 +179,7 @@ export default function OnboardingConnectProviderPage() {
 
   function onSkip() {
     setProvider(false, true);
+    clearPersistedApiKey();
     router.push("/onboarding/pick-vertical");
   }
 
@@ -166,7 +223,7 @@ export default function OnboardingConnectProviderPage() {
               data-testid="provider-key"
               type="password"
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => onApiKeyChange(e.target.value)}
               placeholder="sk-ant-..."
               autoComplete="off"
               aria-label="Anthropic API key"
@@ -183,6 +240,12 @@ export default function OnboardingConnectProviderPage() {
                 Get a key from the Anthropic console
                 <ExternalLink className="ml-1 inline size-3" aria-hidden />
               </a>
+            </p>
+            <p
+              className="ob-field-hint"
+              data-testid="onboarding-provider-key-scope-note"
+            >
+              Your key stays in this browser tab. Closing the tab clears it.
             </p>
           </label>
           {providerError ? (
