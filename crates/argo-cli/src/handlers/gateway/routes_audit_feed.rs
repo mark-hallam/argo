@@ -62,6 +62,10 @@ use std::sync::Arc;
 #[path = "routes_audit_feed_param_check.rs"]
 mod param_check;
 
+#[path = "routes_audit_feed_url.rs"]
+mod url_helpers;
+use url_helpers::{csv_param, query_kv};
+
 const DEFAULT_LIMIT: usize = 50;
 const MAX_LIMIT: usize = 200;
 /// Raw-row ceiling per request before the in-memory filter pass —
@@ -386,49 +390,6 @@ fn parse_iso_or_micros(raw: &str) -> Option<i64> {
     chrono::DateTime::parse_from_rfc3339(&decoded)
         .ok()
         .map(|dt| dt.with_timezone(&chrono::Utc).timestamp_micros())
-}
-
-fn query_kv(tail: &str, key: &str) -> Option<String> {
-    let head = tail.split_once(' ').map(|(p, _)| p).unwrap_or(tail);
-    let qs = head.split_once('?').map(|(_, q)| q)?;
-    qs.split('&').find_map(|kv| {
-        let (k, v) = kv.split_once('=')?;
-        (k == key).then(|| url_decode(v))
-    })
-}
-
-fn csv_param(tail: &str, key: &str) -> Vec<String> {
-    query_kv(tail, key)
-        .map(|raw| {
-            raw.split(',')
-                .filter(|s| !s.is_empty())
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Minimal `+`→space + `%xx`→byte URL decoder; passes malformed
-/// input through unchanged. Avoids a new dep for this one endpoint.
-fn url_decode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '+' => out.push(' '),
-            '%' => {
-                let hex: String = chars.by_ref().take(2).collect();
-                if let Ok(b) = u8::from_str_radix(&hex, 16) {
-                    out.push(b as char);
-                } else {
-                    out.push('%');
-                    out.push_str(&hex);
-                }
-            }
-            other => out.push(other),
-        }
-    }
-    out
 }
 
 async fn emit_feed_audit(

@@ -1,91 +1,19 @@
 //! Tests for the three `web-gateway-endpoints-onboarding-batch` handlers:
 //! `/api/v1/onboarding/{provider-key, install-vertical, first-hire}`.
-//!
-//! Test fixture mirrors `onboarding_provision_tests` — `:memory:` sqlite,
-//! a tempdir-scoped `ARGO_HOME`, and the workspace `verticals/` directory
-//! exposed via `ARGO_VERTICALS_DIR` so the vertical loader resolves real
-//! packs. Each test pre-provisions the caller through `provision_response`
-//! so the resolver returns the existing tenant + workspace path.
+//! Fixture helpers live in the sibling `routes_onboarding_test_helpers.rs`.
 
 #![allow(clippy::too_many_lines)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::unwrap_used)]
 
-use super::super::onboarding_provision::provision_response;
 use super::{first_hire_response, install_vertical_response, provider_key_response};
-use argo_store::SessionStore;
 use serde_json::{json, Value};
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
 
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
-}
-
-fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|p| p.parent())
-        .expect("workspace root")
-        .to_path_buf()
-}
-
-fn set_test_env(tmp: &std::path::Path) {
-    std::env::set_var("ARGO_HOME", tmp.join("home"));
-    std::fs::create_dir_all(tmp.join("home")).expect("home dir");
-    std::env::set_var("ARGO_VERTICALS_DIR", workspace_root().join("verticals"));
-    // `wrap_secret` now requires a workspace root key (per-tenant master
-    // keys derived via HKDF). The previous OnceLock fallback to
-    // `MasterKey::generate()` was the §3 P0 finding this brief fixes.
-    // Pin a deterministic 32-byte test root so the per-tenant
-    // derivation is fail-closed in production but stable here.
-    std::env::set_var(
-        argo_credentials::WORKSPACE_ROOT_KEY_ENV,
-        // 32 zero bytes encoded as base64 → "AAAA..." (44 chars). Fine
-        // for tests; the per-tenant HKDF still produces a distinct key
-        // per tenant_id input.
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-    );
-}
-
-async fn mem_store() -> Arc<SessionStore> {
-    let store = SessionStore::open(":memory:").await.expect("mem db");
-    store.migrate().await.expect("migrate");
-    Arc::new(store)
-}
-
-fn req(path: &str, body: &str, principal: Option<&str>) -> String {
-    let mut head = format!("POST {path} HTTP/1.1\r\nHost: x\r\n");
-    if let Some(p) = principal {
-        head.push_str(&format!("X-Argo-Principal: {p}\r\n"));
-    }
-    head.push_str(&format!("Content-Length: {}\r\n\r\n{body}", body.len()));
-    head
-}
-
-async fn pre_provision(store: &Arc<SessionStore>, email: &str) {
-    let body = json!({ "workspace_name": "Acme", "company_name": "Acme Co" }).to_string();
-    let r = req(
-        "/api/v1/onboarding/provision",
-        &body,
-        Some(&format!("human:{email}")),
-    );
-    let (status, body) = provision_response(&r, Some(store)).await;
-    assert!(
-        status.starts_with("201") || status.starts_with("200"),
-        "pre-provision failed: {status} {body}"
-    );
-}
-
-async fn audit_payloads_for_kind(store: &SessionStore, kind: &str) -> Vec<String> {
-    sqlx::query_scalar("SELECT payload_json FROM audit_record WHERE kind = ? ORDER BY seq ASC")
-        .bind(kind)
-        .fetch_all(store.pool())
-        .await
-        .unwrap()
-}
+#[path = "routes_onboarding_test_helpers.rs"]
+mod helpers;
+use helpers::{
+    audit_payloads_for_kind, env_lock, mem_store, pre_provision, req, set_test_env,
+};
 
 #[tokio::test]
 async fn provider_key_happy_path_returns_validated() {
