@@ -59,6 +59,8 @@ as a product feature ("your AI workforce's decision log"). Not before.
 
 | ID | Date | Decision | Status |
 |----|------|----------|--------|
+| [DEC-017](DEC-017-teammate-eval-harness-synthetic-golden-companies-first.md) | 2026-05-29 | Teammate-eval harness: synthetic golden-companies first, historical replay a later seam; Portia=reference, Mariah=first synthetic | active |
+| [DEC-016](DEC-016-pitch-agent-persona-portia-female.md) | 2026-05-29 | Pitch Agent persona is "Portia" (female); P-name convention | active |
 | [DEC-015](DEC-015-decision-register-adr-files-first.md) | 2026-05-29 | Decision register ships as ADR markdown files first; DB only if it earns it | active |
 | [DEC-014](DEC-014-model-catalog-opus-4-8-sonnet-4-6.md) | 2026-05-29 | Model catalog = Opus 4.8 (frontier, 1M) / Sonnet 4.6 (1M) / Haiku 4.5; Opus 4.8 is the fixed-policy default | active |
 | [DEC-013](DEC-013-sonnet-floor-no-haiku.md) | 2026-05-29 | Tier step-down floor is Sonnet 4.6 — never Haiku; Opus 4.8 for complex | active |

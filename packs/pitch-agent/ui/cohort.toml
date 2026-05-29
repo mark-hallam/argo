@@ -3,11 +3,11 @@
 # Drives the cohorts page tab + tile + worker-detail page for any
 # tenant deploying this template. The values here are display defaults;
 # tenants may override individual fields per instance (e.g. name the
-# Pitch worker "Sky" instead of "Pitch").
+# Pitch worker "Sky" instead of "Portia").
 
 department = "Sales & Investor Relations"
 department_id = "sales-investor-relations"
-agent_name_default = "Pitch"
+agent_name_default = "Portia"
 level = "L4"
 level_label = "Senior"
 

@@ -1,8 +1,15 @@
 # Teammate Performance Eval Harness — design (item-6)
 
-**Status**: DESIGN — for operator alignment before implementation.
+**Status**: DESIGN — operator-aligned 2026-05-29; phase-1 build authorized. See [[DEC-017]].
 **Author**: claude conductor, 2026-05-29 (item-6 of the 6-item program).
-**Decision needed from operator**: the synthetic-company approach (§4) and the phase-1 scope (§7).
+**Decisions locked** (DEC-017): two scenario-source modes — **synthetic golden-companies FIRST**, historical replay a later seam; **Portia** (the Pitch Agent, DEC-016) is the reference teammate (existing 141-case suite); **Mariah** is the first synthetic-company teammate; all six scoring axes in scope; full rollout post-MVP, phase-1 scaffold lands now.
+
+## 0. Two scenario-source modes (operator-confirmed framing)
+
+The harness scores a teammate against situations from one of two interchangeable sources feeding the SAME scoring engine:
+
+- **Historical replay (later seam, strongest signal):** replay a real customer's past data (tickets / CRM / emails) + the human's actual outcome as the answer key. Needs real customer data → privacy-gated, unavailable until design-partners exist. Build the seam now, switch on later.
+- **Synthetic golden-companies (built first):** generated, reproducible fixtures with known-correct expected behaviours. Generation pattern: **Opus drafts the company + scenarios → ratify the "correct answers" once → freeze as committed fixtures** (realism without losing reproducibility).
 
 ## 1. Why this exists (the operator's ask)
 
@@ -105,12 +112,9 @@ crates/argo-eval/src/
 - **Phase 3 (depth):** multi-turn scenarios, self-healing loop integration
   (`self_healing.rs` already exists), operator-facing "teammate report card" UI.
 
-## 8. Open questions for the operator
+## 8. Open questions — RESOLVED 2026-05-29 (DEC-017)
 
-1. **Synthetic-company approach** — confirm Option B (per-family golden companies)?
-2. **Phase-1 teammate** — Mariah (marketplace, the demo headline) the right first subject?
-3. **Scope of behavioral axes for v1** — all six (§3), or start with correctness +
-   escalation + boundary and add honesty/budget in phase 2?
-4. **Is this v1.0-blocking or post-MVP?** It's a quality *instrument*, not a
-   shipped feature — I'd argue post-MVP (build after the demo MP4 records), but
-   the design + phase-1 scaffold can land now.
+1. **Synthetic-company approach** — ✅ Option B (per-family golden companies), synthetic first.
+2. **Reference + first teammate** — ✅ Portia (Pitch Agent, existing 141 cases) is the reference; Mariah (marketplace) is the first synthetic-company teammate.
+3. **Behavioral axes for v1** — ✅ all six (§3).
+4. **v1.0-blocking?** — ✅ post-MVP instrument; phase-1 scaffold lands now, full rollout after the demo MP4 records.
