@@ -1,0 +1,116 @@
+# Session handoff — Portia demo prep + MVP reframe (2026-05-29)
+
+**For:** the operator (Mark) + the next Claude session resuming this work.
+**Status at handoff:** demo dry-run in progress; Portia pitch flow wired 100% real.
+**main HEAD at handoff:** `3fe5b8855`. All work committed + pushed.
+
+---
+
+## The big strategic reframe (read this first)
+
+We are **NOT at a shippable "v1.0 MVP"** by the honest bar, and the operator
+caught this. Reality:
+
+- The **backend/core is genuinely real** — audit (hash-chained), approvals,
+  teammate persistence, delegation, the Pitch Agent — these pass cold tests
+  and are wired to the UI.
+- But **~24 of ~30 SPA surfaces render bundled MOCK data even in demo-live
+  mode** (see "Systemic finding" below). So the *user-facing product* mostly
+  touches mock screens.
+
+**Reframe (operator-aligned):** this is a **working-core + vision** pre-seed
+demo — for funding / waitlist / socials — **NOT** an "MVP shipped" product.
+Sell the vision + the real proof points honestly; raise to build the rest.
+Stop using "v1.0 MVP / all claims LIVE" framing — it overstates the user-facing
+reality. NO THEATER means: be honest about real-vs-mock; don't film mock as
+"working product."
+
+**Operator's chosen direction:** lean toward **WIRING UP** (make it real), not
+cutting. The **100%-real hero journey = Portia pitching SKYCOT** (recursive
+proof + viral moment).
+
+---
+
+## ✅ Done this session
+
+1. **Portia is real.** The Pitch Agent persona is named **Portia** (female,
+   DEC-016), promoted from a dept-filler to a **6th canonical hero persona**
+   in the demo seed (`personas.rs`). Pack manifest + SPA fallback renamed too.
+2. **Dropped the dept-fillers** (Fin/Devon/Lex) — they were fake "look
+   populated" rows (theater). Demo tenant now seeds exactly **6 real heroes**;
+   `/cohorts` shows the 6 real departments.
+3. **`/team` now reads the LIVE gateway** in demo-live (was showing 5 mock
+   `SAMPLE_TEAM` personas — `team.ts` was missing the `!isDemoLive()` gate
+   every other module has). Fixed → shows the real 6 incl. Portia.
+4. **`/settings` 500 fixed** — `SettingsHeading` imported `findActiveTab` from
+   `SettingsTabs`, which lacked that export after the #2673 rebase. Re-exported.
+5. **Portia's LLM fallback WIRED** (the hero moment): novel investor questions
+   now hit the **live LLM via the operator's Claude subscription**
+   (`ARGO_PITCH_LLM_PROVIDER=claude-code-cli`, persisted in `~/.argo/env.local`,
+   DEC-012, Sonnet floor DEC-013), truth-boundary gated. Verified live:
+   - canonical Q → 2ms real answer w/ provenance.
+   - novel HIPAA Q → `source:llm model:claude-sonnet-4-6 disposition:Allow`,
+     refused to speculate, pivoted to real architecture facts, escalated to
+     founder. **Brand-safe, no hallucination, no theater.**
+6. **Fresh demo store** seeded: 6 heroes, 6 cohorts, 8 approvals, 50 audit rows.
+   Old store moved to `~/.argo/sessions.db.pre-portia-reset-*` (recoverable).
+7. Earlier in the session (separate from demo): completed the 6-item program
+   (PR audit, decision register, test-coverage audit, full-site walkthrough,
+   e2e journeys, teammate-eval design), drained 18 web PRs, relit + re-paused
+   the swarm. See git log + the decision register.
+
+## 🔴 Systemic finding (the key one — NOT yet fixed)
+
+**~24 SPA api modules short-circuit to bundled mock on `isAuthBypassed()`
+alone, never checking `!isDemoLive()`** — so they show MOCK data in the
+recording config. Only 6 are correctly gated (audit, audit-detail, approvals,
+workers, worker-overview, team[fixed]).
+
+**Mock in demo-live (theater if filmed as working):** cohorts, **skills (Scene
+4)**, **workflows + builder (Scene 5)**, workflow-runs, worker-detail tabs
+(activity/memory/skills/trust/policies/settings), verticals, orchestration,
+evals, ghostwriter, retros, settings, api-keys, provider-keys, audit-export,
+elevated-view, workplace-knowledge, skill-ir.
+
+**The canonical gate pattern to copy:** `if (isAuthBypassed() && !isDemoLive())`
+(see `web/lib/api/audit.ts:361`, `approvals.ts:202`, `team.ts:139`).
+
+## ▶️ NEXT ACTION (where to resume)
+
+**Per-module endpoint audit for the camera-visible mock surfaces** (`/skills`,
+`/workflows`, `/cohorts`, worker-detail tabs): for EACH, determine —
+- live gateway endpoint EXISTS → add the `!isDemoLive()` gate → wire it real.
+- NO backend yet → leave mock + honestly mark "coming soon / out of demo scope"
+  (do NOT fake-wire — that's theater).
+
+This tells us exactly how much of Scenes 4/5 can become real vs must be cut.
+The operator leans to wiring. Then: re-capture, confirm live, update runbook.
+
+## 🔧 Live runtime state (survives a Claude restart — processes keep running)
+
+- **Gateway:** running on `:7400`, schema v84, fresh build (`commits_behind=0`),
+  6 heroes seeded, Portia LLM wired. Binary: `/tmp/argo-shared-target/release/argo`.
+  Relaunch (preserve store, no rebuild): `source ~/.argo/env.local` then
+  `argo gateway start --bind 127.0.0.1 --port 7400` with
+  `ARGO_GATEWAY_AUTH_BYPASS=1 ARGO_DEMO_MODE=1` + `~/.local/bin` on PATH.
+- **SPA:** running on `:3000` with the full demo env
+  (`AUTH_BYPASS=1 + DEMO_MODE=1 + DEMO_LIVE=1 + GATEWAY_URL=:7400`). Hard-refresh
+  the browser to pick up the 6.
+- **Swarm:** PAUSED (halt sentinels set, supervisor unloaded) — good for
+  recording. Relight: `rm /tmp/argo-stop ~/.argo/stop && launchctl bootstrap
+  gui/$(id -u) ~/Library/LaunchAgents/com.skycot.worker-supervisor.plist`.
+
+## Open bugs (non-blocking)
+
+- `/audit` logs a console "Element type is invalid" error (page renders OK) — investigate.
+- `/approvals` live-WebSocket auth-fails (`ws://…/inbox/ws` — no creds); data
+  renders fine, just no live push. (CSP was fixed via #2669; this is an auth gap.)
+- worker-detail: 1× 404 sub-resource.
+- SPA offline fallback `SAMPLE_TEAM` still lists the old 5 (no Portia) — only
+  surfaces if the gateway *fails* mid-record. Minor.
+
+## Pending queue work (not demo-related)
+
+- 4 Rust PRs awaiting the evaluator cold-cargo lane: #2497, #2616, #2636, #2668.
+- Queued briefs (TODO): stale-web-tests, approvals-WS-CSP follow, nav-hydration,
+  /pitch metadata, teammate-eval live-runner, the 5 rebase-* re-authors.
