@@ -8,6 +8,7 @@
  */
 
 import { apiGet } from "@/lib/api/client";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import { ApiError } from "@/lib/api/types";
 import { findSampleWorkerActivity } from "@/lib/sample-worker-activity";
 
@@ -238,7 +239,7 @@ export async function fetchWorkerActivity(
   filters: WorkerActivityFilters,
   cursor: string | null = null,
 ): Promise<WorkerActivityPage> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return mockPage(workerId, filters, cursor);
   }
 

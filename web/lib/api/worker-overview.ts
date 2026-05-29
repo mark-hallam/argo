@@ -48,6 +48,44 @@ export interface WorkerKpi {
   tone: KpiTone;
 }
 
+/** Raw KPI shape as the gateway `/overview` endpoint returns it. */
+interface RawGatewayKpi {
+  key?: string;
+  id?: string;
+  label?: string;
+  value?: unknown;
+  sparkline_7d?: number[];
+  series?: number[];
+  trend?: { direction?: string; delta_pct?: number } | KpiTrend;
+  deltaPct?: number;
+  direction_means_good?: boolean;
+}
+
+/**
+ * Map a gateway KPI to the SPA {@link WorkerKpi} contract, deriving
+ * `tone` from the trend direction + whether that direction is good.
+ * Tolerates the already-SPA-shaped form (mock/legacy) too.
+ */
+function mapGatewayKpi(k: RawGatewayKpi): WorkerKpi {
+  const trendObj = typeof k.trend === "object" && k.trend !== null ? k.trend : undefined;
+  const direction: KpiTrend =
+    (trendObj?.direction as KpiTrend) ??
+    (typeof k.trend === "string" ? (k.trend as KpiTrend) : "flat");
+  const meansGood = k.direction_means_good ?? true;
+  const isGood =
+    (direction === "up" && meansGood) || (direction === "down" && !meansGood);
+  const tone: KpiTone = direction === "flat" ? "muted" : isGood ? "success" : "warning";
+  return {
+    id: k.key ?? k.id ?? k.label ?? "kpi",
+    label: k.label ?? "",
+    value: String(k.value ?? ""),
+    series: k.sparkline_7d ?? k.series ?? [],
+    deltaPct: trendObj?.delta_pct ?? k.deltaPct ?? 0,
+    trend: direction,
+    tone,
+  };
+}
+
 export interface WorkerActivityRow {
   id: string;
   /** ISO timestamp. */
@@ -141,9 +179,35 @@ export async function fetchWorkerOverview(
   }
 
   try {
-    const overview = await apiGet<WorkerOverview>(
-      `/api/v1/workers/${encodeURIComponent(workerId)}/overview`,
-    );
+    const raw = await apiGet<{
+      charter?: unknown;
+      duties?: WorkerDuty[];
+      kpis?: RawGatewayKpi[];
+      recentActivity?: WorkerActivityRow[];
+      recent_activity?: WorkerActivityRow[];
+      genesis_plan_id?: string | null;
+    }>(`/api/v1/workers/${encodeURIComponent(workerId)}/overview`);
+    // Normalize the live gateway shape to the SPA contract so a sparse
+    // (freshly-seeded, zero-activity) worker can never crash the render:
+    //  - `charter` arrives as a versioned object { text, version, ... };
+    //    the SPA renders a plain string → take `.text`.
+    //  - the gateway sends `recent_activity` (snake); the SPA reads
+    //    `recentActivity` (camel) → map it.
+    //  - KPIs arrive as { key, sparkline_7d, trend:{direction,delta_pct},
+    //    direction_means_good }; the SPA needs { id, series, deltaPct,
+    //    trend, tone } → map + derive tone.
+    //  - every list defaults to [] so no `.length`/`.map` hits undefined.
+    const charter =
+      typeof raw.charter === "string"
+        ? raw.charter
+        : ((raw.charter as { text?: string } | null | undefined)?.text ?? "");
+    const overview: WorkerOverview = {
+      charter,
+      duties: raw.duties ?? [],
+      kpis: (raw.kpis ?? []).map(mapGatewayKpi),
+      recentActivity: raw.recentActivity ?? raw.recent_activity ?? [],
+      genesis_plan_id: raw.genesis_plan_id ?? null,
+    };
     return { overview, source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {

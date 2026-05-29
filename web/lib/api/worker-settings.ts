@@ -19,6 +19,7 @@
  */
 
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import { ApiError } from "@/lib/api/types";
 
 export type ChannelKind =
@@ -211,7 +212,7 @@ function mockResult(workerId: string, source: WorkerSettingsSource): FetchWorker
 }
 
 export async function getSettings(workerId: string): Promise<FetchWorkerSettingsResult> {
-  if (isAuthBypassed()) return mockResult(workerId, "mock-bypass");
+  if (isAuthBypassed() && !isDemoLive()) return mockResult(workerId, "mock-bypass");
 
   try {
     const raw = await apiGet<unknown>(
@@ -345,7 +346,7 @@ async function mutate(
   method: "patch" | "post" | "delete",
   body?: unknown,
 ): Promise<WorkerSettingsSource> {
-  if (isAuthBypassed()) return "mock-bypass";
+  if (isAuthBypassed() && !isDemoLive()) return "mock-bypass";
   const url = `/api/v1/workers/${encodeURIComponent(workerId)}${path}`;
   try {
     if (method === "patch") {

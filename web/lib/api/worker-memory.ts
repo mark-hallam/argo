@@ -24,6 +24,7 @@
  */
 
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import { ApiError } from "@/lib/api/types";
 import {
   findSampleWorkerMemory,
@@ -130,7 +131,7 @@ function mockResult(workerId: string): FetchWorkerMemoryResult {
 export async function fetchMemory(
   workerId: string,
 ): Promise<FetchWorkerMemoryResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     const memory = findSampleWorkerMemory(workerId);
     if (!memory) throw new WorkerMemoryNotFoundError(workerId);
     return { memory, source: "mock-bypass" };
@@ -160,7 +161,7 @@ export async function addFact(
   workerId: string,
   input: AddFactInput,
 ): Promise<WorkerFact> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return mockAddFact(workerId, input.text);
   }
   try {
@@ -192,7 +193,7 @@ export async function editFact(
   factId: string,
   input: EditFactInput,
 ): Promise<WorkerFact> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return mockEditFact(workerId, factId, input.text);
   }
   try {
@@ -212,7 +213,7 @@ export async function deleteFact(
   workerId: string,
   factId: string,
 ): Promise<void> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     mockDeleteFact(workerId, factId);
     return;
   }

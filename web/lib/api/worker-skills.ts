@@ -20,6 +20,7 @@
  */
 
 import { apiDelete, apiGet, apiPost } from "@/lib/api/client";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import { ApiError } from "@/lib/api/types";
 import { findSampleWorkerSkills } from "@/lib/sample-worker-skills";
 
@@ -122,7 +123,7 @@ function mockResult(workerId: string, source: WorkerSkillsSource): FetchWorkerSk
 }
 
 export async function fetchSkills(workerId: string): Promise<FetchWorkerSkillsResult> {
-  if (isAuthBypassed()) return mockResult(workerId, "mock-bypass");
+  if (isAuthBypassed() && !isDemoLive()) return mockResult(workerId, "mock-bypass");
 
   try {
     const skills = await apiGet<WorkerSkills>(
@@ -154,7 +155,7 @@ async function mutate(
   body: unknown,
   method: "post" | "delete",
 ): Promise<WorkerSkillsSource> {
-  if (isAuthBypassed()) return "mock-bypass";
+  if (isAuthBypassed() && !isDemoLive()) return "mock-bypass";
   try {
     if (method === "post") {
       await apiPost<unknown>(`/api/v1/workers/${encodeURIComponent(workerId)}${path}`, body);

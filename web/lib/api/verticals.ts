@@ -34,6 +34,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 
@@ -231,7 +232,7 @@ function isMissingOrUnreachable(err: unknown): boolean {
  * is NOT proxied and would fall back to the seed catalog).
  */
 export async function fetchVerticals(): Promise<FetchVerticalsResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { verticals: SEED_VERTICALS, source: "mock-bypass" };
   }
   try {
@@ -322,7 +323,7 @@ function seedDetail(id: string): VerticalDetail {
 
 /** GET `/api/v1/verticals/<id>` — manifest summary plus marketplace envelope. */
 export async function fetchVertical(id: string): Promise<FetchVerticalResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { vertical: seedDetail(id), source: "mock-bypass" };
   }
   try {

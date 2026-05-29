@@ -7,6 +7,7 @@
  */
 
 import { apiGet, apiPatch } from "@/lib/api/client";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import { ApiError } from "@/lib/api/types";
 
 export type ApprovalPolicy =
@@ -141,7 +142,7 @@ function mockResult(
 export async function getWorkerPolicies(
   workerId: string,
 ): Promise<WorkerPoliciesResult> {
-  if (isAuthBypassed()) return mockResult(workerId, "mock-bypass");
+  if (isAuthBypassed() && !isDemoLive()) return mockResult(workerId, "mock-bypass");
   try {
     const raw = await apiGet<PoliciesWireResponse>(
       `/api/v1/workers/${encodeURIComponent(workerId)}/policies`,
@@ -188,7 +189,7 @@ export async function updateWorkerPolicy(
   )}`;
   const payload = { policy: input.policy, operator_note: input.operatorNote };
 
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return {
       workerId: input.workerId,
       actionType: input.actionType,
