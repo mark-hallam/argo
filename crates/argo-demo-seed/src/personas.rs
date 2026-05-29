@@ -103,6 +103,19 @@ pub const DEMO_SEED_PERSONAS: &[DemoPersona] = &[
             "Truth-bounded",
         ],
     },
+    DemoPersona {
+        name: "Grant",
+        title: "GTM Engineer",
+        tagline: "owns inbound growth — qualifies signups and drafts outreach",
+        vertical_id: "gtm",
+        team: "Growth",
+        traits: &[
+            "Relationship-driven",
+            "Persistent",
+            "Brand-safe",
+            "Pipeline-minded",
+        ],
+    },
 ];
 
 #[cfg(test)]
@@ -112,11 +125,11 @@ mod tests {
     #[test]
     fn roster_is_scene_one_canon() {
         let names: Vec<_> = DEMO_SEED_PERSONAS.iter().map(|p| p.name).collect();
-        // Portia (the Track-P Pitch Agent headline) was promoted from a
-        // dept-filler into the hero roster — the deck is now six.
+        // Portia (Pitch Agent) + Grant (GTM Engineer) are first-class
+        // hero teammates — the deck is now seven.
         assert_eq!(
             names,
-            vec!["Mariah", "Peta", "Priya", "Jamal", "Nori", "Portia"]
+            vec!["Mariah", "Peta", "Priya", "Jamal", "Nori", "Portia", "Grant"]
         );
     }
 
@@ -151,9 +164,9 @@ mod tests {
     }
 
     #[test]
-    fn hero_roster_covers_six_demo_depts() {
-        // The demo tenant seeds exactly the six real teammates; /cohorts
-        // shows the six departments they actually staff (no fake filler
+    fn hero_roster_covers_seven_demo_depts() {
+        // The demo tenant seeds exactly the seven real teammates; /cohorts
+        // shows the seven departments they actually staff (no fake filler
         // rows). Every hero vertical must be present + distinct.
         let verts: std::collections::HashSet<&str> =
             DEMO_SEED_PERSONAS.iter().map(|p| p.vertical_id).collect();
@@ -164,9 +177,10 @@ mod tests {
             "support",
             "marketing",
             "pitch-agent",
+            "gtm",
         ] {
             assert!(verts.contains(v), "demo dept vertical {v} not staffed");
         }
-        assert_eq!(verts.len(), 6, "expected exactly six distinct hero verticals");
+        assert_eq!(verts.len(), 7, "expected exactly seven distinct hero verticals");
     }
 }

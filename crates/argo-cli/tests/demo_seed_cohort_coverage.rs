@@ -32,15 +32,15 @@ async fn demo_seed_produces_six_cohorts_one_per_real_dept() {
 
     let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
     assert_eq!(
-        report.workers_created, 6,
-        "demo tenant seeds exactly the six real hero teammates (incl. Portia)"
+        report.workers_created, 7,
+        "demo tenant seeds exactly the seven real hero teammates (incl. Portia + Grant)"
     );
 
     let cohorts = list_cohorts(store.as_ref(), tenant).await.unwrap();
     assert_eq!(
         cohorts.len(),
-        6,
-        "expected exactly 6 cohorts (one per real staffed dept); got {} ({:?})",
+        7,
+        "expected exactly 7 cohorts (one per real staffed dept); got {} ({:?})",
         cohorts.len(),
         cohorts.iter().map(|c| c.vertical.clone()).collect::<Vec<_>>()
     );
@@ -91,6 +91,7 @@ async fn demo_seed_covers_each_hero_dept_vertical() {
         "support",
         "marketing",
         "pitch-agent",
+        "gtm",
     ] {
         assert!(
             verticals.contains(required),

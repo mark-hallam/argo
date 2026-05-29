@@ -435,7 +435,7 @@ mod tests {
         opts.skip_pass_a_turns = true;
         opts.dressing_audit_rows = 25;
         let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
-        assert_eq!(report.workers_created, 6);
+        assert_eq!(report.workers_created, 7);
         assert_eq!(report.foreign_workers_created, 1);
         assert_eq!(report.workflows_created, 1);
         assert_eq!(report.skills_created, 3);
@@ -456,10 +456,10 @@ mod tests {
         assert!(!report.pass_a_real_llm);
 
         // Vacuous-pass guard (round-37 pattern): seeded tenant sees the
-        // six real hero teammates; a DIFFERENT tenant sees zero.
+        // seven real hero teammates; a DIFFERENT tenant sees zero.
         let identities = IdentityStore::new(&store);
         let seeded_workers = identities.list_workers(tenant, false).await.unwrap();
-        assert_eq!(seeded_workers.len(), 6);
+        assert_eq!(seeded_workers.len(), 7);
         let other_tenant = TenantId::new();
         let other_workers = identities.list_workers(other_tenant, false).await.unwrap();
         assert_eq!(other_workers.len(), 0);

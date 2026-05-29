@@ -81,6 +81,12 @@ export const DEPARTMENTS: readonly Department[] = [
     icon: "🎤",
     verticals: ["pitch-agent", "investor-relations"],
   },
+  {
+    id: "growth",
+    label: "Growth",
+    icon: "📈",
+    verticals: ["gtm", "growth", "gtm-engineer"],
+  },
 ];
 
 const OTHER_DEPT: Department = {
