@@ -13,6 +13,57 @@ limits. By morning, maximal real progress, ready to deploy what's done.
 > progress** and report what's genuinely DONE vs PARTIAL vs BLOCKED — never dress
 > incomplete work as finished.
 
+## ☀️ MORNING HAND-OFF (Mark — read this first)
+
+Good morning. The interactive conductor (me) ran until its context filled, then
+handed the baton to the **autonomous machine** — it keeps building with fresh
+context (auto-resume tick, checked every 30 min). Honest picture:
+
+### Shipped tonight — real, tested, committed to `main` (7 feature commits)
+1. **Voice V1** — `argo-voice-io` clean trait layer (`SpeechToText`/`TextToSpeech`)
+   + key-free `MockStt`/`MockTts` + `voice_turn` seam. 17u+36doc tests.
+2. **Voice V2** — gateway `POST /api/v1/voice/{tts,stt,pitch-turn}`; pitch-turn
+   reuses the **real truth boundary** (over-claim → defers, no `$` figure). Voice
+   crate now wired into the gateway. 12 tests.
+3. **Settings T1** — `workspace_settings` table (migration v85) + GET/PATCH for
+   workspace/providers/notifications; `/settings` un-mocked. 16 tests.
+4. **Evals T2** — real worker-evals query (skills' reeval history); evals tab
+   un-mocked. 6 tests + 233 vitest.
+5. **Governance report** (gap #1) — `GET /api/v1/governance/readiness`: real audit
+   chain-integrity + approval coverage + truth-boundary status. 4 tests.
+   *(Earlier this session also shipped `argo eval export-training-data` (gap #3),
+   `GET /workers/<id>/retrain/recent` + seed, and the NO-THEATER retros/audit-export flips.)*
+
+### To take it live (backend is committed; the RUNNING gateway is still the old binary)
+```bash
+bash ~/code/argo/scripts/restart-live-gateway.sh --force --no-prompt
+```
+Then reseed (populates retrain history etc.):
+```bash
+cd ~/code/argo && set -a && source ~/.argo/env.local && set +a && cargo run --release --bin argo -- demo seed --tenant 019e7344-78e1-77f1-ae99-dff2699683ea
+```
+After that: voice routes, `/settings`, evals tab, `/governance/readiness` and the
+retrain panel all go live (migration v85 applies automatically on restart).
+
+### Needs your decision (parked blockers, per your instructions)
+- **Voice real vendor + API key** — recommend ElevenLabs + Deepgram. Unblocks the
+  real STT/TTS adapter (everything else in voice is built + mock-tested).
+- **Orchestration model** — Supervisor (recommended) vs visual DAG, before I build it.
+- **Browser voice (V3)** — buildable, but needs the gateway rebuilt + a real browser
+  to verify mic capture, so best done with you around.
+
+### Honest deploy-readiness
+**Substantial real progress, not "the whole platform"** (that's weeks, not one
+night — flagged up front). What shipped is production-quality + tested. The
+autonomous machine keeps chipping the queue + FEATURE_MATRIX overnight.
+
+### Auto-resume is RUNNING — off-switch
+`com.skycot.buildout-resume` (30-min check) keeps building with fresh context.
+**To stop when you're back + driving:** `touch ~/.argo/buildout-stop` then
+`launchctl unload ~/Library/LaunchAgents/com.skycot.buildout-resume.plist`.
+
+---
+
 ## RESUME INSTRUCTIONS (read first if you're a fresh/resumed conductor)
 
 0. **Dirty-tree first:** `cd ~/code/argo && git status --short | grep -v 'verticals/.genesis'`.
@@ -26,7 +77,14 @@ limits. By morning, maximal real progress, ready to deploy what's done.
 3. Build it (single Rust integrator: `export CARGO_TARGET_DIR=$HOME/.cache/argo-shared-target CARGO_INCREMENTAL=0`).
 4. Verify (cargo test/clippy for Rust; vitest/tsc for web). Commit + push ONLY if
    green. Append a Log line. Never break the running demo (gateway :7400 / SPA :3000).
-5. Keep going until the queue is exhausted or every remaining item is BLOCKED.
+5. Keep going until every remaining item is BLOCKED. **When the explicit Queue
+   below is exhausted, FIND MORE WORK** (operator directive: "find more work until
+   the whole platform is built"): open `docs/build-plan/FEATURE_MATRIX.md`, pick the
+   highest-value 🟡 Partial / 🟧 Scaffold row that is buildable without an operator
+   decision or a missing API key, append it to the Queue as a new item, and build
+   it. Prefer: remaining theatre/mock surfaces → un-wired-but-shipped scaffolds →
+   FEATURE_MATRIX partials. Always: real + tested + committed, NO THEATER, don't
+   break the demo. Mark anything needing operator input BLOCKED + move on.
 
 **Process note (improved mid-run):** delegated build-agents now **commit+push their
 own green work** (verify gate: tests+clippy green), run ONE at a time to avoid push
