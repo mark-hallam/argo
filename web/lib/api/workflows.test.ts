@@ -5,6 +5,7 @@ import {
   parseStepsFromToml,
   type GatewayWorkflowItem,
 } from "./workflows";
+import { resolveWorkflowDisplayMetadata } from "./workflow-metadata";
 import { ApiError } from "./types";
 import { SAMPLE_WORKFLOW_SPECS, SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
 
@@ -328,6 +329,21 @@ describe("lib/api/workflows", () => {
       const parsed = parseStepsFromToml("");
       expect(parsed.steps).toEqual([]);
       expect(parsed.description).toBe("");
+    });
+  });
+
+  describe("resolveWorkflowDisplayMetadata", () => {
+    it("returns humanised title + seed description for a known workflow", () => {
+      const meta = resolveWorkflowDisplayMetadata("sales", "qualify_lead");
+      expect(meta.title).toBe("Qualify lead");
+      expect(meta.description).toBe(SAMPLE_WORKFLOW_SPECS["sales/qualify_lead"].description);
+    });
+
+    it("humanises an unknown workflow slug and synthesises a description", () => {
+      const meta = resolveWorkflowDisplayMetadata("sales", "brand_new_flow");
+      expect(meta.title).toBe("Brand new flow");
+      expect(meta.description).toContain("brand_new_flow");
+      expect(meta.description).toContain("sales");
     });
   });
 });

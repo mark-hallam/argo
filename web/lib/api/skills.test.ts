@@ -3,6 +3,7 @@ import {
   fetchLearnedThisMonth,
   fetchSkills,
   fetchSkillUsage,
+  resolveSkillDisplayMetadata,
   SEED_SKILLS,
   type SkillRow,
 } from "./skills";
@@ -187,5 +188,21 @@ describe("lib/api/skills", () => {
         learned_at: "2026-05-23T09:15:00.000Z",
       },
     ]);
+  });
+
+  describe("resolveSkillDisplayMetadata", () => {
+    it("returns seed name + description when the skill id is known", () => {
+      const meta = resolveSkillDisplayMetadata("pricing.competitor_scrape");
+      expect(meta.title).toBe("pricing.competitor_scrape");
+      expect(meta.description).toBe(
+        SEED_SKILLS.find((s) => s.name === "pricing.competitor_scrape")!.description,
+      );
+    });
+
+    it("falls back to the skill id and a generic description when unknown", () => {
+      const meta = resolveSkillDisplayMetadata("brand.new.skill");
+      expect(meta.title).toBe("brand.new.skill");
+      expect(meta.description).toContain("brand.new.skill");
+    });
   });
 });

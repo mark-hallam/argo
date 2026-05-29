@@ -247,6 +247,28 @@ function seedUsage(name: string): SkillUsage {
   };
 }
 
+/**
+ * Server-side metadata resolver for `<title>`/OG cards on the skill
+ * detail route. Used by `app/(app)/skills/[skillId]/layout.tsx` so
+ * SSR stamps the skill-specific title + description before the client
+ * component hydrates. Reads from the seed catalogue — no network hop
+ * in `generateMetadata`, so cold loads on the demo path don't widen
+ * the skeleton-flash window. Falls back to the skill id when the
+ * catalogue has no entry, so the title still reads cleanly.
+ */
+export function resolveSkillDisplayMetadata(
+  skillId: string,
+): { title: string; description: string } {
+  const seed = SEED_SKILLS.find((s) => s.name === skillId || s.id === skillId);
+  if (seed) {
+    return { title: seed.name, description: seed.description };
+  }
+  return {
+    title: skillId,
+    description: `Skill ${skillId} — where it came from, which workers use it, and how widely it's adopted.`,
+  };
+}
+
 /** GET `/api/v1/skills/<name>/usage` — provenance + workers-using + adoption. */
 export async function fetchSkillUsage(
   skillName: string,
