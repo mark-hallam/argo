@@ -52,5 +52,18 @@ fi
 
 echo "[$(ts)] conductor quiet ${age_min}m — resuming build-out." >>"$LOG"
 PROMPT='You are the SKYCOT autonomous platform build-out conductor, resuming after the primary session went quiet (likely a usage-limit reset). Read ~/code/argo/docs/skycot/overnight-build-out.md and follow its RESUME INSTRUCTIONS exactly: pick the highest-priority TODO or PARTIAL item that is NOT BLOCKED, build it, and verify it (for Rust: export CARGO_TARGET_DIR=$HOME/.cache/argo-shared-target CARGO_INCREMENTAL=0, then cargo test + clippy on the touched crate; for web: pnpm/npx vitest + tsc on touched files). git commit + push to origin/main with --no-verify ONLY when green. Append a timestamped Log line to that file each cycle. If an item needs operator input, mark it BLOCKED in the doc, commit that, and move to the next item. Keep building items until everything left is BLOCKED or budget runs low. HARD RULES: you are the SOLE Rust integrator on ONE shared target dir — do NOT create new target dirs (disk is tight); never break the running demo (gateway http://127.0.0.1:7400, SPA http://127.0.0.1:3000); NO THEATER (never mark DONE unless it is real and tested); no force-push (origin/main only, fast-forward); do not touch verticals/.genesis; commit small and often so the singleton guard stays accurate.'
-timeout 7200 claude --dangerously-skip-permissions -p "$PROMPT" >>"$LOG" 2>&1
+# Portable time-limited run. macOS has no GNU `timeout`; prefer `gtimeout`
+# (coreutils), else a background-watchdog kill so a hung session can't hold the
+# lock forever. (The original `timeout 7200 ...` silently no-op'd on macOS —
+# fixed 2026-05-30.)
+if command -v gtimeout >/dev/null 2>&1; then
+  gtimeout 7200 claude --dangerously-skip-permissions -p "$PROMPT" >>"$LOG" 2>&1
+else
+  claude --dangerously-skip-permissions -p "$PROMPT" >>"$LOG" 2>&1 &
+  cpid=$!
+  ( sleep 7200; kill -TERM "$cpid" 2>/dev/null ) &
+  wpid=$!
+  wait "$cpid"
+  kill -TERM "$wpid" 2>/dev/null || true
+fi
 echo "[$(ts)] resume tick finished (exit $?)." >>"$LOG"
