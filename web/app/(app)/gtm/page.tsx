@@ -11,7 +11,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { BrandLoudHero } from "@/components/skycot/BrandLoudHero";
-import { draftFollowup, type GtmDisposition, type GtmDraftResponse } from "@/lib/api/gtm";
+import {
+  draftFollowup,
+  type GtmDisposition,
+  type GtmDraftResponse,
+  type GtmTier,
+} from "@/lib/api/gtm";
 import { ApiError } from "@/lib/api/types";
 
 /**
@@ -36,6 +41,12 @@ function dispositionPill(disposition: GtmDisposition) {
     return { Icon: ShieldCheck, label: "Brand-safe", className: "gtm-pill is-allow" };
   }
   return { Icon: ShieldQuestion, label: "Held for review", className: "gtm-pill is-escalate" };
+}
+
+function tierClass(tier: GtmTier): string {
+  if (tier === "Hot") return "gtm-tier is-hot";
+  if (tier === "Warm") return "gtm-tier is-warm";
+  return "gtm-tier is-cold";
 }
 
 export default function GtmPage() {
@@ -206,6 +217,62 @@ export default function GtmPage() {
           gap: 8px;
           margin-bottom: 12px;
         }
+        .gtm-qual {
+          margin-bottom: 14px;
+          padding-bottom: 14px;
+          border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        }
+        .gtm-qual-head {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px;
+        }
+        .gtm-tier {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-family: var(--font-mono);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .gtm-tier.is-hot {
+          background: rgba(239, 68, 68, 0.12);
+          color: #b91c1c;
+        }
+        .gtm-tier.is-warm {
+          background: rgba(245, 158, 11, 0.16);
+          color: #92400e;
+        }
+        .gtm-tier.is-cold {
+          background: rgba(100, 116, 139, 0.14);
+          color: #475569;
+        }
+        .gtm-qual-rationale {
+          font-family: "Inter", sans-serif;
+          font-size: 13px;
+          color: rgba(30, 27, 75, 0.75);
+        }
+        .gtm-signals {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 10px;
+        }
+        .gtm-signal {
+          display: inline-flex;
+          align-items: center;
+          padding: 3px 9px;
+          border-radius: 8px;
+          background: rgba(139, 92, 246, 0.08);
+          color: #5b21b6;
+          font-family: "Inter", sans-serif;
+          font-size: 11px;
+          font-weight: 500;
+        }
         .gtm-draft {
           margin: 0;
           white-space: pre-wrap;
@@ -372,6 +439,30 @@ export default function GtmPage() {
             ) : null}
             {result ? (
               <div className="gtm-result" data-testid="gtm-result">
+                {result.qualification ? (
+                  <div className="gtm-qual" data-testid="gtm-qualification">
+                    <div className="gtm-qual-head">
+                      <span
+                        className={tierClass(result.qualification.tier)}
+                        data-testid="gtm-tier"
+                      >
+                        {result.qualification.tier} lead
+                      </span>
+                      <span className="gtm-qual-rationale">
+                        {result.qualification.rationale}
+                      </span>
+                    </div>
+                    {result.qualification.signals.length > 0 ? (
+                      <div className="gtm-signals">
+                        {result.qualification.signals.map((s) => (
+                          <span className="gtm-signal" key={s}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="gtm-result-head">
                   {pill ? (
                     <span className={pill.className} data-testid="gtm-pill-disposition">

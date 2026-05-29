@@ -16,7 +16,7 @@ fn signup(name: &str, email: &str, context: Option<&str>) -> Signup {
 #[test]
 fn user_prompt_includes_name_email_and_context() {
     let s = signup("Dana Reed", "dana@acme.io", Some("Runs ops at a 40-person startup"));
-    let prompt = build_user_prompt(&s);
+    let prompt = build_user_prompt(&s, &qualify(&s));
     assert!(prompt.contains("Dana Reed"), "name must appear: {prompt}");
     assert!(prompt.contains("dana@acme.io"), "email must appear: {prompt}");
     assert!(
@@ -28,7 +28,7 @@ fn user_prompt_includes_name_email_and_context() {
 #[test]
 fn user_prompt_without_context_instructs_generic_and_no_invention() {
     let s = signup("Sam", "", None);
-    let prompt = build_user_prompt(&s);
+    let prompt = build_user_prompt(&s, &qualify(&s));
     assert!(prompt.contains("Sam"));
     assert!(
         prompt.contains("do not invent"),
@@ -90,4 +90,39 @@ fn system_prompt_carries_truth_boundary_and_no_forbidden_phrasing() {
 fn empty_body_is_a_bad_request() {
     let (status, _body) = bad_request("`signup.name` is required");
     assert_eq!(status, "400 Bad Request");
+}
+
+#[test]
+fn qualifies_a_senior_intent_corporate_lead_as_hot() {
+    let s = signup(
+        "Avery Stone",
+        "avery@brightloop.io",
+        Some("VP Eng at a 120-person fintech, evaluating AI teammates to automate on-call triage; we want to cut manual toil this quarter."),
+    );
+    let q = qualify(&s);
+    assert_eq!(q.tier, "Hot", "senior + intent + corporate + scale + detail should be Hot");
+    assert!(q.signals.contains(&"senior decision-maker".to_string()));
+    assert!(q.signals.contains(&"active buying intent".to_string()));
+    assert!(q.signals.contains(&"corporate email domain".to_string()));
+    assert!(!q.rationale.is_empty());
+}
+
+#[test]
+fn qualifies_a_single_signal_lead_as_warm() {
+    // Corporate email only (one weak signal) → Warm boundary is score>=2,
+    // so a single +1 signal stays Cold; give it intent (+2) to land Warm
+    // with no other signals.
+    let s = signup("Sam Lee", "sam@gmail.com", Some("just looking for something to help out"));
+    let q = qualify(&s);
+    assert_eq!(q.tier, "Warm", "active intent alone (score 2) is Warm; got {:?}", q);
+    assert!(q.signals.contains(&"active buying intent".to_string()));
+}
+
+#[test]
+fn qualifies_a_no_signal_lead_as_cold_without_crashing() {
+    let s = signup("Pat", "pat@gmail.com", None);
+    let q = qualify(&s);
+    assert_eq!(q.tier, "Cold");
+    assert!(q.signals.is_empty());
+    assert!(q.rationale.contains("Limited signal"));
 }

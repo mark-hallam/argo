@@ -54,6 +54,91 @@ struct Signup {
     context: Option<String>,
 }
 
+/// Grant's lead qualification — the *triage* half of his charter
+/// ("qualifies signups and drafts outreach"). Deterministic + rules-based
+/// on purpose: the LLM writes the draft, but the qualification is
+/// transparent signal extraction the operator can trust and audit (no
+/// black-box scoring). `tier` is "Hot" | "Warm" | "Cold".
+#[derive(Debug, Clone)]
+struct Qualification {
+    tier: &'static str,
+    rationale: String,
+    signals: Vec<String>,
+}
+
+/// Seniority markers — a decision-maker on the thread is the strongest
+/// single signal. Substring match against the lowercased context.
+const SENIORITY_MARKERS: &[&str] = &[
+    "founder", "ceo", "cto", "coo", "cfo", "vp ", "vice president", "chief", "head of",
+    "director", "owner", "president",
+];
+/// Active-intent markers — evidence they're evaluating / want to act now.
+const INTENT_MARKERS: &[&str] = &[
+    "evaluat", "looking for", "want", "need", "reduce", "cut ", "automat", "replace",
+    "trial", "pilot", "budget", "buy", "scal", "onboard", "roll out", "rollout",
+];
+/// Scale markers — paired with a digit, signals real team/org size.
+const SCALE_MARKERS: &[&str] =
+    &["person", "employee", "seat", "team", "enterprise", "company-wide", "headcount", "org"];
+/// Free-mail domain prefixes — a corporate domain is a (weak) B2B signal.
+const FREE_EMAIL_DOMAINS: &[&str] = &[
+    "gmail.", "yahoo.", "hotmail.", "outlook.", "icloud.", "proton.", "aol.", "live.", "gmx.",
+    "mail.com",
+];
+
+/// Score a signup into a Hot/Warm/Cold tier with explainable signals.
+/// Pure — unit-testable without a provider or store.
+fn qualify(signup: &Signup) -> Qualification {
+    let ctx = signup.context.as_deref().unwrap_or("").to_lowercase();
+    let email = signup.email.trim().to_lowercase();
+    let mut score = 0i32;
+    let mut signals: Vec<String> = Vec::new();
+
+    if SENIORITY_MARKERS.iter().any(|m| ctx.contains(m)) {
+        score += 2;
+        signals.push("senior decision-maker".to_string());
+    }
+    if INTENT_MARKERS.iter().any(|m| ctx.contains(m)) {
+        score += 2;
+        signals.push("active buying intent".to_string());
+    }
+    if ctx.chars().any(|c| c.is_ascii_digit()) && SCALE_MARKERS.iter().any(|m| ctx.contains(m)) {
+        score += 1;
+        signals.push("team-size / scale context".to_string());
+    }
+    let domain = email.rsplit('@').next().unwrap_or("");
+    let corporate = email.contains('@')
+        && !domain.is_empty()
+        && !FREE_EMAIL_DOMAINS.iter().any(|d| domain.starts_with(d));
+    if corporate {
+        score += 1;
+        signals.push("corporate email domain".to_string());
+    }
+    if ctx.trim().len() >= 60 {
+        score += 1;
+        signals.push("shared detailed context".to_string());
+    }
+
+    let tier = if score >= 4 {
+        "Hot"
+    } else if score >= 2 {
+        "Warm"
+    } else {
+        "Cold"
+    };
+    let rationale = if signals.is_empty() {
+        "Limited signal — treat as cold; a light, low-pressure note keeps the door open."
+            .to_string()
+    } else {
+        format!("{tier} lead — {}.", signals.join(", "))
+    };
+    Qualification {
+        tier,
+        rationale,
+        signals,
+    }
+}
+
 /// Handle `POST /api/v1/gtm/draft-followup`. Returns the
 /// `(status_line, json_body)` tuple the gateway dispatcher expects.
 ///
@@ -74,6 +159,10 @@ pub(super) async fn draft_followup_response(
         return bad_request("`signup.name` is required");
     }
 
+    // Grant qualifies BEFORE he drafts (the triage half of his charter).
+    // The tier informs the draft's close — Hot leads get a direct CTA.
+    let qualification = qualify(&signup);
+
     // Same LLM gating as Portia: prefer a GTM-specific provider override,
     // fall back to the shared pitch provider env, default to `anthropic`.
     let provider = std::env::var("ARGO_GTM_LLM_PROVIDER")
@@ -82,7 +171,7 @@ pub(super) async fn draft_followup_response(
 
     let request = ProviderRequest {
         model: GTM_MODEL.to_string(),
-        messages: vec![user_message(&build_user_prompt(&signup))],
+        messages: vec![user_message(&build_user_prompt(&signup, &qualification))],
         tools: Vec::new(),
         system: Some(gtm_system_prompt()),
         sampling: Sampling {
@@ -114,19 +203,27 @@ pub(super) async fn draft_followup_response(
     // store (shouldn't happen in the live gateway) degrades to a draft
     // with no approval id rather than a 500.
     let (approval_id, tenant_label) = match store {
-        Some(store) => match write_to_approvals(store, &signup, &final_draft, disposition).await {
-            Ok((id, tenant)) => (Some(id), Some(tenant)),
-            Err(e) => {
-                tracing::warn!(target: "gateway::gtm", error = %e, "gtm approval write failed");
-                (None, None)
+        Some(store) => {
+            match write_to_approvals(store, &signup, &final_draft, disposition, &qualification).await
+            {
+                Ok((id, tenant)) => (Some(id), Some(tenant)),
+                Err(e) => {
+                    tracing::warn!(target: "gateway::gtm", error = %e, "gtm approval write failed");
+                    (None, None)
+                }
             }
-        },
+        }
         None => (None, None),
     };
 
     let out = json!({
         "agent": "Grant",
         "responsibility": "inbound-growth",
+        "qualification": {
+            "tier": qualification.tier,
+            "rationale": qualification.rationale,
+            "signals": qualification.signals,
+        },
         "draft": final_draft,
         "disposition": disposition,
         "source": "llm",
@@ -170,6 +267,7 @@ async fn write_to_approvals(
     signup: &Signup,
     draft: &str,
     disposition: &str,
+    qualification: &Qualification,
 ) -> ArgoResult<(String, String)> {
     let tenant = resolve_workspace_tenant(store).await?;
     let action_id = Uuid::now_v7().as_bytes().to_vec();
@@ -178,9 +276,11 @@ async fn write_to_approvals(
     } else {
         signup.email.trim()
     };
-    let summary =
-        format!("Grant drafted an inbound follow-up to {} <{email}> ({disposition}).", signup.name);
-    let body = format!("{summary}\n\n---\n{draft}");
+    let summary = format!(
+        "Grant drafted an inbound follow-up to {} <{email}> — {} lead ({disposition}).",
+        signup.name, qualification.tier
+    );
+    let body = format!("{summary}\n\nQualification: {}\n\n---\n{draft}", qualification.rationale);
     let new_req = NewApprovalRequest {
         action_id,
         tenant_id: tenant,
@@ -202,6 +302,8 @@ async fn write_to_approvals(
             "action": "gtm.followup_drafted",
             "signup_name": signup.name,
             "signup_email": signup.email,
+            "qualification_tier": qualification.tier,
+            "qualification_signals": qualification.signals,
             "disposition": disposition,
             "source": "llm",
             "model": GTM_MODEL,
@@ -227,8 +329,9 @@ async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> 
     Ok(tenant)
 }
 
-/// The user-turn prompt: the signup Grant is following up with.
-fn build_user_prompt(signup: &Signup) -> String {
+/// The user-turn prompt: the signup Grant is following up with, plus his
+/// own qualification so the draft's close matches the lead's temperature.
+fn build_user_prompt(signup: &Signup, qualification: &Qualification) -> String {
     let mut out = String::new();
     out.push_str("Draft an inbound follow-up to this new SKYCOT waitlist signup.\n\n");
     out.push_str(&format!("Name: {}\n", signup.name.trim()));
@@ -246,6 +349,15 @@ fn build_user_prompt(signup: &Signup) -> String {
             );
         }
     }
+    // Tier-aware close: Grant qualified this lead, so match the call-to-action
+    // to its temperature rather than sending every lead the same ask.
+    out.push_str(&format!(
+        "\nGrant's qualification: {} lead ({}). Tailor the close accordingly — \
+         Hot: propose a specific, low-friction next step (a short call). \
+         Warm: offer a quick call or a genuinely useful resource. \
+         Cold: keep it light and low-pressure — just invite a reply.\n",
+        qualification.tier, qualification.rationale
+    ));
     out
 }
 

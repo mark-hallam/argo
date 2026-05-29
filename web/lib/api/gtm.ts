@@ -42,11 +42,27 @@ export interface GtmTokens {
   output?: number | null;
 }
 
+/** Grant's explainable lead-qualification tier. */
+export type GtmTier = "Hot" | "Warm" | "Cold";
+
+/**
+ * Grant's lead triage — deterministic + explainable (the LLM writes the
+ * draft; the qualification is transparent signal extraction). `signals`
+ * are the human-readable reasons behind the tier.
+ */
+export interface GtmQualification {
+  tier: GtmTier;
+  rationale: string;
+  signals: string[];
+}
+
 export interface GtmDraftResponse {
   /** Always "Grant". */
   agent: string;
   /** Always "inbound-growth". */
   responsibility: string;
+  /** Grant's lead triage. Optional for forward-compat with older gateways. */
+  qualification?: GtmQualification;
   /** The drafted follow-up (or the safe escalation note on Escalate). */
   draft: string;
   disposition: GtmDisposition;
