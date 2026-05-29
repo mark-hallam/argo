@@ -108,7 +108,10 @@ function isStrictProduction(): boolean {
 function isAuthBypassed(): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
+    // demo-live opts OUT of the mock short-circuit — hit the real
+    // gateway (matches the canonical `isAuthBypassed() && !isDemoLive()`).
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
   );
 }
 

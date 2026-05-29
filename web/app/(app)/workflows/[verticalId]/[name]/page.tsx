@@ -200,6 +200,29 @@ function ViewerInner({
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [router, pathname, searchParams]);
 
+  // Connector-preflight hooks MUST run before the early returns below.
+  // They were previously declared after the loading/error returns, which
+  // is a React hooks-order violation: with the live (async) workflow feed
+  // the loading→loaded transition changes the hook count → "Rendered more
+  // hooks than during the previous render". Safe to run while `workflow`
+  // is null — every read optional-chains + the query is `enabled`-gated.
+  const connectorReferences = useMemo(
+    () => extractConnectorReferences(workflow?.steps ?? []),
+    [workflow?.steps],
+  );
+  const connectorStatusQuery = useQuery({
+    queryKey: ["tenant-connectors", "workflow-preflight"],
+    queryFn: ({ signal }) => listTenantConnectors({ signal }),
+    enabled: connectorReferences.length > 0,
+    staleTime: 30_000,
+  });
+  const connectorStatusMap = useMemo(() => {
+    const list = connectorStatusQuery.data?.connectors ?? [];
+    const out: Record<string, (typeof list)[number]> = {};
+    for (const row of list) out[row.connectorId] = row;
+    return out;
+  }, [connectorStatusQuery.data]);
+
   // URL-flag state simulators preserved from the seed-only version so
   // screenshots + tests can reach each edge branch deterministically.
   if (stateFlag === "loading" || isLoading) {
@@ -220,24 +243,6 @@ function ViewerInner({
 
   const substrate = resolveWorkflowSubstrate(workflow);
   const substrateStatus = running ? "running" : "idle";
-
-  const connectorReferences = useMemo(
-    () => extractConnectorReferences(workflow?.steps ?? []),
-    [workflow?.steps],
-  );
-
-  const connectorStatusQuery = useQuery({
-    queryKey: ["tenant-connectors", "workflow-preflight"],
-    queryFn: ({ signal }) => listTenantConnectors({ signal }),
-    enabled: connectorReferences.length > 0,
-    staleTime: 30_000,
-  });
-  const connectorStatusMap = useMemo(() => {
-    const list = connectorStatusQuery.data?.connectors ?? [];
-    const out: Record<string, (typeof list)[number]> = {};
-    for (const row of list) out[row.connectorId] = row;
-    return out;
-  }, [connectorStatusQuery.data]);
 
   const preflightHealthy =
     connectorReferences.length === 0 ||
