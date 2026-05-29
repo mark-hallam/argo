@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the six sample worker personas
+ * Single source of truth for the seven sample worker personas
  * referenced across /team, /audit, /workers/<id>/overview, and the
  * cohorts surface.
  *
@@ -263,12 +263,95 @@ const PETA: SamplePersona = {
   },
 };
 
+const PORTIA: SamplePersona = {
+  id: "019e6785-9290-7a41-9c2e-4b8d10f5c7a2",
+  name: "Portia",
+  initials: "PO",
+  slug: "portia",
+  role: {
+    tagline: "pitches the company to investors, bounded by approved facts",
+    vertical: "pitch-agent",
+    title: "Pitch Agent",
+    team: "Sales & Investor Relations",
+  },
+  headline: {
+    bullets: [
+      "matched 12 investor questions in under 500ms each",
+      "refused 1 unsupported financials claim — escalated to founder",
+    ],
+    tomorrow: "Thursday 10:00 Series A rehearsal with the founder",
+  },
+  traits: ["Founder-caliber", "Evidence-led", "Brand-safe", "Truth-bounded"],
+  pronouns: "they/them",
+  level: 11,
+  personality: {
+    greatAt: [
+      "Answering investor questions from the approved-facts pack",
+      "Telling the founder story in a tight, evidence-led arc",
+      "Staying on-brand across rehearsal, web embed, and live Zoom",
+      "Knowing the exact boundary of what's been signed off to say",
+    ],
+    escalateWhen: [
+      "A question needs a financial figure not in the approved facts",
+      "An investor asks for forward-looking guidance or projections",
+      "The ask touches legal, cap-table, or unannounced product",
+      "Confidence on a claim falls below the brand-safe threshold",
+    ],
+    signatureBehaviors: [
+      "Never invents a number — cites the approved fact or escalates",
+      "Always names the founder when handing off an unsupported claim",
+      "Closes a pitch with a single, specific next-step ask",
+    ],
+  },
+};
+
+const GRANT: SamplePersona = {
+  id: "019e6785-9291-7b52-8d3f-6c9e21a6d8b3",
+  name: "Grant",
+  initials: "GR",
+  slug: "grant",
+  role: {
+    tagline: "owns inbound growth — qualifies signups and drafts outreach",
+    vertical: "gtm",
+    title: "GTM Engineer",
+    team: "Growth",
+  },
+  headline: {
+    bullets: ["18 signups qualified today", "6 outreach drafts waiting on you"],
+    tomorrow: "morning lead-scoring sweep at 08:00",
+  },
+  traits: ["Relationship-driven", "Persistent", "Brand-safe", "Pipeline-minded"],
+  pronouns: "they/them",
+  level: 7,
+  personality: {
+    greatAt: [
+      "Scoring inbound signups against the ideal-customer profile",
+      "Drafting first-touch outreach that sounds human, not templated",
+      "Spotting which trials are warming up and which are going cold",
+      "Keeping the pipeline tidy so nothing slips between stages",
+    ],
+    escalateWhen: [
+      "A lead asks for custom pricing or a contract change",
+      "A prospect requests a security or compliance review",
+      "An outbound claim would stray outside the approved messaging",
+      "A high-fit enterprise account goes quiet for over a week",
+    ],
+    signatureBehaviors: [
+      "Always tailors the first line to something specific about the lead",
+      "Never sends outreach that hasn't cleared the brand-safe check",
+      "Flags a hot enterprise signup to a human within the hour",
+    ],
+  },
+};
+
 export const SAMPLE_PERSONAS: Record<string, SamplePersona> = {
   [PRIYA.id]: PRIYA,
   [MARIAH.id]: MARIAH,
   [JAMAL.id]: JAMAL,
   [NORI.id]: NORI,
   [PETA.id]: PETA,
+  [PORTIA.id]: PORTIA,
+  [GRANT.id]: GRANT,
 };
 
 // Canonical sample-worker UUIDs aligned with the `argo demo seed`
@@ -281,6 +364,8 @@ export const SAMPLE_PETA_ID = PETA.id;
 export const SAMPLE_PRIYA_ID = PRIYA.id;
 export const SAMPLE_JAMAL_ID = JAMAL.id;
 export const SAMPLE_NORI_ID = NORI.id;
+export const SAMPLE_PORTIA_ID = PORTIA.id;
+export const SAMPLE_GRANT_ID = GRANT.id;
 
 /** Canonical roster — Scene-1 demo lockup. Keep in /team display order. */
 export const SAMPLE_PERSONA_IDS: readonly string[] = [
@@ -289,6 +374,8 @@ export const SAMPLE_PERSONA_IDS: readonly string[] = [
   PRIYA.id,
   JAMAL.id,
   NORI.id,
+  PORTIA.id,
+  GRANT.id,
 ];
 
 function toDemoSeedPersona(persona: SamplePersona): DemoSeedPersona {
@@ -302,13 +389,15 @@ function toDemoSeedPersona(persona: SamplePersona): DemoSeedPersona {
   };
 }
 
-/** Canonical v1 demo seed roster. Scene 1 narrates exactly these five. */
+/** Canonical v1 demo seed roster. Scene 1 narrates exactly these seven. */
 export const DEMO_SEED_PERSONAS: readonly DemoSeedPersona[] = [
   toDemoSeedPersona(MARIAH),
   toDemoSeedPersona(PETA),
   toDemoSeedPersona(PRIYA),
   toDemoSeedPersona(JAMAL),
   toDemoSeedPersona(NORI),
+  toDemoSeedPersona(PORTIA),
+  toDemoSeedPersona(GRANT),
 ];
 
 /** Lookup with a fall-through that throws on unknown id — seeds */

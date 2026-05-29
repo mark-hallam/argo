@@ -307,7 +307,7 @@ const PITCH_AGENT_ACTIVITY: CohortActivityRow[] = [
     seq: 4115,
     kind: "canonical_qa.matched",
     action_type: "skill_apply",
-    worker_id: "wkr_01J0PITCH",
+    worker_id: "019e6785-9290-7a41-9c2e-4b8d10f5c7a2",
     principal_id: "human:investor@example.com",
     channel: "web_embed",
     outcome_status: "success",
@@ -318,7 +318,7 @@ const PITCH_AGENT_ACTIVITY: CohortActivityRow[] = [
     seq: 4112,
     kind: "policy.refused",
     action_type: "escalate",
-    worker_id: "wkr_01J0PITCH",
+    worker_id: "019e6785-9290-7a41-9c2e-4b8d10f5c7a2",
     principal_id: "system:truth_boundary",
     channel: "live_meeting",
     outcome_status: "refused",
@@ -456,7 +456,7 @@ export const SAMPLE_PITCH_AGENT_COHORT_DETAIL: CohortDetail = {
   skill_count: 5,
   members: [
     {
-      worker_id: "wkr_01J0PITCH",
+      worker_id: "019e6785-9290-7a41-9c2e-4b8d10f5c7a2",
       trust_grade: 4,
       skill_ids: [
         "canonical_qa",

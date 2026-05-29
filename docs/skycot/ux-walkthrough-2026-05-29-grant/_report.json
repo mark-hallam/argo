@@ -1,0 +1,141 @@
+[
+  {
+    "slug": "team",
+    "path": "/team",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "approvals",
+    "path": "/approvals",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 2,
+    "errors": [
+      "WebSocket connection to 'ws://127.0.0.1:7400/inbox/ws' failed: HTTP Authentication failed; no valid credentials available",
+      "WebSocket connection to 'ws://127.0.0.1:7400/inbox/ws' failed: HTTP Authentication failed; no valid credentials available"
+    ],
+    "probeMisses": []
+  },
+  {
+    "slug": "gtm",
+    "path": "/gtm",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "pitch",
+    "path": "/pitch",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "genesis",
+    "path": "/genesis",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "cohorts",
+    "path": "/cohorts",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "skills",
+    "path": "/skills",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 1,
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "probeMisses": []
+  },
+  {
+    "slug": "workflows",
+    "path": "/workflows",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "workflows-build",
+    "path": "/workflows/build",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "audit",
+    "path": "/audit",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 3,
+    "errors": [
+      "%o\n\n%s Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from th",
+      "[skycot:audit] audit hero error: Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to exp",
+      "[skycot:audit] audit hero error: Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to exp"
+    ],
+    "probeMisses": []
+  },
+  {
+    "slug": "settings",
+    "path": "/settings",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "onboarding-welcome",
+    "path": "/onboarding/welcome",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": [],
+    "probeMisses": []
+  },
+  {
+    "slug": "worker-grant",
+    "path": "/workers/019e7344-bf74-7451-8915-a3a8af1feda9/overview",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 1,
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "probeMisses": []
+  },
+  {
+    "slug": "worker-portia",
+    "path": "/workers/019e7344-bf73-7aa1-bd65-8fc0866b267f/overview",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 1,
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "probeMisses": []
+  }
+]

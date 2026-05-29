@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, GitBranch, Inbox, Layers, Mic, Settings, Sparkles, Users, Wand2 } from "lucide-react";
+import { Activity, GitBranch, Inbox, Layers, Mic, Settings, Sparkles, TrendingUp, Users, Wand2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -32,6 +32,7 @@ export const NAV_ITEMS: NavItemDescriptor[] = [
   { href: "/team", label: "Team", icon: <Users /> },
   { href: "/genesis", label: "Genesis", icon: <Wand2 /> },
   { href: "/pitch", label: "Pitch", icon: <Mic /> },
+  { href: "/gtm", label: "GTM", icon: <TrendingUp /> },
   { href: "/cohorts", label: "Cohorts", icon: <Layers /> },
   { href: "/skills", label: "Skills", icon: <Sparkles /> },
   { href: "/workflows", label: "Workflows", icon: <GitBranch /> },

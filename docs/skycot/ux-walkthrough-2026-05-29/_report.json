@@ -1,0 +1,107 @@
+[
+  {
+    "slug": "team",
+    "path": "/team",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "audit",
+    "path": "/audit",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 2,
+    "errors": [
+      "%o\n\n%s Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from th",
+      "[skycot:audit] audit hero error: Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to exp"
+    ]
+  },
+  {
+    "slug": "approvals",
+    "path": "/approvals",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 1,
+    "errors": [
+      "WebSocket connection to 'ws://127.0.0.1:7400/inbox/ws' failed: HTTP Authentication failed; no valid credentials available"
+    ]
+  },
+  {
+    "slug": "skills",
+    "path": "/skills",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 1,
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  {
+    "slug": "workflows",
+    "path": "/workflows",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "workflows-build",
+    "path": "/workflows/build",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "genesis",
+    "path": "/genesis",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "pitch",
+    "path": "/pitch",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "settings",
+    "path": "/settings",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "cohorts",
+    "path": "/cohorts",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "onboarding-welcome",
+    "path": "/onboarding/welcome",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 0,
+    "errors": []
+  },
+  {
+    "slug": "worker-detail",
+    "path": "/workers/019e72ad-e272-7422-9028-15732b904680/overview",
+    "status": 200,
+    "redirected": "",
+    "errorCount": 1,
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  }
+]

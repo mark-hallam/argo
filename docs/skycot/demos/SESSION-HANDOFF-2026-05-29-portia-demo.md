@@ -6,6 +6,52 @@
 
 ---
 
+## ✅ UPDATE — Grant Phase B + roster → 7 (2026-05-29, later same session)
+
+**Pushed to origin/main:** `e1fe127a0` (Grant endpoint) + `8e107faf4` (seed
+idempotency). Web follow-ups (below) are uncommitted in the working tree at
+time of writing.
+
+**Grant is the 2nd real working teammate (after Portia).** He owns inbound
+growth as a standing *responsibility*, not a task — the Claim-2 differentiation,
+proved recursively (Skycot's own GTM teammate growing Skycot).
+
+- **New gateway endpoint** `POST /api/v1/gtm/draft-followup`
+  (`crates/argo-cli/src/handlers/gateway/routes_gtm_draft_followup.rs`). Body
+  `{signup:{name,email,context?}}` → Grant drafts a brand-safe follow-up via the
+  **live LLM** (reuses Portia's `build_pitch_transport` / `user_message` /
+  `extract_forbidden_class` — now `pub(super)`), truth-boundary gated, then
+  **files an `approval_request`** to the workspace tenant + an
+  `AuditKind::ApprovalAsked` row (`action: gtm.followup_drafted`). **Never
+  auto-sends.** 7 unit tests; cargo check + clippy clean.
+- **Verified live (cold):** novel signup (Dana @ Brightloop) →
+  `source:llm model:claude-sonnet-4-6 disposition:Allow`, a real
+  context-specific draft, no fabricated numbers, filed to `/approvals` (top
+  item), audit row present in DB.
+- **Roster is now 7** (added Grant after Portia): Mariah, Peta, Priya, Jamal,
+  Nori, Portia, Grant. `personas.rs` already canonized to 7.
+- **Demo seed idempotency FIXED** — re-seeding a tenant (to add a teammate) used
+  to duplicate the 8 demo approvals; now skip-if-exists (sentinel guard) with a
+  regression test. The duplicate-approvals open bug is resolved.
+- **Clean demo state re-minted:** fresh DB, reseed (7 heroes + 8 approvals, no
+  dupes), Grant draft fired last → `/team`=7, `/approvals`=9 (Grant on top),
+  zero duplicates. Old store at `~/.argo/sessions.db.pre-grant-reset-*`. New
+  workspace tenant `019e7344-78e1-77f1-ae99-dff2699683ea` (ensure_workspace mints
+  a NEW random tenant per fresh DB — it is NOT path-deterministic; resolve it
+  from the DB `workspace` table, don't hardcode).
+- **New `/gtm` SPA console** (`web/app/(app)/gtm/page.tsx` +
+  `web/lib/api/gtm.ts` + layout + nav entry "GTM") — mirror of `/pitch`: paste a
+  signup, watch Grant draft live, disposition badge, "Filed to approvals" link.
+  Renders 200 on the dev server.
+- **SPA fallback roster → 7** (Portia + Grant added to `sample-personas.ts` /
+  `sample-team.ts` / `sample-workers-detail.ts` + canon test to 7 + stale
+  "five/six" copy fixed). Resolves the "SAMPLE_TEAM old 5" open bug below.
+
+**Gateway now on pid from the 20:25 relaunch, schema v84, binary built from
+`8e107faf4`.** SPA still on :3000 demo-live. Swarm still PAUSED.
+
+---
+
 ## The big strategic reframe (read this first)
 
 We are **NOT at a shippable "v1.0 MVP"** by the honest bar, and the operator

@@ -20,8 +20,8 @@
  * surfaces via `pendingApprovalCount`; the pill reflects the worker's
  * actual runtime state). The earlier pending-→-"waiting" override
  * collapsed every persona to "waiting" because every sample persona
- * has at least one pending approval, defeating the "5 teammates, one
- * team" deck design (fix-teammate-card-all-five-show-waiting-on-you).
+ * has at least one pending approval, defeating the "seven teammates,
+ * one team" deck design (fix-teammate-card-all-five-show-waiting-on-you).
  *
  * Same fixed-timestamp pattern as `sample-approvals.ts`: anchor
  * every `lastActiveAt` to a stable floor-of-minute so SSR and CSR
@@ -73,6 +73,16 @@ const RUNTIME_OVERLAY: Record<string, RuntimeOverlay> = {
     // Peta — waiting on operator approval for the P0 incident page.
     status: "waiting",
     lastActiveAt: new Date(now - 6 * minute).toISOString(),
+  },
+  "019e6785-9290-7a41-9c2e-4b8d10f5c7a2": {
+    // Portia — mid-rehearsal, matching investor questions to approved facts.
+    status: "working",
+    lastActiveAt: new Date(now - 12 * minute).toISOString(),
+  },
+  "019e6785-9291-7b52-8d3f-6c9e21a6d8b3": {
+    // Grant — working the inbound queue; outreach drafts queued for review.
+    status: "working",
+    lastActiveAt: new Date(now - 9 * minute).toISOString(),
   },
 };
 

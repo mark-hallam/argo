@@ -73,28 +73,28 @@ fail() { printf '  ❌ %s\n' "$*" >&2; printf '%s\n' "$OUT" | sed 's/^/      /' 
 
 # ---------- scenario 0: GREEN ---------------------------------------
 
-echo "Scenario 0: canonical 5-worker roster + non-empty skills + verticals → exit 0."
-TEAM="$(build_team 'Mariah,Peta,Priya,Jamal,Nori')"
+echo "Scenario 0: canonical 7-worker roster + non-empty skills + verticals → exit 0."
+TEAM="$(build_team 'Mariah,Peta,Priya,Jamal,Nori,Portia,Grant')"
 run_check "$TEAM" "$OK_SKILLS" "$OK_VERTS"
 [[ $RC -eq 0 ]] || fail "expected exit 0, got $RC"
 printf '%s\n' "$OUT" | grep -q "STATUS: GREEN" || fail "missing STATUS: GREEN"
-printf '%s\n' "$OUT" | grep -q "roster=5 skills=1 verticals=1" || fail "missing summary line"
+printf '%s\n' "$OUT" | grep -q "roster=7 skills=1 verticals=1" || fail "missing summary line"
 pass "GREEN path → exit 0 + summary line"
 
 # ---------- scenario 1: ROSTER-FAIL — 1 worker ("Maya") -------------
 
-echo "Scenario 1: gateway returns single 'Maya' worker → exit 1 with all 5 missing."
+echo "Scenario 1: gateway returns single 'Maya' worker → exit 1 with all 7 missing."
 TEAM="$(build_team 'Maya')"
 run_check "$TEAM" "$OK_SKILLS" "$OK_VERTS"
 [[ $RC -eq 1 ]] || fail "expected exit 1, got $RC"
 printf '%s\n' "$OUT" | grep -q "returned 1 worker" || fail "missing 'returned 1 worker' line"
-for name in Mariah Peta Priya Jamal Nori; do
+for name in Mariah Peta Priya Jamal Nori Portia Grant; do
     printf '%s\n' "$OUT" | grep -q "missing personas:.*${name}" \
         || fail "missing-personas line did not include ${name}"
 done
 printf '%s\n' "$OUT" | grep -q "argo demo seed --tenant" \
     || fail "remediation did not include the seed command verbatim"
-pass "Maya-only → exit 1 + names all 5 missing + seed hint"
+pass "Maya-only → exit 1 + names all 7 missing + seed hint"
 
 # ---------- scenario 2: ROSTER-FAIL — 5 wrong names ------------------
 
@@ -110,8 +110,8 @@ pass "5 wrong names → exit 1 + only the missing ones listed"
 
 # ---------- scenario 3: ROSTER-FAIL — skills empty -------------------
 
-echo "Scenario 3: 5-worker roster but 0 skills → exit 1."
-TEAM="$(build_team 'Mariah,Peta,Priya,Jamal,Nori')"
+echo "Scenario 3: 7-worker roster but 0 skills → exit 1."
+TEAM="$(build_team 'Mariah,Peta,Priya,Jamal,Nori,Portia,Grant')"
 run_check "$TEAM" "$EMPTY_SKILLS" "$OK_VERTS"
 [[ $RC -eq 1 ]] || fail "expected exit 1, got $RC"
 printf '%s\n' "$OUT" | grep -q "/api/v1/skills returned 0 skills" \

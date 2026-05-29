@@ -4,14 +4,14 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Meet the team you'll hire",
   description:
-    "Five named teammates the SKYCOT platform ships with on day one — real personas with real responsibilities. See who's already on the team.",
+    "Seven named teammates the SKYCOT platform ships with on day one — real personas with real responsibilities. See who's already on the team.",
   alternates: {
     canonical: "/teammates",
   },
   openGraph: {
     title: "Meet the team — SKYCOT",
     description:
-      "Five teammates with names, traits, and signature behaviours. Hire your own on Day 1.",
+      "Seven teammates with names, traits, and signature behaviours. Hire your own on Day 1.",
   },
 };
 

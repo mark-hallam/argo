@@ -18,7 +18,7 @@ import "./page.css";
  * a brittle marketing-to-product handoff (e2e-ux-audit F6 [P1]).
  *
  * This page replaces that link with a public-friendly roster that
- * showcases the five canonical Day-1 teammates without exposing the
+ * showcases the seven canonical Day-1 teammates without exposing the
  * in-app chrome. Static, server-rendered, no session required.
  */
 
@@ -39,7 +39,7 @@ export default function TeammatesPage() {
             Meet the team you&rsquo;ll <strong>hire</strong>
           </h1>
           <p className="tmm-hero-sub">
-            Five teammates the SKYCOT platform ships with on day one.
+            Seven teammates the SKYCOT platform ships with on day one.
             Real personas with real responsibilities — see who&rsquo;s
             already on the team.
           </p>
@@ -59,7 +59,7 @@ export default function TeammatesPage() {
         <section className="tmm-cta">
           <h2 className="tmm-cta-h">Build your own team</h2>
           <p className="tmm-cta-sub">
-            Spin up a free demo workspace. Hire one of these five, or
+            Spin up a free demo workspace. Hire one of these seven, or
             describe the role you&rsquo;d hire and the platform builds
             the teammate for you.
           </p>

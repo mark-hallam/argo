@@ -1,5 +1,5 @@
 /**
- * Mock overview payloads for the 6 detailed sample workers from
+ * Mock overview payloads for the detailed sample workers from
  * `sample-workers-detail.ts`. Used when the gateway endpoint
  * `/api/v1/workers/<id>/overview` returns 404 in dev (or when
  * `ARGO_GATEWAY_AUTH_BYPASS=1`).
@@ -187,12 +187,62 @@ const PETA: WorkerOverview = {
   ],
 };
 
+const PORTIA_P = pronounsFor("019e6785-9290-7a41-9c2e-4b8d10f5c7a2");
+const PORTIA: WorkerOverview = {
+  charter: `Portia helps the Sales & Investor Relations team carry the founder's story into investor, customer, and press conversations. ${PORTIA_P.subjectCap} ${v(PORTIA_P, "answer")} questions from the approved-facts pack, ${v(PORTIA_P, "stay")} inside the truth boundary, and ${v(PORTIA_P, "escalate")} anything unsupported to the founder.`,
+  duties: [
+    duty("d-rehearse", "Run pitch rehearsals against the approved-facts pack", "before each raise"),
+    duty("d-match", "Match live investor questions to canonical answers", "during sessions"),
+    duty("d-boundary", "Refuse + escalate any claim outside approved facts", "as detected"),
+    duty("d-recap", "Draft a post-conversation recap for the founder", "after each session"),
+  ],
+  kpis: [
+    kpi("k-matches", "canonical-Q&A matches today", "12", [4, 6, 8, 9, 11, 12, 12], 20),
+    kpi("k-latency", "median match latency", "480ms", [900, 760, 640, 580, 520, 500, 480], -22),
+    kpi("k-refusals", "unsupported claims refused", "1", [0, 1, 0, 1, 2, 1, 1], 0),
+    kpi("k-coverage", "approved-facts coverage", "94%", [78, 82, 86, 89, 91, 93, 94], 9),
+  ],
+  recentActivity: [
+    activity("act_01J0PORTIA_011", 12, "matched investor Q on ARR to approved fact", "auto-sent"),
+    activity("act_01J0PORTIA_012", 34, "refused unsupported financials claim — escalated to founder", "needs review"),
+    activity("act_01J0PORTIA_013", 88, "ran Series A rehearsal pass — 18 questions", "auto-sent"),
+    activity("act_01J0PORTIA_014", 160, "drafted recap for yesterday's investor call", "approved by Mark"),
+    activity("act_01J0PORTIA_015", 300, "asked founder to confirm headcount figure", "awaiting reply"),
+  ],
+};
+
+const GRANT_P = pronounsFor("019e6785-9291-7b52-8d3f-6c9e21a6d8b3");
+const GRANT: WorkerOverview = {
+  charter: `Grant helps the Growth team turn inbound interest into qualified pipeline. ${GRANT_P.subjectCap} ${v(GRANT_P, "score")} new signups against the ideal-customer profile, ${v(GRANT_P, "draft")} first-touch outreach, and ${v(GRANT_P, "escalate")} high-fit enterprise leads to a human within the hour.`,
+  duties: [
+    duty("d-score", "Score inbound signups against the ICP", "as signups arrive"),
+    duty("d-outreach", "Draft first-touch outreach for qualified leads", "weekdays 09:00–17:00"),
+    duty("d-nurture", "Nurture warming trials toward a demo", "every 2h business hours"),
+    duty("d-handoff", "Flag high-fit enterprise leads to a human", "as detected"),
+  ],
+  kpis: [
+    kpi("k-qualified", "signups qualified today", "18", [9, 12, 14, 15, 17, 18, 18], 16),
+    kpi("k-drafts", "outreach drafts in review", "6", [3, 4, 5, 5, 6, 6, 6], 12),
+    kpi("k-reply", "outreach reply rate this week", "21%", [12, 14, 16, 18, 19, 20, 21], 8),
+    kpi("k-cycle", "median signup → first-touch", "11m", [40, 30, 24, 18, 14, 12, 11], -30),
+  ],
+  recentActivity: [
+    activity("act_01J0GRANT_011", 9, "scored signup acme.co — high fit, queued outreach", "auto-sent"),
+    activity("act_01J0GRANT_012", 26, "drafted first-touch email for globex.io", "needs review"),
+    activity("act_01J0GRANT_013", 64, "flagged enterprise signup initech.com to a human", "approved by Mark"),
+    activity("act_01J0GRANT_014", 132, "nurtured warming trial — booked demo slot", "auto-sent"),
+    activity("act_01J0GRANT_015", 280, "scored signup hooli.xyz — low fit, no outreach", "auto-sent"),
+  ],
+};
+
 const OVERVIEWS_BY_ID: Record<string, WorkerOverview> = {
   "019e6785-928d-78b1-a6b2-136d9ed263ce": PRIYA,
   "019e6785-928a-7270-a766-f945b6cd7161": MARIAH,
   "019e6785-928e-7f20-803b-55266e526011": JAMAL,
   "019e6785-928f-7281-bf8d-e062bc277478": NORI,
   "019e6785-928c-72b3-85c6-436fe5004c50": PETA,
+  "019e6785-9290-7a41-9c2e-4b8d10f5c7a2": PORTIA,
+  "019e6785-9291-7b52-8d3f-6c9e21a6d8b3": GRANT,
 };
 
 export function findSampleWorkerOverview(id: string): WorkerOverview | undefined {

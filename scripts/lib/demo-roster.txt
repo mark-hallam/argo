@@ -4,10 +4,15 @@
 # Consumed by:    scripts/check-demo-roster.sh (pre-record guard).
 #
 # Scene 1 of docs/skycot/demos/v1-mission-mvp-runbook.md narrates these
-# five names verbatim. Recording against a gateway with a different
-# roster wastes the operator's take.
+# seven names verbatim. Recording against a gateway with a different
+# roster wastes the operator's take. Portia (Pitch Agent) + Grant (GTM
+# Engineer) are first-class hero teammates — the two real working
+# teammates the demo proves (Portia pitches SKYCOT; Grant drafts
+# inbound follow-ups).
 Mariah
 Peta
 Priya
 Jamal
 Nori
+Portia
+Grant

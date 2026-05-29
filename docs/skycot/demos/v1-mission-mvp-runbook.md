@@ -30,7 +30,7 @@ into the narration; the tests are source material, not the story.
 
 - [ ] `git pull --ff-only origin main` and `cargo build --release -p argo-cli`. Confirm `target/release/argo --version` prints a sha from current main.
 - [ ] Local `argo` gateway is FRESH (schema_version on `/health` matches the highest `crates/argo-store/src/migrations/v*.rs`). If stale, restart it.
-- [ ] `bash scripts/demo-dry-run.sh --demo-mode` exits 0. The `--demo-mode` branch validates `SKYCOT_DB_KEY_BASE64` is exported, that `POST /api/v1/demo/mint-principal` answers `ok: true` on the running gateway, and (via `scripts/check-demo-roster.sh`) that `/api/v1/team` returns the canonical five-worker roster (Mariah / Peta / Priya / Jamal / Nori) plus non-empty `/api/v1/skills` and `/api/v1/verticals`. **This script is the SINGLE pre-record gate — if it fails for any reason, do not record; re-seed and retry until it exits 0.**
+- [ ] `bash scripts/demo-dry-run.sh --demo-mode` exits 0. The `--demo-mode` branch validates `SKYCOT_DB_KEY_BASE64` is exported, that `POST /api/v1/demo/mint-principal` answers `ok: true` on the running gateway, and (via `scripts/check-demo-roster.sh`) that `/api/v1/team` returns the canonical seven-worker roster (Mariah / Peta / Priya / Jamal / Nori / Portia / Grant) plus non-empty `/api/v1/skills` and `/api/v1/verticals`. **This script is the SINGLE pre-record gate — if it fails for any reason, do not record; re-seed and retry until it exits 0.**
 - [ ] Six claim regression tests pass against `origin/main` (see "Verifying the live-test sources" at the bottom of this doc).
 - [ ] `SKYCOT_DB_KEY_BASE64` exported in the recording terminal — a fresh 32-byte secret for a throwaway demo store. Generate with `export SKYCOT_DB_KEY_BASE64="$(openssl rand -base64 32)"`.
 - [ ] macOS permissions granted on the `argo` binary: Accessibility + Screen Recording (required by Scene 5).
@@ -75,16 +75,17 @@ into the narration; the tests are source material, not the story.
   ARGO_DEMO_SEED_PROVIDER_KEY="${ARGO_DEMO_SEED_PROVIDER_KEY:?set throwaway provider key}" \
     argo demo seed --tenant "$ARGO_DEMO_TENANT_ID"
   curl -fsS http://127.0.0.1:7400/api/v1/team | jq '.workers | length'
-  # expected: 6  (Mariah, Peta, Priya, Jamal, Nori, Portia)
+  # expected: 7  (Mariah, Peta, Priya, Jamal, Nori, Portia, Grant)
   curl -fsS http://127.0.0.1:7400/api/v1/workflows | jq '.workflows | length'
   # expected: >0
   curl -fsS http://127.0.0.1:7400/api/v1/skills | jq '.skills | length'
   # expected: >0
   ```
 
-  Re-running is idempotent: worker count remains exactly `5`. For an
-  offline smoke only, add `--skip-pass-a-turns`; do not use that flag
-  for recording. If any count is zero, confirm the tenant id came from
+  Re-running is idempotent: worker count remains exactly `7`, and the
+  approval inbox is no longer duplicated on re-seed (the demo-seed
+  approval block is now skip-if-exists). For an offline smoke only, add
+  `--skip-pass-a-turns`; do not use that flag for recording. If any count is zero, confirm the tenant id came from
   the same workspace used to launch the gateway.
 - [ ] Demo-mode auth bypass active in the SPA: `NEXT_PUBLIC_SKYCOT_DEMO_MODE=1` (the canonical name; the older `NEXT_PUBLIC_ARGO_DEMO_MODE` alias has no consumer in `web/lib/` and should not be set). The yellow banner "DEMO MODE — auth bypass active" must show on `/auth/signup`.
 - [ ] **Onboarding-wizard demo cue visible**: open `/onboarding/welcome` and confirm a small amber pill reading "Demo mode · sample data only" sits in the bottom-right corner (`data-testid="onboarding-demo-pill"`). If absent, `NEXT_PUBLIC_SKYCOT_DEMO_MODE` is unset for this dev server — check `.claude/launch.json` env vars and restart `pnpm dev`. The wizard pages do **not** mount the gradient `<DemoBanner />` (that banner lives in the signed-in app shell), so this pill is the sole on-screen demo-mode confirmation during Scene 3.
@@ -113,21 +114,24 @@ Each scene below uses the same subsection grid:
 role-membership over time. You don't run it; you delegate to it.
 
 **Live-test source**: `crates/argo-identity/tests/claim_1_live_workers_persist.rs`.
-Five workers persist across a file-store restart with stable
-worker_ids, identical names, vertical ids, duty entries, and
-memory namespaces. One worker is re-summoned by name post-restart.
+The regression test uses a five-worker fixture: five workers persist
+across a file-store restart with stable worker_ids, identical names,
+vertical ids, duty entries, and memory namespaces; one is re-summoned
+by name post-restart. (The *demo tenant* now seeds seven heroes — the
+five above plus Portia + Grant — so the on-camera `/team` shows seven;
+the persistence proof is the same.)
 
 **Visual / operator action**:
 1. Operator clicks **Team** in the sidebar (the canonical roster
    entry — the duplicate "Workers" nav item was removed in the
    nav-dedup; `/workers` still resolves + redirects to `/team`). The
-   camera lands on `/team` with six teammates already hired (Mariah,
-   Peta, Priya, Jamal, Nori, and Portia — the pitch agent who will
-   pitch SKYCOT itself later in this demo). Brand-loud trading-card
-   deck visible.
+   camera lands on `/team` with seven teammates already hired (Mariah,
+   Peta, Priya, Jamal, Nori, Portia — the pitch agent who will pitch
+   SKYCOT itself later in this demo — and Grant, the GTM engineer who
+   drafts inbound follow-ups). Brand-loud trading-card deck visible.
 2. Operator stops the gateway in the off-screen terminal.
 3. Operator restarts the gateway. Browser auto-refreshes.
-4. Same six teammates reappear — same names, same avatars, same
+4. Same seven teammates reappear — same names, same avatars, same
    trait chips, same level badges (Mariah at LEVEL 5).
 5. Click Mariah's card. `/workers/${workerId}` shows her overview
    tab with personality chips, great-at / escalate-when bullets,
@@ -135,15 +139,15 @@ memory namespaces. One worker is re-summoned by name post-restart.
 
 **Talk track**:
 > "Your AI hires are colleagues. Mariah, Peta, Priya, Jamal, Nori,
-> Portia — six teammates I hired last week. I'm going to stop the
-> gateway, restart it, and they're all still here. Same names. Same
+> Portia, Grant — seven teammates I hired last week. I'm going to stop
+> the gateway, restart it, and they're all still here. Same names. Same
 > personalities. Same memory. They're not jobs I run; they're
 > teammates I delegate to."
 >
-> (After restart) "Same six. Same Mariah. I can summon her by
+> (After restart) "Same seven. Same Mariah. I can summon her by
 > name a day from now and she remembers what we discussed."
 
-**Pass cue**: Six worker cards re-render post-restart with
+**Pass cue**: Seven worker cards re-render post-restart with
 identical names and identical worker_ids in the URL when clicked
 through. Mariah's overview tab opens at `/workers/${workerId}`
 without a 404.
@@ -436,17 +440,16 @@ is operator-discoverable independent of the demo.
 
 ---
 
-## Pitch Agent demo path (`/pitch`) — supplementary B-roll
+## Portia, the Pitch Agent (`/pitch`) — the recursive hero beat
 
-The `pitch-agent-rehearsal-ui-and-gateway` brief shipped an
-operator-facing surface for the Pitch Agent. It is **NOT** one of
-the six core scenes; the headline demo stays at 8:00 minutes. This
-section is the recipe for a 20–30 s B-roll insert that can drop
-into Scene 1 or Scene 4 to make the truth-boundary refusal visible
-on camera.
+**Portia** (DEC-016) is one of the two real working teammates. The
+`/pitch` surface is the recursive proof: an AI teammate pitches SKYCOT
+itself, bounded by approved facts. It is **NOT** one of the six core
+scenes, but it is the strongest single moment in the demo — a 30–60 s
+insert (or its own beat) that can drop into Scene 1 or Scene 4.
 
 **Route**: `/pitch` — sidebar entry "Pitch" with the microphone
-icon, sits between Genesis and Cohorts.
+icon, sits between Genesis and GTM.
 
 **Camera path**:
 
@@ -454,29 +457,77 @@ icon, sits between Genesis and Cohorts.
    brand-loud hero ("Watch what happens when I try to pitch
    SKYCOT.").
 2. Type **What's the tech stack?** and press Enter. Expect a
-   sub-50ms canonical answer ("Rust single-binary core with a
-   JSON-RPC plugin ABI…") with an **Allowed** pill and the
-   `tech-stack` entry-id badge.
+   sub-50ms **canonical** answer ("Rust single-binary core with a
+   JSON-RPC plugin ABI…") with an **Allowed** pill, a `canonical`
+   source chip, and the `tech-stack` entry-id badge.
 3. Type **What's the valuation?** and press Enter. Expect a
    canonical refusal ("Mark handles financial specifics…") with a
    **Blocked** pill carrying `valuation-question` and the latency
    chip.
-4. Optionally type a deliberately off-topic question — expect the
-   founder-handoff fallback ("I'll get back to you on that one —
-   let me check with the founder.") with an **Escalated** pill.
+4. **The hero move — ask something NOT in the corpus** (e.g. "How do
+   you handle HIPAA?" or "What happens if a worker goes rogue?").
+   The miss falls through to the **live LLM** (the operator's Claude
+   subscription, `claude-sonnet-4-6`): a real, on-brand answer
+   appears with an **Allowed** pill, an `llm` source chip, and the
+   model + token pills. The truth-boundary re-checks the draft, so
+   if the model strays toward a forbidden claim it is swapped for a
+   canonical refusal (`llm → blocked` chip) and the unsafe draft is
+   shown audited-but-not-shipped.
 
-**Backing endpoint**: `POST /api/v1/pitch/ask` — deterministic
-canonical-Q&A + truth-boundary, NO LLM call, sub-millisecond on
-the 5-corpus shipped in `skill-library/canonical-qa/corpora/
-skycot/`. The same code path the 111-case `pitch-eval` suite proves
-green; every answer emits an audit row
-(`pitch.canonical_qa_matched` or `pitch.canonical_qa_miss`) that
-shows up at `/audit` within 5 s.
+**Backing endpoint**: `POST /api/v1/pitch/ask` — a deterministic
+canonical-Q&A hot path (sub-millisecond, the 111-case `pitch-eval`
+suite proves it green) **plus a live LLM fallback** on a canonical
+miss (DEC-012 `claude-code-cli`, Sonnet floor DEC-013), with the LLM
+draft re-evaluated through the same truth-boundary policy. Every
+answer emits audit rows that show up at `/audit` within 5 s.
 
-**What this proves on camera**: the platform's truth-boundary
-isn't a slide — it fires live on a public surface. Three
-questions, three different dispositions (Allow / Escalate / Block),
-three matching audit rows.
+**What this proves on camera**: the truth-boundary isn't a slide — it
+fires live on a public surface, on both the canned path AND a genuinely
+novel question answered by a real model. The agent pitches the company,
+honestly, and defers to the founder on anything outside approved facts.
+
+---
+
+## Grant, the GTM Engineer (`/gtm`) — supplementary B-roll
+
+**Grant** is the second real working teammate: he owns inbound growth
+as a standing *responsibility* (not a task), and his first real duty is
+drafting brand-safe outreach to new signups. The `/gtm` console is a
+20–30 s B-roll insert that pairs naturally with Scene 2 (delegation /
+responsibilities) or the Portia beat — the recursive story is "SKYCOT's
+own GTM teammate growing SKYCOT."
+
+**Route**: `/gtm` — sidebar entry "GTM" with the trending-up icon,
+sits between Pitch and Cohorts.
+
+**Camera path**:
+
+1. Click the **GTM** sidebar item — lands on the brand-loud hero
+   ("Watch Grant turn a signup into a follow-up.").
+2. Fill the form with a waitlist signup — a **Name**, **Email**, and a
+   one-line **Context** (e.g. "VP Eng at a 120-person fintech,
+   evaluating AI teammates for on-call triage; cares about audit
+   trails"). Click **Draft follow-up**.
+3. A real, context-specific follow-up email appears (live LLM,
+   `claude-sonnet-4-6`) with a **Brand-safe** disposition pill, the
+   `llm` source + model + token chips, and a **"Filed to approvals"**
+   link. Grant **never auto-sends** — the draft routes to the approval
+   queue.
+4. Click **Filed to approvals** → the draft is the top item in
+   `/approvals`, requested by Grant, awaiting the operator's decision.
+   An `approval.asked` / `gtm.followup_drafted` audit row backs it.
+
+**Backing endpoint**: `POST /api/v1/gtm/draft-followup` — reuses
+Portia's LLM + truth-boundary + audit primitives (same Sonnet floor,
+same `extract_forbidden_class` gate). A draft that strays into a
+guarded claim is held for founder review (**Held for review** pill)
+instead of being filed.
+
+**What this proves on camera**: teammates take on *responsibilities,
+not tasks*. Grant doesn't run a one-off prompt — he owns a standing
+duty, exercises judgment (brand-safe vs escalate), and gates sensitive
+output behind human approval. Real LLM, real audit, real approval — no
+theater.
 
 ---
 
@@ -542,7 +593,7 @@ fetchers in `web/lib/api/*.ts` (skills, team, workflows, cohorts,
 verticals, …) short-circuit to seed fixtures **before** any HTTP
 request leaves the browser. That is correct for offline UI iteration
 but **dangerous for recording prep**: every Scene 4/5/6 gateway-
-dependent beat would render the same six skills, five workers, seven
+dependent beat would render the same six skills, seven workers, seven
 workflows regardless of whether the gateway is running, populated,
 empty, or completely down. The operator can rehearse an 8-minute take
 against a stone-cold gateway and never know.

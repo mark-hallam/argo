@@ -12,7 +12,7 @@ import { expect, test } from "@playwright/test";
  *
  * The Playwright webServer sets `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`
  * and `NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:1`, so `fetchTeam()`
- * short-circuits to the bundled `SAMPLE_TEAM` (six personas). That
+ * short-circuits to the bundled `SAMPLE_TEAM` (seven personas). That
  * gives us a deterministic non-empty roster without a live gateway,
  * which is sufficient to pin "when workers exist, the empty state
  * MUST NOT render".

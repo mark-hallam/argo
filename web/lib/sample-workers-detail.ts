@@ -17,10 +17,12 @@ import {
   type Worker,
 } from "@/lib/types/worker";
 import {
+  SAMPLE_GRANT_ID,
   SAMPLE_JAMAL_ID,
   SAMPLE_MARIAH_ID,
   SAMPLE_NORI_ID,
   SAMPLE_PETA_ID,
+  SAMPLE_PORTIA_ID,
   SAMPLE_PRIYA_ID,
 } from "@/lib/sample-personas";
 
@@ -33,6 +35,8 @@ export const SAMPLE_PETA = SAMPLE_PETA_ID;
 export const SAMPLE_PRIYA = SAMPLE_PRIYA_ID;
 export const SAMPLE_JAMAL = SAMPLE_JAMAL_ID;
 export const SAMPLE_NORI = SAMPLE_NORI_ID;
+export const SAMPLE_PORTIA = SAMPLE_PORTIA_ID;
+export const SAMPLE_GRANT = SAMPLE_GRANT_ID;
 
 function stableNow(): number {
   const d = new Date();
@@ -145,7 +149,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
     pendingApprovalCount: 1,
   },
   {
-    id: "wkr_01J0PITCH",
+    id: SAMPLE_PORTIA,
     name: "Portia",
     role: {
       tagline: "represents the founder in investor, customer, and press conversations",
@@ -164,6 +168,28 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
       tomorrow: "Thursday 10am Series A rehearsal with founder",
     },
     lastActiveAt: new Date(now - 12 * minute).toISOString(),
+    pendingApprovalCount: 0,
+  },
+  {
+    id: SAMPLE_GRANT,
+    name: "Grant",
+    role: {
+      tagline: "owns inbound growth — qualifies signups and drafts outreach",
+      vertical: "gtm",
+    },
+    status: "working",
+    department: { id: "growth", name: "Growth" },
+    team: { id: "growth", name: "Growth" },
+    kpiToday: { label: "signups qualified", value: "18" },
+    permissions: DEFAULT_DELEGATOR_PERMISSIONS,
+    headline: {
+      bullets: [
+        "18 signups qualified today",
+        "6 outreach drafts waiting on you",
+      ],
+      tomorrow: "morning lead-scoring sweep at 08:00",
+    },
+    lastActiveAt: new Date(now - 9 * minute).toISOString(),
     pendingApprovalCount: 0,
   },
 ];

@@ -1,9 +1,10 @@
 /**
  * Scene-1 roster canon test. Every attribution field on the demo
  * sample fixtures (workflow `lastEditor`, approval `worker.name`,
- * etc.) must read as one of the canonical 5 demo workers — Mariah,
- * Peta, Priya, Jamal, Nori. Catches "by Rio"-style camera-visible
- * scene-vocabulary mismatches before they reach the demo MP4.
+ * etc.) must read as one of the canonical 7 demo workers — Mariah,
+ * Peta, Priya, Jamal, Nori, Portia, Grant. Catches "by Rio"-style
+ * camera-visible scene-vocabulary mismatches before they reach the
+ * demo MP4.
  */
 import { describe, expect, it } from "vitest";
 import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
@@ -19,13 +20,15 @@ const CANONICAL_NAMES: ReadonlySet<string> = new Set([
   "Priya",
   "Jamal",
   "Nori",
+  "Portia",
+  "Grant",
 ]);
 
 describe("Scene-1 canonical roster appears on every demo sample surface", () => {
-  it("SAMPLE_PERSONA_IDS contains exactly the canonical five", () => {
+  it("SAMPLE_PERSONA_IDS contains exactly the canonical seven", () => {
     const names = SAMPLE_PERSONA_IDS.map((id) => SAMPLE_PERSONAS[id]?.name);
     expect(new Set(names)).toEqual(CANONICAL_NAMES);
-    expect(SAMPLE_PERSONA_IDS.length).toBe(5);
+    expect(SAMPLE_PERSONA_IDS.length).toBe(7);
   });
 
   it("workflow card lastEditor reads as a canonical name", () => {
@@ -73,6 +76,6 @@ describe("Scene-1 canonical roster appears on every demo sample surface", () => 
         `/team row ${worker.id} surfaces non-canonical "${worker.name}"`,
       ).toBe(true);
     }
-    expect(SAMPLE_TEAM.length).toBe(5);
+    expect(SAMPLE_TEAM.length).toBe(7);
   });
 });

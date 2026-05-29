@@ -25,6 +25,8 @@ const PETA = { id: "019e6785-928c-72b3-85c6-436fe5004c50", name: "Peta" };
 const MARIAH = { id: "019e6785-928a-7270-a766-f945b6cd7161", name: "Mariah" };
 const JAMAL = { id: "019e6785-928e-7f20-803b-55266e526011", name: "Jamal" };
 const NORI = { id: "019e6785-928f-7281-bf8d-e062bc277478", name: "Nori" };
+const PORTIA = { id: "019e6785-9290-7a41-9c2e-4b8d10f5c7a2", name: "Portia" };
+const GRANT = { id: "019e6785-9291-7b52-8d3f-6c9e21a6d8b3", name: "Grant" };
 
 const OPERATOR = { id: "usr_op_mark", name: "Mark" };
 const CFO = { id: "usr_cfo_jenna", name: "Jenna" };
@@ -357,6 +359,22 @@ const PETA_OVERVIEW: OverviewActivitySeed[] = [
   { idSuffix: 15, minutesAgo: 2880, verb: "asked PM about priority shift for sprint 14", actionType: "spend_approval_asked", status: "pending", approver: MARK, skill: { id: "project-coord-clarify", version: "1.0.0" } },
 ];
 
+const PORTIA_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 12, verb: "matched investor Q on ARR to approved fact", actionType: "canonical_qa_matched", status: "autonomous", skill: { id: "pitch-canonical-qa", version: "1.0.0" }, cost: 0.006, dataClassification: "confidential" },
+  { idSuffix: 12, minutesAgo: 34, verb: "refused unsupported financials claim — escalated to founder", actionType: "escalation", status: "pending", approver: MARK, skill: { id: "pitch-truth-boundary", version: "1.0.0" }, dataClassification: "confidential" },
+  { idSuffix: 13, minutesAgo: 88, verb: "ran Series A rehearsal pass — 18 questions", actionType: "rehearsal_run", status: "autonomous", skill: { id: "pitch-rehearsal", version: "1.0.0" }, cost: 0.022 },
+  { idSuffix: 14, minutesAgo: 160, verb: "drafted recap for yesterday's investor call", actionType: "email_drafted", status: "succeeded", approver: MARK, skill: { id: "pitch-recap", version: "1.0.0" }, cost: 0.009, dataClassification: "confidential" },
+  { idSuffix: 15, minutesAgo: 300, verb: "asked founder to confirm headcount figure", actionType: "spend_approval_asked", status: "pending", approver: MARK, skill: { id: "pitch-clarify", version: "1.0.0" } },
+];
+
+const GRANT_OVERVIEW: OverviewActivitySeed[] = [
+  { idSuffix: 11, minutesAgo: 9, verb: "scored signup acme.co — high fit, queued outreach", actionType: "lead_scored", status: "autonomous", skill: { id: "gtm-lead-score", version: "1.0.0" }, cost: 0.005, dataClassification: "internal" },
+  { idSuffix: 12, minutesAgo: 26, verb: "drafted first-touch email for globex.io", actionType: "email_drafted", status: "pending", skill: { id: "gtm-outreach-draft", version: "1.0.0" }, cost: 0.011, dataClassification: "internal" },
+  { idSuffix: 13, minutesAgo: 64, verb: "flagged enterprise signup initech.com to a human", actionType: "escalation", status: "succeeded", approver: MARK, skill: { id: "gtm-handoff", version: "1.0.0" }, dataClassification: "internal" },
+  { idSuffix: 14, minutesAgo: 132, verb: "nurtured warming trial — booked demo slot", actionType: "demo_booked", status: "autonomous", skill: { id: "gtm-nurture", version: "1.0.0" } },
+  { idSuffix: 15, minutesAgo: 280, verb: "scored signup hooli.xyz — low fit, no outreach", actionType: "lead_scored", status: "autonomous", skill: { id: "gtm-lead-score", version: "1.0.0" }, cost: 0.005, dataClassification: "internal" },
+];
+
 /** Build an `AuditDetail` for one row of the full Activity-tab feed
  * (`/workers/<id>/activity`). Mirrors `overviewActivityDetail` but
  * sources the verb / actionType / status / cost from the Activity-tab
@@ -442,6 +460,8 @@ export const SAMPLE_AUDIT_DETAILS: AuditDetail[] = [
   ...JAMAL_OVERVIEW.map((s) => overviewActivityDetail(JAMAL, "JAMAL", s)),
   ...NORI_OVERVIEW.map((s) => overviewActivityDetail(NORI, "NORI", s)),
   ...PETA_OVERVIEW.map((s) => overviewActivityDetail(PETA, "PETA", s)),
+  ...PORTIA_OVERVIEW.map((s) => overviewActivityDetail(PORTIA, "PORTIA", s)),
+  ...GRANT_OVERVIEW.map((s) => overviewActivityDetail(GRANT, "GRANT", s)),
   ...ACTIVITY_TAB_DETAILS,
 ];
 

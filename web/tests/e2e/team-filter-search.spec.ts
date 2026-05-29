@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
  * Team page — status filter + search with URL-persistent state (E3-d).
  *
  * The webServer in `playwright.config.ts` boots the page against the
- * bundled mock dataset (`SAMPLE_TEAM` — six personas) by pointing
+ * bundled mock dataset (`SAMPLE_TEAM` — seven personas) by pointing
  * `NEXT_PUBLIC_GATEWAY_URL` at a dead port so the gateway client
  * falls back deterministically.
  *

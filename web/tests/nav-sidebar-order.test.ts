@@ -24,6 +24,7 @@ describe("sidebar nav order", () => {
       "Team",
       "Genesis",
       "Pitch",
+      "GTM",
       "Cohorts",
       "Skills",
       "Workflows",
