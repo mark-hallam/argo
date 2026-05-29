@@ -76,8 +76,11 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
 - [ ] **T3 · skill-IR** — backend EXISTS (flip-ready) but needs **IR seeded** for
   demo skills (else 404→mock). Real fix = seed skill IR (like retrain seed) + flip
   3 modules. LOWER (forge drill-in, not core demo). Seed is the real work.
-- [ ] **T4 · elevated-view** — backend EXISTS; pure FLIP of `elevated-view.ts`.
-  Trivial but POST-mutation + minor camera value. LOW. Do as a quick win.
+- [~] **T4 · elevated-view** — DEFERRED. Backend exists, but flipping risks a 400
+  if the SPA request doesn't meet the backend's validation (reason ≥20 chars,
+  category/duration checks) — the module re-throws non-404 errors → broken
+  interaction in demo-live. Needs SPA↔backend request-validation alignment first.
+  Low camera value (ops break-glass), so parked behind T1/T2.
 - **SKIP (credentials — privacy rule):** `api-keys.ts`, `provider-keys.ts`.
 - **SKIP (no theatre):** `ghostwriter.ts`, `notifications.ts` (empty, not fake).
 
