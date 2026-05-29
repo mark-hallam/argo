@@ -77,7 +77,15 @@ interface RetroJson {
 }
 
 function authBypassEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1";
+  // Demo-live mode (NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1) runs against the real
+  // gateway with seeded data, so the auth-bypass empty-mock short-circuit
+  // must NOT engage there — otherwise the demo seed's real retros are
+  // hidden behind an empty list. Mirrors the canonical gate in
+  // orchestration.ts / cohorts.ts (NO THEATER).
+  return (
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
+  );
 }
 
 function emptySections(): RetroSections {

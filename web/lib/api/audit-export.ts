@@ -75,9 +75,14 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
+  // Demo-live mode runs against the real gateway (which has a working
+  // /audit/export/preview over real seeded audit rows), so the bypass
+  // mock must not engage there — otherwise the audit-export dialog shows
+  // a fabricated count/size on camera. Falls back to mock on 404 anyway.
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
   );
 }
 

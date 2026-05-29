@@ -39,22 +39,45 @@ operator's.**
   shows real history in the 14-day undo window. Verified: cargo check ✓, 23 retrain
   route tests ✓ (2 new), 28 demo-seed tests ✓ (2 extended), clippy ✓. Live
   rebuild+reseed verification batched to a later checkpoint.
-- [ ] **Q2 · Settings/workspace backend** (spawned task b, the real-data half).
-  `workspace_settings` table + `GET/PATCH /api/v1/workspace` → un-mock `/settings`
-  (flip the `!isDemoLive()` gate). Verify: /settings renders live, 0 errors.
-- [ ] **Q3 · Self-improvement: training-data export** (gap #3, MED-HIGH).
-  Additive endpoint/CLI exporting eval + approval-decision + audit traces as JSONL
-  (the CrewAI-style "training-data export" half — NOT autonomous learning). Tests.
-- [ ] **Q4 · Multi-worker orchestration engine** (gap #2, HIGH — our core thesis).
-  ONLY if Q1-Q3 land cleanly + tokens remain. Build a real programmatic
-  parallel-delegation/supervisor on the existing handoff + `argo-orchestrator`
-  primitives (engine + tests; NOT the visual canvas). If it can't be done safely
-  + verified in-session, write a design doc + scaffold + tests instead of
-  half-wiring a demo-critical path.
-- [ ] **Q5 · Audit-readiness / compliance surface** (differentiator #1 legibility).
-  If time: a read-only "trust/compliance" summary endpoint/view that makes the
-  hash-chained audit + truth-boundary legible (the high-leverage "package our
-  moat" move from the gap analysis).
+**Re-sequenced after Q1 (rationale):** unattended overnight, I bias to
+*unambiguous, additive, demo-safe* builds. For the big architectural gaps
+(orchestration, live voice, self-improvement) I will write **crisp design docs +
+brief files**, NOT half-built scaffold — those need an operator design call, and
+"land scaffold now, wire later" is the exact drift DRIFT_PREVENTION.md warns
+against. So: build the unambiguous "make-it-real" items, do ONE consolidated live
+verify, then leave the operator ready-to-go plans for the big swings.
+
+- [x] **Q2 · Camera-visible mock-gating sweep** (NO THEATER). **DONE.** Audited
+  every `web/lib/api` production module that gates on auth-bypass. Findings +
+  actions (my first grep over-counted — `orchestration.ts` and others already
+  inline the `NEXT_PUBLIC_SKYCOT_DEMO_LIVE` check, so they were false positives):
+  - **FLIPPED `retros.ts`** — gated on auth-bypass alone → returned an empty list
+    under demo-live, hiding the seed's real retros. Now uses the canonical
+    `&& SKYCOT_DEMO_LIVE !== "1"`, so `/retro` shows the 3 seeded retros live.
+  - **FLIPPED `audit-export.ts`** — returned a fabricated count/size preview under
+    demo-live; now calls the real `/api/v1/audit/export/preview` over seeded audit
+    rows (falls back to mock on 404, so safe). Camera-visible (audit scene).
+  - **LOGGED, not flipped (deliberate):** `skill-ir.ts` shows SAMPLE IR (genuine
+    theater) but the skill-IR editor isn't camera-core and flipping risks an
+    empty/broken editor if seeded skills lack IR — verify in the live browser pass
+    (Q4) before flipping. `evals.ts` returns empty (no fake) and evals aren't
+    seeded → no data to show, no theater. `api-keys.ts`/`provider-keys.ts` —
+    intentionally NOT surfaced (credentials; privacy rule). `settings.ts` → Q3.
+    `elevated-view.ts`/`ghostwriter.ts` — action endpoints, not camera-core.
+  - Verified: audit-export vitest 13 ✓, tsc ✓ (retros has no spec).
+- [ ] **Q3 · Settings/workspace backend** (spawned chip b — lower camera value).
+  `workspace_settings` table + `GET/PATCH /api/v1/workspace` → un-mock `/settings`.
+  Additive; clears a captured chip.
+- [ ] **Q4 · ONE consolidated live verify** — rebuild release gateway (carries Q1
+  + any Q2/Q3 endpoints) + reseed + browser e2e across demo surfaces. Verify
+  retrain panel shows real history; fix any console errors/crashes found
+  (demo-hardening, like the earlier ChannelBadge / hooks-order fixes).
+- [ ] **Q5 · Design docs for the big gaps** (zero risk, high value). Crisp,
+  ready-for-go implementation plans + brief files for: (a) multi-worker
+  orchestration engine (gap #2), (b) live voice L1→L2 (gap #4, operator's keenest
+  interest), (c) self-improvement training-data export (gap #3). The operator
+  wakes to "here's exactly how we'd build the big swings" rather than risky
+  half-built architecture.
 
 ## Morning summary (top — filled in before operator wakes)
 
