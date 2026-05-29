@@ -207,6 +207,25 @@ function isActive(pathname: string, tab: SettingsTab): boolean {
   });
 }
 
+/**
+ * Resolve the {@link SettingsTab} whose `match` prefix best (longest)
+ * matches `pathname`, so nested /settings/* routes resolve to the most
+ * specific tab. Consumed by `SettingsHeading` to title each sub-page.
+ */
+export function findActiveTab(pathname: string): SettingsTab | undefined {
+  let best: SettingsTab | undefined;
+  let bestLen = -1;
+  for (const tab of SETTINGS_TABS) {
+    if (!isActive(pathname, tab)) continue;
+    const len = Math.max(...tab.match.map((prefix) => prefix.length));
+    if (len > bestLen) {
+      best = tab;
+      bestLen = len;
+    }
+  }
+  return best;
+}
+
 function slugFor(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
