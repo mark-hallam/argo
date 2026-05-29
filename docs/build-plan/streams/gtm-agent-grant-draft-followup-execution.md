@@ -53,3 +53,19 @@ The pitch endpoint already does LLM-via-claude-code-cli + truth-boundary + audit
 ## Operator authority
 
 Rust + gateway + model calls → evaluator cold-cargo lane before merge (not the web fast lane). Reuses the proven Portia LLM+truth-boundary+audit primitives — this is "2nd vertical on the proven pattern," not new infrastructure.
+
+## Integration map (discovered 2026-05-29 — makes this turnkey)
+
+Exact files/APIs to wire (all confirmed against current main):
+
+- **Route registration:** `crates/argo-cli/src/handlers/gateway/routes_dispatch_post.rs:227` has the `pitch/ask` block — add a sibling:
+  `if req.starts_with("POST /api/v1/gtm/draft-followup ") || req.starts_with("POST /api/v1/gtm/draft-followup?") { return Some(super::routes_gtm_draft_followup::draft_followup_response(req, store).await); }`
+  + `mod routes_gtm_draft_followup;` in `mod.rs` (next to `routes_pitch_ask*` ~line 155-157).
+- **LLM transport (REUSE):** `routes_pitch_ask_llm.rs::build_pitch_transport(provider_id)` (line 293) — make it `pub(super)`. Call `transport.complete(&ProviderRequest{ model, messages: vec![user_message(prompt)], system: Some(gtm_system_prompt), sampling: Sampling{ temperature: Some(0.3), max_tokens: Some(...), ..default }, tools: vec![] })`. Types from `argo_provider::{ProviderRequest, ProviderResponse, Sampling, Transport}`. `user_message(prompt)` helper (routes_pitch_ask_llm.rs ~308) — make `pub(super)` or inline it. Model: reuse `claude-sonnet-4-6` (Sonnet floor).
+- **Truth-boundary (REUSE):** `routes_pitch_ask_llm.rs::extract_forbidden_class(draft)` (already `pub(super)`) → `Some(class)` ⇒ swap the draft for a safe escalation note + disposition `Escalate`/`Block`; `None` ⇒ `Allow`. (Or factor out `finalize_outcome`'s shaping.)
+- **Approval write (REUSE):** `argo_store::{create_request, NewApprovalRequest}` (approvals_types.rs:110; the seed uses them at `seed.rs:11` + `seed_approval_requests` at `seed.rs:315` — copy that field-population pattern). Write the drafted follow-up as an `approval_request` (tenant via `rate_limit::extract_tenant(req)`; action_type e.g. `gtm.followup`; body = the draft + provenance). This is what surfaces it in `/approvals`.
+- **Audit (REUSE — no new AuditKind):** use **`AuditKind::ApprovalAsked`** (Grant asks for sign-off on the draft) — avoids touching `event_kind.rs` + the `claim_6_approval_audit_kinds` variant-count test. Emit via the `AuditSink` pattern in `routes_pitch_ask.rs::emit_audit` (line 453 — make `pub(super)` or replicate the ~12 lines).
+- **LLM gate:** `ARGO_PITCH_LLM_PROVIDER=claude-code-cli` + `ARGO_PITCH_LLM_FALLBACK=1` are already in `~/.argo/env.local`; reuse the same env (or add `ARGO_GTM_LLM_PROVIDER` falling back to it).
+- **Tests:** mirror `routes_pitch_ask_llm_tests.rs` (prompt build + forbidden-swap, no live provider) + an integration test that a draft writes one tenant-scoped `approval_request` + `ApprovalAsked` audit row.
+
+One rebuild (`restart-live-gateway.sh --force --no-prompt`) brings Grant live (he's seeded as the 7th hero on main already) + working. Verify: `curl POST /api/v1/gtm/draft-followup` returns a real `source:llm` draft; it appears in `/approvals`.
