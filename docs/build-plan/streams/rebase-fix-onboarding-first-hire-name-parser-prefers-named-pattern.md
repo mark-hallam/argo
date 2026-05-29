@@ -37,9 +37,20 @@ on four files after several weeks of onboarding-flow churn:
   resolves the freshly-hired teammate by name. PR's request shape
   change (add `name` field) needs to thread through both branches.
 
-## Authored against: origin/main `a5df90c41` on 2026-05-29
+**Authored against**: origin/main `a5df90c41` on 2026-05-29 (freshness-header
+format fixed 2026-05-29 by claude conductor queue audit — was a `##` heading the
+freshness gate couldn't parse).
 
-## Validate before claim: bash scripts/check-brief-freshness.sh rebase-fix-onboarding-first-hire-name-parser-prefers-named-pattern
+**Validate before claim**: `bash scripts/check-brief-freshness.sh rebase-fix-onboarding-first-hire-name-parser-prefers-named-pattern`
+
+## Scope guard (queue audit 2026-05-29) — BACKEND ONLY
+
+The UI "Their name" required input already SHIPPED via #2646 — do NOT re-add a
+name field to `first-hire/page.tsx`. This brief is now scoped to the **backend
+parser + unit tests only**: fix `name_from_description` in
+`routes_onboarding_helpers.rs:315-335` so it prefers an explicit `named X` /
+`called X` pattern and rejects single-letter tokens, plus the Genesis path that
+reuses it. Client UI is out of scope.
 
 ## Bug is still load-bearing
 
