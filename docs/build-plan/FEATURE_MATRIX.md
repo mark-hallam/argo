@@ -189,6 +189,27 @@ roadmap). Every row is grounded in a crate, gateway route, SPA module, or doc �
 
 ---
 
+## 6a · Live voice build-out — the path to "Portia pitches on a call"
+
+The capability the operator wants (Portia speaking live, incl. on Zoom/Teams)
+is **not built** (§5: voice-io is an orphan stub). Here is the scoped path,
+**in build order**. Each layer is independently demoable; truth-boundary +
+audit (already real in text) carry through every layer unchanged.
+
+| Layer | What it unlocks | Status | Rough effort | Depends on | Approach |
+|---|---|---|---|---|---|
+| **L1 — Real voice provider** | Portia can hear + speak (real audio in/out) | 🗓️ Planned | ~1–2 wk | `argo-voice-io` (exists) | Implement ONE real provider behind the existing stub + manifests — OpenAI Realtime, **or** ElevenLabs (TTS) + Deepgram (STT), **or** Cartesia; register it in `VoiceProviderRegistry`. The MCP voice server's openai/elevenlabs backends are already real and can seed this. |
+| **L2 — Agent voice-loop** | Live spoken Q&A, **still truth-bounded** | 🗓️ Planned | ~2–3 wk | L1 + existing `/api/v1/pitch/ask` | Wrap a voice session around Portia's real pitch logic: STT → `pitch-ask` (canonical + live LLM + truth-boundary — already shipped) → TTS, with the crate's turn-taking + barge-in. This is what makes `argo-voice-io` stop being an orphan. |
+| **L3a — Browser voice (fast-path demo)** | "Portia speaks" in a browser — **no meeting bot** | 🗓️ Planned | ~1 wk after L2 | L1 + L2 | Add mic capture + audio playback to `/pitch` (or the web-embed widget). **Fastest path to a live-VOICE investor demo** — recommended first milestone. |
+| **L3b — Live meeting join (Zoom/Teams/Meet)** | Portia joins a real call as a participant | 🗓️ Planned | ~3–5 wk | L2 | **Fastest:** Recall.ai meeting-bot SaaS (joins the call, streams call audio out + injects Portia's TTS back). **Native:** Zoom Meeting SDK / MS Teams bot framework. **Or** Track-P P-07: Zoom-on-macOS via computer-use + a system-audio bridge (already partly designed). |
+
+**Recommended sequence:** L1 → L2 → **L3a (browser voice — ship the demo)** →
+L3b (meeting join, Recall.ai first). L1+L2+L3a gives a genuinely live, voice,
+truth-bounded Portia demo in ~4–6 weeks without the heaviest piece (meeting
+bot). Existing assets that de-risk this: the `argo-voice-io` abstraction
+(manifests/session/turn-taking), the real openai/elevenlabs backends in
+`mcp-servers/voice`, and Portia's already-real truth-bounded pitch endpoint.
+
 ## 7 · Key honesty callouts (read before pitching capabilities)
 
 1. **No live voice on calls.** Portia/Grant are real in **text**. Spoken conversation
