@@ -42,6 +42,18 @@ const NAV_LINKS: MarketingNavLink[] = [
   { href: "/changelog", label: "Changelog" },
 ];
 
+/**
+ * Stable, deterministic id for the mobile menu Dialog content. Radix
+ * Dialog otherwise derives `aria-controls` (trigger) + `id` (content)
+ * from an internal `useId()`; in this SSR setup that value drifts
+ * between the server- and client-rendered tree, so React flags an
+ * `aria-controls` hydration mismatch on `.mk-burger` and surfaces the
+ * red "1 Issue" dev badge on every marketing page. Pinning both sides
+ * to a constant removes the random suffix entirely. There is exactly
+ * one MarketingNav per page, so a constant id cannot collide.
+ */
+const MOBILE_MENU_ID = "mk-mobile-menu";
+
 export interface MarketingNavProps {
   /** Explicit active path; defaults to `usePathname()`. */
   current?: string;
@@ -109,6 +121,7 @@ export function MarketingNav({ current, extras }: MarketingNavProps) {
             type="button"
             className="mk-burger"
             aria-label="Open menu"
+            aria-controls={MOBILE_MENU_ID}
             data-testid="marketing-nav-open"
           >
             <Menu size={20} />
@@ -117,6 +130,7 @@ export function MarketingNav({ current, extras }: MarketingNavProps) {
         <RDialog.Portal>
           <RDialog.Overlay className="mk-sheet-overlay" />
           <RDialog.Content
+            id={MOBILE_MENU_ID}
             className="mk-sheet"
             aria-describedby={undefined}
             onOpenAutoFocus={(event) => {

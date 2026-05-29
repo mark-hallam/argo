@@ -78,6 +78,20 @@ describe("MarketingNav — mobile sheet", () => {
     ).toBeInTheDocument();
   });
 
+  it("wires a stable aria-controls id matching the dialog content id", async () => {
+    // Regression: Radix's auto-generated useId() value drifted between
+    // SSR and client, flagging an aria-controls hydration mismatch on the
+    // burger button (the red "1 Issue" dev badge on every marketing page).
+    // Both sides are now pinned to a constant so SSR === client.
+    const user = userEvent.setup();
+    renderNav(<MarketingNav />);
+    const burger = screen.getByTestId("marketing-nav-open");
+    expect(burger).toHaveAttribute("aria-controls", "mk-mobile-menu");
+    await user.click(burger);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveAttribute("id", "mk-mobile-menu");
+  });
+
   it("closes the sheet when Esc is pressed", async () => {
     const user = userEvent.setup();
     renderNav(<MarketingNav />);
