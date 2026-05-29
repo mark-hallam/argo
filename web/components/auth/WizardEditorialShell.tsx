@@ -156,12 +156,35 @@ body:has(.wiz-editorial) {
 .wiz-top {
   padding: 22px 48px;
   display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center;
+  align-items: center; gap: 12px;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   position: sticky; top: 0; z-index: 10;
 }
+/* Mobile-only condensed step pill + 3-dot menu. Hidden by default; the
+   <640px media query swaps the desktop chrome for these compact forms. */
+.wiz-steps-mobile {
+  display: none;
+  align-items: center; justify-self: center;
+  font-family: var(--font-mono);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--ink);
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--bg); border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.wiz-mobile-menu {
+  display: none;
+  width: 36px; height: 36px; padding: 0;
+  align-items: center; justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg);
+  color: var(--ink-2); cursor: pointer;
+  font-family: inherit; font-size: 20px; line-height: 1;
+}
+.wiz-mobile-menu:hover { color: var(--ink); border-color: var(--line-2); }
+.wiz-exit-label-short { display: none; }
 .wiz-brand {
   display: flex; align-items: center; gap: 12px; justify-self: start;
   background: none; border: none; padding: 0; cursor: pointer;
@@ -314,6 +337,7 @@ body:has(.wiz-editorial) {
 }
 .wiz-foot-item strong { color: var(--ink); font-weight: 700; }
 .wiz-foot-dot { color: var(--teal); }
+/* Page-body responsive scale (kept from the original lock). */
 @media (max-width: 800px) {
   .wiz-top { padding: 16px 20px; grid-template-columns: auto 1fr auto; gap: 12px; }
   .wiz-steps { font-size: 10px; gap: 6px; }
@@ -323,6 +347,27 @@ body:has(.wiz-editorial) {
   .wiz-hero { font-size: 44px; }
   .wiz-sub { font-size: 16px; }
   .wiz-foot { gap: 18px; }
+}
+/* Tablet top bar (640-1023px) — keep dot-progress + label, shorten
+   the SAVE & EXIT label so chrome fits without wrapping. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .wiz-exit-label-full { display: none; }
+  .wiz-exit-label-short { display: inline; }
+}
+/* Mobile top bar (<640px) — collapse the dot-progress to a "N / 5"
+   pill, hide Help, fold SAVE & EXIT into a 3-dot icon button so all
+   chrome stays inside the 375px viewport (audit F9 P2). */
+@media (max-width: 639px) {
+  .wiz-top { padding: 12px 14px; grid-template-columns: auto 1fr auto; gap: 8px; }
+  .wiz-top-right { gap: 8px; }
+  .wiz-steps-text,
+  .wiz-steps-label,
+  .wiz-pips { display: none !important; }
+  .wiz-steps-mobile { display: inline-flex; }
+  .wiz-help-btn { display: none; }
+  .wiz-exit { display: none; }
+  .wiz-mobile-menu { display: inline-flex; }
+  .wiz-brand-name { font-size: 14px; }
 }
 `;
 
@@ -352,7 +397,7 @@ function StepStrip({
       aria-valuenow={displayStep}
       aria-label={accessibleLabel}
     >
-      <span aria-hidden>
+      <span className="wiz-steps-text" aria-hidden>
         STEP <span className="wiz-steps-pos">{stepNumber}</span> OF {totalLabel}
       </span>
       <div className="wiz-pips" aria-hidden>
@@ -384,6 +429,15 @@ function StepStrip({
         })}
       </div>
       <span className="wiz-steps-label" aria-hidden>{stepLabel}</span>
+      <div
+        className="wiz-steps-mobile"
+        aria-hidden
+        data-testid="wiz-shell-steps-mobile"
+      >
+        <span className="wiz-steps-pos">{stepNumber}</span>
+        {" / "}
+        {totalLabel}
+      </div>
     </div>
   );
 }
@@ -493,7 +547,17 @@ export function WizardEditorialShell({
               data-testid="wiz-shell-exit"
               aria-haspopup={exitConfirmsBeforeLeaving ? "dialog" : undefined}
             >
-              {exitLabel}
+              <span className="wiz-exit-label-full">{exitLabel}</span>
+              <span className="wiz-exit-label-short">Save</span>
+            </button>
+            <button
+              type="button"
+              className="wiz-mobile-menu"
+              onClick={attemptLeave}
+              data-testid="wiz-shell-mobile-menu"
+              aria-label="Save and exit"
+            >
+              <span aria-hidden>⋯</span>
             </button>
           </div>
         </header>
