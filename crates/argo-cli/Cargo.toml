@@ -64,6 +64,9 @@ argo-tool = { path = "../argo-tool" }
 argo-trust-engine = { path = "../argo-trust-engine" }
 argo-tui = { path = "../argo-tui" }
 argo-voice-tui = { path = "../argo-voice-tui" }
+# Conversational STT/TTS + voice-loop (un-orphans the crate). Consumed by
+# the gateway voice routes in src/handlers/gateway/routes_voice_io.rs.
+argo-voice-io = { path = "../argo-voice-io" }
 argo-types = { path = "../argo-types" }
 argo-vertical = { path = "../argo-vertical" }
 argo-vertical-packs = { workspace = true }

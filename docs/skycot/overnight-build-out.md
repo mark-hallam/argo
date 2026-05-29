@@ -66,11 +66,16 @@ target (cargo's target lock serializes compilation = memory-safe).
   tts, voice, audio, answer_closure)` composition seam (pitch-ask plugs into
   `answer` at V2). Old L2 stub removed. 17 unit + 36 doctests + clippy `-D warnings`
   green. Still orphan (nothing to break).
-- [ ] **V2 · Voice-loop over the real truth-bounded `pitch-ask`** — `POST
-  /api/v1/voice/{tts,stt}` + a voice-turn route that calls `pitch-ask` inside the
-  `answer` closure. Buildable now with `MockStt`/`MockTts`; **real ElevenLabs/
-  Deepgram adapter BLOCKED on an operator speech API key.** *(next voice build)*
-- [ ] **V3 · Browser push-to-talk on `/pitch`** — web; depends on V2 routes.
+- [x] **V2 · Voice-loop over the real truth-bounded `pitch-ask`** — **DONE.**
+  `POST /api/v1/voice/{tts,stt,pitch-turn}` in `routes_voice_io.rs` (named to avoid
+  the existing Twilio-DTMF `routes_voice.rs`). `pitch-turn` reuses
+  `routes_pitch_ask::ask_response` in-process (ZERO truth-boundary duplication) —
+  test proves an over-claim ("What's your valuation?") defers + emits no `$`
+  figure. Provider seam reads `ARGO_VOICE_PROVIDER`, Mock today, real adapter seam
+  marked BLOCKED-on-key. `argo-voice-io` now **un-orphaned** (wired into gateway).
+  12 voice tests + clippy green.
+  **Real ElevenLabs/Deepgram adapter still BLOCKED on operator speech API key.**
+- [ ] **V3 · Browser push-to-talk on `/pitch`** — web; depends on V2 routes (now exist).
 
 ### P1 — Theatre removal (audit + build-map DONE; revised by findings)
 Build-map finding: **T3 + T4 backends already exist** (routes_skill_ir.rs,

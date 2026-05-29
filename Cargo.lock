@@ -454,6 +454,7 @@ dependencies = [
  "argo-types",
  "argo-vertical",
  "argo-vertical-packs",
+ "argo-voice-io",
  "argo-voice-tui",
  "argo-workflow",
  "argo-workplace-knowledge",
@@ -1799,8 +1800,10 @@ name = "argo-voice-io"
 version = "0.0.1"
 dependencies = [
  "argo-types",
- "futures",
+ "async-trait",
+ "hex",
  "serde",
+ "sha2 0.10.9",
  "tokio",
  "toml 0.8.23",
 ]

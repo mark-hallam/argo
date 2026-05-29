@@ -238,6 +238,21 @@ async fn api_v1_dispatch(
     {
         return Some(super::routes_gtm_draft_followup::draft_followup_response(req, store).await);
     }
+    // voice-V2 — conversational STT/TTS + the spoken pitch loop over
+    // argo-voice-io. `pitch-turn` reuses the live `/pitch/ask` truth
+    // boundary in-process (no duplicated LLM/gating logic). Mock-backed
+    // today; real vendor adapters are BLOCKED on an operator API key.
+    if req.starts_with("POST /api/v1/voice/tts ") || req.starts_with("POST /api/v1/voice/tts?") {
+        return Some(super::routes_voice_io::tts_response(req).await);
+    }
+    if req.starts_with("POST /api/v1/voice/stt ") || req.starts_with("POST /api/v1/voice/stt?") {
+        return Some(super::routes_voice_io::stt_response(req).await);
+    }
+    if req.starts_with("POST /api/v1/voice/pitch-turn ")
+        || req.starts_with("POST /api/v1/voice/pitch-turn?")
+    {
+        return Some(super::routes_voice_io::pitch_turn_response(req, store).await);
+    }
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }

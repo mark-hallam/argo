@@ -205,6 +205,9 @@ mod routes_verticals_list_get;
 mod routes_verticals_run;
 mod routes_voice;
 mod routes_voice_auth;
+// Conversational STT/TTS + voice-loop routes (`/api/v1/voice/*`) over
+// argo-voice-io. Distinct from `routes_voice` (Twilio DTMF approval shim).
+mod routes_voice_io;
 mod routes_wizard;
 mod routes_worker_activity;
 mod routes_worker_detail;
