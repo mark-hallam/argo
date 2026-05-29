@@ -128,6 +128,74 @@ function mockResult(workerId: string): FetchWorkerMemoryResult {
   return { memory, source: "mock-offline" };
 }
 
+/** Raw voice-profile as the gateway emits it (snake_case; `formality`
+ *  is a descriptor string, not the SPA's 0–100 slider number). */
+interface RawGatewayVoiceProfile {
+  tone?: string;
+  formality?: number | string;
+  lexicon?: string[];
+  signaturePhrases?: string[];
+}
+
+/** Raw memory payload — gateway snake_case, with camelCase tolerated so
+ *  this normalizer is a no-op if the gateway ever switches conventions. */
+interface RawGatewayMemory {
+  namespace_id?: string | null;
+  namespaceId?: string | null;
+  tenant_scope?: string | null;
+  tenantScope?: string | null;
+  facts?: WorkerFact[];
+  active_conversations?: ActiveConversation[];
+  activeConversations?: ActiveConversation[];
+  recent_decisions?: RecentDecision[];
+  recentDecisions?: RecentDecision[];
+  voice_profile?: RawGatewayVoiceProfile;
+  voiceProfile?: RawGatewayVoiceProfile;
+}
+
+const VOICE_TONES = new Set<string>(["warm", "neutral", "formal"]);
+
+/** Gateway formality is a descriptor word; the SPA renders a 0–100 number. */
+function mapFormality(f: number | string | undefined): number {
+  if (typeof f === "number") return f;
+  switch ((f ?? "").toLowerCase()) {
+    case "casual":
+    case "conversational":
+      return 35;
+    case "formal":
+    case "professional":
+      return 80;
+    default:
+      return 50;
+  }
+}
+
+/** Normalize the gateway's snake_case memory payload into the SPA's
+ *  camelCase `WorkerMemory`. Without this, `activeConversations` /
+ *  `recentDecisions` / `voiceProfile` are `undefined`, and the memory
+ *  tab's `.length` reads throw — the worker-detail error boundary then
+ *  swallows the whole tab. Lists default to `[]` so a fresh worker (all
+ *  empty) renders the empty states instead of crashing. */
+function normalizeGatewayMemory(raw: RawGatewayMemory): WorkerMemory {
+  const vp = raw.voiceProfile ?? raw.voice_profile ?? {};
+  const tone =
+    typeof vp.tone === "string" && VOICE_TONES.has(vp.tone)
+      ? (vp.tone as VoiceTone)
+      : "neutral";
+  return {
+    namespaceId: raw.namespaceId ?? raw.namespace_id ?? "",
+    tenantScope: raw.tenantScope ?? raw.tenant_scope ?? "Current workspace",
+    facts: Array.isArray(raw.facts) ? raw.facts : [],
+    activeConversations: raw.activeConversations ?? raw.active_conversations ?? [],
+    recentDecisions: raw.recentDecisions ?? raw.recent_decisions ?? [],
+    voiceProfile: {
+      tone,
+      formality: mapFormality(vp.formality),
+      signaturePhrases: vp.signaturePhrases ?? vp.lexicon ?? [],
+    },
+  };
+}
+
 export async function fetchMemory(
   workerId: string,
 ): Promise<FetchWorkerMemoryResult> {
@@ -138,10 +206,10 @@ export async function fetchMemory(
   }
 
   try {
-    const memory = await apiGet<WorkerMemory>(
+    const raw = await apiGet<RawGatewayMemory>(
       `/api/v1/workers/${encodeURIComponent(workerId)}/memory`,
     );
-    return { memory, source: "gateway" };
+    return { memory: normalizeGatewayMemory(raw), source: "gateway" };
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockResult(workerId);

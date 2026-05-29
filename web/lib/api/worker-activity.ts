@@ -246,11 +246,91 @@ export async function fetchWorkerActivity(
   const qs = buildQueryString(filters, cursor);
   const path = `/api/v1/workers/${encodeURIComponent(workerId)}/activity?${qs}`;
   try {
-    return await apiGet<WorkerActivityPage>(path);
+    const raw = await apiGet<RawGatewayActivityPage>(path);
+    return normalizeGatewayActivityPage(raw, workerId);
   } catch (err) {
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       return mockPage(workerId, filters, cursor);
     }
     throw err;
   }
+}
+
+/** Raw per-worker activity row as the gateway emits it (audit shape). */
+interface RawGatewayActivityRow {
+  id?: string;
+  action_type?: string;
+  verb?: string;
+  status?: string;
+  cost?: number | null;
+  timestamp?: string;
+  worker?: { id?: string; name?: string };
+}
+
+/** Raw gateway page — `items` (audit feed) with snake_case cursor fields. */
+interface RawGatewayActivityPage {
+  items?: RawGatewayActivityRow[];
+  rows?: RawGatewayActivityRow[];
+  next_cursor?: string | null;
+  nextCursor?: string | null;
+  total_pages?: number;
+  totalPages?: number;
+}
+
+/** Two-letter avatar fallback from a display name. */
+function initialsFrom(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "··";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** Map a gateway audit-kind (`approval.asked`, `tool_result`, …) onto the
+ *  SPA's curated action-type union. Unknown kinds fall back to the
+ *  generic `message_sent` so the row still renders + filters cleanly. */
+function mapActionType(raw: string | undefined): WorkerActivityActionType {
+  const k = (raw ?? "").toLowerCase();
+  if (k.includes("approval")) return "approval_asked";
+  if (k.includes("refus")) return "refusal_issued";
+  if (k.includes("escalat")) return "escalation";
+  if (k.includes("skill")) return "skill_learned";
+  if (k.includes("memory")) return "memory_written";
+  if (k.includes("draft")) return "draft_queued";
+  return "message_sent";
+}
+
+const KNOWN_STATUSES = new Set<string>(WORKER_ACTIVITY_STATUSES);
+
+/** Normalize the gateway's audit-shaped activity response into the SPA's
+ *  `WorkerActivityPage`. The gateway returns `{items:[…audit rows…]}`;
+ *  the SPA renders `{rows: WorkerActivity[]}`. Without this, `page.rows`
+ *  is `undefined` and the activity tab's `flatMap`/`map` dereferences
+ *  `undefined` → the worker-detail error boundary swallows the whole tab. */
+function normalizeGatewayActivityPage(
+  raw: RawGatewayActivityPage,
+  workerId: string,
+): WorkerActivityPage {
+  const items = raw.items ?? raw.rows ?? [];
+  const rows: WorkerActivity[] = (Array.isArray(items) ? items : [])
+    .filter((it): it is RawGatewayActivityRow => !!it && typeof it === "object")
+    .map((it, i) => {
+      const name = it.worker?.name ?? "";
+      const status = (it.status ?? "").toLowerCase();
+      return {
+        id: it.id ?? `${it.timestamp ?? "row"}-${i}`,
+        workerId: it.worker?.id ?? workerId,
+        workerName: name,
+        workerInitials: initialsFrom(name),
+        timestamp: it.timestamp ?? "",
+        verb: it.verb ?? it.action_type ?? "",
+        actionType: mapActionType(it.action_type ?? it.verb),
+        status: (KNOWN_STATUSES.has(status) ? status : "succeeded") as WorkerActivityStatus,
+        costUsd: typeof it.cost === "number" ? it.cost : undefined,
+      };
+    });
+  return {
+    rows,
+    nextCursor: raw.next_cursor ?? raw.nextCursor ?? null,
+    totalPages: raw.total_pages ?? raw.totalPages,
+  };
 }

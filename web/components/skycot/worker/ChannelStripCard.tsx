@@ -68,6 +68,13 @@ const CHANNEL_ICON: Record<ChannelKind, LucideIcon> = {
   whatsapp: MessageCircle,
 };
 
+// The messaging channels this card knows how to render. The live audit
+// feed also carries internal *action surfaces* (agent / mcp /
+// computer-use) that are NOT messaging channels and have no icon here;
+// rendering one would make ChannelRow's `CHANNEL_ICON[kind]` undefined →
+// `<undefined/>` → crash the worker-overview tab. We filter to these.
+const KNOWN_MESSAGING_CHANNELS = new Set<string>(Object.keys(CHANNEL_ICON));
+
 const NON_WEB_CHANNELS: readonly ChannelKind[] = [
   "slack",
   "discord",
@@ -91,9 +98,14 @@ export function ChannelStripCard({
   );
 
   const aggregates = useMemo<ChannelAggregate[]>(() => {
-    if (aggregatesOverride !== undefined) return aggregatesOverride;
-    const rows = feed.data?.pages.flatMap((p) => p.rows) ?? [];
-    return aggregateByChannel(rows);
+    const raw =
+      aggregatesOverride !== undefined
+        ? aggregatesOverride
+        : aggregateByChannel(feed.data?.pages.flatMap((p) => p.rows) ?? []);
+    // Keep only messaging channels — internal action surfaces (agent /
+    // mcp / computer-use) from the live audit feed have no icon here and
+    // would crash ChannelRow.
+    return raw.filter((a) => KNOWN_MESSAGING_CHANNELS.has(a.channel));
   }, [aggregatesOverride, feed.data]);
 
   if (aggregatesOverride === undefined && feed.isPending) {
@@ -147,8 +159,10 @@ function ChannelRow({
   workerId: string;
   workerName?: string;
 }) {
-  const Icon = CHANNEL_ICON[aggregate.channel];
-  const label = CHANNEL_LABEL[aggregate.channel];
+  // Defensive (belt-and-suspenders to the upstream filter): never render
+  // `<undefined/>` for a channel the maps don't cover.
+  const Icon = CHANNEL_ICON[aggregate.channel] ?? Globe;
+  const label = CHANNEL_LABEL[aggregate.channel] ?? aggregate.channel;
   const subject = workerName ?? "this worker";
   const href = `/audit?worker=${encodeURIComponent(workerId)}&channel=${aggregate.channel}`;
   return (
