@@ -3,11 +3,17 @@ import "./page.css";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, use, useCallback, useState } from "react";
+import { Suspense, use, useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { executeWorkflow } from "@/lib/api/workflow-execute";
 import { describeRunNowError } from "./run-now-error";
+import { listTenantConnectors } from "@/lib/api/connectors";
+import { extractConnectorReferences } from "@/lib/workflow/extract-connectors";
+import {
+  WorkflowConnectorPreflightCard,
+  allConnectorsHealthy,
+} from "@/components/skycot/workflow/WorkflowConnectorPreflightCard";
 import {
   ArrowLeft,
   CalendarClock,
@@ -215,6 +221,38 @@ function ViewerInner({
   const substrate = resolveWorkflowSubstrate(workflow);
   const substrateStatus = running ? "running" : "idle";
 
+  const connectorReferences = useMemo(
+    () => extractConnectorReferences(workflow?.steps ?? []),
+    [workflow?.steps],
+  );
+
+  const connectorStatusQuery = useQuery({
+    queryKey: ["tenant-connectors", "workflow-preflight"],
+    queryFn: ({ signal }) => listTenantConnectors({ signal }),
+    enabled: connectorReferences.length > 0,
+    staleTime: 30_000,
+  });
+  const connectorStatusMap = useMemo(() => {
+    const list = connectorStatusQuery.data?.connectors ?? [];
+    const out: Record<string, (typeof list)[number]> = {};
+    for (const row of list) out[row.connectorId] = row;
+    return out;
+  }, [connectorStatusQuery.data]);
+
+  const preflightHealthy =
+    connectorReferences.length === 0 ||
+    (connectorStatusQuery.isSuccess &&
+      allConnectorsHealthy(connectorReferences, connectorStatusMap));
+  const blockingConnector = connectorReferences.find(
+    (ref) => (connectorStatusMap[ref.connectorId]?.status ?? "not_connected") !== "connected",
+  );
+  const runDisabled = running || !isLive || !preflightHealthy;
+  const runTooltip = !isLive
+    ? "Available once this workflow is published to the gateway"
+    : blockingConnector
+      ? `Connect ${blockingConnector.displayName} to run this workflow → /settings/connectors/${blockingConnector.connectorId}`
+      : "Execute against the live gateway workflow";
+
   return (
     <>
       <div className="wfd-stage">
@@ -266,13 +304,10 @@ function ViewerInner({
               type="button"
               className="wfd-btn wfd-btn-primary"
               data-testid="wfd-run-workflow"
+              data-preflight-healthy={preflightHealthy ? "true" : "false"}
               onClick={handleRunWorkflow}
-              disabled={running || !isLive}
-              title={
-                isLive
-                  ? "Execute against the live gateway workflow"
-                  : "Available once this workflow is published to the gateway"
-              }
+              disabled={runDisabled}
+              title={runTooltip}
             >
               <Play size={13} /> {running ? "Running…" : "Run now"}
             </button>
@@ -308,6 +343,12 @@ function ViewerInner({
             </button>
           </div>
         </div>
+
+        <WorkflowConnectorPreflightCard
+          references={connectorReferences}
+          statuses={connectorStatusMap}
+          isLoading={connectorStatusQuery.isPending}
+        />
 
         <div className="wfd-section-label">
           STEPS · {workflow.steps.length} TOTAL
