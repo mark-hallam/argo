@@ -69,6 +69,13 @@ When in doubt:
 
 Plan documents, in order of operative precedence:
 
+- `docs/build-plan/FEATURE_MATRIX.md` — **the canonical feature +
+  roadmap source of truth.** One honest, code-grounded table of every
+  capability: ✅ Live / 🟡 Partial / 🟧 Scaffold (unwired) / 🗓️ Planned /
+  💡 Backlog, with phase/timeline for future work. Read this FIRST for
+  "what actually exists vs. what's planned." It rolls up BUILD_STATUS +
+  MISSION_BACKLOG + PRODUCT_ROADMAP into one verified inventory; re-verify
+  rows against `git log` + the cited source before any capability claim.
 - `docs/plan/argo-build-plan.md` (v0.2) — original architecture
   reference for the core-platform layer. Still valid for that scope,
   but no longer the operative phased plan.

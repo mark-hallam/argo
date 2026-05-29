@@ -1,5 +1,10 @@
 # RESUME — fresh-session entry point
 
+> 📊 **Want the honest "what exists vs. what's planned" map?** Read
+> [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md) — the canonical, code-grounded
+> feature + roadmap source of truth (Live / Partial / Scaffold / Planned /
+> Backlog, with phase + timeline). Last verified 2026-05-29.
+
 Last sweep: 2026-05-23 (operator-directed staleness audit during quota-halt).
 Next sweep due: when this date is >14 days old OR after any major
 architectural change.

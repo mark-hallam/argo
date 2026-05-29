@@ -1,5 +1,9 @@
 # Product Roadmap — post-MVP path to every mission claim
 
+> 📊 **Canonical feature + roadmap rollup:** [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)
+> is the single source of truth for what's Live / Partial / Scaffold / Planned
+> across the whole platform (this roadmap is the product-surface slice of it).
+
 **Authored against**: origin/main `70e4b020` on `2026-05-11`.
 **Current-state refresh**: `2026-05-24`.
 **Status**: roadmap index and historical track map. The live queue,
