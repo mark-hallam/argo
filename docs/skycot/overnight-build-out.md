@@ -13,6 +13,31 @@ limits. By morning, maximal real progress, ready to deploy what's done.
 > progress** and report what's genuinely DONE vs PARTIAL vs BLOCKED — never dress
 > incomplete work as finished.
 
+## 🚀 SPRINT 2 — 2026-05-30 (operator: FULL PROGRAM)
+
+Operator (awake) chose **all four tracks** + real voice. Auto-resume bug FIXED
+(macOS had no `timeout`; now uses gtimeout/bg-watchdog — overnight ticks had
+silently no-op'd). Sequencing (conductor drives 1-2; auto-resume + agents carry 3-5):
+
+1. **Go live + verify** — rebuild gateway + reseed → the 5 shipped features become
+   real; verify in-browser. *(conductor, in progress)*
+2. **Real voice — OpenAI (vendor-selectable)** — new `openai.rs` adapter in
+   `crates/argo-cli/src/handlers/gateway/routes_voice_io/`: impl `SpeechToText` via
+   POST `/v1/audio/transcriptions` (whisper-1, multipart) + `TextToSpeech` via POST
+   `/v1/audio/speech` (tts-1, voice param); add `Provider::OpenAi` arm in
+   `provider.rs`; key via `argo_config::cred::get_unscoped("OPENAI_API_KEY")`;
+   key-gated tests (skip if no key). User-selectable via a `voice` workspace_settings
+   group. **Needs `ARGO_VOICE_PROVIDER=openai` + `OPENAI_API_KEY` in `~/.argo/env.local`
+   for the LIVE check** (build + unit-test don't need it). True OpenAI *Realtime*
+   streaming socket = later latency upgrade.
+3. **Orchestration (Supervisor engine)** — per design plan 02: parallel fan-out +
+   dependency layers over the existing handoff chain in `argo-orchestrator`.
+4. **Theatre elimination** — T3 skill-IR seed (endpoint exists, needs IR seeded) +
+   any remaining mock surfaces.
+5. **Broad backlog** — FEATURE_MATRIX 🟡/🟧 rows, highest value first.
+
+---
+
 ## ☀️ MORNING HAND-OFF (Mark — read this first)
 
 Good morning. The interactive conductor (me) ran until its context filled, then
