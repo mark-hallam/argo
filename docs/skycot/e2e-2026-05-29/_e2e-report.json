@@ -1,0 +1,137 @@
+[
+  {
+    "name": "nav /team",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /approvals",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /pitch",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /gtm",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /genesis",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /cohorts",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /skills",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workflows",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workflows/sales/qualify_lead",
+    "pass": true,
+    "detail": "1 non-fatal err"
+  },
+  {
+    "name": "nav /orchestration",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /settings",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /settings/knowledge",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /audit",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /onboarding/welcome",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workers/019e7344-bf74-7451-8915-a3a8af1feda9/overview",
+    "pass": true,
+    "detail": "1 non-fatal err"
+  },
+  {
+    "name": "nav /workers/019e7344-bf74-7451-8915-a3a8af1feda9/activity",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workers/019e7344-bf74-7451-8915-a3a8af1feda9/memory",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workers/019e7344-bf74-7451-8915-a3a8af1feda9/skills",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workers/019e7344-bf74-7451-8915-a3a8af1feda9/trust",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workers/019e7344-bf74-7451-8915-a3a8af1feda9/settings",
+    "pass": true,
+    "detail": "0 non-fatal err"
+  },
+  {
+    "name": "nav /workers/019e7344-bf73-7aa1-bd65-8fc0866b267f/overview",
+    "pass": true,
+    "detail": "1 non-fatal err"
+  },
+  {
+    "name": "flow: Portia answers a pitch question",
+    "pass": true,
+    "detail": "ans=316c disposition=true"
+  },
+  {
+    "name": "flow: Grant qualifies + drafts",
+    "pass": true,
+    "detail": "tier='Hot lead' draft=547c filed=true"
+  },
+  {
+    "name": "flow: /team → worker detail",
+    "pass": true,
+    "detail": "clicked /workers/019e7344-bf74-7451-8915-a3a8af1feda9/overview → /workers/019e7344-bf74-7451-8915-a3a8af1feda9/overview"
+  },
+  {
+    "name": "flow: skill detail shows real adoption",
+    "pass": true,
+    "detail": "worker-using shown=true"
+  },
+  {
+    "name": "flow: /audit → action provenance",
+    "pass": true,
+    "detail": "→ /audit/action/019e73ecafc27832965ad09412fd9a94"
+  },
+  {
+    "name": "flow: /approvals shows Grant's draft",
+    "pass": true,
+    "detail": "errs=0"
+  }
+]
