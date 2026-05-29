@@ -131,6 +131,7 @@ mod routes_forge_runs_list;
 mod routes_genesis;
 mod routes_genesis_stream;
 mod routes_ghostwriter;
+mod routes_governance;
 mod routes_gtm_draft_followup;
 mod routes_health;
 mod routes_inbound_channels;

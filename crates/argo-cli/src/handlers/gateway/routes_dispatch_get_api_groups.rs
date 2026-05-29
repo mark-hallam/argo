@@ -104,6 +104,12 @@ pub(super) async fn dispatch_scim_and_team(
     if let Some(resp) = super::routes_workspace_settings::dispatch_get(req, store).await {
         return Some(resp);
     }
+    // Gap #1 move A — audit-readiness / governance report. Read-only
+    // assembly over the audit chain + capability roles + truth boundary
+    // + approval coverage for one tenant.
+    if let Some(resp) = super::routes_governance::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     if req.starts_with("GET /api/v1/tenant/usage ")
         || req.starts_with("GET /api/v1/tenant/usage?")
     {
