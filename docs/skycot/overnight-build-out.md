@@ -47,29 +47,39 @@ limits. By morning, maximal real progress, ready to deploy what's done.
 ## Queue (priority order · status: TODO / WIP / PARTIAL / BLOCKED / DONE)
 
 ### P0 — Voice (operator's explicit first item)
-- [ ] **V1 · `argo-voice-io` trait redesign + mock adapter** (STT/TTS traits +
-  a deterministic test adapter). Buildable now (no key). Rust.
-- [ ] **V2 · Voice-loop over the real truth-bounded `pitch-ask`** (STT → pitch
-  answer → TTS) + gateway routes. Buildable with the mock adapter; real-vendor
-  adapter is **BLOCKED on an operator-provided speech API key**.
+- [x] **V1 · `argo-voice-io` trait redesign + mock adapter** — **DONE.** Clean L1
+  layer: `SpeechToText`/`TextToSpeech` async traits + `Transcript`/`AudioClip`/
+  `VoiceId` types + key-free deterministic `MockStt`/`MockTts` + `voice_turn(stt,
+  tts, voice, audio, answer_closure)` composition seam (pitch-ask plugs into
+  `answer` at V2). Old L2 stub removed. 17 unit + 36 doctests + clippy `-D warnings`
+  green. Still orphan (nothing to break).
+- [ ] **V2 · Voice-loop over the real truth-bounded `pitch-ask`** — `POST
+  /api/v1/voice/{tts,stt}` + a voice-turn route that calls `pitch-ask` inside the
+  `answer` closure. Buildable now with `MockStt`/`MockTts`; **real ElevenLabs/
+  Deepgram adapter BLOCKED on an operator speech API key.** *(next voice build)*
 - [ ] **V3 · Browser push-to-talk on `/pitch`** — web; depends on V2 routes.
 
-### P1 — Theatre removal (audit DONE; `audit-export` already gated ✓)
-Each item = build a real gateway route (+store query) then add `&& !isDemoLive()`
-to the SPA module. All Rust → conductor builds serially. Order by camera value:
-- [ ] **T1 · settings/workspace** — `GET/PATCH /api/v1/workspace` (+ providers/policy,
-  notifications/preferences) → flip `web/lib/api/settings.ts`. Needs a settings store
-  (migration v85). ~60+ LOC Rust.
-- [ ] **T2 · worker evals dashboard** — `GET /api/v1/workers/<id>/evals`
-  {latest, history} → flip `web/lib/api/evals.ts`. argo-eval exists; wire a gateway
-  read. ~70 LOC.
-- [ ] **T3 · skill-IR suite** — `GET/POST /api/v1/skills/<id>/ir` + `/ir/export`
-  → flip `skill-ir.ts` / `skill-ir-save.ts` / `skill-ir-export.ts` together. ~170 LOC.
-- [ ] **T4 · elevated-view** — `POST /api/v1/elevated-view` (break-glass: store row +
-  audit) → flip `elevated-view.ts`. ~35 LOC. (sensitive — audit-gated.)
-- **SKIP (credentials — privacy rule):** `api-keys.ts`, `provider-keys.ts` — never
-  surface saved keys; these correctly show configured/unconfigured status only.
-- **SKIP (no theatre):** `ghostwriter.ts` (non-camera), `notifications.ts` (empty, not fake).
+### P1 — Theatre removal (audit + build-map DONE; revised by findings)
+Build-map finding: **T3 + T4 backends already exist** (routes_skill_ir.rs,
+routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
+404s for seeded skills ("skill has no IR") → flipping needs IR **seeded** first.
+- [ ] **T1 · settings/workspace** — BUILD. No store exists → new `workspace_settings`
+  table (one generic `(tenant_id, group_key, value_json, updated_at)` row per group)
+  via migration v85 + `routes_workspace_settings.rs` (GET/PATCH for workspace /
+  providers/policy / notifications/preferences) + flip `settings.ts`. ~150 LOC Rust.
+  HIGH (real settings page). *(next build after V1 integrates)*
+- [ ] **T2 · worker evals** — routes_evals.rs EXISTS but is MOCK-ONLY; store has
+  `skill_reeval_history` (per-SKILL, not per-worker). Build a real query (worker's
+  learned skills → their reeval history surfaced as the worker's eval runs) + flip
+  `evals.ts`. ~40 LOC change. MEDIUM. **Data-grain noted — if it gets ambiguous, ship
+  the skills-join version + mark the per-worker-eval-run table a follow-up.**
+- [ ] **T3 · skill-IR** — backend EXISTS (flip-ready) but needs **IR seeded** for
+  demo skills (else 404→mock). Real fix = seed skill IR (like retrain seed) + flip
+  3 modules. LOWER (forge drill-in, not core demo). Seed is the real work.
+- [ ] **T4 · elevated-view** — backend EXISTS; pure FLIP of `elevated-view.ts`.
+  Trivial but POST-mutation + minor camera value. LOW. Do as a quick win.
+- **SKIP (credentials — privacy rule):** `api-keys.ts`, `provider-keys.ts`.
+- **SKIP (no theatre):** `ghostwriter.ts`, `notifications.ts` (empty, not fake).
 
 ### P2 — Gap features (from the 4 design plans)
 - [ ] Self-improvement Step 1b (eval-case generation) — additive, no key.
