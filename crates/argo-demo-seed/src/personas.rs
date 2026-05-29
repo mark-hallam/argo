@@ -44,7 +44,7 @@ pub struct DemoPersona {
 /// (pitch-agent) row's load-bearing reason.
 pub const DEPT_FILLER_PERSONAS: &[DemoPersona] = &[
     DemoPersona {
-        name: "Pitch",
+        name: "Portia",
         title: "Pitch Agent",
         tagline: "represents the company in investor and customer pitches",
         vertical_id: "pitch-agent",

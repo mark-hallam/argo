@@ -146,7 +146,7 @@ export const SAMPLE_WORKERS_DETAIL: Worker[] = [
   },
   {
     id: "wkr_01J0PITCH",
-    name: "Pitch",
+    name: "Portia",
     role: {
       tagline: "represents the founder in investor, customer, and press conversations",
       vertical: "pitch-agent",
