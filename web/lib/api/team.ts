@@ -30,7 +30,7 @@ import {
   publishDataSource,
   type DataSource,
 } from "@/lib/skycot/data-source-context";
-import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 import type { Worker } from "@/lib/types/worker";
 
 export type TeamDataSource =
@@ -131,7 +131,12 @@ export async function fetchTeam(): Promise<FetchTeamResult> {
 }
 
 async function fetchTeamInner(): Promise<FetchTeamResult> {
-  if (isAuthBypassed()) {
+  // Demo-LIVE recordings (auth-bypass + DEMO_LIVE) must read the real
+  // gateway roster — NOT the bundled SAMPLE_TEAM mock — so the /team
+  // hero deck reflects the seeded tenant truthfully (NO THEATER). Only
+  // plain auth-bypass (no demo-live) short-circuits to the bundled deck.
+  // This matches the canonical gate used by audit/approvals/workers/etc.
+  if (isAuthBypassed() && !isDemoLive()) {
     // Splice in any session-local hires from the demo roster so the
     // /team deck grows when the Hire wizard commits in bypass mode.
     // When the roster is empty we return the bundled array verbatim
