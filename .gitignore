@@ -25,3 +25,11 @@ book-output/
 # work-in-progress). Lives outside the swarm — stays local until the
 # operator picks a direction.
 docs/personal-site/
+
+# Repo-root active workspace config. The gateway reads `argo.toml` from
+# its cwd; the operator copies `docs/skycot/operator/argo.dev.toml.example`
+# here to activate Claude Code subscription routing for local dev/demo.
+# It carries local-only routing/provider knobs and must NEVER be
+# committed (committing it would change CI/test routing). Only the
+# `.example` template is tracked.
+/argo.toml

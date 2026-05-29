@@ -49,8 +49,12 @@ fn user_msg(text: &str) -> Message {
 }
 
 fn req() -> ProviderRequest {
+    req_with_model("claude-sonnet-4-6")
+}
+
+fn req_with_model(model: &str) -> ProviderRequest {
     ProviderRequest {
-        model: "claude-sonnet-4-6".into(),
+        model: model.into(),
         messages: vec![user_msg("hi")],
         tools: vec![],
         system: Some("you are helpful".into()),
@@ -86,6 +90,45 @@ impl Drop for EnvGuard {
     }
 }
 
+/// A scratch file under the OS temp dir that the mock binary writes its
+/// argv into, removed on drop. Avoids pulling in a `tempfile`
+/// dev-dependency for the three model-pinning tests.
+struct ArgvCapture {
+    path: PathBuf,
+}
+
+impl ArgvCapture {
+    fn new(tag: &str) -> Self {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let path = std::env::temp_dir().join(format!(
+            "argo-mock-claude-argv-{tag}-{}-{nanos}.txt",
+            std::process::id()
+        ));
+        Self { path }
+    }
+
+    fn path_str(&self) -> &str {
+        self.path.to_str().expect("temp path is utf8")
+    }
+
+    fn read_lines(&self) -> Vec<String> {
+        std::fs::read_to_string(&self.path)
+            .expect("read captured argv")
+            .lines()
+            .map(str::to_string)
+            .collect()
+    }
+}
+
+impl Drop for ArgvCapture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
 #[test]
 fn from_manifest_rejects_http_transport_kind() {
     // Swap the manifest's transport_kind for the default ("http") and
@@ -116,13 +159,31 @@ fn parsed_to_response_maps_canonical_fields() {
         r#"{"result":"hi","stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":3},"modelUsage":{"claude-sonnet-4-6":{"outputTokens":3}}}"#,
     )
     .expect("parse");
-    let resp = parsed_to_response(parsed, "claude-code-cli");
+    let resp = parsed_to_response(parsed, "claude-code-cli", None);
     assert_eq!(resp.text.as_deref(), Some("hi"));
     assert_eq!(resp.tokens_in, Some(10));
     assert_eq!(resp.tokens_out, Some(3));
     assert!(matches!(resp.stop_reason, StopReason::EndTurn));
     assert_eq!(resp.provider_meta["model"], "claude-sonnet-4-6");
     assert_eq!(resp.provider_meta["provider"], "claude-code-cli");
+}
+
+#[test]
+fn pinned_model_overrides_dominant_model_for_reporting() {
+    // The CLI's internal title-gen side-call (Haiku) out-tokens the
+    // main answer, so `dominant_model()` would report Haiku. When the
+    // request pinned Sonnet, the reported model must be Sonnet so the
+    // audit row reflects the model that actually answered — and Haiku
+    // never surfaces as the answering model.
+    let parsed: super::cli_response::ClaudeCliJsonResponse = serde_json::from_str(
+        r#"{"result":"pong","stop_reason":"end_turn","modelUsage":{"claude-haiku-4-5-20251001":{"outputTokens":50},"claude-sonnet-4-6":{"outputTokens":2}}}"#,
+    )
+    .expect("parse");
+    let resp = parsed_to_response(parsed, "claude-code-cli", Some("claude-sonnet-4-6"));
+    assert_eq!(
+        resp.provider_meta["model"], "claude-sonnet-4-6",
+        "pinned model must win over the higher-token Haiku side-call"
+    );
 }
 
 #[tokio::test]
@@ -273,5 +334,85 @@ async fn complete_errors_when_binary_does_not_exist() {
     assert!(
         msg.contains("spawn"),
         "error should name spawn failure; got: {msg}"
+    );
+}
+
+#[tokio::test]
+async fn complete_passes_model_flag_when_pinned() {
+    let _lock = ENV_LOCK.lock().await;
+    let argv_out = ArgvCapture::new("sonnet");
+    let mut env = EnvGuard::new();
+    env.set("ARGO_CLAUDE_CODE_BINARY", fixture_path().to_str().unwrap());
+    env.set("MOCK_CLAUDE_MODE", "ok");
+    env.set("MOCK_CLAUDE_ARGV_OUT", argv_out.path_str());
+
+    let transport = ClaudeCodeCliTransport::from_manifest(manifest()).expect("build transport");
+    transport
+        .complete(&req_with_model("claude-sonnet-4-6"))
+        .await
+        .expect("complete");
+
+    let lines = argv_out.read_lines();
+    // `--model` must be immediately followed by the pinned id, after the
+    // manifest's default_args (`--print --output-format json`).
+    let model_idx = lines
+        .iter()
+        .position(|a| a == "--model")
+        .expect("driver must pass --model when the request pins a model");
+    assert_eq!(
+        lines.get(model_idx + 1).map(String::as_str),
+        Some("claude-sonnet-4-6"),
+        "--model must carry the pinned id; argv: {lines:?}"
+    );
+    // Hard floor: Haiku must never be selected in the dev routing path.
+    assert!(
+        !lines.iter().any(|a| a.contains("haiku")),
+        "Haiku must never appear in the spawned args; argv: {lines:?}"
+    );
+}
+
+#[tokio::test]
+async fn complete_passes_opus_model_flag_for_complex_tier() {
+    let _lock = ENV_LOCK.lock().await;
+    let argv_out = ArgvCapture::new("opus");
+    let mut env = EnvGuard::new();
+    env.set("ARGO_CLAUDE_CODE_BINARY", fixture_path().to_str().unwrap());
+    env.set("MOCK_CLAUDE_MODE", "ok");
+    env.set("MOCK_CLAUDE_ARGV_OUT", argv_out.path_str());
+
+    let transport = ClaudeCodeCliTransport::from_manifest(manifest()).expect("build transport");
+    transport
+        .complete(&req_with_model("claude-opus-4-8"))
+        .await
+        .expect("complete");
+
+    let lines = argv_out.read_lines();
+    assert!(
+        lines.iter().any(|a| a == "claude-opus-4-8"),
+        "complex tier must pin Opus 4.8; argv: {lines:?}"
+    );
+}
+
+#[tokio::test]
+async fn complete_omits_model_flag_when_unpinned() {
+    let _lock = ENV_LOCK.lock().await;
+    let argv_out = ArgvCapture::new("unpinned");
+    let mut env = EnvGuard::new();
+    env.set("ARGO_CLAUDE_CODE_BINARY", fixture_path().to_str().unwrap());
+    env.set("MOCK_CLAUDE_MODE", "ok");
+    env.set("MOCK_CLAUDE_ARGV_OUT", argv_out.path_str());
+
+    // Empty model id = unpinned; the driver must preserve the CLI's
+    // auto-route behaviour by NOT passing `--model` (backward compat).
+    let transport = ClaudeCodeCliTransport::from_manifest(manifest()).expect("build transport");
+    transport
+        .complete(&req_with_model(""))
+        .await
+        .expect("complete");
+
+    let lines = argv_out.read_lines();
+    assert!(
+        !lines.iter().any(|a| a == "--model"),
+        "unpinned request must NOT pass --model; argv: {lines:?}"
     );
 }

@@ -3,6 +3,7 @@
 //! [`crate::sections`] to keep that module under the 500-LOC ceiling.
 //! Re-exported through `sections` so the public API is unchanged.
 use crate::defaults;
+use argo_types::{ArgoError, ArgoResult, ProviderModel, RoutingPolicy, TieredRouting};
 use serde::{Deserialize, Serialize};
 
 /// `[routing]`.
@@ -53,6 +54,78 @@ impl Default for RoutingTieredConfig {
             fallback_to_default_on_error: true,
         }
     }
+}
+
+impl RoutingTieredConfig {
+    /// Convert the string `provider:model` tier table into the runtime
+    /// [`TieredRouting`] policy the agent loop applies per session.
+    ///
+    /// Each field must be `<provider>:<model>` (e.g.
+    /// `claude-code-cli:claude-sonnet-4-6`). The conversion is the
+    /// glue that lets an `argo.toml` `[routing.tiered]` block drive
+    /// the cost-tier router — Sonnet floor for `simple`/`medium`,
+    /// Opus for `complex`, Sonnet (never Haiku) as the classifier.
+    ///
+    /// # Errors
+    /// Returns [`ArgoError::Schema`] when any tier value is missing the
+    /// `:` separator or has an empty provider/model half.
+    ///
+    /// # Examples
+    /// ```
+    /// use argo_config::RoutingTieredConfig;
+    /// let cfg = RoutingTieredConfig {
+    ///     classifier: "claude-code-cli:claude-sonnet-4-6".into(),
+    ///     simple: "claude-code-cli:claude-sonnet-4-6".into(),
+    ///     medium: "claude-code-cli:claude-sonnet-4-6".into(),
+    ///     complex: "claude-code-cli:claude-opus-4-8".into(),
+    ///     classify_threshold_ms: 120,
+    ///     fallback_to_default_on_error: true,
+    /// };
+    /// let policy = cfg.to_routing_policy().expect("valid tiers");
+    /// # let _ = policy;
+    /// ```
+    pub fn to_routing_policy(&self) -> ArgoResult<RoutingPolicy> {
+        Ok(RoutingPolicy::Tiered(self.to_tiered_routing()?))
+    }
+
+    /// Build the [`TieredRouting`] from the parsed tier strings.
+    ///
+    /// # Errors
+    /// Same as [`Self::to_routing_policy`].
+    pub fn to_tiered_routing(&self) -> ArgoResult<TieredRouting> {
+        Ok(TieredRouting {
+            classifier_model: parse_provider_model("classifier", &self.classifier)?,
+            simple: parse_provider_model("simple", &self.simple)?,
+            medium: parse_provider_model("medium", &self.medium)?,
+            complex: parse_provider_model("complex", &self.complex)?,
+            classify_threshold_ms: u64::from(self.classify_threshold_ms),
+            fallback_to_default_on_error: self.fallback_to_default_on_error,
+        })
+    }
+}
+
+/// Parse a `<provider>:<model>` tier string into a [`ProviderModel`].
+/// Both halves must be non-empty. The model id may itself contain `:`
+/// is not expected (model ids are dotted/dashed), so we split on the
+/// first `:` only.
+fn parse_provider_model(tier: &str, raw: &str) -> ArgoResult<ProviderModel> {
+    let (provider, model) = raw.split_once(':').ok_or_else(|| {
+        ArgoError::Schema(format!(
+            "[routing.tiered].{tier} must be `<provider>:<model>` (e.g. \
+             `claude-code-cli:claude-sonnet-4-6`); got `{raw}`"
+        ))
+    })?;
+    let provider = provider.trim();
+    let model = model.trim();
+    if provider.is_empty() || model.is_empty() {
+        return Err(ArgoError::Schema(format!(
+            "[routing.tiered].{tier} has an empty provider or model half: `{raw}`"
+        )));
+    }
+    Ok(ProviderModel {
+        provider: provider.to_string(),
+        model: model.to_string(),
+    })
 }
 
 /// `[judge]`.
@@ -111,5 +184,72 @@ impl Default for ForgeConfig {
             budget_per_run_usd_micros: defaults::DEFAULT_FORGE_BUDGET_PER_RUN_USD_MICROS,
             auto_promote_threshold: defaults::DEFAULT_FORGE_AUTO_PROMOTE_THRESHOLD,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dev_tiered() -> RoutingTieredConfig {
+        RoutingTieredConfig {
+            classifier: "claude-code-cli:claude-sonnet-4-6".into(),
+            simple: "claude-code-cli:claude-sonnet-4-6".into(),
+            medium: "claude-code-cli:claude-sonnet-4-6".into(),
+            complex: "claude-code-cli:claude-opus-4-8".into(),
+            classify_threshold_ms: 120,
+            fallback_to_default_on_error: true,
+        }
+    }
+
+    #[test]
+    fn dev_config_maps_sonnet_floor_and_opus_complex_no_haiku() {
+        let routing = dev_tiered().to_tiered_routing().expect("valid tiers");
+        // Sonnet floor: classifier + simple + medium all Sonnet.
+        assert_eq!(routing.classifier_model.provider, "claude-code-cli");
+        assert_eq!(routing.classifier_model.model, "claude-sonnet-4-6");
+        assert_eq!(routing.simple.model, "claude-sonnet-4-6");
+        assert_eq!(routing.medium.model, "claude-sonnet-4-6");
+        // Only complex rises to Opus.
+        assert_eq!(routing.complex.model, "claude-opus-4-8");
+        assert_eq!(routing.classify_threshold_ms, 120);
+        // Hard floor: Haiku must appear nowhere in the dev routing path.
+        for m in [
+            &routing.classifier_model,
+            &routing.simple,
+            &routing.medium,
+            &routing.complex,
+        ] {
+            assert!(
+                !m.model.contains("haiku"),
+                "Haiku must never appear in dev tiered routing; saw {}",
+                m.model
+            );
+        }
+    }
+
+    #[test]
+    fn to_routing_policy_wraps_tiered() {
+        let policy = dev_tiered().to_routing_policy().expect("valid");
+        assert!(matches!(policy, RoutingPolicy::Tiered(_)));
+    }
+
+    #[test]
+    fn rejects_tier_without_colon_separator() {
+        let mut cfg = dev_tiered();
+        cfg.complex = "claude-opus-4-8".into(); // missing `provider:`
+        let err = cfg.to_tiered_routing().unwrap_err();
+        assert!(
+            format!("{err}").contains("complex"),
+            "error must name the offending tier; got {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_empty_model_half() {
+        let mut cfg = dev_tiered();
+        cfg.simple = "claude-code-cli:".into();
+        let err = cfg.to_tiered_routing().unwrap_err();
+        assert!(format!("{err}").contains("empty"), "got {err}");
     }
 }

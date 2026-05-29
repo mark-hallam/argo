@@ -11,9 +11,22 @@
 #   MOCK_CLAUDE_MODE=sleep       → sleep MOCK_CLAUDE_SLEEP_SECS, then exit 0
 #
 # The driver test sets ARGO_CLAUDE_CODE_BINARY=<absolute path to this file>.
+#
+# Set MOCK_CLAUDE_ARGV_OUT=<path> to capture the spawned argv (one arg
+# per line) so tests can assert the driver passed `--model <id>`.
 
 set -u
 mode="${MOCK_CLAUDE_MODE:-ok}"
+
+# When MOCK_CLAUDE_ARGV_OUT is set, write the full argv (one arg per
+# line) to that path so the driver tests can assert which flags the
+# driver passed (e.g. `--model claude-sonnet-4-6`).
+if [ -n "${MOCK_CLAUDE_ARGV_OUT:-}" ]; then
+  : >"$MOCK_CLAUDE_ARGV_OUT"
+  for arg in "$@"; do
+    printf '%s\n' "$arg" >>"$MOCK_CLAUDE_ARGV_OUT"
+  done
+fi
 
 case "$mode" in
   ok)

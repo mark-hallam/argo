@@ -93,23 +93,47 @@ impl ClaudeCodeCliTransport {
             .unwrap_or_else(|| self.subprocess.binary_path_fallback.clone())
     }
 
-    /// Spawn the CLI with the rendered prompt + parse stdout JSON.
-    async fn invoke_cli(&self, prompt: String) -> ArgoResult<ClaudeCliJsonResponse> {
+    /// Build + spawn the subprocess.
+    ///
+    /// When `model` is `Some`, `--model <id>` is appended after
+    /// `default_args` and before the prompt so the requested tier
+    /// (e.g. `claude-sonnet-4-6` for the floor, `claude-opus-4-8` for
+    /// complex turns) is pinned. When `None`, no `--model` arg is
+    /// passed and the CLI keeps its auto-route behaviour — preserving
+    /// backward compatibility for callers that don't pin a model.
+    ///
+    /// The platform model ids the tier router emits
+    /// (`claude-sonnet-4-6`, `claude-opus-4-8`) are exactly the dateless
+    /// aliases the `claude` CLI accepts for `--model`, so the value
+    /// passes through unchanged.
+    fn spawn_child(&self, prompt: &str, model: Option<&str>) -> ArgoResult<tokio::process::Child> {
         let binary = self.resolve_binary();
         let mut cmd = Command::new(&binary);
-        cmd.args(&self.subprocess.default_args)
-            .arg(&prompt)
+        cmd.args(&self.subprocess.default_args);
+        if let Some(model_id) = model.map(str::trim).filter(|m| !m.is_empty()) {
+            cmd.arg("--model").arg(model_id);
+        }
+        cmd.arg(prompt)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        let child = cmd.spawn().map_err(|e| {
+        cmd.spawn().map_err(|e| {
             ArgoError::Provider(format!(
                 "claude-code-cli: spawn {binary} failed: {e} \
                  (set ${} to override, or ensure `{}` is on PATH)",
                 self.subprocess.binary_path_env, self.subprocess.binary_path_fallback,
             ))
-        })?;
+        })
+    }
+
+    /// Spawn the CLI with the rendered prompt + parse stdout JSON.
+    async fn invoke_cli(
+        &self,
+        prompt: String,
+        model: Option<&str>,
+    ) -> ArgoResult<ClaudeCliJsonResponse> {
+        let child = self.spawn_child(&prompt, model)?;
 
         let timeout = Duration::from_millis(self.subprocess.timeout_ms);
         let wait_fut = child.wait_with_output();
@@ -195,8 +219,9 @@ impl Transport for ClaudeCodeCliTransport {
         let prompt = render_prompt(req.system.as_deref(), &req.messages);
         // Read stdin separately so we don't accidentally consume from the
         // parent process — `Stdio::null()` in invoke_cli handles this.
-        let parsed = self.invoke_cli(prompt).await?;
-        Ok(parsed_to_response(parsed, &self.manifest.provider.id))
+        let pinned = request_model(req);
+        let parsed = self.invoke_cli(prompt, pinned).await?;
+        Ok(parsed_to_response(parsed, &self.manifest.provider.id, pinned))
     }
 
     async fn complete_stream(
@@ -208,8 +233,9 @@ impl Transport for ClaudeCodeCliTransport {
         // delta, then a `FinishReason`. v1.1 will switch to
         // `--output-format stream-json` for real streaming.
         let prompt = render_prompt(req.system.as_deref(), &req.messages);
-        let parsed = self.invoke_cli(prompt).await?;
-        let response = parsed_to_response(parsed, &self.manifest.provider.id);
+        let pinned = request_model(req);
+        let parsed = self.invoke_cli(prompt, pinned).await?;
+        let response = parsed_to_response(parsed, &self.manifest.provider.id, pinned);
         let mut deltas: Vec<ArgoResult<ProviderResponseDelta>> = Vec::new();
         if let Some(text) = response.text.as_ref() {
             if !text.is_empty() {
@@ -227,11 +253,37 @@ impl Transport for ClaudeCodeCliTransport {
     }
 }
 
+/// Extract the model id to pin for this request, or `None` to let the
+/// CLI auto-route. An empty `req.model` (the "unpinned" sentinel some
+/// callers use) maps to `None` so the CLI's auto-route behaviour is
+/// preserved for backward compatibility.
+fn request_model(req: &ProviderRequest) -> Option<&str> {
+    let trimmed = req.model.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
 /// Map a parsed CLI JSON response into the platform's `ProviderResponse`.
 /// Pure function — tested in `tests.rs` without spawning a subprocess.
+///
+/// `pinned_model` is the `--model` id the request pinned, if any. When
+/// `Some`, it is authoritative for the reported `provider_meta.model`.
+/// This matters because the `claude` CLI fires an internal title /
+/// summary side-call (often on Haiku) whose token usage shows up in
+/// `modelUsage` — for a short answer that side-call can out-token the
+/// main completion, so `dominant_model()` (max output tokens) would
+/// mislabel the answering model as Haiku. Pinning the request model as
+/// the reported model keeps the audit row honest (the model that
+/// answered is the one we asked for) and ensures Haiku never appears as
+/// the answering model in the dev routing path. When `None` (unpinned /
+/// auto-route), we fall back to `dominant_model()` for backward compat.
 pub(super) fn parsed_to_response(
     parsed: ClaudeCliJsonResponse,
     provider_id: &str,
+    pinned_model: Option<&str>,
 ) -> ProviderResponse {
     let stop_reason = parsed
         .stop_reason
@@ -243,7 +295,10 @@ pub(super) fn parsed_to_response(
         .as_ref()
         .map(|u| (u.input_tokens, u.output_tokens))
         .unwrap_or((None, None));
-    let model = parsed.dominant_model().unwrap_or_default();
+    let model = pinned_model
+        .map(str::to_string)
+        .or_else(|| parsed.dominant_model())
+        .unwrap_or_default();
     let provider_meta = serde_json::json!({
         "provider": provider_id,
         "model": model,

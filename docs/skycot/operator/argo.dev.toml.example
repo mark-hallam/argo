@@ -1,0 +1,53 @@
+# Dev/demo workspace config — Claude Code subscription routing.
+#
+# WHAT THIS DOES
+#   Routes all Pitch-Agent LLM calls (and any session that opts into
+#   tiered routing) through the `claude` CLI subprocess instead of the
+#   metered Anthropic developer API. Billing lands on the operator's
+#   Claude Code subscription — the dev/demo cost-control path.
+#
+# HOW TO ACTIVATE
+#   1. Copy this file to the repo root as `argo.toml`:
+#        cp docs/skycot/operator/argo.dev.toml.example argo.toml
+#   2. Make sure the `claude` CLI is on PATH (`which claude`).
+#   3. For the Pitch Agent demo path, also export the provider selector
+#      the gateway reads at request time:
+#        export ARGO_PITCH_LLM_PROVIDER=claude-code-cli
+#      (The pitch handler defaults to `anthropic`; this env var flips it
+#      to the subprocess driver. The agent-loop turn path instead picks
+#      up the provider from the session's `provider` + routing policy.)
+#   4. Restart the gateway (`make gateway` / `scripts/restart-live-gateway.sh`).
+#
+#   NEVER commit the repo-root `argo.toml` — it is gitignored (`/argo.toml`)
+#   precisely so local dev routing doesn't leak into CI/test routing. Only
+#   this `.example` template is tracked.
+#
+# MODEL POLICY (operator-locked)
+#   Sonnet 4.6 is the HARD FLOOR. The CLI auto-routes short prompts to
+#   Haiku if no `--model` is pinned; the driver now pins `--model` per
+#   request so the tier table below is authoritative. There is NO Haiku
+#   anywhere in this config — the classifier itself runs on Sonnet, and
+#   the floor tier is Sonnet. Only `complex` rises to Opus 4.8.
+#
+# PRODUCTION
+#   Production keeps `manifests/providers/anthropic.toml` (HTTP API path,
+#   Opus 4.8 frontier default). This file is dev/demo only and does not
+#   touch the production routing.
+
+[routing]
+policy = "tiered"
+
+[routing.tiered]
+# Classify via Sonnet (NOT Haiku) — the classifier is a cheap single
+# word return but we keep it on the floor model per operator policy.
+classifier = "claude-code-cli:claude-sonnet-4-6"
+# Floor tier: simple + medium both Sonnet 4.6.
+simple     = "claude-code-cli:claude-sonnet-4-6"
+medium     = "claude-code-cli:claude-sonnet-4-6"
+# Only complex work rises to Opus 4.8.
+complex    = "claude-code-cli:claude-opus-4-8"
+# Classifier latency budget (ms); past this the loop falls through to the
+# session default model rather than blocking the turn.
+classify_threshold_ms = 120
+# On classifier error, fall back to the session default model (never halt).
+fallback_to_default_on_error = true

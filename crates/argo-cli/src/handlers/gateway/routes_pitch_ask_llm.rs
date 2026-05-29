@@ -26,21 +26,21 @@
 //! block_reason + matched_class + swapped_response).
 
 use super::routes_pitch_ask::PitchChannel;
+// Re-export so existing `routes_pitch_ask_llm::CompanyFacts` paths
+// (routes_pitch_ask.rs + the tests module) keep resolving after the
+// facts loader moved to a sibling module to satisfy the LOC ceiling.
+pub(super) use super::routes_pitch_ask_llm_facts::CompanyFacts;
+use argo_agent_runner::{build_transport, load_manifest};
 use argo_capability::{
     evaluate_claim, ChannelKind, ClaimCandidate, ClaimDisposition, TruthBoundaryPolicy,
 };
-use argo_provider::{
-    AnthropicTransport, ProviderManifest, ProviderRequest, ProviderResponse, Sampling, Transport,
-};
+use argo_provider::{ProviderRequest, ProviderResponse, Sampling, Transport};
 use argo_skill::canonical_qa::CanonicalQaIndex;
 use argo_types::{
     ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId,
 };
 use chrono::Utc;
 use sha2::{Digest, Sha256};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::OnceLock;
 use uuid::Uuid;
 
 /// One LLM-path response. Mirrored on the wire by `routes_pitch_ask.rs`
@@ -114,7 +114,7 @@ pub(super) async fn ask_with_llm(
             ..Sampling::default()
         },
     };
-    let transport = anthropic_transport(provider_id)?;
+    let transport = build_pitch_transport(provider_id).await?;
     let resp: ProviderResponse = transport.complete(&req).await?;
     let draft = resp.text.unwrap_or_default();
     finalize_outcome(
@@ -269,95 +269,6 @@ fn channel_kind_label(c: &ChannelKind) -> &'static str {
     }
 }
 
-/// Operator-reviewed company facts loaded from
-/// `packs/pitch-agent/facts.toml`.
-#[derive(Debug, Clone, serde::Deserialize)]
-pub(super) struct CompanyFacts {
-    #[serde(default)]
-    pub company: toml::Table,
-    #[serde(default)]
-    pub product: toml::Table,
-    #[serde(default)]
-    pub architecture: toml::Table,
-    #[serde(default)]
-    pub differentiation: toml::Table,
-    #[serde(default)]
-    pub deployment: toml::Table,
-    #[serde(default)]
-    pub fundraising_stance: toml::Table,
-}
-
-impl CompanyFacts {
-    /// Render every section to Markdown — one `## Section` heading per
-    /// table, one `- key: value` bullet per fact. Tests pin the shape.
-    pub(super) fn as_markdown(&self) -> String {
-        let mut out = String::new();
-        for (heading, table) in [
-            ("Company", &self.company),
-            ("Product", &self.product),
-            ("Architecture", &self.architecture),
-            ("Differentiation", &self.differentiation),
-            ("Deployment", &self.deployment),
-            ("Fundraising stance", &self.fundraising_stance),
-        ] {
-            if table.is_empty() {
-                continue;
-            }
-            out.push_str(&format!("## {heading}\n\n"));
-            for (k, v) in table {
-                let value_str = match v {
-                    toml::Value::String(s) => s.clone(),
-                    other => other.to_string(),
-                };
-                out.push_str(&format!("- {k}: {value_str}\n"));
-            }
-            out.push('\n');
-        }
-        out
-    }
-
-    /// Load the operator-reviewed facts from disk, with caching. Errors
-    /// surface as `ArgoError::Schema` so the gateway returns 503.
-    pub(super) fn load_cached() -> ArgoResult<Arc<CompanyFacts>> {
-        let cell = FACTS.get_or_init(load_facts_from_disk);
-        cell.as_ref().map(Arc::clone).map_err(|e| ArgoError::Schema(e.clone()))
-    }
-}
-
-static FACTS: OnceLock<Result<Arc<CompanyFacts>, String>> = OnceLock::new();
-
-fn load_facts_from_disk() -> Result<Arc<CompanyFacts>, String> {
-    let path = facts_path();
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|e| format!("read {}: {e}", path.display()))?;
-    let parsed: CompanyFacts =
-        toml::from_str(&raw).map_err(|e| format!("parse {}: {e}", path.display()))?;
-    Ok(Arc::new(parsed))
-}
-
-fn facts_path() -> PathBuf {
-    if let Ok(p) = std::env::var("ARGO_PITCH_FACTS_PATH") {
-        if !p.trim().is_empty() {
-            return PathBuf::from(p);
-        }
-    }
-    workspace_root().join("packs/pitch-agent/facts.toml")
-}
-
-fn workspace_root() -> PathBuf {
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let mut cursor: &Path = &cwd;
-    loop {
-        if cursor.join("Cargo.toml").exists() && cursor.join("crates").is_dir() {
-            return cursor.to_path_buf();
-        }
-        match cursor.parent() {
-            Some(parent) => cursor = parent,
-            None => return cwd,
-        }
-    }
-}
-
 /// Default Anthropic model id used for the Pitch Agent. Pinned here so
 /// the demo doesn't accidentally roll forward mid-call — operators
 /// upgrade by editing this constant.
@@ -366,30 +277,25 @@ const PITCH_MODEL: &str = "claude-sonnet-4-6";
 /// headroom for refusal phrasing.
 const PITCH_MAX_TOKENS: u32 = 500;
 
-fn anthropic_transport(provider_id: &str) -> ArgoResult<Arc<AnthropicTransport>> {
+/// Build the LLM transport for the Pitch Agent from the named provider
+/// manifest. Routes through the shared [`build_transport`] dispatcher so
+/// the manifest's `transport_kind` decides the driver:
+///
+/// - `anthropic` (default) → HTTP `AnthropicTransport` (production /
+///   API-key path, unchanged).
+/// - `claude-code-cli` → subprocess `ClaudeCodeCliTransport`, billing
+///   against the operator's Claude Code subscription (dev/demo
+///   cost-control path). Set `ARGO_PITCH_LLM_PROVIDER=claude-code-cli`
+///   to activate.
+///
+/// Boxed (not `Arc<AnthropicTransport>`) so the subprocess driver can
+/// flow through the same return type; the caller only needs `complete`.
+async fn build_pitch_transport(provider_id: &str) -> ArgoResult<Box<dyn Transport>> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let manifest_path = cwd
-        .join("manifests")
-        .join("providers")
-        .join(format!("{provider_id}.toml"));
-    let body = std::fs::read_to_string(&manifest_path).map_err(|e| {
-        ArgoError::Provider(format!(
-            "pitch llm: provider manifest `{}` unreadable at `{}`: {e}",
-            provider_id,
-            manifest_path.display()
-        ))
+    let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
+        ArgoError::Provider(format!("pitch llm: load provider `{provider_id}` manifest: {e}"))
     })?;
-    let manifest = ProviderManifest::from_toml_str(&body)?;
-    let key_env = manifest.auth.api_key_env.clone();
-    let api_key = argo_config::cred::get_unscoped(&key_env).map_err(|_| {
-        ArgoError::Provider(format!(
-            "pitch llm: provider `{provider_id}` requires env `{key_env}` (from manifest \
-             auth.api_key_env); set it and retry"
-        ))
-    })?;
-    Ok(Arc::new(AnthropicTransport::from_manifest(
-        manifest, &api_key,
-    )?))
+    build_transport(manifest).await
 }
 
 fn user_message(prompt: &str) -> Message {
