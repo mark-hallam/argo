@@ -35,5 +35,10 @@ test("CSP connect-src whitelists the active gateway URL and never the legacy 878
   expect(csp).not.toEqual("");
   expect(csp).toContain(`connect-src`);
   expect(csp).toContain(expectedConnectSrc());
+  // CSP connect-src governs WebSocket handshakes too, and ws: is a
+  // distinct scheme from http:. The live approvals inbox connects to
+  // `${gateway}/inbox/ws`, so the ws-scheme origin must be whitelisted
+  // or the browser silently refuses the handshake.
+  expect(csp).toContain(expectedConnectSrc().replace(/^http(s?):/, "ws$1:"));
   expect(csp).not.toContain("http://127.0.0.1:8787");
 });
