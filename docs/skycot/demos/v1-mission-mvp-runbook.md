@@ -56,6 +56,14 @@ into the narration; the tests are source material, not the story.
   - `/approvals` — Scene 6 inbox anchor.
 
   Re-running is idempotent. If the script reports any route >5s after a warm run, restart `pnpm dev` and re-prewarm. The Slack-approval cold-compile pain on `/audit/action/[actionId]` is addressed at the runtime layer by the companion brief `fix-spa-proxy-audit-detail-50x-slower-than-gateway-direct`; this pre-warm step stays load-bearing until that lands.
+- [ ] Start the SPA with the embedded Next.js dev overlay hidden. From `web/`:
+  ```bash
+  NEXT_PUBLIC_ARGO_DEMO_MODE=1 \
+  NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:7400 \
+  NEXT_PUBLIC_HIDE_DEV_OVERLAY=1 \
+  pnpm dev
+  ```
+  The Next.js dev overlay can show a bottom-left "1 Issue" chip in `next dev`; `NEXT_PUBLIC_HIDE_DEV_OVERLAY=1` hides that chip for the recording browser.
 - [ ] Gateway CORS preflight passes from the recording browser origin (`localhost:*` or `127.0.0.1:*`, including preview proxies such as `http://localhost:53854`); production runs must use an explicit `[gateway.cors].allowed_origins` entry instead.
 - [ ] Slack desktop notifications off **except** for the demo channel.
 - [ ] `argo gateway start --bind 127.0.0.1 --port 7400` running in a non-visible terminal. Stderr should print `argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted`.

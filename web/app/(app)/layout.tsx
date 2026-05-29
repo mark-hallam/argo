@@ -29,6 +29,7 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
   return (
     <MotionRoot>
       <AppShell>
+        <HideNextDevOverlay />
         <MemberExpiryBanner />
         <RouteTransition>{children}</RouteTransition>
         <HelpWidget />
@@ -36,5 +37,18 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
         <WelcomeBackBanner />
       </AppShell>
     </MotionRoot>
+  );
+}
+
+function HideNextDevOverlay() {
+  if (process.env.NEXT_PUBLIC_HIDE_DEV_OVERLAY !== "1") return null;
+  return (
+    <style>
+      {`
+        [data-nextjs-toast] {
+          display: none !important;
+        }
+      `}
+    </style>
   );
 }
