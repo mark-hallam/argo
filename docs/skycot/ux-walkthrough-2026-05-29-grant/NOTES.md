@@ -39,10 +39,14 @@ Filled "Avery Stone" + a fintech-VP context → clicked **Draft follow-up**:
 **No new breakage from the Grant + roster→7 changes.** All console errors are
 the SAME four pre-existing issues already logged in the session handoff:
 
-1. `/audit` — "Element type is invalid … got: undefined" hero error (×2–3).
-   Page renders OK; only visible with dev tools open. **Pre-existing.** Worth a
-   real fix before any public release (not a POC blocker per the demo
-   positioning doc).
+1. `/audit` — **FIXED (commit 04ca2a4a5).** This was NOT "renders OK" — the
+   "Element type is invalid (Check render method of ChannelBadge)" error was
+   caught by the route error boundary and replaced the WHOLE feed with a 500
+   shell. Root cause: the live feed emits channel kinds `agent`/`mcp`/
+   `computer-use` outside the SPA's ChannelKind union → `ICONS[kind]` undefined
+   → `<undefined/>`. ChannelBadge now resolves a fallback (and proper icons for
+   those 3 surfaces). Re-verified: /audit renders the feed, 50 channel badges
+   across web/slack/agent/mcp/computer-use, 0 console errors.
 2. `/approvals` — `ws://…/inbox/ws` WebSocket auth-fail (no creds). Data renders
    fine; only live-push is missing. **Pre-existing.**
 3. `/skills` — one 404 sub-resource. Page renders. **Pre-existing.**
@@ -56,10 +60,25 @@ Avery) on top of the 8 seeded = 10 items, zero duplicates. Reads well for the
 demo (Grant visibly producing). To return to exactly the curated 9, re-run the
 fresh-DB reset sequence (see handoff doc).
 
+## Post-fix re-run (same session) — clean baseline
+
+After fixing `/audit` (commit 04ca2a4a5) and `/approvals` (commit ad913bf25),
+the walkthrough was re-run. **12 of 14 routes are now 0-error**; both
+demo-anchor pages are clean:
+
+| Route | errs (before → after) |
+|---|---|
+| /audit | 3 + 500 shell → **0, feed renders** |
+| /approvals | 2 (WS auth) → **0** |
+| /skills | 1 → 1 (`GET /api/v1/skills/learned-this-month` 404 — gateway endpoint not implemented) |
+| worker-grant / worker-portia | 1 each → 1 each (coming-soon tab 404, no live endpoint) |
+| all 9 others | 0 → 0 |
+
 ## Verdict
 
-The platform is demo-ready with Grant + Portia as the two real working
-teammates. The four pre-existing console errors are camera-invisible with dev
-tools closed (per the runbook) and are not POC blockers. Recommend fixing the
-`/audit` Element-type error before any public/marketing capture since it's the
-most likely to surface.
+Demo-ready, with Grant + Portia as the two real working teammates and both
+Scene-6 anchor pages (`/audit`, `/approvals`) now error-free. The two
+remaining console errors are single secondary-resource 404s
+(`skills/learned-this-month`, a worker-detail coming-soon tab) that need a
+gateway endpoint each (evaluator-lane Rust) and are camera-invisible with dev
+tools closed. Not POC blockers.
