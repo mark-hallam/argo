@@ -5,11 +5,11 @@
 //! code, not evidence that the seeded rows respect the
 //! multi-tenant-by-construction invariant. Verifies three properties:
 //!
-//! 1. Seeding tenant A produces exactly five workers, names matching
+//! 1. Seeding tenant A produces exactly seven workers, names matching
 //!    the canonical [`DEMO_SEED_PERSONAS`] spine.
 //! 2. Tenant B sees zero workers (different tenant, complete
 //!    isolation).
-//! 3. Re-seeding tenant A returns the same five worker IDs in the
+//! 3. Re-seeding tenant A returns the same seven worker IDs in the
 //!    same order — no duplicates, no new rows.
 
 use argo_demo_seed::{seed_workers, DEMO_SEED_PERSONAS};
@@ -24,16 +24,16 @@ async fn fresh_store() -> SessionStore {
 }
 
 #[tokio::test]
-async fn tenant_a_sees_exactly_five_named_workers() {
+async fn tenant_a_sees_exactly_seven_named_workers() {
     let store = fresh_store().await;
     let tenant_a = TenantId::new();
 
     let ids = seed_workers(&store, tenant_a).await.unwrap();
-    assert_eq!(ids.len(), 5);
+    assert_eq!(ids.len(), 7);
 
     let identities = IdentityStore::new(&store);
     let listed = identities.list_workers(tenant_a, false).await.unwrap();
-    assert_eq!(listed.len(), 5, "tenant A should see exactly 5 workers");
+    assert_eq!(listed.len(), 7, "tenant A should see exactly 7 workers");
 
     let mut names: Vec<String> = listed.iter().map(|w| w.persona.name.clone()).collect();
     names.sort();
@@ -44,7 +44,7 @@ async fn tenant_a_sees_exactly_five_named_workers() {
     expected.sort();
     assert_eq!(
         names, expected,
-        "tenant A worker names must match the canonical 5-persona spine",
+        "tenant A worker names must match the canonical 7-persona spine",
     );
 
     for worker in &listed {
@@ -73,7 +73,7 @@ async fn tenant_b_sees_zero_workers_after_seeding_tenant_a() {
 }
 
 #[tokio::test]
-async fn reseeding_tenant_a_returns_same_five_ids() {
+async fn reseeding_tenant_a_returns_same_seven_ids() {
     let store = fresh_store().await;
     let tenant_a = TenantId::new();
 
@@ -82,15 +82,15 @@ async fn reseeding_tenant_a_returns_same_five_ids() {
 
     assert_eq!(
         first, second,
-        "re-seeding must return the same five worker IDs in the same order",
+        "re-seeding must return the same seven worker IDs in the same order",
     );
 
     let identities = IdentityStore::new(&store);
     let listed = identities.list_workers(tenant_a, false).await.unwrap();
     assert_eq!(
         listed.len(),
-        5,
-        "re-seed must not insert duplicate rows; got {} workers, expected 5",
+        7,
+        "re-seed must not insert duplicate rows; got {} workers, expected 7",
         listed.len(),
     );
 }
@@ -104,8 +104,8 @@ async fn parallel_tenant_seeds_remain_isolated() {
     let ids_a = seed_workers(&store, tenant_a).await.unwrap();
     let ids_b = seed_workers(&store, tenant_b).await.unwrap();
 
-    assert_eq!(ids_a.len(), 5);
-    assert_eq!(ids_b.len(), 5);
+    assert_eq!(ids_a.len(), 7);
+    assert_eq!(ids_b.len(), 7);
 
     let intersection: Vec<_> = ids_a.iter().filter(|id| ids_b.contains(id)).collect();
     assert!(
@@ -117,8 +117,8 @@ async fn parallel_tenant_seeds_remain_isolated() {
     let identities = IdentityStore::new(&store);
     let a_listed = identities.list_workers(tenant_a, false).await.unwrap();
     let b_listed = identities.list_workers(tenant_b, false).await.unwrap();
-    assert_eq!(a_listed.len(), 5);
-    assert_eq!(b_listed.len(), 5);
+    assert_eq!(a_listed.len(), 7);
+    assert_eq!(b_listed.len(), 7);
 
     for w in &a_listed {
         assert_eq!(w.tenant_id, tenant_a);

@@ -107,6 +107,11 @@ pub async fn run_canonical_v1_seed(
     report.foreign_skills_created = seed_foreign_skill(store, foreign_tenant).await?;
     report.marketplace_skills_created =
         seed_demo_marketplace_skills(store, opts.tenant_id).await?;
+    // Assign real catalog skills to the hero workers so Claim 4's
+    // adoption surfaces (`/skills/<id>/usage`, "learned this month")
+    // show genuine usage. Runs AFTER the catalog rows exist.
+    report.worker_skills_assigned =
+        seed_worker_skill_assignments(store, opts.tenant_id, &worker_ids).await?;
 
     // ── Pass A — real LLM turns (deferred per fix-brief split) ────
     // The brief calls for 10-20 real `AgentRunner::run_turn` calls
@@ -419,6 +424,58 @@ async fn seed_approval_requests(
     Ok(inserted)
 }
 
+/// Assign a couple of real catalog skills to each hero worker so Claim 4's
+/// adoption surfaces (`/skills/<id>/usage`, "skills learned this month")
+/// show genuine usage instead of an empty state. The skill ids are the
+/// same tenant-scoped `skill` rows `seed_demo_marketplace_skills` created;
+/// `worker_skill.created_at` defaults to now, so each row lands inside the
+/// current month. Real data — the workers genuinely carry these skills in
+/// their layered lookup. Idempotent: `add_worker_skill` upserts.
+async fn seed_worker_skill_assignments(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    worker_ids: &[argo_identity::WorkerId],
+) -> SeedResult<usize> {
+    if worker_ids.is_empty() {
+        return Ok(0);
+    }
+    // Catalog skill ids for the tenant (16-byte blob → hyphenated uuid,
+    // the form `/skills` + `worker_skill.skill_id` key on).
+    let blobs: Vec<Vec<u8>> = sqlx::query_scalar(
+        "SELECT id FROM skill \
+         WHERE tenant_id = ? AND lifecycle_state = 'active' AND superseded_by IS NULL \
+         ORDER BY name ASC LIMIT 8",
+    )
+    .bind(tenant_id.to_string())
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| argo_types::ArgoError::Provider(format!("list skills for assignment: {e}")))?;
+    let skill_ids: Vec<String> = blobs
+        .iter()
+        .filter(|b| b.len() == 16)
+        .map(|b| {
+            let mut a = [0u8; 16];
+            a.copy_from_slice(b);
+            Uuid::from_bytes(a).to_string()
+        })
+        .collect();
+    if skill_ids.is_empty() {
+        return Ok(0);
+    }
+    let identities = IdentityStore::new(store);
+    let mut assigned = 0usize;
+    // Each worker learns two skills (round-robin over the catalog) so
+    // per-skill usage counts are non-trivial and >0 workers appear.
+    for (i, wid) in worker_ids.iter().enumerate() {
+        for k in 0..2usize {
+            let sid = &skill_ids[(i + k) % skill_ids.len()];
+            identities.add_worker_skill(*wid, sid, 70 + (k as i64) * 10).await?;
+            assigned += 1;
+        }
+    }
+    Ok(assigned)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,6 +567,34 @@ mod tests {
             "expected 5 pending demo approvals after re-seed, got {}",
             pending.len()
         );
+    }
+
+    #[tokio::test]
+    async fn assigns_real_skills_to_workers_for_claim_4_adoption() {
+        let store = open_store().await;
+        let tenant = TenantId::new();
+        let mut opts = SeedOptions::canonical_v1(tenant);
+        opts.skip_pass_a_turns = true;
+        opts.dressing_audit_rows = 0;
+
+        let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
+        // 7 hero workers × 2 skills each.
+        assert!(
+            report.worker_skills_assigned >= 7,
+            "every hero worker should learn at least one skill; got {}",
+            report.worker_skills_assigned
+        );
+        // Ground truth: worker_skill rows exist for the tenant's workers,
+        // so /skills/<id>/usage + "learned this month" are non-empty.
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM worker_skill ws \
+             JOIN worker w ON w.id = ws.worker_id WHERE w.tenant_id = ?",
+        )
+        .bind(tenant.to_string())
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+        assert!(count >= 7, "expected worker_skill rows seeded; got {count}");
     }
 
     #[tokio::test]

@@ -74,6 +74,10 @@ pub struct SeedReport {
     /// via `GET /api/v1/skills` — fix-skills-marketplace-perpetual-
     /// loading requires ≥6 so the FEATURED panel paints real cards.
     pub marketplace_skills_created: usize,
+    /// Number of `worker_skill` rows assigned (hero workers learning real
+    /// catalog skills) so Claim 4's `/skills/<id>/usage` + "learned this
+    /// month" surfaces show genuine adoption rather than an empty state.
+    pub worker_skills_assigned: usize,
     /// Number of `audit_record` rows produced by Pass A real-LLM
     /// turns. Always `0` when [`SeedOptions::skip_pass_a_turns`]
     /// is true.
