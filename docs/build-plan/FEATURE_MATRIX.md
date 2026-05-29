@@ -218,7 +218,7 @@ From the verified competitive analysis ([`docs/skycot/research/2026-05-29-compet
 
 | Gap | Status | Priority | Who has it | SKYCOT today | Maps to |
 |---|---|---|---|---|---|
-| Dual agent-identity (delegated on-behalf-of vs. autonomous) + cross-runtime governance + behavioral threat-detection | 💡 Backlog | **Highest** | MS Agent 365, Salesforce | RBAC + audit, but no dual-identity / cross-runtime / threat-detection | new — governance tail (§6 v2.1) |
+| Dual agent-identity (delegated on-behalf-of vs. autonomous) + cross-runtime governance + behavioral threat-detection | 💡 Backlog | **Highest** | MS Agent 365, Salesforce | RBAC + audit, but no dual-identity / cross-runtime / threat-detection | [plan 04](../skycot/design/2026-05-29-gap-closure-plans/04-enterprise-governance-and-audit-readiness.md) — package existing moat first (LOW effort) |
 | Multi-worker orchestration — visual/parallel DAG, handoff/routing/escalation, nested supervisors | 💡 Backlog | High | Relevance, Dust, LangGraph, Beam, Ema | flat 1-to-1 delegation only | §6 v1.3 (elevate) |
 | Self-improvement / feedback-mining loop (human-feedback training-data export + production-trace clustering) | 🟡 Partial | Med-High | CrewAI, LangSmith | **`argo eval export-training-data` ships SFT-JSONL export of decided approvals + committed retrains (2026-05-29)**; trace-clustering still backlog | [plan 03](../skycot/design/2026-05-29-gap-closure-plans/03-self-improvement-training-export.md) |
 | Live conversational voice (real STT/TTS provider behind the stub) | 🗓️ Planned | High | ElevenLabs, Bland, Vapi, Retell | unwired stub | §6a L1–L2 |
