@@ -1,6 +1,8 @@
 "use client";
 
-import { ArrowLeft, Plus } from "lucide-react";
+import "./page.css";
+
+import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useVerticals } from "@/lib/api/verticals";
 
@@ -27,6 +29,24 @@ const FALLBACK_VERTICALS: ReadonlyArray<readonly [string, string, string]> = [
   ["compliance", "Compliance", "Policy reviews, audit prep, and regulatory deadline tracking."],
 ];
 
+/**
+ * D3-recipe accent palette, applied per-tile by index so the picker
+ * keeps the brand gradient look regardless of how many verticals the
+ * gateway returns (the static 5-entry list this replaced hardcoded an
+ * accent per id; the data-driven list cycles the same palette).
+ */
+const ACCENT_PALETTE = [
+  "#8b5cf6",
+  "#0891b2",
+  "#ec4899",
+  "#f59e0b",
+  "#14b8a6",
+] as const;
+
+function accentFor(index: number): string {
+  return ACCENT_PALETTE[index % ACCENT_PALETTE.length];
+}
+
 function summariseDescription(text: string): string {
   const trimmed = text.trim();
   if (trimmed.length <= 160) return trimmed;
@@ -47,39 +67,51 @@ export default function WorkflowBuildEntryPage() {
     : FALLBACK_VERTICALS;
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-      <Link
-        href="/workflows"
-        className="inline-flex w-fit items-center gap-2 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-      >
-        <ArrowLeft className="size-3.5" />
-        All workflows
+    <div className="build-stage">
+      <Link href="/workflows" className="build-back">
+        <ArrowLeft size={11} /> ALL WORKFLOWS
       </Link>
 
-      <header className="max-w-3xl space-y-3">
-        <p className="text-xs font-semibold uppercase text-[var(--muted-foreground)]">
-          Workflow builder
-        </p>
-        <h1 className="text-3xl font-semibold tracking-normal text-[var(--foreground)] sm:text-4xl">
-          Start from a blank canvas
-        </h1>
-        <p className="text-base leading-7 text-[var(--muted-foreground)]">
-          Pick the vertical that owns the workflow. The builder opens with an
-          empty canvas and a draft name ready to edit.
-        </p>
-      </header>
+      <div className="build-eyebrow">
+        <Sparkles size={11} /> BUILD A WORKFLOW · CHOOSE A VERTICAL
+      </div>
+
+      <h1 className="build-hero">
+        Start with a
+        <br />
+        <strong>blank canvas</strong>.
+      </h1>
+
+      <p className="build-sub">
+        Pick the vertical that owns this workflow. The builder opens with an empty
+        canvas and a draft name ready to edit — or browse the 50+ templates if
+        you&apos;d rather clone a proven playbook.
+      </p>
+
+      <div className="build-cta-row">
+        <Link
+          href="/workflows/templates"
+          className="build-cta-templates"
+          data-testid="build-templates-cta"
+        >
+          <Sparkles size={13} /> Browse 50+ templates
+        </Link>
+        <span className="build-cta-or">or pick a vertical below</span>
+      </div>
+
+      <div className="build-section-label">
+        <span>VERTICALS</span>
+        <span>{entries.length} TO CHOOSE FROM</span>
+      </div>
 
       {isLoading ? (
         <section
           aria-label="Loading workflow verticals"
           data-testid="workflow-build-vertical-picker-skeleton"
-          className="grid gap-3 sm:grid-cols-2"
+          className="build-grid"
         >
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="min-h-32 animate-pulse rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-5"
-            />
+            <div key={i} className="build-card build-card--skeleton" />
           ))}
         </section>
       ) : (
@@ -87,30 +119,37 @@ export default function WorkflowBuildEntryPage() {
           aria-label="Choose a workflow vertical"
           data-testid="workflow-build-vertical-picker"
           data-source={useGateway ? "gateway" : "fallback"}
-          className="grid gap-3 sm:grid-cols-2"
+          className="build-grid"
         >
-          {entries.map(([id, label, description]) => (
-            <Link
-              key={id}
-              href={`/workflows/${encodeURIComponent(id)}/untitled/build`}
-              data-testid={`workflow-build-vertical-${id}`}
-              className="group flex min-h-32 items-start justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:shadow-sm"
-            >
-              <span className="space-y-2">
-                <span className="block text-lg font-semibold text-[var(--foreground)]">
-                  {label}
-                </span>
-                <span className="block text-sm leading-6 text-[var(--muted-foreground)]">
-                  {description}
-                </span>
-              </span>
-              <span className="mt-1 inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted-foreground)] transition group-hover:border-[var(--primary)] group-hover:text-[var(--primary)]">
-                <Plus className="size-4" />
-              </span>
-            </Link>
-          ))}
+          {entries.map(([id, label, description], idx) => {
+            const accent = accentFor(idx);
+            return (
+              <Link
+                key={id}
+                href={`/workflows/${encodeURIComponent(id)}/untitled/build`}
+                data-testid={`workflow-build-vertical-${id}`}
+                className={`build-card${idx === 0 ? " build-card--lead" : ""}`}
+              >
+                <div className="build-card-top">
+                  <span className="build-card-vertical" style={{ color: accent }}>
+                    {label.toUpperCase()}
+                  </span>
+                  <span className="build-card-stage">STEP 1 OF 3</span>
+                </div>
+                <h2 className="build-card-name">{label}</h2>
+                <p className="build-card-desc">{description}</p>
+                <div
+                  className="build-card-accent"
+                  style={{
+                    background: `linear-gradient(90deg, ${accent} 0%, #ec4899 60%, transparent 100%)`,
+                  }}
+                />
+                <ArrowRight size={18} className="build-card-arrow" />
+              </Link>
+            );
+          })}
         </section>
       )}
-    </main>
+    </div>
   );
 }
