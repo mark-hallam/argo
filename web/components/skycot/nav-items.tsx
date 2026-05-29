@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, GitBranch, Inbox, Layers, Mic, Settings, Sparkles, Users, Wand2, Workflow } from "lucide-react";
+import { Activity, GitBranch, Inbox, Layers, Mic, Settings, Sparkles, Users, Wand2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -12,6 +12,14 @@ import type { ReactNode } from "react";
  * Adding a top-level surface: append a new entry here, then ship its
  * `(app)/<path>/page.tsx`. Until the route exists, clicking falls
  * through to `not-found.tsx` — that's intentional.
+ *
+ * The roster has exactly ONE sidebar entry: "Team" (`/team`, the
+ * canonical rendered roster, matching the "5 teammates, one team"
+ * page header + operator vocabulary). The `/workers` route still
+ * resolves (deep-links, `/workers/<id>/overview`, `?just-hired=1`)
+ * — only the duplicate *sidebar entry* was removed, because two
+ * adjacent entries ("Team" + "Workers") for one roster surface read
+ * as two features to a buyer.
  */
 export interface NavItemDescriptor {
   href: string;
@@ -22,7 +30,6 @@ export interface NavItemDescriptor {
 export const NAV_ITEMS: NavItemDescriptor[] = [
   { href: "/", label: "Approvals", icon: <Inbox /> },
   { href: "/team", label: "Team", icon: <Users /> },
-  { href: "/workers", label: "Workers", icon: <Workflow /> },
   { href: "/genesis", label: "Genesis", icon: <Wand2 /> },
   { href: "/pitch", label: "Pitch", icon: <Mic /> },
   { href: "/cohorts", label: "Cohorts", icon: <Layers /> },
