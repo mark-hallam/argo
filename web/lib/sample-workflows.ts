@@ -15,6 +15,12 @@ import type {
   CodeConfig,
   HttpRequestConfig,
 } from "@/app/(app)/workflows/[verticalId]/[name]/build/types";
+// Type-only import; the runtime side of `api/workflows.ts` imports
+// from this file, so we keep this strictly type-level to avoid a
+// runtime cycle. Substrate stays canonically defined in
+// `lib/api/workflows.ts` because the SubstrateChip component and 9
+// other call-sites already import it from there.
+import type { WorkflowSubstrate } from "@/lib/api/workflows";
 
 export type WorkflowStepKind =
   | "trigger"
@@ -108,6 +114,7 @@ export interface WorkflowSummary {
   /** UUID for `/workers/<id>` click-through. Set only when `authorType === "worker"` AND a worker page exists. */
   authorWorkerId?: string;
   risk: WorkflowRisk;
+  substrate: WorkflowSubstrate;
 }
 
 export interface WorkflowSpec {
@@ -117,6 +124,7 @@ export interface WorkflowSpec {
   version: string;
   steps: WorkflowStep[];
   risk: WorkflowRisk;
+  substrate: WorkflowSubstrate;
 }
 
 export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
@@ -131,6 +139,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928a-7270-a766-f945b6cd7161",
     risk: "approval-required",
+    substrate: "headless",
   },
   {
     name: "screen_candidate",
@@ -143,6 +152,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928d-78b1-a6b2-136d9ed263ce",
     risk: "autonomous",
+    substrate: "headless",
   },
   {
     name: "approve_refund",
@@ -155,6 +165,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928e-7f20-803b-55266e526011",
     risk: "approval-required",
+    substrate: "headless",
   },
   {
     name: "qualify_lead",
@@ -168,6 +179,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928a-7270-a766-f945b6cd7161",
     risk: "approval-required",
+    substrate: "headless",
   },
   {
     name: "triage_ticket",
@@ -180,6 +192,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928e-7f20-803b-55266e526011",
     risk: "autonomous",
+    substrate: "headless",
   },
   {
     name: "morning_pipeline_digest",
@@ -193,6 +206,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928c-72b3-85c6-436fe5004c50",
     risk: "autonomous",
+    substrate: "headless",
   },
   {
     name: "clean_customer_list",
@@ -206,6 +220,7 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928f-7281-bf8d-e062bc277478",
     risk: "autonomous",
+    substrate: "headless",
   },
   {
     name: "weekly_standup_digest",
@@ -219,6 +234,43 @@ export const SAMPLE_WORKFLOW_SUMMARIES: WorkflowSummary[] = [
     authorType: "worker",
     authorWorkerId: "019e6785-928c-72b3-85c6-436fe5004c50",
     risk: "autonomous",
+    substrate: "headless",
+  },
+  {
+    name: "customer_research_followup",
+    vertical: "sales",
+    description:
+      "After a discovery call, capture call notes into the macOS Notes app, summarise next steps, and DM the AE.",
+    steps: 4,
+    versions: 1,
+    lastEdited: "12 minutes ago",
+    lastEditor: "Mariah",
+    risk: "autonomous",
+    substrate: "macos",
+  },
+  {
+    name: "competitor_pricing_scrape",
+    vertical: "gtm-engineer",
+    description:
+      "Drive a real browser via Playwright to compare competitor pricing pages, flag deltas, post the diff to Slack.",
+    steps: 5,
+    versions: 2,
+    lastEdited: "45 minutes ago",
+    lastEditor: "Priya",
+    risk: "approval-required",
+    substrate: "browser",
+  },
+  {
+    name: "pdf_invoice_extraction",
+    vertical: "finance",
+    description:
+      "Run sandboxed Python in an E2B box to OCR a batch of PDF invoices, normalize line items, and push to the ledger.",
+    steps: 4,
+    versions: 1,
+    lastEdited: "3 hours ago",
+    lastEditor: "Nori",
+    risk: "approval-required",
+    substrate: "e2b",
   },
 ];
 
@@ -230,6 +282,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       "Classify inbound tickets, deflect with KB articles, escalate VIPs to a human. Median resolution under 4 minutes.",
     version: "v6",
     risk: "autonomous",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -261,6 +314,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
     description: "BANT-style qualification + calendar-link insertion + CRM update on accept.",
     version: "v4",
     risk: "approval-required",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -308,6 +362,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
     description: "Verify refund eligibility, check ledger, route high-value to manager.",
     version: "v2",
     risk: "approval-required",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -354,6 +409,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       "Every weekday morning, pull yesterday's pipeline movement from your CRM API, summarise the headline numbers, post to Slack.",
     version: "v2",
     risk: "autonomous",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -398,6 +454,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       "Take a messy CSV of customer names, run a short JavaScript step to title-case and dedupe, write the cleaned file back.",
     version: "v1",
     risk: "autonomous",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -443,6 +500,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       "When a seller submits inventory, validate it, generate the listing copy, and post to Facebook Marketplace once the seller approves.",
     version: "v3",
     risk: "approval-required",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -503,6 +561,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       "Every Monday morning, pull last week's Linear + GitHub activity per teammate, draft a 5-bullet standup digest, and post to Slack #standup.",
     version: "v2",
     risk: "autonomous",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -541,6 +600,7 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
       "First-pass screen of inbound candidates against the JD. Surfaces strong matches, declines clear misses, books interviews for the in-between.",
     version: "v5",
     risk: "autonomous",
+    substrate: "headless",
     steps: [
       {
         id: "step-1",
@@ -590,6 +650,135 @@ export const SAMPLE_WORKFLOW_SPECS: Record<string, WorkflowSpec> = {
         kind: "data",
         name: "Append to ATS",
         description: "Greenhouse note + tag (strong-yes / phone-screen / declined).",
+      },
+    ],
+  },
+  "sales/customer_research_followup": {
+    name: "customer_research_followup",
+    vertical: "sales",
+    description:
+      "After a Zoom discovery call, dump structured call notes into the macOS Notes app, summarise next steps, and DM the AE.",
+    version: "v1",
+    risk: "autonomous",
+    substrate: "macos",
+    steps: [
+      {
+        id: "step-1",
+        kind: "trigger",
+        name: "Discovery call ends",
+        description: "Zoom webhook fires when the call recording finishes processing.",
+      },
+      {
+        id: "step-2",
+        kind: "skill_invoke",
+        name: "Summarise transcript",
+        description:
+          "Skill `call.summarise` extracts pain points, decision criteria, and committed next steps from the transcript.",
+        outputs: ["summary", "next_steps[]"],
+      },
+      {
+        id: "step-3",
+        kind: "tool_call",
+        name: "Append note in macOS Notes",
+        description:
+          "Computer-use macro `cu.run_macro` opens the macOS Notes app on the AE's Mac and appends a new note titled after the account.",
+      },
+      {
+        id: "step-4",
+        kind: "notify",
+        name: "DM the AE with the summary",
+        description: "Slack DM with the 3-bullet summary + a deep-link into the Notes entry.",
+      },
+    ],
+  },
+  "gtm-engineer/competitor_pricing_scrape": {
+    name: "competitor_pricing_scrape",
+    vertical: "gtm-engineer",
+    description:
+      "Drive a real Chrome browser via Playwright to compare competitor pricing pages, flag deltas, post the diff to Slack.",
+    version: "v2",
+    risk: "approval-required",
+    substrate: "browser",
+    steps: [
+      {
+        id: "step-1",
+        kind: "trigger",
+        name: "Daily 6am cron",
+        description: "Fires Monday–Friday at 6am.",
+      },
+      {
+        id: "step-2",
+        kind: "tool_call",
+        name: "Open competitor pricing pages in Chrome",
+        description:
+          "Playwright launches a headed Chrome browser session and visits each competitor pricing URL.",
+        outputs: ["pricing_snapshots[]"],
+      },
+      {
+        id: "step-3",
+        kind: "skill_invoke",
+        name: "Diff against yesterday",
+        description:
+          "Skill `pricing.diff` compares the snapshot against the previous run, flagging any > 5% movement.",
+        outputs: ["deltas[]"],
+      },
+      {
+        id: "step-4",
+        kind: "approval",
+        name: "Sales lead approves the digest",
+        description: "Slack DM with the diff card + one-tap approve before posting to #competitive.",
+        approvalGate: {
+          reason: "Pricing intel goes to a public channel; sales lead reviews before publication.",
+          channel: "Slack",
+        },
+      },
+      {
+        id: "step-5",
+        kind: "notify",
+        name: "Post diff to #competitive",
+        description: "Threaded Slack message with a snapshot screenshot and per-tier deltas.",
+      },
+    ],
+  },
+  "finance/pdf_invoice_extraction": {
+    name: "pdf_invoice_extraction",
+    vertical: "finance",
+    description:
+      "Run sandboxed Python in an E2B box to OCR a batch of PDF invoices, normalize line items, and push to the ledger.",
+    version: "v1",
+    risk: "approval-required",
+    substrate: "e2b",
+    steps: [
+      {
+        id: "step-1",
+        kind: "trigger",
+        name: "Invoice batch lands in /finance/inbox",
+        description: "Watcher fires when a folder of PDFs arrives by SFTP or drag-drop.",
+      },
+      {
+        id: "step-2",
+        kind: "tool_call",
+        name: "Spin up E2B sandbox + run OCR",
+        description:
+          "Start an E2B sandboxed Python session, install pdfplumber, extract line items from each PDF.",
+        outputs: ["line_items[]"],
+      },
+      {
+        id: "step-3",
+        kind: "approval",
+        name: "Controller reviews flagged invoices",
+        description:
+          "Any invoice with an OCR-confidence score below 0.85 surfaces for manual review.",
+        approvalGate: {
+          reason: "Low-confidence OCR could mis-bill; controller signs off before posting.",
+          channel: "Slack",
+        },
+      },
+      {
+        id: "step-4",
+        kind: "data",
+        name: "Write normalized rows to the ledger",
+        description: "Inserts into the AP ledger with the source PDF attached for audit.",
       },
     ],
   },

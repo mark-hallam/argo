@@ -30,13 +30,22 @@ function matchesChip(wf: WorkflowSummary, chip: string): boolean {
 }
 
 describe("/workflows catalog — author chips, risk tokens, TRY-chip filters", () => {
-  it("no persona is credited as lastEditor on more than 2 of the seeded cards", () => {
+  it("no persona is credited as lastEditor on more than a fair share of the seeded cards", () => {
     const counts = new Map<string, number>();
     for (const wf of SAMPLE_WORKFLOW_SUMMARIES) {
       counts.set(wf.lastEditor, (counts.get(wf.lastEditor) ?? 0) + 1);
     }
-    const offenders = [...counts.entries()].filter(([, n]) => n > 2);
-    expect(offenders, `author-chip imbalance: ${JSON.stringify([...counts])}`).toEqual([]);
+    // Fair-share ceiling derived from seed size + canonical roster
+    // (5: Mariah, Peta, Priya, Jamal, Nori). Pin balance without
+    // freezing the seed size — adding substrate-distinctive fixtures
+    // grows the catalog but each persona's share stays bounded.
+    const CANONICAL_ROSTER_SIZE = 5;
+    const fairShareMax = Math.ceil(SAMPLE_WORKFLOW_SUMMARIES.length / CANONICAL_ROSTER_SIZE);
+    const offenders = [...counts.entries()].filter(([, n]) => n > fairShareMax);
+    expect(
+      offenders,
+      `author-chip imbalance (cap ${fairShareMax}): ${JSON.stringify([...counts])}`,
+    ).toEqual([]);
   });
 
   it("Peta is credited at least once (Project & Ops persona footprint)", () => {

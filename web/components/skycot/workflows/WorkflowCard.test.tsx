@@ -2,6 +2,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { SubstrateChip } from "@/components/skycot/workflow/SubstrateChip";
+import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
+
 const pushMock = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
@@ -70,5 +73,56 @@ describe("WorkflowAuthorChip", () => {
     const chip = screen.getByTestId("workflow-author-chip");
     expect(chip.tagName).toBe("SPAN");
     expect(chip).toHaveTextContent("by Maya");
+  });
+});
+
+/**
+ * Catalog substrate coverage + chip rendering, anchored to the
+ * `/workflows` page chip column. The on-camera surface (`page.tsx`)
+ * resolves a substrate per card and hands it to <SubstrateChip>, so
+ * these assertions guarantee that (a) the seed carries ≥3 distinct
+ * substrate values, (b) macOS + a sandbox/browser substrate are
+ * represented, and (c) every substrate kind renders the expected
+ * label without throwing. Scene 5 "any-PC execution" voiceover
+ * relies on this — uniform HEADLESS chips contradict the claim.
+ */
+describe("workflow catalog substrate chips", () => {
+  const substrates = SAMPLE_WORKFLOW_SUMMARIES.map((wf) => wf.substrate);
+
+  it("seed shows ≥3 distinct substrates across visible cards", () => {
+    const distinct = new Set(substrates);
+    expect(distinct.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it("at least one workflow runs on macOS (proves Claim 5 cu)", () => {
+    expect(substrates).toContain("macos");
+  });
+
+  it("at least one workflow runs on browser or E2B (proves multi-substrate)", () => {
+    const hasMultiSubstrate = substrates.some((s) => s === "browser" || s === "e2b");
+    expect(hasMultiSubstrate).toBe(true);
+  });
+
+  it("SubstrateChip renders the expected label for every seed substrate", () => {
+    const labels: Record<string, string> = {
+      macos: "macOS",
+      linux: "Linux",
+      windows: "Windows",
+      e2b: "E2B",
+      browser: "Browser",
+      headless: "Headless",
+    };
+
+    for (const substrate of new Set(substrates)) {
+      const { unmount } = render(
+        <SubstrateChip substrate={substrate} status="idle" />,
+      );
+      const expectedLabel = labels[substrate];
+      expect(expectedLabel, `missing label mapping for ${substrate}`).toBeDefined();
+      const chip = screen.getByTestId("substrate-chip");
+      expect(chip.getAttribute("data-substrate")).toBe(substrate);
+      expect(chip.textContent).toContain(expectedLabel);
+      unmount();
+    }
   });
 });
