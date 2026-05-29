@@ -90,6 +90,86 @@ if [[ ${DEMO_MODE} -eq 1 ]]; then
   echo ">> demo-mode: SKYCOT_DB_KEY_BASE64 present (${#SKYCOT_DB_KEY_BASE64} chars)"
 fi
 
+# --- 0b. Demo-mode launch.json env-triplet gate.
+# `.claude/launch.json` is gitignored (per-machine operator config), but
+# its `web` runtime command is what `claude preview start web` executes
+# on recording day. The recording-day SPA contract needs all three of:
+#  - NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 (canonical name; not the
+#    `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS` typo a prior brief shipped) —
+#    consumers in `web/lib/skycot/demo-mode.ts` read the _ARGO_ variant.
+#  - NEXT_PUBLIC_SKYCOT_DEMO_MODE=1 — flips the SPA to seeded mocks /
+#    showcase identity in the non-audit-feed paths.
+#  - NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1 — opts the audit/approvals/replay
+#    clients OUT of the mock short-circuit so Scene 6 hits the real
+#    seeded gateway (see web/lib/skycot/demo-mode.ts:48-52).
+# Without all three, /audit + /approvals + the replay drawer render
+# their empty states on recording day. Fail loud here so the operator
+# notices BEFORE pressing record.
+if [[ ${DEMO_MODE} -eq 1 ]]; then
+  LAUNCH_JSON="${REPO_ROOT}/.claude/launch.json"
+  if [[ -f "${LAUNCH_JSON}" ]]; then
+    WEB_LINE="$(grep -F 'pnpm --dir web dev' "${LAUNCH_JSON}" || true)"
+    if [[ -z "${WEB_LINE}" ]]; then
+      {
+        echo "FAIL: --demo-mode: ${LAUNCH_JSON} has no 'pnpm --dir web dev'"
+        echo "      runtime command. The 'web' configuration that"
+        echo "      'claude preview start web' depends on appears missing."
+      } >&2
+      exit 1
+    fi
+    triplet_ok=1
+    miss=()
+    extra=()
+    if ! printf '%s' "${WEB_LINE}" | grep -q 'NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1'; then
+      miss+=("NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1")
+      triplet_ok=0
+    fi
+    if ! printf '%s' "${WEB_LINE}" | grep -q 'NEXT_PUBLIC_SKYCOT_DEMO_MODE=1'; then
+      miss+=("NEXT_PUBLIC_SKYCOT_DEMO_MODE=1")
+      triplet_ok=0
+    fi
+    if ! printf '%s' "${WEB_LINE}" | grep -q 'NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1'; then
+      miss+=("NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1")
+      triplet_ok=0
+    fi
+    # Match only the bare typo, not the canonical _ARGO_ form. The leading
+    # `[^_]` ensures `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS` (preceded by
+    # `_`) does NOT match — only `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS` (the
+    # typo, preceded by a space or quote) does.
+    if printf '%s' "${WEB_LINE}" | grep -Eq '[^_]NEXT_PUBLIC_GATEWAY_AUTH_BYPASS='; then
+      extra+=("NEXT_PUBLIC_GATEWAY_AUTH_BYPASS (typo — rename to NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS)")
+      triplet_ok=0
+    fi
+    if printf '%s' "${WEB_LINE}" | grep -q 'NEXT_PUBLIC_ARGO_DEMO_MODE='; then
+      extra+=("NEXT_PUBLIC_ARGO_DEMO_MODE (stale alias — no consumer in web/lib; remove)")
+      triplet_ok=0
+    fi
+    if [[ ${triplet_ok} -ne 1 ]]; then
+      {
+        echo "FAIL: --demo-mode: ${LAUNCH_JSON} 'web' runtime command is"
+        echo "      missing required env vars and/or carries stale ones."
+        if [[ ${#miss[@]} -gt 0 ]]; then
+          echo "      Missing: ${miss[*]}"
+        fi
+        if [[ ${#extra[@]} -gt 0 ]]; then
+          echo "      Remove:  ${extra[*]}"
+        fi
+        echo ""
+        echo "      Canonical 'web' runtime command:"
+        echo "      NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 \\"
+        echo "      NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:7400 \\"
+        echo "      NEXT_PUBLIC_SKYCOT_DEMO_MODE=1 \\"
+        echo "      NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1 \\"
+        echo "      pnpm --dir web dev"
+      } >&2
+      exit 1
+    fi
+    echo ">> demo-mode: .claude/launch.json env triplet OK"
+  else
+    echo ">> demo-mode: ${LAUNCH_JSON} not present — skipping triplet check (operator launches SPA out-of-band)"
+  fi
+fi
+
 command -v pnpm >/dev/null 2>&1 || { echo "FAIL: pnpm not on PATH" >&2; exit 2; }
 command -v jq   >/dev/null 2>&1 || { echo "FAIL: jq not on PATH (brew install jq)" >&2; exit 2; }
 command -v curl >/dev/null 2>&1 || { echo "FAIL: curl not on PATH" >&2; exit 2; }
@@ -204,6 +284,37 @@ if [[ ${DEMO_MODE} -eq 1 ]]; then
     } >&2
     exit 1
   fi
+fi
+
+# --- 2c-bis. Demo-mode seeded-rows probe. The recording-day SPA's
+# Scene 6 hinges on /audit + /approvals returning >0 rows from the
+# live gateway. If `argo demo seed --tenant <id>` hasn't been run (or
+# ran against a different tenant id, or the gateway booted on a fresh
+# encrypted DB after seeding), both feeds render their empty states
+# and the "drill into real provenance" narration has nothing to drill
+# into. Fail here so the operator re-runs seed before recording.
+if [[ ${DEMO_MODE} -eq 1 ]]; then
+  AUDIT_COUNT="$(curl -fsS "${GATEWAY}/api/v1/audit?range=7d" 2>/dev/null \
+    | jq -r '(.items // []) | length' 2>/dev/null || echo 0)"
+  APPROVALS_COUNT="$(curl -fsS "${GATEWAY}/api/v1/approvals" 2>/dev/null \
+    | jq -r '(.items // []) | length' 2>/dev/null || echo 0)"
+  if [[ "${AUDIT_COUNT}" -le 0 || "${APPROVALS_COUNT}" -le 0 ]]; then
+    {
+      echo "FAIL: --demo-mode: live gateway has no seeded rows."
+      echo "      /api/v1/audit?range=7d returned ${AUDIT_COUNT} items"
+      echo "      /api/v1/approvals       returned ${APPROVALS_COUNT} items"
+      echo ""
+      echo "      Run the canonical seed CLI against the demo tenant"
+      echo "      BEFORE pressing record (see v1-mission-mvp-runbook.md"
+      echo "      Scene 6 pre-flight checklist):"
+      echo ""
+      echo "      argo tenant list | grep -i demo"
+      echo "      export ARGO_DEMO_TENANT_ID=<uuid-from-demo-row>"
+      echo "      argo demo seed --tenant \"\$ARGO_DEMO_TENANT_ID\""
+    } >&2
+    exit 1
+  fi
+  echo ">> demo-mode: seeded-rows probe GREEN (audit=${AUDIT_COUNT}, approvals=${APPROVALS_COUNT})"
 fi
 
 # --- 2d. Genesis endpoint not 503 (cost-guardrail satisfied).

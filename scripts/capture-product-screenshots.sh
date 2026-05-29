@@ -15,9 +15,13 @@
 #         ./scripts/capture-product-screenshots.sh --scene approval-card
 #         ./scripts/capture-product-screenshots.sh --keep-server
 #
-# The SPA is launched with NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1 and the
-# gateway URL pointed at a non-listening port so the client falls back
-# to bundled sample data — no live backend required.
+# The SPA is launched with NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 and
+# the gateway URL pointed at a non-listening port so the client falls
+# back to bundled sample data — no live backend required. NOTE: we do
+# NOT set NEXT_PUBLIC_SKYCOT_DEMO_LIVE here on purpose — demo-live opts
+# the audit/approvals/replay clients OUT of the mock short-circuit, and
+# this script's whole point is to capture screenshots against bundled
+# sample data, not the (deliberately unreachable) gateway.
 
 set -euo pipefail
 
@@ -33,7 +37,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --scene) SCENE_FILTER="$2"; shift 2 ;;
     --keep-server) KEEP_SERVER=1; shift ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -51,7 +55,7 @@ trap cleanup EXIT
 if [[ ${KEEP_SERVER} -eq 0 ]]; then
   echo ">> launching next dev on :3000"
   ( cd "${WEB_DIR}" \
-    && NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1 NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:1 \
+    && NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1 NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:1 \
        pnpm dev >"${TMP_DIR}/dev.log" 2>&1 ) &
   SERVER_PID=$!
   for _ in $(seq 1 60); do
