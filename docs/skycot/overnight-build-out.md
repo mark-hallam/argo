@@ -102,6 +102,16 @@ autonomous machine keeps chipping the queue + FEATURE_MATRIX overnight.
 3. Build it (single Rust integrator: `export CARGO_TARGET_DIR=$HOME/.cache/argo-shared-target CARGO_INCREMENTAL=0`).
 4. Verify (cargo test/clippy for Rust; vitest/tsc for web). Commit + push ONLY if
    green. Append a Log line. Never break the running demo (gateway :7400 / SPA :3000).
+4a. **Keep the two source-of-truth docs current IN THE SAME COMMIT/CYCLE** (this is
+   load-bearing — it is how the docs stop falling behind the code):
+   - **Every shipped feature** updates its row in
+     [`docs/build-plan/FEATURE_MATRIX.md`](../../build-plan/FEATURE_MATRIX.md) —
+     flip the status per the legend + cite the commit SHA + crate/route.
+   - **Every operator-locked call** gets a `docs/skycot/decisions/DEC-NNN-*.md` ADR
+     + an index line in `docs/skycot/decisions/README.md` (and refresh VERSION_STATE.md
+     if the "where are we" answer changed).
+   Do this in the **same commit/cycle** as the feature/decision, not as a later
+   sweep. **Build-agent prompts MUST include this rule** so delegated work carries it.
 5. Keep going until every remaining item is BLOCKED. **When the explicit Queue
    below is exhausted, FIND MORE WORK** (operator directive: "find more work until
    the whole platform is built"): open `docs/build-plan/FEATURE_MATRIX.md`, pick the
@@ -118,6 +128,15 @@ dispatcher-touching builds (anything editing `routes_dispatch_*.rs` / gateway
 `mod.rs`) must NOT run in parallel with each other (shared files → merge conflicts);
 serialize those. Independent crates can parallelize via worktrees + the shared
 target (cargo's target lock serializes compilation = memory-safe).
+
+**Process note (docs-stay-live rule — 2026-05-30):** the docs fell behind the code
+once (the night's shipped features + operator-locked calls weren't reflected in
+FEATURE_MATRIX or the decision register until a catch-up pass). To prevent recurrence:
+**every shipped feature updates `FEATURE_MATRIX.md` (status flip + commit SHA) and
+every operator-locked call gets a `docs/skycot/decisions/` ADR — in the SAME
+commit/cycle as the work**, never as a later sweep (see RESUME step 4a).
+**Build-agent prompts MUST carry this rule** so the discipline survives delegation.
+DEC-019 makes this the standing program rule.
 
 ## The autonomous process (v1 — improve as we learn)
 

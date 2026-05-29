@@ -1,4 +1,4 @@
-# SKYCOT Version State — reconciliation (2026-05-29)
+# SKYCOT Version State — reconciliation (2026-05-29; updated 2026-05-30)
 
 The honest answer to "where are we?" — reconciling the originally-planned
 v1.0 against the MVP scope as it actually grew. Companion to the decision
@@ -6,12 +6,19 @@ register; read alongside `README.md`.
 
 ## TL;DR
 
-We are **at the v1.0 ship gate** — all 6 mission claims are LIVE — but the
-**MVP scope grew materially** beyond the original v1.0 definition because the
-operator folded in three capabilities mid-stream (Pitch Agent, Genesis,
-computer-use-as-must-have). The phase docs were never updated at
-decision-time, which is the timeline misalignment. This document is the
-catch-up.
+**As of 2026-05-30 we are in the Sprint-2 platform build-out** ([[DEC-019]] +
+[[DEC-022]]): the program has moved **beyond demo-prep** to building out the
+whole platform for real, removing ALL theatre, and driving to the mission —
+running autonomously ([[DEC-020]]) with real voice on OpenAI ([[DEC-021]]). The
+live queue is in [`docs/skycot/overnight-build-out.md`](../overnight-build-out.md).
+
+All 6 mission claims are LIVE on the demo path, but the **MVP scope grew
+materially** beyond the original v1.0 definition (Pitch Agent, Genesis,
+computer-use-as-must-have folded in mid-stream — DEC-008/009/010), and the
+2026-05-29 MVP-reframe found ~24 SPA surfaces still showing mock in demo-live.
+Sprint 2 is the catch-up: finish the wiring rather than dress scaffold as
+features. This document reconciles the originally-planned v1.0 against where we
+actually are.
 
 ## What "v1.0" originally meant vs. what it means now
 

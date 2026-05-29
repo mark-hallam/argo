@@ -59,6 +59,10 @@ as a product feature ("your AI workforce's decision log"). Not before.
 
 | ID | Date | Decision | Status |
 |----|------|----------|--------|
+| [DEC-022](DEC-022-sprint-2-scope-full-program.md) | 2026-05-30 | Sprint-2 scope = full program: all four tracks (go-live+verify / kill-all-theatre / multi-worker orchestration [Supervisor] / broad backlog) + real voice | active |
+| [DEC-021](DEC-021-voice-vendor-openai-for-launch-selectable.md) | 2026-05-30 | Voice vendor = OpenAI for launch (discrete STT `/v1/audio/transcriptions` + TTS `/v1/audio/speech`); vendor-selectable (`ARGO_VOICE_PROVIDER`) + user-selectable (`voice` workspace_settings); Realtime socket = later upgrade | active |
+| [DEC-020](DEC-020-autonomous-overnight-build-out-auto-resume.md) | 2026-05-29 | Autonomous overnight build-out + auto-resume authorized: conductor + self-committing build-agents + launchd `com.skycot.buildout-resume` tick; off-switch `~/.argo/buildout-stop` | active |
+| [DEC-019](DEC-019-beyond-the-demo-build-out-whole-platform.md) | 2026-05-29 | Beyond the demo — build out the whole platform, remove ALL theatre, drive to the mission; supersedes demo-prep as the active program | active |
 | [DEC-018](DEC-018-gtm-agent-grant-second-hero-teammate.md) | 2026-05-29 | GTM teammate "Grant" is the 2nd real working teammate; owns inbound growth as a responsibility; `/gtm` console + `POST /api/v1/gtm/draft-followup`, truth-bounded, approval-gated | active |
 | [DEC-017](DEC-017-teammate-eval-harness-synthetic-golden-companies-first.md) | 2026-05-29 | Teammate-eval harness: synthetic golden-companies first, historical replay a later seam; Portia=reference, Mariah=first synthetic | active |
 | [DEC-016](DEC-016-pitch-agent-persona-portia-female.md) | 2026-05-29 | Pitch Agent persona is "Portia" (female); P-name convention | active |
@@ -78,6 +82,6 @@ as a product feature ("your AI workforce's decision log"). Not before.
 | [DEC-002](DEC-002-macos-first-computer-use.md) | 2026-05-14 | macOS is the v1 computer-use path; Linux/Windows/E2B deferred-v1.x | active |
 | [DEC-001](DEC-001-enterprise-not-consumer.md) | 2026-05-14 | Enterprise focus, not consumer — connector priority + scope decisions | active |
 
-_Backfilled 2026-05-29 from CLAUDE.md, auto-memory, and session history.
-This is a reconstruction of decisions already made; future decisions are
-captured at decision-time._
+_DEC-001..DEC-018 were backfilled 2026-05-29 from CLAUDE.md, auto-memory, and
+session history (a reconstruction of decisions already made). DEC-019 onward are
+captured at decision-time, as intended._
