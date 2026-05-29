@@ -290,7 +290,7 @@ const PITCH_MAX_TOKENS: u32 = 500;
 ///
 /// Boxed (not `Arc<AnthropicTransport>`) so the subprocess driver can
 /// flow through the same return type; the caller only needs `complete`.
-async fn build_pitch_transport(provider_id: &str) -> ArgoResult<Box<dyn Transport>> {
+pub(super) async fn build_pitch_transport(provider_id: &str) -> ArgoResult<Box<dyn Transport>> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
         ArgoError::Provider(format!("pitch llm: load provider `{provider_id}` manifest: {e}"))
@@ -298,7 +298,7 @@ async fn build_pitch_transport(provider_id: &str) -> ArgoResult<Box<dyn Transpor
     build_transport(manifest).await
 }
 
-fn user_message(prompt: &str) -> Message {
+pub(super) fn user_message(prompt: &str) -> Message {
     Message {
         id: MessageId(Uuid::now_v7()),
         session_id: SessionId(Uuid::nil()),

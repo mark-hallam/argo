@@ -229,6 +229,15 @@ async fn api_v1_dispatch(
     {
         return Some(super::routes_pitch_ask::ask_response(req, store).await);
     }
+    // gtm-agent-grant-draft-followup-execution — Grant (GTM Engineer)
+    // drafts a truth-bounded inbound follow-up via the live LLM and
+    // routes it to the approval queue + audit. Reuses the Pitch Agent's
+    // LLM + truth-boundary primitives.
+    if req.starts_with("POST /api/v1/gtm/draft-followup ")
+        || req.starts_with("POST /api/v1/gtm/draft-followup?")
+    {
+        return Some(super::routes_gtm_draft_followup::draft_followup_response(req, store).await);
+    }
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }
