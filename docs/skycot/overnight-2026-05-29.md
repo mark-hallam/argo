@@ -72,12 +72,14 @@ verify, then leave the operator ready-to-go plans for the big swings.
   + any Q2/Q3 endpoints) + reseed + browser e2e across demo surfaces. Verify
   retrain panel shows real history; fix any console errors/crashes found
   (demo-hardening, like the earlier ChannelBadge / hooks-order fixes).
-- [ ] **Q5 · Design docs for the big gaps** (zero risk, high value). Crisp,
-  ready-for-go implementation plans + brief files for: (a) multi-worker
-  orchestration engine (gap #2), (b) live voice L1→L2 (gap #4, operator's keenest
-  interest), (c) self-improvement training-data export (gap #3). The operator
-  wakes to "here's exactly how we'd build the big swings" rather than risky
-  half-built architecture.
+- [x] **Q5 · Design docs for the big gaps** — **DONE.** Three ready-for-go plans
+  at `docs/skycot/design/2026-05-29-gap-closure-plans/` (+ README index, linked
+  from FEATURE_MATRIX §6b): (01) live voice L1→L3b — flags the one blocker
+  (speech-vendor API key) + recommends ElevenLabs+Deepgram, L1+L2+L3a ≈ 4–6 wk to
+  "pitches live in the browser"; (02) multi-worker orchestration — recommends the
+  Supervisor model, drops the auction idea, engine = MEDIUM; (03) self-improvement
+  training-export — recommends SFT-JSONL, **buildable now with no external deps**.
+  Each names the operator decision(s) needed + decomposes into swarm briefs.
 
 ## Morning summary (top — filled in before operator wakes)
 

@@ -214,6 +214,8 @@ bot). Existing assets that de-risk this: the `argo-voice-io` abstraction
 
 From the verified competitive analysis ([`docs/skycot/research/2026-05-29-competitive-gap-analysis.md`](../skycot/research/2026-05-29-competitive-gap-analysis.md) — 26 sources, adversarially verified; 3 vendor claims killed). These are the features the field now ships that we lack — tracked here as roadmap items. **Don't over-correct:** our audit + truth-boundary + approval-first + hire-a-teammate framing are differentiators no competitor matched.
 
+> **Ready-for-go implementation plans** for the top 3 gaps (voice, orchestration, self-improvement) live at [`docs/skycot/design/2026-05-29-gap-closure-plans/`](../skycot/design/2026-05-29-gap-closure-plans/README.md) — each flags the operator decision(s) needed, then drops into the swarm as briefs.
+
 | Gap | Status | Priority | Who has it | SKYCOT today | Maps to |
 |---|---|---|---|---|---|
 | Dual agent-identity (delegated on-behalf-of vs. autonomous) + cross-runtime governance + behavioral threat-detection | 💡 Backlog | **Highest** | MS Agent 365, Salesforce | RBAC + audit, but no dual-identity / cross-runtime / threat-detection | new — governance tail (§6 v2.1) |
