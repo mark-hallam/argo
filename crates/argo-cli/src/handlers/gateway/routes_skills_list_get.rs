@@ -60,12 +60,19 @@ pub(super) async fn dispatch_get(
     if bare == SKILLS_PATH {
         return Some(installed_response(req, store).await);
     }
-    // `/api/v1/skills/<id>` — single-skill detail by UUID. Must come
-    // after the exact-match routes above. A nested path (contains `/`)
-    // isn't ours (e.g. `<name>/usage` is served by `routes_skills`).
-    if let Some(id) = bare.strip_prefix("/api/v1/skills/") {
-        if !id.is_empty() && !id.contains('/') {
-            return Some(skill_detail_response(req, store, id).await);
+    // `/api/v1/skills/<id>[/usage]` — single-skill drill-in by UUID.
+    // Must come after the exact-match routes above. The SPA's
+    // skill-detail page keys on the UUID from the catalog list, so both
+    // the detail and the usage sub-route resolve by id (the bare
+    // `routes_skills` usage route resolves by name and isn't mounted
+    // under `/api/v1`).
+    if let Some(rest) = bare.strip_prefix("/api/v1/skills/") {
+        if let Some(id) = rest.strip_suffix("/usage") {
+            if !id.is_empty() && !id.contains('/') {
+                return Some(skill_usage_by_id_response(req, store, id).await);
+            }
+        } else if !rest.is_empty() && !rest.contains('/') {
+            return Some(skill_detail_response(req, store, rest).await);
         }
     }
     None
@@ -198,6 +205,125 @@ async fn skill_detail_response(
             "500 Internal Server Error",
             json!({ "error": format!("skill detail: {e}") }).to_string(),
         ),
+    }
+}
+
+/// `GET /api/v1/skills/<id>/usage` — provenance + workers-using +
+/// global adoption for one skill, resolved by UUID (the SPA's
+/// skill-detail page keys on the catalog id). Same envelope the bare
+/// `routes_skills` usage route returns, but by id rather than name so
+/// the `/api/v1` drill-in resolves. Real data: a skill row lookup plus
+/// the `worker_skill` adoption queries.
+async fn skill_usage_by_id_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+    id_str: &str,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let tenant_str = match request_tenant_id(req, store).await {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let Ok(uuid) = Uuid::parse_str(id_str) else {
+        return (
+            "404 Not Found",
+            json!({ "error": format!("invalid skill id '{id_str}'") }).to_string(),
+        );
+    };
+    let id_bytes = uuid.as_bytes().to_vec();
+    let row = sqlx::query(
+        "SELECT s.name, s.source FROM skill s \
+         WHERE s.id = ? AND s.tenant_id = ? \
+           AND s.superseded_by IS NULL AND s.lifecycle_state = 'active' LIMIT 1",
+    )
+    .bind(&id_bytes)
+    .bind(&tenant_str)
+    .fetch_optional(store.pool())
+    .await;
+    let (skill_name, source): (String, String) = match row {
+        Ok(Some(r)) => (
+            r.try_get("name").unwrap_or_default(),
+            r.try_get("source").unwrap_or_default(),
+        ),
+        Ok(None) => {
+            return (
+                "404 Not Found",
+                json!({ "error": format!("no active skill '{id_str}' in this tenant") })
+                    .to_string(),
+            )
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json!({ "error": format!("skill lookup: {e}") }).to_string(),
+            )
+        }
+    };
+    let Ok(tenant_uuid) = Uuid::parse_str(&tenant_str) else {
+        return (
+            "500 Internal Server Error",
+            json!({ "error": format!("tenant id not a uuid: '{tenant_str}'") }).to_string(),
+        );
+    };
+    let identity = IdentityStore::new(store);
+    let id_string = uuid.to_string();
+    let workers = match identity
+        .workers_with_skill_learned_at(TenantId(tenant_uuid), &id_string)
+        .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json!({ "error": format!("workers_with_skill: {e}") }).to_string(),
+            )
+        }
+    };
+    let adoption = match identity.count_workers_with_skill_global(&id_string).await {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                json!({ "error": format!("adoption count: {e}") }).to_string(),
+            )
+        }
+    };
+    let workers_json: Vec<Value> = workers
+        .iter()
+        .map(|(worker, learned_at)| {
+            json!({
+                "worker_id": worker.id.to_string(),
+                "name": worker.persona.name,
+                "learned_at": learned_at,
+            })
+        })
+        .collect();
+    let payload = json!({
+        "skill_id": id_string,
+        "skill_name": skill_name,
+        "trust_grade": TrustGrade::from_source(&source),
+        "author_label": author_label_for_source(&source),
+        "workers_using": workers_json,
+        "workers_using_count": workers.len(),
+        "adoption_count": adoption,
+    });
+    ("200 OK", payload.to_string())
+}
+
+/// Map a skill's `provenance.source` to the operator-facing authorship
+/// label — anonymized, no per-tenant identity. Mirrors the helper in
+/// `routes_skills` (kept local so this module stays self-contained).
+fn author_label_for_source(source: &str) -> &'static str {
+    if source == "builtin"
+        || source == "verticals"
+        || source.starts_with("published:verified:market")
+        || source.starts_with("published:community:market")
+    {
+        "Authored by SKYCOT"
+    } else {
+        "Authored by your org"
     }
 }
 
