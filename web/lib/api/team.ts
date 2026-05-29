@@ -17,6 +17,9 @@
  *   any other ApiError propagate so they surface as errors.
  * - NetworkError (gateway unreachable) → mock fallback in dev,
  *   propagates in prod.
+ * - Demo mode (`NEXT_PUBLIC_SKYCOT_DEMO_MODE=1`): the catch path is
+ *   total — ANY thrown error or a >5s hang resolves to SAMPLE_TEAM.
+ *   The /team skeleton must never be perpetual during the demo MP4.
  */
 
 import { apiGet } from "@/lib/api/client";
@@ -39,6 +42,16 @@ export type TeamDataSource =
 export interface FetchTeamResult {
   workers: Worker[];
   source: TeamDataSource;
+}
+
+/** Hard ceiling on demo-mode gateway wait before the SAMPLE_TEAM fallback wins the race. */
+export const DEMO_GATEWAY_TIMEOUT_MS = 5000;
+
+class GatewayTimeoutError extends Error {
+  constructor(ms: number) {
+    super(`gateway did not respond within ${ms}ms`);
+    this.name = "GatewayTimeoutError";
+  }
 }
 
 function isStrictProduction(): boolean {
@@ -101,6 +114,16 @@ export async function findWorkerByName(name: string): Promise<Worker | null> {
   }
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new GatewayTimeoutError(ms)), ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export async function fetchTeam(): Promise<FetchTeamResult> {
   const result = await fetchTeamInner();
   publishDataSource(toBannerSource(result.source));
@@ -121,15 +144,20 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
     return { workers: [...SAMPLE_TEAM, ...hires], source: "mock-bypass" };
   }
 
+  const demoMode = isDemoMode();
+
   try {
     // Gateway returns { workers: Worker[], total_count: number } envelope.
     // Fall back to treating a bare-array response as Worker[] for any older
     // gateway build that hasn't been redeployed. Guard against a malformed
     // envelope (missing `workers` field) so a server bug doesn't silently
     // collapse the roster to empty.
-    const response = await apiGet<{ workers: Worker[]; total_count?: number } | Worker[]>(
+    const gatewayCall = apiGet<{ workers: Worker[]; total_count?: number } | Worker[]>(
       "/api/v1/workers",
     );
+    const response = demoMode
+      ? await withTimeout(gatewayCall, DEMO_GATEWAY_TIMEOUT_MS)
+      : await gatewayCall;
     if (Array.isArray(response)) {
       return { workers: response, source: "gateway" };
     }
@@ -143,13 +171,19 @@ async function fetchTeamInner(): Promise<FetchTeamResult> {
       response,
     );
   } catch (err) {
+    // Demo mode is the recorded-demo path; the camera must never see a
+    // perpetual skeleton. Any error (404, 5xx, network TypeError,
+    // GatewayTimeoutError, malformed envelope) resolves to SAMPLE_TEAM
+    // so React Query settles instead of stalling on an unhandled
+    // rejection. Strict production is still excluded — real buyers see
+    // real errors, not seeded mocks.
+    if (demoMode && !isStrictProduction()) {
+      return { workers: SAMPLE_TEAM, source: "mock-offline" };
+    }
     if (!isStrictProduction() && isMissingOrUnreachable(err)) {
       // Real signed-in users get an empty roster + the "hire your first
       // teammate" empty state when the gateway endpoint isn't live yet.
       // The mock fallback is reserved for the v1.0 recorded demo.
-      if (isDemoMode()) {
-        return { workers: SAMPLE_TEAM, source: "mock-offline" };
-      }
       // Source `unreachable` (not `gateway`) so the diagnostic chip on
       // /team and any future operator surface can tell "gateway said
       // zero" apart from "gateway never answered".

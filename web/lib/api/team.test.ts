@@ -163,4 +163,91 @@ describe("lib/api/team", () => {
     expect(caught).toBeInstanceOf(ApiError);
     expect((caught as ApiError).code).toBe("malformed_envelope");
   });
+
+  describe("demo-mode catch-all (perpetual skeleton regression)", () => {
+    // The /team-stuck-on-skeleton bug was a fetchTeam path that
+    // surfaced an unhandled rejection — React Query then held the
+    // query in `pending` forever, the skeleton tiles never resolved,
+    // and Scene 1 step 1 of the v1.0 demo MP4 was unrecordable.
+    // These tests pin that EVERY error path in demo mode resolves
+    // synchronously to SAMPLE_TEAM, never throws.
+
+    beforeEach(() => {
+      vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_MODE", "1");
+    });
+
+    it("resolves to SAMPLE_TEAM within 1s when apiGet throws a 404", async () => {
+      installMock(() =>
+        makeResponse({
+          status: 404,
+          body: { error: { code: "not_found", message: "no team endpoint" } },
+        }),
+      );
+      const start = Date.now();
+      const result = await fetchTeam();
+      const elapsed = Date.now() - start;
+      expect(result.source).toBe("mock-offline");
+      expect(result.workers).toBe(SAMPLE_TEAM);
+      expect(elapsed).toBeLessThan(1000);
+    });
+
+    it("resolves to SAMPLE_TEAM on a 5xx gateway error (no throw)", async () => {
+      // Without the demo-mode catch-all, a 503 would propagate and
+      // leave the query in error state, which the page then renders
+      // as the "We're having trouble loading your team" red panel —
+      // also a camera-visible defect for the demo MP4.
+      installMock(() =>
+        makeResponse({ status: 503, body: "gateway down", contentType: "text/plain" }),
+      );
+      const result = await fetchTeam();
+      expect(result.source).toBe("mock-offline");
+      expect(result.workers).toBe(SAMPLE_TEAM);
+    });
+
+    it("resolves to SAMPLE_TEAM on a malformed envelope (no throw)", async () => {
+      installMock(() => makeResponse({ status: 200, body: { rows: [], total: 0 } }));
+      const result = await fetchTeam();
+      expect(result.source).toBe("mock-offline");
+      expect(result.workers).toBe(SAMPLE_TEAM);
+    });
+
+    it("resolves to SAMPLE_TEAM on a TypeError (CORS / DNS / refused)", async () => {
+      globalThis.fetch = vi.fn(() => {
+        throw new TypeError("Failed to fetch");
+      }) as unknown as typeof fetch;
+      const result = await fetchTeam();
+      expect(result.source).toBe("mock-offline");
+      expect(result.workers).toBe(SAMPLE_TEAM);
+    });
+
+    it("resolves to SAMPLE_TEAM when the gateway hangs past the 5s timeout", async () => {
+      vi.useFakeTimers();
+      try {
+        globalThis.fetch = vi.fn(
+          (input: RequestInfo | URL) => {
+            const url =
+              typeof input === "string"
+                ? input
+                : input instanceof URL
+                  ? input.toString()
+                  : input.url;
+            if (url.endsWith("/api/auth/session")) {
+              return Promise.resolve(makeResponse({ status: 200, body: {} }));
+            }
+            // Never settle — simulates a wedged gateway TCP socket.
+            return new Promise<Response>(() => {});
+          },
+        ) as unknown as typeof fetch;
+
+        const pending = fetchTeam();
+        // Advance past the 5s timeout in fetchTeam's withTimeout race.
+        await vi.advanceTimersByTimeAsync(5001);
+        const result = await pending;
+        expect(result.source).toBe("mock-offline");
+        expect(result.workers).toBe(SAMPLE_TEAM);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });
