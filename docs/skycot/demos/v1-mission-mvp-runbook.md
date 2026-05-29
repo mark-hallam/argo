@@ -44,16 +44,18 @@ into the narration; the tests are source material, not the story.
 
 - [ ] Laptop on AC power, battery >80%.
 - [ ] Recording target: **1920×1080**. Browser zoom 100%. Terminal font ≥14pt.
-- [ ] Pre-warm caches: open `http://localhost:3000/onboarding/welcome`, the `/audit` page, and the `/workers` index once in the recording browser. First-load LCP can break the "no mid-scene loads >2 s" feel.
-- [ ] **Pre-warm `/audit/action/<id>` drill-in (P0 — Scene 6).** Under `pnpm dev` + turbopack, the audit-detail route has a heavy first-paint compile cost (cards + redaction lib + dialog chunk). After the seed CLI runs, grab one action id from `curl -fsS http://127.0.0.1:7400/api/v1/audit/feed | jq -r '.actions[0].id'` and pre-warm:
-  ```bash
-  ACTION_ID=$(curl -fsS http://127.0.0.1:7400/api/v1/audit/feed | jq -r '.actions[0].id')
-  curl -m 90 -s -o /dev/null -w "warmup: %{http_code} in %{time_total}s\n" \
-    "http://localhost:3000/audit/action/$ACTION_ID"
-  curl -m 10 -s -o /dev/null -w "  api: %{http_code} in %{time_total}s\n" \
-    "http://localhost:3000/api/v1/audit/$ACTION_ID"
-  ```
-  Expected after warm: page <3 s, api <0.5 s. Without this, the camera catches up to ~13 minutes of compile dead-air on Scene 6's first drill-in click. Production builds (`pnpm build && pnpm start`) do not need this step.
+- [ ] Pre-warm caches via `bash scripts/demo-prewarm.sh` from the repo root. The script curls the 9 demo-critical routes in sequence (SPA on :3000 + gateway on :7400) so Next.js Turbopack has compiled every dynamic route pattern before the camera rolls. **Cold first run can take 5–15 minutes**; subsequent runs are <5 seconds. The script reports per-route timing so the operator can see which routes were slow. The list of routes covered:
+  - `/onboarding/welcome` — anchors the marketing → onboarding handoff cache.
+  - `/audit` — Scene 6 anchor; list view is fast but the React Query cache primes here.
+  - `/audit/action/prewarm` — Scene 6 drill-in. The `/audit/action/[actionId]` route pattern cold-compiles in ~3 minutes the first time; any URL matching the pattern triggers the compile, so a stub `prewarm` id is fine even though the row doesn't exist.
+  - `/workers` — Scene 1 anchor (trading-card deck).
+  - `/workers/prewarm/overview` — Scene 1 drill-in pattern; also prewarms the `[workerId]/overview` route.
+  - `/workers/prewarm/activity` — Scene 2 activity-tab drill-in pattern.
+  - `/workflows/sales/qualify_lead` — Scene 5 viewer anchor (workflow path is stable `<vertical>/<name>`).
+  - `/workflows/sales/qualify_lead/build` — Scene 5 builder canvas (React Flow). Recording-mode operator may skip Scene 5 if narrating the viewer only.
+  - `/approvals` — Scene 6 inbox anchor.
+
+  Re-running is idempotent. If the script reports any route >5s after a warm run, restart `pnpm dev` and re-prewarm. The Slack-approval cold-compile pain on `/audit/action/[actionId]` is addressed at the runtime layer by the companion brief `fix-spa-proxy-audit-detail-50x-slower-than-gateway-direct`; this pre-warm step stays load-bearing until that lands.
 - [ ] Gateway CORS preflight passes from the recording browser origin (`localhost:*` or `127.0.0.1:*`, including preview proxies such as `http://localhost:53854`); production runs must use an explicit `[gateway.cors].allowed_origins` entry instead.
 - [ ] Slack desktop notifications off **except** for the demo channel.
 - [ ] `argo gateway start --bind 127.0.0.1 --port 7400` running in a non-visible terminal. Stderr should print `argo gateway: ARGO_DEMO_MODE=1 active — POST /api/v1/demo/mint-principal is mounted`.
