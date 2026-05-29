@@ -16,6 +16,7 @@
 
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 import {
   SEED_SKILLS,
   MOCK_LEARNED_SKILL_IDS,
@@ -83,7 +84,7 @@ function isMissingOrUnreachable(err: unknown): boolean {
 }
 
 export async function fetchSkills(): Promise<FetchSkillsResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { skills: SEED_SKILLS, source: "mock-bypass" };
   }
   try {
@@ -255,7 +256,7 @@ export function resolveSkillDisplayMetadata(
 export async function fetchSkillUsage(
   skillName: string,
 ): Promise<FetchSkillUsageResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { usage: seedUsage(skillName), source: "mock-bypass" };
   }
   try {
@@ -293,7 +294,7 @@ export async function fetchLearnedThisMonth(): Promise<FetchLearnedThisMonthResu
     count: MOCK_LEARNED_SKILL_IDS.length,
     skill_ids: MOCK_LEARNED_SKILL_IDS,
   };
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { learned: learnedFallback, source: "mock-bypass" };
   }
   try {

@@ -16,7 +16,7 @@
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { SAMPLE_COHORT_DETAILS, SAMPLE_COHORT_SUMMARIES } from "@/lib/sample-cohorts";
-import { isDemoMode } from "@/lib/skycot/demo-mode";
+import { isDemoLive, isDemoMode } from "@/lib/skycot/demo-mode";
 
 export interface CohortSummary {
   cohort_id: string;
@@ -103,7 +103,7 @@ function isMissingOrUnreachable(err: unknown): boolean {
 }
 
 export async function fetchCohorts(): Promise<FetchCohortsResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { cohorts: SAMPLE_COHORT_SUMMARIES, source: "mock-bypass" };
   }
   try {
@@ -160,7 +160,7 @@ export async function bulkAssignSkill(
 export async function fetchCohortDetail(
   cohortId: string,
 ): Promise<FetchCohortDetailResult> {
-  if (isAuthBypassed()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return {
       detail: SAMPLE_COHORT_DETAILS[cohortId] ?? null,
       source: "mock-bypass",
