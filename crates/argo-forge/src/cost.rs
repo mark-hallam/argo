@@ -153,6 +153,7 @@ fn known_pricing_for_model(model_id: &str) -> Option<PricingTable> {
                 cache_read_usd_per_mtok: 0.08,
             })
         }
+        // Opus 4-original / 4.7: legacy $15/$75 per MTok.
         "claude-opus-4-20250514" | "claude-opus-4-7" | "claude-opus-4-7[1m]" => {
             Some(PricingTable {
                 input_usd_per_mtok: 15.0,
@@ -160,6 +161,12 @@ fn known_pricing_for_model(model_id: &str) -> Option<PricingTable> {
                 cache_read_usd_per_mtok: 1.5,
             })
         }
+        // Opus 4.8 (current frontier): $5/$25 per MTok, 1M ctx.
+        "claude-opus-4-8" | "claude-opus-4-8[1m]" => Some(PricingTable {
+            input_usd_per_mtok: 5.0,
+            output_usd_per_mtok: 25.0,
+            cache_read_usd_per_mtok: 0.50,
+        }),
         "claude-3-5-sonnet-20241022" | "claude-sonnet-4-6" => Some(PricingTable {
             input_usd_per_mtok: 3.0,
             output_usd_per_mtok: 15.0,

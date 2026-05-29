@@ -106,7 +106,7 @@ impl WindowsCuConfig {
             click_settle_ms: 50,
             key_delay_ms: 15,
             anthropic_base_url: None,
-            anthropic_model: "claude-opus-4-7".to_string(),
+            anthropic_model: "claude-opus-4-8".to_string(),
             anthropic_timeout_seconds: 60,
             max_steps: 25,
             max_wallclock_seconds: 600,

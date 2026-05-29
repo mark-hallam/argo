@@ -113,7 +113,7 @@ pub struct MacosCuConfig {
     /// at a mock server). `None` uses the production endpoint.
     pub anthropic_base_url: Option<String>,
     /// Anthropic model id to drive the loop. Defaults to
-    /// `claude-opus-4-7` — the same model the E2B executor uses
+    /// `claude-opus-4-8` — the same model the E2B executor uses
     /// in production.
     pub anthropic_model: String,
     /// Per-Anthropic-call timeout in seconds.
@@ -162,7 +162,7 @@ impl MacosCuConfig {
             target_app: Self::NOTES_BUNDLE_ID.to_string(),
             dwell_ms: 200,
             anthropic_base_url: None,
-            anthropic_model: "claude-opus-4-7".to_string(),
+            anthropic_model: "claude-opus-4-8".to_string(),
             anthropic_timeout_seconds: 60,
             max_steps: 25,
             max_wallclock_seconds: 600,

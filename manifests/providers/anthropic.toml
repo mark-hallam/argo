@@ -35,9 +35,14 @@ preserve_across_turns = true
 
 [discovery]
 endpoint = "{base_url}/v1/models"
-include_pattern = "^claude-"
+include_pattern = "^claude-opus-"
 exclude_pattern = "instant|deprecated|legacy"
-prefer = "lexicographic_max"
+# `highest_minor` compares numeric version tuples, so the fixed-policy
+# default resolves to the newest Opus (e.g. claude-opus-4-8 → [4,8] beats
+# [4,7]). `include_pattern` is pinned to `^claude-opus-` so the frontier
+# default never silently drops to Sonnet/Haiku; tier routing (below /
+# [routing.tiered]) is what steps down to Sonnet 4.6 for simpler work.
+prefer = "highest_minor"
 refresh_interval_hours = 24
 
 [capabilities]
@@ -52,16 +57,30 @@ env_read = []
 send-thinking-blocks = true
 prompt-caching-breakpoints = ["system", "tools"]
 
+# Model catalog refreshed 2026-05-29 against
+# https://platform.claude.com/docs/en/about-claude/models/overview
+# Current lineup: Opus 4.8 (frontier, 1M ctx) → Sonnet 4.6 (balanced,
+# 1M ctx) → Haiku 4.5 (fast, 200k ctx). Opus 4.6 retired from the live
+# catalog (now a legacy alias upstream). Pricing is per-1k tokens
+# (docs quote per-MTok; divide by 1000).
+
 [[models]]
 id = "claude-haiku-4-5"
 context_window = 200000
-price_per_1k_in = 0.00025
-price_per_1k_out = 0.00125
+price_per_1k_in = 0.001
+price_per_1k_out = 0.005
 tier = "simple"
 
 [[models]]
-id = "claude-opus-4-6"
-context_window = 200000
+id = "claude-sonnet-4-6"
+context_window = 1000000
 price_per_1k_in = 0.003
 price_per_1k_out = 0.015
+tier = "medium"
+
+[[models]]
+id = "claude-opus-4-8"
+context_window = 1000000
+price_per_1k_in = 0.005
+price_per_1k_out = 0.025
 tier = "complex"

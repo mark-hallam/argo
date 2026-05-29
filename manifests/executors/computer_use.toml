@@ -20,7 +20,7 @@ max_wallclock_seconds = 600
 max_steps = 50
 screen_width = 1280
 screen_height = 800
-model = "claude-opus-4-7"
+model = "claude-opus-4-8"
 
 # Optional restart strategy. When absent, defaults to one-shot dispatch
 # (existing behaviour). See `crates/argo-executor-computer-use/src/restart.rs`.

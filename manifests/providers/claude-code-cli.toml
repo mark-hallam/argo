@@ -76,13 +76,15 @@ env_read = ["ARGO_CLAUDE_CODE_BINARY"]
 [[models]]
 # Claude Code subscription routes to whichever Claude is current; these
 # entries are advisory so the discovery layer / cost router has a list
-# to reason about. The CLI ultimately picks the model.
-id = "claude-sonnet-4-6"
-context_window = 200000
+# to reason about. The CLI ultimately picks the model (auto-routes short
+# prompts to Haiku, complex/thinking work to Sonnet/Opus). Refreshed
+# 2026-05-29 to the current lineup (Opus 4.8 / Sonnet 4.6 / Haiku 4.5).
+id = "claude-opus-4-8"
+context_window = 1000000
 
 [[models]]
-id = "claude-opus-4-7"
-context_window = 200000
+id = "claude-sonnet-4-6"
+context_window = 1000000
 
 [[models]]
 id = "claude-haiku-4-5"

@@ -47,7 +47,8 @@ fn anthropic_manifest_loads_with_quirks_and_models() {
         .unwrap_or(false));
     let model_ids: Vec<_> = m.models.iter().map(|m| m.id.as_str()).collect();
     assert!(model_ids.contains(&"claude-haiku-4-5"));
-    assert!(model_ids.contains(&"claude-opus-4-6"));
+    assert!(model_ids.contains(&"claude-sonnet-4-6"));
+    assert!(model_ids.contains(&"claude-opus-4-8"));
 }
 
 #[test]

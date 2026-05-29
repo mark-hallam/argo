@@ -116,7 +116,7 @@ fn default_screen_height() -> u32 {
 }
 
 fn default_model() -> String {
-    "claude-opus-4-7".into()
+    "claude-opus-4-8".into()
 }
 
 /// Top-level shape of `manifests/executors/computer_use.toml`.

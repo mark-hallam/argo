@@ -45,16 +45,26 @@ env_read = ["AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_REGION", "AWS_PRO
 [quirks]
 aws-region = "us-east-1"
 
+# Catalog refreshed 2026-05-29 to current lineup. Bedrock IDs follow
+# the `anthropic.claude-…-vN:0` convention; Opus 4.8 + Sonnet 4.6 both
+# carry 1M-token context.
 [[models]]
-id = "anthropic.claude-haiku-4-5-v1:0"
+id = "anthropic.claude-haiku-4-5-20251001-v1:0"
 context_window = 200000
-price_per_1k_in = 0.00025
-price_per_1k_out = 0.00125
+price_per_1k_in = 0.001
+price_per_1k_out = 0.005
 tier = "simple"
 
 [[models]]
-id = "anthropic.claude-opus-4-6-v1:0"
-context_window = 200000
+id = "anthropic.claude-sonnet-4-6-v1:0"
+context_window = 1000000
 price_per_1k_in = 0.003
 price_per_1k_out = 0.015
+tier = "medium"
+
+[[models]]
+id = "anthropic.claude-opus-4-8-v1:0"
+context_window = 1000000
+price_per_1k_in = 0.005
+price_per_1k_out = 0.025
 tier = "complex"
