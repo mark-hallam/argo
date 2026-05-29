@@ -90,6 +90,21 @@ const config: NextConfig = {
         destination: "/settings/workspace#danger-zone",
         permanent: false,
       },
+      // Dead-route catchers. `/workflows/runs` and `/workflows/edit` were
+      // never built — the canonical surfaces are `/audit` (with the
+      // `workflow.execute` action filter) for run history, and the
+      // `/workflows` catalog → per-workflow `[verticalId]/[name]/build`
+      // path for editing. Stale prototype links, browser bookmarks, and
+      // Next.js prerender attempts were producing 404 noise in dev logs
+      // (UX-AUDIT-T0519 F11). `scripts/check-no-dead-spa-routes.sh`
+      // prevents new in-product links to these paths; the redirects
+      // catch anything in-the-wild.
+      {
+        source: "/workflows/runs",
+        destination: "/audit?range=7d&action_type=workflow.execute",
+        permanent: false,
+      },
+      { source: "/workflows/edit", destination: "/workflows", permanent: false },
     ];
   },
   // SECURITY (P1 fix, 2026-05-20): baseline browser security headers.

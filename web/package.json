@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "check:gateway-port": "node scripts/check-canonical-gateway-port.mjs",
-    "lint": "next lint && eslint . && bash ../scripts/check-no-server-imports.sh",
+    "lint": "next lint && eslint . && bash ../scripts/check-no-server-imports.sh && bash ../scripts/check-no-dead-spa-routes.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
