@@ -714,8 +714,11 @@ artifact.
   scene is fine; >20 s drift = re-take from Scene 1.
 - No key reveals. Provider key paste happens off-screen. Throwaway
   email is fine to show.
-- No live customer data. Workspace name "Acme Co". Worker names
-  are the canonical demo set (Mariah, Maya, Peta, Priya, Jamal, Nori).
+- No live customer data. Workspace name "Acme Co". Worker names are
+  the seven seeded teammates (Mariah, Peta, Priya, Jamal, Nori, Portia,
+  Grant), plus **Maya** — hired live during Scene 3 via Genesis, so she
+  is not in the seed; she's the just-hired teammate Scenes 4 + 6
+  continue with.
 - The Slack ✅ click in Scene 6 must be on-screen — that is the
   core round-trip beat.
 - The `/audit` hash-chain hover in Scene 6 lingers for ≥2 seconds
