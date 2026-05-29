@@ -88,3 +88,61 @@ in any consumer.
 
 See `docs/build-plan/streams/provider-claude-code-cli-subprocess.md`
 for the original design + acceptance criteria.
+
+---
+
+## Model lineup + tier step-down (refreshed 2026-05-29)
+
+Current catalog (`manifests/providers/anthropic.toml`), per
+[platform.claude.com models overview](https://platform.claude.com/docs/en/about-claude/models/overview):
+
+| Model | API ID | Context | Price (in / out per MTok) | Tier label |
+|-------|--------|---------|----------------------------|-----------|
+| Opus 4.8 (frontier) | `claude-opus-4-8` | 1M | $5 / $25 | `complex` |
+| Sonnet 4.6 (balanced) | `claude-sonnet-4-6` | 1M | $3 / $15 | `medium` |
+| Haiku 4.5 (fast) | `claude-haiku-4-5` | 200k | $1 / $5 | `simple` |
+
+The `[discovery]` block uses `prefer = "highest_minor"` with
+`include_pattern = "^claude-opus-"`, so the **fixed-policy frontier
+default resolves to the newest Opus (4.8)** — it will never silently
+drop to Sonnet via alphabetical ordering.
+
+### Operator directive (2026-05-29): top tasks → Opus 4.8, simpler → Sonnet 4.6
+
+There are two ways to get this step-down, depending on which provider
+is active:
+
+**(a) Dev/demo via Claude Code CLI — step-down is automatic, free.**
+When `default = "claude-code-cli"`, the `claude` CLI does its own
+auto-routing: short/simple prompts → Haiku, longer/thinking-required
+work → Sonnet/Opus. No tier config needed; the subscription absorbs
+the cost. This is the recommended dev/demo posture.
+
+**(b) Production via the Anthropic API — explicit tier routing.**
+To get the Opus-4.8-for-complex / Sonnet-4.6-for-simpler step-down on
+the real API, set the tiered policy in the deploy's `argo.toml`
+(NOT committed to the repo — it lives in the production workspace
+root so it doesn't change test/CI routing):
+
+```toml
+[routing]
+policy = "tiered"
+
+[routing.tiered]
+classifier = "anthropic:claude-haiku-4-5"   # cheap classifier call
+simple     = "anthropic:claude-sonnet-4-6"
+medium     = "anthropic:claude-sonnet-4-6"
+complex    = "anthropic:claude-opus-4-8"
+classify_threshold_ms = 80
+fallback_to_default_on_error = true
+```
+
+The classifier runs Haiku once per request to label it
+`simple|medium|complex`, then routes to the mapped model. Per the
+operator directive, both `simple` and `medium` step down to Sonnet
+4.6; only `complex` rides Opus 4.8.
+
+**Default (no `[routing]` block) is `policy = "fixed"`** — every call
+uses the frontier default (Opus 4.8). Simplest + most capable, but
+most expensive. Fine for low-volume or when every call benefits from
+the top model.
