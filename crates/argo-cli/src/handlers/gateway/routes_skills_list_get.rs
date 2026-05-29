@@ -20,20 +20,26 @@
 //! Envelope: `{ "skills": [{ id, name, description, layer, version,
 //! trust_grade, provenance_source, tags, ... }], "total_count": N }`.
 //! CORS preflight is handled in [`super::routes::dispatch_route`].
+use argo_identity::IdentityStore;
 use argo_skill::TrustGrade;
 use argo_store::SessionStore;
+use argo_types::TenantId;
+use chrono::Datelike;
 use serde_json::{json, Value};
 use sqlx::Row;
 use std::sync::Arc;
+use uuid::Uuid;
 
 const SKILLS_PATH: &str = "/api/v1/skills";
 const MARKETPLACE_PATH: &str = "/api/v1/skills/marketplace";
 const SKILL_LIBRARY_LIST_PATH: &str = "/api/v1/skill-library/list";
+const LEARNED_THIS_MONTH_PATH: &str = "/api/v1/skills/learned-this-month";
 
 /// Top-level dispatcher. Returns `Some(resp)` for any path served by
-/// this module, `None` to let the caller fall through. The
-/// marketplace path is matched first because it shares the
-/// `/api/v1/skills` prefix.
+/// this module, `None` to let the caller fall through. Exact-match
+/// routes (marketplace / learned-this-month) are checked BEFORE the
+/// `/api/v1/skills/<id>` detail catch-all so those literals aren't
+/// mistaken for a skill id.
 pub(super) async fn dispatch_get(
     req: &str,
     store: Option<&Arc<SessionStore>>,
@@ -41,20 +47,28 @@ pub(super) async fn dispatch_get(
     if !req.starts_with("GET ") {
         return None;
     }
-    if path_matches(req, MARKETPLACE_PATH) || path_matches(req, SKILL_LIBRARY_LIST_PATH) {
+    let after = req.strip_prefix("GET ").unwrap_or(req);
+    let request_path = after.split_whitespace().next().unwrap_or("");
+    let bare = request_path.split('?').next().unwrap_or(request_path);
+
+    if bare == MARKETPLACE_PATH || bare == SKILL_LIBRARY_LIST_PATH {
         return Some(marketplace_response(store).await);
     }
-    if path_matches(req, SKILLS_PATH) {
+    if bare == LEARNED_THIS_MONTH_PATH {
+        return Some(learned_this_month_response(req, store).await);
+    }
+    if bare == SKILLS_PATH {
         return Some(installed_response(req, store).await);
     }
+    // `/api/v1/skills/<id>` — single-skill detail by UUID. Must come
+    // after the exact-match routes above. A nested path (contains `/`)
+    // isn't ours (e.g. `<name>/usage` is served by `routes_skills`).
+    if let Some(id) = bare.strip_prefix("/api/v1/skills/") {
+        if !id.is_empty() && !id.contains('/') {
+            return Some(skill_detail_response(req, store, id).await);
+        }
+    }
     None
-}
-
-fn path_matches(req: &str, path: &str) -> bool {
-    let after_verb = req.strip_prefix("GET ").unwrap_or(req);
-    let request_path = after_verb.split_whitespace().next().unwrap_or("");
-    let bare = request_path.split('?').next().unwrap_or(request_path);
-    bare == path
 }
 
 async fn installed_response(
@@ -134,6 +148,115 @@ async fn marketplace_response(store: Option<&Arc<SessionStore>>) -> (&'static st
         "total_count": total_count,
     });
     ("200 OK", payload.to_string())
+}
+
+/// `GET /api/v1/skills/<id>` — single installed skill by UUID, scoped
+/// to the caller's tenant. Returns the canonical skill envelope plus
+/// the SKILL.md `body` + `created_at` the list omits, so the SPA's
+/// skill-detail drill-in renders the full record. 404 if the id is
+/// malformed or not an active skill in this tenant.
+async fn skill_detail_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+    id_str: &str,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let tenant_id = match request_tenant_id(req, store).await {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let Ok(uuid) = Uuid::parse_str(id_str) else {
+        return (
+            "404 Not Found",
+            json!({ "error": format!("invalid skill id '{id_str}'") }).to_string(),
+        );
+    };
+    let id_bytes = uuid.as_bytes().to_vec();
+    let row = sqlx::query(
+        "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.vertical_id, \
+                s.created_at \
+         FROM skill s \
+         WHERE s.id = ? \
+           AND s.tenant_id = ? \
+           AND s.superseded_by IS NULL \
+           AND s.lifecycle_state = 'active' \
+         LIMIT 1",
+    )
+    .bind(&id_bytes)
+    .bind(&tenant_id)
+    .fetch_optional(store.pool())
+    .await;
+    match row {
+        Ok(Some(r)) => ("200 OK", skill_detail_json(r).to_string()),
+        Ok(None) => (
+            "404 Not Found",
+            json!({ "error": format!("no active skill '{id_str}' in this tenant") }).to_string(),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            json!({ "error": format!("skill detail: {e}") }).to_string(),
+        ),
+    }
+}
+
+/// `GET /api/v1/skills/learned-this-month` — skill ids the caller's
+/// tenant has learned since the first of the month (UTC). Mirrors the
+/// bare `routes_skills` route's `{ since, count, skill_ids }` shape so
+/// the marketplace "learned this month" chip can intersect it with the
+/// installed list. Real data: a `worker_skill.learned_at` query.
+async fn learned_this_month_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let tenant_str = match request_tenant_id(req, store).await {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let Ok(uuid) = Uuid::parse_str(&tenant_str) else {
+        return (
+            "500 Internal Server Error",
+            json!({ "error": format!("tenant id not a uuid: '{tenant_str}'") }).to_string(),
+        );
+    };
+    let since = month_start_iso(chrono::Utc::now());
+    let identity = IdentityStore::new(store);
+    match identity.skill_ids_learned_since(TenantId(uuid), &since).await {
+        Ok(ids) => (
+            "200 OK",
+            json!({ "since": since, "count": ids.len(), "skill_ids": ids }).to_string(),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            json!({ "error": format!("learned_since: {e}") }).to_string(),
+        ),
+    }
+}
+
+/// First-of-month (UTC) for `now` as an RFC3339 string.
+fn month_start_iso(now: chrono::DateTime<chrono::Utc>) -> String {
+    let d = now.date_naive();
+    let first = chrono::NaiveDate::from_ymd_opt(d.year(), d.month(), 1)
+        .unwrap_or(d)
+        .and_time(chrono::NaiveTime::MIN);
+    chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(first, chrono::Utc).to_rfc3339()
+}
+
+/// Full single-skill envelope: the catalog row shape (via
+/// [`skill_row_json`]) extended with `body` + `created_at`.
+fn skill_detail_json(row: sqlx::sqlite::SqliteRow) -> Value {
+    let body: String = row.try_get("body").unwrap_or_default();
+    let created_at: String = row.try_get("created_at").unwrap_or_default();
+    let mut base = skill_row_json(row);
+    if let Value::Object(ref mut map) = base {
+        map.insert("body".to_string(), json!(body));
+        map.insert("created_at".to_string(), json!(created_at));
+    }
+    base
 }
 
 /// Decode the response row into the canonical envelope shape. The
