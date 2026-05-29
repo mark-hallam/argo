@@ -97,6 +97,13 @@ pub(super) async fn dispatch_scim_and_team(
     if let Some(resp) = super::routes_notifications::dispatch_get(req, store).await {
         return Some(resp);
     }
+    // theatre item T1 — workspace/providers/notifications settings panels.
+    // Pinned after the bell-popover notifications GET so the exact
+    // `/api/v1/notifications/preferences` match cannot be shadowed by
+    // the `/api/v1/notifications` list prefix above.
+    if let Some(resp) = super::routes_workspace_settings::dispatch_get(req, store).await {
+        return Some(resp);
+    }
     if req.starts_with("GET /api/v1/tenant/usage ")
         || req.starts_with("GET /api/v1/tenant/usage?")
     {

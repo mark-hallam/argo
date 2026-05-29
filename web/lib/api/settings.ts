@@ -115,9 +115,16 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
+  // Recording-mode opt-out (`NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1`): demo-live
+  // hits the real `/api/v1/workspace`, `/api/v1/providers/policy`, and
+  // `/api/v1/notifications/preferences` endpoints (read-backed by the
+  // `workspace_settings` table) so Settings shows real, persisted
+  // values. Equivalent to the canonical `!isDemoLive()` guard used
+  // across the other api modules. Plain auth-bypass dev still mocks.
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
   );
 }
 

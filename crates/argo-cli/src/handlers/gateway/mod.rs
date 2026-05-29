@@ -236,6 +236,7 @@ mod routes_workspace;
 mod routes_workspace_members;
 mod routes_workspace_members_accept;
 mod routes_workspace_members_invite;
+mod routes_workspace_settings;
 mod runs_streaming;
 mod scim_auth;
 mod security_headers;

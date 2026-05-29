@@ -328,6 +328,13 @@ pub mod user_account;
 /// invitation carries its own SHA-256 token hash so the 7-day invite
 /// window does not share a row shape with the 15-minute login token.
 pub mod workspace_member_invitation;
+/// Generic per-tenant key/value store for the `/settings` SPA surface
+/// (theatre item `T1`). One row per `(tenant_id, group_key)` where
+/// `group_key` is one of `workspace`, `providers`, `notifications`;
+/// `value_json` holds the whole panel object. The gateway handler owns
+/// the panel shapes + defaults; this module is a thin tenant-scoped
+/// get/upsert over the `workspace_settings` table (migration v85).
+pub mod workspace_settings;
 
 pub use argo_runtime::prompt_cache_affinity::PromptCacheAffinity;
 pub use grants::SessionGrant;

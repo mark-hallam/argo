@@ -26,6 +26,12 @@ pub(super) async fn dispatch_patch(
             }
         }
     }
+    // theatre item T1 — settings panels (workspace / providers /
+    // notifications). These are not under `/workers/`, so they must be
+    // matched before the `/workers/` prefix-strip early-returns below.
+    if let Some(resp) = super::routes_workspace_settings::dispatch_patch(req, store).await {
+        return Some(resp);
+    }
     let rest = req.strip_prefix("PATCH /api/v1/workers/")?;
     let (head, _) = rest.split_once(' ')?;
     let head_no_query = head.split('?').next().unwrap_or(head);
