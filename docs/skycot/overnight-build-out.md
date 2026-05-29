@@ -81,11 +81,18 @@ target (cargo's target lock serializes compilation = memory-safe).
 Build-map finding: **T3 + T4 backends already exist** (routes_skill_ir.rs,
 routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
 404s for seeded skills ("skill has no IR") → flipping needs IR **seeded** first.
-- [ ] **T1 · settings/workspace** — BUILD. No store exists → new `workspace_settings`
-  table (one generic `(tenant_id, group_key, value_json, updated_at)` row per group)
-  via migration v85 + `routes_workspace_settings.rs` (GET/PATCH for workspace /
-  providers/policy / notifications/preferences) + flip `settings.ts`. ~150 LOC Rust.
-  HIGH (real settings page). *(next build after V1 integrates)*
+- [x] **T1 · settings/workspace** — **DONE.** New generic `workspace_settings`
+  table `(tenant_id, group_key, value_json, updated_at)` via migration **v85**
+  (inline-SQL, additive, idempotent; slot-check clean) + tenant-scoped
+  `argo_store::workspace_settings` get/upsert + `routes_workspace_settings.rs`
+  GET/PATCH for `/api/v1/workspace`, `/api/v1/providers/policy`,
+  `/api/v1/notifications/preferences` (defaults mirror `settings.ts` DEFAULT_*,
+  shallow-merge + shape-validate on PATCH, 400 on unknown-key/wrong-type). Wired
+  into the GET + PATCH dispatchers; `settings.ts` `isAuthBypassed()` now opts out
+  under `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` so demo-live shows real persisted
+  settings. 8 store unit tests (incl. migration-on-:memory: + tenant-scoping) +
+  8 handler tests (defaults / round-trip / validation) + clippy `-D warnings`
+  green; `settings.ts` typechecks (6 pre-existing unrelated TS errors only).
 - [ ] **T2 · worker evals** — routes_evals.rs EXISTS but is MOCK-ONLY; store has
   `skill_reeval_history` (per-SKILL, not per-worker). Build a real query (worker's
   learned skills → their reeval history surfaced as the worker's eval runs) + flip
@@ -120,3 +127,9 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
 - 2026-05-29 (kickoff) — state assessed: main@22d94db73 clean+synced; demo up;
   swarm halted; disk 105 GB free (191 GB in caches → single-target discipline);
   process v1 set. Starting V1 (voice traits) + delegating T-audit in parallel.
+- 2026-05-30 — **T1 settings backend DONE.** Migration v85 (`workspace_settings`
+  generic KV table) + `argo_store::workspace_settings` + gateway
+  `routes_workspace_settings.rs` (GET/PATCH × workspace/providers/notifications,
+  defaults from `settings.ts`, PATCH merge+validate) + dispatcher wiring +
+  `settings.ts` demo-live gate flip. 8 store + 8 handler tests, clippy -D warnings,
+  migration-slots, tsc(settings) all green. `/settings` now read-backed + persisted.
