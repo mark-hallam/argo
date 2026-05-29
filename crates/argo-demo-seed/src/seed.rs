@@ -153,6 +153,8 @@ pub async fn run_canonical_v1_seed(
         seed_approval_requests(store, opts.tenant_id, &worker_ids, &opts.actor).await?;
     report.retros_created = seed_demo_retros(store, opts.tenant_id).await?;
     report.orchestration_runs_created = seed_demo_orchestration(store, opts.tenant_id).await?;
+    report.retrain_records_seeded =
+        seed_retrain_records(store, opts.tenant_id, &worker_ids).await?;
     Ok(report)
 }
 
@@ -476,6 +478,101 @@ async fn seed_worker_skill_assignments(
     Ok(assigned)
 }
 
+/// Seed a handful of committed retrains for the lead hero workers so
+/// the worker Overview tab's "Recent changes" panel renders real
+/// history (newest-first, inside the 14-day undo window) instead of an
+/// empty mock. Writes `worker.retrain.committed` audit rows — the exact
+/// shape `routes_retrain::commit` persists and `GET /retrain/recent`
+/// reads back — so this is real data, not a parallel store. Idempotent:
+/// if any committed-retrain row already exists for the tenant, the set
+/// was seeded by a prior run and the whole block is skipped (re-seeding
+/// to add a teammate must not duplicate the panel).
+async fn seed_retrain_records(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    worker_ids: &[argo_identity::WorkerId],
+) -> SeedResult<usize> {
+    if worker_ids.is_empty() {
+        return Ok(0);
+    }
+    let existing: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_record WHERE kind = 'http.request' \
+           AND tenant_id = ? \
+           AND json_extract(payload_json, '$.endpoint') = 'worker.retrain.committed'",
+    )
+    .bind(tenant_id.to_string())
+    .fetch_one(store.pool())
+    .await
+    .map_err(|e| argo_types::ArgoError::Provider(format!("retrain seed probe: {e}")))?;
+    if existing > 0 {
+        return Ok(0);
+    }
+
+    // (worker index, classification, structural_change, days_ago) — one
+    // of each of the five classifications so every mapped badge renders.
+    let plan: [(usize, &str, serde_json::Value, i64); 5] = [
+        (
+            0,
+            "memory_fact",
+            serde_json::json!({ "text": "Northwind pays NET-30, not NET-15." }),
+            2,
+        ),
+        (
+            0,
+            "vocabulary_patch",
+            serde_json::json!({ "from": "client", "to": "customer" }),
+            4,
+        ),
+        (
+            0,
+            "policy_rule",
+            serde_json::json!({
+                "predicate_json": { "raw": "Always CC the account owner on refunds over $500." },
+                "action_type": "refund",
+            }),
+            6,
+        ),
+        (
+            1,
+            "skill_correction",
+            serde_json::json!({ "note": "Use the Q2 pricing sheet, not Q1." }),
+            3,
+        ),
+        (
+            1,
+            "action_ban",
+            serde_json::json!({ "action_type": "send_sms" }),
+            5,
+        ),
+    ];
+
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    let mut inserted = 0usize;
+    for (idx, classification, structural_change, days_ago) in plan {
+        let worker_id = worker_ids[idx % worker_ids.len()];
+        let retrain_id = Uuid::now_v7();
+        let applied_at = (Utc::now() - chrono::Duration::days(days_ago)).to_rfc3339();
+        sink.write(
+            None,
+            AuditKind::HttpRequest,
+            serde_json::json!({
+                "endpoint": "worker.retrain.committed",
+                "retrain_id": retrain_id.to_string(),
+                "tenant_id": tenant_id.to_string(),
+                "worker_id": worker_id.to_string(),
+                "classification": classification,
+                "structural_change": structural_change,
+                "applied_at": applied_at,
+            }),
+            None,
+        )
+        .await?;
+        inserted += 1;
+    }
+    sink.flush_pending().await?;
+    Ok(inserted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -525,6 +622,9 @@ mod tests {
         // a real percentage on first paint (see the brief
         // `fix-approvals-seed-decided-approvals-for-ring`).
         assert_eq!(report.approval_requests, 8);
+        // Five committed retrains (one per classification) seeded for the
+        // lead heroes so the Recent-changes panel renders real history.
+        assert_eq!(report.retrain_records_seeded, 5);
         assert!(!report.pass_a_real_llm);
 
         // Vacuous-pass guard (round-37 pattern): seeded tenant sees the
@@ -566,6 +666,15 @@ mod tests {
             5,
             "expected 5 pending demo approvals after re-seed, got {}",
             pending.len()
+        );
+
+        // Retrain history is seeded once: 5 on the first run, 0 on re-seed
+        // (the committed-retrain sentinel guards against duplication).
+        assert_eq!(first.retrain_records_seeded, 5);
+        assert_eq!(
+            second.retrain_records_seeded, 0,
+            "re-seed must skip already-seeded retrains (got {})",
+            second.retrain_records_seeded
         );
     }
 

@@ -78,6 +78,11 @@ pub struct SeedReport {
     /// catalog skills) so Claim 4's `/skills/<id>/usage` + "learned this
     /// month" surfaces show genuine adoption rather than an empty state.
     pub worker_skills_assigned: usize,
+    /// Number of committed-retrain audit rows seeded for the lead hero
+    /// workers so the worker Overview tab's "Recent changes" panel
+    /// (`GET /api/v1/workers/<id>/retrain/recent`) renders real history
+    /// inside the 14-day undo window instead of an empty mock.
+    pub retrain_records_seeded: usize,
     /// Number of `audit_record` rows produced by Pass A real-LLM
     /// turns. Always `0` when [`SeedOptions::skip_pass_a_turns`]
     /// is true.

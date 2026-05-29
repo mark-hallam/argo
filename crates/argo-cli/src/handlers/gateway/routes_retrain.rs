@@ -31,13 +31,15 @@ use uuid::Uuid;
 mod helpers;
 use helpers::{
     apply_memory_fact, build_reverse_samples, capture_snapshot, classify_input, find_conflicts,
-    find_retrain_row, revert_memory_fact, RetrainRow,
+    find_retrain_row, map_classification, recent_retrain_rows, retrain_summary, revert_memory_fact,
+    RetrainRow,
 };
 
 const INPUT_MAX_BYTES: usize = 4000;
 const UNDO_TTL_DAYS: i64 = 14;
 const REVERSE_TEST_MAX: u32 = 10;
 const REVERSE_TEST_DEFAULT: u32 = 3;
+const RECENT_LIMIT: i64 = 20;
 pub(super) const COMMIT_KEY: &str = "worker.retrain.committed";
 pub(super) const UNDO_KEY: &str = "worker.retrain.undone";
 const TRUST_RESET_KEY: &str = "worker.retrain.trust_ratchet.reset";
@@ -84,6 +86,44 @@ pub(super) async fn undo_response(w: &str, r: &str, s: Option<&Arc<SessionStore>
 }
 pub(super) async fn reverse_test_response(w: &str, r: &str, s: Option<&Arc<SessionStore>>) -> Resp {
     reverse_test_inner(w, r, s).await.unwrap_or_else(|x| x)
+}
+/// `GET /api/v1/workers/<id>/retrain/recent` — the worker's committed
+/// retrains (newest first), hydrated from the audit log into the
+/// SPA's `RetrainRecord` shape so the Overview tab's RecentChanges
+/// panel renders real history instead of falling back to an empty
+/// mock. Unknown worker → 404 (the SPA degrades to an empty list).
+pub(super) async fn recent_response(w: &str, r: &str, s: Option<&Arc<SessionStore>>) -> Resp {
+    recent_inner(w, r, s).await.unwrap_or_else(|x| x)
+}
+async fn recent_inner(wid: &str, _req: &str, store: Option<&Arc<SessionStore>>) -> RespResult {
+    let store = store.ok_or_else(super::store_unavailable)?;
+    let worker_id = parse_worker_id(wid)?;
+    let ctx = resolve_worker_ctx(store, worker_id).await?;
+    let rows = recent_retrain_rows(store, &ctx, RECENT_LIMIT)
+        .await
+        .map_err(|e| server_error(&format!("recent retrains: {e}")))?;
+    let records: Vec<Value> = rows
+        .iter()
+        .map(|row| {
+            let undo_expires = row.applied_at + chrono::Duration::days(UNDO_TTL_DAYS);
+            let mut rec = json!({
+                "retrainId": row.retrain_id,
+                "workerId": ctx.worker.id.to_string(),
+                "classification": map_classification(&row.classification),
+                "oneLineSummary": retrain_summary(&row.classification, &row.structural_change),
+                "committedAt": row.applied_at.to_rfc3339(),
+                "undoExpiresAt": undo_expires.to_rfc3339(),
+            });
+            if let Some(undone) = row.undone_at {
+                rec["undoneAt"] = json!(undone.to_rfc3339());
+            }
+            rec
+        })
+        .collect();
+    Ok((
+        "200 OK",
+        serde_json::to_string(&records).unwrap_or_else(|_| "[]".into()),
+    ))
 }
 async fn classify_inner(wid: &str, req: &str, store: Option<&Arc<SessionStore>>) -> RespResult {
     let (store, ctx, input) = prepare_with_input(store, wid, req).await?;

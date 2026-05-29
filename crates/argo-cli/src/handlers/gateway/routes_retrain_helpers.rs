@@ -371,3 +371,159 @@ fn scope_label(scope: MemoryScope) -> &'static str {
         MemoryScope::SharedTeam => "shared_team",
     }
 }
+
+/// One committed retrain, hydrated from the audit log for the
+/// `GET /retrain/recent` panel. `undone_at` is `Some` when a matching
+/// `worker.retrain.undone` row exists for the same retrain id.
+pub(super) struct RecentRetrain {
+    pub(super) retrain_id: String,
+    pub(super) classification: String,
+    pub(super) structural_change: Value,
+    pub(super) applied_at: DateTime<Utc>,
+    pub(super) undone_at: Option<DateTime<Utc>>,
+}
+
+/// Lists a worker's committed retrains newest-first (capped at
+/// `limit`), joining each to its undo marker when present. Reads the
+/// audit log — the canonical retrain history written by `commit` /
+/// `undo` — so no parallel `retrain_record` table is introduced.
+pub(super) async fn recent_retrain_rows(
+    store: &Arc<SessionStore>,
+    ctx: &WorkerCtx,
+    limit: i64,
+) -> ArgoResult<Vec<RecentRetrain>> {
+    type OptRow = (Option<String>, Option<String>, Option<String>, Option<String>);
+    let commits: Vec<OptRow> = sqlx::query_as(
+        "SELECT json_extract(payload_json, '$.retrain_id'), \
+                json_extract(payload_json, '$.classification'), \
+                json_extract(payload_json, '$.structural_change'), \
+                json_extract(payload_json, '$.applied_at') \
+         FROM audit_record WHERE kind = 'http.request' \
+           AND tenant_id = ? \
+           AND json_extract(payload_json, '$.endpoint') = ? \
+           AND json_extract(payload_json, '$.worker_id') = ? \
+         ORDER BY seq DESC LIMIT ?",
+    )
+    .bind(ctx.tenant.to_string())
+    .bind(COMMIT_KEY)
+    .bind(ctx.worker.id.to_string())
+    .bind(limit.clamp(1, 100))
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("recent retrain probe: {e}")))?;
+
+    let undos: Vec<(Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT json_extract(payload_json, '$.retrain_id'), \
+                json_extract(payload_json, '$.undone_at') \
+         FROM audit_record WHERE kind = 'http.request' \
+           AND tenant_id = ? \
+           AND json_extract(payload_json, '$.endpoint') = ? \
+           AND json_extract(payload_json, '$.worker_id') = ?",
+    )
+    .bind(ctx.tenant.to_string())
+    .bind(UNDO_KEY)
+    .bind(ctx.worker.id.to_string())
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("recent undo probe: {e}")))?;
+
+    let undo_map: std::collections::HashMap<String, Option<DateTime<Utc>>> = undos
+        .into_iter()
+        .filter_map(|(rid, ts)| rid.map(|r| (r, parse_rfc3339(ts.as_deref()))))
+        .collect();
+
+    let mut out = Vec::with_capacity(commits.len());
+    for (rid, class, sc_raw, applied_raw) in commits {
+        let (Some(retrain_id), Some(classification), Some(applied_raw)) = (rid, class, applied_raw)
+        else {
+            continue;
+        };
+        let Some(applied_at) = parse_rfc3339(Some(&applied_raw)) else {
+            continue;
+        };
+        let structural_change = sc_raw
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or(Value::Null);
+        let undone_at = undo_map.get(&retrain_id).copied().flatten();
+        out.push(RecentRetrain {
+            retrain_id,
+            classification,
+            structural_change,
+            applied_at,
+            undone_at,
+        });
+    }
+    Ok(out)
+}
+
+fn parse_rfc3339(raw: Option<&str>) -> Option<DateTime<Utc>> {
+    raw.and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|d| d.with_timezone(&Utc))
+}
+
+/// Maps the internal retrain classification onto the SPA's
+/// `RetrainClassification` enum (`memory` / `policy` / `skill` /
+/// `vocabulary` / `action-ban`). Unknown classes fall back to
+/// `memory` so the panel always renders.
+pub(super) fn map_classification(internal: &str) -> &'static str {
+    match internal {
+        "policy_rule" => "policy",
+        "skill_correction" => "skill",
+        "vocabulary_patch" => "vocabulary",
+        "action_ban" => "action-ban",
+        _ => "memory",
+    }
+}
+
+/// Derives the one-line summary the `RecentChangesPanel` renders, from
+/// the committed classification + its structural change.
+pub(super) fn retrain_summary(classification: &str, sc: &Value) -> String {
+    let field = |k: &str| sc.get(k).and_then(Value::as_str).unwrap_or("").trim();
+    match classification {
+        "vocabulary_patch" => {
+            let (from, to) = (field("from"), field("to"));
+            if from.is_empty() || to.is_empty() {
+                "Updated her wording.".into()
+            } else {
+                format!("Now says \u{201c}{to}\u{201d} instead of \u{201c}{from}\u{201d}.")
+            }
+        }
+        "action_ban" => {
+            let action = field("action_type");
+            if action.is_empty() {
+                "Banned an action.".into()
+            } else {
+                format!("Banned action \u{201c}{action}\u{201d}.")
+            }
+        }
+        "policy_rule" => {
+            let raw = sc
+                .get("predicate_json")
+                .and_then(|p| p.get("raw"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim();
+            if raw.is_empty() {
+                "Added a policy rule.".into()
+            } else {
+                format!("New rule: {}", trim_for_display(raw))
+            }
+        }
+        "skill_correction" => {
+            let note = field("note");
+            if note.is_empty() {
+                "Corrected a skill.".into()
+            } else {
+                format!("Skill correction: {}", trim_for_display(note))
+            }
+        }
+        _ => {
+            let text = field("text");
+            if text.is_empty() {
+                "Learned a new fact.".into()
+            } else {
+                format!("Remembered: {}", trim_for_display(text))
+            }
+        }
+    }
+}

@@ -229,6 +229,9 @@ async fn dispatch_worker_subpath(
             super::routes_worker_settings::get_settings(id_with_suffix, req, store).await,
         );
     }
+    if tail.starts_with("retrain/recent ") || tail.starts_with("retrain/recent?") {
+        return Some(super::routes_retrain::recent_response(id_with_suffix, req, store).await);
+    }
     if tail.starts_with("skills/") {
         let after = tail.trim_start_matches("skills/");
         if let Some((sid, rest_after)) = after.split_once('/') {

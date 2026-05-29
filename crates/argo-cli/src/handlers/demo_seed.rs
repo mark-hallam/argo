@@ -105,6 +105,14 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
         "  marketplace_skills_created: {}",
         report.marketplace_skills_created
     );
+    println!(
+        "  worker_skills_assigned:     {}",
+        report.worker_skills_assigned
+    );
+    println!(
+        "  retrain_records_seeded:     {}",
+        report.retrain_records_seeded
+    );
     println!("  pass_a_real_llm:            {}", report.pass_a_real_llm);
     println!("  pass_a_audit_rows:          {}", report.pass_a_audit_rows);
     println!();
