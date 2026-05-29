@@ -135,7 +135,7 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
 
 ### P2 — Gap features (from the 4 design plans)
 - [ ] Self-improvement Step 1b (eval-case generation) — additive, no key.
-- [ ] Governance audit-readiness report (gap #1 move A) — read-only assembly.
+- [x] Governance audit-readiness report (gap #1 move A) — read-only assembly. **DONE** (commit `764f725ff`).
 - [ ] Orchestration supervisor engine — **BLOCKED: operator to confirm Supervisor vs DAG.**
 - [ ] (voice real-vendor — see V2, BLOCKED on key)
 
@@ -167,3 +167,20 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   isn't swapped back to mock. 6 handler tests + clippy -D warnings + vitest 233/233
   + tsc (only pre-existing unrelated errors) green. Commit `53933f011`. `/workers/
   <id>` evals tab now real-backed under demo-live.
+- 2026-05-30 — **P2 governance audit-readiness report DONE (gap #1 move A).**
+  New `routes_governance.rs` + tests + dispatcher wiring (`crates/argo-cli/` only):
+  `GET /api/v1/governance/readiness[?tenant=<id>]` → read-only assembly of the
+  moat we already have — `audit:{chain_intact,action_count}` (runs
+  `argo_audit::verify_session` over every session the tenant owns, ANDs the
+  verdicts, sums rows), `approvals:{decided,pending,coverage_pct}` (direct
+  `approval_request` counts by tenant; coverage `null`+note when no requests, no
+  fake 100), `capabilities` (the 4 default RBAC role presets from
+  `default_roles_for_workspace` — names surfaced; per-principal dynamic grants
+  not persisted/countable → `// follow-up:` note), `truth_boundary:{enabled}`
+  (env `ARGO_TRUTH_BOUNDARY_POLICY_PATH` policy that resolves to the tenant;
+  factual `false`+note when unset). NO THEATER — every value read straight from
+  source. Tenant-scoped (explicit `?tenant=` or cwd workspace); other tenant →
+  clean empty report, no leak. 4 handler tests (real counts, cross-tenant
+  isolation, malformed-tenant 5xx, non-match passthrough) + clippy -D warnings
+  green; module 264 LOC / test 185 LOC, longest fn 36 LOC, no panicking
+  unwrap/expect (unwrap checker `--all` clean). Commit `764f725ff`.
