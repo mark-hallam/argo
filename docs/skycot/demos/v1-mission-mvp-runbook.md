@@ -75,7 +75,7 @@ into the narration; the tests are source material, not the story.
   ARGO_DEMO_SEED_PROVIDER_KEY="${ARGO_DEMO_SEED_PROVIDER_KEY:?set throwaway provider key}" \
     argo demo seed --tenant "$ARGO_DEMO_TENANT_ID"
   curl -fsS http://127.0.0.1:7400/api/v1/team | jq '.workers | length'
-  # expected: 5  (Mariah, Peta, Priya, Jamal, Nori)
+  # expected: 6  (Mariah, Peta, Priya, Jamal, Nori, Portia)
   curl -fsS http://127.0.0.1:7400/api/v1/workflows | jq '.workflows | length'
   # expected: >0
   curl -fsS http://127.0.0.1:7400/api/v1/skills | jq '.skills | length'
@@ -118,32 +118,32 @@ worker_ids, identical names, vertical ids, duty entries, and
 memory namespaces. One worker is re-summoned by name post-restart.
 
 **Visual / operator action**:
-1. Operator types `/workers` in the address bar; the SPA redirects
-   to `/team` (canonical roster surface — see
-   `web/app/(app)/workers/page.tsx`), so the camera lands on
-   `/team` with five workers already hired (Mariah, Peta, Priya,
-   Jamal, Nori). Brand-loud trading-card deck visible. (Drop the
-   redirect step and start on `/workers` once
-   `fix-workers-redirect-to-team-url-flicker` (#2370) lands.)
+1. Operator clicks **Team** in the sidebar (the canonical roster
+   entry — the duplicate "Workers" nav item was removed in the
+   nav-dedup; `/workers` still resolves + redirects to `/team`). The
+   camera lands on `/team` with six teammates already hired (Mariah,
+   Peta, Priya, Jamal, Nori, and Portia — the pitch agent who will
+   pitch SKYCOT itself later in this demo). Brand-loud trading-card
+   deck visible.
 2. Operator stops the gateway in the off-screen terminal.
 3. Operator restarts the gateway. Browser auto-refreshes.
-4. Same five workers reappear — same names, same avatars, same
+4. Same six teammates reappear — same names, same avatars, same
    trait chips, same level badges (Mariah at LEVEL 5).
 5. Click Mariah's card. `/workers/${workerId}` shows her overview
    tab with personality chips, great-at / escalate-when bullets,
    and KPIs.
 
 **Talk track**:
-> "Your AI hires are colleagues. Mariah, Peta, Priya, Jamal, Nori —
-> five teammates I hired last week. I'm going to stop the gateway,
-> restart it, and they're all still here. Same names. Same
+> "Your AI hires are colleagues. Mariah, Peta, Priya, Jamal, Nori,
+> Portia — six teammates I hired last week. I'm going to stop the
+> gateway, restart it, and they're all still here. Same names. Same
 > personalities. Same memory. They're not jobs I run; they're
 > teammates I delegate to."
 >
-> (After restart) "Same five. Same Mariah. I can summon her by
+> (After restart) "Same six. Same Mariah. I can summon her by
 > name a day from now and she remembers what we discussed."
 
-**Pass cue**: Five worker cards re-render post-restart with
+**Pass cue**: Six worker cards re-render post-restart with
 identical names and identical worker_ids in the URL when clicked
 through. Mariah's overview tab opens at `/workers/${workerId}`
 without a 404.

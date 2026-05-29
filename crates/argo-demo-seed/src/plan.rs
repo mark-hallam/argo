@@ -55,12 +55,6 @@ impl SeedOptions {
 pub struct SeedReport {
     /// Number of `worker` rows inserted under the demo tenant.
     pub workers_created: usize,
-    /// Number of dept-filler `worker` rows inserted under the demo
-    /// tenant. These four placeholder workers (pitch / finance / devex
-    /// / legal) exist so the `/cohorts` SPA page renders all 9 dept
-    /// tabs declared in `web/components/skycot/cohorts/dept-registry.ts`
-    /// with at least one cohort each.
-    pub dept_filler_workers_created: usize,
     /// Number of `worker` rows inserted under the foreign tenant
     /// (used by Scene 6's cross-tenant invisibility beat).
     pub foreign_workers_created: usize,

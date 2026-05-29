@@ -16,7 +16,6 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::audit_backstory::seed_audit_backstory;
-use crate::dept_filler::seed_dept_filler_workers;
 use crate::marketplace::seed_demo_marketplace_skills;
 use crate::orchestration::seed_demo_orchestration;
 use crate::personas::DEMO_SEED_PERSONAS;
@@ -97,10 +96,6 @@ pub async fn run_canonical_v1_seed(
     // ── Pass A — function-side scaffolding ────────────────────────
     let worker_ids = seed_demo_workers(&identities, opts.tenant_id).await?;
     report.workers_created = worker_ids.len();
-
-    // Dept-filler workers — /cohorts coverage; see dept_filler module.
-    let filler_ids = seed_dept_filler_workers(&identities, opts.tenant_id).await?;
-    report.dept_filler_workers_created = filler_ids.len();
 
     let foreign_tenant = TenantId::new();
     let foreign_worker_id = seed_foreign_worker(&identities, foreign_tenant).await?;
@@ -440,8 +435,7 @@ mod tests {
         opts.skip_pass_a_turns = true;
         opts.dressing_audit_rows = 25;
         let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
-        assert_eq!(report.workers_created, 5);
-        assert_eq!(report.dept_filler_workers_created, 4);
+        assert_eq!(report.workers_created, 6);
         assert_eq!(report.foreign_workers_created, 1);
         assert_eq!(report.workflows_created, 1);
         assert_eq!(report.skills_created, 3);
@@ -461,11 +455,11 @@ mod tests {
         assert_eq!(report.approval_requests, 8);
         assert!(!report.pass_a_real_llm);
 
-        // Vacuous-pass guard (round-37 pattern): seeded tenant sees
-        // 9 (5 canon + 4 dept-filler); a DIFFERENT tenant sees zero.
+        // Vacuous-pass guard (round-37 pattern): seeded tenant sees the
+        // six real hero teammates; a DIFFERENT tenant sees zero.
         let identities = IdentityStore::new(&store);
         let seeded_workers = identities.list_workers(tenant, false).await.unwrap();
-        assert_eq!(seeded_workers.len(), 9);
+        assert_eq!(seeded_workers.len(), 6);
         let other_tenant = TenantId::new();
         let other_workers = identities.list_workers(other_tenant, false).await.unwrap();
         assert_eq!(other_workers.len(), 0);

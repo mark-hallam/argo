@@ -35,7 +35,6 @@
 #![warn(missing_docs)]
 
 mod audit_backstory;
-mod dept_filler;
 pub mod marketplace;
 mod orchestration;
 mod personas;
@@ -47,7 +46,7 @@ mod workflow;
 
 pub use audit_backstory::backstory_row_count;
 pub use marketplace::{demo_marketplace_catalog_size, seed_demo_marketplace_skills};
-pub use personas::{DemoPersona, DEMO_SEED_PERSONAS, DEPT_FILLER_PERSONAS};
+pub use personas::{DemoPersona, DEMO_SEED_PERSONAS};
 pub use plan::{SeedOptions, SeedReport};
 pub use seed::{run_canonical_v1_seed, seed_workers};
 

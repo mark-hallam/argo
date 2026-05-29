@@ -32,55 +32,13 @@ pub struct DemoPersona {
     pub traits: &'static [&'static str],
 }
 
-/// The three dept-filler personas — minimum-seed coverage for the
-/// `/cohorts` SPA page so all 9 department tabs declared in
-/// `web/components/skycot/cohorts/dept-registry.ts` render with at
-/// least one cohort each. The camera does NOT drill into these
-/// during the v1.0 demo MP4 — they are dept-tab fillers visible
-/// only if a viewer pans across `/cohorts`. The Sales & Investor
-/// Relations (pitch-agent) tab is now covered by **Portia**, who was
-/// promoted into the canonical hero roster (she is the Track-P Pitch
-/// Agent headline — DEC-008/DEC-016), so she lives in
-/// `DEMO_SEED_PERSONAS` below, not here.
-pub const DEPT_FILLER_PERSONAS: &[DemoPersona] = &[
-    DemoPersona {
-        name: "Fin",
-        title: "Finance & Ops Coordinator",
-        tagline: "tracks A/R, vendor invoices, and month-end close",
-        vertical_id: "finance-ar",
-        team: "Finance & Ops",
-        traits: &["Accurate", "Process-oriented", "Calm", "Audit-aware"],
-    },
-    DemoPersona {
-        name: "Devon",
-        title: "Developer Experience",
-        tagline: "shepherds onboarding, CI, and internal tooling",
-        vertical_id: "devex",
-        team: "IT & Dev-ex",
-        traits: &[
-            "Pragmatic",
-            "Tooling-fluent",
-            "Patient",
-            "Documentation-rich",
-        ],
-    },
-    DemoPersona {
-        name: "Lex",
-        title: "Legal Counsel",
-        tagline: "reviews contracts, NDAs, and policy questions",
-        vertical_id: "legal",
-        team: "Legal",
-        traits: &[
-            "Precise",
-            "Risk-aware",
-            "Citation-driven",
-            "Diplomatic",
-        ],
-    },
-];
-
-/// The five Scene-1 canonical demo personas, in `/team` display
-/// order (Mariah is the demo "headliner" the camera lands on first).
+/// The six canonical demo personas, in `/team` display order (Mariah
+/// is the demo "headliner" the camera lands on first; Portia, the
+/// Track-P Pitch Agent, is the sixth — promoted from a former
+/// dept-filler so every `/team` card is a real, demo-quality teammate.
+/// The prior "dept-filler" rows (Fin / Devon / Lex) were removed:
+/// fake roster rows seeded only to populate `/cohorts` tabs are
+/// theater, so the demo tenant now carries exactly the real six).
 pub const DEMO_SEED_PERSONAS: &[DemoPersona] = &[
     DemoPersona {
         name: "Mariah",
@@ -186,27 +144,19 @@ mod tests {
     }
 
     #[test]
-    fn dept_filler_covers_three_missing_depts() {
-        // pitch-agent moved to the hero roster with Portia; the fillers
-        // now cover the remaining three uncovered dept tabs.
-        let verticals: Vec<_> = DEPT_FILLER_PERSONAS.iter().map(|p| p.vertical_id).collect();
-        assert_eq!(verticals, vec!["finance-ar", "devex", "legal"]);
-    }
-
-    #[test]
-    fn portia_is_in_hero_roster_not_filler() {
+    fn portia_is_in_hero_roster() {
+        // The Track-P Pitch Agent is a real demo-quality teammate, not a
+        // background filler row.
         assert!(DEMO_SEED_PERSONAS.iter().any(|p| p.name == "Portia"));
-        assert!(!DEPT_FILLER_PERSONAS.iter().any(|p| p.name == "Portia"));
     }
 
     #[test]
-    fn all_nine_dept_verticals_still_covered() {
-        // Promoting Portia must not drop any /cohorts dept-tab coverage:
-        // the union of hero + filler verticals must still span all 9.
-        let mut verts: std::collections::HashSet<&str> = std::collections::HashSet::new();
-        for p in DEMO_SEED_PERSONAS.iter().chain(DEPT_FILLER_PERSONAS.iter()) {
-            verts.insert(p.vertical_id);
-        }
+    fn hero_roster_covers_six_demo_depts() {
+        // The demo tenant seeds exactly the six real teammates; /cohorts
+        // shows the six departments they actually staff (no fake filler
+        // rows). Every hero vertical must be present + distinct.
+        let verts: std::collections::HashSet<&str> =
+            DEMO_SEED_PERSONAS.iter().map(|p| p.vertical_id).collect();
         for v in [
             "marketplace",
             "project-coordination",
@@ -214,35 +164,9 @@ mod tests {
             "support",
             "marketing",
             "pitch-agent",
-            "finance-ar",
-            "devex",
-            "legal",
         ] {
-            assert!(verts.contains(v), "dept vertical {v} lost coverage");
+            assert!(verts.contains(v), "demo dept vertical {v} not staffed");
         }
-    }
-
-    #[test]
-    fn dept_filler_names_do_not_collide_with_canonical_roster() {
-        let canon: std::collections::HashSet<_> =
-            DEMO_SEED_PERSONAS.iter().map(|p| p.name).collect();
-        for p in DEPT_FILLER_PERSONAS {
-            assert!(
-                !canon.contains(p.name),
-                "dept-filler name {} collides with canonical Scene-1 roster",
-                p.name
-            );
-        }
-    }
-
-    #[test]
-    fn every_dept_filler_persona_has_traits() {
-        for p in DEPT_FILLER_PERSONAS {
-            assert!(
-                !p.traits.is_empty(),
-                "dept-filler persona {} has no traits",
-                p.name
-            );
-        }
+        assert_eq!(verts.len(), 6, "expected exactly six distinct hero verticals");
     }
 }

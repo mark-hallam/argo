@@ -1,12 +1,14 @@
-//! Acceptance test for brief
-//! `fix-demo-seed-add-pitch-agent-and-missing-cohort-rows`:
-//! the demo seed must produce ≥9 cohorts (one per dept tab declared
-//! in `web/components/skycot/cohorts/dept-registry.ts`) with the
-//! `pitch-agent` cohort present so Track P's v1.0-scope claim holds
-//! at the /cohorts surface.
+//! Acceptance test for the demo-seed cohort surface after the
+//! no-theater curation (DEC-008/DEC-016 + 2026-05-29 operator call):
+//! the demo tenant seeds exactly the SIX real hero teammates — the
+//! former "dept-filler" rows (fake roster entries seeded only to pad
+//! `/cohorts` tabs) were removed as theater. So the seed must produce
+//! six cohorts, one per real department the tenant staffs, with the
+//! `pitch-agent` cohort present (Portia, the Track-P Pitch Agent, is
+//! now a first-class hero teammate).
 //!
-//! UX audit source: whole-site F06 (docs/skycot/ux-audits/2026-05-28-0252/).
-//! Operator memory: `project_track_p_v1_mvp_scope`.
+//! Operator memory: `project_track_p_v1_mvp_scope`,
+//! `feedback_no_theater_in_demo`.
 
 use argo_demo_seed::{run_canonical_v1_seed, SeedOptions};
 use argo_store::cohort::list_cohorts;
@@ -21,7 +23,7 @@ async fn open_store() -> Arc<SessionStore> {
 }
 
 #[tokio::test]
-async fn demo_seed_produces_at_least_nine_cohorts_one_per_dept() {
+async fn demo_seed_produces_six_cohorts_one_per_real_dept() {
     let store = open_store().await;
     let tenant = TenantId::new();
     let mut opts = SeedOptions::canonical_v1(tenant);
@@ -30,23 +32,17 @@ async fn demo_seed_produces_at_least_nine_cohorts_one_per_dept() {
 
     let report = run_canonical_v1_seed(&store, &opts).await.unwrap();
     assert_eq!(
-        report.workers_created, 5,
-        "canonical Scene-1 personas must remain at 5"
-    );
-    assert_eq!(
-        report.dept_filler_workers_created, 4,
-        "dept-filler personas cover the 4 missing dept tabs"
+        report.workers_created, 6,
+        "demo tenant seeds exactly the six real hero teammates (incl. Portia)"
     );
 
     let cohorts = list_cohorts(store.as_ref(), tenant).await.unwrap();
-    assert!(
-        cohorts.len() >= 9,
-        "expected >= 9 cohorts (one per dept tab) after demo seed; got {} ({:?})",
+    assert_eq!(
         cohorts.len(),
-        cohorts
-            .iter()
-            .map(|c| c.vertical.clone())
-            .collect::<Vec<_>>()
+        6,
+        "expected exactly 6 cohorts (one per real staffed dept); got {} ({:?})",
+        cohorts.len(),
+        cohorts.iter().map(|c| c.vertical.clone()).collect::<Vec<_>>()
     );
 }
 
@@ -66,7 +62,7 @@ async fn demo_seed_emits_pitch_agent_cohort_for_track_p() {
         .find(|c| c.vertical == "pitch-agent")
         .expect(
             "pitch-agent cohort must be present per Track P v1.0 scope (memory \
-             project_track_p_v1_mvp_scope)",
+             project_track_p_v1_mvp_scope) — Portia is a hero teammate",
         );
     assert!(
         pitch.member_count >= 1,
@@ -76,7 +72,7 @@ async fn demo_seed_emits_pitch_agent_cohort_for_track_p() {
 }
 
 #[tokio::test]
-async fn demo_seed_covers_each_filler_dept_vertical() {
+async fn demo_seed_covers_each_hero_dept_vertical() {
     let store = open_store().await;
     let tenant = TenantId::new();
     let mut opts = SeedOptions::canonical_v1(tenant);
@@ -88,7 +84,14 @@ async fn demo_seed_covers_each_filler_dept_vertical() {
     let cohorts = list_cohorts(store.as_ref(), tenant).await.unwrap();
     let verticals: std::collections::HashSet<&str> =
         cohorts.iter().map(|c| c.vertical.as_str()).collect();
-    for required in ["pitch-agent", "finance-ar", "devex", "legal"] {
+    for required in [
+        "marketplace",
+        "project-coordination",
+        "recruiting",
+        "support",
+        "marketing",
+        "pitch-agent",
+    ] {
         assert!(
             verticals.contains(required),
             "cohort vertical `{required}` missing from seed output; got {verticals:?}"
