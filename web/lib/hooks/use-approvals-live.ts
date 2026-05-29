@@ -33,6 +33,7 @@ import type { ApprovalsResult } from "@/lib/api/approvals";
 import type { ApprovalItem, ChannelKind } from "@/lib/sample-approvals";
 import type { WireApprovalCreatedPayload } from "@/lib/api/types";
 import { resolveGatewayUrl } from "@/lib/config/gateway-url";
+import { isGatewayAuthBypassed } from "@/lib/skycot/demo-mode";
 
 const APPROVALS_KEY = ["approvals"] as const;
 const KNOWN_CHANNELS: ReadonlySet<string> = new Set<ChannelKind>([
@@ -189,6 +190,29 @@ export function useApprovalsLive(): UseApprovalsLiveResult {
 
     let cancelled = false;
 
+    // Tab-focus catches up after a possible throttled-tab period.
+    const handleFocus = () => {
+      void qc.invalidateQueries({ queryKey: APPROVALS_KEY });
+    };
+    window.addEventListener("focus", handleFocus);
+
+    // In gateway-auth-bypass / demo mode there is no NextAuth session,
+    // so `readSessionToken()` is undefined and the gateway's `/inbox/ws`
+    // upgrade rejects the tokenless connection ("HTTP Authentication
+    // failed; no valid credentials available") — a noisy console error
+    // on the demo's /approvals anchor with no upside. Skip the doomed
+    // socket and run on polling (tab-focus + TanStack stale-time); the
+    // inbox still updates, just not via live push. Live push returns
+    // automatically once real auth (a session token) is present.
+    if (isGatewayAuthBypassed()) {
+      setStatus("polling");
+      void qc.invalidateQueries({ queryKey: APPROVALS_KEY });
+      return () => {
+        cancelled = true;
+        window.removeEventListener("focus", handleFocus);
+      };
+    }
+
     const conn = new ManagedWebSocket<WireEvent>({
       url: async () => gatewayWsUrl(await readSessionToken()),
       onMessage: (evt) => {
@@ -209,12 +233,6 @@ export function useApprovalsLive(): UseApprovalsLiveResult {
         }
       },
     });
-
-    // Tab-focus catches up after a possible throttled-tab period.
-    const handleFocus = () => {
-      void qc.invalidateQueries({ queryKey: APPROVALS_KEY });
-    };
-    window.addEventListener("focus", handleFocus);
 
     conn.start();
 
