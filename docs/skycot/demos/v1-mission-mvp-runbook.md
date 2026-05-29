@@ -508,26 +508,35 @@ sits between Pitch and Cohorts.
    one-line **Context** (e.g. "VP Eng at a 120-person fintech,
    evaluating AI teammates for on-call triage; cares about audit
    trails"). Click **Draft follow-up**.
-3. A real, context-specific follow-up email appears (live LLM,
-   `claude-sonnet-4-6`) with a **Brand-safe** disposition pill, the
-   `llm` source + model + token chips, and a **"Filed to approvals"**
-   link. Grant **never auto-sends** — the draft routes to the approval
-   queue.
-4. Click **Filed to approvals** → the draft is the top item in
-   `/approvals`, requested by Grant, awaiting the operator's decision.
-   An `approval.asked` / `gtm.followup_drafted` audit row backs it.
+3. **Grant qualifies the lead first** — a **tier badge** (Hot / Warm /
+   Cold) appears with a one-line rationale + the explainable **signal
+   chips** he read it from (e.g. "senior decision-maker", "active buying
+   intent", "corporate email domain"). The senior-fintech example above
+   lands **Hot**.
+4. Then the **draft** appears (live LLM, `claude-sonnet-4-6`), its close
+   tuned to the tier (Hot → a direct call CTA; Cold → a light touch),
+   with a **Brand-safe** disposition pill, the `llm` source + model +
+   token chips, and a **"Filed to approvals"** link. Grant **never
+   auto-sends** — the draft routes to the approval queue.
+5. Click **Filed to approvals** → the draft is the top item in
+   `/approvals`, requested by Grant, tagged with the lead tier, awaiting
+   the operator's decision. An `approval.asked` / `gtm.followup_drafted`
+   audit row (with `qualification_tier` + `signals`) backs it.
 
 **Backing endpoint**: `POST /api/v1/gtm/draft-followup` — reuses
 Portia's LLM + truth-boundary + audit primitives (same Sonnet floor,
-same `extract_forbidden_class` gate). A draft that strays into a
+same `extract_forbidden_class` gate). The qualification is a
+deterministic, explainable signal extractor (auditable — not a
+black-box score); the draft is the live LLM. A draft that strays into a
 guarded claim is held for founder review (**Held for review** pill)
 instead of being filed.
 
 **What this proves on camera**: teammates take on *responsibilities,
 not tasks*. Grant doesn't run a one-off prompt — he owns a standing
-duty, exercises judgment (brand-safe vs escalate), and gates sensitive
-output behind human approval. Real LLM, real audit, real approval — no
-theater.
+duty: he **triages** the lead (explainable, auditable), **drafts**
+outreach tuned to that triage (live LLM), exercises judgment (brand-safe
+vs escalate), and gates sensitive output behind human approval. Real
+triage, real LLM, real audit, real approval — no theater.
 
 ---
 
