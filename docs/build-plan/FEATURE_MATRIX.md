@@ -210,6 +210,21 @@ bot). Existing assets that de-risk this: the `argo-voice-io` abstraction
 (manifests/session/turn-taking), the real openai/elevenlabs backends in
 `mcp-servers/voice`, and Portia's already-real truth-bounded pitch endpoint.
 
+## 6b · Competitive gaps (vs. 2025-26 AI-agent leaders)
+
+From the verified competitive analysis ([`docs/skycot/research/2026-05-29-competitive-gap-analysis.md`](../skycot/research/2026-05-29-competitive-gap-analysis.md) — 26 sources, adversarially verified; 3 vendor claims killed). These are the features the field now ships that we lack — tracked here as roadmap items. **Don't over-correct:** our audit + truth-boundary + approval-first + hire-a-teammate framing are differentiators no competitor matched.
+
+| Gap | Status | Priority | Who has it | SKYCOT today | Maps to |
+|---|---|---|---|---|---|
+| Dual agent-identity (delegated on-behalf-of vs. autonomous) + cross-runtime governance + behavioral threat-detection | 💡 Backlog | **Highest** | MS Agent 365, Salesforce | RBAC + audit, but no dual-identity / cross-runtime / threat-detection | new — governance tail (§6 v2.1) |
+| Multi-worker orchestration — visual/parallel DAG, handoff/routing/escalation, nested supervisors | 💡 Backlog | High | Relevance, Dust, LangGraph, Beam, Ema | flat 1-to-1 delegation only | §6 v1.3 (elevate) |
+| Self-improvement / feedback-mining loop (human-feedback training-data export + production-trace clustering) | 💡 Backlog | Med-High | CrewAI, LangSmith | eval is case-based, no loop | §6 v2.0 (elevate) |
+| Live conversational voice (real STT/TTS provider behind the stub) | 🗓️ Planned | High | ElevenLabs, Bland, Vapi, Retell | unwired stub | §6a L1–L2 |
+| Multi-modal Genesis onboarding (doc/SOP/wiki upload + comprehension quiz) | 🗓️ Planned | Medium | Ema, Relevance | text-only Genesis | §6 Genesis Phase 2 |
+| Audit-readiness / compliance packaging — make our audit + truth-boundary legible to buyers | 💡 Backlog | Medium (defend) | (borrow Agent 365's framing for OUR moat) | strong tech, not buyer-legible | new |
+
+> **Thinner than they look:** Relevance's self-improvement and Beam's governance-suite claims **failed** verification, and Bland's "1M concurrent calls" was refuted — so our relative position on self-improvement + governance-breadth is better than vendor pages suggest. **Genuinely ahead (defend + market): hash-chained audit, claim-level truth-boundary, 9-channel approval-first HITL, hire-a-teammate framing — no researched competitor matched these.**
+
 ## 7 · Key honesty callouts (read before pitching capabilities)
 
 1. **No live voice on calls.** Portia/Grant are real in **text**. Spoken conversation
