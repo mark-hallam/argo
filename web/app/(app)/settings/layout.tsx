@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { SettingsHeading } from "@/components/skycot/settings/SettingsHeading";
 import { SettingsTabs } from "@/components/skycot/settings/SettingsTabs";
 
 // Template here, not at each sub-layout, so every `/settings/X`
@@ -19,11 +20,14 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: SETTINGS_LAYOUT_STYLES }} />
+      <SettingsHeading />
       <div className="settings-shell" data-testid="settings-shell">
         <header className="settings-shell-header">
           <div>
             <p className="settings-shell-eyebrow">Workspace settings</p>
-            <h1>Settings</h1>
+            <p className="settings-shell-title" aria-hidden="true">
+              Settings
+            </p>
           </div>
           <p>
             Workspace, team, notifications, security, providers, integrations,
@@ -98,13 +102,14 @@ const SETTINGS_LAYOUT_STYLES = `
   text-transform: uppercase;
   color: var(--settings-muted);
 }
-.settings-shell-header h1 {
+.settings-shell-title {
   margin: 0;
   font-family: "Inter", sans-serif;
   font-size: 32px;
   line-height: 1.1;
   font-weight: 650;
   letter-spacing: 0;
+  color: var(--settings-ink);
 }
 .settings-shell-header > p {
   max-width: 520px;

@@ -41,7 +41,7 @@ describe("/settings landing page", () => {
     expect(screen.getByTestId("settings-shell")).toBeInTheDocument();
     expect(screen.getByTestId("settings-workspace-panel")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 1, name: /^settings$/i }),
+      screen.getByRole("heading", { level: 1, name: /^settings: workspace$/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 2, name: /workspace identity/i }),

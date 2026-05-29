@@ -41,6 +41,9 @@ const H1_PROVIDERS = [
   // `(app)/page.tsx` is a server-only metadata wrapper; the h1 lives
   // in the extracted client component imported as `ApprovalsInboxPage`.
   "ApprovalsInboxPage",
+  // Renders the sr-only h1 for every /settings sub-route from the
+  // shared settings layout. See fix-settings-sub-pages-h1-renders-settings-not-subsection-name.
+  "SettingsHeading",
 ];
 
 function walk(dir: string): string[] {
