@@ -111,8 +111,14 @@ describe("OnboardingFirstHirePage — explicit name field (F13)", () => {
     );
     await user.click(screen.getByTestId("onboarding-first-hire-submit"));
 
+    // Non-demo hire now routes through the /onboarding/done celebration
+    // (which auto-advances to /workers/<id> after 6s) rather than jumping
+    // straight to the worker profile; the worker id + name ride in the
+    // URL since the draft is reset before the redirect.
     await waitFor(() =>
-      expect(pushMock).toHaveBeenCalledWith("/workers/wkr_maya_1"),
+      expect(pushMock).toHaveBeenCalledWith(
+        "/onboarding/done?worker=wkr_maya_1&name=Maya",
+      ),
     );
 
     const firstHireCall = (

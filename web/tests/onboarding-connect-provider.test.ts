@@ -18,6 +18,10 @@ vi.mock("next/navigation", () => ({
     refresh: vi.fn(),
     forward: vi.fn(),
   }),
+  // #2655 wired `usePathname` into WizardEditorialShell (scroll-reset
+  // on route change); the onboarding shell now renders it, so the
+  // mock must supply it or the shell throws.
+  usePathname: () => "/onboarding/connect-provider",
 }));
 
 function installStorage() {

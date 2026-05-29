@@ -15,6 +15,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/skycot/demo-mode", () => ({
   isDemoMode: () => true,
+  // #2655/#2662 made DemoBanner call recordingModeReadinessWarning()
+  // in its mount effect; the partial mock must export it or the
+  // banner throws before rendering. null = no readiness warning.
+  recordingModeReadinessWarning: () => null,
 }));
 
 beforeEach(() => {

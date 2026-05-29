@@ -27,6 +27,10 @@ vi.mock("next/navigation", () => ({
     back: vi.fn(),
     forward: vi.fn(),
   }),
+  // #2655 wired `usePathname` into WizardEditorialShell (scroll-reset
+  // on route change); the hire shell renders it, so the mock must
+  // supply it or the shell throws and the form never mounts.
+  usePathname: () => "/hire",
   useSearchParams: () => new URLSearchParams(),
 }));
 

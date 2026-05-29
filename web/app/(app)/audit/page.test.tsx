@@ -186,7 +186,10 @@ describe("AuditPage", () => {
       feedState({ data: { pages: [{ rows, nextCursor: null, totalPages: 1 }] } }),
     );
     render(<AuditPage />);
-    const link = screen.getByTestId("activity-row-act_link_target");
+    // The audit feed now renders rows via AuditTableRow, whose action
+    // deep-link carries the `activity-row-link-<id>` testid (the bare
+    // `activity-row-<id>` testid belongs to the legacy ActivityRow card).
+    const link = screen.getByTestId("activity-row-link-act_link_target");
     expect(link).toHaveAttribute("href", "/audit/action/act_link_target");
   });
 
@@ -340,8 +343,11 @@ describe("AuditPage", () => {
     const feed = screen.getByTestId("audit-feed");
     expect(within(feed).getByText("TODAY")).toBeInTheDocument();
     expect(within(feed).getByText("YESTERDAY")).toBeInTheDocument();
-    expect(within(feed).getByTestId("audit-row-wrapper-act_today")).toBeInTheDocument();
-    expect(within(feed).getByTestId("audit-row-wrapper-act_yest")).toBeInTheDocument();
+    // AuditTableRow tags each row `<tr>` with `audit-row-<id>` (the
+    // older `audit-row-wrapper-<id>` div wrapper was dropped when the
+    // feed moved to a per-day <table> layout).
+    expect(within(feed).getByTestId("audit-row-act_today")).toBeInTheDocument();
+    expect(within(feed).getByTestId("audit-row-act_yest")).toBeInTheDocument();
   });
 
   it("clicking the Export trigger opens the EvidenceBundleExporter dialog", async () => {

@@ -9,6 +9,12 @@ const useApprovalsMock = vi.fn<() => {
 
 vi.mock("@/lib/hooks/use-approvals", () => ({
   useApprovals: () => useApprovalsMock(),
+  // ApprovalsOpsDashboard now calls useSubmitDecision() + useUndoDecision()
+  // (inline approve/decline mutation + undo toast) — the mock must export
+  // both or the dashboard throws on mount. Returns the minimal mutation
+  // shape the dashboard reads: `.mutate` + `.isPending`.
+  useSubmitDecision: () => ({ mutate: vi.fn(), isPending: false }),
+  useUndoDecision: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import ApprovalsLandingPage from "@/app/(app)/approvals/page";

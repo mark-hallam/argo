@@ -1,7 +1,18 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ApprovalsOpsDashboard } from "@/components/skycot/approvals/ApprovalsOpsDashboard";
 import type { ApprovalItem } from "@/lib/sample-approvals";
+
+// ApprovalsOpsDashboard now calls useSubmitDecision() → useMutation,
+// which needs a QueryClient in context. Wrap every render.
+function renderWithQuery(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+  });
+  return render(createElement(QueryClientProvider, { client }, ui));
+}
 
 const NOW = new Date("2026-05-26T02:00:00Z").getTime();
 
@@ -21,7 +32,7 @@ function item(over: Partial<ApprovalItem>): ApprovalItem {
 
 describe("ApprovalsOpsDashboard metric cards", () => {
   it("renders $ at risk as a stat card when there is no real percentage", () => {
-    render(
+    renderWithQuery(
       <ApprovalsOpsDashboard
         items={[
           item({ id: "pending-money", dollarAtRisk: 1200 }),

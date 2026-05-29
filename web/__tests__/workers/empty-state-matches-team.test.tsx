@@ -1,7 +1,20 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EXAMPLE_ROLES } from "@/lib/hire/examples";
 import type { Worker } from "@/lib/types/worker";
+
+// TeamPage now consumes `useAuditFeed()` (a react-query hook that this
+// suite does not mock) alongside the mocked useTeam, so rendering it
+// needs a QueryClient in context. WorkersPage doesn't, but wrapping
+// both keeps the helper uniform.
+function renderWithQuery(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  return render(createElement(QueryClientProvider, { client }, ui));
+}
 
 /**
  * Regression for `web-workers-empty-state-converge-with-team`.
@@ -71,12 +84,12 @@ afterEach(() => {
 
 describe("workers/team empty-state convergence", () => {
   it("/workers and /team render the same 5 starter-prompt hrefs when empty", () => {
-    const { unmount } = render(<WorkersPage />);
+    const { unmount } = renderWithQuery(<WorkersPage />);
     const workersHrefs = hrefsFromTiles();
     expect(workersHrefs).toHaveLength(EXAMPLE_ROLES.length);
     unmount();
 
-    render(<TeamPage />);
+    renderWithQuery(<TeamPage />);
     const teamHrefs = hrefsFromTiles();
     expect(teamHrefs).toHaveLength(EXAMPLE_ROLES.length);
 

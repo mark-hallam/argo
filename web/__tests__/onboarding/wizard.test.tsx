@@ -170,13 +170,23 @@ describe("Pick-vertical step", () => {
     const user = userEvent.setup();
     global.fetch = vi.fn(async () => Response.json({ ok: true })) as unknown as typeof fetch;
     render(wrap(<PickVerticalPage />));
-    expect(screen.getByTestId("vertical-gtm-engineer")).toBeInTheDocument();
+    // The page now sources cards from `useVerticals()`, which fills the
+    // grid from an async fetch effect (falling through to SEED_VERTICALS
+    // on failure) rather than a synchronous seed array — so the first
+    // tile only appears after the effect resolves.
+    expect(await screen.findByTestId("vertical-gtm-engineer")).toBeInTheDocument();
     expect(screen.getByTestId("vertical-marketing-intern")).toBeInTheDocument();
     expect(screen.getByTestId("vertical-sales-sdr")).toBeInTheDocument();
     expect(screen.getByTestId("vertical-customer-support")).toBeInTheDocument();
     expect(screen.getByTestId("vertical-finance-ar")).toBeInTheDocument();
 
     await user.click(screen.getByTestId("vertical-marketing-intern"));
+    // Non-demo install now lands on an InstallReceipt confirmation
+    // (showing what got installed) rather than navigating straight to
+    // first-hire; its Continue button performs the route.
+    await user.click(
+      await screen.findByTestId("onboarding-vertical-receipt-continue"),
+    );
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/onboarding/first-hire"));
     expect(useOnboardingDraft.getState().verticalId).toBe("marketing-intern");
   });

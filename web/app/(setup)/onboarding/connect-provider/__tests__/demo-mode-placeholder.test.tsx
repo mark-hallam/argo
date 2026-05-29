@@ -31,6 +31,11 @@ const routerMock = vi.hoisted(() => ({
 
 const draftMock = vi.hoisted(() => {
   const state = {
+    // #2660 added a `hasHydrated` gate to the page: it renders the
+    // WizardSkeleton until the persisted draft store rehydrates. The
+    // mock must report hydrated so the form (and its provider-key
+    // input) renders under test.
+    hasHydrated: true,
     setStep: vi.fn(),
     setProvider: vi.fn(),
   };

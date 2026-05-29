@@ -6,6 +6,23 @@ const hooksApi = vi.hoisted(() => ({
   useWorkflows: vi.fn(),
 }));
 
+// The page renders `next/link` anchors (hero CTA + intro-band deep
+// link), and next/link reads the app-router context via useRouter.
+// Without a next/navigation mock the real hooks throw "invariant
+// expected app router to be mounted" outside an app-router provider.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  }),
+  usePathname: () => "/workflows",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/lib/hooks/use-workflows", () => hooksApi);
 
 vi.mock("@/components/skycot/WorkflowProposeModal", () => ({
