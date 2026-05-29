@@ -81,10 +81,85 @@ verify, then leave the operator ready-to-go plans for the big swings.
   training-export — recommends SFT-JSONL, **buildable now with no external deps**.
   Each names the operator decision(s) needed + decomposes into swarm briefs.
 
-## Morning summary (top — filled in before operator wakes)
+## ☀️ MORNING SUMMARY — read this first (Mark)
 
-_(to be written: what shipped, what's verified green, what was skipped + why,
-demo-intact confirmation, and the recommended next move.)_
+Good morning. Here's the night, plain-English. **The live demo was not touched —
+it's exactly as you left it.** Everything below is committed + pushed to `main`
+and verified green by tests; it goes live the next time the gateway is rebuilt
+(one command — see "Take it live" below).
+
+### What I shipped (5 commits, each test-verified + clippy-clean)
+
+1. **`5cae58294` — Recent-changes now shows real history.** The worker Overview
+   tab's "Recent changes" panel called an endpoint that didn't exist
+   (`GET /workers/<id>/retrain/recent`) → it always showed empty. I built it —
+   reading the **audit log** (no new database table; the retrain history was
+   already there) — and seeded 5 real retrains per the lead teammates so the
+   panel shows genuine history with working Undo. *(23 + 28 tests pass.)*
+
+2. **`2d5bd6b06` — Killed two "theatre" spots (NO THEATER).** Two pages were
+   hiding **real seeded data behind a mock** in demo-live mode: `/retro` (showed
+   empty instead of the 3 seeded retros) and the audit-export preview (showed a
+   *made-up* row count instead of the real one). Both now use the live data.
+   *(vitest 13 + typecheck pass.)*
+
+3. **`82a1e2037` — 3 ready-to-build plans for our biggest competitive gaps.**
+   See `docs/skycot/design/2026-05-29-gap-closure-plans/` — live voice,
+   multi-worker orchestration, self-improvement. Each flags the *one or two
+   decisions you need to make* (see "Your decisions" below).
+
+4. **`7e84ba7d6` — Shipped a real competitive-gap feature (not just a plan):**
+   **`argo eval export-training-data`** — exports your teammates' real *judged*
+   history (every human approve/reject + every correction) as standard training
+   data, PII-safe, per-tenant. This is the "learn from the record" feature
+   (CrewAI's `crewai train` equivalent) and it pairs with our audit moat:
+   *every action is provable, and you can learn from it.* *(3 tests pass.)*
+
+5. Plus: I **release-compiled the whole binary** (exit 0) so the "take it live"
+   step below is guaranteed to build cleanly.
+
+### Take tonight's work live (one safe command, when you're ready)
+
+Tonight's backend work (#1, #4) is committed but the *running* gateway is still
+last night's binary — I deliberately did **not** restart it while you were asleep
+(restarting is the one thing that could briefly disrupt the demo, and no one
+would be watching). When you want it live:
+
+```bash
+bash ~/code/argo/scripts/restart-live-gateway.sh --force --no-prompt
+```
+
+Then re-seed to add the new retrain history to the demo DB:
+
+```bash
+cd ~/code/argo && set -a && source ~/.argo/env.local && set +a && cargo run --release --bin argo -- demo seed --tenant 019e7344-78e1-77f1-ae99-dff2699683ea
+```
+
+(Re-seeding is safe + additive — it only *adds* the 5 retrain rows; it won't
+duplicate anything else.) The web flips (#2) are already live on the running SPA.
+
+### Your decisions (so I can build the big swings next)
+
+- **Live voice** (your keenest interest): pick a speech vendor — I recommend
+  **ElevenLabs + Deepgram** — and provide an API key. That single unblock lets me
+  start L1→L3a (~4–6 wk to "Portia pitches live in the browser").
+- **Multi-worker orchestration:** confirm the **Supervisor** model (recommended)
+  vs. a visual DAG. Then I build the engine.
+- **Self-improvement:** Step 1 is shipped. Say the word and I'll add Step 1b
+  (turn real rejected actions into eval regression tests — the "honest loop").
+
+### What I deliberately did NOT do (and why)
+
+- **Did not restart the live gateway** — too risky unattended; it's a one-command
+  job for you (above), now de-risked by the release compile-verify.
+- **Did not build the `/settings` backend** — it needs a new DB migration + 6
+  endpoints for a page the camera never sees. High effort, low demo value — a bad
+  trade tonight (subtract before adding). It stays a captured chip for later.
+- **Did not start voice / orchestration builds** — those need your decisions
+  above; building blind would risk the wrong shape (the drift we guard against).
+
+Net: a productive, honest night — real shipped features, no theatre, demo intact,
+and the big swings teed up for your call.
 
 ## Running log (append one line per cycle)
 
