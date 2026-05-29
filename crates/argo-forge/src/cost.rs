@@ -343,6 +343,25 @@ mod tests {
     }
 
     #[test]
+    fn opus_4_8_priced_at_current_frontier_rates() {
+        // Opus 4.8 is the fixed-policy default (DEC-014); its $5/$25/$0.50
+        // per-MTok rates must not silently regress to the Sonnet
+        // fall-through or the legacy Opus 4.7 $15/$75 table.
+        let opus = pricing_for_model("claude-opus-4-8");
+        assert!((opus.input_usd_per_mtok - 5.0).abs() < 1e-9);
+        assert!((opus.output_usd_per_mtok - 25.0).abs() < 1e-9);
+        assert!((opus.cache_read_usd_per_mtok - 0.50).abs() < 1e-9);
+        // The 1M-context alias resolves to the same table.
+        let opus_1m = pricing_for_model("claude-opus-4-8[1m]");
+        assert!((opus_1m.input_usd_per_mtok - 5.0).abs() < 1e-9);
+        assert!((opus_1m.output_usd_per_mtok - 25.0).abs() < 1e-9);
+        // A 1000-in / 100-out call costs 5_000 + 2_500 = 7_500 USD-micros.
+        let mut c = ForgeCost::default();
+        accumulate_llm_call(&mut c, "claude-opus-4-8", 1_000, 100, 0);
+        assert_eq!(c.llm_cost_usd_micros, 5_000 + 2_500);
+    }
+
+    #[test]
     fn tokens_per_dollar_uses_most_expensive_token_class() {
         assert_eq!(tokens_per_dollar_for_model("claude-opus-4-7"), Some(13_333));
         assert_eq!(
