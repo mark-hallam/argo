@@ -160,6 +160,17 @@ section before relying on what they say:
 5. `docs/skycot/agents/SHARED.md` (recent evaluator/conductor/supervisor handoffs)
 6. The 2026-05-23 quota-conservation handoff doc (historical context only)
 
+**🗳️ DECISION REGISTER — load at session start**: `docs/skycot/decisions/README.md`
+is the append-only source of truth for operator decisions (scope changes,
+process authorizations, locked calls). **Read the index every session.**
+Before acting on any request that touches scope, process, model routing, or a
+previously-locked area, grep the register — if the request conflicts with an
+`active` decision, STOP and surface it for explicit override before
+proceeding. When the operator makes a new locked call, write the ADR + index
+line in the same turn. `docs/skycot/decisions/VERSION_STATE.md` is the
+single "where are we version-wise" answer (we are at the v1.0 ship gate; MVP
+scope grew via DEC-008 Pitch + DEC-009 computer-use + DEC-010 Genesis).
+
 PR title format: `<phase> — <section> — <one-line summary>`
 
 ## v1.0 strategic decisions (operator-locked 2026-05-14)
