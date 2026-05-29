@@ -37,7 +37,7 @@ still the old binary, so it goes live only after the next gateway rebuild
 - **The product is genuinely demo-ready.** All 6 mission claims have real backend +
   real demo surfaces; two AI teammates (Portia, Grant) do real LLM work, truth-bounded,
   approval-gated; audit is a real hash chain; ~30 MCP connectors are real.
-- **Biggest honesty gaps (updated 2026-05-30):** (1) **live voice on Zoom/Teams calls = not built** (the L1 trait layer + L2 truth-bounded gateway voice-loop now ship against a *mock* provider — commits `4e891c0b6`/`5a98d63dc`; the **real OpenAI adapter is in-progress** per DEC-021, and there's still no meeting-join layer); (2) the cluster of mock-in-demo-live SPA pages is **shrinking** — settings/evals/governance-readiness/retrain-recent/audit-export/retros now have real backends (committed; **live after the next gateway rebuild** — the running binary is still the old one), leaving api-keys/provider-keys (SKIP-privacy), ghostwriter, skill-IR, elevated-view, worker schedules/escalation; (3) the **JSON-RPC plugin ABI** and **teammate-eval scorer** are still tested code with zero live consumers.
+- **Biggest honesty gaps (updated 2026-05-30):** (1) **live voice on Zoom/Teams calls = not built** (the L1 trait layer + L2 truth-bounded gateway voice-loop now ship against a *mock* provider — commits `4e891c0b6`/`5a98d63dc`; the **real OpenAI adapter is in-progress** per DEC-021, and there's still no meeting-join layer); (2) the cluster of mock-in-demo-live SPA pages is **shrinking** — settings/governance-readiness/retrain-recent/audit-export/retros are now **live** (gateway rebuilt + verified 2026-05-30, commit `ccfa89588`); evals is live-but-empty (`skill_reeval_history` not yet seeded — follow-up), leaving api-keys/provider-keys (SKIP-privacy), ghostwriter, skill-IR, elevated-view, worker schedules/escalation; (3) the **JSON-RPC plugin ABI** and **teammate-eval scorer** are still tested code with zero live consumers.
 
 ---
 
@@ -66,7 +66,7 @@ still the old binary, so it goes live only after the next gateway rebuild
 | Skill install / promote / refine | ✅ Live | `POST /skills` install + `/skills/<name>/promote`; refine route + Forge | `routes_post_writes_skills.rs`, `routes_skill_refine.rs` |
 | Skill learning loop (CU trajectory → skill) | 🟡 Partial | Primitives real (`should_propose`, `SkillCandidate::from_cu_trajectory`); **Claude distillation pass not done** — ships a deterministic placeholder body | `argo-skill/learn.rs` |
 | Audit — hash-chained ledger | ✅ Live | Real SHA-256 chain + verify/gap-detect/export/tamper-watchdog; ~247 emit callsites | `argo-audit/sink_chain.rs`; `/api/v1/audit` |
-| Governance audit-readiness report | 🟡 Partial | `GET /api/v1/governance/readiness` — read-only assembly of the moat (audit chain-integrity + approval coverage + RBAC role presets + truth-boundary status), all values read from source (NO THEATER), tenant-scoped. ✅ code+tests (4 handler); **live after next gateway rebuild** | `routes_governance.rs` (commit `764f725ff`) |
+| Governance audit-readiness report | ✅ Live | `GET /api/v1/governance/readiness` — read-only assembly of the moat (audit chain-integrity + approval coverage + RBAC role presets + truth-boundary status), all values read from source (NO THEATER), tenant-scoped. Live (gateway rebuilt + verified 2026-05-30, commit `ccfa89588`) | `routes_governance.rs` (commit `764f725ff`) |
 | RBAC / capabilities | ✅ Live | `CapabilityEngine` + JWT-derived role gate; header-bypass closed (403 in prod). Supersedes the stale "RBAC is copy" note | `argo-capability`; `gateway/role_gate.rs` |
 | Truth-boundary (claim gating) | ✅ Live | Wired into live turn + Pitch/GTM agents; per-channel policy; Allow/Escalate/Forbid | `turn_helpers_truth_boundary.rs`; `policies/truth-boundary/*.toml` |
 | Gateway (HTTP server) | 🟡 Partial | ~32 real `/api/v1` noun-groups w/ CORS/CSRF/JWT/rate-limit. Caveat: **hand-rolled HTTP/1.1 string-dispatcher**, not axum/hyper — works but parse-fragile | `argo-cli/handlers/gateway/` |
@@ -109,14 +109,14 @@ still the old binary, so it goes live only after the next gateway rebuild
 | Multi-tenant theming / white-label | 🟡 Partial | Token infra + per-tenant CSS synthesis real; tenant-override **inert today** (awaits workspace-switcher) | `lib/theme/`, `lib/api/tenant.ts` |
 | worker-detail: escalation | 🟡 Partial | Page renders from **sample trust-history**; live `GET .../escalations` is a TODO | `lib/api/worker-policies.ts` |
 | worker-detail: schedules | 🟧 Scaffold | Renders from persona fixtures; no live schedules list wired | `lib/api/duties.ts` |
-| /settings workspace + providers + notifications | 🟡 Partial | Backend shipped: `workspace_settings` table (migration v85) + GET/PATCH `/api/v1/{workspace,providers/policy,notifications/preferences}`; `settings.ts` un-mocked under demo-live. ✅ code+tests (8 store + 8 handler); **live after next gateway rebuild** (running binary is still old) | `lib/api/settings.ts`; `routes_workspace_settings.rs` (commit `423274a25`) |
+| /settings workspace + providers + notifications | ✅ Live | Backend shipped: `workspace_settings` table (migration v85) + GET/PATCH `/api/v1/{workspace,providers/policy,notifications/preferences}`; `settings.ts` un-mocked under demo-live. Live (gateway rebuilt + verified 2026-05-30, commit `ccfa89588`) | `lib/api/settings.ts`; `routes_workspace_settings.rs` (commit `423274a25`) |
 | /settings api-keys + provider-keys | 🟧 Scaffold | Mock-on-bypass; sensitive (no secret exposure); endpoints absent | `lib/api/api-keys.ts`, `provider-keys.ts` |
-| /evals dashboard | 🟡 Partial | Backend shipped: `/api/v1/evals` now a real store-backed query (worker's learned skills → their `skill_reeval_history`), tenant-scoped, real-empty when no history; `evals.ts` un-mocked under demo-live. ✅ code+tests (6 handler + vitest 233); **live after next gateway rebuild** | `lib/api/evals.ts`; `routes_evals.rs` (commit `53933f011`) |
+| /evals dashboard | 🟡 Partial | Backend shipped: `/api/v1/evals` now a real store-backed query (worker's learned skills → their `skill_reeval_history`), tenant-scoped, real-empty when no history; `evals.ts` un-mocked under demo-live. ✅ code+tests (6 handler + vitest 233); endpoint live; returns empty — `skill_reeval_history` not yet seeded (follow-up) | `lib/api/evals.ts`; `routes_evals.rs` (commit `53933f011`) |
 | Audit export (CSV/signed) | 🟡 Partial | Real export-preview under demo-live (NO-THEATER flip, commit `2d5bd6b06`); export action, not a render surface | `lib/api/audit-export.ts` |
 | Elevated-view (break-glass) | 🟧 Scaffold | Mock-on-bypass | `lib/api/elevated-view.ts` |
 | Skill-IR drill-in (view/save/export) | 🟧 Scaffold | Mock-on-bypass; `/skills/<id>/ir` 404s | `lib/api/skill-ir*.ts` |
 | Retros panel | 🟡 Partial | Seeded retros un-hidden under demo-live (NO-THEATER flip, commit `2d5bd6b06`) | `lib/api/retros.ts` |
-| Retrain "recent changes" panel | 🟡 Partial | Backend shipped: `GET /api/v1/workers/<id>/retrain/recent` + real retrain-history seed (commit `5cae58294`). ✅ code+tests; **live after next gateway rebuild + reseed** | `lib/api/retrain.ts`; `routes_retrain.rs`, `routes_retrain_helpers.rs` |
+| Retrain "recent changes" panel | ✅ Live | Backend shipped: `GET /api/v1/workers/<id>/retrain/recent` + real retrain-history seed (commit `5cae58294`). Live (gateway rebuilt + verified 2026-05-30, commit `ccfa89588`) | `lib/api/retrain.ts`; `routes_retrain.rs`, `routes_retrain_helpers.rs` |
 | Ghostwriter panel | 🟧 Scaffold | Own mock module; no live backend | `lib/api/ghostwriter.ts` |
 
 ---
@@ -159,7 +159,7 @@ still the old binary, so it goes live only after the next gateway rebuild
 | Other 30+ verticals (support, recruiter, finance-ar, sales-sdr, legal, …) | 🟧 Scaffold | **Template packs only** (workflow.toml + skills + eval seeds), loadable, but **no wired live endpoint / verified LLM execution**. Only Portia + Grant have endpoints | `verticals/*/`, `packs/*/` |
 | Worker retrain flow | ✅ Live | `POST .../retrain/{classify,commit,undo,reverse-test}` + **`GET /retrain/recent`** (recent-changes history) all real + wired; real retrain-history seed (commit `5cae58294`) | `routes_retrain.rs`, `routes_retrain_helpers.rs` |
 | `argo-voice-io` (L1 — STT/TTS traits + turn-taking) | 🟡 Partial | V1 redesign: clean `SpeechToText`/`TextToSpeech` async traits + key-free `MockStt`/`MockTts` + `voice_turn` composition seam (commit `4e891c0b6`). **No longer an orphan** — wired into the gateway via V2 below. Real vendor adapter = 🚧 (next row) | `crates/argo-voice-io` |
-| Gateway voice routes (L2) — `POST /api/v1/voice/{tts,stt,pitch-turn}` | 🟡 Partial | V2: routes wired into the dispatcher; `pitch-turn` reuses the **real truth boundary** in-process (over-claim → defers, no `$` figure). Provider seam reads `ARGO_VOICE_PROVIDER` (Mock today). ✅ code+tests (12 voice + clippy); **live after next gateway rebuild** | `routes_voice_io.rs`, `routes_voice_io/provider.rs` (commit `5a98d63dc`) |
+| Gateway voice routes (L2) — `POST /api/v1/voice/{tts,stt,pitch-turn}` | ✅ Live | V2: routes wired into the dispatcher; `pitch-turn` reuses the **real truth boundary** in-process (over-claim → defers, no `$` figure). Provider seam reads `ARGO_VOICE_PROVIDER` (Mock provider today; real OpenAI adapter = next row). Live (gateway rebuilt + verified 2026-05-30, commit `ccfa89588`) | `routes_voice_io.rs`, `routes_voice_io/provider.rs` (commit `5a98d63dc`) |
 | Real voice vendor (OpenAI STT `/v1/audio/transcriptions` + TTS `/v1/audio/speech`) | 🚧 In-progress | Vendor locked = OpenAI for launch (DEC-021), behind the L1 trait + `ARGO_VOICE_PROVIDER` + a `voice` workspace_settings group; key-gated tests. Realtime streaming socket = later latency upgrade | `routes_voice_io/` (Sprint 2); DEC-021 |
 | Browser push-to-talk on `/pitch` (L3) | 🗓️ Planned | Depends on V2 routes (now exist); mic capture + audio playback in the SPA | DEC-021; build-out tracker V3 |
 | `argo-voice-tui` (local hands-free approvals) | ✅ Live | whisper.cpp + wake-word + intent/fuzzy + confirm; wired to CLI. **Voice for approvals, not agent speech** | `crates/argo-voice-tui` |
@@ -248,10 +248,11 @@ From the verified competitive analysis ([`docs/skycot/research/2026-05-29-compet
    (L3a) → meeting-bot (e.g. Recall.ai or Zoom SDK).
 2. **30+ verticals are template packs, not running agents.** Only **Portia** (pitch)
    and **Grant** (gtm) have wired live endpoints + verified LLM execution.
-3. **The mock-in-demo-live SPA cluster is shrinking but not gone.** Now real-backed
-   (committed; **live after the next gateway rebuild**, since the running binary is
-   still the old one): settings workspace/providers/notifications, evals, governance
-   readiness, retrain-recent, audit-export preview, retros. Still mock / scaffold:
+3. **The mock-in-demo-live SPA cluster is shrinking but not gone.** Now **live**
+   (gateway rebuilt + verified 2026-05-30, commit `ccfa89588`): settings
+   workspace/providers/notifications, governance readiness, retrain-recent,
+   audit-export preview, retros. Evals is **live-but-empty** (endpoint live;
+   `skill_reeval_history` not yet seeded — follow-up). Still mock / scaffold:
    api-keys + provider-keys (SKIP — secret-exposure privacy rule), ghostwriter,
    skill-IR (needs IR seeded), elevated-view (needs SPA↔backend validation
    alignment), worker schedules/escalation.

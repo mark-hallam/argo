@@ -112,6 +112,13 @@ autonomous machine keeps chipping the queue + FEATURE_MATRIX overnight.
      if the "where are we" answer changed).
    Do this in the **same commit/cycle** as the feature/decision, not as a later
    sweep. **Build-agent prompts MUST include this rule** so delegated work carries it.
+4b. **Migration rule (load-bearing — a filtered test run caused a gateway-down
+   incident on 2026-05-30):** any migration-touching build MUST bump
+   `EXPECTED_SCHEMA_VERSION` in `crates/argo-store/src/lib.rs` AND run the FULL
+   `cargo test -p argo-store` suite (NOT a filtered subset) — a filtered run misses
+   the schema-reconciliation tests. (On 2026-05-30 the T1 v85 migration was
+   registered + applied but `EXPECTED_SCHEMA_VERSION` wasn't bumped, so the gateway
+   refused to boot against the migrated DB until fix `ccfa89588`.)
 5. Keep going until every remaining item is BLOCKED. **When the explicit Queue
    below is exhausted, FIND MORE WORK** (operator directive: "find more work until
    the whole platform is built"): open `docs/build-plan/FEATURE_MATRIX.md`, pick the
@@ -286,3 +293,4 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   isolation, malformed-tenant 5xx, non-match passthrough) + clippy -D warnings
   green; module 264 LOC / test 185 LOC, longest fn 36 LOC, no panicking
   unwrap/expect (unwrap checker `--all` clean). Commit `764f725ff`.
+- 2026-05-30 go-live DONE — gateway rebuilt→schema 85, 5 features verified live; resolved a boot incident (T1 v85 migration didn't bump EXPECTED_SCHEMA_VERSION → fix ccfa89588).
