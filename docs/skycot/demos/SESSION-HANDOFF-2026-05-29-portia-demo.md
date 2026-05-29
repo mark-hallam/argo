@@ -64,6 +64,18 @@ proved recursively (Skycot's own GTM teammate growing Skycot).
 
 **Decision recorded:** [[DEC-018]] (Grant = 2nd real working teammate).
 
+**Gateway endpoint batch (residual-404 cleanup, real data only — NO THEATER):**
+- ✅ `GET /api/v1/skills/<id>` (detail), `GET /api/v1/skills/<id>/usage` (by id,
+  for the skill-detail drill-in), `GET /api/v1/skills/learned-this-month` — all
+  wired in `routes_skills_list_get.rs` against the real skill store +
+  `worker_skill` adoption queries (the logic existed; the `/api/v1` dispatcher
+  just wasn't routing the subpaths). Commits `76ddf845a` + `75dc02f1c`.
+- ⏸️ `workers/<id>/retrain/recent` + `audit/<id>/replay` — deliberately NOT
+  implemented: there is no retrain subsystem and no replay-over-HTTP route, so
+  an endpoint would return fabricated/empty data (theater). Left as graceful,
+  non-fatal 404s (pages render; only a dev-tools console line). Build the real
+  subsystems before wiring these.
+
 **Gateway: schema v84; SPA :3000 demo-live; swarm PAUSED. main HEAD `e78257ab7`+.**
 The live gateway binary predates the /audit + /approvals fixes (those are
 SPA-only, no gateway rebuild needed). The next gateway rebuild will also pick
