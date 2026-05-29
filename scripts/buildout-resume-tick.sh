@@ -8,6 +8,11 @@
 #   1. mkdir-lock — only one resume tick runs at a time (atomic on macOS).
 #   2. commit-age — skip if origin/main saw a conductor commit in the last
 #      ~50 min (the primary conductor — interactive or a prior tick — is live).
+#      50 (not lower) so it never races an interactive conductor mid-build
+#      (some agent builds run 20-30 min with no commit). The mkdir-lock (held
+#      across the whole claude -p run) guards against two ticks overlapping.
+#      The plist checks every 30 min so absence is detected within ~30 min of
+#      crossing the 50-min-quiet threshold.
 #
 # Mirrors the worker-loop's unattended invocation: `claude
 # --dangerously-skip-permissions -p`, run from a login shell (the plist uses
