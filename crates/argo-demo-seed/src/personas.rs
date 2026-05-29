@@ -32,30 +32,17 @@ pub struct DemoPersona {
     pub traits: &'static [&'static str],
 }
 
-/// The four dept-filler personas — minimum-seed coverage for the
+/// The three dept-filler personas — minimum-seed coverage for the
 /// `/cohorts` SPA page so all 9 department tabs declared in
 /// `web/components/skycot/cohorts/dept-registry.ts` render with at
 /// least one cohort each. The camera does NOT drill into these
 /// during the v1.0 demo MP4 — they are dept-tab fillers visible
-/// only if a viewer pans across `/cohorts`. Names are placeholders
-/// until the canonical worker for each dept ships. See brief
-/// `fix-demo-seed-add-pitch-agent-and-missing-cohort-rows` + memory
-/// `project_track_p_v1_mvp_scope` for the Sales & Investor Relations
-/// (pitch-agent) row's load-bearing reason.
+/// only if a viewer pans across `/cohorts`. The Sales & Investor
+/// Relations (pitch-agent) tab is now covered by **Portia**, who was
+/// promoted into the canonical hero roster (she is the Track-P Pitch
+/// Agent headline — DEC-008/DEC-016), so she lives in
+/// `DEMO_SEED_PERSONAS` below, not here.
 pub const DEPT_FILLER_PERSONAS: &[DemoPersona] = &[
-    DemoPersona {
-        name: "Portia",
-        title: "Pitch Agent",
-        tagline: "represents the company in investor and customer pitches",
-        vertical_id: "pitch-agent",
-        team: "Sales & Investor Relations",
-        traits: &[
-            "Founder-caliber",
-            "Evidence-led",
-            "Brand-safe",
-            "Truth-bounded",
-        ],
-    },
     DemoPersona {
         name: "Fin",
         title: "Finance & Ops Coordinator",
@@ -145,6 +132,19 @@ pub const DEMO_SEED_PERSONAS: &[DemoPersona] = &[
             "Reach-tracking",
         ],
     },
+    DemoPersona {
+        name: "Portia",
+        title: "Pitch Agent",
+        tagline: "pitches the company to investors, bounded by approved facts",
+        vertical_id: "pitch-agent",
+        team: "Sales & Investor Relations",
+        traits: &[
+            "Founder-caliber",
+            "Evidence-led",
+            "Brand-safe",
+            "Truth-bounded",
+        ],
+    },
 ];
 
 #[cfg(test)]
@@ -154,7 +154,12 @@ mod tests {
     #[test]
     fn roster_is_scene_one_canon() {
         let names: Vec<_> = DEMO_SEED_PERSONAS.iter().map(|p| p.name).collect();
-        assert_eq!(names, vec!["Mariah", "Peta", "Priya", "Jamal", "Nori"]);
+        // Portia (the Track-P Pitch Agent headline) was promoted from a
+        // dept-filler into the hero roster — the deck is now six.
+        assert_eq!(
+            names,
+            vec!["Mariah", "Peta", "Priya", "Jamal", "Nori", "Portia"]
+        );
     }
 
     #[test]
@@ -181,12 +186,40 @@ mod tests {
     }
 
     #[test]
-    fn dept_filler_covers_four_missing_depts() {
+    fn dept_filler_covers_three_missing_depts() {
+        // pitch-agent moved to the hero roster with Portia; the fillers
+        // now cover the remaining three uncovered dept tabs.
         let verticals: Vec<_> = DEPT_FILLER_PERSONAS.iter().map(|p| p.vertical_id).collect();
-        assert_eq!(
-            verticals,
-            vec!["pitch-agent", "finance-ar", "devex", "legal"]
-        );
+        assert_eq!(verticals, vec!["finance-ar", "devex", "legal"]);
+    }
+
+    #[test]
+    fn portia_is_in_hero_roster_not_filler() {
+        assert!(DEMO_SEED_PERSONAS.iter().any(|p| p.name == "Portia"));
+        assert!(!DEPT_FILLER_PERSONAS.iter().any(|p| p.name == "Portia"));
+    }
+
+    #[test]
+    fn all_nine_dept_verticals_still_covered() {
+        // Promoting Portia must not drop any /cohorts dept-tab coverage:
+        // the union of hero + filler verticals must still span all 9.
+        let mut verts: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for p in DEMO_SEED_PERSONAS.iter().chain(DEPT_FILLER_PERSONAS.iter()) {
+            verts.insert(p.vertical_id);
+        }
+        for v in [
+            "marketplace",
+            "project-coordination",
+            "recruiting",
+            "support",
+            "marketing",
+            "pitch-agent",
+            "finance-ar",
+            "devex",
+            "legal",
+        ] {
+            assert!(verts.contains(v), "dept vertical {v} lost coverage");
+        }
     }
 
     #[test]
