@@ -1,0 +1,6 @@
+{"kind":"seller_profile","name":"Northwind Marketplace","operator":"single seller","price_floor_policy":"never sell below a per-listing floor; default floor = 82% of list","refund_policy":"refunds over $500 or older than 14 days require human sign-off","tone":"friendly, firm on price, honest about condition"}
+{"kind":"listing","id":"lst_ccm_helmet","title":"CCM Tacks helmet, size L","list_price_usd":85,"floor_usd":70,"condition":"used - good","notes":"minor scuffs, no cracks","age_days":3}
+{"kind":"listing","id":"lst_road_bike","title":"Aluminium road bike 54cm","list_price_usd":420,"floor_usd":360,"condition":"used - fair","notes":"manufacture year unknown","age_days":14}
+{"kind":"listing","id":"lst_designer_bag","title":"Designer shoulder bag","list_price_usd":240,"floor_usd":210,"condition":"used - very good","notes":"no receipt; authenticity not independently verified","age_days":6}
+{"kind":"buyer_history","buyer":"b_0192","prior_purchases":2,"prior_disputes":0,"last_purchase_usd":620,"note":"bought a bundle 3 weeks ago"}
+{"kind":"skill_catalog","available":["price_sanity_check","refund_policy_lookup","competitor_scan","draft_listing_copy"]}

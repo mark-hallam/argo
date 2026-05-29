@@ -52,6 +52,7 @@ mod runner;
 pub mod self_healing;
 mod streaming;
 mod task;
+pub mod teammate;
 
 #[cfg(test)]
 mod pitch_runner_tests;
@@ -80,3 +81,4 @@ pub use self_healing::{
 };
 pub use streaming::{format_simple_line, format_summary_line, format_verbose_line, StreamMode};
 pub use task::{load_jsonl, EvalMetric, EvalTask};
+pub use teammate::{score_scenario, AxisScores, ScenarioOutcome, TeammateScenario};
