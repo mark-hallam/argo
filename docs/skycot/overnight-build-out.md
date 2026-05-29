@@ -54,11 +54,22 @@ limits. By morning, maximal real progress, ready to deploy what's done.
   adapter is **BLOCKED on an operator-provided speech API key**.
 - [ ] **V3 · Browser push-to-talk on `/pitch`** — web; depends on V2 routes.
 
-### P1 — Theatre removal (wire real backends / flip mock gates where real)
-- [ ] **T-audit · Produce the theatre-removal sub-queue** — audit every
-  `web/lib/api` mock surface: which have a live endpoint (flip the gate) vs need
-  a backend built. *(delegated to a background audit agent; results appended below)*
-- [ ] (sub-items populated by T-audit)
+### P1 — Theatre removal (audit DONE; `audit-export` already gated ✓)
+Each item = build a real gateway route (+store query) then add `&& !isDemoLive()`
+to the SPA module. All Rust → conductor builds serially. Order by camera value:
+- [ ] **T1 · settings/workspace** — `GET/PATCH /api/v1/workspace` (+ providers/policy,
+  notifications/preferences) → flip `web/lib/api/settings.ts`. Needs a settings store
+  (migration v85). ~60+ LOC Rust.
+- [ ] **T2 · worker evals dashboard** — `GET /api/v1/workers/<id>/evals`
+  {latest, history} → flip `web/lib/api/evals.ts`. argo-eval exists; wire a gateway
+  read. ~70 LOC.
+- [ ] **T3 · skill-IR suite** — `GET/POST /api/v1/skills/<id>/ir` + `/ir/export`
+  → flip `skill-ir.ts` / `skill-ir-save.ts` / `skill-ir-export.ts` together. ~170 LOC.
+- [ ] **T4 · elevated-view** — `POST /api/v1/elevated-view` (break-glass: store row +
+  audit) → flip `elevated-view.ts`. ~35 LOC. (sensitive — audit-gated.)
+- **SKIP (credentials — privacy rule):** `api-keys.ts`, `provider-keys.ts` — never
+  surface saved keys; these correctly show configured/unconfigured status only.
+- **SKIP (no theatre):** `ghostwriter.ts` (non-camera), `notifications.ts` (empty, not fake).
 
 ### P2 — Gap features (from the 4 design plans)
 - [ ] Self-improvement Step 1b (eval-case generation) — additive, no key.
