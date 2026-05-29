@@ -442,6 +442,7 @@ dependencies = [
  "argo-routing",
  "argo-runtime",
  "argo-sandbox",
+ "argo-security",
  "argo-siem",
  "argo-skill",
  "argo-store",

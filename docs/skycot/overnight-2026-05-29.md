@@ -93,3 +93,17 @@ demo-intact confirmation, and the recommended next move.)_
 - 2026-05-29 (Q1 done) — `GET /retrain/recent` (audit-log-backed, no new table) +
   5-row hero retrain seed. cargo check ✓ / 23 retrain tests ✓ / 28 seed tests ✓ /
   clippy ✓. Committing. Next: Q2 (settings/workspace backend).
+- 2026-05-29 (Q2 done) — mock-gating sweep: flipped retros.ts + audit-export.ts
+  under demo-live. vitest 13 ✓ / tsc ✓. Committed `2d5bd6b06`.
+- 2026-05-29 (Q5 done) — 3 gap-closure design plans (voice / orchestration /
+  self-improvement) + README, linked from FEATURE_MATRIX. Committed `82a1e2037`.
+- 2026-05-29 (release compile-verify) — `cargo build --release --bin argo` exit 0
+  on the committed state → the operator's `restart-live-gateway.sh` will build
+  cleanly (no build-fail-after-kill risk). Live gateway NOT swapped (operator asleep).
+- 2026-05-29 (BONUS — built gap #3, not just planned) — shipped
+  **`argo eval export-training-data`**: read-only SFT-JSONL export of a tenant's
+  real judged history (decided approvals + committed retrains), PII-redacted via
+  the same `pii_detect` the audit sink uses, tenant-scoped. No new table, no
+  migration. 3 unit tests ✓ (3 approvals + 5 retrains → 8 examples; tenant-scoped;
+  invalid-tenant rejected) / clippy ✓. This is gap #3 Step 1 from design doc 03,
+  built rather than left as a plan.

@@ -104,12 +104,16 @@ deliverable, like a report — not scaffold).
 
 ## Implementation phases
 
-### Step 1 — training-data export (MEDIUM, buildable now, no external deps)
-- `export_training_data` join + the two serializers + the CLI command.
-- PII redaction on the way out (consistent with `argo-audit`'s `pii_detect`).
-- **Verify:** seed a tenant (we have the demo seed), export, assert the JSONL is
-  well-formed, includes approve+reject+retrain rows, is tenant-scoped (a
-  different tenant exports nothing), and carries no raw PII when autoredact is on.
+### Step 1 — training-data export — ✅ SHIPPED 2026-05-29 (overnight)
+- Built as **`argo eval export-training-data --tenant <t> --out <file> [--json]`**
+  in `crates/argo-cli/src/handlers/eval_export_training_data.rs` (read-only; no
+  table, no migration). Exports decided approvals (approve/reject pairs) +
+  committed retrains (labelled corrections) as SFT-JSONL, PII-redacted via the
+  same `pii_detect::scan_and_maybe_redact` the audit sink uses, tenant-scoped.
+- Verified: 3 unit tests (3 approvals + 5 retrains → 8 well-formed examples;
+  tenant-scoped → other tenant exports nothing; invalid tenant rejected) + clippy.
+- **Follow-ups (not yet built):** the eval-result join + Step 1b (eval-case
+  generation from rejected actions) + Step 2 (trace-clustering).
 
 ### Step 1b — eval-case generation variant (strong follow-up)
 - Turn rejected actions / committed retrains into `argo-eval` cases so real

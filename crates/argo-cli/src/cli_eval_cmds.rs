@@ -88,6 +88,22 @@ pub enum EvalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Export a tenant's real *judged* history (human approval
+    /// decisions + committed retrains) as SFT-style JSONL training
+    /// data. Read-only; closes competitive gap #3 (learn from the
+    /// audit record). See
+    /// `docs/skycot/design/2026-05-29-gap-closure-plans/03-self-improvement-training-export.md`.
+    ExportTrainingData {
+        /// Tenant id (UUID) to export for.
+        #[arg(long)]
+        tenant: String,
+        /// Output file path (JSONL — one example per line).
+        #[arg(long, short)]
+        out: std::path::PathBuf,
+        /// Emit a single JSON summary object instead of human lines.
+        #[arg(long)]
+        json: bool,
+    },
     /// Compare two eval runs side by side.
     Compare {
         /// Baseline eval run id or JSON path.

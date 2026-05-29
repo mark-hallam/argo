@@ -56,6 +56,7 @@ argo-routing = { path = "../argo-routing" }
 argo-skill = { path = "../argo-skill" }
 argo-team-headline = { path = "../argo-team-headline" }
 argo-sandbox = { path = "../argo-sandbox" }
+argo-security = { path = "../argo-security" }
 argo-siem = { path = "../argo-siem" }
 argo-store = { path = "../argo-store" }
 argo-telemetry = { path = "../argo-telemetry" }

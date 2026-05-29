@@ -25,6 +25,9 @@ pub async fn run(cmd: EvalCmd) -> ArgoResult<()> {
             json,
         } => super::eval_list::run(vertical.as_deref(), limit, json).await,
         EvalCmd::Show { run, json } => super::eval_show::run(&run, json).await,
+        EvalCmd::ExportTrainingData { tenant, out, json } => {
+            super::eval_export_training_data::run(&tenant, &out, json).await
+        }
         EvalCmd::SkillHonesty {
             skill_id,
             sample,
