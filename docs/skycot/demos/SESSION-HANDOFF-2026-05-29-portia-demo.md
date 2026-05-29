@@ -47,8 +47,27 @@ proved recursively (Skycot's own GTM teammate growing Skycot).
   `sample-team.ts` / `sample-workers-detail.ts` + canon test to 7 + stale
   "five/six" copy fixed). Resolves the "SAMPLE_TEAM old 5" open bug below.
 
-**Gateway now on pid from the 20:25 relaunch, schema v84, binary built from
-`8e107faf4`.** SPA still on :3000 demo-live. Swarm still PAUSED.
+**Two demo-anchor bugs found via the walkthrough + FIXED this session:**
+- **`/audit` was fully broken** (commit `04ca2a4a5`) — NOT "renders OK" as
+  earlier notes claimed. ChannelBadge rendered `<undefined/>` for live channel
+  kinds (`agent`/`mcp`/`computer-use`) outside the SPA's ChannelKind union →
+  "Element type is invalid" → the route error boundary replaced the WHOLE feed
+  with a 500 shell. Fixed with a defensive fallback + proper icons for those
+  surfaces (contained to ChannelBadge — they aren't messaging channels).
+- **`/approvals` WebSocket** (commit `ad913bf25`) — in auth-bypass/demo mode
+  the tokenless `/inbox/ws` upgrade was rejected (2 console errors). Now skips
+  the WS and uses polling in bypass mode. 0 errors.
+- **Clean post-fix walkthrough baseline** (`docs/skycot/ux-walkthrough-2026-05-29-grant/`):
+  12/14 routes 0-error; only remaining errors are two secondary-resource 404s
+  needing gateway endpoints (`skills/learned-this-month`, a worker-detail
+  coming-soon tab) — camera-invisible, evaluator-lane.
+
+**Decision recorded:** [[DEC-018]] (Grant = 2nd real working teammate).
+
+**Gateway: schema v84; SPA :3000 demo-live; swarm PAUSED. main HEAD `e78257ab7`+.**
+The live gateway binary predates the /audit + /approvals fixes (those are
+SPA-only, no gateway rebuild needed). The next gateway rebuild will also pick
+up the seed idempotency fix already in the running binary.
 
 ---
 

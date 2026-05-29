@@ -59,6 +59,7 @@ as a product feature ("your AI workforce's decision log"). Not before.
 
 | ID | Date | Decision | Status |
 |----|------|----------|--------|
+| [DEC-018](DEC-018-gtm-agent-grant-second-hero-teammate.md) | 2026-05-29 | GTM teammate "Grant" is the 2nd real working teammate; owns inbound growth as a responsibility; `/gtm` console + `POST /api/v1/gtm/draft-followup`, truth-bounded, approval-gated | active |
 | [DEC-017](DEC-017-teammate-eval-harness-synthetic-golden-companies-first.md) | 2026-05-29 | Teammate-eval harness: synthetic golden-companies first, historical replay a later seam; Portia=reference, Mariah=first synthetic | active |
 | [DEC-016](DEC-016-pitch-agent-persona-portia-female.md) | 2026-05-29 | Pitch Agent persona is "Portia" (female); P-name convention | active |
 | [DEC-015](DEC-015-decision-register-adr-files-first.md) | 2026-05-29 | Decision register ships as ADR markdown files first; DB only if it earns it | active |
