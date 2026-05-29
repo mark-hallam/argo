@@ -34,7 +34,10 @@ export interface EvalRun {
 
 export interface EvalDashboardPayload {
   workerId: string;
-  latest: EvalRun;
+  // `null` when the worker has no learned skills, or none of them has
+  // any scheduled-reeval history yet — an honest empty, not a
+  // fabricated run. The gateway returns the real shape under demo-live.
+  latest: EvalRun | null;
   history: EvalRun[];
   source: EvalSource;
 }
@@ -44,7 +47,17 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
-  return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1";
+  // Recording-mode opt-out (`NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1`): demo-live
+  // hits the real `GET /api/v1/workers/<id>/evals` endpoint, which is
+  // now store-backed (a worker's evals = the scheduled-reeval history of
+  // its learned skills, from `skill_reeval_history`). Equivalent to the
+  // canonical `!isDemoLive()` guard used across the other api modules.
+  // Plain auth-bypass dev still mocks for fast local UI iteration.
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
+  );
 }
 
 function isMissingOrUnreachable(err: unknown): boolean {
@@ -72,7 +85,11 @@ function isRun(value: unknown): value is EvalRun {
 function isPayload(value: unknown): value is EvalDashboardPayload {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
-  return typeof v.workerId === "string" && isRun(v.latest) && Array.isArray(v.history);
+  // `latest` is `null` for a worker with no reeval history — a real
+  // empty must validate so it is NOT mistaken for an unreachable
+  // gateway and silently swapped back to mock data.
+  const latestOk = v.latest === null || isRun(v.latest);
+  return typeof v.workerId === "string" && latestOk && Array.isArray(v.history);
 }
 
 export function mockEvalDashboard(workerId: string, source: EvalSource): EvalDashboardPayload {

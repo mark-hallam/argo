@@ -209,7 +209,7 @@ async fn dispatch_worker_subpath(
         );
     }
     if tail.starts_with("evals ") || tail.starts_with("evals?") {
-        return Some(super::routes_evals::list_response(id_with_suffix, req).await);
+        return Some(super::routes_evals::list_response(id_with_suffix, req, store).await);
     }
     if tail.starts_with("trust-streaks ") || tail.starts_with("trust-streaks?") {
         return Some(

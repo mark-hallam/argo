@@ -5,10 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import { EvalFixtureTable } from "@/components/skycot/eval/EvalFixtureTable";
 import { EvalRunHistory } from "@/components/skycot/eval/EvalRunHistory";
 import { RegressionBanner } from "@/components/skycot/eval/RegressionBanner";
-import { mockEvalDashboard, type EvalDashboardPayload } from "@/lib/api/evals";
+import { mockEvalDashboard, type EvalDashboardPayload, type EvalRun } from "@/lib/api/evals";
 
-function payload(): EvalDashboardPayload {
-  return mockEvalDashboard("wkr_eval", "mock-bypass");
+// `mockEvalDashboard` always produces a concrete `latest` run; the
+// dashboard payload type widened `latest` to `EvalRun | null` (a real
+// empty when a worker has no reeval history), so narrow it back here so
+// the component props below stay non-null without per-line assertions.
+function payload(): EvalDashboardPayload & { latest: EvalRun } {
+  return mockEvalDashboard("wkr_eval", "mock-bypass") as EvalDashboardPayload & { latest: EvalRun };
 }
 
 describe("eval dashboard components", () => {

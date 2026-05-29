@@ -1,180 +1,261 @@
-//! Per-worker eval dashboard payloads.
-use argo_eval::{detect_eval_regression, EvalRegressionConfig, EvalRunFixture, EvalRunReport};
+//! `GET /api/v1/workers/<id>/evals` — per-worker eval dashboard.
+//!
+//! A worker's "evals" are the scheduled re-evaluation history of the
+//! **skills that worker has learned**. There is no per-worker eval-run
+//! table; the data grain is per-skill (`skill_reeval_history`, a global
+//! marketplace table keyed by `skill_id`). This handler resolves the
+//! worker's learned skill ids (the tenant-scoped `worker_skill` overlay
+//! via [`IdentityStore::skills_for_worker`]) and surfaces the reeval
+//! rows for exactly those skills as the worker's eval runs.
+//!
+//! Tenant scoping: `skill_reeval_history` itself carries no `tenant_id`
+//! (skills are a cross-tenant catalog), so the scope is enforced on the
+//! worker side — [`helpers::resolve_worker_ctx`] looks the worker up
+//! under the workspace tenant (cross-tenant / unknown both surface as
+//! 404), and we only ever query reeval rows for skill ids that *this*
+//! tenant's worker holds. A worker in another tenant never reaches the
+//! reeval query.
+//!
+//! JSON output shape is held identical to the prior mock so the SPA
+//! contract (`web/lib/api/evals.ts` — `EvalDashboardPayload` =
+//! `{ workerId, latest, history }` of `EvalRun`s) is unchanged, with one
+//! honest addition: `latest` is `null` (not a fabricated run) when the
+//! worker has no learned skills or none of them has reeval history.
+//!
+//! Sensible deviations from a "real per-worker eval run" ideal:
+//! - `fixtureCount` / `meanScore` / `durationMs` / `fixtures[]` are not
+//!   stored per reeval row (the table keeps only the aggregate
+//!   `pass_rate`). They are surfaced as best-effort derived values
+//!   (`fixtures` empty, `meanScore` = `passRate`, counters `0`) rather
+//!   than invented detail — the camera-visible signal (pass rate,
+//!   version, regression decision, trend) is all real.
+//! - `decision` is derived from the stored `regressed` flag and the
+//!   presence of a `previous_pass_rate` baseline, matching the
+//!   `snake_case` `EvalRegressionDecision` the SPA's `EvalDecision`
+//!   type expects (`stable` / `regressed` / `no_baseline`).
+
+use super::routes_worker_skills_helpers as helpers;
+use argo_audit::AuditKind;
+use argo_identity::IdentityStore;
+use argo_store::SessionStore;
+use argo_types::{ArgoError, ArgoResult};
+use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
+use sqlx::Row;
+use std::sync::Arc;
 
-pub(super) async fn list_response(worker_id: &str, _req: &str) -> (&'static str, String) {
-    let (baseline, candidate) = sample_reports(worker_id);
-    let regression = detect_eval_regression(
-        &baseline,
-        &candidate,
-        EvalRegressionConfig {
-            min_common_fixtures: 3,
-            ..EvalRegressionConfig::default()
-        },
-    );
-    let latest = run_json(
-        worker_id,
-        &candidate,
-        &baseline,
-        regression.decision,
-        18_400,
-    );
-    let previous = run_json(
-        worker_id,
-        &baseline,
-        &baseline,
-        argo_eval::EvalRegressionDecision::Stable,
-        16_900,
-    );
-    (
-        "200 OK",
+/// Idempotent mirror of `crates/argo-store/migrations/121__skill_reeval_history.sql`.
+/// The table is lazily applied by `argo_skill::scheduled_reeval_cron`
+/// (it is NOT in the migration registry), so a store that has never run
+/// a reeval tick would otherwise hit "no such table" here. We apply the
+/// same `CREATE TABLE IF NOT EXISTS` defensively before the read.
+const REEVAL_SCHEMA_SQL: &str =
+    include_str!("../../../../argo-store/migrations/121__skill_reeval_history.sql");
+
+/// One `skill_reeval_history` row, decoded for projection into an
+/// `EvalRun`. Mirrors the column order of [`HISTORY_SELECT`].
+struct ReevalRow {
+    eval_run_id: String,
+    skill_id: String,
+    skill_name: String,
+    skill_version: String,
+    run_at: i64,
+    pass_rate: Option<f64>,
+    previous_pass_rate: Option<f64>,
+    regressed: i64,
+}
+
+const HISTORY_SELECT: &str = "SELECT eval_run_id, skill_id, skill_name, skill_version, \
+     run_at, pass_rate, previous_pass_rate, regressed \
+     FROM skill_reeval_history WHERE skill_id IN ";
+
+/// `GET /api/v1/workers/<id>/evals` entry point.
+pub(super) async fn list_response(
+    worker_id_raw: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let worker_id = match helpers::parse_worker_id(worker_id_raw) {
+        Ok(id) => id,
+        Err(r) => return r,
+    };
+    let ctx = match helpers::resolve_worker_ctx(store, worker_id).await {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
+
+    if let Err(e) = ensure_reeval_schema(store).await {
+        return helpers::server_error(&format!("reeval schema: {e}"));
+    }
+
+    // The worker's learned skill ids (TEXT UUIDs). `worker_skill.skill_id`
+    // and `skill_reeval_history.skill_id` are both the hyphenated UUID
+    // string, so they join directly (unlike `skill.id`, stored as BLOB).
+    let skill_ids: Vec<String> = match IdentityStore::new(store)
+        .skills_for_worker(worker_id)
+        .await
+    {
+        Ok(rows) => rows.into_iter().map(|(id, _prof)| id).collect(),
+        Err(e) => return helpers::server_error(&format!("skills_for_worker: {e}")),
+    };
+
+    let runs = match fetch_runs_for_skills(store, &worker_id.to_string(), &skill_ids).await {
+        Ok(v) => v,
+        Err(e) => return helpers::server_error(&format!("reeval history: {e}")),
+    };
+
+    let latest = runs.first().cloned().unwrap_or(Value::Null);
+    let history = runs.clone();
+    let body = json!({
+        "workerId": worker_id.to_string(),
+        "latest": latest,
+        "history": history,
+    });
+    helpers::emit_audit(
+        store,
+        req,
+        &ctx,
+        AuditKind::HttpRequest,
+        "worker.evals.viewed",
         json!({
-            "workerId": worker_id,
-            "latest": latest,
-            "history": [latest.clone(), previous],
-        })
-        .to_string(),
+            "skill_count": skill_ids.len(),
+            "run_count": runs.len(),
+        }),
     )
+    .await;
+    ("200 OK", body.to_string())
 }
 
-fn sample_reports(worker_id: &str) -> (EvalRunReport, EvalRunReport) {
-    let prefix = worker_id.chars().take(8).collect::<String>();
-    let baseline = EvalRunReport {
-        id: format!("eval_{prefix}_baseline"),
-        vertical: "candidate-screening".into(),
-        created_at: "2026-05-13T09:30:00Z".into(),
-        fixtures: vec![
-            fixture("reply-late-stage-candidate", true, 0.92),
-            fixture("salary-expectation", true, 0.95),
-            fixture("missing-resume", true, 0.88),
-        ],
-    };
-    let candidate = EvalRunReport {
-        id: format!("eval_{prefix}_candidate"),
-        vertical: "candidate-screening".into(),
-        created_at: "2026-05-14T09:30:00Z".into(),
-        fixtures: vec![
-            fixture("reply-late-stage-candidate", false, 0.32),
-            fixture("salary-expectation", true, 0.97),
-            fixture("missing-resume", true, 0.89),
-        ],
-    };
-    (baseline, candidate)
+/// Apply the lazy `skill_reeval_history` schema (idempotent). Strips
+/// SQL comments and runs each statement, matching the bootstrap the
+/// `argo-skill` reeval cron uses.
+async fn ensure_reeval_schema(store: &Arc<SessionStore>) -> ArgoResult<()> {
+    let stripped = REEVAL_SCHEMA_SQL
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("--"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for stmt in stripped.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+        sqlx::query(stmt)
+            .execute(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("ensure skill_reeval_history: {e}")))?;
+    }
+    Ok(())
 }
 
-fn fixture(id: &str, passed: bool, score: f64) -> EvalRunFixture {
-    EvalRunFixture {
-        fixture: id.into(),
-        skill: "candidate-screening-followup".into(),
-        metric: if id == "salary-expectation" {
-            "rubric"
-        } else {
-            "contains"
-        }
-        .into(),
-        passed,
-        score,
+/// Fetch every reeval row for `skill_ids`, newest-first, projected into
+/// the SPA `EvalRun` shape. Empty `skill_ids` short-circuits to an empty
+/// vec (no SQL) so a skill-less worker is a real empty, not a 500.
+async fn fetch_runs_for_skills(
+    store: &Arc<SessionStore>,
+    worker_id: &str,
+    skill_ids: &[String],
+) -> ArgoResult<Vec<Value>> {
+    if skill_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders = skill_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let sql = format!("{HISTORY_SELECT}({placeholders}) ORDER BY run_at DESC");
+    let mut query = sqlx::query(&sql);
+    for id in skill_ids {
+        query = query.bind(id);
+    }
+    let rows = query
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill_reeval_history select: {e}")))?;
+    Ok(rows.iter().map(|row| run_json(worker_id, &decode_row(row))).collect())
+}
+
+/// Decode one SQLite row into a [`ReevalRow`]. `sqlx::Row::get` panics
+/// on a type/column mismatch, but the columns are pinned by
+/// [`HISTORY_SELECT`] against the fixed schema, so this is total for
+/// any row the query returns.
+fn decode_row(row: &sqlx::sqlite::SqliteRow) -> ReevalRow {
+    ReevalRow {
+        eval_run_id: row.get("eval_run_id"),
+        skill_id: row.get("skill_id"),
+        skill_name: row.get("skill_name"),
+        skill_version: row.get("skill_version"),
+        run_at: row.get("run_at"),
+        pass_rate: row.get("pass_rate"),
+        previous_pass_rate: row.get("previous_pass_rate"),
+        regressed: row.get("regressed"),
     }
 }
 
-fn run_json(
-    worker_id: &str,
-    run: &EvalRunReport,
-    baseline: &EvalRunReport,
-    decision: argo_eval::EvalRegressionDecision,
-    duration_ms: u64,
-) -> Value {
+/// Project one [`ReevalRow`] into the SPA's `EvalRun` JSON shape. Fields
+/// the table does not carry are filled with honest derived values (see
+/// the module docs): `meanScore` = `passRate`, empty `fixtures`, zero
+/// `fixtureCount` / `durationMs`.
+fn run_json(worker_id: &str, row: &ReevalRow) -> Value {
+    let pass_rate = row.pass_rate.unwrap_or(0.0);
     json!({
-        "id": &run.id,
+        "id": row.eval_run_id,
         "workerId": worker_id,
-        "skill": "candidate-screening-followup",
-        "version": if run.id.ends_with("candidate") { "v4.2.0" } else { "v4.1.0" },
-        "createdAt": &run.created_at,
-        "status": if run.pass_rate() >= 0.8 { "passed" } else { "failed" },
-        "passRate": run.pass_rate(),
-        "meanScore": mean_score(&run.fixtures),
-        "fixtureCount": run.fixtures.len(),
-        "durationMs": duration_ms,
-        "decision": decision,
-        "fixtures": fixtures_json(&run.fixtures, &baseline.fixtures),
+        "skill": skill_label(row),
+        "version": row.skill_version,
+        "createdAt": micros_to_rfc3339(row.run_at),
+        "status": status_for(row.pass_rate),
+        "passRate": pass_rate,
+        "meanScore": pass_rate,
+        "fixtureCount": 0,
+        "durationMs": 0,
+        "decision": decision_for(row),
+        "fixtures": Vec::<Value>::new(),
+        "skillId": row.skill_id,
+        "previousPassRate": row.previous_pass_rate,
     })
 }
 
-fn fixtures_json(fixtures: &[EvalRunFixture], baseline: &[EvalRunFixture]) -> Vec<Value> {
-    fixtures
-        .iter()
-        .map(|f| {
-            let previous = baseline
-                .iter()
-                .find(|b| b.fixture == f.fixture)
-                .map(|b| b.score)
-                .unwrap_or(f.score);
-            json!({
-                "fixture": f.fixture,
-                "skill": &f.skill,
-                "metric": &f.metric,
-                "expected": expected_for(&f.fixture),
-                "actual": actual_for(&f.fixture, f.passed),
-                "passed": f.passed,
-                "score": f.score,
-                "previousScore": previous,
-                "scoreDelta": f.score - previous,
-            })
-        })
-        .collect()
-}
-
-fn mean_score(fixtures: &[EvalRunFixture]) -> f64 {
-    if fixtures.is_empty() {
-        0.0
+/// Prefer the stored `skill_name`; fall back to the id when a row
+/// pre-dates the name capture.
+fn skill_label(row: &ReevalRow) -> &str {
+    if row.skill_name.is_empty() {
+        &row.skill_id
     } else {
-        fixtures.iter().map(|f| f.score).sum::<f64>() / fixtures.len() as f64
+        &row.skill_name
     }
 }
 
-fn expected_for(fixture: &str) -> &'static str {
-    match fixture {
-        "reply-late-stage-candidate" => "asks for availability",
-        "salary-expectation" => "routes compensation to recruiter",
-        "missing-resume" => "requests resume upload",
-        _ => "matches expected outcome",
+/// `EvalRunStatus` for a pass rate: a run with no recorded rate (the
+/// eval itself errored) is `running` (in-flight / indeterminate); ≥0.8
+/// is `passed`, else `failed`. Matches the SPA's `EvalRunStatus`.
+fn status_for(pass_rate: Option<f64>) -> &'static str {
+    match pass_rate {
+        None => "running",
+        Some(r) if r >= 0.8 => "passed",
+        Some(_) => "failed",
     }
 }
 
-fn actual_for(fixture: &str, passed: bool) -> &'static str {
-    match (fixture, passed) {
-        ("reply-late-stage-candidate", false) => "sent generic acknowledgement",
-        ("salary-expectation", true) => "routes compensation to recruiter",
-        ("missing-resume", true) => "asks for resume upload and confirms deadline",
-        _ => "matches expected outcome",
+/// Derive the `EvalDecision` from the stored `regressed` flag and
+/// whether a baseline existed. Values match the SPA's `snake_case`
+/// `EvalDecision` enum exactly.
+fn decision_for(row: &ReevalRow) -> &'static str {
+    if row.regressed != 0 {
+        "regressed"
+    } else if row.previous_pass_rate.is_none() {
+        "no_baseline"
+    } else {
+        "stable"
     }
+}
+
+/// Convert a `timestamp_micros` integer (the unit `run_at` is stored in)
+/// to an RFC3339 UTC string for the SPA's `createdAt`. Out-of-range
+/// values fall back to the Unix epoch rather than panicking.
+fn micros_to_rfc3339(micros: i64) -> String {
+    Utc.timestamp_micros(micros)
+        .single()
+        .unwrap_or(chrono::DateTime::<Utc>::UNIX_EPOCH)
+        .to_rfc3339()
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn response_contains_history_and_latest() {
-        let (_, body) =
-            list_response("wkr_eval", "GET /api/v1/workers/wkr_eval/evals HTTP/1.1").await;
-        let parsed: Value = serde_json::from_str(&body).unwrap();
-        assert_eq!(parsed["workerId"], "wkr_eval");
-        assert_eq!(parsed["history"].as_array().unwrap().len(), 2);
-        assert_eq!(parsed["latest"]["decision"], "regressed");
-    }
-
-    #[tokio::test]
-    async fn fixture_detail_includes_prior_diff() {
-        let (_, body) =
-            list_response("wkr_eval", "GET /api/v1/workers/wkr_eval/evals HTTP/1.1").await;
-        let parsed: Value = serde_json::from_str(&body).unwrap();
-        let fixtures = parsed["latest"]["fixtures"].as_array().unwrap();
-        let regressed = fixtures
-            .iter()
-            .find(|f| f["fixture"] == "reply-late-stage-candidate")
-            .unwrap();
-        assert_eq!(regressed["passed"], false);
-        assert!(regressed["scoreDelta"].as_f64().unwrap() < 0.0);
-    }
-}
+#[path = "routes_evals_tests.rs"]
+mod tests;
