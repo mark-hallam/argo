@@ -245,6 +245,41 @@ describe("ApprovalsOpsDashboard", () => {
     }
   });
 
+  it("renders a channel chip per pending row matching the row's channel field", () => {
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[
+          item({ id: "row-slack", channel: "slack" }),
+          item({ id: "row-sms", channel: "sms" }),
+          item({ id: "row-voice", channel: "voice" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByTestId("channel-chip-slack").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByTestId("channel-chip-sms").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByTestId("channel-chip-voice").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("summarises pending counts by channel under the KPI strip", () => {
+    renderWithClient(
+      <ApprovalsOpsDashboard
+        items={[
+          item({ id: "s1", channel: "slack" }),
+          item({ id: "s2", channel: "slack" }),
+          item({ id: "v1", channel: "voice" }),
+          // Resolved rows don't contribute to the pending breakdown.
+          item({ id: "resolved", channel: "web", decision: "approve" }),
+        ]}
+      />,
+    );
+
+    const summary = screen.getByTestId("pending-by-channel");
+    expect(summary).toHaveTextContent(/Slack\s*2/);
+    expect(summary).toHaveTextContent(/Voice\s*1/);
+    expect(summary).not.toHaveTextContent(/Web/);
+  });
+
   it("renders inline Approve and Refuse buttons on every pending row", () => {
     renderWithClient(
       <ApprovalsOpsDashboard

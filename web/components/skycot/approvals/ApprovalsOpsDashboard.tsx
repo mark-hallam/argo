@@ -4,6 +4,7 @@ import { useCallback, useMemo, type KeyboardEvent } from "react";
 import { ApprovalRateRing } from "@/components/skycot/approvals/ApprovalRateRing";
 import { ApprovalRowActions } from "@/components/skycot/approvals/ApprovalRowActions";
 import { ApprovalsKpiStrip } from "@/components/skycot/approvals/ApprovalsKpiStrip";
+import { ChannelChip } from "@/components/skycot/approvals/ChannelChip";
 import { ConfidenceDonut } from "@/components/skycot/approvals/ConfidenceDonut";
 import { DollarAtRisk } from "@/components/skycot/approvals/DollarAtRisk";
 import { MetricStatCard } from "@/components/skycot/approvals/MetricStatCard";
@@ -14,7 +15,11 @@ import {
   useUndoDecision,
 } from "@/lib/hooks/use-approvals";
 import { useApprovalsKpis } from "@/lib/hooks/use-approvals-kpis";
-import { sortBySeverityThenSla, type ApprovalItem } from "@/lib/sample-approvals";
+import {
+  sortBySeverityThenSla,
+  type ApprovalItem,
+  type ChannelKind,
+} from "@/lib/sample-approvals";
 import { cn } from "@/lib/utils";
 
 interface ApprovalsOpsDashboardProps {
@@ -90,6 +95,26 @@ function averageConfidence(items: ApprovalItem[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+const CHANNEL_SUMMARY_LABEL: Record<ChannelKind, string> = {
+  slack: "Slack",
+  discord: "Discord",
+  email: "Email",
+  imessage: "iMessage",
+  sms: "SMS",
+  push: "Push",
+  web: "Web",
+  voice: "Voice",
+  whatsapp: "WhatsApp",
+};
+
+function channelCounts(items: ApprovalItem[]): Array<[ChannelKind, number]> {
+  const counts = new Map<ChannelKind, number>();
+  for (const item of items) {
+    counts.set(item.channel, (counts.get(item.channel) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
 export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
   const pending = useMemo(
     () => sortBySeverityThenSla(items.filter((item) => item.decision == null)),
@@ -100,6 +125,7 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
   const totalAtRisk = pending.reduce((sum, item) => sum + (item.dollarAtRisk ?? 0), 0);
   const avgConfidence = averageConfidence(pending);
   const riskyCount = pending.filter((item) => (item.dollarAtRisk ?? 0) > 0).length;
+  const pendingByChannel = useMemo(() => channelCounts(pending), [pending]);
   const atRiskSubtitle = `${riskyCount} pending approval${
     riskyCount === 1 ? "" : "s"
   } with monetary exposure in the current queue`;
@@ -140,6 +166,28 @@ export function ApprovalsOpsDashboard({ items }: ApprovalsOpsDashboardProps) {
   return (
     <div className="space-y-6" data-testid="approvals-ops-dashboard">
       <ApprovalsKpiStrip kpis={kpis} />
+
+      {pendingByChannel.length > 0 ? (
+        <div
+          data-testid="pending-by-channel"
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-[var(--muted-foreground)]"
+        >
+          <span className="font-semibold uppercase tracking-[0.1em] text-[10.5px]">
+            Pending across channels
+          </span>
+          {pendingByChannel.map(([channel, count], idx) => (
+            <span
+              key={channel}
+              data-testid={`pending-channel-${channel}`}
+              className="inline-flex items-center gap-1 tabular-nums"
+            >
+              {idx > 0 ? <span aria-hidden>·</span> : null}
+              <span>{CHANNEL_SUMMARY_LABEL[channel]}</span>
+              <span className="font-semibold text-[var(--foreground)]">{count}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-5">
@@ -357,9 +405,10 @@ function ApprovalRow({
           <span className="mt-1 line-clamp-2 block break-words text-xs text-[var(--muted-foreground)]">
             {item.worker.name} · {item.detail}
           </span>
-          <span className="mt-2 inline-flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
+          <span className="mt-2 inline-flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
             <SeverityPill severity={severity} />
             {severityLabel(severity)}
+            <ChannelChip channel={item.channel} />
           </span>
         </span>
       </div>
