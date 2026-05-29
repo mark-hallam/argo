@@ -46,4 +46,25 @@ describe("ChannelBadge", () => {
       expect(badge.querySelector("svg")).not.toBeNull();
     },
   );
+
+  // Regression: the live audit feed emits non-messaging action surfaces
+  // (`agent` / `mcp` / `computer-use`) and could emit future values
+  // outside ChannelKind. An unknown `kind` used to resolve to `undefined`
+  // and render `<undefined />`, throwing "Element type is invalid" and
+  // taking the whole /audit route down via its error boundary. The badge
+  // must now render a fallback glyph + readable label instead of crashing.
+  it.each([
+    ["agent", "Agent"],
+    ["mcp", "MCP"],
+    ["computer-use", "Computer use"],
+    ["totally-unknown", "Totally Unknown"],
+  ])("renders a non-crashing fallback for surface %s", (kind, expectedLabel) => {
+    // `kind` accepts any string (the gateway sends values outside the
+    // ChannelKind union); the badge resolves a fallback instead of crashing.
+    render(<ChannelBadge kind={kind} />);
+    const badge = screen.getByTestId("channel-badge");
+    expect(badge).toHaveAttribute("data-kind", kind);
+    expect(badge.querySelector("svg")).not.toBeNull();
+    expect(badge).toHaveTextContent(expectedLabel);
+  });
 });
