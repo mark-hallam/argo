@@ -16,6 +16,15 @@
 
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import {
+  SEED_SKILLS,
+  MOCK_LEARNED_SKILL_IDS,
+  SEED_AUTHOR_LABEL_BY_NAME,
+} from "./skills-seed";
+
+// Re-exported for the page components + tests that import the seed
+// catalogue from this module. The data now lives in `./skills-seed`.
+export { SEED_SKILLS, MOCK_LEARNED_SKILL_IDS };
 
 export type SkillDataSource = "gateway" | "mock-offline" | "mock-bypass";
 
@@ -53,105 +62,6 @@ interface SkillsEnvelope {
   count?: number;
   skills?: SkillRow[];
 }
-
-/**
- * Seed catalog used when the gateway has no skills installed (a fresh
- * workspace) or is unreachable in dev. Mirrors the marketing-friendly
- * names the operator showed in the locked /skills design — keep this
- * list in sync with the design brief, not with the real registry.
- */
-export const SEED_SKILLS: SkillRow[] = [
-  {
-    id: "seed-pricing-competitor-scrape",
-    name: "pricing.competitor_scrape",
-    version: "0.1.0",
-    description:
-      "Competitor pricing scrape — pull competitor product pricing across listed channels and surface deltas as memory, with confidence + freshness flags.",
-    layer: "library",
-    provenance_source: "published:verified:argo-seed",
-    trust_grade: "published_verified",
-  },
-  {
-    id: "seed-approval-route",
-    name: "approval.route",
-    version: "0.1.0",
-    description:
-      "Route approvals to the right human based on risk, dollar, and seniority rules.",
-    layer: "library",
-    provenance_source: "seed",
-    trust_grade: "seed",
-  },
-  {
-    id: "seed-invoice-extract",
-    name: "invoice.extract",
-    version: "0.1.0",
-    description:
-      "Pull structured line items from PDF or scanned invoices with vendor reconciliation.",
-    layer: "library",
-    provenance_source: "seed",
-    trust_grade: "seed",
-  },
-  {
-    id: "seed-candidate-screen",
-    name: "candidate.screen",
-    version: "0.1.0",
-    description:
-      "First-pass candidate screen against a JD with skill-match scoring and red-flag flags.",
-    layer: "library",
-    provenance_source: "seed",
-    trust_grade: "seed",
-  },
-  {
-    id: "seed-deal-qualify",
-    name: "deal.qualify",
-    version: "0.1.0",
-    description:
-      "BANT-style outbound qualification, calendar-link insertion, CRM update on accept.",
-    layer: "library",
-    provenance_source: "workspace",
-    trust_grade: "tenant",
-  },
-  {
-    id: "seed-support-triage",
-    name: "support.triage",
-    version: "0.1.0",
-    description:
-      "Classify tickets, deflect with KB articles, escalate the rest with full context bundle.",
-    layer: "library",
-    provenance_source: "learned",
-    trust_grade: "learned_unreviewed",
-    learned_by: {
-      worker_id: "wkr-mariah",
-      worker_name: "Mariah",
-      learned_at: "2026-05-23T09:15:00.000Z",
-    },
-  },
-  {
-    id: "seed-lead-enrich",
-    name: "lead.enrich",
-    version: "0.1.0",
-    description:
-      "Append firmographic + technographic context to inbound leads from public sources.",
-    layer: "library",
-    provenance_source: "learned",
-    trust_grade: "learned_unreviewed",
-    learned_by: {
-      worker_id: "wkr-priya",
-      worker_name: "Priya",
-      learned_at: "2026-05-18T14:40:00.000Z",
-    },
-  },
-];
-
-export const MOCK_LEARNED_SKILL_IDS = ["support.triage", "lead.enrich"];
-
-const SEED_AUTHOR_LABEL_BY_NAME: Record<string, string> = {
-  "pricing.competitor_scrape": "Authored by SKYCOT",
-  "approval.route": "Authored by SKYCOT",
-  "invoice.extract": "Authored by SKYCOT",
-  "candidate.screen": "Authored by SKYCOT",
-  "deal.qualify": "Authored by your org",
-};
 
 function isStrictProduction(): boolean {
   return (
@@ -222,9 +132,80 @@ export interface FetchSkillUsageResult {
   source: SkillUsageSource;
 }
 
-function seedUsage(name: string): SkillUsage {
+/**
+ * Shared demo roster used to populate the "Workers using this skill"
+ * card when the gateway is offline. Mirrors the cross-surface worker
+ * names (Mariah / Priya / Jamal / Nori from the Scene-1 canon, plus
+ * Peta / Patrick from Project & Ops and Devon / Alex as fill) so the
+ * skill-detail page never renders an empty usage card on the mock path.
+ */
+const SKILL_USAGE_ROSTER: ReadonlyArray<{ worker_id: string; name: string }> = [
+  { worker_id: "wkr-mariah", name: "Mariah" },
+  { worker_id: "wkr-priya", name: "Priya" },
+  { worker_id: "wkr-jamal", name: "Jamal" },
+  { worker_id: "wkr-nori", name: "Nori" },
+  { worker_id: "wkr-peta", name: "Peta" },
+  { worker_id: "wkr-patrick", name: "Patrick" },
+  { worker_id: "wkr-devon", name: "Devon" },
+  { worker_id: "wkr-alex", name: "Alex" },
+];
+
+/**
+ * Fixed pool of plausible "learned N ago" timestamps. Indexed
+ * deterministically off the skill hash so the same skill always renders
+ * the same dates — no `Date.now()`, so SSR and client agree and the
+ * density vitest is stable.
+ */
+const SKILL_USAGE_LEARNED_AT: readonly string[] = [
+  "2026-05-27T10:15:00.000Z",
+  "2026-05-24T16:40:00.000Z",
+  "2026-05-21T08:05:00.000Z",
+  "2026-05-16T13:30:00.000Z",
+  "2026-05-09T11:20:00.000Z",
+  "2026-04-30T15:55:00.000Z",
+  "2026-04-18T09:45:00.000Z",
+  "2026-04-04T12:10:00.000Z",
+];
+
+/**
+ * djb2 string hash → unsigned 32-bit int. Stable across runs and
+ * platforms, so every derived value (worker count, roster slice,
+ * adoption count) is deterministic per skill name.
+ */
+function djb2(input: string): number {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash * 33) ^ input.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+/** Deterministically pick 2–4 distinct roster workers for a skill. */
+function deterministicWorkers(name: string, hash: number): SkillUsageWorker[] {
+  const count = 2 + (hash % 3); // 2, 3, or 4
+  const start = hash % SKILL_USAGE_ROSTER.length;
+  const workers: SkillUsageWorker[] = [];
+  for (let i = 0; i < count; i++) {
+    const worker = SKILL_USAGE_ROSTER[(start + i) % SKILL_USAGE_ROSTER.length];
+    const learnedAt =
+      SKILL_USAGE_LEARNED_AT[(hash + i * 7) % SKILL_USAGE_LEARNED_AT.length];
+    workers.push({
+      worker_id: worker.worker_id,
+      name: worker.name,
+      learned_at: learnedAt,
+    });
+  }
+  return workers;
+}
+
+export function seedUsage(name: string): SkillUsage {
   const seed = SEED_SKILLS.find((s) => s.name === name || s.id === name);
   const learnedBy = seed?.learned_by;
+  const hash = djb2(seed?.name ?? name);
+  // Skills a worker learned inside this tenant carry their real
+  // provenance worker, single-entry (preserves the learned-skill
+  // contract). Every other seed gets a deterministic 2–4 worker set so
+  // the usage card is never empty on the mock-offline path.
   const workersUsing = learnedBy
     ? [
         {
@@ -233,7 +214,7 @@ function seedUsage(name: string): SkillUsage {
           learned_at: learnedBy.learned_at,
         },
       ]
-    : [];
+    : deterministicWorkers(seed?.name ?? name, hash);
   return {
     skill_id: name,
     skill_name: seed?.name ?? name,
@@ -243,7 +224,8 @@ function seedUsage(name: string): SkillUsage {
       : SEED_AUTHOR_LABEL_BY_NAME[seed?.name ?? name] ?? "Authored by SKYCOT",
     workers_using: workersUsing,
     workers_using_count: workersUsing.length,
-    adoption_count: learnedBy ? 1 : 0,
+    // Plausible cross-tenant adoption: deterministic 40–300 range.
+    adoption_count: 40 + (hash % 261),
   };
 }
 
