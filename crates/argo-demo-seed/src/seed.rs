@@ -8,7 +8,8 @@ use std::sync::Arc;
 use argo_audit::{AuditKind, AuditSink};
 use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::approvals::{
-    create_request, decide_request, ApprovalDecision, DefaultDecision, NewApprovalRequest,
+    create_request, decide_request, list_pending, ApprovalDecision, DefaultDecision,
+    NewApprovalRequest,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoResult, TenantId};
@@ -369,6 +370,20 @@ async fn seed_approval_requests(
             Some(ApprovalDecision::Reject),
         ),
     ];
+    // Idempotency guard (mirrors the worker skip-if-exists at
+    // `seed_worker_spine`): the 8 demo approvals are seeded as a set.
+    // If the sentinel (the first row's summary) is already present as a
+    // pending request for this tenant, the set was seeded by a prior
+    // run — skip the whole block so re-seeding (e.g. to add a new
+    // teammate) does not duplicate the approval inbox.
+    let sentinel = labels[0].1;
+    let existing = list_pending(pool, tenant_id, 100).await?;
+    if existing
+        .iter()
+        .any(|r| r.draft_content.as_deref() == Some(sentinel))
+    {
+        return Ok(0);
+    }
     let mut inserted = 0;
     for (i, (label, summary, prior_decision)) in labels.iter().enumerate() {
         let worker_id = worker_ids[i % worker_ids.len()];
@@ -463,6 +478,38 @@ mod tests {
         let other_tenant = TenantId::new();
         let other_workers = identities.list_workers(other_tenant, false).await.unwrap();
         assert_eq!(other_workers.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn reseed_does_not_duplicate_approvals() {
+        let store = open_store().await;
+        let tenant = TenantId::new();
+        let mut opts = SeedOptions::canonical_v1(tenant);
+        opts.skip_pass_a_turns = true;
+        opts.dressing_audit_rows = 0;
+
+        let first = run_canonical_v1_seed(&store, &opts).await.unwrap();
+        assert_eq!(first.approval_requests, 8, "first seed creates the 8-row demo set");
+
+        // Re-seeding the SAME tenant (e.g. to add a new teammate like
+        // Grant) must NOT duplicate the approval inbox — the sentinel
+        // guard skips the already-seeded set.
+        let second = run_canonical_v1_seed(&store, &opts).await.unwrap();
+        assert_eq!(
+            second.approval_requests, 0,
+            "re-seed must skip the already-seeded approval set (got {})",
+            second.approval_requests
+        );
+
+        // Ground truth: still exactly 5 pending demo approvals (3 of the
+        // 8 were pre-decided), not 10.
+        let pending = list_pending(store.pool(), tenant, 100).await.unwrap();
+        assert_eq!(
+            pending.len(),
+            5,
+            "expected 5 pending demo approvals after re-seed, got {}",
+            pending.len()
+        );
     }
 
     #[tokio::test]
