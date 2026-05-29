@@ -15,13 +15,26 @@ limits. By morning, maximal real progress, ready to deploy what's done.
 
 ## RESUME INSTRUCTIONS (read first if you're a fresh/resumed conductor)
 
-1. `cd ~/code/argo && git fetch origin -q && git log --oneline -8`
+0. **Dirty-tree first:** `cd ~/code/argo && git status --short | grep -v 'verticals/.genesis'`.
+   If a prior build-agent left UNCOMMITTED changes (a crate mid-integration),
+   verify them (`cargo test`/`clippy` on the touched crate, or `vitest`/`tsc`) and
+   either commit+push if green, or `git stash`/discard if broken — leave a clean
+   tree before starting new work. Note what you did in the Log.
+1. `git fetch origin -q && git log --oneline -8`
 2. Read this file's **Queue** + **Log** below — pick the first `TODO`/`PARTIAL`
    item by priority that isn't `BLOCKED`.
 3. Build it (single Rust integrator: `export CARGO_TARGET_DIR=$HOME/.cache/argo-shared-target CARGO_INCREMENTAL=0`).
 4. Verify (cargo test/clippy for Rust; vitest/tsc for web). Commit + push ONLY if
    green. Append a Log line. Never break the running demo (gateway :7400 / SPA :3000).
 5. Keep going until the queue is exhausted or every remaining item is BLOCKED.
+
+**Process note (improved mid-run):** delegated build-agents now **commit+push their
+own green work** (verify gate: tests+clippy green), run ONE at a time to avoid push
+races — this avoids a dirty-tree handoff if the conductor session dies. Gateway-
+dispatcher-touching builds (anything editing `routes_dispatch_*.rs` / gateway
+`mod.rs`) must NOT run in parallel with each other (shared files → merge conflicts);
+serialize those. Independent crates can parallelize via worktrees + the shared
+target (cargo's target lock serializes compilation = memory-safe).
 
 ## The autonomous process (v1 — improve as we learn)
 
