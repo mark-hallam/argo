@@ -12,7 +12,7 @@
 #
 # Usage:  ./scripts/demo-dry-run.sh
 #         ./scripts/demo-dry-run.sh --keep-server
-#         ./scripts/demo-dry-run.sh --gateway http://127.0.0.1:8787
+#         ./scripts/demo-dry-run.sh --gateway http://127.0.0.1:7400
 #         ./scripts/demo-dry-run.sh --demo-mode
 #
 # --demo-mode is the branch for actual v1.0 recording sessions. It:
@@ -49,7 +49,7 @@ FIXTURES="${REPO_ROOT}/scripts/demo-dry-run-fixtures"
 OUT_DIR="${TMPDIR:-/tmp}/skycot-demo-dry-run"
 TODAY="$(date -u +%Y-%m-%d)"
 RESULTS="${OUT_DIR}/dry-run-results-${TODAY}.json"
-GATEWAY="${GATEWAY_URL:-http://127.0.0.1:8787}"
+GATEWAY="${GATEWAY_URL:-http://127.0.0.1:7400}"
 SPA="http://localhost:3000"
 SLACK_STUB_PORT=4455
 
