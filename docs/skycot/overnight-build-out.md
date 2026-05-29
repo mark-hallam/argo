@@ -93,11 +93,35 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   settings. 8 store unit tests (incl. migration-on-:memory: + tenant-scoping) +
   8 handler tests (defaults / round-trip / validation) + clippy `-D warnings`
   green; `settings.ts` typechecks (6 pre-existing unrelated TS errors only).
-- [ ] **T2 · worker evals** — routes_evals.rs EXISTS but is MOCK-ONLY; store has
-  `skill_reeval_history` (per-SKILL, not per-worker). Build a real query (worker's
-  learned skills → their reeval history surfaced as the worker's eval runs) + flip
-  `evals.ts`. ~40 LOC change. MEDIUM. **Data-grain noted — if it gets ambiguous, ship
-  the skills-join version + mark the per-worker-eval-run table a follow-up.**
+- [x] **T2 · worker evals** — **DONE.** `routes_evals.rs` rewritten from the
+  hardcoded-sample handler to a real store-backed query: a worker's evals = the
+  scheduled-reeval history of the SKILLS that worker has learned. Resolves the
+  worker's learned skill ids via `IdentityStore::skills_for_worker` (tenant-scoped
+  `worker_skill` overlay), fetches `skill_reeval_history` rows for those ids
+  (the table is a global skill catalog with no `tenant_id`; tenant scope is
+  enforced on the worker side — `resolve_worker_ctx` looks the worker up under
+  the workspace tenant, cross-tenant/unknown → 404, so an alien worker's reeval
+  rows never reach the response), and maps each row to the SPA `EvalRun` shape
+  (`pass_rate`→`passRate`, `run_at` micros→`createdAt` RFC3339, `regressed`
+  flag→`decision`; table-absent fields `fixtures`/`fixtureCount`/`durationMs`/
+  `meanScore` filled with honest derived values, not invented detail).
+  `latest` = most-recent, `history` = newest-first. A skill-less / history-less
+  worker returns `{workerId, latest: null, history: []}` — a **real empty, not
+  mock**. The handler defensively ensures the lazily-applied
+  `skill_reeval_history` table (it is NOT in the migration registry; `argo-skill`
+  applies it on first reeval tick). `evals.ts`: `isAuthBypassed()` now opts out
+  under `NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1` so demo-live shows real eval data;
+  `EvalDashboardPayload.latest` widened to `EvalRun | null` and `isPayload()`
+  accepts `latest === null` so a real empty isn't mistaken for an unreachable
+  gateway and swapped back to mock. 6 handler tests (real shape for a worker WITH
+  a seeded skill + two reeval rows incl. ordering/decision/version assertions;
+  empty-valid for a worker with none; learned-skill-but-no-history empty;
+  cross-tenant 404; invalid-id 400; no-store 503), clippy `-D warnings`, tsc
+  (only pre-existing unrelated errors), vitest 233/233 all green. Files:
+  `routes_evals.rs` (261 LOC), `routes_evals_tests.rs` (292 LOC, new),
+  `routes_dispatch_get_api_groups.rs` (+1 store arg), `evals.ts`,
+  `EvalDashboard.test.tsx` (mock-return narrow to stay tsc-green). Commit
+  `53933f011`.
 - [ ] **T3 · skill-IR** — backend EXISTS (flip-ready) but needs **IR seeded** for
   demo skills (else 404→mock). Real fix = seed skill IR (like retrain seed) + flip
   3 modules. LOWER (forge drill-in, not core demo). Seed is the real work.
@@ -133,3 +157,13 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   defaults from `settings.ts`, PATCH merge+validate) + dispatcher wiring +
   `settings.ts` demo-live gate flip. 8 store + 8 handler tests, clippy -D warnings,
   migration-slots, tsc(settings) all green. `/settings` now read-backed + persisted.
+- 2026-05-30 — **T2 worker-evals DONE.** `routes_evals.rs` un-mocked: real
+  store-backed query (worker's learned skills → their `skill_reeval_history`
+  surfaced as the worker's eval runs), tenant-scoped on the worker side
+  (cross-tenant → 404), `run_at` micros → RFC3339, `regressed` → decision; real
+  empty (`latest: null`) for a worker with no reeval history (not mock).
+  `evals.ts` `isAuthBypassed()` opts out under `NEXT_PUBLIC_SKYCOT_DEMO_LIVE`;
+  `latest` widened to `EvalRun | null` + `isPayload` accepts null so a real empty
+  isn't swapped back to mock. 6 handler tests + clippy -D warnings + vitest 233/233
+  + tsc (only pre-existing unrelated errors) green. Commit `53933f011`. `/workers/
+  <id>` evals tab now real-backed under demo-live.
