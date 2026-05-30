@@ -385,4 +385,4 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   argo-cli --bins team_run` → 9 passed; `cargo clippy -p argo-orchestrator
   --all-targets -- -D warnings` clean. (Pre-existing unrelated failure
   `kpi_rollup_test::rollup_skipped_if_no_audit_activity_since_last_rollup` fails
-  3/3 on stashed clean main too — not mine.) Commit `c6beede85`.
+  3/3 on stashed clean main too — not mine.) Commit `de3c58e2e`.
