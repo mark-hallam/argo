@@ -119,7 +119,20 @@ export default function PitchPage() {
   }, []);
 
   const voice = useVoiceTurn({ context: "WebEmbed", onTurn: handleVoiceTurn });
-  const micSupported = voiceCaptureSupported();
+
+  // `voiceCaptureSupported()` reads `window`/`MediaRecorder`, which only
+  // exist on the client. Evaluating it during the first render pass would make
+  // the server emit no mic button while the first client paint emits one — a
+  // real hydration mismatch (server renders `pitch-submit` first in the action
+  // row, client renders `pitch-talk`). Gate it behind a post-mount flag so the
+  // FIRST client render matches the server (no mic button); the mic affordance
+  // appears once `useEffect` commits after hydration.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const micSupported = mounted && voiceCaptureSupported();
+
   const voiceLabel =
     voice.phase === "recording"
       ? "Listening… tap to send"

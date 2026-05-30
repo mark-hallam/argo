@@ -10,12 +10,26 @@ vi.mock("@/lib/api/pitch", async (importOriginal) => {
   return { ...actual, ...pitchApi };
 });
 
+// Spyable seam for the client-only capability check. The hydration fix gates
+// the mic affordance behind a post-mount flag, so the FIRST render must look
+// like the server (no mic button) regardless of what this returns.
+const voiceHook = vi.hoisted(() => ({
+  voiceCaptureSupported: vi.fn(() => false),
+}));
+
+vi.mock("@/lib/api/use-voice-turn", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/use-voice-turn")>();
+  return { ...actual, voiceCaptureSupported: voiceHook.voiceCaptureSupported };
+});
+
 import PitchPage from "./page";
 import { ApiError } from "@/lib/api/types";
 
 describe("/pitch page", () => {
   beforeEach(() => {
     pitchApi.askPitch.mockReset();
+    voiceHook.voiceCaptureSupported.mockReset();
+    voiceHook.voiceCaptureSupported.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -203,5 +217,40 @@ describe("/pitch page", () => {
       expect(screen.getByTestId("pitch-pill-source")).toBeInTheDocument();
     });
     expect(screen.getByTestId("pitch-pill-source")).toHaveTextContent(/canonical/i);
+  });
+
+  // --- Hydration safety (regression for the 53feab0 dev-overlay "1 Issue") --
+  // The mic affordance is the only client-only branch on this surface. If it
+  // rendered straight from `voiceCaptureSupported()` (which reads
+  // window/MediaRecorder), the server would emit `pitch-submit` as the first
+  // action button while the first client paint emitted `pitch-talk` — a real
+  // React hydration mismatch. The fix gates it behind a post-mount flag.
+
+  it("keeps the Ask (submit) button as the stable action element", () => {
+    // When the browser lacks mic capture, only the submit button shows — and
+    // this is identical to the server render (no mic button on first paint).
+    voiceHook.voiceCaptureSupported.mockReturnValue(false);
+    render(<PitchPage />);
+    expect(screen.getByTestId("pitch-submit")).toBeInTheDocument();
+    expect(screen.queryByTestId("pitch-talk")).toBeNull();
+  });
+
+  it("reveals the mic button only after mount, never on the first paint", async () => {
+    // Simulate a mic-capable browser. With the post-mount gate, the mic button
+    // appears only once the mount effect commits — so the first render still
+    // matches the server (submit only). Without the gate this would render
+    // `pitch-talk` synchronously and mismatch the SSR `pitch-submit`.
+    voiceHook.voiceCaptureSupported.mockReturnValue(true);
+    render(<PitchPage />);
+    // The submit button is always present — the deterministic, SSR-stable one.
+    expect(screen.getByTestId("pitch-submit")).toBeInTheDocument();
+    // After the mount effect flushes, the mic affordance is revealed.
+    await waitFor(() => {
+      expect(screen.getByTestId("pitch-talk")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("pitch-talk")).toHaveAttribute(
+      "data-testid",
+      "pitch-talk",
+    );
   });
 });
