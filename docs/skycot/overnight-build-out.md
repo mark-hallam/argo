@@ -9,7 +9,7 @@
 **Remaining phases — IN ORDER:** ✅ **P1** materializer (BroadRoleDraft→typed CapabilitySpec→`load_dir`-valid teammate; archetype-free; hybrid per DEC-025 #3) — **DONE** (`1624383a6`) → ✅ **P3** enforced probation at every dispatch seam — **DONE** (`629e4fe35` + flagship `a35b3c46e`) → ✅ **P4** real eval + role-contract comprehension gate (DEC-025 #4) — **DONE 2026-05-31** (eval-floor+safety+degraded-mode were already wired; this cycle added the missing role-contract **comprehension** axis — `comprehension.rs` + `GateVerdict::compose(eval, comprehension, safety)`, all-must-pass governance invariants, at both hire seams; adversarially verified clean by 3 independent lenses) → **P5** truth-boundary-at-birth + operator "what can this teammate do" review screen (DEC-025 #1) + SSE-hire memory-seed parity ← **NEXT** → **P6** the moat (per design: prompt-injection trust boundary FIRST, then doc/SOP upload→knowledge, then connectors/voice intake, then SOP-comprehension quiz) → **P7** deferred (idempotency, abstention, LLM-graded rubric).
 
 **Follow-up queue (validated 2026-05-31 — fold in alongside the phases; same per-phase pattern):**
-- **[Genesis parity — do WITH P5, high]** The flagship `/genesis` SSE hire is *weaker* than `/onboarding/first-hire`: it persists no plan-provenance chip and seeds no worker memory (empty Memory tab). Reach parity — set `genesisPlanId: ready.vertical_id` in `web/lib/api/genesis.ts::buildHireDraftFromGenesis`, and seed memory in `routes_workers_hire.rs` mirroring `routes_onboarding_genesis_seed.rs::seed_worker_memory_from_plan` (re-load the `.genesis/` vertical, or extract the shared seeder). + a test mirroring `first_hire_genesis_success_seeds_memory_namespace`.
+- **[Genesis parity — do WITH P5] ⚠️ PREMISE CORRECTED 2026-05-31 (verify-before-fix):** the `genesisPlanId` half SHIPPED (`a35b3c46e`). The "seed worker memory" half rested on a STALE/FALSE premise — there is **no** `routes_onboarding_genesis_seed.rs::seed_worker_memory_from_plan` and **no** `first_hire_genesis_success_seeds_memory_namespace` test anywhere in the tree (grep-verified). **Neither** hire path seeds per-WORKER memory today, so the flagship SSE path is NOT weaker here — there is no parity gap to close. What *does* exist is `onboarding_seeds/` (5 embedded workplace-knowledge wiki docs: brand-voice / business-rules / escalation-policy / customer-tone / never-do-this) seeded **tenant-level** on `/onboarding/provision`, which benefits BOTH hire paths equally. **Do NOT build a speculative per-worker memory seeder** — the Genesis memory schema namespaces are empty by default, so seeding invented "memories" at hire would be THEATER. If worker-memory-at-birth is wanted, it must derive from REAL ingested content (the P6 doc/SOP-upload moat), not fabricated rows. → This item is **CLOSED / not-a-gap**; the real worker-knowledge-at-birth path is P6.
 - **[test reliability — high]** Migrate the ~21 gateway test files from a private `static M: Mutex` to `crate::handlers::gateway::shared_env_lock()` so the full `argo-cli` bin suite stops racing on `ARGO_VERTICALS_DIR` (~24 spurious failures). This makes the per-phase verification trustworthy — do it early.
 - **[hygiene — low]** (a) Reword `web/lib/api/skills-seed.ts` `proposal.draft` description so a "pricing" search returns exactly 1 card (fixes the `page.test.tsx` Scene-4 test). (b) Split `routes_retrain_tests.rs` (627) + `routes_retrain_helpers.rs` (529) under the 500-LOC ceiling. (c) Harden the fence: fail-closed on provenance-read error + wildcard-sanitize `WorkerCapabilityProfile::derive` (per the `05f9ea20a` verify).
 
@@ -653,6 +653,35 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   running binary `05f9ea2` predates P1/P3/P4; a gateway rebuild is the conductor's call to avoid
   disturbing the demo mid-run; the gate is proven by the cold gateway test suite. **Next: P5**
   (truth-boundary-at-birth + operator review screen + SSE-hire memory-seed parity).
+
+## P5 hand-off (scoped + verified 2026-05-31 by the P4 conductor — start here next tick)
+
+P5 = truth-boundary-at-birth + operator review screen (DEC-025 #1). Verified scoping
+of its sub-items so the next tick doesn't re-discover:
+
+- **(a) SSE-hire memory-seed parity — CLOSED / not-a-gap.** False premise (see the
+  corrected follow-up-queue note above). No work; real worker-knowledge-at-birth is P6.
+- **(b) Truth-boundary policy bound at birth [BACKEND, no operator input — recommended
+  FIRST P5 slice].** Assign a conservative default `policy_id` (Escalate on unverified
+  factual/financial/legal/medical claims) to every generated worker so the already-wired
+  runner enforces it (replacing env-var-only activation). Scope before building: grep how
+  a worker's truth-boundary `policy_id` is stored/read (`ARGO_TRUTH_BOUNDARY_POLICY_PATH`
+  + the runner enforcement seam) and where to bind it at hire. KNOWN CEILING (be honest in
+  the row): the evaluator only matches *producer-declared* claim classes — an undeclared
+  over-claim is Allow-by-default — so this is a real improvement, not a fabrication guarantee.
+- **(d) Tenant-match assertion at hire, fail-closed [BACKEND, no operator input].** The
+  hire-gate resolver `routes_workers_hire_gate.rs::genesis_vertical_dir_in` searches ALL
+  `.genesis/<tenant_slug>/` segments for the id, ignoring tenant — a latent cross-tenant
+  resolve. Fix: resolve ONLY under `sanitize_tenant(tenant_id)` (private in
+  `routes_genesis_stream.rs:131` — extract/share it), fail-closed on a cross-tenant-only
+  match. **Multi-tenant SECURITY change → REQUIRES its own adversarial-verification pass +
+  a live check that the demo's `/genesis`→`POST /workers` hire (same-tenant) still resolves.**
+  Latent under single-tenant-per-cwd, so not demo-breaking today, but verify before/after.
+- **(c) Operator "what can this teammate do" review screen [SPA — BLOCKED on operator
+  design pick].** Per the optometrist method (user memory): generate 3-5 wild mockups →
+  operator chooses → implement. Do NOT auto-build a screen. The BACKEND data it needs (the
+  fence/escalation/approval-gated-actions/bound-skills summary) is agent-doable as a
+  read-only `GET` endpoint and can ship ahead of the screen.
 
 ## Sprint-2 follow-ups (tracked 2026-05-30 — these were floating chips; now in the queue)
 - [ ] **Landing page — 4 verified differentiators** — BLOCKED on operator design pick (optometrist method: generate 3-5 wild mockups → operator chooses a direction → implement on web/app/landing/page.tsx). Real proof to pair per pillar; do NOT auto-edit the live page first. (chip from the first overnight session)
