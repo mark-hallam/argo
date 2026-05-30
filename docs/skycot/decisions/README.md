@@ -59,6 +59,7 @@ as a product feature ("your AI workforce's decision log"). Not before.
 
 | ID | Date | Decision | Status |
 |----|------|----------|--------|
+| [DEC-023](DEC-023-continuous-autonomous-priority-rank-order.md) | 2026-05-30 | Continuous autonomous execution through a fixed P1–P5 priority order (de-theatre → voice+Genesis wow → real delegation → self-improvement → enterprise governance); operating model locked = conductor + on-demand build-agents + auto-resume, swarm-daemon retired for now (auditor/evaluator on-demand) | active |
 | [DEC-022](DEC-022-sprint-2-scope-full-program.md) | 2026-05-30 | Sprint-2 scope = full program: all four tracks (go-live+verify / kill-all-theatre / multi-worker orchestration [Supervisor] / broad backlog) + real voice | active |
 | [DEC-021](DEC-021-voice-vendor-openai-for-launch-selectable.md) | 2026-05-30 | Voice vendor = OpenAI for launch (discrete STT `/v1/audio/transcriptions` + TTS `/v1/audio/speech`); vendor-selectable (`ARGO_VOICE_PROVIDER`) + user-selectable (`voice` workspace_settings); Realtime socket = later upgrade | active |
 | [DEC-020](DEC-020-autonomous-overnight-build-out-auto-resume.md) | 2026-05-29 | Autonomous overnight build-out + auto-resume authorized: conductor + self-committing build-agents + launchd `com.skycot.buildout-resume` tick; off-switch `~/.argo/buildout-stop` | active |

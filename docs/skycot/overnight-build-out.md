@@ -38,6 +38,39 @@ silently no-op'd). Sequencing (conductor drives 1-2; auto-resume + agents carry 
 
 ---
 
+## 🎯 PRIORITY RANK ORDER — DEC-023 (the LIVE continuous-work queue)
+
+**Operator locked 2026-05-30:** this is what the conductor + auto-resume machine
+works **top-down, continuously, to completion**. Finish a band before dropping to
+the next; on an operator-input blocker, mark PARTIAL/BLOCKED and pick up the next
+item (never idle). Auto-resume tick reads THIS section each tick. Full rationale +
+operating-model lock in [`decisions/DEC-023`](decisions/DEC-023-continuous-autonomous-priority-rank-order.md).
+
+- **P1 — Kill the theatre on camera-visible screens.** Per-screen audit of the
+  ~24 SPA `web/lib/api/*` modules missing the `isAuthBypassed() && !isDemoLive()`
+  gate: wire each to its real endpoint where one exists; honest empty state where
+  none does; never faked data. **Folds in the live queue P0s that are themselves
+  theatre:** onboarding `name_from_description` names every demo hire "A"
+  (`routes_onboarding_helpers.rs:315-335`) + workflow-detail Run-now disabled when
+  source≠gateway. *(Highest "is it real?" lever; Portia-session resume point.)*
+- **P2 — The two wow moments, end-to-end.** (a) Voice loop: TTS real (OpenAI);
+  finish STT + a talk button on `/pitch` (Portia), truth-bounded. (b) Genesis
+  end-to-end live: describe a role → hired teammate appears (backend+page exist;
+  gap = full live verify + polish).
+- **P3 — Real model-backed delegation** in `argo-orchestrator` (replace the
+  `PersistingExecutor` placeholder ack with a runtime-backed `StepExecutor`).
+- **P4 — Close the self-improvement loop** (A/B a skill → measurable improvement).
+- **P5 / v1.x — Enterprise governance tail** (SSO SAML/OIDC, SCIM, BYOK,
+  data-residency). Deferred — closes enterprise sales, not the funding round.
+
+**Operating model (DEC-023):** conductor + on-demand worktree build-agents +
+auto-resume tick. Swarm-daemon retired for now (halt sentinels stay). Auditor +
+evaluator are on-demand adversarial passes, not daemons. **Build-agent harness
+limit (proven):** ≤3 concurrent heavy Rust builds on this machine; partition by
+independent crate for clean parallel pushes; gateway-dispatcher builds serialize.
+
+---
+
 ## ☀️ MORNING HAND-OFF (Mark — read this first)
 
 Good morning. The interactive conductor (me) ran until its context filled, then
