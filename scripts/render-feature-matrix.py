@@ -25,19 +25,87 @@ STATUS = {
     "💡": ("backlog", "Backlog"),
 }
 
+# Header labels whose COLUMN carries a status badge. Only cells in these
+# columns are rendered as pills; every other cell renders as text even if it
+# mentions a status emoji in its prose. This is the fix for the silent
+# content-loss bug where a long evidence cell that happened to say
+# "🟡 built + unit-verified" collapsed into a bare pill, discarding all its
+# text — and where qualifiers like "✅ Live (macOS)" lost the qualifier.
+STATUS_HEADERS = {"status", "backend", "demo surface", "badge"}
 
-def status_class(cell: str):
-    for emoji, (cls, _label) in STATUS.items():
-        if emoji in cell:
-            return cls
-    return ""
+# Text label that follows the leading emoji in a status cell, to strip so it
+# isn't printed twice (the pill already carries the canonical label).
+_LABEL_RE = re.compile(r"^\s*(Live|Partial|Scaffold|In-progress|Planned|Backlog|Done)\b")
+
+
+def status_columns(header):
+    """Indices of columns that carry a status badge, by header label."""
+    return {i for i, h in enumerate(header) if h.strip().lower() in STATUS_HEADERS}
+
+
+def leading_status(cell: str):
+    """If the cell *begins* with a status badge, return (class, label, rest).
+
+    ``rest`` is any qualifier text after the badge ("✅ Live (macOS)" →
+    rest=" (macOS)"; "🚧 In-progress / 🗓️ Planned" → rest=" / 🗓️ Planned").
+    Returns ``None`` when the cell does not start with a known badge so the
+    caller falls back to plain-text rendering.
+    """
+    stripped = cell.lstrip()
+    for emoji, (cls, label) in STATUS.items():
+        if stripped.startswith(emoji):
+            rest = _LABEL_RE.sub("", stripped[len(emoji):])
+            return cls, label, rest
+    return None
+
+
+def _rebase_link(href: str) -> str:
+    """Rewrite a .md-relative link target so it works from the HTML's dir.
+
+    Links in the source are relative to ``docs/build-plan/`` (where the .md
+    lives); the HTML lives in ``docs/skycot/``, so a ``../skycot/x`` target
+    becomes a plain ``x`` (already relative to the HTML). Absolute and
+    fragment links pass through untouched.
+    """
+    if href.startswith("../skycot/"):
+        return href[len("../skycot/"):]
+    return href
 
 
 def md_inline(s: str) -> str:
+    # Convert markdown links FIRST (on the raw string) into placeholders so the
+    # URL + label survive HTML-escaping intact, then restore as <a> tags.
+    links = []
+
+    def _stash(m):
+        label, href = m.group(1), _rebase_link(m.group(2))
+        links.append((_html.escape(label), _html.escape(href, quote=True)))
+        return f"\x00LINK{len(links) - 1}\x00"
+
+    s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", _stash, s)
     s = _html.escape(s)
     s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
+    for i, (label, href) in enumerate(links):
+        s = s.replace(f"\x00LINK{i}\x00", f'<a href="{href}">{label}</a>')
     return s
+
+
+def render_status_cell(cell: str):
+    """Return (html, status_class) for a cell in a status column.
+
+    Renders a colored pill for the leading badge plus any trailing qualifier
+    text as inline markdown. Falls back to plain text (and empty class) when
+    the cell carries no recognizable badge.
+    """
+    hit = leading_status(cell)
+    if not hit:
+        return md_inline(cell), ""
+    cls, label, rest = hit
+    emoji = next(e for e, (c, _l) in STATUS.items() if c == cls)
+    pill = f'<span class="pill {cls}">{emoji} {label}</span>'
+    tail = md_inline(rest) if rest.strip() else ""
+    return pill + tail, cls
 
 
 def parse():
@@ -78,27 +146,28 @@ def render():
         sid = re.sub(r"[^a-z0-9]+", "-", sec["title"].lower()).strip("-")
         parts.append(f'<section><h2 id="{sid}">{md_inline(sec["title"])}</h2>')
         for tbl in sec["tables"]:
+            scols = status_columns(tbl["header"])
             parts.append('<table><thead><tr>')
             for h in tbl["header"]:
                 parts.append(f"<th>{md_inline(h)}</th>")
             parts.append("</tr></thead><tbody>")
-            # find which column carries the status
             for row in tbl["rows"]:
+                # The row's data-status (for filtering + tally) comes from the
+                # FIRST status column only — never from prose cells.
                 row_cls = ""
-                for c in row:
-                    sc = status_class(c)
-                    if sc:
-                        row_cls = sc
-                        break
+                for idx in sorted(scols):
+                    if idx < len(row):
+                        _h, cls = render_status_cell(row[idx])
+                        if cls:
+                            row_cls = cls
+                            break
                 if row_cls in tallies:
                     tallies[row_cls] += 1
                 parts.append(f'<tr data-status="{row_cls}">')
-                for c in row:
-                    sc = status_class(c)
-                    if sc:
-                        label = next(l for e, (cl, l) in STATUS.items() if cl == sc)
-                        emoji = next(e for e, (cl, l) in STATUS.items() if cl == sc)
-                        parts.append(f'<td><span class="pill {sc}">{emoji} {label}</span></td>')
+                for i, c in enumerate(row):
+                    if i in scols:
+                        cell_html, _cls = render_status_cell(c)
+                        parts.append(f"<td>{cell_html}</td>")
                     else:
                         parts.append(f"<td>{md_inline(c)}</td>")
                 parts.append("</tr>")

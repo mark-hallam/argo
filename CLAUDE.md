@@ -40,7 +40,10 @@ crates unless the abstraction is reusable across multiple verticals.
 - **Source-of-truth ledgers kept live IN-BAND (every session, never a later sweep):**
   every shipped/changed capability updates its row in
   `docs/build-plan/FEATURE_MATRIX.md` (status badge + commit SHA + crate/route)
-  **in the same commit**; every operator-locked call gets a
+  **in the same commit** — and whenever you edit `FEATURE_MATRIX.md`, regenerate
+  its HTML view in the same commit with `python3 scripts/render-feature-matrix.py`
+  (the committed `docs/skycot/feature-matrix.html` is generated from the .md, never
+  hand-edited); every operator-locked call gets a
   `docs/skycot/decisions/DEC-NNN-*.md` ADR + README index line **in the same turn**
   (see the decision-register section below). Build-agent / delegated-work prompts
   MUST carry this rule. If the ledgers ever lag the code, stop and reconcile before
