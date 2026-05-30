@@ -1,5 +1,28 @@
 # Autonomous platform build-out — master tracker + resume anchor
 
+## 🌙 OVERNIGHT 2026-05-31 — COMPLETE GENESIS (operator asleep; never stop till launch-ready)
+
+**Directive (operator, 2026-05-31):** "Fire up P1 then P3–P7. While I sleep. Never stop till it's launch ready." → Build out the rest of **Genesis done right** (DEC-025 + `docs/skycot/design/2026-05-30-genesis-done-right.md`), continuous + autonomous, via the auto-resume tick.
+
+**State (live, `build_commit 05f9ea2`):** P0 (eval/safety hire-gate, all 3 seams) + P2 (capability fence, provenance-keyed least-privilege) are DONE + adversarially + live-verified — the two "ruin a business" holes are closed. Build on this; do NOT regress it.
+
+**Remaining phases — IN ORDER:** **P1** materializer (BroadRoleDraft→typed CapabilitySpec→`load_dir`-valid teammate; archetype-free; hybrid per DEC-025 #3) — *IN FLIGHT, agent launched 2026-05-31* → **P3** enforced probation at every dispatch seam (24h `dry_run_until` recorded but no dispatcher reads it yet) → **P4** real eval + role-contract comprehension gate (DEC-025 #4) → **P5** truth-boundary-at-birth + operator "what can this teammate do" review screen (DEC-025 #1) → **P6** the moat (per design: prompt-injection trust boundary FIRST, then doc/SOP upload→knowledge, then connectors/voice intake, then SOP-comprehension quiz) → **P7** deferred (idempotency, abstention, LLM-graded rubric).
+
+**MANDATORY pattern per phase (how P0 + the fence were made solid — do NOT skip the adversarial step):**
+1. **Implement** as ONE cohesive build-agent (plain Agent, NOT a schema-workflow — the schema requirement made the P0 workflow fail; text return is robust). Commit green work even if a phase must be sliced.
+2. **Independent adversarial bypass-hunt** — a separate read-only agent that tries to REFUTE the phase's safety claim (it caught a real demo-path hole in BOTH P0 and the fence). Fix any hole, re-verify.
+3. **Deploy:** sync local to origin FIRST (`git fetch && git rebase origin/main` — deploy-from-local gotcha), then `bash scripts/restart-live-gateway.sh --force --no-prompt`. Reseed if needed.
+4. **Live-verify on :7400** (real curl/turn, not tests-only). Then the phase is done.
+5. **Ledger in-band (same commit):** FEATURE_MATRIX row + regenerate HTML (`python3 scripts/render-feature-matrix.py`); a new operator-locked call → a DEC.
+
+**Guardrails:** ≤3 concurrent heavy Rust builds. NEVER grep/echo `~/.argo/env.local` (key-exposure lesson); keep its vars `export`-prefixed. Fast-forward push only. NO THEATER — each gate must REALLY work (adversarially verified); report real DONE/PARTIAL/BLOCKED.
+
+**Honesty:** "launch-ready" = all P1–P7 done + verified — likely MORE than one night. Make maximal real, verified progress; on an operator-input blocker mark BLOCKED + move to the next phase. By morning, report genuine DONE vs PARTIAL vs BLOCKED, never dressed up.
+
+**Stop:** halt sentinels `~/.argo/buildout-stop` + `/tmp/argo-stop`. Auto-resume tick `com.skycot.buildout-resume` (30-min) re-armed 2026-05-31.
+
+---
+
 **Operator directive (2026-05-29 night):** go beyond the demo. Build out every
 feature (voice first), remove ALL theatre, bring the platform to the mission.
 Work autonomously through the night: build → test → commit; on a blocker that
