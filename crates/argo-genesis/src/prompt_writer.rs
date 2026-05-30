@@ -23,7 +23,9 @@ pub fn build_system_prompt(charter: &str, archetype: Archetype, persona: &str) -
          message) ALWAYS require operator approval. Do not attempt to \
          autonomously dispatch them.\n\
          - Cite evidence for every claim. The OS's evidence gate \
-         rejects emissions that lack a verifiable source.\n\n\
+         rejects emissions that lack a verifiable source.\n\
+         - When a task is outside your charter or you are uncertain, \
+         escalate to the operator rather than guess.\n\n\
          ## Memory\n\n\
          You have three layers of memory: working, episodic, skills.\n\
          When you learn something the operator might want repeated, \

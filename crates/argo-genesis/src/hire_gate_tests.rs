@@ -1,7 +1,14 @@
 //! Tests for the pure hire-gate primitives.
 
 use super::*;
+use crate::comprehension::ComprehensionOutcome;
 use crate::pipeline::plan;
+
+/// A clean comprehension pass (all 5 questions answered) — the common case
+/// for compose tests that are exercising the eval/safety axes.
+fn comp_pass() -> ComprehensionOutcome {
+    ComprehensionOutcome::from_counts(5, 5)
+}
 
 #[test]
 fn eval_floor_passes_at_or_above_half() {
@@ -27,18 +34,28 @@ fn eval_floor_fails_closed_on_zero_seeds() {
 
 #[test]
 fn compose_passes_when_evals_pass_and_judge_allows() {
-    let v = GateVerdict::compose(EvalFloorOutcome::from_counts(8, 10), SafetySignal::Allow);
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(8, 10),
+        comp_pass(),
+        SafetySignal::Allow,
+    );
     assert_eq!(v.state, GateState::Pass);
     assert!(v.state.allows_hire());
     assert!(v.reasons.is_empty(), "pass has no reasons: {:?}", v.reasons);
     assert_eq!(v.safety_verdict, "allow");
     assert_eq!(v.eval_passed, 8);
     assert_eq!(v.eval_total, 10);
+    assert_eq!(v.comprehension_passed, 5);
+    assert_eq!(v.comprehension_total, 5);
 }
 
 #[test]
 fn compose_blocks_when_evals_fail() {
-    let v = GateVerdict::compose(EvalFloorOutcome::from_counts(2, 10), SafetySignal::Allow);
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(2, 10),
+        comp_pass(),
+        SafetySignal::Allow,
+    );
     assert_eq!(v.state, GateState::Blocked);
     assert!(!v.state.allows_hire(), "a failing teammate must NOT be hireable");
     assert!(
@@ -52,6 +69,7 @@ fn compose_blocks_when_evals_fail() {
 fn compose_blocks_when_safety_judge_blocks() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
+        comp_pass(),
         SafetySignal::Block {
             reason: "impersonates a real person".into(),
         },
@@ -67,6 +85,7 @@ fn compose_block_wins_over_pass_evals() {
     // Both signals: evals pass but judge blocks → Blocked, never Pass.
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
+        comp_pass(),
         SafetySignal::Block {
             reason: "illegal instructions".into(),
         },
@@ -79,6 +98,7 @@ fn compose_needs_review_when_judge_unavailable() {
     // Degraded mode: evals pass, judge couldn't run → needs_review, NOT pass.
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(10, 10),
+        comp_pass(),
         SafetySignal::Unavailable {
             reason: "provider quota exhausted".into(),
         },
@@ -97,6 +117,40 @@ fn compose_failed_evals_block_even_if_judge_unavailable() {
     // A hard fail (eval) outranks a degraded signal.
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(1, 10),
+        comp_pass(),
+        SafetySignal::Unavailable {
+            reason: "no provider".into(),
+        },
+    );
+    assert_eq!(v.state, GateState::Blocked);
+}
+
+#[test]
+fn compose_blocks_when_comprehension_fails() {
+    // Evals pass + judge allows, but the teammate's contract failed a
+    // governance comprehension question → hard block (an invariant miss).
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(10, 10),
+        ComprehensionOutcome::from_counts(4, 5),
+        SafetySignal::Allow,
+    );
+    assert_eq!(v.state, GateState::Blocked);
+    assert!(!v.state.allows_hire(), "a comprehension miss must NOT be hireable");
+    assert!(
+        v.reasons.iter().any(|r| r.contains("comprehension")),
+        "expected a comprehension reason; got: {:?}",
+        v.reasons
+    );
+    assert_eq!(v.comprehension_passed, 4);
+    assert_eq!(v.comprehension_total, 5);
+}
+
+#[test]
+fn compose_comprehension_block_outranks_degraded_safety() {
+    // A hard comprehension fail outranks a merely-degraded safety signal.
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(10, 10),
+        ComprehensionOutcome::from_counts(0, 5),
         SafetySignal::Unavailable {
             reason: "no provider".into(),
         },

@@ -58,6 +58,9 @@ pub(super) fn build_final_payload(
             "eval_passed": gate.eval_passed,
             "eval_total": gate.eval_total,
             "eval_pass_rate": gate.eval_pass_rate,
+            "comprehension_passed": gate.comprehension_passed,
+            "comprehension_total": gate.comprehension_total,
+            "comprehension_pass_rate": gate.comprehension_pass_rate,
             "safety_verdict": gate.safety_verdict,
             "reasons": gate.reasons,
             "dry_run_until": dry_run_until,
@@ -86,6 +89,8 @@ pub(super) async fn emit_audit(
         "gate_state": gate.state.as_str(),
         "gate_eval_passed": gate.eval_passed,
         "gate_eval_total": gate.eval_total,
+        "gate_comprehension_passed": gate.comprehension_passed,
+        "gate_comprehension_total": gate.comprehension_total,
         "gate_safety_verdict": gate.safety_verdict,
         "gate_reasons": gate.reasons,
     });

@@ -122,6 +122,13 @@ pub struct GateVerdict {
     pub eval_total: usize,
     /// Observed pass rate (`eval_passed / eval_total`, 0.0 when no seeds).
     pub eval_pass_rate: f64,
+    /// Honest count of role-contract comprehension questions the teammate's
+    /// contract answered (all keywords present).
+    pub comprehension_passed: usize,
+    /// Total comprehension questions asked.
+    pub comprehension_total: usize,
+    /// Observed comprehension pass rate (0.0 when no questions).
+    pub comprehension_pass_rate: f64,
     /// The semantic safety-judge verdict token (`allow` /
     /// `allow_with_disclaimer` / `block` / `unavailable`).
     pub safety_verdict: String,
@@ -131,16 +138,24 @@ pub struct GateVerdict {
 }
 
 impl GateVerdict {
-    /// Compose the final verdict from the two independent signals.
+    /// Compose the final verdict from the three independent signals: the
+    /// deterministic eval floor, the role-contract comprehension gate, and
+    /// the semantic safety judge.
     ///
-    /// Precedence (fail-closed): a hard `Block` from either signal →
-    /// [`GateState::Blocked`]; else a degraded/unavailable safety signal →
-    /// [`GateState::NeedsReview`]; else [`GateState::Pass`]. The eval floor
-    /// failing is a hard block (the teammate failed a check that *ran*); the
-    /// safety judge being *unavailable* is degraded (a check that could not
-    /// run) per the design doc's degraded-mode distinction.
+    /// Precedence (fail-closed): a hard `Block` from any check that *ran*
+    /// (eval floor below the bar, a comprehension governance miss, or a
+    /// safety-judge `Block`) → [`GateState::Blocked`]; else a
+    /// degraded/unavailable safety signal (a check that could not run) →
+    /// [`GateState::NeedsReview`]; else [`GateState::Pass`]. Comprehension is
+    /// an all-must-pass invariant gate, so any miss is a hard block — the
+    /// teammate's own contract failed to demonstrate it understands a scope
+    /// or governance boundary.
     #[must_use]
-    pub fn compose(eval: EvalFloorOutcome, safety: SafetySignal) -> Self {
+    pub fn compose(
+        eval: EvalFloorOutcome,
+        comprehension: crate::comprehension::ComprehensionOutcome,
+        safety: SafetySignal,
+    ) -> Self {
         let mut reasons = Vec::new();
         let mut blocked = false;
         let mut needs_review = false;
@@ -153,6 +168,16 @@ impl GateVerdict {
                 eval.total,
                 eval.pass_rate * 100.0,
                 EVAL_PASS_RATE_FLOOR * 100.0
+            ));
+        }
+
+        if !comprehension.passed_floor {
+            blocked = true;
+            reasons.push(format!(
+                "role-contract comprehension failed: {}/{} questions answered \
+                 (all required — the contract did not demonstrate a scope or \
+                 governance boundary)",
+                comprehension.passed, comprehension.total,
             ));
         }
 
@@ -189,6 +214,9 @@ impl GateVerdict {
             eval_passed: eval.passed,
             eval_total: eval.total,
             eval_pass_rate: eval.pass_rate,
+            comprehension_passed: comprehension.passed,
+            comprehension_total: comprehension.total,
+            comprehension_pass_rate: comprehension.pass_rate,
             safety_verdict,
             reasons,
         }

@@ -21,7 +21,8 @@
 
 use super::routes_genesis_stream_llm::{complete_once, resolve_provider_id};
 use argo_genesis::{
-    build_gate_eval_inputs, gate_inputs_from_dir, judge_genesis_draft, judge_input_for_plan,
+    build_comprehension_questions, build_gate_eval_inputs, gate_inputs_from_dir,
+    judge_genesis_draft, judge_input_for_plan, ComprehensionOutcome, ComprehensionQuestion,
     DeterministicEvalInput, EvalFloorOutcome, GateVerdict, GenesisJudgeClient, GenesisJudgeVerdict,
     GenesisPlan, JudgeInput, SafetySignal,
 };
@@ -58,9 +59,17 @@ pub(super) async fn run_hire_gate(plan: &GenesisPlan) -> GateVerdict {
         Some(i) => (i.seeds, i.contract_text),
         None => (Vec::new(), String::new()),
     };
+    let action_vocabulary: Vec<String> = plan
+        .manifest
+        .actions
+        .as_ref()
+        .map(|a| a.actions.keys().cloned().collect())
+        .unwrap_or_default();
+    let questions = build_comprehension_questions(&plan.charter, &action_vocabulary);
     let eval = run_eval_floor(&seeds, &contract).await;
+    let comprehension = run_comprehension_floor(&questions, &contract).await;
     let safety = run_safety_signal(judge_input_for_plan(plan)).await;
-    GateVerdict::compose(eval, safety)
+    GateVerdict::compose(eval, comprehension, safety)
 }
 
 /// Re-run the IDENTICAL synchronous hire gate against a teammate whose
@@ -71,17 +80,21 @@ pub(super) async fn run_hire_gate(plan: &GenesisPlan) -> GateVerdict {
 /// blocked verdict (no seeds + degraded safety).
 pub(super) async fn run_hire_gate_from_dir(vertical_dir: &Path) -> GateVerdict {
     let Ok(inputs) = gate_inputs_from_dir(vertical_dir) else {
-        // Manifest unreadable → cannot verify → fail closed.
+        // Manifest unreadable → cannot verify → fail closed (zero seeds, zero
+        // comprehension questions answered, degraded safety).
         return GateVerdict::compose(
             EvalFloorOutcome::from_counts(0, 0),
+            ComprehensionOutcome::from_counts(0, 0),
             SafetySignal::Unavailable {
                 reason: "vertical manifest unreadable at hire-commit gate".to_string(),
             },
         );
     };
+    let questions = build_comprehension_questions(&inputs.charter, &inputs.action_vocabulary);
     let eval = run_eval_floor(&inputs.seeds, &inputs.contract_text).await;
+    let comprehension = run_comprehension_floor(&questions, &inputs.contract_text).await;
     let safety = run_safety_signal(inputs.judge_input()).await;
-    GateVerdict::compose(eval, safety)
+    GateVerdict::compose(eval, comprehension, safety)
 }
 
 /// Grade the teammate's starter seeds through the canonical runner against
@@ -107,6 +120,35 @@ async fn run_eval_floor(seeds: &[DeterministicEvalInput], contract_text: &str) -
     let (_records, summary) = run_eval(&subject, &tasks).await;
     let passed = summary.pass_rate.mul_add(summary.n as f64, 0.0).round() as usize;
     EvalFloorOutcome::from_counts(passed, summary.n)
+}
+
+/// Grade the role-contract comprehension questions through the SAME
+/// canonical runner + deterministic [`ContractSubject`] as the eval floor:
+/// each question "passes" when every one of its rubric keywords is a
+/// substring of the teammate's behaviour contract (AND semantics). Zero
+/// questions → fail-closed via [`ComprehensionOutcome::from_counts`] (the
+/// all-must-pass floor treats an empty question set as a failure).
+async fn run_comprehension_floor(
+    questions: &[ComprehensionQuestion],
+    contract_text: &str,
+) -> ComprehensionOutcome {
+    let tasks: Vec<EvalTask> = questions
+        .iter()
+        .map(|q| EvalTask {
+            name: q.id.clone(),
+            input: q.question.clone(),
+            expected: String::new(),
+            metric: EvalMetric::SubstringContains {
+                must_contain: q.expected_keywords.clone(),
+            },
+        })
+        .collect();
+    let subject = ContractSubject {
+        contract_text: contract_text.to_string(),
+    };
+    let (_records, summary) = run_eval(&subject, &tasks).await;
+    let passed = summary.pass_rate.mul_add(summary.n as f64, 0.0).round() as usize;
+    ComprehensionOutcome::from_counts(passed, summary.n)
 }
 
 /// Deterministic eval subject: answers every seed task with the teammate's
@@ -229,6 +271,9 @@ pub(super) mod test_overrides {
             eval_passed: 10,
             eval_total: 10,
             eval_pass_rate: 1.0,
+            comprehension_passed: 5,
+            comprehension_total: 5,
+            comprehension_pass_rate: 1.0,
             safety_verdict: "allow".to_string(),
             reasons: Vec::new(),
         });

@@ -41,6 +41,7 @@ pub mod archetype_meta;
 pub mod broad_role;
 pub mod charter;
 pub mod charter_dialogue;
+pub mod comprehension;
 pub mod conflict;
 pub mod error;
 pub mod eval_seed;
@@ -77,6 +78,10 @@ pub use charter::{
 };
 pub use charter_dialogue::{
     dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, Question, QUESTIONS,
+};
+pub use comprehension::{
+    build_comprehension_questions, ComprehensionOutcome, ComprehensionQuestion, APPROVAL_KEYWORD,
+    BLOCKED_KEYWORD, ESCALATE_KEYWORD, EVIDENCE_KEYWORD,
 };
 pub use conflict::{detect as detect_conflicts, highest_score, ConflictMatch, ConflictReport};
 pub use error::GenesisError;

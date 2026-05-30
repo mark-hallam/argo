@@ -6,7 +6,7 @@
 
 **State (live, `build_commit 05f9ea2`):** P0 (eval/safety hire-gate, all 3 seams) + P2 (capability fence, provenance-keyed least-privilege) are DONE + adversarially + live-verified — the two "ruin a business" holes are closed. Build on this; do NOT regress it.
 
-**Remaining phases — IN ORDER:** **P1** materializer (BroadRoleDraft→typed CapabilitySpec→`load_dir`-valid teammate; archetype-free; hybrid per DEC-025 #3) — *IN FLIGHT, agent launched 2026-05-31* → **P3** enforced probation at every dispatch seam (24h `dry_run_until` recorded but no dispatcher reads it yet) → **P4** real eval + role-contract comprehension gate (DEC-025 #4) → **P5** truth-boundary-at-birth + operator "what can this teammate do" review screen (DEC-025 #1) → **P6** the moat (per design: prompt-injection trust boundary FIRST, then doc/SOP upload→knowledge, then connectors/voice intake, then SOP-comprehension quiz) → **P7** deferred (idempotency, abstention, LLM-graded rubric).
+**Remaining phases — IN ORDER:** ✅ **P1** materializer (BroadRoleDraft→typed CapabilitySpec→`load_dir`-valid teammate; archetype-free; hybrid per DEC-025 #3) — **DONE** (`1624383a6`) → ✅ **P3** enforced probation at every dispatch seam — **DONE** (`629e4fe35` + flagship `a35b3c46e`) → ✅ **P4** real eval + role-contract comprehension gate (DEC-025 #4) — **DONE 2026-05-31** (eval-floor+safety+degraded-mode were already wired; this cycle added the missing role-contract **comprehension** axis — `comprehension.rs` + `GateVerdict::compose(eval, comprehension, safety)`, all-must-pass governance invariants, at both hire seams; adversarially verified clean by 3 independent lenses) → **P5** truth-boundary-at-birth + operator "what can this teammate do" review screen (DEC-025 #1) + SSE-hire memory-seed parity ← **NEXT** → **P6** the moat (per design: prompt-injection trust boundary FIRST, then doc/SOP upload→knowledge, then connectors/voice intake, then SOP-comprehension quiz) → **P7** deferred (idempotency, abstention, LLM-graded rubric).
 
 **Follow-up queue (validated 2026-05-31 — fold in alongside the phases; same per-phase pattern):**
 - **[Genesis parity — do WITH P5, high]** The flagship `/genesis` SSE hire is *weaker* than `/onboarding/first-hire`: it persists no plan-provenance chip and seeds no worker memory (empty Memory tab). Reach parity — set `genesisPlanId: ready.vertical_id` in `web/lib/api/genesis.ts::buildHireDraftFromGenesis`, and seed memory in `routes_workers_hire.rs` mirroring `routes_onboarding_genesis_seed.rs::seed_worker_memory_from_plan` (re-load the `.genesis/` vertical, or extract the shared seeder). + a test mirroring `first_hire_genesis_success_seeds_memory_namespace`.
@@ -619,6 +619,40 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   tab) — separate non-safety follow-up, do with P5. **Live-verify on :7400 deferred** (running
   binary `05f9ea2` predates even origin's P3; a gateway rebuild is the conductor's call to avoid
   disturbing the demo mid-run).
+- 2026-05-31 — **Genesis P4 — role-contract comprehension gate SHIPPED (DEC-025 #4, tier A).**
+  Resumed conductor; state assessed (origin/main `a35b3c46e`, clean tree; `/tmp/argo-stop` present
+  but it is the legacy swarm-daemon sentinel dated May 29, NOT the buildout sentinel
+  `~/.argo/buildout-stop` which is ABSENT — confirmed the resume tick only honors the latter, and
+  the buildout has demonstrably continued past `/tmp/argo-stop` since May 29, so proceeded per the
+  operator's explicit resume directive). P4's eval-floor + LLM-safety-judge + degraded-mode hire
+  gate was already wired (P0); the ONE missing P4 component was the **role-contract comprehension
+  check** (grep confirmed "comprehension" appeared in no crate source, only docs). Built it: new
+  `crates/argo-genesis/src/comprehension.rs` (5 closed-form questions from the teammate's own role
+  contract — 1 teammate-specific scope term + 4 governance INVARIANTS: approval / escalate /
+  evidence / blocked), graded through the SAME `argo_eval::run_eval` + `ContractSubject` the eval
+  floor uses; **all-must-pass** floor (any governance miss = hard block, stricter than the eval
+  floor's ≥50%). Folded in as a third independent signal — `GateVerdict::compose(eval,
+  comprehension, safety)` — fail-closed (a comprehension miss outranks a degraded safety signal).
+  Runs at BOTH gate seams (`run_hire_gate` plan + `run_hire_gate_from_dir` disk) so SSE / `POST
+  /workers` / `onboarding/first-hire` are all fenced byte-identically; surfaced in the SSE payload,
+  the `422 genesis_gate_failed` body, and the audit row. Brought the archetype `build_system_prompt`
+  to governance parity with the spec prompt (added an explicit escalation clause; boilerplate stays
+  <200 words so the quality-floor test is unaffected) and pinned the prompt↔gate coupling with a
+  same-crate test asserting BOTH prompt builders emit every governance keyword. **Verify (single
+  warm `~/.cache/argo-shared-target`):** argo-genesis 205 lib + 9 doc PASS + `cargo clippy -p
+  argo-genesis --all-targets -D warnings` clean; gateway `genesis_gate` 8/8 PASS (incl. the
+  rich-plan-stays-NeedsReview + disk-parity assertions — a real teammate passes 5/5, no false
+  block), `workers_hire`/`genesis`/`onboarding` 156/156 PASS; `cargo clippy -p argo-cli --bins -D
+  warnings` clean. All touched files < 500 LOC (hire_gate.rs at 499). **Adversarial bypass-hunt (3
+  independent read-only verifiers — bypass / false-block-demo-break / theater lenses):** ALL
+  returned CONFIRMED / REAL-GATE — every Genesis hire seam enforces the gate before
+  `create_worker_from_draft`; both prompt builders carry all 4 keywords (no false-block); the gate
+  can genuinely fail + block a governance-incomplete contract (not theater); `test_overrides` is
+  `cfg(test)`-only (no release bypass). No holes → no fix-forward needed. FEATURE_MATRIX P4 row
+  added + rollup updated + HTML regenerated in this commit. **Live-verify on :7400 deferred** — the
+  running binary `05f9ea2` predates P1/P3/P4; a gateway rebuild is the conductor's call to avoid
+  disturbing the demo mid-run; the gate is proven by the cold gateway test suite. **Next: P5**
+  (truth-boundary-at-birth + operator review screen + SSE-hire memory-seed parity).
 
 ## Sprint-2 follow-ups (tracked 2026-05-30 — these were floating chips; now in the queue)
 - [ ] **Landing page — 4 verified differentiators** — BLOCKED on operator design pick (optometrist method: generate 3-5 wild mockups → operator chooses a direction → implement on web/app/landing/page.tsx). Real proof to pair per pillar; do NOT auto-edit the live page first. (chip from the first overnight session)

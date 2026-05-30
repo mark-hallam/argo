@@ -142,6 +142,8 @@ pub(super) async fn enforce_first_hire_gate(
                     "hireable": gate.state.allows_hire(),
                     "gate_eval_passed": gate.eval_passed,
                     "gate_eval_total": gate.eval_total,
+                    "gate_comprehension_passed": gate.comprehension_passed,
+                    "gate_comprehension_total": gate.comprehension_total,
                     "gate_safety_verdict": gate.safety_verdict,
                     "gate_reasons": gate.reasons,
                 }),
