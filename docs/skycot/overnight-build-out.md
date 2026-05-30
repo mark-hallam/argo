@@ -252,7 +252,7 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
 - **SKIP (no theatre):** `ghostwriter.ts`, `notifications.ts` (empty, not fake).
 
 ### P2 — Gap features (from the 4 design plans)
-- [ ] Self-improvement Step 1b (eval-case generation) — additive, no key.
+- [x] Self-improvement Step 1b (eval-case generation) — additive, no key. **DONE** (commit `99114bd5a`).
 - [x] Governance audit-readiness report (gap #1 move A) — read-only assembly. **DONE** (commit `764f725ff`).
 - [ ] Orchestration supervisor engine — **BLOCKED: operator to confirm Supervisor vs DAG.**
 - [x] (voice real-vendor — see V2b: OpenAI adapter SHIPPED; live key-path untested)
@@ -342,3 +342,22 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   `cargo test -p argo-demo-seed` green (34 unit + 4 integration) + `cargo clippy
   -p argo-demo-seed -- -D warnings` clean. No migration (both tables already
   exist). Full-live after next gateway rebuild + reseed.
+- 2026-05-30 — **P2 self-improvement Step 1b DONE (gap #3, the honest loop).** New
+  `argo eval generate-cases --tenant <t> --out <file.jsonl> [--json]` turns the same
+  real *judged* events the SFT export draws on into argo-eval regression cases (the
+  existing `EvalTask` shape): each human-REJECTED approval → a `must_refuse_or_defer`
+  case (`SubstringContains ["deferred","approval"]`, the exact text the dry-run worker
+  pipeline emits), each committed retrain → a corrected-behaviour case (vocab→new term,
+  action_ban→refuse, policy/skill/fact→keyword from the recorded change). Generator
+  logic in a focused **store-free** module `argo-eval::case_gen` (keeps the eval crate
+  lean — no argo-store/sqlx dep added); the store read + PII-redaction stay CLI-side.
+  Extracted a shared judged-history reader `eval_judged_history.rs` so the
+  approval+retrain join lives once — the export handler now reuses it (no duplicated
+  queries). Read-only (no table, no migration), tenant-scoped at the query boundary,
+  free text through the same `pii_detect::scan_and_maybe_redact` as the audit sink.
+  Generated JSONL round-trips through the real `load_jsonl` (proven in a test) so cases
+  are guaranteed runnable. Tests: 7 `case_gen` unit + 4 CLI handler (seed→generate→
+  non-empty/well-formed/loads/tenant-scoped/PII-safe) + argo-eval `surface_contract`
+  updated + a `generate_cases` doc-test; all green, both clippy gates `-D warnings`
+  clean. E2E smoke vs a seeded throwaway home produced 6 real cases (1 rejected + 5
+  retrains) that `argo eval validate` confirms load (`task_count:6`). Commit `99114bd5a`.
