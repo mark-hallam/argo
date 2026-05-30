@@ -193,7 +193,7 @@ fn extract_archetype_slug(raw: &str) -> Option<String> {
 /// pitch path's `build_pitch_transport` exactly: load the manifest from
 /// `<cwd>/manifests/providers/<id>.toml` (subprocess vs HTTP decided by
 /// the manifest), then `complete` a single user turn at temperature 0.
-async fn complete_once(provider_id: &str, prompt: &str) -> ArgoResult<String> {
+pub(super) async fn complete_once(provider_id: &str, prompt: &str) -> ArgoResult<String> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifest = load_manifest(&cwd, provider_id).map_err(|e| {
         ArgoError::Provider(format!(

@@ -32,9 +32,8 @@
 //! `X-Argo-Tenant-Id`.
 
 use super::routes_genesis_stream_llm::resolve_plan;
-use argo_genesis::{name_to_persona_slug, write_vertical_with_overwrite, GenesisPlan};
+use argo_genesis::{name_to_persona_slug, write_vertical_with_overwrite};
 use argo_store::SessionStore;
-use argo_audit::{AuditKind, AuditSink};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -232,20 +231,58 @@ pub(super) async fn serve_genesis_stream(
         .await;
     };
     let eval_seed_count = count_eval_seeds(&vertical_dir);
-    let final_payload = build_final_payload(
+
+    // SAFETY GATE (DEC-025 / Genesis P0). Replaces the prior hardcoded
+    // `judge_verdict:"pass"`: run the REAL deterministic eval floor + the
+    // LLM semantic safety judge, synchronously, before the teammate is
+    // reported ready. A teammate that fails its evals OR the safety judge
+    // is surfaced as blocked/needs_review and is NOT hireable — the
+    // hire-commit endpoint re-runs the identical gate and refuses to
+    // activate it.
+    write_progress(
+        out,
+        "running_safety_gate",
+        "Running eval floor + safety judge",
+        92,
+    )
+    .await?;
+    let gate = super::routes_genesis_gate::run_hire_gate(&plan).await;
+    let dry_run_until = read_dry_run_until(&vertical_dir);
+    let final_payload = super::routes_genesis_stream_payload::build_final_payload(
         &plan,
         &vertical_dir,
         &tenant_id,
         &loaded.manifest.vertical.name,
         eval_seed_count,
+        &gate,
+        dry_run_until.as_deref(),
     );
 
     write_progress(out, "ready", "Vertical ready", 100).await?;
     write_event(out, "vertical_ready", &final_payload).await?;
     out.flush().await?;
 
-    emit_audit(store, &tenant_id, &plan.vertical_id, eval_seed_count, gen_mode).await;
+    super::routes_genesis_stream_payload::emit_audit(
+        store,
+        &tenant_id,
+        &plan.vertical_id,
+        eval_seed_count,
+        gen_mode,
+        &gate,
+    )
+    .await;
     out.shutdown().await
+}
+
+/// Read `dry_run_until` from the freshly-written `worker.toml` so the
+/// payload can surface the probation window the teammate starts in.
+fn read_dry_run_until(vertical_dir: &Path) -> Option<String> {
+    let body = std::fs::read_to_string(vertical_dir.join("worker.toml")).ok()?;
+    let parsed: toml::Value = toml::from_str(&body).ok()?;
+    parsed
+        .get("dry_run_until")
+        .and_then(toml::Value::as_str)
+        .map(str::to_string)
 }
 
 fn provider_key_present() -> bool {
@@ -356,40 +393,6 @@ fn count_eval_seeds(vertical_dir: &Path) -> usize {
     contents.matches("[[seed]]").count()
 }
 
-fn build_final_payload(
-    plan: &GenesisPlan,
-    vertical_dir: &Path,
-    tenant_id: &str,
-    display_name: &str,
-    eval_seed_count: usize,
-) -> Value {
-    let actions = plan
-        .manifest
-        .actions
-        .as_ref()
-        .map(|a| a.actions.len() as u64)
-        .unwrap_or(0);
-    json!({
-        "vertical_id": plan.vertical_id,
-        "vertical_dir_path": vertical_dir.to_string_lossy(),
-        "tenant_id": tenant_id,
-        "manifest": {
-            "id": plan.vertical_id,
-            "name": display_name,
-            "archetype": plan.archetype.slug(),
-            "persona": plan.persona,
-            "actions_declared": actions,
-        },
-        "prompts": [
-            "prompts/system.md",
-            "prompts/persona.md",
-        ],
-        "skills": [],
-        "eval_seed_count": eval_seed_count,
-        "judge_verdict": "pass",
-    })
-}
-
 async fn open_sse_stream(out: &mut TcpStream, cors_headers: &str) -> tokio::io::Result<()> {
     let head = format!(
         "HTTP/1.1 200 OK\r\n\
@@ -467,34 +470,10 @@ async fn write_one_shot_error(
     out.shutdown().await
 }
 
-async fn emit_audit(
-    store: Option<&Arc<SessionStore>>,
-    tenant_id: &str,
-    vertical_id: &str,
-    eval_seed_count: usize,
-    gen_mode: &str,
-) {
-    let Some(store) = store else { return };
-    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
-    let payload = json!({
-        "endpoint": "genesis_stream",
-        "vertical_id": vertical_id,
-        "eval_seed_count": eval_seed_count,
-        "generation": gen_mode,
-    });
-    if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, None)
-        .await
-    {
-        tracing::warn!(
-            target: "gateway::genesis_stream",
-            tenant = %tenant_id,
-            error = %e,
-            "genesis stream audit write failed"
-        );
-    }
-}
-
 #[cfg(test)]
 #[path = "routes_genesis_stream_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routes_genesis_stream_unit_tests.rs"]
+mod unit_tests;

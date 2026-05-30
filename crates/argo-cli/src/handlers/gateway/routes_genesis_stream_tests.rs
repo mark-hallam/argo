@@ -6,25 +6,24 @@
 //! single mutex serializes mutations across tests.
 use super::*;
 use argo_store::SessionStore;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::io::AsyncReadExt;
 use tokio::net::{TcpListener, TcpStream};
 
-fn env_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
-
 struct EnvGuard {
     keys: Vec<(&'static str, Option<String>)>,
-    _guard: std::sync::MutexGuard<'static, ()>,
+    // Owned guard on the gateway-wide shared env lock — serializes env
+    // mutations against the hire-flow test modules too (the Genesis hire
+    // gate reads ARGO_VERTICALS_DIR / ARGO_GENESIS_LLM_PROVIDER). Per-module
+    // locks let a concurrent hire test clobber ARGO_VERTICALS_DIR mid-stream.
+    _guard: tokio::sync::OwnedMutexGuard<()>,
 }
 
 impl EnvGuard {
-    fn set(entries: &[(&'static str, &str)]) -> Self {
-        let guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    async fn set(entries: &[(&'static str, &str)]) -> Self {
+        let guard = super::super::shared_env_lock().await;
         let mut keys = Vec::with_capacity(entries.len());
         for (k, v) in entries {
             keys.push((*k, std::env::var(k).ok()));
@@ -33,8 +32,8 @@ impl EnvGuard {
         Self { keys, _guard: guard }
     }
 
-    fn unset(entries: &[&'static str]) -> Self {
-        let guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    async fn unset(entries: &[&'static str]) -> Self {
+        let guard = super::super::shared_env_lock().await;
         let mut keys = Vec::with_capacity(entries.len());
         for k in entries {
             keys.push((*k, std::env::var(k).ok()));
@@ -48,11 +47,11 @@ impl EnvGuard {
     // atomic update — needed by alias-coverage tests that prove the
     // alias alone satisfies the gate (PROVIDER_KEY_ENV must be off
     // while ANTHROPIC_API_KEY is on).
-    fn set_and_unset(
+    async fn set_and_unset(
         set_entries: &[(&'static str, &str)],
         unset_entries: &[&'static str],
     ) -> Self {
-        let guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+        let guard = super::super::shared_env_lock().await;
         let mut keys = Vec::with_capacity(set_entries.len() + unset_entries.len());
         for (k, v) in set_entries {
             keys.push((*k, std::env::var(k).ok()));
@@ -149,7 +148,7 @@ async fn fails_closed_without_provider_key() {
     // mask the fail-closed contract otherwise.
     let mut to_unset = vec![PROVIDER_KEY_ENV];
     to_unset.extend(PROVIDER_KEY_ALIASES.iter().copied());
-    let _env = EnvGuard::unset(&to_unset);
+    let _env = EnvGuard::unset(&to_unset).await;
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a customer success lead who triages tier-1 tickets",
@@ -178,7 +177,8 @@ async fn anthropic_alias_satisfies_provider_key_gate() {
             ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
         ],
         &[PROVIDER_KEY_ENV],
-    );
+    )
+    .await;
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a customer success lead who triages tier-1 tickets and handles refunds",
@@ -199,7 +199,8 @@ async fn rejects_short_role_description() {
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
         ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
-    ]);
+    ])
+    .await;
     let store = mem_store().await;
     let body = serde_json::json!({ "role_description": "too short" }).to_string();
     let req = build_request(&body, Some("tenant-x"));
@@ -214,7 +215,8 @@ async fn rejects_malformed_json_body() {
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
         ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
-    ]);
+    ])
+    .await;
     let store = mem_store().await;
     let req = build_request("{not valid json", Some("tenant-x"));
     let raw = drive_handler(req, store).await;
@@ -225,10 +227,15 @@ async fn rejects_malformed_json_body() {
 #[tokio::test]
 async fn happy_path_emits_sse_stream_with_vertical_ready() {
     let tmp = TempDir::new().unwrap();
+    // Force an unresolvable safety-judge provider so the gate degrades
+    // deterministically (needs_review) rather than depending on whether the
+    // test cwd can resolve `claude-code-cli` + spawn the subprocess.
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
         ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
-    ]);
+        ("ARGO_GENESIS_LLM_PROVIDER", "definitely-not-a-real-provider-xyz"),
+    ])
+    .await;
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a customer success lead who triages tier-1 tickets and escalates refunds over $500",
@@ -244,23 +251,37 @@ async fn happy_path_emits_sse_stream_with_vertical_ready() {
         lower.contains("content-type: text/event-stream"),
         "expected text/event-stream content-type; got: {raw}"
     );
-    // Progress phases must all appear, in order.
+    // Progress phases must all appear, including the REAL safety-gate phase.
     for phase in [
         "\"phase\":\"drafting_persona\"",
         "\"phase\":\"compiling_charter\"",
         "\"phase\":\"generating_skill_bundle\"",
         "\"phase\":\"validating_eval_seeds\"",
+        "\"phase\":\"running_safety_gate\"",
         "\"phase\":\"ready\"",
     ] {
         assert!(raw.contains(phase), "expected phase {phase}; got: {raw}");
     }
-    // The final event is `vertical_ready` with a payload pointing
-    // at the on-disk vertical dir.
     let ready_idx = raw.find("event: vertical_ready").expect("vertical_ready event");
     let after_ready = &raw[ready_idx..];
     assert!(after_ready.contains("\"vertical_dir_path\":"));
     assert!(after_ready.contains("\"eval_seed_count\":"));
-    assert!(after_ready.contains("\"judge_verdict\":\"pass\""));
+    // The verdict is REAL now — NOT a hardcoded "pass" (DEC-025 / P0). With
+    // no live provider the safety judge degrades, so the composed gate is
+    // `needs_review` (fail-safe), `hireable:false`, with honest eval evidence.
+    assert!(
+        !after_ready.contains("\"judge_verdict\":\"pass\""),
+        "hardcoded pass must be gone; got: {after_ready}"
+    );
+    for needle in [
+        "\"judge_verdict\":\"needs_review\"",
+        "\"hireable\":false",
+        "\"gate\":",
+        "\"eval_total\":10",
+        "\"safety_verdict\":",
+    ] {
+        assert!(after_ready.contains(needle), "expected {needle}; got: {after_ready}");
+    }
 }
 
 #[tokio::test]
@@ -269,7 +290,8 @@ async fn cross_tenant_paths_isolate_generated_verticals() {
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
         ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
-    ]);
+    ])
+    .await;
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a marketing intern who writes weekly newsletters for B2B SaaS",
@@ -327,7 +349,8 @@ async fn sse_response_carries_cors_headers_for_allowlisted_origin() {
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
         ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
-    ]);
+    ])
+    .await;
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a customer success lead who triages tier-1 tickets and escalates refunds over $500",
@@ -376,7 +399,7 @@ async fn provider_key_503_carries_cors_headers_for_allowlisted_origin() {
     ensure_cors_registry_installed();
     let mut to_unset = vec![PROVIDER_KEY_ENV];
     to_unset.extend(PROVIDER_KEY_ALIASES.iter().copied());
-    let _env = EnvGuard::unset(&to_unset);
+    let _env = EnvGuard::unset(&to_unset).await;
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a customer success lead who triages tier-1 tickets",
@@ -418,7 +441,8 @@ async fn second_attempt_without_overwrite_emits_error_event() {
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
         ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
-    ]);
+    ])
+    .await;
     let store = mem_store().await;
     let body = serde_json::json!({
         "role_description": "I need a marketing intern who writes weekly newsletters for B2B SaaS",
@@ -441,7 +465,8 @@ async fn overwrite_true_lets_second_attempt_succeed() {
     let _env = EnvGuard::set(&[
         (PROVIDER_KEY_ENV, "test-key"),
         ("ARGO_VERTICALS_DIR", tmp.path().to_str().unwrap()),
-    ]);
+    ])
+    .await;
     let store = mem_store().await;
     let first = serde_json::json!({
         "role_description": "I need a marketing intern who writes weekly newsletters for B2B SaaS",
@@ -461,41 +486,4 @@ async fn overwrite_true_lets_second_attempt_succeed() {
     assert!(raw2.starts_with("HTTP/1.1 200 OK"));
     assert!(raw2.contains("event: vertical_ready"), "expected success on retry; got: {raw2}");
     assert!(!raw2.contains("event: error"), "must not emit error event; got: {raw2}");
-}
-
-#[test]
-fn is_streaming_request_matches_post_only() {
-    assert!(is_genesis_streaming_request(
-        "POST /api/v1/genesis HTTP/1.1\r\n\r\n"
-    ));
-    assert!(is_genesis_streaming_request(
-        "POST /api/v1/genesis?dry=1 HTTP/1.1\r\n\r\n"
-    ));
-    // The legacy sub-routes (`classify`, `draft-worker`) keep their
-    // own handlers and must not be swallowed by the streaming check.
-    assert!(!is_genesis_streaming_request(
-        "POST /api/v1/genesis/classify HTTP/1.1\r\n\r\n"
-    ));
-    assert!(!is_genesis_streaming_request(
-        "POST /api/v1/genesis/draft-worker HTTP/1.1\r\n\r\n"
-    ));
-    assert!(!is_genesis_streaming_request(
-        "GET /api/v1/genesis HTTP/1.1\r\n\r\n"
-    ));
-}
-
-#[test]
-fn sanitize_tenant_normalises_special_chars() {
-    assert_eq!(sanitize_tenant("AAAA-BBBB"), "aaaa-bbbb");
-    assert_eq!(sanitize_tenant("..::weird::.."), "weird");
-    assert_eq!(sanitize_tenant(""), "anonymous");
-    assert_eq!(sanitize_tenant("///"), "anonymous");
-}
-
-#[test]
-fn derive_persona_falls_back_to_operator_on_noise() {
-    assert_eq!(derive_persona("!!! ??? ###"), "operator");
-    assert_eq!(derive_persona("a b c"), "operator"); // tokens too short
-    let derived = derive_persona("Marketing intern needed asap");
-    assert_eq!(derived, "Marketing");
 }

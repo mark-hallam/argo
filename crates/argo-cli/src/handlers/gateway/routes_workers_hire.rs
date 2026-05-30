@@ -110,6 +110,23 @@ pub(super) async fn hire_response(
         return bad_request(&format!("unknown vertical '{}'", draft.suggested_vertical));
     }
 
+    // SAFETY GATE (DEC-025 / Genesis P0). For a Genesis-generated teammate,
+    // re-run the IDENTICAL synchronous hire gate (deterministic eval floor +
+    // LLM safety judge) against the on-disk vertical BEFORE committing the
+    // worker. A teammate that fails its evals OR the safety judge is refused
+    // here (422) and never activated — fail-closed parity with the SSE path,
+    // so the flagship page cannot be bypassed by POSTing the draft directly.
+    if let Some(blocked) = super::routes_workers_hire_gate::enforce_genesis_hire_gate(
+        store,
+        tenant_id,
+        &principal_id,
+        &draft.suggested_vertical,
+    )
+    .await
+    {
+        return blocked;
+    }
+
     // Phase 3 of the hire-flow split adds the body-level
     // `idempotency_key` field (SPA generates a UUID v7 on Step 1 +
     // persists across steps). The legacy `Idempotency-Key` header
@@ -204,17 +221,7 @@ fn vertical_exists(id: &str) -> bool {
     // `<root>/.genesis/<tenant_slug>/<vertical_id>/`. Those stay out of
     // the global catalog, but the SPA hire that commits the freshly-
     // generated draft must still find them here.
-    in_catalog || genesis_vertical_exists(&dir, id)
-}
-
-fn genesis_vertical_exists(verticals_root: &std::path::Path, id: &str) -> bool {
-    let Ok(entries) = std::fs::read_dir(verticals_root.join(".genesis")) else {
-        return false;
-    };
-    entries.flatten().any(|e| {
-        let d = e.path();
-        d.is_dir() && d.join(id).join("vertical.toml").is_file()
-    })
+    in_catalog || super::routes_workers_hire_gate::genesis_vertical_exists(&dir, id)
 }
 
 fn idempotency_key(req: &str) -> Option<String> {
@@ -411,26 +418,7 @@ async fn emit_hire_audit(
     }
 }
 
-/// Audit-log redactor for the hire context. Delegates to
-/// `argo_redact::redact_text` (Stream J2) so email / phone (incl.
-/// `+CC`-prefixed international) / street-address sentinels stay in
-/// sync with the canonical fence's pattern set.
-fn redact_text(input: &str) -> String {
-    argo_redact::redact_text(input, &argo_redact::RedactionPolicy::default()).0
-}
-
-fn redact_value(value: &Value) -> Value {
-    match value {
-        Value::String(s) => Value::String(redact_text(s)),
-        Value::Array(items) => Value::Array(items.iter().map(redact_value).collect()),
-        Value::Object(map) => Value::Object(
-            map.iter()
-                .map(|(k, v)| (k.clone(), redact_value(v)))
-                .collect(),
-        ),
-        other => other.clone(),
-    }
-}
+use super::routes_workers_hire_gate::{redact_text, redact_value};
 
 fn ok_idempotent(worker_id: WorkerId) -> (&'static str, String) {
     // Per the Phase 3 hire-flow brief: the duplicate response carries

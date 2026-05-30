@@ -129,8 +129,10 @@ mod routes_forge_promote;
 mod routes_forge_rollups;
 mod routes_forge_runs_list;
 mod routes_genesis;
+mod routes_genesis_gate;
 mod routes_genesis_stream;
 mod routes_genesis_stream_llm;
+mod routes_genesis_stream_payload;
 mod routes_ghostwriter;
 mod routes_governance;
 mod routes_gtm_draft_followup;
@@ -225,6 +227,7 @@ mod routes_worker_skills;
 mod routes_worker_skills_helpers;
 mod routes_worker_trust_grade;
 mod routes_workers_hire;
+mod routes_workers_hire_gate;
 mod routes_workflow_execute;
 mod routes_workflow_runs;
 mod routes_workflow_runs_queries;
@@ -417,6 +420,27 @@ pub(super) use store_helpers::{
     session_tool_call_count, spend_per_session, store_unavailable,
 };
 pub(super) use tenant_header::request_tenant_id;
+
+/// Process-global env-mutation lock shared by every gateway test module that
+/// mutates `ARGO_VERTICALS_DIR` / `ARGO_GENESIS_LLM_PROVIDER` / other global
+/// env. Env vars are process-wide, so tests that set them must serialize
+/// across modules — not just within one module's own lock — or a concurrent
+/// test in a sibling module reads a clobbered value. The Genesis hire gate
+/// reads both vars on the hire + SSE paths, so the hire-flow and genesis
+/// test modules share THIS lock. Returns an OWNED guard so callers can hold
+/// it across `.await` points without lifetime gymnastics.
+#[cfg(test)]
+pub(super) fn shared_env_mutex() -> std::sync::Arc<tokio::sync::Mutex<()>> {
+    use std::sync::{Arc, OnceLock};
+    static M: OnceLock<Arc<tokio::sync::Mutex<()>>> = OnceLock::new();
+    Arc::clone(M.get_or_init(|| Arc::new(tokio::sync::Mutex::new(()))))
+}
+
+/// Acquire the shared gateway test env lock as an owned guard.
+#[cfg(test)]
+pub(super) async fn shared_env_lock() -> tokio::sync::OwnedMutexGuard<()> {
+    shared_env_mutex().lock_owned().await
+}
 
 #[cfg(test)]
 mod bind_flag_tests {

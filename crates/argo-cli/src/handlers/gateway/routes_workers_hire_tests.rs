@@ -13,7 +13,7 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 
 /// Count the worker rows persisted into the test store. The hire
 /// handler writes through `IdentityStore::create_worker_from_draft`,
@@ -27,9 +27,13 @@ pub(super) async fn count_worker_rows(store: &SessionStore) -> i64 {
         .expect("count worker rows")
 }
 
-pub(super) async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
+pub(super) async fn env_lock() -> OwnedMutexGuard<()> {
+    // Delegate to the gateway-wide shared lock so hire-flow tests serialize
+    // env mutations against the genesis test modules too (the Genesis hire
+    // gate reads ARGO_VERTICALS_DIR / ARGO_GENESIS_LLM_PROVIDER on the hire
+    // path). A per-module lock would let a concurrent genesis test clobber
+    // ARGO_VERTICALS_DIR mid-hire.
+    super::super::shared_env_lock().await
 }
 
 fn workspace_root() -> PathBuf {

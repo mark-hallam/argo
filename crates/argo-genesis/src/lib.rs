@@ -45,6 +45,7 @@ pub mod conflict;
 pub mod error;
 pub mod eval_seed;
 pub mod genesis_judge;
+pub mod hire_gate;
 pub mod job_description;
 pub mod manifest_writer;
 pub mod memory_schema;
@@ -78,6 +79,11 @@ pub use conflict::{detect as detect_conflicts, highest_score, ConflictMatch, Con
 pub use error::GenesisError;
 pub use genesis_judge::{
     build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
+};
+pub use hire_gate::{
+    behaviour_contract_text, build_gate_eval_inputs, gate_inputs_from_dir, judge_input_for_plan,
+    DeterministicEvalInput, DiskGateInputs, EvalFloorOutcome, GateEvalInputs, GateState,
+    GateVerdict, SafetySignal, EVAL_PASS_RATE_FLOOR,
 };
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
