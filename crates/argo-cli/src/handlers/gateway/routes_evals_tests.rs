@@ -76,6 +76,7 @@ async fn add_worker(store: &Arc<SessionStore>, tenant: TenantId, name: &str) -> 
 /// Ensure the lazily-applied table exists in the test store, then
 /// insert one reeval row keyed by `skill_id` (the same TEXT UUID the
 /// `worker_skill` overlay holds).
+#[allow(clippy::too_many_arguments)]
 async fn seed_reeval_row(
     store: &Arc<SessionStore>,
     skill_id: &str,
