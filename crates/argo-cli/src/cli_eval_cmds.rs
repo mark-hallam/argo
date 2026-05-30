@@ -140,4 +140,31 @@ pub enum EvalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Close the self-improvement loop: run TWO versions of one skill
+    /// through the real eval scorer and report the measured pass-rate
+    /// delta (the "skill improved from X% → Y%" proof, DEC-023). Both
+    /// bodies are scored against the candidate's declared `evals` (or the
+    /// baseline's if the candidate declares none); the deterministic
+    /// body-aware executor returns each version's body, so a `contains`
+    /// predicate genuinely passes only when THAT body carries the
+    /// required guidance — the delta is a real measurement, not a rig.
+    /// Persists the result to `skill_reeval_history` so the worker Evals
+    /// tab (`GET /api/v1/workers/<id>/evals`) shows the candidate's run.
+    SkillAb {
+        /// Skill family name (both versions must exist under it).
+        skill: String,
+        /// Baseline ("before") version string, e.g. `v1`.
+        #[arg(long)]
+        baseline: String,
+        /// Candidate ("after") version string, e.g. `v2`.
+        #[arg(long)]
+        candidate: String,
+        /// Record the candidate's measured pass rate into
+        /// `skill_reeval_history` (so the worker Evals tab reflects it).
+        #[arg(long)]
+        record: bool,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
 }

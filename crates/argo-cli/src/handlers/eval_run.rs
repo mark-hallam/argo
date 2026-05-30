@@ -56,6 +56,13 @@ pub async fn run(cmd: EvalCmd) -> ArgoResult<()> {
             )
             .await
         }
+        EvalCmd::SkillAb {
+            skill,
+            baseline,
+            candidate,
+            record,
+            json,
+        } => super::eval_skill_ab::run(&skill, &baseline, &candidate, record, json).await,
         EvalCmd::Run {
             vertical,
             score,

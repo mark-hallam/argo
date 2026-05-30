@@ -130,6 +130,7 @@ pub mod eval_judged_history;
 pub mod eval_list;
 pub mod eval_run;
 pub mod eval_show;
+pub mod eval_skill_ab;
 pub mod eval_skill_honesty;
 mod eval_validate_vertical;
 mod feedback_common;

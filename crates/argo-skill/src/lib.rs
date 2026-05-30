@@ -20,6 +20,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod ab_eval;
 pub mod ab_test;
 mod ab_test_stats;
 mod artifact;
@@ -88,6 +89,10 @@ mod tests;
 #[cfg(test)]
 mod tests_lifecycle;
 
+pub use ab_eval::{
+    record_candidate_reeval, run_ab_eval, run_ab_eval_with, BodyContainsExecutor,
+    SkillAbEvalReport, VariantEvalResult,
+};
 pub use ab_test::{
     create_run, ensure_ab_schema, get_run, maybe_complete, maybe_complete_with_quality, promote,
     record_outcome, select_variant, significance, variant_counts, AbTestRun, QualityWeightConfig,
