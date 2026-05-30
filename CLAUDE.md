@@ -37,6 +37,14 @@ crates unless the abstraction is reusable across multiple verticals.
 - <500 LOC per file
 - additive migrations (see `docs/skycot/operator/migrations.md`)
 - tests for every feature
+- **Source-of-truth ledgers kept live IN-BAND (every session, never a later sweep):**
+  every shipped/changed capability updates its row in
+  `docs/build-plan/FEATURE_MATRIX.md` (status badge + commit SHA + crate/route)
+  **in the same commit**; every operator-locked call gets a
+  `docs/skycot/decisions/DEC-NNN-*.md` ADR + README index line **in the same turn**
+  (see the decision-register section below). Build-agent / delegated-work prompts
+  MUST carry this rule. If the ledgers ever lag the code, stop and reconcile before
+  new work.
 - JSON output for CLI list/show/status commands
 
 ## Core-platform invariants
