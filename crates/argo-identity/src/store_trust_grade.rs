@@ -195,7 +195,7 @@ mod tests {
 
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 57);
+        assert_eq!(store.schema_version().await.unwrap(), 85);
 
         store.migrate_down_to(45).await.unwrap();
         let cols: Vec<String> = sqlx::query("PRAGMA table_info(worker)")
@@ -215,7 +215,7 @@ mod tests {
         );
 
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 57);
+        assert_eq!(store.schema_version().await.unwrap(), 85);
 
         let identities = IdentityStore::new(&store);
         let tenant = TenantId::new();
