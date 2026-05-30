@@ -116,6 +116,20 @@ pub struct SeedReport {
     /// (UX audit whole-site F08). The canonical seed inserts 2 sessions
     /// (Mariah-led marketplace re-price + Peta-led onboarding handoff).
     pub orchestration_runs_created: usize,
+    /// Number of demo catalog skills given a real `skill_ir` graph so
+    /// `GET /api/v1/skills/<id>/ir` returns a valid IR (the canvas
+    /// viewer) instead of 404 `"skill has no IR"`. One graph per
+    /// marketplace catalog skill, written via the real canvas writer
+    /// (`argo_skill::ir::save_edited_graph`) so the hash + shape are
+    /// valid. See [`crate::seed_skill_ir`].
+    pub skill_ir_seeded: usize,
+    /// Number of `skill_reeval_history` rows inserted for the demo
+    /// catalog skills so `GET /api/v1/workers/<id>/evals` shows a real
+    /// pass/fail trend (a worker's evals = the reeval history of its
+    /// learned skills) instead of `{latest:null,history:[]}`. Three
+    /// rows per catalog skill with varied pass rates + one regression.
+    /// See [`crate::seed_skill_reeval_history`].
+    pub skill_reeval_rows_seeded: usize,
     /// `true` when the run drove real LLM turns; `false` when Pass A
     /// was skipped via [`SeedOptions::skip_pass_a_turns`].
     pub pass_a_real_llm: bool,

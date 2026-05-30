@@ -113,6 +113,11 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
         "  retrain_records_seeded:     {}",
         report.retrain_records_seeded
     );
+    println!("  skill_ir_seeded:            {}", report.skill_ir_seeded);
+    println!(
+        "  skill_reeval_rows_seeded:   {}",
+        report.skill_reeval_rows_seeded
+    );
     println!("  pass_a_real_llm:            {}", report.pass_a_real_llm);
     println!("  pass_a_audit_rows:          {}", report.pass_a_audit_rows);
     println!();

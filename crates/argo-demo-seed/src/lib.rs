@@ -41,6 +41,7 @@ mod personas;
 mod plan;
 mod retros;
 mod seed;
+mod skill_ir_eval;
 mod skills;
 mod workflow;
 
@@ -49,6 +50,7 @@ pub use marketplace::{demo_marketplace_catalog_size, seed_demo_marketplace_skill
 pub use personas::{DemoPersona, DEMO_SEED_PERSONAS};
 pub use plan::{SeedOptions, SeedReport};
 pub use seed::{run_canonical_v1_seed, seed_workers};
+pub use skill_ir_eval::{seed_skill_ir, seed_skill_reeval_history};
 
 /// Environment variable the CLI handler checks for a sandbox provider
 /// key. When unset, [`run_canonical_v1_seed`] fails closed unless

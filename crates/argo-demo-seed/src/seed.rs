@@ -155,6 +155,12 @@ pub async fn run_canonical_v1_seed(
     report.orchestration_runs_created = seed_demo_orchestration(store, opts.tenant_id).await?;
     report.retrain_records_seeded =
         seed_retrain_records(store, opts.tenant_id, &worker_ids).await?;
+    // Skill IR + reeval history — keyed on the marketplace catalog ids,
+    // so they run AFTER the catalog + worker-skill assignments. Detail:
+    // crate::skill_ir_eval.
+    report.skill_ir_seeded = crate::seed_skill_ir(store, opts.tenant_id).await?;
+    report.skill_reeval_rows_seeded =
+        crate::seed_skill_reeval_history(store, opts.tenant_id).await?;
     Ok(report)
 }
 
@@ -625,6 +631,17 @@ mod tests {
         // Five committed retrains (one per classification) seeded for the
         // lead heroes so the Recent-changes panel renders real history.
         assert_eq!(report.retrain_records_seeded, 5);
+        // One real skill_ir graph per catalog skill (so /skills/<id>/ir
+        // returns an IR) and three reeval rows per catalog skill (so
+        // /workers/<id>/evals shows a real trend).
+        assert_eq!(
+            report.skill_ir_seeded,
+            crate::demo_marketplace_catalog_size()
+        );
+        assert_eq!(
+            report.skill_reeval_rows_seeded,
+            crate::demo_marketplace_catalog_size() * 3
+        );
         assert!(!report.pass_a_real_llm);
 
         // Vacuous-pass guard (round-37 pattern): seeded tenant sees the

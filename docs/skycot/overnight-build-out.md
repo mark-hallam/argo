@@ -326,3 +326,19 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   parallelism flakes in routes_approvals_json/routes_audit_feed + the documented
   setup_steps/stream_a strict-mode flakes in KNOWN_FLAKES.md) — none in the voice or
   settings files; boundary-noted per SWARM_PROTOCOL HARD RULE 2.
+- 2026-05-30 — **demo-seed: two theatre surfaces now have real data.** New
+  `argo-demo-seed/src/skill_ir_eval.rs` (418 LOC) adds two idempotent seed fns
+  wired into `run_canonical_v1_seed`: `seed_skill_ir` persists a real `SkillGraph`
+  per marketplace catalog skill via the canonical canvas writer
+  (`argo_skill::ir::save_edited_graph` — valid hash + shape, NOT hand-rolled SQL),
+  keyed on the SAME id the /skills SPA lists, so `GET /skills/<id>/ir` no longer
+  404s; `seed_skill_reeval_history` inserts a 3-run trend (one regression) per
+  catalog skill into `skill_reeval_history`, keyed on the hero workers' learned
+  skill ids, so `GET /workers/<id>/evals` returns a real trend instead of
+  `{latest:null,history:[]}`. Both idempotent via sentinel (reseed ⇒ 0). New
+  `SeedReport` fields `skill_ir_seeded` + `skill_reeval_rows_seeded` + CLI print
+  lines. 6 new tests (per-surface counts, idempotency, tenant-scope, end-to-end
+  worker_skill→reeval join) + updated `skip_pass_a_seeds_dressing_only`; FULL
+  `cargo test -p argo-demo-seed` green (34 unit + 4 integration) + `cargo clippy
+  -p argo-demo-seed -- -D warnings` clean. No migration (both tables already
+  exist). Full-live after next gateway rebuild + reseed.
