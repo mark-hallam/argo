@@ -84,7 +84,12 @@ fn genesis_vertical_dir_in(verticals_root: &Path, id: &str) -> Option<PathBuf> {
 /// activate a teammate. Carries the gate state + the honest per-check
 /// reasons so the SPA can surface "blocked / needs review" with the
 /// failing checks instead of a generic error.
-fn gate_blocked_response(gate: &GateVerdict) -> (&'static str, String) {
+///
+/// Shared with `routes_onboarding::first_hire_response` so all three
+/// Genesis-activation seams (SSE, `POST /api/v1/workers`, and
+/// `POST /api/v1/onboarding/first-hire`) emit the identical
+/// `genesis_gate_failed` block shape and evidence.
+pub(super) fn gate_blocked_response(gate: &GateVerdict) -> (&'static str, String) {
     (
         "422 Unprocessable Entity",
         json!({

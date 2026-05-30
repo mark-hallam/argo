@@ -12,7 +12,8 @@ use serde_json::{json, Value};
 #[path = "routes_onboarding_test_helpers.rs"]
 mod helpers;
 use helpers::{
-    audit_payloads_for_kind, env_lock, mem_store, pre_provision, req, set_test_env,
+    audit_payloads_for_kind, env_lock, force_safety_allow, mem_store, pre_provision, req,
+    set_test_env,
 };
 
 #[tokio::test]
@@ -253,6 +254,7 @@ async fn first_hire_happy_path_creates_worker_row() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    force_safety_allow();
     let body = json!({
         "description": "Mariah, you book outbound demo calls",
         "vertical_id": "gtm-engineer"
@@ -290,6 +292,7 @@ async fn first_hire_honours_explicit_name_field_verbatim() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    force_safety_allow();
     let body = json!({
         "name": "Maya",
         "description": "She's the marketing intern who drafts blog posts",
@@ -317,6 +320,7 @@ async fn first_hire_falls_back_to_heuristic_when_name_omitted() {
     set_test_env(tmp.path());
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
+    force_safety_allow();
     let body = json!({
         "description": "Priya, an SDR who books qualified meetings",
         "vertical_id": "gtm-engineer"
@@ -442,7 +446,9 @@ async fn end_to_end_smoke_chain_provider_key_install_first_hire() {
     .await;
     assert_eq!(status, "200 OK");
 
-    // 3. First hire
+    // 3. First hire (gate-cleared: force the safety judge to Allow since CI
+    //    has no live provider; the deterministic eval floor still runs).
+    force_safety_allow();
     let (status, resp) = first_hire_response(
         &req(
             "/api/v1/onboarding/first-hire",

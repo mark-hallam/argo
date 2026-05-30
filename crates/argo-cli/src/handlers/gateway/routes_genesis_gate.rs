@@ -42,6 +42,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// collapses to an empty seed set, which the floor treats as a fail-closed
 /// `Blocked`.
 pub(super) async fn run_hire_gate(plan: &GenesisPlan) -> GateVerdict {
+    // TEST-ONLY verdict override (compiled out of release builds → NO
+    // production bypass surface). Tests that drive a *gate-cleared* hire to
+    // assert downstream persistence — but are not themselves testing the gate
+    // — force the composed verdict here, sidestepping the live-provider safety
+    // judge CI lacks. Tests that ARE about the gate (the `first_hire_blocks_*`
+    // suite) set NO override, so they exercise the real eval floor + degraded
+    // safety path. Production never consults this.
+    #[cfg(test)]
+    if let Some(verdict) = test_overrides::take_forced_verdict() {
+        return verdict;
+    }
     let inputs = build_gate_eval_inputs(plan).ok();
     let (seeds, contract) = match inputs {
         Some(i) => (i.seeds, i.contract_text),
@@ -182,6 +193,56 @@ impl GenesisJudgeClient for GateJudgeClient {
                 Err(e)
             }
         }
+    }
+}
+
+/// Test-only gate-verdict injection. Entirely `#[cfg(test)]`, so it does not
+/// exist in release builds — there is no production code path that can force
+/// the gate to pass. A test sets a one-shot forced [`GateVerdict`]; the next
+/// [`run_hire_gate`] call consumes it (and clears it) so a forced `Pass` can't
+/// leak across tests. Used by the first-hire end-to-end tests that drive a
+/// *gate-cleared* hire to assert downstream persistence / name handling /
+/// tenant visibility; tests that exercise the REAL gate (the
+/// `first_hire_blocks_*` suite) set no override.
+#[cfg(test)]
+pub(super) mod test_overrides {
+    use argo_genesis::{GateState, GateVerdict};
+    use std::sync::Mutex;
+
+    static FORCED: Mutex<Option<GateVerdict>> = Mutex::new(None);
+
+    /// Force the next [`super::run_hire_gate`] call to return `verdict`
+    /// (consumed once). A test holds the gateway-wide env lock while it sets
+    /// this and drives the hire, so concurrent tests can't observe each
+    /// other's override.
+    pub(crate) fn set_forced_verdict(verdict: GateVerdict) {
+        if let Ok(mut guard) = FORCED.lock() {
+            *guard = Some(verdict);
+        }
+    }
+
+    /// Convenience: force a clean `Pass` verdict (the common case for tests
+    /// that just need the hire to commit).
+    pub(crate) fn force_pass() {
+        set_forced_verdict(GateVerdict {
+            state: GateState::Pass,
+            eval_passed: 10,
+            eval_total: 10,
+            eval_pass_rate: 1.0,
+            safety_verdict: "allow".to_string(),
+            reasons: Vec::new(),
+        });
+    }
+
+    /// Clear any pending forced verdict (defensive reset under the env lock).
+    pub(crate) fn clear_forced_verdict() {
+        if let Ok(mut guard) = FORCED.lock() {
+            *guard = None;
+        }
+    }
+
+    pub(super) fn take_forced_verdict() -> Option<GateVerdict> {
+        FORCED.lock().ok().and_then(|mut g| g.take())
     }
 }
 

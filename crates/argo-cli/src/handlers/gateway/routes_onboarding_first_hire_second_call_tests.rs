@@ -18,16 +18,22 @@
 #![allow(clippy::unwrap_used)]
 
 use super::super::onboarding_provision::provision_response;
+use crate::handlers::gateway::routes_genesis_gate::test_overrides;
 use super::first_hire_response;
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
+/// Gateway-wide env lock (see `routes_onboarding_test_helpers::env_lock`):
+/// the first-hire path now runs the Genesis hire gate which reads
+/// process-global state, so this module must serialize against the other
+/// gate-driving test modules.
+async fn env_lock() -> OwnedMutexGuard<()> {
+    let guard = crate::handlers::gateway::shared_env_lock().await;
+    test_overrides::clear_forced_verdict();
+    guard
 }
 
 fn workspace_root() -> PathBuf {
@@ -80,6 +86,11 @@ async fn pre_provision(store: &Arc<SessionStore>, email: &str) {
 }
 
 async fn hire(store: &Arc<SessionStore>, email: &str, description: &str) -> String {
+    // Force the per-hire gate to a clean Pass (CI has no live safety-judge
+    // provider). The override is one-shot, so set it before each hire. This
+    // test's subject is tenant-visibility of a *committed* hire, not the gate
+    // verdict (the `first_hire_blocks_*` suite covers the gate).
+    test_overrides::force_pass();
     let body = json!({
         "description": description,
         "vertical_id": "gtm-engineer",

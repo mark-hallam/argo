@@ -10,15 +10,33 @@
 #![allow(clippy::unwrap_used)]
 
 use crate::handlers::gateway::onboarding_provision::provision_response;
+use crate::handlers::gateway::routes_genesis_gate::test_overrides;
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 
-pub(super) async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
+/// Serialize on the GATEWAY-WIDE env lock so onboarding tests can't run
+/// concurrently with the genesis-stream / workers-hire test modules. The
+/// first-hire path now runs the Genesis hire gate, which reads process-global
+/// `ARGO_VERTICALS_DIR` (and a test-only forced-signal override); a private
+/// per-module mutex would let a concurrent gate-driving test clobber that
+/// state mid-hire.
+pub(super) async fn env_lock() -> OwnedMutexGuard<()> {
+    let guard = crate::handlers::gateway::shared_env_lock().await;
+    test_overrides::clear_forced_verdict();
+    guard
+}
+
+/// Force the next Genesis hire gate run (inside `first_hire_response`) to
+/// return a clean `Pass`, so a *gate-cleared* first-hire can be driven
+/// end-to-end to assert downstream persistence / name handling. CI has no live
+/// safety-judge provider and these tests are not testing the gate; the
+/// dedicated `first_hire_blocks_*` suite exercises the real gate. Must be
+/// called while holding the [`env_lock`] guard; the override is one-shot.
+pub(super) fn force_safety_allow() {
+    test_overrides::force_pass();
 }
 
 pub(super) fn workspace_root() -> PathBuf {

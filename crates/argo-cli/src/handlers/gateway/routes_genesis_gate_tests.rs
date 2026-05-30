@@ -12,17 +12,27 @@ use argo_genesis::{build_gate_eval_inputs, plan, write_vertical, GateState};
 /// Force an unresolvable provider id so the safety judge's transport call
 /// errors deterministically regardless of the host's env / keys, exercising
 /// the degraded → needs_review path. Returns a guard that restores the env.
+///
+/// Holds the GATEWAY-WIDE env lock for its whole lifetime: it mutates the
+/// process-global `ARGO_GENESIS_LLM_PROVIDER` AND, because `run_hire_gate`
+/// consumes the test-only forced-verdict override, it must not run
+/// concurrently with the first-hire tests that set that override. Clears any
+/// stale forced verdict on acquisition so a `run_hire_gate` call here always
+/// exercises the REAL gate.
 struct ProviderGuard {
     prev: Option<String>,
+    _lock: tokio::sync::OwnedMutexGuard<()>,
 }
 impl ProviderGuard {
-    fn unresolvable() -> Self {
+    async fn unresolvable() -> Self {
+        let lock = crate::handlers::gateway::shared_env_lock().await;
+        test_overrides::clear_forced_verdict();
         let prev = std::env::var("ARGO_GENESIS_LLM_PROVIDER").ok();
         std::env::set_var(
             "ARGO_GENESIS_LLM_PROVIDER",
             "definitely-not-a-real-provider-xyz",
         );
-        Self { prev }
+        Self { prev, _lock: lock }
     }
 }
 impl Drop for ProviderGuard {
@@ -64,7 +74,7 @@ async fn empty_seed_set_fails_the_floor_closed() {
 
 #[tokio::test]
 async fn safety_judge_degrades_to_needs_review_without_a_live_provider() {
-    let _g = ProviderGuard::unresolvable();
+    let _g = ProviderGuard::unresolvable().await;
     let p = plan("be my marketing intern, run weekly campaigns", "maya").expect("plan builds");
     let signal = run_safety_signal(judge_input_for_plan(&p)).await;
     assert!(
@@ -78,7 +88,7 @@ async fn full_gate_on_rich_plan_is_needs_review_without_provider_never_blocked()
     // End-to-end: a rich plan with a working eval floor but no provider must
     // land NeedsReview (degraded) — never a silent Pass, never a spurious
     // Block of a valid teammate.
-    let _g = ProviderGuard::unresolvable();
+    let _g = ProviderGuard::unresolvable().await;
     let p = plan(
         "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
         "maya",
@@ -102,7 +112,7 @@ async fn disk_gate_matches_plan_gate_for_the_same_vertical() {
     // The hire-commit fence reconstructs the gate from the written vertical.
     // Its eval-floor outcome must match the in-memory plan's (same seeds,
     // same contract) — parity, no per-surface divergence.
-    let _g = ProviderGuard::unresolvable();
+    let _g = ProviderGuard::unresolvable().await;
     let p = plan(
         "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
         "maya",

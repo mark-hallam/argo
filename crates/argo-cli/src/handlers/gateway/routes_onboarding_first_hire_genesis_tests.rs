@@ -11,16 +11,34 @@
 #![allow(clippy::unwrap_used)]
 
 use super::super::onboarding_provision::provision_response;
+use crate::handlers::gateway::routes_genesis_gate::test_overrides;
 use super::first_hire_response;
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
+/// Serialize against the GATEWAY-WIDE env lock (not a private mutex): the
+/// Genesis hire gate reads `ARGO_VERTICALS_DIR` + the test-only forced-verdict
+/// override, both process-global, so first-hire tests must serialize against
+/// the genesis-stream + workers-hire test modules too — otherwise a
+/// concurrent genesis test could consume a forced verdict this module set.
+async fn env_lock() -> OwnedMutexGuard<()> {
+    let guard = crate::handlers::gateway::shared_env_lock().await;
+    // Defensive: clear any forced verdict a prior test forgot to reset while
+    // we hold the exclusive gateway-wide lock.
+    test_overrides::clear_forced_verdict();
+    guard
+}
+
+/// Force the next Genesis hire gate (in `first_hire_response`) to return a
+/// clean `Pass`, so a *gate-cleared* hire can be driven end-to-end to assert
+/// charter/duty/persona persistence. CI has no live safety-judge provider, and
+/// these tests are not testing the gate (the `first_hire_blocks_*` suite is).
+/// Held under the gateway-wide lock acquired by [`env_lock`]; one-shot.
+fn force_safety_allow() {
+    test_overrides::force_pass();
 }
 
 fn workspace_root() -> PathBuf {
@@ -79,6 +97,10 @@ async fn first_hire_invokes_genesis_and_persists_synthesised_charter() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
+    // Gate-cleared hire: the deterministic eval floor runs for real on the
+    // rich brief; force the safety judge to Allow (CI has no live provider)
+    // so the hire reaches the persistence path this test asserts.
+    force_safety_allow();
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
     let body = json!({
@@ -149,6 +171,7 @@ async fn first_hire_synthesises_multiple_duties_from_picked_vertical_actions() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
+    force_safety_allow();
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
     let body = json!({
@@ -194,6 +217,7 @@ async fn first_hire_persists_persona_bio_from_operator_brief() {
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
+    force_safety_allow();
     let store = mem_store().await;
     pre_provision(&store, "alice@acme.com").await;
     let description = "Mariah, you book outbound demo calls and qualify leads. \
@@ -239,10 +263,15 @@ async fn first_hire_persists_persona_bio_from_operator_brief() {
 }
 
 #[tokio::test]
-async fn first_hire_falls_back_to_templated_charter_when_genesis_errors() {
-    // Fallback path: the operator's brief doesn't classify into any
-    // archetype, Genesis returns UnknownArchetype, and the wizard
-    // still completes. The audit row flags `genesis_fallback=true`.
+async fn first_hire_blocks_when_genesis_plan_fails_no_ungated_worker_activated() {
+    // P0 bypass closure (commit 3ebd5ef00 follow-up): pre-fix, when the
+    // operator's brief didn't classify into any archetype, Genesis returned
+    // UnknownArchetype and first-hire SILENTLY activated a non-Genesis
+    // templated worker that never cleared the safety gate. DEC-025's invariant
+    // ("never hire a teammate that fails its own evals") means a teammate with
+    // NO plan has no eval floor to clear, so it must NOT be activated. The
+    // seam now fails closed with a 422 `genesis_plan_failed` and persists NO
+    // worker row.
     let _g = env_lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     set_test_env(tmp.path());
@@ -252,7 +281,7 @@ async fn first_hire_falls_back_to_templated_charter_when_genesis_errors() {
         // "Pioneer" has a capital letter so `name_from_description`
         // returns it, but the rest of the brief intentionally avoids
         // every archetype keyword so `classify_charter` returns
-        // `UnknownArchetype` and we exercise the fallback branch.
+        // `UnknownArchetype` and we exercise the (now fail-closed) branch.
         "description": "Pioneer xyzzy plugh blorf nonsense filler",
         "vertical_id": "gtm-engineer",
     })
@@ -263,36 +292,147 @@ async fn first_hire_falls_back_to_templated_charter_when_genesis_errors() {
         Some("human:alice@acme.com"),
     );
     let (status, resp) = first_hire_response(&r, Some(&store)).await;
-    assert_eq!(status, "201 Created", "wizard must not hard-fail: {resp}");
+    assert_eq!(
+        status, "422 Unprocessable Entity",
+        "plan()-fail fallback must fail closed, not activate an ungated worker: {resp}"
+    );
     let v: Value = serde_json::from_str(&resp).unwrap();
-    assert_eq!(v["genesis_invoked"], false);
-    assert_eq!(v["genesis_fallback"], true);
+    assert_eq!(v["error"]["code"], "genesis_plan_failed", "body: {resp}");
+    assert_eq!(v["gate"]["hireable"], false);
+    assert_eq!(v["gate"]["fallback_reason"], "unknown_archetype");
 
+    // No worker row may exist — the hire was refused, not committed.
+    let worker_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM worker")
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+    assert_eq!(worker_count, 0, "no ungated worker may be persisted on plan()-fail");
+
+    // The fail-closed decision is audited.
     let rows: Vec<String> = sqlx::query_scalar(
         "SELECT payload_json FROM audit_record \
-         WHERE payload_json LIKE '%onboarding.first_hire.genesis_fallback%'",
+         WHERE payload_json LIKE '%onboarding.first_hire.genesis_gate_fallback_blocked%'",
     )
     .fetch_all(store.pool())
     .await
     .unwrap();
-    assert_eq!(rows.len(), 1, "expected one genesis_fallback audit row");
+    assert_eq!(rows.len(), 1, "expected one fallback-blocked audit row");
     let payload: Value = serde_json::from_str(&rows[0]).unwrap();
-    assert_eq!(
-        payload["endpoint"],
-        "onboarding.first_hire.genesis_fallback",
-    );
-    assert_eq!(payload["genesis_fallback"], true);
     assert_eq!(payload["fallback_reason"], "unknown_archetype");
-    assert!(payload["plan_id"].is_null());
+}
 
-    let charter: String = sqlx::query_scalar(
-        "SELECT charter_md FROM worker WHERE vertical_id = 'gtm-engineer'",
+#[tokio::test]
+async fn first_hire_blocks_degraded_gate_without_a_live_provider() {
+    // The core P0 guarantee at this seam: a Genesis plan that the safety judge
+    // cannot clear (no live provider in CI → degraded → needs_review) is NOT
+    // hireable. Without forcing the signal, the rich brief clears the
+    // deterministic eval floor but the safety judge degrades, so the composed
+    // verdict is needs_review and the hire is refused (422) — never a 201, and
+    // never a persisted worker.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    // NB: deliberately do NOT call force_safety_allow() here.
+    let store = mem_store().await;
+    pre_provision(&store, "alice@acme.com").await;
+    let body = json!({
+        "description": "Mariah, you book outbound demo calls and qualify leads",
+        "vertical_id": "gtm-engineer",
+    })
+    .to_string();
+    let r = req(
+        "/api/v1/onboarding/first-hire",
+        &body,
+        Some("human:alice@acme.com"),
+    );
+    let (status, resp) = first_hire_response(&r, Some(&store)).await;
+    assert_eq!(
+        status, "422 Unprocessable Entity",
+        "degraded gate (no provider) must block the first-hire, not 201: {resp}"
+    );
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["error"]["code"], "genesis_gate_failed", "body: {resp}");
+    assert_eq!(v["gate"]["hireable"], false);
+    // The eval floor genuinely ran (10 starter seeds) — proves the gate is
+    // real, not a blanket refusal.
+    assert_eq!(v["gate"]["eval_total"], 10, "real eval floor ran: {resp}");
+    assert_eq!(v["gate"]["state"], "needs_review");
+
+    let worker_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM worker")
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+    assert_eq!(worker_count, 0, "degraded-gate hire must not persist a worker");
+
+    // The gate verdict is audited even on a block.
+    let gate_rows: Vec<String> = sqlx::query_scalar(
+        "SELECT payload_json FROM audit_record \
+         WHERE payload_json LIKE '%onboarding.first_hire.genesis_gate%'",
     )
-    .fetch_one(store.pool())
+    .fetch_all(store.pool())
     .await
     .unwrap();
-    assert!(
-        charter.starts_with("First hire for this workspace"),
-        "fallback charter must preserve the pre-Genesis preamble: {charter}",
+    assert!(!gate_rows.is_empty(), "gate verdict must be audited");
+}
+
+#[tokio::test]
+async fn first_hire_blocks_a_thin_teammate_that_fails_its_eval_floor() {
+    // Required verification (brief): a FAILING/thin teammate hired via
+    // first-hire is BLOCKED, not 201. This uses NO override — the REAL
+    // deterministic eval floor runs. A thin one-line brief classifies to an
+    // archetype (so `plan()` succeeds) but its synthesised behaviour contract
+    // does not satisfy ≥50% of the starter seeds' rubric keywords, so the
+    // floor FAILS → a HARD `blocked` verdict (a check that *ran* said no, not
+    // the degraded needs_review). The teammate is refused and NO worker row is
+    // persisted. This is the core P0 guarantee at the previously-unfenced
+    // first-hire seam.
+    let _g = env_lock().await;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    set_test_env(tmp.path());
+    // Deliberately NO force_safety_allow(): the eval floor must do the blocking.
+    let store = mem_store().await;
+    pre_provision(&store, "alice@acme.com").await;
+    let body = json!({
+        // Thin brief: classifies (so a plan exists) but the synthesised
+        // contract is too sparse to clear the 50% rubric-keyword floor.
+        "description": "Mariah, you book outbound demo calls",
+        "vertical_id": "gtm-engineer",
+    })
+    .to_string();
+    let r = req(
+        "/api/v1/onboarding/first-hire",
+        &body,
+        Some("human:alice@acme.com"),
     );
+    let (status, resp) = first_hire_response(&r, Some(&store)).await;
+    assert_eq!(
+        status, "422 Unprocessable Entity",
+        "a thin teammate that fails its eval floor must be refused: {resp}"
+    );
+    let v: Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["error"]["code"], "genesis_gate_failed");
+    assert_eq!(
+        v["gate"]["state"], "blocked",
+        "eval-floor failure is a HARD block, not needs_review: {resp}"
+    );
+    assert_eq!(v["gate"]["hireable"], false);
+    assert_eq!(v["gate"]["eval_total"], 10, "real eval floor ran: {resp}");
+    assert!(
+        v["gate"]["eval_pass_rate"].as_f64().unwrap() < 0.5,
+        "floor must be below the 50% bar: {resp}"
+    );
+    assert!(
+        v["gate"]["reasons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r.as_str().unwrap_or("").contains("eval floor failed")),
+        "block reason must cite the eval floor: {resp}"
+    );
+
+    let worker_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM worker")
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+    assert_eq!(worker_count, 0, "blocked teammate must not be persisted");
 }

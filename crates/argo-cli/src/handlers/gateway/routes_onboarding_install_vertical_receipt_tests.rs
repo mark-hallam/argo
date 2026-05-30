@@ -20,11 +20,15 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
+/// Serialize on the GATEWAY-WIDE env lock: this test sets the process-global
+/// `ARGO_VERTICALS_DIR` to the real catalog, so it must not run concurrently
+/// with `routes_genesis_stream_tests` (empty tempdir). A private per-module
+/// mutex let those groups race ("receptionist not found") under multi-threaded
+/// runs — the shared lock is the contract those stream tests document.
+async fn env_lock() -> OwnedMutexGuard<()> {
+    crate::handlers::gateway::shared_env_lock().await
 }
 
 fn workspace_root() -> PathBuf {

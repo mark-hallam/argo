@@ -1,4 +1,16 @@
 //! One-command worker onboarding from a TOML persona/role spec.
+//!
+//! ## Genesis P0 hire gate (DEC-025) — intentionally NOT applied here
+//!
+//! This builds a [`Worker`] from a fully-specified, operator-authored TOML
+//! `OnboardSpec` (persona + role + duties given verbatim); it does NOT invoke
+//! Genesis and produces no `GenesisPlan`, so the synchronous Genesis hire gate
+//! (eval floor + LLM safety judge) has nothing to grade. That gate fences the
+//! three HTTP *Genesis-activation* seams (`routes_genesis_stream`,
+//! `POST /api/v1/workers`, `POST /api/v1/onboarding/first-hire`) where a
+//! teammate is synthesised from a freeform prompt by an SPA caller. This
+//! local CLI is inside the operator trust boundary, so it remains an explicit
+//! ungated path — the operator hand-authoring the spec is the reviewer.
 
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_cron::CronExpr;

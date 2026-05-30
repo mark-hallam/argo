@@ -6,6 +6,19 @@
 //! `SessionStore::migrate` via [`open_workspace_store`] and
 //! relies on the ladder for schema state.
 //!
+//! ## Genesis P0 hire gate (DEC-025) — intentionally NOT applied here
+//!
+//! This is a manual, operator-local create from explicit
+//! `--charter`/`--duty` args; it does NOT invoke Genesis and produces no
+//! `GenesisPlan`, so there is no eval floor / safety judge to run (the gate
+//! grades a synthesised plan, not a hand-authored worker). The Genesis P0
+//! safety gate fences the three *Genesis-activation* seams — the SSE pipeline
+//! (`routes_genesis_stream`), the hire-commit `POST /api/v1/workers`, and
+//! `POST /api/v1/onboarding/first-hire` — which are HTTP, SPA-driven, and
+//! synthesise teammates from a freeform prompt. The local CLI is inside the
+//! operator trust boundary (an operator authoring a worker by hand is the
+//! human in the loop), so it stays an explicit, ungated escape hatch.
+//!
 //! Persistence + output types live in
 //! [`super::worker_create_store`]; this module owns the CLI
 //! orchestration, cron-job emission, and human-readable output.

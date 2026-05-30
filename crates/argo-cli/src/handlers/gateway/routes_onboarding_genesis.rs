@@ -17,10 +17,15 @@
 //! Lives in its own sibling so `routes_onboarding.rs` stays under the
 //! 500-LOC per-file budget — same pattern as `routes_onboarding_helpers.rs`.
 
-use argo_genesis::{plan as genesis_plan, Archetype, GenesisError, GenesisPlan};
+use super::routes_onboarding_helpers::emit_audit;
+use argo_genesis::{plan as genesis_plan, GenesisError, GenesisPlan};
 use argo_identity::HireDutyDraft;
+use argo_store::SessionStore;
+use argo_types::TenantId;
 use argo_vertical::{ActionDeclaration, ActionRiskLevel, LoadedVertical};
+use serde_json::json;
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 
 /// Maximum number of duties seeded from the picked / synthesised
 /// vertical's autonomous-safe actions. Cap exists so a vertical that
@@ -49,20 +54,6 @@ const STAGGERED_CRONS: &[&str] = &[
 pub(super) struct GenesisHireOutcome {
     pub(super) plan: Option<GenesisPlan>,
     pub(super) fallback_reason: Option<String>,
-}
-
-impl GenesisHireOutcome {
-    pub(super) fn is_fallback(&self) -> bool {
-        self.plan.is_none()
-    }
-
-    pub(super) fn archetype(&self) -> Option<Archetype> {
-        self.plan.as_ref().map(|p| p.archetype)
-    }
-
-    pub(super) fn plan_id(&self) -> Option<&str> {
-        self.plan.as_ref().map(|p| p.vertical_id.as_str())
-    }
 }
 
 /// Run [`argo_genesis::plan`] against the operator's hire brief. The
@@ -108,6 +99,107 @@ fn persona_slug(worker_name: &str) -> String {
     } else {
         cleaned.to_lowercase()
     }
+}
+
+/// Enforce the Genesis P0 hire gate (DEC-025) for the first-hire seam.
+///
+/// `first-hire` synthesises an in-memory [`GenesisPlan`] and commits a live
+/// worker, so it must clear the SAME fail-closed gate as the SSE pipeline and
+/// the `POST /api/v1/workers` hire-commit fence — BEFORE
+/// `create_worker_from_draft`. Returns `Ok(())` only when the hire may
+/// proceed; `Err((status, body))` is the blocking HTTP response (a `422`).
+///
+/// Two refusal paths, both fail-closed:
+/// - **Plan present** → run [`super::routes_genesis_gate::run_hire_gate`]
+///   (the identical function the SSE path calls). A non-`Pass` verdict
+///   (`Blocked` / `NeedsReview`) returns the shared `genesis_gate_failed`
+///   `422` with the gate evidence. The verdict is always audited.
+/// - **No plan** (`plan()` errored) → there is no eval floor to grade, so an
+///   ungated templated worker must NOT be activated; return
+///   `genesis_plan_failed` `422`. This closes the bypass where a `plan()`
+///   failure silently fell through to a live, never-gated teammate.
+pub(super) async fn enforce_first_hire_gate(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    req: &str,
+    outcome: &GenesisHireOutcome,
+    vertical_id: &str,
+    worker_name: &str,
+) -> Result<(), (&'static str, String)> {
+    match outcome.plan.as_ref() {
+        Some(plan) => {
+            let gate = super::routes_genesis_gate::run_hire_gate(plan).await;
+            emit_audit(
+                store,
+                tenant,
+                req,
+                "onboarding.first_hire.genesis_gate",
+                json!({
+                    "tenant_id": tenant.0.to_string(),
+                    "vertical_id": vertical_id,
+                    "name": worker_name,
+                    "gate_state": gate.state.as_str(),
+                    "hireable": gate.state.allows_hire(),
+                    "gate_eval_passed": gate.eval_passed,
+                    "gate_eval_total": gate.eval_total,
+                    "gate_safety_verdict": gate.safety_verdict,
+                    "gate_reasons": gate.reasons,
+                }),
+            )
+            .await;
+            if gate.state.allows_hire() {
+                Ok(())
+            } else {
+                // Identical `422 genesis_gate_failed` shape + evidence as the
+                // `POST /api/v1/workers` seam — fail-closed, do NOT activate.
+                Err(super::routes_workers_hire_gate::gate_blocked_response(&gate))
+            }
+        }
+        None => {
+            emit_audit(
+                store,
+                tenant,
+                req,
+                "onboarding.first_hire.genesis_gate_fallback_blocked",
+                json!({
+                    "tenant_id": tenant.0.to_string(),
+                    "vertical_id": vertical_id,
+                    "name": worker_name,
+                    "fallback_reason": outcome.fallback_reason,
+                }),
+            )
+            .await;
+            Err(first_hire_fallback_blocked(outcome.fallback_reason.as_deref()))
+        }
+    }
+}
+
+/// `422` when first-hire's Genesis classification fails (`plan()` errored) so
+/// there is no plan to clear the P0 hire gate. Fail-closed: do NOT activate an
+/// ungated templated teammate. Mirrors the `genesis_gate_failed` envelope but
+/// with a `genesis_plan_failed` code so the SPA can tell "couldn't classify
+/// the role" apart from "classified but failed the safety checks".
+fn first_hire_fallback_blocked(reason: Option<&str>) -> (&'static str, String) {
+    let detail = reason.unwrap_or("genesis_plan_failed");
+    (
+        "422 Unprocessable Entity",
+        json!({
+            "error": {
+                "code": "genesis_plan_failed",
+                "message": format!(
+                    "Could not synthesise a teammate from this brief ({detail}); \
+                     no teammate was hired. Try a clearer role description \
+                     (e.g. name the job and what they should do)."
+                ),
+            },
+            "gate": {
+                "state": "blocked",
+                "hireable": false,
+                "fallback_reason": detail,
+            },
+        })
+        .to_string(),
+    )
 }
 
 fn genesis_error_reason(err: &GenesisError) -> String {
@@ -293,7 +385,7 @@ mod tests {
     #[test]
     fn invoke_genesis_returns_fallback_for_unparseable_charter() {
         let out = invoke_genesis("xyzzy plugh nonsense filler text", "spock");
-        assert!(out.is_fallback(), "no archetype keyword should fall back");
+        assert!(out.plan.is_none(), "no archetype keyword should fall back");
         assert_eq!(out.fallback_reason.as_deref(), Some("unknown_archetype"));
     }
 }

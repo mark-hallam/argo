@@ -12,11 +12,16 @@ use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::OwnedMutexGuard;
 
-async fn env_lock() -> MutexGuard<'static, ()> {
-    static M: Mutex<()> = Mutex::const_new(());
-    M.lock().await
+/// Serialize on the GATEWAY-WIDE env lock: these tests set the process-global
+/// `ARGO_VERTICALS_DIR` to the real catalog, so they must not run concurrently
+/// with `routes_genesis_stream_tests` (which point it at an empty tempdir). A
+/// private per-module mutex let those two groups race, intermittently
+/// surfacing "gtm-engineer not in catalog" under multi-threaded test runs —
+/// exactly the contract `routes_genesis_stream_tests::EnvGuard` documents.
+async fn env_lock() -> OwnedMutexGuard<()> {
+    crate::handlers::gateway::shared_env_lock().await
 }
 
 fn workspace_root() -> PathBuf {

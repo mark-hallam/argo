@@ -32,7 +32,7 @@
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
 use super::routes_onboarding_genesis::{
-    charter_hash, derive_duties, invoke_genesis, synthesise_charter,
+    charter_hash, derive_duties, enforce_first_hire_gate, invoke_genesis, synthesise_charter,
 };
 use super::routes_onboarding_helpers::{
     bad_request, count_approval_gates, count_skill_files, count_workflow_files, cwd_write_tenant,
@@ -305,8 +305,39 @@ pub(super) async fn first_hire_response(
     let worker_name = supplied_name.unwrap_or_else(|| name_from_description(&description));
     let principal_id = format!("{HUMAN_PRINCIPAL_PREFIX}{email}");
     let outcome = invoke_genesis(&description, &worker_name);
-    let charter = synthesise_charter(&description, outcome.plan.as_ref());
-    let duties = derive_duties(outcome.plan.as_ref(), &picked);
+
+    // SAFETY GATE (DEC-025 / Genesis P0). `first-hire` is a Genesis-driven
+    // hire seam — it synthesises an in-memory `GenesisPlan` and commits a live
+    // worker — so it must clear the SAME fail-closed gate the SSE path
+    // (`routes_genesis_stream`) and the hire-commit fence
+    // (`POST /api/v1/workers`) enforce, BEFORE `create_worker_from_draft`. A
+    // failing/thin/unsafe teammate (or a `plan()`-fail with no plan to grade)
+    // is refused and never activated. The on-disk fence in
+    // `routes_workers_hire_gate` cannot catch this seam — first-hire's plan is
+    // in-memory only (no `.genesis/` dir) and uses a catalog `vertical_id` —
+    // which is exactly the bypass this closes. Extracted to a sibling helper
+    // to keep this file under the per-file LOC budget.
+    if let Err(blocked) = enforce_first_hire_gate(
+        store,
+        tenant,
+        req,
+        &outcome,
+        &vertical_id,
+        &worker_name,
+    )
+    .await
+    {
+        return blocked;
+    }
+    // Gate cleared. The `plan()`-fail fallback also returned above, so
+    // `outcome.plan` is `Some` here; treat a `None` as an internal error
+    // rather than panic (the gate's invariant makes it unreachable).
+    let Some(plan) = outcome.plan.as_ref() else {
+        return server_error("first-hire gate passed without a Genesis plan");
+    };
+
+    let charter = synthesise_charter(&description, Some(plan));
+    let duties = derive_duties(Some(plan), &picked);
     let duty_count = duties.len();
     // Carry the operator's freeform brief into the persisted persona so the
     // worker-profile "About" section reads as the operator wrote it.
@@ -315,7 +346,7 @@ pub(super) async fn first_hire_response(
     // companion `voice_profile` override replaces the 35-char templated
     // preamble with one that names the worker and quotes the brief.
     let voice_preamble = voice_preamble_from_description(&worker_name, &description);
-    let genesis_plan_id = outcome.plan_id().map(str::to_string);
+    let genesis_plan_id = Some(plan.vertical_id.clone());
     let draft = HireDraft {
         suggested_name: worker_name.clone(),
         charter: charter.clone(),
@@ -347,28 +378,26 @@ pub(super) async fn first_hire_response(
         Err(ArgoError::Schema(msg)) => return bad_request(&msg),
         Err(e) => return server_error(&format!("create_worker: {e}")),
     };
-    let endpoint = if outcome.is_fallback() {
-        "onboarding.first_hire.genesis_fallback"
-    } else {
-        "onboarding.first_hire.genesis_invoked"
-    };
+    // The fallback (`plan()`-fail) path returned `422` above before reaching
+    // here, so a worker is only ever committed on the gate-cleared Genesis
+    // path — `genesis_invoked` is unconditionally `true` and there is no
+    // fallback worker to audit.
     emit_audit(
         store,
         tenant,
         req,
-        endpoint,
+        "onboarding.first_hire.genesis_invoked",
         json!({
             "tenant_id": tenant.0.to_string(),
             "worker_id": new_id.to_string(),
             "vertical_id": vertical_id,
             "name": worker_name,
-            "genesis_invoked": !outcome.is_fallback(),
-            "genesis_fallback": outcome.is_fallback(),
-            "plan_id": outcome.plan_id(),
-            "archetype": outcome.archetype().map(|a| a.slug()),
+            "genesis_invoked": true,
+            "genesis_fallback": false,
+            "plan_id": plan.vertical_id,
+            "archetype": plan.archetype.slug(),
             "charter_hash": charter_hash(&charter),
             "duty_count": duty_count,
-            "fallback_reason": outcome.fallback_reason,
         }),
     )
     .await;
@@ -378,8 +407,8 @@ pub(super) async fn first_hire_response(
             "worker_id": new_id.to_string(),
             "name": worker_name,
             "vertical_id": vertical_id,
-            "genesis_invoked": !outcome.is_fallback(),
-            "genesis_fallback": outcome.is_fallback(),
+            "genesis_invoked": true,
+            "genesis_fallback": false,
         })
         .to_string(),
     )
