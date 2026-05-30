@@ -45,6 +45,16 @@ pub enum AuditKind {
     SteerEnqueued,
     /// Tool dispatch halted by a vertical human-approval rule.
     EscalationRequired,
+    /// Tool dispatch held because the acting worker is inside its
+    /// Genesis P3 probation window (DEC-025 #2). Every action a
+    /// freshly-hired Genesis teammate emits is approval-gated for the
+    /// configured window (default 24h) and lands here pending an operator
+    /// grant, then graduates to the worker's normal policy. Distinct from
+    /// [`Self::EscalationRequired`] (manifest-declared per-tool approval)
+    /// so forensic readers can separate "new teammate on probation" from
+    /// "this tool always needs sign-off". Payload: `{tool, call_id,
+    /// reason, source}`.
+    ProbationHold,
     /// Approval ask delivered to an outbound channel.
     ///
     /// See `event_kind_docs.rs` for payload and fan-out semantics.

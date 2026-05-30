@@ -69,8 +69,9 @@ pub use roster_policy_override::RosterPolicyOverride;
 pub use roster_store::RosterAssignment;
 pub use store::{IdentityStore, LearningEnrollFn};
 pub use store_hire::{
-    genesis_plan_id_from_provenance, ApprovalPolicyChoice, HireDraft, HireDutyDraft,
-    GENESIS_PLAN_PROVENANCE_PREFIX,
+    genesis_plan_id_from_provenance, is_in_probation, probation_until_from_provenance,
+    ApprovalPolicyChoice, HireDraft, HireDutyDraft, GENESIS_PLAN_PROVENANCE_PREFIX, PROBATION_HOURS,
+    PROBATION_PROVENANCE_PREFIX,
 };
 pub use store_skills::BulkAssignSkillOutcome;
 pub use tenant::{Tenant, TenantStatus};

@@ -19,7 +19,8 @@ fn label_round_trip_for_every_kind() {
 
 #[test]
 fn all_kind_count_tracks_declared_variants() {
-    assert_eq!(AuditKind::all().len(), 81);
+    // Includes ProbationHold (DEC-025 #2 Genesis P3 dispatch-seam gate).
+    assert_eq!(AuditKind::all().len(), 84);
 }
 
 #[test]

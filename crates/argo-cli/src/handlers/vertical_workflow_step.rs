@@ -27,6 +27,13 @@ pub(super) struct WorkflowAuditCtx {
     pub(super) audit: AuditSink,
     pub(super) session_id: SessionId,
     pub(super) tenant_id: TenantId,
+    /// DEC-025 #2 Genesis P3 — `true` when the session's bound worker is
+    /// still inside its probation window. Resolved once at
+    /// [`open_audit_ctx`] off the SAME session+worker read; while it
+    /// holds, the workflow-step runner holds EVERY `tool_call` step
+    /// pending (mirrors the agent runner's `ProbationHold` gate so the
+    /// workflow-driven path can't bypass probation).
+    pub(super) probation_active: bool,
 }
 
 /// Best-effort audit emission shared with sibling step-kind
@@ -130,6 +137,33 @@ async fn run_tool_call_step(
         return StepOutcome {
             status: "denied_by_vertical".into(),
             message: format!("tool '{tool_name}' is in the bound vertical's [tools].denied list"),
+        };
+    }
+    // DEC-025 #2 Genesis P3 — enforced probation on the workflow-driven
+    // path. A freshly-hired Genesis teammate must NOT execute actions
+    // unsupervised through a workflow either: while its window holds,
+    // EVERY tool_call step is held pending (emits `ProbationHold`,
+    // mirroring the agent runner's gate). This closes the
+    // "workflow-driven teammate takes a different path" bypass the design
+    // doc calls out. There is no per-session grant on this batch path, so
+    // the hold stands until the window clears.
+    if audit_ctx.is_some_and(|c| c.probation_active) {
+        emit_audit(
+            audit_ctx,
+            AuditKind::ProbationHold,
+            serde_json::json!({
+                "tool": tool_name,
+                "call_id": call_id,
+                "reason": "probation_window_active",
+                "source": "workflow_runner",
+            }),
+        )
+        .await;
+        return StepOutcome {
+            status: "probation_hold".into(),
+            message: format!(
+                "tool '{tool_name}' held: this teammate is in its Genesis probation window — every action is approval-gated until probation ends"
+            ),
         };
     }
     // Approval gate (#660) — emit EscalationRequired when bound
@@ -261,12 +295,67 @@ pub(super) async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowA
             "no session with id '{session_id_str}'"
         )));
     };
+    // DEC-025 #2 Genesis P3 — resolve probation off the session's bound
+    // worker using the SAME store we just opened (no extra DB connection).
+    // A read failure / missing worker degrades to `false` (no probation)
+    // — same fail-open-on-unreadable-row posture as the agent runner's
+    // fence, flagged for the adversarial pass.
+    let probation_active = probation_active_for_session(&store, &session).await;
     let audit = AuditSink::new_with_tenant(store, session.tenant_id.to_string());
     Ok(WorkflowAuditCtx {
         audit,
         session_id: sid,
         tenant_id: session.tenant_id,
+        probation_active,
     })
+}
+
+/// Resolve whether the session's bound worker is inside its Genesis P3
+/// probation window, reading the worker row off the supplied store. Any
+/// no-worker / missing-row / store-error path yields `false` (no
+/// probation), matching the agent runner's
+/// `genesis_signals_for_worker` degradation.
+async fn probation_active_for_session(
+    store: &Arc<SessionStore>,
+    session: &argo_store::SessionHeader,
+) -> bool {
+    let Some(worker_id) = session.worker_id else {
+        return false;
+    };
+    let identities = argo_identity::IdentityStore::new(store);
+    match identities.get_worker(session.tenant_id, worker_id).await {
+        Ok(Some(worker)) => {
+            argo_identity::is_in_probation(&worker.persona.provenance_chain, chrono::Utc::now())
+        }
+        _ => false,
+    }
+}
+
+impl WorkflowAuditCtx {
+    /// Test-only constructor: build a session-backed audit ctx with the
+    /// probation flag forced, so the workflow-step probation gate can be
+    /// exercised without driving a full Genesis hire. Compiled out of
+    /// release builds.
+    #[cfg(test)]
+    pub(super) async fn for_test(probation_active: bool) -> Self {
+        let store = Arc::new(SessionStore::open(":memory:").await.expect("open store"));
+        store.migrate().await.expect("migrate");
+        let (tenant, workspace) = store
+            .ensure_workspace("wf-probation", "/tmp/wf-probation")
+            .await
+            .expect("ensure_workspace");
+        let session_id = store
+            .create_session(tenant, workspace, "m", "p", None, None)
+            .await
+            .expect("create session");
+        let audit = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string());
+        Self {
+            audit,
+            session_id,
+            tenant_id: tenant,
+            probation_active,
+        }
+    }
 }
 
 fn tool_result_message(r: &argo_types::ToolCallResult) -> String {

@@ -9,6 +9,7 @@
 use super::turn_helpers_truth_boundary::{
     default_claim_provenance, load_truth_boundary_ctx, TruthBoundaryTurnCtx,
 };
+use super::turn_helpers_gate::{emit_deny, emit_escalation_required, emit_probation_hold};
 use super::turn_skills_runtime::PendingAbOutcome;
 use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
 use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_runtime, provider_schemas_filtered};
@@ -47,6 +48,10 @@ pub(super) struct TurnDispatchCtx {
     pub(super) truth_boundary: TruthBoundaryTurnCtx,
     pub(super) orch_session_id: argo_orchestrator::SessionId,
     pub(super) current_handoff_id: Option<HandoffId>,
+    /// DEC-025 #2 Genesis P3 — whether the bound worker is still inside
+    /// its probation window. Resolved once at session boot; consulted on
+    /// every tool dispatch to force approval-gating during probation.
+    pub(super) probation: crate::turn_vertical_fence::ProbationStatus,
 }
 
 type ProcessRegistryKey = (TenantId, SessionId);
@@ -132,10 +137,16 @@ pub(super) async fn build_turn_dispatch_ctx(
     // so a first-hire'd / catalog-bound Genesis worker is fenced like an
     // SSE-hired `.genesis/` one; no-provenance workers keep `owner`.
     // `turn_vertical_fence` fails CLOSED if the manifest can't be resolved.
+    //
+    // DEC-025 #2 Genesis P3 probation: the SAME worker-row read also yields
+    // whether the teammate is still inside its 24h probation window. While
+    // it is, `resolve_tool_call` forces EVERY action approval-gated (held
+    // pending, never executed unsupervised) regardless of its normal policy.
+    // Read once here at session boot — never per-action on the hot loop.
     use crate::turn_vertical_fence as fence;
-    let provenance =
-        fence::genesis_provenance_for_worker(store, session.tenant_id, worker_id).await;
-    let worker_profile = fence::resolve_worker_profile_for_session(vertical_scope, provenance);
+    let signals = fence::genesis_signals_for_worker(store, session.tenant_id, worker_id).await;
+    let worker_profile =
+        fence::resolve_worker_profile_for_session(vertical_scope, signals.provenance);
     let (registry, engine, principal) = build_dispatch_ctx(
         cwd,
         memory_ctx,
@@ -175,6 +186,7 @@ pub(super) async fn build_turn_dispatch_ctx(
         truth_boundary,
         orch_session_id,
         current_handoff_id,
+        probation: signals.probation,
     })
 }
 
@@ -373,14 +385,30 @@ async fn resolve_tool_call(
     session_grants: &mut SessionGrantState,
     call: &ToolCallRequest,
 ) -> ArgoResult<ToolCallResult> {
-    if vertical_deny.contains(&call.name) {
-        return emit_deny(session_id, audit, events, call).await;
-    }
-    if vertical_approval.contains(&call.name) && !session_grants.allows(&call.name) {
-        return emit_escalation_required(session_id, audit, events, call).await;
-    }
-    let approved_via_grant =
-        vertical_approval.contains(&call.name) && session_grants.allows(&call.name);
+    // DEC-025 #2 Genesis P3 — the gate cascade (deny ▸ probation ▸
+    // manifest-approval ▸ dispatch) is a single pure decision so the
+    // precedence is testable in isolation. Probation gates the WHOLE
+    // action vocabulary above the manifest-approval set; an explicit
+    // operator grant (`argo session approve`) lets an otherwise-held call
+    // through and is consumed (one-shot) after dispatch.
+    let approved_via_grant = match super::turn_helpers_gate::decide_gate(
+        &call.name,
+        ctx.probation,
+        vertical_deny,
+        vertical_approval,
+        session_grants,
+    ) {
+        super::turn_helpers_gate::GateDecision::Deny => {
+            return emit_deny(session_id, audit, events, call).await;
+        }
+        super::turn_helpers_gate::GateDecision::ProbationHold => {
+            return emit_probation_hold(session_id, audit, events, call).await;
+        }
+        super::turn_helpers_gate::GateDecision::EscalationRequired => {
+            return emit_escalation_required(session_id, audit, events, call).await;
+        }
+        super::turn_helpers_gate::GateDecision::Dispatch { consume_grant } => consume_grant,
+    };
     let res = dispatch_one_with_runtime(
         &ctx.registry,
         &ctx.engine,
@@ -398,67 +426,6 @@ async fn resolve_tool_call(
             .await?;
     }
     Ok(res)
-}
-
-async fn emit_deny(
-    session_id: SessionId,
-    audit: &AuditSink,
-    events: Option<&RunEventSink>,
-    call: &ToolCallRequest,
-) -> ArgoResult<ToolCallResult> {
-    let deny_payload = serde_json::json!({
-        "tool": call.name,
-        "call_id": call.id,
-        "denied_by": "vertical_manifest",
-    });
-    audit
-        .write(
-            Some(session_id),
-            AuditKind::RbacDeny,
-            deny_payload.clone(),
-            None,
-        )
-        .await?;
-    emit_event(events, "RbacDeny", deny_payload);
-    Ok(argo_tool::error_text(
-        call.id,
-        format!(
-            "tool '{}' denied by the bound vertical's manifest [tools].denied list",
-            call.name
-        ),
-        0,
-    ))
-}
-
-async fn emit_escalation_required(
-    session_id: SessionId,
-    audit: &AuditSink,
-    events: Option<&RunEventSink>,
-    call: &ToolCallRequest,
-) -> ArgoResult<ToolCallResult> {
-    let escalation_payload = serde_json::json!({
-        "tool": call.name,
-        "call_id": call.id,
-        "reason": "human_approval_required",
-        "source": "vertical_manifest",
-    });
-    audit
-        .write(
-            Some(session_id),
-            AuditKind::EscalationRequired,
-            escalation_payload.clone(),
-            None,
-        )
-        .await?;
-    emit_event(events, "EscalationRequired", escalation_payload);
-    Ok(argo_tool::error_text(
-        call.id,
-        format!(
-            "tool '{}' requires human approval (declared in the bound vertical's manifest [escalation].human_approval_required); run `argo session approve <session-id> --tool {}` (add --once for a single-dispatch grant) and re-issue the turn",
-            call.name, call.name
-        ),
-        0,
-    ))
 }
 
 /// Emit the `Halt` audit + event when the round-budget is reached.

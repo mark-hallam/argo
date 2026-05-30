@@ -61,52 +61,100 @@ pub(crate) enum GenesisProvenance {
     None,
 }
 
-/// Decide whether the session's bound worker was hired through Genesis,
-/// by reading the persisted persona's `provenance_chain` for the
-/// canonical `genesis_plan_id=` marker (the SAME marker both the
-/// first-hire seam and the SSE hire stamp). This is the single
-/// store-touching read that lets the pure resolver below fence a Genesis
-/// worker regardless of where its vertical manifest lives.
+/// Genesis P3 probation signal for a session (DEC-025 #2). Read off the
+/// SAME worker-row fetch as [`GenesisProvenance`] so the hot loop pays
+/// for one session-boot store read, not per-action I/O (the design doc's
+/// explicit requirement). While `InProbation`, EVERY emitted action is
+/// forced approval-gated (held pending) at the dispatch seam regardless
+/// of the worker's normal policy; once the stamped window passes, the
+/// teammate graduates and this resolves to `Normal`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProbationStatus {
+    /// The bound worker carries a `probation_until=` marker still in the
+    /// future — gate every action.
+    InProbation,
+    /// No worker, no marker, or the window has passed — normal policy.
+    Normal,
+}
+
+impl ProbationStatus {
+    /// `true` when the worker is still inside its probation window.
+    pub(crate) fn is_active(self) -> bool {
+        matches!(self, ProbationStatus::InProbation)
+    }
+}
+
+/// Combined Genesis signals for a session, both derived from a single
+/// worker-row read. Returned by [`genesis_signals_for_worker`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GenesisSignals {
+    pub(crate) provenance: GenesisProvenance,
+    pub(crate) probation: ProbationStatus,
+}
+
+/// Read the worker row ONCE and derive both the Genesis capability-fence
+/// provenance signal AND the Genesis P3 probation signal. The fence and
+/// the probation gate both need the same persisted `provenance_chain`, so
+/// folding them into one read keeps the hot loop's session-boot cost at a
+/// single store fetch (the design doc's "load once at session boot, not
+/// per-action I/O" requirement).
 ///
-/// - No `worker_id` (ad-hoc session) → `None` (no fence).
-/// - Worker row carries a `genesis_plan_id=` provenance entry →
-///   `Genesis` (fence, fail-closed).
-/// - Worker row loads but carries no marker → `None` (hand-authored
-///   catalog / pre-Genesis worker; historical `owner` binding).
+/// Failure / missing-row semantics:
+/// - No `worker_id` (ad-hoc session) → `{ None, Normal }` (no fence, no
+///   probation).
+/// - Worker row carries `genesis_plan_id=` → `provenance = Genesis`
+///   (fence, fail-closed).
+/// - Worker row carries `probation_until=` still in the future →
+///   `probation = InProbation` (gate every action).
 /// - Worker row can't be loaded (transient store error / missing row) →
-///   `None`, with a warning. We can't prove it's Genesis from a failed
-///   read, and bricking the turn is worse than the historical binding;
-///   the manifest-resolution fail-closed path still protects any worker
-///   we DO classify as Genesis.
-pub(crate) async fn genesis_provenance_for_worker(
+///   `{ None, Normal }` with a warning. We can't prove probation from a
+///   failed read; bricking the turn is worse than the historical
+///   binding, and the fence's manifest-resolution fail-closed path still
+///   protects any worker we DO classify as Genesis. Note this is a
+///   deliberate fail-OPEN on probation for an unreadable row — flagged
+///   for the conductor's adversarial pass; a future tightening could
+///   fail closed here once the read is proven non-flaky under load.
+pub(crate) async fn genesis_signals_for_worker(
     store: &Arc<SessionStore>,
     tenant_id: TenantId,
     worker_id: Option<argo_store::WorkerId>,
-) -> GenesisProvenance {
+) -> GenesisSignals {
+    let normal = GenesisSignals {
+        provenance: GenesisProvenance::None,
+        probation: ProbationStatus::Normal,
+    };
     let Some(worker_id) = worker_id else {
-        return GenesisProvenance::None;
+        return normal;
     };
     let identities = argo_identity::IdentityStore::new(store);
     match identities.get_worker(tenant_id, worker_id).await {
         Ok(Some(worker)) => {
-            if argo_identity::genesis_plan_id_from_provenance(&worker.persona.provenance_chain)
-                .is_some()
-            {
+            let chain = &worker.persona.provenance_chain;
+            let provenance = if argo_identity::genesis_plan_id_from_provenance(chain).is_some() {
                 GenesisProvenance::Genesis
             } else {
                 GenesisProvenance::None
+            };
+            let probation = if argo_identity::is_in_probation(chain, chrono::Utc::now()) {
+                ProbationStatus::InProbation
+            } else {
+                ProbationStatus::Normal
+            };
+            GenesisSignals {
+                provenance,
+                probation,
             }
         }
-        Ok(None) => GenesisProvenance::None,
+        Ok(None) => normal,
         Err(e) => {
             tracing::warn!(
                 target: "agent_runner::fence",
                 error = %e,
                 worker_id = %worker_id.0,
-                "could not read worker provenance for capability fence; \
-                 falling back to historical binding"
+                "could not read worker provenance for capability fence + probation; \
+                 falling back to historical binding (no fence, no probation)"
             );
-            GenesisProvenance::None
+            normal
         }
     }
 }
@@ -240,6 +288,10 @@ pub(crate) fn derive_profile_from_manifest(
         .unwrap_or_default();
     WorkerCapabilityProfile::derive(declared_actions, allowed, denied, integration_servers)
 }
+
+#[cfg(test)]
+#[path = "turn_vertical_fence_probation_tests.rs"]
+mod probation_tests;
 
 #[cfg(test)]
 mod tests {

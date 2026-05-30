@@ -320,3 +320,78 @@ fn workflow_types_are_publicly_constructible() {
         steps: vec![],
     };
 }
+
+fn tool_call_step(tool: &str) -> WorkflowStep {
+    WorkflowStep {
+        name: "act".into(),
+        kind: "tool_call".into(),
+        depends_on: vec![],
+        skill: None,
+        prompt: None,
+        tool: Some(tool.into()),
+        args: None,
+    }
+}
+
+#[tokio::test]
+async fn workflow_step_held_when_worker_in_probation() {
+    // DEC-025 #2 Genesis P3 — the WORKFLOW-DRIVEN dispatch seam. A
+    // probationary worker's `tool_call` step is held pending EVEN when
+    // the tool is in NEITHER the deny set NOR the approval set — probation
+    // gates the whole vocabulary here too, so the workflow path can't be
+    // the bypass the agent-runner path closes. (The tool name need not
+    // even exist; probation fires before any registry dispatch.)
+    let step = tool_call_step("anything_at_all");
+    let dir = std::env::current_dir().unwrap();
+    let registry = ToolRegistry::new();
+    let engine = CapabilityEngine::with_defaults();
+    let principal = local_test_principal();
+    let ctx = WorkflowAuditCtx::for_test(true).await;
+    let outcome = run_one_step(
+        &step,
+        "wf",
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &empty_set(),
+        Some(&ctx),
+    )
+    .await;
+    assert_eq!(outcome.status, "probation_hold");
+    assert!(
+        outcome.message.contains("probation"),
+        "got: {}",
+        outcome.message
+    );
+}
+
+#[tokio::test]
+async fn workflow_step_not_held_after_probation_clears() {
+    // The SAME un-gated tool on a NON-probation session is NOT held by
+    // the probation gate — it falls through to normal dispatch (the
+    // registry then reports the unknown tool, i.e. NOT a probation hold).
+    let step = tool_call_step("clarify");
+    let dir = std::env::current_dir().unwrap();
+    let registry = ToolRegistry::new();
+    let engine = CapabilityEngine::with_defaults();
+    let principal = local_test_principal();
+    let ctx = WorkflowAuditCtx::for_test(false).await;
+    let outcome = run_one_step(
+        &step,
+        "wf",
+        &registry,
+        &engine,
+        &principal,
+        &dir,
+        &empty_set(),
+        &empty_set(),
+        Some(&ctx),
+    )
+    .await;
+    assert_ne!(
+        outcome.status, "probation_hold",
+        "a graduated worker must not be probation-held"
+    );
+}

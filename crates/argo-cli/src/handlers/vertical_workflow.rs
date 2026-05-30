@@ -25,6 +25,8 @@ use std::path::Path;
 use std::time::Instant;
 
 use step::{open_audit_ctx, run_one_step};
+#[cfg(test)]
+use step::WorkflowAuditCtx;
 
 pub async fn run(
     vertical_id: &str,
