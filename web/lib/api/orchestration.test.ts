@@ -2,11 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EMPTY_ORCHESTRATION_FILTERS,
   SAMPLE_ORCHESTRATION_RUNS,
+  SAMPLE_TEAM_RUNS,
   applyOrchestrationFilters,
   cancelRun,
   fetchOrchestrationRuns,
+  groupTeamRuns,
+  isTeamRun,
   resetRetry,
   summarizeRuns,
+  teamRunLabel,
+  type OrchestrationRun,
 } from "./orchestration";
 import { ApiError } from "./types";
 
@@ -78,11 +83,15 @@ describe("lib/api/orchestration", () => {
     expect(result.runs).toEqual(runs);
   });
 
-  it("falls back to mock queue on 404 in dev", async () => {
+  it("falls back to mock queue (team runs + flat sample) on 404 in dev", async () => {
     installMock(() => makeResponse(404, { error: { message: "missing" } }));
     const result = await fetchOrchestrationRuns();
     expect(result.source).toBe("mock-offline");
-    expect(result.runs).toBe(SAMPLE_ORCHESTRATION_RUNS);
+    // Mock queue leads with the team runs so the tree view has data,
+    // then the flat sample queue.
+    expect(result.runs.slice(0, SAMPLE_TEAM_RUNS.length)).toEqual(SAMPLE_TEAM_RUNS);
+    expect(result.runs).toEqual(expect.arrayContaining(SAMPLE_ORCHESTRATION_RUNS));
+    expect(result.runs.length).toBe(SAMPLE_TEAM_RUNS.length + SAMPLE_ORCHESTRATION_RUNS.length);
   });
 
   it("propagates 404 in strict production", async () => {
@@ -109,5 +118,80 @@ describe("lib/api/orchestration", () => {
   it("keeps empty filters from excluding runs", () => {
     expect(applyOrchestrationFilters(SAMPLE_ORCHESTRATION_RUNS, EMPTY_ORCHESTRATION_FILTERS))
       .toHaveLength(SAMPLE_ORCHESTRATION_RUNS.length);
+  });
+});
+
+describe("lib/api/orchestration — team-run grouping", () => {
+  function leadRow(id: string, title: string): OrchestrationRun {
+    return { ...SAMPLE_TEAM_RUNS[0], id, skill: `[team] lead synthesis — ${title}` };
+  }
+  function stepRow(id: string, step: string, task: string): OrchestrationRun {
+    return { ...SAMPLE_TEAM_RUNS[1], id, skill: `[team] ${step} → ${task}` };
+  }
+
+  it("detects team rows by the [team] prefix and leaves the queue flat otherwise", () => {
+    expect(isTeamRun(leadRow("l", "Roll-up"))).toBe(true);
+    expect(isTeamRun(stepRow("s", "survey", "Look around"))).toBe(true);
+    expect(isTeamRun(SAMPLE_ORCHESTRATION_RUNS[0])).toBe(false);
+  });
+
+  it("parses a clean human label from lead and step titles", () => {
+    expect(teamRunLabel(leadRow("l", "Q2 status roll-up"))).toBe("Q2 status roll-up");
+    expect(teamRunLabel(stepRow("s", "revenue", "Compile revenue numbers"))).toBe(
+      "Compile revenue numbers",
+    );
+  });
+
+  it("groups a single-lead team run as a lead with its child steps", () => {
+    const lead = leadRow("lead-1", "Competitor analysis");
+    const runs = [lead, stepRow("s1", "survey", "Survey rivals"), stepRow("s2", "pricing", "Pull pricing")];
+    const { teams, flat } = groupTeamRuns(runs);
+    expect(flat).toHaveLength(0);
+    expect(teams).toHaveLength(1);
+    expect(teams[0].lead?.id).toBe("lead-1");
+    expect(teams[0].title).toBe("Competitor analysis");
+    expect(teams[0].children.map((c) => c.id)).toEqual(["s1", "s2"]);
+  });
+
+  it("separates team rows from the ordinary flat queue", () => {
+    const lead = leadRow("lead-1", "Analysis");
+    const { teams, flat } = groupTeamRuns([SAMPLE_ORCHESTRATION_RUNS[0], lead, stepRow("s1", "a", "b")]);
+    expect(flat.map((r) => r.id)).toEqual([SAMPLE_ORCHESTRATION_RUNS[0].id]);
+    expect(teams[0].children).toHaveLength(1);
+  });
+
+  it("returns no teams when there are no [team] rows", () => {
+    const { teams, flat } = groupTeamRuns(SAMPLE_ORCHESTRATION_RUNS.slice(0, 3));
+    expect(teams).toHaveLength(0);
+    expect(flat).toHaveLength(3);
+  });
+
+  it("falls back to a shared 'Delegated steps' node when several leads cannot be attributed", () => {
+    const runs = [
+      leadRow("lead-1", "Run A"),
+      leadRow("lead-2", "Run B"),
+      stepRow("s1", "survey", "Survey"),
+    ];
+    const { teams } = groupTeamRuns(runs);
+    // Two lead nodes (no attributable children) + one shared step node.
+    expect(teams).toHaveLength(3);
+    expect(teams.filter((t) => t.lead !== null)).toHaveLength(2);
+    const shared = teams.find((t) => t.lead === null);
+    expect(shared?.title).toBe("Delegated steps");
+    expect(shared?.children.map((c) => c.id)).toEqual(["s1"]);
+  });
+
+  it("groups orphan step rows (no lead) under an unattributed node", () => {
+    const { teams } = groupTeamRuns([stepRow("s1", "a", "Task A"), stepRow("s2", "b", "Task B")]);
+    expect(teams).toHaveLength(1);
+    expect(teams[0].lead).toBeNull();
+    expect(teams[0].children).toHaveLength(2);
+  });
+
+  it("groups the shipped sample team runs into trees", () => {
+    const { teams } = groupTeamRuns(SAMPLE_TEAM_RUNS);
+    // Two leads in the sample → two lead nodes + shared step node.
+    expect(teams.filter((t) => t.lead !== null)).toHaveLength(2);
+    expect(teams.some((t) => t.title === "Competitor landscape analysis")).toBe(true);
   });
 });

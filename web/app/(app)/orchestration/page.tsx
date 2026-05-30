@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { Loader2 } from "lucide-react";
 import { QueueTable } from "@/components/skycot/orch/QueueTable";
 import { SlaCard } from "@/components/skycot/orch/SlaCard";
+import { TeamRunTree } from "@/components/skycot/orch/TeamRunTree";
 import { OrchestrationEmptyState } from "@/components/skycot/workflows/WorkflowEdgeStates";
 import { useToast } from "@/lib/ui/use-toast";
 import {
@@ -13,6 +14,7 @@ import {
   cancelRun,
   fetchOrchestrationRuns,
   forceEscalate,
+  groupTeamRuns,
   resetRetry,
   summarizeRuns,
   type FetchOrchestrationResult,
@@ -44,6 +46,7 @@ export default function OrchestrationPage() {
   const runs = data?.runs ?? [];
   const filtered = useMemo(() => applyOrchestrationFilters(runs, filters), [runs, filters]);
   const summary = useMemo(() => summarizeRuns(filtered), [filtered]);
+  const { teams } = useMemo(() => groupTeamRuns(filtered), [filtered]);
   const workers = useMemo(() => [...new Set(runs.map((run) => run.worker))].sort(), [runs]);
   const skills = useMemo(() => [...new Set(runs.map((run) => run.skill))].sort(), [runs]);
 
@@ -86,6 +89,7 @@ export default function OrchestrationPage() {
         {data && runs.length > 0 ? (
           <>
             <SlaCard summary={summary} />
+            {teams.length > 0 ? <TeamRunTree teams={teams} /> : null}
             <div className="overflow-x-auto">
               <QueueTable
                 runs={filtered}
