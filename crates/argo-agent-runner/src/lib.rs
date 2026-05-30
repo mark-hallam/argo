@@ -39,6 +39,8 @@
 
 mod dispatch;
 #[cfg(test)]
+mod dispatch_fence_tests;
+#[cfg(test)]
 mod dispatch_tests;
 mod helpers;
 /// Runtime instrumentation hooks (Skill IR live-trace, etc.).
@@ -55,6 +57,7 @@ pub mod turn_budget;
 /// without needing a live provider manifest.
 pub mod turn_routing;
 mod turn_vertical;
+mod turn_vertical_fence;
 mod turn_vertical_grants;
 
 pub use helpers::{

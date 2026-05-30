@@ -127,12 +127,21 @@ pub(super) async fn build_turn_dispatch_ctx(
         worker_id,
     )
     .await?;
+    // DEC-025 Genesis capability fence: when the session is bound to a
+    // Genesis-generated vertical, derive a deny-by-default least-privilege
+    // profile from that teammate's declared spec and bind the principal
+    // to it instead of `owner` — so a Genesis-hired teammate does NOT
+    // inherit the owner's `*` keys. `None` (ad-hoc / catalog vertical)
+    // keeps the historical `owner` binding.
+    let worker_profile =
+        crate::turn_vertical_fence::resolve_worker_profile_for_session(vertical_scope);
     let (registry, engine, principal) = build_dispatch_ctx(
         cwd,
         memory_ctx,
         memory_namespace,
         Arc::clone(&orchestrator_ctx),
         Arc::clone(store),
+        worker_profile.as_ref(),
     )?;
     let background_processes = process_registry_for(session.tenant_id, session_id);
     // #721: hide manifest-denied tools from the model's tool list.

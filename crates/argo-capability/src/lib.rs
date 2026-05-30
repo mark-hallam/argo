@@ -20,11 +20,18 @@ mod audit_emit;
 pub mod refusal_registry;
 pub mod truth_boundary;
 pub mod truth_boundary_policies;
+/// Deny-by-default, worker-bound least-privilege capability profile
+/// (DEC-025 Genesis capability fence).
+pub mod worker_profile;
 
 #[cfg(test)]
 mod truth_boundary_tests;
 
 pub use refusal_registry::RefusalTemplateRegistry;
+pub use worker_profile::{
+    is_irreversible_action, WorkerCapabilityProfile, IRREVERSIBLE_ACTION_VERBS,
+    MINIMAL_TEAMMATE_TOOLS,
+};
 pub use truth_boundary::{
     evaluate_claim, ChannelKind, ChannelScope, ClaimCandidate, ClaimClass, ClaimDisposition,
     ClaimEvaluation, ClaimProvenance, EscalationKind, EscalationTarget, ProvenanceSource,

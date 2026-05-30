@@ -64,21 +64,44 @@ impl McpConnectionPool {
     }
 }
 
-/// Build a tool registry + capability engine that grants the local
-/// OS user the `owner` role. Runtime-backed tools are registered with
-/// the stores from the active turn: `memory` when a workspace exists,
-/// `delegate_task` through the orchestrator store, and `session_search`
-/// through the session store. `memory_namespace`, when `Some`, binds
-/// the `memory` tool to a worker [`MemoryNs`] so the `query_scored` /
-/// `*_team` actions reach the per-worker namespace store; sessions
-/// without a `worker_id` pass `None` and the tool falls back to the
-/// workspace-global path for legacy `list`/`read`/`write`.
+/// Role name bound to a Genesis-hired teammate carrying ONLY its
+/// derived least-privilege capability set (DEC-025 capability fence).
+/// Distinct from `owner` so the binding is auditable + so the broad
+/// owner grants (`ToolDispatch "*"`, `NetEgress "**"`, `SecretRead "*"`)
+/// are never in this principal's effective set.
+const GENESIS_WORKER_ROLE: &str = "genesis-worker";
+
+/// Build a tool registry + capability engine for the active turn.
+///
+/// Runtime-backed tools are registered with the stores from the active
+/// turn: `memory` when a workspace exists, `delegate_task` through the
+/// orchestrator store, and `session_search` through the session store.
+/// `memory_namespace`, when `Some`, binds the `memory` tool to a worker
+/// [`MemoryNs`] so the `query_scored` / `*_team` actions reach the
+/// per-worker namespace store; sessions without a `worker_id` pass
+/// `None` and the tool falls back to the workspace-global path for
+/// legacy `list`/`read`/`write`.
+///
+/// ## Capability binding (DEC-025 Genesis fence)
+///
+/// - `worker_profile = None` → the principal is bound to the all-access
+///   `owner` role (the historical default for ad-hoc + operator-trusted
+///   catalog-vertical sessions), plus the `BackgroundProcess` spawn
+///   grant.
+/// - `worker_profile = Some(profile)` → the principal is bound to a
+///   **least-privilege** [`GENESIS_WORKER_ROLE`] carrying ONLY the
+///   profile's derived `ToolDispatch` grants. This stops a Genesis-hired
+///   teammate inheriting the owner's `*` keys: anything not in the
+///   profile is denied at the existing `engine.check` dispatch seam,
+///   with **zero new enforcement code**. The broad `BackgroundProcess`
+///   spawn grant is intentionally NOT extended to a fenced worker.
 pub(crate) fn build_dispatch_ctx(
     cwd: &Path,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
     memory_namespace: Option<MemoryNs>,
     orchestrator: Arc<OrchestratorStore>,
     session_store: Arc<SessionStore>,
+    worker_profile: Option<&argo_capability::WorkerCapabilityProfile>,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
     let tools = builtin_tools_with_runtime(
@@ -98,13 +121,29 @@ pub(crate) fn build_dispatch_ctx(
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "argo".into());
     let principal = Principal::Local { os_user };
-    engine.bind(principal.clone(), "owner".into())?;
-    engine.grant_dynamic(
-        principal.clone(),
-        Capability::Spawn {
-            spawn_kind: SpawnKind::BackgroundProcess,
-        },
-    );
+    match worker_profile {
+        Some(profile) => {
+            // Genesis-hired teammate: bind a least-privilege role built
+            // from the worker's derived profile instead of `owner`.
+            // Deny-by-default — anything not in the profile is refused
+            // at the dispatch seam.
+            engine.add_role(argo_types::CapabilityRole {
+                name: GENESIS_WORKER_ROLE.to_string(),
+                inherits_from: None,
+                capabilities: profile.to_capability_set(),
+            })?;
+            engine.bind(principal.clone(), GENESIS_WORKER_ROLE.to_string())?;
+        }
+        None => {
+            engine.bind(principal.clone(), "owner".into())?;
+            engine.grant_dynamic(
+                principal.clone(),
+                Capability::Spawn {
+                    spawn_kind: SpawnKind::BackgroundProcess,
+                },
+            );
+        }
+    }
     Ok((reg, engine, principal))
 }
 
