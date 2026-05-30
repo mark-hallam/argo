@@ -48,9 +48,23 @@ pub(super) async fn create_response(
         .map(str::to_owned);
 
     let orch = Arc::new(OrchestratorStore::new(Arc::clone(store)));
-    let executor = Arc::new(PersistingExecutor::new(orch));
-    let supervisor = Supervisor::new(executor);
-    match supervisor.run_team(&plan, tenant, handoff_id).await {
+    let persist = Arc::new(PersistingExecutor::new(orch));
+    // DEC-023 P3: when `ARGO_ORCH_LLM_EXECUTOR=1` (+ a resolvable
+    // provider manifest) each delegated step's `detail` is REAL model
+    // output via `RuntimeStepExecutor`; default OFF keeps the row writes
+    // deterministic. Both executors persist the SAME tenant-scoped
+    // `[team:<id>]` row tree — only the `detail` text differs — so
+    // topology + audit stay identical across the flag.
+    let run = if super::routes_orchestration_team_llm::llm_executor_enabled() {
+        let provider = super::routes_orchestration_team_llm::resolve_provider_id();
+        let executor = Arc::new(
+            super::routes_orchestration_team_llm::RuntimeStepExecutor::new(persist, provider),
+        );
+        Supervisor::new(executor).run_team(&plan, tenant, handoff_id).await
+    } else {
+        Supervisor::new(persist).run_team(&plan, tenant, handoff_id).await
+    };
+    match run {
         Ok(result) => ("202 Accepted", render_result(&plan, &result)),
         Err(e) => server(&format!("team run failed: {e}")),
     }

@@ -188,6 +188,70 @@ async fn all_rows_in_a_run_share_one_team_id_prefix() {
     }
 }
 
+/// The model-backed executor's reusable persistence helpers
+/// ([`PersistingExecutor::record_step_run`] /
+/// [`record_synthesis_run_with_summary`]) write the SAME row shape the
+/// trait's `execute` / `synthesize` do, and an appended synthesis
+/// headline preserves the two markers the `/orchestration` SPA parses:
+/// the `[team:<id>] ` prefix and the `lead synthesis` body marker.
+#[tokio::test]
+async fn reusable_persistence_helpers_match_row_shape_and_preserve_markers() {
+    let store = store().await;
+    let tenant = TenantId::new();
+    let exec = PersistingExecutor::new(Arc::clone(&store));
+
+    let team_run_id = uuid::Uuid::now_v7().to_string();
+    let p = plan();
+
+    // record_step_run writes a tenant-scoped `[team:<id>] <step> → <task>` row.
+    let ctx = crate::team_run::StepContext {
+        tenant_id: tenant,
+        lead: p.lead,
+        to: p.steps[0].to,
+        step_id: StepId::new("a"),
+        task: "gather".into(),
+        current_handoff_id: Some("h-9".into()),
+        team_run_id: team_run_id.clone(),
+    };
+    let step_run_id = exec.record_step_run(&ctx).await.expect("step row");
+    let step_title = title_of(&store, tenant, &step_run_id).await;
+    assert_eq!(step_title, format!("[team:{team_run_id}] a → gather"));
+
+    // The deterministic detail is stable + references the handoff chain.
+    let detail = PersistingExecutor::deterministic_detail(&ctx);
+    assert!(detail.contains("delegated step 'a'"));
+    assert!(detail.contains("h-9"));
+
+    // record_synthesis_run_with_summary(None) == record_synthesis_run.
+    let bare = exec
+        .record_synthesis_run_with_summary(&p, tenant, &team_run_id, None)
+        .await
+        .expect("bare synthesis");
+    let bare_title = title_of(&store, tenant, &bare).await;
+    assert_eq!(
+        bare_title,
+        format!("[team:{team_run_id}] lead synthesis — {}", p.title)
+    );
+
+    // With a summary, the headline is appended AFTER both markers.
+    let with = exec
+        .record_synthesis_run_with_summary(
+            &p,
+            tenant,
+            &team_run_id,
+            Some("pricing gathered; competitors mapped"),
+        )
+        .await
+        .expect("summarised synthesis");
+    let with_title = title_of(&store, tenant, &with).await;
+    assert!(with_title.starts_with(&format!("[team:{team_run_id}] ")), "prefix preserved: {with_title}");
+    assert!(with_title.contains("lead synthesis"), "body marker preserved: {with_title}");
+    assert!(
+        with_title.ends_with("· pricing gathered; competitors mapped"),
+        "headline appended: {with_title}"
+    );
+}
+
 /// Two separate `run_team` calls mint two DISTINCT team ids — the
 /// property that lets the dashboard render concurrent runs as two
 /// separate trees rather than one merged "Delegated steps" node.

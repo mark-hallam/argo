@@ -150,6 +150,7 @@ mod routes_msgs_pick;
 mod routes_openmetrics;
 mod routes_orchestration;
 mod routes_orchestration_team;
+mod routes_orchestration_team_llm;
 mod routes_orchestrator;
 mod routes_orchestrator_handoffs;
 mod routes_orchestrator_sessions;
