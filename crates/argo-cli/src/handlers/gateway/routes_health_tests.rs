@@ -52,6 +52,18 @@ async fn health_ok_all_checks_pass() {
     );
     let bc = v["build_commit"].as_str().expect("build_commit missing");
     assert!(!bc.is_empty(), "build_commit empty: {body}");
+    // The deploy-freshness scripts (scripts/check-gateway-freshness.sh +
+    // scripts/restart-live-gateway.sh) parse this field and compare it to
+    // `git rev-parse --short=7 HEAD`, so the shape is load-bearing: it
+    // must be a 7-char lowercase-hex short SHA in a real git build, or
+    // exactly "unknown" when built from a tarball without `.git/` (the
+    // build.rs fallback). Anything else would silently break SHA-drift
+    // detection and let a code-only change ship stale.
+    let is_short_sha = bc.len() == 7 && bc.chars().all(|c| c.is_ascii_hexdigit() && !c.is_uppercase());
+    assert!(
+        is_short_sha || bc == "unknown",
+        "build_commit must be a 7-char hex SHA or \"unknown\", got {bc:?}: {body}"
+    );
 }
 
 #[tokio::test]

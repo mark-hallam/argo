@@ -26,20 +26,28 @@
 # Schema-version drift is the canonical signal — migrations bump a
 # monotonic integer baked into the running process. Commit drift is the
 # secondary signal: the gateway can be schema-fresh but still serving
-# pre-merge route handlers (audit 2026-05-26: live binary was 5.5h
-# behind PR #2400 wiring Genesis and PR #9ea693db1 wiring the
-# workers-collection alias — schema_version unchanged, but the demo
-# hit pre-merge code paths). The commit check escalates to exit 1 only
-# when N > COMMIT_THRESHOLD (default 50) OR any of the missed commits
-# touched `crates/argo-cli/src/handlers/gateway/`, because most commits
-# don't change gateway code and shouldn't nag the operator.
+# pre-merge code (audit 2026-05-26: live binary was 5.5h behind PR #2400
+# wiring Genesis and PR #9ea693db1 wiring the workers-collection alias —
+# schema_version unchanged, but the demo hit pre-merge code paths).
+#
+# As of 2026-05-30 the commit check escalates to exit 1 on ANY commit
+# drift > 0, because the single-binary gateway compiles in
+# orchestrator / runtime / skill code that changes without bumping
+# schema_version OR touching a gateway-handler file. Two such code-only
+# changes (skill-IR fix 7c49d425f, orchestrator team-run 13ce62800) were
+# green + merged but never went live until a manual --force. For the
+# autonomous "go live + verify" step (DEC-023) to be reliable, a
+# schema-fresh-but-code-stale binary must report STALE. The
+# COMMIT_THRESHOLD (default 50) and the gateway-handler prefix are now
+# retained only to colour the human STATUS line (single handler change
+# vs. N commits of general drift); they no longer gate the exit code.
 #
 # Exit codes (documented; conductor uses these as a stable contract):
-#   0 — FRESH. Schema drift <= 2 AND no escalating commit drift.
-#       Operator does not need to act.
+#   0 — FRESH. Schema drift <= 2 AND commit drift == 0 (live binary is
+#       built from the origin/main tip). Operator does not need to act.
 #   1 — STALE. Schema drift > 2, /health returned HTTP 503 with a
-#       schema_version body, OR commit drift exceeds the escalation
-#       rule above. Suggest `make restart-live-gateway`.
+#       schema_version body, OR any commit drift > 0. Suggest
+#       `make restart-live-gateway`.
 #   2 — UNREACHABLE. /health did not respond. Gateway likely not
 #       running. Distinct from STALE so the conductor doesn't keep
 #       nagging when the gateway is intentionally down.
@@ -237,23 +245,39 @@ GATEWAY_CODE_CHANGES="${GATEWAY_CODE_CHANGES:-0}"
 printf 'gateway_commit=%s commits_behind=%s gateway_code_changes=%s\n' \
     "$GATEWAY_COMMIT" "$COMMITS_BEHIND" "$GATEWAY_CODE_CHANGES"
 
-if (( COMMITS_BEHIND > COMMIT_THRESHOLD )) || (( GATEWAY_CODE_CHANGES > 0 )); then
-    RECENT_SUBJECTS="$(
-        git -C "$REPO_ROOT" log --oneline --no-decorate \
-            "$GATEWAY_COMMIT..origin/main" 2>/dev/null \
-            | head -3 \
-            | sed 's/^/    /'
-    )"
-    # shellcheck disable=SC2016
-    printf 'STATUS: STALE-COMMITS  (gateway %s is %s commits behind origin/main %s; %s touch %s; restart: `make restart-live-gateway`)\n' \
-        "$GATEWAY_COMMIT" "$COMMITS_BEHIND" "$ORIGIN_MAIN_SHA" \
-        "$GATEWAY_CODE_CHANGES" "$GATEWAY_CODE_DIR"
-    if [[ -n "$RECENT_SUBJECTS" ]]; then
-        printf 'Recent commits:\n%s\n' "$RECENT_SUBJECTS"
-    fi
-    exit 1
-fi
+# Any commit drift > 0 means the live binary was NOT built from the
+# current origin/main tip — the single-binary gateway compiles in
+# orchestrator / runtime / skill code that can change without bumping
+# schema_version OR touching a gateway-handler file (validated
+# 2026-05-30: the skill-IR fix 7c49d425f and the orchestrator team-run
+# change 13ce62800 were both green + merged but never live until a
+# manual --force, because schema_version never moved). For the
+# autonomous "go live + verify" step (DEC-023) to be reliable, ANY
+# code drift escalates to STALE. The COMMIT_THRESHOLD + gateway-handler
+# breakdown below are retained purely as message detail so the operator
+# sees WHY (a single handler change, or N commits of general drift).
+HIGH_DRIFT=0
+(( COMMITS_BEHIND > COMMIT_THRESHOLD )) && HIGH_DRIFT=1
+GATEWAY_DRIFT=0
+(( GATEWAY_CODE_CHANGES > 0 )) && GATEWAY_DRIFT=1
 
-printf 'STATUS: FRESH  (schema drift <= %s; %s commits behind but 0 touch %s)\n' \
-    "$DRIFT_THRESHOLD" "$COMMITS_BEHIND" "$GATEWAY_CODE_DIR"
-exit 0
+RECENT_SUBJECTS="$(
+    git -C "$REPO_ROOT" log --oneline --no-decorate \
+        "$GATEWAY_COMMIT..origin/main" 2>/dev/null \
+        | head -3 \
+        | sed 's/^/    /'
+)"
+if (( GATEWAY_DRIFT == 1 )); then
+    DETAIL="$GATEWAY_CODE_CHANGES commit(s) touch ${GATEWAY_CODE_DIR}"
+elif (( HIGH_DRIFT == 1 )); then
+    DETAIL="$COMMITS_BEHIND commits behind (> threshold $COMMIT_THRESHOLD)"
+else
+    DETAIL="$COMMITS_BEHIND commit(s) of code drift (no handler/migration change, but the binary is not built from this tip)"
+fi
+# shellcheck disable=SC2016
+printf 'STATUS: STALE-COMMITS  (gateway %s != origin/main %s; %s; restart: `make restart-live-gateway`)\n' \
+    "$GATEWAY_COMMIT" "$ORIGIN_MAIN_SHA" "$DETAIL"
+if [[ -n "$RECENT_SUBJECTS" ]]; then
+    printf 'Recent commits:\n%s\n' "$RECENT_SUBJECTS"
+fi
+exit 1

@@ -532,6 +532,42 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   -- -D warnings` clean (the `--tests` profile surfaces one PRE-EXISTING unrelated
   lint, `seed_reeval_row`/8-args in untouched `routes_evals_tests.rs` — not mine).
   FEATURE_MATRIX §3 skill-IR row updated.
+- 2026-05-30 — **Deploy CODE-drift detection DONE — closes the code-only go-live
+  gap.** Root cause of the validated 2026-05-30 problem (the skill-IR fix
+  `7c49d425f` + orchestrator team-run `13ce62800` were green + merged but never
+  went live until a manual `--force`): both deploy scripts decided "rebuild?" on
+  DB `schema_version` alone, so a code-only change (no migration) left the OLD
+  binary running. The SHA-embed half was already shipped (#2605: `build.rs` →
+  `build_info::GIT_SHA`, `/health` `build_commit` field, freshness commit-drift);
+  this change wires the SHA signal into the two deploy *decisions* so it actually
+  triggers: (1) `scripts/restart-live-gateway.sh` step 2 now no-ops ONLY when
+  schema matches AND live `build_commit` == `git rev-parse --short=7 HEAD` — a SHA
+  mismatch (or schema drift, or `--force`) takes the rebuild+restart path;
+  best-effort fallback to schema-only when `build_commit` is `"unknown"`
+  (tarball/pre-field binary) or HEAD is unresolvable. (2)
+  `scripts/check-gateway-freshness.sh` now escalates to STALE on ANY commit drift
+  > 0 (was: only >50 commits OR a gateway-handler file change — which let
+  orchestrator/runtime-only changes read FRESH); the threshold + handler prefix
+  now only colour the human STATUS line. No new dependency, no new route, no new
+  field — reuses the canonical `build_commit`. Additive; `--force` + schema paths
+  intact. Verify (real-disk `~/.cache/wf-deployharden`): `cargo build -p argo-cli
+  --bin argo` OK (build.rs embedded `f9ac02a` == HEAD short-7, proven via `argo
+  --version`); `cargo test -p argo-cli --bin argo routes_health` 6/6 PASS (incl. a
+  strengthened `build_commit` 7-hex-or-"unknown" shape assertion the scripts
+  depend on); `cargo clippy -p argo-cli --bins -- -D warnings` clean; `bash -n`
+  both scripts OK; freshness-script simulated CASE 1 (schema-fresh + SHA-stale →
+  STALE/exit1), CASE 2 (all fresh → FRESH/exit0), CASE 3 (1 commit behind, 0
+  handler files, 0 schema drift → STALE/exit1, the new catch); restart-script
+  step-2 decision traced across all 7 branches (no-op / SHA-drift-rebuild /
+  schema-drift-rebuild / --force / unknown-fallback / no-git-fallback /
+  no-gateway). Live confirmation: the running :7400 gateway reports
+  `build_commit:0cd7c85` while HEAD is `f9ac02a` — it IS serving stale code with a
+  fresh schema right now, the exact bug, and the fixed script would catch it.
+  Dev-deploy tooling, not a product capability — no FEATURE_MATRIX row applies
+  (it tracks shipped product capabilities + routes; this hardens the build/deploy
+  harness, which the matrix doesn't enumerate). NB the conductor still owns the
+  end-to-end restart-against-:7400 check (not run here to avoid disturbing the
+  live demo gateway).
 
 ## Sprint-2 follow-ups (tracked 2026-05-30 — these were floating chips; now in the queue)
 - [ ] **Landing page — 4 verified differentiators** — BLOCKED on operator design pick (optometrist method: generate 3-5 wild mockups → operator chooses a direction → implement on web/app/landing/page.tsx). Real proof to pair per pillar; do NOT auto-edit the live page first. (chip from the first overnight session)

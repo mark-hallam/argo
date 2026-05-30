@@ -7,10 +7,16 @@
 #   [0/8] First-run bootstrap (if needed): generate SKYCOT_DB_KEY_BASE64,
 #         prompt for ANTHROPIC_API_KEY, write $ARGO_HOME/env.local with
 #         chmod 600. Then source env.local if it exists.
-#   [1/8] Capture old PID + pre-restart schema_version (or "stopped").
+#   [1/8] Capture old PID + pre-restart schema_version + build_commit
+#         (the embedded git SHA), or "stopped".
 #   [2/8] Compare live schema_version against EXPECTED_SCHEMA_VERSION
-#         (read from crates/argo-store/src/lib.rs). If they match and
-#         a gateway is running, no-op + report (overridden by --force).
+#         (read from crates/argo-store/src/lib.rs) AND live build_commit
+#         against `git rev-parse --short=7 HEAD`. No-op only when a
+#         gateway is running and BOTH match — so a code-only change (no
+#         migration, schema unchanged) still triggers a rebuild+restart.
+#         Overridden by --force. SHA comparison is best-effort: an
+#         "unknown" build_commit or unresolvable HEAD falls back to the
+#         schema-only check.
 #   [3/8] 5s "may briefly interrupt N active integration tests" prompt
 #         (skipped with --no-prompt).
 #   [4/8] SIGTERM old PID, wait up to 10s, escalate to SIGKILL.
@@ -219,6 +225,8 @@ if [[ -z "$OLD_PID" ]]; then
     fi
 fi
 
+OLD_SHA="unknown"
+
 if [[ -n "$OLD_PID" ]]; then
     log "      found gateway pid=$OLD_PID listening on $HOST:$PORT"
     if RESP=$(curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null); then
@@ -226,23 +234,62 @@ if [[ -n "$OLD_PID" ]]; then
         OLD_VER="$(printf '%s' "$RESP" \
             | sed -E 's/.*"schema_version" *: *([0-9]+).*/\1/')"
         [[ "$OLD_VER" =~ ^[0-9]+$ ]] || OLD_VER="unknown"
+        # Also extract build_commit — the 7-char git SHA embedded by
+        # crates/argo-cli/build.rs. A code-only change (no migration)
+        # leaves schema_version unchanged, so SHA drift is the ONLY
+        # signal that the live binary predates HEAD. Empty/unknown when
+        # the field is absent (binary pre-dates the build_commit field)
+        # or the body didn't match.
+        OLD_SHA="$(printf '%s' "$RESP" \
+            | sed -E 's/.*"build_commit" *: *"([^"]+)".*/\1/')"
+        [[ "$OLD_SHA" != "$RESP" && -n "$OLD_SHA" ]] || OLD_SHA="unknown"
     else
         OLD_VER="unhealthy"
     fi
     log "      pre-restart schema_version=$OLD_VER (expected $EXPECTED_SCHEMA_VERSION)"
+    log "      pre-restart build_commit=$OLD_SHA"
 else
     log "      no gateway running on $HOST:$PORT"
 fi
 
 # ---------- step 2: short-circuit if current -------------------------
 
-log "[2/8] Comparing live schema_version against EXPECTED_SCHEMA_VERSION..."
+# A no-op is only safe when the live binary matches HEAD on BOTH axes:
+#   - schema_version == EXPECTED_SCHEMA_VERSION (migrations), AND
+#   - build_commit == `git rev-parse --short=7 HEAD` (code).
+# Schema-only matching was the silent-staleness bug (validated
+# 2026-05-30): code-only commits (no migration) left the OLD binary
+# serving after a green merge, because schema_version never moved. We
+# now also compare the embedded git SHA so a code-only change triggers
+# the rebuild+restart path. The SHA comparison is best-effort: if HEAD
+# can't be resolved (detached / no git) or the binary is too old to
+# report build_commit ("unknown"), we fall back to schema-only matching
+# rather than force-restarting on every run.
+log "[2/8] Comparing live schema_version + build_commit against HEAD..."
 
-if [[ -n "$OLD_PID" && "$OLD_VER" == "$EXPECTED_SCHEMA_VERSION" ]]; then
+HEAD_SHA="$(git rev-parse --short=7 HEAD 2>/dev/null || true)"
+SCHEMA_MATCHES=0
+SHA_MATCHES=0
+[[ "$OLD_VER" == "$EXPECTED_SCHEMA_VERSION" ]] && SCHEMA_MATCHES=1
+# SHA matches when HEAD resolved, the binary reported a real SHA, and
+# they're equal. If either side is unknown we can't prove drift, so we
+# treat the SHA axis as "matching" and lean on the schema axis — this
+# preserves the old behavior for pre-build_commit binaries.
+if [[ -z "$HEAD_SHA" || "$OLD_SHA" == "unknown" ]]; then
+    SHA_MATCHES=1
+    log "      build_commit check inconclusive (head=${HEAD_SHA:-?} live=$OLD_SHA) — using schema only."
+elif [[ "$OLD_SHA" == "$HEAD_SHA" ]]; then
+    SHA_MATCHES=1
+    log "      build_commit matches HEAD ($HEAD_SHA)."
+else
+    log "      build_commit DRIFT: live=$OLD_SHA HEAD=$HEAD_SHA — code-only change detected, restart needed."
+fi
+
+if [[ -n "$OLD_PID" && "$SCHEMA_MATCHES" -eq 1 && "$SHA_MATCHES" -eq 1 ]]; then
     if [[ "$FORCE" -eq 1 ]]; then
-        log "      already at $EXPECTED_SCHEMA_VERSION but --force given: continuing restart."
+        log "      already current (schema $OLD_VER, sha $OLD_SHA) but --force given: continuing restart."
     else
-        log "✅ already at schema_version $OLD_VER (current). No-op."
+        log "✅ already current: schema_version $OLD_VER + build_commit $OLD_SHA match HEAD. No-op."
         log "      (use --force to restart anyway, e.g. to pick up a new env.local key.)"
         exit 0
     fi
