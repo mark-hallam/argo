@@ -91,7 +91,7 @@ fn provider_id_ignores_blank_env() {
 
 #[test]
 fn classifier_starts_not_fired() {
-    let c = GenesisLlmClassifier::new("claude-code-cli".to_string());
+    let c = GenesisLlmAdapter::new("claude-code-cli".to_string());
     assert!(!c.fired(), "fired() must be false before any provider call");
 }
 

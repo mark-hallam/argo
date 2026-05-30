@@ -141,6 +141,7 @@ fn plan_from_loaded(loaded: &LoadedVertical) -> ArgoResult<GenesisPlan> {
         archetype,
         vertical_id: manifest.vertical.id.clone(),
         manifest,
+        spec: None,
     })
 }
 

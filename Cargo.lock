@@ -799,6 +799,7 @@ dependencies = [
 name = "argo-genesis"
 version = "0.0.1"
 dependencies = [
+ "argo-capability",
  "argo-config",
  "argo-types",
  "argo-vertical",

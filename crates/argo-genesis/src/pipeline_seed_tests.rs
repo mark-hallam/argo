@@ -99,6 +99,7 @@ fn fixture_baseline_plan() -> GenesisPlan {
         archetype: Archetype::SalesSdr,
         vertical_id: "baseline-id".into(),
         manifest,
+        spec: None,
     }
 }
 

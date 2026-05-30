@@ -21,6 +21,7 @@ fn sample_plan() -> GenesisPlan {
         archetype: Archetype::GtmEngineer,
         vertical_id: "gtm-engineer-marketmax".into(),
         manifest,
+        spec: None,
     }
 }
 

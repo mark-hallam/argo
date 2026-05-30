@@ -49,6 +49,7 @@ fn make_plan(action_count: usize) -> GenesisPlan {
         archetype: Archetype::SalesSdr,
         vertical_id: "salesperson-fixture".into(),
         manifest,
+        spec: None,
     }
 }
 

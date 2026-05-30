@@ -2,12 +2,13 @@ use super::{
     classify_llm_with_confidence, genesis_broad_role, should_use_broad_role, BroadRoleClient,
     BroadRoleDraft,
 };
-use crate::archetype::{Archetype, ClassificationResult, ProviderClient};
+use crate::archetype::{classify_charter, Archetype, ClassificationResult, ProviderClient};
 use crate::error::GenesisError;
 use crate::genesis_judge::{
     judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
 };
 use crate::pipeline::{assemble_plan, validate_persona, GenesisConfig, GenesisPlan};
+use crate::spec::CapabilitySpec;
 
 /// Output of `plan_or_broad` — either an archetype-path plan or a
 /// broader-generation draft.
@@ -26,6 +27,31 @@ impl GenesisOutcome {
         match self {
             Self::Plan(p) => p.archetype.slug().to_string(),
             Self::Broad(d) => d.archetype_slug().to_string(),
+        }
+    }
+
+    /// Materialize this outcome into a loadable [`GenesisPlan`] (DEC-025 P1).
+    ///
+    /// This is the seam that makes [`GenesisOutcome::Broad`] no longer
+    /// terminal: an archetype outcome returns its already-built plan; a broad
+    /// outcome synthesizes a [`CapabilitySpec`] from the draft (using the
+    /// nearest archetype as a cheap prior, DEC-025 #3 hybrid) and runs it
+    /// through [`crate::materialize_spec`] — producing a `vertical.toml` with
+    /// `[actions]`/`[tools]`/`[mcp_servers]`/`[escalation]` and a real
+    /// least-privilege fence, NOT an archetype enum.
+    ///
+    /// # Errors
+    ///
+    /// Propagates [`crate::materialize_spec`] failures (illegal persona /
+    /// empty capability set / safety-judge rejection).
+    pub fn materialize(self) -> Result<GenesisPlan, GenesisError> {
+        match self {
+            Self::Plan(p) => Ok(*p),
+            Self::Broad(d) => {
+                let nearest = nearest_archetype_for(&d.charter);
+                let spec = CapabilitySpec::from_broad_draft(*d, nearest);
+                crate::materialize_spec(&spec)
+            }
         }
     }
 
@@ -150,4 +176,16 @@ async fn apply_judge(
         }
         GenesisJudgeVerdict::Allow => Ok(()),
     }
+}
+
+/// Pick the nearest of the 12 archetypes for a from-scratch charter — the
+/// cheap deterministic *prior* (DEC-025 #3 hybrid). This is NOT a taxonomy
+/// cap: it only seeds the materialized plan's stable `archetype` slug for the
+/// SSE payload + audit. When the keyword classifier finds no match (the true
+/// off-taxonomy case), default to [`Archetype::ResearchAnalyst`] — the most
+/// generic "gather → summarise → (gated) share" shape, and a low-risk default
+/// whose seed vocabulary the materializer never actually uses (it synthesizes
+/// from the spec).
+fn nearest_archetype_for(charter: &str) -> Archetype {
+    classify_charter(charter).unwrap_or(Archetype::ResearchAnalyst)
 }

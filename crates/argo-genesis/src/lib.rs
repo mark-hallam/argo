@@ -48,6 +48,8 @@ pub mod genesis_judge;
 pub mod hire_gate;
 pub mod job_description;
 pub mod manifest_writer;
+pub mod materialize;
+pub mod materialize_writer;
 pub mod memory_schema;
 pub mod pipeline;
 pub mod pipeline_seed;
@@ -56,6 +58,7 @@ pub mod prompt_writer;
 pub mod quality;
 pub mod refine;
 pub mod safety_judge;
+pub mod spec;
 pub mod synthesizer;
 pub mod templates;
 pub mod worker_config;
@@ -88,6 +91,9 @@ pub use hire_gate::{
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
 };
+pub use materialize::{materialize_spec, write_capability_vertical};
+pub use materialize_writer::{persona_prompt_from_spec, system_prompt_from_spec};
+pub use spec::{CapabilityDecl, CapabilitySpec, EscalationSpec, ExecutorIntent};
 pub use pipeline::{
     plan, plan_from_seed_vertical, plan_from_seed_vertical_in_default_root, plan_with,
     plan_with_quality, seeded_from, write_vertical, write_vertical_with_overlap,

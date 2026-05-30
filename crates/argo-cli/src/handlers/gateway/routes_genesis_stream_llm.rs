@@ -24,12 +24,13 @@
 //! hiccup never breaks Genesis. To prove the LLM path actually fired
 //! (no theater), the adapter flips an internal flag the moment a
 //! provider round-trip returns a usable slug; the handler reads
-//! [`GenesisLlmClassifier::fired`] afterward and surfaces `llm` vs
+//! [`GenesisLlmAdapter::fired`] afterward and surfaces `llm` / `broad` /
 //! `keyword` in the SSE progress detail + audit row.
 
 use argo_agent_runner::{build_transport, load_manifest};
 use argo_genesis::{
-    plan, plan_with, Archetype, GenesisConfig, GenesisError, GenesisPlan, ProviderClient,
+    plan, plan_or_broad, Archetype, BroadRoleClient, GenesisConfig, GenesisError, GenesisPlan,
+    ProviderClient,
 };
 use argo_provider::{ProviderRequest, ProviderResponse, Sampling};
 use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId};
@@ -90,21 +91,23 @@ pub(super) fn resolve_provider_id() -> String {
     "claude-code-cli".to_string()
 }
 
-/// Resolve a role description into a [`GenesisPlan`].
+/// Resolve a role description into a materialized [`GenesisPlan`].
 ///
 /// When the real-LLM classifier is opted in
-/// ([`llm_classifier_enabled`]), the archetype is chosen by a real
-/// model reading the role description; otherwise the deterministic
-/// keyword pipeline runs with no provider call at all (the test
+/// ([`llm_classifier_enabled`]), the role is routed through
+/// [`argo_genesis::plan_or_broad`]: a confident archetype role takes the
+/// archetype path; a genuinely off-taxonomy role is synthesized from scratch
+/// into a `CapabilitySpec` and materialized (DEC-025 P1). Otherwise the
+/// deterministic keyword pipeline runs with no provider call at all (the test
 /// default — keeps archetypes byte-identical and avoids a subprocess
 /// dial-out).
 ///
-/// Returns the plan plus a `"llm"` / `"keyword"` mode label. No
-/// theater: [`argo_genesis::plan_with`] only upgrades the archetype
-/// when a real provider round-trip returns a recognised slug (it falls
-/// back to the keyword scorer on any error), and the label reflects
-/// whether that round-trip actually fired — so a transient model
-/// failure both keeps Genesis working AND reports `keyword` honestly.
+/// Returns the plan plus a `"llm"` / `"broad"` / `"keyword"` mode label. No
+/// theater: the broad/from-scratch path only fires when the classifier was
+/// not confident, the archetype path only when a provider round-trip returned
+/// a recognised slug, and the label reflects which one actually fired — so a
+/// transient model failure both keeps Genesis working AND reports `keyword`
+/// honestly.
 pub(super) async fn resolve_plan(
     role_description: &str,
     persona: &str,
@@ -112,25 +115,71 @@ pub(super) async fn resolve_plan(
     if !llm_classifier_enabled() {
         return Ok((plan(role_description, persona)?, "keyword"));
     }
-    let classifier = GenesisLlmClassifier::new(resolve_provider_id());
+    // DEC-025 P1: route through `plan_or_broad`, not `plan_with`. This turns
+    // ON the from-scratch materializer — a genuinely off-taxonomy role
+    // (classifier confidence < 0.6) is synthesized into a bespoke
+    // `CapabilitySpec` and materialized into a real loadable vertical,
+    // instead of being forced into the nearest archetype. A confident
+    // archetype role still takes the archetype path unchanged.
+    //
+    // The judge is intentionally `None` HERE: the LLM semantic safety judge
+    // runs at the hire gate (`run_hire_gate` → `run_safety_signal`), which
+    // the SSE handler invokes immediately after this. That seam is the one
+    // place the degraded-mode distinction lives — a judge that CAN'T run
+    // (provider/quota failure) degrades to `needs_review` (held in dry-run,
+    // audited), NOT a hard `Block`. Wiring the judge into synthesis here
+    // would hard-fail the whole pipeline on any transport hiccup (the exact
+    // self-inflicted DoS the design doc's degraded mode exists to prevent),
+    // so the judge fires once, correctly, at the gate.
+    let adapter = GenesisLlmAdapter::new(resolve_provider_id());
     let config = GenesisConfig {
         use_llm_classifier: true,
     };
-    let built = plan_with(role_description, persona, &config, Some(&classifier)).await?;
-    let mode = if classifier.fired() { "llm" } else { "keyword" };
+    let outcome = plan_or_broad(
+        role_description,
+        persona,
+        &config,
+        Some(&adapter),
+        Some(&adapter),
+        /* judge = */ None,
+        /* allow_broad_role = */ true,
+    )
+    .await?;
+    let mode = outcome_mode(&outcome, &adapter);
+    let built = outcome.materialize()?;
     Ok((built, mode))
 }
 
-/// `ProviderClient` adapter that drives a real model through the shared
-/// transport dispatcher. Construction is cheap (records the provider
-/// id); the transport is built lazily on the first `classify` call so
-/// the keyword-only path pays no provider-init cost.
-pub(super) struct GenesisLlmClassifier {
+/// Honest generation-mode label for the SSE progress detail + audit row:
+/// `broad` when the from-scratch materializer produced the plan, `llm` when
+/// the archetype classifier picked a confident archetype, else `keyword`
+/// (the deterministic fallback fired).
+fn outcome_mode(outcome: &argo_genesis::GenesisOutcome, adapter: &GenesisLlmAdapter) -> &'static str {
+    if outcome.archetype_slug() == argo_genesis::BROAD_SENTINEL {
+        "broad"
+    } else if adapter.fired() {
+        "llm"
+    } else {
+        "keyword"
+    }
+}
+
+/// Multi-trait adapter that drives a real model through the shared transport
+/// dispatcher for ALL three Genesis LLM surfaces: archetype classification
+/// ([`ProviderClient`]), from-scratch role synthesis ([`BroadRoleClient`]),
+/// and the semantic safety judge ([`GenesisJudgeClient`]). One adapter so a
+/// single `plan_or_broad` call wires every LLM seam through the same provider.
+///
+/// Construction is cheap (records the provider id); the transport is built
+/// lazily on the first call so the keyword-only path pays no provider-init
+/// cost. `fired` flips when the archetype classifier returned a recognised
+/// slug, so the handler can label the generation mode honestly.
+pub(super) struct GenesisLlmAdapter {
     provider_id: String,
     fired: AtomicBool,
 }
 
-impl GenesisLlmClassifier {
+impl GenesisLlmAdapter {
     /// Build an adapter for `provider_id` (see [`resolve_provider_id`]).
     pub(super) fn new(provider_id: String) -> Self {
         Self {
@@ -139,9 +188,9 @@ impl GenesisLlmClassifier {
         }
     }
 
-    /// `true` iff at least one provider round-trip returned a slug that
+    /// `true` iff at least one classifier round-trip returned a slug that
     /// resolved to a known [`Archetype`]. Read by the handler AFTER
-    /// `plan_with` to label the generation mode honestly: a `false`
+    /// `plan_or_broad` to label the generation mode honestly: a `false`
     /// here means the keyword fallback produced the archetype.
     pub(super) fn fired(&self) -> bool {
         self.fired.load(Ordering::Relaxed)
@@ -149,7 +198,7 @@ impl GenesisLlmClassifier {
 }
 
 #[async_trait::async_trait]
-impl ProviderClient for GenesisLlmClassifier {
+impl ProviderClient for GenesisLlmAdapter {
     async fn classify(&self, prompt: &str) -> ArgoResult<String> {
         let raw = complete_once(&self.provider_id, prompt).await?;
         // The `claude-code-cli` model occasionally wraps the slug in
@@ -168,6 +217,17 @@ impl ProviderClient for GenesisLlmClassifier {
             self.fired.store(true, Ordering::Relaxed);
         }
         Ok(cleaned)
+    }
+}
+
+#[async_trait::async_trait]
+impl BroadRoleClient for GenesisLlmAdapter {
+    async fn synthesize(&self, prompt: &str) -> ArgoResult<String> {
+        // The broad-role prompt asks for a JSON envelope; the genesis parser
+        // is tolerant of surrounding prose, so pass the raw response through.
+        // (The safety judge runs separately at the hire gate, with the
+        // degraded-mode distinction — see `resolve_plan`.)
+        complete_once(&self.provider_id, prompt).await
     }
 }
 

@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Argo Stream G — charter → vertical generator (Genesis pipeline) with safety judge"
 
 [dependencies]
+argo-capability = { path = "../argo-capability" }
 argo-config = { path = "../argo-config" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
