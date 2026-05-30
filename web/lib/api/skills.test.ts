@@ -1,13 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// `installSkillToWorkers` resolves its default target roster via
+// `fetchTeam`. Mock the team module so the install tests can control the
+// roster without standing up the full team fetcher contract.
+vi.mock("./team", () => ({ fetchTeam: vi.fn() }));
+
 import {
   fetchLearnedThisMonth,
   fetchSkills,
   fetchSkillUsage,
+  installSkillToWorkers,
   resolveSkillDisplayMetadata,
   SEED_SKILLS,
   type SkillRow,
 } from "./skills";
+import { fetchTeam } from "./team";
 import { ApiError } from "./types";
+
+const mockedFetchTeam = vi.mocked(fetchTeam);
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -204,5 +214,130 @@ describe("lib/api/skills", () => {
       expect(meta.title).toBe("brand.new.skill");
       expect(meta.description).toContain("brand.new.skill");
     });
+  });
+});
+
+const SKILL_UUID = "11111111-1111-1111-1111-111111111111";
+
+function teamWith(...ids: string[]) {
+  return {
+    workers: ids.map((id) => ({ id, name: id })),
+    source: "gateway",
+  } as unknown as Awaited<ReturnType<typeof fetchTeam>>;
+}
+
+describe("lib/api/skills · installSkillToWorkers", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "http://gw.test";
+    vi.stubEnv("NODE_ENV", "test");
+    delete process.env.NEXT_PUBLIC_ENV;
+    delete process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS;
+    mockedFetchTeam.mockReset();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    process.env = { ...originalEnv };
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("POSTs the skill_id to each resolved worker and reports the gateway source", async () => {
+    mockedFetchTeam.mockResolvedValue(teamWith("w1", "w2"));
+    const seen: Array<{ url: string; body: string }> = [];
+    installMock((req) => {
+      seen.push({ url: req.url, body: "" });
+      return makeResponse({ status: 201, body: { worker_id: "w", skill_id: SKILL_UUID } });
+    });
+
+    const result = await installSkillToWorkers(SKILL_UUID);
+
+    expect(result.source).toBe("gateway");
+    expect(result.workerIds).toEqual(["w1", "w2"]);
+    // One POST per worker, each hitting the real worker-skills endpoint.
+    const skillPosts = seen.filter((s) => s.url.includes("/skills"));
+    expect(skillPosts).toHaveLength(2);
+    expect(skillPosts[0].url).toContain("/api/v1/workers/w1/skills");
+    expect(skillPosts[1].url).toContain("/api/v1/workers/w2/skills");
+  });
+
+  it("sends the JSON body { skill_id } the gateway add_response expects", async () => {
+    mockedFetchTeam.mockResolvedValue(teamWith("w1"));
+    let captured: unknown = null;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith("/api/auth/session")) {
+        return makeResponse({ status: 200, body: {} });
+      }
+      captured = init?.body ? JSON.parse(init.body as string) : null;
+      return makeResponse({ status: 201, body: {} });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await installSkillToWorkers(SKILL_UUID, ["w1"]);
+
+    expect(captured).toEqual({ skill_id: SKILL_UUID });
+  });
+
+  it("uses the explicit worker list without calling fetchTeam", async () => {
+    installMock(() => makeResponse({ status: 201, body: {} }));
+    const result = await installSkillToWorkers(SKILL_UUID, ["only-one"]);
+    expect(result.workerIds).toEqual(["only-one"]);
+    expect(mockedFetchTeam).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits to a mock success under the auth-bypass flag (no network)", async () => {
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+    const fetchMock = installMock(() => makeResponse({ status: 200, body: {} }));
+
+    const result = await installSkillToWorkers(SKILL_UUID);
+
+    expect(result.source).toBe("mock-bypass");
+    expect(result.workerIds.length).toBeGreaterThan(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockedFetchTeam).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a mock success on a 404 from a gateway without the endpoint", async () => {
+    mockedFetchTeam.mockResolvedValue(teamWith("w1"));
+    installMock(() =>
+      makeResponse({
+        status: 404,
+        body: { error: { code: "not_found", message: "no such worker route" } },
+      }),
+    );
+
+    const result = await installSkillToWorkers(SKILL_UUID);
+
+    expect(result.source).toBe("mock-offline");
+    expect(result.workerIds).toEqual(["w1"]);
+  });
+
+  it("throws a 409 when there are no workers to install to", async () => {
+    mockedFetchTeam.mockResolvedValue(teamWith());
+    let caught: unknown;
+    try {
+      await installSkillToWorkers(SKILL_UUID);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).status).toBe(409);
+    expect((caught as ApiError).message).toContain("hire a teammate");
+  });
+
+  it("propagates a 5xx install failure as ApiError (real outage, no mock swallow)", async () => {
+    installMock(() => makeResponse({ status: 500, body: "boom", contentType: "text/plain" }));
+    let caught: unknown;
+    try {
+      await installSkillToWorkers(SKILL_UUID, ["w1"]);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).status).toBe(500);
   });
 });

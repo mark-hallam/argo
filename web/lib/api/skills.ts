@@ -14,9 +14,10 @@
  * - NetworkError (gateway unreachable) → mock in dev, propagate in prod.
  */
 
-import { apiGet } from "@/lib/api/client";
+import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { isDemoLive } from "@/lib/skycot/demo-mode";
+import { fetchTeam } from "@/lib/api/team";
 import {
   SEED_SKILLS,
   MOCK_LEARNED_SKILL_IDS,
@@ -283,6 +284,105 @@ export interface LearnedThisMonth {
 export interface FetchLearnedThisMonthResult {
   learned: LearnedThisMonth;
   source: SkillUsageSource;
+}
+
+/**
+ * Result of an Install action: how the request was satisfied plus the
+ * number of workers the skill was made available to.
+ *
+ * `source` follows the same three-value contract as the read fetchers:
+ * `gateway` (real `POST /api/v1/workers/<id>/skills` round-trip),
+ * `mock-bypass` (auth-bypass dev short-circuit, no network), or
+ * `mock-offline` (gateway unreachable / 404 in dev).
+ */
+export interface InstallSkillResult {
+  skillId: string;
+  /** Worker ids the skill was assigned to (added to their active overlay). */
+  workerIds: string[];
+  source: SkillDataSource;
+}
+
+/**
+ * Mock-path install roster. Mirrors the Scene-1 canon hero workers so
+ * the auth-bypass demo path reports a plausible "available to N workers"
+ * count without a gateway round-trip.
+ */
+const SEED_INSTALL_TARGET_WORKER_IDS: readonly string[] = [
+  "wkr-mariah",
+  "wkr-priya",
+  "wkr-jamal",
+];
+
+/**
+ * Install a catalog skill by assigning it to the workspace's workers.
+ *
+ * "Install → available to workers" is, in the runtime, a `worker_skill`
+ * overlay row per worker. The real gateway endpoint is
+ * `POST /api/v1/workers/<id>/skills` with `{ skill_id: "<uuid>" }`
+ * (`crates/argo-cli/src/handlers/gateway/routes_worker_skills.rs`
+ * `add_response` → 201, audited as `worker.skills.added`). There is no
+ * single tenant-wide "install" verb on the gateway; making a skill
+ * available to the team means adding it to each teammate's active set,
+ * which is exactly what this does — the same endpoint the per-worker
+ * Skills tab already calls via `worker-skills.ts::enableSkill`.
+ *
+ * `skillId` must be the catalog skill's UUID (the gateway's
+ * `SkillRow.id` / `SkillUsage.skill_id`); the endpoint rejects
+ * name-style ids. On the mock paths we never reach the gateway, so the
+ * non-UUID seed id is irrelevant.
+ *
+ * Mock-fallback contract mirrors the read fetchers:
+ * - `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1` (and not demo-live) →
+ *   resolve a mock success against the seed roster, no network call.
+ * - 404 / gateway-unreachable in dev → mock success (mock-offline).
+ * - Strict prod → ApiError propagates.
+ *
+ * When `workerIds` is omitted the target roster is resolved from
+ * `fetchTeam()` so the marketplace can install to the whole team in one
+ * click (the Scene-4 "Available to workers" beat).
+ */
+export async function installSkillToWorkers(
+  skillId: string,
+  workerIds?: string[],
+): Promise<InstallSkillResult> {
+  if (isAuthBypassed() && !isDemoLive()) {
+    const ids = workerIds ?? [...SEED_INSTALL_TARGET_WORKER_IDS];
+    return { skillId, workerIds: ids, source: "mock-bypass" };
+  }
+
+  let targets = workerIds;
+  if (!targets || targets.length === 0) {
+    const team = await fetchTeam();
+    targets = team.workers.map((w) => w.id);
+  }
+
+  if (targets.length === 0) {
+    // No workers to assign to — surface as a real error so the UI can
+    // tell the operator to hire a teammate first rather than silently
+    // claiming success.
+    throw new ApiError(
+      409,
+      "No workers to install this skill to — hire a teammate first.",
+      "no_workers",
+    );
+  }
+
+  try {
+    await Promise.all(
+      targets.map((workerId) =>
+        apiPost<unknown>(
+          `/api/v1/workers/${encodeURIComponent(workerId)}/skills`,
+          { skill_id: skillId },
+        ),
+      ),
+    );
+    return { skillId, workerIds: targets, source: "gateway" };
+  } catch (err) {
+    if (!isStrictProduction() && isMissingOrUnreachable(err)) {
+      return { skillId, workerIds: targets, source: "mock-offline" };
+    }
+    throw err;
+  }
 }
 
 /** GET `/api/v1/skills/learned-this-month` — drives the marketplace filter chip. */

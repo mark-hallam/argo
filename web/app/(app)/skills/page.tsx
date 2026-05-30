@@ -9,6 +9,7 @@ import { SkillsIllustration } from "@/components/empty-state/illustrations/Skill
 import { useSkills, useSkillsLearnedThisMonth } from "@/lib/hooks/use-skills";
 import type { SkillRow } from "@/lib/api/skills";
 import { iconForSkill } from "@/lib/api/skill-icons";
+import { InstallSkillButton } from "@/components/skycot/skills/InstallSkillButton";
 
 /**
  * Skills marketplace landing — locked A1 marketplace design language.
@@ -225,6 +226,7 @@ export default function SkillsPage() {
                   </span>
                 </div>
                 <div className="skill-id">{skill.name}</div>
+                <InstallSkillButton skillId={skill.id} stopPropagation />
               </Link>
               );
             })}

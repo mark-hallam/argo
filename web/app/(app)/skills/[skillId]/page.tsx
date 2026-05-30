@@ -7,6 +7,7 @@ import { useSkillUsage } from "@/lib/hooks/use-skills";
 import { formatLearnedAgo } from "@/lib/format-learned-ago";
 import { TrustGradeChip } from "@/components/skycot/skills/TrustGradeChip";
 import { SkillLearningLoopCard } from "@/components/skycot/skills/SkillLearningLoopCard";
+import { InstallSkillButton } from "@/components/skycot/skills/InstallSkillButton";
 import { sampleSkillTelemetry } from "@/lib/sample-skill-telemetry";
 
 /**
@@ -61,15 +62,21 @@ export default function SkillDetailStubPage({
           {usageQuery.isPending ? (
             <p className="usage-empty">Loading provenance…</p>
           ) : (
-            <div className="usage-chip-row">
-              <span
-                className="usage-chip usage-chip-author"
-                data-testid="skill-author-label"
-              >
-                {usage?.author_label ?? "Authored by your org"}
-              </span>
-              <TrustGradeChip grade={usage?.trust_grade} />
-            </div>
+            <>
+              <div className="usage-chip-row">
+                <span
+                  className="usage-chip usage-chip-author"
+                  data-testid="skill-author-label"
+                >
+                  {usage?.author_label ?? "Authored by your org"}
+                </span>
+                <TrustGradeChip grade={usage?.trust_grade} />
+              </div>
+              {/* Install → assign to the workspace's workers. Uses the
+                  resolved catalog UUID (`usage.skill_id`); the endpoint
+                  rejects name-style ids. */}
+              <InstallSkillButton skillId={usage?.skill_id ?? skillId} />
+            </>
           )}
         </section>
 
