@@ -23,8 +23,8 @@ use super::routes_genesis_stream_llm::{complete_once, resolve_provider_id};
 use argo_genesis::{
     build_comprehension_questions, build_gate_eval_inputs, gate_inputs_from_dir,
     judge_genesis_draft, judge_input_for_plan, ComprehensionOutcome, ComprehensionQuestion,
-    DeterministicEvalInput, EvalFloorOutcome, GateVerdict, GenesisJudgeClient, GenesisJudgeVerdict,
-    GenesisPlan, JudgeInput, SafetySignal,
+    ContractGateInput, DeterministicEvalInput, EvalFloorOutcome, GateVerdict, GenesisJudgeClient,
+    GenesisJudgeVerdict, GenesisPlan, JudgeInput, SafetySignal,
 };
 use argo_eval::{run_eval, EvalMetric, EvalSubject, EvalTask};
 use argo_types::ArgoResult;
@@ -43,6 +43,20 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// collapses to an empty seed set, which the floor treats as a fail-closed
 /// `Blocked`.
 pub(super) async fn run_hire_gate(plan: &GenesisPlan) -> GateVerdict {
+    run_hire_gate_with_confirmation(plan, None).await
+}
+
+/// As [`run_hire_gate`], but resolves the operator's role-contract
+/// confirmation (DEC-025 #1 + #4). `confirmed_digest` is the digest the
+/// operator echoed back from the surfaced "what can this teammate do"
+/// contract; the gate derives the teammate's truthful contract from `plan`'s
+/// manifest and confirms activation ONLY when the supplied digest matches it.
+/// `None` → the contract is unconfirmed and the teammate holds in
+/// `needs_review` (no activation without a confirmed contract).
+pub(super) async fn run_hire_gate_with_confirmation(
+    plan: &GenesisPlan,
+    confirmed_digest: Option<&str>,
+) -> GateVerdict {
     // TEST-ONLY verdict override (compiled out of release builds → NO
     // production bypass surface). Tests that drive a *gate-cleared* hire to
     // assert downstream persistence — but are not themselves testing the gate
@@ -69,32 +83,61 @@ pub(super) async fn run_hire_gate(plan: &GenesisPlan) -> GateVerdict {
     let eval = run_eval_floor(&seeds, &contract).await;
     let comprehension = run_comprehension_floor(&questions, &contract).await;
     let safety = run_safety_signal(judge_input_for_plan(plan)).await;
-    GateVerdict::compose(eval, comprehension, safety)
+    // The role-contract confirmation axis — derived truthfully from the SAME
+    // manifest the P2 capability fence reads, resolved against the operator's
+    // echoed digest.
+    let contract_input = ContractGateInput::from_plan(plan, confirmed_digest);
+    GateVerdict::compose(eval, comprehension, safety, contract_input)
+}
+
+/// Test-only convenience wrapper: the disk-fence gate with no operator
+/// confirmation. Production always threads the operator's confirmation digest
+/// through [`run_hire_gate_from_dir_with_confirmation`] (the `POST
+/// /api/v1/workers` fence), so this thin no-digest form exists only for the
+/// gate-parity tests that exercise the eval/comprehension/safety axes.
+#[cfg(test)]
+pub(super) async fn run_hire_gate_from_dir(vertical_dir: &Path) -> GateVerdict {
+    run_hire_gate_from_dir_with_confirmation(vertical_dir, None).await
 }
 
 /// Re-run the IDENTICAL synchronous hire gate against a teammate whose
 /// Genesis vertical is already written to `vertical_dir` (the hire-commit
-/// fence). Reconstructs the deterministic seeds + behaviour contract +
-/// safety-judge projection from disk so the SSE path and the hire fence
-/// can never diverge. A missing/unreadable manifest fails closed to a
-/// blocked verdict (no seeds + degraded safety).
-pub(super) async fn run_hire_gate_from_dir(vertical_dir: &Path) -> GateVerdict {
+/// fence), AND resolve the operator's role-contract confirmation (DEC-025 #1
+/// + #4) against the contract derived from the on-disk manifest.
+///
+/// Reconstructs the deterministic seeds + behaviour contract + safety-judge
+/// projection + truthful role contract from disk so the SSE path and this
+/// fence can never diverge — the digest the operator saw on the SSE payload
+/// confirms byte-identically here. `confirmed_digest` `None` → the contract
+/// is unconfirmed and the teammate holds in `needs_review`. A
+/// missing/unreadable manifest fails closed to a blocked/needs-review verdict
+/// (no seeds + degraded safety + no contract to confirm).
+pub(super) async fn run_hire_gate_from_dir_with_confirmation(
+    vertical_dir: &Path,
+    confirmed_digest: Option<&str>,
+) -> GateVerdict {
     let Ok(inputs) = gate_inputs_from_dir(vertical_dir) else {
         // Manifest unreadable → cannot verify → fail closed (zero seeds, zero
-        // comprehension questions answered, degraded safety).
+        // comprehension questions answered, degraded safety, no contract to
+        // confirm — a supplied digest cannot match a non-existent contract).
         return GateVerdict::compose(
             EvalFloorOutcome::from_counts(0, 0),
             ComprehensionOutcome::from_counts(0, 0),
             SafetySignal::Unavailable {
                 reason: "vertical manifest unreadable at hire-commit gate".to_string(),
             },
+            ContractGateInput::resolve(None, confirmed_digest),
         );
     };
     let questions = build_comprehension_questions(&inputs.charter, &inputs.action_vocabulary);
     let eval = run_eval_floor(&inputs.seeds, &inputs.contract_text).await;
     let comprehension = run_comprehension_floor(&questions, &inputs.contract_text).await;
     let safety = run_safety_signal(inputs.judge_input()).await;
-    GateVerdict::compose(eval, comprehension, safety)
+    // The truthful contract is derived from the IDENTICAL on-disk manifest the
+    // P2 fence reads, so the SSE path and this fence confirm byte-identical
+    // contracts (the digest the operator saw on the SSE payload matches here).
+    let contract_input = ContractGateInput::resolve(Some(inputs.role_contract()), confirmed_digest);
+    GateVerdict::compose(eval, comprehension, safety, contract_input)
 }
 
 /// Grade the teammate's starter seeds through the canonical runner against
@@ -264,7 +307,9 @@ pub(super) mod test_overrides {
     }
 
     /// Convenience: force a clean `Pass` verdict (the common case for tests
-    /// that just need the hire to commit).
+    /// that just need the hire to commit). The forced verdict carries a
+    /// `confirmed` contract so it represents a fully gate-cleared,
+    /// operator-confirmed hire.
     pub(crate) fn force_pass() {
         set_forced_verdict(GateVerdict {
             state: GateState::Pass,
@@ -275,6 +320,9 @@ pub(super) mod test_overrides {
             comprehension_total: 5,
             comprehension_pass_rate: 1.0,
             safety_verdict: "allow".to_string(),
+            role_contract: None,
+            contract_digest: String::new(),
+            contract_confirmation: "confirmed".to_string(),
             reasons: Vec::new(),
         });
     }

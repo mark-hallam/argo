@@ -475,6 +475,48 @@ describe("hireFromGenesis", () => {
     expect(draft.genesisPlanId).toBe("customer-support-agent-mariah");
   });
 
+  it("forwards the role-contract digest as confirmed_contract_digest (DEC-025 #4)", async () => {
+    // When the streamed payload carries a contract_digest, clicking Hire
+    // must echo it back so the gateway resolves the operator confirmation —
+    // without it the Genesis hire is held in needs_review.
+    let captured: Record<string, unknown> | null = null;
+    installMock(async (req) => {
+      captured = req.body ? JSON.parse(await req.text()) : null;
+      return makeResponse({
+        status: 201,
+        body: { workerId: "wkr_confirmed", success: true },
+      });
+    });
+    const withDigest = {
+      ...READY_PAYLOAD,
+      contract_digest: "a".repeat(64),
+    };
+    const result = await hireFromGenesis({
+      verticalReady: withDigest,
+      roleDescription: "Customer success lead who triages tier-1 tickets daily.",
+      tenantId: "op-test",
+    });
+    expect(result.workerId).toBe("wkr_confirmed");
+    expect(captured).not.toBeNull();
+    const cap = captured as unknown as Record<string, unknown>;
+    expect(cap.confirmed_contract_digest).toBe("a".repeat(64));
+  });
+
+  it("omits confirmed_contract_digest when the payload has none", async () => {
+    let captured: Record<string, unknown> | null = null;
+    installMock(async (req) => {
+      captured = req.body ? JSON.parse(await req.text()) : null;
+      return makeResponse({ status: 201, body: { workerId: "wkr_x", success: true } });
+    });
+    await hireFromGenesis({
+      verticalReady: READY_PAYLOAD,
+      roleDescription: "x".repeat(40),
+      tenantId: "op",
+    });
+    const cap = captured as unknown as Record<string, unknown>;
+    expect(cap.confirmed_contract_digest).toBeUndefined();
+  });
+
   it("accepts snake_case worker_id from the gateway response", async () => {
     installMock(() =>
       makeResponse({

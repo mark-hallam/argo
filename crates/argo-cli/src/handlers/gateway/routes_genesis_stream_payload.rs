@@ -34,6 +34,18 @@ pub(super) fn build_final_payload(
         .as_ref()
         .map(|a| a.actions.len() as u64)
         .unwrap_or(0);
+    // The truthful, operator-confirmable role contract (DEC-025 #4) — derived
+    // from the teammate's ACTUAL bound capability profile. The SPA renders
+    // this as the "what can this teammate do" review screen and echoes
+    // `contract_digest` back at the hire-commit call to confirm activation.
+    // A freshly-generated teammate is always `unconfirmed` here (the operator
+    // has not yet seen the contract), so a fresh SSE teammate is `needs_review`
+    // and NOT hireable until confirmed — human-review-before-activation (#1).
+    let role_contract = gate
+        .role_contract
+        .as_ref()
+        .and_then(|c| serde_json::to_value(c).ok())
+        .unwrap_or(Value::Null);
     json!({
         "vertical_id": plan.vertical_id,
         "vertical_dir_path": vertical_dir.to_string_lossy(),
@@ -53,6 +65,8 @@ pub(super) fn build_final_payload(
         "eval_seed_count": eval_seed_count,
         "judge_verdict": gate.state.as_str(),
         "hireable": gate.state.allows_hire(),
+        "role_contract": role_contract,
+        "contract_digest": gate.contract_digest,
         "gate": {
             "state": gate.state.as_str(),
             "eval_passed": gate.eval_passed,
@@ -62,6 +76,8 @@ pub(super) fn build_final_payload(
             "comprehension_total": gate.comprehension_total,
             "comprehension_pass_rate": gate.comprehension_pass_rate,
             "safety_verdict": gate.safety_verdict,
+            "contract_confirmation": gate.contract_confirmation,
+            "contract_digest": gate.contract_digest,
             "reasons": gate.reasons,
             "dry_run_until": dry_run_until,
         },
@@ -92,6 +108,8 @@ pub(super) async fn emit_audit(
         "gate_comprehension_passed": gate.comprehension_passed,
         "gate_comprehension_total": gate.comprehension_total,
         "gate_safety_verdict": gate.safety_verdict,
+        "gate_contract_confirmation": gate.contract_confirmation,
+        "gate_contract_digest": gate.contract_digest,
         "gate_reasons": gate.reasons,
     });
     if let Err(e) = sink

@@ -34,9 +34,9 @@
 
 use crate::eval_seed::{self, EvalSeed};
 use crate::genesis_judge::JudgeInput;
+use crate::hire_gate_contract::{ContractConfirmation, ContractGateInput};
 use crate::pipeline::GenesisPlan;
 use crate::prompt_writer::build_system_prompt;
-use std::path::Path;
 
 /// Minimum fraction of starter seeds that must pass for the deterministic
 /// eval floor to clear. The design doc fixes the per-seed bar at
@@ -132,29 +132,56 @@ pub struct GateVerdict {
     /// The semantic safety-judge verdict token (`allow` /
     /// `allow_with_disclaimer` / `block` / `unavailable`).
     pub safety_verdict: String,
+    /// The teammate's truthful, operator-confirmable role contract — derived
+    /// from its actual bound capability profile (DEC-025 #4). Surfaced for
+    /// operator review before activation. `None` only when no plan/manifest
+    /// was available to derive it (the gate then has nothing to confirm and
+    /// cannot pass).
+    pub role_contract: Option<crate::role_contract::RoleContract>,
+    /// SHA-256 of [`Self::role_contract`]'s truthful capability projection.
+    /// The operator echoes this back to confirm; the wire surface for the
+    /// "what can this teammate do" review screen. Empty when no contract.
+    pub contract_digest: String,
+    /// The operator-confirmation state for the role contract (`confirmed` /
+    /// `unconfirmed` / `mismatch`). Honest on the wire so the SPA can render
+    /// "awaiting your confirmation" vs "confirmation out of date".
+    pub contract_confirmation: String,
     /// Human-readable reasons for a non-pass (empty on pass). One per line
     /// is the gateway's join convention.
     pub reasons: Vec<String>,
 }
 
 impl GateVerdict {
-    /// Compose the final verdict from the three independent signals: the
-    /// deterministic eval floor, the role-contract comprehension gate, and
-    /// the semantic safety judge.
+    /// Compose the final verdict from the four independent signals: the
+    /// deterministic eval floor, the role-contract comprehension gate, the
+    /// semantic safety judge, and the **operator confirmation of the role
+    /// contract** (DEC-025 #1 + #4).
     ///
-    /// Precedence (fail-closed): a hard `Block` from any check that *ran*
-    /// (eval floor below the bar, a comprehension governance miss, or a
-    /// safety-judge `Block`) → [`GateState::Blocked`]; else a
-    /// degraded/unavailable safety signal (a check that could not run) →
-    /// [`GateState::NeedsReview`]; else [`GateState::Pass`]. Comprehension is
-    /// an all-must-pass invariant gate, so any miss is a hard block — the
-    /// teammate's own contract failed to demonstrate it understands a scope
-    /// or governance boundary.
+    /// `contract` is the teammate's truthful role contract (derived from its
+    /// actual bound capability profile) plus the operator's confirmation
+    /// state for it.
+    ///
+    /// Precedence (fail-closed):
+    /// 1. A hard `Block` from any check that *ran* → [`GateState::Blocked`]:
+    ///    eval floor below the bar, a comprehension governance miss, a
+    ///    safety-judge `Block`, **or a contract-confirmation `Mismatch`** (a
+    ///    forged/stale confirmation must never activate a teammate).
+    /// 2. Else a check that could not run / has not yet happened →
+    ///    [`GateState::NeedsReview`]: a degraded safety signal, **or an
+    ///    `Unconfirmed` contract** (human-review-before-activation is ON by
+    ///    default, so the teammate holds for review until the operator
+    ///    confirms the surfaced contract).
+    /// 3. Else [`GateState::Pass`].
+    ///
+    /// Comprehension is an all-must-pass invariant gate, so any miss is a
+    /// hard block. Operator confirmation is required for activation, so an
+    /// unconfirmed contract can NEVER reach `Pass`.
     #[must_use]
     pub fn compose(
         eval: EvalFloorOutcome,
         comprehension: crate::comprehension::ComprehensionOutcome,
         safety: SafetySignal,
+        contract: ContractGateInput,
     ) -> Self {
         let mut reasons = Vec::new();
         let mut blocked = false;
@@ -201,6 +228,46 @@ impl GateVerdict {
             }
         };
 
+        // The role-contract confirmation axis (DEC-025 #1 + #4). A truthful
+        // contract that the operator has not yet confirmed holds the teammate
+        // in needs_review; a confirmation that does not match the truthful
+        // contract is a hard block.
+        let (contract_digest, confirmation_token) = match &contract.confirmation {
+            ContractConfirmation::Confirmed => {
+                (contract.digest(), "confirmed".to_string())
+            }
+            ContractConfirmation::Unconfirmed => {
+                needs_review = true;
+                reasons.push(
+                    "role contract awaiting operator confirmation (human-review-before-\
+                     activation is on): the teammate stays held until the operator \
+                     confirms the surfaced 'what can this teammate do' contract"
+                        .to_string(),
+                );
+                (contract.digest(), "unconfirmed".to_string())
+            }
+            ContractConfirmation::Mismatch { supplied, expected } => {
+                blocked = true;
+                reasons.push(format!(
+                    "role-contract confirmation mismatch: operator confirmed digest \
+                     {supplied} but the teammate's actual contract is {expected} — the \
+                     confirmation is stale or forged; refusing to activate"
+                ));
+                (expected.clone(), "mismatch".to_string())
+            }
+        };
+
+        // Belt-and-braces: a missing contract (no manifest to derive from)
+        // means there is nothing to confirm, so it can never pass.
+        if contract.role_contract.is_none() {
+            needs_review = true;
+            reasons.push(
+                "no role contract could be derived (manifest unavailable) — cannot \
+                 confirm scope, holding for review"
+                    .to_string(),
+            );
+        }
+
         let state = if blocked {
             GateState::Blocked
         } else if needs_review {
@@ -218,6 +285,9 @@ impl GateVerdict {
             comprehension_total: comprehension.total,
             comprehension_pass_rate: comprehension.pass_rate,
             safety_verdict,
+            role_contract: contract.role_contract,
+            contract_digest,
+            contract_confirmation: confirmation_token,
             reasons,
         }
     }
@@ -325,7 +395,7 @@ pub fn build_gate_eval_inputs(plan: &GenesisPlan) -> Result<GateEvalInputs, crat
     })
 }
 
-fn to_input(seed: &EvalSeed) -> DeterministicEvalInput {
+pub(crate) fn to_input(seed: &EvalSeed) -> DeterministicEvalInput {
     DeterministicEvalInput {
         id: seed.id.clone(),
         task: seed.task.clone(),
@@ -371,127 +441,6 @@ pub fn judge_input_for_plan(plan: &GenesisPlan) -> JudgeInput<'_> {
             .map(|a| a.actions.keys().cloned().collect())
             .unwrap_or_default(),
     }
-}
-
-/// Owned hire-gate inputs reconstructed from a written vertical directory.
-///
-/// The flagship SSE path builds gate inputs straight off the in-memory
-/// [`GenesisPlan`]; the hire-commit fence runs LATER, against a teammate
-/// whose vertical is already on disk and whose original [`GenesisPlan`] is
-/// gone. This reconstructs the SAME deterministic inputs + safety-judge
-/// projection from the on-disk `eval-seed.toml`, `prompts/system.md`, and
-/// `vertical.toml` so the hire fence re-runs the identical gate (fail-closed
-/// parity — no per-surface divergence).
-#[derive(Debug, Clone)]
-pub struct DiskGateInputs {
-    /// The deterministic seed tasks parsed from `eval-seed.toml`.
-    pub seeds: Vec<DeterministicEvalInput>,
-    /// The behaviour contract (lowercased) the deterministic subject answers
-    /// with — the on-disk system prompt plus the action vocabulary.
-    pub contract_text: String,
-    /// Charter text for the safety-judge projection (operator's words).
-    pub charter: String,
-    /// Persona handle for the safety-judge projection.
-    pub persona: String,
-    /// Action vocabulary for the safety-judge projection.
-    pub action_vocabulary: Vec<String>,
-}
-
-impl DiskGateInputs {
-    /// Borrowed safety-judge projection — same shape both gate paths feed
-    /// the judge.
-    #[must_use]
-    pub fn judge_input(&self) -> JudgeInput<'_> {
-        JudgeInput {
-            charter: &self.charter,
-            persona_description: &self.persona,
-            action_vocabulary: self.action_vocabulary.clone(),
-        }
-    }
-}
-
-#[derive(serde::Deserialize)]
-struct SeedDoc {
-    #[serde(default)]
-    seed: Vec<EvalSeed>,
-}
-
-/// Reconstruct hire-gate inputs from a written Genesis vertical directory.
-///
-/// Reads `eval-seed.toml` (the 10 starter seeds + rubric keywords),
-/// `prompts/system.md` (the behaviour contract), and `vertical.toml` (name,
-/// description, persona, action vocabulary). Fails closed: a missing /
-/// unparseable `eval-seed.toml` yields an empty seed set, which the eval
-/// floor treats as a `Blocked` verdict.
-///
-/// # Errors
-///
-/// Returns [`crate::GenesisError`] only when `vertical.toml` is missing or
-/// unparseable — a teammate whose manifest cannot be read must not be
-/// activated.
-pub fn gate_inputs_from_dir(vertical_dir: &Path) -> Result<DiskGateInputs, crate::GenesisError> {
-    let manifest_body = std::fs::read_to_string(vertical_dir.join("vertical.toml"))
-        .map_err(|e| crate::GenesisError::Io {
-            what: "hire_gate.manifest.read",
-            source: e,
-        })?;
-    let manifest: argo_vertical::VerticalManifest =
-        toml::from_str(&manifest_body).map_err(|e| crate::GenesisError::Validation {
-            stage: "hire_gate.manifest.parse",
-            detail: e.to_string(),
-        })?;
-
-    let seeds = parse_seed_file(vertical_dir);
-    let contract_text = disk_contract_text(vertical_dir, &manifest);
-    let action_vocabulary = manifest
-        .actions
-        .as_ref()
-        .map(|a| a.actions.keys().cloned().collect())
-        .unwrap_or_default();
-
-    Ok(DiskGateInputs {
-        seeds,
-        contract_text,
-        // The verbatim charter isn't persisted as its own field; the system
-        // prompt embeds it under "## Charter (operator's words)". Use the
-        // vertical description as the charter projection for the judge — the
-        // judge also sees the full action vocabulary, which is what the
-        // restricted-surface question keys off.
-        charter: manifest.vertical.description.clone(),
-        // The persona handle isn't a standalone manifest field (role.persona
-        // is a doc PATH); the human-readable vertical name is the closest
-        // persona projection for the judge's impersonation question.
-        persona: manifest.vertical.name.clone(),
-        action_vocabulary,
-    })
-}
-
-fn parse_seed_file(vertical_dir: &Path) -> Vec<DeterministicEvalInput> {
-    let Ok(body) = std::fs::read_to_string(vertical_dir.join("eval-seed.toml")) else {
-        return Vec::new();
-    };
-    let Ok(doc) = toml::from_str::<SeedDoc>(&body) else {
-        return Vec::new();
-    };
-    doc.seed.iter().map(to_input).collect()
-}
-
-fn disk_contract_text(vertical_dir: &Path, manifest: &argo_vertical::VerticalManifest) -> String {
-    let mut out = std::fs::read_to_string(vertical_dir.join("prompts").join("system.md"))
-        .unwrap_or_default();
-    out.push('\n');
-    out.push_str(&manifest.vertical.name);
-    out.push('\n');
-    out.push_str(&manifest.vertical.description);
-    if let Some(actions) = manifest.actions.as_ref() {
-        for (name, decl) in &actions.actions {
-            out.push('\n');
-            out.push_str(name);
-            out.push(' ');
-            out.push_str(&decl.description);
-        }
-    }
-    out.to_lowercase()
 }
 
 #[cfg(test)]

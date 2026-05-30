@@ -47,6 +47,8 @@ pub mod error;
 pub mod eval_seed;
 pub mod genesis_judge;
 pub mod hire_gate;
+pub mod hire_gate_contract;
+pub mod hire_gate_disk;
 pub mod job_description;
 pub mod manifest_writer;
 pub mod materialize;
@@ -58,6 +60,7 @@ pub mod prompt_engineer;
 pub mod prompt_writer;
 pub mod quality;
 pub mod refine;
+pub mod role_contract;
 pub mod safety_judge;
 pub mod spec;
 pub mod synthesizer;
@@ -89,10 +92,12 @@ pub use genesis_judge::{
     build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
 };
 pub use hire_gate::{
-    behaviour_contract_text, build_gate_eval_inputs, gate_inputs_from_dir, judge_input_for_plan,
-    DeterministicEvalInput, DiskGateInputs, EvalFloorOutcome, GateEvalInputs, GateState,
-    GateVerdict, SafetySignal, EVAL_PASS_RATE_FLOOR,
+    behaviour_contract_text, build_gate_eval_inputs, judge_input_for_plan, DeterministicEvalInput,
+    EvalFloorOutcome, GateEvalInputs, GateState, GateVerdict, SafetySignal, EVAL_PASS_RATE_FLOOR,
 };
+pub use hire_gate_contract::{ContractConfirmation, ContractGateInput};
+pub use hire_gate_disk::{gate_inputs_from_dir, DiskGateInputs};
+pub use role_contract::{verify_contract_matches, ContractAction, RoleContract};
 pub use job_description::{
     genesis_from_job_description, genesis_from_job_description_with, GenesisDraft, JobDescInput,
 };

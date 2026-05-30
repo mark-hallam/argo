@@ -36,19 +36,51 @@ pub(super) fn redact_value(value: &Value) -> Value {
     }
 }
 
+/// The operator's role-contract confirmation digest (DEC-025 #1 + #4), echoed
+/// back from the `vertical_ready` SSE payload's `contract_digest` after the
+/// operator reviewed the "what can this teammate do" contract. `None` (field
+/// absent or empty) → the contract is unconfirmed and the hire gate holds in
+/// `needs_review`, so the Genesis hire is refused. Accepts both
+/// `confirmed_contract_digest` and the shorter `contract_digest` so SPA + SDK
+/// callers can use either name.
+pub(super) fn confirmed_contract_digest(parsed: &Value) -> Option<String> {
+    ["confirmed_contract_digest", "contract_digest"]
+        .iter()
+        .find_map(|field| {
+            parsed
+                .get(*field)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        })
+}
+
 /// Run the synchronous Genesis hire gate for `vertical_id` and decide the
 /// fate of the hire. Returns `Some(response)` (a `422`) when the teammate
 /// must be refused, or `None` to let the hire proceed. Non-Genesis catalog
 /// verticals are not gated → `None`. Always audits the verdict for a
 /// Genesis vertical, pass or block.
+///
+/// `confirmed_digest` is the role-contract confirmation the operator echoed
+/// back (DEC-025 #1 + #4): the gate derives the teammate's truthful contract
+/// from the on-disk manifest and activates ONLY when this digest matches it.
+/// `None` → the contract is unconfirmed and the gate holds in `needs_review`,
+/// so the hire is refused — there is no activation without a confirmed
+/// contract at this seam.
 pub(super) async fn enforce_genesis_hire_gate(
     store: &Arc<SessionStore>,
     tenant_id: TenantId,
     principal_id: &str,
     vertical_id: &str,
+    confirmed_digest: Option<&str>,
 ) -> Option<(&'static str, String)> {
     let genesis_dir = genesis_vertical_dir(vertical_id)?;
-    let gate = super::routes_genesis_gate::run_hire_gate_from_dir(&genesis_dir).await;
+    let gate = super::routes_genesis_gate::run_hire_gate_from_dir_with_confirmation(
+        &genesis_dir,
+        confirmed_digest,
+    )
+    .await;
     emit_gate_audit(store, tenant_id, principal_id, vertical_id, &gate).await;
     if gate.state.allows_hire() {
         None
@@ -90,6 +122,15 @@ fn genesis_vertical_dir_in(verticals_root: &Path, id: &str) -> Option<PathBuf> {
 /// `POST /api/v1/onboarding/first-hire`) emit the identical
 /// `genesis_gate_failed` block shape and evidence.
 pub(super) fn gate_blocked_response(gate: &GateVerdict) -> (&'static str, String) {
+    // Surface the truthful role contract + its digest so the SPA can render
+    // the "what can this teammate do" review screen on a `needs_review`
+    // (awaiting-confirmation) outcome and echo `contract_digest` back to
+    // confirm. On a `mismatch` the operator sees the confirmation is stale.
+    let role_contract = gate
+        .role_contract
+        .as_ref()
+        .and_then(|c| serde_json::to_value(c).ok())
+        .unwrap_or(Value::Null);
     (
         "422 Unprocessable Entity",
         json!({
@@ -100,6 +141,8 @@ pub(super) fn gate_blocked_response(gate: &GateVerdict) -> (&'static str, String
                     gate.state.as_str()
                 ),
             },
+            "role_contract": role_contract,
+            "contract_digest": gate.contract_digest,
             "gate": {
                 "state": gate.state.as_str(),
                 "hireable": gate.state.allows_hire(),
@@ -110,6 +153,8 @@ pub(super) fn gate_blocked_response(gate: &GateVerdict) -> (&'static str, String
                 "comprehension_total": gate.comprehension_total,
                 "comprehension_pass_rate": gate.comprehension_pass_rate,
                 "safety_verdict": gate.safety_verdict,
+                "contract_confirmation": gate.contract_confirmation,
+                "contract_digest": gate.contract_digest,
                 "reasons": gate.reasons,
             },
         })
@@ -137,6 +182,8 @@ async fn emit_gate_audit(
         "gate_comprehension_passed": gate.comprehension_passed,
         "gate_comprehension_total": gate.comprehension_total,
         "gate_safety_verdict": gate.safety_verdict,
+        "gate_contract_confirmation": gate.contract_confirmation,
+        "gate_contract_digest": gate.contract_digest,
         "gate_reasons": gate.reasons,
     });
     if let Err(e) = sink

@@ -227,6 +227,32 @@ export interface GenesisVerticalReadyManifest {
   actions_declared: number;
 }
 
+/** One action in the teammate's bound vocabulary, projected for the
+ *  operator review screen (DEC-025 #4). Mirrors `argo_genesis::ContractAction`. */
+export interface RoleContractAction {
+  action: string;
+  description: string;
+  requires_approval: boolean;
+  risk: string;
+  executor: string;
+}
+
+/** The truthful, operator-confirmable role contract derived from the
+ *  teammate's ACTUAL bound capability profile (DEC-025 #4). The SPA renders
+ *  this as the "what can this teammate do" review screen; the operator
+ *  confirms it by echoing `GenesisVerticalReadyEvent.contract_digest` back at
+ *  the hire call. Mirrors `argo_genesis::RoleContract`. */
+export interface RoleContract {
+  role_name: string;
+  does: string;
+  actions: RoleContractAction[];
+  approval_required: string[];
+  autonomous: string[];
+  escalation: string;
+  will_not: string[];
+  draft_integrations: string[];
+}
+
 export interface GenesisVerticalReadyEvent {
   vertical_id: string;
   vertical_dir_path: string;
@@ -236,6 +262,14 @@ export interface GenesisVerticalReadyEvent {
   skills: string[];
   eval_seed_count: number;
   judge_verdict: string;
+  /** The truthful role contract for the operator review screen (DEC-025 #4).
+   *  `null` only when no manifest was available to derive one. */
+  role_contract?: RoleContract | null;
+  /** SHA-256 of the role contract's capability projection. The operator
+   *  echoes this back at the hire call to CONFIRM the surfaced contract;
+   *  without it the Genesis hire is held in `needs_review`
+   *  (human-review-before-activation, DEC-025 #1). */
+  contract_digest?: string;
 }
 
 export interface GenesisErrorEvent {
@@ -470,11 +504,20 @@ export async function hireFromGenesis(
     req.verticalReady,
     req.roleDescription,
   );
-  const body = {
+  // DEC-025 #1 + #4: confirm the role contract the operator just reviewed in
+  // the streamed `vertical_ready` payload by echoing its `contract_digest`.
+  // Without this the gateway holds the hire in `needs_review` (human-review-
+  // before-activation). The digest binds the confirmation to THIS specific
+  // truthful contract — if the teammate's bound capabilities differ from what
+  // was surfaced, the gateway re-derives a different digest and refuses.
+  const body: Record<string, unknown> = {
     problem: req.roleDescription,
     answers: { source: "genesis_stream" },
     worker_draft,
   };
+  if (req.verticalReady.contract_digest) {
+    body.confirmed_contract_digest = req.verticalReady.contract_digest;
+  }
   const raw = await apiPost<unknown>("/api/v1/workers", body, {
     headers: { "X-Argo-Tenant-Id": req.tenantId },
   });

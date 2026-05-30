@@ -679,9 +679,16 @@ of its sub-items so the next tick doesn't re-discover:
   Latent under single-tenant-per-cwd, so not demo-breaking today, but verify before/after.
 - **(c) Operator "what can this teammate do" review screen [SPA — BLOCKED on operator
   design pick].** Per the optometrist method (user memory): generate 3-5 wild mockups →
-  operator chooses → implement. Do NOT auto-build a screen. The BACKEND data it needs (the
-  fence/escalation/approval-gated-actions/bound-skills summary) is agent-doable as a
-  read-only `GET` endpoint and can ship ahead of the screen.
+  operator chooses → implement. Do NOT auto-build a screen. **UPDATE 2026-05-31 (P4
+  role-contract cycle):** the BACKEND half is now DONE — a truthful, capability-derived
+  `argo_genesis::RoleContract` (what it does · approval-gated vs autonomous actions ·
+  escalation · what it will NOT do · draft integrations) is surfaced on the SSE
+  `vertical_ready` payload + the `422` body, with a `contract_digest` the operator echoes
+  back to CONFIRM, and the hire gate now FAIL-CLOSES on activation without a confirmed
+  contract at all three seams (DEC-025 #1 + #4). What remains for P5(c) is ONLY the SPA
+  screen that renders this `role_contract` JSON and sends the digest — the data + the
+  confirm gate are shipped. (`role_contract.rs`; `hire_gate_contract.rs`;
+  `GateVerdict::compose` 4th axis.)
 
 ## Sprint-2 follow-ups (tracked 2026-05-30 — these were floating chips; now in the queue)
 - [ ] **Landing page — 4 verified differentiators** — BLOCKED on operator design pick (optometrist method: generate 3-5 wild mockups → operator chooses a direction → implement on web/app/landing/page.tsx). Real proof to pair per pillar; do NOT auto-edit the live page first. (chip from the first overnight session)

@@ -3,11 +3,30 @@
 use super::*;
 use crate::comprehension::ComprehensionOutcome;
 use crate::pipeline::plan;
+use crate::role_contract::RoleContract;
 
 /// A clean comprehension pass (all 5 questions answered) — the common case
 /// for compose tests that are exercising the eval/safety axes.
 fn comp_pass() -> ComprehensionOutcome {
     ComprehensionOutcome::from_counts(5, 5)
+}
+
+/// A confirmed role contract — the common case for compose tests that are
+/// exercising the eval/comprehension/safety axes (not the confirmation axis).
+/// Uses a real plan's manifest so the contract is non-trivial, and confirms
+/// it by echoing its own truthful digest.
+fn confirmed_contract() -> ContractGateInput {
+    let p = plan("be my marketing intern, run weekly campaigns to cold leads", "maya")
+        .expect("plan builds");
+    let digest = RoleContract::derive_from_manifest(&p.manifest).digest();
+    ContractGateInput::from_plan(&p, Some(&digest))
+}
+
+/// An unconfirmed contract (no operator digest supplied).
+fn unconfirmed_contract() -> ContractGateInput {
+    let p = plan("be my marketing intern, run weekly campaigns to cold leads", "maya")
+        .expect("plan builds");
+    ContractGateInput::from_plan(&p, None)
 }
 
 #[test]
@@ -33,11 +52,12 @@ fn eval_floor_fails_closed_on_zero_seeds() {
 }
 
 #[test]
-fn compose_passes_when_evals_pass_and_judge_allows() {
+fn compose_passes_when_evals_pass_and_judge_allows_and_contract_confirmed() {
     let v = GateVerdict::compose(
         EvalFloorOutcome::from_counts(8, 10),
         comp_pass(),
         SafetySignal::Allow,
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::Pass);
     assert!(v.state.allows_hire());
@@ -47,6 +67,9 @@ fn compose_passes_when_evals_pass_and_judge_allows() {
     assert_eq!(v.eval_total, 10);
     assert_eq!(v.comprehension_passed, 5);
     assert_eq!(v.comprehension_total, 5);
+    assert_eq!(v.contract_confirmation, "confirmed");
+    assert!(v.role_contract.is_some());
+    assert_eq!(v.contract_digest.len(), 64);
 }
 
 #[test]
@@ -55,6 +78,7 @@ fn compose_blocks_when_evals_fail() {
         EvalFloorOutcome::from_counts(2, 10),
         comp_pass(),
         SafetySignal::Allow,
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::Blocked);
     assert!(!v.state.allows_hire(), "a failing teammate must NOT be hireable");
@@ -73,6 +97,7 @@ fn compose_blocks_when_safety_judge_blocks() {
         SafetySignal::Block {
             reason: "impersonates a real person".into(),
         },
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::Blocked);
     assert!(!v.state.allows_hire());
@@ -89,6 +114,7 @@ fn compose_block_wins_over_pass_evals() {
         SafetySignal::Block {
             reason: "illegal instructions".into(),
         },
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::Blocked);
 }
@@ -102,6 +128,7 @@ fn compose_needs_review_when_judge_unavailable() {
         SafetySignal::Unavailable {
             reason: "provider quota exhausted".into(),
         },
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::NeedsReview);
     assert!(
@@ -121,6 +148,7 @@ fn compose_failed_evals_block_even_if_judge_unavailable() {
         SafetySignal::Unavailable {
             reason: "no provider".into(),
         },
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::Blocked);
 }
@@ -133,6 +161,7 @@ fn compose_blocks_when_comprehension_fails() {
         EvalFloorOutcome::from_counts(10, 10),
         ComprehensionOutcome::from_counts(4, 5),
         SafetySignal::Allow,
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::Blocked);
     assert!(!v.state.allows_hire(), "a comprehension miss must NOT be hireable");
@@ -154,8 +183,116 @@ fn compose_comprehension_block_outranks_degraded_safety() {
         SafetySignal::Unavailable {
             reason: "no provider".into(),
         },
+        confirmed_contract(),
     );
     assert_eq!(v.state, GateState::Blocked);
+}
+
+// --- Operator-confirmation axis (DEC-025 #1 + #4) ---------------------------
+
+#[test]
+fn compose_holds_for_review_when_contract_unconfirmed() {
+    // Every other axis is green, but the operator has NOT confirmed the role
+    // contract → needs_review (human-review-before-activation is ON), NEVER
+    // Pass. This is the load-bearing P4 guarantee: no activation without a
+    // confirmed contract.
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(10, 10),
+        comp_pass(),
+        SafetySignal::Allow,
+        unconfirmed_contract(),
+    );
+    assert_eq!(v.state, GateState::NeedsReview);
+    assert!(
+        !v.state.allows_hire(),
+        "an unconfirmed contract must NOT auto-activate the teammate"
+    );
+    assert_eq!(v.contract_confirmation, "unconfirmed");
+    assert!(
+        v.reasons.iter().any(|r| r.contains("awaiting operator confirmation")),
+        "expected an awaiting-confirmation reason; got: {:?}",
+        v.reasons
+    );
+}
+
+#[test]
+fn compose_hard_blocks_on_a_mismatched_contract_confirmation() {
+    // The operator echoed a digest that does NOT match the teammate's truthful
+    // contract (stale or forged) → HARD block, not merely needs_review. A
+    // confirmation must never bind to a teammate the operator never saw.
+    let p = plan("be my marketing intern, run weekly campaigns", "maya").expect("plan");
+    let bogus = ContractGateInput::from_plan(&p, Some("deadbeef".repeat(8).as_str()));
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(10, 10),
+        comp_pass(),
+        SafetySignal::Allow,
+        bogus,
+    );
+    assert_eq!(v.state, GateState::Blocked);
+    assert!(!v.state.allows_hire());
+    assert_eq!(v.contract_confirmation, "mismatch");
+    assert!(
+        v.reasons.iter().any(|r| r.contains("confirmation mismatch")),
+        "expected a mismatch reason; got: {:?}",
+        v.reasons
+    );
+}
+
+#[test]
+fn compose_mismatch_block_outranks_degraded_safety() {
+    // A forged/stale confirmation is a hard fail that outranks a merely
+    // degraded safety signal.
+    let p = plan("be my marketing intern, run weekly campaigns", "maya").expect("plan");
+    let bogus = ContractGateInput::from_plan(&p, Some("00ff".repeat(16).as_str()));
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(10, 10),
+        comp_pass(),
+        SafetySignal::Unavailable {
+            reason: "no provider".into(),
+        },
+        bogus,
+    );
+    assert_eq!(v.state, GateState::Blocked);
+}
+
+#[test]
+fn compose_cannot_pass_without_a_contract_to_confirm() {
+    // No contract at all (manifest unavailable) → cannot confirm scope, holds
+    // for review even with a (vacuous) confirmation. Belt-and-braces: there
+    // is nothing to surface for the operator, so the teammate can't activate.
+    let input = ContractGateInput::resolve(None, None);
+    let v = GateVerdict::compose(
+        EvalFloorOutcome::from_counts(10, 10),
+        comp_pass(),
+        SafetySignal::Allow,
+        input,
+    );
+    assert_ne!(v.state, GateState::Pass, "no contract → never pass");
+    assert!(!v.state.allows_hire());
+}
+
+#[test]
+fn confirmation_resolves_correctly_against_the_truthful_digest() {
+    let p = plan("be my marketing intern, run weekly campaigns", "maya").expect("plan");
+    let truthful = RoleContract::derive_from_manifest(&p.manifest).digest();
+
+    // No digest → unconfirmed.
+    let none = ContractGateInput::from_plan(&p, None);
+    assert!(matches!(none.confirmation, ContractConfirmation::Unconfirmed));
+
+    // Correct digest → confirmed.
+    let ok = ContractGateInput::from_plan(&p, Some(&truthful));
+    assert!(matches!(ok.confirmation, ContractConfirmation::Confirmed));
+
+    // Wrong digest → mismatch, carrying both digests for the audit.
+    let wrong = ContractGateInput::from_plan(&p, Some("not-the-digest"));
+    match wrong.confirmation {
+        ContractConfirmation::Mismatch { supplied, expected } => {
+            assert_eq!(supplied, "not-the-digest");
+            assert_eq!(expected, truthful);
+        }
+        other => panic!("expected mismatch, got {other:?}"),
+    }
 }
 
 #[test]

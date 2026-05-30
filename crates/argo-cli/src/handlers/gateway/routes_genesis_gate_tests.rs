@@ -176,6 +176,168 @@ async fn disk_gate_fails_closed_on_missing_manifest() {
     assert!(!verdict.state.allows_hire());
 }
 
+// --- Role-contract operator-confirmation adversarial proofs (DEC-025 #1 + #4) ---
+
+/// The truthful contract digest for a plan — what the operator must echo back.
+fn truthful_digest(p: &GenesisPlan) -> String {
+    argo_genesis::RoleContract::derive_from_manifest(&p.manifest).digest()
+}
+
+#[tokio::test]
+async fn plan_gate_holds_for_review_without_a_confirmed_contract() {
+    // ADVERSARIAL (no-activation-without-confirmation): even with a working
+    // eval floor, a teammate with NO operator confirmation of its role
+    // contract cannot reach Pass — it holds in needs_review. Force the safety
+    // judge to allow via an unresolvable... no: instead, prove it deterministically
+    // by checking the contract axis directly through the public gate fn with a
+    // GOOD digest vs NONE, isolating the confirmation effect from the (degraded)
+    // safety axis.
+    let _g = ProviderGuard::unresolvable().await;
+    let p = plan(
+        "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
+        "maya",
+    )
+    .expect("plan builds");
+
+    // No digest → unconfirmed → not hireable (one of the block reasons is the
+    // awaiting-confirmation hold).
+    let unconfirmed = run_hire_gate_with_confirmation(&p, None).await;
+    assert!(!unconfirmed.state.allows_hire());
+    assert_eq!(unconfirmed.contract_confirmation, "unconfirmed");
+    assert!(
+        unconfirmed
+            .reasons
+            .iter()
+            .any(|r| r.contains("awaiting operator confirmation")),
+        "expected awaiting-confirmation reason; got {:?}",
+        unconfirmed.reasons
+    );
+    // The truthful contract is surfaced for the operator to review + confirm.
+    assert!(unconfirmed.role_contract.is_some());
+    assert_eq!(unconfirmed.contract_digest.len(), 64);
+}
+
+#[tokio::test]
+async fn plan_gate_with_correct_digest_resolves_confirmed_leaving_only_safety_to_degrade() {
+    // ADVERSARIAL (digest plumbing): when the operator echoes the CORRECT
+    // digest, the confirmation axis resolves to `confirmed` — proving the
+    // confirmation is genuinely checked against the teammate's truthful
+    // contract. With no live provider the only residual blocker is the
+    // degraded safety judge (needs_review), NOT the contract — so the gate is
+    // needs_review WITHOUT an awaiting-confirmation reason.
+    let _g = ProviderGuard::unresolvable().await;
+    let p = plan(
+        "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
+        "maya",
+    )
+    .expect("plan builds");
+    let digest = truthful_digest(&p);
+
+    let verdict = run_hire_gate_with_confirmation(&p, Some(&digest)).await;
+    assert_eq!(verdict.contract_confirmation, "confirmed");
+    assert!(
+        !verdict
+            .reasons
+            .iter()
+            .any(|r| r.contains("awaiting operator confirmation")),
+        "a confirmed contract must NOT add an awaiting-confirmation reason; got {:?}",
+        verdict.reasons
+    );
+    // Residual block is purely the degraded safety judge.
+    assert_eq!(verdict.state, GateState::NeedsReview);
+    assert_eq!(verdict.safety_verdict, "unavailable");
+}
+
+#[tokio::test]
+async fn plan_gate_hard_blocks_a_forged_or_stale_contract_confirmation() {
+    // ADVERSARIAL (forgery/staleness): an operator-supplied digest that does
+    // NOT match the teammate's truthful contract is a HARD block — a stale or
+    // forged confirmation must never activate a teammate the operator never
+    // actually saw. This is a Blocked, outranking the degraded safety signal.
+    let _g = ProviderGuard::unresolvable().await;
+    let p = plan("be my marketing intern, run weekly campaigns", "maya").expect("plan");
+    let verdict = run_hire_gate_with_confirmation(&p, Some("not-the-real-digest")).await;
+    assert_eq!(verdict.state, GateState::Blocked);
+    assert!(!verdict.state.allows_hire());
+    assert_eq!(verdict.contract_confirmation, "mismatch");
+    assert!(
+        verdict
+            .reasons
+            .iter()
+            .any(|r| r.contains("confirmation mismatch")),
+        "expected a mismatch reason; got {:?}",
+        verdict.reasons
+    );
+}
+
+#[tokio::test]
+async fn disk_fence_confirms_the_same_digest_the_sse_payload_surfaced() {
+    // ADVERSARIAL (cross-seam parity): the digest the SSE path surfaces (from
+    // the in-memory plan) MUST equal the digest the hire-commit fence derives
+    // (from the on-disk manifest), so a confirmation made against the SSE
+    // payload validates at the `POST /api/v1/workers` fence — no per-surface
+    // divergence in WHAT the operator confirms.
+    let _g = ProviderGuard::unresolvable().await;
+    let p = plan(
+        "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
+        "maya",
+    )
+    .expect("plan builds");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let out = dir.path().join(&p.vertical_id);
+    write_vertical(&p, &out).expect("write vertical");
+
+    let plan_digest = truthful_digest(&p);
+
+    // The fence, given the SSE-surfaced digest, resolves `confirmed` (the
+    // on-disk contract matches the in-memory one).
+    let confirmed = run_hire_gate_from_dir_with_confirmation(&out, Some(&plan_digest)).await;
+    assert_eq!(
+        confirmed.contract_confirmation, "confirmed",
+        "the SSE-surfaced digest must confirm at the disk fence (parity)"
+    );
+    assert_eq!(confirmed.contract_digest, plan_digest);
+
+    // And with no digest the fence holds for review (no activation w/o confirm).
+    let unconfirmed = run_hire_gate_from_dir_with_confirmation(&out, None).await;
+    assert_eq!(unconfirmed.contract_confirmation, "unconfirmed");
+    assert!(!unconfirmed.state.allows_hire());
+}
+
+#[tokio::test]
+async fn disk_fence_truthful_contract_reflects_bound_approval_gated_actions() {
+    // ADVERSARIAL (truthfulness): the contract the fence derives names the
+    // teammate's ACTUAL approval-gated actions — a teammate cannot present a
+    // benign contract while its manifest binds an approval-gated sensitive
+    // verb. The marketing intern's `post_campaign`/`send_followup` are
+    // sensitive (forced approval by the safety judge) and MUST appear in the
+    // contract's approval_required set, never as autonomous.
+    let _g = ProviderGuard::unresolvable().await;
+    let p = plan(
+        "be my marketing intern, run weekly campaigns to cold leads and draft newsletters",
+        "maya",
+    )
+    .expect("plan builds");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let out = dir.path().join(&p.vertical_id);
+    write_vertical(&p, &out).expect("write vertical");
+
+    let inputs = argo_genesis::gate_inputs_from_dir(&out).expect("disk inputs");
+    let contract = inputs.role_contract();
+    assert!(
+        contract.approval_required.iter().any(|a| a == "post_campaign"),
+        "post_campaign must be approval-gated in the truthful contract: {:?}",
+        contract.approval_required
+    );
+    assert!(
+        !contract.autonomous.iter().any(|a| a == "post_campaign"),
+        "a sensitive verb must NEVER appear as autonomous: {:?}",
+        contract.autonomous
+    );
+    // The contract is self-consistent with the manifest it was derived from.
+    assert!(argo_genesis::verify_contract_matches(&contract, &inputs.manifest));
+}
+
 #[test]
 fn contract_subject_returns_the_contract_for_any_task() {
     use argo_eval::EvalSubject;

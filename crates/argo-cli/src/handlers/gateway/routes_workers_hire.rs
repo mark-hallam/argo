@@ -110,17 +110,25 @@ pub(super) async fn hire_response(
         return bad_request(&format!("unknown vertical '{}'", draft.suggested_vertical));
     }
 
-    // SAFETY GATE (DEC-025 / Genesis P0). For a Genesis-generated teammate,
-    // re-run the IDENTICAL synchronous hire gate (deterministic eval floor +
-    // LLM safety judge) against the on-disk vertical BEFORE committing the
-    // worker. A teammate that fails its evals OR the safety judge is refused
-    // here (422) and never activated — fail-closed parity with the SSE path,
-    // so the flagship page cannot be bypassed by POSTing the draft directly.
+    // SAFETY GATE (DEC-025 / Genesis P0 + P4). For a Genesis-generated
+    // teammate, re-run the IDENTICAL synchronous hire gate (deterministic
+    // eval floor + LLM safety judge + role-contract comprehension + the
+    // operator's role-contract CONFIRMATION) against the on-disk vertical
+    // BEFORE committing the worker. A teammate that fails its evals OR the
+    // safety judge OR whose role contract the operator has not confirmed (the
+    // echoed `confirmed_contract_digest` must match the teammate's truthful
+    // contract) is refused here (422) and never activated — fail-closed parity
+    // with the SSE path, so the flagship page cannot be bypassed by POSTing
+    // the draft directly, and a teammate cannot activate without a confirmed
+    // role contract (DEC-025 #1 + #4).
+    let confirmed_digest =
+        super::routes_workers_hire_gate::confirmed_contract_digest(&parsed);
     if let Some(blocked) = super::routes_workers_hire_gate::enforce_genesis_hire_gate(
         store,
         tenant_id,
         &principal_id,
         &draft.suggested_vertical,
+        confirmed_digest.as_deref(),
     )
     .await
     {

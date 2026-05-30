@@ -305,18 +305,33 @@ pub(super) async fn first_hire_response(
     let worker_name = supplied_name.unwrap_or_else(|| name_from_description(&description));
     let principal_id = format!("{HUMAN_PRINCIPAL_PREFIX}{email}");
     let outcome = invoke_genesis(&description, &worker_name);
+    // The operator's role-contract confirmation digest (DEC-025 #1 + #4),
+    // echoed back from the contract this seam surfaces. `None` → unconfirmed →
+    // the gate holds in `needs_review`, so the first hire is refused without a
+    // confirmed contract. Accepts either field name (SPA / SDK parity).
+    let confirmed_digest = ["confirmed_contract_digest", "contract_digest"]
+        .iter()
+        .find_map(|field| {
+            parsed
+                .get(*field)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        });
 
-    // SAFETY GATE (DEC-025 / Genesis P0). `first-hire` is a Genesis-driven
+    // SAFETY GATE (DEC-025 / Genesis P0 + P4). `first-hire` is a Genesis-driven
     // hire seam — it synthesises an in-memory `GenesisPlan` and commits a live
     // worker — so it must clear the SAME fail-closed gate the SSE path
     // (`routes_genesis_stream`) and the hire-commit fence
     // (`POST /api/v1/workers`) enforce, BEFORE `create_worker_from_draft`. A
-    // failing/thin/unsafe teammate (or a `plan()`-fail with no plan to grade)
-    // is refused and never activated. The on-disk fence in
-    // `routes_workers_hire_gate` cannot catch this seam — first-hire's plan is
-    // in-memory only (no `.genesis/` dir) and uses a catalog `vertical_id` —
-    // which is exactly the bypass this closes. Extracted to a sibling helper
-    // to keep this file under the per-file LOC budget.
+    // failing/thin/unsafe teammate (or a `plan()`-fail with no plan to grade),
+    // OR one whose role contract the operator has not confirmed, is refused and
+    // never activated. The on-disk fence in `routes_workers_hire_gate` cannot
+    // catch this seam — first-hire's plan is in-memory only (no `.genesis/`
+    // dir) and uses a catalog `vertical_id` — which is exactly the bypass this
+    // closes. Extracted to a sibling helper to keep this file under the
+    // per-file LOC budget.
     if let Err(blocked) = enforce_first_hire_gate(
         store,
         tenant,
@@ -324,6 +339,7 @@ pub(super) async fn first_hire_response(
         &outcome,
         &vertical_id,
         &worker_name,
+        confirmed_digest.as_deref(),
     )
     .await
     {
@@ -449,6 +465,10 @@ mod tests;
 #[cfg(test)]
 #[path = "routes_onboarding_first_hire_genesis_tests.rs"]
 mod first_hire_genesis_tests;
+
+#[cfg(test)]
+#[path = "routes_onboarding_first_hire_contract_tests.rs"]
+mod first_hire_contract_tests;
 
 #[cfg(test)]
 #[path = "routes_onboarding_first_hire_second_call_tests.rs"]

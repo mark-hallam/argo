@@ -125,10 +125,15 @@ pub(super) async fn enforce_first_hire_gate(
     outcome: &GenesisHireOutcome,
     vertical_id: &str,
     worker_name: &str,
+    confirmed_digest: Option<&str>,
 ) -> Result<(), (&'static str, String)> {
     match outcome.plan.as_ref() {
         Some(plan) => {
-            let gate = super::routes_genesis_gate::run_hire_gate(plan).await;
+            let gate = super::routes_genesis_gate::run_hire_gate_with_confirmation(
+                plan,
+                confirmed_digest,
+            )
+            .await;
             emit_audit(
                 store,
                 tenant,
@@ -145,6 +150,8 @@ pub(super) async fn enforce_first_hire_gate(
                     "gate_comprehension_passed": gate.comprehension_passed,
                     "gate_comprehension_total": gate.comprehension_total,
                     "gate_safety_verdict": gate.safety_verdict,
+                    "gate_contract_confirmation": gate.contract_confirmation,
+                    "gate_contract_digest": gate.contract_digest,
                     "gate_reasons": gate.reasons,
                 }),
             )
