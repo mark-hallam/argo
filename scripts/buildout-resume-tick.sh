@@ -13,6 +13,12 @@
 #      across the whole claude -p run) guards against two ticks overlapping.
 #      The plist checks every 30 min so absence is detected within ~30 min of
 #      crossing the 50-min-quiet threshold.
+#      AUTONOMOUS-MODE BYPASS: when ~/.argo/buildout-autonomous is present, the
+#      recent origin/main commits ARE this build's own conductor ticks (not an
+#      interactive collision), so the commit-age guard is bypassed — otherwise
+#      it self-throttles the run to ~1 phase/hour. Guard 1 (mkdir-lock) and the
+#      buildout-stop off-switch are NOT bypassed; they still apply in autonomous
+#      mode, so a tick can never overlap itself and the operator can still halt.
 #
 # Mirrors the worker-loop's unattended invocation: `claude
 # --dangerously-skip-permissions -p`, run from a login shell (the plist uses
@@ -40,12 +46,21 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
-# Guard 2: don't race a live conductor.
+# Guard 2: don't race a live conductor — UNLESS in autonomous mode.
+# In autonomous overnight mode (~/.argo/buildout-autonomous present) the recent
+# commits on origin/main are THIS build's own conductor ticks, not an
+# interactive collision, so the commit-age guard self-throttles the run to
+# ~1 phase/hour. Bypass it. The singleton mkdir-lock (Guard 1, already held
+# above) still stops a tick overlapping itself, and the buildout-stop off-switch
+# (checked first, above) still halts everything. (Operator: "the
+# guard-self-throttle is worth improving" — 2026-05-30.)
 git fetch origin -q 2>/dev/null || true
 last=$(git log -1 --format=%ct origin/main 2>/dev/null || echo 0)
 now=$(date +%s)
 age_min=$(( (now - last) / 60 ))
-if [ "$age_min" -lt 50 ]; then
+if [ -f "$HOME/.argo/buildout-autonomous" ]; then
+  echo "[$(ts)] autonomous mode — bypassing commit-age guard (last commit ${age_min}m ago)." >>"$LOG"
+elif [ "$age_min" -lt 50 ]; then
   echo "[$(ts)] conductor active (last commit ${age_min}m ago) — skip." >>"$LOG"
   exit 0
 fi
