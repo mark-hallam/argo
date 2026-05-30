@@ -387,11 +387,32 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   `kpi_rollup_test::rollup_skipped_if_no_audit_activity_since_last_rollup` fails
   3/3 on stashed clean main too — not mine.) Commit `de3c58e2e`.
 - 2026-05-30 — **seed.rs split DONE (no-behavior-change).** `argo-demo-seed/src/seed.rs` 752→443 LOC: extracted `#[cfg(test)] mod tests` → `#[path="seed_tests.rs"]` sibling (174 LOC) + moved the two per-worker overlay seeders (`seed_worker_skill_assignments` + `seed_retrain_records`) into a `seed_worker_overlays.rs` topic module (166 LOC, `pub(crate)` fns called via `crate::`), mirroring the `skill_ir_eval` precedent. Every src file now ≤500 (Gate 3 clears without --no-verify). Verify (isolated `/tmp/wf-seedsplit`): `cargo test -p argo-demo-seed` 34 unit + 4 integration green; `cargo clippy -p argo-demo-seed -- -D warnings` clean.
+- 2026-05-30 — **orchestration team-run tree view DONE (design plan 02 Phase 3).**
+  `/orchestration` now renders the Supervisor's team runs as a lead-with-children
+  tree: each lead teammate in a `--brand-gradient` Audiowide banner with the child
+  delegations beneath, every child showing its own live status + a done/total
+  counter. NO THEATER — driven by the real `GET /api/v1/orchestration/runs` rows;
+  verified live against the running gateway (schema 85), which already returns the
+  `[team]`-prefixed rows a real `POST /team-runs` wrote (`[team] lead synthesis —
+  smoke`, `[team] b → y`) — page showed "11 runs shown from gateway", 0 console
+  errors, gradient + Audiowide confirmed via computed styles. Honest gap: the read
+  endpoint exposes **no per-team-run id**, only the `[team]` title prefix, so
+  `groupTeamRuns()` groups all `[team]` rows (lead-synthesis rows → lead nodes,
+  step rows → children); a single lead gets a precise tree, multiple leads fall
+  back to a shared "Delegated steps" node rather than guessing edges — adding a
+  `teamRunId` to the run JSON is the queued follow-up. Falls back to the flat
+  queue when there's no team linkage; mock-gate preserved (`SAMPLE_TEAM_RUNS` only
+  on auth-bypass/offline, never demo-live). New `TeamRunTree.tsx` + grouping
+  helpers in `lib/api/orchestration.ts`. Verify: `npx tsc --noEmit` (touched files
+  0 errors; 6 pre-existing errors are in untouched `sample-workflows.ts` /
+  `SubWorkflowPicker.test.tsx` / `settings-workspace-tenant-id.test.tsx`); `npx
+  vitest run` orchestration + TeamRunTree + QueueTable = 22 passed. Commit
+  `59aa69080`.
 
 ## Sprint-2 follow-ups (tracked 2026-05-30 — these were floating chips; now in the queue)
 - [ ] **Landing page — 4 verified differentiators** — BLOCKED on operator design pick (optometrist method: generate 3-5 wild mockups → operator chooses a direction → implement on web/app/landing/page.tsx). Real proof to pair per pillar; do NOT auto-edit the live page first. (chip from the first overnight session)
 - [x] **Split argo-demo-seed/src/seed.rs (752 LOC > 550 hard ceiling)** — DONE 2026-05-30: extracted `#[cfg(test)] mod tests` to a `#[path="seed_tests.rs"]` sibling + moved two seed_* helpers to `seed_worker_overlays.rs`; seed.rs now 443 LOC, every file <500, Gate 3 clears without --no-verify. Test+clippy green. (See Log entry above.)
-- [ ] **Orchestration follow-ups** (per de3c58e2e Supervisor engine): real LLM-backed `StepExecutor` (today's is an honest persisting executor, real rows, no faked output) + the SPA team-tree view (design plan 02 Phase 3).
+- [ ] **Orchestration follow-ups** (per de3c58e2e Supervisor engine): real LLM-backed `StepExecutor` (today's is an honest persisting executor, real rows, no faked output). ~~SPA team-tree view (design plan 02 Phase 3)~~ DONE 2026-05-30 (commit `59aa69080`, see Log) — lead-with-children tree on `/orchestration`, real gateway rows. **New follow-up:** add a `teamRunId` to the `GET /api/v1/orchestration/runs` row JSON so the tree can draw precise per-team-run edges (today it groups by the `[team]` title prefix; multiple concurrent team runs share a "Delegated steps" node rather than guessing edges).
 - **Done/decided chips (dismiss):** retrain-recent (shipped via audit-log, 5cae58294); settings+evals backends (T1 423274a25 / T2 53933f011 + seed ff4167292); api-keys/provider-keys = intentionally NOT surfaced (privacy).
 
 ## Go-live verification 2026-05-30 (gateway rebuilt → schema 85, clean boot)
