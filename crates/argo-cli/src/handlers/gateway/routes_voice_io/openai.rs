@@ -43,6 +43,37 @@ const TTS_MIME: &str = "audio/mpeg";
 const UPLOAD_FILENAME: &str = "audio.mp3";
 const UPLOAD_MIME: &str = "audio/mpeg";
 
+/// The OpenAI voice Skycot's brand voices map onto. `tts-1` accepts a
+/// **fixed enum** of vendor voices (`alloy`/`ash`/`coral`/`echo`/`fable`/
+/// `nova`/`onyx`/`sage`/`shimmer`); a brand id like `portia` is a 400. So
+/// we translate: a Skycot brand voice → its assigned OpenAI voice here,
+/// and an already-valid OpenAI voice id passes through unchanged. This
+/// keeps "voice as a manifest parameter" (DEC-021) while making the real
+/// vendor call valid. Portia → `shimmer` (warm, the demo Pitch Agent).
+const PORTIA_OPENAI_VOICE: &str = "shimmer";
+
+/// The set of voice ids `tts-1` accepts verbatim. Anything outside this set
+/// (e.g. a Skycot brand name) is mapped to a real voice before the call.
+const OPENAI_TTS_VOICES: &[&str] = &[
+    "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
+];
+
+/// Translate a request [`VoiceId`] to a vendor-valid OpenAI voice.
+///
+/// - An id already in [`OPENAI_TTS_VOICES`] (case-insensitive) passes
+///   through lower-cased.
+/// - The Skycot brand voice `portia` maps to [`PORTIA_OPENAI_VOICE`].
+/// - Any other unknown id falls back to [`PORTIA_OPENAI_VOICE`] rather than
+///   sending a value OpenAI will reject with a 400 — the demo voice is the
+///   safe default for an unrecognised brand name.
+fn map_voice(voice: &VoiceId) -> &'static str {
+    let id = voice.as_str().trim().to_ascii_lowercase();
+    if let Some(found) = OPENAI_TTS_VOICES.iter().find(|v| ***v == id) {
+        return found;
+    }
+    PORTIA_OPENAI_VOICE
+}
+
 /// Read the OpenAI key from the environment/cred store.
 ///
 /// `tenant-unscoped`: the gateway voice loop is a process-level concern
@@ -157,8 +188,10 @@ impl TextToSpeech for OpenAiTts {
         }
         let body = serde_json::json!({
             "model": TTS_MODEL,
+            // Brand id (e.g. `portia`) → a vendor-valid OpenAI voice; an
+            // already-valid OpenAI voice passes through. See `map_voice`.
+            "voice": map_voice(voice),
             "input": text,
-            "voice": voice.as_str(),
             "response_format": "mp3",
         });
         let resp = self
@@ -215,6 +248,25 @@ mod tests {
         let _ = OpenAiTts::new();
     }
 
+    // The brand-voice → OpenAI-voice translation. No network: this is the
+    // exact bug a live call hit — `tts-1` rejects `portia` with a 400, so
+    // the route must map it to a real voice first.
+    #[test]
+    fn map_voice_translates_brand_and_passes_through_vendor() {
+        // Skycot brand voice → its assigned OpenAI voice.
+        assert_eq!(map_voice(&VoiceId::new("portia")), PORTIA_OPENAI_VOICE);
+        // Already-valid OpenAI voices pass through (case-insensitive).
+        assert_eq!(map_voice(&VoiceId::new("nova")), "nova");
+        assert_eq!(map_voice(&VoiceId::new("Shimmer")), "shimmer");
+        assert_eq!(map_voice(&VoiceId::new("  alloy  ")), "alloy");
+        // Every mapped result is itself a value `tts-1` accepts.
+        assert!(OPENAI_TTS_VOICES.contains(&map_voice(&VoiceId::new("portia"))));
+        // An unknown brand id falls back to the demo voice, never an
+        // invalid value that OpenAI would 400.
+        assert_eq!(map_voice(&VoiceId::new("totally-unknown")), PORTIA_OPENAI_VOICE);
+        assert!(OPENAI_TTS_VOICES.contains(&map_voice(&VoiceId::new("totally-unknown"))));
+    }
+
     // --- Key-gated live integration tests ---------------------------------
     // These make REAL OpenAI calls. They early-return (skip) when
     // OPENAI_API_KEY is absent, so the suite passes without a key — they
@@ -234,8 +286,11 @@ mod tests {
             return;
         }
         let tts = OpenAiTts::new().expect("tts adapter with key");
+        // Use the Skycot BRAND voice id on purpose: this proves `map_voice`
+        // translates `portia` → a vendor-valid voice. The earlier `alloy`
+        // here masked the live-only 400 the gateway hit with the default.
         let clip = tts
-            .synthesize("Hello from Skycot.", &VoiceId::new("alloy"))
+            .synthesize("Hello from Skycot.", &VoiceId::new("portia"))
             .await
             .expect("real tts synth");
         assert_eq!(clip.format(), TTS_MIME);

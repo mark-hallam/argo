@@ -43,10 +43,15 @@ use tokio::net::TcpStream;
 /// returning 503 to the browser even though curl-with-identical-bytes
 /// returned 200. See `fix-spa-genesis-try-again-503-vs-curl-200`.
 const REQUEST_READ_DEADLINE: Duration = Duration::from_millis(500);
-/// Hard ceiling on bytes read per request (headers + body). Matches
-/// the original 4 KB buf's intent but adds slack for browser request
-/// headers (sec-ch-ua-*, user-agent, cookies, …).
-const REQUEST_READ_CEILING: usize = 64 * 1024;
+/// Hard ceiling on bytes read per request (headers + body). The original
+/// 64 KB was sized for JSON-only bodies + browser headers, but the
+/// conversational voice routes (`POST /api/v1/voice/{stt,pitch-turn}`)
+/// upload **base64 audio**: even a ~2 s `tts-1` mp3 is ~70 KB raw →
+/// ~95 KB base64, so 64 KB truncated the body mid-string and the JSON
+/// parser returned a 400. 4 MB fits a generous multi-minute clip
+/// (browser webm/opus mic captures are far smaller) while still bounding
+/// per-connection memory against a slow/abusive peer.
+const REQUEST_READ_CEILING: usize = 4 * 1024 * 1024;
 
 /// Borrowed bag of references the per-connection dispatch needs.
 /// Built once in `boot::start` and reused for every accepted
