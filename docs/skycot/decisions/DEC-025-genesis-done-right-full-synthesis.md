@@ -27,3 +27,19 @@ Without Genesis producing genuinely capable + safe bespoke teammates, the platfo
 3. The `BroadRoleDraft → loadable-teammate` materializer (the currently-missing piece in `argo-genesis`) is the spine of from-scratch synthesis.
 
 Related: [[DEC-010]] (Genesis is MVP-must-have), [[DEC-022]] / [[DEC-023]] (program scope + priority — this elevates Genesis to the active core build), [[DEC-007]] (no theater — the teammate must be genuinely capable, not a convincing shell).
+
+## Locked decisions (operator-confirmed 2026-05-30)
+
+The 9 open decisions from the design proposal are resolved (operator confirmed the recommended defaults):
+
+1. **Human-review-before-activation: ON by default** — operator approves a new teammate's scope before it goes live (toggleable for trusted flows later).
+2. **Probation: 24h, all actions approval-gated during it**, then graduate to the teammate's normal policy. Configurable window.
+3. **Hybrid synthesis** — synthesize the bespoke spec from scratch; the nearest of the 12 archetypes is a cheap prior + low-confidence fallback.
+4. **v1 comprehension: role-contract now** (teammate restates role + boundaries, operator confirms); SOP-upload→quiz is the fast-follow moat.
+5. **Demo inputs: text role (+ optionally one SOP doc); voice deferred** (fast-follow, not a v1 blocker).
+6. **Never auto-bind integrations at birth** — draft-only; deliberate post-hire grant; the demo *shows* the grant step.
+7. **Eval: deterministic floor first** (kills the hardcoded pass immediately); LLM-graded rubric is the fast-follow.
+8. **Grading: synchronous deterministic gate at hire + async deeper grading during probation.**
+9. **Tenancy: hold single-tenant-per-cwd**; multi-tenant routing stays the enterprise follow-up.
+
+Build proceeds phased **P0→P7** per the design doc, ultracode effort, each phase adversarially verified. **P0** (wire dormant safety gates + strip the hardcoded-pass theater) is both the first phase and the most urgent safety fix.
