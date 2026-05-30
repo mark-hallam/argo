@@ -41,6 +41,7 @@ mod personas;
 mod plan;
 mod retros;
 mod seed;
+mod seed_worker_duties;
 mod seed_worker_overlays;
 mod skill_ir_eval;
 mod skills;

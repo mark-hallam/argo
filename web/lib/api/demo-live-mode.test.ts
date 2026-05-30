@@ -114,6 +114,42 @@ describe("demo-live recording-mode opt-out — audit detail", () => {
     expect(apiGetMock).toHaveBeenCalledTimes(1);
     expect(apiGetMock.mock.calls[0][0]).toBe("/api/v1/audit/act_live_42");
   });
+
+  it("carries the gateway hash_chain_anchor through provenance normalisation", async () => {
+    // A meta-event row (e.g. a "Run now" worker.run) has no
+    // model/skill/policy provenance but does carry a real chain anchor
+    // from its self_hash. The normaliser must preserve it so the SPA's
+    // ProvenanceBlock renders the "Chain anchor" row instead of the
+    // "Provenance unavailable" empty state.
+    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+    apiGetMock.mockResolvedValueOnce({
+      summary: {
+        id: "act_run_1",
+        timestamp: "2026-05-30T00:00:00Z",
+        worker: { id: "w-run", name: "Mariah" },
+        action_type: "worker.run",
+        verb: "ran now",
+        status: "succeeded",
+        channel: "web",
+      },
+      decision_chain: [
+        { n: 1, title: "Manual trigger", body: "Run triggered by human:mark.", details: {} },
+      ],
+      provenance: {
+        model: { id: "", version: "" },
+        prompt_template: { id: "", hash: "" },
+        skill: { id: "", version: "" },
+        memory_snapshot: { id: "" },
+        policy: { id: "", version: "", hash: "" },
+        hash_chain_anchor: "deadbeefcafef00d",
+      },
+    });
+    const { fetchAuditDetail } = await import("@/lib/api/audit-detail");
+    const detail = await fetchAuditDetail("act_run_1");
+    expect(detail.provenance.hash_chain_anchor).toBe("deadbeefcafef00d");
+    // The pre-composed manual-trigger chain survives too.
+    expect(detail.decisionChain[0]?.title).toBe("Manual trigger");
+  });
 });
 
 describe("demo-live recording-mode opt-out — replay", () => {

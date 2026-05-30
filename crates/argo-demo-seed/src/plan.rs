@@ -78,6 +78,12 @@ pub struct SeedReport {
     /// catalog skills) so Claim 4's `/skills/<id>/usage` + "learned this
     /// month" surfaces show genuine adoption rather than an empty state.
     pub worker_skills_assigned: usize,
+    /// Number of `role_duty` rows seeded for the hero workers so each
+    /// worker overview's Responsibilities / Schedules card
+    /// (`GET /api/v1/workers/<id>/overview` → `duties`) renders real
+    /// scheduler rows instead of the "No schedules yet" empty state.
+    /// Mariah gets the four Scene-2 runbook responsibilities.
+    pub worker_duties_seeded: usize,
     /// Number of committed-retrain audit rows seeded for the lead hero
     /// workers so the worker Overview tab's "Recent changes" panel
     /// (`GET /api/v1/workers/<id>/retrain/recent`) renders real history

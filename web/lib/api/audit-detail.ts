@@ -196,12 +196,20 @@ function normalizeDecisionChain(value: unknown): AuditDetail["decisionChain"] {
 
 function normalizeProvenance(value: unknown): AuditDetail["provenance"] {
   const p = isRecord(value) ? value : {};
+  // Carry the hash-chain anchor through. Every audit row has a
+  // `self_hash`, so the gateway always emits `hash_chain_anchor`; the
+  // SPA's `ProvenanceBlock` renders it as a "Chain anchor" row, which
+  // keeps the card non-empty for meta-event rows (e.g. a "Run now"
+  // `worker.run` trigger) that have no model/skill/policy provenance.
+  const chainAnchor =
+    stringValue(p.hashChainAnchor) || stringValue(p.hash_chain_anchor) || undefined;
   return {
     model: normalizeIdVersion(p.model),
     promptTemplate: normalizeIdHash(p.promptTemplate ?? p.prompt_template),
     skill: normalizeIdVersion(p.skill),
     memorySnapshot: { id: stringValue(asRecord(p.memorySnapshot ?? p.memory_snapshot).id) },
     policy: normalizePolicy(p.policy),
+    ...(chainAnchor ? { hash_chain_anchor: chainAnchor } : {}),
   };
 }
 

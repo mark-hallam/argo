@@ -94,6 +94,19 @@ fn infer_trigger_kind(kind: &str) -> &'static str {
 }
 
 fn build_decision_chain(payload: &Value, policy: &RedactionPolicy) -> Value {
+    // Pre-composed chain: rows that carry their own `decision_chain`
+    // array (e.g. the "Run now" `worker.run` trigger, which records a
+    // single `manual_trigger` step) render those steps directly instead
+    // of the synthesised 8-step agent-turn trace. This keeps the raw
+    // `payload_json.decision_chain[0].step` field the runbook pass-cue
+    // checks intact while still giving the SPA a populated, non-empty
+    // chain (otherwise every synthesised step is blank → "Decision
+    // chain unavailable").
+    if let Some(steps) = payload.get("decision_chain").and_then(Value::as_array) {
+        if !steps.is_empty() {
+            return render_explicit_chain(steps, policy);
+        }
+    }
     let g = |k: &str| payload.get(k).cloned().unwrap_or(Value::Null);
     let steps = [
         (
@@ -172,6 +185,80 @@ fn decision_step(
     })
 }
 
+/// Render a payload-supplied `decision_chain` array into the
+/// `{n, title, body, details}` shape the SPA `DecisionChainCard`
+/// consumes. Tolerates two shapes per entry:
+///  - the canonical `{n, title, body, details}` form (passed through,
+///    with the body redacted), and
+///  - the trigger form (`{step, actor, trigger_source, ts, note}` —
+///    what `routes_worker_run` records for a "Run now") where a
+///    human title + body are synthesised from `step` and the actor /
+///    trigger source, and the raw fields are preserved under `details`.
+fn render_explicit_chain(steps: &[Value], policy: &RedactionPolicy) -> Value {
+    let out: Vec<Value> = steps
+        .iter()
+        .enumerate()
+        .map(|(idx, step)| explicit_step(idx, step, policy))
+        .collect();
+    Value::Array(out)
+}
+
+fn explicit_step(idx: usize, step: &Value, policy: &RedactionPolicy) -> Value {
+    let n = step
+        .get("n")
+        .and_then(Value::as_u64)
+        .unwrap_or((idx as u64) + 1);
+    let title = payload_str(step, "title").unwrap_or_else(|| step_title_from_kind(step));
+    let raw_body = payload_str(step, "body").unwrap_or_else(|| step_body_from_kind(step));
+    let (body, _) = redact_text(&raw_body, policy);
+    let details = step
+        .get("details")
+        .cloned()
+        .filter(|d| !d.is_null())
+        .unwrap_or_else(|| step.clone());
+    json!({
+        "n": n,
+        "title": title,
+        "body": body,
+        "details": details,
+    })
+}
+
+/// Title for a trigger-shaped step. `manual_trigger` is the "Run now"
+/// case; other `step` values title-case the slug.
+fn step_title_from_kind(step: &Value) -> String {
+    match payload_str(step, "step").as_deref() {
+        Some("manual_trigger") => "Manual trigger".to_string(),
+        Some(other) if !other.is_empty() => humanize_slug(other),
+        _ => "Trigger".to_string(),
+    }
+}
+
+/// Body for a trigger-shaped step — a one-line "who fired it, how".
+fn step_body_from_kind(step: &Value) -> String {
+    let actor = payload_str(step, "actor").unwrap_or_else(|| "an operator".to_string());
+    let source = payload_str(step, "trigger_source").unwrap_or_default();
+    let note = payload_str(step, "note").filter(|s| !s.trim().is_empty());
+    let mut body = if source.is_empty() {
+        format!("Run triggered by {actor}.")
+    } else {
+        format!("Run triggered by {actor} via {source}.")
+    };
+    if let Some(note) = note {
+        body.push_str(&format!(" Note: {note}"));
+    }
+    body
+}
+
+fn humanize_slug(slug: &str) -> String {
+    let spaced = slug.replace(['_', '-'], " ");
+    let mut chars = spaced.chars();
+    match chars.next() {
+        Some(c) => c.to_ascii_uppercase().to_string() + chars.as_str(),
+        None => spaced,
+    }
+}
+
 fn build_provenance(row: &DetailRow, payload: &Value) -> Value {
     let s = |k: &str| payload_str(payload, k).unwrap_or_default();
     json!({
@@ -238,3 +325,7 @@ fn build_screenshot_entry(
 pub(super) fn payload_str(p: &Value, key: &str) -> Option<String> {
     p.get(key).and_then(Value::as_str).map(str::to_string)
 }
+
+#[cfg(test)]
+#[path = "routes_audit_detail_render_tests.rs"]
+mod tests;

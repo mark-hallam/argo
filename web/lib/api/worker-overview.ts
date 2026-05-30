@@ -86,6 +86,72 @@ function mapGatewayKpi(k: RawGatewayKpi): WorkerKpi {
   };
 }
 
+/** Raw duty shape as the gateway `/overview` endpoint returns it. */
+interface RawGatewayDuty {
+  id?: string;
+  label?: string;
+  description?: string;
+  /** `{ kind: "cron" | "event", spec }` on the wire; a plain string in mocks. */
+  schedule?: { kind?: string; spec?: string } | string;
+  enabled?: boolean;
+}
+
+/**
+ * Map a gateway duty to the SPA {@link WorkerDuty} contract. The gateway
+ * sends `schedule` as `{ kind: "cron" | "event", spec }`; the SPA renders
+ * a plain string chip, so the cron/event spec is turned into a readable
+ * cadence ("daily 06:30", "every 15 min", "on: <event>"). Tolerates the
+ * already-SPA-shaped form (mock/legacy) where `schedule` is a string.
+ */
+function mapGatewayDuty(raw: unknown): WorkerDuty {
+  const d = (raw ?? {}) as RawGatewayDuty;
+  const label = d.label ?? d.description ?? "Untitled schedule";
+  let schedule: string;
+  if (typeof d.schedule === "string") {
+    schedule = d.schedule;
+  } else if (d.schedule?.kind === "event") {
+    schedule = `on: ${d.schedule.spec ?? "trigger"}`;
+  } else {
+    schedule = cronToCadence(d.schedule?.spec ?? "");
+  }
+  return {
+    id: d.id ?? label,
+    label,
+    schedule,
+    enabled: d.enabled ?? true,
+  };
+}
+
+/**
+ * Render a cron spec as a short human cadence for the schedule chip.
+ * Handles the common demo shapes (5- or 6-field). Falls back to the raw
+ * spec prefixed `cron:` for anything it does not specifically recognise
+ * so the chip is never blank or `[object Object]`.
+ */
+function cronToCadence(spec: string): string {
+  const trimmed = spec.trim();
+  if (!trimmed) return "—";
+  const parts = trimmed.split(/\s+/);
+  // Normalise 6-field (sec min hour dom mon dow) to 5-field semantics by
+  // dropping the leading seconds field when present.
+  const fields = parts.length === 6 ? parts.slice(1) : parts;
+  if (fields.length !== 5) return `cron: ${trimmed}`;
+  const [min, hour, dom, mon, dow] = fields;
+  // every-N-minutes: "*/N * * * *"
+  const everyMin = /^\*\/(\d+)$/.exec(min);
+  if (everyMin && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return `every ${everyMin[1]} min`;
+  }
+  // daily at HH:MM — fixed minute + fixed hour, any day
+  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && mon === "*") {
+    const hhmm = `${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
+    if (dow === "*") return `daily ${hhmm}`;
+    if (dow === "1-5") return `weekdays ${hhmm}`;
+    return `${hhmm} (${dow})`;
+  }
+  return `cron: ${trimmed}`;
+}
+
 export interface WorkerActivityRow {
   id: string;
   /** ISO timestamp. */
@@ -181,7 +247,7 @@ export async function fetchWorkerOverview(
   try {
     const raw = await apiGet<{
       charter?: unknown;
-      duties?: WorkerDuty[];
+      duties?: unknown[];
       kpis?: RawGatewayKpi[];
       recentActivity?: WorkerActivityRow[];
       recent_activity?: WorkerActivityRow[];
@@ -196,6 +262,9 @@ export async function fetchWorkerOverview(
     //  - KPIs arrive as { key, sparkline_7d, trend:{direction,delta_pct},
     //    direction_means_good }; the SPA needs { id, series, deltaPct,
     //    trend, tone } → map + derive tone.
+    //  - duties arrive with `schedule: { kind, spec }` (cron/event) and
+    //    a server-side `enabled` boolean; the SPA renders `schedule` as
+    //    a plain string chip → map cron/event spec to a readable cadence.
     //  - every list defaults to [] so no `.length`/`.map` hits undefined.
     const charter =
       typeof raw.charter === "string"
@@ -203,7 +272,7 @@ export async function fetchWorkerOverview(
         : ((raw.charter as { text?: string } | null | undefined)?.text ?? "");
     const overview: WorkerOverview = {
       charter,
-      duties: raw.duties ?? [],
+      duties: (raw.duties ?? []).map(mapGatewayDuty),
       kpis: (raw.kpis ?? []).map(mapGatewayKpi),
       recentActivity: raw.recentActivity ?? raw.recent_activity ?? [],
       genesis_plan_id: raw.genesis_plan_id ?? null,

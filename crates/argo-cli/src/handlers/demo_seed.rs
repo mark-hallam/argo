@@ -110,6 +110,10 @@ fn print_text_report(args: &DemoSeedArgs, report: &SeedReport, elapsed: std::tim
         report.worker_skills_assigned
     );
     println!(
+        "  worker_duties_seeded:       {}",
+        report.worker_duties_seeded
+    );
+    println!(
         "  retrain_records_seeded:     {}",
         report.retrain_records_seeded
     );

@@ -117,6 +117,17 @@ pub async fn run_canonical_v1_seed(
             &worker_ids,
         )
         .await?;
+    // Real `role_duty` rows for the hero workers so each worker
+    // overview's Responsibilities / Schedules card renders genuine
+    // duties (Scene 2 lands on Mariah's four). Positional-aligned with
+    // DEMO_SEED_PERSONAS, the same spine `seed_demo_workers` walked.
+    report.worker_duties_seeded = crate::seed_worker_duties::seed_worker_duties(
+        store,
+        opts.tenant_id,
+        DEMO_SEED_PERSONAS,
+        &worker_ids,
+    )
+    .await?;
 
     // ── Pass A — real LLM turns (deferred per fix-brief split) ────
     // The brief calls for 10-20 real `AgentRunner::run_turn` calls
