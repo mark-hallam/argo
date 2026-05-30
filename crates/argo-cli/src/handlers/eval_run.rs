@@ -28,6 +28,9 @@ pub async fn run(cmd: EvalCmd) -> ArgoResult<()> {
         EvalCmd::ExportTrainingData { tenant, out, json } => {
             super::eval_export_training_data::run(&tenant, &out, json).await
         }
+        EvalCmd::GenerateCases { tenant, out, json } => {
+            super::eval_generate_cases::run(&tenant, &out, json).await
+        }
         EvalCmd::SkillHonesty {
             skill_id,
             sample,

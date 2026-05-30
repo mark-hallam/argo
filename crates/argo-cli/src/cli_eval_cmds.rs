@@ -104,6 +104,23 @@ pub enum EvalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Generate `argo-eval` regression cases from a tenant's real
+    /// *judged* history (self-improvement Step 1b): each human-rejected
+    /// approval becomes a "must refuse or defer" case, each committed
+    /// retrain a "corrected behaviour" case. Read-only; the output
+    /// loads + runs via `argo eval validate <file>`. See
+    /// `docs/skycot/design/2026-05-29-gap-closure-plans/03-self-improvement-training-export.md`.
+    GenerateCases {
+        /// Tenant id (UUID) to generate cases for.
+        #[arg(long)]
+        tenant: String,
+        /// Output file path (JSONL — one `EvalTask` per line).
+        #[arg(long, short)]
+        out: std::path::PathBuf,
+        /// Emit a single JSON summary object instead of human lines.
+        #[arg(long)]
+        json: bool,
+    },
     /// Compare two eval runs side by side.
     Compare {
         /// Baseline eval run id or JSON path.

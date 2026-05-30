@@ -16,17 +16,13 @@
 //! Free-text fields pass through `pii_detect::scan_and_maybe_redact`
 //! (respects `ARGO_PII_AUTOREDACT`, exactly like the audit sink) so an
 //! export never leaks PII the audit layer would have caught.
-use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_security::pii_detect::scan_and_maybe_redact;
+use super::eval_judged_history as jh;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::borrow::Cow;
 use std::io::Write;
 use std::path::Path;
-
-const RETRAIN_COMMIT_ENDPOINT: &str = "worker.retrain.committed";
 
 /// One JSONL training example. Two sources share the struct: a human
 /// approval decision (`source = "human_approval"`) and a committed
@@ -48,8 +44,7 @@ struct TrainingExample {
 /// CLI entry: parse the tenant, open the live store, collect examples
 /// from approvals + retrains, write JSONL, print a summary.
 pub async fn run(tenant: &str, out: &Path, json_out: bool) -> ArgoResult<()> {
-    let tenant_id = parse_tenant(tenant)?;
-    let store = open_store().await?;
+    let (store, tenant_id) = jh::open_for_tenant(tenant).await?;
     let mut examples = collect_approval_examples(&store, tenant_id).await?;
     let from_approvals = examples.len();
     let from_retrains = append_retrain_examples(&store, tenant_id, &mut examples).await?;
@@ -57,42 +52,18 @@ pub async fn run(tenant: &str, out: &Path, json_out: bool) -> ArgoResult<()> {
     emit(out, written, from_approvals, from_retrains, redacted, json_out)
 }
 
-fn parse_tenant(tenant: &str) -> ArgoResult<TenantId> {
-    uuid::Uuid::parse_str(tenant)
-        .map(TenantId)
-        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{tenant}': {e}")))
-}
-
-async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let store = SessionStore::open(db_path(&home)).await?;
-    store.migrate().await?;
-    Ok(store)
-}
-
 /// Decided approval requests → "approve or reject this action?" pairs.
-/// `approval_request.tenant_id` is a BLOB column (unlike `audit_record`).
+/// Reads via the shared judged-history layer (`eval_judged_history`),
+/// shared with `argo eval generate-cases`, so the query lives once.
 async fn collect_approval_examples(
     store: &SessionStore,
     tenant_id: TenantId,
 ) -> ArgoResult<Vec<TrainingExample>> {
-    type Row = (Option<String>, String, Option<String>, String, Option<String>);
-    let rows: Vec<Row> = sqlx::query_as(
-        "SELECT draft_content, status, decision, requested_by, decided_by \
-         FROM approval_request \
-         WHERE tenant_id = ? AND status != 'pending' \
-         ORDER BY decided_at DESC",
-    )
-    .bind(tenant_id.0.as_bytes().as_slice())
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("list decided approvals: {e}")))?;
+    let rows = jh::decided_approvals(store, tenant_id).await?;
     let mut out = Vec::with_capacity(rows.len());
-    for (draft, status, decision, requested_by, decided_by) in rows {
-        let action = draft.unwrap_or_else(|| "(no draft recorded)".into());
-        let completion = match status.as_str() {
+    for a in rows {
+        let action = a.draft.unwrap_or_else(|| "(no draft recorded)".into());
+        let completion = match a.status.as_str() {
             "granted" => "approve",
             "denied" => "reject",
             _ => "expire",
@@ -102,57 +73,35 @@ async fn collect_approval_examples(
             worker_id: None,
             prompt: format!("A teammate proposed this action. Approve or reject:\n{action}"),
             completion: completion.to_string(),
-            label: decision.unwrap_or(status),
-            requested_by: Some(requested_by),
-            decided_by,
+            label: a.decision.unwrap_or(a.status),
+            requested_by: Some(a.requested_by),
+            decided_by: a.decided_by,
         });
     }
     Ok(out)
 }
 
-/// Committed retrains → labelled human-correction examples. Audit's
-/// `tenant_id` is a TEXT column (unlike `approval_request`).
+/// Committed retrains → labelled human-correction examples. Reads via
+/// the shared judged-history layer (`eval_judged_history`).
 async fn append_retrain_examples(
     store: &SessionStore,
     tenant_id: TenantId,
     out: &mut Vec<TrainingExample>,
 ) -> ArgoResult<usize> {
-    let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT payload_json FROM audit_record \
-         WHERE kind = 'http.request' AND tenant_id = ? \
-           AND json_extract(payload_json, '$.endpoint') = ? \
-         ORDER BY seq DESC",
-    )
-    .bind(tenant_id.to_string())
-    .bind(RETRAIN_COMMIT_ENDPOINT)
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("list committed retrains: {e}")))?;
-    let mut added = 0usize;
-    for (payload,) in rows {
-        let Ok(v) = serde_json::from_str::<Value>(&payload) else {
-            continue;
-        };
-        let classification = v
-            .get("classification")
-            .and_then(Value::as_str)
-            .unwrap_or("memory_fact");
-        let worker_id = v
-            .get("worker_id")
-            .and_then(Value::as_str)
-            .map(str::to_string);
+    let rows = jh::committed_retrains(store, tenant_id).await?;
+    let added = rows.len();
+    for c in rows {
         out.push(TrainingExample {
             source: "human_correction",
-            worker_id,
+            worker_id: c.worker_id,
             prompt: "A human corrected this teammate's behaviour. Apply the correction going \
                      forward."
                 .into(),
-            completion: correction_text(classification, v.get("structural_change")),
-            label: classification.to_string(),
+            completion: correction_text(&c.classification, c.structural_change.as_ref()),
+            label: c.classification,
             requested_by: None,
             decided_by: None,
         });
-        added += 1;
     }
     Ok(added)
 }
@@ -194,8 +143,8 @@ fn write_jsonl(out: &Path, examples: Vec<TrainingExample>) -> ArgoResult<(usize,
     let mut written = 0usize;
     let mut redacted = 0usize;
     for mut ex in examples {
-        let (prompt, rp) = redact(&ex.prompt);
-        let (completion, rc) = redact(&ex.completion);
+        let (prompt, rp) = jh::redact(&ex.prompt, "training_export");
+        let (completion, rc) = jh::redact(&ex.completion, "training_export");
         redacted += usize::from(rp) + usize::from(rc);
         ex.prompt = prompt;
         ex.completion = completion;
@@ -206,14 +155,6 @@ fn write_jsonl(out: &Path, examples: Vec<TrainingExample>) -> ArgoResult<(usize,
         written += 1;
     }
     Ok((written, redacted))
-}
-
-/// `(possibly-redacted text, was_redacted)`. Owned ⇒ redaction applied.
-fn redact(s: &str) -> (String, bool) {
-    match scan_and_maybe_redact(s, "training_export") {
-        Cow::Borrowed(_) => (s.to_string(), false),
-        Cow::Owned(red) => (red, true),
-    }
 }
 
 fn emit(

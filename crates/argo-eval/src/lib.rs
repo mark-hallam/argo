@@ -44,6 +44,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod case_gen;
 mod compare;
 pub mod honesty;
 pub mod pitch_runner;
@@ -59,6 +60,7 @@ mod pitch_runner_tests;
 #[cfg(test)]
 mod tests;
 
+pub use case_gen::{generate_cases, Correction, JudgedInputs, RejectedAction};
 pub use compare::{
     compare_runs, ComparisonGroup, ComparisonItem, ComparisonReport, EvalRunFixture, EvalRunReport,
     GroupComparison,

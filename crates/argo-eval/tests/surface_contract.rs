@@ -10,8 +10,14 @@ use argo_types::{ArgoError, ArgoResult, SessionId};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-const EXPECTED_PUBLIC_MODULES: &[&str] =
-    &["honesty", "pitch_runner", "regression", "self_healing", "teammate"];
+const EXPECTED_PUBLIC_MODULES: &[&str] = &[
+    "case_gen",
+    "honesty",
+    "pitch_runner",
+    "regression",
+    "self_healing",
+    "teammate",
+];
 
 const EXPECTED_REEXPORTS: &[&str] = &[
     "apply_fixture_update",
@@ -19,6 +25,7 @@ const EXPECTED_REEXPORTS: &[&str] = &[
     "detect_eval_regression",
     "ensure_promotion_allowed",
     "format_simple_line",
+    "generate_cases",
     "format_summary_line",
     "format_verbose_line",
     "load_jsonl",
@@ -31,6 +38,7 @@ const EXPECTED_REEXPORTS: &[&str] = &[
     "ComparisonGroup",
     "ComparisonItem",
     "ComparisonReport",
+    "Correction",
     "EvalFixtureRegression",
     "EvalMetric",
     "EvalRecord",
@@ -50,6 +58,7 @@ const EXPECTED_REEXPORTS: &[&str] = &[
     "GroupComparison",
     "HonestyConfig",
     "HonestyResult",
+    "JudgedInputs",
     "OperatorFixtureApproval",
     "PitchChannel",
     "PitchEvalCase",
@@ -57,6 +66,7 @@ const EXPECTED_REEXPORTS: &[&str] = &[
     "PitchEvalReport",
     "PitchEvalResult",
     "PitchEvalRunner",
+    "RejectedAction",
     "SampleVerdict",
     "ScenarioOutcome",
     "SelfHealingConfig",

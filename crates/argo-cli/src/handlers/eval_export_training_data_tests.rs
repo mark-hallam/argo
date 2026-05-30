@@ -74,6 +74,7 @@ async fn export_is_tenant_scoped() {
 
 #[tokio::test]
 async fn invalid_tenant_id_is_rejected() {
+    use crate::handlers::eval_judged_history::parse_tenant;
     assert!(parse_tenant("not-a-uuid").is_err());
     assert!(parse_tenant(&TenantId::new().to_string()).is_ok());
 }

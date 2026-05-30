@@ -125,6 +125,8 @@ pub mod duty_show;
 pub mod errors_dashboard;
 pub mod eval_compare;
 pub mod eval_export_training_data;
+pub mod eval_generate_cases;
+pub mod eval_judged_history;
 pub mod eval_list;
 pub mod eval_run;
 pub mod eval_show;
