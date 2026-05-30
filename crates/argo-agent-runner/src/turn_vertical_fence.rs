@@ -11,46 +11,186 @@
 //! [`argo_capability::WorkerCapabilityProfile`] is the canonical,
 //! manifest-agnostic type (deny-by-default tool allow-set + the
 //! irreversibility gate). This module is the thin runtime glue that
-//! (a) finds a vertical's manifest — including Genesis verticals under
-//! the `.genesis/<tenant>/<id>/` tree that `argo_vertical::load_dir`
-//! does NOT walk — and (b) maps its declared `[actions]` / `[tools]` /
-//! `[mcp_servers]` into a profile.
+//! (a) finds a vertical's manifest — whether the Genesis worker's
+//! manifest lives under the `.genesis/<tenant>/<id>/` tree that
+//! `argo_vertical::load_dir` does NOT walk, OR in the hand-authored
+//! catalog (`load_dir`) — and (b) maps its declared `[actions]` /
+//! `[tools]` / `[mcp_servers]` into a profile.
 //!
-//! ## Posture
+//! ## Posture — key off Genesis PROVENANCE, not directory location
 //!
-//! - **Genesis-generated verticals** (resolved under `.genesis/`, or
-//!   carrying a Genesis-written `worker.toml`) → derive a least-privilege
-//!   profile. This is the hole the fence closes: a generated teammate no
-//!   longer inherits the owner's `*` keys.
-//! - **Hand-authored catalog verticals** → `None` (no fence). These are
-//!   operator-authored + operator-trusted; they keep the existing
-//!   behaviour. (A future tightening can fence these too, but that is
-//!   out of scope for closing the *generated-teammate* `*` hole.)
+//! The fence used to key off where the manifest lived: a profile was
+//! derived ONLY for verticals resolved under `.genesis/`. That left a
+//! P0 hole — a teammate hired via `POST /api/v1/onboarding/first-hire`
+//! (the demo's Scene-1 path) is a genuine Genesis hire (its persona
+//! carries `genesis_plan_id` provenance) but is bound to a **catalog**
+//! `vertical_id` that is never written to `.genesis/`. Such a worker
+//! resolved to `None` → the caller bound it to `owner` (`*` keys). The
+//! fence now keys off the worker's **Genesis provenance** (carried on
+//! `persona.provenance_chain`), so ANY worker hired through Genesis is
+//! fenced regardless of where its manifest lives.
+//!
+//! - **Worker WITH Genesis provenance** → derive a least-privilege
+//!   profile from the bound vertical's manifest, looked up under
+//!   `.genesis/` first and then the catalog. If the manifest cannot be
+//!   resolved (IO / parse error / not found), the fence **fails CLOSED**
+//!   with a deny-all profile — it must NEVER fall back to `owner` for a
+//!   known-Genesis session.
+//! - **Worker with NO Genesis provenance** (ad-hoc session, or a
+//!   hand-authored catalog vertical the operator authored + trusts) →
+//!   `None` (no fence; historical `owner` binding). (A future tightening
+//!   can fence these too, but that is out of scope here.)
 
 use argo_capability::WorkerCapabilityProfile;
+use argo_store::SessionStore;
+use argo_types::TenantId;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-/// Resolve a least-privilege [`WorkerCapabilityProfile`] for a
-/// vertical-bound session, IF the bound vertical is Genesis-generated.
+/// Genesis-provenance signal for a session, derived from the worker row
+/// at the call site (`build_turn_dispatch_ctx`) where the `IdentityStore`
+/// is available. Carrying the decision in a tiny enum keeps the
+/// store-touching read out of this pure resolver module.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GenesisProvenance {
+    /// The bound worker's persona carries a `genesis_plan_id=` marker —
+    /// it was hired through Genesis and MUST be fenced (fail-closed).
+    Genesis,
+    /// No worker, or the worker carries no Genesis provenance — keep the
+    /// historical `owner` binding (no fence).
+    None,
+}
+
+/// Decide whether the session's bound worker was hired through Genesis,
+/// by reading the persisted persona's `provenance_chain` for the
+/// canonical `genesis_plan_id=` marker (the SAME marker both the
+/// first-hire seam and the SSE hire stamp). This is the single
+/// store-touching read that lets the pure resolver below fence a Genesis
+/// worker regardless of where its vertical manifest lives.
 ///
-/// Returns `None` (→ caller keeps the historical `owner` binding) when:
-/// - the session isn't vertical-bound,
-/// - the vertical can't be found on disk,
-/// - or the vertical is a hand-authored catalog vertical (not Genesis).
+/// - No `worker_id` (ad-hoc session) → `None` (no fence).
+/// - Worker row carries a `genesis_plan_id=` provenance entry →
+///   `Genesis` (fence, fail-closed).
+/// - Worker row loads but carries no marker → `None` (hand-authored
+///   catalog / pre-Genesis worker; historical `owner` binding).
+/// - Worker row can't be loaded (transient store error / missing row) →
+///   `None`, with a warning. We can't prove it's Genesis from a failed
+///   read, and bricking the turn is worse than the historical binding;
+///   the manifest-resolution fail-closed path still protects any worker
+///   we DO classify as Genesis.
+pub(crate) async fn genesis_provenance_for_worker(
+    store: &Arc<SessionStore>,
+    tenant_id: TenantId,
+    worker_id: Option<argo_store::WorkerId>,
+) -> GenesisProvenance {
+    let Some(worker_id) = worker_id else {
+        return GenesisProvenance::None;
+    };
+    let identities = argo_identity::IdentityStore::new(store);
+    match identities.get_worker(tenant_id, worker_id).await {
+        Ok(Some(worker)) => {
+            if argo_identity::genesis_plan_id_from_provenance(&worker.persona.provenance_chain)
+                .is_some()
+            {
+                GenesisProvenance::Genesis
+            } else {
+                GenesisProvenance::None
+            }
+        }
+        Ok(None) => GenesisProvenance::None,
+        Err(e) => {
+            tracing::warn!(
+                target: "agent_runner::fence",
+                error = %e,
+                worker_id = %worker_id.0,
+                "could not read worker provenance for capability fence; \
+                 falling back to historical binding"
+            );
+            GenesisProvenance::None
+        }
+    }
+}
+
+/// Resolve a least-privilege [`WorkerCapabilityProfile`] for a session,
+/// keyed off whether the bound worker was hired through Genesis.
 ///
-/// Degrades silently to `None` on any IO / parse error so a missing or
-/// malformed manifest never aborts the turn — the fence is a *tightening*
-/// and its absence must never brick dispatch. (Fail-open on *resolution*
-/// is acceptable because the only consequence is the historical
-/// behaviour; the fence itself, once derived, is fail-closed.)
+/// - `provenance = None` → returns `None` (→ caller keeps the historical
+///   `owner` binding) for ad-hoc / hand-authored-catalog sessions.
+/// - `provenance = Genesis` → ALWAYS returns `Some(profile)`. It derives
+///   the profile from the bound vertical's manifest (looked up under
+///   `.genesis/` first, then the catalog). If the manifest can't be
+///   resolved or parsed, it returns a **deny-all** profile — the fence
+///   **fails CLOSED** rather than leaking the owner's `*` keys to a
+///   known-Genesis worker.
 #[must_use]
 pub(crate) fn resolve_worker_profile_for_session(
     vertical_id: Option<&str>,
+    provenance: GenesisProvenance,
 ) -> Option<WorkerCapabilityProfile> {
-    let vid = vertical_id?;
-    let root = argo_vertical::default_dir();
-    let dir = genesis_vertical_dir_in(&root, vid)?;
-    derive_profile_from_dir(&dir)
+    resolve_worker_profile_in(&argo_vertical::default_dir(), vertical_id, provenance)
+}
+
+/// Root-parameterized core of [`resolve_worker_profile_for_session`].
+/// Split out so tests can point at a fixture verticals tree without
+/// mutating the process-global `$ARGO_VERTICALS_DIR` (which would race
+/// other tests in the same binary). Production callers go through the
+/// public wrapper, which passes [`argo_vertical::default_dir()`].
+#[must_use]
+pub(crate) fn resolve_worker_profile_in(
+    verticals_root: &Path,
+    vertical_id: Option<&str>,
+    provenance: GenesisProvenance,
+) -> Option<WorkerCapabilityProfile> {
+    match provenance {
+        GenesisProvenance::None => None,
+        // Fail CLOSED for a known-Genesis worker: an unresolved /
+        // malformed manifest yields a deny-all profile, NEVER `owner`.
+        GenesisProvenance::Genesis => Some(
+            vertical_id
+                .and_then(|vid| resolve_genesis_manifest(verticals_root, vid))
+                .map_or_else(deny_all_profile, |m| derive_profile_from_manifest(&m)),
+        ),
+    }
+}
+
+/// The deny-all least-privilege profile: an empty allow-set permits
+/// nothing autonomously (only the always-safe minimal teammate tools
+/// survive into the capability set). This is the fail-closed posture for
+/// a known-Genesis worker whose manifest can't be resolved.
+#[must_use]
+fn deny_all_profile() -> WorkerCapabilityProfile {
+    WorkerCapabilityProfile::derive(
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+        Vec::<String>::new(),
+    )
+}
+
+/// Locate + parse a Genesis worker's bound vertical manifest, wherever it
+/// lives: first under `.genesis/<tenant>/<id>/vertical.toml` (SSE-hired
+/// workers), then in the hand-authored catalog via `load_dir`
+/// (first-hire / catalog-bound Genesis workers). Returns `None` only when
+/// neither lookup yields a parseable manifest.
+#[must_use]
+fn resolve_genesis_manifest(
+    verticals_root: &Path,
+    vertical_id: &str,
+) -> Option<argo_vertical::VerticalManifest> {
+    if let Some(dir) = genesis_vertical_dir_in(verticals_root, vertical_id) {
+        if let Some(manifest) = parse_manifest_in_dir(&dir) {
+            return Some(manifest);
+        }
+    }
+    manifest_from_catalog(verticals_root, vertical_id)
+}
+
+/// Look the id up in the on-disk catalog (`argo_vertical::load_dir`,
+/// which does NOT walk `.genesis/`) and clone its parsed manifest.
+#[must_use]
+fn manifest_from_catalog(root: &Path, id: &str) -> Option<argo_vertical::VerticalManifest> {
+    let (registry, _errors) = argo_vertical::load_dir(root).ok()?;
+    registry.get(id).map(|loaded| loaded.manifest.clone())
 }
 
 /// Locate a Genesis-generated vertical's on-disk directory under
@@ -66,13 +206,10 @@ fn genesis_vertical_dir_in(verticals_root: &Path, id: &str) -> Option<PathBuf> {
     })
 }
 
-/// Parse the `vertical.toml` at `dir` and derive a least-privilege
-/// profile from its declared `[actions]` / `[tools]` / `[mcp_servers]`.
-fn derive_profile_from_dir(dir: &Path) -> Option<WorkerCapabilityProfile> {
-    let manifest_path = dir.join("vertical.toml");
-    let src = std::fs::read_to_string(&manifest_path).ok()?;
-    let manifest = argo_vertical::parse(&src).ok()?;
-    Some(derive_profile_from_manifest(&manifest))
+/// Parse the `vertical.toml` at `dir`. `None` on any IO / parse error.
+fn parse_manifest_in_dir(dir: &Path) -> Option<argo_vertical::VerticalManifest> {
+    let src = std::fs::read_to_string(dir.join("vertical.toml")).ok()?;
+    argo_vertical::parse(&src).ok()
 }
 
 /// Pure mapping from a parsed manifest to a least-privilege profile.
@@ -204,7 +341,80 @@ mod tests {
     }
 
     #[test]
-    fn resolve_returns_none_for_unbound_session() {
-        assert!(resolve_worker_profile_for_session(None).is_none());
+    fn non_genesis_worker_is_not_fenced() {
+        // A session whose worker carries NO Genesis provenance keeps the
+        // historical owner binding — `None` regardless of vertical id.
+        // (Uses the public wrapper; `default_dir()` is irrelevant on the
+        // `None` arm — it short-circuits before any disk read.)
+        assert!(resolve_worker_profile_for_session(None, GenesisProvenance::None).is_none());
+        assert!(resolve_worker_profile_for_session(
+            Some("ai-receptionist"),
+            GenesisProvenance::None
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn genesis_worker_bound_to_catalog_id_is_fenced() {
+        // The bypass this closes: a Genesis-provenance worker bound to a
+        // CATALOG vertical id (not under `.genesis/`) MUST resolve to a
+        // least-privilege profile derived from that catalog manifest — not
+        // `None` (which the caller would bind to owner). Race-free: points
+        // the resolver at a tempdir catalog via the root-parameterized
+        // inner fn instead of mutating the process-global env var.
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let vdir = tmp.path().join("intern");
+        std::fs::create_dir_all(&vdir).expect("mkdir");
+        std::fs::write(
+            vdir.join("vertical.toml"),
+            "schema_version = \"1\"\n\
+             [vertical]\nid = \"intern\"\nname = \"Intern\"\nversion = \"0.1.0\"\n\
+             [actions.draft_reply]\nrisk = \"low\"\nrequires_approval = false\n\
+             description = \"Draft a reply.\"\n\
+             [tools]\nallowed = [\"web_search\"]\ndenied = []\n",
+        )
+        .expect("write manifest");
+
+        let profile =
+            resolve_worker_profile_in(tmp.path(), Some("intern"), GenesisProvenance::Genesis)
+                .expect("Genesis worker must always yield a profile, never None/owner");
+        assert!(
+            profile.permits_tool("draft_reply"),
+            "declared action allowed"
+        );
+        assert!(profile.permits_tool("web_search"), "allowed tool allowed");
+        assert!(
+            !profile.permits_tool("terminal"),
+            "undeclared tool must stay denied under the fence"
+        );
+    }
+
+    #[test]
+    fn genesis_worker_with_unresolvable_manifest_fails_closed() {
+        // A known-Genesis worker whose manifest can't be resolved (no
+        // matching .genesis/ dir, not in the catalog) must NOT fall back
+        // to owner — it gets a deny-all profile so the fence fails CLOSED.
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let profile = resolve_worker_profile_in(
+            tmp.path(),
+            Some("a-vertical-that-does-not-exist-anywhere"),
+            GenesisProvenance::Genesis,
+        )
+        .expect("known-Genesis session must always yield a profile, never None");
+        assert!(
+            profile.allowed_tools().is_empty(),
+            "fail-closed profile must have an empty allow-set"
+        );
+        assert!(!profile.permits_tool("terminal"));
+        assert!(!profile.permits_tool("send_email"));
+    }
+
+    #[test]
+    fn genesis_worker_with_no_vertical_id_fails_closed() {
+        // Defensive: a Genesis worker with a missing vertical binding is
+        // still fenced (deny-all), never owner.
+        let profile = resolve_worker_profile_for_session(None, GenesisProvenance::Genesis)
+            .expect("known-Genesis session must always yield a profile");
+        assert!(profile.allowed_tools().is_empty());
     }
 }

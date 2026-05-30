@@ -100,11 +100,10 @@ pub(super) async fn build_turn_dispatch_ctx(
         Err(_) => ContextWindowPolicy::disabled(),
     };
     let truth_boundary = load_truth_boundary_ctx(cwd, session.tenant_id)?;
-    // claude-memory-tool-wire: thread the live MemoryStore +
-    // workspace through dispatch so the in-core `memory` tool can
-    // actually persist. Vertical-bound writes go through
-    // `append_for_vertical` when `vertical_scope` is set; otherwise
-    // writes stay workspace-global.
+    // claude-memory-tool-wire: thread the live MemoryStore + workspace
+    // through dispatch so the in-core `memory` tool can actually persist.
+    // Vertical-bound writes go through `append_for_vertical` when
+    // `vertical_scope` is set; otherwise writes stay workspace-global.
     let memory_ctx = store.first_workspace().await?.map(|ws| {
         (
             Arc::new(argo_memory::MemoryStore::new(store.clone())),
@@ -127,14 +126,16 @@ pub(super) async fn build_turn_dispatch_ctx(
         worker_id,
     )
     .await?;
-    // DEC-025 Genesis capability fence: when the session is bound to a
-    // Genesis-generated vertical, derive a deny-by-default least-privilege
-    // profile from that teammate's declared spec and bind the principal
-    // to it instead of `owner` — so a Genesis-hired teammate does NOT
-    // inherit the owner's `*` keys. `None` (ad-hoc / catalog vertical)
-    // keeps the historical `owner` binding.
-    let worker_profile =
-        crate::turn_vertical_fence::resolve_worker_profile_for_session(vertical_scope);
+    // DEC-025 Genesis capability fence: a Genesis-hired teammate must NOT
+    // inherit the owner's `*` keys. The fence keys off the worker's Genesis
+    // PROVENANCE (`persona.provenance_chain`), NOT where its manifest lives,
+    // so a first-hire'd / catalog-bound Genesis worker is fenced like an
+    // SSE-hired `.genesis/` one; no-provenance workers keep `owner`.
+    // `turn_vertical_fence` fails CLOSED if the manifest can't be resolved.
+    use crate::turn_vertical_fence as fence;
+    let provenance =
+        fence::genesis_provenance_for_worker(store, session.tenant_id, worker_id).await;
+    let worker_profile = fence::resolve_worker_profile_for_session(vertical_scope, provenance);
     let (registry, engine, principal) = build_dispatch_ctx(
         cwd,
         memory_ctx,

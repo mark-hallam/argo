@@ -130,19 +130,169 @@ async fn out_of_profile_action_is_denied_at_dispatch() {
 }
 
 #[tokio::test]
-async fn unfenced_session_keeps_owner_reach() {
-    // Regression guard: a non-Genesis session (profile = None) must keep
-    // the historical `owner` binding so ad-hoc + catalog-vertical work is
-    // unchanged.
+async fn non_genesis_session_keeps_owner_reach() {
+    // Regression guard: a session whose worker has NO Genesis provenance
+    // (a hand-authored catalog vertical the operator authored + trusts, or
+    // an ad-hoc session with no worker) resolves to `profile = None` and
+    // MUST keep the historical `owner` binding so existing work is
+    // unchanged. This is owner-by-DESIGN — distinct from the bug below.
     let tmp = tempfile::tempdir().expect("tmpdir");
+    // `None` is exactly what the provenance-keyed resolver returns for a
+    // non-Genesis worker (see
+    // `turn_vertical_fence::resolve_worker_profile_for_session` with
+    // `GenesisProvenance::None`).
     let (_reg, engine, principal) = ctx_for_profile(tmp.path(), None).await;
     assert!(
         engine.check(&principal, &tool_cap("terminal")).is_ok(),
-        "unfenced session keeps owner's ToolDispatch \"*\" reach"
+        "non-Genesis session keeps owner's ToolDispatch \"*\" reach"
     );
     assert!(engine
         .check(&principal, &tool_cap("any_tool_at_all"))
         .is_ok());
+}
+
+/// Write a catalog (NOT `.genesis/`) verticals root under `root` that
+/// declares one action + one allowed tool for `id`. This is the shape a
+/// first-hire'd Genesis worker binds to (`suggested_vertical = vertical_id`,
+/// a catalog id that is never written to `.genesis/`).
+fn write_catalog_vertical(root: &std::path::Path, id: &str) {
+    let vdir = root.join(id);
+    std::fs::create_dir_all(&vdir).expect("mkdir vertical");
+    std::fs::write(
+        vdir.join("vertical.toml"),
+        format!(
+            "schema_version = \"1\"\n\
+             [vertical]\nid = \"{id}\"\nname = \"Support Intern\"\nversion = \"0.1.0\"\n\
+             [actions.draft_reply]\nrisk = \"low\"\nrequires_approval = false\n\
+             description = \"Draft a reply to a support ticket.\"\n\
+             [tools]\nallowed = [\"web_search\"]\ndenied = []\n"
+        ),
+    )
+    .expect("write manifest");
+}
+
+/// Assert a bound principal is FENCED, not owner: the owner role's
+/// `ToolDispatch "*"`, `NetEgress "**"`, and `SecretRead "*"` reach are all
+/// gone, an undeclared tool is denied, and (via the real dispatch path) an
+/// out-of-profile call returns an error result rather than executing.
+async fn assert_principal_fully_fenced(cwd: &std::path::Path, profile: &WorkerCapabilityProfile) {
+    let (registry, engine, principal) = ctx_for_profile(cwd, Some(profile)).await;
+    assert!(
+        engine.check(&principal, &tool_cap("*")).is_err(),
+        "fenced worker must NOT hold ToolDispatch \"*\""
+    );
+    let net = Capability::NetEgress {
+        host_glob: "**".into(),
+        port: None,
+    };
+    assert!(
+        engine.check(&principal, &net).is_err(),
+        "fenced worker must NOT hold NetEgress \"**\""
+    );
+    assert!(
+        engine
+            .check(&principal, &Capability::SecretRead { name: "*".into() })
+            .is_err(),
+        "fenced worker must NOT hold SecretRead \"*\""
+    );
+    assert!(
+        engine.check(&principal, &tool_cap("terminal")).is_err(),
+        "undeclared tool denied for the fenced worker"
+    );
+    let call = ToolCallRequest {
+        id: ToolCallId::new(),
+        provider_call_id: None,
+        name: "terminal".into(),
+        arguments: serde_json::json!({ "command": "echo pwned" }),
+    };
+    let result = dispatch_one_with_runtime(
+        &registry,
+        &engine,
+        &principal,
+        argo_types::TenantId(uuid::Uuid::from_u128(1)),
+        cwd,
+        &argo_orchestrator::SessionId::new(),
+        &call,
+        None,
+        None,
+    )
+    .await;
+    assert!(
+        result.is_error,
+        "dispatch of an out-of-profile tool on a fenced worker must error, got: {result:?}"
+    );
+}
+
+#[tokio::test]
+async fn genesis_worker_bound_to_catalog_id_is_fenced_not_owner() {
+    // THE BYPASS THIS CLOSES (adversarial-verification P0). A teammate
+    // hired via `POST /api/v1/onboarding/first-hire` is a genuine Genesis
+    // hire — its persona carries `genesis_plan_id=` provenance — but it is
+    // bound to a CATALOG `vertical_id` that is never written to
+    // `.genesis/`. The old fence keyed off directory location, so it
+    // returned `None` for such a worker → the caller bound it to `owner`
+    // (`*` keys). The fix keys off provenance, so a Genesis worker bound to
+    // a catalog id now resolves to a FENCED least-privilege profile.
+    //
+    // Exercises the REAL chain: provenance(Genesis) + catalog vertical_id
+    //   → resolve_worker_profile_in → build_dispatch_ctx → assert FENCED.
+    // Uses the root-parameterized `resolve_worker_profile_in` (the core of
+    // the production `resolve_worker_profile_for_session`) so the test
+    // points at a fixture catalog without racing other tests on the
+    // process-global `$ARGO_VERTICALS_DIR`.
+    use crate::turn_vertical_fence::{resolve_worker_profile_in, GenesisProvenance};
+
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    let verticals = tmp.path().join("verticals");
+    write_catalog_vertical(&verticals, "support-intern");
+
+    // The Scene-1 worker: Genesis provenance + a catalog vertical id.
+    let profile = resolve_worker_profile_in(
+        &verticals,
+        Some("support-intern"),
+        GenesisProvenance::Genesis,
+    )
+    .expect("a Genesis-provenance worker must ALWAYS yield a fence, never None/owner");
+
+    // The profile is the least-privilege one derived from the catalog
+    // manifest — its declared action + allowed tool, and nothing else.
+    assert!(
+        profile.permits_tool("draft_reply"),
+        "declared action allowed"
+    );
+    assert!(profile.permits_tool("web_search"), "allowed tool allowed");
+    assert!(
+        !profile.permits_tool("terminal"),
+        "undeclared side-effecting tool must be denied"
+    );
+
+    // Bind it at the production dispatch seam: FENCED, not owner.
+    assert_principal_fully_fenced(tmp.path(), &profile).await;
+}
+
+#[tokio::test]
+async fn genesis_worker_with_unresolvable_manifest_fails_closed_not_owner() {
+    // Fail-closed: a known-Genesis worker whose bound vertical can't be
+    // resolved (missing / malformed / not in catalog) must get a deny-all
+    // profile, NEVER the owner fallback the old `.ok()?` chain produced.
+    use crate::turn_vertical_fence::{resolve_worker_profile_in, GenesisProvenance};
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    // Empty verticals root → nothing under `.genesis/`, nothing in catalog.
+    let empty_root = tmp.path().join("verticals");
+    std::fs::create_dir_all(&empty_root).expect("mkdir empty root");
+    let profile = resolve_worker_profile_in(
+        &empty_root,
+        Some("nonexistent-vertical-xyz"),
+        GenesisProvenance::Genesis,
+    )
+    .expect("known-Genesis worker must yield a profile (deny-all), never None");
+    assert!(
+        profile.allowed_tools().is_empty(),
+        "fail-closed profile must have an empty allow-set"
+    );
+    // Same fenced-not-owner posture as the catalog case: no `*` reach, every
+    // side-effecting tool denied at the real dispatch seam.
+    assert_principal_fully_fenced(tmp.path(), &profile).await;
 }
 
 #[test]
