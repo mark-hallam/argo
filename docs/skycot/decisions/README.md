@@ -59,6 +59,7 @@ as a product feature ("your AI workforce's decision log"). Not before.
 
 | ID | Date | Decision | Status |
 |----|------|----------|--------|
+| [DEC-025](DEC-025-genesis-done-right-full-synthesis.md) | 2026-05-30 | Genesis done right — full from-scratch (archetype-free) teammate synthesis is the committed core build, to a production-quality bar (teammates do real work + can't ruin a business); design-first via workflow → operator alignment → build; ultracode effort. LLM-archetype-selection (3f8a6f3) is a stepping stone, not the destination | active |
 | [DEC-024](DEC-024-build-agents-opus-no-downtiering.md) | 2026-05-30 | Conductor build-agents run on Opus 4.8 — no task-based down-tiering to Sonnet (quality/drift-avoidance over speed/cost); distinct from DEC-013/014 product routing | active |
 | [DEC-023](DEC-023-continuous-autonomous-priority-rank-order.md) | 2026-05-30 | Continuous autonomous execution through a fixed P1–P5 priority order (de-theatre → voice+Genesis wow → real delegation → self-improvement → enterprise governance); operating model locked = conductor + on-demand build-agents + auto-resume, swarm-daemon retired for now (auditor/evaluator on-demand) | active |
 | [DEC-022](DEC-022-sprint-2-scope-full-program.md) | 2026-05-30 | Sprint-2 scope = full program: all four tracks (go-live+verify / kill-all-theatre / multi-worker orchestration [Supervisor] / broad backlog) + real voice | active |
