@@ -33,6 +33,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+mod openai;
 mod provider;
 #[cfg(test)]
 #[path = "routes_voice_io_tests.rs"]
@@ -78,8 +79,13 @@ struct PitchTurnRequest {
 
 /// Handle `POST /api/v1/voice/tts`: synthesize `text` to base64 audio.
 ///
-/// Returns `{ audio_base64, format }` on success. Empty text is a 400.
-pub(super) async fn tts_response(req: &str) -> (&'static str, String) {
+/// Returns `{ audio_base64, format }` on success. Empty text is a 400. The
+/// provider is resolved per-tenant (the `voice` setting) then env; a real
+/// adapter that can't be built (e.g. no API key) is a 503, never faked.
+pub(super) async fn tts_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
     let parsed: TtsRequest = match serde_json::from_str(body_from_request(req)) {
         Ok(p) => p,
         Err(e) => return bad_request(&format!("parse body: {e}")),
@@ -88,7 +94,10 @@ pub(super) async fn tts_response(req: &str) -> (&'static str, String) {
         return bad_request("`text` is required");
     }
     let voice = voice_id_or_default(parsed.voice_id.as_deref());
-    let tts = select_tts();
+    let tts = match select_tts(store).await {
+        Ok(t) => t,
+        Err(e) => return map_voice_error("tts provider", &e),
+    };
     match tts.synthesize(&parsed.text, &voice).await {
         Ok(clip) => ok(json!({
             "audio_base64": STANDARD.encode(clip.bytes()),
@@ -101,8 +110,12 @@ pub(super) async fn tts_response(req: &str) -> (&'static str, String) {
 /// Handle `POST /api/v1/voice/stt`: transcribe base64 audio to text.
 ///
 /// Returns `{ transcript, confidence? }` on success. A missing/invalid
-/// base64 body, or empty audio, is a 400.
-pub(super) async fn stt_response(req: &str) -> (&'static str, String) {
+/// base64 body, or empty audio, is a 400. Provider resolution + the 503
+/// no-fake rule are as for [`tts_response`].
+pub(super) async fn stt_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
     let parsed: SttRequest = match serde_json::from_str(body_from_request(req)) {
         Ok(p) => p,
         Err(e) => return bad_request(&format!("parse body: {e}")),
@@ -111,7 +124,10 @@ pub(super) async fn stt_response(req: &str) -> (&'static str, String) {
         Ok(bytes) => bytes,
         Err(resp) => return resp,
     };
-    let stt = select_stt();
+    let stt = match select_stt(store).await {
+        Ok(s) => s,
+        Err(e) => return map_voice_error("stt provider", &e),
+    };
     match stt.transcribe(&audio).await {
         Ok(transcript) => ok(transcript_json(&transcript)),
         Err(e) => map_voice_error("stt transcribe", &e),
@@ -144,8 +160,14 @@ pub(super) async fn pitch_turn_response(
 
     // Truth boundary lives entirely inside `pitch_answer` — the voice
     // layer never inspects or rewrites the answer it gets back.
-    let stt = select_stt();
-    let tts = select_tts();
+    let stt = match select_stt(store).await {
+        Ok(s) => s,
+        Err(e) => return map_voice_error("stt provider", &e),
+    };
+    let tts = match select_tts(store).await {
+        Ok(t) => t,
+        Err(e) => return map_voice_error("tts provider", &e),
+    };
     let mut boundary: Option<Value> = None;
     // `voice_turn` accepts `&(impl Trait + ?Sized)`, so the boxed adapters
     // pass as `&dyn` trait objects via `as_ref()`.

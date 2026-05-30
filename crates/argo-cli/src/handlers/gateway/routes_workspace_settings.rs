@@ -29,6 +29,9 @@ use std::sync::Arc;
 const GROUP_WORKSPACE: &str = "workspace";
 const GROUP_PROVIDERS: &str = "providers";
 const GROUP_NOTIFICATIONS: &str = "notifications";
+/// The voice-provider selection group (`GET/PATCH /api/v1/voice/settings`),
+/// read by the gateway voice routes' provider selector.
+const GROUP_VOICE: &str = "voice";
 
 /// Field kinds a panel key may hold. Used to validate a PATCH body and
 /// reject unknown keys or wrong-typed values before they reach the DB.
@@ -99,6 +102,17 @@ fn notifications_spec() -> GroupSpec {
     }
 }
 
+/// The voice panel: a single `provider` choice ("mock" | "openai"). The
+/// gateway voice routes read this via [`read_voice_provider`] to pick which
+/// STT/TTS adapter backs a tenant's spoken turns.
+fn voice_spec() -> GroupSpec {
+    GroupSpec {
+        group_key: GROUP_VOICE,
+        default_obj: default_voice,
+        fields: &[("provider", FieldKind::Enum(&["mock", "openai"]))],
+    }
+}
+
 // Defaults mirror the `DEFAULT_*` constants in
 // `web/lib/api/settings.ts`. Keep these in lockstep with the SPA.
 
@@ -131,6 +145,10 @@ fn default_notifications() -> Value {
     })
 }
 
+fn default_voice() -> Value {
+    json!({ "provider": "mock" })
+}
+
 /// GET match arm — fanned out from
 /// [`super::routes_dispatch_get_api_groups`]. Returns `Some(resp)` when
 /// one of the three settings paths matches, `None` otherwise.
@@ -160,6 +178,7 @@ fn match_path(req: &str, verb: &str) -> Option<GroupSpec> {
         ("/api/v1/workspace", workspace_spec as fn() -> GroupSpec),
         ("/api/v1/providers/policy", providers_spec),
         ("/api/v1/notifications/preferences", notifications_spec),
+        ("/api/v1/voice/settings", voice_spec),
     ] {
         let with_space = format!("{verb} {path} ");
         let with_query = format!("{verb} {path}?");
@@ -306,6 +325,26 @@ async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> 
     let root = cwd.to_string_lossy();
     let (tenant, _ws) = store.ensure_workspace(name, &root).await?;
     Ok(tenant)
+}
+
+/// The tenant's chosen voice `provider` ("mock" | "openai"), read for the
+/// gateway voice routes' provider selector. Reuses the same tenant
+/// resolution + `voice` group read as the GET/PATCH handlers.
+///
+/// Returns `None` (so the caller falls back to `ARGO_VOICE_PROVIDER`) when
+/// the tenant cannot be resolved, the group is unset, or the stored value is
+/// not a string — i.e. a settings hiccup never hard-fails a voice request.
+pub(super) async fn read_voice_provider(store: &SessionStore) -> Option<String> {
+    let tenant = resolve_workspace_tenant(store).await.ok()?.to_string();
+    let stored =
+        argo_store::workspace_settings::get_group(store.pool(), &tenant, GROUP_VOICE)
+            .await
+            .ok()??;
+    serde_json::from_str::<Value>(&stored)
+        .ok()?
+        .get("provider")
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 fn bad_request(message: &str) -> (&'static str, String) {

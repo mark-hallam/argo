@@ -5,6 +5,12 @@
 //! over-claim question through the *real* `/pitch/ask` flow via
 //! [`super::pitch_answer`] and asserts the spoken answer defers rather
 //! than fabricating a number — proving the boundary holds in voice.
+//!
+//! Provider note: these pass `store: None`, so the selector falls through
+//! to the `ARGO_VOICE_PROVIDER` env, whose documented default (unset) is
+//! the mock — hence the `MOCK_AUDIO_FORMAT` assertions. They do not mutate
+//! the process-global env (which would race other gateway tests). The real
+//! OpenAI adapter has its own key-gated tests in `routes_voice_io/openai.rs`.
 
 use super::*;
 use argo_voice_io::{MockTts, VoiceId, MOCK_AUDIO_FORMAT};
@@ -23,7 +29,7 @@ fn post(path: &str, body: &serde_json::Value) -> String {
 #[tokio::test]
 async fn tts_round_trips_text_to_decodable_audio() {
     let req = post("/api/v1/voice/tts", &json!({ "text": "hello investors", "voice_id": "portia" }));
-    let (status, body) = tts_response(&req).await;
+    let (status, body) = tts_response(&req, None).await;
     assert_eq!(status, "200 OK", "body={body}");
     let parsed: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(parsed["format"], MOCK_AUDIO_FORMAT);
@@ -39,7 +45,7 @@ async fn tts_round_trips_text_to_decodable_audio() {
 #[tokio::test]
 async fn tts_defaults_voice_when_absent() {
     let req = post("/api/v1/voice/tts", &json!({ "text": "no voice given" }));
-    let (status, body) = tts_response(&req).await;
+    let (status, body) = tts_response(&req, None).await;
     assert_eq!(status, "200 OK", "body={body}");
     let parsed: Value = serde_json::from_str(&body).unwrap();
     let decoded = STANDARD.decode(parsed["audio_base64"].as_str().unwrap()).unwrap();
@@ -51,7 +57,7 @@ async fn tts_defaults_voice_when_absent() {
 #[tokio::test]
 async fn tts_rejects_empty_text() {
     let req = post("/api/v1/voice/tts", &json!({ "text": "   " }));
-    let (status, _body) = tts_response(&req).await;
+    let (status, _body) = tts_response(&req, None).await;
     assert_eq!(status, "400 Bad Request");
 }
 
@@ -61,7 +67,7 @@ async fn tts_rejects_empty_text() {
 async fn stt_returns_transcript_for_valid_audio() {
     let audio_b64 = STANDARD.encode(b"some-spoken-audio-bytes");
     let req = post("/api/v1/voice/stt", &json!({ "audio_base64": audio_b64 }));
-    let (status, body) = stt_response(&req).await;
+    let (status, body) = stt_response(&req, None).await;
     assert_eq!(status, "200 OK", "body={body}");
     let parsed: Value = serde_json::from_str(&body).unwrap();
     let transcript = parsed["transcript"].as_str().expect("transcript present");
@@ -75,14 +81,14 @@ async fn stt_returns_transcript_for_valid_audio() {
 #[tokio::test]
 async fn stt_rejects_invalid_base64() {
     let req = post("/api/v1/voice/stt", &json!({ "audio_base64": "!!!not base64!!!" }));
-    let (status, body) = stt_response(&req).await;
+    let (status, body) = stt_response(&req, None).await;
     assert_eq!(status, "400 Bad Request", "body={body}");
 }
 
 #[tokio::test]
 async fn stt_rejects_empty_audio() {
     let req = post("/api/v1/voice/stt", &json!({ "audio_base64": "" }));
-    let (status, _body) = stt_response(&req).await;
+    let (status, _body) = stt_response(&req, None).await;
     assert_eq!(status, "400 Bad Request");
 }
 

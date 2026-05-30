@@ -1,72 +1,121 @@
 //! Voice-provider selection for the gateway voice routes.
 //!
 //! Mirrors the "provider manifests, not adapters" invariant: which speech
-//! vendor backs [`select_stt`] / [`select_tts`] is chosen by config
-//! ([`PROVIDER_ENV`]), not hardcoded at the call site. The selector returns
-//! a boxed trait object so a real adapter can drop in behind the same seam
-//! without touching the routes.
+//! vendor backs the STT/TTS selectors is chosen by config, not hardcoded at
+//! the call site. Selection has two layers, in priority order:
 //!
-//! BLOCKED: real STT/TTS adapter needs operator API key — so every value of
-//! [`PROVIDER_ENV`] currently resolves to the deterministic, key-free mock
-//! ([`MockStt`] / [`MockTts`]). When a vendor key lands, add the real
-//! adapter arm here (gated on the provider string) and nothing upstream
-//! changes.
+//! 1. **Per-tenant** — the `provider` field of the tenant's `voice`
+//!    `workspace_settings` group (`GET/PATCH /api/v1/voice/settings`), if set.
+//! 2. **Process env** — [`PROVIDER_ENV`] (`ARGO_VOICE_PROVIDER`), the
+//!    fallback when the tenant has expressed no preference.
+//!
+//! Both resolve to a [`Provider`]; the selectors return a boxed trait object
+//! so the routes never name a concrete adapter. `mock` is key-free; `openai`
+//! makes real OpenAI calls and so is **fallible** (no key ⇒
+//! [`ArgoError::Provider`], surfaced as a 503 — never a silently-faked
+//! response, per NO THEATER).
 
+use super::openai::{OpenAiStt, OpenAiTts};
+use argo_store::SessionStore;
+use argo_types::ArgoResult;
 use argo_voice_io::{MockStt, MockTts, SpeechToText, TextToSpeech};
+use std::sync::Arc;
 
-/// Env var selecting the voice provider. Reserved for the real-adapter
-/// swap; today any value (or its absence) resolves to [`Provider::Mock`].
+/// Env var selecting the voice provider when the tenant has no `voice`
+/// setting. Values: `mock` (default) | `openai`.
 pub(super) const PROVIDER_ENV: &str = "ARGO_VOICE_PROVIDER";
 
-/// Resolved voice provider. Only [`Provider::Mock`] is wired today; real
-/// vendors are BLOCKED on an operator API key (see module docs).
+/// Resolved voice provider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Provider {
-    /// Deterministic, key-free in-crate fake — the only wired provider.
+    /// Deterministic, key-free in-crate fake (the default).
     Mock,
+    /// Real OpenAI discrete STT (`whisper-1`) + TTS (`tts-1`). Needs
+    /// `OPENAI_API_KEY`; construction fails without it.
+    OpenAi,
 }
 
 impl Provider {
-    /// Resolve the active provider from [`PROVIDER_ENV`].
-    ///
-    /// Unknown/unset values fall back to [`Provider::Mock`] rather than
-    /// erroring, because no real adapter exists yet to honour them.
-    pub(super) fn resolve() -> Self {
+    /// Pure resolution of a provider string to a [`Provider`]. Split out so
+    /// tests exercise the mapping without mutating the process-global
+    /// environment (which races other tests). Unknown/unset ⇒ [`Provider::Mock`].
+    fn from_env_value(value: Option<&str>) -> Self {
+        match value.map(str::trim) {
+            Some("openai") => Provider::OpenAi,
+            Some("mock") | None => Provider::Mock,
+            // An unknown vendor name falls back to the mock rather than
+            // erroring — no adapter exists to honour it.
+            Some(_unknown) => Provider::Mock,
+        }
+    }
+
+    /// Resolve the active provider from [`PROVIDER_ENV`] alone (no tenant).
+    fn from_env() -> Self {
         Self::from_env_value(std::env::var(PROVIDER_ENV).ok().as_deref())
     }
 
-    /// Pure resolution of a provider string to a [`Provider`]. Split from
-    /// [`resolve`] so tests exercise the mapping without mutating the
-    /// process-global environment (which races other tests).
-    fn from_env_value(value: Option<&str>) -> Self {
-        match value.map(str::trim) {
-            // BLOCKED: real STT/TTS adapter needs operator API key. Each
-            // named vendor gets its own arm here once its adapter lands,
-            // e.g. `Some("elevenlabs") => Provider::ElevenLabs`. Until then
-            // every value (including a vendor name an operator might set
-            // early) deliberately resolves to the mock.
-            Some("mock") | None => Provider::Mock,
-            Some(_unwired_vendor) => Provider::Mock,
+    /// Resolve the provider for a request: the tenant's `voice` setting if
+    /// present, else the process env ([`from_env`]). A missing store or an
+    /// unseeded `voice` group both fall through to the env default, so this
+    /// never fails — only adapter *construction* (no key) can fail later.
+    pub(super) async fn resolve_for_tenant(store: Option<&Arc<SessionStore>>) -> Self {
+        if let Some(store) = store {
+            // `super` is `routes_voice_io`; the settings module is its sibling
+            // under `gateway`, hence `super::super`.
+            if let Some(choice) =
+                super::super::routes_workspace_settings::read_voice_provider(store).await
+            {
+                return Self::from_env_value(Some(choice.as_str()));
+            }
         }
+        Self::from_env()
     }
 }
 
-/// The active [`SpeechToText`] adapter. Boxed so a real adapter swaps in by
-/// config without changing the route signatures.
-pub(super) fn select_stt() -> Box<dyn SpeechToText> {
-    match Provider::resolve() {
+/// Build the STT adapter for an already-resolved provider.
+///
+/// # Errors
+/// [`ArgoError::Provider`] when a real adapter (OpenAI) cannot be built —
+/// e.g. `OPENAI_API_KEY` is unset. The mock never fails.
+fn build_stt(provider: Provider) -> ArgoResult<Box<dyn SpeechToText>> {
+    match provider {
         // `echo` returns a stable transcript derived from the audio bytes,
         // so distinct uploads yield distinct text without a real recognizer.
-        Provider::Mock => Box::new(MockStt::echo()),
+        Provider::Mock => Ok(Box::new(MockStt::echo())),
+        Provider::OpenAi => Ok(Box::new(OpenAiStt::new()?)),
     }
 }
 
-/// The active [`TextToSpeech`] adapter. Boxed so a real adapter swaps in by
-/// config without changing the route signatures.
-pub(super) fn select_tts() -> Box<dyn TextToSpeech> {
-    match Provider::resolve() {
-        Provider::Mock => Box::new(MockTts::new()),
+/// Build the TTS adapter for an already-resolved provider.
+///
+/// # Errors
+/// As for [`build_stt`].
+fn build_tts(provider: Provider) -> ArgoResult<Box<dyn TextToSpeech>> {
+    match provider {
+        Provider::Mock => Ok(Box::new(MockTts::new())),
+        Provider::OpenAi => Ok(Box::new(OpenAiTts::new()?)),
     }
+}
+
+/// The active [`SpeechToText`] adapter for this request's tenant.
+///
+/// # Errors
+/// [`ArgoError::Provider`] when the selected real adapter cannot be built
+/// (e.g. no API key) — the routes map this to a 503.
+pub(super) async fn select_stt(
+    store: Option<&Arc<SessionStore>>,
+) -> ArgoResult<Box<dyn SpeechToText>> {
+    build_stt(Provider::resolve_for_tenant(store).await)
+}
+
+/// The active [`TextToSpeech`] adapter for this request's tenant.
+///
+/// # Errors
+/// As for [`select_stt`].
+pub(super) async fn select_tts(
+    store: Option<&Arc<SessionStore>>,
+) -> ArgoResult<Box<dyn TextToSpeech>> {
+    build_tts(Provider::resolve_for_tenant(store).await)
 }
 
 #[cfg(test)]
@@ -78,13 +127,36 @@ mod tests {
     #[test]
     fn resolve_defaults_to_mock_when_unset() {
         assert_eq!(Provider::from_env_value(None), Provider::Mock);
+        assert_eq!(Provider::from_env_value(Some("mock")), Provider::Mock);
     }
 
     #[test]
-    fn resolve_falls_back_to_mock_for_unknown_provider() {
-        // No real adapter exists yet, so even a named vendor resolves to
-        // Mock (the BLOCKED seam). Pin this so the fallback is intentional.
+    fn resolve_maps_openai() {
+        assert_eq!(Provider::from_env_value(Some("openai")), Provider::OpenAi);
+        // Trimmed too, so a stray-whitespace env value still selects OpenAI.
+        assert_eq!(Provider::from_env_value(Some("  openai  ")), Provider::OpenAi);
+    }
+
+    #[test]
+    fn resolve_unknown_vendor_falls_back_to_mock() {
         assert_eq!(Provider::from_env_value(Some("elevenlabs")), Provider::Mock);
-        assert_eq!(Provider::from_env_value(Some("  openai  ")), Provider::Mock);
+        assert_eq!(Provider::from_env_value(Some("")), Provider::Mock);
+    }
+
+    // The mock adapters always build (no key needed). This pins that the
+    // default path is infallible.
+    #[test]
+    fn mock_adapters_always_build() {
+        assert!(build_stt(Provider::Mock).is_ok());
+        assert!(build_tts(Provider::Mock).is_ok());
+    }
+
+    // With no store, resolution falls through to the env (which is unset in
+    // the unit-test process unless a runner exports it) → a real provider,
+    // never a panic. We only assert it resolves to *some* provider.
+    #[tokio::test]
+    async fn resolve_for_tenant_without_store_uses_env() {
+        let p = Provider::resolve_for_tenant(None).await;
+        assert!(matches!(p, Provider::Mock | Provider::OpenAi));
     }
 }

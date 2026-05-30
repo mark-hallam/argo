@@ -9,7 +9,7 @@
 
 #![allow(clippy::too_many_lines)]
 
-use super::{dispatch_get, dispatch_patch};
+use super::{dispatch_get, dispatch_patch, read_voice_provider};
 use argo_store::SessionStore;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -206,4 +206,68 @@ async fn non_matching_path_returns_none() {
             .is_none(),
         "/api/v1/notifications (the bell list) must not match the preferences route"
     );
+}
+
+// ---- voice group (`/api/v1/voice/settings`) -------------------------
+
+#[tokio::test]
+async fn get_voice_returns_mock_default_when_unseeded() {
+    let _g = env_lock().await;
+    let store = mem_store().await;
+    let v = parse_ok(dispatch_get(&get_req("/api/v1/voice/settings"), Some(&store)).await);
+    assert_eq!(v["provider"], "mock");
+}
+
+#[tokio::test]
+async fn patch_voice_to_openai_round_trips() {
+    let _g = env_lock().await;
+    let store = mem_store().await;
+
+    let patched = parse_ok(
+        dispatch_patch(
+            &patch_req("/api/v1/voice/settings", &json!({ "provider": "openai" })),
+            Some(&store),
+        )
+        .await,
+    );
+    assert_eq!(patched["provider"], "openai");
+
+    // Persisted: a fresh GET reads it back.
+    let got = parse_ok(dispatch_get(&get_req("/api/v1/voice/settings"), Some(&store)).await);
+    assert_eq!(got["provider"], "openai");
+}
+
+#[tokio::test]
+async fn patch_voice_rejects_unknown_provider() {
+    let _g = env_lock().await;
+    let store = mem_store().await;
+    let (status, _body) = dispatch_patch(
+        &patch_req("/api/v1/voice/settings", &json!({ "provider": "elevenlabs" })),
+        Some(&store),
+    )
+    .await
+    .expect("matched");
+    assert_eq!(status, "400 Bad Request");
+    // Nothing persisted: still the default.
+    let after = parse_ok(dispatch_get(&get_req("/api/v1/voice/settings"), Some(&store)).await);
+    assert_eq!(after["provider"], "mock");
+}
+
+#[tokio::test]
+async fn read_voice_provider_reflects_persisted_choice() {
+    let _g = env_lock().await;
+    let store = mem_store().await;
+
+    // Unseeded → None (caller falls back to env), since no row is written
+    // until a PATCH lands.
+    assert_eq!(read_voice_provider(&store).await, None);
+
+    // After a PATCH, the selector helper returns the stored choice.
+    let _ = dispatch_patch(
+        &patch_req("/api/v1/voice/settings", &json!({ "provider": "openai" })),
+        Some(&store),
+    )
+    .await
+    .expect("matched");
+    assert_eq!(read_voice_provider(&store).await, Some("openai".to_string()));
 }

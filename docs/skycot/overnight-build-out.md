@@ -183,7 +183,16 @@ DEC-019 makes this the standing program rule.
   figure. Provider seam reads `ARGO_VOICE_PROVIDER`, Mock today, real adapter seam
   marked BLOCKED-on-key. `argo-voice-io` now **un-orphaned** (wired into gateway).
   12 voice tests + clippy green.
-  **Real ElevenLabs/Deepgram adapter still BLOCKED on operator speech API key.**
+- [x] **V2b · Real OpenAI STT/TTS adapter (DEC-021)** — **DONE (live key-path
+  untested).** `routes_voice_io/openai.rs`: `OpenAiStt` (multipart whisper-1) +
+  `OpenAiTts` (tts-1 mp3) behind the L1 traits; Bearer `OPENAI_API_KEY` (`Redacted`,
+  shared client). `Provider::OpenAi` arm + per-tenant `voice` workspace_settings
+  group (`/api/v1/voice/settings`, default `mock`) preferred over the env. No-fake:
+  no-key ⇒ 503. 31 voice+settings tests + clippy `-D warnings` + FULL argo-store all
+  green. Vendor was locked to **OpenAI** (DEC-021), superseding the earlier
+  ElevenLabs/Deepgram note. **Remaining: a live OpenAI call has not been exercised —
+  no `OPENAI_API_KEY` at build time** (key-gated test skips). Set the key + re-run to
+  verify the network path; that flips the FEATURE_MATRIX row 🟡→✅.
 - [ ] **V3 · Browser push-to-talk on `/pitch`** — web; depends on V2 routes (now exist).
 
 ### P1 — Theatre removal (audit + build-map DONE; revised by findings)
@@ -246,13 +255,16 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
 - [ ] Self-improvement Step 1b (eval-case generation) — additive, no key.
 - [x] Governance audit-readiness report (gap #1 move A) — read-only assembly. **DONE** (commit `764f725ff`).
 - [ ] Orchestration supervisor engine — **BLOCKED: operator to confirm Supervisor vs DAG.**
-- [ ] (voice real-vendor — see V2, BLOCKED on key)
+- [x] (voice real-vendor — see V2b: OpenAI adapter SHIPPED; live key-path untested)
 
 ### P3 — Mission-completion + hardening
 - [ ] (populated as P0–P2 land + from FEATURE_MATRIX 🟡/🟧 rows)
 
 ## Blockers needing operator input (parked, not abandoned)
-- **Voice real vendor + API key** (V2 real adapter) — recommend ElevenLabs+Deepgram.
+- **Voice live verification** — the OpenAI STT/TTS adapter is BUILT (DEC-021); to
+  flip its FEATURE_MATRIX row 🟡→✅ an `OPENAI_API_KEY` must be present so the
+  key-gated round-trip test exercises a real call. (Vendor locked to OpenAI;
+  superseded the earlier ElevenLabs/Deepgram recommendation.)
 - **Orchestration model** — Supervisor (recommended) vs visual DAG.
 - (others appended as hit)
 
@@ -294,3 +306,23 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   green; module 264 LOC / test 185 LOC, longest fn 36 LOC, no panicking
   unwrap/expect (unwrap checker `--all` clean). Commit `764f725ff`.
 - 2026-05-30 go-live DONE — gateway rebuilt→schema 85, 5 features verified live; resolved a boot incident (T1 v85 migration didn't bump EXPECTED_SCHEMA_VERSION → fix ccfa89588).
+- 2026-05-30 — **V2-real-vendor: OpenAI STT/TTS adapter SHIPPED (DEC-021).** New
+  `routes_voice_io/openai.rs`: `OpenAiStt` (real multipart whisper-1
+  `/v1/audio/transcriptions`) + `OpenAiTts` (real tts-1 mp3 `/v1/audio/speech`),
+  Bearer `OPENAI_API_KEY` (read `Redacted`, one shared `reqwest::Client`). Behind the
+  L1 `argo-voice-io` traits — NO THEATER (real calls when keyed; no-key ⇒ 503, never
+  faked). Vendor- **and** user-selectable: `Provider::OpenAi` arm in `provider.rs` +
+  per-tenant `voice` workspace_settings group (`GET/PATCH /api/v1/voice/settings`,
+  default `mock`) preferred over `ARGO_VOICE_PROVIDER`; the three voice routes now
+  thread `store` + use the fallible async selector. 31 voice+settings tests green
+  (incl. 4 new voice-group/selector tests + key-gated live round-trip that skips
+  without a key); clippy `-D warnings` clean; FULL `cargo test -p argo-store` green
+  (526 + integration + 101 doctests, schema-reconciliation tests pass). **Live
+  network path UNTESTED — no `OPENAI_API_KEY` was present at build time.** To verify
+  live: set `OPENAI_API_KEY` (+ optionally `ARGO_VOICE_PROVIDER=openai` or PATCH the
+  tenant `voice` group to `openai`) and re-run the key-gated test in
+  `routes_voice_io/openai.rs`. NB: the full `cargo test -p argo-cli --bins` run shows
+  ~40 PRE-EXISTING failures (confirmed identical on stashed clean main: DB-lock
+  parallelism flakes in routes_approvals_json/routes_audit_feed + the documented
+  setup_steps/stream_a strict-mode flakes in KNOWN_FLAKES.md) — none in the voice or
+  settings files; boundary-noted per SWARM_PROTOCOL HARD RULE 2.
