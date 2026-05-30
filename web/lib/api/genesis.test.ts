@@ -468,6 +468,11 @@ describe("hireFromGenesis", () => {
     expect(draft.approvalPolicy).toEqual({ level: "balanced" });
     const duties = draft.duties as Array<{ defaultEnabled: boolean }>;
     expect(duties.some((d) => d.defaultEnabled === true)).toBe(true);
+    // DEC-025: the SSE-hired worker must carry the Genesis plan id so the
+    // backend stamps `genesis_plan_id=` provenance → the worker is
+    // fenced (P2) AND probationed (P3). Missing this = flagship hire is
+    // hired unfenced with owner `*` keys and no probation window.
+    expect(draft.genesisPlanId).toBe("customer-support-agent-mariah");
   });
 
   it("accepts snake_case worker_id from the gateway response", async () => {

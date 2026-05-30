@@ -598,6 +598,27 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   harness, which the matrix doesn't enumerate). NB the conductor still owns the
   end-to-end restart-against-:7400 check (not run here to avoid disturbing the
   live demo gateway).
+- 2026-05-31 — **Genesis P3 flagship-path SAFETY closure (`genesisPlanId` stamp).**
+  A parallel auto-resume tick shipped the full P3 probation engine (`629e4fe35`) while
+  this session independently built the same design — so the Rust/identity/workflow work
+  was redundant and discarded; local fast-forwarded to origin. BUT an independent
+  adversarial bypass-hunt during this session found a REAL hole that `629e4fe35` (and the
+  P2 fence before it) both missed: the probation + fence stamp fires only when the hire
+  `draft` carries `genesis_plan_id`, and the **flagship SSE `/genesis` hire draft never set
+  it** (`buildHireDraftFromGenesis` in `web/lib/api/genesis.ts`). So the headline teammate
+  was being hired with NEITHER the P2 capability fence NOR P3 probation — owner `*` keys,
+  no dry-run — strictly weaker than `/onboarding/first-hire`. The P3 commit's FEATURE_MATRIX
+  row even claimed "BOTH paths carry it," which was false on the demo path. Fix (this commit):
+  `buildHireDraftFromGenesis` now sets `genesisPlanId: ready.vertical_id`, so the SSE worker
+  is genuinely fenced + probationed; `genesis.test.ts` asserts the SSE draft carries it (19
+  vitest green, tsc clean). Corrected the P3 FEATURE_MATRIX row's false "both paths" claim +
+  regenerated HTML in this commit. **Process note:** the ≤3-concurrent-builds model still let
+  TWO contexts pick the same phase (this session + the auto-resume tick) → duplicated P3 build.
+  The auto-resume tick should check `git fetch origin` for an in-flight phase commit before
+  starting. **Still open (P5 parity):** the SSE hire still seeds no worker memory (empty Memory
+  tab) — separate non-safety follow-up, do with P5. **Live-verify on :7400 deferred** (running
+  binary `05f9ea2` predates even origin's P3; a gateway rebuild is the conductor's call to avoid
+  disturbing the demo mid-run).
 
 ## Sprint-2 follow-ups (tracked 2026-05-30 — these were floating chips; now in the queue)
 - [ ] **Landing page — 4 verified differentiators** — BLOCKED on operator design pick (optometrist method: generate 3-5 wild mockups → operator chooses a direction → implement on web/app/landing/page.tsx). Real proof to pair per pillar; do NOT auto-edit the live page first. (chip from the first overnight session)

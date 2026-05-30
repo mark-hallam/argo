@@ -443,6 +443,14 @@ function buildHireDraftFromGenesis(
     approvalPolicy: { level: "balanced" },
     duties,
     tagline: ready.manifest.persona || ready.manifest.archetype,
+    // DEC-025: carry the Genesis plan id so the persisted worker gets a
+    // `genesis_plan_id=` provenance marker. This is load-bearing for
+    // SAFETY, not just the provenance chip: the runtime capability fence
+    // (P2) AND the enforced probation window (P3) both key off this
+    // marker. Without it the flagship SSE-hired teammate would be hired
+    // UNFENCED (owner `*` keys) and with NO probation — strictly weaker
+    // than the `/onboarding/first-hire` path, which already sets it.
+    genesisPlanId: ready.vertical_id,
   };
 }
 
