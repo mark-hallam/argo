@@ -210,7 +210,14 @@ export async function fetchWorkflow(
   name: string,
 ): Promise<FetchWorkflowResult> {
   const key = `${verticalId}/${name}`;
-  if (isAuthBypassed()) {
+  // Recording-mode opt-out (`NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1`): skip the
+  // mock short-circuit so the Scene-5 workflow-detail surface
+  // (`/workflows/<vertical>/<name>`) fires a real
+  // `GET /api/v1/verticals/<vertical>/workflows/<name>` round-trip
+  // instead of serving the bundled seed spec. Matches the gate the
+  // `fetchAllWorkflows` list already uses above and the canonical
+  // `isAuthBypassed() && !isDemoLive()` pattern in the other api modules.
+  if (isAuthBypassed() && !isDemoLive()) {
     const local = SAMPLE_WORKFLOW_SPECS[key];
     if (local) {
       return { workflow: local, source: "mock-bypass" };

@@ -69,6 +69,79 @@ evaluator are on-demand adversarial passes, not daemons. **Build-agent harness
 limit (proven):** ≤3 concurrent heavy Rust builds on this machine; partition by
 independent crate for clean parallel pushes; gateway-dispatcher builds serialize.
 
+### P1 worklist (de-theatre) — Sat May 30 14:10:37 2026 +1000
+
+Authoritative per-module audit of every data-fetching `web/lib/api/*.ts` module.
+This is the **live P1 queue** — claim WIRE rows top-down (on-camera first).
+
+Method (all three dimensions verified against current `main`):
+1. **Gated?** — does the mock short-circuit use `isAuthBypassed() && !isDemoLive()`
+   (so demo-live hits the gateway), or bare `isAuthBypassed()` (serves mock even on
+   camera)? `partial` = some fetchers gated, some bare in the same module.
+2. **Endpoint?** — is the path it calls actually routed in
+   `crates/argo-cli/src/handlers/gateway/` (dispatcher `starts_with("…")` / route
+   tables), not just a test fixture? (api-keys / providers/keys / connectors have
+   **no** gateway route — only CLI-side handlers.)
+3. **On camera?** — does the screen it feeds appear in
+   `docs/skycot/demos/v1-mission-mvp-runbook.md` (Scenes 1–6) or the Portia/Grant
+   hero flow?
+
+Verdict legend: **WIRE** = ungated/partial + endpoint-exists + on-camera (do these
+first). **HONEST-EMPTY** = ungated + no backend (render an honest empty state, never
+fake data). **OK** = already correctly gated. **DEFER** = off-camera (gate later, no
+demo cost) or owned by another context.
+
+**Counts: WIRE 4 · HONEST-EMPTY 3 · OK 18 · DEFER 13** (44 modules total; 14 are
+pure data/helper or fully-gated infra with no theatre surface).
+
+#### 🔴 WIRE — do these first (on-camera, real endpoint exists, currently serving mock)
+
+| # | Module | Gated? | Endpoint (verified route) | Screen / scene | Status |
+|---|--------|--------|---------------------------|----------------|--------|
+| 1 | `workflows.ts` (`fetchWorkflow` detail) | partial — list gated, **detail bare** | `GET /api/v1/verticals/<v>/workflows/<n>` (`routes_workflows_handlers.rs`) | `/workflows/sales/qualify_lead` — **Scene 5** anchor | ✅ **WIRED this commit** — added `&& !isDemoLive()` at `workflows.ts:213` + demo-live test |
+| 2 | `evals.ts` | ungated (bare) | `GET /api/v1/workers/<id>/evals` (`routes_evals.rs`) | worker-detail **Evals** tab (Scene 1/3 drill-in) | TODO |
+| 3 | `workflow-runs.ts` | partial (1 bare, 1 gated) | `GET /api/v1/verticals/<v>/workflows/<n>/runs` (`routes_workflow_runs.rs`) | `/workflows/<v>/<n>` runs panel — **Scene 5** | TODO |
+| 4 | `worker-trust.ts` | partial (2 bare, 1 gated) | `GET/POST /api/v1/workers/<id>/trust-grade[/recompute]`, `/trust-streaks` (`routes_worker_trust_grade.rs`, `routes_trust_streaks.rs`) | worker-detail **Trust** tab (Scene 1/6) | TODO |
+
+#### 🟠 HONEST-EMPTY — no gateway route exists; render an honest empty state, do NOT fake-wire
+
+| Module | Gated? | Why no wire | Screen | Verdict |
+|--------|--------|-------------|--------|---------|
+| `api-keys.ts` | ungated (3 bare) | No `/api/v1/api-keys` route (only CLI handler `connector_*`); endpoint unimplemented | `/settings/api-keys` (off-camera) | HONEST-EMPTY (also off-camera → low priority) |
+| `provider-keys.ts` | ungated (2 bare) | No `/api/v1/providers/keys` route | `/settings/providers` (off-camera) | HONEST-EMPTY (off-camera) |
+| `connectors.ts` | ungated (0 gate) | No `/api/v1/connectors` gateway route (CLI-only `connector_list.rs`) | `/settings/connectors`, hire Step5 | HONEST-EMPTY (off-camera) |
+
+#### 🟢 OK — already correctly gated (`isAuthBypassed() && !isDemoLive()`), hits gateway on camera
+
+`team.ts` · `audit.ts` · `audit-detail.ts` · `approvals.ts` (own gate, no bypass) ·
+`replay.ts` · `workers.ts` · `worker-overview.ts` · `worker-activity.ts` ·
+`worker-memory.ts` · `worker-skills.ts` · `worker-policies.ts` · `worker-settings.ts` ·
+`skills.ts` · `cohorts.ts` · `verticals.ts` · `workflows.ts` (`fetchAllWorkflows` list) ·
+`genesis.ts` (demo-live by design — Portia/Genesis hero is 100% real) · `pitch.ts` /
+`gtm.ts` (hero flow, intentionally always-live — no mock layer).
+
+#### ⚪ DEFER — off-camera (gate later, no demo cost) or owned by another context
+
+`settings.ts` (2 bare; off-camera /settings) · `audit-export.ts` (3 bare; evidence
+exporter, off-camera) · `elevated-view.ts` (1 bare; audit admin, off-camera) ·
+`workplace-knowledge.ts` (partial 6 bare/1 gated; /settings/knowledge off-camera) ·
+`ghostwriter.ts` (1 bare; skill-canvas, off-camera) · `skill-ir.ts` /
+`skill-ir-export.ts` / `skill-ir-save.ts` (bare; skill-IR canvas, off-camera) ·
+`retros.ts` · `retrain.ts` (worker dialogs, off-camera) · `notifications.ts` /
+`inbound-channels.ts` / `duties.ts` / `sso.ts` / `workspace-members.ts` (off-camera
+settings/nav). **`orchestration.ts`** is bare + on-camera-adjacent but is **owned by
+another context** (`routes_orchestration*` / P3) — DO NOT touch here.
+
+> Pure data/helper modules (no fetcher → not theatre): `types.ts`, `client.ts`,
+> `auth.ts`, `websocket.ts`, `tenant.ts`, `skills-seed.ts`, `demo-roster-store.ts`,
+> `retrain-mocks.ts`, `retrain-types.ts`, `skill-code.ts`, `skill-icons.ts`,
+> `worker-overview.ts` helpers, `workflow-metadata.ts`, `test-runs.ts`.
+
+**Next 3 WIRE items for fan-out** (after #1, done): #2 `evals.ts`, #3
+`workflow-runs.ts`, #4 `worker-trust.ts` — all single-file, gate-only changes
+identical in shape to #1 (`if (isAuthBypassed())` → `if (isAuthBypassed() && !isDemoLive())`
+on the data-fetch short-circuits; keep mock as offline/non-demo-live fallback).
+
 ---
 
 ## ☀️ MORNING HAND-OFF (Mark — read this first)

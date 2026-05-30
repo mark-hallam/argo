@@ -290,6 +290,33 @@ describe("lib/api/workflows", () => {
       expect(result.workflow).toBe(SAMPLE_WORKFLOW_SPECS["support/triage_ticket"]);
       expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it("hits the gateway in demo-live even when a local sample exists", async () => {
+      // Scene-5 recording mode: DEMO_LIVE opts out of the mock
+      // short-circuit so the on-camera workflow-detail surface shows a
+      // real backend round-trip, not the bundled seed spec.
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE = "1";
+      const fetchMock = installMock(() =>
+        makeResponse({
+          status: 200,
+          body: makeItem({ vertical_id: "support", name: "triage_ticket" }),
+        }),
+      );
+      const result = await fetchWorkflow("support", "triage_ticket");
+      expect(result.source).toBe("gateway");
+      const hitDetail = fetchMock.mock.calls.some((call) => {
+        const input = call[0];
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : (input as Request).url;
+        return url.includes("/api/v1/verticals/support/workflows/triage_ticket");
+      });
+      expect(hitDetail).toBe(true);
+    });
   });
 
   describe("parseStepsFromToml", () => {
