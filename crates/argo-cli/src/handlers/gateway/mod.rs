@@ -130,6 +130,7 @@ mod routes_forge_rollups;
 mod routes_forge_runs_list;
 mod routes_genesis;
 mod routes_genesis_stream;
+mod routes_genesis_stream_llm;
 mod routes_ghostwriter;
 mod routes_governance;
 mod routes_gtm_draft_followup;

@@ -8,33 +8,31 @@
 //! events, so this module writes the full HTTP/1.1 response directly
 //! to the connection.
 //!
-//! ## Cost guardrail
+//! ## Cost guardrail + LLM generation
 //!
 //! `ARGO_GENESIS_PROVIDER_KEY` must be set, OR the operator's
 //! `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` must be present (the same
-//! keys the LLM driver bills against). The v1 keyword pipeline never
-//! calls a provider, but the gate exists so the LLM rollout
-//! (`mission-demo-seed-real-llm-driver`) cannot silently fall back to
-//! canned responses if no provider credential is present. Treating the
-//! Anthropic / OpenAI key as a satisfier removes the orphan
-//! demo-recording blocker (`fix-genesis-orphan-discoverability-and-
-//! provider-key-503`) without weakening the no-silent-fallback intent
-//! — the operator still has to explicitly export *some* provider key
-//! before the gateway boots.
+//! keys the LLM driver bills against). When the gate passes, the
+//! archetype is chosen by a real model reading the role description
+//! (see [`super::routes_genesis_stream_llm`]); the deterministic
+//! keyword scorer is the automatic fallback on any provider failure,
+//! so the demo never hard-breaks and the wire contract is identical
+//! either way. The gate exists so the LLM path cannot silently fall
+//! back to canned responses with no provider credential present.
 //!
 //! ## Tenant scoping
 //!
 //! Generated verticals land under
 //! `<verticals_root>/.genesis/<tenant_slug>/<vertical_id>/`. The
 //! leading dot keeps them out of the global `GET /api/v1/verticals`
-//! listing (which is DB-backed off `workflow_definition_index`,
-//! and which the loader-driven manifest-names sweep skips because
-//! the tenant subtree isn't walked recursively from the verticals
-//! root). Cross-tenant isolation is filesystem-enforced — tenant B
-//! cannot observe tenant A's path because the segment is keyed off
+//! listing (DB-backed off `workflow_definition_index`; the
+//! loader-driven manifest sweep skips the un-walked tenant subtree).
+//! Cross-tenant isolation is filesystem-enforced — tenant B cannot
+//! observe tenant A's path because the segment is keyed off
 //! `X-Argo-Tenant-Id`.
 
-use argo_genesis::{name_to_persona_slug, plan, write_vertical_with_overwrite, GenesisPlan};
+use super::routes_genesis_stream_llm::resolve_plan;
+use argo_genesis::{name_to_persona_slug, write_vertical_with_overwrite, GenesisPlan};
 use argo_store::SessionStore;
 use argo_audit::{AuditKind, AuditSink};
 use serde::Deserialize;
@@ -136,9 +134,8 @@ pub(super) async fn serve_genesis_stream(
     open_sse_stream(out, &cors_headers).await?;
     write_progress(out, "drafting_persona", "Resolving persona slug", 10).await?;
 
-    let plan_result = plan(&role_description, &persona);
-    let plan = match plan_result {
-        Ok(p) => p,
+    let (plan, gen_mode) = match resolve_plan(&role_description, &persona).await {
+        Ok(pair) => pair,
         Err(e) => {
             return write_error_event(
                 out,
@@ -153,7 +150,10 @@ pub(super) async fn serve_genesis_stream(
     write_progress(
         out,
         "compiling_charter",
-        &format!("Compiled archetype: {}", plan.archetype.slug()),
+        &format!(
+            "Compiled archetype: {} (generation: {gen_mode})",
+            plan.archetype.slug()
+        ),
         35,
     )
     .await?;
@@ -244,7 +244,7 @@ pub(super) async fn serve_genesis_stream(
     write_event(out, "vertical_ready", &final_payload).await?;
     out.flush().await?;
 
-    emit_audit(store, &tenant_id, &plan.vertical_id, eval_seed_count).await;
+    emit_audit(store, &tenant_id, &plan.vertical_id, eval_seed_count, gen_mode).await;
     out.shutdown().await
 }
 
@@ -262,10 +262,9 @@ fn body_from_request(req: &str) -> &str {
 }
 
 /// Genesis owns its own tenant extraction so test + production both
-/// honour the operator-facing `X-Argo-Tenant-Id` header (the
-/// rate-limit helper reads `X-Tenant-Id`, a separate convention used
-/// for bucket keys). Falls back to `?tenant=` query param, then
-/// `anonymous` — matching the audit-detail handler precedent.
+/// honour the operator-facing `X-Argo-Tenant-Id` header (the rate-limit
+/// helper reads a separate `X-Tenant-Id` convention). Falls back to
+/// `?tenant=` query param, then `anonymous`.
 fn request_tenant_id(req: &str) -> String {
     if let Some(value) = header_value(req, "x-argo-tenant-id") {
         if !value.is_empty() {
@@ -309,8 +308,7 @@ fn persona_for(explicit: Option<&str>, role_description: &str) -> String {
 }
 
 fn derive_persona(role_description: &str) -> String {
-    // First "wordy" token in the description, capped at 16 chars,
-    // falls back to "operator" for noise-only inputs.
+    // First "wordy" token (>=3 chars), capped at 16; "operator" on noise.
     let candidate = role_description
         .split(|c: char| !c.is_alphanumeric())
         .find(|s| s.len() >= 3)
@@ -474,6 +472,7 @@ async fn emit_audit(
     tenant_id: &str,
     vertical_id: &str,
     eval_seed_count: usize,
+    gen_mode: &str,
 ) {
     let Some(store) = store else { return };
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
@@ -481,6 +480,7 @@ async fn emit_audit(
         "endpoint": "genesis_stream",
         "vertical_id": vertical_id,
         "eval_seed_count": eval_seed_count,
+        "generation": gen_mode,
     });
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, None)
