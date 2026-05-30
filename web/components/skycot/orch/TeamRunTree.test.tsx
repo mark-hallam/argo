@@ -21,13 +21,17 @@ describe("TeamRunTree", () => {
   });
 
   it("shows each child delegation with a clean task label and its worker", () => {
-    const lead = { ...SAMPLE_TEAM_RUNS[0], id: "lead", skill: "[team] lead synthesis — Analysis" };
+    const lead = {
+      ...SAMPLE_TEAM_RUNS[0],
+      id: "lead",
+      skill: "[team:run-1] lead synthesis — Analysis",
+    };
     const child = {
       ...SAMPLE_TEAM_RUNS[1],
       id: "child",
       worker: "Nora",
       status: "done" as const,
-      skill: "[team] survey → Survey the competitor landscape",
+      skill: "[team:run-1] survey → Survey the competitor landscape",
     };
     const { teams } = groupTeamRuns([lead, child]);
     render(<TeamRunTree teams={teams} />);

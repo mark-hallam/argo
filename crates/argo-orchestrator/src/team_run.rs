@@ -65,6 +65,13 @@ pub struct StepContext {
     /// The lead's active handoff id, if any — threads the team run
     /// onto the existing handoff chain (`ToolContext.current_handoff_id`).
     pub current_handoff_id: Option<String>,
+    /// Unique id for this whole team run, generated once at the top of
+    /// [`Supervisor::run_team`] and shared by every step + the lead's
+    /// synthesis. Encoded into the persisted row title (`[team:<id>]`)
+    /// so the `/orchestration` view can group concurrent team runs into
+    /// separate trees from the title prefix alone — the read endpoint
+    /// exposes no per-run id column, and this needs no migration.
+    pub team_run_id: String,
 }
 
 /// Lifecycle of one [`DelegationStep`](crate::DelegationStep) inside a
@@ -134,11 +141,30 @@ pub trait StepExecutor: Send + Sync {
     async fn execute(&self, ctx: &StepContext) -> ArgoResult<(String, String)>;
 
     /// Persist the lead's synthesis run row once all steps settle.
-    /// Returns its run id. The default records nothing and returns a
-    /// fresh uuid — production executors override to write the row.
-    async fn synthesize(&self, _plan: &TeamPlan, _tenant_id: TenantId) -> ArgoResult<String> {
+    /// Returns its run id. `team_run_id` is the run-wide id shared with
+    /// every step so the synthesis row's title groups under the same
+    /// tree. The default records nothing and returns a fresh uuid —
+    /// production executors override to write the row.
+    async fn synthesize(
+        &self,
+        _plan: &TeamPlan,
+        _tenant_id: TenantId,
+        _team_run_id: &str,
+    ) -> ArgoResult<String> {
         Ok(uuid::Uuid::now_v7().to_string())
     }
+}
+
+/// Run-invariant borrows threaded unchanged through every layer of a
+/// single [`Supervisor::run_team`] call — the lead's plan, the tenant,
+/// the active handoff id, and the run-wide team id. Bundled into one
+/// struct so [`Supervisor::run_layer`] stays under the argument-count
+/// lint instead of taking each separately.
+struct LayerInputs<'a> {
+    plan: &'a TeamPlan,
+    tenant_id: TenantId,
+    current_handoff_id: &'a Option<String>,
+    team_run_id: &'a str,
 }
 
 /// Drives [`TeamPlan`]s with bounded-concurrency fan-out + dependency
@@ -185,20 +211,29 @@ impl<E: StepExecutor> Supervisor<E> {
         current_handoff_id: Option<String>,
     ) -> ArgoResult<TeamResult> {
         let layers = plan.layers()?;
+        // One id for the whole run, shared by every step + the lead's
+        // synthesis. Encoded into each persisted row title so the
+        // dashboard groups concurrent team runs into separate trees
+        // (uuid v7 is time-ordered → stable, sortable, no migration).
+        let team_run_id = uuid::Uuid::now_v7().to_string();
         let steps: BTreeMap<&StepId, &crate::team_plan::DelegationStep> =
             plan.steps.iter().map(|s| (&s.id, s)).collect();
         let mut outcomes: BTreeMap<StepId, StepOutcome> = BTreeMap::new();
+        let inputs = LayerInputs {
+            plan,
+            tenant_id,
+            current_handoff_id: &current_handoff_id,
+            team_run_id: &team_run_id,
+        };
 
         for layer in &layers {
-            let layer_results = self
-                .run_layer(layer, &steps, &outcomes, plan, tenant_id, &current_handoff_id)
-                .await;
+            let layer_results = self.run_layer(layer, &steps, &outcomes, &inputs).await;
             for outcome in layer_results {
                 outcomes.insert(outcome.step_id.clone(), outcome);
             }
         }
 
-        let synthesis_run_id = self.executor.synthesize(plan, tenant_id).await?;
+        let synthesis_run_id = self.executor.synthesize(plan, tenant_id, &team_run_id).await?;
         // Re-emit outcomes in original plan order for a stable wire shape.
         let ordered = plan
             .steps
@@ -219,9 +254,7 @@ impl<E: StepExecutor> Supervisor<E> {
         layer: &[StepId],
         steps: &BTreeMap<&StepId, &crate::team_plan::DelegationStep>,
         settled: &BTreeMap<StepId, StepOutcome>,
-        plan: &TeamPlan,
-        tenant_id: TenantId,
-        current_handoff_id: &Option<String>,
+        inputs: &LayerInputs<'_>,
     ) -> Vec<StepOutcome> {
         let mut runnable: Vec<&crate::team_plan::DelegationStep> = Vec::new();
         let mut outcomes: Vec<StepOutcome> = Vec::new();
@@ -237,12 +270,13 @@ impl<E: StepExecutor> Supervisor<E> {
         let mut tasks = Vec::with_capacity(runnable.len());
         for step in runnable {
             let ctx = StepContext {
-                tenant_id,
-                lead: plan.lead,
+                tenant_id: inputs.tenant_id,
+                lead: inputs.plan.lead,
                 to: step.to,
                 step_id: step.id.clone(),
                 task: step.task.clone(),
-                current_handoff_id: current_handoff_id.clone(),
+                current_handoff_id: inputs.current_handoff_id.clone(),
+                team_run_id: inputs.team_run_id.to_string(),
             };
             let exec = Arc::clone(&self.executor);
             let sem = Arc::clone(&sem);

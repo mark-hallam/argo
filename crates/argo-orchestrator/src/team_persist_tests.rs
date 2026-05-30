@@ -138,3 +138,77 @@ async fn synthesize_default_returns_distinct_id() {
     let loaded = store.find_session(tenant, &s.id).await.unwrap();
     assert!(loaded.is_some());
 }
+
+/// Read the title of a persisted run row by its run id.
+async fn title_of(store: &OrchestratorStore, tenant: TenantId, run_id: &str) -> String {
+    let sid = crate::session::SessionId::from_string(run_id.to_string());
+    store
+        .find_session(tenant, &sid)
+        .await
+        .unwrap()
+        .expect("row exists")
+        .title
+}
+
+/// Every persisted row in one team run — children + synthesis —
+/// carries the SAME run-wide `[team:<id>]` prefix, and that id is a
+/// real uuid (not the literal "<id>"). This is the grouping signal the
+/// `/orchestration` view parses off the title; without it concurrent
+/// team runs collapse into one tree.
+#[tokio::test]
+async fn all_rows_in_a_run_share_one_team_id_prefix() {
+    let store = store().await;
+    let tenant = TenantId::new();
+    let exec = Arc::new(PersistingExecutor::new(Arc::clone(&store)));
+    let sup = Supervisor::new(exec);
+
+    let result = sup.run_team(&plan(), tenant, None).await.expect("run");
+
+    // Pull the `<id>` out of the synthesis row's `[team:<id>] ...` title.
+    let synth_title = title_of(&store, tenant, &result.synthesis_run_id).await;
+    assert!(synth_title.contains("lead synthesis —"), "synth title: {synth_title}");
+    let team_id = synth_title
+        .strip_prefix("[team:")
+        .and_then(|s| s.split(']').next())
+        .expect("synthesis row titled [team:<id>] ...")
+        .to_string();
+    // The id is a parseable uuid, not a placeholder.
+    assert!(uuid::Uuid::parse_str(&team_id).is_ok(), "team id not a uuid: {team_id}");
+
+    // Every child row shares the identical `[team:<id>] ` prefix.
+    let want_prefix = format!("[team:{team_id}] ");
+    for outcome in &result.outcomes {
+        let run_id = outcome.run_id.as_ref().expect("run id");
+        let title = title_of(&store, tenant, run_id).await;
+        assert!(
+            title.starts_with(&want_prefix),
+            "child title {title:?} must start with {want_prefix:?}"
+        );
+        assert!(title.contains('→'), "child title carries the step arrow: {title}");
+    }
+}
+
+/// Two separate `run_team` calls mint two DISTINCT team ids — the
+/// property that lets the dashboard render concurrent runs as two
+/// separate trees rather than one merged "Delegated steps" node.
+#[tokio::test]
+async fn two_runs_get_distinct_team_ids() {
+    let store = store().await;
+    let tenant = TenantId::new();
+    let exec = Arc::new(PersistingExecutor::new(Arc::clone(&store)));
+    let sup = Supervisor::new(exec);
+
+    let r1 = sup.run_team(&plan(), tenant, None).await.expect("run 1");
+    let r2 = sup.run_team(&plan(), tenant, None).await.expect("run 2");
+
+    let id_of = |title: &str| -> String {
+        title
+            .strip_prefix("[team:")
+            .and_then(|s| s.split(']').next())
+            .expect("[team:<id>] title")
+            .to_string()
+    };
+    let id1 = id_of(&title_of(&store, tenant, &r1.synthesis_run_id).await);
+    let id2 = id_of(&title_of(&store, tenant, &r2.synthesis_run_id).await);
+    assert_ne!(id1, id2, "each team run must mint a distinct id");
+}

@@ -45,15 +45,18 @@ export interface OrchestrationFilters {
  * The backend Supervisor engine persists each child delegation +
  * the lead's synthesis as `provider='orchestrator'` rows whose
  * `title` (surfaced here as {@link OrchestrationRun.skill}) carries
- * the only linkage signal the read endpoint exposes:
+ * the only linkage signal the read endpoint exposes. Each row title
+ * embeds the run-wide team id the engine mints once per run:
  *
- * - child step rows are titled `"[team] <stepId> → <task>"`
- * - the lead row is titled `"[team] lead synthesis — <plan title>"`
+ * - child step rows are titled `"[team:<runId>] <stepId> → <task>"`
+ * - the lead row is titled `"[team:<runId>] lead synthesis — <plan title>"`
  *
- * `GET /api/v1/orchestration/runs` returns these flattened with **no
- * per-team-run id**, so {@link groupTeamRuns} reconstructs the
- * lead-with-children shape from that `[team]` prefix. See the gap note
- * on {@link groupTeamRuns}.
+ * `GET /api/v1/orchestration/runs` returns these flattened with no
+ * dedicated id column, so {@link groupTeamRuns} reconstructs the
+ * lead-with-children shape by parsing `<runId>` off the prefix —
+ * distinct ids ⇒ distinct trees, even for concurrent runs. Rows
+ * written before the id existed carry a bare `"[team] …"` prefix and
+ * fall back to a shared node (see {@link groupTeamRuns}).
  */
 export interface TeamRunGroup {
   /** Stable key for the group (the lead run id, or a synthetic key). */
@@ -73,8 +76,26 @@ export interface TeamRunPartition {
   flat: OrchestrationRun[];
 }
 
-const TEAM_PREFIX = "[team] ";
-const LEAD_MARKER = "[team] lead synthesis";
+/**
+ * Matches the `[team]` / `[team:<id>]` prefix a Supervisor row title
+ * carries. Group 1 is the team-run id when present (the `[team:<id>]`
+ * form the engine writes today); absent for the legacy bare `[team]`
+ * form so old rows still render. The trailing space is consumed so
+ * {@link teamRunLabel} sees only the decorated body.
+ */
+const TEAM_PREFIX_RE = /^\[team(?::([^\]]+))?\] /;
+const LEAD_BODY_MARKER = "lead synthesis";
+
+/**
+ * Parse the `[team]` / `[team:<id>]` prefix off a run's title. Returns
+ * `null` for non-team rows; otherwise the team-run id (or `null` for
+ * the legacy bare prefix) plus the remaining body text.
+ */
+function parseTeamPrefix(run: OrchestrationRun): { teamRunId: string | null; body: string } | null {
+  const match = TEAM_PREFIX_RE.exec(run.skill);
+  if (!match) return null;
+  return { teamRunId: match[1] ?? null, body: run.skill.slice(match[0].length) };
+}
 
 export type OrchestrationSource = "gateway" | "mock-offline" | "mock-bypass";
 
@@ -127,9 +148,10 @@ export const SAMPLE_ORCHESTRATION_RUNS: OrchestrationRun[] = Array.from(
  * Two illustrative team runs appended to the mock queue so the
  * `/orchestration` tree view has something to render on the
  * auth-bypass mock path (NEVER in demo-live — same gate as the rest
- * of this module). These mirror the real `[team]`-prefixed row shape
- * the Supervisor engine writes, so the grouping logic exercised here
- * is the identical code that runs against the live endpoint.
+ * of this module). These mirror the real `[team:<id>]`-prefixed row
+ * shape the Supervisor engine writes (each run minting its own id), so
+ * the grouping logic exercised here is the identical code that runs
+ * against the live endpoint — two distinct ids ⇒ two distinct trees.
  */
 export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
   // Team run 1 — Mariah leads a competitor-analysis fan-out.
@@ -137,7 +159,7 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
     id: "team-run-a-lead",
     worker: "Mariah",
     workerId: "worker-lead-a",
-    skill: "[team] lead synthesis — Competitor landscape analysis",
+    skill: "[team:team-run-a] lead synthesis — Competitor landscape analysis",
     status: "running",
     slaState: "healthy",
     latencyMs: 41000,
@@ -151,7 +173,7 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
     id: "team-run-a-1",
     worker: "Nora",
     workerId: "worker-1",
-    skill: "[team] survey → Survey the competitor landscape",
+    skill: "[team:team-run-a] survey → Survey the competitor landscape",
     status: "done",
     slaState: "healthy",
     latencyMs: 52000,
@@ -165,7 +187,7 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
     id: "team-run-a-2",
     worker: "Jules",
     workerId: "worker-2",
-    skill: "[team] pricing → Pull pricing pages for the top five rivals",
+    skill: "[team:team-run-a] pricing → Pull pricing pages for the top five rivals",
     status: "running",
     slaState: "warning",
     latencyMs: 99000,
@@ -179,7 +201,7 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
     id: "team-run-a-3",
     worker: "Anika",
     workerId: "worker-3",
-    skill: "[team] reviews → Summarise G2 + Capterra reviews",
+    skill: "[team:team-run-a] reviews → Summarise G2 + Capterra reviews",
     status: "queued",
     slaState: "healthy",
     latencyMs: 4000,
@@ -194,7 +216,7 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
     id: "team-run-b-lead",
     worker: "Patrick",
     workerId: "worker-lead-b",
-    skill: "[team] lead synthesis — Q2 status roll-up",
+    skill: "[team:team-run-b] lead synthesis — Q2 status roll-up",
     status: "waiting",
     slaState: "healthy",
     latencyMs: 8000,
@@ -208,7 +230,7 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
     id: "team-run-b-1",
     worker: "Priya",
     workerId: "worker-4",
-    skill: "[team] revenue → Compile revenue numbers from finance",
+    skill: "[team:team-run-b] revenue → Compile revenue numbers from finance",
     status: "blocked",
     slaState: "breached",
     latencyMs: 138000,
@@ -222,7 +244,7 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
     id: "team-run-b-2",
     worker: "Theo",
     workerId: "worker-5",
-    skill: "[team] product → Gather product-shipped highlights",
+    skill: "[team:team-run-b] product → Gather product-shipped highlights",
     status: "done",
     slaState: "healthy",
     latencyMs: 61000,
@@ -234,23 +256,27 @@ export const SAMPLE_TEAM_RUNS: OrchestrationRun[] = [
   },
 ];
 
-/** `true` iff the run is part of a team run (a `[team]`-prefixed row). */
+/** `true` iff the run is part of a team run (a `[team]`/`[team:<id>]` row). */
 export function isTeamRun(run: OrchestrationRun): boolean {
-  return run.skill.startsWith(TEAM_PREFIX);
+  return TEAM_PREFIX_RE.test(run.skill);
 }
 
 /** `true` iff the run is a lead's synthesis row, not a child step. */
 function isLeadRun(run: OrchestrationRun): boolean {
-  return run.skill.startsWith(LEAD_MARKER);
+  const parsed = parseTeamPrefix(run);
+  return parsed !== null && parsed.body.startsWith(LEAD_BODY_MARKER);
 }
 
 /**
- * Strip the `[team] ` prefix and the `lead synthesis — ` / `<stepId> → `
- * decoration so the tree can show a clean human label.
+ * Strip the `[team]` / `[team:<id>]` prefix and the
+ * `lead synthesis — ` / `<stepId> → ` decoration so the tree can show
+ * a clean human label.
  */
 export function teamRunLabel(run: OrchestrationRun): string {
-  const body = run.skill.slice(TEAM_PREFIX.length);
-  if (run.skill.startsWith(LEAD_MARKER)) {
+  const parsed = parseTeamPrefix(run);
+  if (!parsed) return run.skill;
+  const { body } = parsed;
+  if (body.startsWith(LEAD_BODY_MARKER)) {
     const dash = body.indexOf("—");
     return dash >= 0 ? body.slice(dash + 1).trim() : body.replace(/^lead synthesis\b/, "").trim();
   }
@@ -258,72 +284,92 @@ export function teamRunLabel(run: OrchestrationRun): string {
   return arrow >= 0 ? body.slice(arrow + 1).trim() : body.trim();
 }
 
+/** Build one tree node from a group's lead row (if any) + its steps. */
+function makeGroup(key: string, lead: OrchestrationRun | null, steps: OrchestrationRun[]): TeamRunGroup {
+  return {
+    key,
+    lead,
+    title: lead ? teamRunLabel(lead) : "Delegated steps",
+    children: steps,
+  };
+}
+
 /**
  * Partition runs into team-run trees + the ordinary flat queue.
  *
- * **Grouping signal & honest gap.** The read endpoint
- * (`GET /api/v1/orchestration/runs`) exposes no per-team-run id, only
- * the `[team]` title prefix the Supervisor engine writes. So we group
- * *all* `[team]`-prefixed rows: every `[team] lead synthesis` row
- * becomes a lead node, and the remaining `[team]` step rows are
- * attached as children. When exactly one lead is present, all step
- * rows hang under it (the common single-team demo case). When several
- * leads are present we cannot attribute a given step to a specific
- * lead from the wire shape alone, so the step rows are grouped into a
- * shared "Delegated steps" node rather than guessed — surfacing the
- * gap instead of faking precise per-lead edges. A real per-team-run id
- * on the row would let us draw exact edges; that is the documented
- * follow-up (add `teamRunId` to the run JSON + select it through).
+ * **Grouping signal.** The Supervisor engine mints one run-wide id per
+ * team run and embeds it in every persisted row title as a
+ * `[team:<id>]` prefix (the read endpoint
+ * `GET /api/v1/orchestration/runs` exposes no dedicated id column, so
+ * the title carries it). We bucket `[team:<id>]`-prefixed rows by that
+ * `<id>`: within a bucket the `lead synthesis` row is the lead and the
+ * `→` rows are its children, so **two distinct ids become two
+ * distinct trees** — concurrent team runs no longer collide.
+ *
+ * **Legacy fallback.** Rows written before the id existed carry a bare
+ * `[team]` prefix (no id). Those keep the older heuristic: a single
+ * bare lead gets a precise tree, multiple bare leads fall back to a
+ * shared "Delegated steps" node rather than guessing edges. New rows
+ * never hit this path.
  */
 export function groupTeamRuns(runs: OrchestrationRun[]): TeamRunPartition {
   const flat: OrchestrationRun[] = [];
-  const leads: OrchestrationRun[] = [];
-  const steps: OrchestrationRun[] = [];
+  // Identified rows bucket by their team-run id, preserving first-seen
+  // bucket order (Map iteration order) for a stable wire shape.
+  const byId = new Map<string, { lead: OrchestrationRun | null; steps: OrchestrationRun[] }>();
+  // Legacy bare-`[team]` rows (no id) handled separately below.
+  const legacyLeads: OrchestrationRun[] = [];
+  const legacySteps: OrchestrationRun[] = [];
+
   for (const run of runs) {
-    if (!isTeamRun(run)) {
+    const parsed = parseTeamPrefix(run);
+    if (!parsed) {
       flat.push(run);
-    } else if (isLeadRun(run)) {
-      leads.push(run);
-    } else {
-      steps.push(run);
+      continue;
     }
+    const isLead = parsed.body.startsWith(LEAD_BODY_MARKER);
+    if (parsed.teamRunId === null) {
+      // Legacy: no id to attribute by.
+      if (isLead) legacyLeads.push(run);
+      else legacySteps.push(run);
+      continue;
+    }
+    const bucket = byId.get(parsed.teamRunId) ?? { lead: null, steps: [] };
+    if (isLead) bucket.lead = run;
+    else bucket.steps.push(run);
+    byId.set(parsed.teamRunId, bucket);
   }
-  if (leads.length === 0 && steps.length === 0) {
-    return { teams: [], flat };
+
+  const teams: TeamRunGroup[] = [];
+  // One precise tree per distinct team-run id.
+  for (const [id, bucket] of byId) {
+    teams.push(makeGroup(bucket.lead?.id ?? `team:${id}`, bucket.lead, bucket.steps));
   }
-  // Single lead: all step rows belong to it — draw a precise tree.
+  // Legacy fallback for bare-`[team]` rows (no id on the wire).
+  appendLegacyGroups(teams, legacyLeads, legacySteps);
+
+  return { teams, flat };
+}
+
+/**
+ * Append tree nodes for legacy bare-`[team]` rows (no id): a single
+ * lead gets its steps as a precise tree; multiple leads each get a
+ * childless node plus one shared "Delegated steps" node for the
+ * un-attributable steps. Mutates `teams` in place.
+ */
+function appendLegacyGroups(
+  teams: TeamRunGroup[],
+  leads: OrchestrationRun[],
+  steps: OrchestrationRun[],
+): void {
+  if (leads.length === 0 && steps.length === 0) return;
   if (leads.length <= 1) {
     const lead = leads[0] ?? null;
-    return {
-      teams: [
-        {
-          key: lead?.id ?? "team-unattributed",
-          lead,
-          title: lead ? teamRunLabel(lead) : "Delegated steps",
-          children: steps,
-        },
-      ],
-      flat,
-    };
+    teams.push(makeGroup(lead?.id ?? "team-unattributed", lead, steps));
+    return;
   }
-  // Multiple leads: one node per lead (no children we can attribute
-  // precisely) + one shared node holding the step rows. Honest about
-  // the missing per-run linkage rather than guessing edges.
-  const teams: TeamRunGroup[] = leads.map((lead) => ({
-    key: lead.id,
-    lead,
-    title: teamRunLabel(lead),
-    children: [],
-  }));
-  if (steps.length > 0) {
-    teams.push({
-      key: "team-delegated-steps",
-      lead: null,
-      title: "Delegated steps",
-      children: steps,
-    });
-  }
-  return { teams, flat };
+  for (const lead of leads) teams.push(makeGroup(lead.id, lead, []));
+  if (steps.length > 0) teams.push(makeGroup("team-delegated-steps", null, steps));
 }
 
 function isStrictProduction(): boolean {

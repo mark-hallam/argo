@@ -85,9 +85,11 @@ impl PersistingExecutor {
 impl StepExecutor for PersistingExecutor {
     async fn execute(&self, ctx: &StepContext) -> ArgoResult<(String, String)> {
         // The child run row is tenant-scoped (Session::new threads
-        // tenant_id) and titled with the delegated task so it reads
-        // cleanly in the /orchestration list.
-        let title = format!("[team] {} → {}", ctx.step_id, ctx.task);
+        // tenant_id) and titled with the run-wide team id + delegated
+        // task so it reads cleanly in the /orchestration list and the
+        // dashboard can group concurrent team runs into separate trees
+        // from the `[team:<id>]` prefix alone (no per-run id column).
+        let title = format!("[team:{}] {} → {}", ctx.team_run_id, ctx.step_id, ctx.task);
         let run_id = self
             .record_run(ctx.tenant_id, title, Some(ctx.to))
             .await?;
@@ -104,8 +106,13 @@ impl StepExecutor for PersistingExecutor {
         Ok((run_id, detail))
     }
 
-    async fn synthesize(&self, plan: &TeamPlan, tenant_id: TenantId) -> ArgoResult<String> {
-        let title = format!("[team] lead synthesis — {}", plan.title);
+    async fn synthesize(
+        &self,
+        plan: &TeamPlan,
+        tenant_id: TenantId,
+        team_run_id: &str,
+    ) -> ArgoResult<String> {
+        let title = format!("[team:{team_run_id}] lead synthesis — {}", plan.title);
         self.record_run(tenant_id, title, Some(plan.lead)).await
     }
 }

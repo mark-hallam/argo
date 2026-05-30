@@ -122,10 +122,20 @@ describe("lib/api/orchestration", () => {
 });
 
 describe("lib/api/orchestration — team-run grouping", () => {
-  function leadRow(id: string, title: string): OrchestrationRun {
+  // Identified rows carry the run-wide `[team:<runId>]` prefix the
+  // Supervisor engine writes today.
+  function leadRow(id: string, title: string, runId = "run-1"): OrchestrationRun {
+    return { ...SAMPLE_TEAM_RUNS[0], id, skill: `[team:${runId}] lead synthesis — ${title}` };
+  }
+  function stepRow(id: string, step: string, task: string, runId = "run-1"): OrchestrationRun {
+    return { ...SAMPLE_TEAM_RUNS[1], id, skill: `[team:${runId}] ${step} → ${task}` };
+  }
+  // Legacy rows written before the id existed carry a bare `[team]`
+  // prefix and exercise the graceful fallback path.
+  function legacyLeadRow(id: string, title: string): OrchestrationRun {
     return { ...SAMPLE_TEAM_RUNS[0], id, skill: `[team] lead synthesis — ${title}` };
   }
-  function stepRow(id: string, step: string, task: string): OrchestrationRun {
+  function legacyStepRow(id: string, step: string, task: string): OrchestrationRun {
     return { ...SAMPLE_TEAM_RUNS[1], id, skill: `[team] ${step} → ${task}` };
   }
 
@@ -166,11 +176,50 @@ describe("lib/api/orchestration — team-run grouping", () => {
     expect(flat).toHaveLength(3);
   });
 
-  it("falls back to a shared 'Delegated steps' node when several leads cannot be attributed", () => {
+  it("draws two separate trees from two distinct team-run ids (concurrent runs)", () => {
     const runs = [
-      leadRow("lead-1", "Run A"),
-      leadRow("lead-2", "Run B"),
-      stepRow("s1", "survey", "Survey"),
+      // Run A — Mariah, two children.
+      leadRow("a-lead", "Competitor analysis", "run-a"),
+      stepRow("a-s1", "survey", "Survey rivals", "run-a"),
+      stepRow("a-s2", "pricing", "Pull pricing", "run-a"),
+      // Run B — Patrick, one child. Interleaved with Run A's rows to
+      // prove grouping is by id, not arrival order.
+      leadRow("b-lead", "Q2 roll-up", "run-b"),
+      stepRow("b-s1", "revenue", "Compile revenue", "run-b"),
+    ];
+    const { teams, flat } = groupTeamRuns(runs);
+    expect(flat).toHaveLength(0);
+    // TWO distinct trees, each with its OWN lead + its OWN children —
+    // no shared "Delegated steps" node, no cross-attribution.
+    expect(teams).toHaveLength(2);
+    expect(teams.every((t) => t.lead !== null)).toBe(true);
+    expect(teams.some((t) => t.title === "Delegated steps")).toBe(false);
+
+    const runA = teams.find((t) => t.lead?.id === "a-lead");
+    const runB = teams.find((t) => t.lead?.id === "b-lead");
+    expect(runA?.title).toBe("Competitor analysis");
+    expect(runA?.children.map((c) => c.id)).toEqual(["a-s1", "a-s2"]);
+    expect(runB?.title).toBe("Q2 roll-up");
+    expect(runB?.children.map((c) => c.id)).toEqual(["b-s1"]);
+  });
+
+  it("groups id-bearing step rows under their lead by run id", () => {
+    const lead = leadRow("lead-1", "Analysis", "run-x");
+    const { teams } = groupTeamRuns([
+      lead,
+      stepRow("s1", "a", "Task A", "run-x"),
+      stepRow("s2", "b", "Task B", "run-x"),
+    ]);
+    expect(teams).toHaveLength(1);
+    expect(teams[0].lead?.id).toBe("lead-1");
+    expect(teams[0].children.map((c) => c.id)).toEqual(["s1", "s2"]);
+  });
+
+  it("legacy fallback: several bare-[team] leads share a 'Delegated steps' node", () => {
+    const runs = [
+      legacyLeadRow("lead-1", "Run A"),
+      legacyLeadRow("lead-2", "Run B"),
+      legacyStepRow("s1", "survey", "Survey"),
     ];
     const { teams } = groupTeamRuns(runs);
     // Two lead nodes (no attributable children) + one shared step node.
@@ -181,17 +230,26 @@ describe("lib/api/orchestration — team-run grouping", () => {
     expect(shared?.children.map((c) => c.id)).toEqual(["s1"]);
   });
 
-  it("groups orphan step rows (no lead) under an unattributed node", () => {
-    const { teams } = groupTeamRuns([stepRow("s1", "a", "Task A"), stepRow("s2", "b", "Task B")]);
+  it("legacy fallback: orphan bare-[team] step rows group under an unattributed node", () => {
+    const { teams } = groupTeamRuns([
+      legacyStepRow("s1", "a", "Task A"),
+      legacyStepRow("s2", "b", "Task B"),
+    ]);
     expect(teams).toHaveLength(1);
     expect(teams[0].lead).toBeNull();
     expect(teams[0].children).toHaveLength(2);
   });
 
-  it("groups the shipped sample team runs into trees", () => {
+  it("groups the shipped sample team runs into two precise trees", () => {
     const { teams } = groupTeamRuns(SAMPLE_TEAM_RUNS);
-    // Two leads in the sample → two lead nodes + shared step node.
+    // Sample carries two distinct ids → two leads, each WITH children,
+    // no shared step node.
+    expect(teams).toHaveLength(2);
     expect(teams.filter((t) => t.lead !== null)).toHaveLength(2);
-    expect(teams.some((t) => t.title === "Competitor landscape analysis")).toBe(true);
+    expect(teams.some((t) => t.title === "Delegated steps")).toBe(false);
+    const competitor = teams.find((t) => t.title === "Competitor landscape analysis");
+    expect(competitor?.children).toHaveLength(3);
+    const rollup = teams.find((t) => t.title === "Q2 status roll-up");
+    expect(rollup?.children).toHaveLength(2);
   });
 });
