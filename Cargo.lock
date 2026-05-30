@@ -1387,6 +1387,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "cron",
+ "futures",
  "serde",
  "serde_json",
  "sqlx",

@@ -217,6 +217,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/api/v1/notifications/dismiss-all", "dismiss every notification in the inbox"),
         ("GET", "/api/v1/inbound-channels/<kind>/recent", "recent operator-visible inbound webhook events for one channel kind (SMS, Discord, voice, email, Slack inbox); backs /settings/inbound-channels Scene-6 surface"),
         ("GET", "/api/v1/orchestration/runs", "orchestration run history (?status&since-minutes)"),
+        ("POST", "/api/v1/orchestration/team-runs", "run a Supervisor team plan — lead fans delegations out in parallel with depends_on dependency layers, persists each as an orchestration run"),
         ("POST", "/api/v1/orchestration/runs/<id>/cancel", "cancel an in-flight orchestration run"),
         ("POST", "/api/v1/orchestration/runs/<id>/force-escalate", "force-escalate a running orchestration"),
         ("POST", "/api/v1/orchestration/runs/<id>/reset-retry", "reset retry counter for a stuck run"),

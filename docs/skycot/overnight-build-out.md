@@ -361,3 +361,28 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   updated + a `generate_cases` doc-test; all green, both clippy gates `-D warnings`
   clean. E2E smoke vs a seeded throwaway home produced 6 real cases (1 rejected + 5
   retrains) that `argo eval validate` confirms load (`task_count:6`). Commit `99114bd5a`.
+- 2026-05-30 — **Orchestration: Supervisor engine SHIPPED (design plan 02 phases
+  1+2, DEC-022).** New `argo-orchestrator` modules `team_plan.rs` (TeamPlan /
+  DelegationStep / StepId + pure topological-layer builder from `depends_on`),
+  `team_run.rs` (`Supervisor::run_team` — a lead fans N delegations out per layer
+  with **bounded concurrency** via a tokio Semaphore, **barriers** between
+  topological layers, and **drops dependents** of a failed/skipped step instead of
+  hanging; gathers `Vec<StepOutcome>` → `TeamResult` for the lead to synthesize;
+  pluggable `StepExecutor` trait so the engine carries no runtime coupling), and
+  `team_persist.rs` (`PersistingExecutor` — records each child + the lead synthesis
+  as **existing** `provider='orchestrator'` session rows; **no new migration /
+  table**). `tenant_id` + `current_handoff_id` threaded through every step so the
+  team run hangs off the existing handoff chain and stays audit-coherent. Gateway:
+  `POST /api/v1/orchestration/team-runs` (`routes_orchestration_team.rs`, additive;
+  wired into the existing `dispatch_orchestration` POST sub-dispatcher + catalog).
+  NO THEATER — the persisting executor writes genuine tenant-scoped run rows that
+  show up in `GET /api/v1/orchestration/runs` immediately; the real LLM-backed
+  delegation executor is the additive follow-up (same trait) + the SPA team-tree
+  view is Phase 3. **Verify (cold, `CARGO_TARGET_DIR=/tmp/wf-orch`):**
+  `cargo test -p argo-orchestrator --lib` → 166 passed / 0 failed (incl. 19 new
+  team_* tests: 3-parallel-complete, A→{B,C}→D ordering, failure-drops-dependents,
+  transitive-skip, concurrency-cap, cross-tenant isolation); `cargo test -p
+  argo-cli --bins team_run` → 9 passed; `cargo clippy -p argo-orchestrator
+  --all-targets -- -D warnings` clean. (Pre-existing unrelated failure
+  `kpi_rollup_test::rollup_skipped_if_no_audit_activity_since_last_rollup` fails
+  3/3 on stashed clean main too — not mine.) Commit `c6beede85`.

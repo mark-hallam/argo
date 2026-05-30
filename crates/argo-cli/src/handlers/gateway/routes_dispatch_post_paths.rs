@@ -72,11 +72,17 @@ pub(super) async fn dispatch_approval_bundles(
     None
 }
 
-/// `/api/v1/orchestration/runs/<id>/<action>` orchestration actions.
+/// `/api/v1/orchestration/team-runs` (Supervisor fan-out + dependency
+/// layers) and `/api/v1/orchestration/runs/<id>/<action>` actions.
 pub(super) async fn dispatch_orchestration(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    if req.starts_with("POST /api/v1/orchestration/team-runs ")
+        || req.starts_with("POST /api/v1/orchestration/team-runs?")
+    {
+        return Some(super::routes_orchestration_team::create_response(req, store).await);
+    }
     let rest = req.strip_prefix("POST /api/v1/orchestration/runs/")?;
     let (head, _) = rest.split_once(' ')?;
     let parts: Vec<&str> = head.split('/').collect();

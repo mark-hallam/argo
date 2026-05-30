@@ -61,6 +61,15 @@ mod routing_store;
 mod session;
 /// SLA definitions and breach tracking for orchestration maturity.
 pub mod sla;
+/// Supervisor team-plan types + topological dependency layering
+/// (Supervisor model — DEC-022; design plan 02 phases 1+2).
+pub mod team_plan;
+/// Persisting [`team_run::StepExecutor`] that records team-run
+/// children + the lead synthesis as orchestration-run rows.
+pub mod team_persist;
+/// Supervisor engine — parallel fan-out + dependency-layer execution
+/// of a [`team_plan::TeamPlan`] over the existing handoff/run rows.
+pub mod team_run;
 pub mod vertical_lock;
 mod walker;
 mod walker_helpers;
@@ -103,6 +112,12 @@ pub use session::{Session, SessionId, SessionStatus};
 pub use sla::{
     BreachAction, EscalationPolicy, ObservedRun, Sla, SlaBreachEvent, SlaStore, SlaTarget,
     SlaTracker,
+};
+pub use team_persist::PersistingExecutor;
+pub use team_plan::{DelegationStep, StepId, TeamPlan};
+pub use team_run::{
+    StepContext, StepExecutor, StepOutcome, StepStatus, Supervisor, TeamResult,
+    DEFAULT_TEAM_CONCURRENCY,
 };
 pub use vertical_lock::{LockConfig, LockGuard, VerticalConcurrencyLock};
 pub use walker::{HandoffNotifier, HandoffPolicyHook, HandoffWalker, SweepReport};

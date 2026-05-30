@@ -19,6 +19,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = "0.10"
 cron = "0.12"
+futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
