@@ -188,6 +188,13 @@ async fn list_due_workers(store: &SessionStore) -> ArgoResult<Vec<(String, Strin
     // (tenant, worker) tuple has created_at strictly greater than the
     // worker's kpis_rolled_at watermark — or the watermark is NULL.
     // The inner EXISTS is the tenant-bound guard.
+    //
+    // The rollup's OWN `WorkerKpiRolled` emission (written by `tick`
+    // with the real wall-clock `created_at`, which is later than the
+    // logical watermark it advances to) must NOT count as "new
+    // activity" — otherwise every tick would re-roll every
+    // previously-rolled worker forever (self-retrigger). Exclude that
+    // kind from the activity probe.
     let rows = sqlx::query(
         "SELECT w.tenant_id AS tenant_id, w.id AS worker_id \
          FROM worker w \
@@ -195,9 +202,11 @@ async fn list_due_workers(store: &SessionStore) -> ArgoResult<Vec<(String, Strin
              SELECT 1 FROM audit_record a \
              WHERE a.tenant_id = w.tenant_id \
                AND a.worker_id = w.id \
+               AND a.kind <> ? \
                AND (w.kpis_rolled_at IS NULL OR a.created_at > w.kpis_rolled_at) \
          )",
     )
+    .bind(AuditKind::WorkerKpiRolled.label())
     .fetch_all(store.pool())
     .await
     .map_err(|e| ArgoError::Provider(format!("list_due_workers: {e}")))?;
