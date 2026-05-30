@@ -321,6 +321,128 @@ async fn import_endpoint_adopts_bundle_under_target_skill() {
     assert_eq!(saved, graph);
 }
 
+/// Regression: the demo seed writes a real IR per marketplace catalog
+/// skill, and `GET /api/v1/skills/<catalog-id>/ir` must return it (not
+/// 404) when keyed on the SAME id the `/api/v1/skills` list surfaces.
+///
+/// This drives the exact dispatcher path the live SPA hits: seed the
+/// catalog + IR under a tenant, decode the catalog ids the way
+/// `routes_skills_list_get` returns them (the `skill.id` blob →
+/// hyphenated UUID string), then issue the IR GET for each id with that
+/// tenant header and assert a real `200` IR envelope.
+///
+/// Guards the id-space the 2026-05-30 "skill has no IR" bug note
+/// suspected: the seed-IR writer and the IR GET reader agree on the
+/// marketplace catalog id, end-to-end through the real dispatcher.
+#[tokio::test]
+async fn seeded_catalog_ir_is_found_by_catalog_id_via_get() {
+    use argo_demo_seed::{demo_marketplace_catalog_size, seed_demo_marketplace_skills};
+
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+
+    // Seed the marketplace catalog + a real IR per catalog skill — the
+    // exact two seed fns `run_canonical_v1_seed` invokes for this tenant.
+    seed_demo_marketplace_skills(&store, tenant)
+        .await
+        .expect("seed marketplace catalog");
+    let seeded = argo_demo_seed::seed_skill_ir(&store, tenant)
+        .await
+        .expect("seed skill IR");
+    assert_eq!(
+        seeded,
+        demo_marketplace_catalog_size(),
+        "one IR graph per catalog skill"
+    );
+
+    // Decode the catalog ids exactly as `GET /api/v1/skills` does:
+    // the `skill.id` 16-byte blob → hyphenated UUID string. These are
+    // the ids the SPA lists and then drills into for IR.
+    let id_blobs: Vec<Vec<u8>> = sqlx::query_scalar(
+        "SELECT id FROM skill \
+         WHERE tenant_id = ? AND lifecycle_state = 'active' AND superseded_by IS NULL \
+         ORDER BY name ASC",
+    )
+    .bind(tenant.to_string())
+    .fetch_all(store.pool())
+    .await
+    .expect("read catalog ids");
+    let catalog_ids: Vec<String> = id_blobs
+        .iter()
+        .filter(|b| b.len() == 16)
+        .map(|b| {
+            let mut a = [0u8; 16];
+            a.copy_from_slice(b);
+            uuid::Uuid::from_bytes(a).to_string()
+        })
+        .collect();
+    assert_eq!(
+        catalog_ids.len(),
+        demo_marketplace_catalog_size(),
+        "every seeded catalog row decodes to a UUID"
+    );
+
+    // Every catalog id must resolve to a real IR through the dispatcher
+    // — the precise path + tenant header the SPA's IR drill-in uses.
+    for id in &catalog_ids {
+        let req = get_with_tenant(&format!("/api/v1/skills/{id}/ir"), tenant);
+        let (status, body) = dispatch(&req, Some(&store)).await.expect("dispatched");
+        assert_eq!(
+            status, "200 OK",
+            "GET /api/v1/skills/{id}/ir should return seeded IR, not 404 (body: {body})"
+        );
+        let parsed: Value = serde_json::from_str(&body).expect("valid JSON");
+        assert_eq!(
+            parsed["skillId"].as_str().unwrap(),
+            id.as_str(),
+            "envelope skillId echoes the catalog id"
+        );
+        // The seeded graph is the entry-only `Action` node — confirm it
+        // is the real seeded IR, not an empty/placeholder shape.
+        assert_eq!(
+            parsed["graph"]["nodes"][0]["kind"]["type"].as_str().unwrap(),
+            "action",
+            "seeded IR carries the real entry Action node"
+        );
+    }
+}
+
+/// Regression for the live 2026-05-30 "skill has no IR" 404: when the
+/// SPA omits `X-Argo-Tenant-Id`, the IR GET must fall back to the SAME
+/// tenant the `/api/v1/skills` list uses (the cwd-bound workspace
+/// tenant), NOT the nil dev-bypass default. Pre-fix the IR route
+/// resolved the nil tenant on a header-less request while the list
+/// resolved the cwd workspace tenant — so the seeded IR (written under
+/// the workspace tenant) was invisible and the drill-in 404'd.
+///
+/// Drives the real dispatcher with NO tenant header and asserts the IR
+/// seeded under the cwd-workspace tenant is found.
+#[tokio::test]
+async fn header_less_get_resolves_workspace_tenant_like_skills_list() {
+    let store = mem_store().await;
+
+    // Resolve the cwd-bound workspace tenant the way the `/api/v1/skills`
+    // list endpoint does for a header-less request, then seed IR under
+    // exactly that tenant (mirroring the live seed → list visibility).
+    let cwd = std::env::current_dir().expect("cwd");
+    let root = cwd.to_string_lossy();
+    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("ws");
+    let (tenant, _) = store.ensure_workspace(name, &root).await.expect("workspace");
+    let skill = SkillId::new();
+    seed(&store, tenant, skill, "v1", "workspace-scoped").await;
+
+    // Header-less GET (no `X-Argo-Tenant-Id`) — the failure mode the
+    // SPA hit. Must resolve the workspace tenant and find the IR.
+    let req = format!("GET /api/v1/skills/{skill}/ir HTTP/1.1\r\nHost: x\r\n\r\n");
+    let (status, body) = dispatch(&req, Some(&store)).await.expect("dispatched");
+    assert_eq!(
+        status, "200 OK",
+        "header-less IR GET must resolve the cwd workspace tenant, not nil (body: {body})"
+    );
+    let parsed: Value = serde_json::from_str(&body).expect("valid JSON");
+    assert_eq!(parsed["tenantId"].as_str().unwrap(), tenant.to_string());
+}
+
 #[tokio::test]
 async fn import_endpoint_rejects_bad_bundle_hash() {
     let store = mem_store().await;

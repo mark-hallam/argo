@@ -355,7 +355,7 @@ async fn authorize(
         AuthCheckOutcome::Reject(resp) => return Err(resp),
     };
     enforce_header_match(req, &auth)?;
-    let tenant = resolve_tenant(req, query, &auth)?;
+    let tenant = resolve_tenant(req, query, store).await?;
     Ok((auth, tenant))
 }
 

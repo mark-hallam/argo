@@ -1,5 +1,4 @@
 use super::body_from_request;
-use super::routes_auth::AuthenticatedPrincipal;
 use argo_audit::{AuditKind, AuditSink};
 use argo_skill::ir::{SkillGraph, SkillIrBundle};
 use argo_store::SessionStore;
@@ -11,13 +10,34 @@ use uuid::Uuid;
 const HEADER_TENANT_ID: &str = "x-argo-tenant-id";
 const HEADER_CROSS_TENANT: &str = "x-argo-audit-cross-tenant";
 
-pub(super) fn resolve_tenant(
+/// Resolve the tenant an IR request runs against.
+///
+/// Resolution order, deliberately identical to the `/api/v1/skills`
+/// catalog list (`routes_skills_list_get::request_tenant_id`) so a
+/// header-less browser request reads IR under the SAME tenant whose
+/// skills it just listed:
+///
+/// 1. `X-Argo-Tenant-Id` header (set by the SPA proxy after JWT
+///    verification) — authoritative when present.
+/// 2. Otherwise the cwd-bound workspace tenant via
+///    [`SessionStore::ensure_workspace`].
+///
+/// Before the fix this fell back to `auth.tenant_id`, which under
+/// dev-bypass with no header is the nil `00000000-…` default — a
+/// DIFFERENT tenant than the list endpoint's cwd-workspace fallback,
+/// so demo-seeded IR (written under the workspace tenant) 404'd with
+/// "skill has no IR". The `auth` principal is still threaded for the
+/// `enforce_header_match` gate upstream; tenant resolution no longer
+/// depends on it.
+pub(super) async fn resolve_tenant(
     req: &str,
     query: &str,
-    auth: &AuthenticatedPrincipal,
+    store: &Arc<SessionStore>,
 ) -> Result<TenantId, (&'static str, String)> {
-    let header_tenant =
-        header_value(req, HEADER_TENANT_ID).unwrap_or_else(|| auth.tenant_id.to_string());
+    let header_tenant = match header_value(req, HEADER_TENANT_ID).filter(|s| !s.is_empty()) {
+        Some(h) => h,
+        None => request_workspace_tenant(store).await?.to_string(),
+    };
     let cross_cap = header_value(req, HEADER_CROSS_TENANT)
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
@@ -28,6 +48,27 @@ pub(super) fn resolve_tenant(
         return parse_tenant_id(&override_tenant);
     }
     parse_tenant_id(&header_tenant)
+}
+
+/// The cwd-bound workspace tenant — the fallback identity for a
+/// header-less request. Mirrors `routes_skills_list_get`'s cwd
+/// fallback so the IR endpoint and the catalog list endpoint resolve
+/// the same tenant for the same browser request.
+async fn request_workspace_tenant(
+    store: &Arc<SessionStore>,
+) -> Result<TenantId, (&'static str, String)> {
+    let cwd = std::env::current_dir()
+        .map_err(|e| server_error(&format!("resolve tenant cwd: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    store
+        .ensure_workspace(name, &root)
+        .await
+        .map(|(tenant, _)| tenant)
+        .map_err(|e| server_error(&format!("resolve tenant: {e}")))
 }
 
 pub(super) fn parse_tenant_id(raw: &str) -> Result<TenantId, (&'static str, String)> {

@@ -408,6 +408,24 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
   `SubWorkflowPicker.test.tsx` / `settings-workspace-tenant-id.test.tsx`); `npx
   vitest run` orchestration + TeamRunTree + QueueTable = 22 passed. Commit
   `59aa69080`.
+- 2026-05-30 — **skill-IR 404 FIXED (commit `8a5fb0bd0`).** The live "skill has no
+  IR" 404 was a **tenant-resolution divergence, not an id-space mismatch** (the
+  suspected cause): `seed_skill_ir` and the `routes_skill_ir` GET key on
+  byte-identical `SkillId` bytes (proven by a dispatcher test that seeds the
+  catalog, decodes the ids exactly as `GET /api/v1/skills` does, and gets `200`
+  per id). The real cause: a header-less IR GET fell back to `auth.tenant_id`
+  (nil `00000000-…` under dev-bypass) while `GET /api/v1/skills` falls back to the
+  cwd workspace tenant the seed wrote under → list showed 7 skills, IR drill-in
+  looked under nil → 404. Fix: `resolve_tenant` now resolves the cwd workspace
+  tenant on a header-less request (identical to the list endpoint); header wins
+  when present; cross-tenant `as_tenant` gate unchanged. `argo-cli` only
+  (`routes_skill_ir.rs` + `routes_skill_ir_helpers.rs`). Verify (isolated
+  `/tmp/wf-skillir`): `cargo test -p argo-cli --bins skill_ir` 14/14 PASS (2 new
+  dispatcher tests, one of which reproduced the live 404 RED→GREEN);
+  `cargo test -p argo-demo-seed` 34+4 PASS; `cargo clippy -p argo-cli --bins
+  -- -D warnings` clean (the `--tests` profile surfaces one PRE-EXISTING unrelated
+  lint, `seed_reeval_row`/8-args in untouched `routes_evals_tests.rs` — not mine).
+  FEATURE_MATRIX §3 skill-IR row updated.
 
 ## Sprint-2 follow-ups (tracked 2026-05-30 — these were floating chips; now in the queue)
 - [ ] **Landing page — 4 verified differentiators** — BLOCKED on operator design pick (optometrist method: generate 3-5 wild mockups → operator chooses a direction → implement on web/app/landing/page.tsx). Real proof to pair per pillar; do NOT auto-edit the live page first. (chip from the first overnight session)
@@ -417,4 +435,25 @@ routes_elevated_view.rs) — only the SPA gate is theatre. BUT skill-IR endpoint
 
 ## Go-live verification 2026-05-30 (gateway rebuilt → schema 85, clean boot)
 VERIFIED LIVE on the running gateway: orchestration `POST /team-runs` → 202 (real 2-step dependency plan); worker evals → latest + 6 history rows (reeval seed worked); settings/governance/retrain live.
-- [ ] **BUG: skill-IR still 404** — `seed_skill_ir` reported 7 rows but `GET /api/v1/skills/<catalog-id>/ir` still 404s ("skill has no IR"). Root cause likely an **id-space mismatch**: `seed_skill_ir` writes IR via `argo_skill::ir::save_edited_graph` (keyed on argo-skill `SkillId`) but `routes_skill_ir` GET keys on the marketplace `skill.id` returned by `GET /api/v1/skills`. Follow-up: reconcile the two id spaces (make the seed key IR on the same id the GET reads, or make the GET resolve catalog-id→skill-ir-id). Non-core forge surface; queued.
+- [x] **BUG: skill-IR 404 — FIXED (commit `8a5fb0bd0`).** Root cause was NOT the
+  suspected id-space mismatch: `seed_skill_ir` and `routes_skill_ir` GET key on
+  byte-identical `SkillId` bytes for the marketplace `skill.id` (proven — a new
+  dispatcher test seeds the catalog + IR, decodes the ids exactly as
+  `GET /api/v1/skills` does, drills each into the IR GET, and gets `200`). The
+  real cause was a **tenant-resolution divergence**: a header-less IR GET fell
+  back to `auth.tenant_id` (= nil `00000000-…` under dev-bypass) while
+  `GET /api/v1/skills` falls back to the cwd-bound workspace tenant
+  (`ensure_workspace`) — the tenant the seed actually wrote under. So the list
+  showed 7 skills from the workspace tenant but the IR drill-in looked under the
+  nil tenant → `"skill has no IR"`. Fix: `routes_skill_ir_helpers::resolve_tenant`
+  now resolves the cwd workspace tenant on a header-less request, identical to the
+  list endpoint (`routes_skills_list_get::request_tenant_id`); when the SPA sends
+  `X-Argo-Tenant-Id` the header still wins, and the cross-tenant `as_tenant`
+  capability gate is unchanged. Touched `argo-cli` only (`routes_skill_ir.rs` +
+  `routes_skill_ir_helpers.rs`); `argo-demo-seed`/`argo-skill` untouched. Verify
+  (isolated `/tmp/wf-skillir`): `cargo test -p argo-cli --bins skill_ir` 14/14
+  PASS (incl. the new `seeded_catalog_ir_is_found_by_catalog_id_via_get` +
+  `header_less_get_resolves_workspace_tenant_like_skills_list`, which reproduced
+  the live 404 RED then went GREEN); `cargo test -p argo-demo-seed` 34 unit + 4
+  integration PASS; `cargo clippy -p argo-cli --bins --tests -- -D warnings` clean.
+  Full-live after next gateway rebuild + reseed.
