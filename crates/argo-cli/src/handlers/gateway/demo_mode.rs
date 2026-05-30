@@ -53,10 +53,39 @@ struct MintBody {
     email: String,
 }
 
+/// Role stamped into every demo-mint JWT.
+///
+/// The demo-mode flow mints a verified `human:<email>` principal who
+/// is the sole occupant of a freshly-provisioned demo workspace — the
+/// same standing a real workspace's first/owner user holds. The
+/// magic-link verify path (`auth_magic_link_token::mint_jwt`) carries
+/// the membership-derived role; demo-mint has no membership lookup, so
+/// it stamps `owner` directly.
+///
+/// Without this claim the verify-side `SessionClaims.role` decoded
+/// `None`, `role_gate::resolve_role` returned `None`, and
+/// `routes_workflow_execute::resolve_principal` fell back to the
+/// most-restrictive `guest` role (`unwrap_or(UserTenantRole::Guest)`).
+/// `guest` holds `workflow.read` but NOT `workflow.edit`, so the
+/// `workflow_edit_capability()` check 403'd every demo "Run workflow"
+/// POST ("Demo principal cannot execute workflows yet"), and Scene 5's
+/// computer-use beat never fired.
+///
+/// Scope: this string is only ever minted into a demo-mode JWT (the
+/// route is mounted only when [`is_enabled`] / `ARGO_DEMO_MODE=1`), so
+/// it cannot elevate any non-demo principal. The capability gate is
+/// untouched — `user` / `guest` JWTs and anonymous callers still 403.
+const DEMO_PRINCIPAL_ROLE: &str = "owner";
+
 #[derive(Debug, Serialize)]
 struct Claims<'a> {
     sub: &'a str,
     email: &'a str,
+    /// Membership-equivalent role. Decoded verify-side by
+    /// [`super::session_jwt`]'s `SessionClaims.role` and consumed by
+    /// the role-gate. Demo principals are workspace owners — see
+    /// [`DEMO_PRINCIPAL_ROLE`].
+    role: &'a str,
     iat: i64,
     exp: i64,
     demo: bool,
@@ -120,6 +149,7 @@ fn mint_demo_session(email: &str, now: i64) -> Result<String, String> {
         &Claims {
             sub: email,
             email,
+            role: DEMO_PRINCIPAL_ROLE,
             iat: now,
             exp: now + JWT_TTL_SECS,
             demo: true,
@@ -185,9 +215,75 @@ mod tests {
         struct Verify {
             email: String,
             demo: bool,
+            role: String,
         }
         let data = jsonwebtoken::decode::<Verify>(&jwt, &key, &validation).expect("decode");
         assert_eq!(data.claims.email, "demo@example.com");
         assert!(data.claims.demo);
+        // Regression: the demo JWT MUST carry a role claim. A missing
+        // role decoded `None` verify-side, fell back to `guest`, and
+        // 403'd the demo "Run workflow" POST.
+        assert_eq!(data.claims.role, "owner");
+    }
+
+    /// End-to-end of the fix: a demo-minted JWT, decoded through the
+    /// *real* verify path (`session_jwt::verify_session_jwt`), surfaces
+    /// `role = "owner"`. That role is what `routes_workflow_execute`'s
+    /// `resolve_principal` reads, and `owner` holds `workflow.edit` (via
+    /// the `*` `ToolDispatch` glob), so the `workflow_edit_capability()`
+    /// gate passes instead of 403-ing the demo principal.
+    #[test]
+    fn demo_jwt_resolves_to_owner_and_passes_workflow_edit_capability() {
+        use argo_capability::{workflow_edit_capability, CapabilityEngine};
+        use argo_types::Principal;
+
+        // 1. Mint a demo session token (the demo-mode bypass path).
+        let jwt = mint_demo_session("portia@skycot.com", Utc::now().timestamp()).expect("mint");
+
+        // 2. Decode it through the production verify-side parser the
+        //    role-gate actually uses — proves the `role` claim survives
+        //    the `SessionClaims` round-trip and is not silently dropped.
+        let bearer_header = format!(
+            "POST /api/v1/verticals/customer_research/workflows/customer_research_followup/execute HTTP/1.1\r\nAuthorization: Bearer {jwt}\r\n\r\n"
+        );
+        let claims = crate::handlers::gateway::session_jwt::extract_session_claims(&bearer_header)
+            .expect("demo JWT must verify through the production session-jwt parser");
+        assert_eq!(
+            claims.role.as_deref(),
+            Some("owner"),
+            "demo principal must resolve to owner, not fall through to guest"
+        );
+
+        // 3. The resolved role must pass the exact capability the
+        //    workflow-execute route checks. `owner` is granted the `*`
+        //    ToolDispatch glob in the default role presets, which covers
+        //    `workflow.edit`.
+        let engine = CapabilityEngine::with_defaults();
+        let principal = Principal::Gateway {
+            adapter: "human".into(),
+            identity: "portia@skycot.com".into(),
+        };
+        engine
+            .bind(principal.clone(), claims.role.clone().unwrap())
+            .expect("bind owner role");
+        engine
+            .check(&principal, &workflow_edit_capability())
+            .expect("owner must hold workflow.edit — the demo Run-now gate");
+
+        // 4. Negative control: the prior behaviour (no role → guest)
+        //    still 403s. Guest holds workflow.read but NOT workflow.edit.
+        let guest_principal = Principal::Gateway {
+            adapter: "human".into(),
+            identity: "guest@example.com".into(),
+        };
+        engine
+            .bind(guest_principal.clone(), "guest".into())
+            .expect("bind guest role");
+        assert!(
+            engine
+                .check(&guest_principal, &workflow_edit_capability())
+                .is_err(),
+            "the workflow-execute gate must still refuse a guest — the fix is scoped to the demo principal, not a blanket disable"
+        );
     }
 }
