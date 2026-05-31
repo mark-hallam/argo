@@ -11,6 +11,7 @@ Output: docs/skycot/feature-matrix.html (self-contained, no deps).
 import re
 import pathlib
 import html as _html
+from datetime import date
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "docs/build-plan/FEATURE_MATRIX.md"
@@ -180,6 +181,10 @@ def render():
     )
     total = sum(tallies.values())
     body = "".join(parts)
+    # Auto-stamp the real generation date so a regen can never silently show a
+    # stale date. This is distinct from the content-verified date in the
+    # FEATURE_MATRIX.md header (which the markdown owns).
+    gen_date = date.today().isoformat()
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SKYCOT — Feature Matrix & Roadmap</title>
@@ -215,7 +220,8 @@ code{{background:rgba(139,92,246,.09);color:#5b21b6;padding:1px 5px;border-radiu
 </style></head>
 <body>
 <header><h1>SKYCOT — Feature Matrix &amp; Roadmap</h1>
-<p>The honest, code-grounded source of truth · {total} capabilities · verified 2026-05-29 · generated from <code>docs/build-plan/FEATURE_MATRIX.md</code></p></header>
+<p>The honest, code-grounded source of truth · {total} capabilities · generated from <code>docs/build-plan/FEATURE_MATRIX.md</code></p>
+<p style="opacity:.82;font-size:13px;margin-top:6px">HTML generated: {gen_date} · content-verified date is in the <code>FEATURE_MATRIX.md</code> header</p></header>
 <div class="wrap">
 <div class="bar"><button class="chip active" data-filter="all">All <b>{total}</b></button>{chips}</div>
 {body}

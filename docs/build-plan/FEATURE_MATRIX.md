@@ -4,11 +4,12 @@
 **real and working**, what's **scaffold**, and what's **planned** (with phase/timeline).
 It is the canonical tracker for features + roadmap; other docs link here.
 
-**Last verified:** 2026-05-29 by a parallel **code-grounded audit** (5 agents over
+**Last verified:** 2026-05-31 by a parallel **code-grounded audit** (5 agents over
 core platform / product surfaces / integrations+channels / agents+verticals+voice /
-roadmap); **updated 2026-05-30** for the Sprint-2 build-out (voice V1/V2, settings,
-evals, governance readiness, training-data export, retrain-recent — each row cites
-its commit). Every row is grounded in a crate, gateway route, SPA module, or doc —
+roadmap); **updated 2026-05-31** for the Genesis P0–P5 + eval-floor build-out (on
+top of the earlier Sprint-2 work: voice V1/V2, settings, evals, governance
+readiness, training-data export, retrain-recent — each row cites its commit). Every
+row is grounded in a crate, gateway route, SPA module, or doc —
 **not** transcribed from roadmap narratives (which drift). Re-verify with `git log`
 + the cited source before trusting any single row. **Caveat carried by several
 2026-05-30 rows:** the feature is committed + tested but the *running* gateway is
