@@ -1,3 +1,10 @@
+// Unix-only: this test writes a `#!/bin/sh` script + `chmod 0o755`s it and
+// spawns it as a real stdio MCP subprocess (per-tenant pool isolation). There
+// is no `/bin/sh` on Windows and `PermissionsExt::set_mode` does not exist
+// there, so the whole module is gated to Unix. The fixture still compiles +
+// runs on CI (Linux) and macOS, so no coverage is lost.
+#![cfg(unix)]
+
 use super::{dispatch_one_with_tenant, McpConnectionPool};
 use argo_capability::CapabilityEngine;
 use argo_tool::ToolRegistry;

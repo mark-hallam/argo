@@ -103,7 +103,49 @@ is **Mac-verified (UNCONFIRMED from Windows by construction).**
 
 ## Phase 1 — Backend test-suite health — IN PROGRESS
 
-Launched `cargo test --workspace --exclude argo-cli --exclude argo-voice-tui
---exclude argo-executor-computer-use-windows --no-fail-fast` (cold; builds all
-test binaries for ~85 crates, then runs). Full failure/flake inventory +
-categorization (real bug / stale test / flaky / Windows-only) to follow.
+### Discovery: the inventory is gated by Windows test-COMPILE breaks, not test failures
+
+First `cargo test --workspace …` run returned **0 test summaries** and exit 101.
+Root cause (VERIFIED from the log): `cargo test` compiles **every** test binary
+before running **any** test, and `argo-agent-runner`'s test binary failed to
+compile on Windows:
+
+```
+error[E0433]: cannot find `unix` in `os`
+  --> crates\argo-agent-runner\src\dispatch_tests.rs:5
+  --> crates\argo-agent-runner\src\dispatch_tenant_isolation_tests.rs:5
+     use std::os::unix::fs::PermissionsExt;
+error[E0599]: no method named `set_mode` found for struct `Permissions`
+     perms.set_mode(0o755);
+```
+
+`--no-fail-fast` skips past test *failures*, not *compile* failures — so one
+Windows-incompatible test file aborts the whole workspace inventory. There are
+**35 files** workspace-wide referencing `std::os::unix` / `PermissionsExt` /
+`set_mode` / `/bin/sh` (grep); most are production `src/` with proper
+`#[cfg(unix)]` fallbacks or live in already-excluded crates, but any **test
+file lacking the gate** breaks its crate's test binary on Windows. A
+`cargo build --tests --workspace --keep-going` pass is running to name every
+one precisely (build accepts `--keep-going`; test does not — that was a
+flag error on my first attempt, now corrected).
+
+### Fix #1 (applied, pending verify) — gate 2 Unix-only agent-runner tests
+
+`crates/argo-agent-runner/src/dispatch_tests.rs` and
+`dispatch_tenant_isolation_tests.rs` each hold exactly ONE test that writes a
+`#!/bin/sh` script, `chmod 0o755`s it, and spawns it as a real **stdio MCP
+subprocess**. These are **genuinely Unix-only** (no `/bin/sh` on Windows;
+`.sh` not executable; `set_mode` doesn't exist) — not a Windows bug to fix but
+a test that only makes sense on Unix. Fix = add `#![cfg(unix)]` at the top of
+each test module. **No coverage lost:** CI (Linux) + the Mac still compile +
+run both. Edits confined to the two `*_tests.rs` files — `dispatch.rs` (the
+Mac's active Genesis-fence file) and `lib.rs` are untouched (collision-safe).
+This matches the codebase's existing platform-gating idiom (cfg-gated macOS CU,
+`[target.'cfg(unix)'.dependencies]` in argo-cli).
+
+Classification of this item: **Windows-only test-compat** (not a real product
+bug, not a flake). Status: **edit applied; green-build + test-run UNVERIFIED
+until the `--tests` build + per-crate `cargo test` complete this turn.**
+
+Inventory + categorization of the remaining crates follows once the test
+binaries build.
