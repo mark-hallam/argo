@@ -275,12 +275,30 @@ the actual panic message read from the log):
   round-trip truncates to µs. Windows-clock-precision artifact.
 - **argo-skill `claim4_…` (e2e):** `SKILL.md frontmatter ---  must be followed
   by a newline`. A `---\r\n` (CRLF) fixture vs a parser expecting `---\n`.
-  **Genuine cross-platform-robustness candidate** — a Windows-authored skill
-  file with CRLF would break the parser on ANY platform. Worth a real fix if
-  the parser is in-lane; needs a read of the frontmatter parser to decide
-  test-fixture vs product-hardening. (Repo has NO `.gitattributes` +
-  `autocrlf=false`, so source files carry CRLF on this checkout — 367 CR in
-  `argo-skill/src/sign.rs` — confirming CRLF is live here.)
+  **✅ FIXED + VERIFIED — this was a REAL cross-platform product bug, not test
+  noise.** `parse_skill_md` (`argo-skill/src/parse.rs`) only handled `\n`:
+  `strip_prefix('\n')` after the opening `---`, `find("\n---")` for the close.
+  A `SKILL.md` authored on Windows (CRLF) therefore failed to parse on **every**
+  platform — including the Linux server — so an enterprise customer's
+  Windows-authored skill would be rejected in production. Fix: made the parser
+  accept LF **and** CRLF at all three line-break sites (open delim, close delim,
+  body strip), tolerating a strict superset. Added 2 regression tests with
+  explicit `\r\n` literals (`parses_crlf_frontmatter`,
+  `parses_crlf_frontmatter_with_bom_and_leading_blank_line`) so the guard does
+  not depend on checkout line-endings. **VERIFIED: `cargo test -p argo-skill`
+  → 393 passed / 0 failed (incl. the previously-red `claim4` e2e + the 2 new
+  tests); `cargo clippy -p argo-skill --all-targets` → exit 0.** This is the
+  one genuine product improvement Phase 1 surfaced so far.
+
+  > **Line-ending hazard found + mitigated.** Repo has NO `.gitattributes` and
+  > `core.autocrlf` was unset (effectively `false`), so on this OneDrive/Windows
+  > checkout working-tree files are CRLF while the git blobs are LF. My first two
+  > agent-runner commits (`c30e377bf`) inadvertently flipped those 2 files to
+  > CRLF in git. Mitigation applied this session: set **`git config --local
+  > core.autocrlf input`** (local only — does NOT touch shared repo config the
+  > Mac relies on) so my commits normalize CRLF→LF on the way in; then
+  > `git add --renormalize`d the affected files. All my staged blobs now verify
+  > 0-CR. The agent-runner re-normalization ships as its own EOL-only commit.
 - **argo-vertical `isolation::rejects_absolute_system_prompt`:**
   `unwrap_err()` on an `Ok` — the test feeds a Unix-absolute path expecting
   rejection, but `Path::is_absolute()` returns false on Windows for `/etc/…`
@@ -313,7 +331,19 @@ rabbit-hole Windows-hardening on a Mac-shipped product when Phase 2
 (WorkerSessionRunner adapters) is the real value.
 
 ### Status (truth-bounded)
-- Group A gate: **NOT YET APPLIED** as of this doc commit — applied + verified
-  in the following commit(s).
-- Groups B/C: triaged, not fixed.
-- Group D: flagged to Mac, intentionally untouched.
+- **Group C — CRLF parser: ✅ FIXED + VERIFIED** (`argo-skill/src/parse.rs`,
+  393/393 green, clippy clean). The real product bug.
+- **Group C — `is_absolute` isolation gap:** triaged, NOT fixed. Latent
+  cross-platform security candidate (`argo-vertical/src/isolation*.rs` feeds
+  `/etc/passwd`; `Path::is_absolute()` is false for it on Windows so
+  `check_isolation` wrongly accepts). Product runs on Unix so not live, but a
+  real hardening candidate — needs a decision on whether to detect
+  Unix-absolute paths regardless of host OS. `argo-vertical` is security-/
+  isolation-adjacent; flagging before editing.
+- **Group A gate (16 Unix-subprocess tests):** NOT YET APPLIED. Lower priority
+  than first thought — my Phase-2 target crates already build+test green on
+  Windows, so these aren't blocking. Will gate them so this machine's full
+  `cargo test` is trustworthy, but they're housekeeping, not product value.
+- **Group B (argo-tool path/process, 8):** triaged, not fixed.
+- **Group D (pitch Portia/Pitch):** flagged to Mac, intentionally untouched.
+- **EOL hazard:** mitigated via local `core.autocrlf input` + renormalize.
