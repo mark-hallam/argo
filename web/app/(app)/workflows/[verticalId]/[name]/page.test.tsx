@@ -119,8 +119,83 @@ describe("WorkflowRunsTable", () => {
     expect(screen.getAllByRole("row")).toHaveLength(3); // header + 2 rows
     expect(screen.getByText(/wfr_aaaa/)).toBeInTheDocument();
     expect(screen.getByText("Succeeded")).toBeInTheDocument();
-    expect(screen.getByText("Failed")).toBeInTheDocument();
+    // The second row is still in flight (`finished_at` null) — its
+    // duration cell reads "Running…" and its status chip reads
+    // "Running", NOT "Failed".
     expect(screen.getByText("Running…")).toBeInTheDocument();
+    expect(screen.queryByText("Failed")).toBeNull();
+  });
+
+  // Regression pin for "Scene-5 running row painted as Failed".
+  //
+  // The gateway serialises a NULL DB `ok` as `ok: false` while setting
+  // `status: "running"`; the chip MUST derive from status / finished_at,
+  // never from `ok` alone, or in-flight runs render red.
+  it("renders the correct status chip for succeeded / failed / running rows", () => {
+    const runs: WorkflowRun[] = [
+      {
+        id: "wfr_ok_000001",
+        started_at: new Date(Date.now() - 60_000).toISOString(),
+        finished_at: new Date(Date.now() - 55_000).toISOString(),
+        ok: true,
+        duration_ms: 5_000,
+        status: "success",
+      },
+      {
+        id: "wfr_fail_00002",
+        started_at: new Date(Date.now() - 120_000).toISOString(),
+        finished_at: new Date(Date.now() - 110_000).toISOString(),
+        ok: false,
+        duration_ms: 10_000,
+        status: "failed",
+      },
+      {
+        // The Scene-5 seed running row: finished_at null, ok arrives as
+        // false from the gateway, status: "running".
+        id: "wfr_run_00003",
+        started_at: new Date(Date.now() - 30_000).toISOString(),
+        finished_at: null,
+        ok: false,
+        duration_ms: null,
+        status: "running",
+      },
+    ];
+    render(
+      <WorkflowRunsTable isPending={false} isError={false} runs={runs} />,
+    );
+    const chips = screen.getAllByTestId("wfd-run-status-chip");
+    expect(chips.map((c) => c.getAttribute("data-status"))).toEqual([
+      "success",
+      "failed",
+      "running",
+    ]);
+    expect(chips.map((c) => c.textContent)).toEqual([
+      "Succeeded",
+      "Failed",
+      "Running",
+    ]);
+  });
+
+  // Older gateway revs omit `status` entirely; the chip must still fall
+  // back to `finished_at`/`ok` and never paint an in-flight run red.
+  it("derives Running from a null finished_at when the gateway omits status", () => {
+    const runs: WorkflowRun[] = [
+      {
+        id: "wfr_legacy_run1",
+        started_at: new Date(Date.now() - 30_000).toISOString(),
+        finished_at: null,
+        // gateway sent ok: false (NULL coerced) but no status field
+        ok: false,
+        duration_ms: null,
+      },
+    ];
+    render(
+      <WorkflowRunsTable isPending={false} isError={false} runs={runs} />,
+    );
+    const chip = screen.getByTestId("wfd-run-status-chip");
+    expect(chip).toHaveAttribute("data-status", "running");
+    expect(chip).toHaveTextContent("Running");
+    expect(screen.queryByText("Failed")).toBeNull();
   });
 
   it("renders skeleton rows while pending", () => {

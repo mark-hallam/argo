@@ -11,7 +11,7 @@
  * the hardcoded `82` runs / `94%` literals.
  */
 
-import type { WorkflowRun } from "@/lib/api/workflow-runs";
+import { deriveRunStatus, type WorkflowRun } from "@/lib/api/workflow-runs";
 
 interface WorkflowRunStatsProps {
   query: { isPending: boolean; isError: boolean };
@@ -299,22 +299,7 @@ export function WorkflowRunsTable({
                     : "Running…"}
                 </td>
                 <td style={{ padding: "12px 16px" }}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      padding: "2px 9px",
-                      borderRadius: 999,
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      letterSpacing: "0.14em",
-                      textTransform: "uppercase",
-                      fontWeight: 700,
-                      background: r.ok ? "#dcfce7" : "#fee2e2",
-                      color: r.ok ? "#166534" : "#991b1b",
-                    }}
-                  >
-                    {r.ok ? "Succeeded" : "Failed"}
-                  </span>
+                  <RunStatusChip run={r} />
                 </td>
               </tr>
             ))}
@@ -324,6 +309,53 @@ export function WorkflowRunsTable({
     </>
   );
 }
+
+/**
+ * Status pill for a single run row.
+ *
+ * Derives the status via [`deriveRunStatus`] — which prefers the
+ * gateway's server-side `status` field and otherwise falls back to
+ * `finished_at` + `ok`. A row that is still in flight (`finished_at`
+ * is null) renders the neutral "Running" chip, NOT "Failed": the
+ * gateway serialises `ok` as `false` for a NULL DB value, so reading
+ * `ok` alone wrongly painted in-flight runs red.
+ */
+function RunStatusChip({ run }: { run: WorkflowRun }) {
+  const status = deriveRunStatus(run);
+  const { label, background, color } = RUN_STATUS_CHIP_STYLES[status];
+  return (
+    <span
+      data-testid="wfd-run-status-chip"
+      data-status={status}
+      style={{
+        display: "inline-block",
+        padding: "2px 9px",
+        borderRadius: 999,
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        fontWeight: 700,
+        background,
+        color,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+const RUN_STATUS_CHIP_STYLES: Record<
+  ReturnType<typeof deriveRunStatus>,
+  { label: string; background: string; color: string }
+> = {
+  success: { label: "Succeeded", background: "#dcfce7", color: "#166534" },
+  failed: { label: "Failed", background: "#fee2e2", color: "#991b1b" },
+  // In-progress + queued share a neutral indigo treatment so neither
+  // reads as a failure.
+  running: { label: "Running", background: "#ede9fe", color: "#5b21b6" },
+  queued: { label: "Queued", background: "#f1f5f9", color: "#475569" },
+};
 
 function RunsTableSkeleton({ rows }: { rows: number }) {
   return (
