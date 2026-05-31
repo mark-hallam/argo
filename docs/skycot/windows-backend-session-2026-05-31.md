@@ -595,3 +595,49 @@ feedback→Dreams auto-retrain TRIGGER — the cron/CLI consumer that feeds
 this is the library primitive). HTML regenerated, same commit.
 
 **Phase 5 final state: `HEAD == origin == 653ec4d47`, 0/0, clean.**
+
+---
+
+## Phase 6 — close the self-improve loop (DEC-023) — VERIFIED + shipped
+
+**Picked:** the next backlog item my own Phase-5 doc named — feed `cluster_traces`
+output into the proposal pipeline. Verified the exact gap first: Phase-5
+`trace_cluster` produced `TraceCluster`s that **dead-ended** (nothing bridged
+them to `dreams_distillation::distill_and_propose_judged`, which only accepts
+same-key `Cohort`s), and the A/B-by-eval delta (`SkillAbEvalReport`) had **no
+pure promote/hold/reject policy** (only the DB-level `promote_with_regression_gate`).
+
+**Shipped (commit `0a260272a`):** `crates/argo-skill/src/self_improve_loop.rs`
+- `cluster_to_cohort(cluster, &[TraceMember], vertical, action) -> Cohort` —
+  bridges a cross-`(vertical,action)`-key `TraceCluster` into the `Cohort` the
+  existing proposal pipeline accepts. A cluster carries only member ids, so the
+  bridge re-joins each member's full context by id; fails closed
+  (`BridgeError::UnknownMember` / `TooSmall` below `MIN_COHORT_SIZE`).
+- `decide_promotion(&SkillAbEvalReport, &PromotionPolicy) -> PromotionDecision`
+  (`Promote`/`Hold`/`Reject`) — the pure promotion-on-performance gate. Explicit
+  thresholds (min_delta 5pp, min_candidate_rate 0.5, max_regression 5pp);
+  regression-reject takes precedence. The *decision*;
+  `ab_test::promote_with_regression_gate` is the DB *application* — keeping
+  policy pure makes it deterministic + store-free testable.
+
+So the full cycle — **cluster → distill/propose → A/B-by-eval → promotion
+decision** — is now expressible from library primitives, no model/DB/IO.
+
+**VERIFIED (Windows):** `cargo test -p argo-skill --lib` → **420 passed / 0
+failed** (incl. 15 new self_improve_loop + the 13 trace_cluster); `cargo clippy
+-p argo-skill --lib` → exit 0, 0 warnings on the new module. (Ran `--lib` to
+avoid the pre-existing `claim_4_live_install_invoke` Windows-elevation artifact
+documented in Phase 1/5 — it's an environment issue, not a code one.)
+
+**Ledger:** FEATURE_MATRIX "Self-improve" row updated (loop closed at library
+level; cron driver remains), HTML regenerated, same commit.
+
+### The remaining piece (honest)
+The LAST piece of this loop is the **cron/CLI DRIVER** that wires real CU traces
++ a live Dreams caller + the store through these primitives and auto-applies
+`decide_promotion`. That is **orchestration in `argo-cli`** — which **cannot
+build on this Windows machine** (kryptering/LLP64). It is Mac-buildable and is
+the natural hand-off to the Mac session. The library primitives it needs are
+all now shipped + verified.
+
+**Phase 6 final state: `HEAD == origin == 0a260272a`, 0/0, clean.**
