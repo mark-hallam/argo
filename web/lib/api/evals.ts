@@ -1,5 +1,6 @@
 import { apiGet } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 export type EvalDecision = "stable" | "regressed" | "no_baseline";
 export type EvalRunStatus = "passed" | "failed" | "running";
@@ -47,16 +48,18 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
-  // Recording-mode opt-out (`NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1`): demo-live
-  // hits the real `GET /api/v1/workers/<id>/evals` endpoint, which is
-  // now store-backed (a worker's evals = the scheduled-reeval history of
-  // its learned skills, from `skill_reeval_history`). Equivalent to the
-  // canonical `!isDemoLive()` guard used across the other api modules.
-  // Plain auth-bypass dev still mocks for fast local UI iteration.
+  // Mirrors the canonical `lib/api/skills.ts` helper exactly: a build is
+  // auth-bypassed only when it is NOT a production build AND
+  // `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`. The demo-live opt-out is
+  // applied separately at the call site via `isAuthBypassed() &&
+  // !isDemoLive()` (see `fetchWorkerEvals`) so demo-live hits the real
+  // `GET /api/v1/workers/<id>/evals` endpoint, which is store-backed (a
+  // worker's evals = the scheduled-reeval history of its learned skills,
+  // from `skill_reeval_history`). Plain auth-bypass dev still mocks for
+  // fast local UI iteration.
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
-    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 
@@ -163,7 +166,7 @@ export function mockEvalDashboard(workerId: string, source: EvalSource): EvalDas
 }
 
 export async function fetchWorkerEvals(workerId: string): Promise<EvalDashboardPayload> {
-  if (isAuthBypassed()) return mockEvalDashboard(workerId, "mock-bypass");
+  if (isAuthBypassed() && !isDemoLive()) return mockEvalDashboard(workerId, "mock-bypass");
 
   try {
     const raw = await apiGet<unknown>(`/api/v1/workers/${encodeURIComponent(workerId)}/evals`);

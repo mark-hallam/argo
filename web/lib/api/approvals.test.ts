@@ -81,6 +81,7 @@ describe("lib/api/approvals", () => {
     } else {
       process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = ORIGINAL_BYPASS;
     }
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -236,5 +237,80 @@ describe("lib/api/approvals", () => {
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // Recording-mode opt-out (NO THEATER / DEC-007): with auth-bypass AND
+  // demo-live both set, the inbox + decide + undo must hit the real
+  // gateway so the approvals the camera sees are seeded server rows, not
+  // the bundled SAMPLE_APPROVALS constant. Mirrors the canonical
+  // `isAuthBypassed() && !isDemoLive()` guard in `lib/api/skills.ts`.
+  it("hits the real gateway in demo-live even with auth-bypass set", async () => {
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+    vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_LIVE", "1");
+    const fetchMock = installMock((req) => {
+      if (req.url.endsWith("/api/v1/approvals")) {
+        return makeResponse({
+          status: 200,
+          body: {
+            items: [
+              {
+                id: "ap_seeded_1",
+                worker: { id: "w1", name: "Mariah", avatar_url: null },
+                verb: "wants to send a message",
+                detail: "Seeded row",
+                consequence_if_yes: "msg sent",
+                consequence_if_no: "msg held",
+                channel: "slack",
+                received_at: "2026-05-12T10:00:00Z",
+                decision: null,
+              },
+            ],
+            next_cursor: null,
+          },
+        });
+      }
+      if (req.url.endsWith("/decide")) {
+        return makeResponse({
+          status: 200,
+          body: { ok: true, approval_id: "ap_seeded_1", decision: "approve" },
+        });
+      }
+      if (req.url.endsWith("/undo")) {
+        return makeResponse({
+          status: 200,
+          body: { ok: true, approval_id: "ap_seeded_1" },
+        });
+      }
+      return makeResponse({ status: 500 });
+    });
+
+    const list = await fetchApprovals();
+    expect(list.source).toBe("live");
+    expect(list.items).toHaveLength(1);
+    expect(list.items[0]).toMatchObject({ id: "ap_seeded_1", worker: { name: "Mariah" } });
+
+    const decision = await submitDecision({
+      approvalId: "ap_seeded_1",
+      decision: "approve",
+    });
+    expect(decision.source).toBe("live");
+
+    const undo = await submitUndo("ap_seeded_1");
+    expect(undo.source).toBe("live");
+
+    const hitGateway = (suffix: string) =>
+      fetchMock.mock.calls.some((call) => {
+        const input = call[0];
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : (input as Request).url;
+        return url.endsWith(suffix);
+      });
+    expect(hitGateway("/api/v1/approvals")).toBe(true);
+    expect(hitGateway("/api/v1/approvals/ap_seeded_1/decide")).toBe(true);
+    expect(hitGateway("/api/v1/approvals/ap_seeded_1/undo")).toBe(true);
   });
 });

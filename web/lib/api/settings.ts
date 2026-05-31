@@ -22,6 +22,7 @@
 
 import { apiGet, apiPatch } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
+import { isDemoLive } from "@/lib/skycot/demo-mode";
 
 export interface WorkspaceSettings {
   name: string;
@@ -115,16 +116,19 @@ function isStrictProduction(): boolean {
 }
 
 function isAuthBypassed(): boolean {
-  // Recording-mode opt-out (`NEXT_PUBLIC_SKYCOT_DEMO_LIVE=1`): demo-live
-  // hits the real `/api/v1/workspace`, `/api/v1/providers/policy`, and
-  // `/api/v1/notifications/preferences` endpoints (read-backed by the
-  // `workspace_settings` table) so Settings shows real, persisted
-  // values. Equivalent to the canonical `!isDemoLive()` guard used
-  // across the other api modules. Plain auth-bypass dev still mocks.
+  // Mirrors the canonical `lib/api/skills.ts` helper exactly: a build is
+  // auth-bypassed only when it is NOT a production build AND
+  // `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`. The demo-live opt-out is
+  // applied separately at the call sites via `isAuthBypassed() &&
+  // !isDemoLive()` (see `fetchOrFallback` / `patchOrFallback`) so
+  // demo-live hits the real `/api/v1/workspace`,
+  // `/api/v1/providers/policy`, and `/api/v1/notifications/preferences`
+  // endpoints (read-backed by the `workspace_settings` table) and
+  // Settings shows real, persisted values. Plain auth-bypass dev still
+  // mocks.
   return (
     process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1" &&
-    process.env.NEXT_PUBLIC_SKYCOT_DEMO_LIVE !== "1"
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
   );
 }
 
@@ -134,7 +138,7 @@ function isMissingOrUnreachable(err: unknown): boolean {
 }
 
 async function fetchOrFallback<T>(path: string, fallback: T): Promise<{ value: T; source: SettingsSource }> {
-  if (isAuthBypassed()) return { value: fallback, source: "mock-bypass" };
+  if (isAuthBypassed() && !isDemoLive()) return { value: fallback, source: "mock-bypass" };
   try {
     const value = await apiGet<T>(path);
     return { value, source: "gateway" };
@@ -152,7 +156,7 @@ async function patchOrFallback<T>(
   patch: Partial<T>,
 ): Promise<{ value: T; source: SettingsSource }> {
   const merged = { ...previous, ...patch };
-  if (isAuthBypassed()) return { value: merged, source: "mock-bypass" };
+  if (isAuthBypassed() && !isDemoLive()) return { value: merged, source: "mock-bypass" };
   try {
     const value = await apiPatch<T, Partial<T>>(path, patch);
     return { value, source: "gateway" };

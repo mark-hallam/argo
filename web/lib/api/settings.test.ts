@@ -89,6 +89,32 @@ describe("lib/api/settings", () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    // Recording-mode opt-out (NO THEATER / DEC-007): with auth-bypass AND
+    // demo-live both set, GET + PATCH must hit the real gateway so
+    // Settings shows real, persisted values, not the bundled defaults.
+    // Mirrors the canonical `isAuthBypassed() && !isDemoLive()` guard in
+    // `lib/api/skills.ts`.
+    it("hits the real gateway in demo-live even with auth-bypass set", async () => {
+      process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS = "1";
+      vi.stubEnv("NEXT_PUBLIC_SKYCOT_DEMO_LIVE", "1");
+      const payload = { ...DEFAULT_WORKSPACE_SETTINGS, name: "Seeded Tenant" };
+      const fetchMock = installMock(() => makeResponse({ status: 200, body: payload }));
+
+      const read = await fetchWorkspaceSettings();
+      expect(read.source).toBe("gateway");
+      expect(read.value).toEqual(payload);
+
+      const patched = await updateWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS, {
+        name: "Seeded Tenant",
+      });
+      expect(patched.source).toBe("gateway");
+
+      const hitWorkspace = fetchMock.mock.calls.some(([url]) =>
+        String(url).includes("/api/v1/workspace"),
+      );
+      expect(hitWorkspace).toBe(true);
+    });
+
     it("propagates 5xx as ApiError", async () => {
       installMock(() =>
         makeResponse({ status: 500, body: "boom", contentType: "text/plain" }),

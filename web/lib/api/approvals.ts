@@ -67,16 +67,27 @@ export type UndoResult = {
 };
 
 /**
- * `NEXT_PUBLIC_*` env vars are inlined at build time, same model as
- * `NEXT_PUBLIC_GATEWAY_URL` in `client.ts`. Reading at module load
- * rather than per-call lets the bundler dead-code the gateway path
- * in pure-local-dev bundles.
+ * Auth-bypass dev short-circuit, mirroring the canonical
+ * `lib/api/skills.ts` helper exactly: a build is auth-bypassed only when
+ * it is NOT a production build AND `NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS=1`.
+ * The `NODE_ENV !== "production"` guard means a production bundle ignores
+ * the env var even if a hostile build sets it.
  *
- * Exported as a function so unit tests can re-evaluate after
- * mutating `process.env`.
+ * `NEXT_PUBLIC_*` env vars are inlined at build time, same model as
+ * `NEXT_PUBLIC_GATEWAY_URL` in `client.ts`, so this compiles to a static
+ * constant in the client bundle and lets the bundler dead-code the
+ * gateway path in pure-local-dev bundles.
+ *
+ * Exported as a function so unit tests can re-evaluate after mutating
+ * `process.env`. The demo-live opt-out is applied at the call sites via
+ * `isAuthBypassed() && !isDemoLive()` (see `fetchApprovalsInner`), so
+ * demo-live always hits the real gateway.
  */
-export function authBypassEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1";
+export function isAuthBypassed(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_ARGO_GATEWAY_AUTH_BYPASS === "1"
+  );
 }
 
 function isMissingOrUnreachable(err: unknown): boolean {
@@ -199,7 +210,7 @@ async function fetchApprovalsInner(): Promise<ApprovalsResult> {
   // demo-mode + demo-live, the inbox reads the real gateway so the
   // approvals the camera sees are the seeded server rows, not the
   // bundled `SAMPLE_APPROVALS` constant.
-  if (authBypassEnabled() && !isDemoLive()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { items: SAMPLE_APPROVALS, source: "mock-auth-bypass" };
   }
   try {
@@ -227,7 +238,7 @@ export async function submitDecision({
   decision,
 }: ApprovalDecisionRequest): Promise<DecisionResult> {
   // Recording-mode opt-out — see `fetchApprovals` above.
-  if (authBypassEnabled() && !isDemoLive()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { ok: true, approvalId, decision, source: "mock-auth-bypass" };
   }
   try {
@@ -270,7 +281,7 @@ export async function submitDecision({
 
 export async function submitUndo(approvalId: string): Promise<UndoResult> {
   // Recording-mode opt-out — see `fetchApprovals` above.
-  if (authBypassEnabled() && !isDemoLive()) {
+  if (isAuthBypassed() && !isDemoLive()) {
     return { ok: true, approvalId, source: "mock-auth-bypass" };
   }
   try {
