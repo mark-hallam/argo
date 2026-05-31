@@ -6,6 +6,9 @@ const replaceMock = vi.hoisted(() => vi.fn());
 const signInMock = vi.hoisted(() =>
   vi.fn(async () => ({ ok: true, error: null })),
 );
+const searchParamsMock = vi.hoisted(() => ({
+  current: new URLSearchParams(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -16,7 +19,7 @@ vi.mock("next/navigation", () => ({
     back: vi.fn(),
     forward: vi.fn(),
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParamsMock.current,
 }));
 
 vi.mock("next-auth/react", () => ({
@@ -30,6 +33,7 @@ const fetchMock = vi.fn();
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
+  searchParamsMock.current = new URLSearchParams();
   fetchMock.mockReset();
   replaceMock.mockReset();
   signInMock.mockClear();
@@ -62,6 +66,19 @@ describe("SignupPage", () => {
     const labeled = screen.getByLabelText("Work email");
     expect(labeled).toBe(screen.getByTestId("signup-email"));
     expect(labeled).toHaveAttribute("id", "signup-email-input");
+  });
+
+  it("loads with a hire problem query without starting async signup work", () => {
+    searchParamsMock.current = new URLSearchParams({
+      returnTo: "/hire/step/2",
+      problem: "Need help following up with leads",
+    });
+
+    render(<SignupPage />);
+
+    expect(screen.getByTestId("signup-form")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
   it("submitting a valid email POSTs to /api/auth/signup and redirects to check-email", async () => {

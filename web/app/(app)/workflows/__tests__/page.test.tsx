@@ -7,7 +7,6 @@ import {
   SAMPLE_WORKFLOW_SUMMARIES,
   type WorkflowSummary,
 } from "@/lib/sample-workflows";
-import { TEMPLATE_COUNT } from "@/lib/workflow-templates";
 
 /**
  * Pins for the /workflows brand-loud catalog. Closes UX-audit T0739
@@ -84,11 +83,11 @@ describe("/workflows catalog — author chips, risk tokens, TRY-chip filters", (
     }
   });
 
-  it("advertises the exact workflow-template count without plus-copy theater", () => {
+  it("does not advertise an inflated template count from the live workflow list", () => {
     const src = readFileSync(PAGE_TSX, "utf8");
-    expect(src).toMatch(/Browse \{TEMPLATE_COUNT\} templates/);
-    expect(src).toMatch(/browse the \{TEMPLATE_COUNT\} templates/);
-    expect(TEMPLATE_COUNT).toBe(53);
+    expect(src).toMatch(/Open template library/);
+    expect(src).toMatch(/open the template library/);
     expect(src).not.toMatch(/TEMPLATE_COUNT\}\+|50\+|53\+/);
+    expect(src).not.toContain("TEMPLATE_COUNT");
   });
 });

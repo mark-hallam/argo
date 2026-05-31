@@ -12,7 +12,6 @@ import { resolveWorkflowSubstrate } from "@/lib/api/workflows";
 import { formatVersion } from "@/lib/format/version";
 import { useWorkflows } from "@/lib/hooks/use-workflows";
 import { SAMPLE_WORKFLOW_SUMMARIES } from "@/lib/sample-workflows";
-import { TEMPLATE_COUNT } from "@/lib/workflow-templates";
 
 /**
  * Workflows index — `/workflows` brand-loud catalog view.
@@ -40,6 +39,10 @@ const RISK_COLOR: Record<string, string> = {
   "approval-required": "var(--risk-approval-required)",
   autonomous: "var(--risk-autonomous)",
 };
+
+function workflowCountLabel(count: number): string {
+  return `${count} workflow${count === 1 ? "" : "s"}`;
+}
 
 export default function WorkflowsPage() {
   const [query, setQuery] = useState("");
@@ -121,8 +124,8 @@ export default function WorkflowsPage() {
           />
           <span className="workflows-count-pill">
             {filtered.length === workflows.length
-              ? `${workflows.length} workflows`
-              : `${filtered.length} of ${workflows.length}`}
+              ? workflowCountLabel(workflows.length)
+              : `${filtered.length} of ${workflowCountLabel(workflows.length)}`}
           </span>
           <Link
             href="/workflows/templates"
@@ -130,7 +133,7 @@ export default function WorkflowsPage() {
             data-testid="workflows-templates-cta"
           >
             <Sparkles size={13} />
-            Browse {TEMPLATE_COUNT} templates
+            Open template library
           </Link>
           <HoverHint label="Describe a new workflow in plain English">
             <button
@@ -220,7 +223,7 @@ export default function WorkflowsPage() {
                   No workflows match &ldquo;{query.trim()}&rdquo;.
                 </p>
                 <p style={{ fontSize: 14, margin: "0 0 16px" }}>
-                  Try a different query or browse the {TEMPLATE_COUNT} templates.
+                  Try a different query or open the template library.
                 </p>
                 <div style={{ display: "inline-flex", gap: 12 }}>
                   <button
